@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getPlayerSlots } from '../../../common/lobbies'
 import { SlotType } from '../../../common/lobbies/slot'
@@ -9,7 +9,7 @@ import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import { getWinsByUser, lobbySeriesAtom } from './room-atoms'
+import { getWinsByUser } from './room-parts'
 
 const ScoreboardRoot = styled.div`
   display: flex;
@@ -82,7 +82,8 @@ const ScoreboardWinsValue = styled.span<{ $leading: boolean }>`
  * currently seated to play, ranked by wins.
  */
 export function LobbyScoreboard() {
-  const series = useAtomValue(lobbySeriesAtom)
+  const { t } = useTranslation()
+  const series = useAppSelector(s => s.lobby.series)
   const lobby = useAppSelector(s => s.lobby.info)
   const usersById = useAppSelector(s => s.users.byId)
 
@@ -116,8 +117,10 @@ export function LobbyScoreboard() {
   return (
     <ScoreboardRoot>
       <ScoreboardHeader>
-        <ScoreboardHeaderLabel>Player</ScoreboardHeaderLabel>
-        <ScoreboardHeaderLabel>Wins</ScoreboardHeaderLabel>
+        <ScoreboardHeaderLabel>
+          {t('lobbies.room.scoreboard.player', 'Player')}
+        </ScoreboardHeaderLabel>
+        <ScoreboardHeaderLabel>{t('lobbies.room.scoreboard.wins', 'Wins')}</ScoreboardHeaderLabel>
       </ScoreboardHeader>
       {rows.map(row => {
         const leading = row.rank === 1 && row.wins > 0

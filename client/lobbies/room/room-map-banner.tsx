@@ -1,11 +1,13 @@
-import { useAtomValue } from 'jotai'
 import * as React from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { gameTypeToLabel } from '../../../common/games/game-type'
+import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { batchGetMapInfo } from '../../maps/action-creators'
 import { MapInfoImage } from '../../maps/map-image'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, TextButton } from '../../material/button'
@@ -13,7 +15,7 @@ import { buttonReset } from '../../material/button-reset'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../../material/popover'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
   labelMedium,
@@ -23,7 +25,6 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { LobbyScoreboard } from './lobby-scoreboard'
-import { lobbySeriesAtom, LobbySeriesGame } from './room-atoms'
 import { formatGameDuration, memberCount, SectionLabel, TeamArrangement } from './room-parts'
 
 const BannerRoot = styled.div`
@@ -278,6 +279,10 @@ const GameTileWinner = styled.span`
   ${singleLine};
 `
 
+const GameTileUnresolved = styled(GameTileWinner)`
+  color: var(--theme-on-surface-variant);
+`
+
 /** Fades the upcoming slot in and out, so an idle lobby still reads as waiting on something. */
 const breathe = keyframes`
   0%,
@@ -442,38 +447,66 @@ function SeriesGameRow({
   onWatchReplay,
   onViewGameSummary,
 }: {
-  game: LobbySeriesGame
+  game: LobbySeriesGameJson
   gameNumber: number
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const mapName = useAppSelector(s => s.maps.byId.get(game.mapId)?.name)
 
-  const winningTeam = game.teams[game.winningTeamIndex]
-  const winnerLabel = `Team ${game.winningTeamIndex + 1}${
-    winningTeam?.name ? ` · ${winningTeam.name}` : ''
-  }`
+  // A lobby's earlier games can be on maps it has since moved off of, which nothing else here has
+  // any reason to have loaded.
+  useEffect(() => {
+    dispatch(batchGetMapInfo(game.mapId))
+  }, [dispatch, game.mapId])
+
+  const winningTeamIndex = game.result?.winningTeamIndex
+  const winningTeam = winningTeamIndex !== undefined ? game.teams[winningTeamIndex] : undefined
 
   return (
     <SeriesRow>
       <SeriesGameNumber>G{gameNumber}</SeriesGameNumber>
       <SeriesMain>
-        <SeriesMapName title={mapName}>{mapName ?? 'unknown map'}</SeriesMapName>
+        <SeriesMapName title={mapName}>
+          {mapName ?? t('lobbies.room.series.unknownMap', 'unknown map')}
+        </SeriesMapName>
         <SeriesFactRow>
-          <SeriesTrophyIcon icon='trophy' size={14} filled />
-          <SeriesWinner>{winnerLabel}</SeriesWinner>
-          <SeriesFactDivider>·</SeriesFactDivider>
-          <SeriesDuration>{formatGameDuration(game.durationMs)}</SeriesDuration>
+          {winningTeamIndex !== undefined ? (
+            <>
+              <SeriesTrophyIcon icon='trophy' size={14} filled />
+              <SeriesWinner>
+                {t('game.teamName.number', {
+                  defaultValue: 'Team {{teamNumber}}',
+                  teamNumber: winningTeamIndex + 1,
+                })}
+                {winningTeam?.name ? ` · ${winningTeam.name}` : ''}
+              </SeriesWinner>
+            </>
+          ) : (
+            <SeriesWinner>
+              {game.result
+                ? t('lobbies.room.series.noRecordedWinner', 'No recorded winner')
+                : t('lobbies.room.series.waitingForResults', 'Waiting for results')}
+            </SeriesWinner>
+          )}
+          {game.result ? (
+            <>
+              <SeriesFactDivider>·</SeriesFactDivider>
+              <SeriesDuration>{formatGameDuration(game.result.durationMs)}</SeriesDuration>
+            </>
+          ) : null}
         </SeriesFactRow>
       </SeriesMain>
       <SeriesAction
         icon={<MaterialIcon icon='play_arrow' />}
-        title='Watch replay'
+        title={t('lobbies.room.series.watchReplay', 'Watch replay')}
         onClick={() => onWatchReplay(game.gameId)}
       />
       <SeriesAction
         icon={<MaterialIcon icon='summarize' />}
-        title='Full summary'
+        title={t('lobbies.room.series.fullSummary', 'Full summary')}
         onClick={() => onViewGameSummary(game.gameId)}
       />
     </SeriesRow>
@@ -490,26 +523,46 @@ function GameTile({
   onWatchReplay,
   onViewGameSummary,
 }: {
-  game: LobbySeriesGame
+  game: LobbySeriesGameJson
   gameNumber: number
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }) {
+  const { t } = useTranslation()
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'bottom')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+
+  const winningTeamIndex = game.result?.winningTeamIndex
 
   return (
     <>
       <GameTileButton ref={anchorRef} type='button' onClick={openMenu}>
         <GameTileTopRow>
           <GameTileNumber>G{gameNumber}</GameTileNumber>
-          <GameTileDuration>{formatGameDuration(game.durationMs)}</GameTileDuration>
+          {game.result ? (
+            <GameTileDuration>{formatGameDuration(game.result.durationMs)}</GameTileDuration>
+          ) : null}
         </GameTileTopRow>
         <GameTileBottomRow>
-          <GameTileTrophy>
-            <MaterialIcon icon='trophy' size={14} filled />
-          </GameTileTrophy>
-          <GameTileWinner>Team {game.winningTeamIndex + 1}</GameTileWinner>
+          {winningTeamIndex !== undefined ? (
+            <>
+              <GameTileTrophy>
+                <MaterialIcon icon='trophy' size={14} filled />
+              </GameTileTrophy>
+              <GameTileWinner>
+                {t('game.teamName.number', {
+                  defaultValue: 'Team {{teamNumber}}',
+                  teamNumber: winningTeamIndex + 1,
+                })}
+              </GameTileWinner>
+            </>
+          ) : (
+            <GameTileUnresolved>
+              {game.result
+                ? t('lobbies.room.series.tileNoWinner', 'No winner')
+                : t('lobbies.room.series.tilePending', 'Pending')}
+            </GameTileUnresolved>
+          )}
         </GameTileBottomRow>
       </GameTileButton>
       <Popover
@@ -522,7 +575,7 @@ function GameTile({
         <MenuList dense>
           <MenuItem
             dense
-            text='Watch replay'
+            text={t('lobbies.room.series.watchReplay', 'Watch replay')}
             onClick={() => {
               onWatchReplay(game.gameId)
               closeMenu()
@@ -530,7 +583,7 @@ function GameTile({
           />
           <MenuItem
             dense
-            text='Full summary'
+            text={t('lobbies.room.series.fullSummary', 'Full summary')}
             onClick={() => {
               onViewGameSummary(game.gameId)
               closeMenu()
@@ -547,12 +600,16 @@ function GameTile({
  * countdown once the host has started one, then the load once the game itself is launching.
  */
 function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
+  const { t } = useTranslation()
   const loadingState = useAppSelector(s => s.lobby.loadingState)
+  const gameLabel = t('lobbies.room.series.gameNumber', 'Game {{number}}', {
+    number: nextGameNumber,
+  })
 
   if (loadingState.isCountingDown) {
     return (
       <NextSlotRoot $state='countdown'>
-        <NextSlotLabel>Starting</NextSlotLabel>
+        <NextSlotLabel>{t('lobbies.room.series.starting', 'Starting')}</NextSlotLabel>
         <NextSlotNumeral>{loadingState.countdownTimer}</NextSlotNumeral>
       </NextSlotRoot>
     )
@@ -561,16 +618,16 @@ function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
   if (loadingState.isLoading) {
     return (
       <NextSlotRoot $state='loading'>
-        <NextSlotLabel>Starting</NextSlotLabel>
-        <NextSlotValue>Game {nextGameNumber}</NextSlotValue>
+        <NextSlotLabel>{t('lobbies.room.series.starting', 'Starting')}</NextSlotLabel>
+        <NextSlotValue>{gameLabel}</NextSlotValue>
       </NextSlotRoot>
     )
   }
 
   return (
     <NextSlotRoot $state='idle'>
-      <NextSlotLabel>Next</NextSlotLabel>
-      <NextSlotValue>Game {nextGameNumber}</NextSlotValue>
+      <NextSlotLabel>{t('lobbies.room.series.next', 'Next')}</NextSlotLabel>
+      <NextSlotValue>{gameLabel}</NextSlotValue>
     </NextSlotRoot>
   )
 }
@@ -595,16 +652,16 @@ export function RoomMapBanner({
   const { t } = useTranslation()
   const lobby = useAppSelector(s => s.lobby.info)
   const map = lobby.map!
-  const series = useAtomValue(lobbySeriesAtom)
+  const series = useAppSelector(s => s.lobby.series)
 
   const isHost = lobby.host.userId === viewerId
   const playerTeamCount = lobby.teams.filter(team => !team.isObserver).length
 
   const mapStats: Array<[label: string, value: React.ReactNode]> = [
-    ['Mode', gameTypeToLabel(lobby.gameType, t)],
-    ['Size', `${map.mapData.width}×${map.mapData.height}`],
-    ['Tileset', tilesetToName(map.mapData.tileset, t)],
-    ['People', memberCount(lobby)],
+    [t('lobbies.room.banner.statMode', 'Mode'), gameTypeToLabel(lobby.gameType, t)],
+    [t('lobbies.room.banner.statSize', 'Size'), `${map.mapData.width}×${map.mapData.height}`],
+    [t('lobbies.room.banner.statTileset', 'Tileset'), tilesetToName(map.mapData.tileset, t)],
+    [t('lobbies.room.banner.statPeople', 'People'), memberCount(lobby)],
   ]
 
   const recentStartIndex = Math.max(0, series.length - 3)
@@ -644,37 +701,34 @@ export function RoomMapBanner({
           {isHost && playerTeamCount > 1 ? (
             <HostTools>
               <HostToolButton
-                label='Swap teams'
+                label={t('lobbies.room.banner.swapTeams', 'Swap teams')}
                 iconStart={<MaterialIcon icon='swap_horiz' size={18} />}
                 onClick={() => onArrangeTeams(TeamArrangement.Swap)}
               />
               <HostToolButton
-                label='Shuffle'
+                label={t('lobbies.room.banner.shuffle', 'Shuffle')}
                 iconStart={<MaterialIcon icon='shuffle' size={18} />}
                 onClick={() => onArrangeTeams(TeamArrangement.Shuffle)}
-              />
-              <HostToolButton
-                label='Balance'
-                iconStart={<MaterialIcon icon='balance' size={18} />}
-                title='Balances teams by MMR'
-                onClick={() => onArrangeTeams(TeamArrangement.Balance)}
               />
             </HostTools>
           ) : null}
           <TimelineSection>
             <TimelineLabelRow>
-              <SectionLabel>Games</SectionLabel>
+              <SectionLabel>{t('lobbies.room.series.gamesLabel', 'Games')}</SectionLabel>
               <TimelineSpacer />
               {series.length > 0 ? (
                 <AllGamesButton ref={allGamesAnchorRef} type='button' onClick={openAllGames}>
-                  <span>All games</span>
+                  <span>{t('lobbies.room.series.allGames', 'All games')}</span>
                   <MaterialIcon icon='expand_more' size={16} />
                 </AllGamesButton>
               ) : null}
             </TimelineLabelRow>
             <TimelineStrip>
               {series.length > 3 ? (
-                <OverflowChip type='button' title='Earlier games' onClick={openAllGames}>
+                <OverflowChip
+                  type='button'
+                  title={t('lobbies.room.series.earlierGames', 'Earlier games')}
+                  onClick={openAllGames}>
                   +{series.length - 3}
                 </OverflowChip>
               ) : null}
@@ -698,11 +752,15 @@ export function RoomMapBanner({
               originY='top'>
               <SeriesList>
                 <SeriesSection>
-                  <PopoverSectionLabel>Standings</PopoverSectionLabel>
+                  <PopoverSectionLabel>
+                    {t('lobbies.room.series.standings', 'Standings')}
+                  </PopoverSectionLabel>
                   <LobbyScoreboard />
                 </SeriesSection>
                 <SeriesSection>
-                  <PopoverSectionLabel>Games</PopoverSectionLabel>
+                  <PopoverSectionLabel>
+                    {t('lobbies.room.series.gamesLabel', 'Games')}
+                  </PopoverSectionLabel>
                   {series.map((game, index) => (
                     <SeriesGameRow
                       key={game.gameId}

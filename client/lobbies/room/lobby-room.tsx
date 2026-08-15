@@ -1,10 +1,8 @@
-import { useAtomValue } from 'jotai'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useAppSelector } from '../../redux-hooks'
-import { lobbySeriesAtom } from './room-atoms'
 import { RoomChat } from './room-chat'
 import { RoomGameSetup } from './room-game-setup'
 import { RoomHeader } from './room-header'
@@ -44,6 +42,7 @@ export interface LobbyRoomProps {
   onSendChatMessage: (msg: string) => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
+  onLeaveLobby: () => void
   onToggleReady: () => void
   onStartGame: () => void
   onForceStart: () => void
@@ -66,6 +65,7 @@ export function LobbyRoom({
   onSendChatMessage,
   onSetRace,
   onSitInSlot,
+  onLeaveLobby,
   onToggleReady,
   onStartGame,
   onForceStart,
@@ -76,7 +76,7 @@ export function LobbyRoom({
   onViewGameSummary,
 }: LobbyRoomProps) {
   const runState = useAppSelector(s => s.lobby.runState)
-  const series = useAtomValue(lobbySeriesAtom)
+  const series = useAppSelector(s => s.lobby.series)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
 
   // A lobby that has finished a game and isn't in another one is between games, which is a
@@ -94,6 +94,7 @@ export function LobbyRoom({
             viewerId={viewerId}
             onOpenGameSetup={() => setIsSetupOpen(true)}
             onToggleReady={onToggleReady}
+            onLeaveLobby={onLeaveLobby}
           />
           <RoomBody>
             <ChatColumn>

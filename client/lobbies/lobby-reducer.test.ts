@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
+import { LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
 import { Slot, SlotType } from '../../common/lobbies/slot'
+import { SbMapId } from '../../common/maps'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { LobbyActions } from './actions'
 import {
   BenchJoinMessage,
@@ -81,8 +84,41 @@ const BENCHED_USER: BenchedUser = {
   joinedAt: 0,
 }
 
-function initAction(): LobbyActions {
-  return { type: '@lobbies/init', payload: { type: 'init', lobby: LOBBY, userInfos: [] } }
+const SERIES_GAME: LobbySeriesGameJson = {
+  gameId: 'game-0',
+  mapId: 'map-1' as SbMapId,
+  teams: [
+    { name: 'Team 1', players: [{ type: 'human', userId: HOST_SLOT.userId!, race: 'r' }] },
+    { name: 'Team 2', players: [{ type: 'computer', race: 'z' }] },
+  ],
+}
+
+function initAction(
+  extra: Partial<{ readyUsers: SbUserId[]; series: LobbySeriesGameJson[] }> = {},
+): LobbyActions {
+  return {
+    type: '@lobbies/init',
+    payload: {
+      type: 'init',
+      lobby: LOBBY,
+      userInfos: [],
+      readyUsers: extra.readyUsers ?? [],
+      series: extra.series ?? [],
+    },
+  }
+}
+
+/** Puts both of the lobby's seated humans on the ready list, the way a full ready check would. */
+function readyBoth(state: CurrentLobbyState): CurrentLobbyState {
+  let next = lobbyReducer(state, {
+    type: '@lobbies/updateReadyChange',
+    payload: { type: 'readyChange', userId: HOST_SLOT.userId!, isReady: true },
+  })
+  next = lobbyReducer(next, {
+    type: '@lobbies/updateReadyChange',
+    payload: { type: 'readyChange', userId: SLOT_A.userId!, isReady: true },
+  })
+  return next
 }
 
 function chatAction(text: string): LobbyActions {
@@ -465,11 +501,12 @@ describe('client/lobbies/lobby-reducer', () => {
 
     state = lobbyReducer(state, {
       type: '@lobbies/updateRegroup',
-      payload: { type: 'regroup', gameId: 'game-1' },
+      payload: { type: 'regroup', game: { ...SERIES_GAME, gameId: 'game-1' } },
     })
 
     expect(state.info).toBe(LOBBY)
     expect(state.runState).toBeUndefined()
+    expect(state.series.map(g => g.gameId)).toEqual(['game-1'])
     const lastMessage = state.chat[state.chat.length - 1]
     expect(lastMessage.type).toBe(LobbyMessageType.LobbyRegroup)
     expect((lastMessage as LobbyRegroupMessage).gameId).toBe('game-1')
@@ -482,11 +519,154 @@ describe('client/lobbies/lobby-reducer', () => {
         type: 'init',
         lobby: LOBBY,
         userInfos: [],
+        readyUsers: [],
+        series: [],
         runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!], elapsedMs: 0 },
       },
     })
 
     expect(state.runState?.gameId).toBe('game-2')
     expect(state.runState?.inGameUsers).toEqual([HOST_SLOT.userId])
+  })
+
+  test('init seeds the ready members and the games played so far', () => {
+    const state = lobbyReducer(
+      undefined,
+      initAction({ readyUsers: [SLOT_A.userId!], series: [SERIES_GAME] }),
+    )
+
+    expect(state.readyUserIds).toEqual([SLOT_A.userId])
+    expect(state.series).toEqual([SERIES_GAME])
+  })
+
+  test('readyChange adds and removes a single member, ignoring repeats', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateReadyChange',
+      payload: { type: 'readyChange', userId: SLOT_A.userId!, isReady: true },
+    })
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateReadyChange',
+      payload: { type: 'readyChange', userId: SLOT_A.userId!, isReady: true },
+    })
+    expect(state.readyUserIds).toEqual([SLOT_A.userId])
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateReadyChange',
+      payload: { type: 'readyChange', userId: SLOT_A.userId!, isReady: false },
+    })
+    expect(state.readyUserIds).toEqual([])
+  })
+
+  test('a readyChange trailing our own leave does not throw and adds nobody', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateReadyChange',
+        payload: { type: 'readyChange', userId: SLOT_A.userId!, isReady: true },
+      })
+    }).not.toThrow()
+
+    expect(state.readyUserIds).toEqual([])
+    expect(isInLobby(state)).toBe(false)
+  })
+
+  test('leaving, being kicked, and being banned each drop only that member from ready', () => {
+    for (const action of [
+      { type: '@lobbies/updateLeave', payload: { type: 'leave', player: SLOT_A } },
+      { type: '@lobbies/updateKick', payload: { type: 'kick', player: SLOT_A } },
+      { type: '@lobbies/updateBan', payload: { type: 'ban', player: SLOT_A } },
+    ] as LobbyActions[]) {
+      let state = readyBoth(lobbyReducer(undefined, initAction()))
+      state = lobbyReducer(state, action)
+
+      expect(state.readyUserIds).toEqual([HOST_SLOT.userId])
+    }
+  })
+
+  test('a settings change other than a rename clears every ready mark', () => {
+    let state = readyBoth(lobbyReducer(undefined, initAction()))
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: { type: 'settingsChange', changedSettings: ['name'], lobby: { ...LOBBY } },
+    })
+    expect(state.readyUserIds).toEqual([HOST_SLOT.userId, SLOT_A.userId])
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: { type: 'settingsChange', changedSettings: ['name', 'map'], lobby: { ...LOBBY } },
+    })
+    expect(state.readyUserIds).toEqual([])
+  })
+
+  test('starting a game and regrouping out of it both clear every ready mark', () => {
+    let state = readyBoth(lobbyReducer(undefined, initAction()))
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateGameStarted',
+      payload: {
+        runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 },
+        isParticipant: true,
+      },
+    })
+    expect(state.readyUserIds).toEqual([])
+
+    state = readyBoth(state)
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateRegroup',
+      payload: { type: 'regroup', game: { ...SERIES_GAME, gameId: 'game-1' } },
+    })
+    expect(state.readyUserIds).toEqual([])
+  })
+
+  test('seriesGameUpdated settles the named game and leaves the rest of the series alone', () => {
+    let state = lobbyReducer(
+      undefined,
+      initAction({
+        series: [SERIES_GAME, { ...SERIES_GAME, gameId: 'game-1' }],
+      }),
+    )
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSeriesGameUpdated',
+      payload: {
+        type: 'seriesGameUpdated',
+        gameId: 'game-1',
+        result: { winningTeamIndex: 0, durationMs: 1000 },
+      },
+    })
+
+    expect(state.series[0].result).toBeUndefined()
+    expect(state.series[1].result).toEqual({ winningTeamIndex: 0, durationMs: 1000 })
+  })
+
+  test('a seriesGameUpdated for a game we never saw is dropped', () => {
+    let state = lobbyReducer(undefined, initAction({ series: [SERIES_GAME] }))
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSeriesGameUpdated',
+        payload: {
+          type: 'seriesGameUpdated',
+          gameId: 'game-nobody-here-has-heard-of',
+          result: { durationMs: 1000 },
+        },
+      })
+    }).not.toThrow()
+
+    expect(state.series).toEqual([SERIES_GAME])
+  })
+
+  test('leaving the lobby forgets its ready marks and its games', () => {
+    let state = readyBoth(lobbyReducer(undefined, initAction({ series: [SERIES_GAME] })))
+
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+    expect(state.readyUserIds).toEqual([])
+    expect(state.series).toEqual([])
   })
 })

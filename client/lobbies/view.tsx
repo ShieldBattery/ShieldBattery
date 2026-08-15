@@ -4,21 +4,25 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { getErrorStack } from '../../common/errors'
 import { LobbyState } from '../../common/lobbies'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
-import { openDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { navigateToGameResults } from '../games/action-creators'
+import { ThunkAction } from '../dispatch-registry'
+import { navigateToGameResults, viewGame } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { openMapPreviewDialog } from '../maps/action-creators'
+import logger from '../logging/logger'
 import { FilledButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
+import { RequestHandlingSpec } from '../network/abortable-thunk'
 import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
 import { usePrevious } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { watchReplayFromUrl } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { healthChecked } from '../starcraft/health-checked'
 import { BodyLarge } from '../styles/typography'
@@ -26,6 +30,7 @@ import {
   activateLobby,
   addComputer,
   banPlayer,
+  cancelCountdown,
   changeSlot,
   closeSlot,
   deactivateLobby,
@@ -38,13 +43,18 @@ import {
   removeObserver,
   sendChat,
   setRace,
+  setReady,
+  shuffleSlots,
   startCountdown,
+  swapTeams,
 } from './action-creators'
-import LobbyComponent from './lobby'
 import { lobbyJoinErrorCode, lobbyJoinErrorMessage } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { navigateToLobby, useCorrectLobbySlug } from './lobby-url'
+import { LobbyRoom } from './room/lobby-room'
+import { TeamArrangement } from './room/room-parts'
+import { SlotAction } from './room/room-rail'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -158,65 +168,133 @@ function LobbyContent({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   }
 }
 
+/**
+ * Loads a lobby game's record — which is what carries the replay the viewer is allowed to download,
+ * if the game has one at all — and then plays that replay.
+ *
+ * A lobby's series names only game ids, so the record has to be fetched before there's anything to
+ * watch. A game with no replay on its record resolves as an error, since from the viewer's side
+ * asking to watch it and getting nothing back is a failure either way.
+ */
+function watchLobbyGameReplay(gameId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return (dispatch, getState) => {
+    dispatch(
+      viewGame(gameId, {
+        signal: spec.signal,
+        onSuccess: () => {
+          const replayInfo = getState().games.replayInfoById.get(gameId)
+          if (!replayInfo) {
+            spec.onError(new Error(`no replay is available for game ${gameId}`))
+            return
+          }
+
+          dispatch(watchReplayFromUrl(replayInfo, gameId, spec))
+        },
+        onError: spec.onError,
+      }),
+    )
+  }
+}
+
 function ConnectedLobby() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
-  const lobby = useAppSelector(s => s.lobby.info)
-  const runState = useAppSelector(s => s.lobby.runState)
-  const loadingState = useAppSelector(s => s.lobby.loadingState)
-  const chat = useAppSelector(s => s.lobby.chat)
+  const selfUser = useSelfUser()!
+  const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(selfUser.id))
+
+  const onWatchReplay = (gameId: string) => {
+    dispatch(
+      watchLobbyGameReplay(gameId, {
+        onSuccess: () => {},
+        onError: err => {
+          logger.error(`Error watching replay: ${getErrorStack(err)}`)
+          dispatch(
+            openSimpleDialog(
+              t('replays.watch.errorTitle', 'Error loading replay'),
+              err?.message ??
+                t(
+                  'replays.watch.errorBody',
+                  'There was a problem downloading or loading the replay. Please try again later.',
+                ),
+            ),
+          )
+        },
+      }),
+    )
+  }
 
   return (
-    <LobbyComponent
-      lobby={lobby}
-      runState={runState}
-      loadingState={loadingState}
-      chat={chat}
-      user={selfUser!}
-      onLeaveLobbyClick={() => {
-        dispatch(leaveLobby())
-      }}
-      onAddComputer={slotId => {
-        dispatch(addComputer(slotId))
+    <LobbyRoom
+      viewerId={selfUser.id}
+      onSendChatMessage={message => {
+        dispatch(sendChat(message))
       }}
       onSetRace={(slotId, race) => {
         dispatch(setRace(slotId, race))
       }}
-      onSwitchSlot={slotId => {
+      onSitInSlot={slotId => {
         dispatch(changeSlot(slotId))
       }}
-      onOpenSlot={slotId => {
-        dispatch(openSlot(slotId))
+      onLeaveLobby={() => {
+        dispatch(leaveLobby())
       }}
-      onCloseSlot={slotId => {
-        dispatch(closeSlot(slotId))
-      }}
-      onKickPlayer={slotId => {
-        dispatch(kickPlayer(slotId))
-      }}
-      onBanPlayer={slotId => {
-        dispatch(banPlayer(slotId))
-      }}
-      onMakeObserver={slotId => {
-        dispatch(makeObserver(slotId))
-      }}
-      onRemoveObserver={slotId => {
-        dispatch(removeObserver(slotId))
-      }}
-      onMoveSlot={slotId => {
-        dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
+      onToggleReady={() => {
+        dispatch(setReady(!isViewerReady))
       }}
       onStartGame={() => {
         dispatch(startCountdown())
       }}
-      onSendChatMessage={message => {
-        dispatch(sendChat(message))
+      onForceStart={() => {
+        dispatch(startCountdown(true))
       }}
-      onMapPreview={() => {
-        dispatch(openMapPreviewDialog(lobby.map!.id))
+      onCancelCountdown={() => {
+        dispatch(cancelCountdown())
       }}
-      onOpenLobbySettings={() => {
-        dispatch(openDialog({ type: DialogType.LobbySettings }))
+      onSlotAction={(action, slotId) => {
+        switch (action) {
+          case SlotAction.Close:
+            dispatch(closeSlot(slotId))
+            break
+          case SlotAction.Open:
+            dispatch(openSlot(slotId))
+            break
+          case SlotAction.AddComputer:
+            dispatch(addComputer(slotId))
+            break
+          case SlotAction.Kick:
+            dispatch(kickPlayer(slotId))
+            break
+          case SlotAction.Ban:
+            dispatch(banPlayer(slotId))
+            break
+          case SlotAction.MakeObserver:
+            dispatch(makeObserver(slotId))
+            break
+          case SlotAction.RemoveObserver:
+            dispatch(removeObserver(slotId))
+            break
+          case SlotAction.Move:
+            dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
+            break
+          default:
+            assertUnreachable(action)
+        }
+      }}
+      onArrangeTeams={arrangement => {
+        switch (arrangement) {
+          case TeamArrangement.Swap:
+            dispatch(swapTeams())
+            break
+          case TeamArrangement.Shuffle:
+            dispatch(shuffleSlots())
+            break
+          default:
+            assertUnreachable(arrangement)
+        }
+      }}
+      onWatchReplay={onWatchReplay}
+      onViewGameSummary={gameId => {
+        navigateToGameResults(gameId)
       }}
     />
   )

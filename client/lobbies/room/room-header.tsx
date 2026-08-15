@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { findBenchedUser, Lobby } from '../../../common/lobbies'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
@@ -9,7 +9,6 @@ import { useLinkCopier } from '../../navigation/copy-link-button'
 import { getServerOrigin } from '../../network/server-url'
 import { useAppSelector } from '../../redux-hooks'
 import { titleLarge } from '../../styles/typography'
-import { readyUsersAtom } from './room-atoms'
 import { RoomChip } from './room-parts'
 
 const HeaderRoot = styled.div`
@@ -43,13 +42,18 @@ const HeaderActions = styled.div`
 
 /** A button that copies the link that lets someone else into this lobby. */
 function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
+  const { t } = useTranslation()
   const [copied, copyLink] = useLinkCopier(
     () => getServerOrigin() + urlForLobby(lobby.id, lobby.name),
   )
 
   return (
     <TextButton
-      label={copied ? 'Copied!' : 'Copy invite link'}
+      label={
+        copied
+          ? t('lobbies.room.header.copiedInviteLink', 'Copied!')
+          : t('lobbies.room.header.copyInviteLink', 'Copy invite link')
+      }
       iconStart={<MaterialIcon icon='link' />}
       onClick={copyLink}
     />
@@ -68,10 +72,14 @@ function ReadyButton({
   isViewerReady: boolean
   onToggleReady: () => void
 }) {
+  const { t } = useTranslation()
   return isViewerReady ? (
-    <OutlinedButton label='Cancel ready' onClick={onToggleReady} />
+    <OutlinedButton
+      label={t('lobbies.room.header.cancelReady', 'Cancel ready')}
+      onClick={onToggleReady}
+    />
   ) : (
-    <FilledButton label='Ready up' onClick={onToggleReady} />
+    <FilledButton label={t('lobbies.room.header.readyUp', 'Ready up')} onClick={onToggleReady} />
   )
 }
 
@@ -83,30 +91,42 @@ export function RoomHeader({
   viewerId,
   onOpenGameSetup,
   onToggleReady,
+  onLeaveLobby,
 }: {
   viewerId: SbUserId
   onOpenGameSetup: () => void
   onToggleReady: () => void
+  onLeaveLobby: () => void
 }) {
+  const { t } = useTranslation()
   const lobby = useAppSelector(s => s.lobby.info)
-  const readyUsers = useAtomValue(readyUsersAtom)
+  const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
 
   const isHost = lobby.host.userId === viewerId
   const isBenched = !!findBenchedUser(lobby, viewerId)
-  const isViewerReady = readyUsers.has(viewerId)
+  const isViewerReady = readyUserIds.includes(viewerId)
 
   return (
     <HeaderRoot>
       <NameRow>
         <LobbyName>{lobby.name}</LobbyName>
-        <RoomChip>{lobby.visibility === 'unlisted' ? 'Unlisted' : 'Public'}</RoomChip>
+        <RoomChip>
+          {lobby.visibility === 'unlisted'
+            ? t('lobbies.room.header.visibilityUnlisted', 'Unlisted')
+            : t('lobbies.room.header.visibilityPublic', 'Public')}
+        </RoomChip>
         <CopyInviteLinkButton lobby={lobby} />
       </NameRow>
 
       <HeaderActions>
+        <TextButton
+          label={t('lobbies.room.header.leave', 'Leave')}
+          iconStart={<MaterialIcon icon='logout' />}
+          onClick={onLeaveLobby}
+        />
         {isHost ? (
           <OutlinedButton
-            label='Game setup'
+            label={t('lobbies.gameSetup.title', 'Game setup')}
             iconStart={<MaterialIcon icon='tune' />}
             onClick={onOpenGameSetup}
           />

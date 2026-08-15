@@ -1,8 +1,9 @@
-import { useAtomValue } from 'jotai'
+import { TFunction } from 'i18next'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { Team } from '../../../common/lobbies'
+import { isUms, Team } from '../../../common/lobbies'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -23,7 +24,6 @@ import {
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import { readyUsersAtom } from './room-atoms'
 import {
   getReadyEligibleUsers,
   HostCrown,
@@ -40,6 +40,7 @@ const HOLD_TO_START_MS = 1500
 export enum SlotAction {
   Close = 'close',
   Open = 'open',
+  AddComputer = 'addComputer',
   Kick = 'kick',
   Ban = 'ban',
   MakeObserver = 'makeObserver',
@@ -304,6 +305,8 @@ interface SlotRowProps {
   /** The id of the slot the lobby's host occupies, which earns that row its crown. */
   hostSlotId: string
   isHost: boolean
+  /** Whether the lobby is one that can seat computers at all (see {@link hostActionsFor}). */
+  lobbyTakesComputers: boolean
   isReady: boolean
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
@@ -313,40 +316,83 @@ interface SlotRowProps {
 /**
  * Builds the host's menu for one slot. Returns nothing for slots the host has no say over, which
  * is what keeps the menu button off those rows entirely.
+ *
+ * `lobbyTakesComputers` is about the lobby as a whole rather than this slot: a UMS map's forces are
+ * laid out by the map itself, so no lobby playing one accepts a computer anywhere.
  */
 function hostActionsFor(
   slot: Slot,
   isObserverTeam: boolean,
+  lobbyTakesComputers: boolean,
   onSlotAction: (action: SlotAction, slotId: string) => void,
+  t: TFunction,
 ): Array<[text: string, handler: () => void]> {
   const actions: Array<[text: string, handler: () => void]> = []
 
   switch (slot.type) {
     case SlotType.Human:
     case SlotType.Observer:
-      actions.push(['Kick', () => onSlotAction(SlotAction.Kick, slot.id)])
-      actions.push(['Ban', () => onSlotAction(SlotAction.Ban, slot.id)])
-      actions.push(['Move to another slot', () => onSlotAction(SlotAction.Move, slot.id)])
+      actions.push([
+        t('lobbies.room.slotMenu.kick', 'Kick'),
+        () => onSlotAction(SlotAction.Kick, slot.id),
+      ])
+      actions.push([
+        t('lobbies.room.slotMenu.ban', 'Ban'),
+        () => onSlotAction(SlotAction.Ban, slot.id),
+      ])
+      actions.push([
+        t('lobbies.room.slotMenu.moveToAnotherSlot', 'Move to another slot'),
+        () => onSlotAction(SlotAction.Move, slot.id),
+      ])
       actions.push(
         isObserverTeam
-          ? ['Move into a player slot', () => onSlotAction(SlotAction.RemoveObserver, slot.id)]
-          : ['Make an observer', () => onSlotAction(SlotAction.MakeObserver, slot.id)],
+          ? [
+              t('lobbies.room.slotMenu.moveIntoPlayerSlot', 'Move into a player slot'),
+              () => onSlotAction(SlotAction.RemoveObserver, slot.id),
+            ]
+          : [
+              t('lobbies.room.slotMenu.makeObserver', 'Make an observer'),
+              () => onSlotAction(SlotAction.MakeObserver, slot.id),
+            ],
       )
       break
     case SlotType.Computer:
     case SlotType.UmsComputer:
-      actions.push(['Remove', () => onSlotAction(SlotAction.Kick, slot.id)])
+      actions.push([
+        t('lobbies.room.slotMenu.remove', 'Remove'),
+        () => onSlotAction(SlotAction.Kick, slot.id),
+      ])
       break
     case SlotType.Open:
     case SlotType.ControlledOpen:
-      actions.push(['Close slot', () => onSlotAction(SlotAction.Close, slot.id)])
+      actions.push([
+        t('lobbies.slots.closeSlot', 'Close slot'),
+        () => onSlotAction(SlotAction.Close, slot.id),
+      ])
       break
     case SlotType.Closed:
     case SlotType.ControlledClosed:
-      actions.push(['Open slot', () => onSlotAction(SlotAction.Open, slot.id)])
+      actions.push([
+        t('lobbies.slots.openSlot', 'Open slot'),
+        () => onSlotAction(SlotAction.Open, slot.id),
+      ])
       break
     default:
       return assertUnreachable(slot.type)
+  }
+
+  // An empty seat only takes a computer when it's a plain player seat: the observer team seats
+  // people to watch, and a controlled slot belongs to whoever controls its team rather than to the
+  // lobby, so neither can be filled with one.
+  if (
+    lobbyTakesComputers &&
+    !isObserverTeam &&
+    (slot.type === SlotType.Open || slot.type === SlotType.Closed)
+  ) {
+    actions.push([
+      t('lobbies.slots.addComputer', 'Add computer'),
+      () => onSlotAction(SlotAction.AddComputer, slot.id),
+    ])
   }
 
   return actions
@@ -357,6 +403,7 @@ function hostActionsFor(
  * or focus, opening onto whatever `hostActionsFor` built for that slot.
  */
 function SlotMenu({ actions }: { actions: Array<[text: string, handler: () => void]> }) {
+  const { t } = useTranslation()
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
@@ -365,7 +412,7 @@ function SlotMenu({ actions }: { actions: Array<[text: string, handler: () => vo
       <SlotMenuButton
         ref={anchorRef}
         icon={<MaterialIcon icon='more_vert' size={20} />}
-        title='Slot actions'
+        title={t('lobbies.slots.slotActions', 'Slot actions')}
         onClick={openMenu}
       />
       <Popover
@@ -416,15 +463,19 @@ function SlotRow({
   viewerId,
   hostSlotId,
   isHost,
+  lobbyTakesComputers,
   isReady,
   onSetRace,
   onSitInSlot,
   onSlotAction,
 }: SlotRowProps) {
+  const { t } = useTranslation()
   // The viewer's own row carries no menu: everything the host could do to themselves already has a
   // dedicated affordance — clicking an open seat moves them into it.
   const hostActions =
-    isHost && slot.userId !== viewerId ? hostActionsFor(slot, isObserverTeam, onSlotAction) : []
+    isHost && slot.userId !== viewerId
+      ? hostActionsFor(slot, isObserverTeam, lobbyTakesComputers, onSlotAction, t)
+      : []
   const menu = hostActions.length ? <SlotMenu actions={hostActions} /> : null
 
   switch (slot.type) {
@@ -434,7 +485,7 @@ function SlotRow({
         <DashedRow $hasMenu={!!menu}>
           <SitButton onClick={() => onSitInSlot(slot.id)}>
             <MaterialIcon icon='add' size={20} />
-            <span>Open</span>
+            <span>{t('lobbies.slots.open', 'Open')}</span>
           </SitButton>
           {menu}
         </DashedRow>
@@ -444,7 +495,7 @@ function SlotRow({
       return (
         <EmptyRow $hasMenu={!!menu}>
           <MaterialIcon icon='block' size={20} />
-          <RowName>Closed</RowName>
+          <RowName>{t('lobbies.slots.name', 'Closed')}</RowName>
           {menu}
         </EmptyRow>
       )
@@ -453,7 +504,7 @@ function SlotRow({
       return (
         <OccupiedRow $isViewer={false} $hasMenu={!!menu}>
           <MaterialIcon icon='smart_toy' size={20} />
-          <RowName>Computer</RowName>
+          <RowName>{t('game.playerName.computer', 'Computer')}</RowName>
           <RowTrailing>
             <RaceMark race={slot.race} />
           </RowTrailing>
@@ -527,14 +578,15 @@ export function RoomRail({
   onCancelCountdown,
   onSlotAction,
 }: RoomRailProps) {
+  const { t } = useTranslation()
   const lobby = useAppSelector(s => s.lobby.info)
   const loadingState = useAppSelector(s => s.lobby.loadingState)
-  const readyUsers = useAtomValue(readyUsersAtom)
+  const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
 
   const isHost = lobby.host.userId === viewerId
 
   const eligible = getReadyEligibleUsers(lobby)
-  const readyCount = eligible.filter(userId => readyUsers.has(userId)).length
+  const readyCount = eligible.filter(userId => readyUserIds.includes(userId)).length
   const allReady = eligible.length > 0 && readyCount === eligible.length
 
   const playerTeams: Array<[index: number, team: Team]> = []
@@ -552,6 +604,7 @@ export function RoomRail({
     viewerId,
     hostSlotId: lobby.host.id,
     isHost,
+    lobbyTakesComputers: !isUms(lobby.gameType),
     onSetRace,
     onSitInSlot,
     onSlotAction,
@@ -563,7 +616,10 @@ export function RoomRail({
         {playerTeams.map(([teamIndex, team]) => (
           <Section key={team.teamId}>
             <SectionHeading>
-              Team {teamIndex + 1}
+              {t('game.teamName.number', {
+                defaultValue: 'Team {{teamNumber}}',
+                teamNumber: teamIndex + 1,
+              })}
               {team.name ? ` · ${team.name}` : ''}
             </SectionHeading>
             {team.slots.map(slot => (
@@ -572,7 +628,7 @@ export function RoomRail({
                 key={slot.id}
                 slot={slot}
                 isObserverTeam={false}
-                isReady={!!slot.userId && readyUsers.has(slot.userId)}
+                isReady={!!slot.userId && readyUserIds.includes(slot.userId)}
               />
             ))}
           </Section>
@@ -581,7 +637,11 @@ export function RoomRail({
         {observerTeam ? (
           <Section>
             <SectionHeading>
-              Observers · {observerCount}/{observerTeam.slots.length}
+              {t('lobbies.browser.observersCount', {
+                defaultValue: 'Observers · {{taken}}/{{total}}',
+                taken: observerCount,
+                total: observerTeam.slots.length,
+              })}
             </SectionHeading>
             {observerTeam.slots.map(slot => (
               <SlotRow
@@ -589,7 +649,7 @@ export function RoomRail({
                 key={slot.id}
                 slot={slot}
                 isObserverTeam={true}
-                isReady={!!slot.userId && readyUsers.has(slot.userId)}
+                isReady={!!slot.userId && readyUserIds.includes(slot.userId)}
               />
             ))}
           </Section>
@@ -598,8 +658,16 @@ export function RoomRail({
         {lobby.bench.length ? (
           <Section>
             <BenchHeading>
-              <span>Bench · {lobby.bench.length}</span>
-              <Tooltip text='Joined while seats were full — the first in line takes the next opening'>
+              <span>
+                {t('lobbies.room.rail.benchHeading', 'Bench · {{benchCount}}', {
+                  benchCount: lobby.bench.length,
+                })}
+              </span>
+              <Tooltip
+                text={t(
+                  'lobbies.room.rail.benchTooltip',
+                  'Joined while seats were full — the first in line takes the next opening',
+                )}>
                 <BenchInfoIcon>
                   <MaterialIcon icon='info' size={14} />
                 </BenchInfoIcon>
@@ -652,6 +720,7 @@ function StartControls({
   onForceStart: () => void
   onCancelCountdown: () => void
 }) {
+  const { t } = useTranslation()
   const [holding, setHolding] = useState(false)
   const holdTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -688,7 +757,12 @@ function StartControls({
     return (
       <>
         <CountdownNumeral>{countdownTimer}</CountdownNumeral>
-        {isHost ? <FullWidthOutlinedButton label='Cancel' onClick={onCancelCountdown} /> : null}
+        {isHost ? (
+          <FullWidthOutlinedButton
+            label={t('common.actions.cancel', 'Cancel')}
+            onClick={onCancelCountdown}
+          />
+        ) : null}
       </>
     )
   }
@@ -697,7 +771,10 @@ function StartControls({
     <>
       <ReadyProgress>
         <ReadyCount>
-          {readyCount} of {readyTotal} ready
+          {t('lobbies.room.rail.readyCount', '{{readyCount}} of {{readyTotal}} ready', {
+            readyCount,
+            readyTotal,
+          })}
         </ReadyCount>
         <ProgressTrack>
           <ProgressFill $fraction={readyTotal ? readyCount / readyTotal : 0} />
@@ -712,16 +789,27 @@ function StartControls({
             onPointerCancel={cancelHold}>
             <HoldToStartButton
               $holding={holding}
-              label={allReady ? 'Start game' : 'Start when ready'}
+              label={
+                allReady
+                  ? t('lobbies.room.rail.startGame', 'Start game')
+                  : t('lobbies.room.rail.startWhenReady', 'Start when ready')
+              }
               onClick={allReady ? onStartGame : undefined}
             />
           </HoldArea>
           {!allReady ? (
-            <StartCaption>Enables when everyone's ready · hold to start now</StartCaption>
+            <StartCaption>
+              {t(
+                'lobbies.room.rail.holdToStartCaption',
+                "Enables when everyone's ready · hold to start now",
+              )}
+            </StartCaption>
           ) : null}
         </>
       ) : (
-        <WaitingForHost>Waiting for the host to start</WaitingForHost>
+        <WaitingForHost>
+          {t('lobbies.room.rail.waitingForHost', 'Waiting for the host to start')}
+        </WaitingForHost>
       )}
     </>
   )

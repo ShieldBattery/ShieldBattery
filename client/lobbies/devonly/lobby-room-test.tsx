@@ -1,8 +1,8 @@
-import { createStore, Provider, useStore } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { GameType } from '../../../common/games/game-type'
 import { BenchedUser, findSlotById, Lobby, Team } from '../../../common/lobbies'
+import { LobbySeriesGameJson, LobbySeriesTeamJson } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   createClosed,
@@ -19,7 +19,6 @@ import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
 import { DispatchFunction } from '../../dispatch-registry'
-import { JotaiStore } from '../../jotai-store'
 import {
   BigGameHunters,
   FightingSpirit,
@@ -28,12 +27,6 @@ import {
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { titleMedium } from '../../styles/typography'
 import { LobbyRoom } from '../room/lobby-room'
-import {
-  lobbySeriesAtom,
-  LobbySeriesGame,
-  LobbySeriesTeam,
-  readyUsersAtom,
-} from '../room/room-atoms'
 import { IsolatedReduxProvider } from './isolated-redux'
 import { ScenarioPicker } from './scenario-picker'
 
@@ -191,101 +184,98 @@ function makeRegroupLobby(): Lobby {
 
 // A series' rosters shift from game to game as seats empty out and the host reshuffles teams, so
 // each game in a series keeps its own snapshot of who played where rather than sharing one roster.
-const REGROUP_TEAMS: LobbySeriesTeam[] = [
+const REGROUP_TEAMS: LobbySeriesTeamJson[] = [
   {
     name: 'Top',
     players: [
-      { userId: TEC27, race: 't' },
-      { userId: PACHI, race: 'z' },
-      { userId: SUNN0, race: 'r' },
+      { type: 'human', userId: TEC27, race: 't' },
+      { type: 'human', userId: PACHI, race: 'z' },
+      { type: 'human', userId: SUNN0, race: 'r' },
     ],
   },
   {
     name: 'Bottom',
     players: [
-      { userId: DRONEBRO, race: 'p' },
-      { userId: HEARTCUTTER, race: 'r' },
+      { type: 'human', userId: DRONEBRO, race: 'p' },
+      { type: 'human', userId: HEARTCUTTER, race: 'r' },
     ],
   },
 ]
 
-/** The 2v2 rosters once sunn0's seat sits empty. */
-const POST_SUNN0_TEAMS: LobbySeriesTeam[] = [
+/** The 2v2 rosters once sunn0's seat sits empty, filled out with a computer. */
+const POST_SUNN0_TEAMS: LobbySeriesTeamJson[] = [
   {
     name: 'Top',
     players: [
-      { userId: TEC27, race: 't' },
-      { userId: PACHI, race: 'z' },
+      { type: 'human', userId: TEC27, race: 't' },
+      { type: 'human', userId: PACHI, race: 'z' },
     ],
   },
   {
     name: 'Bottom',
     players: [
-      { userId: DRONEBRO, race: 'p' },
-      { userId: HEARTCUTTER, race: 'r' },
+      { type: 'human', userId: DRONEBRO, race: 'p' },
+      { type: 'human', userId: HEARTCUTTER, race: 'r' },
+      { type: 'computer', race: 'z' },
     ],
   },
 ]
 
 /** The rosters after the host shuffles teams partway through the night. */
-const SHUFFLED_TEAMS: LobbySeriesTeam[] = [
+const SHUFFLED_TEAMS: LobbySeriesTeamJson[] = [
   {
     name: 'Top',
     players: [
-      { userId: TEC27, race: 't' },
-      { userId: DRONEBRO, race: 'p' },
+      { type: 'human', userId: TEC27, race: 't' },
+      { type: 'human', userId: DRONEBRO, race: 'p' },
     ],
   },
   {
     name: 'Bottom',
     players: [
-      { userId: PACHI, race: 'z' },
-      { userId: HEARTCUTTER, race: 'r' },
+      { type: 'human', userId: PACHI, race: 'z' },
+      { type: 'human', userId: HEARTCUTTER, race: 'r' },
     ],
   },
 ]
 
-const REGROUP_SERIES: LobbySeriesGame[] = [
+// The last two games cover the outcomes a lobby's series has to render without a winner: one whose
+// results settled with nobody the server can call the winner, and one still waiting on results that
+// may never come.
+const REGROUP_SERIES: LobbySeriesGameJson[] = [
   {
     gameId: 'mock-game-1',
     mapId: BigGameHunters.id,
-    winningTeamIndex: 0,
-    durationMs: 18 * 60 * 1000 + 22 * 1000,
     teams: REGROUP_TEAMS,
+    result: { winningTeamIndex: 0, durationMs: 18 * 60 * 1000 + 22 * 1000 },
   },
   {
     gameId: 'mock-game-2',
     mapId: BigGameHunters.id,
-    winningTeamIndex: 1,
-    durationMs: 31 * 60 * 1000 + 7 * 1000,
     teams: REGROUP_TEAMS,
+    result: { winningTeamIndex: 1, durationMs: 31 * 60 * 1000 + 7 * 1000 },
   },
   {
     gameId: 'mock-game-3',
     mapId: BigGameHunters.id,
-    winningTeamIndex: 0,
-    durationMs: 23 * 60 * 1000 + 41 * 1000,
     teams: REGROUP_TEAMS,
+    result: { winningTeamIndex: 0, durationMs: 23 * 60 * 1000 + 41 * 1000 },
   },
   {
     gameId: 'mock-game-4',
     mapId: FightingSpirit.id,
-    winningTeamIndex: 0,
-    durationMs: 14 * 60 * 1000 + 53 * 1000,
     teams: POST_SUNN0_TEAMS,
+    result: { winningTeamIndex: 0, durationMs: 14 * 60 * 1000 + 53 * 1000 },
   },
   {
     gameId: 'mock-game-5',
     mapId: FightingSpirit.id,
-    winningTeamIndex: 1,
-    durationMs: 27 * 60 * 1000 + 16 * 1000,
     teams: SHUFFLED_TEAMS,
+    result: { durationMs: 27 * 60 * 1000 + 16 * 1000 },
   },
   {
     gameId: 'mock-game-6',
     mapId: BigGameHunters.id,
-    winningTeamIndex: 1,
-    durationMs: 33 * 60 * 1000 + 4 * 1000,
     teams: POST_SUNN0_TEAMS,
   },
 ]
@@ -307,16 +297,20 @@ function sendMockChat(dispatch: LobbyTestDispatch, from: SbUserId, text: string)
  * finished state into it: the chat log, the seating and the callouts all come out of the same
  * handlers the server's events go through.
  */
-function seedScenario(dispatch: LobbyTestDispatch, store: JotaiStore, scenario: ScenarioId) {
+function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
   dispatch({ type: '@lobbies/updateLeaveSelf' })
   dispatch(loadMapsForTesting())
   dispatch({ type: '@users/loadUsers', payload: MOCK_USERS })
 
   if (scenario === 'regroup') {
     const lobby = makeRegroupLobby()
-    dispatch({ type: '@lobbies/init', payload: { type: 'init', lobby, userInfos: MOCK_USERS } })
+    dispatch({
+      type: '@lobbies/init',
+      payload: { type: 'init', lobby, userInfos: MOCK_USERS, readyUsers: [], series: [] },
+    })
     // Plays the night out game by game, so every result lands its own summary card in the log
-    // rather than only the last one.
+    // rather than only the last one. A game's outcome arrives separately from its regroup, the same
+    // way it does when results settle after the lobby has already moved on.
     for (const game of REGROUP_SERIES) {
       dispatch({
         type: '@lobbies/updateGameStarted',
@@ -327,19 +321,32 @@ function seedScenario(dispatch: LobbyTestDispatch, store: JotaiStore, scenario: 
       })
       dispatch({
         type: '@lobbies/updateRegroup',
-        payload: { type: 'regroup', gameId: game.gameId },
+        payload: { type: 'regroup', game: { ...game, result: undefined } },
       })
+      if (game.result) {
+        dispatch({
+          type: '@lobbies/updateSeriesGameUpdated',
+          payload: { type: 'seriesGameUpdated', gameId: game.gameId, result: game.result },
+        })
+      }
     }
     sendMockChat(dispatch, DRONEBRO, 'gg wp. that recall was criminal')
     sendMockChat(dispatch, PACHI, 'one more, loser buys the server a coffee')
-
-    store.set(lobbySeriesAtom, REGROUP_SERIES)
-    store.set(readyUsersAtom, new Set<SbUserId>())
     return
   }
 
   const lobby = scenario === 'full' ? makeFullLobby() : makeGatheringLobby()
-  dispatch({ type: '@lobbies/init', payload: { type: 'init', lobby, userInfos: MOCK_USERS } })
+  dispatch({
+    type: '@lobbies/init',
+    payload: {
+      type: 'init',
+      lobby,
+      userInfos: MOCK_USERS,
+      // A settings change resets ready states, so that scenario re-readies only the host below.
+      readyUsers: [TEC27, PACHI, HEARTCUTTER, NERDRAGE],
+      series: [],
+    },
+  })
 
   sendMockChat(dispatch, PACHI, "who's bringing the 4th, we need one more for teams")
   sendMockChat(dispatch, DRONEBRO, "invited sunn0, he's installing the patch")
@@ -370,18 +377,13 @@ function seedScenario(dispatch: LobbyTestDispatch, store: JotaiStore, scenario: 
         lobby: { ...lobby, useLegacyLimits: true },
       },
     })
+    dispatch({
+      type: '@lobbies/updateReadyChange',
+      payload: { type: 'readyChange', userId: TEC27, isReady: true },
+    })
   }
 
   sendMockChat(dispatch, PACHI, '"one game" — famous last words')
-
-  store.set(lobbySeriesAtom, [])
-  // A settings change resets ready states, so that scenario shows only the host re-readied.
-  store.set(
-    readyUsersAtom,
-    scenario === 'settingsChanged'
-      ? new Set([TEC27])
-      : new Set([TEC27, PACHI, HEARTCUTTER, NERDRAGE]),
-  )
 }
 
 const Container = styled.div`
@@ -414,21 +416,16 @@ const RoomContainer = styled.div`
   overflow: hidden;
 `
 
-const testStore = createStore()
-
 export function LobbyRoomTest() {
   return (
     <IsolatedReduxProvider seedActions={SEED_ACTIONS}>
-      <Provider store={testStore}>
-        <LobbyRoomTestInner />
-      </Provider>
+      <LobbyRoomTestInner />
     </IsolatedReduxProvider>
   )
 }
 
 function LobbyRoomTestInner() {
   const dispatch = useAppDispatch()
-  const store = useStore()
   const [scenario, setScenario] = useState<ScenarioId>('gathering')
   const [viewpoint, setViewpoint] = useState<ViewpointId>('host')
 
@@ -445,9 +442,9 @@ function LobbyRoomTestInner() {
   useEffect(() => {
     if (lastSeededScenario.current !== scenario) {
       lastSeededScenario.current = scenario
-      seedScenario(dispatch, store, scenario)
+      seedScenario(dispatch, scenario)
     }
-  }, [dispatch, store, scenario])
+  }, [dispatch, scenario])
 
   // Ticks a started countdown down so the pre-launch state reads the way it will in a real lobby.
   const countdownTimer = useAppSelector(s =>
@@ -465,6 +462,7 @@ function LobbyRoomTestInner() {
   }, [countdownTimer, dispatch])
 
   const lobby = useAppSelector(s => s.lobby.info)
+  const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(viewerId))
 
   return (
     <Container>
@@ -494,14 +492,12 @@ function LobbyRoomTestInner() {
               }
             }}
             onSitInSlot={slotId => console.log('onSitInSlot', slotId)}
+            onLeaveLobby={() => console.log('onLeaveLobby')}
             onToggleReady={() => {
-              const readyUsers = new Set(store.get(readyUsersAtom))
-              if (readyUsers.has(viewerId)) {
-                readyUsers.delete(viewerId)
-              } else {
-                readyUsers.add(viewerId)
-              }
-              store.set(readyUsersAtom, readyUsers)
+              dispatch({
+                type: '@lobbies/updateReadyChange',
+                payload: { type: 'readyChange', userId: viewerId, isReady: !isViewerReady },
+              })
             }}
             onStartGame={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
             onForceStart={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}

@@ -1,9 +1,13 @@
-import { useAtomValue } from 'jotai'
+import { TFunction } from 'i18next'
 import * as React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { findSlotByUserId, Lobby } from '../../../common/lobbies'
+import { LobbyChangedSetting, LobbySeriesPlayerJson } from '../../../common/lobbies/lobby-network'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
+import { TransInterpolation } from '../../i18n/i18next'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { TextButton } from '../../material/button'
@@ -17,7 +21,6 @@ import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
 import { LobbyMessageType } from '../lobby-message-records'
 import { RaceIcon } from '../race-icon'
-import { lobbySeriesAtom } from './room-atoms'
 import { formatGameDuration, SectionLabel } from './room-parts'
 
 function Username({ userId }: { userId: SbUserId }) {
@@ -136,6 +139,12 @@ const TrophyIcon = styled(MaterialIcon)`
   color: var(--theme-amber);
 `
 
+/** Stands in for the trophy on a game with no winner to celebrate. */
+const UnresolvedIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+`
+
 const ResultRow = styled.div`
   display: flex;
   gap: 16px;
@@ -219,6 +228,10 @@ const PlayerName = styled.div`
   min-width: 0;
 `
 
+const ComputerName = styled(PlayerName)`
+  color: var(--theme-on-surface-variant);
+`
+
 const VictoryActions = styled.div`
   margin-top: 4px;
   display: flex;
@@ -227,7 +240,7 @@ const VictoryActions = styled.div`
 `
 
 /** Describes where in the lobby a member is sitting right now, e.g. `Team 2 · Bottom`. */
-function seatDescription(lobby: Lobby, userId: SbUserId): string | undefined {
+function seatDescription(lobby: Lobby, userId: SbUserId, t: TFunction): string | undefined {
   const found = findSlotByUserId(lobby, userId)
   if (found.length !== 3) {
     return undefined
@@ -236,37 +249,59 @@ function seatDescription(lobby: Lobby, userId: SbUserId): string | undefined {
   const [teamIndex] = found
   const team = lobby.teams[teamIndex]
   if (team.isObserver) {
-    return 'watching'
+    return t('lobbies.room.chat.watching', 'watching')
   }
 
-  return team.name ? `Team ${teamIndex + 1} · ${team.name}` : `Team ${teamIndex + 1}`
+  const teamLabel = t('game.teamName.number', {
+    defaultValue: 'Team {{teamNumber}}',
+    teamNumber: teamIndex + 1,
+  })
+  return team.name ? `${teamLabel} · ${team.name}` : teamLabel
 }
 
 /** The card that lands in chat when someone new turns up, so arrivals read as social events. */
 function ArrivalCard({ userId }: { userId: SbUserId }) {
+  const { t } = useTranslation()
   const lobby = useAppSelector(s => s.lobby.info)
-  const seat = seatDescription(lobby, userId)
+  const seat = seatDescription(lobby, userId, t)
 
   return (
     <JoinCard>
       <MaterialIcon icon='person_add' size={20} />
       <JoinCardText>
         <JoinCardTitle>
-          <Username userId={userId} /> joined the lobby
+          <Trans t={t} i18nKey='lobbies.room.chat.joinedLobby'>
+            <Username userId={userId} /> joined the lobby
+          </Trans>
         </JoinCardTitle>
-        {seat !== undefined ? <JoinCardSeat>seated on {seat}</JoinCardSeat> : null}
+        {seat !== undefined ? (
+          <JoinCardSeat>
+            {t('lobbies.room.chat.seatedOn', 'seated on {{seat}}', { seat })}
+          </JoinCardSeat>
+        ) : null}
       </JoinCardText>
     </JoinCard>
   )
 }
 
-const SETTING_LABELS: Record<string, string> = {
-  name: 'lobby name',
-  map: 'map',
-  gameType: 'game type',
-  gameSubType: 'teams',
-  useLegacyLimits: 'unit limit',
-  allowObservers: 'observers',
+/** A short, human-readable label for a single changed lobby setting, used in a joined list. */
+function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string {
+  switch (setting) {
+    case 'name':
+      return t('lobbies.messageLayout.settingsChangeName', 'lobby name')
+    case 'map':
+      return t('lobbies.messageLayout.settingsChangeMap', 'map')
+    case 'gameType':
+      return t('lobbies.messageLayout.settingsChangeGameType', 'game type')
+    case 'gameSubType':
+      return t('lobbies.messageLayout.settingsChangeGameSubType', 'teams')
+    case 'useLegacyLimits':
+      return t('lobbies.messageLayout.settingsChangeUnitLimit', 'unit limit')
+    case 'allowObservers':
+      return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
+    default:
+      return assertUnreachable(setting)
+  }
 }
 
 /**
@@ -278,9 +313,10 @@ function SettingsNoticeCard({
   changedSettings,
 }: {
   changedBy: SbUserId
-  changedSettings: ReadonlyArray<string>
+  changedSettings: ReadonlyArray<LobbyChangedSetting>
 }) {
-  const settings = changedSettings.map(setting => SETTING_LABELS[setting] ?? setting).join(', ')
+  const { t } = useTranslation()
+  const settings = changedSettings.map(setting => changedSettingLabel(setting, t)).join(', ')
   // A rename touches nothing about the game being set up, so it never resets readiness; any other
   // setting can, so its notice calls that out.
   const resetsReady = changedSettings.some(setting => setting !== 'name')
@@ -289,8 +325,10 @@ function SettingsNoticeCard({
     <NoticeCard>
       <MaterialIcon icon='tune' size={20} />
       <div>
-        <Username userId={changedBy} /> changed the {settings}
-        {resetsReady ? ' · ready reset' : ''}
+        <Trans t={t} i18nKey='lobbies.room.chat.settingsChanged'>
+          <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation}
+        </Trans>
+        {resetsReady ? ` · ${t('lobbies.room.chat.readyReset', 'ready reset')}` : ''}
       </div>
     </NoticeCard>
   )
@@ -313,14 +351,38 @@ const GameSummaryContext = React.createContext<GameSummaryActions>({
   onViewGameSummary: () => {},
 })
 
+/** One player of a finished game's roster: a lobby member, or one of the computers they played. */
+function ResultPlayerRow({ player }: { player: LobbySeriesPlayerJson }) {
+  const { t } = useTranslation()
+  if (player.type === 'computer') {
+    return (
+      <PlayerRow>
+        <PlayerRaceIcon race={player.race} applyRaceColor />
+        <ComputerName>{t('game.playerName.computer', 'Computer')}</ComputerName>
+      </PlayerRow>
+    )
+  }
+
+  return (
+    <PlayerRow>
+      <PlayerAvatar userId={player.userId} />
+      <PlayerRaceIcon race={player.race} applyRaceColor />
+      <PlayerName>
+        <ConnectedUsername userId={player.userId} UserMenu={LobbyUserMenu} />
+      </PlayerName>
+    </PlayerRow>
+  )
+}
+
 /**
  * The result of a finished game, dropped into the conversation it happened in the middle of. The
  * newest one opens itself while the lobby is between games, since that's when its contents are what
  * the room is actually doing; anything the reader opens or closes by hand stays that way.
  */
 function GameSummaryCard({ gameId }: { gameId: string }) {
+  const { t } = useTranslation()
   const { isRegrouping, onWatchReplay, onViewGameSummary } = React.useContext(GameSummaryContext)
-  const series = useAtomValue(lobbySeriesAtom)
+  const series = useAppSelector(s => s.lobby.series)
   const gameIndex = series.findIndex(g => g.gameId === gameId)
   const game = gameIndex >= 0 ? series[gameIndex] : undefined
   const isLatest = gameIndex >= 0 && gameIndex === series.length - 1
@@ -334,16 +396,35 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
     return null
   }
 
-  const winningTeam = game.winningTeamIndex + 1
-  const duration = formatGameDuration(game.durationMs)
+  // A game's results settle some time after it ends, and games that report none never settle at
+  // all, so the headline says as much as the lobby actually knows.
+  const result = game.result
+  const winningTeamIndex = result?.winningTeamIndex
+  const gameLabel = t('lobbies.room.series.gameNumber', 'Game {{number}}', {
+    number: gameIndex + 1,
+  })
+  let headline: string
+  if (!result) {
+    headline = `${gameLabel} — ${t('lobbies.room.series.waitingForResults', 'Waiting for results')}`
+  } else {
+    const outcome =
+      winningTeamIndex !== undefined
+        ? t('lobbies.room.series.victoryTeam', 'Victory Team {{number}}', {
+            number: winningTeamIndex + 1,
+          })
+        : t('lobbies.room.series.noRecordedWinner', 'No recorded winner')
+    headline = `${gameLabel} — ${outcome} · ${formatGameDuration(result.durationMs)}`
+  }
 
   return (
     <SummaryCardRoot>
       <SummaryToggle type='button' aria-expanded={expanded} onClick={() => setOverride(!expanded)}>
-        <TrophyIcon icon='trophy' size={20} />
-        <SummaryHeadline>
-          Game {gameIndex + 1} — Victory Team {winningTeam} · {duration}
-        </SummaryHeadline>
+        {winningTeamIndex !== undefined ? (
+          <TrophyIcon icon='trophy' size={20} />
+        ) : (
+          <UnresolvedIcon icon={result ? 'sports_esports' : 'hourglass_empty'} size={20} />
+        )}
+        <SummaryHeadline>{headline}</SummaryHeadline>
         <MaterialIcon icon={expanded ? 'expand_less' : 'expand_more'} size={20} />
       </SummaryToggle>
       {expanded ? (
@@ -358,21 +439,18 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
                   <TeamColumn key={teamIndex}>
                     <TeamHeading>
                       <span>
-                        Team {teamIndex + 1}
+                        {t('game.teamName.number', {
+                          defaultValue: 'Team {{teamNumber}}',
+                          teamNumber: teamIndex + 1,
+                        })}
                         {team.name ? ` · ${team.name}` : ''}
                       </span>
-                      {teamIndex === game.winningTeamIndex ? (
+                      {teamIndex === winningTeamIndex ? (
                         <TeamHeadingTrophyIcon icon='trophy' size={14} />
                       ) : null}
                     </TeamHeading>
-                    {team.players.map(player => (
-                      <PlayerRow key={player.userId}>
-                        <PlayerAvatar userId={player.userId} />
-                        <PlayerRaceIcon race={player.race} applyRaceColor />
-                        <PlayerName>
-                          <ConnectedUsername userId={player.userId} UserMenu={LobbyUserMenu} />
-                        </PlayerName>
-                      </PlayerRow>
+                    {team.players.map((player, playerIndex) => (
+                      <ResultPlayerRow key={playerIndex} player={player} />
                     ))}
                   </TeamColumn>
                 ))}
@@ -381,11 +459,14 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
           </ResultRow>
           <VictoryActions>
             <TextButton
-              label='Watch replay'
+              label={t('lobbies.room.series.watchReplay', 'Watch replay')}
               iconStart={<MaterialIcon icon='play_arrow' />}
               onClick={() => onWatchReplay(gameId)}
             />
-            <TextButton label='Full summary' onClick={() => onViewGameSummary(gameId)} />
+            <TextButton
+              label={t('lobbies.room.series.fullSummary', 'Full summary')}
+              onClick={() => onViewGameSummary(gameId)}
+            />
           </VictoryActions>
         </SummaryBody>
       ) : null}
@@ -398,6 +479,7 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
  * handled by the message list itself; everything here is the lobby narrating itself.
  */
 function RoomChatMessage({ message }: MessageComponentProps) {
+  const { t } = useTranslation()
   const msg = message as SbMessage & { type: LobbyMessageType }
 
   switch (msg.type) {
@@ -422,54 +504,102 @@ function RoomChatMessage({ message }: MessageComponentProps) {
     case LobbyMessageType.SelfJoinLobby:
       return (
         <SystemMessage time={msg.time}>
-          You joined <SystemImportant>{msg.lobby}</SystemImportant>. The host is{' '}
-          <Username userId={msg.hostId} />.
+          <Trans t={t} i18nKey='lobbies.room.chat.selfJoinLobby'>
+            You joined{' '}
+            <SystemImportant>{{ lobby: msg.lobby } as TransInterpolation}</SystemImportant>. The
+            host is <Username userId={msg.hostId} />.
+          </Trans>
         </SystemMessage>
       )
     case LobbyMessageType.LeaveLobby:
       return (
         <SystemMessage time={msg.time}>
-          <Username userId={msg.userId} /> left the lobby
+          <Trans t={t} i18nKey='lobbies.room.chat.leftLobby'>
+            <Username userId={msg.userId} /> left the lobby
+          </Trans>
         </SystemMessage>
       )
     case LobbyMessageType.KickLobbyPlayer:
       return (
         <SystemMessage time={msg.time}>
-          <Username userId={msg.userId} /> was kicked
+          <Trans t={t} i18nKey='lobbies.room.chat.wasKicked'>
+            <Username userId={msg.userId} /> was kicked
+          </Trans>
         </SystemMessage>
       )
     case LobbyMessageType.BanLobbyPlayer:
       return (
         <SystemMessage time={msg.time}>
-          <Username userId={msg.userId} /> was banned
+          <Trans t={t} i18nKey='lobbies.room.chat.wasBanned'>
+            <Username userId={msg.userId} /> was banned
+          </Trans>
         </SystemMessage>
       )
     case LobbyMessageType.LobbyHostChange:
       return (
         <SystemMessage time={msg.time}>
-          <Username userId={msg.userId} /> is now the host
+          <Trans t={t} i18nKey='lobbies.room.chat.isNowHost'>
+            <Username userId={msg.userId} /> is now the host
+          </Trans>
         </SystemMessage>
       )
     case LobbyMessageType.LobbyBenchJoin:
       return (
         <SystemMessage time={msg.time}>
-          <Username userId={msg.userId} /> is waiting for a seat
+          <Trans t={t} i18nKey='lobbies.room.chat.waitingForSeat'>
+            <Username userId={msg.userId} /> is waiting for a seat
+          </Trans>
         </SystemMessage>
       )
     case LobbyMessageType.LobbyCountdownStarted:
-      return <SystemMessage time={msg.time}>The game is starting</SystemMessage>
+      return (
+        <SystemMessage time={msg.time}>
+          {t('lobbies.room.chat.countdownStarted', 'The game is starting')}
+        </SystemMessage>
+      )
     case LobbyMessageType.LobbyCountdownTick:
       return <SystemMessage time={msg.time}>{msg.timeLeft}…</SystemMessage>
     case LobbyMessageType.LobbyCountdownCanceled:
-      return <SystemMessage time={msg.time}>The countdown was canceled</SystemMessage>
+      return (
+        <SystemMessage time={msg.time}>
+          {t('lobbies.room.chat.countdownCanceled', 'The countdown was canceled')}
+        </SystemMessage>
+      )
     case LobbyMessageType.LobbyLoadingCanceled:
-      return <SystemMessage time={msg.time}>The game couldn't start</SystemMessage>
+      // Naming who failed to load is the difference between a lobby that looks broken and one whose
+      // members can see what to do about it, so the culprits are called out whenever they're known.
+      // The prefix and suffix are translated separately from the user list between them, since the
+      // list's length varies and can't be represented as fixed positional children of a single key.
+      return (
+        <SystemMessage time={msg.time}>
+          {msg.usersAtFault?.length ? (
+            <>
+              {t('lobbies.room.chat.loadFailedPrefix', "The game couldn't start because")}{' '}
+              {msg.usersAtFault.map((userId, i) => (
+                <React.Fragment key={userId}>
+                  {i > 0 ? ', ' : ''}
+                  <Username userId={userId} />
+                </React.Fragment>
+              ))}{' '}
+              {t('lobbies.room.chat.loadFailedSuffix', 'failed to load')}
+            </>
+          ) : (
+            t('lobbies.room.chat.loadFailedNoUsers', "The game couldn't start")
+          )}
+        </SystemMessage>
+      )
     case LobbyMessageType.LobbyGameStarted:
-      return <SystemMessage time={msg.time}>The game has started</SystemMessage>
+      return (
+        <SystemMessage time={msg.time}>
+          {t('lobbies.messageLayout.gameStarted', 'The game has started')}
+        </SystemMessage>
+      )
     case LobbyMessageType.LobbyMemberGameEnded:
       return (
         <SystemMessage time={msg.time}>
-          <Username userId={msg.userId} /> is back in the lobby
+          <Trans t={t} i18nKey='lobbies.room.chat.memberBack'>
+            <Username userId={msg.userId} /> is back in the lobby
+          </Trans>
         </SystemMessage>
       )
     default:
