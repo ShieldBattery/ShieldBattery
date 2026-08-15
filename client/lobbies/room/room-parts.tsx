@@ -1,10 +1,8 @@
-import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../../common/assert-unreachable'
 import { getHumanSlots, Lobby } from '../../../common/lobbies'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
-import { RaceChar } from '../../../common/races'
+import { RaceChar, raceCharToLabel } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { buttonReset } from '../../material/button-reset'
@@ -12,22 +10,6 @@ import { Tooltip } from '../../material/tooltip'
 import { getRaceColor } from '../../styles/colors'
 import { labelSmall, singleLine } from '../../styles/typography'
 import { RaceIcon } from '../race-icon'
-
-/** A race's display name, e.g. for an icon's `aria-label` or a race-picker option's tooltip. */
-function raceName(race: RaceChar, t: TFunction): string {
-  switch (race) {
-    case 'z':
-      return t('game.race.zerg', 'Zerg')
-    case 'p':
-      return t('game.race.protoss', 'Protoss')
-    case 't':
-      return t('game.race.terran', 'Terran')
-    case 'r':
-      return t('game.race.random', 'Random')
-    default:
-      return assertUnreachable(race)
-  }
-}
 
 /** The order races are laid out in, left to right, wherever all four are shown side by side. */
 const RACE_ORDER: ReadonlyArray<RaceChar> = ['z', 'p', 't', 'r']
@@ -43,7 +25,7 @@ const RaceMarkIcon = styled(RaceIcon)`
 /** A player's race, at the size the room's rows and cards read it at. */
 export function RaceMark({ race, className }: { race: RaceChar; className?: string }) {
   const { t } = useTranslation()
-  return <RaceMarkIcon race={race} ariaLabel={raceName(race, t)} className={className} />
+  return <RaceMarkIcon race={race} ariaLabel={raceCharToLabel(race, t)} className={className} />
 }
 
 const RaceOption = styled.button<{ $race: RaceChar; $active: boolean }>`
@@ -99,7 +81,7 @@ export function InlineRacePicker({
           type='button'
           $race={r}
           $active={r === race}
-          title={raceName(r, t)}
+          title={raceCharToLabel(r, t)}
           onClick={() => onSetRace(r)}>
           <RaceOptionIcon race={r} applyRaceColor={false} />
         </RaceOption>
