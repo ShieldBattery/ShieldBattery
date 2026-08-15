@@ -1,5 +1,9 @@
+import { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { getHumanSlots, Lobby } from '../../../common/lobbies'
+import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -9,11 +13,20 @@ import { getRaceColor } from '../../styles/colors'
 import { labelSmall, singleLine } from '../../styles/typography'
 import { RaceIcon } from '../race-icon'
 
-const RACE_NAMES: Record<RaceChar, string> = {
-  z: 'Zerg',
-  p: 'Protoss',
-  t: 'Terran',
-  r: 'Random',
+/** A race's display name, e.g. for an icon's `aria-label` or a race-picker option's tooltip. */
+function raceName(race: RaceChar, t: TFunction): string {
+  switch (race) {
+    case 'z':
+      return t('game.race.zerg', 'Zerg')
+    case 'p':
+      return t('game.race.protoss', 'Protoss')
+    case 't':
+      return t('game.race.terran', 'Terran')
+    case 'r':
+      return t('game.race.random', 'Random')
+    default:
+      return assertUnreachable(race)
+  }
 }
 
 /** The order races are laid out in, left to right, wherever all four are shown side by side. */
@@ -29,7 +42,8 @@ const RaceMarkIcon = styled(RaceIcon)`
 
 /** A player's race, at the size the room's rows and cards read it at. */
 export function RaceMark({ race, className }: { race: RaceChar; className?: string }) {
-  return <RaceMarkIcon race={race} ariaLabel={RACE_NAMES[race]} className={className} />
+  const { t } = useTranslation()
+  return <RaceMarkIcon race={race} ariaLabel={raceName(race, t)} className={className} />
 }
 
 const RaceOption = styled.button<{ $race: RaceChar; $active: boolean }>`
@@ -76,6 +90,7 @@ export function InlineRacePicker({
   onSetRace: (race: RaceChar) => void
   className?: string
 }) {
+  const { t } = useTranslation()
   return (
     <RacePickerRoot className={className}>
       {RACE_ORDER.map(r => (
@@ -84,7 +99,7 @@ export function InlineRacePicker({
           type='button'
           $race={r}
           $active={r === race}
-          title={RACE_NAMES[r]}
+          title={raceName(r, t)}
           onClick={() => onSetRace(r)}>
           <RaceOptionIcon race={r} applyRaceColor={false} />
         </RaceOption>
@@ -108,8 +123,14 @@ const ReadyMarkRoot = styled.span<{ $ready: boolean }>`
  * mistaken for a presence indicator.
  */
 export function ReadyMark({ ready }: { ready: boolean }) {
+  const { t } = useTranslation()
   return (
-    <Tooltip text={ready ? 'Ready' : 'Not ready yet'}>
+    <Tooltip
+      text={
+        ready
+          ? t('lobbies.room.readyMark.ready', 'Ready')
+          : t('lobbies.room.readyMark.notReady', 'Not ready yet')
+      }>
       <ReadyMarkRoot $ready={ready}>
         <MaterialIcon icon={ready ? 'check_circle' : 'circle'} size={18} filled={ready} />
       </ReadyMarkRoot>
@@ -121,7 +142,6 @@ export function ReadyMark({ ready }: { ready: boolean }) {
 export enum TeamArrangement {
   Swap = 'swap',
   Shuffle = 'shuffle',
-  Balance = 'balance',
 }
 
 /** A compact pill describing one piece of the lobby's setup. */
@@ -157,8 +177,9 @@ const HostCrownRoot = styled.span`
 
 /** Marks the row of the lobby's host. */
 export function HostCrown({ tabIndex }: { tabIndex?: number }) {
+  const { t } = useTranslation()
   return (
-    <Tooltip text='Host' tabIndex={tabIndex}>
+    <Tooltip text={t('lobbies.summary.hostLabel', 'Host')} tabIndex={tabIndex}>
       <HostCrownRoot>
         <MaterialIcon icon='crown' size={20} filled />
       </HostCrownRoot>
@@ -179,6 +200,31 @@ export function getReadyEligibleUsers(lobby: Lobby): SbUserId[] {
 /** Counts everyone who is in the lobby, seated or waiting for a seat. */
 export function memberCount(lobby: Lobby): number {
   return getReadyEligibleUsers(lobby).length + lobby.bench.length
+}
+
+/**
+ * Returns how many of a series' games each player won.
+ *
+ * Only games with a settled result that names a winning team count, and only for the people on it:
+ * a game still waiting on its results, one no team can be said to have won, and the computers a
+ * winning team was made up of all add nothing to anyone's tally.
+ */
+export function getWinsByUser(games: ReadonlyArray<LobbySeriesGameJson>): Map<SbUserId, number> {
+  const wins = new Map<SbUserId, number>()
+  for (const game of games) {
+    const winningTeamIndex = game.result?.winningTeamIndex
+    if (winningTeamIndex === undefined) {
+      continue
+    }
+
+    for (const player of game.teams[winningTeamIndex]?.players ?? []) {
+      if (player.type === 'human') {
+        wins.set(player.userId, (wins.get(player.userId) ?? 0) + 1)
+      }
+    }
+  }
+
+  return wins
 }
 
 /** Formats a game's length as `M:SS`, growing to `H:MM:SS` once it runs past an hour. */
