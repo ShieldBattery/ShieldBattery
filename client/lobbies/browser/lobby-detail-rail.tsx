@@ -26,7 +26,7 @@ import {
 import { ConnectedUsername } from '../../users/connected-username'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
-import { HostCrown, LobbyChip, RaceMark, SectionLabel } from './browser-parts'
+import { HostCrown, RaceMark, RoomChip, SectionLabel } from '../room/room-parts'
 import { InGameChip } from './in-game-chip'
 import { LobbyPreviewTeams, LobbySummary } from './summary-utils'
 
@@ -478,13 +478,13 @@ export function LobbyDetailRail({
 
         <ChipRow>
           {isInGame ? <InGameChip elapsedMs={summary.elapsedMs} /> : null}
-          <LobbyChip>{gameTypeToLabel(summary.gameType, t)}</LobbyChip>
-          {subTypeLabel ? <LobbyChip>{subTypeLabel}</LobbyChip> : null}
+          <RoomChip>{gameTypeToLabel(summary.gameType, t)}</RoomChip>
+          {subTypeLabel ? <RoomChip>{subTypeLabel}</RoomChip> : null}
           {summary.hasObserverTeam ? (
-            <LobbyChip>{t('lobbies.browser.observers', 'Observers')}</LobbyChip>
+            <RoomChip>{t('lobbies.browser.observers', 'Observers')}</RoomChip>
           ) : null}
           {summary.useLegacyLimits ? (
-            <LobbyChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</LobbyChip>
+            <RoomChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</RoomChip>
           ) : null}
         </ChipRow>
 

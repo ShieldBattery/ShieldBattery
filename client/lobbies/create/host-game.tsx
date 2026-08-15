@@ -13,14 +13,10 @@ import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
-import { MaterialIcon } from '../../icons/material/material-icon'
-import { BrowseLocalMaps } from '../../maps/browse-local-maps'
-import { BrowseServerMaps } from '../../maps/browse-server-maps'
-import { FilledButton, IconButton, TextButton } from '../../material/button'
+import { FilledButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodySmall, singleLine, titleLarge } from '../../styles/typography'
 import {
   createLobby,
   CreateLobbyParams,
@@ -36,111 +32,14 @@ import {
   Section,
   SectionHeader,
 } from './game-setup-form'
+import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from './game-setup-page'
 import { VisibilityPicker } from './visibility-picker'
-
-const Root = styled.div`
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-`
-
-const FormScroller = styled.div<{ $hidden: boolean }>`
-  flex-grow: 1;
-  min-height: 0;
-  contain: strict;
-  overflow-y: auto;
-
-  display: ${props => (props.$hidden ? 'none' : 'block')};
-`
-
-const Content = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px 24px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-`
-
-const HeaderBlock = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`
-
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`
-
-const BrowseColumn = styled.div`
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  min-height: 0;
-`
-
-const BrowseHeader = styled(HeaderBlock)`
-  align-items: flex-start;
-  padding: 16px 24px 0;
-`
-
-const BrowseArea = styled.div`
-  flex-grow: 1;
-  min-height: 0;
-`
 
 const LoadingContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 240px;
-`
-
-const Title = styled.div`
-  ${titleLarge};
-`
-
-const FooterBar = styled.div<{ $hidden: boolean }>`
-  flex-shrink: 0;
-  /* Slightly wider than the 960px form column (24px beyond it on each side, matching the page's
-     24px padding rhythm) so the bar frames the column without stretching across the whole
-     container. */
-  width: 100%;
-  max-width: 1008px;
-  margin: 0 auto;
-  /* The bar doesn't reach the window edges, so it's framed as a contained surface: bordered and
-     slightly rounded on the exposed sides, square along the bottom edge it sits flush against. */
-  border: 1px solid var(--theme-outline-variant);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  background-color: var(--theme-container-low);
-
-  display: ${props => (props.$hidden ? 'none' : 'block')};
-`
-
-const FooterContent = styled.div`
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 10px 24px;
-
-  display: flex;
-  align-items: center;
-  gap: 16px;
-`
-
-const SummaryText = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-  flex-grow: 1;
-  min-width: 0;
 `
 
 /** The lobby name shown by default when the field is left empty and no map has been picked yet. */
@@ -159,12 +58,6 @@ function defaultLobbyName(t: TFunction, selfUserName: string | undefined): strin
  */
 function updateRecentMaps(selectedId: SbMapId, recentMaps: ReadonlyArray<SbMapId>): SbMapId[] {
   return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, NUM_RECENT_MAPS - 1)]
-}
-
-enum MapBrowseState {
-  None,
-  Server,
-  Local,
 }
 
 export interface HostGameProps {
@@ -373,198 +266,114 @@ function HostGameContent({
     }
   }
 
-  let slots: number | undefined
-  if (selectedMapInfo) {
-    slots =
-      setup.gameType === GameType.UseMapSettings
-        ? selectedMapInfo.mapData.umsSlots
-        : selectedMapInfo.mapData.slots
-  }
-  let slotsPart: string | undefined
-  if (selectedMapInfo && slots !== undefined) {
-    if (setup.gameType === GameType.TopVsBottom) {
-      slotsPart = t('lobbies.createLobby.teamSplitOption', {
-        defaultValue: '{{top}}v{{bottom}}',
-        top: setup.gameSubType,
-        bottom: slots - setup.gameSubType,
-      })
-    } else if (isTeamType(setup.gameType)) {
-      slotsPart = t('lobbies.createLobby.gameSubTypeOption', {
-        defaultValue: '{{numTeams}} teams',
-        numTeams: setup.gameSubType,
-      })
-    } else if (setup.gameType === GameType.OneVsOne) {
-      slotsPart = undefined
-    } else {
-      slotsPart = t('lobbies.hostGame.summarySlots', {
-        defaultValue: '{{count}} slots',
-        count: slots,
-      })
-    }
-  }
-  const summary = [
-    visibility === 'listed'
-      ? t('lobbies.createLobby.visibilityListed', 'Public')
-      : t('lobbies.createLobby.visibilityUnlisted', 'Unlisted'),
-    gameTypeToLabel(setup.gameType, t),
-    slotsPart,
-    selectedMapInfo?.name,
-    setup.allowObservers
-      ? t('lobbies.hostGame.summaryObserversOn', 'Observers on')
-      : t('lobbies.hostGame.summaryObserversOff', 'No observers'),
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const summary = formatGameSetupSummary(t, { visibility, setup, mapInfo: selectedMapInfo })
 
   return (
-    <Root>
-      {browseState !== MapBrowseState.None ? (
-        <BrowseColumn>
-          <BrowseHeader>
-            <TextButton
-              label={t('common.actions.back', 'Back')}
-              iconStart={<MaterialIcon icon='arrow_back' />}
-              onClick={() =>
-                setBrowseState(
-                  browseState === MapBrowseState.Local
-                    ? MapBrowseState.Server
-                    : MapBrowseState.None,
-                )
-              }
-            />
-            <Title>{t('lobbies.createLobby.selectMap', 'Select map')}</Title>
-          </BrowseHeader>
-          <BrowseArea>
-            {browseState === MapBrowseState.Server ? (
-              <BrowseServerMaps
-                onMapClick={pick}
-                onBrowseLocalMaps={() => setBrowseState(MapBrowseState.Local)}
-              />
-            ) : (
-              <BrowseLocalMaps onMapUpload={pick} />
-            )}
-          </BrowseArea>
-        </BrowseColumn>
-      ) : null}
-
-      <FormScroller $hidden={browseState !== MapBrowseState.None}>
-        <Content>
-          <Header>
-            {onNavigateToList ? (
-              <IconButton
-                icon={<MaterialIcon icon='arrow_back' />}
-                title={t('common.actions.back', 'Back')}
-                onClick={onNavigateToList}
-              />
-            ) : null}
-
-            <Title>{t('lobbies.createLobby.title', 'Create lobby')}</Title>
-          </Header>
-
-          <GameSetupForm
-            ref={formRef}
-            disabled={isCreating}
-            model={setupModel}
-            recentMaps={recentMaps}
-            nameSection={
-              <TextField
-                value={name}
-                onChange={event => {
-                  setName(event.target.value)
-                  debouncedSaveRef.current?.()
-                }}
-                disabled={isCreating}
-                floatingLabel={true}
-                alwaysHasValue={true}
-                label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
-                testName='lobby-name-input'
-                inputProps={{
-                  placeholder: placeholderName,
-                  maxLength: LOBBY_NAME_MAXLENGTH,
-                  autoCapitalize: 'off',
-                  autoComplete: 'off',
-                  autoCorrect: 'off',
-                  spellCheck: false,
-                }}
-              />
-            }
-            visibilitySection={
-              <Section>
-                <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
-                <VisibilityPicker
-                  value={visibility}
-                  disabled={isCreating}
-                  onChange={value => {
-                    setVisibility(value)
-                    debouncedSaveRef.current?.()
-                  }}
-                />
-              </Section>
-            }
-            onChangeMap={() => setBrowseState(MapBrowseState.Server)}
-            onValidatedChange={model => {
-              setSetup(model)
+    <GameSetupPage
+      title={t('lobbies.createLobby.title', 'Create lobby')}
+      onBack={onNavigateToList}
+      browseState={browseState}
+      onBrowseStateChange={setBrowseState}
+      onMapPicked={pick}
+      summary={summary}
+      footerActions={
+        <FilledButton
+          label={t('lobbies.createLobby.title', 'Create lobby')}
+          disabled={isCreating}
+          onClick={() => formRef.current?.submit()}
+          testName='create-lobby-submit'
+        />
+      }>
+      <GameSetupForm
+        ref={formRef}
+        disabled={isCreating}
+        model={setupModel}
+        recentMaps={recentMaps}
+        nameSection={
+          <TextField
+            value={name}
+            onChange={event => {
+              setName(event.target.value)
               debouncedSaveRef.current?.()
             }}
-            onSubmit={model => {
-              const finalName = name.trim() ? name.trim() : placeholderName
-
-              const params: CreateLobbyParams = {
-                name: finalName,
-                map: model.mapId!,
-                gameType: model.gameType,
-                gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
-                useLegacyLimits: model.useLegacyLimits,
-                allowObservers: model.allowObservers,
-                visibility,
-                leaveCurrentLobby: inCurrentLobby,
-              }
-
-              // Trading the current lobby for a new one is worth confirming before it happens;
-              // the dialog performs no request of its own, so `doCreateLobby` runs unchanged once
-              // it's confirmed.
-              if (inCurrentLobby) {
-                dispatch(
-                  openDialog({
-                    type: DialogType.LobbyLeaveAndCreate,
-                    initData: { onConfirm: () => doCreateLobby(params) },
-                  }),
-                )
-              } else {
-                doCreateLobby(params)
-              }
-
-              debouncedSaveRef.current?.cancel()
-
-              savePreferences({
-                // The preferences record what the user actually typed (possibly nothing), so a
-                // left-empty name stays a ghost placeholder on the next visit instead of
-                // materializing the auto-generated name into the field.
-                name,
-                selectedMap: model.mapId,
-                recentMaps: updateRecentMaps(model.mapId!, recentMaps),
-                gameType: model.gameType,
-                gameSubType: model.gameSubType,
-                useLegacyLimits: model.useLegacyLimits,
-                visibility,
-                allowObservers: model.allowObservers,
-              })
+            disabled={isCreating}
+            floatingLabel={true}
+            alwaysHasValue={true}
+            label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+            testName='lobby-name-input'
+            inputProps={{
+              placeholder: placeholderName,
+              maxLength: LOBBY_NAME_MAXLENGTH,
+              autoCapitalize: 'off',
+              autoComplete: 'off',
+              autoCorrect: 'off',
+              spellCheck: false,
             }}
           />
-        </Content>
-      </FormScroller>
+        }
+        visibilitySection={
+          <Section>
+            <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+            <VisibilityPicker
+              value={visibility}
+              disabled={isCreating}
+              onChange={value => {
+                setVisibility(value)
+                debouncedSaveRef.current?.()
+              }}
+            />
+          </Section>
+        }
+        onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+        onValidatedChange={model => {
+          setSetup(model)
+          debouncedSaveRef.current?.()
+        }}
+        onSubmit={model => {
+          const finalName = name.trim() ? name.trim() : placeholderName
 
-      <FooterBar $hidden={browseState !== MapBrowseState.None}>
-        <FooterContent>
-          <SummaryText>{summary}</SummaryText>
-          <FilledButton
-            label={t('lobbies.createLobby.title', 'Create lobby')}
-            disabled={isCreating}
-            onClick={() => formRef.current?.submit()}
-            testName='create-lobby-submit'
-          />
-        </FooterContent>
-      </FooterBar>
-    </Root>
+          const params: CreateLobbyParams = {
+            name: finalName,
+            map: model.mapId!,
+            gameType: model.gameType,
+            gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
+            useLegacyLimits: model.useLegacyLimits,
+            allowObservers: model.allowObservers,
+            visibility,
+            leaveCurrentLobby: inCurrentLobby,
+          }
+
+          // Trading the current lobby for a new one is worth confirming before it happens;
+          // the dialog performs no request of its own, so `doCreateLobby` runs unchanged once
+          // it's confirmed.
+          if (inCurrentLobby) {
+            dispatch(
+              openDialog({
+                type: DialogType.LobbyLeaveAndCreate,
+                initData: { onConfirm: () => doCreateLobby(params) },
+              }),
+            )
+          } else {
+            doCreateLobby(params)
+          }
+
+          debouncedSaveRef.current?.cancel()
+
+          savePreferences({
+            // The preferences record what the user actually typed (possibly nothing), so a
+            // left-empty name stays a ghost placeholder on the next visit instead of
+            // materializing the auto-generated name into the field.
+            name,
+            selectedMap: model.mapId,
+            recentMaps: updateRecentMaps(model.mapId!, recentMaps),
+            gameType: model.gameType,
+            gameSubType: model.gameSubType,
+            useLegacyLimits: model.useLegacyLimits,
+            visibility,
+            allowObservers: model.allowObservers,
+          })
+        }}
+      />
+    </GameSetupPage>
   )
 }

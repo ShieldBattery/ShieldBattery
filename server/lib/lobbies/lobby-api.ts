@@ -15,6 +15,8 @@ import {
   MoveSlotRequest,
   SendLobbyChatRequest,
   SetLobbyRaceRequest,
+  SetLobbyReadyRequest,
+  StartLobbyCountdownRequest,
   UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
@@ -116,13 +118,16 @@ const lobbySlotBody = Joi.object<LobbySlotRequest>({
  */
 const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   clientId: clientIdSchema,
+  name: Joi.string().custom((value, helpers) =>
+    isValidLobbyName(value) ? value : helpers.error('any.invalid'),
+  ),
   map: Joi.string(),
   gameType: Joi.string().valid(...ALL_GAME_TYPES),
   gameSubType: Joi.number().min(1).max(7),
   allowObservers: Joi.boolean(),
   useLegacyLimits: Joi.boolean(),
 })
-  .or('map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
+  .or('name', 'map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
   .required()
 
 /** The body of a request to move a slot's occupant somewhere else. */
@@ -160,6 +165,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.NotEnoughSides:
     case LobbyServiceErrorCode.NotInLobby:
     case LobbyServiceErrorCode.NotObserverSlot:
+    case LobbyServiceErrorCode.NotSeated:
     case LobbyServiceErrorCode.UserOffline:
       throw asHttpError(400, err)
 
@@ -175,6 +181,9 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.AlreadyStarted:
     case LobbyServiceErrorCode.CountingDown:
     case LobbyServiceErrorCode.GameInProgress:
+    case LobbyServiceErrorCode.InvalidTeamLayout:
+    case LobbyServiceErrorCode.NotCountingDown:
+    case LobbyServiceErrorCode.NotEveryoneReady:
     case LobbyServiceErrorCode.TargetNoActiveClient:
       throw asHttpError(409, err)
 
@@ -333,6 +342,7 @@ export class LobbyApi {
     await this.lobbyService.updateSettings({
       client,
       lobbyId: params.lobbyId,
+      name: body.name,
       map: body.map,
       gameType: body.gameType,
       gameSubType: body.gameSubType,
@@ -450,16 +460,70 @@ export class LobbyApi {
     this.lobbyService.removeObserver({ client, lobbyId: params.lobbyId, slotId: body.slotId })
   }
 
-  @httpPost('/:lobbyId/start-countdown')
+  @httpPost('/:lobbyId/ready')
   @httpBefore(...authedAction)
-  async startCountdown(ctx: RouterContext): Promise<void> {
+  async setReady(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<SetLobbyReadyRequest>({
+        clientId: clientIdSchema,
+        isReady: Joi.boolean().required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.setReady({ client, lobbyId: params.lobbyId, isReady: body.isReady })
+  }
+
+  @httpPost('/:lobbyId/swap-teams')
+  @httpBefore(...authedAction)
+  async swapTeams(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {
       params: lobbyIdParams,
       body: lobbyClientBody,
     })
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
-    this.lobbyService.startCountdown({ client, lobbyId: params.lobbyId })
+    this.lobbyService.swapTeams({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/shuffle')
+  @httpBefore(...authedAction)
+  async shuffleSlots(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.shuffleSlots({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/start-countdown')
+  @httpBefore(...authedAction)
+  async startCountdown(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<StartLobbyCountdownRequest>({
+        clientId: clientIdSchema,
+        force: Joi.boolean(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.startCountdown({ client, lobbyId: params.lobbyId, force: body.force })
+  }
+
+  @httpPost('/:lobbyId/cancel-countdown')
+  @httpBefore(...authedAction)
+  async cancelCountdown(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.cancelCountdown({ client, lobbyId: params.lobbyId })
   }
 
   @httpGet('/:lobbyId/state')

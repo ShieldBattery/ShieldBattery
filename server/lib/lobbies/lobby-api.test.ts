@@ -29,6 +29,7 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.InvalidSlotId]: { status: 400 },
   [LobbyServiceErrorCode.InvalidSlotOperation]: { status: 400 },
   [LobbyServiceErrorCode.InvalidSlotType]: { status: 400 },
+  [LobbyServiceErrorCode.InvalidTeamLayout]: { status: 409 },
   [LobbyServiceErrorCode.JoinAlreadyInActivity]: {
     status: 409,
     bodyCode: LobbyJoinErrorCode.AlreadyInActivity,
@@ -40,11 +41,14 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.LobbyFull]: { status: 409, bodyCode: LobbyJoinErrorCode.Full },
   [LobbyServiceErrorCode.NoActiveClient]: { status: 400 },
   [LobbyServiceErrorCode.NoLobby]: { status: 404, bodyCode: LobbyJoinErrorCode.NoLongerOpen },
+  [LobbyServiceErrorCode.NotCountingDown]: { status: 409 },
   [LobbyServiceErrorCode.NotEnoughSides]: { status: 400 },
+  [LobbyServiceErrorCode.NotEveryoneReady]: { status: 409 },
   [LobbyServiceErrorCode.NotHost]: { status: 403 },
   [LobbyServiceErrorCode.NotInLobby]: { status: 400 },
   [LobbyServiceErrorCode.NotObserverSlot]: { status: 400 },
   [LobbyServiceErrorCode.NotOwnSlot]: { status: 403 },
+  [LobbyServiceErrorCode.NotSeated]: { status: 400 },
   [LobbyServiceErrorCode.NotSlotController]: { status: 403 },
   [LobbyServiceErrorCode.ObserversFull]: {
     status: 409,

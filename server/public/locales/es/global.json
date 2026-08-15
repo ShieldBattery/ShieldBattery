@@ -968,8 +968,6 @@
       "title": "Lobbies"
     },
     "createLobby": {
-      "advancedSettings": "Ajustes avanzados",
-      "allowObservers": "Permitir observadores",
       "allowObserversWithMax": "Permitir observadores (hasta {{maxObservers}})",
       "errorDialogTitle": "Error al crear el lobby",
       "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
@@ -1013,6 +1011,9 @@
     "events": {
       "banned": "Has sido expulsado del lobby.",
       "kicked": "Te han echado del lobby."
+    },
+    "gameSetup": {
+      "title": "Configuración de la partida"
     },
     "hostGame": {
       "changeMap": "Cambiar mapa",
@@ -1063,45 +1064,112 @@
       "memberBody": "Unirte a {{target}} te sacará de {{current}}."
     },
     "lobby": {
-      "copiedInviteLink": "¡Copiado!",
-      "copyInviteLink": "Copiar enlace de invitación",
-      "gameType": "Tipo de juego",
-      "inGame": "En partida",
-      "leaveLobby": "Salir del lobby",
-      "startGame": "Empezar juego",
-      "unitLimit": "Límite de unidad",
-      "unitLimitExtended": "Extendido",
-      "unitLimitLegacy": "Legado",
-      "visibility": "Visibilidad",
-      "visibilityListed": "Público",
-      "visibilityUnlisted": "No listado"
+      "inGame": "En partida"
+    },
+    "lobbySettings": {
+      "errorDialogTitle": "Error al actualizar la configuración",
+      "errorGeneric": "No se pudo actualizar la configuración del lobby. Puede que los miembros actuales no quepan en la nueva disposición."
     },
     "messageLayout": {
-      "banPlayer": "<0><0></0></0> se prohibió del lobby",
-      "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada",
-      "countdownStarted": "La cuenta regresiva del juego ha comenzado",
-      "gameInitializationCanceled": "La inicialización del juego ha sido cancelada",
-      "gameInitializationCanceledMultiple": "La inicialización del juego ha sido cancelada porque los siguientes jugadores no pudieron cargar:<1></1>",
-      "gameInitializationCanceledSingle": "La inicialización del juego se ha cancelado porque <2><0></0></2> no pudo cargar.",
-      "hostChange": "<0><0></0></0> ahora es el anfitrión",
-      "joinLobby": "<0><0></0></0> se ha unido al lobby",
-      "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
-      "leaveLobby": "<0><0></0></0> ha salido del lobby",
-      "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
+      "gameStarted": "La partida ha empezado",
+      "settingsChangeGameSubType": "equipos",
+      "settingsChangeGameType": "tipo de partida",
+      "settingsChangeMap": "mapa",
+      "settingsChangeName": "nombre del lobby",
+      "settingsChangeObservers": "observadores",
+      "settingsChangeUnitLimit": "límite de unidades"
+    },
+    "moveSlot": {
+      "title": "Mover a…"
+    },
+    "room": {
+      "banner": {
+        "shuffle": "Mezclar",
+        "statMode": "Modo",
+        "statPeople": "Personas",
+        "statSize": "Tamaño",
+        "statTileset": "Tileset",
+        "swapTeams": "Intercambiar equipos"
+      },
+      "chat": {
+        "countdownCanceled": "Se canceló la cuenta regresiva",
+        "countdownStarted": "La partida está empezando",
+        "isNowHost": "<0></0> ahora es el anfitrión",
+        "joinedLobby": "<0></0> se unió al lobby",
+        "leftLobby": "<0></0> salió del lobby",
+        "loadFailedNoUsers": "La partida no pudo empezar",
+        "loadFailedPrefix": "La partida no pudo empezar: la carga de",
+        "loadFailedSuffix": "falló",
+        "memberBack": "<0></0> volvió al lobby",
+        "readyReset": "listos reiniciados",
+        "seatedOn": "ocupa {{seat}}",
+        "selfJoinLobby": "Te uniste a <2>{{lobby}}</2>. El anfitrión es <4></4>.",
+        "settingsChanged": "<0></0> cambió: {{settings}}",
+        "waitingForSeat": "<0></0> está esperando un asiento",
+        "wasBanned": "<0></0> fue baneado",
+        "wasKicked": "<0></0> fue expulsado",
+        "watching": "observando"
+      },
+      "header": {
+        "cancelReady": "No estoy listo",
+        "copiedInviteLink": "¡Copiado!",
+        "copyInviteLink": "Copiar enlace de invitación",
+        "leave": "Salir",
+        "readyUp": "Listo",
+        "visibilityPublic": "Público",
+        "visibilityUnlisted": "No listado"
+      },
+      "rail": {
+        "benchHeading": "Banquillo · {{benchCount}}",
+        "benchTooltip": "Se unieron con todo lleno — el primero de la fila ocupa el próximo asiento libre",
+        "holdToStartCaption": "Se activa cuando todos estén listos · mantén pulsado para empezar ya",
+        "readyCount": "{{readyCount}} de {{readyTotal}} listos",
+        "startGame": "Iniciar partida",
+        "startWhenReady": "Iniciar cuando estén listos",
+        "waitingForHost": "Esperando a que el anfitrión inicie"
+      },
+      "readyMark": {
+        "notReady": "Aún no está listo",
+        "ready": "Listo"
+      },
+      "scoreboard": {
+        "player": "Jugador",
+        "wins": "Victorias"
+      },
+      "series": {
+        "allGames": "Todas las partidas",
+        "earlierGames": "Partidas anteriores",
+        "fullSummary": "Resumen completo",
+        "gameNumber": "Partida {{number}}",
+        "gamesLabel": "Partidas",
+        "next": "Siguiente",
+        "noRecordedWinner": "Sin ganador registrado",
+        "standings": "Clasificación",
+        "starting": "Iniciando",
+        "tileNoWinner": "Sin ganador",
+        "tilePending": "Pendiente",
+        "unknownMap": "mapa desconocido",
+        "victoryTeam": "Victoria del Equipo {{number}}",
+        "waitingForResults": "Esperando resultados",
+        "watchReplay": "Ver replay"
+      },
+      "slotMenu": {
+        "ban": "Banear",
+        "kick": "Expulsar",
+        "makeObserver": "Hacer observador",
+        "moveIntoPlayerSlot": "Mover a un espacio de jugador",
+        "moveToAnotherSlot": "Mover a otro espacio",
+        "remove": "Quitar"
+      }
     },
     "slots": {
       "addComputer": "Agregar computadora",
       "banPlayer": "Banear {{user}}",
-      "banUnnamedPlayer": "Banear jugador",
       "closeSlot": "Cerrar ranura",
       "kickPlayer": "Expulsar {{user}}",
-      "kickUnnamedPlayer": "Expulsar jugador",
-      "makeObserver": "Hacer observador",
-      "makePlayer": "Hacer jugador",
       "name": "Cerrado",
       "open": "Abierto",
       "openSlot": "Ranura abierta",
-      "removeComputer": "Quitar computadora",
       "slotActions": "Acciones de tragamonedas"
     },
     "state": {

@@ -11,8 +11,10 @@ import {
   LobbyPreferencesResponse,
   LobbyPreviewJson,
   LobbyRaceChangeEvent,
+  LobbyReadyChangeEvent,
   LobbyRegroupEvent,
   LobbyRunStateJson,
+  LobbySeriesGameUpdatedEvent,
   LobbySettingsChangeEvent,
   LobbySlotChangeEvent,
   LobbySlotCreateEvent,
@@ -49,8 +51,10 @@ export type LobbyActions =
   | LobbyUpdateLoadingStart
   | LobbyUpdateLoadingCanceled
   | LobbyUpdateMemberGameEnded
+  | LobbyUpdateReadyChange
   | LobbyUpdateRegroup
   | LobbyUpdateRaceChange
+  | LobbyUpdateSeriesGameUpdated
   | LobbyUpdateSettingsChange
   | LobbyUpdateSlotChange
   | LobbyUpdateSlotCreate
@@ -202,12 +206,26 @@ export interface LobbyUpdateMemberGameEnded {
 }
 
 /**
+ * A member of a lobby we're in has marked themselves ready for its next game, or taken that back.
+ */
+export interface LobbyUpdateReadyChange {
+  type: '@lobbies/updateReadyChange'
+  payload: LobbyReadyChangeEvent
+}
+
+/**
  * The lobby we're in has finished its game for every member and is gathering again, with its seats
- * and races kept.
+ * and races kept. The finished game joins the lobby's series.
  */
 export interface LobbyUpdateRegroup {
   type: '@lobbies/updateRegroup'
   payload: LobbyRegroupEvent
+}
+
+/** The results of a game in our lobby's series have settled. */
+export interface LobbyUpdateSeriesGameUpdated {
+  type: '@lobbies/updateSeriesGameUpdated'
+  payload: LobbySeriesGameUpdatedEvent
 }
 
 /** A lobby we're in now has a new host player. */

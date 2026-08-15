@@ -85,6 +85,23 @@ export interface SendLobbyChatRequest extends LobbyClientRequest {
   text: string
 }
 
+/**
+ * The body of a request to mark the acting client's user as ready for the lobby's next game (or to
+ * take that back). Setting the value the user already holds is accepted and changes nothing.
+ */
+export interface SetLobbyReadyRequest extends LobbyClientRequest {
+  isReady: boolean
+}
+
+/** The body of a request by the host to start the lobby's game. */
+export interface StartLobbyCountdownRequest extends LobbyClientRequest {
+  /**
+   * When set, the countdown begins even though some of the lobby's seated members have not marked
+   * themselves ready. Without it, a lobby that isn't fully ready refuses to start.
+   */
+  force?: boolean
+}
+
 /** The body of a request that acts on a single slot of a lobby. */
 export interface LobbySlotRequest extends LobbyClientRequest {
   slotId: string
@@ -119,6 +136,52 @@ export interface LobbyRunStateJson {
   elapsedMs: number
 }
 
+/**
+ * One participant of a game a lobby played, as its members see it afterwards. Observers are not
+ * part of a game's sides, so they don't appear here.
+ */
+export type LobbySeriesPlayerJson =
+  { type: 'human'; userId: SbUserId; race: RaceChar } | { type: 'computer'; race: RaceChar }
+
+/** One side of a game a lobby played. `name` is absent in game types whose teams are unnamed. */
+export interface LobbySeriesTeamJson {
+  name?: string
+  players: LobbySeriesPlayerJson[]
+}
+
+/** How a game a lobby played turned out. */
+export interface LobbySeriesGameResultJson {
+  /**
+   * The index, into the game's own `teams`, of the team that won. Absent when no single team of the
+   * roster can be called the winner — a draw, a game whose winner was a computer, or one where
+   * everyone the lobby seated lost.
+   */
+  winningTeamIndex?: number
+  /** How long the game ran, in milliseconds. */
+  durationMs: number
+}
+
+/**
+ * A game a lobby has played this session. Lobbies persist across games, so a member sees the ones
+ * that came before the one they are gathering for now.
+ */
+export interface LobbySeriesGameJson {
+  gameId: string
+  mapId: SbMapId
+  /**
+   * Every side's roster and the race each of its players held, as they stood when the game
+   * launched. Seats, races, and team makeup all change between a lobby's games, so a finished game
+   * carries its own roster rather than pointing at the lobby's current one.
+   */
+  teams: LobbySeriesTeamJson[]
+  /**
+   * How the game turned out, once its results have been reconciled. A game's results are settled
+   * some time after it ends, and some games (those that report no results at all) never settle, so
+   * an entry without this is a game whose outcome the server does not know.
+   */
+  result?: LobbySeriesGameResultJson
+}
+
 export type LobbyEvent =
   | LobbyInitEvent
   | LobbyDiffEvent
@@ -140,6 +203,8 @@ export type LobbyEvent =
   | LobbyBenchRemoveEvent
   | LobbyMemberGameEndedEvent
   | LobbyRegroupEvent
+  | LobbySeriesGameUpdatedEvent
+  | LobbyReadyChangeEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -269,6 +334,10 @@ export interface LobbyInitEvent {
   runState?: LobbyRunStateJson
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
+  /** The members who have marked themselves ready for the lobby's next game. */
+  readyUsers: SbUserId[]
+  /** The games the lobby has played so far, oldest first. */
+  series: LobbySeriesGameJson[]
 }
 
 export interface LobbyDiffEvent {
@@ -343,11 +412,36 @@ export interface LobbyMemberGameEndedEvent {
 
 /**
  * The lobby's game is over for every member, and the lobby is gathering again with its seats and
- * races kept. Carries the finished game's id so clients can link its results.
+ * races kept. Carries the finished game as the lobby's series now records it — including who played
+ * it, which the lobby's current seats no longer describe once people move around.
+ *
+ * The game's outcome is not known yet at this point (results settle later, or never), so it arrives
+ * separately in a {@link LobbySeriesGameUpdatedEvent} if it arrives at all.
  */
 export interface LobbyRegroupEvent {
   type: 'regroup'
+  game: LobbySeriesGameJson
+}
+
+/** The results of a game in the lobby's series have settled. */
+export interface LobbySeriesGameUpdatedEvent {
+  type: 'seriesGameUpdated'
   gameId: string
+  result: LobbySeriesGameResultJson
+}
+
+/**
+ * One member marked themselves ready for the lobby's next game, or took that back.
+ *
+ * The lobby also drops everyone's ready mark at once, without an event of its own: it happens
+ * whenever the host changes a setting other than the lobby's name, and when a game starts (the
+ * launch is what the marks were for). Both of those are described by events of their own, so a
+ * client applies the same rule when it handles them.
+ */
+export interface LobbyReadyChangeEvent {
+  type: 'readyChange'
+  userId: SbUserId
+  isReady: boolean
 }
 
 export interface LobbyChatMessage {
@@ -376,6 +470,7 @@ export interface LobbyStatusEvent {
  */
 export interface UpdateLobbySettingsRequest {
   clientId: string
+  name?: string
   map?: SbMapId
   gameType?: GameType
   gameSubType?: number
@@ -385,7 +480,7 @@ export interface UpdateLobbySettingsRequest {
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
-  'map' | 'gameType' | 'gameSubType' | 'useLegacyLimits' | 'allowObservers'
+  'name' | 'map' | 'gameType' | 'gameSubType' | 'useLegacyLimits' | 'allowObservers'
 
 /**
  * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the

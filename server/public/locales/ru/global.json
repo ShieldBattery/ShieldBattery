@@ -976,8 +976,6 @@
       "title": "Лобби"
     },
     "createLobby": {
-      "advancedSettings": "Расширенные настройки",
-      "allowObservers": "Разрешить зрителей",
       "allowObserversWithMax": "Разрешить зрителей (до {{maxObservers}})",
       "errorDialogTitle": "Ошибка при создании лобби",
       "errorGeneric": "Что-то пошло не так при создании лобби. Пожалуйста, попробуйте ещё раз.",
@@ -1025,6 +1023,9 @@
     "events": {
       "banned": "Вы были заблокированы в лобби.",
       "kicked": "Вас кикнули из лобби."
+    },
+    "gameSetup": {
+      "title": "Настройки игры"
     },
     "hostGame": {
       "changeMap": "Сменить карту",
@@ -1077,45 +1078,112 @@
       "memberBody": "Присоединившись к лобби «{{target}}», вы выйдете из «{{current}}»."
     },
     "lobby": {
-      "copiedInviteLink": "Скопировано!",
-      "copyInviteLink": "Копировать ссылку-приглашение",
-      "gameType": "Тип игры",
-      "inGame": "В игре",
-      "leaveLobby": "Выйти из лобби",
-      "startGame": "Начать игру",
-      "unitLimit": "Лимит единиц",
-      "unitLimitExtended": "Расширенный",
-      "unitLimitLegacy": "Классический",
-      "visibility": "Видимость",
-      "visibilityListed": "Публичное",
-      "visibilityUnlisted": "Доступ по ссылке"
+      "inGame": "В игре"
+    },
+    "lobbySettings": {
+      "errorDialogTitle": "Ошибка обновления настроек",
+      "errorGeneric": "Не удалось обновить настройки лобби. Возможно, текущие участники не помещаются в новую конфигурацию."
     },
     "messageLayout": {
-      "banPlayer": "<0><0></0></0> забанен в лобби",
-      "countdownCanceled": "Обратный отсчет игры был отменен",
-      "countdownStarted": "Отсчет игры начался",
-      "gameInitializationCanceled": "Инициализация игры отменена",
-      "gameInitializationCanceledMultiple": "Инициализация игры была отменена, потому что следующие игроки не загрузились:<1></1>",
-      "gameInitializationCanceledSingle": "Инициализация игры была отменена, потому что <2><0></0></2> не загрузился.",
-      "hostChange": "<0><0></0></0> теперь является хостом",
-      "joinLobby": "<0><0></0></0> присоединился к лобби",
-      "kickPlayer": "<0><0></0></0> был кикнут из лобби",
-      "leaveLobby": "<0><0></0></0> покинул лобби",
-      "selfJoin": "Вы присоединились к <1>{{lobby}}</1>. Хост <4><0></0></4>."
+      "gameStarted": "Игра началась",
+      "settingsChangeGameSubType": "команды",
+      "settingsChangeGameType": "тип игры",
+      "settingsChangeMap": "карта",
+      "settingsChangeName": "название лобби",
+      "settingsChangeObservers": "зрители",
+      "settingsChangeUnitLimit": "лимит юнитов"
+    },
+    "moveSlot": {
+      "title": "Переместить в…"
+    },
+    "room": {
+      "banner": {
+        "shuffle": "Перемешать",
+        "statMode": "Режим",
+        "statPeople": "Люди",
+        "statSize": "Размер",
+        "statTileset": "Тайлсет",
+        "swapTeams": "Поменять команды местами"
+      },
+      "chat": {
+        "countdownCanceled": "Обратный отсчёт отменён",
+        "countdownStarted": "Игра начинается",
+        "isNowHost": "<0></0> теперь хост",
+        "joinedLobby": "<0></0> заходит в лобби",
+        "leftLobby": "<0></0> покидает лобби",
+        "loadFailedNoUsers": "Игра не смогла начаться",
+        "loadFailedPrefix": "Игра не началась: загрузка у",
+        "loadFailedSuffix": "не удалась",
+        "memberBack": "<0></0> возвращается в лобби",
+        "readyReset": "готовность сброшена",
+        "seatedOn": "занимает {{seat}}",
+        "selfJoinLobby": "Вы вошли в <2>{{lobby}}</2>. Хост — <4></4>.",
+        "settingsChanged": "<0></0> меняет настройки: {{settings}}",
+        "waitingForSeat": "<0></0> ждёт свободное место",
+        "wasBanned": "<0></0> получает бан",
+        "wasKicked": "<0></0> получает кик",
+        "watching": "наблюдает"
+      },
+      "header": {
+        "cancelReady": "Отменить готовность",
+        "copiedInviteLink": "Скопировано!",
+        "copyInviteLink": "Скопировать ссылку-приглашение",
+        "leave": "Выйти",
+        "readyUp": "Готов",
+        "visibilityPublic": "Публичное",
+        "visibilityUnlisted": "Скрытое"
+      },
+      "rail": {
+        "benchHeading": "Скамейка · {{benchCount}}",
+        "benchTooltip": "Зашли, когда все места были заняты — первый в очереди займёт следующее свободное",
+        "holdToStartCaption": "Включится, когда все будут готовы · удерживайте, чтобы начать сейчас",
+        "readyCount": "Готовы {{readyCount}} из {{readyTotal}}",
+        "startGame": "Начать игру",
+        "startWhenReady": "Начать, когда все готовы",
+        "waitingForHost": "Ожидание, пока хост начнёт игру"
+      },
+      "readyMark": {
+        "notReady": "Ещё не готов",
+        "ready": "Готов"
+      },
+      "scoreboard": {
+        "player": "Игрок",
+        "wins": "Победы"
+      },
+      "series": {
+        "allGames": "Все игры",
+        "earlierGames": "Предыдущие игры",
+        "fullSummary": "Полная сводка",
+        "gameNumber": "Игра {{number}}",
+        "gamesLabel": "Игры",
+        "next": "Следующая",
+        "noRecordedWinner": "Победитель не записан",
+        "standings": "Счёт",
+        "starting": "Запуск",
+        "tileNoWinner": "Без победителя",
+        "tilePending": "Ожидание",
+        "unknownMap": "неизвестная карта",
+        "victoryTeam": "Победа команды {{number}}",
+        "waitingForResults": "Ожидание результатов",
+        "watchReplay": "Смотреть реплей"
+      },
+      "slotMenu": {
+        "ban": "Забанить",
+        "kick": "Кикнуть",
+        "makeObserver": "Сделать зрителем",
+        "moveIntoPlayerSlot": "Переместить в слот игрока",
+        "moveToAnotherSlot": "Переместить в другой слот",
+        "remove": "Убрать"
+      }
     },
     "slots": {
       "addComputer": "Добавить компьютер",
       "banPlayer": "Забанить {{user}}",
-      "banUnnamedPlayer": "Забанить игрока",
       "closeSlot": "Закрыть слот",
       "kickPlayer": "Кик {{user}}",
-      "kickUnnamedPlayer": "Выгнать игрока",
-      "makeObserver": "Сделать наблюдателем",
-      "makePlayer": "Сделать игроком",
       "name": "Закрыто",
       "open": "Открыто",
       "openSlot": "Открытый слот",
-      "removeComputer": "Удалить компьютер",
       "slotActions": "Действия со слотом"
     },
     "state": {

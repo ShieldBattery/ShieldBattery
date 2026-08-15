@@ -10,7 +10,9 @@ import {
   MAX_OBSERVERS,
   SlotWithIndexes,
   Team,
+  findSlotById,
   getLobbySlots,
+  getLobbySlotsWithIndexes,
   getObserverTeam,
   hasObservers,
   isLobbyEmpty,
@@ -779,6 +781,89 @@ export function swapSlots(
   }
 
   return reassignHost(updated)
+}
+
+/**
+ * Exchanges the entire contents of two teams: the slot at each position of the first team ends up
+ * at the same position of the second, and vice versa. Everything a slot carries — its occupant,
+ * their race, and whether it is open or closed — travels with it, so the two sides trade places
+ * whole. The teams themselves keep their names and team ids, which is what makes this a change of
+ * sides rather than a rename.
+ *
+ * Both teams must hold the same number of slots for their positions to correspond.
+ */
+export function swapTeams(lobby: Lobby, firstTeamIndex: number, secondTeamIndex: number): Lobby {
+  const first = [...lobby.teams[firstTeamIndex].slots]
+  const second = [...lobby.teams[secondTeamIndex].slots]
+  if (first.length !== second.length) {
+    throw new Error('trying to swap teams that hold different numbers of slots')
+  }
+
+  return produce(lobby, draft => {
+    draft.teams[firstTeamIndex].slots = second
+    draft.teams[secondTeamIndex].slots = first
+  })
+}
+
+/** Where a slot sits in a lobby's layout. */
+export type SlotPosition = [teamIndex: number, slotIndex: number]
+
+/**
+ * Returns every position of a lobby's player teams that takes part in a rearrangement: the slots
+ * someone occupies, and the ones anybody could be placed into. Closed slots and the computers a UMS
+ * map places itself can neither move nor receive an occupant, and the observer team is not a player
+ * team, so none of those are included.
+ */
+export function getPlayerSlotPositions(lobby: Lobby): SlotPosition[] {
+  return getLobbySlotsWithIndexes(lobby)
+    .filter(
+      ([teamIndex, , slot]) =>
+        !lobby.teams[teamIndex].isObserver &&
+        (isSlotOccupied(slot) ||
+          slot.type === SlotType.Open ||
+          slot.type === SlotType.ControlledOpen),
+    )
+    .map(([teamIndex, slotIndex]): SlotPosition => [teamIndex, slotIndex])
+}
+
+/**
+ * Redistributes the occupants of a lobby's player teams over `positions`: the occupant sitting
+ * earliest in the layout ends up at the first position, the next one at the second, and so on, with
+ * any positions left over ending up unoccupied. `positions` must be exactly the lobby's
+ * {@link getPlayerSlotPositions}, in whatever order they should be filled.
+ *
+ * Each occupant is placed with the same machinery a host-directed move or swap uses, so a game
+ * type whose teams are built around the people in them (team melee/ffa) hands over its controlled
+ * slots as the occupants come and go, and a UMS lobby's occupants take on the map data of the slot
+ * they land in.
+ */
+export function arrangeOccupants(lobby: Lobby, positions: ReadonlyArray<SlotPosition>): Lobby {
+  // Occupants are tracked by slot id rather than by position: placing one moves the occupants
+  // around it, and in team melee/ffa can rebuild the slots of an emptied or filled team, but an
+  // occupant's own slot keeps its id wherever it goes.
+  const occupantIds = getPlayerSlotPositions(lobby)
+    .map(([teamIndex, slotIndex]) => lobby.teams[teamIndex].slots[slotIndex])
+    .filter(isSlotOccupied)
+    .map(slot => slot.id)
+
+  let updated = lobby
+  occupantIds.forEach((occupantId, i) => {
+    const [destTeamIndex, destSlotIndex] = positions[i]
+    const [sourceTeamIndex, sourceSlotIndex] = findSlotById(updated, occupantId)
+    if (sourceTeamIndex === undefined) {
+      throw new Error('an occupant being arranged is no longer in the lobby')
+    }
+    if (sourceTeamIndex === destTeamIndex && sourceSlotIndex === destSlotIndex) {
+      return
+    }
+
+    const destSlot = updated.teams[destTeamIndex].slots[destSlotIndex]
+    updated = isSlotUnoccupied(destSlot)
+      ? movePlayerToSlot(updated, sourceTeamIndex, sourceSlotIndex!, destTeamIndex, destSlotIndex)
+      : swapSlots(updated, sourceTeamIndex, sourceSlotIndex!, destTeamIndex, destSlotIndex)
+  })
+
+  return updated
 }
 
 /**

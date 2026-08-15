@@ -5,7 +5,7 @@ import { JoinPreviewTest } from './join-preview-test'
 import { LobbyBrowserTest } from './lobby-browser-test'
 import { LobbyInviteCardTest } from './lobby-invite-card-test'
 import { LobbyLandingTest } from './lobby-landing-test'
-import LobbyTest from './lobby-test'
+import { LobbyRoomTest } from './lobby-room-test'
 import RacePickerTest from './race-picker-test'
 
 const BASE_URL = '/dev/lobbies'
@@ -18,10 +18,10 @@ class DevLobbiesDashboard extends Component {
           <Link href={`${BASE_URL}/browser`}>Lobby browser (redesign)</Link>
         </li>
         <li>
-          <Link href={`${BASE_URL}/host-game`}>Host a game (redesign)</Link>
+          <Link href={`${BASE_URL}/room`}>Lobby room (redesign)</Link>
         </li>
         <li>
-          <Link href={`${BASE_URL}/lobby`}>Lobby component</Link>
+          <Link href={`${BASE_URL}/host-game`}>Host a game (redesign)</Link>
         </li>
         <li>
           <Link href={`${BASE_URL}/race-picker`}>Race picker component</Link>
@@ -44,8 +44,8 @@ export default () => {
   return (
     <Switch>
       <Route path={`${BASE_URL}/browser`} component={LobbyBrowserTest} />
+      <Route path={`${BASE_URL}/room`} component={LobbyRoomTest} />
       <Route path={`${BASE_URL}/host-game`} component={HostGameTest} />
-      <Route path={`${BASE_URL}/lobby`} component={LobbyTest} />
       <Route path={`${BASE_URL}/race-picker`} component={RacePickerTest} />
       <Route path={`${BASE_URL}/lobby-landing`} component={LobbyLandingTest} />
       <Route path={`${BASE_URL}/join-preview`} component={JoinPreviewTest} />

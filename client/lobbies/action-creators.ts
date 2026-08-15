@@ -15,6 +15,8 @@ import {
   MoveSlotRequest,
   SendLobbyChatRequest,
   SetLobbyRaceRequest,
+  SetLobbyReadyRequest,
+  StartLobbyCountdownRequest,
   UpdateLobbyPreferencesRequest,
   UpdateLobbySettingsRequest,
 } from '../../common/lobbies/lobby-network'
@@ -215,6 +217,36 @@ export function removeObserver(slotId: string): ThunkAction {
   return currentLobbySlotRequest('removing an observer', 'remove-observer', slotId)
 }
 
+/** Marks the current user as ready for the lobby's next game, or takes that back. */
+export function setReady(isReady: boolean): ThunkAction {
+  return currentLobbyRequest('setting a ready state', lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/ready`, {
+      method: 'POST',
+      body: encodeBodyAsParams<SetLobbyReadyRequest>({ clientId, isReady }),
+    }),
+  )
+}
+
+/** Exchanges the occupants of the lobby's two player teams. */
+export function swapTeams(): ThunkAction {
+  return currentLobbyRequest('swapping teams', lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/swap-teams`, {
+      method: 'POST',
+      body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+    }),
+  )
+}
+
+/** Redistributes the lobby's players randomly among its player slots. */
+export function shuffleSlots(): ThunkAction {
+  return currentLobbyRequest('shuffling slots', lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/shuffle`, {
+      method: 'POST',
+      body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+    }),
+  )
+}
+
 /**
  * Updates the settings of the lobby the user is currently hosting. `settings` should contain only
  * the fields the caller wants changed (e.g. the diff between a settings form and the lobby's
@@ -261,9 +293,23 @@ export function leaveLobby(): ThunkAction {
   )
 }
 
-export function startCountdown(): ThunkAction {
+/**
+ * Starts the countdown into the lobby's next game. Without `force`, a lobby whose seated members
+ * haven't all marked themselves ready refuses to start.
+ */
+export function startCountdown(force?: boolean): ThunkAction {
   return currentLobbyRequest('starting a lobby countdown', lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/start-countdown`, {
+      method: 'POST',
+      body: encodeBodyAsParams<StartLobbyCountdownRequest>({ clientId, force }),
+    }),
+  )
+}
+
+/** Calls off a countdown that's already running. */
+export function cancelCountdown(): ThunkAction {
+  return currentLobbyRequest('canceling a lobby countdown', lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/cancel-countdown`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
     }),

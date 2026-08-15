@@ -2,9 +2,10 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
-import { LobbyRunStateJson } from '../../common/lobbies/lobby-network'
+import { LobbyRunStateJson, LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ReduxAction } from '../action-types'
 import { CommonMessageType, SbMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -65,6 +66,10 @@ export interface CurrentLobbyState {
   loadingState: LobbyLoadingState
   /** The lobby's chat log. */
   chat: SbMessage[]
+  /** The members who have marked themselves ready for the lobby's next game. */
+  readyUserIds: SbUserId[]
+  /** The games the lobby has played so far, oldest first. */
+  series: LobbySeriesGameJson[]
   activated: boolean
   hasUnread: boolean
 }
@@ -74,6 +79,8 @@ const DEFAULT_STATE: CurrentLobbyState = {
   runState: undefined,
   loadingState: EMPTY_LOADING_STATE,
   chat: [],
+  readyUserIds: [],
+  series: [],
   activated: false,
   hasUnread: false,
 }
@@ -101,6 +108,34 @@ function pushChat(draft: LobbyDraft, ...messages: SbMessage[]): void {
     draft.chat.shift()
   }
   draft.hasUnread ||= !draft.activated
+}
+
+/**
+ * Drops everything that described the lobby we were in, for the handlers that mean we're out of it.
+ */
+function clearLobby(draft: LobbyDraft): void {
+  draft.info = castDraft(EMPTY_LOBBY)
+  draft.runState = undefined
+  draft.loadingState = EMPTY_LOADING_STATE
+  draft.readyUserIds = []
+  draft.series = []
+}
+
+/**
+ * Drops every ready mark the lobby holds.
+ *
+ * The server clears them all at once in a few situations without an event of its own for it, so the
+ * handlers for the events that describe those situations apply the same rule here. Being ready is
+ * about a specific game under a specific set of settings, so anything that changes what the lobby is
+ * about to play (or plays it) spends the marks it collected.
+ */
+function clearReady(draft: LobbyDraft): void {
+  draft.readyUserIds = []
+}
+
+/** Drops one member's ready mark, for the handlers that mean they're out of the lobby. */
+function forgetReady(draft: LobbyDraft, userId: SbUserId): void {
+  draft.readyUserIds = draft.readyUserIds.filter(id => id !== userId)
 }
 
 /**
@@ -178,6 +213,8 @@ const lobbyHandlers = {
         }
       : undefined
     draft.loadingState = EMPTY_LOADING_STATE
+    draft.readyUserIds = action.payload.readyUsers.slice()
+    draft.series = castDraft(action.payload.series.slice())
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.SelfJoinLobby,
@@ -230,11 +267,17 @@ const lobbyHandlers = {
     }
 
     draft.info = castDraft(action.payload.lobby)
+    // A rename leaves the game the lobby is about to play exactly as it was, so it's the one change
+    // people don't have to answer for again.
+    if (action.payload.changedSettings.some(setting => setting !== 'name')) {
+      clearReady(draft)
+    }
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbySettingsChange,
       time: Date.now(),
       changedSettings: action.payload.changedSettings,
+      changedBy: draft.info.host.userId!,
     })
   },
 
@@ -284,21 +327,15 @@ const lobbyHandlers = {
   },
 
   '@lobbies/updateLeaveSelf'(draft) {
-    draft.info = castDraft(EMPTY_LOBBY)
-    draft.runState = undefined
-    draft.loadingState = EMPTY_LOADING_STATE
+    clearLobby(draft)
   },
 
   '@lobbies/updateKickSelf'(draft) {
-    draft.info = castDraft(EMPTY_LOBBY)
-    draft.runState = undefined
-    draft.loadingState = EMPTY_LOADING_STATE
+    clearLobby(draft)
   },
 
   '@lobbies/updateBanSelf'(draft) {
-    draft.info = castDraft(EMPTY_LOBBY)
-    draft.runState = undefined
-    draft.loadingState = EMPTY_LOADING_STATE
+    clearLobby(draft)
   },
 
   '@lobbies/updateHostChange'(draft, action) {
@@ -330,6 +367,8 @@ const lobbyHandlers = {
       startedAt: performance.now() - action.payload.runState.elapsedMs,
     }
     draft.loadingState = EMPTY_LOADING_STATE
+    // The game the members were ready for is the one that just launched, so their marks are spent.
+    clearReady(draft)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyGameStarted,
@@ -359,18 +398,45 @@ const lobbyHandlers = {
     }
 
     draft.runState = undefined
+    draft.series.push(castDraft(action.payload.game))
+    // A lobby coming out of a game gathers for the next one with nobody ready yet.
+    clearReady(draft)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyRegroup,
       time: Date.now(),
-      gameId: action.payload.gameId,
+      gameId: action.payload.game.gameId,
     })
   },
 
+  '@lobbies/updateSeriesGameUpdated'(draft, action) {
+    const game = draft.series.find(g => g.gameId === action.payload.gameId)
+    if (!game) {
+      // Results settle well after a game ends, so one can arrive for a game this client never saw
+      // (it played out before we joined, or our series was reset by leaving).
+      return
+    }
+
+    game.result = action.payload.result
+  },
+
+  '@lobbies/updateReadyChange'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    const { userId, isReady } = action.payload
+    if (isReady) {
+      if (!draft.readyUserIds.includes(userId)) {
+        draft.readyUserIds.push(userId)
+      }
+    } else {
+      draft.readyUserIds = draft.readyUserIds.filter(id => id !== userId)
+    }
+  },
+
   '@network/connect'(draft) {
-    draft.info = castDraft(EMPTY_LOBBY)
-    draft.runState = undefined
-    draft.loadingState = EMPTY_LOADING_STATE
+    clearLobby(draft)
   },
 
   '@lobbies/updateChatMessage'(draft, action) {
@@ -393,6 +459,7 @@ const lobbyHandlers = {
       return
     }
 
+    forgetReady(draft, action.payload.player.userId!)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LeaveLobby,
@@ -406,6 +473,7 @@ const lobbyHandlers = {
       return
     }
 
+    forgetReady(draft, action.payload.player.userId!)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.KickLobbyPlayer,
@@ -419,6 +487,7 @@ const lobbyHandlers = {
       return
     }
 
+    forgetReady(draft, action.payload.player.userId!)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.BanLobbyPlayer,

@@ -67,9 +67,6 @@ const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
 const LobbyMoveSlotDialog = React.lazy(async () => ({
   default: (await import('../lobbies/lobby-move-slot-dialog')).LobbyMoveSlotDialog,
 }))
-const LobbySettingsDialog = React.lazy(async () => ({
-  default: (await import('../lobbies/lobby-settings-dialog')).LobbySettingsDialog,
-}))
 const MapDetailsDialog = React.lazy(() => import('../maps/map-details'))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
@@ -209,8 +206,6 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndCreateDialog }
     case DialogType.LobbyLeaveAndJoin:
       return { component: LobbyLeaveAndJoinDialog }
-    case DialogType.LobbySettings:
-      return { component: LobbySettingsDialog }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog }
     case DialogType.MapDownload:

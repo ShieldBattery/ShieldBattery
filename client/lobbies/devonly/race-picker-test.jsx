@@ -2,7 +2,6 @@ import { Component } from 'react'
 import styled from 'styled-components'
 import { Card } from '../../material/card'
 import { RacePicker } from '../race-picker'
-import { SelectedRace } from '../selected-race'
 
 const Container = styled.div`
   display: flex;
@@ -32,7 +31,6 @@ export default class RacePickerTest extends Component {
         <StyledCard>
           <h3>Choose a race</h3>
           <RacePicker race={this.state.race} onSetRace={race => this.setState({ race })} />
-          <SelectedRace race={this.state.race} />
         </StyledCard>
       </Container>
     )

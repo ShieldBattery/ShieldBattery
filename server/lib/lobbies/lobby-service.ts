@@ -5,6 +5,7 @@ import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isTeamType } from '../../../common/games/game-type'
+import { ReconciledPlayerResult } from '../../../common/games/results'
 import {
   BenchedUser,
   findBenchedUser,
@@ -28,9 +29,14 @@ import {
 import {
   LobbyBenchRemoveEvent,
   LobbyChangedSetting,
+  LobbyInitEvent,
   LobbyLifecycle,
   LobbyPreviewJson,
   LobbyRunStateJson,
+  LobbySeriesGameJson,
+  LobbySeriesGameResultJson,
+  LobbySeriesPlayerJson,
+  LobbySeriesTeamJson,
   LobbySlotCreateEvent,
   LobbySummaryJson,
 } from '../../../common/lobbies/lobby-network'
@@ -39,6 +45,7 @@ import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
+import { multipleRandomItems } from '../../../common/random'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -47,6 +54,7 @@ import { CodedError } from '../errors/coded-error'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
+import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
@@ -92,16 +100,20 @@ export enum LobbyServiceErrorCode {
   InvalidSlotId = 'InvalidSlotId',
   InvalidSlotOperation = 'InvalidSlotOperation',
   InvalidSlotType = 'InvalidSlotType',
+  InvalidTeamLayout = 'InvalidTeamLayout',
   JoinAlreadyInActivity = 'JoinAlreadyInActivity',
   JoinAlreadyStarted = 'JoinAlreadyStarted',
   LobbyFull = 'LobbyFull',
   NoActiveClient = 'NoActiveClient',
   NoLobby = 'NoLobby',
+  NotCountingDown = 'NotCountingDown',
   NotEnoughSides = 'NotEnoughSides',
+  NotEveryoneReady = 'NotEveryoneReady',
   NotHost = 'NotHost',
   NotInLobby = 'NotInLobby',
   NotObserverSlot = 'NotObserverSlot',
   NotOwnSlot = 'NotOwnSlot',
+  NotSeated = 'NotSeated',
   NotSlotController = 'NotSlotController',
   ObserversFull = 'ObserversFull',
   TargetNoActiveClient = 'TargetNoActiveClient',
@@ -183,6 +195,14 @@ interface LobbyRunState {
   inGameUsers: Set<SbUserId>
   /** When the game started, for the stuck-game backstop's deadline. */
   startedAt: number
+  /** The map the game is being played on. */
+  mapId: SbMapId
+  /**
+   * Who is playing the game, captured as the lobby stood when it launched. The lobby keeps
+   * rearranging itself while the game runs (and afterwards), so the roster has to be taken at the
+   * moment it is still true.
+   */
+  teams: LobbySeriesTeamJson[]
 }
 
 /**
@@ -197,6 +217,64 @@ const MAX_IN_GAME_MS = 8 * 60 * 60 * 1000
 /** Returns the user ids of everyone in a lobby, seated or waiting on the bench. */
 function getLobbyMemberIds(lobby: Lobby): SbUserId[] {
   return [...getHumanSlots(lobby).map(slot => slot.userId!), ...lobby.bench.map(b => b.userId)]
+}
+
+/**
+ * Captures the sides of the game a lobby is launching: each player team that has someone in it,
+ * with everyone occupying one of its seats and the race they hold.
+ *
+ * The observer team is left out — observers are on nobody's side — as are teams nobody is in and
+ * seats nobody occupies, so what remains is exactly the game's participants.
+ */
+function toSeriesTeams(lobby: Lobby): LobbySeriesTeamJson[] {
+  const teams: LobbySeriesTeamJson[] = []
+  for (const team of lobby.teams) {
+    if (team.isObserver) {
+      continue
+    }
+
+    const players: LobbySeriesPlayerJson[] = []
+    for (const slot of team.slots) {
+      if (slot.type === SlotType.Human) {
+        players.push({ type: 'human', userId: slot.userId!, race: slot.race })
+      } else if (slot.type === SlotType.Computer || slot.type === SlotType.UmsComputer) {
+        players.push({ type: 'computer', race: slot.race })
+      }
+    }
+
+    if (players.length) {
+      // Game types whose teams aren't named carry an empty name, which is nothing to show
+      teams.push({ ...(team.name ? { name: team.name } : {}), players })
+    }
+  }
+  return teams
+}
+
+/**
+ * Returns which of a game's sides won, going by the people the lobby seated on each of them.
+ *
+ * Only a single winning side counts as an answer: a game nobody won (a draw, or one every seated
+ * human lost — the winner may have been a computer, which reports no result of its own), and the
+ * contradiction of winners on two different sides, both leave the winner unknown.
+ */
+function findWinningTeamIndex(
+  teams: ReadonlyArray<LobbySeriesTeamJson>,
+  results: ReadonlyArray<[SbUserId, ReconciledPlayerResult]>,
+): number | undefined {
+  const winners = new Set(
+    results.filter(([, result]) => result.result === 'win').map(([userId]) => userId),
+  )
+  if (!winners.size) {
+    return undefined
+  }
+
+  const winningTeams: number[] = []
+  teams.forEach((team, teamIndex) => {
+    if (team.players.some(player => player.type === 'human' && winners.has(player.userId))) {
+      winningTeams.push(teamIndex)
+    }
+  })
+  return winningTeams.length === 1 ? winningTeams[0] : undefined
 }
 
 /**
@@ -237,6 +315,19 @@ export class LobbyService {
   readonly lobbyCountdowns = new Map<SbLobbyId, Countdown>()
   readonly loadingLobbies = new Map<SbLobbyId, AbortController>()
   readonly runStates = new Map<SbLobbyId, LobbyRunState>()
+  /**
+   * The members of each lobby who have marked themselves ready for its next game. Only people
+   * holding a slot are ever in here, and a lobby's set lives exactly as long as the lobby does.
+   */
+  readonly readyUsers = new Map<SbLobbyId, Set<SbUserId>>()
+  /** The games each lobby has played this session, oldest first. */
+  readonly series = new Map<SbLobbyId, LobbySeriesGameJson[]>()
+  /**
+   * The lobby waiting on each game's results, so a reconciliation that lands long after the game
+   * ended can be routed back to the series entry it completes. An entry lives from the game's start
+   * until its result is known (or its lobby closes).
+   */
+  readonly seriesGameLobbies = new Map<string, SbLobbyId>()
   readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
 
   constructor(
@@ -280,6 +371,15 @@ export class LobbyService {
       } catch (err) {
         logger.error({ err }, "error handling the end of a lobby's game")
       }
+    })
+    this.gameLifecycleEvents.on('gameReconciled', ({ gameId }) => {
+      const lobbyId = this.seriesGameLobbies.get(gameId)
+      if (lobbyId === undefined) {
+        return
+      }
+      this._resolveSeriesGame(lobbyId, gameId).catch(err => {
+        logger.error({ err }, "error recording the result of a lobby's game")
+      })
     })
 
     setInterval(() => {
@@ -332,6 +432,16 @@ export class LobbyService {
    */
   private _toSummaryJson(lobby: Lobby): LobbySummaryJson {
     return Lobbies.toSummaryJson(lobby, this._lifecycleOf(lobby.id), this._elapsedMsOf(lobby.id))
+  }
+
+  /** Serializes a lobby's ready members for the wire. */
+  private _readyUsersJson(lobbyId: SbLobbyId): SbUserId[] {
+    return [...(this.readyUsers.get(lobbyId) ?? [])]
+  }
+
+  /** Serializes the games a lobby has played for the wire, oldest first. */
+  private _seriesJson(lobbyId: SbLobbyId): LobbySeriesGameJson[] {
+    return [...(this.series.get(lobbyId) ?? [])]
   }
 
   /** Serializes a lobby's running game for the wire, or `undefined` if it has none. */
@@ -656,7 +766,7 @@ export class LobbyService {
 
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
     const lobbyId = lobby.id
-    client.subscribe(
+    client.subscribe<LobbyInitEvent>(
       getLobbyPath(lobbyId),
       async () => {
         const lobby = this.lobbies.get(lobbyId)
@@ -672,6 +782,8 @@ export class LobbyService {
             lobby,
             runState: this._runStateJson(lobbyId),
             userInfos,
+            readyUsers: this._readyUsersJson(lobbyId),
+            series: this._seriesJson(lobbyId),
           }
         } catch (err) {
           logger.error({ err }, 'error getting user infos for lobby init')
@@ -682,6 +794,8 @@ export class LobbyService {
             // Generally this should be okay (the client can batch retrieve the user info later),
             // just higher latency
             userInfos: [],
+            readyUsers: this._readyUsersJson(lobbyId),
+            series: this._seriesJson(lobbyId),
           }
         }
       },
@@ -741,16 +855,65 @@ export class LobbyService {
   }
 
   /**
+   * Marks a member as ready for the lobby's next game, or takes that back.
+   *
+   * Everyone holding a slot can ready up, players and observers alike, the host included. Members
+   * waiting on the bench take no part in the next game, so they have nothing to be ready for.
+   * Setting the value a member already holds is accepted and announces nothing.
+   */
+  setReady({
+    client,
+    lobbyId,
+    isReady,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    isReady: boolean
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    // Ready marks describe the next game, so they can only be set while there is one to gather for:
+    // once the lobby is on its way into a game, or running one, the marks are no longer the
+    // members' to change.
+    this.ensureLobbyNotTransient(lobby)
+
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    if (!player) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.NotSeated,
+        'must hold a slot in the lobby to ready up',
+      )
+    }
+
+    let ready = this.readyUsers.get(lobby.id)
+    if (isReady) {
+      if (ready?.has(client.userId)) {
+        return
+      }
+      if (!ready) {
+        ready = new Set()
+        this.readyUsers.set(lobby.id, ready)
+      }
+      ready.add(client.userId)
+    } else if (!ready?.delete(client.userId)) {
+      return
+    }
+
+    this._publishTo(lobby, { type: 'readyChange', userId: client.userId, isReady })
+  }
+
+  /**
    * Changes the settings of a lobby that is still gathering, reconciling everyone in it into the
    * layout the new settings describe.
    *
    * Settings that aren't named are left as they are. Since reconciliation can rearrange the whole
    * lobby, the occupants receive the result as a complete lobby rather than as a set of changes,
-   * alongside the list of settings the host actually changed.
+   * alongside the list of settings the host actually changed. Renaming the lobby is the one setting
+   * that never reconciles slots: it applies as a plain field update, leaving every seat untouched.
    */
   async updateSettings({
     client,
     lobbyId,
+    name,
     map,
     gameType,
     gameSubType,
@@ -759,6 +922,7 @@ export class LobbyService {
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
+    name?: string
     map?: SbMapId
     gameType?: GameType
     gameSubType?: number
@@ -786,6 +950,7 @@ export class LobbyService {
     this.ensureIsLobbyHost(current, currentPlayer)
     this.ensureLobbyNotTransient(current)
 
+    const nextName = name ?? current.name
     const mapInfo = fetchedMap ?? current.map!
     const nextGameType = gameType ?? current.gameType
     // Only team game types are configured by a sub-type, so carrying one over from a type that had
@@ -818,6 +983,7 @@ export class LobbyService {
     checkSubTypeValidity(nextGameType, nextGameSubType, mapInfo.mapData.slots)
 
     const changedSettings: LobbyChangedSetting[] = []
+    if (nextName !== current.name) changedSettings.push('name')
     if (mapInfo.id !== current.map!.id) changedSettings.push('map')
     if (nextGameType !== current.gameType) changedSettings.push('gameType')
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
@@ -829,24 +995,39 @@ export class LobbyService {
       return
     }
 
-    let updated
-    try {
-      updated = Lobbies.applySettingsChange(current, {
-        map: mapInfo,
-        gameType: nextGameType,
-        gameSubType: nextGameSubType,
-        numSlots,
-        allowObservers: nextAllowObservers,
-        useLegacyLimits: nextUseLegacyLimits,
-      })
-    } catch (err) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.InvalidSlotOperation,
-        (err as any).message,
-        { cause: err },
-      )
+    // The name carries no slot layout of its own, so a rename alone must leave every seat exactly
+    // as it was -- reconciliation only runs when some other setting is also changing.
+    const needsReconciliation = changedSettings.some(setting => setting !== 'name')
+
+    let updated: Lobby = current
+    if (needsReconciliation) {
+      try {
+        updated = Lobbies.applySettingsChange(current, {
+          map: mapInfo,
+          gameType: nextGameType,
+          gameSubType: nextGameSubType,
+          numSlots,
+          allowObservers: nextAllowObservers,
+          useLegacyLimits: nextUseLegacyLimits,
+        })
+      } catch (err) {
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.InvalidSlotOperation,
+          (err as any).message,
+          { cause: err },
+        )
+      }
+      updated = this._seatBenchOverflow(updated)
     }
-    updated = this._seatBenchOverflow(updated)
+    if (nextName !== current.name) {
+      updated = { ...updated, name: nextName }
+    }
+    if (needsReconciliation) {
+      // Everyone was ready for a different game than the one they are now looking at, so the lobby
+      // gathers its ready marks again from scratch. A rename changes nothing about the game, so it
+      // leaves them alone.
+      this.readyUsers.delete(updated.id)
+    }
 
     this.lobbies.set(updated.id, updated)
     this._publishTo(updated, {
@@ -855,7 +1036,9 @@ export class LobbyService {
       lobby: updated,
     })
     this._publishListChange('update', updated)
-    this._warmLobbyRegions(updated)
+    if (needsReconciliation) {
+      this._warmLobbyRegions(updated)
+    }
   }
 
   /**
@@ -959,6 +1142,105 @@ export class LobbyService {
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
+  }
+
+  /**
+   * Sends each of a lobby's two player teams to the other side: every occupant, human and computer
+   * alike, ends up at the same position in the other team, keeping their race, and the seats the
+   * host had opened or closed travel with them.
+   *
+   * Positions only correspond that way between two equally sized teams, so any other layout has
+   * nothing to swap. A UMS lobby's teams are the map's own forces, and each of its slots carries the
+   * player id and race the map assigns to that force, so its sides cannot trade places at all.
+   */
+  swapTeams({ client, lobbyId }: { client: ClientSocketsGroup; lobbyId?: SbLobbyId }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    if (isUms(lobby.gameType)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidTeamLayout,
+        'the map defines the teams in this game type',
+      )
+    }
+
+    const playerTeams = lobby.teams
+      .map((team, teamIndex) => [teamIndex, team] as const)
+      .filter(([, team]) => !team.isObserver)
+    if (
+      playerTeams.length !== 2 ||
+      playerTeams[0][1].slots.length !== playerTeams[1][1].slots.length
+    ) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidTeamLayout,
+        'must have exactly 2 equally sized teams to swap them',
+      )
+    }
+
+    const updated = Lobbies.swapTeams(lobby, playerTeams[0][0], playerTeams[1][0])
+    this.lobbies.set(lobby.id, updated)
+    this._publishLobbyDiff(lobby, updated)
+  }
+
+  /**
+   * Deals a lobby's player-team occupants back out at random: everyone in a player team, human and
+   * computer alike, lands in one of the seats those teams currently offer. Closed slots stay closed
+   * and receive nobody, and the observer team and the bench are untouched.
+   *
+   * There is nothing to deal out unless the lobby has more than one team to deal between.
+   */
+  shuffleSlots({
+    client,
+    lobbyId,
+    shuffleFn = positions => multipleRandomItems(positions.length, positions),
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    /**
+     * Decides which seat each occupant ends up in, by returning the lobby's seats in the order they
+     * should be filled. Defaults to a uniformly random permutation; a caller that needs a
+     * particular arrangement passes its own.
+     */
+    shuffleFn?: (positions: Lobbies.SlotPosition[]) => Lobbies.SlotPosition[]
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    if (lobby.teams.filter(team => !team.isObserver).length < 2) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidTeamLayout,
+        'must have at least 2 teams to shuffle between',
+      )
+    }
+    if (
+      Lobbies.hasControlledOpens(lobby.gameType) &&
+      getLobbySlots(lobby).some(slot => slot.type === SlotType.Computer)
+    ) {
+      // In these game types a computer takes up a whole team rather than a seat of its own, so it
+      // cannot be dealt into a team the people are being dealt into.
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidTeamLayout,
+        'cannot shuffle a lobby whose teams hold computers in this game type',
+      )
+    }
+
+    let updated
+    try {
+      updated = Lobbies.arrangeOccupants(lobby, shuffleFn(Lobbies.getPlayerSlotPositions(lobby)))
+    } catch (err) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
+    }
+
+    this.lobbies.set(lobby.id, updated)
+    this._publishLobbyDiff(lobby, updated)
   }
 
   addComputer({
@@ -1517,10 +1799,15 @@ export class LobbyService {
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
       this.runStates.delete(lobby.id)
+      this.readyUsers.delete(lobby.id)
+      this._forgetSeries(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
       this._publishListChange('delete', lobby)
     } else {
       this.lobbies.set(lobby.id, updatedLobby)
+      // Ready marks belong to the people in the lobby, so someone who is out of it (having left,
+      // been removed, or disconnected) no longer holds one.
+      this.readyUsers.get(lobby.id)?.delete(client.userId)
       this.lobbyPlayerNetwork.deleteUser(lobby.id, client.userId)
       this._publishLobbyDiff(
         lobby,
@@ -1562,9 +1849,16 @@ export class LobbyService {
   startCountdown({
     client,
     lobbyId: expectedLobbyId,
+    force,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
+    /**
+     * When set, the lobby starts even though some of its seated members have not marked themselves
+     * ready. This is the host's call to make, and they are the only one who can start a lobby at
+     * all.
+     */
+    force?: boolean
   }): void {
     const lobby = this.getLobbyForClient(client, expectedLobbyId)
     if (!hasOpposingSides(lobby)) {
@@ -1577,6 +1871,18 @@ export class LobbyService {
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
+
+    if (!force) {
+      // Everyone the game will contain gets a say in whether it starts, the host included, and
+      // nobody is exempt for being alone in the lobby.
+      const ready = this.readyUsers.get(lobby.id)
+      if (getHumanSlots(lobby).some(slot => !ready?.has(slot.userId!))) {
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.NotEveryoneReady,
+          'not everyone in the lobby is ready',
+        )
+      }
+    }
 
     // Last chance to warm the lobby's regions before a session is created for it.
     this._warmLobbyRegions(lobby)
@@ -1727,6 +2033,9 @@ export class LobbyService {
    */
   _onGameStarted(lobbyId: SbLobbyId, gameId: string, inGameUsers: ReadonlyArray<SbUserId>) {
     this.loadingLobbies.delete(lobbyId)
+    // The game the members were ready for is the one that just started, so their marks are spent:
+    // the next game gathers its own.
+    this.readyUsers.delete(lobbyId)
     const lobby = this.lobbies.get(lobbyId)
     if (!lobby) {
       // Everyone left while the game was loading, so there's no lobby left for it to belong to.
@@ -1740,7 +2049,12 @@ export class LobbyService {
       gameId,
       inGameUsers: new Set(inGameUsers),
       startedAt: Date.now(),
+      mapId: lobby.map!.id,
+      teams: toSeriesTeams(lobby),
     })
+    // The lobby is what remembers this game once it's over, so a result reconciled at any later
+    // point has to be able to find its way back here.
+    this.seriesGameLobbies.set(gameId, lobbyId)
 
     this._publishTo(lobby, { type: 'gameStarted', runState: this._runStateJson(lobbyId)! })
     // The lobby left the public list when its countdown began; it belongs back on it now, marked as
@@ -1793,7 +2107,8 @@ export class LobbyService {
 
   /**
    * Puts a lobby back to gathering once nobody is left in its game, keeping the seats and races it
-   * had, and finally letting anyone who joined the bench during the game take a free seat.
+   * had, adding the finished game to what the lobby remembers of its session, and finally letting
+   * anyone who joined the bench during the game take a free seat.
    *
    * No-op while anyone is still playing.
    */
@@ -1804,14 +2119,31 @@ export class LobbyService {
     }
 
     this.runStates.delete(lobbyId)
+    // A lobby coming out of a game gathers for the next one with nobody ready yet, whatever it
+    // held while the game ran.
+    this.readyUsers.delete(lobbyId)
     const lobby = this.lobbies.get(lobbyId)
     if (!lobby) {
       return
     }
 
+    // The game joins the lobby's history with no outcome yet: results are reconciled some time
+    // after a game ends, and a game that reports none never gets one at all.
+    const game: LobbySeriesGameJson = {
+      gameId: runState.gameId,
+      mapId: runState.mapId,
+      teams: runState.teams,
+    }
+    const series = this.series.get(lobbyId)
+    if (series) {
+      series.push(game)
+    } else {
+      this.series.set(lobbyId, [game])
+    }
+
     const updated = this._seatBenchOverflow(lobby)
     this.lobbies.set(lobbyId, updated)
-    this._publishTo(updated, { type: 'regroup', gameId: runState.gameId })
+    this._publishTo(updated, { type: 'regroup', game })
     if (updated === lobby) {
       // The lobby itself is unchanged, but its list entry still has to be refreshed: what changed is
       // its lifecycle.
@@ -1820,6 +2152,89 @@ export class LobbyService {
       this._publishLobbyDiff(lobby, updated)
       this._warmLobbyRegions(updated)
     }
+
+    // Results are usually still being settled at this point, but a game that ended long enough ago
+    // (or was reconciled while a member was slow to report) can already have them, and no further
+    // signal would arrive for it. Regrouping stays synchronous either way.
+    this._resolveSeriesGame(lobbyId, game.gameId).catch(err => {
+      logger.error({ err }, "error recording the result of a lobby's game")
+    })
+  }
+
+  /**
+   * Fills in how a game in a lobby's series turned out, and tells the lobby, once that game's
+   * results have been reconciled. Does nothing for a game whose outcome is already recorded or whose
+   * results haven't settled yet.
+   *
+   * Both the regroup that adds a game to the series and the reconciliation of that game's results
+   * lead here, in whichever order they happen, so this stays idempotent.
+   */
+  private async _resolveSeriesGame(lobbyId: SbLobbyId, gameId: string): Promise<void> {
+    const entryBefore = this.series.get(lobbyId)?.find(game => game.gameId === gameId)
+    if (!entryBefore) {
+      return
+    }
+    if (entryBefore.result) {
+      this.seriesGameLobbies.delete(gameId)
+      return
+    }
+
+    const record = await getGameRecord(gameId)
+    if (!record?.results || record.gameLength === null) {
+      return
+    }
+
+    // The lobby can have closed, or the same game can have been resolved by the other path, while
+    // the record was being fetched.
+    const entry = this.series.get(lobbyId)?.find(game => game.gameId === gameId)
+    if (!entry || entry.result) {
+      return
+    }
+
+    const winningTeamIndex = findWinningTeamIndex(entry.teams, record.results)
+    const result: LobbySeriesGameResultJson = {
+      ...(winningTeamIndex !== undefined ? { winningTeamIndex } : {}),
+      durationMs: record.gameLength,
+    }
+    entry.result = result
+    this.seriesGameLobbies.delete(gameId)
+
+    const lobby = this.lobbies.get(lobbyId)
+    if (lobby) {
+      this._publishTo(lobby, { type: 'seriesGameUpdated', gameId, result })
+    }
+  }
+
+  /** Drops everything a closed lobby remembered about the games it played. */
+  private _forgetSeries(lobbyId: SbLobbyId) {
+    this.series.delete(lobbyId)
+    for (const [gameId, waitingLobbyId] of this.seriesGameLobbies) {
+      if (waitingLobbyId === lobbyId) {
+        this.seriesGameLobbies.delete(gameId)
+      }
+    }
+  }
+
+  /**
+   * Calls off a countdown the host started, putting the lobby back to gathering with everything
+   * (including who is ready) exactly as it was.
+   *
+   * Only the countdown can be called off this way: once the game is loading, the members' clients
+   * are already committed to it, and it ends by loading or failing on its own.
+   */
+  cancelCountdown({ client, lobbyId }: { client: ClientSocketsGroup; lobbyId?: SbLobbyId }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+
+    if (!this.lobbyCountdowns.has(lobby.id)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.NotCountingDown,
+        'lobby is not counting down',
+      )
+    }
+
+    this._maybeCancelCountdown(lobby)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)

@@ -31,7 +31,6 @@ export enum DialogType {
   LeagueExplainer = 'leagueExplainer',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
-  LobbySettings = 'lobbySettings',
   MapDetails = 'mapDetails',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
@@ -196,7 +195,7 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
     onJoinFailed?: (message: string) => void
   }
 >
-type LobbySettingsDialogPayload = BaseDialogPayload<typeof DialogType.LobbySettings>
+
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
   {
@@ -312,7 +311,6 @@ export type DialogPayload =
   | LeagueExplainerDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
-  | LobbySettingsDialogPayload
   | MapDetailsDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
