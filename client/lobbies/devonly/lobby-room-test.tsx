@@ -20,7 +20,11 @@ import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
 import { DispatchFunction } from '../../dispatch-registry'
 import { JotaiStore } from '../../jotai-store'
-import { BigGameHunters, loadMapsForTesting } from '../../maps/devonly/maps-for-testing'
+import {
+  BigGameHunters,
+  FightingSpirit,
+  loadMapsForTesting,
+} from '../../maps/devonly/maps-for-testing'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { titleMedium } from '../../styles/typography'
 import { LobbyRoom } from '../room/lobby-room'
@@ -185,6 +189,8 @@ function makeRegroupLobby(): Lobby {
   )
 }
 
+// A series' rosters shift from game to game as seats empty out and the host reshuffles teams, so
+// each game in a series keeps its own snapshot of who played where rather than sharing one roster.
 const REGROUP_TEAMS: LobbySeriesTeam[] = [
   {
     name: 'Top',
@@ -198,6 +204,42 @@ const REGROUP_TEAMS: LobbySeriesTeam[] = [
     name: 'Bottom',
     players: [
       { userId: DRONEBRO, race: 'p' },
+      { userId: HEARTCUTTER, race: 'r' },
+    ],
+  },
+]
+
+/** The 2v2 rosters once sunn0's seat sits empty. */
+const POST_SUNN0_TEAMS: LobbySeriesTeam[] = [
+  {
+    name: 'Top',
+    players: [
+      { userId: TEC27, race: 't' },
+      { userId: PACHI, race: 'z' },
+    ],
+  },
+  {
+    name: 'Bottom',
+    players: [
+      { userId: DRONEBRO, race: 'p' },
+      { userId: HEARTCUTTER, race: 'r' },
+    ],
+  },
+]
+
+/** The rosters after the host shuffles teams partway through the night. */
+const SHUFFLED_TEAMS: LobbySeriesTeam[] = [
+  {
+    name: 'Top',
+    players: [
+      { userId: TEC27, race: 't' },
+      { userId: DRONEBRO, race: 'p' },
+    ],
+  },
+  {
+    name: 'Bottom',
+    players: [
+      { userId: PACHI, race: 'z' },
       { userId: HEARTCUTTER, race: 'r' },
     ],
   },
@@ -224,6 +266,27 @@ const REGROUP_SERIES: LobbySeriesGame[] = [
     winningTeamIndex: 0,
     durationMs: 23 * 60 * 1000 + 41 * 1000,
     teams: REGROUP_TEAMS,
+  },
+  {
+    gameId: 'mock-game-4',
+    mapId: FightingSpirit.id,
+    winningTeamIndex: 0,
+    durationMs: 14 * 60 * 1000 + 53 * 1000,
+    teams: POST_SUNN0_TEAMS,
+  },
+  {
+    gameId: 'mock-game-5',
+    mapId: FightingSpirit.id,
+    winningTeamIndex: 1,
+    durationMs: 27 * 60 * 1000 + 16 * 1000,
+    teams: SHUFFLED_TEAMS,
+  },
+  {
+    gameId: 'mock-game-6',
+    mapId: BigGameHunters.id,
+    winningTeamIndex: 1,
+    durationMs: 33 * 60 * 1000 + 4 * 1000,
+    teams: POST_SUNN0_TEAMS,
   },
 ]
 

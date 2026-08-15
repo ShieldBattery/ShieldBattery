@@ -357,11 +357,19 @@ const NextSlotValue = styled.div`
 
 const SeriesList = styled.div`
   min-width: 360px;
+  /**
+   * The popover sizes its frame to the space between the anchor and the screen edge but leaves
+   * scrolling to its content, so the list caps itself to that space (inherited from the popover
+   * as --sb-popover-max-height) or a comfortable reading height, whichever is smaller.
+   */
+  max-height: min(560px, var(--sb-popover-max-height, 560px));
   padding: 12px 16px;
 
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  overflow-y: auto;
 `
 
 const SeriesSection = styled.div`
