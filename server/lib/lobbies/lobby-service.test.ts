@@ -3,8 +3,11 @@ import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
+import { GameRecord } from '../../../common/games/games'
+import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
 import {
   findSlotByUserId,
+  getHumanSlots,
   getObserverTeam,
   LobbyVisibility,
   MAX_BENCH,
@@ -15,10 +18,11 @@ import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/ma
 import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { GameLoader, GameLoadRequest } from '../games/game-loader'
+import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
@@ -40,7 +44,7 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { openSlot, removePlayer } from './lobby'
+import { getPlayerSlotPositions, openSlot, removePlayer, SlotPosition } from './lobby'
 import { knownRegionOrUndefined, LobbyService, LobbyServiceErrorCode } from './lobby-service'
 import { getLobbySummary } from './lobby-summaries'
 
@@ -122,6 +126,11 @@ vi.mock('../maps/map-operations', async () => {
 vi.mock('../users/user-model', async () => {
   const actual = await vi.importActual<typeof import('../users/user-model')>('../users/user-model')
   return { ...actual, findUsersById: vi.fn() }
+})
+vi.mock('../games/game-models', async () => {
+  const actual =
+    await vi.importActual<typeof import('../games/game-models')>('../games/game-models')
+  return { ...actual, getGameRecord: vi.fn() }
 })
 
 const HOST_USER: SbUser = { id: makeSbUserId(1), name: 'HostUser' } as SbUser
@@ -235,6 +244,22 @@ describe('lobbies/lobby-service', () => {
       .map(([, data]) => data)
   }
 
+  /** Returns the init payload a client was given when it was subscribed to a lobby's channel. */
+  async function initPayload(sockets: Sockets, id: SbLobbyId): Promise<any> {
+    return await vi.waitFor(() => {
+      const init = asMockedFunction(sockets.socket.publish).mock.calls.find(
+        ([path, data]) => path === `/lobbies/${id}` && data?.type === 'init',
+      )
+      expect(init).toBeDefined()
+      return init![1]
+    })
+  }
+
+  /** Lets work that was kicked off without being awaited (a result lookup, say) run out. */
+  async function flushAsync() {
+    await new Promise(resolve => setImmediate(resolve))
+  }
+
   /** Returns every diff event published on a lobby's channel, flattened into one list. */
   function diffEvents(id: SbLobbyId): any[] {
     return lobbyPublishes(id)
@@ -242,10 +267,15 @@ describe('lobbies/lobby-service', () => {
       .flatMap(data => data.diffEvents)
   }
 
-  /** Runs the countdown started by `startCountdown` to completion, letting the game load begin. */
+  /**
+   * Runs the countdown started by `startCountdown` to completion, letting the game load begin.
+   *
+   * The start is forced, so that tests about what a running game does to a lobby don't have to
+   * march its members through a ready check first.
+   */
   async function runCountdown(sockets: Sockets) {
     vi.useFakeTimers()
-    lobbyService.startCountdown({ client: sockets.client })
+    lobbyService.startCountdown({ client: sockets.client, force: true })
     await vi.advanceTimersByTimeAsync(5000)
   }
 
@@ -290,6 +320,8 @@ describe('lobbies/lobby-service', () => {
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(findUsersById).mockResolvedValue([])
+    // A game's results are settled some time after it ends, so nothing is reconciled by default
+    asMockedFunction(getGameRecord).mockResolvedValue(undefined)
 
     const connector = new NydusConnector(nydus, sessionLookup)
     connect = (user: SbUser, clientId: string): Sockets => {
@@ -359,7 +391,7 @@ describe('lobbies/lobby-service', () => {
       // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight. The
       // service publishes everything we care about before it suspends on the timer.
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
 
       // The occupants still see the countdown; only the public list is kept in the dark.
       expect(
@@ -583,7 +615,7 @@ describe('lobbies/lobby-service', () => {
 
       // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight.
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
 
       // The client renders a counting-down/loading lobby as a whole separate screen, distinct from
       // the ordinary join-error codes covered above.
@@ -925,7 +957,7 @@ describe('lobbies/lobby-service', () => {
       const id = await createLobbyWithBench()
 
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
       fakeNydus.publish.mockClear()
 
       // The benched member holds no slot in the starting game, so their leave changes nothing
@@ -948,7 +980,7 @@ describe('lobbies/lobby-service', () => {
       })
 
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
       await vi.advanceTimersByTimeAsync(5000)
       vi.useRealTimers()
       expect(loadGameRequests).toHaveLength(1)
@@ -979,7 +1011,7 @@ describe('lobbies/lobby-service', () => {
       })
 
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
       await vi.advanceTimersByTimeAsync(5000)
       vi.useRealTimers()
 
@@ -1226,7 +1258,7 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
 
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
 
       await expect(
         lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true }),
@@ -1823,7 +1855,7 @@ describe('lobbies/lobby-service', () => {
       // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
       // resolver must treat it the same as a lobby that doesn't exist at all.
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: host.client })
+      lobbyService.startCountdown({ client: host.client, force: true })
 
       expect(getLobbySummary(id)).toBeUndefined()
     })
@@ -1943,7 +1975,9 @@ describe('lobbies/lobby-service', () => {
       gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
 
       expect(lobbyService.runStates.has(id)).toBe(false)
-      expect(lobbyPublishes(id)).toEqual([{ type: 'regroup', gameId: 'test-game-id' }])
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'regroup', game: expect.objectContaining({ gameId: 'test-game-id' }) },
+      ])
     })
 
     test('a whole-game end for a game no lobby is running is ignored', async () => {
@@ -1992,7 +2026,10 @@ describe('lobbies/lobby-service', () => {
       endGameFor(joiner)
 
       expect(lobbyService.runStates.has(id)).toBe(false)
-      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'regroup',
+        game: expect.objectContaining({ gameId: 'test-game-id' }),
+      })
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, HOST_USER.id)[2]).toBeDefined()
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]!.race).toBe('z')
@@ -2052,7 +2089,7 @@ describe('lobbies/lobby-service', () => {
       await expect(
         lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true }),
       ).rejects.toMatchObject({ code: LobbyServiceErrorCode.GameInProgress })
-      expect(() => lobbyService.startCountdown({ client: host.client })).toThrow(
+      expect(() => lobbyService.startCountdown({ client: host.client, force: true })).toThrow(
         expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }),
       )
     })
@@ -2091,7 +2128,10 @@ describe('lobbies/lobby-service', () => {
       lobbyService.leaveLobby({ client: host.client })
 
       expect(lobbyService.runStates.has(id)).toBe(false)
-      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'regroup',
+        game: expect.objectContaining({ gameId: 'test-game-id' }),
+      })
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, HOST_USER.id)[2]).toBeUndefined()
       expect(lobby.host.userId).toBe(JOINER_USER.id)
@@ -2107,7 +2147,10 @@ describe('lobbies/lobby-service', () => {
       joiner.socket.disconnect()
 
       expect(lobbyService.runStates.has(id)).toBe(false)
-      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'regroup',
+        game: expect.objectContaining({ gameId: 'test-game-id' }),
+      })
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
       expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]!.type).toBe('human')
@@ -2133,6 +2176,706 @@ describe('lobbies/lobby-service', () => {
       expect(loadGameRequests).toHaveLength(2)
       expect(lobbyService.runStates.get(id)!.gameId).toBe('test-game-id')
       expect(lobbyPublishes(id).filter(data => data?.type === 'gameStarted')).toHaveLength(2)
+    })
+  })
+
+  describe('ready', () => {
+    function setReady(sockets: Sockets, id: SbLobbyId, isReady: boolean) {
+      lobbyService.setReady({ client: sockets.client, lobbyId: id, isReady })
+    }
+
+    test('marking ready is announced, and is in the init payload of whoever joins next', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      setReady(joiner, id, true)
+
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'readyChange', userId: JOINER_USER.id, isReady: true },
+      ])
+
+      await joinLobby(otherHost, id)
+
+      expect((await initPayload(otherHost, id)).readyUsers).toEqual([JOINER_USER.id])
+    })
+
+    test('taking it back is announced too', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      setReady(host, id, true)
+      fakeNydus.publish.mockClear()
+
+      setReady(host, id, false)
+
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'readyChange', userId: HOST_USER.id, isReady: false },
+      ])
+      expect(lobbyService.readyUsers.get(id)?.has(HOST_USER.id)).toBeFalsy()
+    })
+
+    test('setting the value a member already holds announces nothing', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      setReady(host, id, true)
+      fakeNydus.publish.mockClear()
+
+      setReady(host, id, true)
+      // Nobody was ready to begin with, so taking it back from someone else is just as much a no-op
+      setReady(host, id, false)
+      setReady(host, id, false)
+
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'readyChange', userId: HOST_USER.id, isReady: false },
+      ])
+    })
+
+    test('an observer readies up like anyone else holding a slot', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await joinLobby(joiner, id)
+      const [, , joinerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: joinerSlot!.id })
+
+      setReady(joiner, id, true)
+
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
+    })
+
+    test('a member waiting on the bench has nothing to be ready for', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      expect(() => setReady(otherHost, id, true)).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotSeated }),
+      )
+    })
+
+    test('ready marks cannot be changed once the lobby is counting down', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, force: true })
+
+      expect(() => setReady(joiner, id, true)).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.CountingDown }),
+      )
+    })
+
+    test('a settings change that alters more than the name clears who is ready', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      setReady(host, id, true)
+      setReady(joiner, id, true)
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true })
+
+      // Everyone was ready for a different game than the one they are now looking at
+      expect(lobbyService.readyUsers.get(id)?.size ?? 0).toBe(0)
+    })
+
+    test('renaming the lobby leaves who is ready alone', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      setReady(host, id, true)
+      setReady(joiner, id, true)
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, name: 'Renamed lobby' })
+
+      expect([...lobbyService.readyUsers.get(id)!].sort()).toEqual(
+        [HOST_USER.id, JOINER_USER.id].sort(),
+      )
+    })
+
+    test('a started game consumes the ready marks', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      setReady(host, id, true)
+      setReady(joiner, id, true)
+
+      await runCountdown(host)
+
+      expect(lobbyService.runStates.has(id)).toBe(true)
+      expect(lobbyService.readyUsers.get(id)?.size ?? 0).toBe(0)
+    })
+
+    test('a member leaving takes only their own ready mark with them', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      setReady(host, id, true)
+      setReady(joiner, id, true)
+      setReady(otherHost, id, true)
+
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect([...lobbyService.readyUsers.get(id)!].sort()).toEqual(
+        [HOST_USER.id, OTHER_HOST_USER.id].sort(),
+      )
+    })
+
+    test('a closed lobby takes its ready marks with it', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      setReady(host, id, true)
+
+      lobbyService.leaveLobby({ client: host.client })
+
+      expect(lobbyService.lobbies.has(id)).toBe(false)
+      expect(lobbyService.readyUsers.has(id)).toBe(false)
+    })
+  })
+
+  describe('starting a game with a ready check', () => {
+    test('the host cannot start while someone seated is not ready', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+
+      expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
+      )
+    })
+
+    test('the host counts too, even alone with a computer', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+      lobbyService.addComputer({ client: host.client, slotId: openSlot.id })
+
+      expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
+      )
+
+      vi.useFakeTimers()
+      lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
+      lobbyService.startCountdown({ client: host.client, lobbyId: id })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test('observers are waited on as well', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await joinLobby(joiner, id)
+      await joinLobby(lister, id)
+      const [, , listerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, LISTER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: listerSlot!.id })
+      lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+
+      expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
+      )
+
+      vi.useFakeTimers()
+      lobbyService.setReady({ client: lister.client, lobbyId: id, isReady: true })
+      lobbyService.startCountdown({ client: host.client, lobbyId: id })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test('the host can start a lobby that is not ready by forcing it', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'startCountdown' })
+    })
+  })
+
+  describe('cancelCountdown', () => {
+    test('the host can call off a countdown, leaving the ready marks as they were', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id })
+      fakeNydus.publish.mockClear()
+
+      lobbyService.cancelCountdown({ client: host.client, lobbyId: id })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toEqual([{ type: 'cancelCountdown' }])
+      // The lobby left the list when it started counting down, and belongs back on it now
+      expect(listPublishes()).toEqual([{ action: 'add', payload: expect.objectContaining({ id }) }])
+      expect([...lobbyService.readyUsers.get(id)!].sort()).toEqual(
+        [HOST_USER.id, JOINER_USER.id].sort(),
+      )
+
+      // The countdown must not go on to load a game after being called off
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(loadGameRequests).toEqual([])
+    })
+
+    test('only the host can call off a countdown', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
+
+      expect(() => lobbyService.cancelCountdown({ client: joiner.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }),
+      )
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
+    })
+
+    test('there is nothing to call off in a lobby that is still gathering', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      expect(() => lobbyService.cancelCountdown({ client: host.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotCountingDown }),
+      )
+    })
+
+    test('a game that is already loading cannot be called off this way', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.loadingLobbies.set(id, new AbortController())
+
+      expect(() => lobbyService.cancelCountdown({ client: host.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotCountingDown }),
+      )
+    })
+  })
+
+  describe('team arrangement', () => {
+    /** Creates a lobby whose player slots are split into two equally sized teams. */
+    async function createTeamLobby(gameSubType = 4) {
+      return await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TopVsBottom,
+        gameSubType,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+    }
+
+    /** Returns the [teamIndex, slotIndex] a user is seated at. */
+    function seatOf(id: SbLobbyId, userId: SbUserId): [teamIndex: number, slotIndex: number] {
+      const [teamIndex, slotIndex] = findSlotByUserId(lobbyService.lobbies.get(id)!, userId)
+      return [teamIndex!, slotIndex!]
+    }
+
+    describe('swapTeams', () => {
+      test('every occupant ends up in the same seat of the other team', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        const [, , joinerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)
+        lobbyService.setRace({ client: joiner.client, slotId: joinerSlot!.id, race: 'z' })
+        const computerSeat = lobbyService.lobbies.get(id)!.teams[0].slots[3]
+        lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
+        const [hostTeam, hostSlot] = seatOf(id, HOST_USER.id)
+        const [joinerTeam, joinerSlotIndex] = seatOf(id, JOINER_USER.id)
+
+        lobbyService.swapTeams({ client: host.client, lobbyId: id })
+
+        expect(seatOf(id, HOST_USER.id)).toEqual([1 - hostTeam, hostSlot])
+        expect(seatOf(id, JOINER_USER.id)).toEqual([1 - joinerTeam, joinerSlotIndex])
+        const lobby = lobbyService.lobbies.get(id)!
+        expect(findSlotByUserId(lobby, JOINER_USER.id)[2]!.race).toBe('z')
+        expect(lobby.teams[1].slots[3].type).toBe('computer')
+        // The host is a copy of their own slot, so it has to follow them across
+        expect(lobby.host.id).toBe(findSlotByUserId(lobby, HOST_USER.id)[2]!.id)
+      })
+
+      test('the whole rearrangement is published as one diff', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.swapTeams({ client: host.client, lobbyId: id })
+
+        const published = lobbyPublishes(id)
+        expect(published).toHaveLength(1)
+        expect(published[0].type).toBe('diff')
+        // Every slot of both teams kept its identity and moved, so each is described in place
+        expect(published[0].diffEvents.every((event: any) => event.type === 'slotChange')).toBe(
+          true,
+        )
+      })
+
+      test('teams that are not the same size have no seats to swap between', async () => {
+        const { id } = await createTeamLobby(3)
+
+        expect(() => lobbyService.swapTeams({ client: host.client, lobbyId: id })).toThrow(
+          expect.objectContaining({ code: LobbyServiceErrorCode.InvalidTeamLayout }),
+        )
+      })
+
+      test('a lobby with a single team has nothing to swap', async () => {
+        const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+        expect(() => lobbyService.swapTeams({ client: host.client, lobbyId: id })).toThrow(
+          expect.objectContaining({ code: LobbyServiceErrorCode.InvalidTeamLayout }),
+        )
+      })
+
+      test('only the host can swap the teams', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+
+        expect(() => lobbyService.swapTeams({ client: joiner.client, lobbyId: id })).toThrow(
+          expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }),
+        )
+      })
+    })
+
+    describe('shuffleSlots', () => {
+      /** Deals the seats out back to front, so a test knows exactly where everyone lands. */
+      const reversed = (positions: SlotPosition[]) => [...positions].reverse()
+
+      test('every occupant is dealt a seat, and closed slots stay closed', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        await joinLobby(otherHost, id)
+        const closedSeat = lobbyService.lobbies.get(id)!.teams[1].slots[3]
+        lobbyService.closeSlot({ client: host.client, slotId: closedSeat.id })
+        const computerSeat = lobbyService.lobbies.get(id)!.teams[1].slots[2]
+        lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
+
+        const before = lobbyService.lobbies.get(id)!
+        const positions = getPlayerSlotPositions(before)
+        const occupantIds = positions
+          .map(([teamIndex, slotIndex]) => before.teams[teamIndex].slots[slotIndex])
+          .filter(slot => slot.type === 'human' || slot.type === 'computer')
+          .map(slot => slot.id)
+        // Computers are dealt out along with the people
+        expect(occupantIds).toHaveLength(4)
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        const after = lobbyService.lobbies.get(id)!
+        const seats = reversed(positions)
+        occupantIds.forEach((slotId, i) => {
+          const [teamIndex, slotIndex] = seats[i]
+          expect(after.teams[teamIndex].slots[slotIndex].id).toBe(slotId)
+        })
+        // The seat the host took out of the lobby is not one of the seats being dealt
+        expect(after.teams[1].slots[3].type).toBe('closed')
+        expect(getHumanSlots(after)).toHaveLength(3)
+        expect(after.bench).toEqual([])
+      })
+
+      test('the shuffle is published as one diff', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        fakeNydus.publish.mockClear()
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        expect(lobbyPublishes(id).filter(data => data?.type === 'diff')).toHaveLength(1)
+      })
+
+      test('a lobby with a single team has nothing to shuffle between', async () => {
+        const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+        expect(() =>
+          lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed }),
+        ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidTeamLayout }))
+      })
+
+      test('only the host can shuffle', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+
+        expect(() =>
+          lobbyService.shuffleSlots({ client: joiner.client, lobbyId: id, shuffleFn: reversed }),
+        ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }))
+      })
+
+      test('neither team tool touches who is ready or counts as a settings change', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
+        fakeNydus.publish.mockClear()
+
+        lobbyService.swapTeams({ client: host.client, lobbyId: id })
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        expect([...lobbyService.readyUsers.get(id)!]).toEqual([HOST_USER.id])
+        expect(lobbyPublishes(id).some(data => data?.type === 'settingsChange')).toBe(false)
+      })
+    })
+  })
+
+  describe('series history', () => {
+    const GAME_ID = 'test-game-id'
+
+    /** A game's record as the games code leaves it once its results have been reconciled. */
+    function reconciledRecord(
+      results: Array<[SbUserId, ReconciledResult]>,
+      gameLength: number | null = 480000,
+    ): GameRecord {
+      return {
+        id: GAME_ID,
+        gameLength,
+        results: results.map(([userId, result]): [SbUserId, ReconciledPlayerResult] => [
+          userId,
+          { result, race: 'p', apm: 100 },
+        ]),
+      } as GameRecord
+    }
+
+    /** Creates a lobby with two teams, seats the host and joiner in it, and plays a game. */
+    async function playGame() {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TopVsBottom,
+        gameSubType: 4,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      await runCountdown(host)
+      vi.useRealTimers()
+      return id
+    }
+
+    /** Ends the game `playGame` started for everyone in it, regrouping the lobby. */
+    async function endGame() {
+      endGameFor(host)
+      endGameFor(joiner)
+      await flushAsync()
+    }
+
+    /** Returns everything published on a lobby's channel about the games it has played. */
+    function seriesUpdates(id: SbLobbyId): any[] {
+      return lobbyPublishes(id).filter(data => data?.type === 'seriesGameUpdated')
+    }
+
+    test('a launched game records the sides that played it, and nothing else', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TopVsBottom,
+        gameSubType: 4,
+        allowObservers: true,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      await joinLobby(lister, id)
+      const seated = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(seated, JOINER_USER.id)
+      lobbyService.setRace({ client: joiner.client, slotId: joinerSlot!.id, race: 'z' })
+      const [, , listerSlot] = findSlotByUserId(seated, LISTER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: listerSlot!.id })
+      const [hostTeamIndex] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
+      const computerSeat = lobbyService.lobbies.get(id)!.teams[hostTeamIndex!].slots[3]
+      lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
+
+      await runCountdown(host)
+      vi.useRealTimers()
+
+      const { teams } = lobbyService.runStates.get(id)!
+      // Both sides, with only the seats someone is actually in: the observer is on nobody's side,
+      // and the open seats have nobody to record.
+      expect(teams).toEqual([
+        {
+          name: 'Top',
+          players: [
+            { type: 'human', userId: HOST_USER.id, race: 'r' },
+            { type: 'computer', race: 'r' },
+          ],
+        },
+        { name: 'Bottom', players: [{ type: 'human', userId: JOINER_USER.id, race: 'z' }] },
+      ])
+      expect(lobbyService.runStates.get(id)!.mapId).toBe(BIG_GAME_HUNTERS.id)
+    })
+
+    test("a computer is recorded as one of its team's players", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      const openSeat = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+      lobbyService.addComputer({ client: host.client, slotId: openSeat.id })
+      const computerSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+      lobbyService.setRace({ client: host.client, slotId: computerSlot.id, race: 't' })
+
+      await runCountdown(host)
+      vi.useRealTimers()
+
+      expect(lobbyService.runStates.get(id)!.teams).toEqual([
+        {
+          players: [
+            { type: 'human', userId: HOST_USER.id, race: 'r' },
+            { type: 'computer', race: 't' },
+          ],
+        },
+      ])
+    })
+
+    test('regrouping records the finished game and hands it to the lobby', async () => {
+      const id = await playGame()
+      fakeNydus.publish.mockClear()
+
+      await endGame()
+
+      const expected = {
+        gameId: GAME_ID,
+        mapId: BIG_GAME_HUNTERS.id,
+        teams: [
+          { name: 'Top', players: [{ type: 'human', userId: HOST_USER.id, race: 'r' }] },
+          { name: 'Bottom', players: [{ type: 'human', userId: JOINER_USER.id, race: 'r' }] },
+        ],
+      }
+      // No outcome yet: the game's results are settled after it ends, if they ever are
+      expect(lobbyService.series.get(id)).toEqual([expected])
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', game: expected })
+      expect(seriesUpdates(id)).toEqual([])
+    })
+
+    test('a lobby hands its whole history to whoever joins it', async () => {
+      const id = await playGame()
+      await endGame()
+
+      await joinLobby(otherHost, id)
+
+      expect((await initPayload(otherHost, id)).series).toEqual([
+        expect.objectContaining({ gameId: GAME_ID }),
+      ])
+    })
+
+    test('a reconciled game names the side that won and is announced to the lobby', async () => {
+      const id = await playGame()
+      const [hostTeamIndex] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
+      await endGame()
+      fakeNydus.publish.mockClear()
+      asMockedFunction(getGameRecord).mockResolvedValue(
+        reconciledRecord([
+          [HOST_USER.id, 'win'],
+          [JOINER_USER.id, 'loss'],
+        ]),
+      )
+
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+
+      const result = { winningTeamIndex: hostTeamIndex, durationMs: 480000 }
+      expect(lobbyPublishes(id)).toEqual([{ type: 'seriesGameUpdated', gameId: GAME_ID, result }])
+      expect(lobbyService.series.get(id)![0].result).toEqual(result)
+      // Nothing is waiting on this game any more
+      expect(lobbyService.seriesGameLobbies.has(GAME_ID)).toBe(false)
+    })
+
+    test('a game no seated player won has no winning side', async () => {
+      const id = await playGame()
+      await endGame()
+      fakeNydus.publish.mockClear()
+      // The winner was a computer, or someone who has since left: nobody the lobby recorded won it
+      asMockedFunction(getGameRecord).mockResolvedValue(
+        reconciledRecord([
+          [HOST_USER.id, 'loss'],
+          [JOINER_USER.id, 'loss'],
+        ]),
+      )
+
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+
+      expect(lobbyService.series.get(id)![0].result).toEqual({ durationMs: 480000 })
+      expect(seriesUpdates(id)[0].result.winningTeamIndex).toBeUndefined()
+    })
+
+    test('winners on both sides leave the winning side unknown', async () => {
+      const id = await playGame()
+      await endGame()
+      asMockedFunction(getGameRecord).mockResolvedValue(
+        reconciledRecord([
+          [HOST_USER.id, 'win'],
+          [JOINER_USER.id, 'win'],
+        ]),
+      )
+
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+
+      expect(lobbyService.series.get(id)![0].result).toEqual({ durationMs: 480000 })
+    })
+
+    test('a game whose results have not settled keeps no outcome', async () => {
+      const id = await playGame()
+      await endGame()
+
+      // The record exists but nothing has reconciled it yet
+      asMockedFunction(getGameRecord).mockResolvedValue(reconciledRecord([], null))
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+
+      expect(lobbyService.series.get(id)![0].result).toBeUndefined()
+      expect(seriesUpdates(id)).toEqual([])
+      // The lobby is still waiting on it
+      expect(lobbyService.seriesGameLobbies.get(GAME_ID)).toBe(id)
+    })
+
+    test('a game that reconciled before the lobby regrouped is filled in without a signal', async () => {
+      const id = await playGame()
+      asMockedFunction(getGameRecord).mockResolvedValue(
+        reconciledRecord([
+          [HOST_USER.id, 'win'],
+          [JOINER_USER.id, 'loss'],
+        ]),
+      )
+
+      await endGame()
+
+      expect(lobbyService.series.get(id)![0].result).toEqual({
+        winningTeamIndex: expect.any(Number),
+        durationMs: 480000,
+      })
+      expect(seriesUpdates(id)).toHaveLength(1)
+    })
+
+    test('an outcome that is already recorded is never announced twice', async () => {
+      const id = await playGame()
+      await endGame()
+      asMockedFunction(getGameRecord).mockResolvedValue(
+        reconciledRecord([
+          [HOST_USER.id, 'win'],
+          [JOINER_USER.id, 'loss'],
+        ]),
+      )
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+      expect(seriesUpdates(id)).toHaveLength(1)
+      fakeNydus.publish.mockClear()
+
+      // A game can be offered here twice - the regroup looks it up, and reconciliation announces it
+      lobbyService.seriesGameLobbies.set(GAME_ID, id)
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+
+      expect(seriesUpdates(id)).toEqual([])
+      expect(lobbyService.seriesGameLobbies.has(GAME_ID)).toBe(false)
+    })
+
+    test('a reconciled game no lobby is waiting on is ignored', async () => {
+      const id = await playGame()
+      await endGame()
+      fakeNydus.publish.mockClear()
+
+      gameLifecycleEvents.emit('gameReconciled', { gameId: 'a-different-game' })
+      await flushAsync()
+
+      expect(lobbyPublishes(id)).toEqual([])
+    })
+
+    test('a closed lobby forgets the games it played and the ones it was waiting on', async () => {
+      const id = await playGame()
+      await endGame()
+      expect(lobbyService.series.get(id)).toHaveLength(1)
+      expect(lobbyService.seriesGameLobbies.get(GAME_ID)).toBe(id)
+
+      lobbyService.leaveLobby({ client: host.client })
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect(lobbyService.lobbies.has(id)).toBe(false)
+      expect(lobbyService.series.has(id)).toBe(false)
+      expect(lobbyService.seriesGameLobbies.has(GAME_ID)).toBe(false)
     })
   })
 })

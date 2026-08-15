@@ -1108,6 +1108,18 @@ export default class GameResultService {
       return true
     })
 
+    if (committed) {
+      // Announced from here rather than from any one caller: every path that can reconcile a game
+      // runs through this method, and the results are only final once the transaction above has
+      // committed. Listeners are outside the request this reconcile belongs to, so one of them
+      // failing must not fail the reconcile itself.
+      try {
+        this.gameLifecycleEvents.emit('gameReconciled', { gameId })
+      } catch (err: unknown) {
+        logger.error({ err }, `error announcing the reconciliation of game ${gameId}`)
+      }
+    }
+
     return committed
   }
 

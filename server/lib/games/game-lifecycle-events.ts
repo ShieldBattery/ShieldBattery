@@ -26,9 +26,22 @@ export interface GameEndedEvent {
   gameId: string
 }
 
+/**
+ * A game's results have been reconciled and written: its outcome and length are final and readable
+ * from its record.
+ *
+ * This is a separate moment from the game merely ending — reconciliation happens once every
+ * required player has reported (or a sweep gives up waiting), which is generally after the end
+ * signals above, and never at all for a game that reports no results.
+ */
+export interface GameReconciledEvent {
+  gameId: string
+}
+
 type GameLifecycleEventMap = {
   userGameEnded: [event: UserGameEndedEvent]
   gameEnded: [event: GameEndedEvent]
+  gameReconciled: [event: GameReconciledEvent]
 }
 
 /**
