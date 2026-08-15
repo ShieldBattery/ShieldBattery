@@ -1,41 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { registerSecondsListener } from '../../matchmaking/elapsed-time'
 import { formatGameDuration, LobbyChip } from './browser-parts'
-
-type TickCallback = () => void
-
-const tickListeners = new Set<TickCallback>()
-let tickTimer: ReturnType<typeof setInterval> | undefined
-
-/**
- * Subscribes to a once-a-second tick shared by every readout on the page, so a list full of running
- * games advances in lockstep off a single timer instead of drifting apart on timers of its own.
- */
-function subscribeToSeconds(callback: TickCallback): () => void {
-  tickListeners.add(callback)
-  if (tickTimer === undefined) {
-    tickTimer = setInterval(() => {
-      for (const listener of Array.from(tickListeners)) {
-        listener()
-      }
-    }, 1000)
-  }
-
-  return () => {
-    tickListeners.delete(callback)
-    if (tickListeners.size === 0 && tickTimer !== undefined) {
-      clearInterval(tickTimer)
-      tickTimer = undefined
-    }
-  }
-}
 
 function AnchoredElapsedTime({ elapsedMs }: { elapsedMs: number }) {
   const [anchoredAt] = useState(() => performance.now())
   const [now, setNow] = useState(anchoredAt)
 
-  useEffect(() => subscribeToSeconds(() => setNow(performance.now())), [])
+  useEffect(() => registerSecondsListener(() => setNow(performance.now())), [])
 
   return <>{formatGameDuration(elapsedMs + (now - anchoredAt))}</>
 }
