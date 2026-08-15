@@ -1,10 +1,12 @@
 import { useAtomValue } from 'jotai'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useAppSelector } from '../../redux-hooks'
 import { lobbySeriesAtom } from './room-atoms'
 import { RoomChat } from './room-chat'
+import { RoomGameSetup } from './room-game-setup'
 import { RoomHeader } from './room-header'
 import { RoomMapBanner } from './room-map-banner'
 import { TeamArrangement } from './room-parts'
@@ -46,7 +48,6 @@ export interface LobbyRoomProps {
   onStartGame: () => void
   onForceStart: () => void
   onCancelCountdown: () => void
-  onOpenGameSetup: () => void
   onSlotAction: (action: SlotAction, slotId: string) => void
   onArrangeTeams: (arrangement: TeamArrangement) => void
   onWatchReplay: (gameId: string) => void
@@ -57,7 +58,8 @@ export interface LobbyRoomProps {
  * The screen for a lobby you're in: a conversation with the game's setup worked into it, rather
  * than a setup form with a chat box attached. Chat holds the floor, the rail down the right side is
  * the seating layout itself, and a finished game lands in the conversation as a card the room can
- * pick its next one out of.
+ * pick its next one out of. The host's game setup takes over the whole room (it carries its own
+ * title/back header) rather than opening as a dialog on top of it.
  */
 export function LobbyRoom({
   viewerId,
@@ -68,7 +70,6 @@ export function LobbyRoom({
   onStartGame,
   onForceStart,
   onCancelCountdown,
-  onOpenGameSetup,
   onSlotAction,
   onArrangeTeams,
   onWatchReplay,
@@ -76,6 +77,7 @@ export function LobbyRoom({
 }: LobbyRoomProps) {
   const runState = useAppSelector(s => s.lobby.runState)
   const series = useAtomValue(lobbySeriesAtom)
+  const [isSetupOpen, setIsSetupOpen] = useState(false)
 
   // A lobby that has finished a game and isn't in another one is between games, which is a
   // different room than one that has yet to play anything: it has a result to show and seats to
@@ -84,36 +86,42 @@ export function LobbyRoom({
 
   return (
     <RoomRoot>
-      <RoomHeader
-        viewerId={viewerId}
-        onOpenGameSetup={onOpenGameSetup}
-        onToggleReady={onToggleReady}
-      />
-      <RoomBody>
-        <ChatColumn>
-          <RoomMapBanner
+      {isSetupOpen ? (
+        <RoomGameSetup onClose={() => setIsSetupOpen(false)} />
+      ) : (
+        <>
+          <RoomHeader
             viewerId={viewerId}
-            onArrangeTeams={onArrangeTeams}
-            onWatchReplay={onWatchReplay}
-            onViewGameSummary={onViewGameSummary}
+            onOpenGameSetup={() => setIsSetupOpen(true)}
+            onToggleReady={onToggleReady}
           />
-          <RoomChat
-            isRegrouping={isRegrouping}
-            onSendChatMessage={onSendChatMessage}
-            onWatchReplay={onWatchReplay}
-            onViewGameSummary={onViewGameSummary}
-          />
-        </ChatColumn>
-        <RoomRail
-          viewerId={viewerId}
-          onSetRace={onSetRace}
-          onSitInSlot={onSitInSlot}
-          onStartGame={onStartGame}
-          onForceStart={onForceStart}
-          onCancelCountdown={onCancelCountdown}
-          onSlotAction={onSlotAction}
-        />
-      </RoomBody>
+          <RoomBody>
+            <ChatColumn>
+              <RoomMapBanner
+                viewerId={viewerId}
+                onArrangeTeams={onArrangeTeams}
+                onWatchReplay={onWatchReplay}
+                onViewGameSummary={onViewGameSummary}
+              />
+              <RoomChat
+                isRegrouping={isRegrouping}
+                onSendChatMessage={onSendChatMessage}
+                onWatchReplay={onWatchReplay}
+                onViewGameSummary={onViewGameSummary}
+              />
+            </ChatColumn>
+            <RoomRail
+              viewerId={viewerId}
+              onSetRace={onSetRace}
+              onSitInSlot={onSitInSlot}
+              onStartGame={onStartGame}
+              onForceStart={onForceStart}
+              onCancelCountdown={onCancelCountdown}
+              onSlotAction={onSlotAction}
+            />
+          </RoomBody>
+        </>
+      )}
     </RoomRoot>
   )
 }
