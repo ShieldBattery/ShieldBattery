@@ -135,6 +135,20 @@ describe('lobbies/lobby-page-meta', () => {
       )
     })
 
+    test('describes an in-game lobby as in game rather than its open slot count', async () => {
+      summaryGetterMock.mockReturnValueOnce({
+        ...BASE_SUMMARY,
+        lifecycle: 'inGame',
+      })
+      findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+      const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
+
+      expect(result?.description).toBe(
+        'Melee lobby on Fighting Spirit — in game. Hosted by HostUser.',
+      )
+    })
+
     test('falls back to the default page image when the map has no image', async () => {
       summaryGetterMock.mockReturnValueOnce({
         ...BASE_SUMMARY,
