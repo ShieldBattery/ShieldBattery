@@ -59,34 +59,35 @@ export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
  * highest-priority slots (the ones a small ally/enemy pool actually uses) maximally distinguishable
  * under normal and color-vision-deficient vision. `name` is a code-side label, not what's shown to
  * users -- displayed text goes through {@link getNamedColorLabel} so it's localized.
+ *
+ * The two pools live on disjoint hue arcs so which *side* a color belongs to reads categorically,
+ * not just which *player* it is: COOL runs teal -> blue -> indigo -> purple, WARM runs
+ * red -> orange -> gold. Greens and boundary pinks (magenta, cool-leaning rose) are excluded
+ * outright -- green reads as neither side, and a boundary pink on one side is mistakable for the
+ * other. The split also holds for red-green color vision deficiency: it puts the pools on opposite
+ * ends of the blue-yellow axis, which protanopia/deuteranopia preserve. Within a pool, later slots
+ * accept ambiguity (mixing up two allies is a far cheaper failure than ally-vs-enemy).
  */
 export const COOL: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#2F7FE3', name: 'Azure' },
   { hex: '#BE8CE1', name: 'Violet' },
   { hex: '#92C1FD', name: 'Sky' },
+  { hex: '#4544AB', name: 'Indigo' },
   { hex: '#228A8D', name: 'Deep teal' },
-  { hex: '#B3ECB9', name: 'Mint' },
-  { hex: '#5AC576', name: 'Emerald' },
-  { hex: '#60812B', name: 'Moss' },
+  { hex: '#8B4C95', name: 'Plum' },
+  { hex: '#1DBCB5', name: 'Teal' },
 ]
 
-/**
- * The "warm" counterpart to {@link COOL}; see there for details, including on `name`.
- *
- * Magenta sits below the head slots despite being one of the pool's strongest colors to normal
- * vision: protanopia and deuteranopia both desaturate it into the same blue-grey they turn
- * {@link COOL}'s violet and deep teal into, and a color that collapses onto the *opposing* pool
- * costs far more than one that collapses onto its own -- mistaking an enemy for an ally is a
- * worse failure than mixing up two allies.
- */
+/** The "warm" counterpart to {@link COOL}; see there for details, including on `name`. Salmon is
+ * the only pink and leans firmly red so it can't be read as the cool side's violet/plum. */
 export const WARM: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#DE3C37', name: 'Scarlet' },
   { hex: '#EDC23E', name: 'Gold' },
   { hex: '#F48815', name: 'Orange' },
-  { hex: '#F99FB7', name: 'Rose' },
-  { hex: '#D553AC', name: 'Magenta' },
-  { hex: '#A24B36', name: 'Brick' },
+  { hex: '#822C25', name: 'Maroon' },
   { hex: '#FEC2A4', name: 'Peach' },
+  { hex: '#9F4A12', name: 'Rust' },
+  { hex: '#FB817F', name: 'Salmon' },
 ]
 
 /** The built-in team-axis color presets (every {@link TeamColorPreset} except `Custom`). */
@@ -380,6 +381,7 @@ export function getNamedColorLabel(hex: string, t: TFunction): string | undefine
     case '#0c48cc':
       return t('settings.game.gameplay.colorNames.blue', 'Blue')
     case '#2cb494':
+    case '#1dbcb5':
       return t('settings.game.gameplay.colorNames.teal', 'Teal')
     case '#88409c':
       return t('settings.game.gameplay.colorNames.purple', 'Purple')
@@ -416,32 +418,31 @@ export function getNamedColorLabel(hex: string, t: TFunction): string | undefine
     case '#000080':
       return t('settings.game.gameplay.colorNames.navy', 'Navy')
     case '#f032e6':
-    case '#d553ac':
       return t('settings.game.gameplay.colorNames.magenta', 'Magenta')
     case '#808080':
       return t('settings.game.gameplay.colorNames.grey', 'Grey')
     case '#3c3c3c':
       return t('settings.game.gameplay.colorNames.black', 'Black')
-    case '#5ac576':
-      return t('settings.game.gameplay.colorNames.emerald', 'Emerald')
     case '#92c1fd':
       return t('settings.game.gameplay.colorNames.sky', 'Sky')
     case '#be8ce1':
       return t('settings.game.gameplay.colorNames.violet', 'Violet')
-    case '#b3ecb9':
-      return t('settings.game.gameplay.colorNames.mint', 'Mint')
-    case '#60812b':
-      return t('settings.game.gameplay.colorNames.moss', 'Moss')
+    case '#4544ab':
+      return t('settings.game.gameplay.colorNames.indigo', 'Indigo')
     case '#228a8d':
       return t('settings.game.gameplay.colorNames.deepTeal', 'Deep teal')
+    case '#8b4c95':
+      return t('settings.game.gameplay.colorNames.plum', 'Plum')
     case '#de3c37':
       return t('settings.game.gameplay.colorNames.scarlet', 'Scarlet')
     case '#edc23e':
       return t('settings.game.gameplay.colorNames.gold', 'Gold')
-    case '#f99fb7':
-      return t('settings.game.gameplay.colorNames.rose', 'Rose')
-    case '#a24b36':
-      return t('settings.game.gameplay.colorNames.brick', 'Brick')
+    case '#822c25':
+      return t('settings.game.gameplay.colorNames.maroon', 'Maroon')
+    case '#9f4a12':
+      return t('settings.game.gameplay.colorNames.rust', 'Rust')
+    case '#fb817f':
+      return t('settings.game.gameplay.colorNames.salmon', 'Salmon')
     case '#fec2a4':
       return t('settings.game.gameplay.colorNames.peach', 'Peach')
     default:
