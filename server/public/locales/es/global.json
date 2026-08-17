@@ -1264,7 +1264,7 @@
       "gold": "Oro {{level}}",
       "platinum": "Platino {{level}}",
       "silver": "Plata {{level}}",
-      "unrated": "Sin clasificar"
+      "unrated": "Sin rango"
     },
     "draftScreen": {
       "anonymizedName0": "Rhynadonte oxidado",
@@ -1274,8 +1274,8 @@
       "anonymizedName4": "Ragnasaurio despiadado",
       "anonymizedName5": "Ursadón inestable",
       "chatMessageError": "No se pudo enviar el mensaje de chat",
-      "lockInError": "No se pudo segurar la raza",
-      "lockInRaceButton": "Segurar",
+      "lockInError": "No se pudo fijar la raza",
+      "lockInRaceButton": "Fijar",
       "pickerText": {
         "myTurn": "Estás eligiendo…",
         "opponentTurn": "{{name}} está eligiendo…",
@@ -1285,7 +1285,7 @@
     },
     "findMatch": {
       "alternateRace": "Raza alternativa",
-      "bonusPool": "Grupo de bonificación",
+      "bonus": "Bonus",
       "cancelSearch": "Cancelar búsqueda",
       "desc": {
         "1v1": "Individual · mapas estándar",
@@ -1298,7 +1298,7 @@
         "3v3fastest": "Equipo · mapa Fastest",
         "3v3hunters": "Equipo · Hunters"
       },
-      "description": "Seleccione una raza para usarla siempre que su oponente haya seleccionado la misma raza principal.",
+      "description": "Selecciona una raza para usarla siempre que tu oponente haya seleccionado la misma raza principal.",
       "errors": {
         "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
         "dialogTitle": "Error al buscar un partido",
@@ -1311,20 +1311,23 @@
       "fixedMap": "Mapa fijo",
       "fixedMapDescription": "Este modo siempre se juega en un mapa fijo.",
       "goToLobby": "Ir al lobby",
+      "groupHintSolo": "Individual · raza fijada al buscar",
+      "groupHintTeam": "Equipo · las razas se eligen antes de la partida",
       "inLobbyBanner": "Estás en un lobby — el emparejamiento no está disponible mientras estás en un lobby de juego.",
       "joiningQueue": "Entrando en la cola…",
       "mapPool": "Grupo de mapas",
       "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
       "matchFound": "¡Partida encontrada!",
       "noScheduledWindow": "Aún no hay franja programada",
-      "pickedCount": "{{selected}} / {{limit}} elegidos",
-      "poolUpdated": "Grupo actualizado",
+      "presetRace": "Raza predefinida",
+      "presetRaceDescription": "Tu equipo elige las razas por turnos antes de empezar la partida. Esta será tu elección inicial.",
       "race": "Raza",
       "rank": "Rango",
-      "rating": "Clasificación",
+      "rating": "MMR",
       "readyToQueue": "Listo para buscar",
       "searchingMessage": "Buscando partida…",
       "selectAtLeastOne": "Selecciona al menos un tipo de emparejamiento para empezar a buscar.",
+      "selectedCount": "{{selected}} / {{total}} seleccionados",
       "settingsTitle": "Ajustes — {{label}}",
       "subtitle": "Elige uno o más tipos de emparejamiento y buscaremos en todos a la vez.",
       "title": "Encontrar partido",
