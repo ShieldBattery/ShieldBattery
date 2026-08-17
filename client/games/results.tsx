@@ -29,7 +29,7 @@ import {
 } from '../../common/games/results'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getTeamNames } from '../../common/maps'
-import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
+import { NUM_PLACEMENT_MATCHES, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
@@ -951,9 +951,13 @@ function MmrChangeText({
 
   return (
     <>
-      <span>
-        {roundRating} {t('gameDetails.summary.mmr', 'MMR')} (<NumberDelta delta={ratingChange} />)
-      </span>
+      {/* Ratings (and rating changes) are zeroed by the server until placements complete, so the
+          MMR portion is meaningless (and misleading) to show until then. */}
+      {change.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
+        <span>
+          {roundRating} {t('gameDetails.summary.mmr', 'MMR')} (<NumberDelta delta={ratingChange} />)
+        </span>
+      ) : null}
       <Tooltip className={className} text={''} ContentComponent={PointsOverview} position={'right'}>
         <span>
           {roundPoints} {t('gameDetails.summary.rp', 'RP')} (<NumberDelta delta={roundChange} />)

@@ -9,6 +9,7 @@ import {
   MatchmakingSeasonJson,
   MatchmakingType,
   matchmakingTypeToLabel,
+  NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleMedium } from '../styles/typography'
@@ -134,7 +135,13 @@ export function UserRankDisplay({
             <RankDisplayInfoLabel>{t('users.profile.record', 'Record')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
           <RankDisplayInfoEntry>
-            <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
+            <RankDisplayInfoValue>
+              {ladderPlayer.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
+                Math.round(ladderPlayer.rating)
+              ) : (
+                <>&mdash;</>
+              )}
+            </RankDisplayInfoValue>
             <RankDisplayInfoLabel>{t('users.profile.rating', 'Rating')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
         </RankDisplayInfoRow>
