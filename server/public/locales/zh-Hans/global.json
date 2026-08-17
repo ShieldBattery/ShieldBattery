@@ -1567,18 +1567,16 @@
           "black": "黑色",
           "blue": "蓝色",
           "blueishGrey": "蓝灰",
-          "brick": "砖红",
           "brown": "棕色",
           "cyan": "青色",
           "deepTeal": "深蓝绿",
-          "emerald": "翡翠绿",
           "gold": "金色",
           "green": "绿色",
           "grey": "灰色",
+          "indigo": "靛蓝",
           "lime": "青柠",
           "magenta": "洋红",
-          "mint": "薄荷绿",
-          "moss": "苔藓绿",
+          "maroon": "栗色",
           "navy": "藏青",
           "olive": "橄榄绿",
           "orange": "橙色",
@@ -1586,9 +1584,11 @@
           "paleYellow": "浅黄",
           "peach": "桃色",
           "pink": "粉色",
+          "plum": "李子色",
           "purple": "紫色",
           "red": "红色",
-          "rose": "玫瑰粉",
+          "rust": "铁锈色",
+          "salmon": "鲑红",
           "scarlet": "猩红",
           "sky": "天蓝",
           "tan": "棕褐",
@@ -1635,7 +1635,7 @@
           "selfAddLabel": "为自己固定颜色（可选）",
           "selfSetHint": "在无队伍的游戏中，您将始终使用此颜色。它会被预留，其他玩家不会占用。",
           "selfUnsetHint": "您将和其他玩家一样从颜色池中获得颜色。",
-          "title": "个人颜色"
+          "title": "个人颜色替换"
         },
         "gameTimer": "游戏计时器",
         "ingameSkins": {
@@ -1688,16 +1688,17 @@
           "description": "玩家颜色在您游戏中的显示方式。游戏内按 Shift+Tab 可切换模式。",
           "editHint": "点击颜色进行修改，拖动可调整顺序。",
           "header": "玩家颜色",
-          "label": "模式",
+          "label": "颜色替换",
           "mode": {
-            "presetEverywhere": "替换所有颜色",
+            "presetEverywhere": "全局开启",
             "presetEverywhereDesc": "您的配色方案应用于单位和小地图。",
-            "presetOnMinimap": "替换小地图颜色",
-            "presetOnMinimapDesc": "盟友和敌人颜色仅应用于小地图。",
-            "standard": "使用地图默认设置",
-            "standardDesc": "星际争霸的普通颜色。下面的设置不会生效。"
+            "presetOnMinimap": "仅在小地图上开启",
+            "presetOnMinimapDesc": "您的配色方案仅应用于小地图。",
+            "standard": "关闭",
+            "standardDesc": "星际争霸的普通颜色。"
           },
-          "offNote": "已关闭。所有游戏均使用个人颜色。",
+          "offNote": "已关闭。所有游戏均使用下方的个人颜色。",
+          "overridesOffNote": "替换已关闭，但下方的配色方案会保留。游戏内随时按 Shift+Tab 即可开启。",
           "pickerTargetAlly": "队伍配色 · 盟友 · #{{n}}",
           "pickerTargetEnemy": "队伍配色 · 敌人 · #{{n}}",
           "pickerTargetSelf": "队伍配色 · 您的颜色",
@@ -1719,7 +1720,8 @@
           "selfOverrideSetHint": "在团队游戏中，您将始终使用此颜色。",
           "selfShuffleHint": "每场游戏您会从您队伍的颜色池中随机获得一个颜色。",
           "shuffle": "每场游戏随机排列颜色",
-          "title": "队伍颜色",
+          "title": "队伍颜色替换",
+          "yourColorScheme": "您的配色方案",
           "yourTeam": "您的队伍"
         },
         "teamColorUsage": {
@@ -1730,7 +1732,7 @@
           "exceptIn1v1Desc": "双人游戏改用个人颜色。",
           "never": "从不",
           "neverDesc": "每个人保留自己的颜色，即使结盟关系变化也不变。",
-          "title": "队伍颜色使用"
+          "title": "使用队伍颜色"
         },
         "title": "游戏性选项",
         "unitPortraits": {

@@ -82,6 +82,8 @@ consistent. (Seed — extend over time.)
 - **Lobby terms:** lobby→lobby (loanword, masculine: el lobby, lleno), **bench (waiting members) →
   banquillo** (the sports substitutes' bench), observer (spectator)→observador,
   host (person)→anfitrión, slot→espacio ("Espacios libres"; slot rows use Abierto/Cerrado).
+- **color override(s) → reemplazo (de colores)** (noun; verb reemplazar). On/Off mode options use
+  Activado/Desactivado. Color scheme→esquema de colores.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -103,6 +105,8 @@ consistent. (Seed — extend over time.)
 - **Lobby terms:** lobby→лобби (indeclinable, neuter: лобби заполнено), **bench (waiting members)
   → скамейка** (на скамейке), observer (spectator)→зритель, host→хост, slot rows use
   Открыто/Закрыто, legacy unit limit→классический лимит.
+- **color override(s) → замена (цветов)**. On/Off mode options use Включено/Выключено. Color
+  scheme→цветовая схема.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -129,6 +133,8 @@ consistent. (Seed — extend over time.)
 - **Lobby terms:** lobby→로비, **bench (waiting members) → 벤치**, observer (spectator)→관전자
   (unit stays 옵저버 per terms), host→호스트, slot rows use 열림/닫힘, legacy unit limit→옛 유닛
   제한 (in-file useLegacyLimits).
+- **color override(s) → (색상) 대체**. On/Off mode options use 사용/사용 안 함 phrasing. Color
+  scheme→색상 구성 (with 내 for "your"). Rust (color)→러스트 (fashion-color loanword; never 녹색).
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -151,3 +157,5 @@ consistent. (Seed — extend over time.)
   members) → 替补席**, observer (spectator)→观战者 (an observer seat→观战位), host
   (person)→房主 (房主：X; the in-file hostLabel 主机 is legacy MT — prefer 房主 for people),
   slot rows use 开放/已关闭, legacy unit limit→旧版单位限制.
+- **color override(s) → (颜色)替换**. On/Off mode options use 开启/关闭 (everywhere→全局开启).
+  Color scheme→配色方案.

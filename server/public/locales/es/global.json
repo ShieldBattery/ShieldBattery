@@ -1601,18 +1601,16 @@
           "black": "Negro",
           "blue": "Azul",
           "blueishGrey": "Gris azulado",
-          "brick": "Ladrillo",
           "brown": "Marrón",
           "cyan": "Cian",
           "deepTeal": "Turquesa oscuro",
-          "emerald": "Esmeralda",
           "gold": "Dorado",
           "green": "Verde",
           "grey": "Gris",
+          "indigo": "Índigo",
           "lime": "Lima",
           "magenta": "Magenta",
-          "mint": "Menta",
-          "moss": "Musgo",
+          "maroon": "Granate",
           "navy": "Azul marino",
           "olive": "Oliva",
           "orange": "Naranja",
@@ -1620,9 +1618,11 @@
           "paleYellow": "Amarillo pálido",
           "peach": "Melocotón",
           "pink": "Rosa",
+          "plum": "Ciruela",
           "purple": "Morado",
           "red": "Rojo",
-          "rose": "Rosado",
+          "rust": "Óxido",
+          "salmon": "Salmón",
           "scarlet": "Escarlata",
           "sky": "Celeste",
           "tan": "Beige",
@@ -1669,7 +1669,7 @@
           "selfAddLabel": "Color fijo para ti (opcional)",
           "selfSetHint": "Siempre tendrás este color en partidas sin equipos. Se reserva para que otros jugadores no lo usen.",
           "selfUnsetHint": "Recibirás un color del grupo, como todos los demás.",
-          "title": "Colores individuales"
+          "title": "Reemplazo de colores individuales"
         },
         "gameTimer": "Temporizador de juego",
         "ingameSkins": {
@@ -1722,16 +1722,17 @@
           "description": "Cómo se ven los colores de los jugadores en tus partidas. Cambia de modo dentro del juego con Mayús+Tab.",
           "editHint": "Haz clic en un color para cambiarlo o arrástralo para reordenar.",
           "header": "Colores de los jugadores",
-          "label": "Modo",
+          "label": "Reemplazo de colores",
           "mode": {
-            "presetEverywhere": "Reemplazar todos los colores",
+            "presetEverywhere": "Activado en todas partes",
             "presetEverywhereDesc": "Tu esquema de colores en las unidades y el minimapa.",
-            "presetOnMinimap": "Reemplazar colores del minimapa",
-            "presetOnMinimapDesc": "Colores de aliados y enemigos solo en el minimapa.",
-            "standard": "Usar configuración predeterminada del mapa",
-            "standardDesc": "Los colores normales de StarCraft. Los ajustes de abajo no tienen efecto."
+            "presetOnMinimap": "Activado solo en el minimapa",
+            "presetOnMinimapDesc": "Tu esquema de colores solo en el minimapa.",
+            "standard": "Desactivado",
+            "standardDesc": "Los colores normales de StarCraft."
           },
-          "offNote": "Desactivado. Se usan los colores individuales en todas las partidas.",
+          "offNote": "Desactivado. Se usan los colores individuales de abajo en todas las partidas.",
+          "overridesOffNote": "El reemplazo está desactivado, pero tu esquema de colores se mantiene. Pulsa Mayús+Tab dentro del juego para activarlo en cualquier momento.",
           "pickerTargetAlly": "Esquema de equipo · aliados · #{{n}}",
           "pickerTargetEnemy": "Esquema de equipo · enemigos · #{{n}}",
           "pickerTargetSelf": "Esquema de equipo · tu color",
@@ -1753,7 +1754,8 @@
           "selfOverrideSetHint": "Siempre serás de este color en partidas de equipos.",
           "selfShuffleHint": "Recibirás un color aleatorio del grupo de tu equipo en cada partida.",
           "shuffle": "Mezclar colores en cada partida",
-          "title": "Colores de equipo",
+          "title": "Reemplazo de colores de equipo",
+          "yourColorScheme": "Tu esquema de colores",
           "yourTeam": "Tu equipo"
         },
         "teamColorUsage": {
@@ -1764,7 +1766,7 @@
           "exceptIn1v1Desc": "Las partidas de dos jugadores usan colores individuales.",
           "never": "Nunca",
           "neverDesc": "Cada uno mantiene su propio color, incluso cuando cambian las alianzas.",
-          "title": "Uso de colores de equipo"
+          "title": "Usar colores de equipo"
         },
         "title": "Gameplay",
         "unitPortraits": {
