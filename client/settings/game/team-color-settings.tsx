@@ -51,7 +51,13 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../../mater
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { ExternalLink } from '../../navigation/external-link'
-import { bodySmall, labelMedium, labelSmall, titleSmall } from '../../styles/typography'
+import {
+  bodySmall,
+  labelMedium,
+  labelSmall,
+  titleMedium,
+  titleSmall,
+} from '../../styles/typography'
 import { DEFAULT_TILESET, PreviewRow, TeamColorPreview, TilesetId } from './team-color-preview'
 
 // Preview roster flavor. Untranslated on purpose -- these are mock player names, not UI copy.
@@ -146,14 +152,11 @@ function customToPool(colors: Pick<CustomTeamColors, 'self' | 'allies'>): string
 function getMinimapColorModeDescription(mode: MinimapColorMode, t: TFunction): string {
   switch (mode) {
     case MinimapColorMode.Standard:
-      return t(
-        'settings.game.gameplay.teamColors.mode.standardDesc',
-        "StarCraft's normal colors. The settings below have no effect.",
-      )
+      return t('settings.game.gameplay.teamColors.mode.standardDesc', "StarCraft's normal colors.")
     case MinimapColorMode.PresetOnMinimapOnly:
       return t(
         'settings.game.gameplay.teamColors.mode.presetOnMinimapDesc',
-        'Ally and enemy colors on the minimap only.',
+        'Your color scheme on the minimap only.',
       )
     case MinimapColorMode.Preset:
       return t(
@@ -224,6 +227,24 @@ const BehaviorRow = styled.div`
   margin: 8px 0 20px;
 `
 
+// Everything that configures the overrides themselves is grouped under its own sub-header, clearly
+// set apart from the mode select above it, so it reads as "the scheme the non-Off modes apply"
+// rather than as settings that are always in effect.
+const OverrideSetupSection = styled.div`
+  margin-top: 32px;
+`
+
+const OverrideSetupLabel = styled.div`
+  ${titleMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const OverridesOffNote = styled.div`
+  ${bodySmall};
+  margin-top: 8px;
+  color: var(--theme-on-surface-variant);
+`
+
 const UsageSelect = styled(Select)`
   flex-grow: 1;
 `
@@ -232,10 +253,6 @@ const ShuffleCheckBox = styled(CheckBox)`
   align-self: center;
   width: 264px;
   flex-shrink: 0;
-`
-
-const BelowMode = styled.div<{ $inert: boolean }>`
-  ${props => (props.$inert ? 'opacity: 0.38; pointer-events: none;' : '')}
 `
 
 const CollapsedCard = styled(Card)`
@@ -362,12 +379,6 @@ const ClearButton = styled.button`
     outline: 2px solid var(--theme-amber);
     outline-offset: 2px;
   }
-
-  &:disabled {
-    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
-    cursor: default;
-    pointer-events: none;
-  }
 `
 
 const ClearLabel = styled.span`
@@ -454,9 +465,10 @@ export interface TeamColorSettingsProps {
 }
 
 /**
- * The "Player colors" settings section: minimap color mode, team-vs-individual usage behavior,
- * and the two color-scheme cards (team and individual) with their presets, pool editors, and
- * mock previews.
+ * The "Player colors" settings section: the override on/off/where mode, team-vs-individual usage
+ * behavior, and the two override-scheme cards (team and individual) with their presets, pool
+ * editors, and mock previews. Everything stays editable even while overrides are Off, since the
+ * in-game Shift+Tab cycle can turn them on mid-game.
  */
 export function TeamColorSettings({
   minimapColorMode,
@@ -486,7 +498,7 @@ export function TeamColorSettings({
     label: getColorLabel(c.hex, t),
   }))
 
-  const isModeInert = minimapColorMode === MinimapColorMode.Standard
+  const isOverridesOff = minimapColorMode === MinimapColorMode.Standard
   const isTeamCollapsed = teamColorUsage === TeamColorUsage.Never
   const isTeamCustom = teamColorPreset === TeamColorPreset.Custom
   // Legacy's self/allies/enemies mapping is fixed (self teal, allies yellow, enemies red), so
@@ -495,11 +507,11 @@ export function TeamColorSettings({
   // built-in presets use for their overridable self.
   const isLegacyDiplomacy = teamColorPreset === TeamColorPreset.LegacyDiplomacy
   const isFfaCustom = ffaColorPreset === FfaColorPreset.Custom
-  const teamEditable = isTeamCustom && !isModeInert
-  const ffaEditable = isFfaCustom && !isModeInert
-  // The self swatch is editable on every preset (the override exists precisely to personalize a
-  // built-in preset), unlike the allies/enemies pools above which stay gated to Custom.
-  const teamSelfEditable = !isModeInert
+  // Every control below stays editable while overrides are Off: the setup is saved either way, and
+  // Shift+Tab in-game can turn overrides on mid-game, at which point it applies. The Off state is
+  // communicated with a note instead of disabling anything.
+  const teamEditable = isTeamCustom
+  const ffaEditable = isFfaCustom
 
   const activeTeamColors = resolveTeamColors({ teamColorPreset, customTeamColors })
   const activeFfaColors = resolveFfaColors({ ffaColorPreset, customFfaColors })
@@ -708,7 +720,7 @@ export function TeamColorSettings({
             value={teamSelfColor}
             defaultValue={activeTeamColors.self}
             onChange={onTeamSelfColorChange}
-            editable={teamSelfEditable}
+            editable={true}
             swatches={scSwatches}
             quickSwatches={teamSelfQuickSwatches}
             pickerSubtitle={t(
@@ -722,10 +734,7 @@ export function TeamColorSettings({
             )}
           />
           {hasTeamSelfOverride ? (
-            <ClearButton
-              type='button'
-              disabled={isModeInert}
-              onClick={() => onTeamSelfColorChange(undefined)}>
+            <ClearButton type='button' onClick={() => onTeamSelfColorChange(undefined)}>
               <MaterialIcon icon='close' size={15} />
               <ClearLabel>{t('settings.game.gameplay.teamColors.clear', 'Clear')}</ClearLabel>
             </ClearButton>
@@ -751,7 +760,7 @@ export function TeamColorSettings({
       <Select
         value={minimapColorMode}
         onChange={onMinimapColorModeChange}
-        label={t('settings.game.gameplay.teamColors.label', 'Mode')}
+        label={t('settings.game.gameplay.teamColors.label', 'Color overrides')}
         tabIndex={0}
         allowErrors={false}>
         {ALL_MINIMAP_COLOR_MODES.map(mode => (
@@ -763,16 +772,26 @@ export function TeamColorSettings({
           />
         ))}
       </Select>
-
-      <BelowMode $inert={isModeInert}>
+      <OverrideSetupSection>
+        <OverrideSetupLabel>
+          {t('settings.game.gameplay.teamColors.yourColorScheme', 'Your color scheme')}
+        </OverrideSetupLabel>
+        {isOverridesOff ? (
+          <OverridesOffNote>
+            {t(
+              'settings.game.gameplay.teamColors.overridesOffNote',
+              'Overrides are off, but your color scheme below is kept. Press Shift+Tab in-game ' +
+                'to turn overrides on at any time.',
+            )}
+          </OverridesOffNote>
+        ) : null}
         <BehaviorRow>
           <UsageSelect
             value={teamColorUsage}
             onChange={onTeamColorUsageChange}
-            label={t('settings.game.gameplay.teamColorUsage.title', 'Team colors usage')}
+            label={t('settings.game.gameplay.teamColorUsage.title', 'Use team colors')}
             tabIndex={0}
-            allowErrors={false}
-            disabled={isModeInert}>
+            allowErrors={false}>
             {ALL_TEAM_COLOR_USAGES.map(usage => (
               <SelectOption
                 key={usage}
@@ -786,7 +805,6 @@ export function TeamColorSettings({
             checked={shuffleColors}
             onChange={event => onShuffleColorsChange(event.target.checked)}
             label={t('settings.game.gameplay.teamColors.shuffle', 'Shuffle colors each game')}
-            disabled={isModeInert}
             inputProps={{ tabIndex: 0 }}
           />
         </BehaviorRow>
@@ -794,12 +812,12 @@ export function TeamColorSettings({
         {isTeamCollapsed ? (
           <CollapsedCard>
             <CollapsedTitle>
-              {t('settings.game.gameplay.teamColors.title', 'Team colors')}
+              {t('settings.game.gameplay.teamColors.title', 'Team color overrides')}
             </CollapsedTitle>
             <CollapsedNote>
               {t(
                 'settings.game.gameplay.teamColors.offNote',
-                'Off. Individual colors are used in every game.',
+                'Off. The individual colors below are used in every game.',
               )}
             </CollapsedNote>
           </CollapsedCard>
@@ -807,7 +825,9 @@ export function TeamColorSettings({
           <TeamSchemeCard>
             <SchemeContentRow>
               <SchemeColumn>
-                <CardTitle>{t('settings.game.gameplay.teamColors.title', 'Team colors')}</CardTitle>
+                <CardTitle>
+                  {t('settings.game.gameplay.teamColors.title', 'Team color overrides')}
+                </CardTitle>
                 <PresetBlock>
                   <Select
                     value={teamColorPreset}
@@ -815,8 +835,7 @@ export function TeamColorSettings({
                     label={t('settings.game.gameplay.teamColorPreset.title', 'Preset')}
                     dense={true}
                     tabIndex={0}
-                    allowErrors={false}
-                    disabled={isModeInert}>
+                    allowErrors={false}>
                     {ALL_TEAM_COLOR_PRESETS.map(preset => (
                       <SelectOption
                         key={preset}
@@ -910,7 +929,7 @@ export function TeamColorSettings({
           <SchemeContentRow>
             <SchemeColumn>
               <CardTitle>
-                {t('settings.game.gameplay.ffaColors.title', 'Individual colors')}
+                {t('settings.game.gameplay.ffaColors.title', 'Individual color overrides')}
               </CardTitle>
               <PresetBlock>
                 <Select
@@ -919,8 +938,7 @@ export function TeamColorSettings({
                   label={t('settings.game.gameplay.ffaColorPreset.title', 'Preset')}
                   dense={true}
                   tabIndex={0}
-                  allowErrors={false}
-                  disabled={isModeInert}>
+                  allowErrors={false}>
                   {ALL_FFA_COLOR_PRESETS.map(preset => (
                     <SelectOption
                       key={preset}
@@ -944,7 +962,7 @@ export function TeamColorSettings({
                     value={ffaSelfColor}
                     defaultValue={DEFAULT_FFA_SELF_COLOR}
                     onChange={onFfaSelfColorChange}
-                    editable={!isModeInert}
+                    editable={true}
                     swatches={scSwatches}
                     quickSwatches={ffaSelfQuickSwatches}
                     pickerSubtitle={t(
@@ -958,10 +976,7 @@ export function TeamColorSettings({
                     )}
                   />
                   {ffaSelfColor ? (
-                    <ClearButton
-                      type='button'
-                      disabled={isModeInert}
-                      onClick={() => onFfaSelfColorChange(undefined)}>
+                    <ClearButton type='button' onClick={() => onFfaSelfColorChange(undefined)}>
                       <MaterialIcon icon='close' size={15} />
                       <ClearLabel>
                         {t('settings.game.gameplay.ffaColors.clear', 'Clear')}
@@ -1024,7 +1039,7 @@ export function TeamColorSettings({
             <CopyFromPresetButton presets={ffaPresetCopyOptions} onSelect={handleCopyFfaPreset} />
           ) : null}
         </Card>
-      </BelowMode>
+      </OverrideSetupSection>
     </>
   )
 }

@@ -63,11 +63,11 @@ export const ALL_MINIMAP_COLOR_MODES: Readonly<MinimapColorMode[]> = [
 export function getMinimapColorModeLabel(mode: MinimapColorMode, t: TFunction): string {
   switch (mode) {
     case MinimapColorMode.Standard:
-      return t('settings.game.gameplay.teamColors.mode.standard', 'Use map defaults')
+      return t('settings.game.gameplay.teamColors.mode.standard', 'Off')
     case MinimapColorMode.PresetOnMinimapOnly:
-      return t('settings.game.gameplay.teamColors.mode.presetOnMinimap', 'Override minimap colors')
+      return t('settings.game.gameplay.teamColors.mode.presetOnMinimap', 'On for the minimap only')
     case MinimapColorMode.Preset:
-      return t('settings.game.gameplay.teamColors.mode.presetEverywhere', 'Override all colors')
+      return t('settings.game.gameplay.teamColors.mode.presetEverywhere', 'On everywhere')
     default:
       return assertUnreachable(mode)
   }

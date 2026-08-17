@@ -1652,7 +1652,7 @@
           "selfAddLabel": "Fixed color for yourself (optional)",
           "selfSetHint": "You'll always get this color in games without teams. It's set aside so other players don't take it.",
           "selfUnsetHint": "You'll get a color from the pool, just like everyone else.",
-          "title": "Individual colors"
+          "title": "Individual color overrides"
         },
         "gameTimer": "Game timer",
         "ingameSkins": {
@@ -1705,16 +1705,17 @@
           "description": "How player colors appear in your games. Cycle between modes in-game with Shift+Tab.",
           "editHint": "Click a color to change it, or drag to reorder.",
           "header": "Player colors",
-          "label": "Mode",
+          "label": "Color overrides",
           "mode": {
-            "presetEverywhere": "Override all colors",
+            "presetEverywhere": "On everywhere",
             "presetEverywhereDesc": "Your color scheme on units and the minimap.",
-            "presetOnMinimap": "Override minimap colors",
-            "presetOnMinimapDesc": "Ally and enemy colors on the minimap only.",
-            "standard": "Use map defaults",
-            "standardDesc": "StarCraft's normal colors. The settings below have no effect."
+            "presetOnMinimap": "On for the minimap only",
+            "presetOnMinimapDesc": "Your color scheme on the minimap only.",
+            "standard": "Off",
+            "standardDesc": "StarCraft's normal colors."
           },
-          "offNote": "Off. Individual colors are used in every game.",
+          "offNote": "Off. The individual colors below are used in every game.",
+          "overridesOffNote": "Overrides are off, but your color scheme below is kept. Press Shift+Tab in-game to turn overrides on at any time.",
           "pickerTargetAlly": "Team scheme · allies · #{{n}}",
           "pickerTargetEnemy": "Team scheme · enemies · #{{n}}",
           "pickerTargetSelf": "Team scheme · your color",
@@ -1736,7 +1737,8 @@
           "selfOverrideSetHint": "You'll always be this color in team games.",
           "selfShuffleHint": "You'll get a random color from your team's pool each game.",
           "shuffle": "Shuffle colors each game",
-          "title": "Team colors",
+          "title": "Team color overrides",
+          "yourColorScheme": "Your color scheme",
           "yourTeam": "Your team"
         },
         "teamColorUsage": {
@@ -1747,7 +1749,7 @@
           "exceptIn1v1Desc": "Two-player games use individual colors instead.",
           "never": "Never",
           "neverDesc": "Everyone keeps their own color, even when alliances change.",
-          "title": "Team colors usage"
+          "title": "Use team colors"
         },
         "title": "Gameplay",
         "unitPortraits": {
