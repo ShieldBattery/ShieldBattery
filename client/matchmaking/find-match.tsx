@@ -15,6 +15,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
   matchmakingTypeToLabel,
+  NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { urlPath } from '../../common/urls'
@@ -25,8 +26,10 @@ import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
 import { isInLobby } from '../lobbies/lobby-reducer'
 import { RaceIcon } from '../lobbies/race-icon'
-import { FilledButton, TextButton } from '../material/button'
+import { FilledButton, TextButton, useButtonState } from '../material/button'
 import { CheckBox } from '../material/check-box'
+import { Ripple } from '../material/ripple'
+import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { useNow } from '../react/date-hooks'
@@ -58,25 +61,24 @@ import { DivisionIcon } from './rank-icon'
 export interface RealModeData {
   type: MatchmakingType
   group: string
-  team: boolean
 }
 
 const REAL_MODES: RealModeData[] = [
-  { type: MatchmakingType.Match1v1, group: '1v1', team: false },
-  { type: MatchmakingType.Match1v1Fastest, group: '1v1', team: false },
-  { type: MatchmakingType.Match2v2, group: '2v2', team: true },
-  { type: MatchmakingType.Match2v2Bgh, group: '2v2', team: true },
-  { type: MatchmakingType.Match2v2Hunters, group: '2v2', team: true },
-  { type: MatchmakingType.Match2v2Fastest, group: '2v2', team: true },
-  { type: MatchmakingType.Match3v3Bgh, group: '3v3', team: true },
-  { type: MatchmakingType.Match3v3Hunters, group: '3v3', team: true },
-  { type: MatchmakingType.Match3v3Fastest, group: '3v3', team: true },
+  { type: MatchmakingType.Match1v1, group: '1v1' },
+  { type: MatchmakingType.Match1v1Fastest, group: '1v1' },
+  { type: MatchmakingType.Match2v2, group: '2v2' },
+  { type: MatchmakingType.Match2v2Bgh, group: '2v2' },
+  { type: MatchmakingType.Match2v2Hunters, group: '2v2' },
+  { type: MatchmakingType.Match2v2Fastest, group: '2v2' },
+  { type: MatchmakingType.Match3v3Bgh, group: '3v3' },
+  { type: MatchmakingType.Match3v3Hunters, group: '3v3' },
+  { type: MatchmakingType.Match3v3Fastest, group: '3v3' },
 ]
 
-const MODE_GROUPS: { id: '1v1' | '2v2' | '3v3'; label: string; hint: string }[] = [
-  { id: '1v1', label: '1v1', hint: 'Solo · race locked when searching' },
-  { id: '2v2', label: '2v2', hint: 'Team play · race drafted in-game' },
-  { id: '3v3', label: '3v3', hint: 'Team play · race drafted in-game' },
+const MODE_GROUPS: { id: '1v1' | '2v2' | '3v3'; label: string; team: boolean }[] = [
+  { id: '1v1', label: '1v1', team: false },
+  { id: '2v2', label: '2v2', team: true },
+  { id: '3v3', label: '3v3', team: true },
 ]
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -93,12 +95,18 @@ export const PageRoot = styled.div`
   flex-direction: column;
   min-height: 100%;
   background: var(--theme-surface);
-  padding: 28px 40px 0;
+  /* Horizontal padding is slim and constant: this page renders inside CenteredContentContainer,
+     which already pads the content edges, and every extra pixel here narrows the panel the row
+     layouts measure themselves against. It must not vary by viewport width — the panel width the
+     rows respond to depends on the content area (which the social sidebar can shrink), not the
+     viewport, so viewport-conditional padding would make the layout switch at inconsistent
+     content widths. */
+  padding: 28px 12px 0;
   gap: 20px;
   position: relative;
 
   @media (max-width: 1024px) {
-    padding: 24px 20px 0;
+    padding-top: 24px;
   }
 `
 
@@ -107,6 +115,11 @@ export const PanelRoot = styled.div`
   flex-direction: column;
   flex: 1;
   gap: 20px;
+
+  /* The row layouts below respond to this container rather than the viewport: the pinned social
+     sidebar can narrow the content area by hundreds of pixels while the window stays wide, and a
+     viewport media query would keep the wide layout active in a space that can't fit it. */
+  container: find-match-panel / inline-size;
 `
 
 export const PageHead = styled.div`
@@ -215,9 +228,15 @@ const TypeRowRoot = styled.div<{
   $disabled: boolean
 }>`
   display: grid;
-  grid-template-columns: 44px minmax(200px, 1fr) 292px minmax(240px, 280px) 52px;
+  /* Each row is its own grid, so the zone column is fixed (not minmax) to keep the settings-zone
+     divider aligned across rows regardless of their content. The compact-layout container query
+     below triggers at exactly this layout's minimum width (fixed columns + title minimum + gaps +
+     row padding = 862px), so the wide layout stays active whenever it can physically fit — a
+     976px window (content area minus centering padding and scrollbar gutters ≈ 872px panel)
+     still gets the wide layout. Keep the query in sync when adjusting column sizes. */
+  grid-template-columns: 44px minmax(170px, 1fr) 256px 322px;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   padding: 14px 20px;
   background: ${props =>
     props.$selected
@@ -261,12 +280,12 @@ const TypeRowRoot = styled.div<{
     }};
   }
 
-  @media (max-width: 1280px) {
-    grid-template-columns: 44px 1fr auto 52px;
+  @container find-match-panel (max-width: 862px) {
+    grid-template-columns: 44px 1fr 280px;
     grid-template-rows: auto auto;
     grid-template-areas:
-      'check title summary gear'
-      'check stats summary gear';
+      'check title zone'
+      'check stats zone';
     column-gap: 16px;
     row-gap: 4px;
     padding: 12px 18px;
@@ -284,7 +303,7 @@ const RowCheckBox = styled(CheckBox)<{ $pulsing: boolean }>`
       animation: ${searchPulse} 1.8s ease-in-out infinite;
     `}
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     grid-area: check;
     align-self: center;
   }
@@ -300,7 +319,7 @@ const DisabledCheckPlaceholder = styled.div`
   opacity: 0.6;
   align-self: center;
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     grid-area: check;
     align-self: center;
   }
@@ -312,17 +331,11 @@ const RowTitle = styled.div`
   gap: 3px;
   min-width: 0;
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     grid-area: title;
     align-self: end;
     padding-bottom: 2px;
   }
-`
-
-const RowTitleMain = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
 `
 
 const RowModeName = styled.h3`
@@ -332,44 +345,30 @@ const RowModeName = styled.h3`
   color: var(--theme-on-surface);
   white-space: nowrap;
 
-  @media (max-width: 1024px) {
+  @container find-match-panel (max-width: 640px) {
     font-size: 18px;
   }
-`
-
-const GroupBadge = styled.span`
-  ${labelSmall};
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  background: color-mix(in srgb, var(--theme-on-surface) 10%, transparent);
-  color: var(--theme-on-surface-variant);
 `
 
 const RowDesc = styled.span`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     display: none;
   }
 `
 
-// Stats column — inner grid: Rank | MMR | Bonus Pool
+// Stats column — inner grid: Rank | MMR | Bonus Pool. The divider on the right side is provided
+// by the settings zone's own left edge, so it exists at every layout size.
 const StatsBlock = styled.div`
   display: grid;
-  grid-template-columns: 110px 70px 80px;
+  grid-template-columns: 100px 60px 72px;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 12px;
   border-left: 1px solid color-mix(in srgb, var(--theme-on-surface) 8%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--theme-on-surface) 8%, transparent);
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     grid-area: stats;
     justify-self: start;
     align-self: start;
@@ -382,13 +381,12 @@ const StatsBlock = styled.div`
   }
 `
 
-const StatCell = styled.div<{ $unranked?: boolean }>`
+const StatCell = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-  opacity: ${props => (props.$unranked ? 0.7 : 1)};
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     flex-direction: row;
     align-items: center;
     gap: 6px;
@@ -413,7 +411,7 @@ const StatLabel = styled.span`
   text-transform: uppercase;
   color: var(--color-grey-blue60);
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     display: none;
   }
 `
@@ -448,7 +446,7 @@ const SmallDivisionIcon = styled(DivisionIcon)`
   flex-shrink: 0;
   filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4));
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     width: 22px;
     height: 22px;
   }
@@ -476,12 +474,12 @@ const UnavailableBlock = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-  grid-column: 3 / 6;
+  grid-column: 3 / 5;
   padding: 0 16px;
 
-  @media (max-width: 1280px) {
+  @container find-match-panel (max-width: 862px) {
     grid-column: auto;
-    grid-area: stats / stats / gear / summary;
+    grid-area: stats-start / stats-start / zone-end / zone-end;
     padding: 0;
   }
 `
@@ -504,24 +502,19 @@ const UnavailableCountdown = styled.span`
   font-feature-settings: 'tnum';
 `
 
-// Summary column
+// Summary content inside the settings zone. Pointer events stay off so hovering/clicking the
+// race and map info reads as interacting with the zone itself.
 const SummaryBlock = styled.div`
   ${bodySmall};
+  flex: 1;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   row-gap: 4px;
   column-gap: 10px;
   color: var(--theme-on-surface-variant);
-  justify-self: start;
 
   pointer-events: none;
-
-  @media (max-width: 1280px) {
-    grid-area: summary;
-    justify-self: end;
-    align-self: center;
-  }
 `
 
 const SummaryRaceRow = styled.span`
@@ -584,16 +577,40 @@ const PoolBadgeDot = styled.span`
   flex-shrink: 0;
 `
 
-// Gear button column
-const GearWrap = styled.div`
+// The entire right side of a row (race/map summary + gear button) is one clickable region that
+// opens the mode's settings. It bleeds through the row's padding to sit flush against the row's
+// edges, and its left border doubles as the summary divider at every layout size.
+const SettingsZone = styled.div<{ $disabled: boolean }>`
   position: relative;
+  overflow: hidden;
+  align-self: stretch;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 14px;
+  padding: 14px 20px 14px 16px;
+  margin: -14px -20px -14px 0;
+  border-left: 1px solid color-mix(in srgb, var(--theme-on-surface) 8%, transparent);
+  border-radius: 0 7px 7px 0;
+  background: color-mix(in srgb, var(--theme-on-surface) 3%, transparent);
+  cursor: ${props => (props.$disabled ? 'default' : 'pointer')};
+  transition: border-color 150ms ease;
 
-  @media (max-width: 1280px) {
-    grid-area: gear;
-    align-self: center;
+  /* The hover wash comes from the Ripple inside; this just tints it (and the press ripple). */
+  --sb-ripple-color: var(--theme-amber);
+
+  ${props =>
+    !props.$disabled &&
+    css`
+      &:hover {
+        border-left-color: color-mix(in srgb, var(--theme-amber) 30%, transparent);
+      }
+    `}
+
+  @container find-match-panel (max-width: 862px) {
+    grid-area: zone;
+    align-self: stretch;
+    padding: 12px 18px 12px 16px;
+    margin: -12px -18px -12px 0;
   }
 `
 
@@ -601,6 +618,7 @@ const GearButton = styled.button`
   position: relative;
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
   border-radius: 8px;
   border: 1px solid var(--theme-outline);
   background: transparent;
@@ -614,7 +632,8 @@ const GearButton = styled.button`
     border-color 150ms ease,
     color 150ms ease;
 
-  &:hover:not(:disabled) {
+  /* Highlight when hovering anywhere in the settings zone, not just the button itself. */
+  ${SettingsZone}:hover &:not(:disabled) {
     color: var(--theme-amber);
     border-color: color-mix(in srgb, var(--theme-amber) 50%, transparent);
     background: color-mix(in srgb, var(--theme-amber) 8%, transparent);
@@ -625,7 +644,7 @@ const GearButton = styled.button`
     cursor: default;
   }
 
-  @media (max-width: 1024px) {
+  @container find-match-panel (max-width: 640px) {
     width: 36px;
     height: 36px;
   }
@@ -656,17 +675,19 @@ export function ModeStats({ stats, t }: ModeStatsProps) {
         </StatRankRow>
       </StatCell>
 
-      <StatCell $unranked={unranked}>
+      <StatCell>
         <StatLabel>{t('matchmaking.findMatch.rating', 'Rating')}</StatLabel>
         {unranked ? (
-          <StatUnrankedValue>{t('matchmaking.findMatch.unratedText', 'Unrated')}</StatUnrankedValue>
+          <StatUnrankedValue aria-label={t('matchmaking.findMatch.unratedText', 'Unrated')}>
+            —
+          </StatUnrankedValue>
         ) : (
           <StatValue>{stats.mmr!.toLocaleString()}</StatValue>
         )}
       </StatCell>
 
       <StatCell>
-        <StatLabel>{t('matchmaking.findMatch.bonusPool', 'Bonus pool')}</StatLabel>
+        <StatLabel>{t('matchmaking.findMatch.bonus', 'Bonus')}</StatLabel>
         <BonusValue $zero={stats.bonus === 0}>
           <MaterialIcon icon='bolt' size={13} />+{stats.bonus}
         </BonusValue>
@@ -751,30 +772,28 @@ export interface RowSummaryState {
   alternateRace: AssignedRaceChar
   mapSelectionCount: number
   mapPoolVetoLimit: number
+  mapPoolSize: number
   mapSelectionStyle: MapSelectionStyle
   poolChanged: boolean
 }
 
 interface ModeSummaryProps {
-  mode: RealModeData
   summaryState: RowSummaryState
 }
 
-export function ModeSummary({ mode, summaryState }: ModeSummaryProps) {
+export function ModeSummary({ summaryState }: ModeSummaryProps) {
   const { t } = useTranslation()
   return (
     <SummaryBlock>
-      {!mode.team ? (
-        <SummaryRaceRow>
-          <StyledRaceIcon race={summaryState.race} applyRaceColor={true} />
-          {summaryState.useAlternateRace && summaryState.race !== 'r' ? (
-            <>
-              <MirrorArrow>→</MirrorArrow>
-              <StyledRaceIcon race={summaryState.alternateRace} applyRaceColor={true} />
-            </>
-          ) : null}
-        </SummaryRaceRow>
-      ) : null}
+      <SummaryRaceRow>
+        <StyledRaceIcon race={summaryState.race} applyRaceColor={true} />
+        {summaryState.useAlternateRace && summaryState.race !== 'r' ? (
+          <>
+            <MirrorArrow>→</MirrorArrow>
+            <StyledRaceIcon race={summaryState.alternateRace} applyRaceColor={true} />
+          </>
+        ) : null}
+      </SummaryRaceRow>
 
       {(() => {
         if (summaryState.mapSelectionStyle === 'fixed') {
@@ -785,27 +804,34 @@ export function ModeSummary({ mode, summaryState }: ModeSummaryProps) {
             </SummaryMapRow>
           )
         }
-        if (summaryState.mapPoolVetoLimit <= 0) {
-          return null
-        }
-        return (
-          <SummaryMapRow>
-            <MaterialIcon icon='map' size={16} />
-            {summaryState.mapSelectionStyle === 'veto' ? (
+        if (summaryState.mapSelectionStyle === 'veto') {
+          if (summaryState.mapPoolVetoLimit <= 0) {
+            return null
+          }
+          return (
+            <SummaryMapRow>
+              <MaterialIcon icon='map' size={16} />
               <MapCountLabel>
                 {t('matchmaking.findMatch.vetoedCount', '{{selected}} / {{limit}} vetoed', {
                   selected: summaryState.mapSelectionCount,
                   limit: summaryState.mapPoolVetoLimit,
                 })}
               </MapCountLabel>
-            ) : (
-              <MapCountLabel>
-                {t('matchmaking.findMatch.pickedCount', '{{selected}} / {{limit}} picked', {
-                  selected: summaryState.mapSelectionCount,
-                  limit: summaryState.mapPoolVetoLimit,
-                })}
-              </MapCountLabel>
-            )}
+            </SummaryMapRow>
+          )
+        }
+        if (summaryState.mapPoolSize <= 0) {
+          return null
+        }
+        return (
+          <SummaryMapRow>
+            <MaterialIcon icon='map' size={16} />
+            <MapCountLabel>
+              {t('matchmaking.findMatch.selectedCount', '{{selected}} / {{total}} selected', {
+                selected: summaryState.mapSelectionCount,
+                total: summaryState.mapPoolSize,
+              })}
+            </MapCountLabel>
           </SummaryMapRow>
         )
       })()}
@@ -813,7 +839,7 @@ export function ModeSummary({ mode, summaryState }: ModeSummaryProps) {
       {summaryState.poolChanged ? (
         <PoolBadge>
           <PoolBadgeDot />
-          {t('matchmaking.findMatch.poolUpdated', 'Pool updated')}
+          {t('matchmaking.findMatch.updated', 'Updated')}
         </PoolBadge>
       ) : null}
     </SummaryBlock>
@@ -823,7 +849,6 @@ export function ModeSummary({ mode, summaryState }: ModeSummaryProps) {
 // ─── Type Row component ───────────────────────────────────────────────────────
 
 interface TypeRowProps {
-  mode: RealModeData
   label: string
   desc: string
   selected: boolean
@@ -839,7 +864,6 @@ interface TypeRowProps {
 }
 
 export function TypeRow({
-  mode,
   label,
   desc,
   selected,
@@ -856,6 +880,15 @@ export function TypeRow({
   const faded = isSearching && !selected
   const pulsing = isSearching && selected
   const isDisabled = !isEnabled
+  const settingsLabel = t('matchmaking.findMatch.settingsTitle', 'Settings — {{label}}', { label })
+
+  const [zoneProps, zoneRippleRef] = useButtonState({
+    disabled: isSearching,
+    onClick: e => {
+      e.stopPropagation()
+      onOpenSettings()
+    },
+  })
 
   return (
     <TypeRowRoot
@@ -873,10 +906,7 @@ export function TypeRow({
       )}
 
       <RowTitle>
-        <RowTitleMain>
-          <RowModeName>{label}</RowModeName>
-          <GroupBadge>{mode.group}</GroupBadge>
-        </RowTitleMain>
+        <RowModeName>{label}</RowModeName>
         <RowDesc>{desc}</RowDesc>
       </RowTitle>
 
@@ -885,18 +915,21 @@ export function TypeRow({
       ) : (
         <>
           <ModeStats stats={stats} t={t} />
-          <ModeSummary mode={mode} summaryState={summaryState} />
-          <GearWrap onClick={e => e.stopPropagation()}>
-            <GearButton
-              title={t('matchmaking.findMatch.settingsTitle', 'Settings — {{label}}', { label })}
-              disabled={isSearching}
-              onClick={e => {
-                e.stopPropagation()
-                if (!isSearching) onOpenSettings()
-              }}>
-              <MaterialIcon icon='tune' size={20} />
-            </GearButton>
-          </GearWrap>
+          <SettingsZone $disabled={isSearching} {...zoneProps}>
+            <ModeSummary summaryState={summaryState} />
+            <Tooltip text={settingsLabel} position='top' tabIndex={-1}>
+              <GearButton
+                aria-label={settingsLabel}
+                disabled={isSearching}
+                onClick={e => {
+                  e.stopPropagation()
+                  if (!isSearching) onOpenSettings()
+                }}>
+                <MaterialIcon icon='tune' size={20} />
+              </GearButton>
+            </Tooltip>
+            <Ripple ref={zoneRippleRef} disabled={isSearching} />
+          </SettingsZone>
         </>
       )}
     </TypeRowRoot>
@@ -1000,11 +1033,12 @@ export function SettingsDrawer({ drawerType, labelForType, onClose }: SettingsDr
             exit={{ x: '-100%' }}
             transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}>
             <DrawerHead>
-              <GroupBadge>{getMatchmakingModeInfo(drawerType).format}</GroupBadge>
               <DrawerTitle>{labelForType(drawerType)}</DrawerTitle>
-              <DrawerCloseBtn onClick={onClose} title={t('common.actions.close', 'Close')}>
-                <MaterialIcon icon='close' size={22} />
-              </DrawerCloseBtn>
+              <Tooltip text={t('common.actions.close', 'Close')} position='bottom' tabIndex={-1}>
+                <DrawerCloseBtn onClick={onClose} aria-label={t('common.actions.close', 'Close')}>
+                  <MaterialIcon icon='close' size={22} />
+                </DrawerCloseBtn>
+              </Tooltip>
             </DrawerHead>
 
             <DrawerBody>
@@ -1307,11 +1341,13 @@ export function FindMatch() {
       return { division: MatchmakingDivision.Unrated, mmr: null, bonus: 0 }
     }
     const division = ladderPlayerToMatchmakingDivision(player, bonusPoolSize)
-    const isUnranked = player.wins + player.losses === 0
+    // Ratings are hidden until placements complete (the server zeroes them until then), so show
+    // the no-rating presentation rather than a bogus 0 for players mid-placements.
+    const inPlacements = player.lifetimeGames < NUM_PLACEMENT_MATCHES
     const bonus = Math.max(0, Math.floor(bonusPoolSize - player.bonusUsed))
     return {
       division,
-      mmr: isUnranked ? null : Math.round(player.rating),
+      mmr: inPlacements ? null : Math.round(player.rating),
       bonus,
     }
   }
@@ -1330,7 +1366,12 @@ export function FindMatch() {
 
     if (prefs) {
       race = prefs.race ?? 'r'
-      mapSelectionCount = prefs.mapSelections?.length ?? 0
+      // Only count selections that are still in the current pool, so stale preferences (from a
+      // previous pool) can't produce counts that exceed the limit shown next to them.
+      const mapSelections = prefs.mapSelections ?? []
+      mapSelectionCount = mapPool
+        ? mapSelections.filter(id => mapPool.maps.includes(id)).length
+        : mapSelections.length
       if (
         (type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
         race !== 'r'
@@ -1350,6 +1391,7 @@ export function FindMatch() {
       alternateRace,
       mapSelectionCount,
       mapPoolVetoLimit: mapPool?.maxVetoCount ?? 0,
+      mapPoolSize: mapPool?.maps.length ?? 0,
       mapSelectionStyle: getMatchmakingModeInfo(type).mapSelectionStyle,
       poolChanged,
     }
@@ -1505,7 +1547,17 @@ export function FindMatch() {
                 <GroupHead>
                   <GroupLabel>{group.label}</GroupLabel>
                   <GroupDivider />
-                  <GroupHint>{group.hint}</GroupHint>
+                  <GroupHint>
+                    {group.team
+                      ? t(
+                          'matchmaking.findMatch.groupHintTeam',
+                          'Team play · race drafted before game',
+                        )
+                      : t(
+                          'matchmaking.findMatch.groupHintSolo',
+                          'Solo · race locked when searching',
+                        )}
+                  </GroupHint>
                 </GroupHead>
                 <ModeList>
                   {modes.map(mode => {
@@ -1514,7 +1566,6 @@ export function FindMatch() {
                     return (
                       <TypeRow
                         key={mode.type}
-                        mode={mode}
                         label={labelForType(mode.type)}
                         desc={descForType(mode.type)}
                         selected={effectiveSelectedTypes.has(mode.type)}

@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { SbMapId } from '../../common/maps'
@@ -77,10 +77,24 @@ function FindMatchForm({
   const canUseAlternateRace = mode.supportsAlternateRace && race !== 'r'
   const useAlternateRace = canUseAlternateRace ? getInputValue('useAlternateRace') : false
   const hiddenAlternateRaces = race !== 'r' ? [race] : []
+  const isTeamMode = mode.teamSize > 1
 
   return (
     <form noValidate={true} onSubmit={submit}>
-      <SectionTitle>{t('matchmaking.findMatch.race', 'Race')}</SectionTitle>
+      <SectionTitle>
+        {isTeamMode
+          ? t('matchmaking.findMatch.presetRace', 'Preset race')
+          : t('matchmaking.findMatch.race', 'Race')}
+      </SectionTitle>
+      {isTeamMode ? (
+        <DescriptionText>
+          {t(
+            'matchmaking.findMatch.presetRaceDescription',
+            'Your team drafts races before the game starts. This will be your starting pick in ' +
+              'the draft.',
+          )}
+        </DescriptionText>
+      ) : null}
       <StyledRaceSelect
         {...bindCustom('race')}
         size={RacePickerSize.Large}
@@ -230,6 +244,34 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
 
   const selfId = selfUser.id
   const mapPoolId = mapPool?.id ?? 0
+
+  // The stored preferences are stamped with the map pool they were last saved against, and the
+  // find-match rows show an "Updated" badge whenever that differs from the current pool. Form
+  // callbacks only fire when the user changes a value, so re-save on open with the current pool
+  // id: opening the settings (and thereby seeing the current pool) is what acknowledges the
+  // update and clears the badge.
+  useEffect(() => {
+    if (disabled || !prefs || !mapPool || prefs.mapPoolId === mapPool.id) {
+      return
+    }
+    const data = prefs.data as Immutable<MatchmakingPreferencesData1v1> | undefined
+    dispatch(
+      updateMatchmakingPreferences(
+        type,
+        buildPreferences(
+          type,
+          {
+            race: prefs.race ?? 'r',
+            useAlternateRace: data?.useAlternateRace ?? false,
+            alternateRace: data?.alternateRace ?? 'z',
+            mapSelections,
+          },
+          selfUser.id,
+          mapPool.id,
+        ),
+      ),
+    )
+  }, [disabled, dispatch, mapPool, mapSelections, prefs, selfUser.id, type])
 
   if (!prefs) {
     return <LoadingDotsArea />

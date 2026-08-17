@@ -25,7 +25,6 @@ import {
   PanelRoot,
   QueueBar,
   QueueChipData,
-  RealModeData,
   RowStats,
   RowSummaryState,
   SeasonLabel,
@@ -52,7 +51,6 @@ interface MockMapPool {
 interface MockModeData {
   id: MockModeId
   label: string
-  team: boolean
   group: '1v1' | '2v2' | '3v3'
   desc: string
   stats: MockStats
@@ -108,8 +106,8 @@ const SEL_MAPS_2V2_FASTEST = [
 
 const MOCK_MODE_GROUPS: MockModeGroup[] = [
   { id: '1v1', label: '1v1', hint: 'Solo ranked · race locked before queue' },
-  { id: '2v2', label: '2v2', hint: 'Team play · race drafted in-game' },
-  { id: '3v3', label: '3v3', hint: 'Team play · race drafted in-game' },
+  { id: '2v2', label: '2v2', hint: 'Team play · race drafted before game' },
+  { id: '3v3', label: '3v3', hint: 'Team play · race drafted before game' },
 ]
 
 const MOCK_MODES: MockModeData[] = [
@@ -117,7 +115,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: MatchmakingType.Match1v1,
     label: '1v1',
-    team: false,
     group: '1v1',
     desc: 'Solo · standard maps',
     stats: { mmr: 1842, division: MatchmakingDivision.Diamond3, bonus: 420 },
@@ -127,7 +124,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: MatchmakingType.Match1v1Fastest,
     label: '1v1 Fastest',
-    team: false,
     group: '1v1',
     desc: 'Solo · Fastest Map',
     stats: { mmr: 1640, division: MatchmakingDivision.Platinum2, bonus: 0 },
@@ -138,7 +134,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: MatchmakingType.Match2v2,
     label: '2v2',
-    team: true,
     group: '2v2',
     desc: 'Team · standard maps',
     stats: { mmr: 1985, division: MatchmakingDivision.Diamond2, bonus: 180 },
@@ -148,7 +143,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: '2v2bgh',
     label: '2v2 BGH',
-    team: true,
     group: '2v2',
     desc: 'Team · Big Game Hunters',
     stats: { mmr: 1240, division: MatchmakingDivision.Bronze1, bonus: 60 },
@@ -157,7 +151,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: '2v2hunters',
     label: '2v2 Hunters',
-    team: true,
     group: '2v2',
     desc: 'Team · The Hunters',
     stats: { mmr: 1580, division: MatchmakingDivision.Gold2, bonus: 210 },
@@ -166,7 +159,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: '2v2fastest',
     label: '2v2 Fastest',
-    team: true,
     group: '2v2',
     desc: 'Team · Fastest Map',
     stats: { mmr: null, division: MatchmakingDivision.Unrated, bonus: 0 },
@@ -177,7 +169,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: '3v3bgh',
     label: '3v3 BGH',
-    team: true,
     group: '3v3',
     desc: 'Team · Big Game Hunters',
     stats: { mmr: 1725, division: MatchmakingDivision.Platinum1, bonus: 320 },
@@ -186,7 +177,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: '3v3hunters',
     label: '3v3 Hunters',
-    team: true,
     group: '3v3',
     desc: 'Team · The Hunters',
     stats: { mmr: 1500, division: MatchmakingDivision.Gold1, bonus: 640 },
@@ -195,7 +185,6 @@ const MOCK_MODES: MockModeData[] = [
   {
     id: '3v3fastest',
     label: '3v3 Fastest',
-    team: true,
     group: '3v3',
     desc: 'Team · Fastest Map',
     stats: { mmr: null, division: MatchmakingDivision.Unrated, bonus: 0 },
@@ -324,10 +313,6 @@ interface RowModeState {
 
 // ─── Helpers: convert mock data to real component prop shapes ─────────────────
 
-function toRealMode(mode: MockModeData): RealModeData {
-  return { type: mode.id as MatchmakingType, group: mode.group, team: mode.team }
-}
-
 function toRowStats(mode: MockModeData): RowStats {
   return { division: mode.stats.division, mmr: mode.stats.mmr, bonus: mode.stats.bonus }
 }
@@ -339,6 +324,7 @@ function toRowSummaryState(mode: MockModeData, rowState: RowModeState): RowSumma
     alternateRace: rowState.alternateRace,
     mapSelectionCount: rowState.mapSelectionCount,
     mapPoolVetoLimit: mode.mapPool?.limit ?? 0,
+    mapPoolSize: mode.mapPool?.maps.length ?? 0,
     mapSelectionStyle: (mode.mapPool?.vetoes ?? false) ? 'veto' : 'pick',
     poolChanged: mode.poolChanged,
   }
@@ -519,7 +505,6 @@ export function FindMatchListTest() {
                     return (
                       <TypeRow
                         key={String(mode.id)}
-                        mode={toRealMode(mode)}
                         label={mode.label}
                         desc={mode.desc}
                         selected={selectedIds.has(mode.id)}
