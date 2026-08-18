@@ -6,6 +6,7 @@ import { useMultiplexRef } from '../react/refs'
 import { useStableCallback } from '../react/state-hooks'
 import { IconButton } from './button'
 import { InputBase } from './input-base'
+import { InputCounter } from './input-counter'
 import { InputError } from './input-error'
 import { FloatingLabel } from './input-floating-label'
 import { Label } from './input-label'
@@ -171,6 +172,22 @@ const ClearButton = styled(IconButton)`
   min-height: 32px;
 `
 
+const BottomRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+`
+
+const StyledInputError = styled(InputError)`
+  flex-grow: 1;
+`
+
+const StyledInputCounter = styled(InputCounter)`
+  /* Sorts after InputError, whose container sets its own flex order. */
+  order: 5;
+  margin-left: auto;
+  flex-shrink: 0;
+`
+
 export type TextSelectionDirection = 'forward' | 'backward' | 'none'
 
 export interface TextFieldProps {
@@ -189,6 +206,13 @@ export interface TextFieldProps {
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>
   label?: string
   leadingIcons?: React.ReactElement[]
+  /**
+   * The maximum allowed length of the value. When set, a counter showing the number of remaining
+   * characters is displayed below the field once the value approaches the limit. This doesn't
+   * prevent typing past the limit — the counter goes negative (in the error color) instead, so
+   * that validation can surface an error rather than input silently getting cut off.
+   */
+  maxLength?: number
   maxRows?: number
   multiline?: boolean
   name?: string
@@ -222,6 +246,7 @@ export function TextField({
   inputProps,
   label,
   leadingIcons = [],
+  maxLength,
   maxRows,
   multiline,
   name,
@@ -400,7 +425,14 @@ export function TextField({
         <InputUnderline focused={isFocused} error={!!errorText} />
         <StateLayer />
       </TextFieldContainer>
-      {allowErrors ? <InputError error={errorText} /> : null}
+      {allowErrors || maxLength !== undefined ? (
+        <BottomRow>
+          {allowErrors ? <StyledInputError error={errorText} /> : null}
+          {maxLength !== undefined ? (
+            <StyledInputCounter value={value} maxLength={maxLength} />
+          ) : null}
+        </BottomRow>
+      ) : null}
     </div>
   )
 }
