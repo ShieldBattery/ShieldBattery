@@ -1840,6 +1840,7 @@ impl BwScr {
                         &self.game_command_lengths,
                     );
                     let mut sync_seen = false;
+                    let mut alliance_or_vision_seen = false;
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
                     // BW with mutexes locked is generally a good pattern to follow IMO)
                     {
@@ -1862,6 +1863,20 @@ impl BwScr {
                                     if are_recorded_replay_commands == 0 => {
                                         sync_seen = true;
                                     }
+                                // Vision/alliance toggles are rare, and whether the native
+                                // handlers accept them depends on guards that differ between
+                                // live games and replay playback (a rejected toggle still gets
+                                // recorded). Log each one plus the state it leaves behind so
+                                // that difference is visible in the logs of both.
+                                [commands::id::VISION, ..] | [commands::id::ALLIANCE, ..] => {
+                                    alliance_or_vision_seen = true;
+                                    debug!(
+                                        "Alliance/vision command from game player \
+                                        {command_user} (unique {unique_command_user}, \
+                                        already-recorded {are_recorded_replay_commands}, \
+                                        replay {is_replay}): {command:02x?}"
+                                    );
+                                }
                                 _ => (),
                             }
                         }
@@ -1890,6 +1905,15 @@ impl BwScr {
                     orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
                     self.is_processing_game_commands
                         .store(was_processing, Ordering::Relaxed);
+                    if alliance_or_vision_seen && (command_user as usize) < 12 {
+                        let game = self.game();
+                        debug!(
+                            "Post-command alliances for player {command_user}: {:?}, \
+                            visions {:#x}",
+                            (*game).alliances[command_user as usize],
+                            (*game).visions[command_user as usize],
+                        );
+                    }
                     if !is_replay {
                         if !sync_seen {
                             if is_observer {
@@ -4798,10 +4822,23 @@ impl BwScr {
     /// no-op (leaving BW's colors as-is) when the randomizer wasn't located during analysis. Runs
     /// before the custom team-color engine snapshots the color state, so that engine's non-preset
     /// modes restore this randomized baseline rather than slot-order colors.
+    ///
+    /// The randomizer draws once per random-color slot from the synced RNG. Replay playback never
+    /// re-runs it (the recorded colors are restored from the replay instead), so letting those
+    /// draws stand would start every live game's simulation with an RNG stream offset from the
+    /// one playback derives from the recorded seed — desyncing the replay of every game that gets
+    /// here. The seed is restored around the call so the sim's stream starts exactly at the game
+    /// seed either way; the drawn colors still agree on every client because each draws them from
+    /// that same seed state.
     pub fn randomize_base_player_colors(&self) {
         if let Some(randomize) = self.randomize_player_colors {
             unsafe {
+                // The synced RNG seed sits one u32 past the operand analysis resolves (mirrors
+                // the read in `BwScr::rng_seed`).
+                let seed_ptr = self.rng_seed.resolve_as_ptr().add(1);
+                let saved_seed = seed_ptr.read_unaligned();
                 randomize();
+                seed_ptr.write_unaligned(saved_seed);
                 self.use_rgb_colors.write(1);
             }
         }

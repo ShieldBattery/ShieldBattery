@@ -6,6 +6,8 @@ use byteorder::{ByteOrder, LittleEndian};
 
 pub mod id {
     pub const NOP: u8 = 0x5;
+    pub const VISION: u8 = 0xd;
+    pub const ALLIANCE: u8 = 0xe;
     pub const SYNC: u8 = 0x37;
     pub const SET_LATENCY: u8 = 0x55;
     pub const REPLAY_SPEED: u8 = 0x56;
