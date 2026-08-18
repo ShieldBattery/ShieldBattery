@@ -1304,8 +1304,14 @@ app.on('ready', () => {
       try {
         const watchedFolders = resolveReplayFolders(await localSettings.get())
         lastReplayFolders = watchedFolders
+        // Namespaced by SB_SESSION (like the settings/log files) so concurrent dev instances don't
+        // contend over one index file; without it (i.e. production) the bare name is used.
+        const sbSessionName = process.env.SB_SESSION
+        const dbFileName = sbSessionName
+          ? `replay-library-${sbSessionName}.sqlite`
+          : 'replay-library.sqlite'
         replayLibrary = setupReplayLibrary({
-          dbPath: path.join(app.getPath('userData'), 'replay-library.sqlite'),
+          dbPath: path.join(app.getPath('userData'), dbFileName),
           watchedFolders,
           getSender: () => TypedIpcSender.from(mainWindow?.webContents),
         })
