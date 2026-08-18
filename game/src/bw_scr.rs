@@ -4833,12 +4833,18 @@ impl BwScr {
     pub fn randomize_base_player_colors(&self) {
         if let Some(randomize) = self.randomize_player_colors {
             unsafe {
-                // The synced RNG seed sits one u32 past the operand analysis resolves (mirrors
-                // the read in `BwScr::rng_seed`).
-                let seed_ptr = self.rng_seed.resolve_as_ptr().add(1);
-                let saved_seed = seed_ptr.read_unaligned();
+                // The u32 at the resolved operand is the advancing LCG state the synced rand
+                // mutates on every draw; one u32 past it is the static game seed (never advances
+                // — restoring that instead would be a no-op), and two past is the draw counter.
+                // Restore state + counter so the sim's RNG stream is exactly as if the
+                // randomizer never drew, which is what replay playback derives from the
+                // recorded seed.
+                let base = self.rng_seed.resolve_as_ptr();
+                let saved_state = base.read_unaligned();
+                let saved_draws = base.add(2).read_unaligned();
                 randomize();
-                seed_ptr.write_unaligned(saved_seed);
+                base.write_unaligned(saved_state);
+                base.add(2).write_unaligned(saved_draws);
                 self.use_rgb_colors.write(1);
             }
         }
@@ -6821,6 +6827,36 @@ unsafe fn step_game_logic_hook(
     // That vision-toggle UI only exists on replay and observer clients; a playing client's
     // vision changes all go through synced commands handled inside step_game_logic, so nothing
     // can corrupt detection_status between steps there and the save/restore passes are skipped.
+    // A low-rate fingerprint of the synced state, logged in live games and replay playback
+    // alike: any simulation divergence perturbs the RNG draw sequence and resource flow almost
+    // immediately, so diffing these lines between a live game's log and its replay's log finds
+    // the first diverged interval without any special tooling. The `rng` words are the u32s
+    // around the operand the analysis resolves as the RNG seed — the block holds the seed and
+    // the advancing rand state/draw counters, so some of the words move with every synced draw.
+    {
+        let game = bw.game();
+        if !game.is_null() {
+            let frame = (*game).frame_count;
+            static LAST_PROBE_FRAME: AtomicU32 = AtomicU32::new(u32::MAX);
+            if frame.is_multiple_of(240) && LAST_PROBE_FRAME.swap(frame, Ordering::Relaxed) != frame
+            {
+                let seed_ptr = bw.rng_seed.resolve_as_ptr();
+                let mut rng_words = [0u32; 6];
+                for (i, out) in rng_words.iter_mut().enumerate() {
+                    *out = seed_ptr.add(i).read_unaligned();
+                }
+                let minerals = (*game).minerals;
+                let gas = (*game).gas;
+                debug!(
+                    "Sync probe: frame {} rng {:x?} minerals {:?} gas {:?}",
+                    frame,
+                    rng_words,
+                    &minerals[..4],
+                    &gas[..4],
+                );
+            }
+        }
+    }
     let has_obs_vision_ui = game_thread::is_replay()
         || BwPlayerId(bw.local_unique_player_id.resolve() as u8).is_observer();
     if !has_obs_vision_ui {
