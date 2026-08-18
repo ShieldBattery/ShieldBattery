@@ -184,6 +184,13 @@ export class ReplayDb {
       ORDER BY p.position
     `)
 
+    // Every write transaction here uses BEGIN IMMEDIATE (`.immediate`). The index file can be
+    // open in several app instances at once (they all watch the same replay folders), and a
+    // default/deferred transaction that reads before its first write only tries to take the write
+    // lock at that first write — an upgrade SQLite refuses *instantly* with SQLITE_BUSY, without
+    // consulting the busy timeout, whenever another connection wrote in the meantime. Taking the
+    // write lock up front makes concurrent writers queue on the busy timeout (better-sqlite3
+    // defaults it to 5s) instead of failing.
     this.upsertTxn = this.db.transaction((record: IndexedReplay) => {
       const existing = this.getIdByPathStmt.get(record.path) as { id: number } | undefined
       let id: number
@@ -239,7 +246,7 @@ export class ReplayDb {
           p.sbUserId ?? null,
         )
       }
-    })
+    }).immediate
 
     this.deleteTxn = this.db.transaction((paths: string[]) => {
       for (const p of paths) {
@@ -248,7 +255,7 @@ export class ReplayDb {
           this.deleteReplayByIdStmt.run(row.id)
         }
       }
-    })
+    }).immediate
 
     this.addToPlaylistTxn = this.db.transaction((playlistId: number, replayIds: number[]) => {
       const existingIds = new Set(
@@ -270,7 +277,7 @@ export class ReplayDb {
         this.insertPlaylistEntryStmt.run(playlistId, replayId, position, now)
         position++
       }
-    })
+    }).immediate
 
     this.removeFromPlaylistTxn = this.db.transaction((playlistId: number, replayIds: number[]) => {
       for (const replayId of replayIds) {
@@ -283,7 +290,7 @@ export class ReplayDb {
       remainingIds.forEach((replayId, index) => {
         this.updateEntryPositionStmt.run(index, playlistId, replayId)
       })
-    })
+    }).immediate
 
     this.movePlaylistEntryTxn = this.db.transaction(
       (playlistId: number, replayId: number, toIndex: number) => {
@@ -299,18 +306,21 @@ export class ReplayDb {
           this.updateEntryPositionStmt.run(index, playlistId, id)
         })
       },
-    )
+    ).immediate
   }
 
   // Atomic (SQLite DDL is transactional) so a crash mid-migration rolls back to the previous
   // version instead of leaving a half-applied schema whose re-run fails (e.g. a repeated
   // `ALTER TABLE ... ADD COLUMN` throwing `duplicate column name`); `user_version` participates in
-  // the same transaction, so it only advances once every step below has succeeded.
+  // the same transaction, so it only advances once every step below has succeeded. Immediate for
+  // the same reason as the write transactions in the constructor — two app instances opening a
+  // fresh index at once must serialize their migrations rather than fail mid-upgrade.
   private migrate(): void {
-    this.db.transaction(() => {
-      const version = Number(this.db.pragma('user_version', { simple: true }))
-      if (version < 1) {
-        this.db.exec(`
+    this.db
+      .transaction(() => {
+        const version = Number(this.db.pragma('user_version', { simple: true }))
+        if (version < 1) {
+          this.db.exec(`
           CREATE TABLE replays (
             id INTEGER PRIMARY KEY,
             path TEXT UNIQUE NOT NULL,
@@ -337,41 +347,41 @@ export class ReplayDb {
           );
           CREATE INDEX idx_replay_players_replay_id ON replay_players (replay_id);
         `)
-      }
-      if (version < 2) {
-        // The FTS free-text index was replaced by LIKE-based substring filtering.
-        this.db.exec('DROP TABLE IF EXISTS replay_fts')
-      }
+        }
+        if (version < 2) {
+          // The FTS free-text index was replaced by LIKE-based substring filtering.
+          this.db.exec('DROP TABLE IF EXISTS replay_fts')
+        }
 
-      if (version < 3) {
-        // Every ORDER BY now sorts by parse_error first (to pin unreadable replays last), so the
-        // old game_time-only index can no longer serve the common newest-first ordering.
-        this.db.exec(`
+        if (version < 3) {
+          // Every ORDER BY now sorts by parse_error first (to pin unreadable replays last), so the
+          // old game_time-only index can no longer serve the common newest-first ordering.
+          this.db.exec(`
           DROP INDEX IF EXISTS idx_replays_game_time;
           CREATE INDEX idx_replays_parse_error_game_time ON replays (parse_error, game_time DESC);
         `)
-      }
+        }
 
-      if (version < 4) {
-        // Derived team-layout columns so format/matchup filters run in SQL; values are recomputed
-        // from replay_players for pre-v4 rows.
-        this.db.exec(`
+        if (version < 4) {
+          // Derived team-layout columns so format/matchup filters run in SQL; values are recomputed
+          // from replay_players for pre-v4 rows.
+          this.db.exec(`
           ALTER TABLE replays ADD COLUMN team_size INTEGER;
           ALTER TABLE replays ADD COLUMN matchup TEXT;
         `)
-        this.backfillTeamLayout()
-      }
+          this.backfillTeamLayout()
+        }
 
-      if (version < 5) {
-        // The replay parser changed; every row's file_mtime is cleared so none of them match their
-        // file's actual mtime on disk, forcing the next reconcile to reparse every replay
-        // (including parse_error rows) with the new parser.
-        this.db.exec('UPDATE replays SET file_mtime = NULL')
-      }
+        if (version < 5) {
+          // The replay parser changed; every row's file_mtime is cleared so none of them match their
+          // file's actual mtime on disk, forcing the next reconcile to reparse every replay
+          // (including parse_error rows) with the new parser.
+          this.db.exec('UPDATE replays SET file_mtime = NULL')
+        }
 
-      if (version < 6) {
-        // Bookmarking and local playlists.
-        this.db.exec(`
+        if (version < 6) {
+          // Bookmarking and local playlists.
+          this.db.exec(`
           ALTER TABLE replays ADD COLUMN starred_at INTEGER;
 
           CREATE TABLE playlists (
@@ -390,24 +400,25 @@ export class ReplayDb {
           );
           CREATE INDEX idx_playlist_entries_playlist ON playlist_entries (playlist_id, position);
         `)
-      }
+        }
 
-      if (version < 7) {
-        // Old replays use 0 (not just NON_EXISTING_USER_ID) for empty/observer slots in the
-        // ShieldBattery section; rows indexed before the parser learned that need the same
-        // treatment so consumers never see a bogus user id.
-        this.db.exec('UPDATE replay_players SET sb_user_id = NULL WHERE sb_user_id = 0')
-      }
+        if (version < 7) {
+          // Old replays use 0 (not just NON_EXISTING_USER_ID) for empty/observer slots in the
+          // ShieldBattery section; rows indexed before the parser learned that need the same
+          // treatment so consumers never see a bogus user id.
+          this.db.exec('UPDATE replay_players SET sb_user_id = NULL WHERE sb_user_id = 0')
+        }
 
-      if (version < 8) {
-        // Rename the starring column to match the bookmark terminology used throughout the UI.
-        this.db.exec('ALTER TABLE replays RENAME COLUMN starred_at TO bookmarked_at')
-      }
+        if (version < 8) {
+          // Rename the starring column to match the bookmark terminology used throughout the UI.
+          this.db.exec('ALTER TABLE replays RENAME COLUMN starred_at TO bookmarked_at')
+        }
 
-      if (version < SCHEMA_VERSION) {
-        this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
-      }
-    })()
+        if (version < SCHEMA_VERSION) {
+          this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
+        }
+      })
+      .immediate()
   }
 
   /**
