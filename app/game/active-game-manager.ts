@@ -24,8 +24,8 @@ import {
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
-import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { SlotType } from '../../common/lobbies/slot'
+import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import {
   cloneCustomTeamColors,
   resolveFfaColors,
@@ -369,9 +369,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     // degrades relational palettes that assume a "you" exists.
     const seatless =
       isReplayLaunchConfig(config) ||
-      config.setup.slots.some(
-        s => s.type === SlotType.Observer && s.userId === config.localUser.id,
-      )
+      config.setup.slots.some(s => s.type === SlotType.Observer && s.userId === config.localUser.id)
     const resolvedTeamColors = seatless
       ? resolveSeatlessTeamColors(resolvedLocal)
       : resolveTeamColors(resolvedLocal)
