@@ -107,12 +107,24 @@ export type NetcodeV2RehomeResponse =
 
 /**
  * One relay's stored flight-recorder blob, as listed by the coordinator's `POST /flight/blobs`.
- * The admin flight-recording tool uses `relayId` to name the blob for a follow-up fetch; it's the
- * only field the coordinator's listing guarantees, and cross-references with the `relayId`s in a
- * game's `netcode_v2_relays` history to identify which relay(s) served the session.
+ * The admin flight-recording tool uses `relayId` to name the blob for a follow-up fetch, and
+ * cross-references it with the `relayId`s in a game's `netcode_v2_relays` history to identify
+ * which relay(s) served the session.
  */
 export interface NetcodeV2FlightBlobInfo {
   relayId: number
+  /**
+   * Whether the blob is stored in the pinned (desynced-session) retention class — true means the
+   * game this recording covers desynced.
+   */
+  pinned: boolean
+  /**
+   * The stored blob's size in bytes — the *compressed* size at rest, not the size of the JSON a
+   * download returns.
+   */
+  size: number
+  /** When the blob was stored, unix-epoch milliseconds. */
+  lastModifiedMs: number
 }
 
 /** Response body for `GET /games/:gameId/flight-recordings`. */

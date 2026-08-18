@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
+import prettyBytes from 'pretty-bytes'
 import * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
@@ -1453,13 +1454,34 @@ function FlightRecordingsSection({ gameId, session }: { gameId: string; session:
             <thead>
               <tr>
                 <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
-                <th />
+                <th>{t('gameDetails.debugInfo.network.flightRecordings.desync', 'Desync')}</th>
+                <th>{t('gameDetails.debugInfo.network.flightRecordings.size', 'Size')}</th>
+                <th>{t('gameDetails.debugInfo.network.flightRecordings.storedAt', 'Stored At')}</th>
+                <th>
+                  {t('gameDetails.debugInfo.network.flightRecordings.recording', 'Recording')}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {listState.blobs.map(({ relayId }) => (
+              {listState.blobs.map(({ relayId, pinned, size, lastModifiedMs }) => (
                 <tr key={relayId}>
                   <td>{relayId}</td>
+                  <td>{pinned ? <MaterialIcon icon='check' /> : '—'}</td>
+                  <td>
+                    <Tooltip
+                      text={t(
+                        'gameDetails.debugInfo.network.flightRecordings.sizeTooltip',
+                        'Compressed size at rest; the downloaded JSON will be larger',
+                      )}
+                      position='top'>
+                      {prettyBytes(size)}
+                    </Tooltip>
+                  </td>
+                  <td>
+                    <Tooltip text={longTimestampWithSeconds.format(lastModifiedMs)} position='top'>
+                      {longTimestamp.format(lastModifiedMs)}
+                    </Tooltip>
+                  </td>
                   <td>
                     <Tooltip
                       text={t(

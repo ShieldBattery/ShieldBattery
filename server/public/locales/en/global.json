@@ -643,11 +643,16 @@
         "at": "At",
         "event": "Event",
         "flightRecordings": {
+          "desync": "Desync",
           "download": "Download recording",
           "empty": "No stored recordings for session {{session}}",
           "list": "List stored recordings",
           "listError": "Failed to list recordings ({{status}})",
           "listErrorGeneric": "Failed to list recordings",
+          "recording": "Recording",
+          "size": "Size",
+          "sizeTooltip": "Compressed size at rest; the downloaded JSON will be larger",
+          "storedAt": "Stored At",
           "title": "Flight recordings"
         },
         "home": "Home",

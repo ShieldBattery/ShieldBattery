@@ -175,13 +175,14 @@ describe('games/game-api/GameApi#listFlightRecordings', () => {
   test('lists blobs for the session id stored on the game record', async () => {
     const { api, netcodeV2Service } = makeFlightApi()
     vi.mocked(getNetcodeV2Session).mockResolvedValue(42)
-    netcodeV2Service.listFlightBlobs.mockResolvedValue([{ relayId: 7 }])
+    const blob = { relayId: 7, pinned: false, size: 2048, lastModifiedMs: 1700000000000 }
+    netcodeV2Service.listFlightBlobs.mockResolvedValue([blob])
 
     const returned = await api.listFlightRecordings(makeFlightCtx())
 
     // The stored session id (never anything client-supplied) is what's listed.
     expect(netcodeV2Service.listFlightBlobs).toHaveBeenCalledWith(42)
-    expect(returned).toEqual({ blobs: [{ relayId: 7 }] })
+    expect(returned).toEqual({ blobs: [blob] })
   })
 })
 

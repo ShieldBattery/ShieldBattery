@@ -243,11 +243,13 @@ interface CoordinatorRehomeResponse {
 
 /**
  * The wire shape of the coordinator's `POST /flight/blobs` listing response — one entry per relay
- * that shipped a flight-recorder blob for the session. The coordinator may attach further per-blob
- * metadata; only `relay_id` is consumed here, since it's all `fetchFlightBlob` needs to name one.
+ * that shipped a flight-recorder blob for the session. Unlike the snake_case session control-plane
+ * surface (`/session/create`, `/session/rehome`, and the *request* bodies of the flight endpoints
+ * themselves), this response serializes camelCase — it's the coordinator's tenant-facing forensics
+ * surface, and its field names match ours directly.
  */
 interface CoordinatorFlightBlobsResponse {
-  blobs: Array<{ relay_id: number }>
+  blobs: Array<{ relayId: number; pinned: boolean; size: number; lastModifiedMs: number }>
 }
 
 /**
@@ -863,7 +865,14 @@ export class NetcodeV2Service {
       throw new NetcodeV2ServiceError('coordinator flight blob listing failed', { cause: err })
     }
 
-    return response.blobs.map(b => ({ relayId: b.relay_id }))
+    // Mapped field-by-field (rather than passed through) so coordinator-side additions never leak
+    // into our API surface unreviewed.
+    return response.blobs.map(({ relayId, pinned, size, lastModifiedMs }) => ({
+      relayId,
+      pinned,
+      size,
+      lastModifiedMs,
+    }))
   }
 
   /**

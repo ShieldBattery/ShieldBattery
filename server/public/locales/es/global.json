@@ -646,11 +646,16 @@
         "at": "Fecha",
         "event": "Evento",
         "flightRecordings": {
+          "desync": "Desync",
           "download": "Descargar grabación",
           "empty": "No hay grabaciones almacenadas para la sesión {{session}}",
           "list": "Listar grabaciones",
           "listError": "No se pudieron listar las grabaciones ({{status}})",
           "listErrorGeneric": "No se pudieron listar las grabaciones",
+          "recording": "Grabación",
+          "size": "Tamaño",
+          "sizeTooltip": "Tamaño comprimido en almacenamiento; el JSON descargado será más grande",
+          "storedAt": "Almacenada el",
           "title": "Grabaciones de vuelo"
         },
         "home": "Asignación",

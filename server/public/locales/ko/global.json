@@ -640,11 +640,16 @@
         "at": "시각",
         "event": "이벤트",
         "flightRecordings": {
+          "desync": "디싱크",
           "download": "기록 다운로드",
           "empty": "세션 {{session}}에 저장된 기록이 없습니다",
           "list": "저장된 기록 보기",
           "listError": "기록을 불러오지 못했습니다 ({{status}})",
           "listErrorGeneric": "기록을 불러오지 못했습니다",
+          "recording": "기록",
+          "size": "크기",
+          "sizeTooltip": "저장된 압축 크기입니다. 다운로드한 JSON은 더 큽니다",
+          "storedAt": "저장 시각",
           "title": "비행 기록"
         },
         "home": "배정",

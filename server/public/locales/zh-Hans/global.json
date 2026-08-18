@@ -640,11 +640,16 @@
         "at": "时间",
         "event": "事件",
         "flightRecordings": {
+          "desync": "不同步",
           "download": "下载记录",
           "empty": "会话 {{session}} 没有已存储的记录",
           "list": "列出已存储的记录",
           "listError": "无法列出记录（{{status}}）",
           "listErrorGeneric": "无法列出记录",
+          "recording": "记录",
+          "size": "大小",
+          "sizeTooltip": "存储的压缩大小；下载的 JSON 会更大",
+          "storedAt": "存储时间",
           "title": "飞行记录"
         },
         "home": "分配",
