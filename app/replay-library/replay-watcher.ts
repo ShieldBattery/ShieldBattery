@@ -1,12 +1,14 @@
 import { FSWatcher, watch } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { ReplayBackfillProgress } from '../../common/replays-library'
 import { matchRenamedReplays, NewFileIdentity, VanishedReplay } from './rename-matcher'
 import { ExistingReplayInfo, ReplayDb } from './replay-db'
 import {
   computeContentHash,
+  IndexedReplay,
   makeParseErrorRecord,
   parseReplayFile,
   ReplayFileInfo,
@@ -28,6 +30,18 @@ const PARSE_YIELD_EVERY = 8
  * backfill fills the list in progressively instead of only at the end.
  */
 const CHANGE_NOTIFY_INTERVAL_MS = 1000
+/**
+ * Base delay before re-running a reconcile that failed (wholly or for individual files), doubled
+ * on each consecutive failure. Failures here are mostly transient database contention with another
+ * app instance indexing the same folder, which clears quickly.
+ */
+const RETRY_BASE_DELAY_MS = 2000
+/**
+ * Cap on consecutive failed-reconcile retries. Past this, the index stays as-is until the next
+ * filesystem event (which reconciles, and resets the count if it succeeds), so a persistent
+ * failure can't retry-loop forever.
+ */
+const MAX_RETRY_ATTEMPTS = 5
 
 interface FileMeta {
   mtime: number
@@ -63,6 +77,8 @@ export class ReplayWatcher {
   private reconciling = false
   private reconcileQueued = false
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
+  private retryTimer: ReturnType<typeof setTimeout> | undefined
+  private retryAttempts = 0
   private backfillProgress: ReplayBackfillProgress | undefined
   /**
    * Whether the initial backfill has begun. The `scanning` phase is only surfaced for it: later,
@@ -97,9 +113,7 @@ export class ReplayWatcher {
   }
 
   start(): void {
-    this.reconcile().catch(err => {
-      this.logger.error(`Error during initial replay backfill: ${getErrorStack(err)}`)
-    })
+    this.reconcile().catch(swallowNonBuiltins)
 
     for (const folder of this.watchedFolders) {
       try {
@@ -121,6 +135,10 @@ export class ReplayWatcher {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = undefined
     }
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = undefined
+    }
   }
 
   /**
@@ -140,12 +158,17 @@ export class ReplayWatcher {
     }
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = undefined
-      this.reconcile().catch(err => {
-        this.logger.error(`Error reconciling replay index: ${getErrorStack(err)}`)
-      })
+      this.reconcile().catch(swallowNonBuiltins)
     }, WATCH_DEBOUNCE_MS)
   }
 
+  /**
+   * Runs a reconcile, serialized against other reconciles (a request during a running one queues a
+   * single follow-up). Never rejects: failures — a thrown reconcile or individual files whose
+   * index write failed — are logged and a bounded, backed-off retry is scheduled, since the usual
+   * cause is transient database contention with another app instance and no further filesystem
+   * event may arrive to trigger the reindex otherwise.
+   */
   private async reconcile(): Promise<void> {
     if (this.reconciling) {
       this.reconcileQueued = true
@@ -153,19 +176,52 @@ export class ReplayWatcher {
     }
     this.reconciling = true
     try {
-      await this.runReconcile()
+      const failedCount = await this.runReconcile()
+      if (failedCount > 0) {
+        this.logger.warning(`Failed to index ${failedCount} replay(s); scheduling a retry`)
+        this.scheduleRetry()
+      } else {
+        this.retryAttempts = 0
+        if (this.retryTimer) {
+          clearTimeout(this.retryTimer)
+          this.retryTimer = undefined
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Error reconciling replay index: ${getErrorStack(err)}`)
+      this.scheduleRetry()
     } finally {
       this.reconciling = false
       if (this.reconcileQueued) {
         this.reconcileQueued = false
-        this.reconcile().catch(err => {
-          this.logger.error(`Error reconciling replay index: ${getErrorStack(err)}`)
-        })
+        this.reconcile().catch(swallowNonBuiltins)
       }
     }
   }
 
-  private async runReconcile(): Promise<void> {
+  private scheduleRetry(): void {
+    if (this.retryTimer) {
+      return
+    }
+    if (this.retryAttempts >= MAX_RETRY_ATTEMPTS) {
+      this.logger.error(
+        `Reconciling the replay index failed ${this.retryAttempts} times in a row; ` +
+          `waiting for further filesystem changes`,
+      )
+      return
+    }
+    this.retryAttempts += 1
+    this.retryTimer = setTimeout(
+      () => {
+        this.retryTimer = undefined
+        this.reconcile().catch(swallowNonBuiltins)
+      },
+      RETRY_BASE_DELAY_MS * 2 ** (this.retryAttempts - 1),
+    )
+  }
+
+  /** Returns the number of files whose index write failed (they remain unindexed on disk). */
+  private async runReconcile(): Promise<number> {
     // Surface a "scanning" state only for the very first reconcile, before we know how much work
     // there is; the folder walk over a large library is slow enough to be worth showing.
     const isInitial = !this.initialScanStarted
@@ -182,7 +238,7 @@ export class ReplayWatcher {
     // so every indexed row (now under no configured root) is pruned.
     if (this.watchedFolders.length > 0 && scannedRoots.length === 0) {
       this.emitProgress(undefined)
-      return
+      return 0
     }
 
     const existing = this.db.getExistingReplays()
@@ -282,10 +338,11 @@ export class ReplayWatcher {
       if (toDelete.length > 0 || moveCount > 0) {
         this.callbacks.onChange()
       }
-      return
+      return 0
     }
 
     let done = 0
+    let failedCount = 0
     const total = toParse.length
     this.emitProgress({ phase: 'indexing', done, total })
 
@@ -295,7 +352,15 @@ export class ReplayWatcher {
       while (nextIndex < toParse.length) {
         const filePath = toParse[nextIndex]
         nextIndex++
-        await this.indexFile(filePath, files.get(filePath)!, hashes.get(filePath))
+        try {
+          await this.indexFile(filePath, files.get(filePath)!, hashes.get(filePath))
+        } catch (err) {
+          // A failed database write leaves this file unindexed but still on disk, so the retry
+          // reconcile our caller schedules will pick it up again; meanwhile the other files still
+          // get their chance to index.
+          failedCount++
+          this.logger.warning(`Error indexing replay '${filePath}': ${getErrorStack(err)}`)
+        }
         done++
         if (done % PARSE_YIELD_EVERY === 0 || done === total) {
           if (done < total) {
@@ -315,6 +380,7 @@ export class ReplayWatcher {
 
     this.emitProgress(undefined)
     this.callbacks.onChange()
+    return failedCount
   }
 
   private async indexFile(
@@ -332,12 +398,18 @@ export class ReplayWatcher {
       return
     }
 
+    let record: IndexedReplay
     try {
-      this.db.upsertReplay(await parseReplayFile(fileInfo))
+      record = await parseReplayFile(fileInfo)
     } catch (err) {
       this.logger.verbose(`Indexing replay '${filePath}' as a parse error: ${getErrorStack(err)}`)
-      this.db.upsertReplay(makeParseErrorRecord(fileInfo))
+      record = makeParseErrorRecord(fileInfo)
     }
+
+    // Outside the catch above: only a *parse* failure may be recorded as a parse error. A database
+    // error must propagate to the caller instead — recording it as a parse error would store a row
+    // whose mtime/size match the file, permanently hiding a replay that was never unreadable.
+    this.db.upsertReplay(record)
   }
 
   /**

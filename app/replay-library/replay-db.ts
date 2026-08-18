@@ -17,7 +17,7 @@ import { reorderPlaylistEntries } from './playlist-order'
 import { deriveTeamLayout, IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery } from './replay-queries'
 
-const SCHEMA_VERSION = 8
+const SCHEMA_VERSION = 9
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -412,6 +412,15 @@ export class ReplayDb {
         if (version < 8) {
           // Rename the starring column to match the bookmark terminology used throughout the UI.
           this.db.exec('ALTER TABLE replays RENAME COLUMN starred_at TO bookmarked_at')
+        }
+
+        if (version < 9) {
+          // Indexing used to record a replay as a parse error when the *database write* failed (e.g.
+          // the index briefly locked by another app instance), storing a parse-error row whose
+          // mtime/size match the file and thus never gets reparsed. Clearing file_mtime on every
+          // parse-error row forces one reparse of them all, recovering any replay that was never
+          // actually unreadable; genuinely corrupt ones are simply re-recorded as parse errors.
+          this.db.exec('UPDATE replays SET file_mtime = NULL WHERE parse_error = 1')
         }
 
         if (version < SCHEMA_VERSION) {
