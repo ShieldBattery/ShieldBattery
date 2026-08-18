@@ -1156,10 +1156,17 @@ describe('netcode-v2/NetcodeV2Service#listFlightBlobs', () => {
     expect(got.post).not.toHaveBeenCalled()
   })
 
-  test('posts the tenant + session (as a signed body) and returns the relay ids', async () => {
+  test('posts the tenant + session (as a signed body) and returns the blob metadata', async () => {
     configureNetcodeV2()
-    // eslint-disable-next-line camelcase
-    const json = vi.fn().mockResolvedValue({ blobs: [{ relay_id: 7 }, { relay_id: 9 }] })
+    const stored = [
+      { relayId: 7, pinned: true, size: 4096, lastModifiedMs: 1700000000000 },
+      { relayId: 9, pinned: false, size: 2048, lastModifiedMs: 1700000060000 },
+    ]
+    // The extra field checks that unknown coordinator-side additions are dropped by the
+    // field-by-field mapping rather than leaking through into our API surface.
+    const json = vi.fn().mockResolvedValue({
+      blobs: stored.map(b => ({ ...b, checksum: 'not-part-of-our-api' })),
+    })
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = makeService()
 
@@ -1176,7 +1183,7 @@ describe('netcode-v2/NetcodeV2Service#listFlightBlobs', () => {
         }),
       }),
     )
-    expect(result).toEqual([{ relayId: 7 }, { relayId: 9 }])
+    expect(result).toEqual(stored)
   })
 
   test('propagates a request failure', async () => {
