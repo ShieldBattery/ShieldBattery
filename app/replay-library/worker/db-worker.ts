@@ -38,6 +38,14 @@ function openReplayDb(path: string): ReplayDb {
   try {
     return new ReplayDb(path)
   } catch (err) {
+    // A busy/locked error means another process (e.g. a second app instance) is holding the file,
+    // not that it's corrupt — deleting it would destroy a healthy shared index. Let the error
+    // propagate; the worker supervisor's restarts serve as the retry.
+    const code = (err as { code?: string }).code
+    if (code?.startsWith('SQLITE_BUSY') || code?.startsWith('SQLITE_LOCKED')) {
+      throw err
+    }
+
     logger.warning(`Recreating unreadable replay index at ${path}: ${getErrorStack(err)}`)
     for (const suffix of ['', '-wal', '-shm']) {
       try {
