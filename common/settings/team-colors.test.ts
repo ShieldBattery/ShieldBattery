@@ -5,6 +5,7 @@ import {
   consumeMatchingColor,
   FFA_COLOR_PRESETS,
   resolveFfaColors,
+  resolveSeatlessTeamColors,
   resolveTeamColors,
   resolveTeamSelfOverride,
   TEAM_COLOR_PRESETS,
@@ -162,6 +163,36 @@ describe('common/settings/team-colors', () => {
       })
       resolved.push('#ffffff')
       expect(FFA_COLOR_PRESETS[FfaColorPreset.Jewel]).not.toContain('#ffffff')
+    })
+  })
+
+  describe('resolveSeatlessTeamColors', () => {
+    test('LegacyDiplomacy degrades to whole-team colors: allies pool becomes the self color', () => {
+      const scheme = TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]
+      expect(
+        resolveSeatlessTeamColors({
+          teamColorPreset: TeamColorPreset.LegacyDiplomacy,
+          customTeamColors: { self: '#000000', allies: [], enemies: [] },
+        }),
+      ).toEqual({
+        self: scheme.self,
+        allies: [scheme.self],
+        enemies: [...scheme.enemies],
+      })
+    })
+
+    test('non-relational presets resolve the same as the seated resolution', () => {
+      const settings = {
+        teamColorPreset: TeamColorPreset.CoolVsWarm,
+        customTeamColors: { self: '#000000', allies: [], enemies: [] },
+      }
+      expect(resolveSeatlessTeamColors(settings)).toEqual(resolveTeamColors(settings))
+    })
+
+    test('Custom resolves the same as the seated resolution', () => {
+      const customTeamColors = { self: '#111111', allies: ['#222222'], enemies: ['#333333'] }
+      const settings = { teamColorPreset: TeamColorPreset.Custom, customTeamColors }
+      expect(resolveSeatlessTeamColors(settings)).toEqual(resolveTeamColors(settings))
     })
   })
 

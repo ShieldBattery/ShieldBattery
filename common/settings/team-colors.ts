@@ -311,6 +311,25 @@ export function resolveTeamColors(
 }
 
 /**
+ * Resolves the team-color scheme for a seatless viewer (a replay watcher or an observer).
+ *
+ * `LegacyDiplomacy`'s palette is relational -- teal means "you", yellow "your allies", red "your
+ * enemies" -- and a seatless viewer has no "you". Handing the engine the seated pools makes it
+ * deal the teal+yellow "friendly" family across a single team, whose players then alternate
+ * teal/yellow and read as two different teams. Degrade it to whole-team colors instead: one team
+ * all teal, the other all red, yellow unused. Every other preset's self+allies pool is a designed
+ * team family, so the seated resolution already degrades sensibly and is returned unchanged.
+ */
+export function resolveSeatlessTeamColors(
+  settings: Pick<LocalSettings, 'teamColorPreset' | 'customTeamColors'>,
+): CustomTeamColors {
+  const colors = resolveTeamColors(settings)
+  return settings.teamColorPreset === TeamColorPreset.LegacyDiplomacy
+    ? { self: colors.self, allies: [colors.self], enemies: colors.enemies }
+    : colors
+}
+
+/**
  * Resolves the `teamSelf` override sent to the game (and mirrored by the settings preview):
  * `LegacyDiplomacy`'s self/allies/enemies mapping is fixed (self teal, allies yellow, enemies
  * red), so a personal override doesn't make sense there -- always the scheme's own self color,

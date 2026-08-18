@@ -25,9 +25,11 @@ import {
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
+import { SlotType } from '../../common/lobbies/slot'
 import {
   cloneCustomTeamColors,
   resolveFfaColors,
+  resolveSeatlessTeamColors,
   resolveTeamColors,
   resolveTeamSelfOverride,
 } from '../../common/settings/team-colors'
@@ -363,7 +365,16 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         ]
       : undefined
 
-    const resolvedTeamColors = resolveTeamColors(resolvedLocal)
+    // A viewer with no seat (replay watcher or observer) gets the seatless resolution, which
+    // degrades relational palettes that assume a "you" exists.
+    const seatless =
+      isReplayLaunchConfig(config) ||
+      config.setup.slots.some(
+        s => s.type === SlotType.Observer && s.userId === config.localUser.id,
+      )
+    const resolvedTeamColors = seatless
+      ? resolveSeatlessTeamColors(resolvedLocal)
+      : resolveTeamColors(resolvedLocal)
 
     this.emit('gameCommand', id, 'localUser', config.localUser)
     this.emit('gameCommand', id, 'blockedUsers', config.blockedUsers)
