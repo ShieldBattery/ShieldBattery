@@ -49,6 +49,7 @@ export function TextFieldTest() {
   const [value20, setValue20] = useState('')
   const [value21, setValue21] = useState('')
   const [value22, setValue22] = useState('')
+  const [value23, setValue23] = useState('')
   const [changeError, setChangeError] = useState<string>()
   const [dense, setDense] = useState(false)
 
@@ -339,6 +340,17 @@ export function TextFieldTest() {
           maxLength={30}
           errorText={value22.length > 30 ? 'Message is too long' : undefined}
           onChange={event => setValue22(event.target.value)}
+        />
+        <TextField
+          name='23'
+          value={value23}
+          floatingLabel={true}
+          dense={dense}
+          label='Counter, clear button, and trailing icon (max 40)'
+          maxLength={40}
+          hasClearButton={true}
+          trailingIcons={[<MaterialIcon icon='local_pizza' key='pizza' />]}
+          onChange={event => setValue23(event.target.value)}
         />
       </StyledCard>
     </Container>

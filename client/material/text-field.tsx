@@ -416,7 +416,7 @@ export function TextField({
           $dense={dense}
           $multiline={multiline}
           $leadingIconsLength={leadingIcons.length}
-          $trailingIconsLength={trailingIcons.length}
+          $trailingIconsLength={trailingIconsElements.length}
           data-testid={testName}
           {...inputProps}
           {...internalInputProps}
