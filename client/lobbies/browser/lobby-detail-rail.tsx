@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
+import { MAX_BENCH } from '../../../common/lobbies'
 import { LobbySummarySlotJson } from '../../../common/lobbies/lobby-network'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -18,6 +19,7 @@ import {
   bodyMedium,
   bodySmall,
   labelMedium,
+  labelSmall,
   singleLine,
   titleMedium,
 } from '../../styles/typography'
@@ -266,6 +268,13 @@ const JoinError = styled.div`
   color: var(--theme-error);
 `
 
+const BenchCaption = styled.div`
+  ${labelSmall};
+
+  color: var(--theme-on-surface-variant);
+  text-align: center;
+`
+
 const FullWidthFilledButton = styled(FilledButton)`
   width: 100%;
 `
@@ -427,6 +436,16 @@ export function LobbyDetailRail({
   // Melee and its kin have a single unnamed team, and a heading over the whole roster says nothing.
   const showTeamHeadings = !!playerTeams && (playerTeams.length > 1 || !!playerTeams[0]?.name)
 
+  // What an ordinary join will actually do, in the order the server tries: an open player seat,
+  // then an open observer seat, then the bench — which is capped, so a full bench means the join
+  // is refused outright.
+  const playerSeatsFull = summary.playerSlots.open === 0
+  const joinLandsOnObserverSeat = playerSeatsFull && summary.observerSlots.open > 0
+  const joinLandsOnBench =
+    playerSeatsFull && summary.observerSlots.open === 0 && summary.benchCount < MAX_BENCH
+  const joinRefused =
+    playerSeatsFull && summary.observerSlots.open === 0 && summary.benchCount >= MAX_BENCH
+
   return (
     <RailRoot className={className}>
       <RailScroll>
@@ -529,6 +548,17 @@ export function LobbyDetailRail({
               ) : null}
             </Section>
           ) : null}
+
+          {summary.benchCount > 0 ? (
+            <Section>
+              <QuietLine>
+                {t('lobbies.browser.benchWaiting', {
+                  defaultValue: '{{count}} waiting for a seat',
+                  count: summary.benchCount,
+                })}
+              </QuietLine>
+            </Section>
+          ) : null}
         </Slots>
 
         {friendIds.length ? (
@@ -562,11 +592,35 @@ export function LobbyDetailRail({
             <FullWidthFilledButton
               label={t('lobbies.browser.joinLobby', 'Join lobby')}
               onClick={() => onJoin(false)}
-              // A lobby with no open player seats has nothing to join as a player; observing,
-              // when available, keeps its own entry below.
-              disabled={summary.playerSlots.open === 0}
+              disabled={joinRefused}
               testName='join-lobby-button'
             />
+            {joinLandsOnObserverSeat ? (
+              <BenchCaption>
+                {t(
+                  'lobbies.browser.benchCaptionObserverFallback',
+                  'Player slots are full — joining will seat you as an observer',
+                )}
+              </BenchCaption>
+            ) : null}
+            {joinLandsOnBench ? (
+              // Joining stays possible with every seat taken — it lands on the bench — so the
+              // caption spells out what the click means instead of the button refusing it.
+              <BenchCaption>
+                {t(
+                  'lobbies.browser.benchCaptionFull',
+                  "Lobby is full — you'll wait on the bench for a seat",
+                )}
+              </BenchCaption>
+            ) : null}
+            {joinRefused ? (
+              <BenchCaption>
+                {t(
+                  'lobbies.browser.benchCaptionBenchFull',
+                  'The lobby and its bench are both full',
+                )}
+              </BenchCaption>
+            ) : null}
             {summary.observerSlots.open > 0 ? (
               <FullWidthOutlinedButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}

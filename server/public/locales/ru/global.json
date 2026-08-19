@@ -928,6 +928,13 @@
       "title": "Лобби ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionBenchFull": "И лобби, и скамейка заполнены",
+      "benchCaptionFull": "Лобби заполнено — Вы будете ждать на скамейке, пока не освободится место",
+      "benchCaptionObserverFallback": "Все места игроков заняты — присоединившись, Вы займёте место зрителя",
+      "benchWaiting_one": "{{count}} человек ждёт места",
+      "benchWaiting_few": "{{count}} человека ждут места",
+      "benchWaiting_many": "{{count}} человек ждут места",
+      "benchWaiting_other": "{{count}} человека ждёт места",
       "createDisabledWhileMatchmaking": "Вы не можете создать лобби, пока активен поиск матчей.",
       "emptyAllFull": "Сейчас все лобби заполнены",
       "emptyNoLobbies": "Сейчас нет открытых лобби",
@@ -972,6 +979,8 @@
       "title": "Лобби"
     },
     "createLobby": {
+      "advancedSettings": "Расширенные настройки",
+      "allowObservers": "Разрешить зрителей",
       "allowObserversWithMax": "Разрешить зрителей (до {{maxObservers}})",
       "errorDialogTitle": "Ошибка при создании лобби",
       "errorGeneric": "Что-то пошло не так при создании лобби. Пожалуйста, попробуйте ещё раз.",

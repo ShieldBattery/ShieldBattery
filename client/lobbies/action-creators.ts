@@ -12,9 +12,11 @@ import {
   LobbyNetworkParams,
   LobbyPreferencesResponse,
   LobbySlotRequest,
+  MoveSlotRequest,
   SendLobbyChatRequest,
   SetLobbyRaceRequest,
   UpdateLobbyPreferencesRequest,
+  UpdateLobbySettingsRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
@@ -211,6 +213,43 @@ export function makeObserver(slotId: string): ThunkAction {
 
 export function removeObserver(slotId: string): ThunkAction {
   return currentLobbySlotRequest('removing an observer', 'remove-observer', slotId)
+}
+
+/**
+ * Updates the settings of the lobby the user is currently hosting. `settings` should contain only
+ * the fields the caller wants changed (e.g. the diff between a settings form and the lobby's
+ * current values) — anything absent is left as-is by the server.
+ *
+ * Unlike the fire-and-forget slot operations, this is a form submit with server-side validation
+ * that can reject (and some rejections, like a change that would leave the host without a seat,
+ * are reachable through normal use), so the caller handles the outcome through `spec`.
+ */
+export function updateLobbySettings(
+  settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>>,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) {
+      return
+    }
+
+    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/settings`, {
+      method: 'POST',
+      body: encodeBodyAsParams<UpdateLobbySettingsRequest>({ clientId, ...settings }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/** Moves the occupant of `fromSlotId` into `toSlotId`, swapping the two occupants if it's taken. */
+export function moveSlot(fromSlotId: string, toSlotId: string): ThunkAction {
+  return currentLobbyRequest('moving a player between slots', lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/move-slot`, {
+      method: 'POST',
+      body: encodeBodyAsParams<MoveSlotRequest>({ clientId, fromSlotId, toSlotId }),
+    }),
+  )
 }
 
 export function leaveLobby(): ThunkAction {

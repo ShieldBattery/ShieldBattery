@@ -49,6 +49,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   playerSlots: { taken: 1, total: 4, open: 3 },
   observerSlots: { taken: 0, open: 0 },
   hasObserverTeam: false,
+  benchCount: 0,
   occupantIds: [HOST_ID],
   createdAt: 1234567890,
 }

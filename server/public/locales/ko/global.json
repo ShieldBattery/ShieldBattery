@@ -919,6 +919,10 @@
       "title": "로비 ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionBenchFull": "로비와 벤치가 모두 가득 찼습니다",
+      "benchCaptionFull": "로비가 가득 찼습니다. 자리가 날 때까지 벤치에서 대기하게 됩니다",
+      "benchCaptionObserverFallback": "플레이어 자리가 가득 찼습니다. 참여하면 관전자로 들어가게 됩니다",
+      "benchWaiting_other": "{{count}}명 자리 대기 중",
       "createDisabledWhileMatchmaking": "매치메이킹이 진행 중일 때는 로비를 만들 수 없습니다.",
       "emptyAllFull": "지금은 모든 로비가 가득 찼습니다",
       "emptyNoLobbies": "지금은 열려 있는 로비가 없습니다",
@@ -951,6 +955,8 @@
       "title": "로비"
     },
     "createLobby": {
+      "advancedSettings": "고급 설정",
+      "allowObservers": "관전자 허용",
       "allowObserversWithMax": "관전자 허용 (최대 {{maxObservers}}명)",
       "errorDialogTitle": "로비 생성 오류",
       "errorGeneric": "로비를 만드는 중 문제가 발생했습니다. 다시 시도해 주세요.",
