@@ -26,6 +26,7 @@ import { Popover, useElemAnchorPosition, usePopoverController } from '../materia
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppSelector } from '../redux-hooks'
+import { EmotePickerButton } from './emote-picker'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -285,6 +286,22 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       setMessage(message)
     })
 
+    const insertAtCaret = useStableCallback((text: string) => {
+      // The selection values persist while the input is unfocused (e.g. while the emote picker has
+      // focus), so this inserts wherever the caret last was, replacing any selected content.
+      const start = inputRef.current?.selectionStart ?? message.length
+      const end = inputRef.current?.selectionEnd ?? message.length
+      setMessage(msg => msg.slice(0, start) + text + msg.slice(end))
+
+      inputRef.current?.focus()
+      // Setting the caret position immediately after the focus doesn't work for some reason, so we
+      // need to wait a tick first.
+      queueMicrotask(() => {
+        const newCaretPosition = start + text.length
+        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+      })
+    })
+
     const onMentionSelect = (user: MentionableUser) => {
       closeUserMentions()
 
@@ -382,6 +399,13 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           allowErrors={false}
           showDivider={showDivider}
           disabled={!!chatRestriction}
+          trailingIcons={[
+            <EmotePickerButton
+              key='emotes'
+              disabled={!!chatRestriction}
+              onInsert={insertAtCaret}
+            />,
+          ]}
           inputProps={{
             autoComplete: 'off',
             onClick: event => {
