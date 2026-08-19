@@ -41,7 +41,7 @@ export interface NewsImageUploadResponse {
 }
 
 /** Maximum size that we allow a news post video upload to be. */
-export const MAX_VIDEO_SIZE_BYTES = 100 * 1000 * 1000 // 100MB
+export const MAX_VIDEO_SIZE_BYTES = 30 * 1000 * 1000 // 30MB
 
 /**
  * Response returned after uploading a news video, used for inline videos embedded in post

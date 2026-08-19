@@ -26,6 +26,7 @@ import {
   applyMarkdownFormat,
   MarkdownFormatKind,
   MarkdownToolbar,
+  ToolbarButton,
 } from '../markdown/markdown-toolbar'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { DateTimeTextField } from '../material/datetime-text-field'
@@ -1107,7 +1108,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
       return
     }
     if (file.size > MAX_VIDEO_SIZE_BYTES) {
-      setVideoError(t('admin.news.form.videoTooLarge', 'That video is too large (max 100 MB).'))
+      setVideoError(t('admin.news.form.videoTooLarge', 'That video is too large (max 30 MB).'))
       return
     }
 
@@ -1294,11 +1295,12 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   onChange={onImageFileSelected}
                   data-testid='news-inline-image-file-input'
                 />
-                <IconButton
+                <ToolbarButton
                   icon={<MaterialIcon icon='add_photo_alternate' />}
-                  title={t('admin.news.form.insertImage', 'Insert image')}
-                  onClick={() => imageFileInputRef.current?.click()}
+                  label={t('admin.news.form.insertImage', 'Insert image')}
+                  tooltipText={t('admin.news.form.insertImageTooltip', 'Insert image (up to 5 MB)')}
                   disabled={imageUploading}
+                  onClick={() => imageFileInputRef.current?.click()}
                 />
                 {imageUploading ? (
                   <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
@@ -1310,11 +1312,15 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   onChange={onVideoFileSelected}
                   data-testid='news-inline-video-file-input'
                 />
-                <IconButton
+                <ToolbarButton
                   icon={<MaterialIcon icon='videocam' />}
-                  title={t('admin.news.form.insertVideo', 'Insert video')}
-                  onClick={() => videoFileInputRef.current?.click()}
+                  label={t('admin.news.form.insertVideo', 'Insert video')}
+                  tooltipText={t(
+                    'admin.news.form.insertVideoTooltip',
+                    'Insert video (up to 30 MB)',
+                  )}
                   disabled={videoUploading}
+                  onClick={() => videoFileInputRef.current?.click()}
                 />
                 {videoUploading ? (
                   <CoverHint>{t('admin.news.form.videoUploading', 'Uploading…')}</CoverHint>

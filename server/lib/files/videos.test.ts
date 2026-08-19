@@ -21,17 +21,84 @@ describe('sniffVideoType', () => {
     return filePath
   }
 
-  test('detects mp4 from an ftyp box', async () => {
-    // A minimal mp4-like buffer: 4-byte box size, `ftyp`, then some padding bytes.
-    const buf = Buffer.concat([
-      Buffer.from([0x00, 0x00, 0x00, 0x18]),
+  /**
+   * Builds a synthetic `ftyp` box: a 4-byte big-endian box size, the `ftyp` type, a 4-byte major
+   * brand, a 4-byte (zeroed) minor version, and then the given compatible brands, each 4 bytes.
+   */
+  function makeFtypBox(majorBrand: string, compatibleBrands: string[] = []): Buffer {
+    const size = 16 + compatibleBrands.length * 4
+    const sizeBytes = Buffer.alloc(4)
+    sizeBytes.writeUInt32BE(size, 0)
+
+    return Buffer.concat([
+      sizeBytes,
       Buffer.from('ftyp', 'ascii'),
-      Buffer.from('isom', 'ascii'),
-      Buffer.alloc(16),
+      Buffer.from(majorBrand, 'ascii'),
+      Buffer.alloc(4), // minor version, unused
+      ...compatibleBrands.map(brand => Buffer.from(brand, 'ascii')),
     ])
+  }
+
+  test('detects mp4 from an ftyp box', async () => {
+    // A minimal mp4-like buffer: 4-byte box size, `ftyp`, an allowlisted major brand, then some
+    // padding bytes.
+    const buf = Buffer.concat([makeFtypBox('isom'), Buffer.alloc(16)])
     const filePath = await writeTempFile('video.mp4', buf)
 
     expect(await sniffVideoType(filePath)).toBe('mp4')
+  })
+
+  test('accepts an ffmpeg-style mp4 with major brand isom and compatible brands', async () => {
+    const buf = Buffer.concat([makeFtypBox('isom', ['iso2', 'avc1', 'mp41']), Buffer.alloc(16)])
+    const filePath = await writeTempFile('video.mp4', buf)
+
+    expect(await sniffVideoType(filePath)).toBe('mp4')
+  })
+
+  test('accepts an mp4 with major brand mp42 and no compatible brands', async () => {
+    const buf = Buffer.concat([makeFtypBox('mp42'), Buffer.alloc(16)])
+    const filePath = await writeTempFile('video.mp4', buf)
+
+    expect(await sniffVideoType(filePath)).toBe('mp4')
+  })
+
+  test('accepts an mp4 whose major brand is unrecognized but a compatible brand is allowlisted', async () => {
+    const buf = Buffer.concat([makeFtypBox('f4v ', ['isom']), Buffer.alloc(16)])
+    const filePath = await writeTempFile('video.mp4', buf)
+
+    expect(await sniffVideoType(filePath)).toBe('mp4')
+  })
+
+  test('rejects a QuickTime .mov file', async () => {
+    const buf = Buffer.concat([makeFtypBox('qt  '), Buffer.alloc(16)])
+    const filePath = await writeTempFile('video.mov', buf)
+
+    expect(await sniffVideoType(filePath)).toBeUndefined()
+  })
+
+  test('rejects a HEIC image', async () => {
+    const buf = Buffer.concat([makeFtypBox('mif1', ['heic']), Buffer.alloc(16)])
+    const filePath = await writeTempFile('image.heic', buf)
+
+    expect(await sniffVideoType(filePath)).toBeUndefined()
+  })
+
+  test('rejects an AVIF image', async () => {
+    const buf = Buffer.concat([makeFtypBox('avif', ['mif1', 'miaf']), Buffer.alloc(16)])
+    const filePath = await writeTempFile('image.avif', buf)
+
+    expect(await sniffVideoType(filePath)).toBeUndefined()
+  })
+
+  test('rejects a truncated ftyp box with no room for a major brand', async () => {
+    const buf = Buffer.concat([
+      Buffer.from([0x00, 0x00, 0x00, 0x08]),
+      Buffer.from('ftyp', 'ascii'),
+      Buffer.alloc(16),
+    ])
+    const filePath = await writeTempFile('truncated.bin', buf)
+
+    expect(await sniffVideoType(filePath)).toBeUndefined()
   })
 
   test('detects webm from EBML magic plus a webm DocType', async () => {

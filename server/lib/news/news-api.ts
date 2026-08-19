@@ -115,6 +115,9 @@ export class NewsApi {
     const path = createImagePath('news-videos', type)
     const stream = createReadStream(videoFile.filepath)
 
+    // TODO: Uploaded videos that never end up referenced by a saved post are never cleaned up
+    // and sit in the file store forever. If orphaned uploads become a storage problem, track
+    // upload references and garbage-collect unreferenced files.
     await writeFile(path, stream, { acl: 'public-read', type: mime.getType(type) ?? undefined })
 
     return { path, url: getUrl(path) }
