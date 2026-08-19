@@ -293,6 +293,14 @@ interface IpcRendererSendables {
 
   networkSiteConnected: () => void
 
+  /**
+   * Sent once the renderer has fully bootstrapped (IPC listeners registered, initial state loaded,
+   * and the React app mounted). Messages sent from the main process before a listener exists are
+   * silently dropped, so anything the main process wants to deliver around startup (e.g. replay
+   * files passed as launch args) must be held until this arrives.
+   */
+  rendererReady: () => void
+
   updaterGetState: () => void
   updaterQuitAndInstall: () => void
 

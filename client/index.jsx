@@ -205,4 +205,8 @@ rootElemPromise
         <App reduxStore={reduxStore} />
       </StrictMode>,
     )
+
+    // The main process holds back startup-sensitive events (e.g. replay files passed as launch
+    // args) until this, since anything it sends before our IPC listeners exist is dropped.
+    new TypedIpcRenderer().send('rendererReady')
   })
