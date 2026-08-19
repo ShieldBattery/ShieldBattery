@@ -47,6 +47,7 @@
         "imageUploadError": "Something went wrong uploading the image.",
         "imageUploading": "Uploading…",
         "insertImage": "Insert image",
+        "insertVideo": "Insert video",
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
@@ -57,7 +58,11 @@
         "summary": "Summary",
         "summaryRequired": "Summary is required",
         "title": "Title",
-        "titleRequired": "Title is required"
+        "titleRequired": "Title is required",
+        "videoInvalidType": "Please choose an mp4 or webm video file.",
+        "videoTooLarge": "That video is too large (max 100 MB).",
+        "videoUploadError": "Something went wrong uploading the video.",
+        "videoUploading": "Uploading…"
       },
       "history": {
         "by": "by ",

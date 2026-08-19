@@ -1,12 +1,18 @@
 import { RouterContext } from '@koa/router'
+import { createReadStream } from 'fs'
 import httpErrors from 'http-errors'
 import mime from 'mime'
 import sharp, { FormatEnum } from 'sharp'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
-import { NewsImageUploadResponse } from '../../../common/news'
+import {
+  MAX_VIDEO_SIZE_BYTES,
+  NewsImageUploadResponse,
+  NewsVideoUploadResponse,
+} from '../../../common/news'
 import { getUrl, writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath } from '../files/images'
+import { sniffVideoType } from '../files/videos'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -18,6 +24,12 @@ import { smallVariantPath } from './news-image-paths'
 const imageUploadThrottle = createThrottle('newsimages', {
   rate: 5,
   burst: 10,
+  window: 60000,
+})
+
+const videoUploadThrottle = createThrottle('newsvideos', {
+  rate: 2,
+  burst: 4,
   window: 60000,
 })
 
@@ -77,5 +89,34 @@ export class NewsApi {
     ])
 
     return { path, url: getUrl(path), smallUrl: getUrl(smallPath) }
+  }
+
+  @httpPost('/videos')
+  @httpBefore(
+    ensureLoggedIn,
+    checkAllPermissions('manageNews'),
+    throttleMiddleware(videoUploadThrottle, throttleByUser),
+    handleMultipartFiles(MAX_VIDEO_SIZE_BYTES),
+  )
+  async uploadVideo(ctx: RouterContext): Promise<NewsVideoUploadResponse> {
+    const videoFile = ctx.request.files?.video
+    if (!videoFile) {
+      throw new httpErrors.BadRequest('a video file must be provided')
+    }
+    if (Array.isArray(videoFile)) {
+      throw new httpErrors.BadRequest('only one video file can be uploaded')
+    }
+
+    const type = await sniffVideoType(videoFile.filepath)
+    if (!type) {
+      throw new httpErrors.UnsupportedMediaType('only mp4 and webm videos are supported')
+    }
+
+    const path = createImagePath('news-videos', type)
+    const stream = createReadStream(videoFile.filepath)
+
+    await writeFile(path, stream, { acl: 'public-read', type: mime.getType(type) ?? undefined })
+
+    return { path, url: getUrl(path) }
   }
 }
