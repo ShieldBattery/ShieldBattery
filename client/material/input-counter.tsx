@@ -5,14 +5,19 @@ import { bodySmall } from '../styles/typography'
 
 /**
  * The number of remaining characters at (or below) which the counter becomes visible. Until the
- * input gets this close to its limit, the counter stays hidden to avoid visual noise.
+ * input gets this close to its limit, the counter stays hidden to avoid visual noise. For limits
+ * short enough that this would show the counter immediately, visibility is governed by
+ * `COUNTER_VISIBLE_FRACTION` instead.
  */
-export const COUNTER_VISIBLE_REMAINING = 200
+const COUNTER_VISIBLE_REMAINING = 200
+/**
+ * The fraction of the limit that must have been used up before the counter becomes visible, for
+ * limits short enough that `COUNTER_VISIBLE_REMAINING` alone would show it from the first
+ * keystroke.
+ */
+const COUNTER_VISIBLE_FRACTION = 0.8
 
 const StyledContainer = styled.div`
-  min-height: 20px;
-  padding: 2px 12px;
-
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -63,11 +68,15 @@ export interface InputCounterProps {
  */
 export function InputCounter({ value, maxLength, className }: InputCounterProps) {
   const remaining = maxLength - value.length
+  const showAt = Math.min(
+    COUNTER_VISIBLE_REMAINING,
+    Math.round(maxLength * (1 - COUNTER_VISIBLE_FRACTION)),
+  )
 
   return (
     <StyledContainer className={className}>
       <AnimatePresence>
-        {remaining <= COUNTER_VISIBLE_REMAINING ? (
+        {remaining <= showAt ? (
           <CounterText
             key='counter'
             $error={remaining < 0}

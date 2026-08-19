@@ -172,20 +172,17 @@ const ClearButton = styled(IconButton)`
   min-height: 32px;
 `
 
-const BottomRow = styled.div`
-  display: flex;
-  align-items: flex-start;
-`
+const InlineCounter = styled(InputCounter)`
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
 
-const StyledInputError = styled(InputError)`
-  flex-grow: 1;
-`
+  padding: 0 4px;
 
-const StyledInputCounter = styled(InputCounter)`
-  /* Sorts after InputError, whose container sets its own flex order. */
-  order: 5;
-  margin-left: auto;
-  flex-shrink: 0;
+  /* Matches the field background (in both enabled and disabled states) so that any input text
+     that runs beneath the counter passes behind it, keeping the count legible. */
+  background-color: inherit;
+  border-radius: 4px;
 `
 
 export type TextSelectionDirection = 'forward' | 'backward' | 'none'
@@ -208,9 +205,15 @@ export interface TextFieldProps {
   leadingIcons?: React.ReactElement[]
   /**
    * The maximum allowed length of the value. When set, a counter showing the number of remaining
-   * characters is displayed below the field once the value approaches the limit. This doesn't
-   * prevent typing past the limit — the counter goes negative (in the error color) instead, so
-   * that validation can surface an error rather than input silently getting cut off.
+   * characters overlays the bottom-right corner of the field once the value approaches the limit
+   * (when at most 20% of it — capped at 200 characters — remains). This doesn't prevent typing
+   * past the limit — the counter goes negative and the field takes on its error styling instead,
+   * so that validation can surface an error rather than input silently getting cut off.
+   *
+   * The counter has a backdrop so it stays legible if input text runs beneath it, but it works
+   * best on `multiline` fields and/or ones with `trailingIcons`, where the layout naturally keeps
+   * the bottom-right corner clear. `dense` fields don't have vertical room for it below the
+   * trailing icons, so avoid combining it with `dense` fields that have them.
    */
   maxLength?: number
   maxRows?: number
@@ -364,6 +367,8 @@ export function TextField({
     )
   }
 
+  const hasError = !!errorText || (maxLength !== undefined && value.length > maxLength)
+
   let renderLabel
   if (!label) {
     renderLabel = null
@@ -375,7 +380,7 @@ export function TextField({
         $dense={dense}
         $focused={isFocused}
         $disabled={disabled}
-        $error={!!errorText}
+        $error={hasError}
         $leadingIconsLength={leadingIcons.length}>
         {label}
       </FloatingLabel>
@@ -422,17 +427,13 @@ export function TextField({
           {...internalInputProps}
         />
         {trailingIconsElements.length > 0 ? trailingIconsElements : null}
-        <InputUnderline focused={isFocused} error={!!errorText} />
+        <InputUnderline focused={isFocused} error={hasError} />
+        {maxLength !== undefined ? <InlineCounter value={value} maxLength={maxLength} /> : null}
+        {/* Renders above the counter so its hover/focus tint applies to the counter's backdrop
+            the same as the rest of the field */}
         <StateLayer />
       </TextFieldContainer>
-      {allowErrors || maxLength !== undefined ? (
-        <BottomRow>
-          {allowErrors ? <StyledInputError error={errorText} /> : null}
-          {maxLength !== undefined ? (
-            <StyledInputCounter value={value} maxLength={maxLength} />
-          ) : null}
-        </BottomRow>
-      ) : null}
+      {allowErrors ? <InputError error={errorText} /> : null}
     </div>
   )
 }

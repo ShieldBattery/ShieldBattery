@@ -50,6 +50,7 @@ export function TextFieldTest() {
   const [value21, setValue21] = useState('')
   const [value22, setValue22] = useState('')
   const [value23, setValue23] = useState('')
+  const [value24, setValue24] = useState('')
   const [changeError, setChangeError] = useState<string>()
   const [dense, setDense] = useState(false)
 
@@ -351,6 +352,18 @@ export function TextFieldTest() {
           hasClearButton={true}
           trailingIcons={[<MaterialIcon icon='local_pizza' key='pizza' />]}
           onChange={event => setValue23(event.target.value)}
+        />
+        <TextField
+          name='24'
+          value={value24}
+          floatingLabel={true}
+          dense={dense}
+          label='Multi-line with counter and trailing icon (max 50)'
+          multiline={true}
+          maxRows={4}
+          maxLength={50}
+          trailingIcons={[<MaterialIcon icon='sentiment_satisfied' key='emoji' />]}
+          onChange={event => setValue24(event.target.value)}
         />
       </StyledCard>
     </Container>
