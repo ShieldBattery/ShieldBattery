@@ -216,16 +216,15 @@ const GamePreviewRoot = styled.div`
 `
 
 const GamePreviewDetails = styled.div`
-  position: relative;
   width: 100%;
   flex-grow: 1;
   padding: 16px 16px 20px;
 
   display: flex;
   flex-direction: column;
+  gap: 16px;
 
-  --_surface-bg: var(--theme-container-low);
-  background-color: var(--_surface-bg);
+  background-color: var(--theme-container-low);
   border-radius: 4px;
 `
 
@@ -236,20 +235,7 @@ const NoGameText = styled.div`
 `
 
 const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
-  position: absolute;
-  bottom: 12px; /* 12px + 8px from player bottom margin = 20px */
-  left: 16px;
-  right: 16px;
-
-  padding-top: 24px;
-
-  background: linear-gradient(
-    to bottom,
-    rgb(from var(--_surface-bg) r g b / 0),
-    rgb(from var(--_surface-bg) r g b / 50%) 12px,
-    rgb(from var(--_surface-bg) r g b / 80%) 80%,
-    rgb(from var(--_surface-bg) r g b) 92%
-  );
+  margin-top: auto;
 `
 
 const StyledMapThumbnail = styled(ReduxMapThumbnail)`
