@@ -13,6 +13,7 @@ import {
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { CUSTOM_EMOTES } from '../../common/text/custom-emotes'
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -20,18 +21,113 @@ import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp } from '../i18n/date-formats'
 import { useKeyListener } from '../keyboard/key-listener'
+import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppSelector } from '../redux-hooks'
+import { customEmoteImageUrl } from './custom-emotes'
+import { getUnicodeEmojiEntries, UnicodeEmojiEntry } from './emoji-data'
 import { EmotePickerButton } from './emote-picker'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
 // user anyway.
 export const MAX_MENTIONED_USERS = 10
+
+/** As with mentions, cap the emote suggestions to a number that doesn't need scrolling. */
+const MAX_EMOTE_SUGGESTIONS = 10
+
+/**
+ * Regex matching a partially-typed `:emoteQuery` immediately before the caret. Requires at least
+ * two characters after the colon (so ordinary punctuation doesn't trigger it) and whitespace (or
+ * the message start) before it (so times like "10:30" don't).
+ */
+const EMOTE_QUERY_REGEX = /(?<=^|\s):(?<query>[\w+-]{2,})$/
+
+interface EmoteSuggestion {
+  /** A unique key for rendering. */
+  key: string
+  /** The text that replaces the typed `:query` when this suggestion is picked. */
+  insertText: string
+  /** The suggestion's display name. */
+  name: string
+  /**
+   * Match quality (0 = a name matches the query exactly, 1 = prefix match, 2 = substring match).
+   * Suggestions are sorted by this when custom and built-in results merge, so e.g. `:fire`
+   * suggests 🔥 (exact) ahead of Firebat (prefix).
+   */
+  rank: number
+  /** The emoji character to display as the icon, for built-in emojis. */
+  emoji?: string
+  /** The image to display as the icon, for custom emotes. */
+  imgUrl?: string
+}
+
+/** Returns 0 for an exact match, 1 for prefix, 2 for substring, or -1 for no match at all. */
+function matchRank(names: ReadonlyArray<string>, query: string): number {
+  if (names.some(n => n === query)) {
+    return 0
+  }
+  if (names.some(n => n.startsWith(query))) {
+    return 1
+  }
+  if (names.some(n => n.includes(query))) {
+    return 2
+  }
+  return -1
+}
+
+function searchCustomEmotes(query: string): EmoteSuggestion[] {
+  const q = query.toLowerCase()
+  return CUSTOM_EMOTES.flatMap(e => {
+    const rank = matchRank([e.code.toLowerCase(), e.name.toLowerCase()], q)
+    const imgUrl = customEmoteImageUrl(e.code)
+    return rank >= 0 && imgUrl
+      ? [{ key: e.code, insertText: `:${e.code}: `, name: e.name, rank, imgUrl }]
+      : []
+  })
+}
+
+function searchUnicodeEmojis(
+  entries: ReadonlyArray<UnicodeEmojiEntry>,
+  query: string,
+): EmoteSuggestion[] {
+  // Underscores map to spaces so that typing shortcode-style (:grinning_face:) works against the
+  // dataset's space-separated names
+  const q = query.toLowerCase().replaceAll('_', ' ')
+  const exactMatches: UnicodeEmojiEntry[] = []
+  const prefixMatches: UnicodeEmojiEntry[] = []
+  const otherMatches: UnicodeEmojiEntry[] = []
+  for (const entry of entries) {
+    if (entry.names.some(n => n === q)) {
+      exactMatches.push(entry)
+    } else if (entry.names.some(n => n.startsWith(q))) {
+      prefixMatches.push(entry)
+    } else if (entry.names.some(n => n.includes(q))) {
+      otherMatches.push(entry)
+    }
+  }
+  // Multiple emojis can share an exact keyword (e.g. "fire" is a keyword of 🔥, 🚒 and 🧑‍🚒);
+  // the one with the fewest keywords tends to be the canonical bearer of the name, and simpler
+  // sequences beat multi-codepoint ones
+  exactMatches.sort((a, b) => a.names.length - b.names.length || a.emoji.length - b.emoji.length)
+  const toSuggestion = (e: UnicodeEmojiEntry, rank: number): EmoteSuggestion => ({
+    key: `u:${e.emoji}`,
+    insertText: e.emoji,
+    name: e.name,
+    rank,
+    emoji: e.emoji,
+  })
+  return exactMatches
+    .map(e => toSuggestion(e, 0))
+    .concat(
+      prefixMatches.map(e => toSuggestion(e, 1)),
+      otherMatches.map(e => toSuggestion(e, 2)),
+    )
+}
 
 export interface MentionableUser {
   id: SbUserId
@@ -87,6 +183,18 @@ const StyledAvatar = styled(ConnectedAvatar)<{ $faded?: boolean }>`
     }
     return ''
   }}
+`
+
+const EmoteSuggestionIcon = styled.span`
+  width: 24px;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
+`
+
+const EmoteSuggestionImg = styled.img`
+  width: 22px;
+  height: 22px;
 `
 
 /** A Map to store the message input contents for each chat instance. */
@@ -177,9 +285,17 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const [matchedUsers, setMatchedUsers] = useState<MentionableUser[]>([])
     const [virtuallyFocusedMentionIndex, setVirtuallyFocusedMentionIndex] = useState<number>(0)
 
+    const [emoteQueryStart, setEmoteQueryStart] = useState<number>(-1)
+    const [emoteMatchedText, setEmoteMatchedText] = useState<string>('')
+    const [matchedEmotes, setMatchedEmotes] = useState<EmoteSuggestion[]>([])
+    const [focusedEmoteIndex, setFocusedEmoteIndex] = useState<number>(0)
+    // Guards async emoji data loads against the query having changed by the time they finish
+    const latestEmoteQueryRef = useRef<string | undefined>(undefined)
+
     const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
 
     const [userMentionsOpen, openUserMentions, closeUserMentions] = usePopoverController()
+    const [emotesOpen, openEmotes, closeEmotes] = usePopoverController()
     const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
 
     useImperativeHandle(ref, () => ({
@@ -217,6 +333,45 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           }
 
           // TODO(2Pac): Handle channel mentions as well.
+
+          const emoteMatch = EMOTE_QUERY_REGEX.exec(message.slice(0, selectionStart))
+          if (emoteMatch) {
+            const query = emoteMatch.groups!.query
+            latestEmoteQueryRef.current = query
+            setEmoteQueryStart(emoteMatch.index)
+            setEmoteMatchedText(emoteMatch[0])
+
+            const customSuggestions = searchCustomEmotes(query)
+            setMatchedEmotes(customSuggestions.slice(0, MAX_EMOTE_SUGGESTIONS))
+            if (customSuggestions.length) {
+              openEmotes(event)
+            } else {
+              closeEmotes()
+            }
+
+            getUnicodeEmojiEntries().then(
+              entries => {
+                if (latestEmoteQueryRef.current !== query) {
+                  return
+                }
+                const suggestions = customSuggestions
+                  .concat(searchUnicodeEmojis(entries, query))
+                  // Stable, so custom emotes come before built-ins of the same match quality
+                  .sort((a, b) => a.rank - b.rank)
+                  .slice(0, MAX_EMOTE_SUGGESTIONS)
+                setMatchedEmotes(suggestions)
+                if (suggestions.length) {
+                  openEmotes(event)
+                } else {
+                  closeEmotes()
+                }
+              },
+              (err: Error) => logger.error(`Failed to load emoji data: ${String(err)}`),
+            )
+          } else {
+            latestEmoteQueryRef.current = undefined
+            closeEmotes()
+          }
 
           if (mentionableUsers) {
             if (baseMentionableUsers?.length) {
@@ -278,6 +433,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       baseMentionableUsers,
       openUserMentions,
       closeUserMentions,
+      openEmotes,
+      closeEmotes,
       fuzzy,
     ])
 
@@ -326,7 +483,38 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       })
     }
 
+    const onEmoteSelect = (suggestion: EmoteSuggestion) => {
+      closeEmotes()
+      setFocusedEmoteIndex(0)
+
+      if (emoteQueryStart > -1 && emoteMatchedText) {
+        setMessage(
+          message.slice(0, emoteQueryStart) +
+            suggestion.insertText +
+            message.slice(emoteQueryStart + emoteMatchedText.length),
+        )
+      }
+
+      if (!inputRef.current) {
+        return
+      }
+
+      inputRef.current.focus()
+      // Setting the caret position immediately after the focus doesn't work for some
+      // reason, so we need to wait a tick first.
+      queueMicrotask(() => {
+        const newCaretPosition = emoteQueryStart + suggestion.insertText.length
+        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+      })
+    }
+
     const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (emotesOpen && matchedEmotes.length > 0) {
+        event.preventDefault()
+        onEmoteSelect(matchedEmotes[focusedEmoteIndex])
+        return
+      }
+
       if (userMentionsOpen && matchedUsers.length > 0) {
         event.preventDefault()
         onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
@@ -409,16 +597,19 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           inputProps={{
             autoComplete: 'off',
             onClick: event => {
-              if (userMentionsOpen) {
-                // Prevent the user mentions popover from closing when the user clicks on the input
-                // and we have matched users at the current position of their caret.
+              if (userMentionsOpen || emotesOpen) {
+                // Prevent the suggestion popovers from closing when the user clicks on the input
+                // and we have matches at the current position of their caret.
                 event.stopPropagation()
               }
             },
           }}
           onKeyDown={event => {
             if (event.key === 'Tab') {
-              if (userMentionsOpen && matchedUsers.length > 0) {
+              if (emotesOpen && matchedEmotes.length > 0) {
+                event.preventDefault()
+                onEmoteSelect(matchedEmotes[focusedEmoteIndex])
+              } else if (userMentionsOpen && matchedUsers.length > 0) {
                 event.preventDefault()
                 onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
                 setVirtuallyFocusedMentionIndex(0)
@@ -453,6 +644,40 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 $faded={!user.online}
                 icon={<StyledAvatar userId={user.id} $faded={!user.online} />}
                 onClick={() => onMentionSelect(user)}
+              />
+            ))}
+          </StyledMenuList>
+        </Popover>
+
+        <Popover
+          open={emotesOpen}
+          onDismiss={() => {
+            setFocusedEmoteIndex(0)
+            closeEmotes()
+          }}
+          anchorX={anchorX ?? 0}
+          anchorY={(anchorY ?? 0) - 8}
+          originX='left'
+          originY='bottom'
+          // Keep the focus in the message input when the emote suggestions open so the user can
+          // keep typing.
+          focusOnMount={false}>
+          <StyledMenuList
+            dense={true}
+            virtualFocus={true}
+            onActiveIndexChange={setFocusedEmoteIndex}>
+            {matchedEmotes.map(suggestion => (
+              <StyledMenuItem
+                key={suggestion.key}
+                text={suggestion.name}
+                icon={
+                  suggestion.imgUrl ? (
+                    <EmoteSuggestionImg src={suggestion.imgUrl} alt='' />
+                  ) : (
+                    <EmoteSuggestionIcon>{suggestion.emoji}</EmoteSuggestionIcon>
+                  )
+                }
+                onClick={() => onEmoteSelect(suggestion)}
               />
             ))}
           </StyledMenuList>

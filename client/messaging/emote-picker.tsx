@@ -11,6 +11,7 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { labelMedium } from '../styles/typography'
+import { customEmotesForPicker } from './custom-emotes'
 
 // Deliberately lazy: the picker (and its emoji data) is a sizable chunk that most chat sessions
 // never open, so it only loads the first time the popover is shown. Loaded imperatively rather
@@ -150,7 +151,9 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
     requestAnimationFrame(() => requestAnimationFrame(() => onInsert(text)))
   })
   const onEmojiClick = useStableCallback((data: EmojiClickData) => {
-    onPick(data.emoji)
+    // Custom emotes travel in messages as `:code:` text (data.emoji is the code for them), while
+    // built-in emojis are inserted as their Unicode character directly
+    onPick(data.isCustom ? `:${data.emoji}: ` : data.emoji)
   })
 
   return (
@@ -213,6 +216,7 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
                 // animation still renders it, stealing focus from the input mid-insert
                 autoFocusSearch={false}
                 skinTonesDisabled={true}
+                customEmojis={customEmotesForPicker()}
                 previewConfig={{ showPreview: false }}
                 searchPlaceHolder={t('messaging.emotePicker.searchPlaceholder', 'Search emojis')}
                 onEmojiClick={onEmojiClick}

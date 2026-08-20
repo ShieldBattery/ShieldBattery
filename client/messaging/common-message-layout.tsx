@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { makeSbChannelId } from '../../common/chat'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
+import { matchCustomEmotes } from '../../common/text/custom-emotes'
 import { matchLinks } from '../../common/text/links'
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
@@ -19,6 +20,7 @@ import { ExternalLink } from '../navigation/external-link'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ChatContext } from './chat-context'
+import { CustomEmote } from './custom-emotes'
 import { useMentionFilterClick } from './mention-hooks'
 import { MessageContextMenu } from './message-context-menu'
 import {
@@ -64,6 +66,7 @@ function* getAllMatches(text: string) {
   yield* matchUserMentionsMarkup(text)
   yield* matchChannelMentionsMarkup(text)
   yield* matchLinks(text)
+  yield* matchCustomEmotes(text)
 }
 
 export interface TextMessageProps {
@@ -144,6 +147,8 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
           {match.text}
         </ExternalLink>,
       )
+    } else if (match.type === 'customEmote') {
+      parsedText.push(<CustomEmote key={match.index} code={match.groups.code} />)
     } else {
       match satisfies never
     }
