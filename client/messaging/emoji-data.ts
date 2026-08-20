@@ -24,6 +24,9 @@ export function getUnicodeEmojiEntries(): Promise<UnicodeEmojiEntry[]> {
   if (cache) {
     return Promise.resolve(cache)
   }
+  // NOTE: This reaches into the library's dist internals because it has no public data export;
+  // a version bump could move this file and break autocomplete while the picker keeps working.
+  // The emote-suggestions tests load this for real, so a break gets caught there.
   pendingLoad ??= import('emoji-picker-react/dist/data/emojis.json').then(module => {
     const data = (module.default ?? module) as unknown as EmojiDataFile
     cache = Object.values(data.emojis)
