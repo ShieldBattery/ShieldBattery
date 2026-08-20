@@ -1,54 +1,27 @@
+import type EmojiPickerComponent from 'emoji-picker-react'
+import type { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { labelMedium } from '../styles/typography'
 
-/**
- * A curated set of emojis likely to be useful in chat. These are inserted as plain Unicode text,
- * so anything not in this list can still be typed directly via the OS emoji input.
- */
-const EMOJIS: ReadonlyArray<string> = [
-  '😀',
-  '😂',
-  '🤣',
-  '😅',
-  '😉',
-  '😊',
-  '😍',
-  '🤔',
-  '😐',
-  '🙄',
-  '😬',
-  '😢',
-  '😭',
-  '😱',
-  '😡',
-  '🥳',
-  '🤯',
-  '😎',
-  '😴',
-  '🤝',
-  '👍',
-  '👎',
-  '👏',
-  '🙏',
-  '💪',
-  '🫡',
-  '✌️',
-  '🔥',
-  '❤️',
-  '💔',
-  '🎉',
-  '💀',
-  '⚔️',
-  '🛡️',
-  '🏆',
-  '💥',
-]
+// Deliberately lazy: the picker (and its emoji data) is a sizable chunk that most chat sessions
+// never open, so it only loads the first time the popover is shown. Loaded imperatively rather
+// than through React.lazy/Suspense — a suspending boundary inside the popover wedges
+// AnimatePresence's exit animation, leaving the popover permanently stuck open.
+let loadedEmojiPicker: typeof EmojiPickerComponent | undefined
+const emojiPickerPromise = () =>
+  import('emoji-picker-react').then(m => {
+    loadedEmojiPicker = m.default
+    return m.default
+  })
 
 interface TextArtEntry {
   /** The text that gets inserted into the input. */
@@ -88,41 +61,37 @@ function getTextArtEntries(t: (key: string, defaultValue: string) => string): Te
 }
 
 const Contents = styled.div`
-  width: 336px;
-  max-height: 360px;
-  padding: 8px 0;
-  overflow-y: auto;
+  width: 350px;
+`
+
+const PickerArea = styled.div`
+  height: 360px;
+
+  /* Blend the library's panel into the app theme. */
+  .EmojiPickerReact {
+    --epr-bg-color: transparent;
+    --epr-picker-border-color: transparent;
+    --epr-category-label-bg-color: var(--theme-container-low);
+    --epr-text-color: var(--theme-on-surface);
+    --epr-search-input-bg-color: var(--theme-container-highest);
+    --epr-search-input-text-color: var(--theme-on-surface);
+    --epr-search-border-color: var(--theme-amber);
+    --epr-hover-bg-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+    --epr-focus-bg-color: rgb(from var(--theme-on-surface) r g b / 0.12);
+    --epr-highlight-color: var(--theme-amber);
+  }
 `
 
 const SectionTitle = styled.div`
   ${labelMedium};
-  padding: 4px 16px;
+  padding: 8px 16px 4px;
   color: var(--theme-on-surface-variant);
 `
 
-const EmojiGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  padding: 0 8px;
-`
-
-const EmojiButton = styled.button`
-  height: 40px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: none;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 22px;
-
-  &:hover,
-  &:focus-visible {
-    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
-  }
+const TextArtList = styled.div`
+  max-height: 200px;
+  padding-bottom: 8px;
+  overflow-y: auto;
 `
 
 const TextArtItem = styled(MenuItem)`
@@ -158,10 +127,30 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
     'top',
   )
   const [pickerOpen, openPicker, closePicker] = usePopoverController({ refreshAnchorPos })
+  const [EmojiPicker, setEmojiPicker] = useState(() => loadedEmojiPicker)
+  const contentsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (pickerOpen && EmojiPicker) {
+      // The library's own search autofocus only applies the first time it mounts, so focus it
+      // ourselves to make typing-to-search work on every open
+      const timer = setTimeout(() => {
+        contentsRef.current?.querySelector<HTMLInputElement>('.EmojiPickerReact input')?.focus()
+      })
+      return () => clearTimeout(timer)
+    }
+    return undefined
+  }, [pickerOpen, EmojiPicker])
 
   const onPick = useStableCallback((text: string) => {
     closePicker()
-    onInsert(text)
+    // The library focuses the picked emoji button on the next animation frame (even when it was
+    // activated with Enter from the search field), which would steal focus from the input right
+    // after the insert refocuses it — so wait out that focus before inserting
+    requestAnimationFrame(() => requestAnimationFrame(() => onInsert(text)))
+  })
+  const onEmojiClick = useStableCallback((data: EmojiClickData) => {
+    onPick(data.emoji)
   })
 
   return (
@@ -172,7 +161,15 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
         icon={<MaterialIcon icon='add_reaction' />}
         title={t('messaging.emotePicker.buttonTitle', 'Add emoji or text art')}
         disabled={disabled}
-        onClick={event => openPicker(event)}
+        onClick={event => {
+          if (!loadedEmojiPicker) {
+            emojiPickerPromise().then(
+              picker => setEmojiPicker(() => picker),
+              (err: Error) => logger.error(`Failed to load the emoji picker: ${String(err)}`),
+            )
+          }
+          openPicker(event)
+        }}
       />
       <Popover
         open={pickerOpen}
@@ -180,25 +177,61 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
         anchorX={anchorX ?? 0}
         anchorY={(anchorY ?? 0) - 8}
         originX='right'
-        originY='bottom'>
-        <Contents>
-          <SectionTitle>{t('messaging.emotePicker.emojiSection', 'Emoji')}</SectionTitle>
-          <EmojiGrid>
-            {EMOJIS.map(emoji => (
-              <EmojiButton key={emoji} title={emoji} onClick={() => onPick(emoji)}>
-                {emoji}
-              </EmojiButton>
-            ))}
-          </EmojiGrid>
+        originY='bottom'
+        // The search input gets focused instead (via the effect above), so the user can type to
+        // filter right away
+        focusOnMount={false}>
+        <Contents
+          ref={contentsRef}
+          onKeyDownCapture={event => {
+            // The picker library preventDefaults every Escape (it uses it to clear its search),
+            // which stops the popover's own Escape handling from ever closing it. Close ourselves
+            // when there's no search text to clear, so that Escape clears the search first and
+            // then closes the picker.
+            if (event.key === 'Escape') {
+              const search =
+                contentsRef.current?.querySelector<HTMLInputElement>('.EmojiPickerReact input')
+              if (!search?.value) {
+                event.preventDefault()
+                event.stopPropagation()
+                closePicker()
+              }
+            }
+          }}>
+          <PickerArea>
+            {EmojiPicker ? (
+              <EmojiPicker
+                // These are type-only imports so the library stays in its lazy chunk; the casts
+                // match the string values of the library's enums
+                theme={'dark' as Theme}
+                emojiStyle={'apple' as EmojiStyle}
+                width='100%'
+                height='100%'
+                lazyLoadEmojis={true}
+                // The search is focused by our own effect above (which also covers reopening);
+                // the library's autofocus can additionally re-fire while the popover's exit
+                // animation still renders it, stealing focus from the input mid-insert
+                autoFocusSearch={false}
+                skinTonesDisabled={true}
+                previewConfig={{ showPreview: false }}
+                searchPlaceHolder={t('messaging.emotePicker.searchPlaceholder', 'Search emojis')}
+                onEmojiClick={onEmojiClick}
+              />
+            ) : (
+              <LoadingDotsArea />
+            )}
+          </PickerArea>
           <SectionTitle>{t('messaging.emotePicker.textArtSection', 'Text art')}</SectionTitle>
-          {getTextArtEntries(t).map(entry => (
-            <TextArtItem
-              key={entry.name}
-              text={entry.art}
-              secondaryText={entry.name}
-              onClick={() => onPick(entry.art)}
-            />
-          ))}
+          <TextArtList>
+            {getTextArtEntries(t).map(entry => (
+              <TextArtItem
+                key={entry.name}
+                text={entry.art}
+                secondaryText={entry.name}
+                onClick={() => onPick(entry.art)}
+              />
+            ))}
+          </TextArtList>
         </Contents>
       </Popover>
     </>
