@@ -422,15 +422,19 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     }
 
     const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+      // NOTE: The focused indexes are clamped because the suggestion lists can shrink while an
+      // index further down is focused (the menu keeps its index when its children change)
       if (emotesOpen && matchedEmotes.length > 0) {
         event.preventDefault()
-        onEmoteSelect(matchedEmotes[focusedEmoteIndex])
+        onEmoteSelect(matchedEmotes[Math.min(focusedEmoteIndex, matchedEmotes.length - 1)])
         return
       }
 
       if (userMentionsOpen && matchedUsers.length > 0) {
         event.preventDefault()
-        onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
+        onMentionSelect(
+          matchedUsers[Math.min(virtuallyFocusedMentionIndex, matchedUsers.length - 1)],
+        )
         setVirtuallyFocusedMentionIndex(0)
         return
       }
@@ -519,12 +523,15 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           }}
           onKeyDown={event => {
             if (event.key === 'Tab') {
+              // Indexes clamped for the same reason as in onEnterKeyDown
               if (emotesOpen && matchedEmotes.length > 0) {
                 event.preventDefault()
-                onEmoteSelect(matchedEmotes[focusedEmoteIndex])
+                onEmoteSelect(matchedEmotes[Math.min(focusedEmoteIndex, matchedEmotes.length - 1)])
               } else if (userMentionsOpen && matchedUsers.length > 0) {
                 event.preventDefault()
-                onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
+                onMentionSelect(
+                  matchedUsers[Math.min(virtuallyFocusedMentionIndex, matchedUsers.length - 1)],
+                )
                 setVirtuallyFocusedMentionIndex(0)
               }
             }
