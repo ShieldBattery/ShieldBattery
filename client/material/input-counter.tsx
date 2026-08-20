@@ -17,6 +17,15 @@ const COUNTER_VISIBLE_REMAINING = 200
  */
 const COUNTER_VISIBLE_FRACTION = 0.8
 
+/**
+ * Returns the number of remaining characters at (or below) which the counter for a given limit
+ * becomes visible: within `COUNTER_VISIBLE_REMAINING` of the limit, but no sooner than 80% of it
+ * being used up (so short limits don't show a counter from the first keystroke).
+ */
+export function counterVisibleAt(maxLength: number): number {
+  return Math.min(COUNTER_VISIBLE_REMAINING, Math.round(maxLength * (1 - COUNTER_VISIBLE_FRACTION)))
+}
+
 const StyledContainer = styled.div`
   display: flex;
   align-items: center;
@@ -65,13 +74,14 @@ export interface InputCounterProps {
  * value approaches `maxLength`. Exceeding the limit shows a negative count in the error color.
  * Note that this is purely informational and doesn't prevent input past the limit, so that
  * validation can surface an error instead of input silently getting cut off.
+ *
+ * "Characters" here means UTF-16 code units (`String.length`), so e.g. an emoji counts as 2 or
+ * more. That matches how the server measures messages when trimming, which is what matters for
+ * the count being truthful.
  */
 export function InputCounter({ value, maxLength, className }: InputCounterProps) {
   const remaining = maxLength - value.length
-  const showAt = Math.min(
-    COUNTER_VISIBLE_REMAINING,
-    Math.round(maxLength * (1 - COUNTER_VISIBLE_FRACTION)),
-  )
+  const showAt = counterVisibleAt(maxLength)
 
   return (
     <StyledContainer className={className}>
