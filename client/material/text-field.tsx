@@ -207,8 +207,9 @@ export interface TextFieldProps {
    * The maximum allowed length of the value. When set, a counter showing the number of remaining
    * characters overlays the bottom-right corner of the field once the value approaches the limit
    * (when at most 20% of it — capped at 200 characters — remains). This doesn't prevent typing
-   * past the limit — the counter goes negative and the field takes on its error styling instead,
-   * so that validation can surface an error rather than input silently getting cut off.
+   * past the limit — the counter just goes negative (in the error color), leaving it to the
+   * consumer to decide whether that's an actual error (e.g. overlong chat messages simply get
+   * trimmed by the server).
    *
    * The counter has a backdrop so it stays legible if input text runs beneath it, but it works
    * best on `multiline` fields and/or ones with `trailingIcons`, where the layout naturally keeps
@@ -367,8 +368,6 @@ export function TextField({
     )
   }
 
-  const hasError = !!errorText || (maxLength !== undefined && value.length > maxLength)
-
   let renderLabel
   if (!label) {
     renderLabel = null
@@ -380,7 +379,7 @@ export function TextField({
         $dense={dense}
         $focused={isFocused}
         $disabled={disabled}
-        $error={hasError}
+        $error={!!errorText}
         $leadingIconsLength={leadingIcons.length}>
         {label}
       </FloatingLabel>
@@ -427,7 +426,7 @@ export function TextField({
           {...internalInputProps}
         />
         {trailingIconsElements.length > 0 ? trailingIconsElements : null}
-        <InputUnderline focused={isFocused} error={hasError} />
+        <InputUnderline focused={isFocused} error={!!errorText} />
         {maxLength !== undefined ? <InlineCounter value={value} maxLength={maxLength} /> : null}
         {/* Renders above the counter so its hover/focus tint applies to the counter's backdrop
             the same as the rest of the field */}

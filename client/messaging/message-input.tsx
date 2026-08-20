@@ -13,6 +13,7 @@ import {
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { CHAT_MESSAGE_MAXLENGTH } from '../../common/constants'
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -380,6 +381,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           maxRows={maxRows}
           floatingLabel={false}
           allowErrors={false}
+          maxLength={CHAT_MESSAGE_MAXLENGTH}
           showDivider={showDivider}
           disabled={!!chatRestriction}
           inputProps={{
