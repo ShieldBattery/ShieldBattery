@@ -26,6 +26,7 @@ const MatchHistoryRoot = styled.div`
   padding: 0 24px 0 8px;
 
   display: flex;
+  align-items: flex-start;
 `
 
 const GameList = styled.div`
@@ -234,10 +235,6 @@ const NoGameText = styled.div`
   text-align: center;
 `
 
-const StyledGamePlayersDisplay = styled(GamePlayersDisplay)`
-  margin-top: auto;
-`
-
 const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   height: auto;
 `
@@ -273,7 +270,7 @@ export function ConnectedGamePreview({ game, forUserId }: ConnectedGamePreviewPr
     <GamePreviewRoot>
       <GamePreviewDetails>
         {mapId ? <StyledMapThumbnail key={mapId} mapId={mapId} size={256} showInfoLayer /> : null}
-        <StyledGamePlayersDisplay game={game} forUserId={forUserId} />
+        <GamePlayersDisplay game={game} forUserId={forUserId} />
       </GamePreviewDetails>
       <TextButton
         label={t('user.miniMatchHistory.viewDetails', 'View details')}
