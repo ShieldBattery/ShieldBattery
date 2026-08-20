@@ -1378,6 +1378,8 @@
   "messaging": {
     "blockedMessage": "Blocked message",
     "mention": "Mention",
+    "messageTooLongContent": "",
+    "messageTooLongTitle": "Message too long",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "searchWithGoogle": "Search with Google",
     "sendMessage": "Send a message",

@@ -19,6 +19,7 @@ import { RestrictionKind } from '../../common/users/restrictions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp } from '../i18n/date-formats'
 import { useKeyListener } from '../keyboard/key-listener'
 import { MenuItem } from '../material/menu/item'
@@ -26,7 +27,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -165,6 +166,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     ref,
   ) => {
     const { t } = useTranslation()
+    const dispatch = useAppDispatch()
     const user = useSelfUser()
     const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
     const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
@@ -325,6 +327,24 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       event.preventDefault()
 
       if (message.trim().length > 0) {
+        if (message.length > CHAT_MESSAGE_MAXLENGTH) {
+          // Blocked rather than sent-and-trimmed so no content is silently lost — the message
+          // stays in the input for the user to shorten
+          dispatch(
+            openSimpleDialog(
+              t('messaging.messageTooLongTitle', 'Message too long'),
+              t('messaging.messageTooLongContent', {
+                defaultValue:
+                  'Messages can be at most {{maxLength}} characters, and this one is ' +
+                  '{{length}}. Please shorten it before sending.',
+                maxLength: CHAT_MESSAGE_MAXLENGTH,
+                length: message.length,
+              }),
+            ),
+          )
+          return
+        }
+
         onSendChatMessage(message)
         setMessage('')
       }
