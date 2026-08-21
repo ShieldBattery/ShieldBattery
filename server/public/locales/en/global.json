@@ -1384,6 +1384,22 @@
   },
   "messaging": {
     "blockedMessage": "Blocked message",
+    "emotePicker": {
+      "bear": "Bear",
+      "buttonTitle": "Add emoji or text art",
+      "cheer": "Cheer",
+      "crying": "Crying",
+      "disapproval": "Disapproval",
+      "fight": "Ready to fight",
+      "lenny": "Lenny",
+      "salute": "Salute",
+      "searchPlaceholder": "Search emojis",
+      "shrug": "Shrug",
+      "tableFlip": "Table flip",
+      "tableRestore": "Put table back",
+      "textArtSection": "Text art",
+      "trex": "T-rex"
+    },
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "searchWithGoogle": "Search with Google",

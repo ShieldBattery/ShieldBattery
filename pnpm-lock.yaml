@@ -52,6 +52,9 @@ importers:
       dotenv-expand:
         specifier: ^13.0.0
         version: 13.0.0
+      emoji-picker-react:
+        specifier: ^4.19.1
+        version: 4.19.1(react@19.2.7)
       form-data:
         specifier: ^4.0.6
         version: 4.0.6
@@ -437,6 +440,9 @@ importers:
       electron-is-dev:
         specifier: ^3.0.1
         version: 3.0.1
+      emoji-datasource-google:
+        specifier: ^16.0.0
+        version: 16.0.0
       engine.io:
         specifier: ^6.6.9
         version: 6.6.9(supports-color@8.1.1)
@@ -3869,6 +3875,7 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@yuku-codegen/binding-darwin-arm64@0.8.0':
     resolution: {integrity: sha512-7cSJH6PaKLRBdCfiB4pM6EukvgOk5xV4tyuLOIOEqrHsbnV7brtyff7CjhZbeGozdIHoOnKOi5R7rrmCWN3QSw==}
@@ -5126,6 +5133,15 @@ packages:
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
+  emoji-datasource-google@16.0.0:
+    resolution: {integrity: sha512-ZRexfzs7MVoLnmzZmNsO4TKhnAJp5D++Vm6PpUpH/jEQQlemp3l88CjZ+DoZ2faM9R4QxZkOPJCoT8DlPhfQ3A==}
+
+  emoji-picker-react@4.19.1:
+    resolution: {integrity: sha512-BmDdqInKFVYJpv7qS9WI6L9656cDAC+FkDvUjJds56nKHbaVTBNeDmLwKBytRnzu37zWHs9Isg7gt5PT43y6xA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>=16'
+
   emoji-regex@10.6.0:
     resolution: {integrity: sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A==}
 
@@ -5474,6 +5490,9 @@ packages:
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
+
+  flairup@1.0.0:
+    resolution: {integrity: sha512-IKlE+pNvL2R+kVL1kEhUYqRxVqeFnjiIvHWDMLFXNaqyUdFXQM2wte44EfMYJNHkW16X991t2Zg8apKkhv7OBA==}
 
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
@@ -13872,6 +13891,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  emoji-datasource-google@16.0.0: {}
+
+  emoji-picker-react@4.19.1(react@19.2.7):
+    dependencies:
+      flairup: 1.0.0
+      react: 19.2.7
+
   emoji-regex@10.6.0: {}
 
   emoji-regex@8.0.0: {}
@@ -14386,6 +14412,8 @@ snapshots:
     dependencies:
       locate-path: 6.0.0
       path-exists: 4.0.0
+
+  flairup@1.0.0: {}
 
   flat-cache@4.0.1:
     dependencies:
