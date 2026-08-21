@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useMemo } from 'react'
 import logger from '../logging/logger'
 import { maybeOpenExternalLinkDialog } from '../messaging/action-creators'
-import { getServerOrigin, makeServerUrl } from '../network/server-url'
+import { getServerOrigin, makePublicAssetUrl, makeServerUrl } from '../network/server-url'
 import { useAppDispatch } from '../redux-hooks'
 import { push } from './routing'
 
@@ -23,16 +23,43 @@ export function isShieldBatteryUrl(url: URL): boolean {
 }
 
 /**
+ * Returns whether `url` points at stored content (uploaded files or public assets) rather than an
+ * app page: either the server's own file store (mounted at `/files/` on the server origin), or the
+ * public assets host when that's an origin of its own (e.g. a CDN). The app router has no routes
+ * for content URLs, so in-app navigation to one just falls through to the index page; they also
+ * shouldn't trigger the leaving-ShieldBattery warning, since they're our own content.
+ */
+export function isSbContentUrl(url: URL): boolean {
+  const urlOrigin = url.origin.toLowerCase()
+  const serverOrigin = getServerOrigin().toLowerCase()
+  if (urlOrigin === serverOrigin && url.pathname.startsWith('/files/')) {
+    return true
+  }
+
+  try {
+    const assetsOrigin = new URL(makePublicAssetUrl('/')).origin.toLowerCase()
+    return urlOrigin === assetsOrigin && assetsOrigin !== serverOrigin
+  } catch {
+    return false
+  }
+}
+
+/**
  * A link that may point to an external (non-ShieldBattery) site. If it does, users will be warned
  * about the navigation before a new window opens. If it points to a ShieldBattery URL, users will
- * not be warned and it will open in this window unless `forceNewWindow` is `true`.
+ * not be warned and it will open in this window unless `forceNewWindow` is `true`. ShieldBattery
+ * content URLs (uploaded files/public assets) open in a new window without a warning, since the
+ * app has no page of its own to show them on.
  */
 export function ExternalLink({ href, children, className, forceNewWindow }: ExternalLinkProps) {
   const dispatch = useAppDispatch()
 
-  const url = useMemo(() => {
+  const { url, isContent } = useMemo(() => {
     try {
       const url = new URL(href)
+      if (isSbContentUrl(url)) {
+        return { url, isContent: true }
+      }
       if (IS_ELECTRON && isShieldBatteryUrl(url)) {
         // NOTE(tec27): The code flow is a bit weird here but it is convenient: we generate a new
         // URL so that Electron will navigate to the right spot if we're not opening a new window,
@@ -40,14 +67,27 @@ export function ExternalLink({ href, children, className, forceNewWindow }: Exte
         // external URL (which will be the href on the anchor tag)
         // NOTE(tec27): As of Chrome 130+, we can't simply set the proto of a URL object to a custom
         // scheme any more, so we have to collect all the parts ourselves
-        return new URL(`${ELECTRON_PROTO}//${ELECTRON_HOST}${url.pathname}${url.search}${url.hash}`)
+        return {
+          url: new URL(
+            `${ELECTRON_PROTO}//${ELECTRON_HOST}${url.pathname}${url.search}${url.hash}`,
+          ),
+          isContent: false,
+        }
       }
-      return url
+      return { url, isContent: false }
     } catch (err) {
       logger.error(`Tried to render link with invalid URL: ${href}`)
-      return undefined
+      return { url: undefined, isContent: false }
     }
   }, [href])
+
+  if (isContent) {
+    return (
+      <a className={className} href={href} target='_blank' rel='noopener'>
+        {children}
+      </a>
+    )
+  }
 
   const isInternal = url && isShieldBatteryUrl(url)
 
