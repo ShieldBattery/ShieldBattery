@@ -1378,7 +1378,7 @@
   "messaging": {
     "blockedMessage": "Blocked message",
     "mention": "Mention",
-    "messageTooLongContent": "",
+    "messageTooLongContent": "Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.",
     "messageTooLongTitle": "Message too long",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "searchWithGoogle": "Search with Google",

@@ -335,8 +335,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               t('messaging.messageTooLongTitle', 'Message too long'),
               t('messaging.messageTooLongContent', {
                 defaultValue:
-                  'Messages can be at most {{maxLength}} characters, and this one is ' +
-                  '{{length}}. Please shorten it before sending.',
+                  'Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.',
                 maxLength: CHAT_MESSAGE_MAXLENGTH,
                 length: message.length,
               }),
