@@ -11,6 +11,8 @@ export interface UnicodeEmojiEntry {
   name: string
   /** All the names/keywords this emoji is searchable by, lowercase. */
   names: string[]
+  /** The self-hosted image URL for the emoji, if the image set has one. */
+  imgUrl?: string
 }
 
 interface EmojiDataFile {
@@ -27,7 +29,10 @@ export function getUnicodeEmojiEntries(): Promise<UnicodeEmojiEntry[]> {
   // NOTE: This reaches into the library's dist internals because it has no public data export;
   // a version bump could move this file and break autocomplete while the picker keeps working.
   // The emote-suggestions tests load this for real, so a break gets caught there.
-  pendingLoad ??= import('emoji-picker-react/dist/data/emojis.json').then(module => {
+  pendingLoad ??= Promise.all([
+    import('emoji-picker-react/dist/data/emojis.json'),
+    import('./google-emoji-images'),
+  ]).then(([module, images]) => {
     const data = (module.default ?? module) as unknown as EmojiDataFile
     cache = Object.values(data.emojis)
       .flat()
@@ -37,6 +42,7 @@ export function getUnicodeEmojiEntries(): Promise<UnicodeEmojiEntry[]> {
         // is consistently the most descriptive
         name: n.reduce((a, b) => (b.length > a.length ? b : a)),
         names: n,
+        imgUrl: images.googleEmojiImageUrl(u),
       }))
     return cache
   })

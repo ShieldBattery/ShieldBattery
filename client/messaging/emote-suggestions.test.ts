@@ -79,13 +79,31 @@ describe('messaging/emote-suggestions', () => {
   })
 
   describe('mergeEmoteSuggestions', () => {
+    const noUsage = () => 0
+
     test('custom emotes win ties in match quality', () => {
       const custom = [{ key: 'c', insertText: ':c: ', name: 'c', rank: 1, imgUrl: 'x' }]
       const unicode = [
         { key: 'u0', insertText: 'a', name: 'a', rank: 0, emoji: 'a' },
         { key: 'u1', insertText: 'b', name: 'b', rank: 1, emoji: 'b' },
       ]
-      expect(mergeEmoteSuggestions(custom, unicode).map(s => s.key)).toEqual(['u0', 'c', 'u1'])
+      expect(mergeEmoteSuggestions(custom, unicode, noUsage).map(s => s.key)).toEqual([
+        'u0',
+        'c',
+        'u1',
+      ])
+    })
+
+    test('more-used suggestions rank first within the same match quality', () => {
+      const unicode = [
+        { key: 'u0', insertText: 'a', name: 'a', rank: 0, emoji: 'a' },
+        { key: 'u1', insertText: 'b', name: 'b', rank: 0, emoji: 'b' },
+        { key: 'u2', insertText: 'c', name: 'c', rank: 1, emoji: 'c' },
+      ]
+      const usage: Record<string, number> = { u1: 5, u2: 100 }
+      const result = mergeEmoteSuggestions([], unicode, key => usage[key] ?? 0)
+      // Usage breaks the tie within rank 0, but never promotes a worse match above a better one
+      expect(result.map(s => s.key)).toEqual(['u1', 'u0', 'u2'])
     })
   })
 })

@@ -12,17 +12,22 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { labelMedium } from '../styles/typography'
 import { customEmotesForPicker } from './custom-emotes'
+import { recordEmoteUsage } from './emote-suggestions'
 
-// Deliberately lazy: the picker (and its emoji data) is a sizable chunk that most chat sessions
-// never open, so it only loads the first time the popover is shown. Loaded imperatively rather
-// than through React.lazy/Suspense — a suspending boundary inside the popover wedges
-// AnimatePresence's exit animation, leaving the popover permanently stuck open.
+// Deliberately lazy: the picker (and its emoji data + image URL map) is a sizable chunk that most
+// chat sessions never open, so it only loads the first time the popover is shown. Loaded
+// imperatively rather than through React.lazy/Suspense — a suspending boundary inside the popover
+// wedges AnimatePresence's exit animation, leaving the popover permanently stuck open.
 let loadedEmojiPicker: typeof EmojiPickerComponent | undefined
+let loadedEmojiImageUrl: ((unified: string) => string | undefined) | undefined
 const emojiPickerPromise = () =>
-  import('emoji-picker-react').then(m => {
-    loadedEmojiPicker = m.default
-    return m.default
-  })
+  Promise.all([import('emoji-picker-react'), import('./google-emoji-images')]).then(
+    ([m, images]) => {
+      loadedEmojiPicker = m.default
+      loadedEmojiImageUrl = images.googleEmojiImageUrl
+      return m.default
+    },
+  )
 
 interface TextArtEntry {
   /** The text that gets inserted into the input. */
@@ -151,6 +156,8 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
     requestAnimationFrame(() => requestAnimationFrame(() => onInsert(text)))
   })
   const onEmojiClick = useStableCallback((data: EmojiClickData) => {
+    // Keyed the same way autocomplete suggestions are, so both feed the same frequency ordering
+    recordEmoteUsage(data.isCustom ? data.emoji : `u:${data.emoji}`)
     // Custom emotes travel in messages as `:code:` text (data.emoji is the code for them), while
     // built-in emojis are inserted as their Unicode character directly
     onPick(data.isCustom ? `:${data.emoji}: ` : data.emoji)
@@ -207,7 +214,10 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
                 // These are type-only imports so the library stays in its lazy chunk; the casts
                 // match the string values of the library's enums
                 theme={'dark' as Theme}
-                emojiStyle={'apple' as EmojiStyle}
+                emojiStyle={'google' as EmojiStyle}
+                // Self-hosted images instead of the library's CDN default; empty string for
+                // anything missing from the set so nothing falls back to a remote URL
+                getEmojiUrl={unified => loadedEmojiImageUrl?.(unified) ?? ''}
                 width='100%'
                 height='100%'
                 lazyLoadEmojis={true}

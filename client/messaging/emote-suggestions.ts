@@ -31,6 +31,41 @@ export interface EmoteSuggestion {
   imgUrl?: string
 }
 
+const USAGE_STORAGE_KEY = 'sb.emoteUsage'
+
+let usageCache: Record<string, number> | undefined
+
+function loadUsage(): Record<string, number> {
+  if (!usageCache) {
+    try {
+      usageCache = JSON.parse(localStorage.getItem(USAGE_STORAGE_KEY) ?? '{}')
+    } catch {
+      usageCache = {}
+    }
+  }
+  return usageCache!
+}
+
+/**
+ * Records that an emote/emoji was inserted, so suggestions can be ordered by frequency of use.
+ * Keys are the suggestion keys (custom emote codes or `u:<emoji>`), matched case-insensitively
+ * since custom emote codes are.
+ */
+export function recordEmoteUsage(key: string): void {
+  const usage = loadUsage()
+  const k = key.toLowerCase()
+  usage[k] = (usage[k] ?? 0) + 1
+  try {
+    localStorage.setItem(USAGE_STORAGE_KEY, JSON.stringify(usage))
+  } catch {
+    // Persisting usage is best-effort (e.g. storage may be full or unavailable)
+  }
+}
+
+export function getEmoteUsage(key: string): number {
+  return loadUsage()[key.toLowerCase()] ?? 0
+}
+
 /** Returns 0 for an exact match, 1 for prefix, 2 for substring, or -1 for no match at all. */
 export function matchRank(names: ReadonlyArray<string>, query: string): number {
   if (names.some(n => n === query)) {
@@ -85,6 +120,7 @@ export function searchUnicodeEmojis(
     name: e.name,
     rank,
     emoji: e.emoji,
+    imgUrl: e.imgUrl,
   })
   return exactMatches
     .map(e => toSuggestion(e, 0))
@@ -95,15 +131,17 @@ export function searchUnicodeEmojis(
 }
 
 /**
- * Merges custom and built-in suggestions into the final capped list, ordered by match quality.
- * The sort is stable, so custom emotes come before built-ins of the same match quality.
+ * Merges custom and built-in suggestions into the final capped list, ordered by match quality and
+ * then by how often each has been inserted before. The sort is stable, so custom emotes come
+ * before built-ins that tie on both.
  */
 export function mergeEmoteSuggestions(
   custom: ReadonlyArray<EmoteSuggestion>,
   unicode: ReadonlyArray<EmoteSuggestion>,
+  getUsage: (key: string) => number = getEmoteUsage,
 ): EmoteSuggestion[] {
   return custom
     .concat(unicode)
-    .sort((a, b) => a.rank - b.rank)
+    .sort((a, b) => a.rank - b.rank || getUsage(b.key) - getUsage(a.key))
     .slice(0, MAX_EMOTE_SUGGESTIONS)
 }

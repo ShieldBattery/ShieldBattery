@@ -440,6 +440,9 @@ importers:
       electron-is-dev:
         specifier: ^3.0.1
         version: 3.0.1
+      emoji-datasource-google:
+        specifier: ^16.0.0
+        version: 16.0.0
       engine.io:
         specifier: ^6.6.9
         version: 6.6.9(supports-color@8.1.1)
@@ -5129,6 +5132,9 @@ packages:
     resolution: {integrity: sha512-I5c5vfuVvaXpWx3IZdwvXgxQW44+e7OP1wXGVQkogLeSFSkUZ6sLCcWV05AdEcs65AO5tAIJJwbp7ixw+LdarA==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
+
+  emoji-datasource-google@16.0.0:
+    resolution: {integrity: sha512-ZRexfzs7MVoLnmzZmNsO4TKhnAJp5D++Vm6PpUpH/jEQQlemp3l88CjZ+DoZ2faM9R4QxZkOPJCoT8DlPhfQ3A==}
 
   emoji-picker-react@4.19.1:
     resolution: {integrity: sha512-BmDdqInKFVYJpv7qS9WI6L9656cDAC+FkDvUjJds56nKHbaVTBNeDmLwKBytRnzu37zWHs9Isg7gt5PT43y6xA==}
@@ -13884,6 +13890,8 @@ snapshots:
       '@types/node': 24.13.3
     transitivePeerDependencies:
       - supports-color
+
+  emoji-datasource-google@16.0.0: {}
 
   emoji-picker-react@4.19.1(react@19.2.7):
     dependencies:

@@ -34,6 +34,7 @@ import {
   EmoteSuggestion,
   MAX_EMOTE_SUGGESTIONS,
   mergeEmoteSuggestions,
+  recordEmoteUsage,
   searchCustomEmotes,
   searchUnicodeEmojis,
 } from './emote-suggestions'
@@ -399,6 +400,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const onEmoteSelect = (suggestion: EmoteSuggestion) => {
       closeEmotes()
       setFocusedEmoteIndex(0)
+      recordEmoteUsage(suggestion.key)
 
       if (emoteQueryStart > -1 && emoteMatchedText) {
         setMessage(
