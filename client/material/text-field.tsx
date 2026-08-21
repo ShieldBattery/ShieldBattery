@@ -174,8 +174,10 @@ const ClearButton = styled(IconButton)`
 
 const InlineCounter = styled(InputCounter)`
   position: absolute;
-  bottom: 2px;
-  right: 4px;
+  /* Inset far enough to clear the focused underline below and a scrollbar beside it, at the cost
+     of overlapping more of the text (which the backdrop keeps legible) */
+  bottom: 5px;
+  right: calc(var(--scrollbar-width, 16px) + 4px);
 
   padding: 0 4px;
 
