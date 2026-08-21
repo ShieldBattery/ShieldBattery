@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
+import { Tooltip } from '../material/tooltip'
 
 export type MarkdownFormatKind =
   | 'heading'
@@ -320,6 +321,33 @@ const Divider = styled.span`
   background-color: var(--theme-outline-variant);
 `
 
+/**
+ * An icon button for use inside `MarkdownToolbar`, labeled with a material `Tooltip` (rather than
+ * a native `title`). `label` names the button for screen readers and is the tooltip text unless a
+ * more detailed `tooltipText` is given.
+ */
+export function ToolbarButton({
+  icon,
+  label,
+  tooltipText,
+  disabled,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  tooltipText?: string
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    // The wrapped button is itself focusable, so the tooltip trigger must not add a second tab
+    // stop; focus events bubbling up from the button still show the tooltip for keyboard users.
+    <Tooltip text={tooltipText ?? label} position='top' tabIndex={-1}>
+      <IconButton icon={icon} ariaLabel={label} disabled={disabled} onClick={onClick} />
+    </Tooltip>
+  )
+}
+
 export function MarkdownToolbar({
   onFormat,
   disabled,
@@ -343,53 +371,53 @@ export function MarkdownToolbar({
         // re-rendering with it) visibly flicker.
         event.preventDefault()
       }}>
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='format_h2' />}
-        title={t('markdown.toolbar.heading', 'Heading')}
+        label={t('markdown.toolbar.heading', 'Heading')}
         disabled={disabled}
         onClick={() => onFormat('heading')}
       />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='format_bold' />}
-        title={t('markdown.toolbar.bold', 'Bold')}
+        label={t('markdown.toolbar.bold', 'Bold')}
         disabled={disabled}
         onClick={() => onFormat('bold')}
       />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='format_italic' />}
-        title={t('markdown.toolbar.italic', 'Italic')}
+        label={t('markdown.toolbar.italic', 'Italic')}
         disabled={disabled}
         onClick={() => onFormat('italic')}
       />
       <Divider />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='format_quote' />}
-        title={t('markdown.toolbar.quote', 'Quote')}
+        label={t('markdown.toolbar.quote', 'Quote')}
         disabled={disabled}
         onClick={() => onFormat('quote')}
       />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='format_list_bulleted' />}
-        title={t('markdown.toolbar.unorderedList', 'Bulleted list')}
+        label={t('markdown.toolbar.unorderedList', 'Bulleted list')}
         disabled={disabled}
         onClick={() => onFormat('unorderedList')}
       />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='format_list_numbered' />}
-        title={t('markdown.toolbar.orderedList', 'Numbered list')}
+        label={t('markdown.toolbar.orderedList', 'Numbered list')}
         disabled={disabled}
         onClick={() => onFormat('orderedList')}
       />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='horizontal_rule' />}
-        title={t('markdown.toolbar.horizontalRule', 'Divider')}
+        label={t('markdown.toolbar.horizontalRule', 'Divider')}
         disabled={disabled}
         onClick={() => onFormat('horizontalRule')}
       />
       <Divider />
-      <IconButton
+      <ToolbarButton
         icon={<MaterialIcon icon='link' />}
-        title={t('markdown.toolbar.link', 'Link')}
+        label={t('markdown.toolbar.link', 'Link')}
         disabled={disabled}
         onClick={() => onFormat('link')}
       />

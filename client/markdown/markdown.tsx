@@ -229,16 +229,24 @@ function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?
     return <ExternalLink href={src}>{alt || src}</ExternalLink>
   }
 
+  // Inline videos autoplay like the gifs they replace, but a viewer who has signaled they don't
+  // want that — OS-level reduced motion, or browser data-saver mode — gets click-to-play instead,
+  // since these files can be tens of megabytes and autoplay would force the full download on them.
+  const autoplay =
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
+    !(navigator as { connection?: { saveData?: boolean } }).connection?.saveData
+
   return (
     <>
       {isVideoUrl(src) ? (
         <Video
           src={src}
-          autoPlay={true}
+          autoPlay={autoplay}
           loop={true}
           muted={true}
           playsInline={true}
           controls={true}
+          preload={autoplay ? undefined : 'metadata'}
         />
       ) : (
         <Image src={src} alt={alt ?? ''} loading='lazy' draggable={false} />

@@ -40,6 +40,20 @@ export interface NewsImageUploadResponse {
   smallUrl: string
 }
 
+/** Maximum size that we allow a news post video upload to be. */
+export const MAX_VIDEO_SIZE_BYTES = 30 * 1000 * 1000 // 30MB
+
+/**
+ * Response returned after uploading a news video, used for inline videos embedded in post
+ * markdown. Unlike images, videos get no resizing, so there is no small variant.
+ */
+export interface NewsVideoUploadResponse {
+  /** The file-store path of the uploaded video. */
+  path: string
+  /** A fully-qualified URL to the video. */
+  url: string
+}
+
 /** The public-assets path prefix under which the stock news fallback images live. */
 export const NEWS_STOCK_IMAGES_PATH_PREFIX = 'images/static-news/'
 
