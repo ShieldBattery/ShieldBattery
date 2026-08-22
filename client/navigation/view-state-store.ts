@@ -2,7 +2,9 @@
  * Module-level storage for transient view state (scroll positions, message windows, drafts, …)
  * that should survive navigating away from a page and back within a session. It lives outside
  * React/Redux/Jotai on purpose: writing to it must never trigger a render, and it's only read and
- * written from effects, never during render (which keeps it safe under the React Compiler).
+ * written from effects, never during render — except a lazy `useState` initializer, which runs at
+ * most once per mount and so never re-reads on a re-render (which keeps it safe under the React
+ * Compiler).
  */
 
 const MAX_ENTRIES = 50
