@@ -1,0 +1,75 @@
+/**
+ * Module-level storage for transient view state (scroll positions, message windows, drafts, …)
+ * that should survive navigating away from a page and back within a session. It lives outside
+ * React/Redux/Jotai on purpose: writing to it must never trigger a render, and it's only read and
+ * written from effects, never during render (which keeps it safe under the React Compiler).
+ */
+
+const MAX_ENTRIES = 50
+
+interface StoredEntry {
+  value: unknown
+  savedAt: number
+}
+
+/**
+ * A single shared map so total retained view state is bounded as a whole; insertion order doubles
+ * as least-recently-used order because reads and writes re-insert.
+ */
+const entries = new Map<string, StoredEntry>()
+
+export interface ViewStateStore<T> {
+  get(key: string): T | undefined
+  set(key: string, value: T): void
+}
+
+/**
+ * Creates a typed view onto the shared store. `namespace` isolates one feature's keys from
+ * another's and must not contain ':'. Entries older than `maxAgeMs` are treated as absent. All
+ * consumers share one LRU with capacity `MAX_ENTRIES`, bounding the total memory retained across
+ * features (heavy use by one feature may evict another's oldest entries).
+ */
+export function createViewStateStore<T>(
+  namespace: string,
+  { maxAgeMs }: { maxAgeMs: number },
+): ViewStateStore<T> {
+  const fullKey = (key: string) => `${namespace}:${key}`
+
+  return {
+    get(key: string): T | undefined {
+      const full = fullKey(key)
+      const entry = entries.get(full)
+      if (!entry) {
+        return undefined
+      }
+
+      if (Date.now() - entry.savedAt > maxAgeMs) {
+        entries.delete(full)
+        return undefined
+      }
+
+      entries.delete(full)
+      entries.set(full, entry)
+
+      return entry.value as T
+    },
+
+    set(key: string, value: T): void {
+      const full = fullKey(key)
+      entries.delete(full)
+      entries.set(full, { value, savedAt: Date.now() })
+
+      if (entries.size > MAX_ENTRIES) {
+        const oldestKey = entries.keys().next().value
+        if (oldestKey !== undefined) {
+          entries.delete(oldestKey)
+        }
+      }
+    },
+  }
+}
+
+/** Removes all stored entries across every namespace. Only for use in tests. */
+export function resetViewStateForTesting(): void {
+  entries.clear()
+}

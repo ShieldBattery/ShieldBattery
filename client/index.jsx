@@ -11,6 +11,7 @@ import './dom/window-focus'
 import i18n, { detectedLocale, initI18next } from './i18n/i18next'
 import { getBestLanguage } from './i18n/language-detector'
 import log from './logging/logger'
+import { installHistoryEntryKeys } from './navigation/history-entry-key'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
 import { setServerConfig } from './server-config-storage'
@@ -22,6 +23,7 @@ window.__webpack_nonce__ = window.SB_CSP_NONCE
 
 enableArrayMethods()
 enableMapSet()
+installHistoryEntryKeys()
 
 window.addEventListener('error', event => {
   const messageText = event.error?.message ?? event.message
