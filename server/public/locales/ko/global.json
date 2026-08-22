@@ -47,6 +47,9 @@
         "imageUploadError": "이미지를 업로드하는 중 문제가 발생했습니다.",
         "imageUploading": "업로드 중…",
         "insertImage": "이미지 삽입",
+        "insertImageTooltip": "이미지 삽입 (최대 5MB)",
+        "insertVideo": "동영상 삽입",
+        "insertVideoTooltip": "동영상 삽입 (최대 30MB)",
         "publish": "게시",
         "publishDraft": "초안 (게시 안 함)",
         "publishNow": "지금 게시",
@@ -57,7 +60,11 @@
         "summary": "요약",
         "summaryRequired": "요약을 입력하세요",
         "title": "제목",
-        "titleRequired": "제목을 입력하세요"
+        "titleRequired": "제목을 입력하세요",
+        "videoInvalidType": "mp4 또는 webm 동영상 파일을 선택해 주세요.",
+        "videoTooLarge": "동영상이 너무 큽니다 (최대 30MB).",
+        "videoUploadError": "동영상을 업로드하는 중 문제가 발생했습니다.",
+        "videoUploading": "업로드 중…"
       },
       "history": {
         "by": "작성자: ",
@@ -1361,6 +1368,8 @@
   "messaging": {
     "blockedMessage": "차단된 메시지",
     "mention": "멘션",
+    "messageTooLongContent": "메시지는 최대 {{maxLength}}자까지 보낼 수 있는데, 이 메시지는 {{length}}자입니다. 줄여서 다시 보내 주세요.",
+    "messageTooLongTitle": "메시지가 너무 깁니다",
     "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
     "searchWithGoogle": "Google에서 검색",
     "sendMessage": "메시지를 입력하세요",
