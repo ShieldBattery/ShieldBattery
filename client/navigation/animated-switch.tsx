@@ -1,6 +1,8 @@
 import * as React from 'react'
-import { cloneElement, Fragment, isValidElement, Suspense } from 'react'
+import { cloneElement, Fragment, isValidElement, Suspense, useRef } from 'react'
 import { Match, matchRoute, RouteProps, useLocation, useRouter } from 'wouter'
+import { useMultiplexRef } from '../react/refs'
+import { useScrollResetOnNavigate } from './router-hooks'
 
 function flattenChildren(children: React.ReactNode): Iterable<React.ReactNode> {
   return Array.isArray(children)
@@ -21,11 +23,15 @@ export function AnimatedSwitch({
   fallback,
 }: {
   children: React.ReactNode
-  container: React.ReactElement<{ children: React.ReactNode }>
+  container: React.ReactElement<{ children?: React.ReactNode; ref?: React.Ref<HTMLElement> }>
   fallback: React.ReactNode
 }) {
   const router = useRouter()
   const [location] = useLocation()
+
+  const containerRef = useRef<HTMLElement>(null)
+  useScrollResetOnNavigate(containerRef)
+  const containerMultiRef = useMultiplexRef(containerRef, container.props.ref)
 
   for (const _element of flattenChildren(children)) {
     if (!isValidElement(_element)) continue
@@ -35,7 +41,14 @@ export function AnimatedSwitch({
     if (match[0]) {
       const contents = cloneElement(element, { match })
       const children = <Suspense fallback={fallback}>{contents}</Suspense>
-      return cloneElement(container, { key: String(element.props.path ?? ''), children })
+      // The container is keyed by route pattern so its subtree (and enter animation) persists
+      // across navigations within the same pattern; the scroll reset keeps such a reused
+      // container from carrying one location's scroll position over to another.
+      return cloneElement(container, {
+        key: String(element.props.path ?? ''),
+        ref: containerMultiRef,
+        children,
+      })
     }
   }
 
