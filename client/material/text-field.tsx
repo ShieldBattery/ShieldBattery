@@ -6,6 +6,7 @@ import { useMultiplexRef } from '../react/refs'
 import { useStableCallback } from '../react/state-hooks'
 import { IconButton } from './button'
 import { InputBase } from './input-base'
+import { InputCounter } from './input-counter'
 import { InputError } from './input-error'
 import { FloatingLabel } from './input-floating-label'
 import { Label } from './input-label'
@@ -171,6 +172,21 @@ const ClearButton = styled(IconButton)`
   min-height: 32px;
 `
 
+const InlineCounter = styled(InputCounter)`
+  position: absolute;
+  /* Inset far enough to clear the focused underline below and a scrollbar beside it, at the cost
+     of overlapping more of the text (which the backdrop keeps legible) */
+  bottom: 5px;
+  right: calc(var(--scrollbar-width, 16px) + 4px);
+
+  padding: 0 4px;
+
+  /* Matches the field background (in both enabled and disabled states) so that any input text
+     that runs beneath the counter passes behind it, keeping the count legible. */
+  background-color: inherit;
+  border-radius: 4px;
+`
+
 export type TextSelectionDirection = 'forward' | 'backward' | 'none'
 
 export interface TextFieldProps {
@@ -189,6 +205,20 @@ export interface TextFieldProps {
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>
   label?: string
   leadingIcons?: React.ReactElement[]
+  /**
+   * The maximum allowed length of the value. When set, a counter showing the number of remaining
+   * characters overlays the bottom-right corner of the field once the value approaches the limit
+   * (when at most 20% of it — capped at 200 characters — remains). This doesn't prevent typing
+   * past the limit — the counter just goes negative (in the error color), leaving it to the
+   * consumer to decide whether that's an actual error (e.g. overlong chat messages simply get
+   * trimmed by the server).
+   *
+   * The counter has a backdrop so it stays legible if input text runs beneath it, but it works
+   * best on `multiline` fields and/or ones with `trailingIcons`, where the layout naturally keeps
+   * the bottom-right corner clear. `dense` fields don't have vertical room for it below the
+   * trailing icons, so avoid combining it with `dense` fields that have them.
+   */
+  maxLength?: number
   maxRows?: number
   multiline?: boolean
   name?: string
@@ -222,6 +252,7 @@ export function TextField({
   inputProps,
   label,
   leadingIcons = [],
+  maxLength,
   maxRows,
   multiline,
   name,
@@ -391,13 +422,16 @@ export function TextField({
           $dense={dense}
           $multiline={multiline}
           $leadingIconsLength={leadingIcons.length}
-          $trailingIconsLength={trailingIcons.length}
+          $trailingIconsLength={trailingIconsElements.length}
           data-testid={testName}
           {...inputProps}
           {...internalInputProps}
         />
         {trailingIconsElements.length > 0 ? trailingIconsElements : null}
         <InputUnderline focused={isFocused} error={!!errorText} />
+        {maxLength !== undefined ? <InlineCounter value={value} maxLength={maxLength} /> : null}
+        {/* Renders above the counter so its hover/focus tint applies to the counter's backdrop
+            the same as the rest of the field */}
         <StateLayer />
       </TextFieldContainer>
       {allowErrors ? <InputError error={errorText} /> : null}
