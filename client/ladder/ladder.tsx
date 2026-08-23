@@ -48,7 +48,7 @@ import { Select } from '../material/select/select'
 import { elevationPlus1, elevationPlus2, elevationPlus3 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
-import { push } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -204,7 +204,10 @@ export interface LadderProps {
  * Displays a ranked table of players on the ladder(s).
  */
 export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
-  const matchmakingType = routeType ?? savedLadderTab.getValue() ?? MatchmakingType.Match1v1
+  const savedType = savedLadderTab.getValue()
+  const matchmakingType =
+    routeType ??
+    (savedType && ALL_MATCHMAKING_TYPES.includes(savedType) ? savedType : MatchmakingType.Match1v1)
   useTrackPageView(urlPath`/ladder/${matchmakingType}`)
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -351,6 +354,19 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
       debouncedSearch.cancel()
     }
   }, [currentSeasonIdRef, dispatch, matchmakingType, searchQuery, seasonId])
+
+  // A URL without a valid mode still renders the saved/default mode, so immediately reflect that
+  // mode into the URL. This keeps every history entry naming the mode it displays, ensuring
+  // back/forward traversal can't show content that disagrees with the URL.
+  useEffect(() => {
+    if (!routeType) {
+      replace(
+        urlPath`/ladder/${matchmakingType}` +
+          (seasonId ? urlPath`/${seasonId}` : '') +
+          location.search,
+      )
+    }
+  }, [routeType, matchmakingType, seasonId])
 
   useEffect(() => {
     if (routeType) {
