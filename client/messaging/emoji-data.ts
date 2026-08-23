@@ -32,19 +32,27 @@ export function getUnicodeEmojiEntries(): Promise<UnicodeEmojiEntry[]> {
   pendingLoad ??= Promise.all([
     import('emoji-picker-react/dist/data/emojis.json'),
     import('./google-emoji-images'),
-  ]).then(([module, images]) => {
-    const data = (module.default ?? module) as unknown as EmojiDataFile
-    cache = Object.values(data.emojis)
-      .flat()
-      .map(({ n, u }) => ({
-        emoji: String.fromCodePoint(...u.split('-').map(hex => parseInt(hex, 16))),
-        // The names are a mix of keywords and the full name in no reliable order; the longest one
-        // is consistently the most descriptive
-        name: n.reduce((a, b) => (b.length > a.length ? b : a)),
-        names: n,
-        imgUrl: images.googleEmojiImageUrl(u),
-      }))
-    return cache
-  })
+  ]).then(
+    ([module, images]) => {
+      const data = (module.default ?? module) as unknown as EmojiDataFile
+      cache = Object.values(data.emojis)
+        .flat()
+        .map(({ n, u }) => ({
+          emoji: String.fromCodePoint(...u.split('-').map(hex => parseInt(hex, 16))),
+          // The names are a mix of keywords and the full name in no reliable order; the longest
+          // one is consistently the most descriptive
+          name: n.reduce((a, b) => (b.length > a.length ? b : a)),
+          names: n,
+          imgUrl: images.googleEmojiImageUrl(u),
+        }))
+      return cache
+    },
+    err => {
+      // Clear the failed attempt so the next keystroke retries the load, instead of caching the
+      // rejection for the rest of the session
+      pendingLoad = undefined
+      throw err
+    },
+  )
   return pendingLoad
 }

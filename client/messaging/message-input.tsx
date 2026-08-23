@@ -38,6 +38,7 @@ import {
   searchCustomEmotes,
   searchUnicodeEmojis,
 } from './emote-suggestions'
+import { applyTextArtCommand } from './text-art'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -448,7 +449,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       event.preventDefault()
 
       if (message.trim().length > 0) {
-        onSendChatMessage(message)
+        onSendChatMessage(applyTextArtCommand(message.trim()))
         setMessage('')
       }
     })
