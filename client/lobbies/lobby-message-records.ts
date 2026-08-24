@@ -1,3 +1,4 @@
+import { LobbyChangedSetting } from '../../common/lobbies/lobby-network'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { BaseMessage } from '../messaging/base-message-record'
 
@@ -12,6 +13,8 @@ export enum LobbyMessageType {
   LobbyCountdownTick = 'lobbyCountdownTick',
   LobbyCountdownCanceled = 'lobbyCountdownCanceled',
   LobbyLoadingCanceled = 'lobbyLoadingCanceled',
+  LobbySettingsChange = 'lobbySettingsChange',
+  LobbyBenchJoin = 'lobbyBenchJoin',
 }
 
 export interface JoinLobbyMessage extends BaseMessage {
@@ -63,6 +66,16 @@ export interface LobbyLoadingCanceledMessage extends BaseMessage {
   readonly usersAtFault?: ReadonlyArray<SbUserId>
 }
 
+export interface SettingsChangeMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbySettingsChange
+  readonly changedSettings: ReadonlyArray<LobbyChangedSetting>
+}
+
+export interface BenchJoinMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyBenchJoin
+  readonly userId: SbUserId
+}
+
 export type LobbyMessage =
   | JoinLobbyMessage
   | LeaveLobbyMessage
@@ -74,3 +87,5 @@ export type LobbyMessage =
   | LobbyCountdownTickMessage
   | LobbyCountdownCanceledMessage
   | LobbyLoadingCanceledMessage
+  | SettingsChangeMessage
+  | BenchJoinMessage
