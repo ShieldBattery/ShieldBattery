@@ -100,6 +100,19 @@ const focusedIdCache = createViewStateStore<number>('replay-library-selection', 
   maxAgeMs: WINDOW_MAX_AGE_MS,
 })
 
+interface RailSnapshot {
+  status: ReplayLibraryStatus | undefined
+  backfill: ReplayBackfillProgress | undefined
+  playlists: ReadonlyArray<ReplayPlaylist>
+}
+
+// The rail's data (index counts, backfill progress, playlists) is library-wide rather than
+// per-visit, but it's fetched and owned by `ReplayLibrary`, which remounts on every view change
+// (keyed in `ReplaysRoot`). Seeding each mount from the previous instance's latest values keeps
+// the rail stable across that remount — without it, the rail would blank (counts at zero, playlist
+// rows gone) until the mount-time fetches answer. The fetches still run and replace the seed.
+let railSnapshot: RailSnapshot = { status: undefined, backfill: undefined, playlists: [] }
+
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
     ? (value as GameDurationFilter)
@@ -398,13 +411,17 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   )
   const [total, setTotal] = useState<number | undefined>(initialWindow?.total)
   const [isLoadingNext, setIsLoadingNext] = useState(false)
-  const [status, setStatus] = useState<ReplayLibraryStatus>()
-  const [backfill, setBackfill] = useState<ReplayBackfillProgress>()
+  const [status, setStatus] = useState<ReplayLibraryStatus | undefined>(() => railSnapshot.status)
+  const [backfill, setBackfill] = useState<ReplayBackfillProgress | undefined>(
+    () => railSnapshot.backfill,
+  )
   // Set when the status query rejects, which in practice means the main-process replay library
   // service failed to start (e.g. the SQLite module couldn't load) and none of its IPC handlers are
   // registered — so every query would hang. We surface that instead of spinning forever.
   const [unavailable, setUnavailable] = useState(false)
-  const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>([])
+  const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>(
+    () => railSnapshot.playlists,
+  )
   // Bumped on every index change so entry-scoped fetches (e.g. the inspector's playlist
   // membership) know to refresh.
   const [changeToken, setChangeToken] = useState(0)
@@ -601,6 +618,12 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
       ipcRenderer.removeAllListeners('replayLibraryBackfillProgress')
     }
   }, [initialWindow])
+
+  // Mirrored on every change (rather than written through in each setter) so functional updates —
+  // e.g. the optimistic bookmark-count bump in `toggleBookmark` — are captured too.
+  useEffect(() => {
+    railSnapshot = { status, backfill, playlists }
+  }, [status, backfill, playlists])
 
   useEffect(() => {
     if (entryKey === undefined) {
