@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson } from '../../common/games/games'
+import { useHistoryEntryKey } from '../navigation/router-hooks'
+import { createViewStateStore } from '../navigation/view-state-store'
 import { useRefreshToken } from '../network/refresh-token'
 import { useAppSelector } from '../redux-hooks'
 
@@ -9,6 +11,20 @@ export interface GameListSearchPage {
   gameIds: string[]
   hasMoreGames: boolean
 }
+
+// TTL must match useScrollMemory's: the saved scroll position and the saved window restore
+// together, and a scroll restored into a missing window would clamp against a single fresh page.
+// Both are stamped when the user leaves the page.
+const WINDOW_MAX_AGE_MS = 30 * 60 * 1000
+
+interface GameListWindow {
+  gameIds: string[]
+  hasMoreGames: boolean
+}
+
+const windowCache = createViewStateStore<GameListWindow>('game-list', {
+  maxAgeMs: WINDOW_MAX_AGE_MS,
+})
 
 export interface UseGameListSearchResult {
   games: ReadonlyArray<ReadonlyDeep<GameRecordJson>>
@@ -36,12 +52,26 @@ export interface UseGameListSearchResult {
  * whatever `loadPage`'s returned promise eventually does (matching how `abortableThunk` itself
  * skips `onSuccess`/`onError` for a canceled request), so a stale response from a superseded page
  * load never corrupts the accumulated results.
+ *
+ * The accumulated window is remembered per history entry (per "visit"), mirroring `useScrollMemory`:
+ * traversing back or forward to an entry resumes the list it had accumulated with no refetch, while
+ * a fresh link push starts empty. A restored window is exactly as stale as it was when the user left
+ * — like the browser's own back/forward cache — and the next `onLoadMore` simply continues paging
+ * from its end. The cached ids stay resolvable because `games.byId` never evicts entries within a
+ * session.
  */
 export function useGameListSearch(
   loadPage: (offset: number, signal: AbortSignal) => Promise<GameListSearchPage>,
 ): UseGameListSearchResult {
-  const [gameIds, setGameIds] = useState<string[]>()
-  const [hasMoreGames, setHasMoreGames] = useState(true)
+  const entryKey = useHistoryEntryKey()
+  // Read once per mount: the store contract allows a lazy initializer since it runs at most once
+  // and so never re-reads on a re-render.
+  const [initialWindow] = useState(() =>
+    entryKey !== undefined ? windowCache.get(entryKey) : undefined,
+  )
+
+  const [gameIds, setGameIds] = useState<string[] | undefined>(initialWindow?.gameIds)
+  const [hasMoreGames, setHasMoreGames] = useState(initialWindow?.hasMoreGames ?? true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [searchError, setSearchError] = useState<Error>()
   const abortControllerRef = useRef<AbortController>(undefined)
@@ -95,6 +125,28 @@ export function useGameListSearch(
   useEffect(() => {
     return () => abortControllerRef.current?.abort()
   }, [])
+
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Written at cleanup time (unmount), not as `gameIds`/`hasMoreGames` change: the store stamps
+    // its TTL at write time, and this needs to match when `useScrollMemory` saves the scroll
+    // position — also at unmount — so the two entries expire together. Writing on every data change
+    // instead would stamp the last page load, which can be long before the user actually leaves,
+    // letting the window expire while the scroll position it's paired with still lives.
+    return () => {
+      if (gameIds !== undefined) {
+        windowCache.set(entryKey, { gameIds, hasMoreGames })
+      } else {
+        // `reset()` (a filter change) clears `gameIds` while replacing the URL in place under the
+        // same visit key. If the user leaves before the first page under the new filters arrives,
+        // the old filters' entry must not survive to be restored against the new URL.
+        windowCache.delete(entryKey)
+      }
+    }
+  }, [entryKey, gameIds, hasMoreGames])
 
   return { games, hasMoreGames, isLoadingMore, searchError, refreshToken, reset, onLoadMore }
 }

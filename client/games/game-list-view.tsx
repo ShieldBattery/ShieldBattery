@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -13,7 +13,8 @@ import { useContextMenu } from '../dom/use-context-menu'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { Popover } from '../material/popover'
-import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useHistoryEntryKey, useLocationSearchParam } from '../navigation/router-hooks'
+import { createViewStateStore } from '../navigation/view-state-store'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { bodyLarge } from '../styles/typography'
 import { navigateToGameResults } from './action-creators'
@@ -54,6 +55,12 @@ const ListColumn = styled.div`
   flex-grow: 1;
   min-width: 0;
 `
+
+const SELECTION_MEMORY_MAX_AGE_MS = 30 * 60 * 1000
+
+const selectedIdCache = createViewStateStore<string>('game-list-selection', {
+  maxAgeMs: SELECTION_MEMORY_MAX_AGE_MS,
+})
 
 /** The normalized, ready-to-request filter values a game list view is currently showing. */
 export interface GameListFilters {
@@ -143,7 +150,12 @@ export function GameListView({
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
 
-  const [selectedId, setSelectedId] = useState<string>()
+  const entryKey = useHistoryEntryKey()
+  // Read once per mount: a lazy initializer runs at most once, so this never re-reads the store on
+  // a re-render.
+  const [selectedId, setSelectedId] = useState<string | undefined>(() =>
+    entryKey !== undefined ? selectedIdCache.get(entryKey) : undefined,
+  )
   const rowElemsRef = useRef(new Map<string, HTMLDivElement>())
 
   // Remembered per-user and shared across the replay library, games page, match history, and league
@@ -175,6 +187,21 @@ export function GameListView({
 
   const { games, hasMoreGames, isLoadingMore, searchError, refreshToken, reset, onLoadMore } =
     useGameListSearch(loadPageForSearch)
+
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Cleanup-time write, matching `useScrollMemory`'s timing: a selection is never un-made (a
+    // restored id absent from the current list just falls back to `games[0]` below), so unlike the
+    // game-id window there's nothing to delete here.
+    return () => {
+      if (selectedId !== undefined) {
+        selectedIdCache.set(entryKey, selectedId)
+      }
+    }
+  }, [entryKey, selectedId])
 
   const selectedGame = games.find(g => g.id === selectedId) ?? games[0]
   const selectedIndex = selectedGame ? games.findIndex(g => g.id === selectedGame.id) : -1
