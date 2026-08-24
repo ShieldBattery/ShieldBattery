@@ -64,6 +64,24 @@ describe('view-state-store', () => {
     expect(store.get('key-50')).toBe(50)
   })
 
+  test('delete removes an entry so get returns undefined', () => {
+    const store = createViewStateStore<number>('test', { maxAgeMs: 1000 })
+    store.set('a', 42)
+
+    store.delete('a')
+
+    expect(store.get('a')).toBeUndefined()
+  })
+
+  test('deleting a missing key is a no-op and does not disturb other entries', () => {
+    const store = createViewStateStore<number>('test', { maxAgeMs: 1000 })
+    store.set('a', 42)
+
+    store.delete('missing')
+
+    expect(store.get('a')).toBe(42)
+  })
+
   test('set on an existing key refreshes both its value and its recency', () => {
     const store = createViewStateStore<number>('test', { maxAgeMs: 60 * 60 * 1000 })
 

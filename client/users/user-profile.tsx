@@ -338,7 +338,9 @@ export function UserProfilePage({
       break
 
     case UserProfileSubPage.MatchHistory:
-      content = <ConnectedMatchHistory userId={user.id} />
+      // Keyed by user id so switching to a different user's profile remounts the list instead of
+      // carrying over the previous user's accumulated games and scroll-restore window.
+      content = <ConnectedMatchHistory key={user.id} userId={user.id} />
       break
 
     case UserProfileSubPage.Stats:

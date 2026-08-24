@@ -23,6 +23,8 @@ const entries = new Map<string, StoredEntry>()
 export interface ViewStateStore<T> {
   get(key: string): T | undefined
   set(key: string, value: T): void
+  /** Removes a stored entry, if one exists. */
+  delete(key: string): void
 }
 
 /**
@@ -67,6 +69,10 @@ export function createViewStateStore<T>(
           entries.delete(oldestKey)
         }
       }
+    },
+
+    delete(key: string): void {
+      entries.delete(fullKey(key))
     },
   }
 }
