@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { beforeAll, describe, expect, test } from 'vitest'
 import { getUnicodeEmojiEntries } from './emoji-data'
 import {
   EMOTE_QUERY_REGEX,
@@ -39,6 +39,13 @@ describe('messaging/emote-suggestions', () => {
   })
 
   describe('suggestions against the real dataset', () => {
+    // The first call dynamically imports and parses the full emoji dataset, which can take
+    // longer than the per-test timeout on a cold CI runner — pay that cost here, with a
+    // timeout to match, so the tests below only measure the search logic
+    beforeAll(async () => {
+      await getUnicodeEmojiEntries()
+    }, 30_000)
+
     test(':fire suggests the flame emoji ahead of the Firebat emote', async () => {
       const entries = await getUnicodeEmojiEntries()
       const merged = mergeEmoteSuggestions(
