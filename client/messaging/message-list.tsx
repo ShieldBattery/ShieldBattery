@@ -31,6 +31,13 @@ const AUTOSCROLL_LEEWAY_PX = 8
 const Scrollable = styled.div`
   padding: 8px 16px 0px 8px;
   overflow-y: auto;
+  /**
+    This component fully manages its own scroll position (pinning to the bottom, compensating for
+    prepended history). Browser scroll anchoring fights that: e.g. when messages are trimmed from
+    the top while pinned to the bottom, it adjusts the scroll position to keep the old content in
+    view, silently unpinning the list.
+  */
+  overflow-anchor: none;
 `
 
 const EmptyList = styled.div`
