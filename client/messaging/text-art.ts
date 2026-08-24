@@ -4,19 +4,10 @@
  * Unicode text, so nothing downstream needs to understand the commands.
  */
 
-// NOTE: Multi-line art is displayed in a proportional font, so monospace-aligned art won't line
-// up as authored. This art's spacing is tuned for how the app's font actually measures (spaces
-// are much narrower than the other glyphs, hence the long leading runs). Anything added or
-// changed here should be eyeballed in chat to make sure it still reads well.
-const TREX = [
-  '                    __',
-  '                  /  _)',
-  '      _.----._/ /',
-  '    /             /',
-  '__/ (   |  (   |',
-  "/__.-'|_|--|_|",
-].join('\n')
-
+// NOTE: Multi-line art is supported (it goes on its own lines when applied), but it displays in
+// a proportional font, so monospace-aligned art won't line up as authored — any multi-line art
+// added here needs its spacing tuned for how the app's font actually measures, and should be
+// eyeballed in chat to make sure it reads well.
 export const TEXT_ART_COMMANDS: ReadonlyArray<{ command: string; art: string }> = [
   { command: 'shrug', art: '¯\\_(ツ)_/¯' },
   { command: 'tableflip', art: '(╯°□°)╯︵ ┻━┻' },
@@ -28,7 +19,6 @@ export const TEXT_ART_COMMANDS: ReadonlyArray<{ command: string; art: string }> 
   { command: 'cry', art: '(ಥ﹏ಥ)' },
   { command: 'cheer', art: 'ヽ(^o^)ノ' },
   { command: 'salute', art: 'o7' },
-  { command: 'trex', art: TREX },
 ]
 
 const COMMAND_REGEX = new RegExp(

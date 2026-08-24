@@ -14,12 +14,6 @@ describe('messaging/text-art/applyTextArtCommand', () => {
     expect(applyTextArtCommand('/TableFlip')).toBe('(╯°□°)╯︵ ┻━┻')
   })
 
-  test('multi-line art goes on its own lines after the message', () => {
-    const result = applyTextArtCommand('/trex rawr')
-    expect(result.startsWith('rawr\n')).toBe(true)
-    expect(result).toContain('_.----._')
-  })
-
   test('unknown commands are left alone', () => {
     expect(applyTextArtCommand('/frobnicate hello')).toBe('/frobnicate hello')
   })

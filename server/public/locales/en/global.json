@@ -1379,7 +1379,8 @@
     "blockedMessage": "Blocked message",
     "emotePicker": {
       "buttonTitle": "Add emoji",
-      "searchPlaceholder": "Search emojis"
+      "searchPlaceholder": "Search emojis",
+      "textArtLabel": "Text art"
     },
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
