@@ -72,7 +72,7 @@ const scrollPositions = createViewStateStore<number>('scroll', {
  * Returns the current history entry's visit key, re-evaluating whenever a pushState, replaceState,
  * or popstate can have changed which entry is current.
  */
-function useHistoryEntryKey(): string | undefined {
+export function useHistoryEntryKey(): string | undefined {
   return useLocationProperty(() => getHistoryEntryKey())
 }
 
