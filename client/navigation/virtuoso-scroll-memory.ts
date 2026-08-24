@@ -107,7 +107,14 @@ export function useVirtuosoScrollMemory(
     let lastSnapshot = saved?.snapshot
     const onScroll = () => {
       lastScrollTop = containerElem.scrollTop
-      virtuosoRef.current?.getState(state => {
+      // With no list mounted right now (e.g. its data was cleared while new contents load), any
+      // previously captured snapshot describes content this scroll position no longer refers to.
+      // Drop it so the two are always saved as a consistent pair.
+      if (!virtuosoRef.current) {
+        lastSnapshot = undefined
+        return
+      }
+      virtuosoRef.current.getState(state => {
         // Only the size ranges are usable from getState (see the note on snapshots above); the
         // list-relative offset is derived from where virtuoso's scroller element sits within the
         // container's content.

@@ -47,7 +47,9 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
-import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useHistoryEntryKey, useLocationSearchParam } from '../navigation/router-hooks'
+import { createViewStateStore } from '../navigation/view-state-store'
+import { useVirtuosoScrollMemory } from '../navigation/virtuoso-scroll-memory'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
@@ -79,6 +81,24 @@ const ENTER_NUMPAD = 'NumpadEnter'
 
 /** Number of replay entries fetched per infinite-scroll chunk. */
 const LOAD_CHUNK_SIZE = 100
+
+// TTL must match useVirtuosoScrollMemory's: the saved scroll state and the saved entry window
+// restore together, and a scroll restored into a missing window would clamp against a single
+// fresh page. Both are stamped when the user leaves the page.
+const WINDOW_MAX_AGE_MS = 30 * 60 * 1000
+
+interface ReplayListWindow {
+  entries: ReadonlyArray<ReplayLibraryEntry>
+  total: number | undefined
+}
+
+const windowCache = createViewStateStore<ReplayListWindow>('replay-library', {
+  maxAgeMs: WINDOW_MAX_AGE_MS,
+})
+
+const focusedIdCache = createViewStateStore<number>('replay-library-selection', {
+  maxAgeMs: WINDOW_MAX_AGE_MS,
+})
 
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
@@ -362,8 +382,17 @@ export function ReplayLibrary() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry>>()
-  const [total, setTotal] = useState<number>()
+  const entryKey = useHistoryEntryKey()
+  // Read once per mount: the store contract allows a lazy initializer since it runs at most once
+  // and so never re-reads on a re-render.
+  const [initialWindow] = useState(() =>
+    entryKey !== undefined ? windowCache.get(entryKey) : undefined,
+  )
+
+  const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry> | undefined>(
+    initialWindow?.entries,
+  )
+  const [total, setTotal] = useState<number | undefined>(initialWindow?.total)
   const [isLoadingNext, setIsLoadingNext] = useState(false)
   const [status, setStatus] = useState<ReplayLibraryStatus>()
   const [backfill, setBackfill] = useState<ReplayBackfillProgress>()
@@ -377,10 +406,26 @@ export function ReplayLibrary() {
   const [changeToken, setChangeToken] = useState(0)
   const [observerToken, restartObserver] = useRefreshToken()
 
-  const [focusedId, setFocusedId] = useState<number>()
+  const [focusedId, setFocusedId] = useState<number | undefined>(() =>
+    entryKey !== undefined ? focusedIdCache.get(entryKey) : undefined,
+  )
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
   const groupedRef = useRef<GroupedVirtuosoHandle>(null)
   const flatRef = useRef<VirtuosoHandle>(null)
+
+  // Only one of the two lists is mounted at a time (see `useFlatList`), so state capture reads
+  // whichever handle is live.
+  const [virtuosoStateRef] = useState(() => ({
+    get current(): GroupedVirtuosoHandle | VirtuosoHandle | null {
+      return groupedRef.current ?? flatRef.current
+    },
+  }))
+  const restoredSnapshot = useVirtuosoScrollMemory(scrollParent, virtuosoStateRef)
+  // A filter/sort/view change replaces the URL in place, keeping the same visit key, so the
+  // snapshot captured for this entry no longer matches the list contents once any reset happens —
+  // after that it must not re-apply when the (remounting) list comes back with new data.
+  const [snapshotInvalidated, setSnapshotInvalidated] = useState(false)
+  const restoreStateFrom = snapshotInvalidated ? undefined : restoredSnapshot
 
   // Right-click on a row selects it and opens this menu at the cursor, offering the same actions
   // as the inspector's overflow menu.
@@ -443,6 +488,7 @@ export function ReplayLibrary() {
     setEntries(undefined)
     setTotal(undefined)
     setIsLoadingNext(false)
+    setSnapshotInvalidated(true)
     restartObserver()
   }
 
@@ -524,6 +570,13 @@ export function ReplayLibrary() {
   useEffect(() => {
     fetchStatus()
     fetchPlaylists()
+    if (initialWindow !== undefined) {
+      // The index can change while the page is unmounted (files added/removed, backfill progress)
+      // with nothing listening for the change events, so a restored window is re-queried
+      // immediately; the wholesale replacement keeps the restored scroll position.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time refresh of a restored window on mount
+      refreshLoadedWindow()
+    }
 
     const handleChanged = debounce(() => {
       refreshLoadedWindow()
@@ -544,7 +597,42 @@ export function ReplayLibrary() {
       ipcRenderer.removeAllListeners('replayLibraryChanged')
       ipcRenderer.removeAllListeners('replayLibraryBackfillProgress')
     }
-  }, [])
+  }, [initialWindow])
+
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Written at cleanup time (unmount), not as `entries`/`total` change: the store stamps its TTL
+    // at write time, and this needs to match when the scroll state is saved — also at unmount — so
+    // the two entries expire together.
+    return () => {
+      if (entries !== undefined) {
+        windowCache.set(entryKey, { entries, total })
+      } else {
+        // `reset()` (a filter/sort/view change) clears `entries` while replacing the URL in place
+        // under the same visit key. If the user leaves before the first page under the new filters
+        // arrives, the old filters' entry must not survive to be restored against the new URL.
+        windowCache.delete(entryKey)
+      }
+    }
+  }, [entryKey, entries, total])
+
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Cleanup-time write, matching the window save's timing: a selection is never un-made (a
+    // restored id absent from the current list just falls back to the first row), so unlike the
+    // entry window there's nothing to delete here.
+    return () => {
+      if (focusedId !== undefined) {
+        focusedIdCache.set(entryKey, focusedId)
+      }
+    }
+  }, [entryKey, focusedId])
 
   const loadedEntries = entries ?? []
   const focusedEntry = loadedEntries.find(e => e.id === focusedId) ?? loadedEntries[0]
@@ -846,6 +934,7 @@ export function ReplayLibrary() {
         key='flat'
         ref={flatRef}
         customScrollParent={scrollParent}
+        restoreStateFrom={restoreStateFrom}
         totalCount={loadedEntries.length}
         itemContent={renderRow}
       />
@@ -854,6 +943,7 @@ export function ReplayLibrary() {
         key='grouped'
         ref={groupedRef}
         customScrollParent={scrollParent}
+        restoreStateFrom={restoreStateFrom}
         groupCounts={groupCounts}
         groupContent={index => {
           const group = dayGroups[index]
