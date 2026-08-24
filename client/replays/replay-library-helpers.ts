@@ -1,22 +1,32 @@
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
-/** Which subset of the library the rail is currently pointed at, driven by the `view` URL param. */
+/** Which subset of the library the rail is currently pointed at, addressed by the `/replays…` pathname. */
 export type LibraryView =
   { kind: 'all' } | { kind: 'bookmarked' } | { kind: 'playlist'; id: number }
 
-const PLAYLIST_VIEW_PREFIX = 'pl-'
+/**
+ * Parses a pathname under `/replays` into the `LibraryView` it addresses:
+ * - `/replays` (and `/replays/`) -> the whole library (`all`)
+ * - `/replays/bookmarked` -> `bookmarked`
+ * - `/replays/playlists/<id>` -> `playlist` with that id
+ *
+ * Trailing slashes are tolerated. Anything else — an unparseable playlist id, an unrecognized
+ * subpath, extra segments — falls back to `all`; callers that need the URL itself to reflect that
+ * fallback canonicalize it separately (see `encodeViewPathname`).
+ */
+export function parseViewPathname(pathname: string): LibraryView {
+  const segments = pathname.split('/').filter(segment => segment.length > 0)
 
-/** Parses the `view` URL param into a `LibraryView`. Unrecognized/malformed values fall back to `all`. */
-export function parseView(value: string): LibraryView {
-  if (value === 'bookmarked') {
+  if (segments.length === 2 && segments[1] === 'bookmarked') {
     return { kind: 'bookmarked' }
   }
-  if (value.startsWith(PLAYLIST_VIEW_PREFIX)) {
-    const id = Number.parseInt(value.slice(PLAYLIST_VIEW_PREFIX.length), 10)
+  if (segments.length === 3 && segments[1] === 'playlists') {
+    const id = Number.parseInt(segments[2], 10)
     if (Number.isFinite(id)) {
       return { kind: 'playlist', id }
     }
@@ -24,15 +34,18 @@ export function parseView(value: string): LibraryView {
   return { kind: 'all' }
 }
 
-/** Encodes a `LibraryView` back into the `view` URL param (empty string for the default `all`). */
-export function encodeView(view: LibraryView): string {
+/**
+ * Encodes a `LibraryView` into its canonical `/replays…` pathname (the form `parseViewPathname`
+ * parses back to the same view).
+ */
+export function encodeViewPathname(view: LibraryView): string {
   switch (view.kind) {
     case 'all':
-      return ''
+      return '/replays'
     case 'bookmarked':
-      return 'bookmarked'
+      return '/replays/bookmarked'
     case 'playlist':
-      return `${PLAYLIST_VIEW_PREFIX}${view.id}`
+      return urlPath`/replays/playlists/${view.id}`
     default:
       return assertUnreachable(view)
   }

@@ -48,6 +48,7 @@ import { Popover, usePopoverController } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { useHistoryEntryKey, useLocationSearchParam } from '../navigation/router-hooks'
+import { push, replace } from '../navigation/routing'
 import { createViewStateStore } from '../navigation/view-state-store'
 import { useVirtuosoScrollMemory } from '../navigation/virtuoso-scroll-memory'
 import { useRefreshToken } from '../network/refresh-token'
@@ -64,12 +65,11 @@ import {
   ReplayInspector,
 } from './replay-inspector'
 import {
-  encodeView,
+  encodeViewPathname,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
   LibraryView,
-  parseView,
   playersToDisplayTeams,
 } from './replay-library-helpers'
 import { ReplayLibraryRail } from './replay-library-rail'
@@ -378,7 +378,11 @@ function ReplayListEntry({
 
 // ---- Main component --------------------------------------------------------------------------
 
-export function ReplayLibrary() {
+export interface ReplayLibraryProps {
+  view: LibraryView
+}
+
+export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -421,9 +425,10 @@ export function ReplayLibrary() {
     },
   }))
   const restoredSnapshot = useVirtuosoScrollMemory(scrollParent, virtuosoStateRef)
-  // A filter/sort/view change replaces the URL in place, keeping the same visit key, so the
-  // snapshot captured for this entry no longer matches the list contents once any reset happens —
-  // after that it must not re-apply when the (remounting) list comes back with new data.
+  // A filter/sort change replaces the URL in place, keeping the same visit key, so the snapshot
+  // captured for this entry no longer matches the list contents once any reset happens — after
+  // that it must not re-apply when the (remounting) list comes back with new data. View changes
+  // don't hit this: they push a new pathname and remount the component under a new visit.
   const [snapshotInvalidated, setSnapshotInvalidated] = useState(false)
   const restoreStateFrom = snapshotInvalidated ? undefined : restoredSnapshot
 
@@ -444,7 +449,6 @@ export function ReplayLibrary() {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
-  const [viewParam, setViewParam] = useLocationSearchParam('view')
   const [startDate, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
 
@@ -453,7 +457,6 @@ export function ReplayLibrary() {
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
   const gameType = parseModeFilter(gameTypeParam)
-  const view = parseView(viewParam)
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -551,7 +554,8 @@ export function ReplayLibrary() {
 
   // Fetches the playlists for the rail. Called once on mount and again (debounced) on every index
   // change. Doubles as the consistency check for the current view: if the playlist being viewed no
-  // longer exists (deleted, or a stale URL), we fall back to the whole library.
+  // longer exists (deleted, or a stale URL), the URL is corrected in place to the whole library —
+  // the replace keeps the visit key while the parent's view-keyed remount swaps in a fresh instance.
   const fetchPlaylists = useEffectEvent(() => {
     ipcRenderer
       .invoke('replayLibraryListPlaylists')
@@ -559,8 +563,7 @@ export function ReplayLibrary() {
         if (!result) return
         setPlaylists(result)
         if (view.kind === 'playlist' && !result.some(p => p.id === view.id)) {
-          setViewParam('')
-          reset()
+          replace(encodeViewPathname({ kind: 'all' }) + window.location.search)
         }
       })
       .catch(swallowNonBuiltins)
@@ -1056,10 +1059,16 @@ export function ReplayLibrary() {
             backfill={railBackfill}
             playlists={playlists}
             onSelectView={v => {
-              const encoded = encodeView(v)
-              if (encoded === viewParam) return
-              setViewParam(encoded)
-              reset()
+              const pathname = encodeViewPathname(v)
+              if (pathname === encodeViewPathname(view)) {
+                return
+              }
+              // A view change is a navigation to a new place: pushing a different pathname mints a
+              // new history entry and visit key, and the parent remounts this component keyed on
+              // the view pathname, so the outgoing visit's entry window/scroll/selection save in
+              // unmount cleanups and the new visit starts clean (which is why there's no `reset()`
+              // here). The current filters ride along in the search string.
+              push(pathname + window.location.search)
             }}
           />
 
