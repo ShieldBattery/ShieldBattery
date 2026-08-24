@@ -34,6 +34,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Manual dispatch runs aren't tied to a PR, so the default checkout would be
+          # master. Check out the PR's merge ref instead — the same ref automatic
+          # pull_request runs check out — so Claude reads the PR's actual files.
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr_number) || '' }}
 
       - name: Run Claude Code Review
         id: claude-review

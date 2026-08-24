@@ -47,6 +47,9 @@
         "imageUploadError": "上传图片时出了点问题。",
         "imageUploading": "上传中…",
         "insertImage": "插入图片",
+        "insertImageTooltip": "插入图片（最大 5 MB）",
+        "insertVideo": "插入视频",
+        "insertVideoTooltip": "插入视频（最大 30 MB）",
         "publish": "发布",
         "publishDraft": "草稿（不发布）",
         "publishNow": "立即发布",
@@ -57,7 +60,11 @@
         "summary": "摘要",
         "summaryRequired": "请输入摘要",
         "title": "标题",
-        "titleRequired": "请输入标题"
+        "titleRequired": "请输入标题",
+        "videoInvalidType": "请选择 mp4 或 webm 视频文件。",
+        "videoTooLarge": "视频过大（最大 30 MB）。",
+        "videoUploadError": "上传视频时出了点问题。",
+        "videoUploading": "上传中…"
       },
       "history": {
         "by": "由 ",
@@ -1361,6 +1368,8 @@
   "messaging": {
     "blockedMessage": "消息被屏蔽",
     "mention": "提到",
+    "messageTooLongContent": "消息最多只能有 {{maxLength}} 个字符，这条有 {{length}} 个。请缩短后再发送。",
+    "messageTooLongTitle": "消息过长",
     "newDayMessage": "日期已变为<2>{{day}}</2>",
     "searchWithGoogle": "用谷歌搜索",
     "sendMessage": "发送消息",

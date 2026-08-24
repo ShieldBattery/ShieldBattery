@@ -133,6 +133,12 @@ let replayLibrary: ReplayLibraryService | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
 let lastReplayFolders: string[] | undefined
+// Whether the renderer has reported itself fully bootstrapped (see `rendererReady` in
+// common/ipc.ts). Until then, `replaysOpen` sends are queued rather than sent: on a cold start the
+// launch args are handled before the renderer's IPC listeners exist, and messages sent with no
+// listener attached are silently dropped.
+let rendererReady = false
+let pendingReplaysToOpen: string[] = []
 // Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
 let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
@@ -162,7 +168,11 @@ function handleLaunchArgs(args: string[]) {
     .filter(arg => !arg.startsWith('--') && arg.toLowerCase().endsWith('.rep'))
     .map(p => path.resolve('.', p))
   if (replays.length) {
-    TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
+    if (rendererReady) {
+      TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
+    } else {
+      pendingReplaysToOpen.push(...replays)
+    }
     mainWindow?.show()
   }
 }
@@ -438,6 +448,15 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
 }
 
 function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsManager) {
+  ipcMain.on('rendererReady', () => {
+    logger.verbose('Renderer reported ready')
+    rendererReady = true
+    if (pendingReplaysToOpen.length) {
+      TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', pendingReplaysToOpen)
+      pendingReplaysToOpen = []
+    }
+  })
+
   ipcMain.handle('logMessage', (event, level, message) => {
     logger.log(level, message)
   })
@@ -1210,6 +1229,12 @@ async function createWindow() {
         needsMaximize = false
       }
     })
+
+  // Any (re)load builds a fresh renderer that has to bootstrap from scratch, so readiness never
+  // carries across loads. Anything queued while unready delivers once the new renderer reports in.
+  mainWindow.webContents.on('did-start-loading', () => {
+    rendererReady = false
+  })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (url !== 'shieldbattery://app' && !url.startsWith('shieldbattery://app/')) {

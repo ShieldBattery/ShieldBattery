@@ -7,7 +7,11 @@ import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
-import { NewsImageUploadResponse } from '../../common/news'
+import {
+  MAX_VIDEO_SIZE_BYTES,
+  NewsImageUploadResponse,
+  NewsVideoUploadResponse,
+} from '../../common/news'
 import { apiUrl, urlPath } from '../../common/urls'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
@@ -22,6 +26,7 @@ import {
   applyMarkdownFormat,
   MarkdownFormatKind,
   MarkdownToolbar,
+  ToolbarButton,
 } from '../markdown/markdown-toolbar'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { DateTimeTextField } from '../material/datetime-text-field'
@@ -973,6 +978,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const [imageUploading, setImageUploading] = useState(false)
   const [imageError, setImageError] = useState<string | undefined>(undefined)
 
+  const videoFileInputRef = useRef<HTMLInputElement>(null)
+  const [videoUploading, setVideoUploading] = useState(false)
+  const [videoError, setVideoError] = useState<string | undefined>(undefined)
+
   const onCoverFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     // Reset the input so selecting the same file again still fires a change event.
@@ -1017,6 +1026,36 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     setCoverImageUrl(null)
   }
 
+  // Splices the uploaded file's URL into the content textarea as inline markdown, at the current
+  // cursor position. Shared by the image and video upload handlers: the inserted markdown syntax
+  // is identical for both, since the renderer branches on the URL's extension.
+  const insertUploadedMediaAtCursor = (url: string, filename: string) => {
+    // Read the content from the DOM element rather than the form state this closure captured
+    // when the upload started, so text typed while the upload was in flight isn't lost.
+    const textarea = contentInputRef.current
+    const currentContent = textarea?.value ?? getInputValue('content')
+    const selection =
+      textarea &&
+      contentEverFocusedRef.current &&
+      textarea.selectionStart !== null &&
+      textarea.selectionEnd !== null
+        ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+        : undefined
+    const { content, cursor } = insertInlineImage(
+      currentContent,
+      url,
+      altTextFromFilename(filename),
+      selection,
+    )
+    setInputValue('content', content)
+    requestAnimationFrame(() => {
+      if (textarea) {
+        textarea.focus()
+        textarea.setSelectionRange(cursor, cursor)
+      }
+    })
+  }
+
   const onImageFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     // Reset the input so selecting the same file again still fires a change event.
@@ -1044,30 +1083,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     })
       .then(result => {
         setImageUploading(false)
-        // Read the content from the DOM element rather than the form state this closure captured
-        // when the upload started, so text typed while the upload was in flight isn't lost.
-        const textarea = contentInputRef.current
-        const currentContent = textarea?.value ?? getInputValue('content')
-        const selection =
-          textarea &&
-          contentEverFocusedRef.current &&
-          textarea.selectionStart !== null &&
-          textarea.selectionEnd !== null
-            ? { start: textarea.selectionStart, end: textarea.selectionEnd }
-            : undefined
-        const { content, cursor } = insertInlineImage(
-          currentContent,
-          result.url,
-          altTextFromFilename(file.name),
-          selection,
-        )
-        setInputValue('content', content)
-        requestAnimationFrame(() => {
-          if (textarea) {
-            textarea.focus()
-            textarea.setSelectionRange(cursor, cursor)
-          }
-        })
+        insertUploadedMediaAtCursor(result.url, file.name)
       })
       .catch(err => {
         setImageUploading(false)
@@ -1075,6 +1091,45 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           t('admin.news.form.imageUploadError', 'Something went wrong uploading the image.'),
         )
         logger.error(`Error uploading news inline image: ${getErrorStack(err)}`)
+      })
+  }
+
+  const onVideoFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset the input so selecting the same file again still fires a change event.
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+    if (!file.type.startsWith('video/')) {
+      setVideoError(
+        t('admin.news.form.videoInvalidType', 'Please choose an mp4 or webm video file.'),
+      )
+      return
+    }
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      setVideoError(t('admin.news.form.videoTooLarge', 'That video is too large (max 30 MB).'))
+      return
+    }
+
+    setVideoError(undefined)
+    setVideoUploading(true)
+    const formData = new FormData()
+    formData.append('video', file)
+    fetchJson<NewsVideoUploadResponse>(apiUrl`news/videos`, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(result => {
+        setVideoUploading(false)
+        insertUploadedMediaAtCursor(result.url, file.name)
+      })
+      .catch(err => {
+        setVideoUploading(false)
+        setVideoError(
+          t('admin.news.form.videoUploadError', 'Something went wrong uploading the video.'),
+        )
+        logger.error(`Error uploading news inline video: ${getErrorStack(err)}`)
       })
   }
 
@@ -1240,14 +1295,35 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   onChange={onImageFileSelected}
                   data-testid='news-inline-image-file-input'
                 />
-                <IconButton
+                <ToolbarButton
                   icon={<MaterialIcon icon='add_photo_alternate' />}
-                  title={t('admin.news.form.insertImage', 'Insert image')}
-                  onClick={() => imageFileInputRef.current?.click()}
+                  label={t('admin.news.form.insertImage', 'Insert image')}
+                  tooltipText={t('admin.news.form.insertImageTooltip', 'Insert image (up to 5 MB)')}
                   disabled={imageUploading}
+                  onClick={() => imageFileInputRef.current?.click()}
                 />
                 {imageUploading ? (
                   <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
+                ) : null}
+                <HiddenFileInput
+                  ref={videoFileInputRef}
+                  type='file'
+                  accept='video/mp4,video/webm'
+                  onChange={onVideoFileSelected}
+                  data-testid='news-inline-video-file-input'
+                />
+                <ToolbarButton
+                  icon={<MaterialIcon icon='videocam' />}
+                  label={t('admin.news.form.insertVideo', 'Insert video')}
+                  tooltipText={t(
+                    'admin.news.form.insertVideoTooltip',
+                    'Insert video (up to 30 MB)',
+                  )}
+                  disabled={videoUploading}
+                  onClick={() => videoFileInputRef.current?.click()}
+                />
+                {videoUploading ? (
+                  <CoverHint>{t('admin.news.form.videoUploading', 'Uploading…')}</CoverHint>
                 ) : null}
               </MarkdownToolbar>
               <ContentField
@@ -1262,6 +1338,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                 maxRows={40}
               />
               {imageError ? <ErrorText>{imageError}</ErrorText> : null}
+              {videoError ? <ErrorText>{videoError}</ErrorText> : null}
             </EditorColumn>
             <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
           </FormArea>
@@ -1349,7 +1426,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   : t('admin.news.createPost', 'Create post')
               }
               onClick={submit}
-              disabled={fetching || coverUploading || imageUploading}
+              disabled={fetching || coverUploading || imageUploading || videoUploading}
             />
           </SaveRow>
         </Form>

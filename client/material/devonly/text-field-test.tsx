@@ -46,6 +46,11 @@ export function TextFieldTest() {
   const [value17, setValue17] = useState('')
   const [value18, setValue18] = useState('')
   const [value19, setValue19] = useState('')
+  const [value20, setValue20] = useState('')
+  const [value21, setValue21] = useState('')
+  const [value22, setValue22] = useState('')
+  const [value23, setValue23] = useState('')
+  const [value24, setValue24] = useState('')
   const [changeError, setChangeError] = useState<string>()
   const [dense, setDense] = useState(false)
 
@@ -306,6 +311,59 @@ export function TextFieldTest() {
           dense={dense}
           label='With clear button'
           onChange={event => setValue19(event.target.value)}
+        />
+        <TextField
+          name='20'
+          value={value20}
+          floatingLabel={true}
+          dense={dense}
+          label='With counter (max 25)'
+          maxLength={25}
+          onChange={event => setValue20(event.target.value)}
+        />
+        <TextField
+          name='21'
+          value={value21}
+          floatingLabel={true}
+          dense={dense}
+          label='With counter appearing near limit (max 210)'
+          maxLength={210}
+          onChange={event => setValue21(event.target.value)}
+        />
+        <TextField
+          name='22'
+          value={value22}
+          floatingLabel={true}
+          dense={dense}
+          label='Multi-line with counter and error (max 30)'
+          multiline={true}
+          maxRows={4}
+          maxLength={30}
+          errorText={value22.length > 30 ? 'Message is too long' : undefined}
+          onChange={event => setValue22(event.target.value)}
+        />
+        <TextField
+          name='23'
+          value={value23}
+          floatingLabel={true}
+          dense={dense}
+          label='Counter, clear button, and trailing icon (max 40)'
+          maxLength={40}
+          hasClearButton={true}
+          trailingIcons={[<MaterialIcon icon='local_pizza' key='pizza' />]}
+          onChange={event => setValue23(event.target.value)}
+        />
+        <TextField
+          name='24'
+          value={value24}
+          floatingLabel={true}
+          dense={dense}
+          label='Multi-line with counter and trailing icon (max 50)'
+          multiline={true}
+          maxRows={4}
+          maxLength={50}
+          trailingIcons={[<MaterialIcon icon='sentiment_satisfied' key='emoji' />]}
+          onChange={event => setValue24(event.target.value)}
         />
       </StyledCard>
     </Container>

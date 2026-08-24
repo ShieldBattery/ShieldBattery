@@ -1,3 +1,5 @@
+import { RefObject, useLayoutEffect } from 'react'
+import { useLocation } from 'wouter'
 import { useLocationProperty } from 'wouter/use-browser-location'
 import { useStableCallback } from '../react/state-hooks'
 import { replace } from './routing'
@@ -38,4 +40,22 @@ export const useLocationSearchParam = (
   })
 
   return [searchValue, setLocationSearch]
+}
+
+/**
+ * Resets an element's scroll position to the top whenever the current location's pathname changes.
+ * This runs pre-paint, so the user never sees the intermediate scrolled state. Intended for
+ * scrollable containers that stay mounted across navigations (e.g. route containers that are keyed
+ * by route pattern and thus reused when moving between two locations matching the same pattern),
+ * which would otherwise carry the previous page's scroll position over to the new page.
+ *
+ * Changes to the URL's search params alone don't trigger a reset, so components using the URL as
+ * state (e.g. `useLocationSearchParam`) can update it freely without scrolling their page.
+ */
+export function useScrollResetOnNavigate(ref: RefObject<Element | null>): void {
+  const [pathname] = useLocation()
+
+  useLayoutEffect(() => {
+    ref.current?.scrollTo(0, 0)
+  }, [pathname, ref])
 }

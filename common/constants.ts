@@ -17,6 +17,12 @@ export const CHANNEL_ALLOWED_CHARACTERS = String.raw`[A-Za-z0-9\`~!$^&*()[\]\-_+
 export const CHANNEL_PATTERN = new RegExp(String.raw`^${CHANNEL_ALLOWED_CHARACTERS}$`)
 export const CHANNEL_MAXLENGTH = 64
 
+/**
+ * The maximum length of a chat message (in channels, whispers, lobbies, etc.). The server trims
+ * longer messages to this length rather than rejecting them.
+ */
+export const CHAT_MESSAGE_MAXLENGTH = 2000
+
 export const STARCRAFT_DOWNLOAD_URL = 'https://download.battle.net/desktop'
 
 /**

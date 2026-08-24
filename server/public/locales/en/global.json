@@ -47,6 +47,9 @@
         "imageUploadError": "Something went wrong uploading the image.",
         "imageUploading": "Uploading…",
         "insertImage": "Insert image",
+        "insertImageTooltip": "Insert image (up to 5 MB)",
+        "insertVideo": "Insert video",
+        "insertVideoTooltip": "Insert video (up to 30 MB)",
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
@@ -57,7 +60,11 @@
         "summary": "Summary",
         "summaryRequired": "Summary is required",
         "title": "Title",
-        "titleRequired": "Title is required"
+        "titleRequired": "Title is required",
+        "videoInvalidType": "Please choose an mp4 or webm video file.",
+        "videoTooLarge": "That video is too large (max 30 MB).",
+        "videoUploadError": "Something went wrong uploading the video.",
+        "videoUploading": "Uploading…"
       },
       "history": {
         "by": "by ",
@@ -1383,6 +1390,8 @@
       "textArtLabel": "Text art"
     },
     "mention": "Mention",
+    "messageTooLongContent": "Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.",
+    "messageTooLongTitle": "Message too long",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "searchWithGoogle": "Search with Google",
     "sendMessage": "Send a message",

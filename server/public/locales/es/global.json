@@ -47,6 +47,9 @@
         "imageUploadError": "Algo salió mal al subir la imagen.",
         "imageUploading": "Subiendo…",
         "insertImage": "Insertar imagen",
+        "insertImageTooltip": "Insertar imagen (hasta 5 MB)",
+        "insertVideo": "Insertar video",
+        "insertVideoTooltip": "Insertar video (hasta 30 MB)",
         "publish": "Publicación",
         "publishDraft": "Borrador (sin publicar)",
         "publishNow": "Publicar ahora",
@@ -57,7 +60,11 @@
         "summary": "Resumen",
         "summaryRequired": "Introduce un resumen",
         "title": "Título",
-        "titleRequired": "Introduce un título"
+        "titleRequired": "Introduce un título",
+        "videoInvalidType": "Elige un archivo de video mp4 o webm.",
+        "videoTooLarge": "Ese video es demasiado grande (máx. 30 MB).",
+        "videoUploadError": "Algo salió mal al subir el video.",
+        "videoUploading": "Subiendo…"
       },
       "history": {
         "by": "por ",
@@ -1395,6 +1402,8 @@
   "messaging": {
     "blockedMessage": "Mensaje bloqueado",
     "mention": "Mención",
+    "messageTooLongContent": "Los mensajes pueden tener como máximo {{maxLength}} caracteres, y este tiene {{length}}. Acórtalo antes de enviarlo.",
+    "messageTooLongTitle": "Mensaje demasiado largo",
     "newDayMessage": "Día cambiado a <2>{{day}}</2>",
     "searchWithGoogle": "Buscar con Google",
     "sendMessage": "Enviar un mensaje",
@@ -1403,7 +1412,7 @@
   "navigation": {
     "bar": {
       "appMenu": "Menú",
-      "home": "Hogar",
+      "home": "Inicio",
       "play": "Jugar",
       "userMenu": "Menú de usuario"
     },
@@ -1975,7 +1984,7 @@
   },
   "social": {
     "chat": {
-      "label": "Charlar",
+      "label": "Chat",
       "loadingChannelsError": "Error al cargar los canales de chat",
       "loadingWhispersError": "Error al cargar los susurros"
     },

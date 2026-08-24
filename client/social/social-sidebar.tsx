@@ -5,7 +5,8 @@ import * as React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
-import { Link, useLocation } from 'wouter'
+import { Link } from 'wouter'
+import { usePathname } from 'wouter/use-browser-location'
 import { SbChannelId } from '../../common/chat'
 import { getErrorStack } from '../../common/errors'
 import { urlPath } from '../../common/urls'
@@ -750,10 +751,11 @@ function Entry({
   onContextMenu,
   onClick,
 }: EntryProps) {
-  // Just ensure this component re-renders when the pathname changes, but we grab the pathname
-  // directly to avoid wouter's annoying unescaping behavior
-  useLocation()
-  const currentPath = location.pathname
+  // Subscribe to the pathname through a hook instead of reading location.pathname during render:
+  // React Compiler treats render-time reads of mutable globals as stable and would cache the
+  // first render's value forever. usePathname also returns the raw pathname, avoiding the
+  // unescaping that wouter's useLocation() applies.
+  const currentPath = usePathname()
 
   const [buttonProps, rippleRef] = useButtonState({ onClick })
   // TODO(tec27): Would probably be better to pass a route string and do `useRoute` so we can handle

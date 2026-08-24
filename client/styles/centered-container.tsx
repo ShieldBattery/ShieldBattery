@@ -1,5 +1,24 @@
 import * as m from 'motion/react-m'
+import * as React from 'react'
+import { useRef } from 'react'
 import styled from 'styled-components'
+import { useScrollResetOnNavigate } from '../navigation/router-hooks'
+import { useMultiplexRef } from '../react/refs'
+
+/**
+ * Wraps `m.div` to reset scroll position when the pathname changes. The scroll-reset logic lives
+ * in this inner component so that `CenteredContentContainer` below can remain a styled component:
+ * `styled()` only folds through other styled components, and without folding, styled-components
+ * strips `$`-prefixed transient props before they reach the wrapped component — so
+ * `styled(CenteredContentContainer)` call sites would silently lose `$targetWidth` and friends.
+ */
+function ScrollResetDiv({ ref, ...rest }: React.ComponentPropsWithRef<typeof m.div>) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  useScrollResetOnNavigate(scrollerRef)
+  const multiRef = useMultiplexRef(ref, scrollerRef)
+
+  return <m.div ref={multiRef} {...rest} />
+}
 
 /**
  * A container with normal horizontal padding intended for use as the "root" of application content
@@ -18,8 +37,11 @@ import styled from 'styled-components'
  * inside `MainLayout`) so the shell gives up the left gutter it otherwise reserves to keep content
  * centered against the social sidebar — otherwise the page stays capped by that centered column no
  * matter how wide this container is allowed to be.
+ *
+ * On navigation to a different pathname, the container resets its scroll position to the top, so
+ * pages reusing a mounted instance don't inherit the previous page's scroll position.
  */
-export const CenteredContentContainer = styled(m.div)<{
+export const CenteredContentContainer = styled(ScrollResetDiv)<{
   $targetWidth?: number
   $targetHorizontalPadding?: number
   $fullWidth?: boolean

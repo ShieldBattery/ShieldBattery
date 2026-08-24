@@ -47,6 +47,9 @@
         "imageUploadError": "Не удалось загрузить изображение.",
         "imageUploading": "Загрузка…",
         "insertImage": "Вставить изображение",
+        "insertImageTooltip": "Вставить изображение (до 5 МБ)",
+        "insertVideo": "Вставить видео",
+        "insertVideoTooltip": "Вставить видео (до 30 МБ)",
         "publish": "Публикация",
         "publishDraft": "Черновик (не опубликовано)",
         "publishNow": "Опубликовать сейчас",
@@ -57,7 +60,11 @@
         "summary": "Краткое описание",
         "summaryRequired": "Введите краткое описание",
         "title": "Заголовок",
-        "titleRequired": "Введите заголовок"
+        "titleRequired": "Введите заголовок",
+        "videoInvalidType": "Выберите видеофайл mp4 или webm.",
+        "videoTooLarge": "Видео слишком большое (макс. 30 МБ).",
+        "videoUploadError": "Не удалось загрузить видео.",
+        "videoUploading": "Загрузка…"
       },
       "history": {
         "by": "автор: ",
@@ -1412,6 +1419,8 @@
   "messaging": {
     "blockedMessage": "Заблокированное сообщение",
     "mention": "Упомянуть",
+    "messageTooLongContent": "Сообщение может содержать не более {{maxLength}} символов, а в этом их {{length}}. Сократите его перед отправкой.",
+    "messageTooLongTitle": "Слишком длинное сообщение",
     "newDayMessage": "День изменен на <2>{{day}}</2>",
     "searchWithGoogle": "Искать в Google",
     "sendMessage": "Отправить сообщение",

@@ -84,6 +84,9 @@ consistent. (Seed — extend over time.)
   host (person)→anfitrión, slot→espacio ("Espacios libres"; slot rows use Abierto/Cerrado).
 - **color override(s) → reemplazo (de colores)** (noun; verb reemplazar). On/Off mode options use
   Activado/Desactivado. Color scheme→esquema de colores.
+- **video → video** (sin tilde, LatAm form; matches the in-file settings "Video" title).
+- **Home (nav) → Inicio** (fixed from old MT "Hogar"); social Chat tab label → **Chat** (noun, not
+  "Charlar").
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -135,6 +138,7 @@ consistent. (Seed — extend over time.)
   제한 (in-file useLegacyLimits).
 - **color override(s) → (색상) 대체**. On/Off mode options use 사용/사용 안 함 phrasing. Color
   scheme→색상 구성 (with 내 for "your"). Rust (color)→러스트 (fashion-color loanword; never 녹색).
+- **video (file/media) → 동영상** (uploads, inserts); the graphics settings tab stays 비디오.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI

@@ -13,11 +13,13 @@ import {
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { CHAT_MESSAGE_MAXLENGTH } from '../../common/constants'
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp } from '../i18n/date-formats'
 import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
@@ -26,7 +28,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getUnicodeEmojiEntries } from './emoji-data'
 import { EmotePickerButton } from './emote-picker'
 import {
@@ -189,6 +191,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     ref,
   ) => {
     const { t } = useTranslation()
+    const dispatch = useAppDispatch()
     const user = useSelfUser()
     const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
     const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
@@ -449,7 +452,27 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       event.preventDefault()
 
       if (message.trim().length > 0) {
-        onSendChatMessage(applyTextArtCommand(message.trim()))
+        // The text art command applies before the length check, since the art it inserts changes
+        // the length of what actually gets sent
+        const toSend = applyTextArtCommand(message.trim())
+        if (toSend.length > CHAT_MESSAGE_MAXLENGTH) {
+          // Blocked rather than sent-and-trimmed so no content is silently lost — the message
+          // stays in the input for the user to shorten
+          dispatch(
+            openSimpleDialog(
+              t('messaging.messageTooLongTitle', 'Message too long'),
+              t('messaging.messageTooLongContent', {
+                defaultValue:
+                  'Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.',
+                maxLength: CHAT_MESSAGE_MAXLENGTH,
+                length: toSend.length,
+              }),
+            ),
+          )
+          return
+        }
+
+        onSendChatMessage(toSend)
         setMessage('')
       }
     })
@@ -505,6 +528,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           maxRows={maxRows}
           floatingLabel={false}
           allowErrors={false}
+          maxLength={CHAT_MESSAGE_MAXLENGTH}
           showDivider={showDivider}
           disabled={!!chatRestriction}
           trailingIcons={[
