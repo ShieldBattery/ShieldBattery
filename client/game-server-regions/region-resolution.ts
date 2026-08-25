@@ -1,3 +1,4 @@
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   GameServerRegion,
   GameServerRegionId,
@@ -18,12 +19,14 @@ export interface DesiredRegion {
 }
 
 /**
- * How long to keep polling the app for a first region measurement before queueing region-less. The
- * app sweeps regions at startup and a full sweep takes ~2s, so a few seconds covers the cold case
- * where the player hits "find match" before the first sweep finishes. Only applies to the Auto
- * path -- a manual pick resolves immediately whether or not it's been measured yet.
+ * How long to keep polling the app for a first region measurement before queueing region-less.
+ * The app normally waits out a startup settling delay before sweeping, but `resolveDesiredRegion`
+ * kicks that sweep early (see `gameServerRegionsEnsureSweep` below) once it finds no usable
+ * measurement, and a from-cold sweep takes ~2s plus inter-region stagger -- a few seconds of
+ * headroom covers that. Only applies to the Auto path -- a manual pick resolves immediately
+ * whether or not it's been measured yet.
  */
-const REGION_RESOLVE_TIMEOUT_MS = 4000
+const REGION_RESOLVE_TIMEOUT_MS = 6000
 /** How often to re-poll the app's latency table while waiting for a first measurement. */
 const REGION_POLL_INTERVAL_MS = 500
 
@@ -93,6 +96,11 @@ export async function resolveDesiredRegion(): Promise<DesiredRegion | undefined>
     )
 
   let resolved = await readSelection()
+  if (!resolved) {
+    // No usable measurement yet -- ask the app to skip the rest of its startup settling delay
+    // instead of waiting for it to elapse on its own.
+    await ipcRenderer.invoke('gameServerRegionsEnsureSweep')?.catch(swallowNonBuiltins)
+  }
   // Monotonic clock: this bounds an elapsed wait, and the wall clock can step (NTP, manual
   // changes) while we poll.
   const deadline = performance.now() + REGION_RESOLVE_TIMEOUT_MS

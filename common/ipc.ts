@@ -179,6 +179,13 @@ interface IpcInvokeables {
    * those are returned as a stale hint until the first sweep replaces them).
    */
   gameServerRegionsGetLatencies: () => GameServerRegionLatencies
+  /**
+   * Requests an immediate region latency sweep, skipping the rest of the startup settling delay
+   * if it's still pending. For the matchmaking queue path, which can't wait out the full delay
+   * when no usable measurement exists yet. See `RegionLatencyManager.ensureSweepNow` for exact
+   * semantics.
+   */
+  gameServerRegionsEnsureSweep: () => void
 
   logMessage: (level: string, message: string) => void
 

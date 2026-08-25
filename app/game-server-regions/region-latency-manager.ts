@@ -10,6 +10,25 @@ import { GameServerRegionList } from './region-list'
 
 const FINGERPRINT_POLL_INTERVAL_MS = 30_000
 const PERIODIC_SWEEP_INTERVAL_MS = 3 * 60 * 60 * 1000
+/**
+ * How long to wait after the manager starts before running the first sweep. The app's launch
+ * burst (updater checks, API fetches, renderer boot) competes for the same network link, which
+ * inflates RTTs measured during that window on a congested connection. The persisted table from
+ * the previous run (or an empty one) stands in as a stale-but-usable hint until this delay
+ * elapses -- see `startInternal` and `ensureSweepNow`.
+ */
+export const STARTUP_SWEEP_DELAY_MS = 15_000
+/**
+ * Delay between starting successive regions' measurements within a sweep. Firing every region's
+ * ping at once packs all of that traffic into the same instant, which can itself distort the
+ * measured RTTs on a modest connection; spacing out the starts keeps one region's beacon traffic
+ * from stepping on another's.
+ */
+export const REGION_STAGGER_MS = 150
+
+function delay(millis: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, millis))
+}
 
 type RegionLatencyManagerEvents = {
   /** Fired with the full region -> latency table after each completed sweep. */
@@ -123,6 +142,15 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
   private unsubscribeResume?: () => void
   private fingerprintPollHandle?: NodeJS.Timeout
   private periodicSweepHandle?: NodeJS.Timeout
+  /**
+   * True from construction until the startup settling delay elapses (or `ensureSweepNow` cuts it
+   * short). While true, `requestSweep` coalesces every request into the pending
+   * `startupSweepTimer` instead of running immediately -- this is what makes the delay apply to
+   * every path that can request a sweep (region-list load, network change, resume, the periodic
+   * timer), not just the one `startInternal` fires directly.
+   */
+  private startupSweepPending = true
+  private startupSweepTimer?: NodeJS.Timeout
 
   constructor(private regionList: GameServerRegionList) {
     super()
@@ -134,15 +162,44 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
   }
 
   /**
-   * Requests a sweep. If one is already running, coalesces this request with any other requests
-   * made while it's in flight into a single follow-up sweep, rather than queuing one per request.
+   * Requests a sweep. While the startup settling delay is still pending, this is a no-op: the
+   * timer armed in `startInternal` will run the (single) startup sweep on its own, so there's
+   * nothing more for this request to do. Otherwise, if a sweep is already running, coalesces this
+   * request with any other requests made while it's in flight into a single follow-up sweep,
+   * rather than queuing one per request.
    */
   requestSweep() {
+    if (this.startupSweepPending) {
+      return
+    }
     if (this.sweeping) {
       this.sweepQueued = true
       return
     }
     this.runSweep()
+  }
+
+  /**
+   * Lets a caller that can't wait out the startup settling delay skip the rest of it -- used by
+   * the matchmaking queue path when no usable measurement exists yet. If the delay is still
+   * pending, cancels it and runs the sweep immediately. Otherwise a no-op, unless the table is
+   * still empty (e.g. every region failed its startup sweep), in which case it behaves like
+   * `requestSweep`. Safe to call more than once: only the first call made while the delay is
+   * pending has any effect.
+   */
+  ensureSweepNow() {
+    if (this.startupSweepPending) {
+      if (this.startupSweepTimer) {
+        clearTimeout(this.startupSweepTimer)
+        this.startupSweepTimer = undefined
+      }
+      this.startupSweepPending = false
+      this.requestSweep()
+      return
+    }
+    if (Object.keys(this.latencies).length === 0) {
+      this.requestSweep()
+    }
   }
 
   /**
@@ -167,6 +224,10 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
       clearInterval(this.periodicSweepHandle)
       this.periodicSweepHandle = undefined
     }
+    if (this.startupSweepTimer) {
+      clearTimeout(this.startupSweepTimer)
+      this.startupSweepTimer = undefined
+    }
   }
 
   private async startInternal() {
@@ -180,8 +241,13 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
     this.periodicSweepHandle = setInterval(() => this.requestSweep(), PERIODIC_SWEEP_INTERVAL_MS)
     this.unsubscribeResume = await this.subscribeToResume(() => this.requestSweep())
 
-    // Persisted values are stale hints only; they must never suppress this startup sweep.
-    this.requestSweep()
+    // Persisted values are stale hints only; they must never suppress this startup sweep, just
+    // delay it -- see `STARTUP_SWEEP_DELAY_MS`.
+    this.startupSweepTimer = setTimeout(() => {
+      this.startupSweepTimer = undefined
+      this.startupSweepPending = false
+      this.requestSweep()
+    }, STARTUP_SWEEP_DELAY_MS)
   }
 
   private checkFingerprint() {
@@ -210,7 +276,14 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
   private async sweepOnce() {
     const regions = this.regionList.getRegions()
     const measured = await Promise.all(
-      regions.map(async region => [region.id, await this.measureRegion(region)] as const),
+      regions.map(async (region, i) => {
+        // Staggered, not simultaneous, so one region's ping traffic doesn't distort another's --
+        // see `REGION_STAGGER_MS`.
+        if (i > 0) {
+          await delay(i * REGION_STAGGER_MS)
+        }
+        return [region.id, await this.measureRegion(region)] as const
+      }),
     )
 
     // A region whose measurement failed this sweep keeps its previous entry rather than vanishing:

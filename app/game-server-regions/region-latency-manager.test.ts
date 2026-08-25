@@ -3,7 +3,12 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../common/game-server-regions'
-import { computeNetworkFingerprint, RegionLatencyManager } from './region-latency-manager'
+import {
+  computeNetworkFingerprint,
+  REGION_STAGGER_MS,
+  RegionLatencyManager,
+  STARTUP_SWEEP_DELAY_MS,
+} from './region-latency-manager'
 import { GameServerRegionList } from './region-list'
 
 const REGION_A = {
@@ -11,6 +16,18 @@ const REGION_A = {
   displayName: 'Region A',
   beacon: '127.0.0.1:1',
   fallback: '127.0.0.1:2',
+}
+const REGION_B = {
+  id: makeGameServerRegionId('region-b'),
+  displayName: 'Region B',
+  beacon: '127.0.0.1:3',
+  fallback: '127.0.0.1:4',
+}
+const REGION_C = {
+  id: makeGameServerRegionId('region-c'),
+  displayName: 'Region C',
+  beacon: '127.0.0.1:5',
+  fallback: '127.0.0.1:6',
 }
 
 function delay(millis: number): Promise<void> {
@@ -63,7 +80,9 @@ describe('RegionLatencyManager', () => {
         resolvers.push(() => resolve(undefined))
       })
 
-    manager.requestSweep()
+    // Collapses the startup settling delay so this sweep runs now instead of after
+    // STARTUP_SWEEP_DELAY_MS -- see the dedicated startup-delay tests below for that behavior.
+    manager.ensureSweepNow()
     await waitUntil(() => callCount === 1)
 
     // Requested twice more while the first sweep is in flight -- should coalesce into exactly one
@@ -97,6 +116,9 @@ describe('RegionLatencyManager', () => {
     manager.on('updated', () => updateCount++)
 
     regionList.setRegions([REGION_A])
+    // The region-list change is coalesced into the pending startup sweep rather than running one
+    // immediately -- collapse the delay so this test doesn't need to wait it out.
+    manager.ensureSweepNow()
     await waitUntil(() => updateCount === 1)
 
     expect(manager.getLatencies()[REGION_A.id]?.rttMs).toBe(42)
@@ -112,6 +134,7 @@ describe('RegionLatencyManager', () => {
     manager.on('updated', () => updateCount++)
 
     regionList.setRegions([REGION_A])
+    manager.ensureSweepNow()
     await waitUntil(() => updateCount === 1)
 
     expect(manager.getLatencies()[REGION_A.id]).toBeUndefined()
@@ -134,6 +157,7 @@ describe('RegionLatencyManager', () => {
     manager.on('updated', () => updateCount++)
 
     regionList.setRegions([REGION_A])
+    manager.ensureSweepNow()
     await waitUntil(() => updateCount === 1)
 
     // A transient failure must serve the last-known entry (its measuredAt marks the staleness)
@@ -160,6 +184,7 @@ describe('RegionLatencyManager', () => {
     manager.on('updated', () => updateCount++)
 
     regionList.setRegions([REGION_A])
+    manager.ensureSweepNow()
     await waitUntil(() => updateCount === 1)
     expect(manager.getLatencies()[REGION_A.id]).toBeDefined()
 
@@ -186,7 +211,7 @@ describe('RegionLatencyManager', () => {
     writer.on('updated', () => {
       updated = true
     })
-    writer.requestSweep()
+    writer.ensureSweepNow()
     await waitUntil(() => updated)
 
     const onDiskRaw = await fsPromises.readFile(persistPath, { encoding: 'utf8' })
@@ -211,6 +236,7 @@ describe('RegionLatencyManager', () => {
     manager.on('updated', () => updateCount++)
 
     regionList.setRegions([REGION_A])
+    manager.ensureSweepNow()
     await waitUntil(() => updateCount === 1)
 
     const writeSpy = vi.spyOn(fsPromises, 'writeFile')
@@ -250,9 +276,13 @@ describe('RegionLatencyManager', () => {
       })
 
     await reader.start()
-    // The startup sweep is deliberately kept in flight (measureRegion hasn't resolved yet), but
-    // the persisted value should already be visible.
+    // The persisted value should already be visible even though the startup sweep hasn't run yet
+    // (it's waiting out the settling delay).
     expect(reader.getLatencies()[REGION_A.id]?.rttMs).toBe(17)
+
+    // Collapse the delay so the startup sweep runs now; it's deliberately kept in flight
+    // (measureRegion hasn't resolved yet) for the assertions below.
+    reader.ensureSweepNow()
 
     let updated = false
     reader.on('updated', () => {
@@ -274,6 +304,163 @@ describe('RegionLatencyManager', () => {
     await expect(manager.start()).resolves.toBeUndefined()
 
     expect(manager.getLatencies()).toEqual({})
+  })
+
+  it('does not run the startup sweep before the settling delay elapses, and runs it after', async () => {
+    vi.useFakeTimers()
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    try {
+      manager.persistFilePath = async () =>
+        path.join(os.tmpdir(), 'sb-region-latency-unused-startup1.json')
+
+      let callCount = 0
+      manager.measureRegion = async region => {
+        callCount++
+        return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+      }
+
+      await manager.start()
+      expect(callCount).toBe(0)
+
+      await vi.advanceTimersByTimeAsync(STARTUP_SWEEP_DELAY_MS - 1)
+      expect(callCount).toBe(0)
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(callCount).toBe(1)
+    } finally {
+      manager.stop()
+      vi.useRealTimers()
+    }
+  })
+
+  it('coalesces a region-list change during the startup window into the delayed sweep, instead of bypassing the delay', async () => {
+    vi.useFakeTimers()
+    const regionList = new GameServerRegionList()
+    const manager = makeManager(regionList)
+    try {
+      manager.persistFilePath = async () =>
+        path.join(os.tmpdir(), 'sb-region-latency-unused-startup2.json')
+
+      let callCount = 0
+      manager.measureRegion = async region => {
+        callCount++
+        return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+      }
+
+      await manager.start()
+
+      // Mimics the region list loading from the server shortly after startup: still within the
+      // settling window, so it must not trigger an immediate sweep of its own.
+      await vi.advanceTimersByTimeAsync(STARTUP_SWEEP_DELAY_MS - 1000)
+      regionList.setRegions([REGION_A])
+      expect(callCount).toBe(0)
+
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(callCount).toBe(1)
+      expect(manager.getLatencies()[REGION_A.id]?.rttMs).toBe(5)
+    } finally {
+      manager.stop()
+      vi.useRealTimers()
+    }
+  })
+
+  it('ensureSweepNow collapses the startup delay and runs the sweep immediately, without a duplicate sweep once the original delay would have elapsed', async () => {
+    vi.useFakeTimers()
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    try {
+      manager.persistFilePath = async () =>
+        path.join(os.tmpdir(), 'sb-region-latency-unused-startup3.json')
+
+      let callCount = 0
+      manager.measureRegion = async region => {
+        callCount++
+        return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+      }
+
+      await manager.start()
+      manager.ensureSweepNow()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(callCount).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(STARTUP_SWEEP_DELAY_MS)
+      expect(callCount).toBe(1)
+    } finally {
+      manager.stop()
+      vi.useRealTimers()
+    }
+  })
+
+  it('ensureSweepNow is a no-op once the startup delay has elapsed and the table is already populated', async () => {
+    vi.useFakeTimers()
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    try {
+      manager.persistFilePath = async () =>
+        path.join(os.tmpdir(), 'sb-region-latency-unused-startup4.json')
+
+      let callCount = 0
+      manager.measureRegion = async region => {
+        callCount++
+        return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+      }
+
+      await manager.start()
+      await vi.advanceTimersByTimeAsync(STARTUP_SWEEP_DELAY_MS)
+      expect(callCount).toBe(1)
+
+      manager.ensureSweepNow()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(callCount).toBe(1)
+    } finally {
+      manager.stop()
+      vi.useRealTimers()
+    }
+  })
+
+  it('staggers per-region measurement starts by REGION_STAGGER_MS', async () => {
+    vi.useFakeTimers()
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A, REGION_B, REGION_C])
+    const manager = makeManager(regionList)
+    try {
+      manager.persistFilePath = async () =>
+        path.join(os.tmpdir(), 'sb-region-latency-unused-stagger.json')
+
+      const startTimes: number[] = []
+      manager.measureRegion = async region => {
+        startTimes.push(Date.now())
+        return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+      }
+
+      await manager.start()
+      manager.ensureSweepNow()
+
+      await vi.advanceTimersByTimeAsync(0)
+      expect(startTimes.length).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(REGION_STAGGER_MS - 1)
+      expect(startTimes.length).toBe(1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(startTimes.length).toBe(2)
+
+      await vi.advanceTimersByTimeAsync(REGION_STAGGER_MS - 1)
+      expect(startTimes.length).toBe(2)
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(startTimes.length).toBe(3)
+
+      expect(startTimes[1] - startTimes[0]).toBe(REGION_STAGGER_MS)
+      expect(startTimes[2] - startTimes[0]).toBe(REGION_STAGGER_MS * 2)
+    } finally {
+      manager.stop()
+      vi.useRealTimers()
+    }
   })
 })
 

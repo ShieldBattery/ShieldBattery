@@ -941,6 +941,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   regionLatencyManager.start().catch(() => {})
 
   ipcMain.handle('gameServerRegionsGetLatencies', () => regionLatencyManager.getLatencies())
+  ipcMain.handle('gameServerRegionsEnsureSweep', () => regionLatencyManager.ensureSweepNow())
   regionLatencyManager.on('updated', latencies => {
     TypedIpcSender.from(mainWindow?.webContents).send(
       'gameServerRegionsLatenciesUpdated',
