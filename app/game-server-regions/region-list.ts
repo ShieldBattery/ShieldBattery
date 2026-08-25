@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { isDeepStrictEqual } from 'node:util'
 import { singleton } from 'tsyringe'
 import { GameServerRegion } from '../../common/game-server-regions'
 
@@ -20,6 +21,11 @@ export class GameServerRegionList extends EventEmitter<GameServerRegionListEvent
   }
 
   setRegions(regions: GameServerRegion[]) {
+    // An unchanged list fires nothing: the site socket re-delivers the full list on every
+    // reconnect, and each `change` triggers a full measurement sweep downstream.
+    if (isDeepStrictEqual(regions, this.regions)) {
+      return
+    }
     this.regions = regions
     this.emit('change', regions)
   }

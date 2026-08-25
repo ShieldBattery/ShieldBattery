@@ -286,6 +286,16 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
 
   private async sweepOnce() {
     const regions = this.regionList.getRegions()
+    // An empty region list measures nothing, so sweeping it could only *erase*: it would replace
+    // the table (and the persisted file) with `{}`, destroying the stale-hint value the persisted
+    // entries exist for. And an empty list here usually isn't an operator retiring every region --
+    // it's a list that simply hasn't loaded yet (app launch before the server delivers one).
+    // Stale entries kept through an empty window are inert regardless: region auto-selection
+    // filters candidates against the live server list, so an entry the eventual list doesn't name
+    // can never win.
+    if (regions.length === 0) {
+      return
+    }
     const measured = await Promise.all(
       regions.map(async (region, i) => {
         // Staggered, not simultaneous, so one region's ping traffic doesn't distort another's --

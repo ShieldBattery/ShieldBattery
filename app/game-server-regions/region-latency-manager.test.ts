@@ -169,7 +169,7 @@ describe('RegionLatencyManager', () => {
     expect(manager.getLatencies()[REGION_A.id]).toEqual(firstResult)
   })
 
-  it('drops entries for regions no longer in the list', async () => {
+  it('drops entries for regions no longer in the list, but an empty list erases nothing', async () => {
     const regionList = new GameServerRegionList()
     const manager = makeManager(regionList)
     manager.persistFilePath = async () => path.join(os.tmpdir(), 'sb-region-latency-unused3b.json')
@@ -183,14 +183,25 @@ describe('RegionLatencyManager', () => {
     let updateCount = 0
     manager.on('updated', () => updateCount++)
 
-    regionList.setRegions([REGION_A])
+    regionList.setRegions([REGION_A, REGION_B])
     manager.ensureSweepNow()
     await waitUntil(() => updateCount === 1)
     expect(manager.getLatencies()[REGION_A.id]).toBeDefined()
+    expect(manager.getLatencies()[REGION_B.id]).toBeDefined()
 
-    regionList.setRegions([])
+    // A retired region's entry drops out on the next sweep of the (non-empty) current list.
+    regionList.setRegions([REGION_B])
     await waitUntil(() => updateCount === 2)
     expect(manager.getLatencies()[REGION_A.id]).toBeUndefined()
+    expect(manager.getLatencies()[REGION_B.id]).toBeDefined()
+
+    // An empty list measures nothing, so sweeping it could only erase the table's stale-hint
+    // value -- the sweep is skipped and the entries are retained (they're inert: auto-selection
+    // filters against the live list).
+    regionList.setRegions([])
+    await delay(50)
+    expect(updateCount).toBe(2)
+    expect(manager.getLatencies()[REGION_B.id]).toBeDefined()
   })
 
   it('persists the table to disk after a sweep completes', async () => {

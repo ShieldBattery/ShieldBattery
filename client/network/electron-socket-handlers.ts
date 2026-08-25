@@ -17,11 +17,18 @@ import { SocketHandler, SocketHandlerParams } from './socket-handler'
 function gameServerRegionsHandler({ siteSocket, ipcRenderer }: SocketHandlerParams) {
   siteSocket.registerRoute('/gameServerRegions', (route, event) => {
     if (event.type === 'fullUpdate') {
-      ipcRenderer.send('gameServerRegionsSetList', event.regions)
-      jotaiStore.set(gameServerRegionsAtom, event.regions)
       // An event from a server that predates the readiness field is treated as settled, matching
       // that server's behavior (it never distinguished a cold cache).
-      jotaiStore.set(gameServerRegionsReadyAtom, event.ready ?? true)
+      const ready = event.ready ?? true
+      // Only a settled list reaches the app's measurement side: a cold-cache (empty, unsettled)
+      // list would replace whatever list the app last had and trigger a sweep of nothing, wiping
+      // its measured/persisted latency table. The renderer's own resolution reads readiness from
+      // the atom and waits, so holding the forward back loses nothing.
+      if (ready) {
+        ipcRenderer.send('gameServerRegionsSetList', event.regions)
+      }
+      jotaiStore.set(gameServerRegionsAtom, event.regions)
+      jotaiStore.set(gameServerRegionsReadyAtom, ready)
     } else {
       logger.warning(`got unknown game server regions event type: ${event.type}`)
     }
