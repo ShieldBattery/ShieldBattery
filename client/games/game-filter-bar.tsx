@@ -212,6 +212,8 @@ export interface GameFilterBarProps {
   /** Whether games shorter than 2 minutes are included (they're hidden by default). */
   includeShort: boolean
   setIncludeShort: (v: boolean) => void
+  /** When false, hides the include-short checkbox (for views the minimum-length floor doesn't apply to). */
+  showIncludeShort?: boolean
   /** When true, shows the game mode (game type) filter chip. */
   showGameType?: boolean
   gameType?: SupportedReplayGameType | 'others'
@@ -260,6 +262,7 @@ export function GameFilterBar({
   setMatchup,
   includeShort,
   setIncludeShort,
+  showIncludeShort = true,
   showGameType = false,
   gameType,
   setGameType,
@@ -449,6 +452,7 @@ export function GameFilterBar({
           format={format}
           matchup={matchup}
           includeShort={includeShort}
+          showIncludeShort={showIncludeShort}
           onApply={advancedValues => {
             setMapName(advancedValues.mapName)
             setPlayerName(advancedValues.playerName)
@@ -534,6 +538,7 @@ interface AdvancedFiltersPanelProps {
   format?: GameFormat
   matchup?: EncodedMatchupString
   includeShort: boolean
+  showIncludeShort: boolean
   onApply: (values: {
     mapName: string
     playerName: string
@@ -550,6 +555,7 @@ function AdvancedFiltersPanel({
   format,
   matchup,
   includeShort,
+  showIncludeShort,
   onApply,
   onClose,
 }: AdvancedFiltersPanelProps) {
@@ -636,13 +642,15 @@ function AdvancedFiltersPanel({
           </PanelSection>
         )}
 
-        <PanelSection>
-          <CheckBox
-            label={t('game.filters.includeShort', 'Include games shorter than 2 minutes')}
-            checked={draftIncludeShort}
-            onChange={e => setDraftIncludeShort(e.target.checked)}
-          />
-        </PanelSection>
+        {showIncludeShort && (
+          <PanelSection>
+            <CheckBox
+              label={t('game.filters.includeShort', 'Include games shorter than 2 minutes')}
+              checked={draftIncludeShort}
+              onChange={e => setDraftIncludeShort(e.target.checked)}
+            />
+          </PanelSection>
+        )}
       </PanelContent>
 
       <PanelActions>

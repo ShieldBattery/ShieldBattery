@@ -478,7 +478,10 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
   const gameType = parseModeFilter(gameTypeParam)
-  const includeShort = includeShortParam === 'true'
+  // The minimum-length floor never applies to curation views (bookmarked/playlist) — see
+  // `buildReplaySqlQuery` — so `includeShort` is meaningless there: it isn't read (a hand-edited
+  // URL param must not disable reordering via `hasActiveFilters`) and the checkbox isn't offered.
+  const includeShort = view.kind === 'all' && includeShortParam === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -1068,6 +1071,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
             setIncludeShortParam(v ? 'true' : '')
             reset()
           }}
+          showIncludeShort={view.kind === 'all'}
           showGameType={true}
           gameType={gameType}
           setGameType={v => {

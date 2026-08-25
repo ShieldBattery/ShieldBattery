@@ -285,13 +285,13 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup f
 
 describe('app/replay-library/replay-queries/buildReplaySqlQuery bookmarked filter', () => {
   test('bookmarked adds a bookmarked_at IS NOT NULL clause', () => {
-    const { sql, params } = buildReplaySqlQuery({ bookmarked: true, includeShort: true })
+    const { sql, params } = buildReplaySqlQuery({ bookmarked: true })
     expect(sql).toContain('r.bookmarked_at IS NOT NULL')
     expect(params).toEqual([])
   })
 
   test('bookmarked alone does not exclude parse-error rows (curation, not a value filter)', () => {
-    const { sql } = buildReplaySqlQuery({ bookmarked: true, includeShort: true })
+    const { sql } = buildReplaySqlQuery({ bookmarked: true })
     expect(sql).not.toContain('r.parse_error = 0')
   })
 
@@ -304,11 +304,17 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery bookmarked filte
     const { sql } = buildReplaySqlQuery({ bookmarked: false })
     expect(sql).not.toContain('bookmarked_at')
   })
+
+  test('bookmarked view skips the minimum-length floor by default', () => {
+    const { sql, params } = buildReplaySqlQuery({ bookmarked: true })
+    expect(sql).not.toContain('r.duration_frames >=')
+    expect(params).toEqual([])
+  })
 })
 
 describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter', () => {
   test('playlistId adds an INNER JOIN over playlist_entries in both sql and countSql', () => {
-    const { sql, countSql, params } = buildReplaySqlQuery({ playlistId: 7, includeShort: true })
+    const { sql, countSql, params } = buildReplaySqlQuery({ playlistId: 7 })
     const join = 'INNER JOIN playlist_entries pe ON pe.replay_id = r.id AND pe.playlist_id = ?'
     expect(sql).toContain(join)
     expect(countSql).toContain(join)
@@ -316,7 +322,7 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter'
   })
 
   test('playlistId alone does not exclude parse-error rows (curation, not a value filter)', () => {
-    const { sql } = buildReplaySqlQuery({ playlistId: 7, includeShort: true })
+    const { sql } = buildReplaySqlQuery({ playlistId: 7 })
     expect(sql).not.toContain('r.parse_error = 0')
   })
 
@@ -324,7 +330,6 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter'
     const { sql, params } = buildReplaySqlQuery({
       playlistId: 7,
       mapName: 'Fighting Spirit',
-      includeShort: true,
     })
     expect(sql).toContain('r.parse_error = 0')
     expect(params).toEqual([7, '%Fighting Spirit%'])
@@ -339,5 +344,11 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter'
     const { sql } = buildReplaySqlQuery({ playlistId: 7, sort: GameSortOption.OldestFirst })
     expect(sql).toContain('ORDER BY r.parse_error ASC, r.game_time ASC, r.id ASC')
     expect(sql).not.toContain('pe.position')
+  })
+
+  test('playlist view skips the minimum-length floor by default', () => {
+    const { sql, params } = buildReplaySqlQuery({ playlistId: 7 })
+    expect(sql).not.toContain('r.duration_frames >=')
+    expect(params).toEqual([7])
   })
 })

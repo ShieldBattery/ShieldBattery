@@ -159,12 +159,18 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     hasValueFilter = true
   }
 
-  if (!filters.includeShort) {
-    // A replay whose length is unknown rather than known-short must not disappear: parse-error
-    // rows store a zeroed `duration_frames` sentinel, so without the `parse_error` exemption the
-    // default (filterless) view would hide them — breaking the invariant that only active value
-    // filters exclude parse-error rows (see the `hasValueFilter` clause below). NULL-safety
-    // mirrors the server-side floor on `games.game_length`.
+  if (!filters.includeShort && filters.playlistId === undefined && !filters.bookmarked) {
+    // The floor is default noise-hiding rather than a user-chosen filter, so curation views
+    // (bookmarked/playlist) are exempt: a replay the user explicitly curated isn't noise, and
+    // hiding it there would leave no active filter to explain the gap. For playlists the floor
+    // would also break reordering, which maps a loaded list index to an absolute playlist
+    // position and is only sound when the default view renders the complete playlist (see
+    // `buildOrderByClause` above). A replay whose length is unknown rather than known-short must
+    // not disappear either: parse-error rows store a zeroed `duration_frames` sentinel, so
+    // without the `parse_error` exemption the default (filterless) view would hide them —
+    // breaking the invariant that only active value filters exclude parse-error rows (see the
+    // `hasValueFilter` clause below). NULL-safety mirrors the server-side floor on
+    // `games.game_length`.
     whereClauses.push('(r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?)')
     params.push(MIN_GAME_LENGTH_FRAMES)
   }
