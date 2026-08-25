@@ -40,6 +40,7 @@ export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams>({
   offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
   startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
   endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+  includeShort: Joi.boolean().default(false),
 })
 
 /**

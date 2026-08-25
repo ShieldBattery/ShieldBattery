@@ -544,6 +544,7 @@
         "under10": "Under 10min"
       },
       "format": "Format",
+      "includeShort": "Include games shorter than 2 minutes",
       "label": "Filters",
       "mapName": "Map name",
       "matchup": "Matchup",

@@ -26,6 +26,7 @@ import { monthDay } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextButton } from '../material/button'
+import { CheckBox } from '../material/check-box'
 import { DateTextField } from '../material/date-text-field'
 import { FilterChip } from '../material/filter-chip'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
@@ -208,6 +209,9 @@ export interface GameFilterBarProps {
   setFormat: (v?: GameFormat) => void
   matchup?: EncodedMatchupString
   setMatchup: (v?: EncodedMatchupString) => void
+  /** Whether games shorter than 2 minutes are included (they're hidden by default). */
+  includeShort: boolean
+  setIncludeShort: (v: boolean) => void
   /** When true, shows the game mode (game type) filter chip. */
   showGameType?: boolean
   gameType?: SupportedReplayGameType | 'others'
@@ -254,6 +258,8 @@ export function GameFilterBar({
   setFormat,
   matchup,
   setMatchup,
+  includeShort,
+  setIncludeShort,
   showGameType = false,
   gameType,
   setGameType,
@@ -276,7 +282,7 @@ export function GameFilterBar({
     refreshAnchorPos: refreshDateAnchorPos,
   })
 
-  const hasAdvancedFilters = !!mapName || !!playerName || !!format || !!matchup
+  const hasAdvancedFilters = !!mapName || !!playerName || !!format || !!matchup || includeShort
   const hasDateRange = !!startDate || !!endDate
   const hasActiveFilters =
     (showRankedCustom && (ranked || custom)) ||
@@ -397,6 +403,7 @@ export function GameFilterBar({
           setPlayerName('')
           setFormat(undefined)
           setMatchup(undefined)
+          setIncludeShort(false)
           setGameType?.(undefined)
           setStartDate?.('')
           setEndDate?.('')
@@ -441,11 +448,13 @@ export function GameFilterBar({
           playerName={playerName}
           format={format}
           matchup={matchup}
+          includeShort={includeShort}
           onApply={advancedValues => {
             setMapName(advancedValues.mapName)
             setPlayerName(advancedValues.playerName)
             setFormat(advancedValues.format)
             setMatchup(advancedValues.matchup)
+            setIncludeShort(advancedValues.includeShort)
             closePopover()
           }}
           onClose={closePopover}
@@ -524,11 +533,13 @@ interface AdvancedFiltersPanelProps {
   playerName: string
   format?: GameFormat
   matchup?: EncodedMatchupString
+  includeShort: boolean
   onApply: (values: {
     mapName: string
     playerName: string
     format?: GameFormat
     matchup?: EncodedMatchupString
+    includeShort: boolean
   }) => void
   onClose: () => void
 }
@@ -538,6 +549,7 @@ function AdvancedFiltersPanel({
   playerName,
   format,
   matchup,
+  includeShort,
   onApply,
   onClose,
 }: AdvancedFiltersPanelProps) {
@@ -547,6 +559,7 @@ function AdvancedFiltersPanel({
   const [draftPlayerName, setDraftPlayerName] = useState(playerName)
   const [draftFormat, setDraftFormat] = useState(format)
   const [draftMatchup, setDraftMatchup] = useState(matchup)
+  const [draftIncludeShort, setDraftIncludeShort] = useState(includeShort)
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -556,6 +569,7 @@ function AdvancedFiltersPanel({
           playerName: draftPlayerName,
           format: draftFormat,
           matchup: draftMatchup,
+          includeShort: draftIncludeShort,
         })
         return true
       }
@@ -621,6 +635,14 @@ function AdvancedFiltersPanel({
             />
           </PanelSection>
         )}
+
+        <PanelSection>
+          <CheckBox
+            label={t('game.filters.includeShort', 'Include games shorter than 2 minutes')}
+            checked={draftIncludeShort}
+            onChange={e => setDraftIncludeShort(e.target.checked)}
+          />
+        </PanelSection>
       </PanelContent>
 
       <PanelActions>
@@ -631,6 +653,7 @@ function AdvancedFiltersPanel({
             setDraftPlayerName('')
             setDraftFormat(undefined)
             setDraftMatchup(undefined)
+            setDraftIncludeShort(false)
           }}
         />
         <TextButton
@@ -641,6 +664,7 @@ function AdvancedFiltersPanel({
               playerName: draftPlayerName,
               format: draftFormat,
               matchup: draftMatchup,
+              includeShort: draftIncludeShort,
             })
           }
         />

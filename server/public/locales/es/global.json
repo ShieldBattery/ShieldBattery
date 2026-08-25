@@ -547,6 +547,7 @@
         "under10": "Menos de 10 min"
       },
       "format": "Formato",
+      "includeShort": "Incluir partidas de menos de 2 minutos",
       "label": "Filtros",
       "mapName": "Nombre del mapa",
       "matchup": "Enfrentamiento",

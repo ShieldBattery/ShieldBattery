@@ -154,6 +154,7 @@ interface BuildFiltersParams {
   matchup: EncodedMatchupString | undefined
   startDate: string
   endDate: string
+  includeShort: boolean
 }
 
 /** Assembles the query filters (everything but paging) from the current view and filter/sort values. */
@@ -168,6 +169,7 @@ function buildFilters({
   matchup,
   startDate,
   endDate,
+  includeShort,
 }: BuildFiltersParams): ReplayLibraryFilters {
   const filters: ReplayLibraryFilters = {}
   if (view.kind === 'bookmarked') {
@@ -187,6 +189,7 @@ function buildFilters({
   const { startMs, endMs } = resolveDateRangeMs(startDate, endDate)
   if (startMs !== undefined) filters.gameTimeFrom = startMs
   if (endMs !== undefined) filters.gameTimeTo = endMs
+  if (includeShort) filters.includeShort = true
   return filters
 }
 
@@ -468,12 +471,14 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
   const [startDate, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
+  const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
 
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
   const gameType = parseModeFilter(gameTypeParam)
+  const includeShort = includeShortParam === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -493,7 +498,8 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     !!matchup ||
     gameType !== undefined ||
     !!startDate ||
-    !!endDate
+    !!endDate ||
+    includeShort
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
@@ -557,6 +563,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           matchup,
           startDate,
           endDate,
+          includeShort,
         }),
         offset: 0,
         limit,
@@ -759,6 +766,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           matchup,
           startDate,
           endDate,
+          includeShort,
         }),
         offset: entries?.length ?? 0,
         limit: LOAD_CHUNK_SIZE,
@@ -792,6 +800,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     setGameTypeParam('')
     setStartDateParam('')
     setEndDateParam('')
+    setIncludeShortParam('')
     reset()
     // `sort` is a view option (not a filter), so it's intentionally left untouched.
   }
@@ -1052,6 +1061,11 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           matchup={matchup}
           setMatchup={v => {
             setMatchupParam(v ?? '')
+            reset()
+          }}
+          includeShort={includeShort}
+          setIncludeShort={v => {
+            setIncludeShortParam(v ? 'true' : '')
             reset()
           }}
           showGameType={true}
