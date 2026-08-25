@@ -422,6 +422,108 @@ describe('RegionLatencyManager', () => {
     }
   })
 
+  it('ensureSweepNow during an in-flight sweep queues no redundant follow-up', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-inflight.json')
+
+    let callCount = 0
+    const resolvers: Array<() => void> = []
+    manager.measureRegion = region =>
+      new Promise(resolve => {
+        callCount++
+        resolvers.push(() =>
+          resolve({ regionId: region.id, rttMs: 42, source: 'beacon', measuredAt: Date.now() }),
+        )
+      })
+
+    manager.ensureSweepNow()
+    await waitUntil(() => callCount === 1)
+
+    // The table is still empty (the first sweep hasn't finished), but that sweep is already
+    // producing the first measurements -- ensuring again must not queue a second full sweep
+    // right as the player queues.
+    manager.ensureSweepNow()
+    resolvers[0]()
+    await delay(30)
+    expect(callCount).toBe(1)
+  })
+
+  it('ensureSweepNow retries after a completed sweep produced no measurements', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-retry.json')
+    manager.measureRegion = async () => undefined
+
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => updateCount === 1)
+    expect(manager.getLatencies()[REGION_A.id]).toBeUndefined()
+
+    // Every region failed the first sweep and nothing is in flight anymore: a later ensure runs
+    // a fresh sweep rather than leaving the table empty forever.
+    manager.measureRegion = async region => ({
+      regionId: region.id,
+      rttMs: 42,
+      source: 'beacon' as const,
+      measuredAt: Date.now(),
+    })
+    manager.ensureSweepNow()
+    await waitUntil(() => updateCount === 2)
+    expect(manager.getLatencies()[REGION_A.id]?.rttMs).toBe(42)
+  })
+
+  it('an ensureSweepNow that beats start() keeps its results and arms no duplicate startup sweep', async () => {
+    vi.useFakeTimers()
+    const persistPath = await makeTempPersistPath()
+    await fsPromises.writeFile(
+      persistPath,
+      JSON.stringify({
+        [REGION_A.id]: { regionId: REGION_A.id, rttMs: 17, source: 'beacon', measuredAt: 123 },
+      }),
+      { encoding: 'utf8' },
+    )
+
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    try {
+      manager.persistFilePath = async () => persistPath
+
+      let callCount = 0
+      manager.measureRegion = async region => {
+        callCount++
+        return { regionId: region.id, rttMs: 99, source: 'beacon' as const, measuredAt: Date.now() }
+      }
+
+      // The IPC surface is exposed before manager startup finishes, so an ensure can arrive
+      // first (a player queueing immediately at launch).
+      const updated = new Promise<void>(resolve => manager.once('updated', () => resolve()))
+      manager.ensureSweepNow()
+      await updated
+      expect(callCount).toBe(1)
+      expect(manager.getLatencies()[REGION_A.id]?.rttMs).toBe(99)
+
+      // Startup's persisted-table load fills in under the fresh measurement, never over it.
+      await manager.start()
+      expect(manager.getLatencies()[REGION_A.id]?.rttMs).toBe(99)
+
+      // And the startup timer was not armed on top of the already-collapsed delay: no second
+      // "startup" sweep fires when the delay would have elapsed.
+      await vi.advanceTimersByTimeAsync(STARTUP_SWEEP_DELAY_MS + 1000)
+      expect(callCount).toBe(1)
+    } finally {
+      manager.stop()
+      vi.useRealTimers()
+    }
+  })
+
   it('staggers per-region measurement starts by REGION_STAGGER_MS', async () => {
     vi.useFakeTimers()
     const regionList = new GameServerRegionList()

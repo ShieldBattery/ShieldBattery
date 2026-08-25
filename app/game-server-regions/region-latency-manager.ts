@@ -183,8 +183,10 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
    * Lets a caller that can't wait out the startup settling delay skip the rest of it -- used by
    * the matchmaking queue path when no usable measurement exists yet. If the delay is still
    * pending, cancels it and runs the sweep immediately. Otherwise a no-op, unless the table is
-   * still empty (e.g. every region failed its startup sweep), in which case it behaves like
-   * `requestSweep`. Safe to call more than once: only the first call made while the delay is
+   * still empty with no sweep in flight (e.g. every region failed its startup sweep), in which
+   * case it behaves like `requestSweep` -- an in-flight sweep is already producing the first
+   * measurements, so queueing a follow-up would only measure every region twice, right as the
+   * caller queues. Safe to call more than once: only the first call made while the delay is
    * pending has any effect.
    */
   ensureSweepNow() {
@@ -197,7 +199,7 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
       this.requestSweep()
       return
     }
-    if (Object.keys(this.latencies).length === 0) {
+    if (!this.sweeping && Object.keys(this.latencies).length === 0) {
       this.requestSweep()
     }
   }
@@ -231,7 +233,12 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
   }
 
   private async startInternal() {
-    this.latencies = await loadPersistedLatencies(await this.persistFilePath())
+    // The persisted entries fill in under anything already measured, never over it: the IPC
+    // surface is exposed before this initialization finishes, so an early `ensureSweepNow` (a
+    // player queueing immediately at launch) can have swept before this load completes, and a
+    // fresh measurement must not be replaced by a stale on-disk hint.
+    const persisted = await loadPersistedLatencies(await this.persistFilePath())
+    this.latencies = { ...persisted, ...this.latencies }
 
     this.lastFingerprint = computeNetworkFingerprint(this.networkInterfaces())
     this.fingerprintPollHandle = setInterval(
@@ -242,12 +249,16 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
     this.unsubscribeResume = await this.subscribeToResume(() => this.requestSweep())
 
     // Persisted values are stale hints only; they must never suppress this startup sweep, just
-    // delay it -- see `STARTUP_SWEEP_DELAY_MS`.
-    this.startupSweepTimer = setTimeout(() => {
-      this.startupSweepTimer = undefined
-      this.startupSweepPending = false
-      this.requestSweep()
-    }, STARTUP_SWEEP_DELAY_MS)
+    // delay it -- see `STARTUP_SWEEP_DELAY_MS`. An early `ensureSweepNow` may already have
+    // collapsed the delay and run the sweep, in which case arming the timer anyway would just
+    // schedule a redundant second sweep.
+    if (this.startupSweepPending) {
+      this.startupSweepTimer = setTimeout(() => {
+        this.startupSweepTimer = undefined
+        this.startupSweepPending = false
+        this.requestSweep()
+      }, STARTUP_SWEEP_DELAY_MS)
+    }
   }
 
   private checkFingerprint() {
