@@ -49,16 +49,6 @@ export const narrowDuration = new RelativeTimeFormatter(navigator.language, {
   numeric: 'always',
 })
 
-/**
- * A formatter for timestamps that show a relative time since something occurred using
- * spelled-out (but abbreviated) units, e.g. "5 min. ago", "23 hr. ago". Wider than
- * `narrowDuration`'s output, but more readable at a glance.
- */
-export const shortRelativeTime = new RelativeTimeFormatter(navigator.language, {
-  style: 'short',
-  numeric: 'always',
-})
-
 export interface NarrowDurationProps {
   to: Date | number
   from?: Date | number

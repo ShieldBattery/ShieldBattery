@@ -5,7 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { longTimestamp, shortRelativeTime } from '../i18n/date-formats'
+import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { ButtonStateStyleProps, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
@@ -252,7 +252,7 @@ export interface GameRelativeTimeProps {
 }
 
 /**
- * A game/replay row's relative-time cell content: a short label (e.g. "23 hr. ago") that refreshes
+ * A game/replay row's relative-time cell content: a narrow label (e.g. "18h ago") that refreshes
  * as real time crosses each minute boundary, backed by the shared minute clock rather than a timer
  * of its own. Hovering reveals the absolute date and time.
  */
@@ -265,7 +265,7 @@ export function GameRelativeTime({ timestampMs, className }: GameRelativeTimePro
   const label =
     currentMinuteMs - timestampMs < 60_000
       ? t('game.time.justNow', 'Just now')
-      : shortRelativeTime.format(timestampMs, currentMinuteMs)
+      : narrowDuration.format(timestampMs, currentMinuteMs)
 
   return (
     <Tooltip text={longTimestamp.format(timestampMs)} className={className}>
