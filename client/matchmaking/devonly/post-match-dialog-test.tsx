@@ -75,6 +75,7 @@ const GAME: GameRecordJson = {
   ],
   selectedMatchup: makeMatchupString('p-z'),
   assignedMatchup: makeMatchupString('p-z'),
+  manuallyResolved: false,
 }
 
 const SEASON: MatchmakingSeasonJson = {
