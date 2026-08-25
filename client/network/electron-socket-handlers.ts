@@ -1,6 +1,9 @@
 import activeGame from '../active-game/socket-handlers'
 import download from '../download/ipc-handlers'
-import { gameServerRegionsAtom } from '../game-server-regions/game-server-regions-atoms'
+import {
+  gameServerRegionsAtom,
+  gameServerRegionsReadyAtom,
+} from '../game-server-regions/game-server-regions-atoms'
 import gameServerRegionsIpc from '../game-server-regions/ipc-handlers'
 import { jotaiStore } from '../jotai-store'
 import lobbies from '../lobbies/electron-socket-handlers'
@@ -16,6 +19,9 @@ function gameServerRegionsHandler({ siteSocket, ipcRenderer }: SocketHandlerPara
     if (event.type === 'fullUpdate') {
       ipcRenderer.send('gameServerRegionsSetList', event.regions)
       jotaiStore.set(gameServerRegionsAtom, event.regions)
+      // An event from a server that predates the readiness field is treated as settled, matching
+      // that server's behavior (it never distinguished a cold cache).
+      jotaiStore.set(gameServerRegionsReadyAtom, event.ready ?? true)
     } else {
       logger.warning(`got unknown game server regions event type: ${event.type}`)
     }

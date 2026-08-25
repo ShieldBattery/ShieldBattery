@@ -215,6 +215,11 @@ export class GameServerRegionsService {
 
   /** Runs one refresh attempt. Never throws — a failure is logged and the cache left as-is. */
   private async fetchAndApply(coordinatorUrl: string): Promise<GameServerRegion[]> {
+    // Whether this attempt can settle a still-cold cache: a client that subscribed before the
+    // first attempt completed was handed a not-ready event, and must hear the settled answer even
+    // when the list content itself doesn't change (a confirmed-empty list, or a failure that
+    // settles as regionless).
+    const wasReady = this.isReady()
     let updated: GameServerRegion[]
     let updatedBackboneRtts: ReadonlyMap<string, number>
     try {
@@ -229,6 +234,10 @@ export class GameServerRegionsService {
         { err },
         'game server regions: failed to fetch region list from coordinator, serving last known list',
       )
+      if (!wasReady) {
+        // Setting lastFailedAt just settled the cache (see `isReady`).
+        this.publisher.publish(REGIONS_UPDATE_PATH, this.currentEvent())
+      }
       return this.regions
     }
 
@@ -245,12 +254,27 @@ export class GameServerRegionsService {
       this.regions = updated
       log.info(`game server regions: updated list (${updated.length} region(s))`)
       this.publisher.publish(REGIONS_UPDATE_PATH, this.currentEvent())
+    } else if (!wasReady) {
+      // The list content didn't change (a coordinator confirming an empty list, typically), but
+      // the first successful fetch still settles the cache — clients handed the cold-cache event
+      // must hear the confirmed answer or they'll wait out their poll window for nothing.
+      this.publisher.publish(REGIONS_UPDATE_PATH, this.currentEvent())
     }
 
     return this.regions
   }
 
+  /**
+   * Whether the served list is a settled answer (see `GameServerRegionsEvent.ready`): no
+   * coordinator is configured (dormant — the empty list is the answer), a fetch has succeeded, or
+   * a fetch has at least failed (clients proceed regionless rather than waiting on a down
+   * coordinator). False only while the first attempt is still in flight.
+   */
+  private isReady(): boolean {
+    return !this.config || this.lastFetchedAt !== undefined || this.lastFailedAt !== undefined
+  }
+
   private currentEvent(): GameServerRegionsEvent {
-    return { type: 'fullUpdate', regions: this.regions }
+    return { type: 'fullUpdate', regions: this.regions, ready: this.isReady() }
   }
 }

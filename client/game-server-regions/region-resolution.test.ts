@@ -6,7 +6,11 @@ import {
 } from '../../common/game-server-regions'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { jotaiStore } from '../jotai-store'
-import { gameServerRegionsAtom, manualGameServerRegionAtom } from './game-server-regions-atoms'
+import {
+  gameServerRegionsAtom,
+  gameServerRegionsReadyAtom,
+  manualGameServerRegionAtom,
+} from './game-server-regions-atoms'
 import {
   pickAutoRegion,
   resolveDesiredRegion,
@@ -38,7 +42,7 @@ function latencyFor(region: GameServerRegion, rttMs: number): GameServerRegionLa
 
 describe('pickAutoRegion', () => {
   test('returns undefined for an empty table', () => {
-    expect(pickAutoRegion({})).toBeUndefined()
+    expect(pickAutoRegion(REGIONS, {})).toBeUndefined()
   })
 
   test('picks the lowest-rtt region', () => {
@@ -47,7 +51,36 @@ describe('pickAutoRegion', () => {
       ...latencyFor(REGION_EU_WEST, 24),
     }
 
-    expect(pickAutoRegion(latencies)).toEqual({ region: REGION_EU_WEST.id, rttMs: 24 })
+    expect(pickAutoRegion(REGIONS, latencies)).toEqual({ region: REGION_EU_WEST.id, rttMs: 24 })
+  })
+
+  test('a measurement for a region no longer in the list cannot win the pick', () => {
+    // The app persists measurements across runs and serves them as stale hints until its first
+    // sweep completes, so the table can name a region the operator has since retired -- even at a
+    // better RTT than any current region.
+    const retired: GameServerRegion = {
+      id: makeGameServerRegionId('retired-region'),
+      displayName: 'Retired',
+      beacon: 'beacon.retired.example:1000',
+      fallback: 'fallback.retired.example:1000',
+    }
+    const latencies = {
+      ...latencyFor(retired, 5),
+      ...latencyFor(REGION_EU_WEST, 24),
+    }
+
+    expect(pickAutoRegion(REGIONS, latencies)).toEqual({ region: REGION_EU_WEST.id, rttMs: 24 })
+  })
+
+  test('returns undefined when every measurement is for a retired region', () => {
+    const retired: GameServerRegion = {
+      id: makeGameServerRegionId('retired-region'),
+      displayName: 'Retired',
+      beacon: 'beacon.retired.example:1000',
+      fallback: 'fallback.retired.example:1000',
+    }
+
+    expect(pickAutoRegion(REGIONS, latencyFor(retired, 5))).toBeUndefined()
   })
 })
 
@@ -114,12 +147,14 @@ describe('resolveRegionSelection', () => {
 describe('resolveDesiredRegion', () => {
   afterEach(() => {
     jotaiStore.set(gameServerRegionsAtom, [])
+    jotaiStore.set(gameServerRegionsReadyAtom, false)
     jotaiStore.set(manualGameServerRegionAtom, undefined)
     vi.restoreAllMocks()
   })
 
-  test('empty region list: resolves to undefined immediately without touching the app', async () => {
+  test('settled empty region list: resolves to undefined immediately without touching the app', async () => {
     jotaiStore.set(gameServerRegionsAtom, [])
+    jotaiStore.set(gameServerRegionsReadyAtom, true)
     const invokeSpy = vi.spyOn(TypedIpcRenderer.prototype, 'invoke')
 
     const result = await resolveDesiredRegion()
@@ -129,8 +164,51 @@ describe('resolveDesiredRegion', () => {
     expect(invokeSpy).not.toHaveBeenCalled()
   })
 
+  test('cold-cache empty list: polls, then uses the region list that arrives mid-window', async () => {
+    // The server hands its initially-empty cache to early subscribers before the first
+    // coordinator fetch completes; someone queueing in that window must not proceed regionless
+    // when configured regions arrive moments later.
+    jotaiStore.set(gameServerRegionsAtom, [])
+    jotaiStore.set(gameServerRegionsReadyAtom, false)
+    vi.spyOn(TypedIpcRenderer.prototype, 'invoke').mockImplementation(
+      async (...[channel]: Parameters<typeof TypedIpcRenderer.prototype.invoke>) => {
+        if (channel === 'gameServerRegionsGetLatencies') {
+          return latencyFor(REGION_US_EAST, 24)
+        }
+        return undefined
+      },
+    )
+
+    const resultPromise = resolveDesiredRegion()
+    // The fetched list lands while the resolution is polling.
+    setTimeout(() => {
+      jotaiStore.set(gameServerRegionsAtom, REGIONS)
+      jotaiStore.set(gameServerRegionsReadyAtom, true)
+    }, 100)
+
+    expect(await resultPromise).toEqual({ region: REGION_US_EAST.id, rttMs: 24 })
+  })
+
+  test('cold cache that settles empty mid-window: stops polling and resolves to undefined', async () => {
+    jotaiStore.set(gameServerRegionsAtom, [])
+    jotaiStore.set(gameServerRegionsReadyAtom, false)
+    vi.spyOn(TypedIpcRenderer.prototype, 'invoke').mockResolvedValue(undefined)
+
+    const resultPromise = resolveDesiredRegion()
+    // The first fetch completes and confirms there are no regions (or it failed and the server
+    // settled regionless) -- the resolution must stop waiting well before its own deadline.
+    const start = performance.now()
+    setTimeout(() => {
+      jotaiStore.set(gameServerRegionsReadyAtom, true)
+    }, 100)
+
+    expect(await resultPromise).toBeUndefined()
+    expect(performance.now() - start).toBeLessThan(3000)
+  })
+
   test('non-empty region list with an immediate measurement: resolves without polling', async () => {
     jotaiStore.set(gameServerRegionsAtom, REGIONS)
+    jotaiStore.set(gameServerRegionsReadyAtom, true)
     const invokeSpy = vi
       .spyOn(TypedIpcRenderer.prototype, 'invoke')
       .mockImplementation(
@@ -151,6 +229,7 @@ describe('resolveDesiredRegion', () => {
 
   test('non-empty region list with no measurement yet: kicks the sweep and polls until one lands', async () => {
     jotaiStore.set(gameServerRegionsAtom, REGIONS)
+    jotaiStore.set(gameServerRegionsReadyAtom, true)
     let getLatenciesCalls = 0
     const invokeSpy = vi
       .spyOn(TypedIpcRenderer.prototype, 'invoke')

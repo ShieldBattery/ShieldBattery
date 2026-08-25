@@ -13,6 +13,14 @@ import {
 export const gameServerRegionsAtom = atom<GameServerRegion[]>([])
 
 /**
+ * Whether {@link gameServerRegionsAtom} holds a settled answer. False until the first
+ * `/gameServerRegions` event whose `ready` says the server's cache is past its cold-start window
+ * (see `GameServerRegionsEvent.ready`) — until then an empty list only means "not loaded yet",
+ * and region resolution waits briefly instead of proceeding regionless.
+ */
+export const gameServerRegionsReadyAtom = atom<boolean>(false)
+
+/**
  * The app's latest measured region -> latency table, mirrored from `gameServerRegionsGetLatencies`
  * and the `gameServerRegionsLatenciesUpdated` push that follows each measurement sweep.
  */
