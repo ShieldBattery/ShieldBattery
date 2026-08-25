@@ -7,22 +7,30 @@ function makeKeyPair(publicKey: string): NetcodeV2KeyPair {
 }
 
 describe('NetcodeV2KeyRing', () => {
-  it('looks up a pushed keypair by its public key', () => {
+  it('adopts a pushed keypair by its echoed public key', () => {
     const ring = new NetcodeV2KeyRing()
     const keyPair = makeKeyPair('pubkey-a')
 
     ring.push(keyPair)
 
-    expect(ring.get('pubkey-a')).toEqual(keyPair)
+    expect(ring.adoptFor('pubkey-a')).toEqual({ keys: keyPair })
   })
 
-  it('returns undefined for a public key that was never pushed', () => {
+  it('fails as unknownPubkey for an echoed key that was never pushed', () => {
+    const ring = new NetcodeV2KeyRing()
+    ring.push(makeKeyPair('pubkey-a'))
+
+    expect(ring.adoptFor('never-pushed')).toEqual({ failure: 'unknownPubkey' })
+  })
+
+  it('fails as noKeysGenerated when the ring is empty', () => {
     const ring = new NetcodeV2KeyRing()
 
-    expect(ring.get('never-pushed')).toBeUndefined()
+    expect(ring.adoptFor('pubkey-a')).toEqual({ failure: 'noKeysGenerated' })
+    expect(ring.adoptFor(undefined)).toEqual({ failure: 'noKeysGenerated' })
   })
 
-  it('finds an earlier keypair even after a later one was pushed (out-of-order server echo)', () => {
+  it('adopts an earlier keypair even after a later one was pushed (out-of-order server echo)', () => {
     const ring = new NetcodeV2KeyRing()
     const first = makeKeyPair('pubkey-first')
     const second = makeKeyPair('pubkey-second')
@@ -32,25 +40,18 @@ describe('NetcodeV2KeyRing', () => {
 
     // The server may seat the player with the FIRST join's pubkey even though the SECOND generate
     // ran more recently -- the ring must still resolve it.
-    expect(ring.get('pubkey-first')).toEqual(first)
-    expect(ring.get('pubkey-second')).toEqual(second)
+    expect(ring.adoptFor('pubkey-first')).toEqual({ keys: first })
   })
 
-  it('onlyKey returns the sole keypair when exactly one is outstanding', () => {
+  it('without an echo, adopts the sole outstanding keypair', () => {
     const ring = new NetcodeV2KeyRing()
     const only = makeKeyPair('pubkey-a')
     ring.push(only)
 
-    expect(ring.onlyKey()).toEqual(only)
+    expect(ring.adoptFor(undefined)).toEqual({ keys: only })
   })
 
-  it('onlyKey returns undefined when nothing has been pushed', () => {
-    const ring = new NetcodeV2KeyRing()
-
-    expect(ring.onlyKey()).toBeUndefined()
-  })
-
-  it('onlyKey refuses to guess among several outstanding keypairs', () => {
+  it('without an echo, refuses to guess among several outstanding keypairs', () => {
     const ring = new NetcodeV2KeyRing()
     ring.push(makeKeyPair('pubkey-a'))
     ring.push(makeKeyPair('pubkey-b'))
@@ -59,7 +60,37 @@ describe('NetcodeV2KeyRing', () => {
     // most recent could pair its token with the other keypair's private key, failing the relay's
     // connection-binding challenge for the whole lobby. An explicit refusal (surfaced as an error
     // by the caller) beats that silent guess.
-    expect(ring.onlyKey()).toBeUndefined()
+    expect(ring.adoptFor(undefined)).toEqual({ failure: 'ambiguousWithoutEcho' })
+  })
+
+  it('adoption retires the selected keypair, so the next game can use the echo-less fallback', () => {
+    const ring = new NetcodeV2KeyRing()
+    const gameA = makeKeyPair('pubkey-game-a')
+    ring.push(gameA)
+    expect(ring.adoptFor(undefined)).toEqual({ keys: gameA })
+
+    // Without retirement, game A's key would linger, make the ring ambiguous the moment game B's
+    // key is generated, and permanently break the old-server fallback after the first game.
+    const gameB = makeKeyPair('pubkey-game-b')
+    ring.push(gameB)
+    expect(ring.adoptFor(undefined)).toEqual({ keys: gameB })
+  })
+
+  it('adoption by echo retires the superseded predecessors but keeps newer keypairs', () => {
+    const ring = new NetcodeV2KeyRing()
+    const older = makeKeyPair('pubkey-older')
+    const seated = makeKeyPair('pubkey-seated')
+    const newer = makeKeyPair('pubkey-newer')
+    ring.push(older)
+    ring.push(seated)
+    ring.push(newer)
+
+    expect(ring.adoptFor('pubkey-seated')).toEqual({ keys: seated })
+
+    // The seated key and everything generated before it belonged to this launch's superseded
+    // join attempts; a key generated after it may belong to a newer join already in flight and
+    // must survive as the sole (echo-less-adoptable) entry.
+    expect(ring.adoptFor(undefined)).toEqual({ keys: newer })
   })
 
   it('evicts the oldest entry once capacity is exceeded', () => {
@@ -69,9 +100,7 @@ describe('NetcodeV2KeyRing', () => {
       ring.push(makeKeyPair(`pubkey-${i}`))
     }
 
-    expect(ring.get('pubkey-0')).toBeUndefined()
-    for (let i = 1; i < 9; i++) {
-      expect(ring.get(`pubkey-${i}`)).toEqual(makeKeyPair(`pubkey-${i}`))
-    }
+    expect(ring.adoptFor('pubkey-0')).toEqual({ failure: 'unknownPubkey' })
+    expect(ring.adoptFor('pubkey-8')).toEqual({ keys: makeKeyPair('pubkey-8') })
   })
 })

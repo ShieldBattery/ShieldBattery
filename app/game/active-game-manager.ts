@@ -149,10 +149,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * than a single slot means {@link setNetcodeV2Setup} can look the right keypair up by the exact
    * pubkey the server echoes back, instead of guessing it's always the most recent.
    *
-   * Entries are deliberately never cleaned up on their own (search canceled, lobby left): the
-   * private half never leaves this process, and a keypair is only ever adopted by a launched game
-   * whose server-side pubkey came from the same join that generated it — so an orphaned entry is
-   * harmless and just ages out via the ring's normal capacity eviction.
+   * A launch's adoption retires the selected entry and its superseded predecessors (see
+   * {@link NetcodeV2KeyRing.adoptFor}) — leaving them would make every later echo-less selection
+   * ambiguous, permanently breaking the old-server fallback after the first game. An entry whose
+   * join never reaches a launch at all (search canceled, lobby left) has no adoption to retire it
+   * and is deliberately left alone: the private half never leaves this process, and a keypair is
+   * only ever adopted by a launched game whose server-side pubkey came from the same join that
+   * generated it — so the orphan is harmless and ages out via a later adoption's retirement or
+   * the ring's capacity eviction.
    */
   private pendingNetcodeV2Keys = new NetcodeV2KeyRing()
   private serverPort = 0
@@ -271,12 +275,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   /**
    * Delivers the server's netcode v2 session handoff. The first time this fires for a game, it
-   * selects the keypair matching `setup.clientPubkey` from the ring (or, for a server too old to
-   * echo the pubkey back, the ring's sole keypair — with several outstanding there is no safe
-   * guess, see {@link NetcodeV2KeyRing.onlyKey}) and adopts it for the game's lifetime — a later
-   * relaunch of the same game id reuses that adopted keypair rather than re-selecting, so it
-   * can't drift even if the ring's contents change in between. Once adopted, the keypair is merged
-   * with the setup and forwarded to the game process ahead of its game setup.
+   * adopts a keypair from the ring (the one matching `setup.clientPubkey`, or — for a server too
+   * old to echo the pubkey back — the ring's sole keypair; see
+   * {@link NetcodeV2KeyRing.adoptFor}) for the game's lifetime, retiring it and its superseded
+   * predecessors from the ring — a later relaunch of the same game id reuses the adopted keypair
+   * rather than re-selecting, so it can't drift even if the ring's contents change in between.
+   * Once adopted, the keypair is merged with the setup and forwarded to the game process ahead of
+   * its game setup.
    */
   setNetcodeV2Setup(gameId: string, setup: NetcodeV2ServerSetup) {
     const current = this.activeGame
@@ -284,13 +289,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       log.verbose(`Got setNetcodeV2Setup for ${gameId}, but it is not the active game`)
       return
     }
-    const keys =
-      current.netcodeV2Keys ??
-      (setup.clientPubkey !== undefined
-        ? this.pendingNetcodeV2Keys.get(setup.clientPubkey)
-        : this.pendingNetcodeV2Keys.onlyKey())
-    if (!keys) {
-      // Either the server named a pubkey we no longer hold (a flow bug, or a ring eviction from an
+    const adoption = current.netcodeV2Keys
+      ? { keys: current.netcodeV2Keys }
+      : this.pendingNetcodeV2Keys.adoptFor(setup.clientPubkey)
+    if (!('keys' in adoption)) {
+      // Either the server named a pubkey we don't hold (a flow bug, or a ring eviction from an
       // unreasonable number of joins), or it named none while several keypairs are outstanding —
       // guessing among them could pair the server's token with the wrong private key and fail the
       // relay's connection-binding challenge for the whole lobby, so an explicit failure here is
@@ -299,18 +302,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       this.emit('gameCommand', gameId, 'quit')
       this.setStatus(
         GameStatus.Error,
-        new Error(
-          setup.clientPubkey !== undefined
-            ? 'Received netcode v2 setup with no matching generated keypair'
-            : 'Received netcode v2 setup naming no keypair while several are outstanding',
-        ),
+        new Error(`Received netcode v2 setup with no adoptable keypair (${adoption.failure})`),
       )
       this.activeGame = null
       return
     }
 
-    current.netcodeV2Keys = keys
-    current.netcodeV2Setup = { ...setup, clientPrivateKey: keys.privateKey }
+    current.netcodeV2Keys = adoption.keys
+    current.netcodeV2Setup = { ...setup, clientPrivateKey: adoption.keys.privateKey }
     this.maybeSendGameSetup(current)
   }
 
