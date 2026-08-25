@@ -491,24 +491,41 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
 
   // The library's mode-like filters are remembered per user across visits, with every view (the
-  // whole library, bookmarks, each playlist) sharing one saved set.
-  const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters('replays', {
-    sort: sortParam,
+  // whole library, bookmarks, each playlist) sharing one saved set. Each view names only the
+  // params it actually uses, so a preference a view can't express is neither seeded into its URL
+  // nor counted as "the URL specifies the filters" there (saved entries outside a view's params
+  // survive its saves untouched).
+  const rememberedUrlValues: Record<string, string> = {
     duration: durationParam,
-    includeShort: includeShortParam,
     gameType: gameTypeParam,
-  })
+  }
+  if (view.kind !== 'playlist') {
+    // Inside a playlist an absent sort means the playlist's manual order, and nothing there ever
+    // writes an absent sort back (every menu choice is explicit, and Clear leaves sort alone) — so
+    // seeding a remembered sort would make drag-to-reorder permanently unreachable.
+    rememberedUrlValues.sort = sortParam
+  }
+  if (view.kind === 'all') {
+    rememberedUrlValues.includeShort = includeShortParam
+  }
+  const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters(
+    'replays',
+    rememberedUrlValues,
+  )
+
+  // A playlist reads sort straight from the URL: absent means its manual order, never a
+  // remembered fill-in.
+  const sortValue = view.kind === 'playlist' ? sortParam : filterValues.sort
 
   const duration = parseDuration(filterValues.duration)
-  const sort = parseSort(filterValues.sort)
+  const sort = parseSort(sortValue)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
   const gameType = parseModeFilter(filterValues.gameType)
   // The minimum-length floor never applies to curation views (bookmarked/playlist) — see
   // `buildReplaySqlQuery` — so `includeShort` is meaningless there: it isn't read (a hand-edited
-  // URL param must not disable reordering via `hasActiveFilters`) and the checkbox isn't offered.
-  // It stays in the shared remembered set even so, since `save` rewrites the whole set — dropping
-  // it on curation views would forget the library view's preference on any save made from one.
+  // URL param must not disable reordering via `hasActiveFilters`), seeded, or saved, and the
+  // checkbox isn't offered.
   const includeShort = view.kind === 'all' && filterValues.includeShort === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
@@ -534,7 +551,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
-  const manualOrder = isManualPlaylistOrder(view, filterValues.sort)
+  const manualOrder = isManualPlaylistOrder(view, sortValue)
   // A playlist's manual order has no meaningful day boundaries, so it renders flat like the
   // duration sorts do.
   const useFlatList = isDurationSort || manualOrder

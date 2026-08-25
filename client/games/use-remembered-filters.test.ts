@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+  mergeSavedFilters,
   readFilterParams,
   urlHasRememberedFilters,
   withFilterParams,
@@ -34,6 +35,37 @@ describe('readFilterParams', () => {
 
   test('an empty search reads as nothing saved', () => {
     expect(readFilterParams('', ['sort', 'duration'])).toEqual({})
+  })
+})
+
+describe('mergeSavedFilters', () => {
+  test('the named params take their current URL values', () => {
+    expect(
+      mergeSavedFilters({ sort: 'oldest', duration: 'under10' }, ['sort', 'duration'], {
+        sort: 'longest',
+        duration: 'over30',
+      }),
+    ).toEqual({ sort: 'longest', duration: 'over30' })
+  })
+
+  test('a named param unset in the URL drops out of the saved set', () => {
+    expect(
+      mergeSavedFilters({ sort: 'oldest', duration: 'under10' }, ['sort', 'duration'], {
+        sort: 'oldest',
+      }),
+    ).toEqual({ sort: 'oldest' })
+  })
+
+  test('saved entries outside the named params survive a save made without them', () => {
+    expect(
+      mergeSavedFilters({ sort: 'oldest', includeShort: 'true' }, ['duration', 'gameType'], {
+        duration: 'under10',
+      }),
+    ).toEqual({ sort: 'oldest', includeShort: 'true', duration: 'under10' })
+  })
+
+  test('nothing left to save reads as unset rather than an empty set', () => {
+    expect(mergeSavedFilters({ sort: 'oldest' }, ['sort'], {})).toBeUndefined()
   })
 })
 
