@@ -63,17 +63,57 @@ describe('NetcodeV2KeyRing', () => {
     expect(ring.adoptFor(undefined)).toEqual({ failure: 'ambiguousWithoutEcho' })
   })
 
-  it('adoption retires the selected keypair, so the next game can use the echo-less fallback', () => {
+  it('a lingering adopted keypair never makes the echo-less fallback ambiguous', () => {
     const ring = new NetcodeV2KeyRing()
     const gameA = makeKeyPair('pubkey-game-a')
     ring.push(gameA)
     expect(ring.adoptFor(undefined)).toEqual({ keys: gameA })
 
-    // Without retirement, game A's key would linger, make the ring ambiguous the moment game B's
-    // key is generated, and permanently break the old-server fallback after the first game.
+    // Game A's key stays in the ring as a requeue reservation, but a newer join replaces the
+    // server-side ticket it could be requeued from -- so the echo-less selection must prefer the
+    // fresh key, not refuse as ambiguous (which would break the old-server fallback after the
+    // first game).
     const gameB = makeKeyPair('pubkey-game-b')
     ring.push(gameB)
     expect(ring.adoptFor(undefined)).toEqual({ keys: gameB })
+  })
+
+  it('an adopted keypair resolves again when the server echoes it for a requeued match', () => {
+    const ring = new NetcodeV2KeyRing()
+    const keys = makeKeyPair('pubkey-a')
+    ring.push(keys)
+    expect(ring.adoptFor('pubkey-a')).toEqual({ keys })
+
+    // A failed matchmaking load requeues the player server-side with the SAME pubkey (the queue
+    // entry survives; only its queue time resets), and the next match arrives under a new game
+    // id -- which never carries the previous game's keypair forward, so this second lookup is
+    // how the requeued match gets its private key.
+    expect(ring.adoptFor('pubkey-a')).toEqual({ keys })
+  })
+
+  it('an echo-less requeue reuses the sole adopted reservation', () => {
+    const ring = new NetcodeV2KeyRing()
+    const keys = makeKeyPair('pubkey-a')
+    ring.push(keys)
+    expect(ring.adoptFor(undefined)).toEqual({ keys })
+
+    // Same requeue flow against a server that predates the echo: with nothing newer outstanding,
+    // the adopted reservation is the only keypair the server can hold for this player.
+    expect(ring.adoptFor(undefined)).toEqual({ keys })
+  })
+
+  it('adopting a newer keypair retires an older adopted reservation', () => {
+    const ring = new NetcodeV2KeyRing()
+    const gameA = makeKeyPair('pubkey-game-a')
+    const gameB = makeKeyPair('pubkey-game-b')
+    ring.push(gameA)
+    expect(ring.adoptFor('pubkey-game-a')).toEqual({ keys: gameA })
+    ring.push(gameB)
+    expect(ring.adoptFor('pubkey-game-b')).toEqual({ keys: gameB })
+
+    // Game B's adoption proves game A's ticket is gone (a newer join replaced it), so A's
+    // reservation is retired along with the other superseded predecessors.
+    expect(ring.adoptFor('pubkey-game-a')).toEqual({ failure: 'unknownPubkey' })
   })
 
   it('adoption by echo retires the superseded predecessors but keeps newer keypairs', () => {
