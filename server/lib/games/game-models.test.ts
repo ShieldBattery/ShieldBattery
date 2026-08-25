@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { GameSource } from '../../../common/games/configuration'
-import { GameSourceFilter } from '../../../common/games/game-filters'
+import { GameSourceFilter, MIN_GAME_LENGTH_MS } from '../../../common/games/game-filters'
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -220,6 +220,28 @@ describe('games/game-models/getGames', () => {
     expect(template.values).toContain('listed')
     expect(template.values).not.toContain(GameSource.Matchmaking)
   })
+
+  test('applies the minimum-game-length floor by default, keeping games with no recorded length', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('g.game_length IS NULL OR g.game_length >=')
+    expect(template.values).toContain(MIN_GAME_LENGTH_MS)
+  })
+
+  test('omits the minimum-game-length floor with includeShort', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0, includeShort: true })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('g.game_length')
+    expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
+  })
 })
 
 describe('games/game-models/getGamesForUser', () => {
@@ -260,6 +282,30 @@ describe('games/game-models/getGamesForUser', () => {
     expect(template.text).toContain('g.start_time <=')
     expect(template.values).toContainEqual(new Date(startDate))
     expect(template.values).toContainEqual(new Date(endDate))
+  })
+
+  test('applies the minimum-game-length floor by default, keeping games with no recorded length', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(1)
+
+    await getGamesForUser({ userId, limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('g.game_length IS NULL OR g.game_length >=')
+    expect(template.values).toContain(MIN_GAME_LENGTH_MS)
+  })
+
+  test('omits the minimum-game-length floor with includeShort', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(1)
+
+    await getGamesForUser({ userId, limit: 10, offset: 0, includeShort: true })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('g.game_length')
+    expect(template.values).not.toContain(MIN_GAME_LENGTH_MS)
   })
 })
 
