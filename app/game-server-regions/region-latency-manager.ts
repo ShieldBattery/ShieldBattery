@@ -5,6 +5,7 @@ import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { GameServerRegionLatencies } from '../../common/game-server-regions'
 import shallowEquals from '../../common/shallow-equals'
+import { monotonicNow } from '../time/monotonic-now'
 import { measureRegionLatency } from './region-latency-measurement'
 import { GameServerRegionList } from './region-list'
 
@@ -25,6 +26,13 @@ export const STARTUP_SWEEP_DELAY_MS = 15_000
  * from stepping on another's.
  */
 export const REGION_STAGGER_MS = 150
+/**
+ * How fresh the last completed sweep must be for a re-delivered region list to NOT trigger a new
+ * one -- see `noteListDelivered`. Long enough that a flapping connection's reconnect storm can't
+ * turn into a sweep per flap, short enough that a genuine network switch (which usually drops the
+ * socket) gets fresh RTTs promptly instead of waiting out the periodic timer.
+ */
+export const DELIVERY_RESWEEP_MIN_AGE_MS = 60_000
 
 function delay(millis: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, millis))
@@ -151,6 +159,13 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
    */
   private startupSweepPending = true
   private startupSweepTimer?: NodeJS.Timeout
+  /** Swappable in tests; defaults to `DELIVERY_RESWEEP_MIN_AGE_MS`. */
+  deliveryResweepMinAgeMs = DELIVERY_RESWEEP_MIN_AGE_MS
+  /**
+   * Monotonic time the last *measuring* sweep completed (a skipped empty-list sweep doesn't
+   * count); undefined until one has. The freshness gate for `noteListDelivered`.
+   */
+  private lastSweepFinishedAt?: number
 
   constructor(private regionList: GameServerRegionList) {
     super()
@@ -159,6 +174,27 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
 
   getLatencies(): Readonly<GameServerRegionLatencies> {
     return this.latencies
+  }
+
+  /**
+   * Notes that the site socket delivered a (settled) region list. Every reconnect re-delivers the
+   * full list, and a reconnect often means the network path changed even when the interface
+   * fingerprint did not (switching between similarly-addressed Wi-Fi networks, say) -- so a
+   * delivery doubles as a refresh signal for the latency table, which would otherwise stay stale
+   * until the periodic timer. Freshness-gated: a recently completed sweep, or one already in
+   * flight (a changed list's own `change` sweep starts before this runs), makes it a no-op.
+   */
+  noteListDelivered() {
+    if (this.sweeping) {
+      return
+    }
+    if (
+      this.lastSweepFinishedAt !== undefined &&
+      monotonicNow() - this.lastSweepFinishedAt < this.deliveryResweepMinAgeMs
+    ) {
+      return
+    }
+    this.requestSweep()
   }
 
   /**
@@ -320,6 +356,7 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
     }
 
     this.latencies = latencies
+    this.lastSweepFinishedAt = monotonicNow()
 
     // A region's entry is only ever replaced by a fresh object when it's actually re-measured
     // (see `kept` above); a failed measurement carries forward the exact same object reference.

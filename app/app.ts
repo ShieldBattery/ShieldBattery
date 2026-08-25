@@ -932,12 +932,16 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
 
   const gameServerRegionList = container.resolve(GameServerRegionList)
+  const regionLatencyManager = container.resolve(RegionLatencyManager)
 
   ipcMain.on('gameServerRegionsSetList', (event, regions) => {
     gameServerRegionList.setRegions(regions)
+    // Every settled delivery -- including a reconnect's re-delivery of an unchanged list, which
+    // `setRegions` deliberately doesn't treat as a change -- doubles as a freshness-gated refresh
+    // signal: a reconnect often means the network path changed even when the interface
+    // fingerprint did not.
+    regionLatencyManager.noteListDelivered()
   })
-
-  const regionLatencyManager = container.resolve(RegionLatencyManager)
   regionLatencyManager.start().catch(() => {})
 
   ipcMain.handle('gameServerRegionsGetLatencies', () => regionLatencyManager.getLatencies())

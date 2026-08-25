@@ -535,6 +535,67 @@ describe('RegionLatencyManager', () => {
     }
   })
 
+  it('a settled list delivery re-sweeps when the table is stale, gated on sweep freshness', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery.json')
+
+    let callCount = 0
+    manager.measureRegion = async region => {
+      callCount++
+      return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+    }
+
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => updateCount === 1)
+    expect(callCount).toBe(1)
+
+    // A reconnect re-delivers the unchanged list right after a sweep completed: the freshness
+    // gate keeps it from turning reconnect churn into a sweep per flap.
+    manager.noteListDelivered()
+    await delay(30)
+    expect(callCount).toBe(1)
+
+    // Much later (modeled by zeroing the freshness window), the same re-delivery means the
+    // network path may have changed while the interface fingerprint did not -- so it re-sweeps.
+    manager.deliveryResweepMinAgeMs = 0
+    manager.noteListDelivered()
+    await waitUntil(() => updateCount === 2)
+    expect(callCount).toBe(2)
+  })
+
+  it('a list delivery during an in-flight sweep queues nothing extra', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery2.json')
+
+    let callCount = 0
+    const resolvers: Array<() => void> = []
+    manager.measureRegion = region =>
+      new Promise(resolve => {
+        callCount++
+        resolvers.push(() =>
+          resolve({ regionId: region.id, rttMs: 42, source: 'beacon', measuredAt: Date.now() }),
+        )
+      })
+
+    manager.ensureSweepNow()
+    await waitUntil(() => callCount === 1)
+
+    // The in-flight sweep is already measuring the freshly delivered list.
+    manager.noteListDelivered()
+    resolvers[0]()
+    await delay(30)
+    expect(callCount).toBe(1)
+  })
+
   it('staggers per-region measurement starts by REGION_STAGGER_MS', async () => {
     vi.useFakeTimers()
     const regionList = new GameServerRegionList()
