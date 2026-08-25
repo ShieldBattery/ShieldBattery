@@ -5,11 +5,24 @@ import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { longTimestamp, shortRelativeTime } from '../i18n/date-formats'
 import { ButtonStateStyleProps, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
+import { Tooltip } from '../material/tooltip'
+import { useCurrentMinuteMs } from '../react/date-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
-import { GamePlayersDisplay } from './game-players-display'
+import { GamePlayersDisplay, getOrderedTeams, useGamePlayerNames } from './game-players-display'
+
+// The row's cells respond to the `game-list-rows` container established around the scrolling list
+// in `GameListView` and the replay library (its inline size tracks the actual row width, unlike
+// the page width, which also has to fit the side detail panel). Thresholds come from the cells'
+// widths (players' 328px basis, duration's fixed 96px, map's 196px, this file's own 100px time
+// column, the 96px leading cell when present, gaps, and row padding).
+/** Row width below which the relative-time cell is dropped first. */
+const HIDE_RELATIVE_TIME_BELOW_PX = 880
+/** Row width below which the map + game type cell is also dropped, to stop clipping. */
+const HIDE_MAP_AND_GAME_TYPE_BELOW_PX = 640
 
 const GameListEntryRoot = styled.div<{ $hasLeadingAction?: boolean }>`
   width: 100%;
@@ -75,6 +88,24 @@ const PlayersCell = styled(BaseCell)`
   }
 `
 
+const RelativeTimeCell = styled(BaseCell)`
+  ${bodyMedium};
+  ${singleLine};
+  width: 100px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+
+  color: var(--theme-on-surface-variant);
+
+  @container game-list-rows (width < ${HIDE_RELATIVE_TIME_BELOW_PX}px) {
+    display: none;
+  }
+`
+
 const GameLengthCell = styled(BaseCell)`
   ${titleMedium};
   font-variant-numeric: tabular-nums;
@@ -97,6 +128,10 @@ const MapAndGameTypeCell = styled(BaseCell)`
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+
+  @container game-list-rows (width < ${HIDE_MAP_AND_GAME_TYPE_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
@@ -153,6 +188,12 @@ export interface GameListEntryLayoutProps {
   leading?: React.ReactNode
   /** Content of the players cell (a players/teams display). */
   players: React.ReactNode
+  /**
+   * Content of the relative-time cell (e.g. a `GameRelativeTime`), shown between the players and
+   * duration cells. Pass an empty node rather than omitting it to keep the column's width reserved
+   * for a row with nothing to show (e.g. an unparseable replay).
+   */
+  relativeTime?: React.ReactNode
   /** Preformatted game duration text (e.g. `12:34`, or `—` when unknown). */
   duration: string
   /** Map name text (already color-code-stripped). */
@@ -173,6 +214,7 @@ export function GameListEntryLayout({
   bookmark,
   leading,
   players,
+  relativeTime,
   duration,
   mapName,
   gameTypeLabel,
@@ -187,6 +229,8 @@ export function GameListEntryLayout({
 
       <PlayersCell>{players}</PlayersCell>
 
+      {relativeTime !== undefined ? <RelativeTimeCell>{relativeTime}</RelativeTimeCell> : null}
+
       <GameLengthCell>{duration}</GameLengthCell>
 
       <MapAndGameTypeCell>
@@ -198,6 +242,35 @@ export function GameListEntryLayout({
 
       {children}
     </GameListEntryRoot>
+  )
+}
+
+export interface GameRelativeTimeProps {
+  /** Unix ms when the game/replay started. */
+  timestampMs: number
+  className?: string
+}
+
+/**
+ * A game/replay row's relative-time cell content: a short label (e.g. "23 hr. ago") that refreshes
+ * as real time crosses each minute boundary, backed by the shared minute clock rather than a timer
+ * of its own. Hovering reveals the absolute date and time.
+ */
+export function GameRelativeTime({ timestampMs, className }: GameRelativeTimeProps) {
+  const { t } = useTranslation()
+  const currentMinuteMs = useCurrentMinuteMs()
+
+  // Intl's relative-time units bottom out at seconds, which reads as false precision when the
+  // display itself only ever refreshes once a minute.
+  const label =
+    currentMinuteMs - timestampMs < 60_000
+      ? t('game.time.justNow', 'Just now')
+      : shortRelativeTime.format(timestampMs, currentMinuteMs)
+
+  return (
+    <Tooltip text={longTimestamp.format(timestampMs)} className={className}>
+      {label}
+    </Tooltip>
   )
 }
 
@@ -254,6 +327,7 @@ export function GameListEntry({
 }: GameListEntryProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
+  const nameById = useGamePlayerNames(game)
 
   const [buttonProps, rippleRef] = useButtonState({
     onClick: onClick ? () => onClick(game.id) : undefined,
@@ -262,14 +336,41 @@ export function GameListEntry({
 
   const { results } = game
 
+  // The side the result label refers to: `forUserId`'s side when one was given, otherwise
+  // whichever side `GamePlayersDisplay` lists first for this row — sharing its ordering logic
+  // keeps the label and the rendered player order from ever disagreeing. Outside of topVBottom,
+  // the two displayed columns are an alphabetical split of all players rather than real teams, so
+  // only the single first-listed player can honestly be labeled with one result. Left empty
+  // (rather than computed) when the result isn't even shown.
+  const orderedTeams = showResult
+    ? getOrderedTeams(game.config.teams, game.config.gameType, nameById, forUserId)
+    : []
+  const firstSide =
+    game.config.gameType === 'topVBottom'
+      ? (orderedTeams[0] ?? [])
+      : (orderedTeams[0]?.slice(0, 1) ?? [])
+
   // NOTE(2Pac): No need to memoize this under react-compiler; it re-derives only when its inputs
   // change.
   let result: ReconciledResult = 'unknown'
-  if (results && forUserId) {
-    for (const [userId, r] of results) {
-      if (userId === forUserId) {
-        result = r.result
-        break
+  if (results) {
+    if (forUserId) {
+      for (const [userId, r] of results) {
+        if (userId === forUserId) {
+          result = r.result
+          break
+        }
+      }
+    } else {
+      // Team members' results agree in practice, so the first member with a reported entry is
+      // enough. A no-op loop over an empty `firstSide` when the result isn't shown.
+      for (const player of firstSide) {
+        if (player.isComputer) continue
+        const entry = results.find(([userId]) => userId === player.id)
+        if (entry) {
+          result = entry[1].result
+          break
+        }
       }
     }
   }
@@ -277,14 +378,28 @@ export function GameListEntry({
   const gameType = getGameTypeLabel(game, t)
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
+  const resultForNames = firstSide
+    .map(player =>
+      player.isComputer
+        ? t('game.playerName.computer', 'Computer')
+        : (nameById.get(player.id) ?? t('game.playerName.unknown', 'Unknown player')),
+    )
+    .join(', ')
+
   const layoutProps: GameListEntryLayoutProps = {
-    leading:
-      showResult && forUserId ? (
+    leading: showResult ? (
+      <Tooltip
+        text={t('games.list.resultTooltip', {
+          defaultValue: 'Result for {{names}}',
+          names: resultForNames,
+        })}>
         <GameListEntryResult $result={spoilerFree ? 'unknown' : result}>
           {spoilerFree ? '—' : getResultLabel(result, t, true)}
         </GameListEntryResult>
-      ) : undefined,
+      </Tooltip>
+    ) : undefined,
     players: <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />,
+    relativeTime: <GameRelativeTime timestampMs={game.startTime} />,
     duration: spoilerFree || !game.gameLength ? '—' : getGameDurationString(game.gameLength),
     mapName,
     gameTypeLabel: gameType,

@@ -36,7 +36,11 @@ import {
 } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
 import { parseMatchup } from '../games/game-filter-url'
-import { GameListEntryLayout, SelectableRowContainer } from '../games/game-list-entry'
+import {
+  GameListEntryLayout,
+  GameRelativeTime,
+  SelectableRowContainer,
+} from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -215,6 +219,13 @@ const BodyRow = styled.div`
 const ListColumn = styled.div`
   flex-grow: 1;
   min-width: 0;
+
+  /*
+    Named container so row cells (see game-list-entry.tsx) can adapt to the actual width rows get,
+    which is narrower than the replay-library-body container above once the rail's own width is
+    subtracted — rather than reacting to a width that still includes the rail.
+  */
+  container: game-list-rows / inline-size;
 `
 
 // ---- Empty / loading states ------------------------------------------------------------------
@@ -376,6 +387,11 @@ function ReplayListEntry({
       <GameListEntryLayout
         bookmark={bookmark}
         players={players}
+        relativeTime={
+          // A parse-error row's `gameTime` isn't a real timestamp (see `ReplayLibraryEntry`), so
+          // there's nothing meaningful to show — but the empty node still reserves the column.
+          entry.parseError ? <></> : <GameRelativeTime timestampMs={entry.gameTime} />
+        }
         duration={
           entry.parseError || spoilerFree
             ? '—'

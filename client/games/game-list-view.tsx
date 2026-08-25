@@ -54,6 +54,13 @@ const BodyRow = styled.div`
 const ListColumn = styled.div`
   flex-grow: 1;
   min-width: 0;
+
+  /*
+    Named container so row cells (see game-list-entry.tsx) can adapt to the actual width rows get —
+    which depends on the window size *and* whether the side detail panel is showing — rather than
+    the viewport or the whole BodyRow (which also includes the panel's width).
+  */
+  container: game-list-rows / inline-size;
 `
 
 const SELECTION_MEMORY_MAX_AGE_MS = 30 * 60 * 1000
@@ -95,7 +102,10 @@ export interface GameListViewProps {
   showRankedCustom?: boolean
   /** Shows the game source (All/Ranked/Custom) filter chip and reads its URL param (games page only). */
   showSourceFilter?: boolean
-  /** Shows each row's win/loss result, from `forUserId`'s perspective (match history only). */
+  /**
+   * Shows each row's win/loss result. From `forUserId`'s perspective when given (match history);
+   * otherwise from whichever side of the matchup is listed first (games page, league games).
+   */
   showResult?: boolean
   /** Whose perspective results and the side panel roster are shown from (match history only). */
   forUserId?: SbUserId

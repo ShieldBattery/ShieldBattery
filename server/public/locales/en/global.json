@@ -623,6 +623,9 @@
       "bottom": "Bottom",
       "number": "Team {{teamNumber}}",
       "top": "Top"
+    },
+    "time": {
+      "justNow": "Just now"
     }
   },
   "gameDetails": {
@@ -765,6 +768,7 @@
     },
     "list": {
       "noMatchingGames": "No matching games.",
+      "resultTooltip": "Result for {{names}}",
       "retrievingError": "There was an error retrieving the games."
     },
     "liveGames": {

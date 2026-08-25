@@ -620,6 +620,9 @@
       "bottom": "客队",
       "number": "{{teamNumber}}队",
       "top": "主队"
+    },
+    "time": {
+      "justNow": "刚刚"
     }
   },
   "gameDetails": {
@@ -749,6 +752,7 @@
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
+      "resultTooltip": "{{names}}的结果",
       "retrievingError": "获取游戏时出错。"
     },
     "liveGames": {
