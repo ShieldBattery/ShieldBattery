@@ -18,7 +18,7 @@ import { BrowseLocalMaps } from '../../maps/browse-local-maps'
 import { BrowseServerMaps } from '../../maps/browse-server-maps'
 import { FilledButton, IconButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
-import { LoadingDotsArea } from '../../progress/dots'
+import DotsIndicator, { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodySmall, singleLine, titleLarge } from '../../styles/typography'
 import {
@@ -559,6 +559,7 @@ function HostGameContent({
           <SummaryText>{summary}</SummaryText>
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
+            iconStart={isCreating ? <DotsIndicator /> : undefined}
             disabled={isCreating}
             onClick={() => formRef.current?.submit()}
             testName='create-lobby-submit'

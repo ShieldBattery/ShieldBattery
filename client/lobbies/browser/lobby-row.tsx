@@ -237,6 +237,12 @@ export interface LobbyRowProps {
   friendIds: ReadonlyArray<SbUserId>
   /** Whether this is the lobby the viewer is currently in. */
   isOwn: boolean
+  /**
+   * Withholds double-click/Enter's join shortcut while another join is already in flight
+   * elsewhere in the browser -- only one may be outstanding at a time. Doesn't affect selecting
+   * the row for preview.
+   */
+  joinDisabled: boolean
   onSelect: () => void
   /** Joins this lobby as a player, or — for the viewer's own lobby — returns to it. */
   onJoin: () => void
@@ -254,13 +260,14 @@ export function LobbyRow({
   selected,
   friendIds,
   isOwn,
+  joinDisabled,
   onSelect,
   onJoin,
   ref,
 }: LobbyRowProps) {
   const { t } = useTranslation()
   const { taken, total, open } = summary.playerSlots
-  const canJoin = !isOwn && open > 0
+  const canJoin = !isOwn && open > 0 && !joinDisabled
 
   // Roving tabindex: the list is one tab stop — Tab lands on the selected row, and the arrow keys
   // (handled at the page level) move the selection and focus together.

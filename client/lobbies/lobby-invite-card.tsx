@@ -311,7 +311,7 @@ export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
 }
 
 function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
-  const joinLobbyAction = useJoinLobbyAction()
+  const [joinLobbyAction] = useJoinLobbyAction()
   const [state] = useLobbySummary(lobbyId, { cached: true })
 
   return (
