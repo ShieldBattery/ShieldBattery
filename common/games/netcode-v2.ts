@@ -68,6 +68,16 @@ export interface NetcodeV2ServerSetup {
    * Seeding from this value keeps the two in agreement from the first turn.
    */
   initialBufferTurns: number
+  /**
+   * base64 (standard, padded) of the exact public key the server embedded in this player's session
+   * token. A player can submit more than one public key before a game launches (double-click join,
+   * a UI retry each generate a fresh per-session keypair), so the app can hold several outstanding
+   * private keys at once; this field tells it which one the server actually used, so it merges in
+   * the matching private key rather than assuming its most recently generated one. Optional so an
+   * older server (or app) that predates this field still interoperates -- an app with only one
+   * outstanding keypair has nothing to disambiguate anyway.
+   */
+  clientPubkey?: string
 }
 
 /**

@@ -1070,6 +1070,32 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     ])
   })
 
+  test("each recipient's setup carries the exact pubkey the server embedded for their own slot", async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0, 1]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    const pubkey1 = Buffer.alloc(32, 1).toString('base64')
+    const pubkey2 = Buffer.alloc(32, 2).toString('base64')
+
+    const result = await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false, pubkey: pubkey1 },
+        { slot: 1, userId: u2, observer: false, pubkey: pubkey2 },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    // Each recipient's own setup must echo the pubkey the *server* used for their slot, not some
+    // other participant's -- otherwise the app can't disambiguate which of its outstanding keypairs
+    // the server actually seated.
+    expect(result.get(u1)!.clientPubkey).toBe(pubkey1)
+    expect(result.get(u2)!.clientPubkey).toBe(pubkey2)
+  })
+
   test('fails fast (never contacting the coordinator) when a slot is missing its pubkey', async () => {
     configureNetcodeV2()
     mockSessionResponse(sessionResponse([0, 1]))

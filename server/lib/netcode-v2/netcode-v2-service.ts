@@ -669,6 +669,10 @@ export class NetcodeV2Service {
     }
 
     const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
+    // Every slot's pubkey was already validated non-undefined while building `request` above (the
+    // `.map` there throws synchronously on a gap), so the `!` here is just narrowing what's already
+    // been checked.
+    const pubkeyByUserId = new Map(slots.map(({ userId, pubkey }) => [userId, pubkey!]))
 
     // The slot roster, personalized per recipient: who occupies each slot, plus the create-time
     // home relay the `/netstat` overlay shows per player. `homeRegion` is included only on the
@@ -698,6 +702,9 @@ export class NetcodeV2Service {
         // Floored defensively: a misconfigured or unexpected coordinator bound of 0 would leave
         // the pipe with no latency at all to absorb the network round-trip.
         initialBufferTurns: Math.max(1, session.bounds.min),
+        // Lets the app pick the matching private key out of its own outstanding keypairs when it
+        // holds more than one (see `NetcodeV2ServerSetup.clientPubkey`).
+        clientPubkey: pubkeyByUserId.get(userId),
       })
     }
     if (result.size !== slots.length) {
