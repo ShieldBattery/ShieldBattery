@@ -626,6 +626,9 @@
       "bottom": "Abajo",
       "number": "Equipo {{teamNumber}}",
       "top": "Arriba"
+    },
+    "time": {
+      "justNow": "Ahora mismo"
     }
   },
   "gameDetails": {
@@ -755,6 +758,7 @@
     },
     "list": {
       "noMatchingGames": "No hay partidas que coincidan.",
+      "resultTooltip": "Resultado de {{names}}",
       "retrievingError": "Hubo un error al obtener las partidas."
     },
     "liveGames": {

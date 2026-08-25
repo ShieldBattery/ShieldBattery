@@ -620,6 +620,9 @@
       "bottom": "원정팀",
       "number": "{{teamNumber}} 팀",
       "top": "홈팀"
+    },
+    "time": {
+      "justNow": "방금 전"
     }
   },
   "gameDetails": {
@@ -749,6 +752,7 @@
     },
     "list": {
       "noMatchingGames": "일치하는 게임이 없습니다.",
+      "resultTooltip": "{{names}}의 결과",
       "retrievingError": "게임을 불러오는 중 오류가 발생했습니다."
     },
     "liveGames": {
