@@ -45,6 +45,11 @@ export interface GameRecord {
   results: [SbUserId, ReconciledPlayerResult][] | null
   selectedMatchup: MatchupString | null
   assignedMatchup: MatchupString | null
+  /**
+   * Whether an admin hand-assigned this game's outcomes instead of them coming purely from
+   * reconciled player reports. Who did it and when is kept server-side only.
+   */
+  manuallyResolved: boolean
 }
 
 export type GameRecordJson = Jsonify<GameRecord>
@@ -108,6 +113,7 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
     results: game.results,
     selectedMatchup: game.selectedMatchup,
     assignedMatchup: game.assignedMatchup,
+    manuallyResolved: game.manuallyResolved,
   }
 }
 
@@ -209,6 +215,26 @@ export interface NullifyGamePointsResponse {
    * breakdown lives in the `game_points_refunds` audit row.
    */
   refundedUsers: SbUserId[]
+}
+
+/**
+ * Request to hand-assign the outcomes of a disputed game (an admin action). Every player with a
+ * stored result must be given an outcome; the submitted outcomes replace the disputed ones and the
+ * side effects the disputed reconciliation skipped (win/loss counters, and ratings/points for
+ * matchmaking games) are applied.
+ */
+export interface ManuallyResolveGameRequest {
+  results: Array<{ userId: SbUserId; result: 'win' | 'loss' | 'draw' }>
+}
+
+export interface ManuallyResolveGameResponse {
+  game: GameRecordJson
+  /**
+   * Whether matchmaking rating/points changes were applied. This is false for custom games (which
+   * have no ratings) and for matchmaking games whose season is already finalized — the resolution
+   * is still recorded in those cases.
+   */
+  ratingsApplied: boolean
 }
 
 export function getGameDurationString(durationMs: number): string {

@@ -25,6 +25,7 @@ function makeGameRecord(config: GameConfig): GameRecord {
     results: null,
     selectedMatchup: null,
     assignedMatchup: null,
+    manuallyResolved: false,
   }
 }
 

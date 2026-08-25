@@ -10,7 +10,7 @@ import {
 import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
-import { ReconciledResults } from '../../../common/games/results'
+import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -19,6 +19,11 @@ import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import { Dbify } from '../db/types'
 
+/**
+ * A row shape for the `games` table. `manually_resolved` has no physical column behind it — it's
+ * derived from `manually_resolved_at`, so every query producing these rows must select
+ * `manually_resolved_at IS NOT NULL AS manually_resolved` alongside the real columns.
+ */
 type DbGameRecord = Dbify<GameRecord>
 
 export type CreateGameRecordData = Pick<
@@ -42,6 +47,7 @@ function convertFromDb(row: DbGameRecord): GameRecord {
     results: Array.isArray(row.results) ? row.results : null,
     selectedMatchup: row.selected_matchup,
     assignedMatchup: row.assigned_matchup,
+    manuallyResolved: row.manually_resolved,
   }
 }
 
@@ -76,7 +82,8 @@ export async function getGameRecord(gameId: string): Promise<GameRecord | undefi
   try {
     const result = await client.query<DbGameRecord>(sql`
       SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,
-        game_length, results, selected_matchup, assigned_matchup
+        game_length, results, selected_matchup, assigned_matchup,
+        manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games
       WHERE id = ${gameId}`)
     return result.rowCount ? convertFromDb(result.rows[0]) : undefined
@@ -136,6 +143,67 @@ export async function setReconciledResult(
       dispute_requested = false,
       dispute_reviewed = false,
       assigned_matchup = ${assignedMatchup}
+    WHERE id = ${gameId}
+  `)
+}
+
+/**
+ * Locks a game's row for the remainder of the current transaction and returns the dispute state a
+ * manual resolution has to decide against, or `undefined` if the game row no longer exists. Reading
+ * this under the lock is what makes two admins resolving the same game concurrently safe: the first
+ * to commit clears `disputable`, so the second sees a game that can no longer be resolved instead
+ * of applying the additive side effects (win/loss counters, rating changes) a second time.
+ */
+export async function lockGameForManualResolution(
+  client: DbClient,
+  gameId: string,
+): Promise<
+  { disputable: boolean; results: [SbUserId, ReconciledPlayerResult][] | null } | undefined
+> {
+  const result = await client.query<{
+    disputable: boolean
+    results: [SbUserId, ReconciledPlayerResult][] | null
+  }>(sql`
+    SELECT disputable, results FROM games WHERE id = ${gameId} FOR UPDATE
+  `)
+  if (result.rows.length === 0) {
+    return undefined
+  }
+
+  const row = result.rows[0]
+  return {
+    disputable: row.disputable,
+    // Some legacy rows store `results` as an empty object `{}` rather than an array (or null);
+    // normalize those to null so the runtime value matches the declared type.
+    results: Array.isArray(row.results) ? row.results : null,
+  }
+}
+
+/**
+ * Overwrites a game's results with outcomes an admin assigned by hand, clearing its disputable
+ * state and recording who resolved it and when. Intended to be executed in the same transaction
+ * that applies the result-derived side effects.
+ *
+ * `dispute_requested` is left alone: it's the historical record of whether players actually asked
+ * for a review. `game_length` and `assigned_matchup` are left alone too — manual resolution only
+ * decides outcomes, and a disputed game's stored races can include a fabricated one for a player
+ * who appeared in no report, which must never be baked into a matchup.
+ */
+export async function setManuallyResolvedResult(
+  client: DbClient,
+  gameId: string,
+  results: Map<SbUserId, ReconciledPlayerResult>,
+  resolvedBy: SbUserId,
+  resolvedAt: Date,
+): Promise<void> {
+  await client.query(sql`
+    UPDATE games
+    SET
+      results = ${JSON.stringify(Array.from(results.entries()))},
+      disputable = false,
+      dispute_reviewed = true,
+      manually_resolved_by = ${resolvedBy},
+      manually_resolved_at = ${resolvedAt}
     WHERE id = ${gameId}
   `)
 }
@@ -282,7 +350,7 @@ export async function getRecentGamesForUser(
   const { client, done } = await db()
   try {
     const result = await client.query<DbGameRecord>(sql`
-      SELECT g.*
+      SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games_users u JOIN games g ON u.game_id = g.id
       WHERE u.user_id = ${userId}
       AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
@@ -469,7 +537,7 @@ export async function getGames(
     }
 
     let query = sql`
-      SELECT g.*
+      SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games g
     `
 
@@ -636,7 +704,7 @@ export async function getGamesForUser(
     }
 
     let query = sql`
-      SELECT g.*
+      SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games_users gu
       INNER JOIN games g ON gu.game_id = g.id
     `
