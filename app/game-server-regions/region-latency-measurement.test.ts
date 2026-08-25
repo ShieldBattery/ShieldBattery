@@ -210,6 +210,38 @@ describe('measureRegionLatency', () => {
     }
   })
 
+  it('an already-aborted signal measures nothing and never dials the fallback', async () => {
+    // A listener added to an already-aborted signal never fires, so without an up-front check the
+    // internal race would be uncancellable and the fallback could still dial and "win".
+    const deadBeaconPort = await getDeadUdpPort()
+    let connections = 0
+    const server = net.createServer(socket => {
+      connections++
+      socket.destroy()
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()))
+    const tcpPort = (server.address() as net.AddressInfo).port
+
+    try {
+      const result = await measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: `127.0.0.1:${deadBeaconPort}`,
+          fallback: `127.0.0.1:${tcpPort}`,
+        },
+        { ...FAST_OPTIONS, signal: AbortSignal.abort() },
+      )
+
+      expect(result).toBeUndefined()
+      // Give any (erroneous) fallback dial time to land before asserting none did.
+      await new Promise(resolve => setTimeout(resolve, 300))
+      expect(connections).toBe(0)
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()))
+    }
+  })
+
   it('returns undefined when both the beacon and the fallback are dead', async () => {
     const deadBeaconPort = await getDeadUdpPort()
     const deadFallbackPort = await getDeadUdpPort()

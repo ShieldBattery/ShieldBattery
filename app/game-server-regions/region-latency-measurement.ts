@@ -25,8 +25,23 @@ export interface MeasureOptions {
   signal?: AbortSignal
 }
 
-function delay(millis: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, millis))
+/** Resolves after `millis`, or immediately once `signal` aborts (never rejects). */
+function delay(millis: number, signal?: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    if (signal?.aborted) {
+      resolve()
+      return
+    }
+    const onAbort = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, millis)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 function median(values: number[]): number | undefined {
@@ -148,7 +163,7 @@ export async function measureBeaconMedianRtt(
 
       const elapsed = monotonicNow() - attemptStart
       if (i < attempts - 1 && elapsed < attemptSpacingMs) {
-        await delay(attemptSpacingMs - elapsed)
+        await delay(attemptSpacingMs - elapsed, signal)
       }
     }
 
@@ -246,6 +261,11 @@ export async function measureRegionLatency(
   options: MeasureOptions = {},
 ): Promise<RegionLatency | undefined> {
   const { attemptTimeoutMs = ATTEMPT_TIMEOUT_MS, signal } = options
+  if (signal?.aborted) {
+    // An abort listener added to an already-aborted signal never fires, so wiring the race up
+    // here would leave it uncancellable and let the fallback dial anyway.
+    return undefined
+  }
   // Settling the race aborts whichever path is still running, freeing its sockets and remaining
   // attempts; the caller's own signal aborts both.
   const raceAbort = new AbortController()
@@ -266,7 +286,9 @@ export async function measureRegionLatency(
   })()
 
   const fallbackPromise = (async (): Promise<RegionLatency | undefined> => {
-    await delay(attemptTimeoutMs)
+    // Abort-aware, so a healthy beacon's win (or the caller giving up) mid-head-start neither
+    // waits out the remaining delay nor leaves the timer alive behind the settled race.
+    await delay(attemptTimeoutMs, raceAbort.signal)
     // Aborted means the race already settled with a result (a healthy beacon replied and won) or
     // the caller gave up — either way there is nothing left to dial. A beacon that merely
     // *failed* fast (an ICMP-refused port, say) does not abort, so the fallback still runs.
