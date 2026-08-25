@@ -32,6 +32,7 @@ import {
 import { GameListEntry } from './game-list-entry'
 import { GameRecordSidePanel } from './game-record-side-panel'
 import { GameListSearchPage, useGameListSearch } from './use-game-list-search'
+import { FilterMemorySurface, useRememberedFilters } from './use-remembered-filters'
 
 const NoResults = styled.div`
   ${bodyLarge};
@@ -100,6 +101,11 @@ export interface GameListViewProps {
     offset: number,
     signal: AbortSignal,
   ) => Promise<GameListSearchPage>
+  /**
+   * Which surface this is, naming the saved set its mode-like filter preferences (sort, duration,
+   * short games, and whichever mode filters it shows) are remembered in across visits.
+   */
+  surface: Exclude<FilterMemorySurface, 'replays'>
   /** Shows the Ranked/Custom source toggles and reads their URL params (match history only). */
   showRankedCustom?: boolean
   /** Shows the game source (All/Ranked/Custom) filter chip and reads its URL param (games page only). */
@@ -122,13 +128,14 @@ export interface GameListViewProps {
  * panel and per-row context menu, backed by `useGameListSearch`. The games page, match history, and
  * a league's games tab are all thin wrappers that supply a `loadPage` and their own outer layout.
  *
- * Owns the filter state (mirrored to URL search params), the list selection, and the keyboard
- * navigation; callers differ only in where they fetch from and a few presentation flags. Renders as
- * a fragment (filter bar, then the list/panel row) so each surface controls its own container and
- * spacing.
+ * Owns the filter state (mirrored to URL search params, with the mode-like ones remembered per
+ * surface across visits), the list selection, and the keyboard navigation; callers differ only in
+ * where they fetch from and a few presentation flags. Renders as a fragment (filter bar, then the
+ * list/panel row) so each surface controls its own container and spacing.
  */
 export function GameListView({
   loadPage,
+  surface,
   showRankedCustom = false,
   showSourceFilter = false,
   showResult = false,
@@ -151,18 +158,37 @@ export function GameListView({
   const [endDateParam, setEndDateParam] = useLocationSearchParam('endDate')
   const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
 
+  // Only the params a surface actually shows are remembered for it, which also keeps a hand-edited
+  // param that surface ignores from counting as "the URL specifies the filters".
+  const rememberedUrlValues: Record<string, string> = {
+    sort: sortParam,
+    duration: durationParam,
+    includeShort: includeShortParam,
+  }
+  if (showSourceFilter) {
+    rememberedUrlValues.source = sourceParam
+  }
+  if (showRankedCustom) {
+    rememberedUrlValues.ranked = rankedParam
+    rememberedUrlValues.custom = customParam
+  }
+  const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters(
+    surface,
+    rememberedUrlValues,
+  )
+
   // Ranked/custom only exist on the match-history surface; elsewhere we neither read nor send them,
   // so a hand-edited `?ranked=true` on another surface can't leak into the request.
-  const ranked = showRankedCustom && rankedParam === 'true'
-  const custom = showRankedCustom && customParam === 'true'
+  const ranked = showRankedCustom && filterValues.ranked === 'true'
+  const custom = showRankedCustom && filterValues.custom === 'true'
   // The source filter only exists on the games page; elsewhere we neither read nor send it, so a
   // hand-edited `?source=custom` on another surface can't leak into the request.
-  const source = showSourceFilter ? parseSource(sourceParam) : GameSourceFilter.All
-  const duration = parseDuration(durationParam)
-  const sort = parseSort(sortParam)
+  const source = showSourceFilter ? parseSource(filterValues.source) : GameSourceFilter.All
+  const duration = parseDuration(filterValues.duration)
+  const sort = parseSort(filterValues.sort)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
-  const includeShort = includeShortParam === 'true'
+  const includeShort = filterValues.includeShort === 'true'
 
   const entryKey = useHistoryEntryKey()
   // Read once per mount: a lazy initializer runs at most once, so this never re-reads the store on
@@ -295,27 +321,32 @@ export function GameListView({
       ranked={ranked}
       setRanked={v => {
         setRankedParam(v ? 'true' : '')
+        saveFilterPrefs()
         reset()
       }}
       custom={custom}
       setCustom={v => {
         setCustomParam(v ? 'true' : '')
+        saveFilterPrefs()
         reset()
       }}
       showSourceFilter={showSourceFilter}
       source={source}
       setSource={v => {
         setSourceParam(v === GameSourceFilter.All ? '' : v)
+        saveFilterPrefs()
         reset()
       }}
       duration={duration}
       setDuration={v => {
         setDurationParam(v === GameDurationFilter.All ? '' : v)
+        saveFilterPrefs()
         reset()
       }}
       sort={sort}
       setSort={v => {
         setSortParam(v === GameSortOption.LatestFirst ? '' : v)
+        saveFilterPrefs()
         reset()
       }}
       mapName={mapName}
@@ -344,6 +375,7 @@ export function GameListView({
       includeShort={includeShort}
       setIncludeShort={v => {
         setIncludeShortParam(v ? 'true' : '')
+        saveFilterPrefs()
         reset()
       }}
       spoilerFree={spoilerFree}

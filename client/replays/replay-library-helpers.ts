@@ -52,12 +52,12 @@ export function encodeViewPathname(view: LibraryView): string {
 }
 
 /**
- * True when `view` is a playlist and the user hasn't chosen an explicit sort (`sortParam` is the
- * raw, possibly-empty `sort` URL param). In that case results come back in the playlist's manual
- * order, which shouldn't be day-grouped like the date sorts are.
+ * True when `view` is a playlist and the user hasn't chosen an explicit sort (`rawSort` is the sort
+ * in the raw, possibly-empty form a `sort` URL param carries). In that case results come back in
+ * the playlist's manual order, which shouldn't be day-grouped like the date sorts are.
  */
-export function isManualPlaylistOrder(view: LibraryView, sortParam: string): boolean {
-  return view.kind === 'playlist' && !sortParam
+export function isManualPlaylistOrder(view: LibraryView, rawSort: string): boolean {
+  return view.kind === 'playlist' && !rawSort
 }
 
 /**
