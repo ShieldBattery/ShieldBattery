@@ -308,6 +308,7 @@ export class GameApi {
         offset,
         startDate,
         endDate,
+        includeShort,
       },
     } = validateRequest(ctx, {
       query: GET_GAMES_QUERY_SCHEMA,
@@ -327,6 +328,7 @@ export class GameApi {
       sort,
       startDate,
       endDate,
+      includeShort,
     })
 
     const { users, maps, replays } = await getGameListSideData({

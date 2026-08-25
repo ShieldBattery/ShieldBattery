@@ -6,6 +6,7 @@ import {
   GameSourceFilter,
   getTeamSizeForFormat,
   MatchupFilter,
+  MIN_GAME_LENGTH_MS,
 } from '../../../common/games/game-filters'
 import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
@@ -416,6 +417,8 @@ export async function getGames(
     sort?: GameSortOption
     startDate?: number
     endDate?: number
+    /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
+    includeShort?: boolean
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -432,6 +435,7 @@ export async function getGames(
     sort,
     startDate,
     endDate,
+    includeShort,
   } = params
 
   const { client, done } = await db(withClient)
@@ -469,6 +473,12 @@ export async function getGames(
         default:
           duration satisfies never
       }
+    }
+
+    if (!includeShort) {
+      // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
+      // their length is unknown rather than known-short.
+      whereClauses.push(sql`(g.game_length IS NULL OR g.game_length >= ${MIN_GAME_LENGTH_MS})`)
     }
 
     if (mapName) {
@@ -581,6 +591,8 @@ export async function getGamesForUser(
     sort?: GameSortOption
     startDate?: number
     endDate?: number
+    /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
+    includeShort?: boolean
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -598,6 +610,7 @@ export async function getGamesForUser(
     sort,
     startDate,
     endDate,
+    includeShort,
   } = params
 
   const { client, done } = await db(withClient)
@@ -636,6 +649,12 @@ export async function getGamesForUser(
         default:
           duration satisfies never
       }
+    }
+
+    if (!includeShort) {
+      // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
+      // their length is unknown rather than known-short.
+      whereClauses.push(sql`(g.game_length IS NULL OR g.game_length >= ${MIN_GAME_LENGTH_MS})`)
     }
 
     if (mapName) {

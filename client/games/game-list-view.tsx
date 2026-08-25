@@ -84,6 +84,8 @@ export interface GameListFilters {
   startDate?: number
   /** Inclusive upper bound (unix ms) on the game's start time. */
   endDate?: number
+  /** When true, includes games shorter than `MIN_GAME_LENGTH_MS` (hidden by default). */
+  includeShort?: boolean
 }
 
 export interface GameListViewProps {
@@ -147,6 +149,7 @@ export function GameListView({
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [startDateParam, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDateParam, setEndDateParam] = useLocationSearchParam('endDate')
+  const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
 
   // Ranked/custom only exist on the match-history surface; elsewhere we neither read nor send them,
   // so a hand-edited `?ranked=true` on another surface can't leak into the request.
@@ -159,6 +162,7 @@ export function GameListView({
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
+  const includeShort = includeShortParam === 'true'
 
   const entryKey = useHistoryEntryKey()
   // Read once per mount: a lazy initializer runs at most once, so this never re-reads the store on
@@ -189,6 +193,7 @@ export function GameListView({
         matchup,
         startDate: startMs,
         endDate: endMs,
+        includeShort: includeShort || undefined,
       },
       offset,
       signal,
@@ -334,6 +339,11 @@ export function GameListView({
       matchup={matchup}
       setMatchup={v => {
         setMatchupParam(v ?? '')
+        reset()
+      }}
+      includeShort={includeShort}
+      setIncludeShort={v => {
+        setIncludeShortParam(v ? 'true' : '')
         reset()
       }}
       spoilerFree={spoilerFree}

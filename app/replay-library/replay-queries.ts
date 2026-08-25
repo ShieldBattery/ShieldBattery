@@ -3,6 +3,7 @@ import {
   GameDurationFilter,
   GameSortOption,
   getTeamSizeForFormat,
+  MIN_GAME_LENGTH_MS,
 } from '../../common/games/game-filters'
 import { expandMatchupFilter } from '../../common/games/matchups'
 import { FEATURED_REPLAY_GAME_TYPES } from '../../common/replays'
@@ -22,6 +23,9 @@ function durationMsToFrames(ms: number): number {
 const DURATION_10_MIN_FRAMES = durationMsToFrames(10 * 60 * 1000)
 const DURATION_20_MIN_FRAMES = durationMsToFrames(20 * 60 * 1000)
 const DURATION_30_MIN_FRAMES = durationMsToFrames(30 * 60 * 1000)
+
+/** The minimum-game-length floor, converted to frames, mirroring the server's match-history floor. */
+const MIN_GAME_LENGTH_FRAMES = durationMsToFrames(MIN_GAME_LENGTH_MS)
 
 /** A parameterized SQL statement (with `?` placeholders). */
 export interface ReplaySqlQuery {
@@ -84,12 +88,14 @@ function buildOrderByClause(filters: Pick<ReplayLibraryFilters, 'sort' | 'playli
 
 /**
  * Builds the SQL statements for a replay query, covering every filter (map name, player name, game
- * type, duration bucket, format, matchup, bookmarked, playlist membership) — nothing is filtered in JS
- * afterwards. Format/matchup matching reads the `team_size`/`matchup` columns computed once at parse
- * time (see `mapReplayHeaderToRecord`). `sql` is ordered per `filters.sort` (defaulting to
- * newest-first, or the playlist's manual order when `filters.playlistId` is set with no explicit
- * `sort`) and has no paging applied; `countSql` reuses the same joins/`WHERE` clause and `params` to
- * total the matches, without an `ORDER BY`.
+ * type, duration bucket, minimum-length floor, format, matchup, bookmarked, playlist membership) —
+ * nothing is filtered in JS afterwards. Format/matchup matching reads the `team_size`/`matchup`
+ * columns computed once at parse time (see `mapReplayHeaderToRecord`). Unless `filters.includeShort`
+ * is set, replays shorter than `MIN_GAME_LENGTH_MS` are excluded, same as every other games/replays
+ * list. `sql` is ordered per `filters.sort` (defaulting to newest-first, or the playlist's manual
+ * order when `filters.playlistId` is set with no explicit `sort`) and has no paging applied;
+ * `countSql` reuses the same joins/`WHERE` clause and `params` to total the matches, without an
+ * `ORDER BY`.
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
@@ -151,6 +157,22 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
         filters.duration satisfies never
     }
     hasValueFilter = true
+  }
+
+  if (!filters.includeShort && filters.playlistId === undefined && !filters.bookmarked) {
+    // The floor is default noise-hiding rather than a user-chosen filter, so curation views
+    // (bookmarked/playlist) are exempt: a replay the user explicitly curated isn't noise, and
+    // hiding it there would leave no active filter to explain the gap. For playlists the floor
+    // would also break reordering, which maps a loaded list index to an absolute playlist
+    // position and is only sound when the default view renders the complete playlist (see
+    // `buildOrderByClause` above). A replay whose length is unknown rather than known-short must
+    // not disappear either: parse-error rows store a zeroed `duration_frames` sentinel, so
+    // without the `parse_error` exemption the default (filterless) view would hide them —
+    // breaking the invariant that only active value filters exclude parse-error rows (see the
+    // `hasValueFilter` clause below). NULL-safety mirrors the server-side floor on
+    // `games.game_length`.
+    whereClauses.push('(r.parse_error != 0 OR r.duration_frames IS NULL OR r.duration_frames >= ?)')
+    params.push(MIN_GAME_LENGTH_FRAMES)
   }
 
   if (filters.gameTimeFrom !== undefined) {

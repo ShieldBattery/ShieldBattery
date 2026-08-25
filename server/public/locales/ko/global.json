@@ -541,6 +541,7 @@
         "under10": "10분 미만"
       },
       "format": "형식",
+      "includeShort": "2분 미만 게임 포함",
       "label": "필터",
       "mapName": "맵 이름",
       "matchup": "종족전",

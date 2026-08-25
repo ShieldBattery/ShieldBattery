@@ -541,6 +541,7 @@
         "under10": "10分钟以下"
       },
       "format": "形式",
+      "includeShort": "包含少于 2 分钟的游戏",
       "label": "筛选",
       "mapName": "地图名称",
       "matchup": "对阵",

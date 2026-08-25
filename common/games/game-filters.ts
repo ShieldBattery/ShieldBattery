@@ -2,6 +2,13 @@ import { TFunction } from 'i18next'
 import { Tagged } from 'type-fest'
 import { AssignedRaceChar } from '../races'
 
+/**
+ * Games shorter than this (in ms) are hidden from every games/replays list by default (instant
+ * leaves and failed launches are noise, not games worth browsing); an `includeShort` filter opts
+ * back into seeing them.
+ */
+export const MIN_GAME_LENGTH_MS = 2 * 60 * 1000
+
 /** Duration filter options. */
 export enum GameDurationFilter {
   All = 'all',
