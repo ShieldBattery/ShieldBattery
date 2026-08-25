@@ -417,6 +417,20 @@ describe('games/game-models/addNetcodeV2RelayEvents', () => {
 
     expect(query).not.toHaveBeenCalled()
   })
+
+  test('includes an event region when the coordinator recorded one', async () => {
+    const query = mockDbClient([])
+    const events: NetcodeV2RelayEvent[] = [
+      { kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900', region: 'us-east', at: 1000 },
+    ]
+
+    await addNetcodeV2RelayEvents('game-1', events)
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.values).toEqual([JSON.stringify(events), 'game-1'])
+    expect(template.values[0]).toContain('"region":"us-east"')
+  })
 })
 
 describe('games/game-models/getNetcodeV2DebugInfo', () => {
@@ -439,5 +453,18 @@ describe('games/game-models/getNetcodeV2DebugInfo', () => {
     const result = await getNetcodeV2DebugInfo('game-1')
 
     expect(result).toEqual({ session: null, relays: [] })
+  })
+
+  test('loads a stored event with no region, from before the field existed', async () => {
+    const relays: NetcodeV2RelayEvent[] = [
+      { kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900', at: 1000 },
+    ]
+    // eslint-disable-next-line camelcase
+    mockDbClient([{ netcode_v2_session: '1234567890123', netcode_v2_relays: relays }])
+
+    const result = await getNetcodeV2DebugInfo('game-1')
+
+    expect(result).toEqual({ session: 1234567890123, relays })
+    expect(result.relays[0]).not.toHaveProperty('region')
   })
 })

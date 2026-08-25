@@ -813,6 +813,45 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     ])
   })
 
+  test('records the home relay region when the coordinator labels it', async () => {
+    configureNetcodeV2()
+    mockSessionResponse({
+      ...sessionResponse([0]),
+      // eslint-disable-next-line camelcase
+      relay_regions: [{ relay_id: 1, region: 'us-east' }],
+    })
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
+      signal: new AbortController().signal,
+    })
+
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledWith('game-1', [
+      expect.objectContaining({ kind: 'home', relayId: 1, region: 'us-east' }),
+    ])
+  })
+
+  test('omits the region on a home event when the coordinator has no label for the relay', async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
+      signal: new AbortController().signal,
+    })
+
+    const [, events] = asMockedFunction(addNetcodeV2RelayEvents).mock.calls[0]
+    expect(events[0]).not.toHaveProperty('region')
+  })
+
   test('records one deduped home event per distinct relay across a dev cross-relay split', async () => {
     configureNetcodeV2()
     // eslint-disable-next-line camelcase

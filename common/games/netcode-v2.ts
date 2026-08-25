@@ -142,6 +142,12 @@ export interface NetcodeV2HomeRelayEvent {
   kind: 'home'
   relayId: number
   relayAddr: string
+  /**
+   * The coordinator's region id for this relay (e.g. `"us-east"`), if it had one recorded. Absent
+   * for an untagged relay, a coordinator with no region catalog, or an event recorded before this
+   * field existed.
+   */
+  region?: string
   /** Unix ms when this event was recorded. */
   at: number
 }
@@ -151,6 +157,12 @@ export interface NetcodeV2RehomeRelayEvent {
   deadRelayId: number
   newRelayId: number
   newRelayAddr: string
+  /**
+   * The coordinator's region id for `newRelayId` (e.g. `"us-east"`), if it had one recorded. Absent
+   * for an untagged relay, a coordinator with no region catalog, or an event recorded before this
+   * field existed.
+   */
+  newRelayRegion?: string
   /** Unix ms when this event was recorded. */
   at: number
 }

@@ -1159,6 +1159,12 @@ function getClientResultLabel(result: GameClientResult, t: TFunction): string {
   }
 }
 
+/** Formats a relay-serving-history row's relay cell, e.g. `"us-east (50)"`, falling back to the
+ * bare relay id when the coordinator recorded no region for it. */
+function formatRelay(relayId: number, region: string | undefined): string {
+  return region ? `${region} (${relayId})` : String(relayId)
+}
+
 const DEBUG_OPEN_TRANSITION: Transition = {
   type: 'spring',
   mass: 4,
@@ -1381,14 +1387,15 @@ function DebugInfoDisplay({
                         {event.kind === 'home' ? (
                           <>
                             <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
-                            <td>{event.relayId}</td>
+                            <td>{formatRelay(event.relayId, event.region)}</td>
                             <td>{event.relayAddr}</td>
                           </>
                         ) : (
                           <>
                             <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
                             <td>
-                              {event.deadRelayId} {'->'} {event.newRelayId}
+                              {event.deadRelayId} {'->'}{' '}
+                              {formatRelay(event.newRelayId, event.newRelayRegion)}
                             </td>
                             <td>{event.newRelayAddr}</td>
                           </>

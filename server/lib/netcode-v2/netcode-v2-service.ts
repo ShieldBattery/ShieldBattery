@@ -204,6 +204,15 @@ interface CoordinatorSlotHome {
   relay: CoordinatorRelayEndpoint
 }
 
+/**
+ * One serving relay's region, as listed in a `CoordinatorSessionResponse`'s `relay_regions`. Only
+ * relays the coordinator tagged with a region appear; an untagged relay has no entry.
+ */
+interface CoordinatorRelayRegionLabel {
+  relay_id: number
+  region: string
+}
+
 interface CoordinatorSessionResponse {
   session: number
   home_relay: CoordinatorRelayEndpoint
@@ -221,6 +230,32 @@ interface CoordinatorSessionResponse {
    * first turn.
    */
   bounds: { min: number; max: number }
+  /**
+   * Each serving relay's region, separate from `home_relay`/`slot_homes` themselves: the
+   * coordinator deliberately never puts a region on those (their shape rides all the way to the
+   * game process, and a region must not reach a client before its own in-game, gameplay-elapsed
+   * release). This list exists only for our own operator-facing tooling (the admin debug view's
+   * relay-serving history) — look a relay id up here, never thread it into
+   * `NetcodeV2RelayInfo`/`NetcodeV2RosterEntry`. Absent (or missing an entry for a given relay) on
+   * a coordinator with no region catalog, or for an untagged relay.
+   */
+  relay_regions?: CoordinatorRelayRegionLabel[]
+}
+
+/** Looks up `relayId`'s region in a session or rehome response's region label list. */
+function findRelayRegion(
+  relayRegions: CoordinatorRelayRegionLabel[] | undefined,
+  relayId: number,
+): string | undefined {
+  return relayRegions?.find(label => label.relay_id === relayId)?.region
+}
+
+/**
+ * `{ region }` when `region` is known, else an empty object — spread into a relay-event literal so
+ * an unknown region omits the key entirely rather than carrying it as `undefined`.
+ */
+function regionField(region: string | undefined): { region: string } | Record<string, never> {
+  return region !== undefined ? { region } : {}
 }
 
 /**
@@ -239,6 +274,12 @@ interface CoordinatorRehomeResponse {
   decision: 'stay' | 'unavailable' | 'newTarget'
   /** Present only for a `newTarget` decision: the replacement relay to dial. */
   relay?: CoordinatorRelayEndpoint
+  /**
+   * `relay`'s region, present only for a `newTarget` decision with a recorded region. Same
+   * tenant-only, operator-facing purpose as `CoordinatorSessionResponse.relay_regions` — never
+   * carried on `relay` itself, and never to be threaded into anything a game client receives.
+   */
+  relay_region?: string
 }
 
 /**
@@ -592,6 +633,7 @@ export class NetcodeV2Service {
         kind: 'home',
         relayId: session.home_relay.relay_id,
         relayAddr: session.home_relay.relay_addr,
+        ...regionField(findRelayRegion(session.relay_regions, session.home_relay.relay_id)),
         at,
       })
       for (const { relay } of session.slot_homes ?? []) {
@@ -600,6 +642,7 @@ export class NetcodeV2Service {
             kind: 'home',
             relayId: relay.relay_id,
             relayAddr: relay.relay_addr,
+            ...regionField(findRelayRegion(session.relay_regions, relay.relay_id)),
             at,
           })
         }
@@ -819,6 +862,9 @@ export class NetcodeV2Service {
               deadRelayId,
               newRelayId: relay.relay_id,
               newRelayAddr: relay.relay_addr,
+              ...(response.relay_region !== undefined
+                ? { newRelayRegion: response.relay_region }
+                : {}),
               at: Date.now(),
             },
           ])
