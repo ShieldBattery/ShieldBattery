@@ -735,6 +735,12 @@ export default class GameResultService {
         await this.publishReconciledGame(gameId)
       }
     } catch (err: unknown) {
+      if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.NotFound) {
+        // A game whose load was cancelled gets its record deleted, but its netcode-v2 session
+        // still tears down afterward and delivers `sessionClosed` — there's just nothing left to
+        // reconcile for it.
+        return
+      }
       logger.error({ err }, `failed to force-reconcile game ${gameId}`)
     }
   }
