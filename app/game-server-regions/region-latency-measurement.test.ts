@@ -177,6 +177,39 @@ describe('measureRegionLatency', () => {
     expect(result?.rttMs).toBeGreaterThanOrEqual(0)
   })
 
+  it('completes the TCP fallback without waiting out every silent beacon attempt', async () => {
+    // A UDP-blocked network drops beacon datagrams silently (no ICMP), so every attempt runs its
+    // full timeout. The fallback must start after a single attempt's head start and win the race
+    // well before the whole beacon sequence exhausts -- otherwise the region resolver's
+    // queue-time budget elapses first and the player's first Auto queue goes regionless despite
+    // a measurable region.
+    const silent = dgram.createSocket('udp4')
+    await new Promise<void>(resolve => silent.bind(0, '127.0.0.1', () => resolve()))
+    const silentPort = (silent.address() as net.AddressInfo).port
+    tcp = await startTcpAcceptClose()
+
+    try {
+      const start = Date.now()
+      const result = await measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: `127.0.0.1:${silentPort}`,
+          fallback: `127.0.0.1:${tcp.port}`,
+        },
+        FAST_OPTIONS,
+      )
+      const elapsed = Date.now() - start
+
+      expect(result?.source).toBe('fallback')
+      // One attempt timeout (200ms) of head start plus a loopback TCP connect -- far under the
+      // full silent beacon sequence (3 x 200ms of timeouts plus spacing).
+      expect(elapsed).toBeLessThan(500)
+    } finally {
+      await new Promise<void>(resolve => silent.close(() => resolve()))
+    }
+  })
+
   it('returns undefined when both the beacon and the fallback are dead', async () => {
     const deadBeaconPort = await getDeadUdpPort()
     const deadFallbackPort = await getDeadUdpPort()

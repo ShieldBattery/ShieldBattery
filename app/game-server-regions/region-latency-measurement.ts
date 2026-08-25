@@ -227,32 +227,82 @@ export async function measureFallbackMedianRtt(
 }
 
 /**
- * Measures one region's latency: the UDP beacon first, falling back to the TCP-connect endpoint
- * only if every beacon attempt failed. Returns `undefined` if both paths failed.
+ * Measures one region's latency: the UDP beacon preferred, with the TCP-connect fallback racing
+ * it after a one-attempt head start. Returns `undefined` if both paths failed.
+ *
+ * The fallback must not wait for the beacon sequence to exhaust itself: on a UDP-blocked network
+ * every beacon attempt times out in turn (several seconds in total), which used to push a
+ * perfectly working TCP measurement past the region resolver's queue-time budget — the player's
+ * first Auto queue went regionless despite a measurable region. Instead the fallback starts once
+ * the first beacon attempt has had its full timeout: a healthy beacon has replied well before
+ * that (so the fallback usually never dials), while a blocked one lets the TCP result land within
+ * a couple of seconds. Whichever path produces a result first wins — a beacon median that
+ * finishes ahead of the fallback is preferred as usual, and if the fallback wins against a
+ * partially-lossy beacon, the periodic re-sweep upgrades the entry to a beacon measurement once
+ * UDP behaves again.
  */
 export async function measureRegionLatency(
   region: GameServerRegion,
   options: MeasureOptions = {},
 ): Promise<RegionLatency | undefined> {
-  let beaconRtt: number | undefined
-  try {
-    beaconRtt = await measureBeaconMedianRtt(region.beacon, options)
-  } catch (err: any) {
-    console.error(`beacon measurement failed for region [${region.id}]: ${err.stack ?? err}`)
-  }
-  if (beaconRtt !== undefined) {
-    return { regionId: region.id, rttMs: beaconRtt, source: 'beacon', measuredAt: Date.now() }
-  }
+  const { attemptTimeoutMs = ATTEMPT_TIMEOUT_MS, signal } = options
+  // Settling the race aborts whichever path is still running, freeing its sockets and remaining
+  // attempts; the caller's own signal aborts both.
+  const raceAbort = new AbortController()
+  const onOuterAbort = () => raceAbort.abort()
+  signal?.addEventListener('abort', onOuterAbort)
+  const raceOptions = { ...options, signal: raceAbort.signal }
 
-  let fallbackRtt: number | undefined
-  try {
-    fallbackRtt = await measureFallbackMedianRtt(region.fallback, options)
-  } catch (err: any) {
-    console.error(`fallback measurement failed for region [${region.id}]: ${err.stack ?? err}`)
-  }
-  if (fallbackRtt !== undefined) {
-    return { regionId: region.id, rttMs: fallbackRtt, source: 'fallback', measuredAt: Date.now() }
-  }
+  const beaconPromise = (async (): Promise<RegionLatency | undefined> => {
+    let rtt: number | undefined
+    try {
+      rtt = await measureBeaconMedianRtt(region.beacon, raceOptions)
+    } catch (err: any) {
+      console.error(`beacon measurement failed for region [${region.id}]: ${err.stack ?? err}`)
+    }
+    return rtt !== undefined
+      ? { regionId: region.id, rttMs: rtt, source: 'beacon', measuredAt: Date.now() }
+      : undefined
+  })()
 
-  return undefined
+  const fallbackPromise = (async (): Promise<RegionLatency | undefined> => {
+    await delay(attemptTimeoutMs)
+    // Aborted means the race already settled with a result (a healthy beacon replied and won) or
+    // the caller gave up — either way there is nothing left to dial. A beacon that merely
+    // *failed* fast (an ICMP-refused port, say) does not abort, so the fallback still runs.
+    if (raceAbort.signal.aborted) {
+      return undefined
+    }
+    let rtt: number | undefined
+    try {
+      rtt = await measureFallbackMedianRtt(region.fallback, raceOptions)
+    } catch (err: any) {
+      console.error(`fallback measurement failed for region [${region.id}]: ${err.stack ?? err}`)
+    }
+    return rtt !== undefined
+      ? { regionId: region.id, rttMs: rtt, source: 'fallback', measuredAt: Date.now() }
+      : undefined
+  })()
+
+  try {
+    return await new Promise<RegionLatency | undefined>(resolve => {
+      let unfinished = 2
+      let settled = false
+      const onResult = (result: RegionLatency | undefined) => {
+        if (settled) {
+          return
+        }
+        unfinished -= 1
+        if (result !== undefined || unfinished === 0) {
+          settled = true
+          raceAbort.abort()
+          resolve(result)
+        }
+      }
+      beaconPromise.then(onResult, () => onResult(undefined))
+      fallbackPromise.then(onResult, () => onResult(undefined))
+    })
+  } finally {
+    signal?.removeEventListener('abort', onOuterAbort)
+  }
 }
