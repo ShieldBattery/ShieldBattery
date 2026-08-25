@@ -693,6 +693,7 @@
     "notFound": "This game could not be found.",
     "resolveDialog": {
       "errorGeneric": "Something went wrong. Please try again.",
+      "errorInvalidResults": "These results aren't valid for this game. Exactly one team must win.",
       "errorNotDisputable": "This game is no longer awaiting resolution.",
       "matchmakingHint": "Exactly one team must win.",
       "resolveButton": "Resolve",

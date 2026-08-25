@@ -164,6 +164,13 @@ export function ResolveGameResultsDialog({
               'This game is no longer awaiting resolution.',
             ),
           )
+        } else if (code === GameResultErrorCode.InvalidResults) {
+          setErrorMessage(
+            t(
+              'gameDetails.resolveDialog.errorInvalidResults',
+              "These results aren't valid for this game. Exactly one team must win.",
+            ),
+          )
         } else {
           setErrorMessage(
             t('gameDetails.resolveDialog.errorGeneric', 'Something went wrong. Please try again.'),
