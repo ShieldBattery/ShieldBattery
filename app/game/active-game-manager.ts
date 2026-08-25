@@ -271,9 +271,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   /**
    * Delivers the server's netcode v2 session handoff. The first time this fires for a game, it
-   * selects the keypair matching `setup.clientPubkey` from the ring (or the most recently generated
-   * one, for a server too old to echo the pubkey back) and adopts it for the game's lifetime — a
-   * later relaunch of the same game id reuses that adopted keypair rather than re-selecting, so it
+   * selects the keypair matching `setup.clientPubkey` from the ring (or, for a server too old to
+   * echo the pubkey back, the ring's sole keypair — with several outstanding there is no safe
+   * guess, see {@link NetcodeV2KeyRing.onlyKey}) and adopts it for the game's lifetime — a later
+   * relaunch of the same game id reuses that adopted keypair rather than re-selecting, so it
    * can't drift even if the ring's contents change in between. Once adopted, the keypair is merged
    * with the setup and forwarded to the game process ahead of its game setup.
    */
@@ -287,16 +288,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       current.netcodeV2Keys ??
       (setup.clientPubkey !== undefined
         ? this.pendingNetcodeV2Keys.get(setup.clientPubkey)
-        : this.pendingNetcodeV2Keys.mostRecent())
+        : this.pendingNetcodeV2Keys.onlyKey())
     if (!keys) {
-      // The server can only have gotten a token for a pubkey we generated, so this indicates a
-      // server/client flow bug (or a ring eviction from an unreasonable number of joins) rather than
-      // an expected state. Quit the (already-launched) game process rather than leaving it orphaned
+      // Either the server named a pubkey we no longer hold (a flow bug, or a ring eviction from an
+      // unreasonable number of joins), or it named none while several keypairs are outstanding —
+      // guessing among them could pair the server's token with the wrong private key and fail the
+      // relay's connection-binding challenge for the whole lobby, so an explicit failure here is
+      // strictly better. Quit the (already-launched) game process rather than leaving it orphaned
       // on the loading screen.
       this.emit('gameCommand', gameId, 'quit')
       this.setStatus(
         GameStatus.Error,
-        new Error('Received netcode v2 setup with no matching generated keypair'),
+        new Error(
+          setup.clientPubkey !== undefined
+            ? 'Received netcode v2 setup with no matching generated keypair'
+            : 'Received netcode v2 setup naming no keypair while several are outstanding',
+        ),
       )
       this.activeGame = null
       return

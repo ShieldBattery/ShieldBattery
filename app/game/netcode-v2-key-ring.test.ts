@@ -36,20 +36,30 @@ describe('NetcodeV2KeyRing', () => {
     expect(ring.get('pubkey-second')).toEqual(second)
   })
 
-  it('mostRecent returns the last pushed keypair', () => {
+  it('onlyKey returns the sole keypair when exactly one is outstanding', () => {
+    const ring = new NetcodeV2KeyRing()
+    const only = makeKeyPair('pubkey-a')
+    ring.push(only)
+
+    expect(ring.onlyKey()).toEqual(only)
+  })
+
+  it('onlyKey returns undefined when nothing has been pushed', () => {
+    const ring = new NetcodeV2KeyRing()
+
+    expect(ring.onlyKey()).toBeUndefined()
+  })
+
+  it('onlyKey refuses to guess among several outstanding keypairs', () => {
     const ring = new NetcodeV2KeyRing()
     ring.push(makeKeyPair('pubkey-a'))
     ring.push(makeKeyPair('pubkey-b'))
-    const last = makeKeyPair('pubkey-c')
-    ring.push(last)
 
-    expect(ring.mostRecent()).toEqual(last)
-  })
-
-  it('mostRecent returns undefined when nothing has been pushed', () => {
-    const ring = new NetcodeV2KeyRing()
-
-    expect(ring.mostRecent()).toBeUndefined()
+    // A server too old to echo the seated pubkey may have seated EITHER of these; picking the
+    // most recent could pair its token with the other keypair's private key, failing the relay's
+    // connection-binding challenge for the whole lobby. An explicit refusal (surfaced as an error
+    // by the caller) beats that silent guess.
+    expect(ring.onlyKey()).toBeUndefined()
   })
 
   it('evicts the oldest entry once capacity is exceeded', () => {

@@ -36,14 +36,18 @@ export class NetcodeV2KeyRing {
   }
 
   /**
-   * The most recently pushed keypair still in the ring, for a launch handoff that carries no
-   * public key to match against (an old server that predates that field).
+   * The ring's sole keypair, for a launch handoff that carries no public key to match against (a
+   * server that predates the echo field). With exactly one keypair outstanding there is no
+   * ambiguity: the server can only have seated that one. With several outstanding, any guess (the
+   * most recent, say) can pair a token minted for one keypair with a different keypair's private
+   * key — the relay then rejects the connection-binding challenge and the whole lobby fails to
+   * load, the exact failure the pubkey echo exists to prevent — so this refuses instead and the
+   * caller surfaces an explicit error.
    */
-  mostRecent(): NetcodeV2KeyPair | undefined {
-    let last: NetcodeV2KeyPair | undefined
-    for (const keyPair of this.keys.values()) {
-      last = keyPair
+  onlyKey(): NetcodeV2KeyPair | undefined {
+    if (this.keys.size !== 1) {
+      return undefined
     }
-    return last
+    return this.keys.values().next().value
   }
 }
