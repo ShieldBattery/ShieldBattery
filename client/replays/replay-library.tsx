@@ -42,6 +42,7 @@ import {
   SelectableRowContainer,
 } from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
+import { useRememberedFilters } from '../games/use-remembered-filters'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
@@ -489,15 +490,26 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
   const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
 
-  const duration = parseDuration(durationParam)
-  const sort = parseSort(sortParam)
+  // The library's mode-like filters are remembered per user across visits, with every view (the
+  // whole library, bookmarks, each playlist) sharing one saved set.
+  const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters('replays', {
+    sort: sortParam,
+    duration: durationParam,
+    includeShort: includeShortParam,
+    gameType: gameTypeParam,
+  })
+
+  const duration = parseDuration(filterValues.duration)
+  const sort = parseSort(filterValues.sort)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
-  const gameType = parseModeFilter(gameTypeParam)
+  const gameType = parseModeFilter(filterValues.gameType)
   // The minimum-length floor never applies to curation views (bookmarked/playlist) — see
   // `buildReplaySqlQuery` — so `includeShort` is meaningless there: it isn't read (a hand-edited
   // URL param must not disable reordering via `hasActiveFilters`) and the checkbox isn't offered.
-  const includeShort = view.kind === 'all' && includeShortParam === 'true'
+  // It stays in the shared remembered set even so, since `save` rewrites the whole set — dropping
+  // it on curation views would forget the library view's preference on any save made from one.
+  const includeShort = view.kind === 'all' && filterValues.includeShort === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -522,7 +534,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
-  const manualOrder = isManualPlaylistOrder(view, sortParam)
+  const manualOrder = isManualPlaylistOrder(view, filterValues.sort)
   // A playlist's manual order has no meaningful day boundaries, so it renders flat like the
   // duration sorts do.
   const useFlatList = isDurationSort || manualOrder
@@ -820,8 +832,10 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     setStartDateParam('')
     setEndDateParam('')
     setIncludeShortParam('')
+    saveFilterPrefs()
     reset()
-    // `sort` is a view option (not a filter), so it's intentionally left untouched.
+    // `sort` is a view option (not a filter), so it's intentionally left untouched — including in
+    // the remembered set, which `saveFilterPrefs` rewrites from the params that remain.
   }
 
   useKeyListener({
@@ -1050,6 +1064,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           duration={duration}
           setDuration={v => {
             setDurationParam(v === GameDurationFilter.All ? '' : v)
+            saveFilterPrefs()
             reset()
           }}
           sort={sort}
@@ -1057,6 +1072,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
             // Inside a playlist even `latest` stays explicit in the URL, since an absent sort
             // means the playlist's manual order there.
             setSortParam(v === GameSortOption.LatestFirst && view.kind !== 'playlist' ? '' : v)
+            saveFilterPrefs()
             reset()
           }}
           mapName={mapName}
@@ -1085,6 +1101,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           includeShort={includeShort}
           setIncludeShort={v => {
             setIncludeShortParam(v ? 'true' : '')
+            saveFilterPrefs()
             reset()
           }}
           showIncludeShort={view.kind === 'all'}
@@ -1092,6 +1109,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           gameType={gameType}
           setGameType={v => {
             setGameTypeParam(v === undefined ? '' : String(v))
+            saveFilterPrefs()
             reset()
           }}
           spoilerFree={spoilerFree}

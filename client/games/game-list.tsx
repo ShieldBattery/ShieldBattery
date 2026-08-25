@@ -114,6 +114,7 @@ export function GameList() {
 
         <GameListView
           loadPage={loadPage}
+          surface='games'
           showSourceFilter={true}
           showResult={true}
           noResultsText={t('games.list.noMatchingGames', 'No matching games.')}

@@ -45,6 +45,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
     <MatchHistoryContainer>
       <GameListView
         loadPage={loadPage}
+        surface='matchHistory'
         showRankedCustom={true}
         showResult={true}
         forUserId={userId}
