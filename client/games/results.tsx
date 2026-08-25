@@ -159,6 +159,28 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface)')};
 `
 
+const StatusRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const StatusChip = styled.div<{ $color: string }>`
+  ${labelMedium};
+  ${singleLine};
+
+  height: 24px;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  color: ${props => props.$color};
+`
+
 const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
   month: 'short',
@@ -188,7 +210,9 @@ export function ConnectedGameResultsPage({
   )
 
   const selfUser = useSelfUser()
-  const hasDebugPermission = !!useSelfPermissions()?.debug
+  const selfPermissions = useSelfPermissions()
+  const hasDebugPermission = !!selfPermissions?.debug
+  const canManageGameReports = !!selfPermissions?.manageGameReports
   const game = useAppSelector(s => s.games.byId.get(gameId))
   const replayInfo = useAppSelector(s => s.games.replayInfoById.get(gameId))
   const [loadingError, setLoadingError] = useState<Error>()
@@ -462,9 +486,21 @@ export function ConnectedGameResultsPage({
             </>
           ) : null}
         </HeaderInfo>
-        <LiveFinalIndicator $isLive={isLive}>
-          {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
-        </LiveFinalIndicator>
+        <StatusRow>
+          <LiveFinalIndicator $isLive={isLive}>
+            {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
+          </LiveFinalIndicator>
+          {game?.manuallyResolved ? (
+            <StatusChip $color='var(--theme-on-surface-variant)'>
+              {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
+            </StatusChip>
+          ) : null}
+          {canManageGameReports && game?.disputable ? (
+            <StatusChip $color='var(--theme-amber)'>
+              {t('gameDetails.statusDisputed', 'Disputed')}
+            </StatusChip>
+          ) : null}
+        </StatusRow>
       </HeaderArea>
       <ButtonBar>
         {replayInfo && IS_ELECTRON ? (
@@ -514,6 +550,19 @@ export function ConnectedGameResultsPage({
           />
         ) : null}
         <ButtonSpacer />
+        {canManageGameReports && game?.disputable ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonResolveResults', 'Resolve results')}
+            onClick={() => {
+              dispatch(
+                openDialog({
+                  type: DialogType.ResolveGameResults,
+                  initData: { gameId },
+                }),
+              )
+            }}
+          />
+        ) : null}
         {hasDebugPermission ? (
           <Tooltip text={t('gameDetails.buttonCopyGameId', 'Copy ID')} position='left'>
             <IconButton
