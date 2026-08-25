@@ -1,10 +1,18 @@
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import {
   GameServerRegion,
   GameServerRegionLatencies,
   makeGameServerRegionId,
 } from '../../common/game-server-regions'
-import { pickAutoRegion, resolveManualRegion, resolveRegionSelection } from './region-resolution'
+import { TypedIpcRenderer } from '../../common/ipc'
+import { jotaiStore } from '../jotai-store'
+import { gameServerRegionsAtom, manualGameServerRegionAtom } from './game-server-regions-atoms'
+import {
+  pickAutoRegion,
+  resolveDesiredRegion,
+  resolveManualRegion,
+  resolveRegionSelection,
+} from './region-resolution'
 
 const REGION_US_EAST: GameServerRegion = {
   id: makeGameServerRegionId('us-east'),
@@ -100,5 +108,69 @@ describe('resolveRegionSelection', () => {
 
   test('no setting and no measurements: resolves to undefined', () => {
     expect(resolveRegionSelection(undefined, REGIONS, {})).toBeUndefined()
+  })
+})
+
+describe('resolveDesiredRegion', () => {
+  afterEach(() => {
+    jotaiStore.set(gameServerRegionsAtom, [])
+    jotaiStore.set(manualGameServerRegionAtom, undefined)
+    vi.restoreAllMocks()
+  })
+
+  test('empty region list: resolves to undefined immediately without touching the app', async () => {
+    jotaiStore.set(gameServerRegionsAtom, [])
+    const invokeSpy = vi.spyOn(TypedIpcRenderer.prototype, 'invoke')
+
+    const result = await resolveDesiredRegion()
+
+    expect(result).toBeUndefined()
+    // No ensure-sweep kick, no latency poll -- there is nothing to measure.
+    expect(invokeSpy).not.toHaveBeenCalled()
+  })
+
+  test('non-empty region list with an immediate measurement: resolves without polling', async () => {
+    jotaiStore.set(gameServerRegionsAtom, REGIONS)
+    const invokeSpy = vi
+      .spyOn(TypedIpcRenderer.prototype, 'invoke')
+      .mockImplementation(
+        async (...[channel]: Parameters<typeof TypedIpcRenderer.prototype.invoke>) => {
+          if (channel === 'gameServerRegionsGetLatencies') {
+            return latencyFor(REGION_US_EAST, 24)
+          }
+          return undefined
+        },
+      )
+
+    const result = await resolveDesiredRegion()
+
+    expect(result).toEqual({ region: REGION_US_EAST.id, rttMs: 24 })
+    expect(invokeSpy).toHaveBeenCalledTimes(1)
+    expect(invokeSpy).toHaveBeenCalledWith('gameServerRegionsGetLatencies')
+  })
+
+  test('non-empty region list with no measurement yet: kicks the sweep and polls until one lands', async () => {
+    jotaiStore.set(gameServerRegionsAtom, REGIONS)
+    let getLatenciesCalls = 0
+    const invokeSpy = vi
+      .spyOn(TypedIpcRenderer.prototype, 'invoke')
+      .mockImplementation(
+        async (...[channel]: Parameters<typeof TypedIpcRenderer.prototype.invoke>) => {
+          if (channel === 'gameServerRegionsGetLatencies') {
+            getLatenciesCalls += 1
+            return getLatenciesCalls === 1 ? {} : latencyFor(REGION_EU_WEST, 40)
+          }
+          if (channel === 'gameServerRegionsEnsureSweep') {
+            return undefined
+          }
+          return undefined
+        },
+      )
+
+    const result = await resolveDesiredRegion()
+
+    expect(result).toEqual({ region: REGION_EU_WEST.id, rttMs: 40 })
+    expect(invokeSpy).toHaveBeenCalledWith('gameServerRegionsEnsureSweep')
+    expect(getLatenciesCalls).toBeGreaterThanOrEqual(2)
   })
 })

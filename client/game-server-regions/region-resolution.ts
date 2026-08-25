@@ -83,10 +83,17 @@ export function resolveRegionSelection(
  * startup sweep may still be in flight) and, if still empty, resolves to undefined so the player
  * queues region-less -- a user with no coordinator-configured regions (dev loopback) must still be
  * able to queue. This client-side wait takes the place of the server's old ping-measurement gate.
+ *
+ * Short-circuits to undefined immediately, with no sweep kick and no polling, when the
+ * server-provided region list is empty: there is nothing to measure, so waiting out the poll
+ * window can never produce a result and only delays the join/queue.
  */
 export async function resolveDesiredRegion(): Promise<DesiredRegion | undefined> {
   const manualRegionId = jotaiStore.get(manualGameServerRegionAtom)
   const regions = jotaiStore.get(gameServerRegionsAtom)
+  if (regions.length === 0) {
+    return undefined
+  }
 
   const readSelection = async () =>
     resolveRegionSelection(
