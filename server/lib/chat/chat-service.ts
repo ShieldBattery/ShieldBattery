@@ -64,6 +64,7 @@ import {
   ChatMessage,
   EditableChannelFields,
   FullChannelInfo,
+  LeaveChannelResult,
   addMessageToChannel,
   addUserToChannel,
   banAllIdentifiersFromChannel,
@@ -578,13 +579,17 @@ export default class ChatService {
       )
     }
 
-    const newOwnerId = await this.removeUserFromChannel(channelId, userId)
+    const { userWasRemoved, newOwnerId } = await this.removeUserFromChannel(channelId, userId)
 
-    this.publisher.publish(getChannelPath(channelId), {
-      action: 'leave2',
-      userId: userSockets.userId,
-      newOwnerId,
-    })
+    if (userWasRemoved) {
+      // Only the request whose DB delete actually removed the membership publishes the event, so
+      // concurrent duplicate leave requests don't each broadcast a "user has left" event.
+      this.publisher.publish(getChannelPath(channelId), {
+        action: 'leave2',
+        userId: userSockets.userId,
+        newOwnerId,
+      })
+    }
     this.unsubscribeUserFromChannel(userSockets, channelId)
   }
 
@@ -669,14 +674,18 @@ export default class ChatService {
 
     // NOTE(2Pac): New owner can technically be selected if a server moderator removes the current
     // owner.
-    const newOwnerId = await this.removeUserFromChannel(channelId, targetId)
+    const { userWasRemoved, newOwnerId } = await this.removeUserFromChannel(channelId, targetId)
 
-    this.publisher.publish(getChannelPath(channelId), {
-      action: moderationAction,
-      targetId,
-      channelName: channelInfo.name,
-      newOwnerId,
-    })
+    if (userWasRemoved) {
+      // Only the request whose DB delete actually removed the membership publishes the event, so
+      // concurrent duplicate moderation requests don't each broadcast a moderation event.
+      this.publisher.publish(getChannelPath(channelId), {
+        action: moderationAction,
+        targetId,
+        channelName: channelInfo.name,
+        newOwnerId,
+      })
+    }
 
     // NOTE(2Pac): We don't use the helper method here because moderating people while they're
     // offline is allowed.
@@ -1481,8 +1490,8 @@ export default class ChatService {
   private async removeUserFromChannel(
     channelId: SbChannelId,
     userId: SbUserId,
-  ): Promise<SbUserId | undefined> {
-    const { newOwnerId } = await removeUserFromChannel(userId, channelId)
+  ): Promise<LeaveChannelResult> {
+    const result = await removeUserFromChannel(userId, channelId)
 
     if (this.state.channels.has(channelId)) {
       const updated = this.state.channels.get(channelId)!.delete(userId)
@@ -1496,7 +1505,7 @@ export default class ChatService {
       this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelId))
     }
 
-    return newOwnerId
+    return result
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {

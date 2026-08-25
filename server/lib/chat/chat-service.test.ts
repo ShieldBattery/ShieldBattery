@@ -986,7 +986,7 @@ describe('chat/chat-service', () => {
     const removeUserFromChannelMock = asMockedFunction(removeUserFromChannel)
 
     beforeEach(async () => {
-      removeUserFromChannelMock.mockResolvedValue({ newOwnerId: undefined })
+      removeUserFromChannelMock.mockResolvedValue({ userWasRemoved: true, newOwnerId: undefined })
     })
 
     test('should throw if not in channel', async () => {
@@ -1035,16 +1035,44 @@ describe('chat/chat-service', () => {
       let mockCalled = false
       removeUserFromChannelMock.mockImplementation(async () => {
         if (mockCalled) {
-          return { newOwnerId: undefined }
+          return { userWasRemoved: true, newOwnerId: undefined }
         }
 
         mockCalled = true
         await chatService.leaveChannel(testChannel.id, user1.id)
 
-        return { newOwnerId: undefined }
+        return { userWasRemoved: true, newOwnerId: undefined }
       })
 
       await chatService.leaveChannel(testChannel.id, user1.id)
+
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
+    })
+
+    test("doesn't publish a leave event when the user was already removed", async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+      await joinUserToChannel(
+        user2,
+        testChannel,
+        user2TestChannelEntry,
+        joinUser2TestChannelMessage,
+      )
+
+      removeUserFromChannelMock.mockResolvedValue({ userWasRemoved: false, newOwnerId: undefined })
+
+      await chatService.leaveChannel(testChannel.id, user1.id)
+
+      expect(removeUserFromChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id)
+      expect(client2.publish).not.toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'leave2',
+        userId: user1.id,
+        newOwnerId: undefined,
+      })
 
       expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
     })
@@ -1055,7 +1083,7 @@ describe('chat/chat-service', () => {
 
     beforeEach(async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
-      removeUserFromChannelMock.mockResolvedValue({ newOwnerId: undefined })
+      removeUserFromChannelMock.mockResolvedValue({ userWasRemoved: true, newOwnerId: undefined })
     })
 
     test("should throw if channel doesn't exist", async () => {

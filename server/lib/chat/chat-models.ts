@@ -520,6 +520,11 @@ export async function deleteChannelMessage(
 
 export interface LeaveChannelResult {
   /**
+   * Whether the user's channel membership was actually removed. `false` when they were no longer
+   * in the channel, e.g. because a concurrent request already removed them.
+   */
+  userWasRemoved: boolean
+  /**
    * The ID of a user that was selected as a new owner of the channel, or `undefined` if the channel
    * ownership has been left unchanged.
    */
@@ -531,10 +536,15 @@ export async function removeUserFromChannel(
   channelId: SbChannelId,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    await client.query(sql`
+    const deleteUserResult = await client.query(sql`
       DELETE FROM channel_users
       WHERE user_id = ${userId} AND channel_id = ${channelId};
     `)
+    if (!deleteUserResult.rowCount) {
+      // The user's membership was already removed by a concurrent request; nothing left for us
+      // to do here
+      return { userWasRemoved: false }
+    }
 
     // NOTE(2Pac): Only non-official channels are deleted when everyone leaves
     const deleteChannelResult = await client.query(sql`
@@ -545,7 +555,7 @@ export async function removeUserFromChannel(
     if (deleteChannelResult.rowCount) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
-      return {}
+      return { userWasRemoved: true }
     }
 
     const channelResult = await client.query<DbChannel>(sql`
@@ -553,12 +563,13 @@ export async function removeUserFromChannel(
       FROM channels
       WHERE id = ${channelId};
     `)
-    if (channelResult.rows[0].owner_id !== userId) {
+    if (channelResult.rows[0]?.owner_id !== userId) {
       // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
-      return {}
+      // (this also covers the channel row being missing, which shouldn't normally happen)
+      return { userWasRemoved: true }
     } else if (channelResult.rows[0].official) {
       // Don't transfer ownership in "official" channels
-      return {}
+      return { userWasRemoved: true }
     }
 
     // Transfer ownership to the user who has joined the channel earliest and has any of the
@@ -594,7 +605,7 @@ export async function removeUserFromChannel(
       throw new Error('No rows returned')
     }
 
-    return { newOwnerId: newOwnerResult.rows[0].owner_id }
+    return { userWasRemoved: true, newOwnerId: newOwnerResult.rows[0].owner_id }
   })
 }
 
