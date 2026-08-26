@@ -4571,6 +4571,7 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "smallvec",
+ "thiserror 2.0.19",
  "tokio",
  "tokio-debouncer",
  "tokio-stream",

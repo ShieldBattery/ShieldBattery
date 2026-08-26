@@ -70,8 +70,8 @@ pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
-    establish_session, establish_sessionless, set_lobby_session_seed, submit_result_report,
-    wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
+    error_with_root_cause, establish_session, establish_sessionless, set_lobby_session_seed,
+    submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
 };
 
 use self::net_stats::NetStats;

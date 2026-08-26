@@ -150,6 +150,9 @@ rcgen = { version = "0.14", default-features = false, features = [
   "ring",
   "pem",
 ] }
+# Derived test errors for the error-formatting tests. Already in the dependency
+# graph via rally-point-client, so this costs no extra compilation.
+thiserror = "2"
 
 # -- Local helper crates --
 [workspace]
