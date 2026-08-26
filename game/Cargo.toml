@@ -119,7 +119,7 @@ features = [
 # Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
-rev = "ccd4e691331875879cce539feecaacd47f1785d6"
+rev = "03a8b0db17c40913b845987e0fe6ed0cdd8e71eb"
 
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
