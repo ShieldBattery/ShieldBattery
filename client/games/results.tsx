@@ -721,7 +721,13 @@ function SummaryPage({
 
     if (game.results) {
       for (const [id, r] of game.results) {
-        result.get(id)![1] = r
+        // Results and the player config are written separately, so a result can reference a user
+        // the config doesn't list (e.g. inconsistent/corrupted rows) -- drop those rather than
+        // taking down the whole page.
+        const entry = result.get(id)
+        if (entry) {
+          entry[1] = r
+        }
       }
     }
 

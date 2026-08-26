@@ -70,30 +70,51 @@ export function useSaveReplayWithDestination(
         onStart: lifecycle?.onSaveStart,
         onSuccess: result => {
           const runUndo = result.undo
-          const onUndo = runUndo
-            ? () => {
-                runUndo()
-                  .then(() => {
-                    if (!result.alreadySaved) {
-                      lifecycle?.onUndone?.()
-                    }
-                  })
-                  .catch(err => {
-                    logger.error(`Error undoing replay save: ${getErrorStack(err)}`)
-                    snackbarController.showSnackbar(
-                      t('gameDetails.saveReplayUndoError', 'There was a problem undoing that'),
-                    )
-                  })
+          let onUndo: (() => void) | undefined
+          if (runUndo) {
+            // Dismisses the actionable snackbar the moment Undo is clicked, so the button can't
+            // be pressed again while (or after) the undo runs; a follow-up snackbar then reports
+            // what the undo did.
+            const dismissSnackbar = new AbortController()
+            let undone = false
+            onUndo = () => {
+              if (undone) {
+                return
               }
-            : undefined
+              undone = true
+              dismissSnackbar.abort()
 
-          snackbarController.showSnackbar(
-            getSaveReplayMessage(destination, result.alreadySaved, result.organized, t),
-            DURATION_LONG,
-            onUndo
-              ? { action: { label: t('common.actions.undo', 'Undo'), onClick: onUndo } }
-              : undefined,
-          )
+              runUndo()
+                .then(() => {
+                  snackbarController.showSnackbar(
+                    getUndoneMessage(destination, result.alreadySaved, t),
+                  )
+                  if (!result.alreadySaved) {
+                    lifecycle?.onUndone?.()
+                  }
+                })
+                .catch(err => {
+                  logger.error(`Error undoing replay save: ${getErrorStack(err)}`)
+                  snackbarController.showSnackbar(
+                    t('gameDetails.saveReplayUndoError', 'There was a problem undoing that'),
+                  )
+                })
+            }
+
+            snackbarController.showSnackbar(
+              getSaveReplayMessage(destination, result.alreadySaved, result.organized, t),
+              DURATION_LONG,
+              {
+                signal: dismissSnackbar.signal,
+                action: { label: t('common.actions.undo', 'Undo'), onClick: onUndo },
+              },
+            )
+          } else {
+            snackbarController.showSnackbar(
+              getSaveReplayMessage(destination, result.alreadySaved, result.organized, t),
+              DURATION_LONG,
+            )
+          }
           lifecycle?.onSaveSettled?.(result)
         },
         onError: err => {
@@ -106,6 +127,31 @@ export function useSaveReplayWithDestination(
       }),
     )
   }
+}
+
+/**
+ * The confirmation shown after a successful Undo. A fresh save's undo deletes the file, so it
+ * reads as removal from the library regardless of the picked destination; a flag-only undo (the
+ * replay was already in the library) names just the bookmark/playlist that was removed.
+ */
+function getUndoneMessage(
+  destination: SaveReplayDestination,
+  alreadySaved: boolean,
+  t: TFunction,
+): string {
+  if (!alreadySaved) {
+    return t('gameDetails.saveReplayUndoneLibrary', 'Replay removed from your library')
+  }
+  if (destination.kind === 'bookmarks') {
+    return t('gameDetails.saveReplayUndoneBookmarks', 'Removed from your bookmarks')
+  }
+  if (destination.kind === 'playlist') {
+    return t('gameDetails.saveReplayUndonePlaylist', {
+      defaultValue: 'Removed from {{name}}',
+      name: destination.playlistName,
+    })
+  }
+  return t('gameDetails.saveReplayUndoneLibrary', 'Replay removed from your library')
 }
 
 function getSaveReplayMessage(
