@@ -19,6 +19,19 @@ export function isWithinSaveFolders(
 }
 
 /**
+ * Whether `filePath` sits inside one of `watchedFolders` themselves -- not their `ShieldBattery`
+ * save subfolder, since an already-indexed replay can live anywhere under a watched folder, not
+ * just there. Pure (no filesystem access) so it can be unit-tested directly; the containment check
+ * itself (case-insensitive, separator-normalizing, `..`-resistant) is `isPathUnderRoot`'s.
+ */
+export function isWithinWatchedFolders(
+  filePath: string,
+  watchedFolders: ReadonlyArray<string>,
+): boolean {
+  return watchedFolders.some(folder => isPathUnderRoot(filePath, folder))
+}
+
+/**
  * Deletes a replay file previously written by `saveReplayToLibrary`, used to undo a fresh
  * "Save replay". Two guards keep this from being turned into an arbitrary-file-delete primitive:
  * `filePath` must resolve inside the `ShieldBattery` save subfolder of one of `watchedFolders`

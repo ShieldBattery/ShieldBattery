@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { getErrorStack } from '../../common/errors'
 import {
   ALL_GAME_FORMATS,
   EncodedMatchupString,
@@ -46,6 +47,7 @@ import { useRememberedFilters } from '../games/use-remembered-filters'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import logger from '../logging/logger'
 import { IconButton, TextButton, useButtonState } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -60,6 +62,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
@@ -418,6 +421,7 @@ export interface ReplayLibraryProps {
 export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
 
   const entryKey = useHistoryEntryKey()
   // Read once per mount: the store contract allows a lazy initializer since it runs at most once
@@ -641,6 +645,31 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
       .catch(swallowNonBuiltins)
   })
 
+  // Re-runs everything the debounced `replayLibraryChanged` listener below refreshes: the loaded
+  // window, status/backfill, and playlists, plus bumping the change token.
+  const refreshAfterChange = useEffectEvent(() => {
+    refreshLoadedWindow()
+    fetchStatus()
+    fetchPlaylists()
+    setChangeToken(token => token + 1)
+  })
+
+  // Lets a plain event handler (not an Effect) ask for the same refresh `refreshAfterChange`
+  // performs, to correct an optimistic update that turned out to be wrong -- e.g. a failed trash
+  // attempt -- without hand-rolling a manual revert. Effect Events may only be called from Effects,
+  // so the handler bumps this token instead of calling `refreshAfterChange` itself; the effect
+  // below does the actual call. The first run (mount) is skipped since the other effects here
+  // already fetch everything fresh on mount.
+  const [correctionToken, triggerCorrection] = useRefreshToken()
+  const skipInitialCorrectionRef = useRef(true)
+  useEffect(() => {
+    if (skipInitialCorrectionRef.current) {
+      skipInitialCorrectionRef.current = false
+      return
+    }
+    refreshAfterChange()
+  }, [correctionToken])
+
   // Listen for index change + backfill events only while mounted.
   useEffect(() => {
     fetchStatus()
@@ -654,10 +683,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     }
 
     const handleChanged = debounce(() => {
-      refreshLoadedWindow()
-      fetchStatus()
-      fetchPlaylists()
-      setChangeToken(token => token + 1)
+      refreshAfterChange()
     }, 300)
     const handleProgress = (_event: unknown, progress: ReplayBackfillProgress | undefined) => {
       setBackfill(progress)
@@ -724,6 +750,39 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   }
   const revealEntry = (entry: ReplayLibraryEntry) => {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
+  }
+
+  const trashEntry = (entry: ReplayLibraryEntry) => {
+    const wasBookmarked = entry.bookmarkedAt !== undefined
+    // Update optimistically, same as `toggleBookmark`: the watcher notices the file's removal on
+    // its own and its resulting index-changed event will confirm this shortly. A rejection means
+    // nothing actually changed on disk, so it's corrected via the same refresh that event uses.
+    setEntries(prev => prev?.filter(e => e.id !== entry.id))
+    setTotal(prev => (prev !== undefined ? Math.max(0, prev - 1) : prev))
+    if (wasBookmarked) {
+      setStatus(prev =>
+        prev ? { ...prev, bookmarkedCount: Math.max(0, prev.bookmarkedCount - 1) } : prev,
+      )
+    }
+
+    ipcRenderer
+      .invoke('replayLibraryTrashReplay', entry.path)
+      ?.then(trashed => {
+        if (trashed) {
+          snackbarController.showSnackbar(
+            t('replays.library.movedToRecycleBin', 'Replay moved to Recycle Bin'),
+          )
+        }
+        // `trashed: false` means the file was already gone, which the optimistic removal above
+        // already reflects correctly -- nothing further to do.
+      })
+      .catch(err => {
+        logger.error(`Error moving replay to Recycle Bin: ${getErrorStack(err)}`)
+        snackbarController.showSnackbar(
+          t('replays.library.moveToRecycleBinError', 'Something went wrong removing the replay'),
+        )
+        triggerCorrection()
+      })
   }
 
   const handleRowContextMenu = (entry: ReplayLibraryEntry, event: React.MouseEvent) => {
@@ -1192,6 +1251,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
               onRemoveFromPlaylist={() => {
                 if (focusedEntry) removeFromCurrentPlaylist(focusedEntry)
               }}
+              onMoveToRecycleBin={trashEntry}
               onMoveUp={() => moveFocusedBy(-1)}
               onMoveDown={() => moveFocusedBy(1)}
             />
@@ -1230,6 +1290,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
                 onOpenAddToPlaylist: openAddToPlaylistMenu,
                 onRemoveFromPlaylist: () => removeFromCurrentPlaylist(focusedEntry),
                 onReveal: revealEntry,
+                onMoveToRecycleBin: trashEntry,
                 t,
               })}
             </MenuList>

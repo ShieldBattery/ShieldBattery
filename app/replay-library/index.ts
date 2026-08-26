@@ -1,10 +1,12 @@
+import { shell } from 'electron'
+import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Worker } from 'node:worker_threads'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcMain, TypedIpcSender } from '../../common/ipc'
 import log from '../logger'
-import { removeSavedReplay } from './replay-remove'
+import { isWithinWatchedFolders, removeSavedReplay } from './replay-remove'
 import { saveReplayToLibrary } from './replay-save'
 import {
   CallRequest,
@@ -150,6 +152,27 @@ export class ReplayLibraryService {
     ipcMain.handle('replayLibraryRemoveSavedReplay', async (_event, filePath, expectedHash) =>
       removeSavedReplay(filePath, expectedHash, this.watchedFolders),
     )
+    ipcMain.handle('replayLibraryTrashReplay', async (_event, filePath) => {
+      if (!isWithinWatchedFolders(filePath, this.watchedFolders)) {
+        throw new Error(
+          `Refusing to trash a replay outside the watched replay folders: ${filePath}`,
+        )
+      }
+
+      try {
+        await stat(filePath)
+      } catch (err: any) {
+        if (err?.code === 'ENOENT') {
+          return false
+        }
+        throw err
+      }
+
+      // The index isn't touched here: the watcher's own reconcile un-indexes the row (cascading
+      // any playlist membership) once it notices the file is gone.
+      await shell.trashItem(filePath)
+      return true
+    })
 
     this.startWorker()
   }
