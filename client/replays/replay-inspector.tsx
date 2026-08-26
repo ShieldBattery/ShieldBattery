@@ -27,7 +27,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import Logo from '../logos/logo-no-bg.svg?react'
 import { FilledButton, IconButton } from '../material/button'
 import { Divider } from '../material/menu/divider'
-import { MenuItem } from '../material/menu/item'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { push } from '../navigation/routing'
@@ -226,7 +226,7 @@ export function getReplayActionMenuItems({
 
   items.push(
     <Divider key='move-to-recycle-bin-divider' $dense={true} />,
-    <MenuItem
+    <DestructiveMenuItem
       key='move-to-recycle-bin'
       icon={<MaterialIcon icon='delete' />}
       text={t('replays.library.moveToRecycleBin', 'Move to Recycle Bin')}

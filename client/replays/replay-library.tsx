@@ -754,6 +754,14 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
 
   const trashEntry = (entry: ReplayLibraryEntry) => {
     const wasBookmarked = entry.bookmarkedAt !== undefined
+    // Hand focus to a neighboring row before the entry disappears — otherwise the stale
+    // `focusedId` would make the focused-entry fallback jump the selection (and the inspector) to
+    // the first row.
+    if (entry.id === focusedEntry?.id) {
+      const index = loadedEntries.findIndex(e => e.id === entry.id)
+      const neighbor = loadedEntries[index + 1] ?? loadedEntries[index - 1]
+      setFocusedId(neighbor?.id)
+    }
     // Update optimistically, same as `toggleBookmark`: the watcher notices the file's removal on
     // its own and its resulting index-changed event will confirm this shortly. A rejection means
     // nothing actually changed on disk, so it's corrected via the same refresh that event uses.
