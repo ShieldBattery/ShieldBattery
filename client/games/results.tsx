@@ -48,6 +48,7 @@ import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { IconButton, OutlinedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -58,8 +59,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { saveReplayToLibrary, watchReplayFromUrl } from '../replays/action-creators'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { watchReplayFromUrl } from '../replays/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -82,6 +82,7 @@ import {
   viewGame,
 } from './action-creators'
 import { ResultsSubPage } from './results-sub-page'
+import { SaveReplayMenuContent } from './save-replay-menu'
 
 const Container = styled(CenteredContentContainer)`
   padding-block: 16px;
@@ -222,7 +223,11 @@ export function ConnectedGameResultsPage({
   const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
   const [isSavingReplay, setIsSavingReplay] = useState(false)
   const [isReplaySaved, setIsReplaySaved] = useState(false)
-  const snackbarController = useSnackbarController()
+  const [saveAnchor, saveAnchorX, saveAnchorY, refreshSaveAnchorPos] =
+    useRefAnchorPosition<HTMLButtonElement>('left', 'bottom')
+  const [saveMenuOpen, openSaveMenu, closeSaveMenu] = usePopoverController({
+    refreshAnchorPos: refreshSaveAnchorPos,
+  })
 
   const results = game?.results
 
@@ -376,41 +381,6 @@ export function ConnectedGameResultsPage({
     )
   }
 
-  const onSaveReplay = () => {
-    if (!replayInfo || !IS_ELECTRON) return
-
-    cancelSaveRef.current.abort()
-    const abortController = new AbortController()
-    cancelSaveRef.current = abortController
-
-    setIsSavingReplay(true)
-
-    dispatch(
-      saveReplayToLibrary(replayInfo, {
-        signal: abortController.signal,
-        onSuccess: result => {
-          setIsSavingReplay(false)
-          setIsReplaySaved(true)
-          snackbarController.showSnackbar(
-            result.alreadySaved
-              ? t(
-                  'gameDetails.saveReplayAlreadySaved',
-                  "This game's replay is already in your library",
-                )
-              : t('gameDetails.saveReplaySuccess', 'Replay saved to your library'),
-          )
-        },
-        onError: err => {
-          setIsSavingReplay(false)
-          logger.error(`Error saving replay: ${getErrorStack(err)}`)
-          snackbarController.showSnackbar(
-            t('gameDetails.saveReplayError', 'There was a problem saving the replay'),
-          )
-        },
-      }),
-    )
-  }
-
   let content: React.ReactNode
   switch (subPage) {
     case ResultsSubPage.Summary:
@@ -516,12 +486,41 @@ export function ConnectedGameResultsPage({
           />
         ) : null}
         {replayInfo && IS_ELECTRON ? (
-          <OutlinedButton
-            label={saveReplayLabel}
-            iconStart={<MaterialIcon icon={isReplaySaved ? 'check' : 'save'} />}
-            disabled={isSavingReplay || isReplaySaved}
-            onClick={onSaveReplay}
-          />
+          <>
+            <OutlinedButton
+              ref={saveAnchor}
+              label={saveReplayLabel}
+              iconStart={<MaterialIcon icon={isReplaySaved ? 'check' : 'save'} />}
+              disabled={isSavingReplay}
+              onClick={openSaveMenu}
+            />
+            <Popover
+              open={saveMenuOpen}
+              onDismiss={closeSaveMenu}
+              anchorX={saveAnchorX ?? 0}
+              anchorY={saveAnchorY ?? 0}
+              originX='left'
+              originY='top'>
+              <SaveReplayMenuContent
+                replayInfo={replayInfo}
+                onDismiss={closeSaveMenu}
+                getAbortSignal={() => {
+                  cancelSaveRef.current.abort()
+                  const abortController = new AbortController()
+                  cancelSaveRef.current = abortController
+                  return abortController.signal
+                }}
+                onSaveStart={() => setIsSavingReplay(true)}
+                onSaveSettled={result => {
+                  setIsSavingReplay(false)
+                  if (result) {
+                    setIsReplaySaved(true)
+                  }
+                }}
+                onUndone={() => setIsReplaySaved(false)}
+              />
+            </Popover>
+          </>
         ) : null}
         {replayInfo ? (
           <OutlinedButton
@@ -722,7 +721,13 @@ function SummaryPage({
 
     if (game.results) {
       for (const [id, r] of game.results) {
-        result.get(id)![1] = r
+        // Results and the player config are written separately, so a result can reference a user
+        // the config doesn't list (e.g. inconsistent/corrupted rows) -- drop those rather than
+        // taking down the whole page.
+        const entry = result.get(id)
+        if (entry) {
+          entry[1] = r
+        }
       }
     }
 

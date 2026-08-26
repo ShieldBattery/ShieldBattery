@@ -12,10 +12,11 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { Popover } from '../material/popover'
+import { Popover, usePopoverController } from '../material/popover'
 import { useHistoryEntryKey, useLocationSearchParam } from '../navigation/router-hooks'
 import { createViewStateStore } from '../navigation/view-state-store'
 import { useUserLocalStorageValue } from '../react/state-hooks'
+import { useAppSelector } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { navigateToGameResults } from './action-creators'
 import { renderGamesWithDayHeaders, resolveDateRangeMs } from './day-header'
@@ -31,6 +32,7 @@ import {
 } from './game-filter-url'
 import { GameListEntry } from './game-list-entry'
 import { GameRecordSidePanel } from './game-record-side-panel'
+import { SaveReplayMenuContent } from './save-replay-menu'
 import { GameListSearchPage, useGameListSearch } from './use-game-list-search'
 import { FilterMemorySurface, useRememberedFilters } from './use-remembered-filters'
 
@@ -203,6 +205,7 @@ export function GameListView({
   const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
+  const [saveMenuOpen, openSaveMenu, closeSaveMenu] = usePopoverController()
 
   const loadPageForSearch = (offset: number, signal: AbortSignal): Promise<GameListSearchPage> => {
     const { startMs, endMs } = resolveDateRangeMs(startDateParam, endDateParam)
@@ -246,6 +249,9 @@ export function GameListView({
 
   const selectedGame = games.find(g => g.id === selectedId) ?? games[0]
   const selectedIndex = selectedGame ? games.findIndex(g => g.id === selectedGame.id) : -1
+  const selectedReplayInfo = useAppSelector(s =>
+    selectedGame ? s.games.replayInfoById.get(selectedGame.id) : undefined,
+  )
   const sortIsDateBased = isDateSort(sort)
 
   const selectIndex = (index: number) => {
@@ -466,7 +472,20 @@ export function GameListView({
           <GameContextMenuContent
             game={selectedGame}
             onDismiss={contextMenuPopoverProps.onDismiss}
+            onOpenSaveMenu={openSaveMenu}
           />
+        </Popover>
+      ) : null}
+
+      {selectedGame && selectedReplayInfo && IS_ELECTRON ? (
+        <Popover
+          open={saveMenuOpen}
+          onDismiss={closeSaveMenu}
+          anchorX={contextMenuPopoverProps.anchorX}
+          anchorY={contextMenuPopoverProps.anchorY}
+          originX={contextMenuPopoverProps.originX}
+          originY={contextMenuPopoverProps.originY}>
+          <SaveReplayMenuContent replayInfo={selectedReplayInfo} onDismiss={closeSaveMenu} />
         </Popover>
       ) : null}
     </>

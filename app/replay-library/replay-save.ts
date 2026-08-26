@@ -2,10 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import log from '../logger'
-import { pickSaveFilename, sanitizeBaseFilename } from './replay-save-naming'
-
-/** Subfolder (under the watched replay folder) that saved server replays are written into. */
-const SAVE_SUBFOLDER = 'ShieldBattery'
+import { pickSaveFilename, sanitizeBaseFilename, SAVE_SUBFOLDER } from './replay-save-naming'
 
 /**
  * Downloads-and-saves flow for "Save replay": verifies the downloaded bytes against the server's
