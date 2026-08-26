@@ -63,19 +63,37 @@ describe('NetcodeV2KeyRing', () => {
     expect(ring.adoptFor(undefined)).toEqual({ failure: 'ambiguousWithoutEcho' })
   })
 
-  it('a lingering adopted keypair never makes the echo-less fallback ambiguous', () => {
+  it('an adopted reservation plus an unadopted key is ambiguous without an echo', () => {
     const ring = new NetcodeV2KeyRing()
     const gameA = makeKeyPair('pubkey-game-a')
     ring.push(gameA)
     expect(ring.adoptFor(undefined)).toEqual({ keys: gameA })
 
-    // Game A's key stays in the ring as a requeue reservation, but a newer join replaces the
-    // server-side ticket it could be requeued from -- so the echo-less selection must prefer the
-    // fresh key, not refuse as ambiguous (which would break the old-server fallback after the
-    // first game).
+    // The unadopted key is NOT positive evidence the server accepted it: keys are generated and
+    // pushed before the queue request goes out, and the server can reject that request (e.g. as a
+    // gameplay-activity conflict) without touching the ticket that still holds game A's pubkey.
+    // Preferring the fresh key would hand a token bound to A the private key of B and fail relay
+    // authentication -- with both outstanding, only an echo can disambiguate.
     const gameB = makeKeyPair('pubkey-game-b')
     ring.push(gameB)
-    expect(ring.adoptFor(undefined)).toEqual({ keys: gameB })
+    expect(ring.adoptFor(undefined)).toEqual({ failure: 'ambiguousWithoutEcho' })
+  })
+
+  it('a rejected join after an adopted key never wins an echo-less requeue', () => {
+    const ring = new NetcodeV2KeyRing()
+    const seated = makeKeyPair('pubkey-seated')
+    ring.push(seated)
+    expect(ring.adoptFor('pubkey-seated')).toEqual({ keys: seated })
+
+    // The player tries to queue again while still seated: the key is generated (and pushed) up
+    // front, but the server rejects the request, leaving its ticket -- and pubkey-seated -- as
+    // the only key it has ever accepted. An echo-less handoff for the requeued match must not
+    // select the orphan; without the echo saying which key was seated, it must refuse.
+    ring.push(makeKeyPair('pubkey-rejected'))
+    expect(ring.adoptFor(undefined)).toEqual({ failure: 'ambiguousWithoutEcho' })
+
+    // The echoed handoff still resolves the seated reservation exactly.
+    expect(ring.adoptFor('pubkey-seated')).toEqual({ keys: seated })
   })
 
   it('an adopted keypair resolves again when the server echoes it for a requeued match', () => {
@@ -129,8 +147,10 @@ describe('NetcodeV2KeyRing', () => {
 
     // The seated key and everything generated before it belonged to this launch's superseded
     // join attempts; a key generated after it may belong to a newer join already in flight and
-    // must survive as the sole (echo-less-adoptable) entry.
-    expect(ring.adoptFor(undefined)).toEqual({ keys: newer })
+    // must survive for that join's echoed handoff to resolve. It is not echo-less-adoptable,
+    // though: nothing proves the server accepted the newer join (see the rejected-join tests).
+    expect(ring.adoptFor(undefined)).toEqual({ failure: 'ambiguousWithoutEcho' })
+    expect(ring.adoptFor('pubkey-newer')).toEqual({ keys: newer })
   })
 
   it('evicts the oldest entry once capacity is exceeded', () => {

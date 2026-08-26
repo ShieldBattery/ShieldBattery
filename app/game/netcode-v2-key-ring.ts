@@ -21,9 +21,7 @@ interface HeldKeyPair {
    * requeue reservation rather than being removed: after a failed matchmaking load the server
    * requeues the player with the same pubkey (the queue entry survives; only its queue time
    * resets), so the next match's handoff — a *different* game id, which never carries the previous
-   * game's keypair forward — echoes this pubkey again and must still resolve it here. Echo-less
-   * selection skips adopted entries unless nothing else is outstanding, so the reservation never
-   * makes the old-server fallback ambiguous.
+   * game's keypair forward — echoes this pubkey again and must still resolve it here.
    */
   adopted: boolean
 }
@@ -65,13 +63,15 @@ export class NetcodeV2KeyRing {
    * requeue resolves: the server reuses the queued pubkey for the next match, under a new game id
    * (see {@link HeldKeyPair.adopted}). An unknown pubkey fails as `unknownPubkey`.
    *
-   * Without it (a server that predates the echo field), the sole *unadopted* keypair is adopted —
-   * with exactly one outstanding there is no ambiguity, the server can only have seated that one
-   * (a newer join replaces the server-side ticket any adopted reservation could be requeued from,
-   * so a lingering reservation doesn't compete). With no unadopted keypair at all, the sole ring
-   * entry — an adopted reservation — is reused: the echo-less requeue case. Anything else is a
-   * genuine ambiguity, and any guess (the most recent, say) can pair a token minted for one
-   * keypair with a different keypair's private key — the relay then rejects the
+   * Without it (a server that predates the echo field), the sole ring entry — adopted or not — is
+   * adopted: with exactly one keypair in existence, the server can only hold that one, whether as
+   * a fresh join's key or as a requeue reservation. Anything beyond one entry is a genuine
+   * ambiguity, adopted mix or not. In particular, an unadopted entry is NOT positive evidence the
+   * server accepted it: the key is generated and pushed *before* the queue request is submitted,
+   * and the server can reject that request (e.g. as a gameplay-activity conflict) without touching
+   * the existing ticket — leaving an adopted reservation that is still the seated key alongside an
+   * unadopted orphan the server never accepted. Any guess between them can pair a token minted for
+   * one keypair with a different keypair's private key — the relay then rejects the
    * connection-binding challenge and the whole lobby fails to load, the exact failure the echo
    * exists to prevent — so it fails as `ambiguousWithoutEcho` and the caller surfaces an explicit
    * error instead.
@@ -87,13 +87,7 @@ export class NetcodeV2KeyRing {
       if (this.keys.size === 0) {
         return { failure: 'noKeysGenerated' }
       }
-      const unadopted = [...this.keys.values()].filter(held => !held.adopted)
-      if (unadopted.length === 1) {
-        return { keys: this.adopt(unadopted[0].keyPair.publicKey) }
-      }
-      if (unadopted.length === 0 && this.keys.size === 1) {
-        // The echo-less requeue: the sole entry is an adopted reservation, and with nothing newer
-        // outstanding it is the only keypair the server can hold for this player.
+      if (this.keys.size === 1) {
         return { keys: this.adopt(this.keys.keys().next().value!) }
       }
       return { failure: 'ambiguousWithoutEcho' }
