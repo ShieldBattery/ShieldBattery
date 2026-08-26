@@ -71,7 +71,8 @@ export class ReplayDb {
   private readonly deleteReplayByIdStmt: Statement
   private readonly deletePlayersByReplayIdStmt: Statement
   private readonly updateReplayFileStmt: Statement
-  private readonly setBookmarkedStmt: Statement
+  private readonly bookmarkStmt: Statement
+  private readonly unbookmarkStmt: Statement
   private readonly getBookmarkedCountStmt: Statement
   private readonly findReplayIdByGameIdStmt: Statement
   private readonly listPlaylistsStmt: Statement
@@ -88,7 +89,7 @@ export class ReplayDb {
 
   private readonly upsertTxn: (record: IndexedReplay) => void
   private readonly deleteTxn: (paths: string[]) => void
-  private readonly addToPlaylistTxn: (playlistId: number, replayIds: number[]) => void
+  private readonly addToPlaylistTxn: (playlistId: number, replayIds: number[]) => number[]
   private readonly removeFromPlaylistTxn: (playlistId: number, replayIds: number[]) => void
   private readonly movePlaylistEntryTxn: (
     playlistId: number,
@@ -138,7 +139,14 @@ export class ReplayDb {
     this.updateReplayFileStmt = this.db.prepare(
       'UPDATE replays SET path = ?, file_mtime = ? WHERE id = ?',
     )
-    this.setBookmarkedStmt = this.db.prepare('UPDATE replays SET bookmarked_at = ? WHERE id = ?')
+    // Both bookmark statements are guarded on the current state, so `changes` reports whether the
+    // call actually flipped anything (a re-bookmark also keeps the original bookmark time).
+    this.bookmarkStmt = this.db.prepare(
+      'UPDATE replays SET bookmarked_at = ? WHERE id = ? AND bookmarked_at IS NULL',
+    )
+    this.unbookmarkStmt = this.db.prepare(
+      'UPDATE replays SET bookmarked_at = NULL WHERE id = ? AND bookmarked_at IS NOT NULL',
+    )
     this.getBookmarkedCountStmt = this.db.prepare(
       'SELECT COUNT(*) AS count FROM replays WHERE bookmarked_at IS NOT NULL',
     )
@@ -265,7 +273,7 @@ export class ReplayDb {
       )
       const newIds = [...new Set(replayIds)].filter(id => !existingIds.has(id))
       if (newIds.length === 0) {
-        return
+        return newIds
       }
 
       const maxPositionRow = this.getMaxEntryPositionStmt.get(playlistId) as {
@@ -277,6 +285,7 @@ export class ReplayDb {
         this.insertPlaylistEntryStmt.run(playlistId, replayId, position, now)
         position++
       }
+      return newIds
     }).immediate
 
     this.removeFromPlaylistTxn = this.db.transaction((playlistId: number, replayIds: number[]) => {
@@ -521,9 +530,15 @@ export class ReplayDb {
     return row.count
   }
 
-  /** Bookmarks or unbookmarks a replay. */
-  setBookmarked(replayId: number, bookmarked: boolean): void {
-    this.setBookmarkedStmt.run(bookmarked ? Date.now() : null, replayId)
+  /**
+   * Bookmarks or unbookmarks a replay. Returns whether the state actually changed (false when the
+   * replay was already in the requested state, or doesn't exist).
+   */
+  setBookmarked(replayId: number, bookmarked: boolean): boolean {
+    const info = bookmarked
+      ? this.bookmarkStmt.run(Date.now(), replayId)
+      : this.unbookmarkStmt.run(replayId)
+    return info.changes > 0
   }
 
   /** The id of the indexed replay produced by a ShieldBattery game, if one has been indexed. */
@@ -560,9 +575,12 @@ export class ReplayDb {
     this.deletePlaylistStmt.run(id)
   }
 
-  /** Appends replays to a playlist's manual order. Replays already in the playlist are left alone. */
-  addToPlaylist(playlistId: number, replayIds: number[]): void {
-    this.addToPlaylistTxn(playlistId, replayIds)
+  /**
+   * Appends replays to a playlist's manual order. Replays already in the playlist are left alone.
+   * Returns the ids that were actually added (i.e. weren't already in the playlist).
+   */
+  addToPlaylist(playlistId: number, replayIds: number[]): number[] {
+    return this.addToPlaylistTxn(playlistId, replayIds)
   }
 
   /** Removes replays from a playlist, closing the gap in the remaining manual order. */

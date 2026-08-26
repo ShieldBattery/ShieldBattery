@@ -31,12 +31,14 @@ export interface ReplayQueryResult {
 export interface ReplayDbCalls {
   query: (filters: ReplayLibraryFilters) => ReplayQueryResult
   status: () => ReplayLibraryStatus
-  setBookmarked: (replayId: number, bookmarked: boolean) => void
+  /** Returns whether the bookmark state actually changed (false if already in that state). */
+  setBookmarked: (replayId: number, bookmarked: boolean) => boolean
   listPlaylists: () => ReplayPlaylist[]
   createPlaylist: (name: string) => number
   renamePlaylist: (playlistId: number, name: string) => void
   deletePlaylist: (playlistId: number) => void
-  addToPlaylist: (playlistId: number, replayIds: number[]) => void
+  /** Returns the ids actually added (ones not already in the playlist). */
+  addToPlaylist: (playlistId: number, replayIds: number[]) => number[]
   removeFromPlaylist: (playlistId: number, replayIds: number[]) => void
   movePlaylistEntry: (playlistId: number, replayId: number, toIndex: number) => void
   getPlaylistsForReplay: (replayId: number) => Array<{ id: number; name: string }>

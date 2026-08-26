@@ -204,8 +204,11 @@ interface IpcInvokeables {
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
-  /** Bookmarks or unbookmarks a replay. */
-  replayLibrarySetBookmarked: (replayId: number, bookmarked: boolean) => Promise<void>
+  /**
+   * Bookmarks or unbookmarks a replay. Resolves to whether the state actually changed (false when
+   * the replay was already in the requested state).
+   */
+  replayLibrarySetBookmarked: (replayId: number, bookmarked: boolean) => Promise<boolean>
   /** Lists the local playlists, ordered per their manual arrangement. */
   replayLibraryListPlaylists: () => Promise<ReplayPlaylist[]>
   /** Creates a new, empty playlist, appended after the existing ones. Returns its new id. */
@@ -213,8 +216,11 @@ interface IpcInvokeables {
   replayLibraryRenamePlaylist: (id: number, name: string) => Promise<void>
   /** Deletes a playlist and its entries. */
   replayLibraryDeletePlaylist: (id: number) => Promise<void>
-  /** Appends replays to a playlist (already-present replays are left where they are). */
-  replayLibraryAddToPlaylist: (playlistId: number, replayIds: number[]) => Promise<void>
+  /**
+   * Appends replays to a playlist (already-present replays are left where they are). Resolves to
+   * the ids that were actually added.
+   */
+  replayLibraryAddToPlaylist: (playlistId: number, replayIds: number[]) => Promise<number[]>
   /** Removes replays from a playlist, closing the gap in the remaining manual order. */
   replayLibraryRemoveFromPlaylist: (playlistId: number, replayIds: number[]) => Promise<void>
   /** Moves a replay to `toIndex` (clamped) within a playlist's manual order. */
@@ -238,8 +244,10 @@ interface IpcInvokeables {
    * `organize` optionally bookmarks and/or files the saved replay into a playlist right away, so
    * the "Save replay" destination the user picked takes effect without a second round trip.
    * `organized` reports whether those flags were both requested and actually applied (they're
-   * skipped if the saved file couldn't be indexed); `replayId` is the resolved index id, when one
-   * could be found, regardless of whether `organize` was given.
+   * skipped if the saved file couldn't be indexed); `organizeChanged` further reports whether
+   * applying them changed any state — false when the indexed replay already had every requested
+   * flag, so a caller offering an undo knows not to strip state the user already had; `replayId`
+   * is the resolved index id, when one could be found, regardless of whether `organize` was given.
    */
   replayLibrarySaveReplay: (
     gameId: string,
@@ -247,7 +255,13 @@ interface IpcInvokeables {
     expectedHash: string,
     data: ArrayBuffer,
     organize?: ReplaySaveOrganize,
-  ) => Promise<{ path: string; alreadyExists: boolean; replayId?: number; organized: boolean }>
+  ) => Promise<{
+    path: string
+    alreadyExists: boolean
+    replayId?: number
+    organized: boolean
+    organizeChanged: boolean
+  }>
   /**
    * Deletes a replay file previously written by `replayLibrarySaveReplay`, used to undo a fresh
    * "Save replay". Refuses (resolving `false`) unless `path` resolves inside the `ShieldBattery`

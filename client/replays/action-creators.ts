@@ -174,9 +174,10 @@ export interface SaveReplayResult {
   /**
    * Reverses this call's effect, when doing so is safe and meaningful: deletes the file for a
    * fresh save (never for a file that already existed on disk before this call), or un-applies the
-   * bookmark/playlist flag when the destination only added one to an already-saved replay.
-   * Omitted when there's nothing sensible to undo (e.g. picking `library` on an already-saved
-   * replay).
+   * bookmark/playlist flag when the destination newly added one to an already-saved replay.
+   * Omitted when there's nothing sensible to undo (picking `library` on an already-saved replay,
+   * or a destination whose flag the replay already had -- undoing there would strip state the user
+   * had before this call).
    */
   undo?: () => Promise<void>
 }
@@ -203,26 +204,38 @@ export function saveReplayToLibrary(
       if (destination.kind === 'library') {
         return { alreadySaved: true, destination, organized: true }
       } else if (destination.kind === 'bookmarks') {
-        await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, true)
+        // Only offer undo when the call actually set the flag -- un-bookmarking after a save that
+        // was a no-op (the replay was already bookmarked) would strip state the user had before.
+        const changed = await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, true)
         return {
           alreadySaved: true,
           destination,
           organized: true,
-          undo: async () => {
-            await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, false)
-          },
+          undo: changed
+            ? async () => {
+                await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, false)
+              }
+            : undefined,
         }
       } else {
-        await ipcRenderer.invoke('replayLibraryAddToPlaylist', destination.playlistId, [existingId])
+        const added = await ipcRenderer.invoke(
+          'replayLibraryAddToPlaylist',
+          destination.playlistId,
+          [existingId],
+        )
         return {
           alreadySaved: true,
           destination,
           organized: true,
-          undo: async () => {
-            await ipcRenderer.invoke('replayLibraryRemoveFromPlaylist', destination.playlistId, [
-              existingId,
-            ])
-          },
+          undo: added?.length
+            ? async () => {
+                await ipcRenderer.invoke(
+                  'replayLibraryRemoveFromPlaylist',
+                  destination.playlistId,
+                  [existingId],
+                )
+              }
+            : undefined,
         }
       }
     }
@@ -259,7 +272,13 @@ export function saveReplayToLibrary(
     // The file can already exist on disk while its game id isn't indexed yet (the watcher hasn't
     // caught up, or the index was reset) -- surface that as "already saved" rather than a fresh
     // save, and never delete it on undo (it wasn't this call that created it).
-    const { path: savedPath, alreadyExists, replayId, organized: flagsApplied } = saveResult
+    const {
+      path: savedPath,
+      alreadyExists,
+      replayId,
+      organized: flagsApplied,
+      organizeChanged,
+    } = saveResult
     const organized = destination.kind === 'library' ? true : flagsApplied
 
     let undo: (() => Promise<void>) | undefined
@@ -267,7 +286,7 @@ export function saveReplayToLibrary(
       undo = async () => {
         await ipcRenderer.invoke('replayLibraryRemoveSavedReplay', savedPath, replayInfo.hash)
       }
-    } else if (organized && replayId !== undefined) {
+    } else if (organized && organizeChanged && replayId !== undefined) {
       if (destination.kind === 'bookmarks') {
         undo = async () => {
           await ipcRenderer.invoke('replayLibrarySetBookmarked', replayId, false)

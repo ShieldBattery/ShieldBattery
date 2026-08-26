@@ -56,8 +56,9 @@ export class ReplayLibraryService {
     ipcMain.handle('replayLibraryStatus', async () => this.call('status'))
 
     ipcMain.handle('replayLibrarySetBookmarked', async (_event, replayId, bookmarked) => {
-      await this.call('setBookmarked', replayId, bookmarked)
+      const changed = await this.call('setBookmarked', replayId, bookmarked)
       this.notifyChanged()
+      return changed
     })
     ipcMain.handle('replayLibraryListPlaylists', async () => this.call('listPlaylists'))
     ipcMain.handle('replayLibraryCreatePlaylist', async (_event, name) => {
@@ -74,8 +75,9 @@ export class ReplayLibraryService {
       this.notifyChanged()
     })
     ipcMain.handle('replayLibraryAddToPlaylist', async (_event, playlistId, replayIds) => {
-      await this.call('addToPlaylist', playlistId, replayIds)
+      const added = await this.call('addToPlaylist', playlistId, replayIds)
       this.notifyChanged()
+      return added
     })
     ipcMain.handle('replayLibraryRemoveFromPlaylist', async (_event, playlistId, replayIds) => {
       await this.call('removeFromPlaylist', playlistId, replayIds)
@@ -124,13 +126,16 @@ export class ReplayLibraryService {
         }
 
         let organized = false
+        let organizeChanged = false
         if (replayId !== undefined && organize) {
           try {
             if (organize.bookmark) {
-              await this.call('setBookmarked', replayId, true)
+              const changed = await this.call('setBookmarked', replayId, true)
+              organizeChanged = organizeChanged || changed
             }
             if (organize.playlistId !== undefined) {
-              await this.call('addToPlaylist', organize.playlistId, [replayId])
+              const added = await this.call('addToPlaylist', organize.playlistId, [replayId])
+              organizeChanged = organizeChanged || added.length > 0
             }
             organized = true
           } catch (err) {
@@ -139,7 +144,7 @@ export class ReplayLibraryService {
         }
 
         this.notifyChanged()
-        return { path: savedPath, alreadyExists, replayId, organized }
+        return { path: savedPath, alreadyExists, replayId, organized, organizeChanged }
       },
     )
     ipcMain.handle('replayLibraryRemoveSavedReplay', async (_event, filePath, expectedHash) =>
