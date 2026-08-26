@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for AI agents working in this repository.
 
 ## Project Overview
 
@@ -67,17 +67,6 @@ game\build.bat                 # Debug 64-bit
 game\build.bat x86             # Debug 32-bit
 ```
 
-## File Naming Conventions
-
-| Pattern              | Purpose                  |
-| -------------------- | ------------------------ |
-| `*-reducer.ts`       | Redux reducer            |
-| `*-atoms.ts`         | Jotai atoms              |
-| `*-api.ts`           | HTTP API class           |
-| `*-service.ts`       | Business logic service   |
-| `socket-handlers.ts` | WebSocket event handlers |
-| `devonly/`           | Development test pages   |
-
 ## Key Development Guidelines
 
 ### General
@@ -93,6 +82,9 @@ game\build.bat x86             # Debug 32-bit
   messages, where such references are welcome. (`TODO(context)`/`NOTE(context)` tags are the one
   sanctioned forward pointer.)
 - Delete unused code during refactoring
+- Commit messages: one short action-oriented imperative subject sentence ending with a period
+  (e.g. "Retry failed netcode v2 relay dials until a deadline."), then a body with only as much
+  detail as the change warrants — often none, never an essay
 - The GraphQL schema (`schema.graphql`) is generated from server-rs - don't edit manually
 - Don't edit translation files (`global.json`) manually - run `pnpm run gen-translations`
 
@@ -121,19 +113,21 @@ game\build.bat x86             # Debug 32-bit
 ### React & Styling
 
 - React 19 with `react-compiler` - `useMemo`/`useCallback`/`useStableCallback` generally unnecessary
-  - The compiler automatically memoizes as needed
-  - Don't wrap event handlers or inline functions in these hooks
+  - The compiler automatically memoizes; don't wrap event handlers or inline functions in these hooks
+  - One exception: a callback whose _identity_ would feed a `useEffect` deps array and must not
+    retrigger the effect. Prefer React's builtin `useEffectEvent` for these (call it from the
+    effect, omit it from deps). `useStableCallback` remains only for the rare case its contract
+    can't cover: a stable identity called outside effects (e.g. handed to long-lived non-React
+    code)
 - Use `$`-prefixed props for styled-components: `$disabled`, `$focused`
 - Theme in `client/styles/colors.ts`, typography in `client/styles/typography.ts`
 - **Always style text with the typography tokens from `client/styles/typography.ts`** — compose the
-  `css` token (e.g. `${bodyMedium}`, `${titleLarge}`) or render the styled component (e.g.
-  `<BodyMedium>`). Do **not** hand-roll `font`/`font-size`/`font-weight`/`line-height`/`letter-spacing`
-  for text, and never reference made-up font CSS vars like `var(--font-body)` (no such vars exist —
-  the global font family comes from the `inter` token applied in `client/styles/global.ts`). For a
-  non-standard size/weight, still build on the nearest token and override only the differing property
-  (e.g. `${titleMedium}; font-size: 20px;`). Bare one-off font declarations are reserved for genuinely
-  exceptional cases (e.g. oversized display numerals), and even those should compose a font-family
-  token (`inter`/`sofiaSans`/`sofiaSansCondensed`) rather than a raw `font-family`.
+  `css` token (e.g. `${bodyMedium}`) or render the styled component (e.g. `<BodyMedium>`). Don't
+  hand-roll `font-*`/`line-height`/`letter-spacing`, and don't invent font CSS vars (none exist —
+  the global family comes from the `inter` token in `client/styles/global.ts`). For a non-standard
+  size/weight, build on the nearest token and override only the differing property
+  (`${titleMedium}; font-size: 20px;`); even genuinely exceptional cases (oversized display
+  numerals) should compose a font-family token (`inter`/`sofiaSans`/`sofiaSansCondensed`).
 - Use `motion` library for animations, `react-i18next` for translations
 - Development test pages in `devonly/` folders (accessible at `/dev`)
 
@@ -150,16 +144,11 @@ game\build.bat x86             # Debug 32-bit
 
 ### Async Action Patterns
 
-For async operations in action creators:
+Async action creators wrap `abortableThunk` (from `client/network/abortable-thunk.ts`) and take a
+`RequestHandlingSpec`; the _caller_ handles success/error UI (loading state, error dialogs) via the
+spec's `onSuccess`/`onError` callbacks:
 
 ```typescript
-// Define request/response types (often in common/)
-interface CreateWidgetRequest {
-  name: string
-  options: WidgetOptions
-}
-
-// Action creator using abortableThunk for cancelable operations
 export function createWidget(request: CreateWidgetRequest, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const result = await fetchJson<WidgetResponse>(apiUrl`widgets`, {
@@ -168,29 +157,12 @@ export function createWidget(request: CreateWidgetRequest, spec: RequestHandling
       signal: spec.signal,
     })
     dispatch({ type: '@widgets/create', payload: result })
-
     return result.someData
   })
 }
-
-// Caller handles UI states via callbacks
-dispatch(
-  createWidget(data, {
-    onSuccess: someData => {
-      setLoading(false)
-      setSomeData(someData)
-    },
-    onError: err => {
-      setLoading(false)
-      dispatch(openSimpleDialog('Error', 'Failed to create widget'))
-    },
-  }),
-)
 ```
 
-- Use `abortableThunk` from `client/network/abortable-thunk.ts` for cancelable operations
-- Type the response with `fetchJson<ResponseType>()`
-- The caller handles success/error UI (loading states, error dialogs) via callbacks
+Request/response types often live in `common/`.
 
 ## Server Architecture (Node.js)
 
@@ -228,7 +200,7 @@ export class LobbyApi {
 - **DI (tsyringe):** `@singleton()`, `@inject()` (rarely needed: `delay(() => Dep)` for circular deps)
 - **Sockets:** `ClientSocketsManager`, `UserSocketsManager` with `.subscribe(path)`
 - **Database:** `withDbClient()`, `transact()` for transactions; use `Dbify<T>` from `server/lib/db/types.ts` for query result types (converts camelCase interfaces to snake_case DB columns)
-- **Avoid per-item DB query fan-out:** Don't run a separate query per element of a collection (e.g. `Promise.all(items.map(i => dbQuery(i)))` or a `for` loop that opens a new client each iteration). Each query grabs its own pool connection, so a large/variable collection can exhaust the pool and starve unrelated requests. Prefer a single set-based statement (e.g. a multi-row upsert with `sqlConcat`, or `WHERE id = ANY(...)`); if you must issue them one at a time, share a single connection via `withDbClient`/`transact` and `withClient`.
+- **Avoid per-item DB query fan-out:** Don't issue one query per element of a collection (e.g. `Promise.all(items.map(i => dbQuery(i)))`) — each grabs its own pool connection, so a large collection can exhaust the pool and starve unrelated requests. Prefer a single set-based statement (multi-row upsert with `sqlConcat`, `WHERE id = ANY(...)`); if they must run one at a time, share one connection via `withDbClient`/`transact`.
 - **Models organization:** Functions that update a table belong in that table's models file, not the new feature's models
 - **Redis:** Session storage, pub/sub between server and server-rs
 - **Errors:** `CodedError` with `makeErrorConverterMiddleware()` for HTTP mapping
@@ -279,7 +251,10 @@ leaves `dist/` stale, so a launched game silently runs the _old_ DLL — a chang
 effect (or to "fail" in a way that doesn't match the source). If a game-launch test contradicts
 your code, suspect a stale `dist/` DLL first.
 
-Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free)
+Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free) AND
+`cargo fmt --all -- --check` — CI runs fmt as a separate job, so clippy passing doesn't cover it.
+Don't silence clippy with `#[allow]`; restructure so the lint doesn't fire (an allow needs a
+genuinely exceptional justification, commented in the code's own terms).
 
 **`game/scr-analysis` is a thin wrapper, not the analysis itself.** It exists to keep compile
 times fast (samase_scarf's macro-heavy code compiles once, optimized, in its own crate) and only
