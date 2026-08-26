@@ -1602,10 +1602,12 @@ impl TurnState {
                 reason: LOCAL_ONLY_LEAVE_REASON,
                 // Due at any frame, so the very next `take_due_leaves` surfaces it. No turn
                 // count: the frame path drives a fabricated local entry, and consumption is
-                // meaningless for a link that is closing.
+                // meaningless for a link that is closing. `finalized` qualifies a carried
+                // count, so with none it says nothing.
                 apply_at_frame: 0,
                 leave_seq: 0,
                 final_turn_count: None,
+                finalized: false,
             });
         }
 
@@ -1964,6 +1966,7 @@ mod tests {
     fn leave_directive(slot: SlotId, apply_at_frame: u32, reason: u32) -> LeaveDirective {
         LeaveDirective {
             final_turn_count: None,
+            finalized: false,
             slot: slot.0 as u32,
             reason,
             apply_at_frame,
