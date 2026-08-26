@@ -1,3 +1,10 @@
+/**
+ * Subfolder (under a watched replay folder) that saved server replays are written into. Kept here
+ * (rather than in `replay-save.ts`, which pulls in the Electron-only app logger) so pure/testable
+ * modules like `replay-remove.ts` can reference it without dragging that dependency in too.
+ */
+export const SAVE_SUBFOLDER = 'ShieldBattery'
+
 /** Strips any path separators from a caller-supplied filename, leaving just the base name. */
 export function sanitizeBaseFilename(filename: string): string {
   // Handle both POSIX and Windows separators explicitly, rather than `path.basename` (which only

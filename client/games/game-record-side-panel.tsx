@@ -6,6 +6,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton } from '../material/button'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
 import { GamePlayersDisplay } from './game-players-display'
@@ -19,6 +20,7 @@ import {
   GameSidePanelSubline,
   GameSidePanelTitle,
 } from './game-side-panel'
+import { SaveReplayMenuContent } from './save-replay-menu'
 import { useGameReplayActions } from './use-game-replay-actions'
 
 const GameTypeChip = styled.div`
@@ -93,7 +95,14 @@ function GameRecordSidePanelContent({
 }: GameRecordSidePanelContentProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const { replayInfo, onWatchReplay, onSaveReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
+  const [saveAnchor, saveAnchorX, saveAnchorY, refreshSaveAnchorPos] = useRefAnchorPosition(
+    'right',
+    'bottom',
+  )
+  const [saveMenuOpen, openSaveMenu, closeSaveMenu] = usePopoverController({
+    refreshAnchorPos: refreshSaveAnchorPos,
+  })
 
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
@@ -121,7 +130,7 @@ function GameRecordSidePanelContent({
           label={t('games.sidePanel.viewFullResults', 'View full results')}
           onClick={() => onViewResults(game.id)}
         />
-        {IS_ELECTRON && replayInfo ? (
+        {replayInfo && IS_ELECTRON ? (
           <>
             <IconButton
               icon={<MaterialIcon icon='play_circle' />}
@@ -129,11 +138,33 @@ function GameRecordSidePanelContent({
               onClick={onWatchReplay}
             />
             <IconButton
+              ref={saveAnchor}
               icon={<MaterialIcon icon='save' />}
               title={t('gameDetails.buttonSaveReplay', 'Save replay')}
-              onClick={onSaveReplay}
+              onClick={openSaveMenu}
             />
+            <Popover
+              open={saveMenuOpen}
+              onDismiss={closeSaveMenu}
+              anchorX={saveAnchorX ?? 0}
+              anchorY={saveAnchorY ?? 0}
+              originX='right'
+              originY='top'>
+              <SaveReplayMenuContent replayInfo={replayInfo} onDismiss={closeSaveMenu} />
+            </Popover>
           </>
+        ) : null}
+        {replayInfo && !IS_ELECTRON ? (
+          <IconButton
+            icon={<MaterialIcon icon='download' />}
+            title={t('gameDetails.buttonDownloadReplay', 'Download replay')}
+            onClick={() => {
+              const a = document.createElement('a')
+              a.href = replayInfo.url
+              a.target = '_blank'
+              a.click()
+            }}
+          />
         ) : null}
       </GameSidePanelActions>
     </GameSidePanel>

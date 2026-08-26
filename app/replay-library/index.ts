@@ -4,6 +4,7 @@ import createDeferred, { Deferred } from '../../common/async/deferred'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcMain, TypedIpcSender } from '../../common/ipc'
 import log from '../logger'
+import { removeSavedReplay } from './replay-remove'
 import { saveReplayToLibrary } from './replay-save'
 import {
   CallRequest,
@@ -95,7 +96,7 @@ export class ReplayLibraryService {
     )
     ipcMain.handle(
       'replayLibrarySaveReplay',
-      async (_event, gameId, filename, expectedHash, data) => {
+      async (_event, gameId, filename, expectedHash, data, organize) => {
         // Saved replays go into the first configured folder; the watcher then indexes them from
         // there. With no folders configured there's nowhere to save to, so reject clearly rather
         // than crashing on an undefined path.
@@ -103,8 +104,46 @@ export class ReplayLibraryService {
         if (destFolder === undefined) {
           throw new Error('No replay folder is configured')
         }
-        return saveReplayToLibrary(destFolder, gameId, filename, expectedHash, data)
+        const { path: savedPath, alreadyExists } = await saveReplayToLibrary(
+          destFolder,
+          gameId,
+          filename,
+          expectedHash,
+          data,
+        )
+
+        // Index the file directly (rather than waiting on the watcher's own debounced reconcile)
+        // so the id needed to apply `organize`'s flags -- and to hand back to the renderer for
+        // undo -- is available immediately, whether the file was just written or already existed
+        // on disk unindexed.
+        let replayId: number | undefined
+        try {
+          replayId = await this.call('indexFile', savedPath)
+        } catch (err) {
+          log.error(`Error indexing saved replay '${savedPath}': ${getErrorStack(err)}`)
+        }
+
+        let organized = false
+        if (replayId !== undefined && organize) {
+          try {
+            if (organize.bookmark) {
+              await this.call('setBookmarked', replayId, true)
+            }
+            if (organize.playlistId !== undefined) {
+              await this.call('addToPlaylist', organize.playlistId, [replayId])
+            }
+            organized = true
+          } catch (err) {
+            log.error(`Error organizing saved replay '${savedPath}': ${getErrorStack(err)}`)
+          }
+        }
+
+        this.notifyChanged()
+        return { path: savedPath, alreadyExists, replayId, organized }
       },
+    )
+    ipcMain.handle('replayLibraryRemoveSavedReplay', async (_event, filePath, expectedHash) =>
+      removeSavedReplay(filePath, expectedHash, this.watchedFolders),
     )
 
     this.startWorker()
@@ -166,17 +205,22 @@ export class ReplayLibraryService {
     this.worker = worker
   }
 
-  /** Invokes one of the worker's `ReplayDbCalls` operations as a correlated request/response. */
+  /**
+   * Invokes one of the worker's `ReplayDbCalls` operations as a correlated request/response. The
+   * worker already awaits a `Promise`-returning method (e.g. `indexFile`) before posting its
+   * result, so what comes back over the message channel is the awaited value -- `Awaited<...>`
+   * here matches that instead of double-wrapping it in another `Promise`.
+   */
   private call<M extends keyof ReplayDbCalls>(
     method: M,
     ...args: Parameters<ReplayDbCalls[M]>
-  ): Promise<ReturnType<ReplayDbCalls[M]>> {
+  ): Promise<Awaited<ReturnType<ReplayDbCalls[M]>>> {
     if (!this.worker) {
       return Promise.reject(new Error('replay DB worker is not running'))
     }
 
     const id = this.nextRequestId++
-    const deferred = createDeferred<ReturnType<ReplayDbCalls[M]>>()
+    const deferred = createDeferred<Awaited<ReturnType<ReplayDbCalls[M]>>>()
     this.pending.set(id, deferred)
     const message: CallRequest<M> = { type: 'call', id, method, args }
     this.worker.postMessage(message)

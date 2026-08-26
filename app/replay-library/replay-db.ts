@@ -532,6 +532,12 @@ export class ReplayDb {
     return row?.id
   }
 
+  /** The id of the indexed replay at `path`, if one has been indexed. */
+  getIdByPath(path: string): number | undefined {
+    const row = this.getIdByPathStmt.get(path) as { id: number } | undefined
+    return row?.id
+  }
+
   /** Lists the local playlists, ordered per their manual arrangement. */
   listPlaylists(): ReplayPlaylist[] {
     return this.listPlaylistsStmt.all() as ReplayPlaylist[]

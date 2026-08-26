@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
-import { TypedIpcRenderer } from '../../common/ipc'
+import { ReplaySaveOrganize, TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { SbUser, SelfUserJson } from '../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
@@ -150,31 +150,81 @@ export function watchReplayFromUrl(
   })
 }
 
-/** Result of `saveReplayToLibrary`, distinguishing a fresh save from a pre-existing one. */
+/**
+ * A destination from the "Save replay" menu. Every destination downloads the replay identically
+ * (or reuses what's already indexed/on disk); only the logical organization differs.
+ */
+export type SaveReplayDestination =
+  | { kind: 'library' }
+  | { kind: 'bookmarks' }
+  | { kind: 'playlist'; playlistId: number; playlistName: string }
+
+/** Result of `saveReplayToLibrary`, rich enough for a caller to build a snackbar and an Undo. */
 export interface SaveReplayResult {
-  /**
-   * Absolute path of the saved (or already-on-disk) file. Omitted only when the replay was already
-   * indexed locally, so no download or save was attempted.
-   */
-  path?: string
   /** True if this game's replay was already present in the local library (indexed or on disk). */
   alreadySaved: boolean
+  /** The destination this call saved/organized into. */
+  destination: SaveReplayDestination
+  /**
+   * Whether `destination`'s bookmark/playlist flag actually took effect. Always `true` for
+   * `library` (being saved/already-in-the-library is all that destination asks for); for
+   * `bookmarks`/`playlist` this can be `false` if the file couldn't be indexed in time to apply it.
+   */
+  organized: boolean
+  /**
+   * Reverses this call's effect, when doing so is safe and meaningful: deletes the file for a
+   * fresh save (never for a file that already existed on disk before this call), or un-applies the
+   * bookmark/playlist flag when the destination only added one to an already-saved replay.
+   * Omitted when there's nothing sensible to undo (e.g. picking `library` on an already-saved
+   * replay).
+   */
+  undo?: () => Promise<void>
 }
 
 /**
  * Downloads a replay from the server (if not already indexed locally) and saves it into the
- * watched replay library folder, so the local replay library picks it up. Unlike
+ * watched replay library folder, so the local replay library picks it up -- then applies
+ * `destination`'s organization (bookmark it, or file it into a playlist). Unlike
  * `watchReplayFromUrl`, this writes into the user-visible watched folder rather than the per-id
  * cache used for playback.
+ *
+ * When the replay is already indexed, no download/save happens at all: `library` is a no-op
+ * (it's already there), while `bookmarks`/`playlist` apply their flag directly via the existing
+ * replay's id.
  */
 export function saveReplayToLibrary(
   replayInfo: GameReplayInfo,
+  destination: SaveReplayDestination,
   spec: RequestHandlingSpec<SaveReplayResult>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
     const existingId = await ipcRenderer.invoke('replayLibraryFindByGameId', replayInfo.gameId)
     if (existingId !== undefined) {
-      return { alreadySaved: true }
+      if (destination.kind === 'library') {
+        return { alreadySaved: true, destination, organized: true }
+      } else if (destination.kind === 'bookmarks') {
+        await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, true)
+        return {
+          alreadySaved: true,
+          destination,
+          organized: true,
+          undo: async () => {
+            await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, false)
+          },
+        }
+      } else {
+        await ipcRenderer.invoke('replayLibraryAddToPlaylist', destination.playlistId, [existingId])
+        return {
+          alreadySaved: true,
+          destination,
+          organized: true,
+          undo: async () => {
+            await ipcRenderer.invoke('replayLibraryRemoveFromPlaylist', destination.playlistId, [
+              existingId,
+            ])
+          },
+        }
+      }
     }
 
     const response = await fetchRaw(replayInfo.url, {
@@ -187,16 +237,49 @@ export function saveReplayToLibrary(
     }
     const data = await response.arrayBuffer()
 
+    let organize: ReplaySaveOrganize | undefined
+    if (destination.kind === 'bookmarks') {
+      organize = { bookmark: true }
+    } else if (destination.kind === 'playlist') {
+      organize = { playlistId: destination.playlistId }
+    }
+
     const saveResult = await ipcRenderer.invoke(
       'replayLibrarySaveReplay',
       replayInfo.gameId,
       replayInfo.filename,
       replayInfo.hash,
       data,
+      organize,
     )
+    if (!saveResult) {
+      throw new Error('Failed to save replay')
+    }
 
     // The file can already exist on disk while its game id isn't indexed yet (the watcher hasn't
-    // caught up, or the index was reset) -- surface that as "already saved" rather than a fresh save.
-    return { path: saveResult?.path, alreadySaved: saveResult?.alreadyExists ?? false }
+    // caught up, or the index was reset) -- surface that as "already saved" rather than a fresh
+    // save, and never delete it on undo (it wasn't this call that created it).
+    const { path: savedPath, alreadyExists, replayId, organized: flagsApplied } = saveResult
+    const organized = destination.kind === 'library' ? true : flagsApplied
+
+    let undo: (() => Promise<void>) | undefined
+    if (!alreadyExists) {
+      undo = async () => {
+        await ipcRenderer.invoke('replayLibraryRemoveSavedReplay', savedPath, replayInfo.hash)
+      }
+    } else if (organized && replayId !== undefined) {
+      if (destination.kind === 'bookmarks') {
+        undo = async () => {
+          await ipcRenderer.invoke('replayLibrarySetBookmarked', replayId, false)
+        }
+      } else if (destination.kind === 'playlist') {
+        const playlistId = destination.playlistId
+        undo = async () => {
+          await ipcRenderer.invoke('replayLibraryRemoveFromPlaylist', playlistId, [replayId])
+        }
+      }
+    }
+
+    return { alreadySaved: alreadyExists, destination, organized, undo }
   })
 }

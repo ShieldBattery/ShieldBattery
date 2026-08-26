@@ -10,7 +10,9 @@ import { useGameReplayActions } from './use-game-replay-actions'
 
 /**
  * The row context menu shared by the games list and match history pages: "View full results",
- * plus (in the Electron app, when a replay is available) "Watch replay" and "Save replay".
+ * plus a replay action when one is available -- in the Electron app, "Watch replay" and a
+ * "Save replay" item that opens the destination menu (owned by the caller, anchored at this same
+ * menu's position); on web, a "Download replay" item instead.
  *
  * Split out from its callers so `useGameReplayActions` (which subscribes to this game's replay
  * info) only runs while the menu is actually open, rather than for every row on every render.
@@ -18,12 +20,15 @@ import { useGameReplayActions } from './use-game-replay-actions'
 export function GameContextMenuContent({
   game,
   onDismiss,
+  onOpenSaveMenu,
 }: {
   game: ReadonlyDeep<GameRecordJson>
   onDismiss: () => void
+  /** Opens the "Save replay" destination menu, anchored at this menu's position (Electron only). */
+  onOpenSaveMenu: (event: React.MouseEvent | KeyboardEvent) => void
 }) {
   const { t } = useTranslation()
-  const { replayInfo, onWatchReplay, onSaveReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
 
   // Built as a flat array (rather than a conditional fragment) so every item stays a direct
   // child of `MenuList`: it only clones `dense`/focus state onto, and lets arrow-key navigation
@@ -40,7 +45,7 @@ export function GameContextMenuContent({
     />,
   ]
 
-  if (IS_ELECTRON && replayInfo) {
+  if (replayInfo && IS_ELECTRON) {
     items.push(
       <Divider key='divider' $dense={true} />,
       <MenuItem
@@ -56,9 +61,25 @@ export function GameContextMenuContent({
         key='save-replay'
         icon={<MaterialIcon icon='save' />}
         text={t('gameDetails.buttonSaveReplay', 'Save replay')}
+        onClick={event => {
+          onDismiss()
+          onOpenSaveMenu(event)
+        }}
+      />,
+    )
+  } else if (replayInfo) {
+    items.push(
+      <Divider key='divider' $dense={true} />,
+      <MenuItem
+        key='download-replay'
+        icon={<MaterialIcon icon='download' />}
+        text={t('gameDetails.buttonDownloadReplay', 'Download replay')}
         onClick={() => {
           onDismiss()
-          onSaveReplay()
+          const a = document.createElement('a')
+          a.href = replayInfo.url
+          a.target = '_blank'
+          a.click()
         }}
       />,
     )
