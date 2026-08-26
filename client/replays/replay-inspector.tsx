@@ -26,7 +26,8 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Logo from '../logos/logo-no-bg.svg?react'
 import { FilledButton, IconButton } from '../material/button'
-import { MenuItem } from '../material/menu/item'
+import { Divider } from '../material/menu/divider'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { push } from '../navigation/routing'
@@ -110,8 +111,9 @@ const PlaylistChip = styled.div`
 /**
  * Builds the "more actions" menu items shared between the inspector's overflow menu and the
  * library's row context menu: add/remove-from-playlist, an optional reorder pair, view-game-page,
- * and show-in-explorer. Watch/Bookmark aren't included here since each caller surfaces those
- * differently (dedicated buttons in the inspector, leading menu items in the context menu).
+ * show-in-explorer, and move-to-recycle-bin. Watch/Bookmark aren't included here since each caller
+ * surfaces those differently (dedicated buttons in the inspector, leading menu items in the
+ * context menu).
  *
  * Returns a flat array of keyed `MenuItem` elements (rather than a component rendering a
  * fragment) so that spreading it directly into a `<MenuList>`'s children keeps every item a
@@ -125,6 +127,7 @@ export function getReplayActionMenuItems({
   onOpenAddToPlaylist,
   onRemoveFromPlaylist,
   onReveal,
+  onMoveToRecycleBin,
   reorder,
   t,
 }: {
@@ -134,6 +137,7 @@ export function getReplayActionMenuItems({
   onOpenAddToPlaylist: (event: React.MouseEvent | KeyboardEvent) => void
   onRemoveFromPlaylist: () => void
   onReveal: (entry: ReplayLibraryEntry) => void
+  onMoveToRecycleBin: (entry: ReplayLibraryEntry) => void
   /** Present only when Move up/Move down should be offered (the inspector, in manual order). */
   reorder?: {
     canMoveUp: boolean
@@ -220,6 +224,19 @@ export function getReplayActionMenuItems({
     />,
   )
 
+  items.push(
+    <Divider key='move-to-recycle-bin-divider' $dense={true} />,
+    <DestructiveMenuItem
+      key='move-to-recycle-bin'
+      icon={<MaterialIcon icon='delete' />}
+      text={t('replays.library.moveToRecycleBin', 'Move to Recycle Bin')}
+      onClick={() => {
+        closeMenu()
+        onMoveToRecycleBin(entry)
+      }}
+    />,
+  )
+
   return items
 }
 
@@ -297,6 +314,7 @@ export interface ReplayInspectorProps {
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
   onAddToPlaylist: (playlistId: number, entry: ReplayLibraryEntry) => void
   onRemoveFromPlaylist: () => void
+  onMoveToRecycleBin: (entry: ReplayLibraryEntry) => void
   onMoveUp: () => void
   onMoveDown: () => void
 }
@@ -315,6 +333,7 @@ export function ReplayInspector({
   onToggleBookmark,
   onAddToPlaylist,
   onRemoveFromPlaylist,
+  onMoveToRecycleBin,
   onMoveUp,
   onMoveDown,
 }: ReplayInspectorProps) {
@@ -454,6 +473,7 @@ export function ReplayInspector({
             onOpenAddToPlaylist: openAddMenu,
             onRemoveFromPlaylist,
             onReveal,
+            onMoveToRecycleBin,
             reorder:
               inPlaylistView && canReorder
                 ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }

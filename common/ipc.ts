@@ -271,6 +271,14 @@ interface IpcInvokeables {
    * reconciled by the watcher afterward, not by this call.
    */
   replayLibraryRemoveSavedReplay: (path: string, expectedHash: string) => Promise<boolean>
+  /**
+   * Moves an already-indexed replay file to the Recycle Bin, recoverable unlike
+   * `replayLibraryRemoveSavedReplay`'s hard delete. Refuses (rejecting) unless `path` resolves
+   * inside one of the watched replay folders -- so this can never be used to trash an arbitrary
+   * file. Resolves to whether a file was actually trashed (`false` if it was already gone); the
+   * index (and any playlist membership) is reconciled by the watcher afterward, not by this call.
+   */
+  replayLibraryTrashReplay: (path: string) => Promise<boolean>
 
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.
