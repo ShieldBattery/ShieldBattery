@@ -665,6 +665,80 @@ describe('RegionLatencyManager', () => {
     await waitUntil(() => updateCount === 2)
   })
 
+  it('a queued sweep that starts after the delivery discharges the trailing refresh', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery6.json')
+    manager.deliveryResweepMinAgeMs = 40
+
+    let callCount = 0
+    const resolvers: Array<() => void> = []
+    manager.measureRegion = region =>
+      new Promise(resolve => {
+        callCount++
+        resolvers.push(() =>
+          resolve({ regionId: region.id, rttMs: 42, source: 'beacon', measuredAt: Date.now() }),
+        )
+      })
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => callCount === 1)
+
+    // A changed-list delivery during sweep A: the list change queues follow-up sweep B, and the
+    // delivery note marks the trailing refresh. B starts after the delivery, so it measures the
+    // delivered list over the current path -- it must discharge the trailing refresh rather
+    // than leave a redundant sweep C scheduled behind it.
+    manager.requestSweep()
+    manager.noteListDelivered()
+    resolvers[0]()
+    await waitUntil(() => callCount === 2)
+    resolvers[1]()
+    await waitUntil(() => updateCount === 2)
+
+    await delay(100)
+    expect(callCount).toBe(2)
+  })
+
+  it('a covering sweep cancels an armed trailing timer instead of letting it fire right after', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery7.json')
+    manager.deliveryResweepMinAgeMs = 100
+
+    let callCount = 0
+    manager.measureRegion = async region => {
+      callCount++
+      return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+    }
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => updateCount === 1)
+
+    // A suppressed delivery arms the trailing timer...
+    manager.noteListDelivered()
+    // ...and then an unrelated trigger (a fingerprint change, say) sweeps before it fires. That
+    // sweep covers the delivery, so the old timer must not produce a back-to-back third sweep
+    // when its (stale) deadline passes.
+    manager.requestSweep()
+    await waitUntil(() => updateCount === 2)
+    expect(callCount).toBe(2)
+    await delay(150)
+    expect(callCount).toBe(2)
+
+    // A delivery after the covering sweep still earns its own trailing refresh.
+    manager.noteListDelivered()
+    await waitUntil(() => updateCount === 3)
+    expect(callCount).toBe(3)
+  })
+
   it('a list delivery during an in-flight sweep queues no immediate follow-up', async () => {
     const regionList = new GameServerRegionList()
     regionList.setRegions([REGION_A])

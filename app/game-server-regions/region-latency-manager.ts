@@ -377,6 +377,17 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
     if (regions.length === 0) {
       return
     }
+
+    // A measuring sweep that begins now covers every delivery that arrived before it: it reads
+    // the current list and probes over the current network path, so any owed trailing refresh --
+    // pending flag or already-armed timer -- is discharged rather than left to run a redundant
+    // sweep right after this one. A delivery arriving *during* this sweep re-arms the signal (see
+    // `noteListDelivered`), which this sweep's completion then schedules.
+    this.pendingDeliveryResweep = false
+    if (this.deliveryResweepTimer) {
+      clearTimeout(this.deliveryResweepTimer)
+      this.deliveryResweepTimer = undefined
+    }
     const measured = await Promise.all(
       regions.map(async (region, i) => {
         // Staggered, not simultaneous, so one region's ping traffic doesn't distort another's --
