@@ -20,6 +20,12 @@ export interface DesiredRegion {
   region: GameServerRegionId
   /** Null when the region came from a manual pick that hasn't been measured yet. */
   rttMs: number | null
+  /**
+   * Whether the region came from the player's manual "Server region" setting rather than the auto
+   * (lowest-RTT) resolution. A manual setting that no longer names a region in the list falls
+   * through to the auto pick, and so reports false.
+   */
+  manual: boolean
 }
 
 /**
@@ -58,7 +64,7 @@ export function pickAutoRegion(
       best = latency
     }
   }
-  return best ? { region: best.regionId, rttMs: best.rttMs } : undefined
+  return best ? { region: best.regionId, rttMs: best.rttMs, manual: false } : undefined
 }
 
 /**
@@ -87,7 +93,11 @@ export function resolveRegionSelection(
 ): DesiredRegion | undefined {
   const manualRegion = resolveManualRegion(manualRegionId, regions)
   if (manualRegion) {
-    return { region: manualRegion.id, rttMs: latencies[manualRegion.id]?.rttMs ?? null }
+    return {
+      region: manualRegion.id,
+      rttMs: latencies[manualRegion.id]?.rttMs ?? null,
+      manual: true,
+    }
   }
 
   return pickAutoRegion(regions, latencies)

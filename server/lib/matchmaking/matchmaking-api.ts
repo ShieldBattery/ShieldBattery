@@ -137,12 +137,17 @@ export class MatchmakingApi {
         identifiers: joiClientIdentifiers(ctx).required(),
         // The desired region is optional and only loosely validated here (it's an opaque id): the
         // service checks it against the live region list at queue time and drops it if unknown, so a
-        // client with no measured regions can queue region-less. `rttMs` is only meaningful with a
-        // region and is required alongside one.
+        // client with no measured regions can queue region-less. `rttMs` and `regionManual` are only
+        // meaningful alongside a region, so a request carrying either without one is rejected; both
+        // stay optional with a region, since a manually-picked region may not have been measured
+        // yet and still needs to reach the queue for relay placement.
         region: Joi.string().max(64),
         rttMs: Joi.number().min(0).when('region', {
           is: Joi.exist(),
-          then: Joi.required(),
+          otherwise: Joi.forbidden(),
+        }),
+        regionManual: Joi.boolean().when('region', {
+          is: Joi.exist(),
           otherwise: Joi.forbidden(),
         }),
         // Required: matchmaking is always multi-human, so every match needs each player's per-session
@@ -157,7 +162,7 @@ export class MatchmakingApi {
           .required(),
       }),
     })
-    const { clientId, preferences, identifiers, region, rttMs, clientPubkey } = body
+    const { clientId, preferences, identifiers, region, rttMs, regionManual, clientPubkey } = body
 
     await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 
@@ -223,7 +228,7 @@ export class MatchmakingApi {
       // Non-null: `clientPubkey` is `.required()` in the schema above, so validation already rejected
       // a request without it. It's optional only in the shared `FindMatchRequest` type.
       clientPubkey!,
-      { region, rttMs },
+      { region, rttMs, regionManual },
     )
 
     // Persist the preferences used for this search so they're pre-filled next session and usable for

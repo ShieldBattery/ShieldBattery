@@ -180,6 +180,33 @@ export interface NetcodeV2RehomeRelayEvent {
 export type NetcodeV2RelayEvent = NetcodeV2HomeRelayEvent | NetcodeV2RehomeRelayEvent
 
 /**
+ * What one session slot's player *asked for* at queue/join time, recorded once per slot in
+ * `games.netcode_v2_requested_regions`. Distinct from the relay-serving history
+ * ({@link NetcodeV2RelayEvent}), which records where the session was actually served from: a
+ * requested region with no live relay is served elsewhere, and only this record shows the gap. An
+ * entry carrying no region is itself signal — that player queued region-blind.
+ */
+export interface NetcodeV2RequestedRegion {
+  slot: number
+  userId: SbUserId
+  /** Whether this slot watches rather than plays. */
+  observer: boolean
+  /** The game-server region this player asked to be homed in, absent if they reported none. */
+  region?: GameServerRegionId
+  /**
+   * The player's measured round-trip time (ms) to `region`. Absent when nothing measured it, which a
+   * manual pick allows — the region is still requested, it just carries no latency signal.
+   */
+  rttMs?: number
+  /**
+   * Whether `region` came from the player's manual server-region setting rather than the auto
+   * (lowest-RTT) resolution. Present only alongside `region`, and absent even then when the client
+   * didn't report how the pick was made.
+   */
+  manual?: boolean
+}
+
+/**
  * How a player's rally-point2 slot departed a game: a graceful quit vs. an unclean drop
  * (disconnect/crash/force-quit).
  */

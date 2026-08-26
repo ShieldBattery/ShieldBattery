@@ -51,7 +51,11 @@ describe('pickAutoRegion', () => {
       ...latencyFor(REGION_EU_WEST, 24),
     }
 
-    expect(pickAutoRegion(REGIONS, latencies)).toEqual({ region: REGION_EU_WEST.id, rttMs: 24 })
+    expect(pickAutoRegion(REGIONS, latencies)).toEqual({
+      region: REGION_EU_WEST.id,
+      rttMs: 24,
+      manual: false,
+    })
   })
 
   test('a measurement for a region no longer in the list cannot win the pick', () => {
@@ -69,7 +73,11 @@ describe('pickAutoRegion', () => {
       ...latencyFor(REGION_EU_WEST, 24),
     }
 
-    expect(pickAutoRegion(REGIONS, latencies)).toEqual({ region: REGION_EU_WEST.id, rttMs: 24 })
+    expect(pickAutoRegion(REGIONS, latencies)).toEqual({
+      region: REGION_EU_WEST.id,
+      rttMs: 24,
+      manual: false,
+    })
   })
 
   test('returns undefined when every measurement is for a retired region', () => {
@@ -105,6 +113,7 @@ describe('resolveRegionSelection', () => {
     expect(resolveRegionSelection(undefined, REGIONS, latencies)).toEqual({
       region: REGION_US_EAST.id,
       rttMs: 24,
+      manual: false,
     })
   })
 
@@ -112,9 +121,12 @@ describe('resolveRegionSelection', () => {
     const latencies = latencyFor(REGION_US_EAST, 24)
     const staleRegionId = makeGameServerRegionId('decommissioned-region')
 
+    // The pick reads as Auto: the setting named a region that no longer exists, so the region
+    // reported is one the player never chose by hand.
     expect(resolveRegionSelection(staleRegionId, REGIONS, latencies)).toEqual({
       region: REGION_US_EAST.id,
       rttMs: 24,
+      manual: false,
     })
   })
 
@@ -127,6 +139,7 @@ describe('resolveRegionSelection', () => {
     expect(resolveRegionSelection(REGION_US_EAST.id, REGIONS, latencies)).toEqual({
       region: REGION_US_EAST.id,
       rttMs: 80,
+      manual: true,
     })
   })
 
@@ -136,7 +149,18 @@ describe('resolveRegionSelection', () => {
     expect(resolveRegionSelection(REGION_US_EAST.id, REGIONS, latencies)).toEqual({
       region: REGION_US_EAST.id,
       rttMs: null,
+      manual: true,
     })
+  })
+
+  test('flags how the region was chosen: the settings pick is manual, the rtt pick is not', () => {
+    const latencies = {
+      ...latencyFor(REGION_US_EAST, 80),
+      ...latencyFor(REGION_EU_WEST, 24),
+    }
+
+    expect(resolveRegionSelection(REGION_US_EAST.id, REGIONS, latencies)?.manual).toBe(true)
+    expect(resolveRegionSelection(undefined, REGIONS, latencies)?.manual).toBe(false)
   })
 
   test('no setting and no measurements: resolves to undefined', () => {
@@ -186,7 +210,7 @@ describe('resolveDesiredRegion', () => {
       jotaiStore.set(gameServerRegionsReadyAtom, true)
     }, 100)
 
-    expect(await resultPromise).toEqual({ region: REGION_US_EAST.id, rttMs: 24 })
+    expect(await resultPromise).toEqual({ region: REGION_US_EAST.id, rttMs: 24, manual: false })
   })
 
   test('cold cache that settles empty mid-window: stops polling and resolves to undefined', async () => {
@@ -222,7 +246,7 @@ describe('resolveDesiredRegion', () => {
 
     const result = await resolveDesiredRegion()
 
-    expect(result).toEqual({ region: REGION_US_EAST.id, rttMs: 24 })
+    expect(result).toEqual({ region: REGION_US_EAST.id, rttMs: 24, manual: false })
     expect(invokeSpy).toHaveBeenCalledTimes(1)
     expect(invokeSpy).toHaveBeenCalledWith('gameServerRegionsGetLatencies')
   })
@@ -248,7 +272,7 @@ describe('resolveDesiredRegion', () => {
 
     const result = await resolveDesiredRegion()
 
-    expect(result).toEqual({ region: REGION_EU_WEST.id, rttMs: 40 })
+    expect(result).toEqual({ region: REGION_EU_WEST.id, rttMs: 40, manual: false })
     expect(invokeSpy).toHaveBeenCalledWith('gameServerRegionsEnsureSweep')
     expect(getLatenciesCalls).toBeGreaterThanOrEqual(2)
   })

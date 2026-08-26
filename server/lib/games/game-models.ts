@@ -10,7 +10,7 @@ import {
 } from '../../../common/games/game-filters'
 import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
-import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
+import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
@@ -275,20 +275,45 @@ export async function addNetcodeV2RelayEvents(
 }
 
 /**
- * Returns a game's persisted netcode-v2 coordinator session id and relay-serving history, for the
- * admin debug view. `session` is `null` for a game that never persisted a coordinator session id
- * (not a netcode-v2 game, or the write failed); `relays` is empty when there's no history on record.
+ * Records what each of a game's session slots requested at queue/join time. Written once, at session
+ * create, so this overwrites rather than appends: it's create-time truth, unlike the relay history
+ * that grows as a session moves.
  */
-export async function getNetcodeV2DebugInfo(
+export async function setNetcodeV2RequestedRegions(
   gameId: string,
-): Promise<{ session: number | null; relays: NetcodeV2RelayEvent[] }> {
+  requested: NetcodeV2RequestedRegion[],
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET netcode_v2_requested_regions = ${JSON.stringify(requested)}::jsonb
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a game's persisted netcode-v2 coordinator session id, relay-serving history, and per-slot
+ * requested regions, for the admin debug view. `session` is `null` for a game that never persisted a
+ * coordinator session id (not a netcode-v2 game, or the write failed); `relays` and
+ * `requestedRegions` are empty when there's nothing on record.
+ */
+export async function getNetcodeV2DebugInfo(gameId: string): Promise<{
+  session: number | null
+  relays: NetcodeV2RelayEvent[]
+  requestedRegions: NetcodeV2RequestedRegion[]
+}> {
   const { client, done } = await db()
   try {
     const result = await client.query<{
       netcode_v2_session: string | null
       netcode_v2_relays: NetcodeV2RelayEvent[] | null
+      netcode_v2_requested_regions: NetcodeV2RequestedRegion[] | null
     }>(sql`
-      SELECT netcode_v2_session, netcode_v2_relays
+      SELECT netcode_v2_session, netcode_v2_relays, netcode_v2_requested_regions
       FROM games
       WHERE id = ${gameId}
     `)
@@ -297,6 +322,7 @@ export async function getNetcodeV2DebugInfo(
       // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
       session: row?.netcode_v2_session != null ? Number(row.netcode_v2_session) : null,
       relays: row?.netcode_v2_relays ?? [],
+      requestedRegions: row?.netcode_v2_requested_regions ?? [],
     }
   } finally {
     done()

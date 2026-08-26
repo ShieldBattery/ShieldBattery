@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from 'vitest'
+import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameSource } from '../../../common/games/configuration'
 import { GameSourceFilter, MIN_GAME_LENGTH_MS } from '../../../common/games/game-filters'
-import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
+import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
@@ -16,6 +17,7 @@ import {
   getGamesForUser,
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
+  setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
 } from './game-models'
 
@@ -433,26 +435,93 @@ describe('games/game-models/addNetcodeV2RelayEvents', () => {
   })
 })
 
+describe('games/game-models/setNetcodeV2RequestedRegions', () => {
+  test('overwrites the column with the given entries as a jsonb array', async () => {
+    const query = mockDbClient([])
+    const requested: NetcodeV2RequestedRegion[] = [
+      {
+        slot: 0,
+        userId: makeSbUserId(1),
+        observer: false,
+        region: makeGameServerRegionId('us-east'),
+        rttMs: 24,
+      },
+    ]
+
+    await setNetcodeV2RequestedRegions('game-1', requested)
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('UPDATE games')
+    expect(template.text).toContain('netcode_v2_requested_regions')
+    // An overwrite, not an append: this is create-time truth, written once.
+    expect(template.text).not.toContain('||')
+    expect(template.values).toEqual([JSON.stringify(requested), 'game-1'])
+  })
+
+  test('writes a region-less entry without the optional keys', async () => {
+    const query = mockDbClient([])
+    const requested: NetcodeV2RequestedRegion[] = [
+      {
+        slot: 0,
+        userId: makeSbUserId(1),
+        observer: true,
+        region: undefined,
+        rttMs: undefined,
+        manual: undefined,
+      },
+    ]
+
+    await setNetcodeV2RequestedRegions('game-1', requested)
+
+    const template = query.mock.calls[0][0]
+    expect(JSON.parse(template.values[0])).toEqual([{ slot: 0, userId: 1, observer: true }])
+  })
+})
+
 describe('games/game-models/getNetcodeV2DebugInfo', () => {
   test('normalizes the BIGINT session id and returns the relay history', async () => {
     const relays: NetcodeV2RelayEvent[] = [
       { kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900', at: 1000 },
     ]
-    // eslint-disable-next-line camelcase
-    mockDbClient([{ netcode_v2_session: '1234567890123', netcode_v2_relays: relays }])
+    const requestedRegions: NetcodeV2RequestedRegion[] = [
+      {
+        slot: 0,
+        userId: makeSbUserId(1),
+        observer: false,
+        region: makeGameServerRegionId('us-east'),
+        manual: true,
+      },
+    ]
+    mockDbClient([
+      {
+        /* eslint-disable camelcase */
+        netcode_v2_session: '1234567890123',
+        netcode_v2_relays: relays,
+        netcode_v2_requested_regions: requestedRegions,
+        /* eslint-enable camelcase */
+      },
+    ])
 
     const result = await getNetcodeV2DebugInfo('game-1')
 
-    expect(result).toEqual({ session: 1234567890123, relays })
+    expect(result).toEqual({ session: 1234567890123, relays, requestedRegions })
   })
 
-  test('returns a null session and empty relay list for a game with no netcode-v2 history', async () => {
-    // eslint-disable-next-line camelcase
-    mockDbClient([{ netcode_v2_session: null, netcode_v2_relays: null }])
+  test('returns a null session and empty lists for a game with no netcode-v2 history', async () => {
+    mockDbClient([
+      {
+        /* eslint-disable camelcase */
+        netcode_v2_session: null,
+        netcode_v2_relays: null,
+        netcode_v2_requested_regions: null,
+        /* eslint-enable camelcase */
+      },
+    ])
 
     const result = await getNetcodeV2DebugInfo('game-1')
 
-    expect(result).toEqual({ session: null, relays: [] })
+    expect(result).toEqual({ session: null, relays: [], requestedRegions: [] })
   })
 
   test('loads a stored event with no region, from before the field existed', async () => {
@@ -464,7 +533,16 @@ describe('games/game-models/getNetcodeV2DebugInfo', () => {
 
     const result = await getNetcodeV2DebugInfo('game-1')
 
-    expect(result).toEqual({ session: 1234567890123, relays })
+    expect(result).toEqual({ session: 1234567890123, relays, requestedRegions: [] })
     expect(result.relays[0]).not.toHaveProperty('region')
+  })
+
+  test('selects the requested-regions column alongside the session and relay history', async () => {
+    const query = mockDbClient([])
+
+    await getNetcodeV2DebugInfo('game-1')
+
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('netcode_v2_requested_regions')
   })
 })

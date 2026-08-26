@@ -20,7 +20,7 @@ import {
   GameSourceFilter,
 } from './game-filters'
 import { MatchupString } from './matchups'
-import { NetcodeV2RelayEvent } from './netcode-v2'
+import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from './netcode-v2'
 import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export const GET_GAMES_LIMIT = 40
@@ -70,6 +70,11 @@ export interface GameDebugInfo {
     /** The coordinator session id persisted for this game, or `null` if it never had one. */
     session: number | null
     relays: NetcodeV2RelayEvent[]
+    /**
+     * What each session slot asked for at queue/join time. Empty for a game that never got as far
+     * as a session create.
+     */
+    requestedRegions: NetcodeV2RequestedRegion[]
   }
 }
 

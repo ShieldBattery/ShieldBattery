@@ -108,7 +108,17 @@ interface PlayerTypeData {
  */
 interface QueuedPlayerRegion {
   region: GameServerRegionId
-  rttMs: number
+  /**
+   * Undefined when nothing has measured the region yet, which a manual pick allows: the region
+   * still places the player's relay, it just carries no latency signal into match-finding.
+   */
+  rttMs?: number
+  /**
+   * Whether the region came from the player's manual server-region setting rather than the auto
+   * (lowest-RTT) resolution. Recorded onto the game's netcode diagnostics; never an input to
+   * matching or placement.
+   */
+  manual?: boolean
 }
 
 /** Data Node.js needs to remember while a player is in queue, separate from the Rust queue. */
@@ -496,7 +506,7 @@ export class MatchmakingService {
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
     clientPubkey: string,
-    desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
+    desiredRegion?: { region?: GameServerRegionId; rttMs?: number; regionManual?: boolean },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
@@ -544,7 +554,7 @@ export class MatchmakingService {
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
     clientPubkey: string,
-    desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
+    desiredRegion?: { region?: GameServerRegionId; rttMs?: number; regionManual?: boolean },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
@@ -553,7 +563,8 @@ export class MatchmakingService {
     // from each player's chosen region and measured rtt to it (see `region`/`rttMs` below). The
     // client reports these when it queues; validate the region against the live region list and drop
     // it if it's unknown (the list can change between the client fetching it and queueing). An
-    // absent or unknown region is tolerated — the player simply carries no latency signal.
+    // absent or unknown region is tolerated — the player simply carries no latency signal. So is a
+    // region with no rtt (an unmeasured manual pick): it still places the player's relay.
     const region = await this.resolveQueuedRegion(desiredRegion)
     if (region) {
       // Signal the coordinator to keep this region warm so a match forms onto an already-ready
@@ -821,19 +832,20 @@ export class MatchmakingService {
   }
 
   /**
-   * Validates a client-reported desired region against the live region list. Returns the region and
-   * its measured rtt only when both are present and the region still exists; otherwise returns
-   * undefined so the player queues with no latency signal. The region list can change between the
-   * client fetching it and queueing, so an unknown region degrades to no-region rather than
-   * rejecting the queue.
+   * Validates a client-reported desired region against the live region list. Returns the region
+   * whenever it still exists, with whatever measured rtt came with it — a region with no rtt is
+   * kept, since placement and region warming need only the region, and the player simply carries no
+   * latency signal into matching. Returns undefined when no region was reported, or when the
+   * reported one is no longer in the list: the list can change between the client fetching it and
+   * queueing, so an unknown region degrades to no-region rather than rejecting the queue.
    */
   private async resolveQueuedRegion(desiredRegion?: {
     region?: GameServerRegionId
     rttMs?: number
+    regionManual?: boolean
   }): Promise<QueuedPlayerRegion | undefined> {
     const region = desiredRegion?.region
-    const rttMs = desiredRegion?.rttMs
-    if (region === undefined || rttMs === undefined) {
+    if (region === undefined) {
       return undefined
     }
 
@@ -842,7 +854,7 @@ export class MatchmakingService {
       return undefined
     }
 
-    return { region, rttMs }
+    return { region, rttMs: desiredRegion?.rttMs, manual: desiredRegion?.regionManual }
   }
 
   /**
@@ -1204,7 +1216,8 @@ export class MatchmakingService {
     // through to the game loader. Region is forwarded to the coordinator to place the player's
     // relay and was validated against the live region list when they queued; a player with no
     // recorded region is placed region-blind. rtt is combined with every other player's region/rtt
-    // to estimate the session's worst pairwise latency. The pubkey was submitted when the player
+    // to estimate the session's worst pairwise latency. Whether the region was hand-picked rides
+    // along for the game's netcode diagnostics only. The pubkey was submitted when the player
     // queued and is required for every human slot of a multi-human (netcode v2) game — a missing
     // one fails the load fast.
     const gameLoadPlayers: GameLoadPlayer[] = playersInTeams.flat().map(p => ({
@@ -1212,6 +1225,7 @@ export class MatchmakingService {
       isObserver: false,
       region: this.playerQueueData.get(p.userId)?.region?.region,
       rttMs: this.playerQueueData.get(p.userId)?.region?.rttMs,
+      regionManual: this.playerQueueData.get(p.userId)?.region?.manual,
       netcodeV2Pubkey: this.playerQueueData.get(p.userId)?.clientPubkey,
     }))
 

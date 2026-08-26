@@ -15,7 +15,11 @@ import {
 } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { addNetcodeV2RelayEvents, setNetcodeV2Session } from '../games/game-models'
+import {
+  addNetcodeV2RelayEvents,
+  setNetcodeV2RequestedRegions,
+  setNetcodeV2Session,
+} from '../games/game-models'
 import log from '../logging/logger'
 import { worstPairwiseLatencyMs } from './latency-estimate'
 import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './netcode-v2-config'
@@ -544,6 +548,11 @@ export class NetcodeV2Service {
        */
       rttMs?: number
       /**
+       * Whether `region` was hand-picked by the player rather than resolved from their measurements.
+       * Recorded onto the game's requested-region record and never forwarded to the coordinator.
+       */
+      regionManual?: boolean
+      /**
        * base64 of the player's per-session public key, submitted at queue/lobby-join time. Required
        * for every slot: a missing key fails create fast (the coordinator embeds it in the slot's
        * session token). Optional in the type so callers thread it in from a per-user lookup that may
@@ -604,6 +613,26 @@ export class NetcodeV2Service {
         }
       }),
       ...latencyEstimateField,
+    }
+
+    // Records what every slot asked for, before the coordinator is asked for anything: a create that
+    // fails, hangs, or is abandoned mid-provisioning is exactly when knowing what was requested
+    // matters, and after the call there'd be nothing to write it from. Non-fatal — a game whose
+    // requested regions fail to persist just loses that line of the debug view.
+    try {
+      await setNetcodeV2RequestedRegions(
+        gameId,
+        slots.map(({ slot, userId, observer, region, rttMs, regionManual }) => ({
+          slot,
+          userId,
+          observer,
+          region,
+          rttMs,
+          manual: regionManual,
+        })),
+      )
+    } catch (err) {
+      log.warn({ err, gameId }, `failed to persist netcode v2 requested regions for game ${gameId}`)
     }
 
     const session = await this.createCoordinatorSession(config, request, signal, onProvisioning)

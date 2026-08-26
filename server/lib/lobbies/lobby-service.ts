@@ -222,6 +222,7 @@ export class LobbyService {
     visibility,
     region,
     rttMs,
+    regionManual,
     clientPubkey,
     leaveCurrentLobby,
     user,
@@ -236,6 +237,8 @@ export class LobbyService {
     visibility?: LobbyVisibility
     region?: GameServerRegionId
     rttMs?: number
+    /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
+    regionManual?: boolean
     clientPubkey?: string
     /**
      * When set, a client currently in a different lobby is removed from it as part of this create
@@ -299,8 +302,12 @@ export class LobbyService {
 
     this.lobbies.set(lobby.id, lobby)
     this.lobbyClients.set(client, lobby.id)
-    if (rttMs !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(lobby.id, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(lobby.id, client.userId, {
+        rttMs,
+        regionManual,
+        netcodeV2Pubkey: clientPubkey,
+      })
     }
     this._subscribeClientToLobby(lobby, user, client)
 
@@ -314,6 +321,7 @@ export class LobbyService {
     id,
     region,
     rttMs,
+    regionManual,
     clientPubkey,
     asObserver,
     leaveCurrentLobby,
@@ -323,6 +331,8 @@ export class LobbyService {
     id: SbLobbyId
     region?: GameServerRegionId
     rttMs?: number
+    /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
+    regionManual?: boolean
     clientPubkey?: string
     /** Whether the joiner wants an observer seat specifically; see the handling below. */
     asObserver?: boolean
@@ -427,8 +437,12 @@ export class LobbyService {
 
     this.lobbies.set(id, updated)
     this.lobbyClients.set(client, id)
-    if (rttMs !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(id, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(id, client.userId, {
+        rttMs,
+        regionManual,
+        netcodeV2Pubkey: clientPubkey,
+      })
     }
 
     this._publishLobbyDiff(lobby, updated)
@@ -1122,6 +1136,7 @@ export class LobbyService {
           isObserver: s.type === SlotType.Observer,
           region: s.region,
           rttMs: networkByUser.get(s.userId!)?.rttMs,
+          regionManual: networkByUser.get(s.userId!)?.regionManual,
           netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
         })),
         playerInfos: getPlayerInfos(lobby),

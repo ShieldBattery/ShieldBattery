@@ -40,6 +40,11 @@ export interface LobbyClientRequest {
 export interface LobbyNetworkParams {
   region?: GameServerRegionId
   rttMs?: number
+  /**
+   * Whether `region` came from the player's manual server-region setting rather than the auto
+   * (lowest-RTT) resolution; recorded for game diagnostics. Present only alongside `region`.
+   */
+  regionManual?: boolean
   clientPubkey?: string
 }
 

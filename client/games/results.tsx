@@ -21,6 +21,7 @@ import {
 import {
   NetcodeV2FlightBlobInfo,
   NetcodeV2FlightBlobsResponse,
+  NetcodeV2RequestedRegion,
 } from '../../common/games/netcode-v2'
 import {
   GameClientResult,
@@ -1165,6 +1166,20 @@ function formatRelay(relayId: number, region: string | undefined): string {
   return region ? `${region} (${relayId})` : String(relayId)
 }
 
+/**
+ * Names how a slot's requested region was chosen. Blank when it requested none (there's no
+ * selection to describe) and when the record carries a region but no `manual` flag (the client
+ * didn't report how the pick was made, so neither label would be truthful).
+ */
+function formatRegionSource(entry: ReadonlyDeep<NetcodeV2RequestedRegion>, t: TFunction): string {
+  if (entry.region === undefined || entry.manual === undefined) {
+    return ''
+  }
+  return entry.manual
+    ? t('gameDetails.debugInfo.network.selectionManual', 'Manual')
+    : t('gameDetails.debugInfo.network.selectionAuto', 'Auto')
+}
+
 const DEBUG_OPEN_TRANSITION: Transition = {
   type: 'spring',
   mass: 4,
@@ -1361,56 +1376,112 @@ function DebugInfoDisplay({
                 ))}
             </div>
           )}
-          {debugInfo.netcodeV2.session !== null && (
+          {(debugInfo.netcodeV2.session !== null ||
+            debugInfo.netcodeV2.requestedRegions.length > 0) && (
             <div>
               <DebugSubsectionTitle>
                 {t('gameDetails.debugInfo.network.title', 'Network')}
               </DebugSubsectionTitle>
-              <NetworkSessionLine>
-                {t('gameDetails.debugInfo.network.session', 'Session: {{session}}', {
-                  session: debugInfo.netcodeV2.session,
-                })}
-              </NetworkSessionLine>
-              <DebugTableContainer>
-                <DebugTable>
-                  <thead>
-                    <tr>
-                      <th>{t('gameDetails.debugInfo.network.event', 'Event')}</th>
-                      <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
-                      <th>{t('gameDetails.debugInfo.network.address', 'Address')}</th>
-                      <th>{t('gameDetails.debugInfo.network.at', 'At')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {debugInfo.netcodeV2.relays.map((event, i) => (
-                      <tr key={i}>
-                        {event.kind === 'home' ? (
-                          <>
-                            <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
-                            <td>{formatRelay(event.relayId, event.region)}</td>
-                            <td>{event.relayAddr}</td>
-                          </>
-                        ) : (
-                          <>
-                            <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
+              {debugInfo.netcodeV2.session !== null ? (
+                <NetworkSessionLine>
+                  {t('gameDetails.debugInfo.network.session', 'Session: {{session}}', {
+                    session: debugInfo.netcodeV2.session,
+                  })}
+                </NetworkSessionLine>
+              ) : null}
+              {debugInfo.netcodeV2.requestedRegions.length > 0 ? (
+                <>
+                  <ReportTitle>
+                    {t('gameDetails.debugInfo.network.requestedRegions', 'Requested regions')}
+                  </ReportTitle>
+                  <DebugTableContainer>
+                    <DebugTable>
+                      <thead>
+                        <tr>
+                          <th>{t('gameDetails.debugInfo.network.slot', 'Slot')}</th>
+                          <th>{t('gameDetails.debugInfo.network.player', 'Player')}</th>
+                          <th>{t('gameDetails.debugInfo.network.region', 'Region')}</th>
+                          <th>{t('gameDetails.debugInfo.network.rtt', 'RTT')}</th>
+                          <th>{t('gameDetails.debugInfo.network.selection', 'Selection')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {debugInfo.netcodeV2.requestedRegions.map(entry => (
+                          <tr key={entry.slot}>
+                            <td>{entry.slot}</td>
                             <td>
-                              {event.deadRelayId} {'->'}{' '}
-                              {formatRelay(event.newRelayId, event.newRelayRegion)}
+                              <ConnectedUsername userId={entry.userId} />
+                              {entry.observer
+                                ? ` ${t('gameDetails.debugInfo.network.observerSuffix', '(obs)')}`
+                                : ''}
                             </td>
-                            <td>{event.newRelayAddr}</td>
-                          </>
-                        )}
-                        <td>
-                          <Tooltip text={longTimestampWithSeconds.format(event.at)} position='top'>
-                            {longTimestamp.format(event.at)}
-                          </Tooltip>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </DebugTable>
-              </DebugTableContainer>
-              <FlightRecordingsSection gameId={gameId} session={debugInfo.netcodeV2.session} />
+                            <td>{entry.region ?? '—'}</td>
+                            <td>
+                              {entry.rttMs !== undefined
+                                ? t('gameDetails.debugInfo.network.rttValue', '{{rttMs}} ms', {
+                                    rttMs: entry.rttMs,
+                                  })
+                                : ''}
+                            </td>
+                            <td>{formatRegionSource(entry, t)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DebugTable>
+                  </DebugTableContainer>
+                </>
+              ) : null}
+              {debugInfo.netcodeV2.relays.length > 0 ? (
+                <>
+                  <ReportTitle>
+                    {t('gameDetails.debugInfo.network.relayHistory', 'Relay history')}
+                  </ReportTitle>
+                  <DebugTableContainer>
+                    <DebugTable>
+                      <thead>
+                        <tr>
+                          <th>{t('gameDetails.debugInfo.network.event', 'Event')}</th>
+                          <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
+                          <th>{t('gameDetails.debugInfo.network.address', 'Address')}</th>
+                          <th>{t('gameDetails.debugInfo.network.at', 'At')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {debugInfo.netcodeV2.relays.map((event, i) => (
+                          <tr key={i}>
+                            {event.kind === 'home' ? (
+                              <>
+                                <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
+                                <td>{formatRelay(event.relayId, event.region)}</td>
+                                <td>{event.relayAddr}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
+                                <td>
+                                  {event.deadRelayId} {'->'}{' '}
+                                  {formatRelay(event.newRelayId, event.newRelayRegion)}
+                                </td>
+                                <td>{event.newRelayAddr}</td>
+                              </>
+                            )}
+                            <td>
+                              <Tooltip
+                                text={longTimestampWithSeconds.format(event.at)}
+                                position='top'>
+                                {longTimestamp.format(event.at)}
+                              </Tooltip>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DebugTable>
+                  </DebugTableContainer>
+                </>
+              ) : null}
+              {debugInfo.netcodeV2.session !== null ? (
+                <FlightRecordingsSection gameId={gameId} session={debugInfo.netcodeV2.session} />
+              ) : null}
             </div>
           )}
         </DebugCollapsibleContent>

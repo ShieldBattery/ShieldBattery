@@ -153,7 +153,7 @@ describe('matchmaking/matchmaking-service', () => {
   async function queuePlayer(
     userId: SbUserId,
     clientId: string,
-    desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
+    desiredRegion?: { region?: GameServerRegionId; rttMs?: number; regionManual?: boolean },
     clientPubkey: string = DEFAULT_PUBKEY,
   ) {
     const prefs = makePreferences()
@@ -499,14 +499,14 @@ describe('matchmaking/matchmaking-service', () => {
     })
   })
 
-  test('forwards each queued player rtt to the game loader alongside their region', async () => {
+  test('forwards each queued player rtt and region source to the game loader with their region', async () => {
     asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
     asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
     gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
 
-    // A queued with a region + rtt; B queues with neither, so B must reach the loader region-blind
-    // and without an rtt entry.
-    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 24 })
+    // A queued with a hand-picked region + rtt; B queues with neither, so B must reach the loader
+    // region-blind, without an rtt entry, and with no region source to report.
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 24, regionManual: true })
     await queuePlayer(USER_B, CLIENT_B)
 
     redisHandler({
@@ -540,6 +540,8 @@ describe('matchmaking/matchmaking-service', () => {
     expect(slotForB.region).toBeUndefined()
     expect(slotForA.rttMs).toBe(24)
     expect(slotForB.rttMs).toBeUndefined()
+    expect(slotForA.regionManual).toBe(true)
+    expect(slotForB.regionManual).toBeUndefined()
     // Both players submitted a pubkey when they queued; each reaches the loader on their own
     // player entry.
     expect(slotForA.netcodeV2Pubkey).toBe(DEFAULT_PUBKEY)
@@ -836,6 +838,18 @@ describe('matchmaking/matchmaking-service', () => {
     expect(request.rttMs).toBeUndefined()
     // The player is validly queued despite the unknown region.
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
+  })
+
+  test('keeps an unmeasured region and queues with no latency signal', async () => {
+    // A hand-picked region the client hasn't measured yet carries no rtt, but it still places the
+    // player's relay, so it must survive the queue rather than being dropped along with the rtt.
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, regionManual: true })
+
+    const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
+    expect(request.region).toBe(REGION_US_EAST)
+    expect(request.rttMs).toBeUndefined()
+    // The region is warmed on the player's behalf even without a measurement.
+    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
   })
 
   test('queues without a region when the client reports none', async () => {
