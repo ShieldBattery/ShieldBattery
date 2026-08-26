@@ -1,12 +1,42 @@
 import dgram from 'node:dgram'
 import net from 'node:net'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../common/game-server-regions'
 import {
   measureBeaconMedianRtt,
   measureFallbackMedianRtt,
   measureRegionLatency,
 } from './region-latency-measurement'
+
+/**
+ * Deferral hook for DNS: when `deferred` is set, the measurement module's `lookup` returns that
+ * promise instead of resolving -- modeling a stalled resolver, which is otherwise uncancellable.
+ * Unset (the default), lookups pass through to the real implementation.
+ */
+const lookupControl = vi.hoisted(() => ({
+  deferred: undefined as Promise<{ address: string; family: number }> | undefined,
+}))
+vi.mock('node:dns/promises', async importOriginal => {
+  const original = await importOriginal<typeof import('node:dns/promises')>()
+  const lookup = ((host: string, ...args: unknown[]) => {
+    if (lookupControl.deferred) {
+      return lookupControl.deferred
+    }
+    return (original.lookup as (...a: unknown[]) => unknown)(host, ...args)
+  }) as typeof original.lookup
+  return { ...original, lookup, default: { ...original, lookup } }
+})
+
+/** Counts every UDP socket creation (the test harness's own included -- snapshot around asserts). */
+const dgramControl = vi.hoisted(() => ({ created: 0 }))
+vi.mock('node:dgram', async importOriginal => {
+  const original = await importOriginal<typeof import('node:dgram')>()
+  const createSocket = ((...args: Parameters<typeof original.createSocket>) => {
+    dgramControl.created++
+    return (original.createSocket as (...a: unknown[]) => dgram.Socket)(...args)
+  }) as typeof original.createSocket
+  return { ...original, createSocket, default: { ...original, createSocket } }
+})
 
 const FAST_OPTIONS = { attempts: 3, attemptTimeoutMs: 200, attemptSpacingMs: 20 }
 
@@ -274,6 +304,44 @@ describe('measureRegionLatency', () => {
       expect(elapsed).toBeLessThan(200)
     } finally {
       await new Promise<void>(resolve => silent.close(() => resolve()))
+    }
+  })
+
+  it('an abort during a stalled DNS lookup settles promptly and never creates a socket', async () => {
+    // The lookup itself is uncancellable, so this pins the two behaviors around it: the outer
+    // abort settles the public promise without waiting for the resolver, and when the lookup
+    // finally does resolve, the post-lookup guard keeps the continuation from creating a UDP
+    // socket (and sending traffic) on behalf of a caller that already gave up.
+    let releaseLookup!: (value: { address: string; family: number }) => void
+    lookupControl.deferred = new Promise(resolve => {
+      releaseLookup = resolve
+    })
+    const deadFallbackPort = await getDeadUdpPort()
+
+    try {
+      const abort = new AbortController()
+      const start = Date.now()
+      const pending = measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: 'stalled.example.test:20000',
+          fallback: `127.0.0.1:${deadFallbackPort}`,
+        },
+        { ...FAST_OPTIONS, signal: abort.signal },
+      )
+      setTimeout(() => abort.abort(), 20)
+
+      const result = await pending
+      expect(result).toBeUndefined()
+      expect(Date.now() - start).toBeLessThan(150)
+
+      const socketsBeforeRelease = dgramControl.created
+      releaseLookup({ address: '127.0.0.1', family: 4 })
+      await new Promise(resolve => setTimeout(resolve, 30))
+      expect(dgramControl.created).toBe(socketsBeforeRelease)
+    } finally {
+      lookupControl.deferred = undefined
     }
   })
 
