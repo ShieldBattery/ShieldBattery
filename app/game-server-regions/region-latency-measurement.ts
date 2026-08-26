@@ -132,6 +132,12 @@ export async function measureBeaconMedianRtt(
   } = options
   const { host, port } = splitHostPort(beaconHostPort)
   const { address, family } = await lookup(host)
+  // The DNS lookup itself is uncancellable, so re-check on the far side of it: a caller that
+  // aborted mid-lookup must not have a socket created (and traffic sent) on its behalf after the
+  // fact.
+  if (signal?.aborted) {
+    return undefined
+  }
 
   const socket = dgram.createSocket(family === 6 ? 'udp6' : 'udp4')
   // A send to an unreachable beacon can surface as an async socket error (e.g. ECONNREFUSED from
@@ -306,25 +312,45 @@ export async function measureRegionLatency(
       : undefined
   })()
 
+  let onAbortSettle: (() => void) | undefined
   try {
     return await new Promise<RegionLatency | undefined>(resolve => {
       let unfinished = 2
       let settled = false
+      const settle = (result: RegionLatency | undefined) => {
+        settled = true
+        raceAbort.abort()
+        resolve(result)
+      }
       const onResult = (result: RegionLatency | undefined) => {
         if (settled) {
           return
         }
         unfinished -= 1
         if (result !== undefined || unfinished === 0) {
-          settled = true
-          raceAbort.abort()
-          resolve(result)
+          settle(result)
         }
       }
+      // The caller's abort settles the public promise immediately, rather than waiting for both
+      // paths to unwind: the beacon path can be stuck inside an uncancellable DNS lookup, which
+      // would otherwise keep this promise pending for as long as the resolver stalls. The paths
+      // still receive the abort (via `raceAbort`) and wind down on their own; their late results
+      // hit the `settled` guard.
+      onAbortSettle = () => {
+        if (!settled) {
+          settle(undefined)
+        }
+      }
+      signal?.addEventListener('abort', onAbortSettle, { once: true })
       beaconPromise.then(onResult, () => onResult(undefined))
       fallbackPromise.then(onResult, () => onResult(undefined))
     })
   } finally {
+    // Both removals matter for a long-lived caller signal: an unfired listener stays subscribed
+    // otherwise, accumulating one closure per measurement.
     signal?.removeEventListener('abort', onOuterAbort)
+    if (onAbortSettle) {
+      signal?.removeEventListener('abort', onAbortSettle)
+    }
   }
 }

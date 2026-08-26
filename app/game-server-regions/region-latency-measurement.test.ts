@@ -242,6 +242,41 @@ describe('measureRegionLatency', () => {
     }
   })
 
+  it('a mid-flight abort settles the measurement promptly', async () => {
+    // A silent (UDP-blocked) beacon runs its full multi-attempt sequence; the fallback, dialed
+    // against a dead port, fails fast and leaves the race waiting on the beacon alone. The
+    // caller's abort must settle the public promise immediately rather than waiting out the rest
+    // of the beacon sequence (or, worse, a stalled DNS lookup neither path can cancel).
+    const silent = dgram.createSocket('udp4')
+    await new Promise<void>(resolve => silent.bind(0, '127.0.0.1', () => resolve()))
+    const silentPort = (silent.address() as net.AddressInfo).port
+    const deadFallbackPort = await getDeadUdpPort()
+
+    try {
+      const abort = new AbortController()
+      const start = Date.now()
+      const pending = measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: `127.0.0.1:${silentPort}`,
+          fallback: `127.0.0.1:${deadFallbackPort}`,
+        },
+        { ...FAST_OPTIONS, signal: abort.signal },
+      )
+      setTimeout(() => abort.abort(), 50)
+
+      const result = await pending
+      const elapsed = Date.now() - start
+
+      expect(result).toBeUndefined()
+      // Well under the silent beacon sequence (3 x 200ms of timeouts plus spacing).
+      expect(elapsed).toBeLessThan(200)
+    } finally {
+      await new Promise<void>(resolve => silent.close(() => resolve()))
+    }
+  })
+
   it('returns undefined when both the beacon and the fallback are dead', async () => {
     const deadBeaconPort = await getDeadUdpPort()
     const deadFallbackPort = await getDeadUdpPort()
