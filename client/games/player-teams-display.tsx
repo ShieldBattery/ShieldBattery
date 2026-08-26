@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { RaceIcon } from '../lobbies/race-icon'
@@ -29,6 +31,18 @@ const PlayerTeamOverline = styled.div`
   ${singleLine};
 
   color: var(--theme-on-surface-variant);
+`
+
+const PlayerTeamOverlineResult = styled.span<{ $result: ReconciledResult }>`
+  color: ${props => {
+    if (props.$result === 'win') {
+      return 'var(--theme-positive)'
+    } else if (props.$result === 'loss') {
+      return 'var(--theme-negative)'
+    } else {
+      return 'inherit'
+    }
+  }};
 `
 
 const PlayerRowContainer = styled.div`
@@ -123,31 +137,51 @@ export interface PlayerTeamsDisplayPlayer {
 export function PlayerTeamsDisplay({
   teams,
   teamLabels,
+  teamResults,
   className,
 }: {
   teams: ReadonlyArray<ReadonlyArray<PlayerTeamsDisplayPlayer>>
   teamLabels?: ReadonlyArray<string>
+  /** One reconciled result per team, aligned by index with `teams`. */
+  teamResults?: ReadonlyArray<ReconciledResult>
   className?: string
 }) {
+  const { t } = useTranslation()
+
   return (
     <PlayerTeamsRoot className={className}>
-      {teams.map((team, teamIndex) => (
-        <PlayerTeamColumn key={`team-${teamIndex}`}>
-          {teamLabels?.[teamIndex] ? (
-            <PlayerTeamOverline>{teamLabels[teamIndex]}</PlayerTeamOverline>
-          ) : null}
-          {team.map((player, playerIndex) => (
-            <PlayerRowContainer key={`player-${playerIndex}`}>
-              <PlayerRace race={player.race} isRandom={player.isRandom} />
-              {player.userId !== undefined ? (
-                <PlayerRowConnectedName userId={player.userId} />
-              ) : (
-                <PlayerRowName $dimmed={player.nameColor === 'dimmed'}>{player.name}</PlayerRowName>
-              )}
-            </PlayerRowContainer>
-          ))}
-        </PlayerTeamColumn>
-      ))}
+      {teams.map((team, teamIndex) => {
+        const label = teamLabels?.[teamIndex]
+        const result = teamResults?.[teamIndex]
+
+        return (
+          <PlayerTeamColumn key={`team-${teamIndex}`}>
+            {label || result ? (
+              <PlayerTeamOverline>
+                {label}
+                {label && result ? ' · ' : null}
+                {result ? (
+                  <PlayerTeamOverlineResult $result={result}>
+                    {getResultLabel(result, t)}
+                  </PlayerTeamOverlineResult>
+                ) : null}
+              </PlayerTeamOverline>
+            ) : null}
+            {team.map((player, playerIndex) => (
+              <PlayerRowContainer key={`player-${playerIndex}`}>
+                <PlayerRace race={player.race} isRandom={player.isRandom} />
+                {player.userId !== undefined ? (
+                  <PlayerRowConnectedName userId={player.userId} />
+                ) : (
+                  <PlayerRowName $dimmed={player.nameColor === 'dimmed'}>
+                    {player.name}
+                  </PlayerRowName>
+                )}
+              </PlayerRowContainer>
+            ))}
+          </PlayerTeamColumn>
+        )
+      })}
     </PlayerTeamsRoot>
   )
 }

@@ -7,7 +7,8 @@ import { MapInfoJson } from '../../common/maps'
 import { MapNoImage } from '../maps/map-image'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { bodyMedium, titleLarge } from '../styles/typography'
+import { bodyMedium, bodySmall, singleLine, titleLarge } from '../styles/typography'
+import { GameRelativeTime } from './game-list-entry'
 
 // Mirrors `DayHeader`'s own box (see `client/games/day-header.tsx`): 16px top padding + 20px
 // `titleSmall` line-height + 8px bottom padding. Used to align the panel with the first replay
@@ -99,9 +100,16 @@ const GameSidePanelEmptyText = styled.div`
   text-align: center;
 `
 
-export const GameSidePanelHeader = styled.div`
+const HeaderAndHero = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 12px;
+`
+
+const HeaderMetaRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 `
 
@@ -116,12 +124,10 @@ export const GameSidePanelTitle = styled.div`
   ${titleLarge};
 `
 
-export const GameSidePanelSubline = styled.div`
-  ${bodyMedium};
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
+/** The panel's meta row's relative-time side, e.g. "18h ago"; hover reveals the absolute time. */
+export const GameSidePanelRelativeTime = styled(GameRelativeTime)`
+  ${bodySmall};
+  ${singleLine};
 
   color: var(--theme-on-surface-variant);
 `
@@ -146,6 +152,12 @@ export interface GameSidePanelProps {
    * placeholder — avoids flashing "not available" while the map is still being fetched.
    */
   isMapLoading?: boolean
+  /**
+   * A one-line row (chips + relative time) shown above the hero image, grouped tightly with it so
+   * the two read as one unit. Omitted entirely (rather than left blank) when there's nothing to
+   * show above the hero, e.g. a replay that failed to parse.
+   */
+  headerMeta?: React.ReactNode
   /** True when the adjacent list is day-grouped, so the panel's top aligns with the first row. */
   alignWithFirstRow?: boolean
   className?: string
@@ -155,6 +167,7 @@ export interface GameSidePanelProps {
 export function GameSidePanel({
   map,
   isMapLoading = false,
+  headerMeta,
   alignWithFirstRow = false,
   className,
   children,
@@ -181,7 +194,14 @@ export function GameSidePanel({
 
   return (
     <GameSidePanelRoot $alignWithFirstRow={alignWithFirstRow} className={className}>
-      {hero}
+      {headerMeta ? (
+        <HeaderAndHero>
+          <HeaderMetaRow>{headerMeta}</HeaderMetaRow>
+          {hero}
+        </HeaderAndHero>
+      ) : (
+        hero
+      )}
 
       {children}
     </GameSidePanelRoot>

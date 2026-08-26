@@ -461,6 +461,7 @@ export function GameListView({
           <GameRecordSidePanel
             game={selectedGame}
             forUserId={forUserId}
+            spoilerFree={spoilerFree}
             alignWithFirstRow={sortIsDateBased}
             onViewResults={gameId => navigateToGameResults(gameId)}
           />

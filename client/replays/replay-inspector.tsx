@@ -16,13 +16,11 @@ import {
   GameSidePanelActions,
   GameSidePanelChipsRow,
   GameSidePanelEmpty,
-  GameSidePanelHeader,
+  GameSidePanelRelativeTime,
   GameSidePanelSection,
-  GameSidePanelSubline,
   GameSidePanelTitle,
 } from '../games/game-side-panel'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
-import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Logo from '../logos/logo-no-bg.svg?react'
 import { FilledButton, IconButton } from '../material/button'
@@ -431,6 +429,15 @@ export function ReplayInspector({
     </GameSidePanelChipsRow>
   )
 
+  // An unreadable replay's source and timestamp are unknown (only path/fileName/fileSize are
+  // meaningful then), so it gets no meta row at all.
+  const headerMeta = entry.parseError ? undefined : (
+    <>
+      {chips}
+      <GameSidePanelRelativeTime timestampMs={entry.gameTime} />
+    </>
+  )
+
   const bookmarked = entry.bookmarkedAt !== undefined
   const playlistsForEntry =
     entryPlaylists && entryPlaylists.forId === entry.id ? entryPlaylists.list : []
@@ -507,35 +514,30 @@ export function ReplayInspector({
     <GameSidePanel
       map={map}
       isMapLoading={mapStatus === 'loading'}
+      headerMeta={headerMeta}
       alignWithFirstRow={alignWithFirstRow}>
       {entry.parseError ? (
         <>
-          <GameSidePanelHeader>
-            {/*
-              No source badge: an unreadable replay's source is genuinely unknown (we couldn't read
-              the embedded SB section), so the SB/B.NET distinction can't be made here.
-            */}
-            <GameSidePanelTitle>{entry.fileName}</GameSidePanelTitle>
-          </GameSidePanelHeader>
+          {/*
+            No source badge: an unreadable replay's source is genuinely unknown (we couldn't read
+            the embedded SB section), so the SB/B.NET distinction can't be made here.
+          */}
+          <GameSidePanelTitle>{entry.fileName}</GameSidePanelTitle>
           <ErrorNote>
             {t('replays.library.inspector.parseError', 'This replay could not be read.')}
           </ErrorNote>
         </>
       ) : (
         <>
-          <GameSidePanelHeader>
-            {chips}
-            {/*
-              The map thumbnail renders its own name label, so a title here would duplicate it once
-              loaded. Show the name as text only when there's genuinely no thumbnail coming (no
-              linked map) — not while it's still loading, which would otherwise shift the header's
-              height when the title is dropped on load.
-            */}
-            {mapStatus === 'unavailable' ? (
-              <GameSidePanelTitle>{filterColorCodes(entry.mapName)}</GameSidePanelTitle>
-            ) : null}
-            <GameSidePanelSubline>{longTimestamp.format(entry.gameTime)}</GameSidePanelSubline>
-          </GameSidePanelHeader>
+          {/*
+            The map thumbnail renders its own name label, so a title here would duplicate it once
+            loaded. Show the name as text only when there's genuinely no thumbnail coming (no
+            linked map) — not while it's still loading, which would otherwise shift the header's
+            height when the title is dropped on load.
+          */}
+          {mapStatus === 'unavailable' ? (
+            <GameSidePanelTitle>{filterColorCodes(entry.mapName)}</GameSidePanelTitle>
+          ) : null}
           <GameSidePanelSection>
             <PlayerTeamsDisplay
               teams={playersToDisplayTeams(layout!, computerLabel, linkedUserIds)}

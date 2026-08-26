@@ -5,7 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameType } from '../../common/games/game-type'
 import { GameRecordJson } from '../../common/games/games'
-import { ReconciledPlayerResult } from '../../common/games/results'
+import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
@@ -146,16 +146,63 @@ export function getOrderedTeams(
   return [firstTeam, secondTeam]
 }
 
+/**
+ * Derives one reconciled result per displayed column, or `undefined` when the columns can't be
+ * honestly reduced to one result apiece. Outside `topVBottom`, a "column" from `getOrderedTeams`
+ * is an alphabetical split of all players rather than a real team, so a result is only shown for
+ * a column where every player is human, has a known (not `'unknown'`) result, and all of those
+ * results agree — a mixed FFA split, a computer player, or a missing result blanks every column
+ * rather than showing a lopsided subset.
+ */
+function getTeamResults(
+  orderedTeams: ReadonlyArray<ReadonlyArray<GameConfigPlayer>>,
+  resultsById: ReadonlyMap<SbUserId, ReconciledPlayerResult>,
+): ReadonlyArray<ReconciledResult> | undefined {
+  const teamResults: ReconciledResult[] = []
+
+  for (const team of orderedTeams) {
+    let teamResult: ReconciledResult | undefined
+
+    for (const player of team) {
+      if (player.isComputer) {
+        return undefined
+      }
+
+      const result = resultsById.get(player.id)?.result
+      if (!result || result === 'unknown') {
+        return undefined
+      }
+
+      if (teamResult === undefined) {
+        teamResult = result
+      } else if (teamResult !== result) {
+        return undefined
+      }
+    }
+
+    if (teamResult === undefined) {
+      return undefined
+    }
+
+    teamResults.push(teamResult)
+  }
+
+  return teamResults
+}
+
 export function GamePlayersDisplay({
   game,
   forUserId,
   showTeamLabels = true,
+  showTeamResults = false,
   interactiveNames = false,
   className,
 }: {
   game: ReadonlyDeep<GameRecordJson>
   forUserId?: SbUserId
   showTeamLabels?: boolean
+  /** When true, each displayed column's overline gains a win/loss result, colored accordingly. */
+  showTeamResults?: boolean
   /**
    * When true, human players' names render as store-connected, interactive usernames (clicking
    * opens the profile overlay, right-clicking opens the user context menu) instead of plain text.
@@ -199,5 +246,14 @@ export function GamePlayersDisplay({
       ? [t('game.teamName.top', 'Top'), t('game.teamName.bottom', 'Bottom')]
       : undefined
 
-  return <PlayerTeamsDisplay teams={teams} teamLabels={teamLabels} className={className} />
+  const teamResults = showTeamResults ? getTeamResults(orderedTeams, resultsById) : undefined
+
+  return (
+    <PlayerTeamsDisplay
+      teams={teams}
+      teamLabels={teamLabels}
+      teamResults={teamResults}
+      className={className}
+    />
+  )
 }
