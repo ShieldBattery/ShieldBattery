@@ -166,6 +166,15 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
    * count); undefined until one has. The freshness gate for `noteListDelivered`.
    */
   private lastSweepFinishedAt?: number
+  /**
+   * Whether a freshness-suppressed (or mid-sweep) list delivery still owes a trailing refresh.
+   * Suppression alone would strand it: a network switch right after a sweep whose interface
+   * fingerprint doesn't change has no other trigger until the three-hour periodic timer. All
+   * suppressed deliveries coalesce into this one flag; the refresh runs once the freshness
+   * boundary passes (see `scheduleDeliveryResweep`).
+   */
+  private pendingDeliveryResweep = false
+  private deliveryResweepTimer?: NodeJS.Timeout
 
   constructor(private regionList: GameServerRegionList) {
     super()
@@ -182,19 +191,45 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
    * fingerprint did not (switching between similarly-addressed Wi-Fi networks, say) -- so a
    * delivery doubles as a refresh signal for the latency table, which would otherwise stay stale
    * until the periodic timer. Freshness-gated: a recently completed sweep, or one already in
-   * flight (a changed list's own `change` sweep starts before this runs), makes it a no-op.
+   * flight (a changed list's own `change` sweep starts before this runs), doesn't sweep again
+   * immediately -- but the signal is never dropped either. It coalesces into one pending trailing
+   * refresh that runs at the freshness boundary, so a network switch that lands just inside the
+   * gate still gets fresh RTTs a minute later instead of waiting out the periodic timer.
    */
   noteListDelivered() {
     if (this.sweeping) {
+      // The in-flight sweep measures over the old path/list state; its completion arms the
+      // trailing refresh (see `runSweep`).
+      this.pendingDeliveryResweep = true
       return
     }
-    if (
-      this.lastSweepFinishedAt !== undefined &&
-      monotonicNow() - this.lastSweepFinishedAt < this.deliveryResweepMinAgeMs
-    ) {
-      return
+    if (this.lastSweepFinishedAt !== undefined) {
+      const age = monotonicNow() - this.lastSweepFinishedAt
+      if (age < this.deliveryResweepMinAgeMs) {
+        this.scheduleDeliveryResweep(this.deliveryResweepMinAgeMs - age)
+        return
+      }
     }
     this.requestSweep()
+  }
+
+  /**
+   * Arms (or leaves armed) the one coalesced trailing refresh `noteListDelivered` owes, to run in
+   * `delayMs`. A reconnect storm's deliveries all land here while the timer is already armed, so
+   * they collapse into the single scheduled sweep.
+   */
+  private scheduleDeliveryResweep(delayMs: number) {
+    this.pendingDeliveryResweep = true
+    if (this.deliveryResweepTimer) {
+      return
+    }
+    this.deliveryResweepTimer = setTimeout(() => {
+      this.deliveryResweepTimer = undefined
+      if (this.pendingDeliveryResweep) {
+        this.pendingDeliveryResweep = false
+        this.requestSweep()
+      }
+    }, delayMs)
   }
 
   /**
@@ -266,6 +301,11 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
       clearTimeout(this.startupSweepTimer)
       this.startupSweepTimer = undefined
     }
+    if (this.deliveryResweepTimer) {
+      clearTimeout(this.deliveryResweepTimer)
+      this.deliveryResweepTimer = undefined
+    }
+    this.pendingDeliveryResweep = false
   }
 
   private async startInternal() {
@@ -316,6 +356,11 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
         if (this.sweepQueued) {
           this.sweepQueued = false
           this.runSweep()
+        } else if (this.pendingDeliveryResweep) {
+          // A list delivery arrived while this sweep was in flight: its measurements may predate
+          // the path change the delivery signaled, so the owed trailing refresh runs once this
+          // sweep's freshness window has passed.
+          this.scheduleDeliveryResweep(this.deliveryResweepMinAgeMs)
         }
       })
   }

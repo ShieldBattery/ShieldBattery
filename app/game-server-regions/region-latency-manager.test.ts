@@ -569,7 +569,103 @@ describe('RegionLatencyManager', () => {
     expect(callCount).toBe(2)
   })
 
-  it('a list delivery during an in-flight sweep queues nothing extra', async () => {
+  it('a freshness-suppressed delivery still produces one trailing sweep at the boundary', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery3.json')
+    manager.deliveryResweepMinAgeMs = 40
+
+    let callCount = 0
+    manager.measureRegion = async region => {
+      callCount++
+      return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+    }
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => updateCount === 1)
+
+    // A network switch ten seconds after a sweep re-delivers the list inside the freshness
+    // window. The delivery must not be dropped outright -- with an unchanged interface
+    // fingerprint, the next guaranteed trigger would otherwise be the three-hour timer.
+    manager.noteListDelivered()
+    await delay(10)
+    expect(callCount).toBe(1)
+
+    // The owed refresh runs once the freshness boundary passes.
+    await waitUntil(() => updateCount === 2)
+    expect(callCount).toBe(2)
+  })
+
+  it('a reconnect storm coalesces into a single trailing sweep', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery4.json')
+    manager.deliveryResweepMinAgeMs = 40
+
+    let callCount = 0
+    manager.measureRegion = async region => {
+      callCount++
+      return { regionId: region.id, rttMs: 5, source: 'beacon' as const, measuredAt: Date.now() }
+    }
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => updateCount === 1)
+
+    // A flapping connection delivers the list once per flap; every one lands inside the
+    // freshness window and all of them collapse into the single armed trailing refresh.
+    for (let i = 0; i < 5; i++) {
+      manager.noteListDelivered()
+    }
+    await waitUntil(() => updateCount === 2)
+    await delay(60)
+    expect(callCount).toBe(2)
+  })
+
+  it('a delivery during an in-flight sweep still gets a trailing sweep afterward', async () => {
+    const regionList = new GameServerRegionList()
+    regionList.setRegions([REGION_A])
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () =>
+      path.join(os.tmpdir(), 'sb-region-latency-unused-delivery5.json')
+    manager.deliveryResweepMinAgeMs = 40
+
+    let callCount = 0
+    const resolvers: Array<() => void> = []
+    manager.measureRegion = region =>
+      new Promise(resolve => {
+        callCount++
+        resolvers.push(() =>
+          resolve({ regionId: region.id, rttMs: 42, source: 'beacon', measuredAt: Date.now() }),
+        )
+      })
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    manager.ensureSweepNow()
+    await waitUntil(() => callCount === 1)
+
+    // The in-flight sweep's measurements may predate whatever path change this delivery
+    // signals, so completing it doesn't discharge the delivery -- the trailing refresh still
+    // runs once the completed sweep's freshness window passes.
+    manager.noteListDelivered()
+    resolvers[0]()
+    await waitUntil(() => updateCount === 1)
+    expect(callCount).toBe(1)
+
+    await waitUntil(() => callCount === 2)
+    resolvers[1]()
+    await waitUntil(() => updateCount === 2)
+  })
+
+  it('a list delivery during an in-flight sweep queues no immediate follow-up', async () => {
     const regionList = new GameServerRegionList()
     regionList.setRegions([REGION_A])
     const manager = makeManager(regionList)
