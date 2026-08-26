@@ -56,12 +56,18 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     })
   })
 
+  function deliveredSetups(
+    gameId: string,
+  ): Array<NetcodeV2ServerSetup & { clientPrivateKey: string }> {
+    return commands
+      .filter(([id, command]) => id === gameId && command === 'netcodeV2Setup')
+      .map(([, , setup]) => setup)
+  }
+
   function deliveredSetup(gameId: string): NetcodeV2ServerSetup & { clientPrivateKey: string } {
-    const delivered = commands.find(
-      ([id, command]) => id === gameId && command === 'netcodeV2Setup',
-    )
-    expect(delivered, `netcodeV2Setup was delivered for ${gameId}`).toBeDefined()
-    return delivered![2]
+    const delivered = deliveredSetups(gameId)
+    expect(delivered.length, `netcodeV2Setup was delivered for ${gameId}`).toBeGreaterThan(0)
+    return delivered[delivered.length - 1]
   }
 
   it('resolves the echoed pubkey again for a requeued match under a new game id', () => {
@@ -94,17 +100,26 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     const first = deliveredSetup('game-1')
 
     // The same game id relaunches (e.g. the process died before init); the adopted keypair and
-    // handoff carry forward on the game itself, no ring lookup involved.
+    // handoff carry forward on the game itself, no ring lookup involved. Assert on a genuinely
+    // second delivery -- a single delivery re-read would vacuously "match" itself.
     manager.setGameConfig(configFor('game-1'))
     manager.setNetcodeV2Setup('game-1', setupFor(pubkey))
-    expect(deliveredSetup('game-1').clientPrivateKey).toBe(first.clientPrivateKey)
+    const setups = deliveredSetups('game-1')
+    expect(setups.length).toBe(2)
+    expect(setups[1].clientPrivateKey).toBe(first.clientPrivateKey)
   })
 
   it('quits the game with an explicit error when no keypair can be adopted', () => {
+    const statuses: Array<{ state: string; extra?: unknown }> = []
+    manager.on('gameStatus', status => statuses.push(status))
+
     manager.setGameConfig(configFor('game-1'))
     manager.setNetcodeV2Setup('game-1', setupFor('pubkey-nobody-generated'))
 
     expect(commands).toContainEqual(['game-1', 'quit'])
     expect(manager.getStatus()).toBeNull()
+    const errorStatus = statuses.find(status => status.state === 'error')
+    expect(errorStatus, 'an error status was emitted').toBeDefined()
+    expect(String(errorStatus!.extra)).toContain('no adoptable keypair (noKeysGenerated)')
   })
 })
