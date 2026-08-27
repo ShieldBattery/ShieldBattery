@@ -969,6 +969,7 @@
       "emptyAllFull": "지금은 모든 로비가 가득 찼습니다",
       "emptyNoLobbies": "지금은 열려 있는 로비가 없습니다",
       "emptyNoMatches": "필터와 일치하는 로비가 없습니다",
+      "enterCode": "코드 입력",
       "filterFriends": "친구",
       "filterGameType": "게임 방식",
       "filterGameTypeAll": "모든 게임 방식",
@@ -1026,7 +1027,6 @@
       "visibilityUnlisted": "일부 공개"
     },
     "errors": {
-      "alreadyInLobby": "이미 다른 로비에 참여 중입니다.",
       "load": "로비를 로드하는 중에 문제가 발생했습니다"
     },
     "events": {
@@ -1044,6 +1044,15 @@
       "visibilityListedDescription": "누구나 로비 목록에서 참가할 수 있습니다. 게임과 리플레이가 공개됩니다.",
       "visibilityUnlistedDescription": "링크가 있는 사람만 참가할 수 있습니다. 리플레이는 게임에 참여했던 사람만 다운로드할 수 있습니다."
     },
+    "joinCode": {
+      "explainer": "로비 링크를 붙여넣거나, 링크를 브라우저에서 열었을 때 표시되는 코드를 입력하세요.",
+      "genericError": "문제가 발생했습니다. 다시 시도해 주세요.",
+      "inputLabel": "코드 또는 로비 링크",
+      "invalidInput": "코드나 로비 링크를 입력하세요.",
+      "notFound": "해당 로비는 더 이상 열려 있지 않습니다.",
+      "submitAction": "로비 찾기",
+      "title": "참가 코드 입력"
+    },
     "joinLobby": {
       "action": "로비 참가",
       "browseLobbies": "로비 둘러보기",
@@ -1058,7 +1067,23 @@
       "openSlotCount_other": "{{count}} 슬롯 열림"
     },
     "landing": {
+      "appLaunch": {
+        "button": "ShieldBattery 앱에서 열기",
+        "failedSubtitle": "이 컴퓨터에 설치되어 있지 않을 수 있습니다.",
+        "failedTitle": "앱이 열리지 않았습니다.",
+        "fallbackHint": "아무 반응이 없나요? <1>다시 시도</1>하거나 <4>앱을 다운로드</4>하세요",
+        "opening": "ShieldBattery 앱에서 여는 중…",
+        "retryAfterFailure": "앱 다시 열어 보기"
+      },
       "download": "ShieldBattery 다운로드",
+      "downloadHint": "아직 ShieldBattery가 없나요? <1>무료로 다운로드하세요</1>",
+      "joinCode": {
+        "copied": "클립보드에 복사되었습니다",
+        "copy": "코드 복사",
+        "label": "또는 앱에서 이 코드를 입력하세요",
+        "labelAfterFailure": "이미 앱이 있나요? 이 코드를 입력하세요",
+        "labelMobile": "PC를 사용 중인가요? ShieldBattery를 열고 이 코드를 입력하세요"
+      },
       "loadError": "로비를 불러오는 중 문제가 발생했습니다.",
       "openInApp": "이미 ShieldBattery를 사용 중이신가요? 앱 안에서 이 링크를 열면 로비에 참가할 수 있습니다."
     },

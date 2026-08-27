@@ -969,6 +969,7 @@
       "emptyAllFull": "目前所有房间都已满",
       "emptyNoLobbies": "目前没有人创建房间",
       "emptyNoMatches": "没有符合筛选条件的房间",
+      "enterCode": "输入房间码",
       "filterFriends": "好友",
       "filterGameType": "游戏类型",
       "filterGameTypeAll": "所有游戏类型",
@@ -1026,7 +1027,6 @@
       "visibilityUnlisted": "不公开列出"
     },
     "errors": {
-      "alreadyInLobby": "您已经在另一个房间了。",
       "load": "加载该房间时遇到问题"
     },
     "events": {
@@ -1044,6 +1044,15 @@
       "visibilityListedDescription": "任何人都可以从房间列表加入。游戏和录像公开可见。",
       "visibilityUnlistedDescription": "只有拥有链接的人才能加入。只有参与过游戏的人才能下载录像。"
     },
+    "joinCode": {
+      "explainer": "粘贴房间链接，或输入在浏览器中打开链接时显示的房间码。",
+      "genericError": "出了点问题，请重试。",
+      "inputLabel": "房间码或房间链接",
+      "invalidInput": "请输入房间码或房间链接。",
+      "notFound": "该房间已不再开放。",
+      "submitAction": "查找房间",
+      "title": "输入房间码"
+    },
     "joinLobby": {
       "action": "加入房间",
       "browseLobbies": "浏览房间",
@@ -1058,7 +1067,23 @@
       "openSlotCount_other": "有{{count}}个空位"
     },
     "landing": {
+      "appLaunch": {
+        "button": "在 ShieldBattery 客户端中打开",
+        "failedSubtitle": "这台电脑上可能尚未安装。",
+        "failedTitle": "客户端未能打开。",
+        "fallbackHint": "没有反应？<1>重试</1>或<4>下载客户端</4>",
+        "opening": "正在 ShieldBattery 客户端中打开…",
+        "retryAfterFailure": "再次尝试打开客户端"
+      },
       "download": "下载 ShieldBattery",
+      "downloadHint": "还没有 ShieldBattery？<1>免费下载</1>",
+      "joinCode": {
+        "copied": "已复制到剪贴板",
+        "copy": "复制房间码",
+        "label": "或在客户端中输入此房间码",
+        "labelAfterFailure": "已经有客户端了？输入此房间码",
+        "labelMobile": "在电脑上？打开 ShieldBattery 并输入此房间码"
+      },
       "loadError": "加载该房间时遇到问题。",
       "openInApp": "已经安装了 ShieldBattery？在应用内打开此链接即可加入房间。"
     },

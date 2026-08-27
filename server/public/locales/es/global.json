@@ -975,6 +975,7 @@
       "emptyAllFull": "Ahora mismo todos los lobbies están llenos",
       "emptyNoLobbies": "Ahora mismo no hay ningún lobby abierto",
       "emptyNoMatches": "Ningún lobby coincide con tus filtros",
+      "enterCode": "Introducir código",
       "filterFriends": "Amigos",
       "filterGameType": "Tipo de juego",
       "filterGameTypeAll": "Todos los tipos de juego",
@@ -1048,7 +1049,6 @@
       "visibilityUnlisted": "No listado"
     },
     "errors": {
-      "alreadyInLobby": "Ya estás en otro lobby.",
       "load": "Hubo un problema al cargar este lobby"
     },
     "events": {
@@ -1068,6 +1068,15 @@
       "visibilityListedDescription": "Cualquiera puede unirse desde la lista de lobbies. Las partidas y los replays son públicos.",
       "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Solo quienes estuvieron en la partida pueden descargar el replay."
     },
+    "joinCode": {
+      "explainer": "Pega un enlace de lobby o introduce el código que se muestra al abrir un enlace en el navegador.",
+      "genericError": "Algo salió mal. Inténtalo de nuevo.",
+      "inputLabel": "Código o enlace de lobby",
+      "invalidInput": "Introduce un código o un enlace de lobby.",
+      "notFound": "Ese lobby ya no está abierto.",
+      "submitAction": "Buscar lobby",
+      "title": "Introducir un código"
+    },
     "joinLobby": {
       "action": "Unirse al lobby",
       "browseLobbies": "Explorar lobbies",
@@ -1084,7 +1093,23 @@
       "openSlotCount_other": "{{count}} ranuras abiertas"
     },
     "landing": {
+      "appLaunch": {
+        "button": "Abrir en la app de ShieldBattery",
+        "failedSubtitle": "Puede que no esté instalada en esta computadora.",
+        "failedTitle": "La app no se abrió.",
+        "fallbackHint": "¿No pasa nada? <1>Inténtalo de nuevo</1> o <4>descarga la app</4>",
+        "opening": "Abriendo en la app de ShieldBattery…",
+        "retryAfterFailure": "Intentar abrir la app de nuevo"
+      },
       "download": "Descargar ShieldBattery",
+      "downloadHint": "¿Aún no tienes ShieldBattery? <1>Descárgalo gratis</1>",
+      "joinCode": {
+        "copied": "Copiado al portapapeles",
+        "copy": "Copiar código",
+        "label": "O introduce este código en la app",
+        "labelAfterFailure": "¿Ya tienes la app? Introduce este código",
+        "labelMobile": "¿Estás en tu PC? Abre ShieldBattery e introduce este código"
+      },
       "loadError": "Hubo un problema al cargar este lobby.",
       "openInApp": "¿Ya tienes ShieldBattery? Abre este enlace desde la aplicación para unirte al lobby."
     },
