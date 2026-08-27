@@ -16,6 +16,9 @@ nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
   # We disable oneClick for this config so that the install directory differs for this version
   oneClick: false
+  # Registers/cleans up this channel's URL protocol; the top-level `protocols` option is ignored
+  # by the NSIS target, so the registry work lives in this include instead.
+  include: tools/nsis/shieldbattery-staging-protocol.nsh
 win:
   icon: icon.ico
   target: nsis

@@ -13,6 +13,7 @@ import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
+import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapExtension } from './maps'
 import {
   ReplayBackfillProgress,
@@ -388,6 +389,12 @@ interface IpcMainSendables {
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */
   gameServerRegionsLatenciesUpdated: (latencies: GameServerRegionLatencies) => void
+
+  /**
+   * A lobby link opened via the OS protocol handler (or one still pending from before the
+   * renderer was ready). The renderer navigates to that lobby's join preview.
+   */
+  lobbyDeepLink: (lobbyId: SbLobbyId) => void
 
   /** Sent whenever the replay index changes (files added/removed/updated). */
   replayLibraryChanged: () => void

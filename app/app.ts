@@ -15,8 +15,10 @@ import { buffer } from 'node:stream/consumers'
 import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
+import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { SbLobbyId } from '../common/lobbies/sb-lobby-id'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
@@ -32,6 +34,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
+import { classifyLaunchArgs } from './launch-args'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
@@ -74,19 +77,30 @@ let modelId: string
 // We override the default auto-updater URL so that we can use our Spaces CDN instead, should be
 // faster for people not in US East
 let updateUrl: string
+/**
+ * The custom URL scheme this channel's build registers as an OS-level protocol handler
+ * (`setAsDefaultProtocolClient`, below). The prod value reuses the "shieldbattery" name that also
+ * serves as the renderer's in-app origin scheme (`protocol.registerSchemesAsPrivileged` and the
+ * `will-navigate` handler): the two never interact, since an OS-launched link arrives as an argv
+ * string parsed in `handleLaunchArgs`, never as a URL loaded into a webContents.
+ */
+let deepLinkScheme: string
 switch ((app.name.split('-')[1] ?? '').toLowerCase()) {
   case 'local':
     modelId = 'net.shieldbattery.client.local'
     // We don't auto-update on this client so this doesn't really matter
     updateUrl = 'https://example.org/'
+    deepLinkScheme = DEEP_LINK_SCHEMES.local
     break
   case 'staging':
     modelId = 'net.shieldbattery.client.staging'
     updateUrl = 'https://staging-cdn.shieldbattery.net/app/'
+    deepLinkScheme = DEEP_LINK_SCHEMES.staging
     break
   default:
     modelId = 'net.shieldbattery.client'
     updateUrl = 'https://cdn.shieldbattery.net/app/'
+    deepLinkScheme = DEEP_LINK_SCHEMES.production
     break
 }
 setAppId(modelId)
@@ -139,6 +153,10 @@ let lastReplayFolders: string[] | undefined
 // listener attached are silently dropped.
 let rendererReady = false
 let pendingReplaysToOpen: string[] = []
+// The most recently seen deep-linked lobby id, held until the renderer reports ready. A newer
+// link always replaces an older pending one: clicking several lobby links in a row should offer
+// to join the last one clicked, not queue up every click.
+let pendingDeepLinkLobbyId: SbLobbyId | undefined
 // Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
 let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
@@ -164,14 +182,23 @@ export function notifyNewInstance(data: NewInstanceNotification) {
 function handleLaunchArgs(args: string[]) {
   logger.info(`Handling launch args: ${JSON.stringify(args)}`)
 
-  const replays = args
-    .filter(arg => !arg.startsWith('--') && arg.toLowerCase().endsWith('.rep'))
-    .map(p => path.resolve('.', p))
-  if (replays.length) {
+  const { replayPaths, deepLinkLobbyId } = classifyLaunchArgs(args, deepLinkScheme)
+
+  if (replayPaths.length) {
+    const replays = replayPaths.map(p => path.resolve('.', p))
     if (rendererReady) {
       TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
     } else {
       pendingReplaysToOpen.push(...replays)
+    }
+    mainWindow?.show()
+  }
+
+  if (deepLinkLobbyId) {
+    if (rendererReady) {
+      TypedIpcSender.from(mainWindow?.webContents).send('lobbyDeepLink', deepLinkLobbyId)
+    } else {
+      pendingDeepLinkLobbyId = deepLinkLobbyId
     }
     mainWindow?.show()
   }
@@ -454,6 +481,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     if (pendingReplaysToOpen.length) {
       TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', pendingReplaysToOpen)
       pendingReplaysToOpen = []
+    }
+    if (pendingDeepLinkLobbyId) {
+      TypedIpcSender.from(mainWindow?.webContents).send('lobbyDeepLink', pendingDeepLinkLobbyId)
+      pendingDeepLinkLobbyId = undefined
     }
   })
 
@@ -1295,6 +1326,22 @@ app.on('ready', () => {
   const localSettingsPromise = createLocalSettings()
   const scrSettingsPromise = createScrSettings()
   const programRegistrationPromise = registerCurrentProgram()
+
+  if (!isDev) {
+    // Packaged builds also get this scheme from the installer (the NSIS include under tools/nsis
+    // writes the registry entries; electron-builder's `protocols` option is ignored by its NSIS
+    // target), so this call is a self-heal for a damaged or pre-existing registration rather than
+    // the only source of truth. Local/dev builds skip it entirely: a non-packaged app registered
+    // this way points the registry at whichever checkout's electron.exe happened to run last, and
+    // nothing ever un-registers it.
+    try {
+      if (!app.setAsDefaultProtocolClient(deepLinkScheme)) {
+        logger.error(`Failed to register as the protocol handler for ${deepLinkScheme}://`)
+      }
+    } catch (err) {
+      logger.error(`Error registering the deep link protocol handler: ${getErrorStack(err)}`)
+    }
+  }
 
   // We don't display this anyway, and it registers shortcuts for things that we don't want (e.g.
   // Ctrl+W to close, Ctrl+R to refresh [which we don't want outside of dev])

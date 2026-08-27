@@ -14,6 +14,9 @@ files:
   - '!**/*.map'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
+  # Registers/cleans up this channel's URL protocol; the top-level `protocols` option is ignored
+  # by the NSIS target, so the registry work lives in this include instead.
+  include: tools/nsis/shieldbattery-protocol.nsh
 win:
   icon: icon.ico
   target: nsis

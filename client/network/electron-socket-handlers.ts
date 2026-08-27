@@ -7,6 +7,7 @@ import {
 import gameServerRegionsIpc from '../game-server-regions/ipc-handlers'
 import { jotaiStore } from '../jotai-store'
 import lobbies from '../lobbies/electron-socket-handlers'
+import lobbiesIpc from '../lobbies/ipc-handlers'
 import logger from '../logging/logger'
 import matchmaking from '../matchmaking/socket-handlers'
 import replays from '../replays/ipc-handlers'
@@ -46,6 +47,7 @@ const electronHandlers: SocketHandler[] = [
   gameServerRegionsHandler,
   gameServerRegionsIpc,
   lobbies,
+  lobbiesIpc,
   matchmaking,
   replays,
   settings,
