@@ -24,6 +24,7 @@ import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
 import {
   applyMarkdownFormat,
+  markdownFormatForKeyEvent,
   MarkdownFormatKind,
   MarkdownToolbar,
   ToolbarButton,
@@ -1331,6 +1332,13 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                 ref={contentInputRef}
                 onFocus={() => {
                   contentEverFocusedRef.current = true
+                }}
+                onKeyDown={event => {
+                  const kind = markdownFormatForKeyEvent(event)
+                  if (kind) {
+                    event.preventDefault()
+                    onFormat(kind)
+                  }
                 }}
                 label={t('admin.news.form.content', 'Content (Markdown)')}
                 multiline={true}

@@ -1280,13 +1280,19 @@
   "markdown": {
     "toolbar": {
       "bold": "Bold",
+      "boldTooltip": "Bold (Ctrl+B)",
       "heading": "Heading",
       "horizontalRule": "Divider",
       "italic": "Italic",
+      "italicTooltip": "Italic (Ctrl+I)",
       "link": "Link",
+      "linkTooltip": "Link (Ctrl+K)",
       "orderedList": "Numbered list",
+      "orderedListTooltip": "Numbered list (Ctrl+Shift+7)",
       "quote": "Quote",
-      "unorderedList": "Bulleted list"
+      "quoteTooltip": "Quote (Ctrl+Shift+.)",
+      "unorderedList": "Bulleted list",
+      "unorderedListTooltip": "Bulleted list (Ctrl+Shift+8)"
     }
   },
   "matchmaking": {
