@@ -972,6 +972,7 @@
       "emptyAllFull": "Every lobby is full right now",
       "emptyNoLobbies": "No one's hosting right now",
       "emptyNoMatches": "No lobbies match your filters",
+      "enterCode": "Enter code",
       "filterFriends": "Friends",
       "filterGameType": "Game type",
       "filterGameTypeAll": "All game types",
@@ -1037,7 +1038,6 @@
       "visibilityUnlisted": "Unlisted"
     },
     "errors": {
-      "alreadyInLobby": "You're already in another lobby.",
       "load": "There was a problem loading this lobby"
     },
     "events": {
@@ -1056,6 +1056,15 @@
       "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
       "visibilityUnlistedDescription": "Only people with the link can join. Only people that were in the game can download the replay."
     },
+    "joinCode": {
+      "explainer": "Paste a lobby link, or enter the code shown when a link is opened in a browser.",
+      "genericError": "Something went wrong. Please try again.",
+      "inputLabel": "Code or lobby link",
+      "invalidInput": "Enter a code or a lobby link.",
+      "notFound": "That lobby is no longer open.",
+      "submitAction": "Find lobby",
+      "title": "Enter a join code"
+    },
     "joinLobby": {
       "action": "Join lobby",
       "browseLobbies": "Browse lobbies",
@@ -1071,7 +1080,23 @@
       "openSlotCount_other": "{{count}} slots open"
     },
     "landing": {
+      "appLaunch": {
+        "button": "Open in the ShieldBattery app",
+        "failedSubtitle": "It might not be installed on this computer.",
+        "failedTitle": "The app didn't open.",
+        "fallbackHint": "Nothing happening? <1>Try again</1> or <4>download the app</4>",
+        "opening": "Opening in the ShieldBattery app…",
+        "retryAfterFailure": "Try opening the app again"
+      },
       "download": "Download ShieldBattery",
+      "downloadHint": "Don't have ShieldBattery yet? <1>Download it for free</1>",
+      "joinCode": {
+        "copied": "Copied to clipboard",
+        "copy": "Copy code",
+        "label": "Or enter this code in the app",
+        "labelAfterFailure": "Already have the app? Enter this code",
+        "labelMobile": "On your PC? Open ShieldBattery and enter this code"
+      },
       "loadError": "There was a problem loading this lobby.",
       "openInApp": "Already have ShieldBattery? Open this link from inside the app to join the lobby."
     },
