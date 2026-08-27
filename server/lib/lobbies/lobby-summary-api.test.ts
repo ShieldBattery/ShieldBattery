@@ -9,7 +9,14 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { findUsersById } from '../users/user-model'
-import { LobbySummaryGetter, setLobbySummaryGetter } from './lobby-summaries'
+import {
+  LobbyIdByJoinCodeGetter,
+  LobbyJoinCodeGetter,
+  LobbySummaryGetter,
+  setLobbyIdByJoinCodeGetter,
+  setLobbyJoinCodeGetter,
+  setLobbySummaryGetter,
+} from './lobby-summaries'
 import { LobbySummaryApi } from './lobby-summary-api'
 
 vi.mock('../users/user-model', async () => {
@@ -85,6 +92,8 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     findUsersByIdMock.mockReset()
     summaryGetterMock = vi.fn()
     setLobbySummaryGetter(summaryGetterMock)
+    // No lobby has a join code registered unless a test says otherwise.
+    setLobbyJoinCodeGetter(() => undefined)
   })
 
   test('strips the summary and map down to only the fields the landing page needs', async () => {
@@ -173,5 +182,118 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     const api = new LobbySummaryApi()
 
     await expect(api.getSummary(makeSummaryCtx())).rejects.toMatchObject({ status: 404 })
+  })
+
+  test('carries the join code at the top level of the response when one is registered', async () => {
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([HOST])
+    setLobbyJoinCodeGetter(id => (id === LOBBY_ID ? 'BQ4XM9' : undefined))
+
+    const api = new LobbySummaryApi()
+    const response = await api.getSummary(makeSummaryCtx())
+
+    expect(response.joinCode).toBe('BQ4XM9')
+  })
+
+  test('leaves the join code undefined when the lobby has none registered', async () => {
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+    const api = new LobbySummaryApi()
+    const response = await api.getSummary(makeSummaryCtx())
+
+    expect(response.joinCode).toBeUndefined()
+  })
+})
+
+describe('lobbies/lobby-summary-api/LobbySummaryApi#getByJoinCode', () => {
+  let summaryGetterMock: ReturnType<typeof vi.fn<LobbySummaryGetter>>
+  let joinCodeGetterMock: ReturnType<typeof vi.fn<LobbyJoinCodeGetter>>
+  let idByJoinCodeGetterMock: ReturnType<typeof vi.fn<LobbyIdByJoinCodeGetter>>
+
+  /** A fake `RouterContext` satisfying `getByJoinCode`'s route param shape. */
+  function makeJoinCodeCtx(code: string): RouterContext {
+    return { params: { code } } as any
+  }
+
+  beforeEach(() => {
+    findUsersByIdMock.mockReset()
+    summaryGetterMock = vi.fn()
+    setLobbySummaryGetter(summaryGetterMock)
+    joinCodeGetterMock = vi.fn()
+    setLobbyJoinCodeGetter(joinCodeGetterMock)
+    idByJoinCodeGetterMock = vi.fn()
+    setLobbyIdByJoinCodeGetter(idByJoinCodeGetterMock)
+  })
+
+  test('resolves a well-formed code to the same response shape as the summary endpoint', async () => {
+    idByJoinCodeGetterMock.mockReturnValueOnce(LOBBY_ID)
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([HOST])
+    joinCodeGetterMock.mockReturnValueOnce('BQ4XM9')
+
+    const api = new LobbySummaryApi()
+    const response = await api.getByJoinCode(makeJoinCodeCtx('BQ4XM9'))
+
+    expect(idByJoinCodeGetterMock).toHaveBeenCalledWith('BQ4XM9')
+    expect(response.summary.id).toBe(LOBBY_ID)
+    expect(response.host).toEqual(HOST)
+    expect(response.joinCode).toBe('BQ4XM9')
+  })
+
+  test('normalizes permissive input (case, spaces, dash) before resolving', async () => {
+    idByJoinCodeGetterMock.mockReturnValueOnce(LOBBY_ID)
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+    const api = new LobbySummaryApi()
+    await api.getByJoinCode(makeJoinCodeCtx(' bq4 - xm9 '))
+
+    expect(idByJoinCodeGetterMock).toHaveBeenCalledWith('BQ4XM9')
+  })
+
+  test('returns 404 (not 400) for a malformed code without consulting the resolver', async () => {
+    const api = new LobbySummaryApi()
+
+    // Too short, and also carries a character ('O') outside the join code alphabet -- either
+    // reason alone is enough to reject it as malformed before any lookup happens.
+    await expect(api.getByJoinCode(makeJoinCodeCtx('BQ4XO'))).rejects.toMatchObject({
+      status: 404,
+    })
+    expect(idByJoinCodeGetterMock).not.toHaveBeenCalled()
+  })
+
+  test('returns 404 when the code does not resolve to a live lobby', async () => {
+    idByJoinCodeGetterMock.mockReturnValueOnce(undefined)
+
+    const api = new LobbySummaryApi()
+
+    await expect(api.getByJoinCode(makeJoinCodeCtx('BQ4XM9'))).rejects.toMatchObject({
+      status: 404,
+    })
+    expect(summaryGetterMock).not.toHaveBeenCalled()
+  })
+
+  test('returns 404 when the resolved lobby no longer exists', async () => {
+    idByJoinCodeGetterMock.mockReturnValueOnce(LOBBY_ID)
+    summaryGetterMock.mockReturnValueOnce(undefined)
+
+    const api = new LobbySummaryApi()
+
+    await expect(api.getByJoinCode(makeJoinCodeCtx('BQ4XM9'))).rejects.toMatchObject({
+      status: 404,
+    })
+  })
+
+  test('returns 404 when the resolved lobby has no resolvable host', async () => {
+    idByJoinCodeGetterMock.mockReturnValueOnce(LOBBY_ID)
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([])
+
+    const api = new LobbySummaryApi()
+
+    await expect(api.getByJoinCode(makeJoinCodeCtx('BQ4XM9'))).rejects.toMatchObject({
+      status: 404,
+    })
   })
 })

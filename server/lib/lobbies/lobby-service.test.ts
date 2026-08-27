@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
 import { findSlotByUserId, getObserverTeam, LobbyVisibility } from '../../../common/lobbies'
+import { isValidJoinCode } from '../../../common/lobbies/join-code'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
@@ -34,7 +35,7 @@ import {
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { openSlot } from './lobby'
 import { knownRegionOrUndefined, LobbyService, LobbyServiceErrorCode } from './lobby-service'
-import { getLobbySummary } from './lobby-summaries'
+import { getLobbyIdByJoinCode, getLobbyJoinCode, getLobbySummary } from './lobby-summaries'
 
 function region(id: string): GameServerRegion {
   return {
@@ -821,6 +822,47 @@ describe('lobbies/lobby-service', () => {
       lobbyService.startCountdown({ client: host.client })
 
       expect(getLobbySummary(id)).toBeUndefined()
+    })
+  })
+
+  describe('join codes', () => {
+    test('a created lobby gets a resolvable, well-formed join code', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      const code = getLobbyJoinCode(id)
+      expect(code).toBeDefined()
+      expect(isValidJoinCode(code!)).toBe(true)
+      expect(getLobbyIdByJoinCode(code!)).toBe(id)
+    })
+
+    test('lobbies created in the same run get distinct join codes', async () => {
+      const { id: idA } = await createLobby(host, 'Lobby A', 'listed')
+      const { id: idB } = await createLobby(otherHost, 'Lobby B', 'listed')
+
+      expect(getLobbyJoinCode(idA)).not.toBe(getLobbyJoinCode(idB))
+    })
+
+    test('the join code stops resolving once the last player leaves', async () => {
+      const { id } = await createLobby(host, 'Solo lobby', 'listed')
+      const code = getLobbyJoinCode(id)!
+
+      lobbyService.leaveLobby({ client: host.client })
+
+      expect(getLobbyJoinCode(id)).toBeUndefined()
+      expect(getLobbyIdByJoinCode(code)).toBeUndefined()
+    })
+
+    test('the join code stops resolving once the lobby is torn down by game load', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const code = getLobbyJoinCode(id)!
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client })
+      await vi.advanceTimersByTimeAsync(5000)
+
+      expect(getLobbyJoinCode(id)).toBeUndefined()
+      expect(getLobbyIdByJoinCode(code)).toBeUndefined()
     })
   })
 
