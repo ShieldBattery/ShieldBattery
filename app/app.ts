@@ -1266,9 +1266,18 @@ async function createWindow() {
       }
     })
 
-  // Any (re)load builds a fresh renderer that has to bootstrap from scratch, so readiness never
-  // carries across loads. Anything queued while unready delivers once the new renderer reports in.
-  mainWindow.webContents.on('did-start-loading', () => {
+  // Readiness is per-document: a committed main-frame navigation tears down the renderer that
+  // reported ready, and the fresh document has to bootstrap and report in again before sends can
+  // be delivered. This watches the commit (`did-navigate`) rather than load start deliberately:
+  // navigation attempts that never commit (e.g. a file dropped onto the window, which
+  // `will-navigate` rejects) fire `did-start-loading` but leave the current, still-ready renderer
+  // in place, and marking it unready then would queue sends forever since no new bootstrap ever
+  // follows. In-page routing fires `did-navigate-in-page` and doesn't affect readiness.
+  mainWindow.webContents.on('did-navigate', () => {
+    rendererReady = false
+  })
+  // A crashed renderer's listeners are gone with it, so sends must queue rather than drop.
+  mainWindow.webContents.on('render-process-gone', () => {
     rendererReady = false
   })
 
