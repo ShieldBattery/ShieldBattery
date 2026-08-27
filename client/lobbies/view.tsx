@@ -18,7 +18,6 @@ import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
 import { usePrevious } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { healthChecked } from '../starcraft/health-checked'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
@@ -28,7 +27,6 @@ import {
   closeSlot,
   deactivateLobby,
   getLobbyState,
-  joinLobby,
   kickPlayer,
   leaveLobby,
   makeObserver,
@@ -39,10 +37,11 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
-import { lobbyJoinErrorCode, lobbyJoinErrorMessage } from './lobby-join-errors'
+import { lobbyJoinErrorCode } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
+import { useJoinLobbyAction } from './use-join-lobby-action'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -142,10 +141,8 @@ function LobbyContent({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
 
-  if (!inLobby) {
+  if (!inLobby || lobbyId !== routeLobbyId) {
     return <LobbyStateView routeLobbyId={routeLobbyId} />
-  } else if (lobbyId !== routeLobbyId) {
-    return <InAnotherLobbyView />
   } else {
     return <ConnectedLobby />
   }
@@ -204,16 +201,6 @@ function ConnectedLobby() {
         dispatch(openMapPreviewDialog(lobby.map!.id))
       }}
     />
-  )
-}
-
-function InAnotherLobbyView() {
-  const { t } = useTranslation()
-
-  return (
-    <PreLobbyArea as='p'>
-      {t('lobbies.errors.alreadyInLobby', "You're already in another lobby.")}
-    </PreLobbyArea>
   )
 }
 
@@ -362,48 +349,44 @@ const JoinPreviewLayout = styled.div`
  * page) plus a button to join it. Falls back to a bare join prompt if the preview fails to load
  * (the lobby may well still be joinable), and to a "no longer open" or "already started" message
  * if the preview or the join attempt itself finds the lobby gone or started.
+ *
+ * The join button goes through {@link useJoinLobbyAction}, the same guarded join every other
+ * surface uses: it refuses the join while a matchmaking search is active, and confirms trading
+ * away the viewer's current lobby if they're seated in a different one than this preview is for.
  */
 function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
-  const dispatch = useAppDispatch()
-  const { t } = useTranslation()
   const snackbarController = useSnackbarController()
   const [summary, refreshSummary] = useLobbySummary(routeLobbyId)
-  const [isJoining, setIsJoining] = useState(false)
   const [lobbyGone, setLobbyGone] = useState(false)
   const [lobbyStarted, setLobbyStarted] = useState(false)
+  const [join, isJoining] = useJoinLobbyAction()
+
+  const lobbyName = summary?.status === 'loaded' ? summary.data.summary.name : undefined
 
   // The parent view can only correct the URL slug from the lobby name in the store, which isn't
   // populated until the user is actually in the lobby -- the summary lets this page fix a stale or
   // hand-edited slug the same way the logged-out landing page does.
-  useCorrectLobbySlug(
-    routeLobbyId,
-    summary?.status === 'loaded' ? summary.data.summary.name : undefined,
-  )
+  useCorrectLobbySlug(routeLobbyId, lobbyName)
 
   const onJoinClick = () => {
-    setIsJoining(true)
-    dispatch(
-      joinLobby(routeLobbyId, undefined, {
-        onSuccess: () => {},
-        onError: (err: unknown) => {
-          setIsJoining(false)
+    join(routeLobbyId, {
+      name: lobbyName,
+      onJoinFailed: (message, err) => {
+        switch (lobbyJoinErrorCode(err)) {
+          case LobbyJoinErrorCode.NoLongerOpen:
+            setLobbyGone(true)
+            break
+          case LobbyJoinErrorCode.AlreadyStarted:
+            setLobbyStarted(true)
+            break
+          default:
+            snackbarController.showSnackbar(message)
+            break
+        }
 
-          switch (lobbyJoinErrorCode(err)) {
-            case LobbyJoinErrorCode.NoLongerOpen:
-              setLobbyGone(true)
-              break
-            case LobbyJoinErrorCode.AlreadyStarted:
-              setLobbyStarted(true)
-              break
-            default:
-              snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
-              break
-          }
-
-          refreshSummary()
-        },
-      }),
-    )
+        refreshSummary()
+      },
+    })
   }
 
   return (
@@ -412,7 +395,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
       lobbyGone={lobbyGone}
       lobbyStarted={lobbyStarted}
       isJoining={isJoining}
-      onJoinClick={healthChecked(onJoinClick)}
+      onJoinClick={onJoinClick}
     />
   )
 }

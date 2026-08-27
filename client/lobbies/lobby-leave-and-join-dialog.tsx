@@ -12,13 +12,13 @@ import { BodyLarge } from '../styles/typography'
 import { joinLobby } from './action-creators'
 import { LeaveCurrentLobbyVariant, useLeaveCurrentLobbyPrompt } from './leave-current-lobby'
 import { lobbyJoinErrorMessage } from './lobby-join-errors'
-import { navigateToLobby } from './lobby-url'
+import { isAtLobbyRoute, navigateToLobby } from './lobby-url'
 
 export interface LobbyLeaveAndJoinProps extends CommonDialogProps {
   lobbyId: SbLobbyId
   name?: string
   asObserver?: boolean
-  onJoinFailed?: (message: string) => void
+  onJoinFailed?: (message: string, error: unknown) => void
 }
 
 /**
@@ -51,13 +51,15 @@ export function LobbyLeaveAndJoinDialog({
         {
           onSuccess: () => {
             dispatch(closeDialog(DialogType.LobbyLeaveAndJoin))
-            navigateToLobby(lobbyId, name)
+            if (!isAtLobbyRoute(lobbyId)) {
+              navigateToLobby(lobbyId, name)
+            }
           },
           onError: (err: unknown) => {
             dispatch(closeDialog(DialogType.LobbyLeaveAndJoin))
             const message = lobbyJoinErrorMessage(err, t)
             if (onJoinFailed) {
-              onJoinFailed(message)
+              onJoinFailed(message, err)
             } else {
               snackbarController.showSnackbar(message)
             }

@@ -11,7 +11,7 @@ import { healthChecked } from '../starcraft/health-checked'
 import { joinLobby } from './action-creators'
 import { lobbyJoinErrorMessage } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
-import { navigateToLobby } from './lobby-url'
+import { isAtLobbyRoute, navigateToLobby } from './lobby-url'
 
 export interface JoinLobbyActionOptions {
   /** The lobby's name, used to build the URL the join navigates to. */
@@ -19,11 +19,14 @@ export interface JoinLobbyActionOptions {
   /** Ask for an observer seat specifically, failing rather than taking a player seat or the bench. */
   asObserver?: boolean
   /**
-   * Called with a user-facing message when the join fails. Providing it also holds the navigation
-   * back until the join succeeds, so a surface that can show the failure in place (with the lobby
-   * still on screen) gets to, instead of the lobby view reporting it after a navigation.
+   * Called with a user-facing message and the underlying error when the join fails. Providing it
+   * also holds the navigation back until the join succeeds, so a surface that can show the
+   * failure in place (with the lobby still on screen) gets to, instead of the lobby view
+   * reporting it after a navigation. The raw error lets a caller branch on
+   * `lobbyJoinErrorCode(error)` for outcomes it wants to render as their own state rather than a
+   * generic message (e.g. the lobby having closed or already started).
    */
-  onJoinFailed?: (message: string) => void
+  onJoinFailed?: (message: string, error: unknown) => void
 }
 
 /**
@@ -104,7 +107,7 @@ export function useJoinLobbyAction(): [
           {
             onSuccess: () => {
               setIsPending(false)
-              if (onJoinFailed) {
+              if (onJoinFailed && !isAtLobbyRoute(lobbyId)) {
                 navigateToLobby(lobbyId, options?.name)
               }
             },
@@ -112,7 +115,7 @@ export function useJoinLobbyAction(): [
               setIsPending(false)
               const message = lobbyJoinErrorMessage(err, t)
               if (onJoinFailed) {
-                onJoinFailed(message)
+                onJoinFailed(message, err)
               } else {
                 snackbarController.showSnackbar(message)
               }

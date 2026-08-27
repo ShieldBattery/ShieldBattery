@@ -191,8 +191,8 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
     name?: string
     /** Ask for an observer seat specifically, failing rather than taking a player seat or the bench. */
     asObserver?: boolean
-    /** Called with a user-facing message when the join fails. */
-    onJoinFailed?: (message: string) => void
+    /** Called with a user-facing message and the underlying error when the join fails. */
+    onJoinFailed?: (message: string, error: unknown) => void
   }
 >
 type MapDetailsDialogPayload = BaseDialogPayload<
