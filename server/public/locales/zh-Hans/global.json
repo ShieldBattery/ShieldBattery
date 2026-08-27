@@ -2087,6 +2087,7 @@
     "moderation": {
       "blocked": "已将 {{name}} 从直播中移除",
       "blockError": "无法将 {{name}} 从直播中移除",
+      "menuTooltip": "直播管理",
       "removeTooltip": "从直播中移除",
       "unblockError": "无法将 {{name}} 恢复到直播中"
     }
