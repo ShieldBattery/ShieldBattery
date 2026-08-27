@@ -152,8 +152,12 @@ const PAGE_SIZE = 20
 export const PUBLISH_MODE_DRAFT = 'draft'
 export const PUBLISH_MODE_NOW = 'now'
 export const PUBLISH_MODE_SCHEDULE = 'schedule'
+export const PUBLISH_MODE_PUBLISHED = 'published'
 type PublishMode =
-  typeof PUBLISH_MODE_DRAFT | typeof PUBLISH_MODE_NOW | typeof PUBLISH_MODE_SCHEDULE
+  | typeof PUBLISH_MODE_DRAFT
+  | typeof PUBLISH_MODE_NOW
+  | typeof PUBLISH_MODE_SCHEDULE
+  | typeof PUBLISH_MODE_PUBLISHED
 
 type PostStatus =
   { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
@@ -934,6 +938,7 @@ export function createPublishedAt(model: NewsEditorModel): string | undefined {
     case PUBLISH_MODE_DRAFT:
       return undefined
     case PUBLISH_MODE_NOW:
+    case PUBLISH_MODE_PUBLISHED:
       return new Date().toISOString()
     case PUBLISH_MODE_SCHEDULE:
       return new Date(model.scheduledAt).toISOString()
@@ -950,6 +955,10 @@ export function publishedAtUpdate(
   model: NewsEditorModel,
   originalPublishedAt: string | null,
 ): { value: string | null } | undefined {
+  if (model.publishMode === PUBLISH_MODE_PUBLISHED) {
+    // The post keeps its existing publish time; there's nothing to send.
+    return undefined
+  }
   if (model.publishMode === PUBLISH_MODE_DRAFT) {
     return originalPublishedAt === null ? undefined : { value: null }
   }
@@ -1172,13 +1181,21 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     })
   }
 
+  // The post's saved status at mount, fixed for the lifetime of the editor: a draft starts on the
+  // draft mode, a post scheduled for the future starts on the schedule mode showing that time, and
+  // an already-published post starts on its own published mode rather than presenting as
+  // scheduled. Both the scheduled and published cases prefill scheduledAt from the current publish
+  // time, so switching to the schedule mode starts from where the post already is.
+  const [initialStatus] = useState(() => getPostStatus(post?.publishedAt, Date.now()))
+
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
   let scheduledAt = toDateTimeLocalString(new Date())
-  if (post?.publishedAt) {
-    // Both scheduled (future) and already-published (past) posts start here with their current
-    // publish time prefilled; leaving it untouched preserves it on save.
+  if (initialStatus.kind === 'scheduled') {
     publishMode = PUBLISH_MODE_SCHEDULE
-    scheduledAt = toDateTimeLocalString(new Date(post.publishedAt))
+    scheduledAt = toDateTimeLocalString(initialStatus.date)
+  } else if (initialStatus.kind === 'published') {
+    publishMode = PUBLISH_MODE_PUBLISHED
+    scheduledAt = toDateTimeLocalString(initialStatus.date)
   }
 
   const defaults: NewsEditorModel = {
@@ -1414,6 +1431,14 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               {...bindInput('publishMode')}
               label={t('admin.news.form.publish', 'Publish')}
               dense={true}>
+              {initialStatus.kind === 'published' ? (
+                <RadioButton
+                  value={PUBLISH_MODE_PUBLISHED}
+                  label={t('admin.news.form.publishPublished', 'Published ({{date}})', {
+                    date: longTimestamp.format(initialStatus.date),
+                  })}
+                />
+              ) : null}
               <RadioButton
                 value={PUBLISH_MODE_DRAFT}
                 label={t('admin.news.form.publishDraft', 'Draft (not published)')}

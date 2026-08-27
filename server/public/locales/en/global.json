@@ -53,6 +53,7 @@
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
+        "publishPublished": "Published ({{date}})",
         "publishSchedule": "Schedule",
         "scheduleDate": "Publish date and time",
         "scheduleHint": "A future date/time schedules the post; a past date/time publishes it immediately.",
