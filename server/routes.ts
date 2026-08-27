@@ -144,6 +144,7 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
         pageMeta,
         cspNonce: getCspNonce(ctx),
         analyticsId: process.env.SB_ANALYTICS_ID,
+        deepLinkScheme: process.env.SB_DEEP_LINK_SCHEME,
         assetsOrigin:
           publicAssetsConfig.type !== FileStoreType.FileSystem
             ? publicAssetsConfig.origin
