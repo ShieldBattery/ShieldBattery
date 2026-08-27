@@ -1,7 +1,6 @@
 -- Backfills games.selected_matchup / games.assigned_matchup from the historical config/results
--- JSONB. Run this AFTER the 20260212000000_add_matchup_columns and
--- 20260825120000_add_manual_game_resolution migrations have been applied and the new application
--- code has been deployed.
+-- JSONB. Run this AFTER the 20260212000000_add_matchup_columns migration has been applied and the
+-- new application code has been deployed.
 --
 -- Why this isn't part of the migration: backfilling (potentially) rewrites every row in `games`,
 -- and we don't want to hold a lock on that table for the whole duration. This processes the table
@@ -12,15 +11,6 @@
 -- differs from what's stored. Running it again after the deploy has settled therefore doubles as a
 -- cheap catch-up pass for any games that were created or reconciled by old code during the deploy
 -- window (which would otherwise keep NULL matchups forever).
---
--- Games an admin resolved by hand get their assigned matchup from their config plus their players'
--- stored reports, never from their stored results. Hand-resolving clears `disputable` without
--- touching the races the disputed reconciliation left behind, and those races can be inventions: a
--- player who appeared in no report at all is stored as 'p'. A player who picked a specific race
--- settles their own race, a random player's race is known only when the reports mention them and
--- agree, and a game where any player's race is unknown gets no assigned matchup at all. Those are
--- the same rules the resolution itself applies, so a re-run recomputes what is already stored
--- rather than replacing it.
 --
 -- Usage (psql, and NOT wrapped in an explicit transaction, so the per-batch COMMITs can take
 -- effect):
@@ -52,7 +42,6 @@ DECLARE
   team jsonb;
   player jsonb;
   result_pair jsonb;
-  agreed_races jsonb;
   processed bigint := 0;
   changed bigint := 0;
 BEGIN
@@ -60,8 +49,7 @@ BEGIN
     batch_last_id := NULL;
 
     FOR r IN
-      SELECT id, config, results, disputable, manually_resolved_at, selected_matchup,
-             assigned_matchup
+      SELECT id, config, results, disputable, selected_matchup, assigned_matchup
       FROM games
       WHERE id > last_id
       ORDER BY id
@@ -133,156 +121,47 @@ BEGIN
         SELECT array_agg(s ORDER BY s) INTO all_team_strings FROM unnest(all_team_strings) AS s;
         selected := array_to_string(all_team_strings, '-');
 
-        -- assigned_matchup: the race each player was actually given. Games with computer players
-        -- never get one, since computers aren't included in our results at all.
-        IF NOT has_computers THEN
-          IF r.manually_resolved_at IS NOT NULL THEN
-            -- Hand-resolving a game clears `disputable` but leaves the races the disputed
-            -- reconciliation stored exactly where they were, and those races can be inventions: a
-            -- player no report mentioned is stored as 'p', reports that disagree keep whichever
-            -- race the first one claimed, and a voided game with no reports at all stores 'p' for
-            -- everyone. The stored results are therefore no evidence here, and the assigned races
-            -- are rebuilt from the two sources that stand on their own.
-            --
-            -- A player who picked a specific race settles their own race: the game had no way to
-            -- hand them a different one, so no report is consulted for them. A random player has
-            -- only the reports to go on, and their race counts as known when at least one stored
-            -- report mentions them and every mention agrees on one of 'p'/'t'/'z'. Anything short
-            -- of that leaves the game without an assigned matchup rather than fabricating a race
-            -- for one slot.
-            BEGIN
-              -- The race the reports agree on for each user, dropped where they disagree. A row's
-              -- `reported_results` is either a raw (v2) report, listing one entry per BW player
-              -- (`userId` null for computers), or a legacy digested one, whose `playerResults`
-              -- pairs a user id with that user's verdict; the presence of `version` tells the two
-              -- apart. A user can be named more than once within a single report, so every mention
-              -- is aggregated rather than picked from.
-              --
-              -- `reported_results` is schemaless jsonb on a long-lived table, so each array is
-              -- forced through a CASE yielding [] for a row of the wrong shape:
-              -- jsonb_array_elements raises on a non-array, and it expands rows before the WHERE
-              -- clause gets to filter them out.
-              SELECT coalesce(jsonb_object_agg(user_id, races[1]), '{}'::jsonb)
-                INTO agreed_races
-              FROM (
-                SELECT user_id, array_agg(DISTINCT race) AS races
-                FROM (
-                  SELECT (p->>'userId')::int AS user_id, p->>'race' AS race
-                  FROM games_users gu,
-                       jsonb_array_elements(
-                         CASE WHEN jsonb_typeof(gu.reported_results->'players') = 'array'
-                           THEN gu.reported_results->'players'
-                           ELSE '[]'::jsonb
-                         END
-                       ) AS p
-                  WHERE gu.game_id = r.id
-                    AND gu.reported_results IS NOT NULL
-                    AND jsonb_exists(gu.reported_results, 'version')
-                    AND jsonb_typeof(p) = 'object'
-                    AND jsonb_typeof(p->'userId') = 'number'
-                    AND p->>'race' IN ('p', 't', 'z')
-                  UNION ALL
-                  SELECT (pair->>0)::int AS user_id, pair->1->>'race' AS race
-                  FROM games_users gu,
-                       jsonb_array_elements(
-                         CASE WHEN jsonb_typeof(gu.reported_results->'playerResults') = 'array'
-                           THEN gu.reported_results->'playerResults'
-                           ELSE '[]'::jsonb
-                         END
-                       ) AS pair
-                  WHERE gu.game_id = r.id
-                    AND gu.reported_results IS NOT NULL
-                    AND NOT jsonb_exists(gu.reported_results, 'version')
-                    AND jsonb_typeof(pair) = 'array'
-                    AND jsonb_typeof(pair->0) = 'number'
-                    AND pair->1->>'race' IN ('p', 't', 'z')
-                ) AS mentions
-                GROUP BY user_id
-              ) AS per_user
-              WHERE array_length(races, 1) = 1;
-
-              all_team_strings := ARRAY[]::text[];
-              FOREACH team IN ARRAY teams_for_matchup LOOP
-                team_races := ARRAY[]::text[];
-                FOR j IN 0..(jsonb_array_length(team) - 1) LOOP
-                  player := team->j;
-                  player_race := player->>'race';
-                  IF player_race = 'r' THEN
-                    player_race := agreed_races->>(player->>'id');
-                  ELSIF player_race NOT IN ('p', 't', 'z') THEN
-                    -- A config race that isn't a race settles nothing
-                    player_race := NULL;
-                  END IF;
-
-                  IF player_race IS NULL THEN
-                    -- This player's race can't be established, so the game gets no matchup
-                    team_races := NULL;
-                    EXIT;
-                  END IF;
-                  team_races := array_append(team_races, player_race);
-                END LOOP;
-
-                IF team_races IS NULL THEN
-                  all_team_strings := NULL;
+        -- assigned_matchup: from each player's assigned (result) race, only when results exist and
+        -- there are no computer players (computers aren't included in our results). Some legacy rows
+        -- store results as a non-array (e.g. an empty `{}` object), which we treat as "no results".
+        -- Disputed games are skipped too: their results (and thus assigned races) are unreliable,
+        -- and a player missing from the reports gets a fabricated 'p' race baked into the stored
+        -- results. This matches the live reconciliation path, which leaves assigned_matchup NULL for
+        -- disputed games.
+        IF jsonb_typeof(r.results) = 'array' AND NOT has_computers AND NOT r.disputable THEN
+          all_team_strings := ARRAY[]::text[];
+          FOREACH team IN ARRAY teams_for_matchup LOOP
+            team_races := ARRAY[]::text[];
+            FOR j IN 0..(jsonb_array_length(team) - 1) LOOP
+              player := team->j;
+              player_id := (player->>'id')::int;
+              player_race := NULL;
+              FOR result_pair IN SELECT jsonb_array_elements(r.results) LOOP
+                IF (result_pair->>0)::int = player_id THEN
+                  player_race := result_pair->1->>'race';
                   EXIT;
                 END IF;
-
-                SELECT array_agg(s ORDER BY s) INTO team_races FROM unnest(team_races) AS s;
-                all_team_strings := array_append(all_team_strings, array_to_string(team_races, ''));
               END LOOP;
-
-              IF all_team_strings IS NOT NULL THEN
-                SELECT array_agg(s ORDER BY s) INTO all_team_strings
-                FROM unnest(all_team_strings) AS s;
-                assigned := array_to_string(all_team_strings, '-');
-              END IF;
-            EXCEPTION WHEN OTHERS THEN
-              -- A report or config shape we can't read must not abort the whole run, and it says
-              -- nothing about whether the stored matchup is right. Keep what's there and move on.
-              assigned := r.assigned_matchup;
-            END;
-          ELSIF jsonb_typeof(r.results) = 'array' AND NOT r.disputable THEN
-            -- A game that reconciled takes its assigned races from the stored results. Some legacy
-            -- rows store results as a non-array (e.g. an empty `{}` object), which we treat as "no
-            -- results". Games still sitting in a dispute are skipped: their results (and thus
-            -- assigned races) are unreliable, and a player missing from the reports gets a
-            -- fabricated 'p' race baked into the stored results. This matches the live
-            -- reconciliation path, which leaves assigned_matchup NULL for disputed games.
-            all_team_strings := ARRAY[]::text[];
-            FOREACH team IN ARRAY teams_for_matchup LOOP
-              team_races := ARRAY[]::text[];
-              FOR j IN 0..(jsonb_array_length(team) - 1) LOOP
-                player := team->j;
-                player_id := (player->>'id')::int;
-                player_race := NULL;
-                FOR result_pair IN SELECT jsonb_array_elements(r.results) LOOP
-                  IF (result_pair->>0)::int = player_id THEN
-                    player_race := result_pair->1->>'race';
-                    EXIT;
-                  END IF;
-                END LOOP;
-                IF player_race IS NULL THEN
-                  -- Player missing from results, can't compute an assigned matchup for this game
-                  team_races := NULL;
-                  EXIT;
-                END IF;
-                team_races := array_append(team_races, player_race);
-              END LOOP;
-
-              IF team_races IS NULL THEN
-                all_team_strings := NULL;
+              IF player_race IS NULL THEN
+                -- Player missing from results, can't compute an assigned matchup for this game
+                team_races := NULL;
                 EXIT;
               END IF;
-
-              SELECT array_agg(s ORDER BY s) INTO team_races FROM unnest(team_races) AS s;
-              all_team_strings := array_append(all_team_strings, array_to_string(team_races, ''));
+              team_races := array_append(team_races, player_race);
             END LOOP;
 
-            IF all_team_strings IS NOT NULL THEN
-              SELECT array_agg(s ORDER BY s) INTO all_team_strings
-              FROM unnest(all_team_strings) AS s;
-              assigned := array_to_string(all_team_strings, '-');
+            IF team_races IS NULL THEN
+              all_team_strings := NULL;
+              EXIT;
             END IF;
+
+            SELECT array_agg(s ORDER BY s) INTO team_races FROM unnest(team_races) AS s;
+            all_team_strings := array_append(all_team_strings, array_to_string(team_races, ''));
+          END LOOP;
+
+          IF all_team_strings IS NOT NULL THEN
+            SELECT array_agg(s ORDER BY s) INTO all_team_strings FROM unnest(all_team_strings) AS s;
+            assigned := array_to_string(all_team_strings, '-');
           END IF;
         END IF;
       END IF;
