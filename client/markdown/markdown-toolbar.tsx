@@ -151,10 +151,12 @@ function toggleLinePrefix(
  * report AltGr as ctrl+alt and that combination must not trigger a shortcut. The single-letter
  * shortcuts (B/I/K) match on `event.key` with an `event.code` fallback: the letter matches the
  * shortcut as users think of it, while the physical-key fallback keeps it working on non-Latin
- * layouts (e.g. Cyrillic, where Ctrl+B reports `key: 'и'` but `code: 'KeyB'`). The list/quote
- * shortcuts match on `event.code` only, because `event.key` for a shifted digit or punctuation
- * key is layout-dependent (e.g. Shift+7 produces `/` rather than `&` on some layouts) while the
- * physical key position is not.
+ * layouts (e.g. Cyrillic, where Ctrl+B reports `key: 'и'` but `code: 'KeyB'`). The fallback only
+ * runs when `event.key` is not a Latin letter: when the layout produced a different Latin letter
+ * (e.g. Dvorak, where Ctrl+X reports `key: 'x'`, `code: 'KeyB'`), the letter the user typed wins
+ * so cut/copy/paste are not hijacked. The list/quote shortcuts match on `event.code` only,
+ * because `event.key` for a shifted digit or punctuation key is layout-dependent (e.g. Shift+7
+ * produces `/` rather than `&` on some layouts) while the physical key position is not.
  */
 export function markdownFormatForKeyEvent(event: {
   key: string
@@ -169,13 +171,17 @@ export function markdownFormatForKeyEvent(event: {
   }
 
   if (!event.shiftKey) {
-    switch (event.key.toLowerCase()) {
+    const key = event.key.toLowerCase()
+    switch (key) {
       case 'b':
         return 'bold'
       case 'i':
         return 'italic'
       case 'k':
         return 'link'
+    }
+    if (/^[a-z]$/.test(key)) {
+      return undefined
     }
     switch (event.code) {
       case 'KeyB':

@@ -477,6 +477,20 @@ describe('markdownFormatForKeyEvent', () => {
     )
   })
 
+  test('Dvorak-style Ctrl+X (cut) is not hijacked by the physical-code fallback', () => {
+    // On a Dvorak layout the physical B key types 'x', so Ctrl+X reports code: 'KeyB'.
+    expect(
+      markdownFormatForKeyEvent(keyEvent({ key: 'x', code: 'KeyB', ctrlKey: true })),
+    ).toBeUndefined()
+  })
+
+  test('Dvorak-style Ctrl+C (copy) is not hijacked by the physical-code fallback', () => {
+    // On a Dvorak layout the physical I key types 'c', so Ctrl+C reports code: 'KeyI'.
+    expect(
+      markdownFormatForKeyEvent(keyEvent({ key: 'c', code: 'KeyI', ctrlKey: true })),
+    ).toBeUndefined()
+  })
+
   test('altKey blocks Ctrl+B, as with AltGr reporting ctrl+alt', () => {
     expect(
       markdownFormatForKeyEvent(keyEvent({ key: 'b', ctrlKey: true, altKey: true })),
