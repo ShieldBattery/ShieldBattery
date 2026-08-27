@@ -1088,9 +1088,9 @@
       "joined": "Unido",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
       "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
-      "openSlotCount_one": "{{count}} ranura abierta",
-      "openSlotCount_many": "{{count}} de ranuras abiertas",
-      "openSlotCount_other": "{{count}} ranuras abiertas"
+      "openSlotCount_one": "{{count}} espacio abierto",
+      "openSlotCount_many": "{{count}} espacios abiertos",
+      "openSlotCount_other": "{{count}} espacios abiertos"
     },
     "landing": {
       "appLaunch": {
@@ -1158,14 +1158,14 @@
       "addComputer": "Agregar computadora",
       "banPlayer": "Banear {{user}}",
       "banUnnamedPlayer": "Banear jugador",
-      "closeSlot": "Cerrar ranura",
+      "closeSlot": "Cerrar espacio",
       "kickPlayer": "Expulsar {{user}}",
       "kickUnnamedPlayer": "Expulsar jugador",
       "makeObserver": "Hacer observador",
       "makePlayer": "Hacer jugador",
       "name": "Cerrado",
       "open": "Abierto",
-      "openSlot": "Ranura abierta",
+      "openSlot": "Abrir espacio",
       "removeComputer": "Quitar computadora",
       "slotActions": "Acciones de tragamonedas"
     },
@@ -1182,7 +1182,7 @@
       "openSlotCount_one": "{{count}} abierta",
       "openSlotCount_many": "{{count}} abiertas",
       "openSlotCount_other": "{{count}} abiertas",
-      "slotsLabel": "Ranuras"
+      "slotsLabel": "Espacios"
     }
   },
   "map": {
