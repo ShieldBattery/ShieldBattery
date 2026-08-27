@@ -8,6 +8,7 @@ import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaJwt from 'koa-jwt'
 import { container } from 'tsyringe'
+import { internalRoutesMiddleware } from './internal-routes'
 import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
 import isDev from './lib/env/is-dev'
 import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
@@ -154,6 +155,11 @@ app
   // See webhook-routes.ts.
   .use(webhookRoutes.routes())
   .use(webhookRoutes.allowedMethods())
+  // Internal routes are similarly mounted ahead of the browser-focused machinery (and of
+  // canonical-host redirects, which would bounce a direct-to-app-port request): their callers are
+  // trusted services on the private network/tailnet. See internal-routes.ts for the access
+  // boundary.
+  .use(internalRoutesMiddleware())
   .use(
     koaCompress({
       // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved
