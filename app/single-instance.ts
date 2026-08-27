@@ -38,8 +38,16 @@ export default function (
       const notification: NewInstanceNotification = {
         args: process.argv,
       }
-      client.write(JSON.stringify(notification))
-      app.quit()
+      // `end` half-closes the connection once the payload has been flushed, which is the
+      // receiver's signal that the message is complete -- quitting before the flush could
+      // truncate it mid-write. The timer quits anyway if the first instance never drains the
+      // pipe, since a wedged receiver shouldn't leave this instance running invisibly.
+      const quit = () => app.quit()
+      const quitTimeout = setTimeout(quit, 2000)
+      client.end(JSON.stringify(notification), () => {
+        clearTimeout(quitTimeout)
+        quit()
+      })
     })
     .on('error', err => {
       if ((err as any).code !== 'ENOENT') throw err
@@ -56,16 +64,39 @@ export default function (
       // This will only be executed by the first instance, because it will try to connect to a
       // socket on a server which is not running yet.
       const notifyNewInstance = loadNotifier()
+      // A pipe delivers a stream, not messages: one connection carries exactly one JSON payload,
+      // complete only when the sender half-closes, so chunks are buffered until `end` rather than
+      // parsed as they arrive (argv can split across reads).
+      const MAX_NOTIFICATION_BYTES = 64 * 1024
       net
         .createServer(connection => {
+          const chunks: Buffer[] = []
+          let totalBytes = 0
           connection.on('data', data => {
+            totalBytes += data.length
+            if (totalBytes > MAX_NOTIFICATION_BYTES) {
+              // No legitimate argv payload approaches this size; drop the connection rather than
+              // buffering unboundedly for whatever is on the other end.
+              connection.destroy()
+              chunks.length = 0
+              return
+            }
+            chunks.push(data)
+          })
+          connection.on('end', () => {
+            if (!chunks.length) {
+              return
+            }
             try {
-              const notification = JSON.parse(data.toString()) as NewInstanceNotification
+              const notification = JSON.parse(
+                Buffer.concat(chunks).toString(),
+              ) as NewInstanceNotification
               notifyNewInstance.then(notify => notify(notification)).catch(() => {})
             } catch (e) {
               // Not much to do here, we must have gotten data that wasn't valid JSON?
             }
           })
+          connection.on('error', () => {})
         })
         .on('error', () => app.quit())
         .listen(socket)
