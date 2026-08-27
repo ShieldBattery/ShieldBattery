@@ -27,6 +27,7 @@ export enum DialogType {
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
   FailedToAcceptMatch = 'failedToAcceptMatch',
+  JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
@@ -174,6 +175,7 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
   }
 >
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
+type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
 type LobbyLeaveAndCreateDialogPayload = BaseDialogPayload<
@@ -305,6 +307,7 @@ export type DialogPayload =
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | FailedToAcceptMatchDialogPayload
+  | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
   | LobbyLeaveAndCreateDialogPayload

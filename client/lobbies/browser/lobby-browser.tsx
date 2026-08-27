@@ -8,6 +8,8 @@ import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useTrackPageView } from '../../analytics/analytics'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import logger from '../../logging/logger'
@@ -440,6 +442,12 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
           </StatLine>
         </TitleBlock>
         <FlexSpacer />
+        <TextButton
+          label={t('lobbies.browser.enterCode', 'Enter code')}
+          iconStart={<MaterialIcon icon='key' size={20} />}
+          onClick={() => dispatch(openDialog({ type: DialogType.JoinCode }))}
+          testName='enter-join-code-button'
+        />
         {canCreate ? (
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
