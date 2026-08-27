@@ -749,9 +749,28 @@ export interface NewsEditorModel {
   scheduledAt: string
 }
 
+// The public news post page renders markdown at a 720px max width (see `news-post-page.tsx`);
+// this is that width plus the preview pane's 24px of horizontal padding on each side. The editor
+// column is capped at the same width so both sides of the split view keep a readable line length.
+const EDITOR_COLUMN_MAX_WIDTH = 768
+const editorColumnWidth = `minmax(0, ${EDITOR_COLUMN_MAX_WIDTH}px)`
+
+const EditorRoot = styled.div`
+  height: 100%;
+  padding-block: 24px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`
+
 const FormArea = styled.div`
+  flex: 1 1 0;
+  min-height: 0;
+
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: ${editorColumnWidth} ${editorColumnWidth};
+  grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     'toolbar .'
     'editor preview';
@@ -762,10 +781,11 @@ const FormArea = styled.div`
 const EditorColumn = styled.div`
   grid-area: editor;
   min-width: 0;
+  overflow-y: auto;
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 `
 
 const EditorToolbar = styled(MarkdownToolbar)`
@@ -780,11 +800,6 @@ const PreviewContainer = styled.div`
   grid-area: preview;
   min-width: 0;
   position: relative;
-  /**
-    Mirrors the 20px strip TextField reserves below the field box for a validation error, so the
-    preview's bottom edge stays level with the field box rather than the error strip.
-  */
-  margin-bottom: 20px;
 `
 
 const MarkdownPreview = styled(Markdown)`
@@ -798,9 +813,20 @@ const MarkdownPreview = styled(Markdown)`
 `
 
 const Form = styled.form`
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  max-width: ${2 * EDITOR_COLUMN_MAX_WIDTH + 24}px;
+  margin-inline: auto;
+
   display: flex;
   flex-direction: column;
   gap: 16px;
+`
+
+const NarrowTextField = styled(TextField)`
+  width: 100%;
+  max-width: ${EDITOR_COLUMN_MAX_WIDTH}px;
 `
 
 const PublishControl = styled.div`
@@ -1290,7 +1316,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
 
   return (
     <CenteredContentContainer $fullWidth={true} data-content-fullbleed=''>
-      <Root>
+      <EditorRoot>
         <HeaderRow>
           <Title>
             {post
@@ -1313,8 +1339,8 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
         </HeaderRow>
         {error ? <ErrorText>{error.message}</ErrorText> : null}
         <Form onSubmit={submit}>
-          <TextField {...bindInput('title')} label={t('admin.news.form.title', 'Title')} />
-          <TextField
+          <NarrowTextField {...bindInput('title')} label={t('admin.news.form.title', 'Title')} />
+          <NarrowTextField
             {...bindInput('summary')}
             label={t('admin.news.form.summary', 'Summary')}
             multiline={true}
@@ -1375,112 +1401,114 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                 label={t('admin.news.form.content', 'Content (Markdown)')}
                 multiline={true}
                 rows={18}
-                maxRows={40}
               />
               {imageError ? <ErrorText>{imageError}</ErrorText> : null}
               {videoError ? <ErrorText>{videoError}</ErrorText> : null}
+              <CoverSection>
+                <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
+                <CoverPreview>
+                  {coverImageUrl ? (
+                    <CoverImage src={coverImageUrl} alt='' draggable={false} />
+                  ) : (
+                    <CoverPlaceholder>
+                      {t(
+                        'admin.news.form.coverNone',
+                        'No cover image (a stock image will be used)',
+                      )}
+                    </CoverPlaceholder>
+                  )}
+                </CoverPreview>
+                <HiddenFileInput
+                  ref={coverFileInputRef}
+                  type='file'
+                  accept='image/*'
+                  onChange={onCoverFileSelected}
+                  data-testid='news-cover-file-input'
+                />
+                <CoverActions>
+                  <OutlinedButton
+                    label={
+                      coverImageUrl
+                        ? t('admin.news.form.coverChange', 'Change cover')
+                        : t('admin.news.form.coverUpload', 'Upload cover')
+                    }
+                    iconStart={<MaterialIcon icon='image' />}
+                    onClick={() => coverFileInputRef.current?.click()}
+                    disabled={coverUploading}
+                  />
+                  {coverImageUrl ? (
+                    <TextButton
+                      label={t('admin.news.form.coverRemove', 'Remove cover')}
+                      onClick={onRemoveCover}
+                      disabled={coverUploading}
+                    />
+                  ) : null}
+                </CoverActions>
+                {coverUploading ? (
+                  <CoverHint>{t('admin.news.form.coverUploading', 'Uploading…')}</CoverHint>
+                ) : null}
+                {coverError ? <ErrorText>{coverError}</ErrorText> : null}
+              </CoverSection>
+              <PublishControl>
+                <RadioGroup
+                  {...bindInput('publishMode')}
+                  label={t('admin.news.form.publish', 'Publish')}
+                  dense={true}>
+                  {initialStatus.kind === 'published' ? (
+                    <RadioButton
+                      value={PUBLISH_MODE_PUBLISHED}
+                      label={t('admin.news.form.publishPublished', 'Published ({{date}})', {
+                        date: longTimestamp.format(initialStatus.date),
+                      })}
+                    />
+                  ) : null}
+                  <RadioButton
+                    value={PUBLISH_MODE_DRAFT}
+                    label={t('admin.news.form.publishDraft', 'Draft (not published)')}
+                  />
+                  <RadioButton
+                    value={PUBLISH_MODE_NOW}
+                    label={t('admin.news.form.publishNow', 'Publish now')}
+                  />
+                  <RadioButton
+                    value={PUBLISH_MODE_SCHEDULE}
+                    label={t('admin.news.form.publishSchedule', 'Schedule')}
+                  />
+                </RadioGroup>
+                {currentPublishMode === PUBLISH_MODE_SCHEDULE ? (
+                  <>
+                    <ScheduleField
+                      {...bindInput('scheduledAt')}
+                      label={t('admin.news.form.scheduleDate', 'Publish date and time')}
+                      floatingLabel={true}
+                    />
+                    <ScheduleHint>
+                      {t(
+                        'admin.news.form.scheduleHint',
+                        'A future date/time schedules the post; a past date/time publishes it immediately.',
+                      )}
+                    </ScheduleHint>
+                  </>
+                ) : null}
+              </PublishControl>
+              <SaveRow>
+                <FilledButton
+                  label={
+                    post
+                      ? t('admin.news.saveChanges', 'Save changes')
+                      : t('admin.news.createPost', 'Create post')
+                  }
+                  onClick={submit}
+                  disabled={fetching || coverUploading || imageUploading || videoUploading}
+                />
+              </SaveRow>
             </EditorColumn>
             <PreviewContainer>
               <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
             </PreviewContainer>
           </FormArea>
-          <CoverSection>
-            <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
-            <CoverPreview>
-              {coverImageUrl ? (
-                <CoverImage src={coverImageUrl} alt='' draggable={false} />
-              ) : (
-                <CoverPlaceholder>
-                  {t('admin.news.form.coverNone', 'No cover image (a stock image will be used)')}
-                </CoverPlaceholder>
-              )}
-            </CoverPreview>
-            <HiddenFileInput
-              ref={coverFileInputRef}
-              type='file'
-              accept='image/*'
-              onChange={onCoverFileSelected}
-              data-testid='news-cover-file-input'
-            />
-            <CoverActions>
-              <OutlinedButton
-                label={
-                  coverImageUrl
-                    ? t('admin.news.form.coverChange', 'Change cover')
-                    : t('admin.news.form.coverUpload', 'Upload cover')
-                }
-                iconStart={<MaterialIcon icon='image' />}
-                onClick={() => coverFileInputRef.current?.click()}
-                disabled={coverUploading}
-              />
-              {coverImageUrl ? (
-                <TextButton
-                  label={t('admin.news.form.coverRemove', 'Remove cover')}
-                  onClick={onRemoveCover}
-                  disabled={coverUploading}
-                />
-              ) : null}
-            </CoverActions>
-            {coverUploading ? (
-              <CoverHint>{t('admin.news.form.coverUploading', 'Uploading…')}</CoverHint>
-            ) : null}
-            {coverError ? <ErrorText>{coverError}</ErrorText> : null}
-          </CoverSection>
-          <PublishControl>
-            <RadioGroup
-              {...bindInput('publishMode')}
-              label={t('admin.news.form.publish', 'Publish')}
-              dense={true}>
-              {initialStatus.kind === 'published' ? (
-                <RadioButton
-                  value={PUBLISH_MODE_PUBLISHED}
-                  label={t('admin.news.form.publishPublished', 'Published ({{date}})', {
-                    date: longTimestamp.format(initialStatus.date),
-                  })}
-                />
-              ) : null}
-              <RadioButton
-                value={PUBLISH_MODE_DRAFT}
-                label={t('admin.news.form.publishDraft', 'Draft (not published)')}
-              />
-              <RadioButton
-                value={PUBLISH_MODE_NOW}
-                label={t('admin.news.form.publishNow', 'Publish now')}
-              />
-              <RadioButton
-                value={PUBLISH_MODE_SCHEDULE}
-                label={t('admin.news.form.publishSchedule', 'Schedule')}
-              />
-            </RadioGroup>
-            {currentPublishMode === PUBLISH_MODE_SCHEDULE ? (
-              <>
-                <ScheduleField
-                  {...bindInput('scheduledAt')}
-                  label={t('admin.news.form.scheduleDate', 'Publish date and time')}
-                  floatingLabel={true}
-                />
-                <ScheduleHint>
-                  {t(
-                    'admin.news.form.scheduleHint',
-                    'A future date/time schedules the post; a past date/time publishes it immediately.',
-                  )}
-                </ScheduleHint>
-              </>
-            ) : null}
-          </PublishControl>
-          <SaveRow>
-            <FilledButton
-              label={
-                post
-                  ? t('admin.news.saveChanges', 'Save changes')
-                  : t('admin.news.createPost', 'Create post')
-              }
-              onClick={submit}
-              disabled={fetching || coverUploading || imageUploading || videoUploading}
-            />
-          </SaveRow>
         </Form>
-      </Root>
+      </EditorRoot>
     </CenteredContentContainer>
   )
 }
