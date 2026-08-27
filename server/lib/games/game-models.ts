@@ -186,14 +186,18 @@ export async function lockGameForManualResolution(
  * that applies the result-derived side effects.
  *
  * `dispute_requested` is left alone: it's the historical record of whether players actually asked
- * for a review. `game_length` and `assigned_matchup` are left alone too — manual resolution only
- * decides outcomes, and a disputed game's stored races can include a fabricated one for a player
- * who appeared in no report, which must never be baked into a matchup.
+ * for a review. `game_length` is left alone too — manual resolution only decides outcomes.
+ *
+ * `assigned_matchup` is written as given, `null` included: a disputed game's stored races can
+ * include a fabricated one for a player who appeared in no report, which must never be baked into a
+ * matchup, so callers pass a matchup only when every player's race is known from a trustworthy
+ * source. The column is already NULL for a disputed game, so writing NULL is a no-op in practice.
  */
 export async function setManuallyResolvedResult(
   client: DbClient,
   gameId: string,
   results: Map<SbUserId, ReconciledPlayerResult>,
+  assignedMatchup: MatchupString | null,
   resolvedBy: SbUserId,
   resolvedAt: Date,
 ): Promise<void> {
@@ -203,6 +207,7 @@ export async function setManuallyResolvedResult(
       results = ${JSON.stringify(Array.from(results.entries()))},
       disputable = false,
       dispute_reviewed = true,
+      assigned_matchup = ${assignedMatchup},
       manually_resolved_by = ${resolvedBy},
       manually_resolved_at = ${resolvedAt}
     WHERE id = ${gameId}

@@ -11,7 +11,11 @@ import {
   MatchmakingResultsEvent,
   toGameRecordJson,
 } from '../../../common/games/games'
-import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
+import {
+  MatchupString,
+  computeMatchupString,
+  getTeamsFromConfig,
+} from '../../../common/games/matchups'
 import {
   ALL_GAME_CLIENT_ALLIANCE_STATES,
   ALL_GAME_CLIENT_LOSE_TYPES,
@@ -78,6 +82,7 @@ import {
 import { calculateChangedRatings } from '../matchmaking/rating'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import {
+  StoredResultReport,
   areAllHumansAccountedFor,
   getCurrentReportedResults,
   getDepartureTimesForGame,
@@ -197,6 +202,96 @@ function validateMatchmakingResolution(
       'exactly one full team must win a matchmaking game',
     )
   }
+}
+
+/**
+ * Digests a game's stored reports into the uniform `ResultSubmission` shape a legacy report already
+ * has, so everything downstream (reconcile, desync policy, departure tiebreak, persistence, matchup
+ * derivation) is agnostic to which form a client submitted. The returned array stays aligned with
+ * the input, `null` for a player who never reported.
+ *
+ * `isUms` comes from our own config, never the client. The raw-report veto (Rule A in
+ * `deriveResultSubmission`) needs cross-report evidence: the set of users whose OWN report claims a
+ * self-Victory is computed once over every stored report and fed to each derivation, so a leaver's
+ * uncorroborated quit-victory in someone else's capture can be stripped while a genuine
+ * winner-who-quit's victory is preserved.
+ */
+function digestStoredReports(
+  config: GameConfig,
+  storedResults: ReadonlyArray<StoredResultReport | null>,
+): Array<ResultSubmission | null> {
+  const isUms = config.gameType === GameType.UseMapSettings
+  const corroboratedVictors = computeCorroboratedVictors(storedResults)
+  return storedResults.map(stored => {
+    if (!stored) {
+      return null
+    }
+    if (stored.kind === 'raw') {
+      return deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
+    }
+    return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
+  })
+}
+
+/**
+ * Determines the assigned matchup for a game being resolved by hand, or `null` when any player's
+ * assigned race can't be established from a trustworthy source.
+ *
+ * A player who picked a specific race in the config settles their own race: the game can't have
+ * given them a different one, so no report is consulted for them. A player who picked random only
+ * has the reports to go on, and a game that ended in a dispute can have reports that disagree about
+ * a race or omit a player entirely, so a random player's race counts as known only when they appear
+ * in at least one report and every appearance agrees. Anything short of that leaves the whole
+ * matchup unknown rather than baking in a guess — the same standard reconciliation applies when it
+ * refuses to assign a matchup to a disputed game.
+ *
+ * Games with computer players never get a matchup: they're exempt from results entirely.
+ */
+async function computeManualResolutionMatchup(
+  gameRecord: GameRecord,
+): Promise<MatchupString | null> {
+  if (gameRecord.config.teams.some(team => team.some(p => p.isComputer))) {
+    return null
+  }
+
+  const teams = getTeamsFromConfig(gameRecord.config)
+  if (!teams) {
+    return null
+  }
+
+  const players = teams.flat()
+  const assignedRaces = new Map<SbUserId, RaceChar>(
+    players.filter(p => p.race !== 'r').map(p => [p.id, p.race]),
+  )
+
+  const randomPlayers = players.filter(p => p.race === 'r')
+  if (randomPlayers.length) {
+    const submissions = digestStoredReports(
+      gameRecord.config,
+      await getCurrentReportedResults(gameRecord.id),
+    )
+
+    for (const player of randomPlayers) {
+      const reportedRaces = new Set<RaceChar>()
+      for (const submission of submissions) {
+        for (const [id, result] of submission?.playerResults ?? []) {
+          if (id === player.id) {
+            reportedRaces.add(result.race)
+          }
+        }
+      }
+
+      if (reportedRaces.size === 1) {
+        assignedRaces.set(player.id, reportedRaces.values().next().value!)
+      }
+    }
+  }
+
+  if (players.some(p => !assignedRaces.has(p.id))) {
+    return null
+  }
+
+  return computeMatchupString(teams.map(team => team.map(p => assignedRaces.get(p.id)!)))
 }
 
 /**
@@ -766,24 +861,7 @@ export default class GameResultService {
 
     const gameId = gameRecord.id
     const storedResults = await getCurrentReportedResults(gameId)
-    // Raw reports are digested into the same `ResultSubmission` shape a legacy report already has,
-    // so everything downstream (reconcile, desync policy, departure tiebreak, persistence) is
-    // agnostic to which form a client submitted. `isUms` comes from our own config, never the client.
-    const isUms = gameRecord.config.gameType === GameType.UseMapSettings
-    // Cross-report evidence for the raw-report veto (Rule A in `deriveResultSubmission`): the set of
-    // users whose OWN report claims a self-Victory, computed once over every stored report and fed to
-    // each derivation so a leaver's uncorroborated quit-victory in someone else's capture can be
-    // stripped while a genuine winner-who-quit's victory is preserved.
-    const corroboratedVictors = computeCorroboratedVictors(storedResults)
-    const currentResults: Array<ResultSubmission | null> = storedResults.map(stored => {
-      if (!stored) {
-        return null
-      }
-      if (stored.kind === 'raw') {
-        return deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
-      }
-      return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
-    })
+    const currentResults = digestStoredReports(gameRecord.config, storedResults)
     const humans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id))
     const desyncEvents = await getDesyncEventsForGame(gameId)
 
@@ -971,6 +1049,11 @@ export default class GameResultService {
         .flat(),
     )
 
+    // Activity dates describe when a game was *played*, which can be long before its results are
+    // applied: a periodic sweep or an admin resolving a dispute can land days later. A missing game
+    // length degrades to the start time, which is still far closer than the application time.
+    const gameEndDate = new Date(Number(gameRecord.startTime) + reconciled.time)
+
     const [season, seasonEnd] = await this.matchmakingSeasonsService.getSeasonForDate(
       gameRecord.startTime,
     )
@@ -1069,7 +1152,8 @@ export default class GameResultService {
             bonusUsed: matchmakingChange.bonusUsed,
             numGamesPlayed: mmr.numGamesPlayed + 1,
             lifetimeGames: matchmakingChange.lifetimeGames,
-            lastPlayedDate: reconcileDate,
+            // Never rewind past a newer game that has already been applied.
+            lastPlayedDate: new Date(Math.max(Number(mmr.lastPlayedDate), Number(gameEndDate))),
             wins: mmr.wins + winCount,
             losses: mmr.losses + lossCount,
 
@@ -1113,7 +1197,10 @@ export default class GameResultService {
             leagueId: oldLeagueUser.leagueId,
             userId: oldLeagueUser.userId,
             isBanned: oldLeagueUser.isBanned,
-            lastPlayedDate: reconcileDate,
+            // Never rewind past a newer game that has already been applied.
+            lastPlayedDate: new Date(
+              Math.max(Number(oldLeagueUser.lastPlayedDate ?? 0), Number(gameEndDate)),
+            ),
             points: leagueChange.points,
             pointsConverged: leagueChange.pointsConverged,
             wins: oldLeagueUser.wins + winCount,
@@ -1212,8 +1299,10 @@ export default class GameResultService {
    * rating, points and league changes for a ranked game. A disputed game never had any of those
    * applied, so this only ever adds effects, never reverses them.
    *
-   * Only the outcomes change. Each player's stored race and APM, the game's length, and its
-   * assigned matchup are all left exactly as reconciliation left them.
+   * Only the outcomes change: each player's stored race and APM, and the game's length, are left
+   * exactly as reconciliation left them. The assigned matchup is filled in here, since a disputed
+   * game is never given one, but only when every player's race can be established from a
+   * trustworthy source (see `computeManualResolutionMatchup`).
    *
    * @returns the updated game record, and whether matchmaking rating changes were actually applied
    *   (see `applyReconciledResultEffects`)
@@ -1233,6 +1322,11 @@ export default class GameResultService {
     }
 
     const resolvedAt = new Date(this.clock.now())
+    // Derived from the config and the stored reports, both immutable once a game has reconciled to
+    // a dispute — so this can run before the transaction rather than acquiring a second pool
+    // connection while holding the games row lock.
+    const assignedMatchup = await computeManualResolutionMatchup(gameRecord)
+
     const { ratingsApplied } = await transact(async client => {
       // Everything this decides on has to be read under the games row lock: two admins can submit a
       // resolution for the same game at once, and the second one must see the first's committed
@@ -1284,7 +1378,14 @@ export default class GameResultService {
         results: newResults,
       }
 
-      await setManuallyResolvedResult(client, gameId, newResults, resolvedBy, resolvedAt)
+      await setManuallyResolvedResult(
+        client,
+        gameId,
+        newResults,
+        assignedMatchup,
+        resolvedBy,
+        resolvedAt,
+      )
 
       const { ratingsApplied } = await this.applyReconciledResultEffects(
         client,
