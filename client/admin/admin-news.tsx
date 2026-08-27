@@ -746,13 +746,17 @@ export interface NewsEditorModel {
 }
 
 const FormArea = styled.div`
-  display: flex;
-  gap: 24px;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'toolbar .'
+    'editor preview';
+  column-gap: 24px;
+  row-gap: 8px;
 `
 
 const EditorColumn = styled.div`
-  flex: 1 1 50%;
+  grid-area: editor;
   min-width: 0;
 
   display: flex;
@@ -760,14 +764,28 @@ const EditorColumn = styled.div`
   gap: 8px;
 `
 
+const EditorToolbar = styled(MarkdownToolbar)`
+  grid-area: toolbar;
+`
+
 const ContentField = styled(TextField)`
   width: 100%;
 `
 
-const MarkdownPreview = styled(Markdown)`
-  flex: 1 1 50%;
+const PreviewContainer = styled.div`
+  grid-area: preview;
   min-width: 0;
-  min-height: 480px;
+  position: relative;
+  /**
+    Mirrors the 20px strip TextField reserves below the field box for a validation error, so the
+    preview's bottom edge stays level with the field box rather than the error strip.
+  */
+  margin-bottom: 20px;
+`
+
+const MarkdownPreview = styled(Markdown)`
+  position: absolute;
+  inset: 0;
   padding: 16px 24px;
 
   border: 1px solid var(--theme-outline-variant);
@@ -1254,7 +1272,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const currentPublishMode = getInputValue('publishMode')
 
   return (
-    <CenteredContentContainer>
+    <CenteredContentContainer $fullWidth={true} data-content-fullbleed=''>
       <Root>
         <HeaderRow>
           <Title>
@@ -1287,46 +1305,43 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             maxRows={4}
           />
           <FormArea>
+            <EditorToolbar onFormat={onFormat}>
+              <HiddenFileInput
+                ref={imageFileInputRef}
+                type='file'
+                accept='image/*'
+                onChange={onImageFileSelected}
+                data-testid='news-inline-image-file-input'
+              />
+              <ToolbarButton
+                icon={<MaterialIcon icon='add_photo_alternate' />}
+                label={t('admin.news.form.insertImage', 'Insert image')}
+                tooltipText={t('admin.news.form.insertImageTooltip', 'Insert image (up to 5 MB)')}
+                disabled={imageUploading}
+                onClick={() => imageFileInputRef.current?.click()}
+              />
+              {imageUploading ? (
+                <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
+              ) : null}
+              <HiddenFileInput
+                ref={videoFileInputRef}
+                type='file'
+                accept='video/mp4,video/webm'
+                onChange={onVideoFileSelected}
+                data-testid='news-inline-video-file-input'
+              />
+              <ToolbarButton
+                icon={<MaterialIcon icon='videocam' />}
+                label={t('admin.news.form.insertVideo', 'Insert video')}
+                tooltipText={t('admin.news.form.insertVideoTooltip', 'Insert video (up to 30 MB)')}
+                disabled={videoUploading}
+                onClick={() => videoFileInputRef.current?.click()}
+              />
+              {videoUploading ? (
+                <CoverHint>{t('admin.news.form.videoUploading', 'Uploading…')}</CoverHint>
+              ) : null}
+            </EditorToolbar>
             <EditorColumn>
-              <MarkdownToolbar onFormat={onFormat}>
-                <HiddenFileInput
-                  ref={imageFileInputRef}
-                  type='file'
-                  accept='image/*'
-                  onChange={onImageFileSelected}
-                  data-testid='news-inline-image-file-input'
-                />
-                <ToolbarButton
-                  icon={<MaterialIcon icon='add_photo_alternate' />}
-                  label={t('admin.news.form.insertImage', 'Insert image')}
-                  tooltipText={t('admin.news.form.insertImageTooltip', 'Insert image (up to 5 MB)')}
-                  disabled={imageUploading}
-                  onClick={() => imageFileInputRef.current?.click()}
-                />
-                {imageUploading ? (
-                  <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
-                ) : null}
-                <HiddenFileInput
-                  ref={videoFileInputRef}
-                  type='file'
-                  accept='video/mp4,video/webm'
-                  onChange={onVideoFileSelected}
-                  data-testid='news-inline-video-file-input'
-                />
-                <ToolbarButton
-                  icon={<MaterialIcon icon='videocam' />}
-                  label={t('admin.news.form.insertVideo', 'Insert video')}
-                  tooltipText={t(
-                    'admin.news.form.insertVideoTooltip',
-                    'Insert video (up to 30 MB)',
-                  )}
-                  disabled={videoUploading}
-                  onClick={() => videoFileInputRef.current?.click()}
-                />
-                {videoUploading ? (
-                  <CoverHint>{t('admin.news.form.videoUploading', 'Uploading…')}</CoverHint>
-                ) : null}
-              </MarkdownToolbar>
               <ContentField
                 {...bindInput('content')}
                 ref={contentInputRef}
@@ -1348,7 +1363,9 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               {imageError ? <ErrorText>{imageError}</ErrorText> : null}
               {videoError ? <ErrorText>{videoError}</ErrorText> : null}
             </EditorColumn>
-            <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
+            <PreviewContainer>
+              <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
+            </PreviewContainer>
           </FormArea>
           <CoverSection>
             <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
