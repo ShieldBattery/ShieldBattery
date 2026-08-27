@@ -8,6 +8,9 @@ import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { logger } from '../logging/logger'
 import { IconButton } from '../material/button'
+import { DestructiveMenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 
@@ -51,8 +54,12 @@ export const ModerationContainer = styled.div`
 type LiveStreamModerationPlacement = 'top-right' | 'below-top-pills'
 
 // A dark, circular backdrop so the control stays legible over any thumbnail. Hidden until the entry
-// is hovered (or the control is focused for keyboard users), so it doesn't clutter the feed.
-const OverlayRoot = styled.div<{ $placement: LiveStreamModerationPlacement }>`
+// is hovered, its menu is open, or the control is focused for keyboard users, so it doesn't clutter
+// the feed.
+const OverlayRoot = styled.div<{
+  $placement: LiveStreamModerationPlacement
+  $menuOpen: boolean
+}>`
   position: absolute;
   /*
     Offsets are measured from the entry wrapper. The hero card pads its thumbnail, so
@@ -68,12 +75,15 @@ const OverlayRoot = styled.div<{ $placement: LiveStreamModerationPlacement }>`
   border-radius: 50%;
   background-color: rgb(0 0 0 / 72%);
 
-  opacity: 0;
+  opacity: ${props => (props.$menuOpen ? 1 : 0)};
   /*
-    Hidden until revealed, so a blind tap on the invisible control can't block a streamer (or swallow
-    the entry's link) on touch input; re-enabled together with each reveal below.
+    Hidden until revealed, so a blind tap on the invisible control can't open the moderation menu (or
+    swallow the entry's link) on touch input; re-enabled together with each reveal below. Also forced
+    open while its menu is open: the menu renders in a portal outside this container, so once the
+    pointer travels from the trigger into the menu it's no longer hovering the moderation container,
+    and hover-based reveal alone would fade the trigger out from under its own open menu.
   */
-  pointer-events: none;
+  pointer-events: ${props => (props.$menuOpen ? 'auto' : 'none')};
   transition: opacity 75ms linear;
 
   &:focus-within {
@@ -95,10 +105,10 @@ const OverlayButton = styled(IconButton)`
 `
 
 /**
- * Wraps a live-stream feed entry, overlaying an admin-only "remove from feed" control for users with
- * the `manageLiveStreams` permission. Removing is a durable block on the streamer (they stay hidden
- * from the feed until unblocked); the snackbar offers an immediate undo. For everyone else this
- * renders `children` unchanged, with no extra wrapper.
+ * Wraps a live-stream feed entry, overlaying an admin-only moderation menu for users with the
+ * `manageLiveStreams` permission. The menu's "Remove from live streams" item is a durable block on
+ * the streamer (they stay hidden from the feed until unblocked); the snackbar offers an immediate
+ * undo. For everyone else this renders `children` unchanged, with no extra wrapper.
  */
 export function LiveStreamModeration({
   userId,
@@ -117,6 +127,8 @@ export function LiveStreamModeration({
   const snackbarController = useSnackbarController()
   const [{ fetching }, blockStream] = useMutation(BlockStreamMutation)
   const [, unblockStream] = useMutation(UnblockStreamMutation)
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   if (!canModerate) {
     return <>{children}</>
@@ -139,6 +151,7 @@ export function LiveStreamModeration({
   }
 
   const onRemove = () => {
+    closeMenu()
     blockStream({ userId })
       .then(result => {
         if (result.error) {
@@ -163,21 +176,39 @@ export function LiveStreamModeration({
       .catch(err => logger.error(`Error blocking stream: ${err.stack ?? err}`))
   }
 
+  const menuLabel = t('twitch.moderation.menuTooltip', 'Stream moderation')
   const removeLabel = t('twitch.moderation.removeTooltip', 'Remove from live streams')
 
   return (
     <ModerationContainer>
       {children}
-      <OverlayRoot data-live-stream-moderation={true} $placement={placement}>
+      <OverlayRoot data-live-stream-moderation={true} $placement={placement} $menuOpen={menuOpen}>
         <OverlayButton
-          icon={<MaterialIcon icon='visibility_off' size={18} />}
-          title={removeLabel}
-          ariaLabel={removeLabel}
-          onClick={onRemove}
+          ref={anchorRef}
+          icon={<MaterialIcon icon='more_vert' size={18} />}
+          title={menuLabel}
+          ariaLabel={menuLabel}
+          onClick={openMenu}
           disabled={fetching}
-          testName='remove-live-stream'
+          testName='live-stream-moderation-menu'
         />
       </OverlayRoot>
+      <Popover
+        open={menuOpen}
+        onDismiss={closeMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList>
+          <DestructiveMenuItem
+            text={removeLabel}
+            onClick={onRemove}
+            disabled={fetching}
+            testName='remove-live-stream'
+          />
+        </MenuList>
+      </Popover>
     </ModerationContainer>
   )
 }
