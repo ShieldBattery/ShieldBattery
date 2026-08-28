@@ -757,8 +757,11 @@
       "viewLobby": "View lobby"
     },
     "matchmaking": {
+      "acceptedCount": "{{accepted}} / {{total}} ready",
       "matchFound": "Match found!",
-      "searching": "Searching for a match…"
+      "reopenAcceptDialog": "Reopen match dialog",
+      "searching": "Searching for a match…",
+      "waitingForPlayers": "Waiting for other players…"
     }
   },
   "gameReport": {

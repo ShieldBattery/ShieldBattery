@@ -165,7 +165,7 @@ function getDialog(dialogType: DialogType): {
 } {
   switch (dialogType) {
     case DialogType.AcceptMatch:
-      return { component: AcceptMatchDialog, modal: true }
+      return { component: AcceptMatchDialog }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
     case DialogType.AdminDeleteChatMessage:
