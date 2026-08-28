@@ -22,8 +22,7 @@ import {
   matchLaunchingAtom,
 } from '../matchmaking/matchmaking-atoms'
 import { useAcceptMatch } from '../matchmaking/use-accept-match'
-import { FilledButton, OutlinedButton } from '../material/button'
-import { buttonReset } from '../material/button-reset'
+import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -206,23 +205,11 @@ const WidgetChildren = styled(m.div)`
 
 const DragHandle = styledWithAttrs(MaterialIcon, { icon: 'drag_indicator' })``
 
-const TitleActionButton = styled.button`
-  ${buttonReset};
-
+const TitleActionButton = styled(IconButton)`
   flex-shrink: 0;
   margin-left: auto;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 4px;
-  color: var(--theme-on-surface-variant);
-
-  &:hover {
-    color: var(--theme-on-surface);
-  }
+  width: 24px;
+  min-height: 24px;
 `
 
 interface WidgetProps {
@@ -463,12 +450,12 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
       titleAction={
         isMatched ? (
           <TitleActionButton
+            icon={<MaterialIcon icon='open_in_new' size={16} />}
             onMouseDown={event => event.stopPropagation()}
             onClick={() => dispatch(openAcceptMatchDialog())}
             title={reopenDialogLabel}
-            aria-label={reopenDialogLabel}>
-            <MaterialIcon icon='open_in_new' size={16} />
-          </TitleActionButton>
+            ariaLabel={reopenDialogLabel}
+          />
         ) : undefined
       }>
       {bodyContent}

@@ -39,7 +39,7 @@ export function useAcceptMatch(onNoActiveMatch?: () => void): UseAcceptMatchResu
   const retries = useRef(0)
   const [acceptInProgress, setAcceptInProgress] = useState(false)
 
-  const triggerAccept = () => {
+  const sendAccept = () => {
     logger.debug('Accepting match...')
     setAcceptInProgress(true)
     dispatch(
@@ -53,7 +53,15 @@ export function useAcceptMatch(onNoActiveMatch?: () => void): UseAcceptMatchResu
         onError: err => {
           if (isFetchError(err) && err.code === MatchmakingServiceErrorCode.NoActiveMatch) {
             logger.error('Accepting match failed, no active match: ' + getErrorStack(err))
-            clearMatchmakingState(store)
+            setAcceptInProgress(false)
+            // The match can dissolve while this request is in flight (e.g. another player left
+            // during the accept window). If the server requeued this player, the requeue event
+            // clears `foundMatchAtom` but keeps the search state, so wiping everything here would
+            // drop the UI out of a queue the server still has this player in. Only clear when no
+            // newer event has already updated the match state.
+            if (store.get(foundMatchAtom)) {
+              clearMatchmakingState(store)
+            }
             onNoActiveMatch?.()
           } else {
             logger.error(`Accepting match failed: ${getErrorStack(err)}`)
@@ -65,13 +73,20 @@ export function useAcceptMatch(onNoActiveMatch?: () => void): UseAcceptMatchResu
               if (retries.current < MAX_ACCEPT_RETRIES && store.get(foundMatchAtom)) {
                 retries.current++
                 logger.debug(`Retrying accept match...`)
-                triggerAccept()
+                sendAccept()
               }
             }, ACCEPT_RETRY_DELAY_MS)
           }
         },
       }),
     )
+  }
+
+  const triggerAccept = () => {
+    // This hook can outlive a single match (the matchmaking widget stays mounted across a requeue),
+    // so the retry budget applies per user-initiated accept rather than per hook lifetime.
+    retries.current = 0
+    sendAccept()
   }
 
   return { acceptInProgress, triggerAccept }
