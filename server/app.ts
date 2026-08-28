@@ -105,9 +105,13 @@ app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext
     (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ERR_STREAM_PREMATURE_CLOSE')
   ) {
     // These all mean the client disconnected while we were still sending a response (the stream
-    // variant occurs when the body is piped through stream.pipeline). They aren't severe or even
-    // really fixable (AFAIK), but still may be useful to log in case they start happening for
-    // things we don't expect
+    // variant occurs when the body is piped through stream.pipeline). Server-sent event streams
+    // have no server-side end, so a client disconnect is how every one of those responses
+    // terminates — logging it would just be noise
+    if (ctx?.response?.type === 'text/event-stream') return
+
+    // For other responses they aren't severe or even really fixable (AFAIK), but still may be
+    // useful to log in case they start happening for things we don't expect
     log.warn({ err, req: ctx?.req }, 'server error (non-severe)')
   } else {
     log.error({ err, req: ctx?.req, cause: (err as any)?.cause }, 'server error')
