@@ -11,16 +11,19 @@ import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { isInLobby } from '../lobbies/lobby-reducer'
-import { cancelFindMatch } from '../matchmaking/action-creators'
+import { cancelFindMatch, openAcceptMatchDialog } from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
 import {
   currentSearchInfoAtom,
   foundMatchAtom,
+  hasAcceptedAtom,
   isMatchmakingAtom,
   matchLaunchingAtom,
 } from '../matchmaking/matchmaking-atoms'
-import { OutlinedButton } from '../material/button'
+import { useAcceptMatch } from '../matchmaking/use-accept-match'
+import { FilledButton, OutlinedButton } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -203,15 +206,44 @@ const WidgetChildren = styled(m.div)`
 
 const DragHandle = styledWithAttrs(MaterialIcon, { icon: 'drag_indicator' })``
 
+const TitleActionButton = styled.button`
+  ${buttonReset};
+
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 4px;
+  color: var(--theme-on-surface-variant);
+
+  &:hover {
+    color: var(--theme-on-surface);
+  }
+`
+
 interface WidgetProps {
   ref: React.Ref<HTMLDivElement>
   title: string
   hasTitlePip?: boolean
+  /** An optional icon button rendered at the end of the title bar (e.g. to reopen a dialog). */
+  titleAction?: React.ReactNode
   onDragStart: (e: React.MouseEvent) => void
   children: React.ReactNode
 }
 
-function Widget({ ref, title, hasTitlePip = false, onDragStart, children, ...rest }: WidgetProps) {
+function Widget({
+  ref,
+  title,
+  hasTitlePip = false,
+  titleAction,
+  onDragStart,
+  children,
+  ...rest
+}: WidgetProps) {
   const [sizeRef, contentRect] = useObservedDimensions<HTMLDivElement>()
   const composedRef = useMultiplexRef(ref, sizeRef)
 
@@ -258,6 +290,7 @@ function Widget({ ref, title, hasTitlePip = false, onDragStart, children, ...res
         $hasPip={hasTitlePip}>
         <DragHandle />
         <WidgetTitle>{title}</WidgetTitle>
+        {titleAction}
       </WidgetTitleArea>
       <WidgetChildren layout='size'>{children}</WidgetChildren>
       <InitialWash
@@ -318,13 +351,106 @@ const StyledElapsedTime = styled(ElapsedTime)`
   text-align: center;
 `
 
+/**
+ * How often the widget's accept countdown re-renders. Unlike the accept-match dialog's animated
+ * countdown, the widget only displays whole seconds, so a coarser tick is enough to keep it
+ * accurate.
+ */
+const WIDGET_COUNTDOWN_TICK_MS = 1000
+/** Seconds remaining at which the countdown switches to the "low time" treatment. */
+const LOW_TIME_SECONDS = 5
+
+const CountdownText = styled.span<{ $low: boolean }>`
+  ${titleLarge};
+
+  margin-top: 4px;
+
+  display: block;
+  font-feature-settings: 'tnum' on;
+  text-align: center;
+  color: ${props => (props.$low ? 'var(--theme-error)' : 'inherit')};
+`
+
+const AcceptProgressText = styled(BodyMedium)`
+  text-align: center;
+  color: var(--theme-on-surface-variant);
+`
+
 export function MatchmakingWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const isMatched = !!useAtomValue(foundMatchAtom)
+  const foundMatch = useAtomValue(foundMatchAtom)
+  const isMatched = !!foundMatch
+  const hasAccepted = useAtomValue(hasAcceptedAtom)
   const startTime = useAtomValue(currentSearchInfoAtom)?.startTime
 
   const [isCancelling, setIsCancelling] = useState(false)
+  const { acceptInProgress, triggerAccept } = useAcceptMatch()
+
+  const [now, setNow] = useState(() => window.performance.now())
+  useEffect(() => {
+    if (!isMatched) {
+      return () => {}
+    }
+
+    const interval = setInterval(() => setNow(window.performance.now()), WIDGET_COUNTDOWN_TICK_MS)
+    return () => clearInterval(interval)
+  }, [isMatched])
+
+  let bodyContent: React.ReactNode
+  if (foundMatch) {
+    // `now` only advances while the countdown interval is running, so on the first render after a
+    // match is found it can lag behind `acceptStart`; clamp so that render shows the full accept
+    // window instead of a bogus value.
+    const remainingMillis = Math.min(
+      foundMatch.acceptTimeTotalMillis,
+      Math.max(0, foundMatch.acceptTimeTotalMillis - (now - foundMatch.acceptStart)),
+    )
+    const secondsLeft = Math.ceil(remainingMillis / 1000)
+    const lowTime = secondsLeft <= LOW_TIME_SECONDS
+
+    let readyAction: React.ReactNode
+    if (!hasAccepted) {
+      readyAction = (
+        <FilledButton
+          label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
+          disabled={acceptInProgress}
+          onClick={() => triggerAccept()}
+        />
+      )
+    } else {
+      readyAction = (
+        <BodyMedium>
+          {t('gameplayActivity.matchmaking.waitingForPlayers', 'Waiting for other players…')}
+        </BodyMedium>
+      )
+    }
+
+    bodyContent = (
+      <>
+        <CountdownText $low={lowTime}>
+          {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+        </CountdownText>
+        <AcceptProgressText>
+          {t('gameplayActivity.matchmaking.acceptedCount', {
+            defaultValue: '{{accepted}} / {{total}} ready',
+            accepted: foundMatch.acceptedPlayers,
+            total: foundMatch.numPlayers,
+          })}
+        </AcceptProgressText>
+        {readyAction}
+      </>
+    )
+  } else if (startTime === undefined) {
+    bodyContent = <BodyLarge>…</BodyLarge>
+  } else {
+    bodyContent = <StyledElapsedTime startTimeMs={startTime} />
+  }
+
+  const reopenDialogLabel = t(
+    'gameplayActivity.matchmaking.reopenAcceptDialog',
+    'Reopen match dialog',
+  )
 
   return (
     <Widget
@@ -333,12 +459,19 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
         isMatched
           ? t('gameplayActivity.matchmaking.matchFound', 'Match found!')
           : t('gameplayActivity.matchmaking.searching', 'Searching for a match…')
+      }
+      titleAction={
+        isMatched ? (
+          <TitleActionButton
+            onMouseDown={event => event.stopPropagation()}
+            onClick={() => dispatch(openAcceptMatchDialog())}
+            title={reopenDialogLabel}
+            aria-label={reopenDialogLabel}>
+            <MaterialIcon icon='open_in_new' size={16} />
+          </TitleActionButton>
+        ) : undefined
       }>
-      {isMatched || startTime === undefined ? (
-        <BodyLarge>…</BodyLarge>
-      ) : (
-        <StyledElapsedTime startTimeMs={startTime} />
-      )}
+      {bodyContent}
       {!isMatched ? (
         <OutlinedButton
           iconStart={<MaterialIcon icon='close' size={20} />}

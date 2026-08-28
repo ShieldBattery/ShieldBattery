@@ -17,6 +17,7 @@ import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { closeAcceptMatchDialog, getCurrentMapPool, openAcceptMatchDialog } from './action-creators'
 import {
   addDraftChatMessage,
@@ -169,11 +170,25 @@ const eventToAction: EventToActionMap = {
     })
   },
 
-  requeue: (matchmakingType, event) => {
+  requeue: (matchmakingType, event) => (_dispatch, getState) => {
     logger.debug(`Re-entered matchmaking queue`)
     audioManager.playSound(AvailableSound.EnteredQueue)
 
     jotaiStore.set(foundMatchAtom, undefined)
+
+    // If the accept-match dialog was dismissed, it won't be around to show its own "returning to
+    // queue" message, so show a snackbar with the same information instead.
+    const dialogOpen = getState().dialog.history.some(d => d.type === DialogType.AcceptMatch)
+    if (!dialogOpen) {
+      externalShowSnackbar(
+        i18n.t(
+          'matchmaking.acceptMatch.returningToQueue',
+          "Some players didn't ready up in time or failed to load. Returning to the matchmaking " +
+            'queue…',
+        ),
+        DURATION_LONG,
+      )
+    }
   },
 
   matchReady: (matchmakingType, event) => (dispatch, getState) => {
