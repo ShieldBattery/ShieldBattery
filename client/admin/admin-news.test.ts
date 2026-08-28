@@ -7,13 +7,15 @@ import {
   insertInlineImage,
   NewsEditorModel,
   NewsPostEdit,
+  publishedAtUpdate,
+  toDateTimeLocalString,
+} from './admin-news'
+import {
   PUBLISH_MODE_DRAFT,
   PUBLISH_MODE_NOW,
   PUBLISH_MODE_PUBLISHED,
   PUBLISH_MODE_SCHEDULE,
-  publishedAtUpdate,
-  toDateTimeLocalString,
-} from './admin-news'
+} from './news-post-settings-dialog'
 
 describe('getPostStatus', () => {
   test('returns draft for a null publishedAt', () => {

@@ -50,6 +50,7 @@
         "insertImageTooltip": "Insert image (up to 5 MB)",
         "insertVideo": "Insert video",
         "insertVideoTooltip": "Insert video (up to 30 MB)",
+        "postSettings": "Post settings",
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
@@ -86,6 +87,9 @@
       "refresh": "Refresh",
       "saveChanges": "Save changes",
       "saved": "News post saved",
+      "settings": {
+        "title": "Post settings"
+      },
       "status": {
         "draft": "Draft",
         "published": "Published",
