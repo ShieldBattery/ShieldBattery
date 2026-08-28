@@ -18,7 +18,6 @@
       },
       "confirmDelete": "Delete \"{{title}}\"? This cannot be undone.",
       "created": "News post created",
-      "createPost": "Create post",
       "createTitle": "Create news post",
       "deleteError": "Error deleting post:",
       "editPost": "Edit post",
@@ -84,9 +83,12 @@
       "loadMore": "Load more",
       "newPost": "New post",
       "notFound": "No news post found with this ID.",
+      "publishNow": "Publish now",
       "refresh": "Refresh",
       "saveChanges": "Save changes",
       "saved": "News post saved",
+      "saveDraft": "Save draft",
+      "schedulePost": "Schedule post",
       "settings": {
         "title": "Post settings"
       },

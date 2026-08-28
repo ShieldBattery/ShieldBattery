@@ -1233,6 +1233,27 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     }
   }
 
+  // The save button doubles as a summary of the publish state chosen in the post settings
+  // dialog, so what saving will do is visible without opening it.
+  const publishModeValue = getInputValue('publishMode')
+  let saveLabel: string
+  switch (publishModeValue) {
+    case PUBLISH_MODE_DRAFT:
+      saveLabel = t('admin.news.saveDraft', 'Save draft')
+      break
+    case PUBLISH_MODE_NOW:
+      saveLabel = t('admin.news.publishNow', 'Publish now')
+      break
+    case PUBLISH_MODE_SCHEDULE:
+      saveLabel = t('admin.news.schedulePost', 'Schedule post')
+      break
+    case PUBLISH_MODE_PUBLISHED:
+      saveLabel = t('admin.news.saveChanges', 'Save changes')
+      break
+    default:
+      saveLabel = publishModeValue satisfies never
+  }
+
   return (
     <CenteredContentContainer $fullWidth={true} data-content-fullbleed=''>
       <EditorRoot>
@@ -1260,11 +1281,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               onClick={openSettings}
             />
             <FilledButton
-              label={
-                post
-                  ? t('admin.news.saveChanges', 'Save changes')
-                  : t('admin.news.createPost', 'Create post')
-              }
+              label={saveLabel}
               onClick={onSaveClick}
               disabled={fetching || imageUploading || videoUploading}
             />
