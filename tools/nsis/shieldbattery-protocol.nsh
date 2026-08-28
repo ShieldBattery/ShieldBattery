@@ -6,6 +6,7 @@
 ; `setAsDefaultProtocolClient` (see app/app.ts) -- installs are per-user, and using one hive for
 ; both writers means the uninstall delete below cleans up either one.
 
+!include "${PROJECT_DIR}\tools\nsis\check-app-running.nsh"
 !include "${PROJECT_DIR}\tools\nsis\vc-redist.nsh"
 
 !macro customInstall

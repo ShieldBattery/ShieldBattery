@@ -27,13 +27,23 @@
   Push $0
   Push $1
 
-  ${DisableX64FSRedirection}
-  StrCpy $0 0
-  ${If} ${FileExists} "$WINDIR\System32\vcruntime140.dll"
-  ${AndIf} ${FileExists} "$WINDIR\System32\vcruntime140_1.dll"
+  ; WINE implements the runtime as builtins, so no redist is ever needed there, and the
+  ; Microsoft installer is unreliable under WINE. Its prefixes normally carry stub files for
+  ; both DLLs, which pass the file check below anyway; asking ntdll directly also covers
+  ; prefixes that lack the stubs. On real Windows the export doesn't exist and the call yields
+  ; "error".
+  System::Call 'ntdll::wine_get_version() t .r0'
+  ${If} $0 != "error"
     StrCpy $0 1
+  ${Else}
+    ${DisableX64FSRedirection}
+    StrCpy $0 0
+    ${If} ${FileExists} "$WINDIR\System32\vcruntime140.dll"
+    ${AndIf} ${FileExists} "$WINDIR\System32\vcruntime140_1.dll"
+      StrCpy $0 1
+    ${EndIf}
+    ${EnableX64FSRedirection}
   ${EndIf}
-  ${EnableX64FSRedirection}
 
   ; The marker records a failed runtime install (written below); clearing it up front means it
   ; always reflects the latest attempt, since installs and every auto-update rerun this macro.
