@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { makeSbChannelId } from '../../common/chat'
@@ -83,7 +83,8 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
   // scrollback loads), which is the moment the age check is about.
   const [mountTime] = useState(() => Date.now())
 
-  const { onContextMenu, contextMenuPopoverProps, selectedText } = useContextMenu()
+  const { onContextMenu, contextMenuPopoverProps, selectedText, linkHref } = useContextMenu()
+  const textRef = useRef<HTMLSpanElement>(null)
 
   const parsedText: React.ReactNode[] = []
   let isHighlighted = false
@@ -171,7 +172,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
           interactive={!disallowMentionInteraction}
         />
         <Separator>{': '}</Separator>
-        <Text>{parsedText}</Text>
+        <Text ref={textRef}>{parsedText}</Text>
         {inviteLobbyId !== undefined &&
         !disallowMentionInteraction &&
         mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
@@ -182,6 +183,8 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
       <MessageContextMenu
         messageId={msgId}
         selectedText={selectedText}
+        linkHref={linkHref}
+        getMessageText={() => textRef.current?.textContent ?? ''}
         MessageMenu={MessageMenu}
         popoverProps={contextMenuPopoverProps}
       />

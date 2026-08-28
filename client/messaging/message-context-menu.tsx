@@ -7,6 +7,8 @@ import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
+import { openLink } from '../navigation/open-link'
+import { useAppDispatch } from '../redux-hooks'
 
 /**
  * All the possible categories of the menu items in the message context menu. In case you're not
@@ -81,6 +83,10 @@ export interface ConnectedMessageContextMenuProps {
   messageId: string
   /** Text that was selected by the user at the point they opened the message context menu. */
   selectedText: string
+  /** The `href` of the link the user right-clicked to open the message context menu, if any. */
+  linkHref: string
+  /** Returns the message text as currently displayed (mentions/links rendered, not raw markup). */
+  getMessageText: () => string
   /**
    * An optional component that will be used for rendering menu items. This component can modify
    * the menu items given before passing them for rendering.
@@ -92,6 +98,8 @@ export interface ConnectedMessageContextMenuProps {
 export function MessageContextMenu({
   messageId,
   selectedText,
+  linkHref,
+  getMessageText,
   MessageMenu,
   popoverProps,
 }: ConnectedMessageContextMenuProps) {
@@ -100,6 +108,8 @@ export function MessageContextMenu({
       <MessageContextMenuContents
         messageId={messageId}
         selectedText={selectedText}
+        linkHref={linkHref}
+        getMessageText={getMessageText}
         MessageMenu={MessageMenu}
         onDismiss={popoverProps.onDismiss}
       />
@@ -114,14 +124,45 @@ export function MessageContextMenu({
 function MessageContextMenuContents({
   messageId,
   selectedText,
+  linkHref,
+  getMessageText,
   MessageMenu = DefaultMessageMenu,
   onDismiss,
 }: Omit<ConnectedMessageContextMenuProps, 'popoverProps'> & {
   onDismiss: () => void
 }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
 
   const items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
+  if (linkHref) {
+    appendToMultimap(
+      items,
+      MenuItemCategory.General,
+      <MenuItem
+        key='open-link'
+        text={t('messaging.openLink', 'Open link')}
+        onClick={() => {
+          dispatch(openLink(linkHref))
+          onDismiss()
+        }}
+      />,
+    )
+    appendToMultimap(
+      items,
+      MenuItemCategory.General,
+      <MenuItem
+        key='copy-link-address'
+        text={t('messaging.copyLinkAddress', 'Copy link address')}
+        onClick={() => {
+          navigator.clipboard
+            .writeText(linkHref)
+            .catch(err => logger.error(`Error writing to clipboard: ${getErrorStack(err)}`))
+          onDismiss()
+        }}
+      />,
+    )
+  }
   if (selectedText) {
     appendToMultimap(
       items,
@@ -146,6 +187,36 @@ function MessageContextMenuContents({
         onClick={() => {
           const a = document.createElement('a')
           a.href = `https://www.google.com/search?q=${encodeURIComponent(selectedText)}`
+          a.target = '_blank'
+          a.click()
+          onDismiss()
+        }}
+      />,
+    )
+  } else {
+    appendToMultimap(
+      items,
+      MenuItemCategory.General,
+      <MenuItem
+        key='copy-message'
+        text={t('messaging.copyMessage', 'Copy message')}
+        onClick={() => {
+          navigator.clipboard
+            .writeText(getMessageText())
+            .catch(err => logger.error(`Error writing to clipboard: ${getErrorStack(err)}`))
+          onDismiss()
+        }}
+      />,
+    )
+    appendToMultimap(
+      items,
+      MenuItemCategory.General,
+      <MenuItem
+        key='search-with-google'
+        text={t('messaging.searchWithGoogle', 'Search with Google')}
+        onClick={() => {
+          const a = document.createElement('a')
+          a.href = `https://www.google.com/search?q=${encodeURIComponent(getMessageText())}`
           a.target = '_blank'
           a.click()
           onDismiss()
