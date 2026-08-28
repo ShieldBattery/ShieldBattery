@@ -141,6 +141,72 @@ function toggleLinePrefix(
   }
 }
 
+/**
+ * Maps a keyboard event to the markdown format it should trigger, following the GitHub-style
+ * shortcut set: Ctrl/Cmd+B (bold), Ctrl+I (italic), Ctrl+K (link), Ctrl+Shift+7 (ordered list),
+ * Ctrl+Shift+8 (unordered list), and Ctrl+Shift+. (quote). Returns `undefined` for any other
+ * event.
+ *
+ * All shortcuts require the ctrl/cmd modifier and reject `altKey`, since some keyboard layouts
+ * report AltGr as ctrl+alt and that combination must not trigger a shortcut. The single-letter
+ * shortcuts (B/I/K) match on `event.key` with an `event.code` fallback: the letter matches the
+ * shortcut as users think of it, while the physical-key fallback keeps it working on non-Latin
+ * layouts (e.g. Cyrillic, where Ctrl+B reports `key: 'и'` but `code: 'KeyB'`). The fallback only
+ * runs when `event.key` is not a Latin letter: when the layout produced a different Latin letter
+ * (e.g. Dvorak, where Ctrl+X reports `key: 'x'`, `code: 'KeyB'`), the letter the user typed wins
+ * so cut/copy/paste are not hijacked. The list/quote shortcuts match on `event.code` only,
+ * because `event.key` for a shifted digit or punctuation key is layout-dependent (e.g. Shift+7
+ * produces `/` rather than `&` on some layouts) while the physical key position is not.
+ */
+export function markdownFormatForKeyEvent(event: {
+  key: string
+  code: string
+  ctrlKey: boolean
+  metaKey: boolean
+  altKey: boolean
+  shiftKey: boolean
+}): MarkdownFormatKind | undefined {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+    return undefined
+  }
+
+  if (!event.shiftKey) {
+    const key = event.key.toLowerCase()
+    switch (key) {
+      case 'b':
+        return 'bold'
+      case 'i':
+        return 'italic'
+      case 'k':
+        return 'link'
+    }
+    if (/^[a-z]$/.test(key)) {
+      return undefined
+    }
+    switch (event.code) {
+      case 'KeyB':
+        return 'bold'
+      case 'KeyI':
+        return 'italic'
+      case 'KeyK':
+        return 'link'
+      default:
+        return undefined
+    }
+  }
+
+  switch (event.code) {
+    case 'Digit7':
+      return 'orderedList'
+    case 'Digit8':
+      return 'unorderedList'
+    case 'Period':
+      return 'quote'
+    default:
+      return undefined
+  }
+}
+
 const HEADING_H2_PREFIX = '## '
 const HEADING_H3_PREFIX = '### '
 const HEADING_PATTERN = /^#{1,6} /
@@ -380,12 +446,14 @@ export function MarkdownToolbar({
       <ToolbarButton
         icon={<MaterialIcon icon='format_bold' />}
         label={t('markdown.toolbar.bold', 'Bold')}
+        tooltipText={t('markdown.toolbar.boldTooltip', 'Bold (Ctrl+B)')}
         disabled={disabled}
         onClick={() => onFormat('bold')}
       />
       <ToolbarButton
         icon={<MaterialIcon icon='format_italic' />}
         label={t('markdown.toolbar.italic', 'Italic')}
+        tooltipText={t('markdown.toolbar.italicTooltip', 'Italic (Ctrl+I)')}
         disabled={disabled}
         onClick={() => onFormat('italic')}
       />
@@ -393,18 +461,21 @@ export function MarkdownToolbar({
       <ToolbarButton
         icon={<MaterialIcon icon='format_quote' />}
         label={t('markdown.toolbar.quote', 'Quote')}
+        tooltipText={t('markdown.toolbar.quoteTooltip', 'Quote (Ctrl+Shift+.)')}
         disabled={disabled}
         onClick={() => onFormat('quote')}
       />
       <ToolbarButton
         icon={<MaterialIcon icon='format_list_bulleted' />}
         label={t('markdown.toolbar.unorderedList', 'Bulleted list')}
+        tooltipText={t('markdown.toolbar.unorderedListTooltip', 'Bulleted list (Ctrl+Shift+8)')}
         disabled={disabled}
         onClick={() => onFormat('unorderedList')}
       />
       <ToolbarButton
         icon={<MaterialIcon icon='format_list_numbered' />}
         label={t('markdown.toolbar.orderedList', 'Numbered list')}
+        tooltipText={t('markdown.toolbar.orderedListTooltip', 'Numbered list (Ctrl+Shift+7)')}
         disabled={disabled}
         onClick={() => onFormat('orderedList')}
       />
@@ -418,6 +489,7 @@ export function MarkdownToolbar({
       <ToolbarButton
         icon={<MaterialIcon icon='link' />}
         label={t('markdown.toolbar.link', 'Link')}
+        tooltipText={t('markdown.toolbar.linkTooltip', 'Link (Ctrl+K)')}
         disabled={disabled}
         onClick={() => onFormat('link')}
       />

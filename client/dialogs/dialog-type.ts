@@ -37,6 +37,7 @@ export enum DialogType {
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
+  NewsPostSettings = 'newsPostSettings',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -224,6 +225,27 @@ type MarkdownDialogPayload = BaseDialogPayload<
   }
 >
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
+// Kept as an inline shape (rather than importing from the dialog's own file) so this file stays
+// free of dependencies on dialog implementations, which would otherwise cycle back here through
+// the dialog's use of form/state hooks that ultimately import the dialog reducer.
+type NewsPostStatus =
+  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
+type NewsPostSettingsValues = {
+  summary: string
+  publishMode: 'draft' | 'now' | 'schedule' | 'published'
+  scheduledAt: string
+  coverImagePath: string | null
+  coverImageUrl: string | null
+}
+type NewsPostSettingsDialogPayload = BaseDialogPayload<
+  typeof DialogType.NewsPostSettings,
+  {
+    savedStatus: NewsPostStatus
+    settings: NewsPostSettingsValues
+    /** Called with the edited settings once the dialog is submitted. */
+    onApply: (settings: NewsPostSettingsValues) => void
+  }
+>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -317,6 +339,7 @@ export type DialogPayload =
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload
+  | NewsPostSettingsDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload

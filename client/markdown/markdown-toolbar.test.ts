@@ -1,5 +1,26 @@
 import { describe, expect, test } from 'vitest'
-import { applyMarkdownFormat } from './markdown-toolbar'
+import { applyMarkdownFormat, markdownFormatForKeyEvent } from './markdown-toolbar'
+
+function keyEvent(
+  overrides: Partial<{
+    key: string
+    code: string
+    ctrlKey: boolean
+    metaKey: boolean
+    altKey: boolean
+    shiftKey: boolean
+  }>,
+) {
+  return {
+    key: '',
+    code: '',
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    ...overrides,
+  }
+}
 
 describe('applyMarkdownFormat', () => {
   describe('bold', () => {
@@ -405,5 +426,98 @@ describe('applyMarkdownFormat', () => {
     expect(result.content).toBe('Hello****')
     expect(result.selectionStart).toBe(7)
     expect(result.selectionEnd).toBe(7)
+  })
+})
+
+describe('markdownFormatForKeyEvent', () => {
+  test('Ctrl+B maps to bold', () => {
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'b', ctrlKey: true }))).toBe('bold')
+  })
+
+  test('Cmd+B (metaKey) maps to bold', () => {
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'b', metaKey: true }))).toBe('bold')
+  })
+
+  test('Ctrl+I maps to italic', () => {
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'i', ctrlKey: true }))).toBe('italic')
+  })
+
+  test('Ctrl+K maps to link', () => {
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'k', ctrlKey: true }))).toBe('link')
+  })
+
+  test('Ctrl+Shift+7 (Digit7) maps to orderedList', () => {
+    expect(
+      markdownFormatForKeyEvent(
+        keyEvent({ code: 'Digit7', key: '7', ctrlKey: true, shiftKey: true }),
+      ),
+    ).toBe('orderedList')
+  })
+
+  test('Ctrl+Shift+8 (Digit8) maps to unorderedList', () => {
+    expect(
+      markdownFormatForKeyEvent(
+        keyEvent({ code: 'Digit8', key: '8', ctrlKey: true, shiftKey: true }),
+      ),
+    ).toBe('unorderedList')
+  })
+
+  test('Ctrl+Shift+. (Period) maps to quote', () => {
+    expect(
+      markdownFormatForKeyEvent(
+        keyEvent({ code: 'Period', key: '.', ctrlKey: true, shiftKey: true }),
+      ),
+    ).toBe('quote')
+  })
+
+  test('letter shortcuts fall back to the physical code on non-Latin layouts', () => {
+    // On a Cyrillic layout Ctrl+B reports the Cyrillic letter as the key.
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'и', code: 'KeyB', ctrlKey: true }))).toBe(
+      'bold',
+    )
+  })
+
+  test('Dvorak-style Ctrl+X (cut) is not hijacked by the physical-code fallback', () => {
+    // On a Dvorak layout the physical B key types 'x', so Ctrl+X reports code: 'KeyB'.
+    expect(
+      markdownFormatForKeyEvent(keyEvent({ key: 'x', code: 'KeyB', ctrlKey: true })),
+    ).toBeUndefined()
+  })
+
+  test('Dvorak-style Ctrl+C (copy) is not hijacked by the physical-code fallback', () => {
+    // On a Dvorak layout the physical I key types 'c', so Ctrl+C reports code: 'KeyI'.
+    expect(
+      markdownFormatForKeyEvent(keyEvent({ key: 'c', code: 'KeyI', ctrlKey: true })),
+    ).toBeUndefined()
+  })
+
+  test('altKey blocks Ctrl+B, as with AltGr reporting ctrl+alt', () => {
+    expect(
+      markdownFormatForKeyEvent(keyEvent({ key: 'b', ctrlKey: true, altKey: true })),
+    ).toBeUndefined()
+  })
+
+  test('plain "b" without a ctrl/cmd modifier returns undefined', () => {
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'b' }))).toBeUndefined()
+  })
+
+  test('Ctrl+Shift+B returns undefined', () => {
+    expect(
+      markdownFormatForKeyEvent(keyEvent({ key: 'b', ctrlKey: true, shiftKey: true })),
+    ).toBeUndefined()
+  })
+
+  test('matches the list/quote shortcuts by physical code, independent of the layout-dependent key', () => {
+    // On some layouts Shift+7 produces a different character than '&' or '7' (e.g. '/' on a
+    // Croatian layout); the physical key position still identifies the shortcut.
+    expect(
+      markdownFormatForKeyEvent(
+        keyEvent({ code: 'Digit7', key: '/', ctrlKey: true, shiftKey: true }),
+      ),
+    ).toBe('orderedList')
+  })
+
+  test('an unmapped shortcut (Ctrl+Q) returns undefined', () => {
+    expect(markdownFormatForKeyEvent(keyEvent({ key: 'q', ctrlKey: true }))).toBeUndefined()
   })
 })

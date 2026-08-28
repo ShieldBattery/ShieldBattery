@@ -7,12 +7,15 @@ import {
   insertInlineImage,
   NewsEditorModel,
   NewsPostEdit,
-  PUBLISH_MODE_DRAFT,
-  PUBLISH_MODE_NOW,
-  PUBLISH_MODE_SCHEDULE,
   publishedAtUpdate,
   toDateTimeLocalString,
 } from './admin-news'
+import {
+  PUBLISH_MODE_DRAFT,
+  PUBLISH_MODE_NOW,
+  PUBLISH_MODE_PUBLISHED,
+  PUBLISH_MODE_SCHEDULE,
+} from './news-post-settings-dialog'
 
 describe('getPostStatus', () => {
   test('returns draft for a null publishedAt', () => {
@@ -101,6 +104,13 @@ describe('createPublishedAt', () => {
     expect(result).toBeDefined()
     expect(new Date(result!).toISOString()).toBe(result)
   })
+
+  test('returns a parseable ISO string for published mode', () => {
+    const result = createPublishedAt({ ...baseModel, publishMode: PUBLISH_MODE_PUBLISHED })
+
+    expect(result).toBeDefined()
+    expect(new Date(result!).toISOString()).toBe(result)
+  })
 })
 
 describe('publishedAtUpdate', () => {
@@ -134,6 +144,13 @@ describe('publishedAtUpdate', () => {
     expect(result).toBeDefined()
     expect(result!.value).not.toBeNull()
     expect(new Date(result!.value!).toISOString()).toBe(result!.value)
+  })
+
+  test('published mode makes no change to an originally published post', () => {
+    const model: NewsEditorModel = { ...baseModel, publishMode: PUBLISH_MODE_PUBLISHED }
+    const original = new Date(2026, 0, 1).toISOString()
+
+    expect(publishedAtUpdate(model, original)).toBeUndefined()
   })
 
   test('schedule mode makes no change when the target minute matches the original', () => {

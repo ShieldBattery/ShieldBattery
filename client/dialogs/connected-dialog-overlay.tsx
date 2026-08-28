@@ -86,6 +86,9 @@ const FailedToAcceptMatchDialog = React.lazy(async () => ({
 const MatchmakingBannedDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/matchmaking-banned-dialog')).MatchmakingBannedDialog,
 }))
+const NewsPostSettingsDialog = React.lazy(async () => ({
+  default: (await import('../admin/news-post-settings-dialog')).NewsPostSettingsDialog,
+}))
 const PostMatchDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/post-match-dialog')).PostMatchDialog,
 }))
@@ -221,6 +224,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MarkdownDialog }
     case DialogType.MatchmakingBanned:
       return { component: MatchmakingBannedDialog }
+    case DialogType.NewsPostSettings:
+      return { component: NewsPostSettingsDialog }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:
