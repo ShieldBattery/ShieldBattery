@@ -1112,7 +1112,11 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
 
   const validations: ValidatorMap<NewsEditorModel> = {
     title: required(t('admin.news.form.titleRequired', 'Title is required')),
-    summary: required(t('admin.news.form.summaryRequired', 'Summary is required')),
+    // Whitespace-only summaries must fail validation, since the save flow only opens the settings
+    // dialog (where the summary error can actually be seen) for summaries that are blank after
+    // trimming.
+    summary: value =>
+      value.trim() ? undefined : t('admin.news.form.summaryRequired', 'Summary is required'),
     content: required(t('admin.news.form.contentRequired', 'Content is required')),
     scheduledAt: (value, model) => {
       if (model.publishMode !== PUBLISH_MODE_SCHEDULE) {
@@ -1267,7 +1271,14 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           </HeaderActions>
         </HeaderRow>
         {error ? <ErrorText>{error.message}</ErrorText> : null}
-        <Form onSubmit={submit}>
+        <Form
+          onSubmit={event => {
+            // Implicit submission (e.g. Enter in the title field) needs the same
+            // missing-summary/schedule handling as the save button, since submitting directly
+            // would fail validation against inputs that only render in the settings dialog.
+            event.preventDefault()
+            onSaveClick()
+          }}>
           <FormArea>
             <TitleField {...bindInput('title')} label={t('admin.news.form.title', 'Title')} />
             <EditorToolbar onFormat={onFormat}>

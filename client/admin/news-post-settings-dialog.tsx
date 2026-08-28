@@ -7,7 +7,6 @@ import { NewsImageUploadResponse } from '../../common/news'
 import { apiUrl } from '../../common/urls'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
-import { required } from '../forms/validators'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
@@ -215,7 +214,11 @@ export function NewsPostSettingsDialog({
   }
 
   const validations: ValidatorMap<PostSettingsFormModel> = {
-    summary: required(t('admin.news.form.summaryRequired', 'Summary is required')),
+    // Whitespace-only summaries must fail here: the editor's save flow treats them as missing and
+    // opens this dialog, so accepting them would let Done close the dialog with no visible error
+    // only for save to immediately reopen it.
+    summary: value =>
+      value.trim() ? undefined : t('admin.news.form.summaryRequired', 'Summary is required'),
     scheduledAt: (value, model) => {
       if (model.publishMode !== PUBLISH_MODE_SCHEDULE) {
         return undefined
