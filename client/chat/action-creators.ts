@@ -13,6 +13,7 @@ import {
   JoinChannelResponse,
   ListChannelBansResponse,
   ListUserChannelEntriesResponse,
+  MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
   SbChannelId,
   SearchChannelsResponse,
@@ -30,6 +31,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
+import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
@@ -53,6 +55,31 @@ export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction 
       payload: joinedChannels,
     })
   })
+}
+
+/** The `reportLastRead`/`flushLastRead` coalescing key for a channel's read position. */
+export function getChannelLastReadKey(channelId: SbChannelId): string {
+  return `channel-${channelId}`
+}
+
+/**
+ * Reports the newest message time the current user has read in a channel, coalescing rapid-fire
+ * reports (see `reportLastRead`). Fire-and-forget: there's no `RequestHandlingSpec` since nothing
+ * needs to react to this request's outcome.
+ */
+export function markChannelRead(channelId: SbChannelId, lastReadTime: number): ThunkAction {
+  return () => {
+    reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time => {
+      fetchJson<void>(apiUrl`chat/${channelId}/mark-read`, {
+        method: 'POST',
+        body: encodeBodyAsParams<MarkChannelReadRequest>({ lastReadTime: time }),
+      }).catch(err => {
+        logger.error(
+          `Error reporting read position for channel ${channelId}: ${getErrorStack(err)}`,
+        )
+      })
+    })
+  }
 }
 
 /**

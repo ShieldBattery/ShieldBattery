@@ -6,9 +6,11 @@ import {
   ClientChatMessageType,
   SbChannelId,
   ServerChatMessageType,
+  isServerChatMessage,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
+import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MessageComponentProps } from '../messaging/message-list'
 import { push } from '../navigation/routing'
@@ -24,8 +26,10 @@ import {
   correctChannelNameForChat,
   deactivateChannel,
   getChannelInfo,
+  getChannelLastReadKey,
   getMessageHistory,
   leaveChannelWithConfirmation,
+  markChannelRead,
   retrieveUserList,
   sendMessage,
   updateChannelAtBottom,
@@ -127,6 +131,8 @@ export function ConnectedChatChannel({
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const selfPreferences = useAppSelector(s => s.chat.idToSelfPreferences.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
+  const isActivated = useAppSelector(s => s.chat.activatedChannels.has(channelId))
+  const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
@@ -224,6 +230,30 @@ export function ConnectedChatChannel({
       dispatch(deactivateChannel(channelId))
     }
   }, [isInChannel, channelId, dispatch])
+
+  // The newest server-recorded message time: client-only messages (e.g. the self-join banner) are
+  // stamped with the local clock, so they can't be reported as a read position.
+  let newestMessageTime: number | undefined
+  if (channelMessages) {
+    for (let i = channelMessages.messages.length - 1; i >= 0; i--) {
+      const message = channelMessages.messages[i]
+      if (isServerChatMessage(message)) {
+        newestMessageTime = message.time
+        break
+      }
+    }
+  }
+
+  // Reports the read position whenever the channel is both open and scrolled to the bottom, so
+  // arriving at a channel already at the bottom (or scrolling back down to it) reports the newest
+  // message just as much as a message arriving while already there does.
+  useEffect(() => {
+    if (isActivated && isAtBottom && newestMessageTime !== undefined) {
+      dispatch(markChannelRead(channelId, newestMessageTime))
+    }
+  }, [isActivated, isAtBottom, newestMessageTime, channelId, dispatch])
+
+  useEffect(() => () => flushLastRead(getChannelLastReadKey(channelId)), [channelId])
 
   useEffect(() => {
     if (basicChannelInfo && channelNameFromRoute !== basicChannelInfo.name) {

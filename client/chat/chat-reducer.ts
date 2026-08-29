@@ -245,8 +245,14 @@ function initChannelUsers(state: ChatState, channelId: SbChannelId, activeUserId
 }
 
 function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChannelData) {
-  const { channelInfo, detailedChannelInfo, joinedChannelInfo, selfPreferences, selfPermissions } =
-    data
+  const {
+    channelInfo,
+    detailedChannelInfo,
+    joinedChannelInfo,
+    selfPreferences,
+    selfPermissions,
+    hasUnread,
+  } = data
 
   const messagesState: MessagesState = {
     messages: [],
@@ -262,6 +268,14 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   state.idToUserProfiles.set(channelId, new Map())
   state.idToSelfPreferences.set(channelId, selfPreferences)
   state.idToSelfPermissions.set(channelId, selfPermissions)
+
+  // Seeds the unread badge from the server's recorded read position, so it survives a restart
+  // instead of resetting to "read" until the next message arrives. A channel the user is currently
+  // viewing is never marked unread, matching how a live message never marks an activated channel
+  // unread either.
+  if (hasUnread && !state.activatedChannels.has(channelId)) {
+    state.unreadChannels.add(channelId)
+  }
 
   updateMessages(state, channelId, false, m => {
     m.push({

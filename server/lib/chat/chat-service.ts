@@ -78,6 +78,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
+  getUnreadChannels,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -92,6 +93,7 @@ import {
   transferChannelOwnership,
   unbanUserFromChannel,
   updateChannel,
+  updateLastReadTime,
   updateUserPermissions,
   updateUserPreferences,
 } from './chat-models'
@@ -150,10 +152,14 @@ export default class ChatService {
   }
 
   async getJoinedChannels(userId: SbUserId): Promise<InitialChannelData[]> {
-    const joinedChannels = await getChannelsForUser(userId)
+    const [joinedChannels, unreadChannels] = await Promise.all([
+      getChannelsForUser(userId),
+      getUnreadChannels(userId),
+    ])
     const channelInfos = await getChannelInfos(joinedChannels.map(c => c.channelId))
 
     const channelInfosMap = new global.Map(channelInfos.map(c => [c.id, c]))
+    const unreadChannelsSet = new global.Set(unreadChannels)
 
     return joinedChannels.map(c => {
       const channelInfo = channelInfosMap.get(c.channelId)!
@@ -164,6 +170,7 @@ export default class ChatService {
         joinedChannelInfo: toJoinedChannelInfo(channelInfo),
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
+        hasUnread: unreadChannelsSet.has(c.channelId),
       }
     })
   }
@@ -204,6 +211,8 @@ export default class ChatService {
       ])
 
       if (channelInfo && userChannelEntry) {
+        // `hasUnread` is omitted: a membership this fresh has no recorded read position yet, which
+        // `getUnreadChannels` always treats as fully read.
         this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
           action: 'init3',
           channelInfo: toBasicChannelInfo(channelInfo),
@@ -1361,6 +1370,14 @@ export default class ChatService {
       action: 'preferencesChanged',
       selfPreferences: channelPreferences,
     })
+  }
+
+  /**
+   * Records the newest message time a user has seen in a channel. A no-op if they aren't a member
+   * of the channel (e.g. a stale report arriving after they left).
+   */
+  async markRead(channelId: SbChannelId, userId: SbUserId, lastReadTime: Date): Promise<void> {
+    await updateLastReadTime(userId, channelId, lastReadTime)
   }
 
   async updateUserPermissions(

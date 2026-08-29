@@ -54,6 +54,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
+  getUnreadChannels,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -127,6 +128,8 @@ vi.mock('./chat-models', async () => {
   const originalModule = await vi.importActual<typeof import('./chat-models')>('./chat-models')
   return {
     getChannelsForUser: vi.fn().mockResolvedValue([]),
+    getUnreadChannels: vi.fn().mockResolvedValue([]),
+    updateLastReadTime: vi.fn(),
     getUsersForChannel: vi.fn().mockResolvedValue([]),
     getUserChannelEntryForUser: vi.fn(),
     getUserChannelEntriesForUser: vi.fn().mockResolvedValue([]),
@@ -537,6 +540,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          hasUnread: false,
         },
         {
           channelInfo: testBasicInfo,
@@ -544,6 +548,36 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: testJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          hasUnread: false,
+        },
+      ])
+    })
+
+    test('marks a channel with unread messages', async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+      asMockedFunction(getUnreadChannels).mockResolvedValue([shieldBatteryChannel.id])
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      asMockedFunction(getUnreadChannels).mockResolvedValue([])
+
+      expect(result).toEqual([
+        {
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          selfPreferences: channelPreferences,
+          selfPermissions: channelPermissions,
+          hasUnread: true,
         },
       ])
     })

@@ -673,6 +673,69 @@ export async function updateUserPermissions(
   }
 }
 
+/**
+ * Advances a user's read position in a channel to `lastReadTime`. The update is monotonic (never
+ * moves the stored position backward) so a stale report from one device can't clobber a newer
+ * position recorded by another, and clamped to `now()` so a client can't push the position into the
+ * future. A silent no-op if the user isn't (or is no longer) a member of the channel.
+ */
+export async function updateLastReadTime(
+  userId: SbUserId,
+  channelId: SbChannelId,
+  lastReadTime: Date,
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      UPDATE channel_users
+      SET last_read_time = GREATEST(
+        COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
+      )
+      WHERE user_id = ${userId} AND channel_id = ${channelId};
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the IDs of a user's joined channels that have a text message sent by someone else after
+ * their last recorded read position in that channel. A channel with no recorded read position
+ * never counts as unread here, since there's nothing to compare newly-arrived messages against;
+ * `markRead` establishes that baseline the first time a client reports one. Only text messages
+ * count, mirroring the client's own `makeUnread` flag: join/leave/moderation events never mark a
+ * channel unread. A single set-based query over all of the user's channels, rather than one query
+ * per channel. `sent` columns store naive UTC wall time (see the timestamp parser setup in
+ * `server/lib/db`), so the read position is converted to naive UTC for the comparison instead of
+ * being left to the connection's session time zone. The comparison works at millisecond
+ * granularity (`sent >= read + 1ms` rather than `sent > read`): read positions arrive as epoch
+ * milliseconds while `sent` keeps microseconds, so a full-precision strict comparison would leave
+ * the newest message permanently unread.
+ */
+export async function getUnreadChannels(userId: SbUserId): Promise<SbChannelId[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ channel_id: SbChannelId }>(sql`
+      SELECT cu.channel_id FROM channel_users cu
+      WHERE cu.user_id = ${userId}
+        AND EXISTS (
+          SELECT 1 FROM channel_messages m
+          WHERE m.channel_id = cu.channel_id
+            AND m.user_id != cu.user_id
+            AND m.sent >= COALESCE(
+              (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+              'infinity'::timestamp
+            )
+            AND m.data ->> 'type' = ${ServerChatMessageType.TextMessage}
+        )
+    `)
+    return result.rows.map(row => row.channel_id)
+  } finally {
+    done()
+  }
+}
+
 export async function countBannedIdentifiersForChannel(
   {
     channelId,

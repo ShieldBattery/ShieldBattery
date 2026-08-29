@@ -65,6 +65,19 @@ export enum ClientChatMessageType {
 
 export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 
+const SERVER_CHAT_MESSAGE_TYPES: ReadonlySet<ChatMessageType> = new Set(
+  Object.values(ServerChatMessageType),
+)
+
+/**
+ * Returns whether a chat message originated on the server, i.e. it's stored in the database and its
+ * `time` is a server-recorded time. Client-only messages stamp `time` with the local clock, so they
+ * can't be used anywhere a durable server time is needed (e.g. read positions).
+ */
+export function isServerChatMessage(message: { type: ChatMessageType }): boolean {
+  return SERVER_CHAT_MESSAGE_TYPES.has(message.type)
+}
+
 export interface BaseChatMessage {
   id: string
   type: ChatMessageType
@@ -220,6 +233,11 @@ export interface InitialChannelData {
   selfPreferences: ChannelPreferences
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
+  /**
+   * Whether the channel has messages newer than the user's last recorded read position. Absent or
+   * false means the channel should not be treated as unread.
+   */
+  hasUnread?: boolean
 }
 
 export interface ChatInitEvent extends InitialChannelData {
@@ -396,6 +414,14 @@ export interface EditChannelResponse {
 
 export interface SendChatMessageServerRequest {
   message: string
+}
+
+/**
+ * The body data of the API route for reporting a user's read position in a chat channel.
+ */
+export interface MarkChannelReadRequest {
+  /** Epoch ms of the newest message the user has seen in the channel. */
+  lastReadTime: number
 }
 
 /**

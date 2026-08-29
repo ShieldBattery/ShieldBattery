@@ -63,6 +63,68 @@ export async function startWhisperSessionsBothDirections(
   }
 }
 
+/**
+ * Advances a user's read position in a whisper conversation to `lastReadTime`. The update is
+ * monotonic (never moves the stored position backward) so a stale report from one device can't
+ * clobber a newer position recorded by another, and clamped to `now()` so a client can't push the
+ * position into the future. A silent no-op if the session doesn't exist (e.g. it was closed).
+ */
+export async function updateLastReadTime(
+  userId: SbUserId,
+  targetId: SbUserId,
+  lastReadTime: Date,
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE whisper_sessions
+      SET last_read_time = GREATEST(
+        COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
+      )
+      WHERE user_id = ${userId} AND target_user_id = ${targetId};
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the IDs of the target users in a user's whisper sessions that have a message from that
+ * target after the user's last recorded read position for the session. A session with no recorded
+ * read position never counts as unread here, since there's nothing to compare newly-arrived
+ * messages against; `markRead` establishes that baseline the first time a client reports one.
+ * Every whisper message is a text message (`WhisperMessageData` has a single variant), so every
+ * message from the target counts. A single set-based query over all of the user's sessions, rather
+ * than one query per session. `sent` columns store naive UTC wall time (see the timestamp parser
+ * setup in `server/lib/db`), so the read position is converted to naive UTC for the comparison
+ * instead of being left to the connection's session time zone. The comparison works at millisecond
+ * granularity (`sent >= read + 1ms` rather than `sent > read`): read positions arrive as epoch
+ * milliseconds while `sent` keeps microseconds, so a full-precision strict comparison would leave
+ * the newest message permanently unread.
+ */
+export async function getUnreadWhisperTargets(userId: SbUserId): Promise<SbUserId[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ target_user_id: SbUserId }>(sql`
+      SELECT ws.target_user_id FROM whisper_sessions ws
+      WHERE ws.user_id = ${userId}
+        AND EXISTS (
+          SELECT 1 FROM whisper_messages m
+          WHERE m.user_low = LEAST(ws.user_id, ws.target_user_id)
+            AND m.user_high = GREATEST(ws.user_id, ws.target_user_id)
+            AND m.from_id = ws.target_user_id
+            AND m.sent >= COALESCE(
+              (ws.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+              'infinity'::timestamp
+            )
+        )
+    `)
+    return result.rows.map(row => row.target_user_id)
+  } finally {
+    done()
+  }
+}
+
 export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId): Promise<boolean> {
   const { client, done } = await db()
   try {

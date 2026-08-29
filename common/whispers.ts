@@ -58,6 +58,14 @@ export interface SendWhisperMessageRequest {
 }
 
 /**
+ * The body data of the API route for reporting a user's read position in a whisper conversation.
+ */
+export interface MarkWhisperReadRequest {
+  /** Epoch ms of the newest message the user has seen in the conversation. */
+  lastReadTime: number
+}
+
+/**
  * Payload returned for a request to retrieve the session history.
  */
 export interface GetSessionHistoryResponse {
@@ -121,4 +129,10 @@ export function whisperServiceErrorToString(
 export interface GetWhisperSessionsResponse {
   sessions: SbUserId[]
   users: SbUser[]
+  /**
+   * IDs of the target users whose conversations have messages newer than the user's last recorded
+   * read position. A session whose target ID is absent from this list should not be treated as
+   * unread. Additive over the base response so older clients ignore it.
+   */
+  unreadSessions?: SbUserId[]
 }

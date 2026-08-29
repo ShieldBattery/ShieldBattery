@@ -1,11 +1,15 @@
+import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
   GetWhisperSessionsResponse,
+  MarkWhisperReadRequest,
   SendWhisperMessageRequest,
 } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
+import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
@@ -24,6 +28,30 @@ export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction
     })
   })
 }
+
+/** The `reportLastRead`/`flushLastRead` coalescing key for a whisper conversation's read position. */
+export function getWhisperLastReadKey(targetId: SbUserId): string {
+  return `whisper-${targetId}`
+}
+
+/**
+ * Reports the newest message time the current user has read in a whisper conversation, coalescing
+ * rapid-fire reports (see `reportLastRead`). Fire-and-forget: there's no `RequestHandlingSpec` since
+ * nothing needs to react to this request's outcome.
+ */
+export function markWhisperRead(targetId: SbUserId, lastReadTime: number): ThunkAction {
+  return () => {
+    reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time => {
+      fetchJson<void>(apiUrl`whispers/${targetId}/mark-read`, {
+        method: 'POST',
+        body: encodeBodyAsParams<MarkWhisperReadRequest>({ lastReadTime: time }),
+      }).catch(err => {
+        logger.error(`Error reporting read position for whisper ${targetId}: ${getErrorStack(err)}`)
+      })
+    })
+  }
+}
+
 export function startWhisperSessionByName(
   target: string,
   spec: RequestHandlingSpec<{ userId: SbUserId }>,

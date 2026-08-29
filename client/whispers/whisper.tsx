@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
+import { flushLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
@@ -17,6 +18,8 @@ import {
   correctUsernameForWhisper,
   deactivateWhisperSession,
   getMessageHistory,
+  getWhisperLastReadKey,
+  markWhisperRead,
   sendMessage,
   startWhisperSessionById,
   updateSessionAtBottom,
@@ -119,6 +122,21 @@ export function ConnectedWhisper({
       dispatch(deactivateWhisperSession(targetId))
     }
   }, [isSessionOpen, isClosingWhisper, targetId, dispatch, t, snackbarController])
+
+  const newestMessageTime = whisperSession?.messages.length
+    ? whisperSession.messages[whisperSession.messages.length - 1].time
+    : undefined
+
+  // Reports the read position whenever the session is both open and scrolled to the bottom, so
+  // arriving at a session already at the bottom (or scrolling back down to it) reports the newest
+  // message just as much as a message arriving while already there does.
+  useEffect(() => {
+    if (whisperSession?.activated && whisperSession.atBottom && newestMessageTime !== undefined) {
+      dispatch(markWhisperRead(targetId, newestMessageTime))
+    }
+  }, [whisperSession?.activated, whisperSession?.atBottom, newestMessageTime, targetId, dispatch])
+
+  useEffect(() => () => flushLastRead(getWhisperLastReadKey(targetId)), [targetId])
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const onLoadMoreMessages = useStableCallback(() => {
