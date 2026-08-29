@@ -5,6 +5,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
 import { flushLastRead } from '../messaging/last-read'
+import { isServerOriginMessage } from '../messaging/message-records'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
@@ -123,9 +124,18 @@ export function ConnectedWhisper({
     }
   }, [isSessionOpen, isClosingWhisper, targetId, dispatch, t, snackbarController])
 
-  const newestMessageTime = whisperSession?.messages.length
-    ? whisperSession.messages[whisperSession.messages.length - 1].time
-    : undefined
+  // The newest server-recorded message time: only server-origin messages carry one, and a read
+  // position must never be reported from a locally-stamped time.
+  let newestMessageTime: number | undefined
+  if (whisperSession) {
+    for (let i = whisperSession.messages.length - 1; i >= 0; i--) {
+      const message = whisperSession.messages[i]
+      if (isServerOriginMessage(message)) {
+        newestMessageTime = message.time
+        break
+      }
+    }
+  }
 
   // Reports the read position whenever the session is both open and scrolled to the bottom, so
   // arriving at a session already at the bottom (or scrolling back down to it) reports the newest
