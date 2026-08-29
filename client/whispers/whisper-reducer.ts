@@ -1,6 +1,10 @@
 import { Immutable } from 'immer'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
+import {
+  CommonMessageType,
+  CommonTextMessage,
+  isServerOriginMessage,
+} from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -271,6 +275,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  // This arrives both from this session's own optimistic mark-read reports (dispatched only while
+  // the session is activated) and from the socket handler relaying a mark-read made in one of the
+  // user's other sessions (which can arrive for a session this session isn't currently viewing).
+  // The unread flag and frozen divider are only re-evaluated in the latter case: an activated
+  // session already has its unread flag cleared, and its divider is re-evaluated by
+  // `deactivateWhisperSession` instead, so it must never move while the session is being viewed
+  // here.
   ['@whispers/updateLastReadTime'](state, action) {
     const { targetId, lastReadTime } = action.payload
 
@@ -281,6 +292,25 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     if (session.lastReadTime === undefined || lastReadTime > session.lastReadTime) {
       session.lastReadTime = lastReadTime
+    }
+    const effective = session.lastReadTime!
+
+    if (!session.activated) {
+      const messages = session.messages
+      let newestServerOriginTime: number | undefined
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (isServerOriginMessage(messages[i])) {
+          newestServerOriginTime = messages[i].time
+          break
+        }
+      }
+      if (newestServerOriginTime === undefined || newestServerOriginTime <= effective) {
+        session.hasUnread = false
+      }
+
+      if (session.unreadLineTime !== undefined && effective > session.unreadLineTime) {
+        session.unreadLineTime = undefined
+      }
     }
   },
 

@@ -1374,11 +1374,19 @@ export default class ChatService {
   }
 
   /**
-   * Records the newest message time a user has seen in a channel. A no-op if they aren't a member
+   * Records the newest message time a user has seen in a channel, and publishes the resulting
+   * read position to all of that user's connected sessions (so a mark-read made in one session
+   * updates the unread badges and read positions of their others). A no-op if they aren't a member
    * of the channel (e.g. a stale report arriving after they left).
    */
   async markRead(channelId: SbChannelId, userId: SbUserId, lastReadTime: Date): Promise<void> {
-    await updateLastReadTime(userId, channelId, lastReadTime)
+    const stored = await updateLastReadTime(userId, channelId, lastReadTime)
+    if (stored !== undefined) {
+      this.publisher.publish(getChannelUserPath(channelId, userId), {
+        action: 'lastReadTimeChanged',
+        lastReadTime: stored.getTime(),
+      })
+    }
   }
 
   async updateUserPermissions(

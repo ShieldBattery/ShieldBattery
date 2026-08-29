@@ -86,8 +86,8 @@ export interface UpdateSessionAtBottom {
 
 /**
  * The client's read position for a whisper session has advanced. Dispatched optimistically when
- * the client reports a mark-read, shaped so a future cross-session update published by the server
- * can dispatch it as well.
+ * this session reports a mark-read, and by the socket handler when the server relays a read
+ * position update from one of the user's other sessions.
  */
 export interface UpdateLastReadTime {
   type: '@whispers/updateLastReadTime'
