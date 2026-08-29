@@ -708,7 +708,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.on('chatUnreadState', (event, data) => {
     if (systemTray) {
-      systemTray.setTrackedUnread(data.hasUnread)
+      systemTray.setTrackedUnread(data)
     }
   })
 

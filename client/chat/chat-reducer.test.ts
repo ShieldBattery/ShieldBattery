@@ -1,17 +1,21 @@
 import { Immutable } from 'immer'
 import { describe, expect, test } from 'vitest'
 import {
+  BasicChannelInfo,
   ChannelTextMessage,
   ChatMessage,
+  ChatMessageEvent,
   ClientChatMessageType,
+  InitialChannelData,
   SbChannelId,
   SelfJoinChannelMessage,
   ServerChatMessageType,
   makeSbChannelId,
 } from '../../common/chat'
+import { SbUser } from '../../common/users/sb-user'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { ChatActions } from './actions'
-import chatReducerImport, { ChatState } from './chat-reducer'
+import chatReducerImport, { ChatState, channelHasUnreadMention } from './chat-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it chat
 // actions, so narrow the parameter to those, both for the extra checking and so that action objects
@@ -51,6 +55,7 @@ function makeState(
     activated?: boolean
     unread?: boolean
     lastReadTime?: number
+    latestMentionTime?: number
     unreadLineTime?: number
   } = {},
 ): Immutable<ChatState> {
@@ -73,6 +78,9 @@ function makeState(
     idToLastReadTime: new Map(
       overrides.lastReadTime !== undefined ? [[CHANNEL_ID, overrides.lastReadTime]] : [],
     ),
+    idToLatestMentionTime: new Map(
+      overrides.latestMentionTime !== undefined ? [[CHANNEL_ID, overrides.latestMentionTime]] : [],
+    ),
     idToUnreadLineTime: new Map(
       overrides.unreadLineTime !== undefined ? [[CHANNEL_ID, overrides.unreadLineTime]] : [],
     ),
@@ -85,6 +93,61 @@ function updateLastReadTimeAction(lastReadTime: number): ChatActions {
   return {
     type: '@chat/updateLastReadTime',
     payload: { channelId: CHANNEL_ID, lastReadTime },
+  }
+}
+
+const CHANNEL_BASIC_INFO: BasicChannelInfo = {
+  id: CHANNEL_ID,
+  name: 'test-channel',
+  private: false,
+  official: false,
+}
+
+const SENDER: SbUser = { id: USER_ID, name: 'sender', created: 0 }
+
+function initialChannelData(overrides: { latestMentionTime?: number } = {}): InitialChannelData {
+  return {
+    channelInfo: CHANNEL_BASIC_INFO,
+    detailedChannelInfo: { id: CHANNEL_ID, userCount: 1 },
+    joinedChannelInfo: { id: CHANNEL_ID },
+    selfPreferences: { hideBanner: false },
+    selfPermissions: {
+      kick: false,
+      ban: false,
+      changeTopic: false,
+      togglePrivate: false,
+      editPermissions: false,
+    },
+    latestMentionTime: overrides.latestMentionTime,
+  }
+}
+
+function getJoinedChannelsAction(data: InitialChannelData): ChatActions {
+  return {
+    type: '@chat/getJoinedChannels',
+    payload: [data],
+  }
+}
+
+function updateMessageAction(time: number, mentionsSelf: boolean): ChatActions {
+  const payload: ChatMessageEvent = {
+    action: 'message2',
+    message: textMessage(time),
+    user: SENDER,
+    mentions: [],
+    channelMentions: [],
+  }
+  return {
+    type: '@chat/updateMessage',
+    payload,
+    meta: { channelId: CHANNEL_ID, mentionsSelf },
+  }
+}
+
+function updateLeaveSelfAction(): ChatActions {
+  return {
+    type: '@chat/updateLeaveSelf',
+    meta: { channelId: CHANNEL_ID },
   }
 }
 
@@ -166,6 +229,135 @@ describe('client/chat/chat-reducer', () => {
       // The read position itself still advances even while activated, since this is also the path
       // this session's own optimistic mark-read reports take.
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+  })
+
+  describe('channelHasUnreadMention', () => {
+    test('is false when there is no known mention time', () => {
+      const state = makeState({ lastReadTime: 100 })
+
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is false when there is no recorded read position, even with a mention time', () => {
+      const state = makeState({ latestMentionTime: 100 })
+
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is true when the mention time is newer than the read position', () => {
+      const state = makeState({ lastReadTime: 100, latestMentionTime: 200 })
+
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(true)
+    })
+
+    test('is false when the read position has caught up to the mention time', () => {
+      const state = makeState({ lastReadTime: 200, latestMentionTime: 200 })
+
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is false for an activated channel, even with an unread mention', () => {
+      const state = makeState({ activated: true, lastReadTime: 100, latestMentionTime: 200 })
+
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('@chat/getJoinedChannels / @chat/initChannel', () => {
+    test('seeds the mention time from the initial channel data', () => {
+      const state = makeState()
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ latestMentionTime: 500 })),
+      )
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(500)
+    })
+
+    test('does not regress an existing mention time when re-initialized with an older one', () => {
+      const state = makeState({ latestMentionTime: 500 })
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ latestMentionTime: 300 })),
+      )
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(500)
+    })
+
+    test('advances an existing mention time when re-initialized with a newer one', () => {
+      const state = makeState({ latestMentionTime: 300 })
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ latestMentionTime: 500 })),
+      )
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(500)
+    })
+
+    test('leaves the mention time unset when the initial data carries none', () => {
+      const state = makeState()
+
+      const result = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
+
+      expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('@chat/updateMessage', () => {
+    test('sets the mention time when the message mentions self', () => {
+      const state = makeState()
+
+      const result = chatReducer(state, updateMessageAction(100, true))
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('does not set the mention time when the message does not mention self', () => {
+      const state = makeState()
+
+      const result = chatReducer(state, updateMessageAction(100, false))
+
+      expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('advances the mention time when a newer mention arrives', () => {
+      const state = makeState({ latestMentionTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, true))
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('does not regress the mention time when an older mention arrives', () => {
+      const state = makeState({ latestMentionTime: 200 })
+
+      const result = chatReducer(state, updateMessageAction(100, true))
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a read-time advance past the mention clears the derived unread-mention state', () => {
+      let state = makeState({ lastReadTime: 50 })
+
+      state = chatReducer(state, updateMessageAction(100, true))
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(true)
+
+      state = chatReducer(state, updateLastReadTimeAction(150))
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('leaving a channel', () => {
+    test('clears the mention time', () => {
+      const state = makeState({ lastReadTime: 100, latestMentionTime: 200 })
+
+      const result = chatReducer(state, updateLeaveSelfAction())
+
+      expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
     })
   })
 })

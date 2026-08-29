@@ -345,10 +345,12 @@ interface IpcRendererSendables {
   chatNewMessage: (data: { urgent: boolean }) => void
   /**
    * Reports whether any conversation with tracked read state (chat channels, whispers) currently
-   * has unread messages. Sent on every change, including cases where the messages were read from
-   * another of the user's sessions.
+   * has unread messages, and whether any of that unread state is urgent. Sent on every change,
+   * including cases where the messages were read from another of the user's sessions. Urgent means
+   * an unread message that demands attention: a channel message mentioning the user, or any unread
+   * whisper (whispers are inherently directed at the user).
    */
-  chatUnreadState: (data: { hasUnread: boolean }) => void
+  chatUnreadState: (data: { hasUnread: boolean; hasUnreadUrgent: boolean }) => void
 
   gameServerRegionsSetList: (regions: GameServerRegion[]) => void
 

@@ -23,6 +23,7 @@ import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getUrl } from '../files'
 import { findUsersByIdQuery } from '../users/user-model'
+import { MutualKind } from '../users/user-relationship-models'
 
 type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPreferences & ChannelPermissions>
 
@@ -723,24 +724,66 @@ export async function updateLastReadTime(
 }
 
 /**
- * Returns the IDs of a user's joined channels that have a text message sent by someone else after
- * their last recorded read position in that channel. A channel with no recorded read position
- * never counts as unread here, since there's nothing to compare newly-arrived messages against;
- * `markRead` establishes that baseline the first time a client reports one. Only text messages
- * count, mirroring the client's own `makeUnread` flag: join/leave/moderation events never mark a
- * channel unread. A single set-based query over all of the user's channels, rather than one query
- * per channel. `sent` columns store naive UTC wall time (see the timestamp parser setup in
- * `server/lib/db`), so the read position is converted to naive UTC for the comparison instead of
- * being left to the connection's session time zone. The comparison works at millisecond
- * granularity (`sent >= read + 1ms` rather than `sent > read`): read positions arrive as epoch
- * milliseconds while `sent` keeps microseconds, so a full-precision strict comparison would leave
- * the newest message permanently unread.
+ * A joined channel's unread state for a user, as returned by `getUnreadChannelInfo`.
  */
-export async function getUnreadChannels(userId: SbUserId): Promise<SbChannelId[]> {
+export interface UnreadChannelInfo {
+  channelId: SbChannelId
+  /**
+   * The time of the newest unread message that mentions the user and wasn't sent by someone
+   * they've blocked, or `undefined` if none of the channel's unread messages mention them.
+   */
+  latestMentionTime: Date | undefined
+}
+
+/**
+ * Returns unread state for each of a user's joined channels that has a text message sent by
+ * someone else after their last recorded read position in that channel. A channel with no
+ * recorded read position never counts as unread here, since there's nothing to compare
+ * newly-arrived messages against; `markRead` establishes that baseline the first time a client
+ * reports one. Only text messages count, mirroring the client's own `makeUnread` flag: join/leave/
+ * moderation events never mark a channel unread. A single set-based query over all of the user's
+ * channels, rather than one query per channel. `sent` columns store naive UTC wall time (see the
+ * timestamp parser setup in `server/lib/db`), so the read position is converted to naive UTC for
+ * the comparison instead of being left to the connection's session time zone. The comparison works
+ * at millisecond granularity (`sent >= read + 1ms` rather than `sent > read`): read positions
+ * arrive as epoch milliseconds while `sent` keeps microseconds, so a full-precision strict
+ * comparison would leave the newest message permanently unread.
+ *
+ * Alongside the unread predicate itself, this also computes the time of the newest unread message
+ * that mentions the user, ignoring mentions from users they've blocked (the live client applies the
+ * same block check before treating an incoming mention as urgent, so the seeded state has to agree
+ * with it). That subquery is served by the partial `channel_messages_mentions_idx` index, which
+ * only covers rows whose `data` has a `mentions` key; the `m.data ? 'mentions'` predicate below has
+ * to stay in sync with that index's `WHERE` clause for the index to actually get used.
+ */
+export async function getUnreadChannelInfo(userId: SbUserId): Promise<UnreadChannelInfo[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<{ channel_id: SbChannelId }>(sql`
-      SELECT cu.channel_id FROM channel_users cu
+    const result = await client.query<{
+      channel_id: SbChannelId
+      latest_mention_time: Date | null
+    }>(sql`
+      SELECT cu.channel_id, (
+        SELECT MAX(m.sent)
+        FROM channel_messages m
+        WHERE m.channel_id = cu.channel_id
+          AND m.user_id != cu.user_id
+          AND m.sent >= COALESCE(
+            (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+            'infinity'::timestamp
+          )
+          AND m.data ? 'mentions'
+          AND m.data->'mentions' @> to_jsonb(cu.user_id)
+          AND NOT EXISTS (
+            SELECT 1 FROM user_relationships r
+            WHERE r.user_low = LEAST(cu.user_id, m.user_id)
+              AND r.user_high = GREATEST(cu.user_id, m.user_id)
+              AND (r.kind = ${MutualKind.BlockBoth}
+                OR (cu.user_id < m.user_id AND r.kind = ${MutualKind.BlockLowToHigh})
+                OR (cu.user_id > m.user_id AND r.kind = ${MutualKind.BlockHighToLow}))
+          )
+      ) AS latest_mention_time
+      FROM channel_users cu
       WHERE cu.user_id = ${userId}
         AND EXISTS (
           SELECT 1 FROM channel_messages m
@@ -753,7 +796,10 @@ export async function getUnreadChannels(userId: SbUserId): Promise<SbChannelId[]
             AND m.data ->> 'type' = ${ServerChatMessageType.TextMessage}
         )
     `)
-    return result.rows.map(row => row.channel_id)
+    return result.rows.map(row => ({
+      channelId: row.channel_id,
+      latestMentionTime: row.latest_mention_time ?? undefined,
+    }))
   } finally {
     done()
   }

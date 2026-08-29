@@ -54,7 +54,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
-  getUnreadChannels,
+  getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -128,7 +128,7 @@ vi.mock('./chat-models', async () => {
   const originalModule = await vi.importActual<typeof import('./chat-models')>('./chat-models')
   return {
     getChannelsForUser: vi.fn().mockResolvedValue([]),
-    getUnreadChannels: vi.fn().mockResolvedValue([]),
+    getUnreadChannelInfo: vi.fn().mockResolvedValue([]),
     updateLastReadTime: vi.fn(),
     getUsersForChannel: vi.fn().mockResolvedValue([]),
     getUserChannelEntryForUser: vi.fn(),
@@ -563,12 +563,14 @@ describe('chat/chat-service', () => {
 
       asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
-      asMockedFunction(getUnreadChannels).mockResolvedValue([shieldBatteryChannel.id])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([
+        { channelId: shieldBatteryChannel.id, latestMentionTime: undefined },
+      ])
 
       const result = await chatService.getJoinedChannels(user1.id)
 
       asMockedFunction(getChannelsForUser).mockResolvedValue([])
-      asMockedFunction(getUnreadChannels).mockResolvedValue([])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([])
 
       expect(result).toEqual([
         {
@@ -578,6 +580,40 @@ describe('chat/chat-service', () => {
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
           hasUnread: true,
+        },
+      ])
+    })
+
+    test('marks a channel with an unread mention', async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+
+      const latestMentionTime = new Date(1577836800000)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([
+        { channelId: shieldBatteryChannel.id, latestMentionTime },
+      ])
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([])
+
+      expect(result).toEqual([
+        {
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          selfPreferences: channelPreferences,
+          selfPermissions: channelPermissions,
+          hasUnread: true,
+          latestMentionTime: latestMentionTime.getTime(),
         },
       ])
     })

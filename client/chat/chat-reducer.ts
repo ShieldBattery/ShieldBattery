@@ -70,6 +70,14 @@ export interface ChatState {
    */
   idToLastReadTime: Map<SbChannelId, number>
   /**
+   * A map of channel ID -> the newest known time (epoch ms) of a server message from another,
+   * non-blocked user that mentions the current user. Compared against `idToLastReadTime` (via
+   * `channelHasUnreadMention`) to derive whether the channel has an unread mention; there is no
+   * separate boolean flag or clear logic for this, since the read position advancing past it is
+   * exactly what "read" means here.
+   */
+  idToLatestMentionTime: Map<SbChannelId, number>
+  /**
    * A map of channel ID -> the frozen position of the unread divider for the current activation.
    * Captured when an unread channel activates, or when a message arrives while the channel is
    * activated and scrolled up, and held until deactivation so the divider doesn't chase
@@ -93,7 +101,32 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   unreadChannels: new Set(),
   deletedChannels: new Set(),
   idToLastReadTime: new Map(),
+  idToLatestMentionTime: new Map(),
   idToUnreadLineTime: new Map(),
+}
+
+/**
+ * Returns whether `channelId` has an unread message that mentions the current user. `undefined`
+ * `idToLastReadTime` is treated the same way the server treats a NULL `last_read_time`: as
+ * "everything is read" rather than "everything is unread". The server never seeds mention state
+ * for a channel with no recorded read position (there's nothing to compare newly-arrived messages
+ * against yet), so the client has to apply the same rule here, or a fresh channel would flip its
+ * badge to urgent the moment a message with a stale mention time got merged in.
+ */
+export function channelHasUnreadMention(
+  chatState: Immutable<ChatState>,
+  channelId: SbChannelId,
+): boolean {
+  if (chatState.activatedChannels.has(channelId)) {
+    return false
+  }
+
+  const latestMentionTime = chatState.idToLatestMentionTime.get(channelId)
+  if (latestMentionTime === undefined) {
+    return false
+  }
+
+  return latestMentionTime > (chatState.idToLastReadTime.get(channelId) ?? Infinity)
 }
 
 function removeUserFromChannel(
@@ -175,6 +208,7 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.atBottomChannels.delete(channelId)
   state.unreadChannels.delete(channelId)
   state.idToLastReadTime.delete(channelId)
+  state.idToLatestMentionTime.delete(channelId)
   state.idToUnreadLineTime.delete(channelId)
 }
 
@@ -286,6 +320,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     selfPermissions,
     hasUnread,
     lastReadTime,
+    latestMentionTime,
   } = data
 
   const messagesState: MessagesState = {
@@ -305,6 +340,14 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
 
   if (lastReadTime !== undefined) {
     state.idToLastReadTime.set(channelId, lastReadTime)
+  }
+
+  if (latestMentionTime !== undefined) {
+    const existing = state.idToLatestMentionTime.get(channelId)
+    state.idToLatestMentionTime.set(
+      channelId,
+      existing === undefined ? latestMentionTime : Math.max(existing, latestMentionTime),
+    )
   }
 
   // Seeds the unread badge from the server's recorded read position, so it survives a restart
@@ -411,13 +454,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/updateMessage'](state, action) {
     const { message: newMessage, channelMentions } = action.payload
-    const { channelId } = action.meta
+    const { channelId, mentionsSelf } = action.meta
 
     updateMessages(state, channelId, true, m => {
       m.push(newMessage)
       return m
     })
     updateChannelInfos(state, channelMentions)
+
+    if (mentionsSelf) {
+      const existing = state.idToLatestMentionTime.get(channelId)
+      if (existing === undefined || newMessage.time > existing) {
+        state.idToLatestMentionTime.set(channelId, newMessage.time)
+      }
+    }
   },
 
   ['@chat/updateUserActive'](state, action) {
