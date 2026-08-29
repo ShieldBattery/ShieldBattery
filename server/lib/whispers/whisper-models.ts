@@ -79,21 +79,26 @@ export async function startWhisperSessionsBothDirections(
  * monotonic (never moves the stored position backward) so a stale report from one device can't
  * clobber a newer position recorded by another, and clamped to `now()` so a client can't push the
  * position into the future. A silent no-op if the session doesn't exist (e.g. it was closed).
+ *
+ * Returns the resulting stored read position, or `undefined` if the session doesn't exist (nothing
+ * to update).
  */
 export async function updateLastReadTime(
   userId: SbUserId,
   targetId: SbUserId,
   lastReadTime: Date,
-): Promise<void> {
+): Promise<Date | undefined> {
   const { client, done } = await db()
   try {
-    await client.query(sql`
+    const result = await client.query<{ last_read_time: Date }>(sql`
       UPDATE whisper_sessions
       SET last_read_time = GREATEST(
         COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
       )
-      WHERE user_id = ${userId} AND target_user_id = ${targetId};
+      WHERE user_id = ${userId} AND target_user_id = ${targetId}
+      RETURNING last_read_time;
     `)
+    return result.rows[0]?.last_read_time
   } finally {
     done()
   }

@@ -15,6 +15,7 @@ import {
   WhisperMessageType,
   WhisperServiceErrorCode,
   WhisperSessionInitEvent,
+  WhisperUserEvent,
 } from '../../../common/whispers'
 import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
@@ -49,6 +50,16 @@ export function getSessionPath(user: SbUserId, target: SbUserId) {
   return urlPath`/whispers3/${low}-${high}`
 }
 
+/**
+ * Path for events meant only for one user's own sessions, rather than for a conversation. Read
+ * position updates must be published here rather than on `getSessionPath`, since the shared session
+ * path is subscribed to by both participants and the other participant must not see this user's
+ * read position.
+ */
+export function getWhisperUserPath(userId: SbUserId) {
+  return urlPath`/whispers3/users/${userId}`
+}
+
 @singleton()
 export default class WhisperService {
   /** Maps user ID -> OrderedSet of their whisper sessions (as IDs of target users) */
@@ -57,7 +68,7 @@ export default class WhisperService {
   private sessionUsers = IMap<SbUserId, ISet<SbUserId>>()
 
   constructor(
-    private publisher: TypedPublisher<WhisperEvent>,
+    private publisher: TypedPublisher<WhisperEvent | WhisperUserEvent>,
     private userSocketsManager: UserSocketsManager,
     private restrictionService: RestrictionService,
   ) {
@@ -95,11 +106,20 @@ export default class WhisperService {
   }
 
   /**
-   * Records the newest message time a user has seen in a whisper conversation. A no-op if the
-   * session doesn't exist (e.g. it was closed, or never opened).
+   * Records the newest message time a user has seen in a whisper conversation, and publishes the
+   * resulting read position to all of that user's connected sessions (so a mark-read made in one
+   * session updates the unread badges and read positions of their others). A no-op if the session
+   * doesn't exist (e.g. it was closed, or never opened).
    */
   async markRead(userId: SbUserId, targetId: SbUserId, lastReadTime: Date): Promise<void> {
-    await updateLastReadTime(userId, targetId, lastReadTime)
+    const stored = await updateLastReadTime(userId, targetId, lastReadTime)
+    if (stored !== undefined) {
+      this.publisher.publish(getWhisperUserPath(userId), {
+        action: 'lastReadTimeChanged',
+        target: targetId,
+        lastReadTime: stored.getTime(),
+      })
+    }
   }
 
   async startWhisperSession(userId: SbUserId, targetUser: SbUserId) {
@@ -324,6 +344,10 @@ export default class WhisperService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
+    // Subscribed before the awaited DB fetch below so an update published to this user's own path
+    // while that fetch is in flight isn't missed.
+    userSockets.subscribe(getWhisperUserPath(userSockets.userId))
+
     const whisperSessionEntries = await getWhisperSessionsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their whisper sessions

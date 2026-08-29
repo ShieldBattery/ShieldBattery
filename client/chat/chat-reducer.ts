@@ -14,6 +14,7 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { isServerOriginMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -634,12 +635,40 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     state.atBottomChannels.delete(channelId)
   },
 
+  // This arrives both from this session's own optimistic mark-read reports (dispatched only while
+  // the channel is activated) and from the socket handler relaying a mark-read made in one of the
+  // user's other sessions (which can arrive for a channel this session isn't currently viewing).
+  // The unread flag and frozen divider are only re-evaluated in the latter case: an activated
+  // channel already has its unread flag cleared, and its divider is re-evaluated by
+  // `deactivateChannel` instead, so it must never move while the channel is being viewed here.
   ['@chat/updateLastReadTime'](state, action) {
     const { channelId, lastReadTime } = action.payload
 
     const existing = state.idToLastReadTime.get(channelId)
     if (existing === undefined || lastReadTime > existing) {
       state.idToLastReadTime.set(channelId, lastReadTime)
+    }
+    const effective = state.idToLastReadTime.get(channelId)!
+
+    if (!state.activatedChannels.has(channelId)) {
+      const messages = state.idToMessages.get(channelId)?.messages
+      let newestServerOriginTime: number | undefined
+      if (messages) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (isServerOriginMessage(messages[i])) {
+            newestServerOriginTime = messages[i].time
+            break
+          }
+        }
+      }
+      if (newestServerOriginTime === undefined || newestServerOriginTime <= effective) {
+        state.unreadChannels.delete(channelId)
+      }
+
+      const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+      if (unreadLineTime !== undefined && effective > unreadLineTime) {
+        state.idToUnreadLineTime.delete(channelId)
+      }
     }
   },
 

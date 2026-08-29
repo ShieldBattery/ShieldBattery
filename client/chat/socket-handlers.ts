@@ -202,6 +202,13 @@ const eventToChatUserAction: EventToChatUserActionMap = {
       meta: { channelId },
     }
   },
+
+  lastReadTimeChanged(channelId, event) {
+    return {
+      type: '@chat/updateLastReadTime',
+      payload: { channelId, lastReadTime: event.lastReadTime },
+    }
+  },
 }
 
 const CHANNEL_PATH = '/chat3/:channelId'

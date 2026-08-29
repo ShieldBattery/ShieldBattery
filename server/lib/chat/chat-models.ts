@@ -696,22 +696,27 @@ export async function updateUserPermissions(
  * moves the stored position backward) so a stale report from one device can't clobber a newer
  * position recorded by another, and clamped to `now()` so a client can't push the position into the
  * future. A silent no-op if the user isn't (or is no longer) a member of the channel.
+ *
+ * Returns the resulting stored read position, or `undefined` if the user isn't a member of the
+ * channel (nothing to update).
  */
 export async function updateLastReadTime(
   userId: SbUserId,
   channelId: SbChannelId,
   lastReadTime: Date,
   withClient?: DbClient,
-): Promise<void> {
+): Promise<Date | undefined> {
   const { client, done } = await db(withClient)
   try {
-    await client.query(sql`
+    const result = await client.query<{ last_read_time: Date }>(sql`
       UPDATE channel_users
       SET last_read_time = GREATEST(
         COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
       )
-      WHERE user_id = ${userId} AND channel_id = ${channelId};
+      WHERE user_id = ${userId} AND channel_id = ${channelId}
+      RETURNING last_read_time;
     `)
+    return result.rows[0]?.last_read_time
   } finally {
     done()
   }

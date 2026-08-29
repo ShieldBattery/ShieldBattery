@@ -380,9 +380,18 @@ export interface ChatPermissionsChangedEvent {
   selfPermissions: ChannelPermissions
 }
 
+export interface ChatReadTimeChangedEvent {
+  action: 'lastReadTimeChanged'
+  /** Epoch ms of this user's server-recorded read position in the channel. */
+  lastReadTime: number
+}
+
 /** Events that are sent to a particular user in a particular chat channel. */
 export type ChatUserEvent =
-  ChatInitEvent | ChatPreferencesChangedEvent | ChatPermissionsChangedEvent
+  | ChatInitEvent
+  | ChatPreferencesChangedEvent
+  | ChatPermissionsChangedEvent
+  | ChatReadTimeChangedEvent
 
 /**
  * The response returned when joining a specific chat channel.

@@ -53,6 +53,17 @@ export interface WhisperMessageEvent {
 
 export type WhisperEvent = WhisperSessionInitEvent | WhisperSessionCloseEvent | WhisperMessageEvent
 
+export interface WhisperReadTimeChangedEvent {
+  action: 'lastReadTimeChanged'
+  /** The other user in the conversation whose read position this is for. */
+  target: SbUserId
+  /** Epoch ms of this user's server-recorded read position in the conversation. */
+  lastReadTime: number
+}
+
+/** Events published to a single user (all of their sessions) rather than to a conversation. */
+export type WhisperUserEvent = WhisperReadTimeChangedEvent
+
 export interface SendWhisperMessageRequest {
   message: string
 }
