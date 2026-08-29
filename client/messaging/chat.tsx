@@ -7,10 +7,9 @@ import styled from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { IconButton } from '../material/button'
+import { ElevatedButton } from '../material/button'
 import { MenuItem, MenuItemProps } from '../material/menu/item'
 import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
-import { elevationPlus2 } from '../material/shadows'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import { MessageList, MessageListProps } from '../messaging/message-list'
 import { useAppDispatch } from '../redux-hooks'
@@ -24,10 +23,10 @@ import { ChatContext } from './chat-context'
 import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu'
 
 /**
- * How far above the bottom of the message list, in pixels, the user must scroll before the
- * jump-to-bottom button appears.
+ * How far above the bottom of the message list, in viewport heights, the user must scroll before
+ * the jump-to-bottom button appears.
  */
-const JUMP_TO_BOTTOM_THRESHOLD_PX = 160
+const JUMP_TO_BOTTOM_THRESHOLD_SCREENS = 1.5
 
 const MessagesAndInput = styled.div`
   position: relative;
@@ -53,20 +52,16 @@ const StyledMessageList = styled(MessageList)`
 
 const JumpToBottomButtonContainer = styled(m.div)`
   position: absolute;
-  right: 16px;
+  left: 0;
+  right: 0;
   bottom: 12px;
   display: flex;
+  justify-content: center;
+  pointer-events: none;
 `
 
-const JumpToBottomButton = styled(IconButton)`
-  width: 40px;
-  min-height: 40px;
-  border-radius: 50%;
-
-  background-color: var(--theme-container-highest);
-  color: var(--theme-on-surface);
-
-  ${elevationPlus2};
+const JumpToBottomButton = styled(ElevatedButton)`
+  pointer-events: auto;
 `
 
 const jumpToBottomVariants: Variants = {
@@ -161,7 +156,7 @@ export function Chat({
       }
 
       const distanceFromBottom = scrollHeight - clientHeight - scrollTop
-      setShowJumpToBottom(distanceFromBottom > JUMP_TO_BOTTOM_THRESHOLD_PX)
+      setShowJumpToBottom(distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS)
 
       scrollerRef.current = target as HTMLDivElement
     },
@@ -224,9 +219,8 @@ export function Chat({
                   exit='exit'
                   transition={jumpToBottomTransition}>
                   <JumpToBottomButton
-                    icon={<MaterialIcon icon='arrow_downward' />}
-                    title={t('messaging.jumpToBottom', 'Jump to bottom')}
-                    ariaLabel={t('messaging.jumpToBottom', 'Jump to bottom')}
+                    iconStart={<MaterialIcon icon='arrow_downward' size={20} />}
+                    label={t('messaging.jumpToBottom', 'Jump to bottom')}
                     onClick={onJumpToBottomClick}
                   />
                 </JumpToBottomButtonContainer>
