@@ -1,18 +1,22 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
-import { useCallback, useContext, useRef, useState } from 'react'
+import { useContext, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ElevatedButton } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { MenuItem, MenuItemProps } from '../material/menu/item'
 import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
+import { UNREAD_LINE_SELECTOR } from '../messaging/common-message-layout'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import { MessageList, MessageListProps } from '../messaging/message-list'
+import { isServerOriginMessage, SbMessage } from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
+import { labelMedium } from '../styles/typography'
 import {
   BaseUserMenuItemsProvider,
   MenuItemCategory,
@@ -27,6 +31,35 @@ import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu
  * the jump-to-bottom button appears.
  */
 const JUMP_TO_BOTTOM_THRESHOLD_SCREENS = 1.5
+
+/** How much room to leave above the unread divider when jumping to it, in pixels. */
+const UNREAD_LINE_SCROLL_MARGIN_PX = 8
+
+/** An in-progress hunt through older history for the unread divider. */
+interface UnreadLineSeek {
+  /** Identifies the conversation the seek was started in. */
+  refreshToken: unknown
+  /** Where the divider sat when the seek was started. */
+  unreadLineTime: number
+  /**
+   * The message list the outstanding history request was issued against. A request only counts as
+   * answered once a different list arrives, since `loading` doesn't turn true until the render
+   * after the request.
+   */
+  requestedFor: ReadonlyArray<SbMessage>
+}
+
+function findUnreadLine(scroller: HTMLElement): HTMLElement | null {
+  return scroller.querySelector<HTMLElement>(UNREAD_LINE_SELECTOR)
+}
+
+function scrollToUnreadLine(scroller: HTMLElement, unreadLine: HTMLElement) {
+  // Positions are read as rects rather than offsets because the divider's offset parent isn't
+  // guaranteed to be the scroller.
+  const scrollerTop = scroller.getBoundingClientRect().top
+  const lineTop = unreadLine.getBoundingClientRect().top
+  scroller.scrollTop += lineTop - scrollerTop - UNREAD_LINE_SCROLL_MARGIN_PX
+}
 
 const MessagesAndInput = styled.div`
   position: relative;
@@ -64,6 +97,33 @@ const JumpToBottomButton = styled(ElevatedButton)`
   pointer-events: auto;
 `
 
+const UnreadBannerButton = styled(m.button)`
+  ${buttonReset};
+  ${labelMedium};
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  background-color: var(--theme-amber-container);
+  border-radius: 0 0 4px 4px;
+  color: var(--theme-on-amber-container);
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-on-amber-container);
+    outline-offset: -2px;
+  }
+`
+
 const jumpToBottomVariants: Variants = {
   initial: {
     opacity: 0,
@@ -79,7 +139,22 @@ const jumpToBottomVariants: Variants = {
   },
 }
 
-const jumpToBottomTransition: Transition = {
+const unreadBannerVariants: Variants = {
+  initial: {
+    opacity: 0,
+    y: -8,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+  },
+  exit: {
+    opacity: 0,
+    y: -8,
+  },
+}
+
+const overlayTransition: Transition = {
   type: 'tween',
   duration: 0.12,
 }
@@ -138,35 +213,122 @@ export function Chat({
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
   const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
+  const [showUnreadBanner, setShowUnreadBanner] = useState<boolean>(false)
   // Message lists mount pinned to the bottom, matching how `MessageList` initially scrolls.
   const wasAtBottomRef = useRef(true)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
+  // Set while we're loading history until the unread divider comes into the loaded window, so we
+  // can jump to it. It carries what it was started for, so a seek can't outlive the conversation
+  // (or the divider position) it was aimed at.
+  const seekRef = useRef<UnreadLineSeek | undefined>(undefined)
+  // The divider the user has already had in view. The banner is a one-shot prompt for a divider
+  // they haven't laid eyes on yet — once it's been on screen, scrolling back down doesn't
+  // resurface the banner. Carries what it was recorded for, so a conversation switch or a newly
+  // frozen divider starts fresh.
+  const seenLineRef = useRef<{ refreshToken: unknown; unreadLineTime: number } | undefined>(
+    undefined,
+  )
 
-  const onScrollUpdate = useCallback(
-    (target: EventTarget) => {
-      const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
+  const { unreadLineTime, messages, loading, hasMoreHistory, onLoadMoreMessages, refreshToken } =
+    listProps
 
-      const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
-      setIsScrolledUp(newIsScrolledUp)
+  const onScrollUpdate = (target: EventTarget) => {
+    const scroller = target as HTMLDivElement
+    const { scrollTop, scrollHeight, clientHeight } = scroller
 
-      const newAtBottom = !newIsScrolledUp
-      if (newAtBottom !== wasAtBottomRef.current) {
-        wasAtBottomRef.current = newAtBottom
-        onAtBottomChange?.(newAtBottom)
+    const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
+    setIsScrolledUp(newIsScrolledUp)
+
+    const newAtBottom = !newIsScrolledUp
+    if (newAtBottom !== wasAtBottomRef.current) {
+      wasAtBottomRef.current = newAtBottom
+      onAtBottomChange?.(newAtBottom)
+    }
+
+    const distanceFromBottom = scrollHeight - clientHeight - scrollTop
+    setShowJumpToBottom(distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS)
+
+    scrollerRef.current = scroller
+
+    const unreadLine = findUnreadLine(scroller)
+
+    const seek = seekRef.current
+    if (seek) {
+      if (seek.refreshToken !== refreshToken || seek.unreadLineTime !== unreadLineTime) {
+        // The conversation, or where its divider sits, changed out from under the seek.
+        seekRef.current = undefined
+      } else if (unreadLine) {
+        seekRef.current = undefined
+        scrollToUnreadLine(scroller, unreadLine)
+      } else if (!hasMoreHistory) {
+        // All the history there is has been loaded without turning up a divider, so the top of the
+        // list is as close as we can get to where the user left off.
+        seekRef.current = undefined
+        scroller.scrollTop = 0
+      } else if (!loading && seek.requestedFor !== messages) {
+        seek.requestedFor = messages
+        onLoadMoreMessages?.()
+      }
+    }
+
+    // Rects are read after the scrolling above, so the banner reflects where the divider ended up.
+    let newShowUnreadBanner = false
+    if (unreadLineTime !== undefined) {
+      if (unreadLine) {
+        const scrollerRect = scroller.getBoundingClientRect()
+        const lineRect = unreadLine.getBoundingClientRect()
+        if (lineRect.bottom > scrollerRect.top && lineRect.top < scrollerRect.bottom) {
+          seenLineRef.current = { refreshToken, unreadLineTime }
+        }
+        newShowUnreadBanner = lineRect.bottom - scrollerRect.top < 0
+      } else {
+        // With no divider rendered, the boundary is above the loaded window if even the oldest
+        // loaded message is newer than the read position. Anything else means there's nothing
+        // unread to jump to.
+        const oldestServerMessage = messages.find(isServerOriginMessage)
+        newShowUnreadBanner =
+          oldestServerMessage !== undefined && oldestServerMessage.time > unreadLineTime
       }
 
-      const distanceFromBottom = scrollHeight - clientHeight - scrollTop
-      setShowJumpToBottom(distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS)
-
-      scrollerRef.current = target as HTMLDivElement
-    },
-    [onAtBottomChange],
-  )
+      const seen = seenLineRef.current
+      if (seen && seen.refreshToken === refreshToken && seen.unreadLineTime === unreadLineTime) {
+        newShowUnreadBanner = false
+      }
+    }
+    setShowUnreadBanner(newShowUnreadBanner)
+  }
 
   const onJumpToBottomClick = () => {
     const scroller = scrollerRef.current
     if (scroller) {
       scroller.scrollTop = scroller.scrollHeight
+    }
+  }
+
+  const onUnreadBannerClick = () => {
+    const scroller = scrollerRef.current
+    if (!scroller) {
+      return
+    }
+
+    const unreadLine = findUnreadLine(scroller)
+    if (unreadLine) {
+      scrollToUnreadLine(scroller, unreadLine)
+      return
+    }
+
+    if (unreadLineTime === undefined) {
+      return
+    }
+
+    if (!hasMoreHistory) {
+      scroller.scrollTop = 0
+      return
+    }
+
+    seekRef.current = { refreshToken, unreadLineTime, requestedFor: messages }
+    if (!loading) {
+      onLoadMoreMessages?.()
     }
   }
 
@@ -210,6 +372,21 @@ export function Chat({
           <MessageListContainer>
             <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
             <AnimatePresence>
+              {showUnreadBanner && unreadLineTime !== undefined ? (
+                <UnreadBannerButton
+                  key='new-messages'
+                  variants={unreadBannerVariants}
+                  initial='initial'
+                  animate='visible'
+                  exit='exit'
+                  transition={overlayTransition}
+                  onClick={onUnreadBannerClick}>
+                  <span>{t('messaging.newMessages', 'New messages')}</span>
+                  <MaterialIcon icon='arrow_upward' size={16} />
+                </UnreadBannerButton>
+              ) : null}
+            </AnimatePresence>
+            <AnimatePresence>
               {showJumpToBottom ? (
                 <JumpToBottomButtonContainer
                   key='jump-to-bottom'
@@ -217,7 +394,7 @@ export function Chat({
                   initial='initial'
                   animate='visible'
                   exit='exit'
-                  transition={jumpToBottomTransition}>
+                  transition={overlayTransition}>
                   <JumpToBottomButton
                     iconStart={<MaterialIcon icon='arrow_downward' size={20} />}
                     label={t('messaging.jumpToBottom', 'Jump to bottom')}

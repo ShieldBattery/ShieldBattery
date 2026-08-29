@@ -1474,10 +1474,12 @@
     "messageTooLongContent": "Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.",
     "messageTooLongTitle": "Message too long",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
+    "newMessages": "New messages",
     "openLink": "Open link",
     "searchWithGoogle": "Search with Google",
     "sendMessage": "Send a message",
-    "sendMessageChatRestricted": "Restricted from sending messages until {{date}}"
+    "sendMessageChatRestricted": "Restricted from sending messages until {{date}}",
+    "unreadLineLabel": "New"
   },
   "navigation": {
     "bar": {

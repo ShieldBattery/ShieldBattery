@@ -4,9 +4,11 @@ import {
   GetWhisperSessionsResponse,
   WhisperMessageEvent,
 } from '../../common/whispers'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type WhisperActions =
   | LoadMessageHistory
+  | LoadMessageHistoryFailure
   | ActivateWhisperSession
   | DeactivateWhisperSession
   | UpdateSessionAtBottom
@@ -14,6 +16,7 @@ export type WhisperActions =
   | WhisperSessionClose
   | WhisperMessageUpdate
   | GetWhisperSessions
+  | UpdateLastReadTime
 
 /**
  * Get the list of whisper sessions for the current user.
@@ -29,6 +32,15 @@ export interface GetWhisperSessions {
 export interface LoadMessageHistory {
   type: '@whispers/loadMessageHistory'
   payload: GetSessionHistoryResponse
+  meta: {
+    target: SbUserId
+    limit: number
+    beforeTime: number
+  }
+  error?: false
+}
+
+export interface LoadMessageHistoryFailure extends BaseFetchFailure<'@whispers/loadMessageHistory'> {
   meta: {
     target: SbUserId
     limit: number
@@ -69,6 +81,19 @@ export interface UpdateSessionAtBottom {
   payload: {
     target: SbUserId
     atBottom: boolean
+  }
+}
+
+/**
+ * The client's read position for a whisper session has advanced. Dispatched optimistically when
+ * the client reports a mark-read, shaped so a future cross-session update published by the server
+ * can dispatch it as well.
+ */
+export interface UpdateLastReadTime {
+  type: '@whispers/updateLastReadTime'
+  payload: {
+    targetId: SbUserId
+    lastReadTime: number
   }
 }
 

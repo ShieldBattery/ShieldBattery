@@ -62,6 +62,19 @@ export interface ChatState {
   unreadChannels: Set<SbChannelId>
   /** A set of channel IDs saved in various chat messages that no longer exist. */
   deletedChannels: Set<SbChannelId>
+  /**
+   * A map of channel ID -> the client's view of the server-recorded read position (epoch ms).
+   * Seeded from the server at init, and advanced optimistically whenever the client reports a
+   * mark-read for the channel.
+   */
+  idToLastReadTime: Map<SbChannelId, number>
+  /**
+   * A map of channel ID -> the frozen position of the unread divider for the current activation.
+   * Captured when an unread channel activates, or when a message arrives while the channel is
+   * activated and scrolled up, and held until deactivation so the divider doesn't chase
+   * `idToLastReadTime` as it keeps advancing underneath it.
+   */
+  idToUnreadLineTime: Map<SbChannelId, number>
 }
 
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
@@ -78,6 +91,8 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   atBottomChannels: new Set(),
   unreadChannels: new Set(),
   deletedChannels: new Set(),
+  idToLastReadTime: new Map(),
+  idToUnreadLineTime: new Map(),
 }
 
 function removeUserFromChannel(
@@ -158,6 +173,8 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.activatedChannels.delete(channelId)
   state.atBottomChannels.delete(channelId)
   state.unreadChannels.delete(channelId)
+  state.idToLastReadTime.delete(channelId)
+  state.idToUnreadLineTime.delete(channelId)
 }
 
 /**
@@ -198,6 +215,21 @@ function updateMessages(
 
   if (makeUnread && !isChannelUnread && !isChannelActivated) {
     state.unreadChannels.add(channelId)
+  }
+
+  // The channel is being actively viewed but scrolled up, so a new message won't be seen right
+  // away. Freeze the unread divider at the read position so it marks where the user left off
+  // instead of chasing the read position as the eager mark-read keeps advancing it.
+  if (
+    makeUnread &&
+    isChannelActivated &&
+    !state.atBottomChannels.has(channelId) &&
+    !state.idToUnreadLineTime.has(channelId)
+  ) {
+    const lastReadTime = state.idToLastReadTime.get(channelId)
+    if (lastReadTime !== undefined) {
+      state.idToUnreadLineTime.set(channelId, lastReadTime)
+    }
   }
 
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
@@ -252,6 +284,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     selfPreferences,
     selfPermissions,
     hasUnread,
+    lastReadTime,
   } = data
 
   const messagesState: MessagesState = {
@@ -268,6 +301,10 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   state.idToUserProfiles.set(channelId, new Map())
   state.idToSelfPreferences.set(channelId, selfPreferences)
   state.idToSelfPermissions.set(channelId, selfPermissions)
+
+  if (lastReadTime !== undefined) {
+    state.idToLastReadTime.set(channelId, lastReadTime)
+  }
 
   // Seeds the unread badge from the server's recorded read position, so it survives a restart
   // instead of resetting to "read" until the next message arrives. A channel the user is currently
@@ -438,6 +475,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/loadMessageHistory'](state, action) {
     if (action.error) {
       // TODO(2Pac): Handle errors
+      const channelMessages = state.idToMessages.get(action.meta.channelId)
+      if (channelMessages) {
+        channelMessages.loadingHistory = false
+      }
       return
     }
 
@@ -546,6 +587,17 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/activateChannel'](state, action) {
     const { channelId } = action.payload
 
+    // Freeze the unread divider at the read position before clearing the unread flag, so the
+    // divider marks where the user left off instead of where the read position ends up after the
+    // eager mark-read this activation triggers.
+    if (
+      state.unreadChannels.has(channelId) &&
+      !state.idToUnreadLineTime.has(channelId) &&
+      state.idToLastReadTime.has(channelId)
+    ) {
+      state.idToUnreadLineTime.set(channelId, state.idToLastReadTime.get(channelId)!)
+    }
+
     state.unreadChannels.delete(channelId)
     state.activatedChannels.add(channelId)
     // Message lists mount pinned to the bottom.
@@ -554,6 +606,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/deactivateChannel'](state, action) {
     const { channelId } = action.payload
+
+    // The unread divider is only consumed once the read position has actually moved past it — a
+    // deactivation where the user never read anything new (including the mount/cleanup/remount
+    // cycle React's StrictMode runs in development) leaves the still-unread divider in place for
+    // the next visit.
+    const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+    const lastReadTime = state.idToLastReadTime.get(channelId)
+    if (
+      unreadLineTime !== undefined &&
+      lastReadTime !== undefined &&
+      lastReadTime > unreadLineTime
+    ) {
+      state.idToUnreadLineTime.delete(channelId)
+    }
 
     const channelMessages = state.idToMessages.get(channelId)
     if (!channelMessages) {
@@ -566,6 +632,15 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
     state.activatedChannels.delete(channelId)
     state.atBottomChannels.delete(channelId)
+  },
+
+  ['@chat/updateLastReadTime'](state, action) {
+    const { channelId, lastReadTime } = action.payload
+
+    const existing = state.idToLastReadTime.get(channelId)
+    if (existing === undefined || lastReadTime > existing) {
+      state.idToLastReadTime.set(channelId, lastReadTime)
+    }
   },
 
   ['@chat/updateChannelAtBottom'](state, action) {
@@ -626,8 +701,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
-    updateChannelInfos(state, action.payload.channelMentions)
-    updateDeletedChannels(state, action.payload.deletedChannels)
+    if (!action.error) {
+      updateChannelInfos(state, action.payload.channelMentions)
+      updateDeletedChannels(state, action.payload.deletedChannels)
+    }
   },
 
   ['@lobbies/updateChatMessage'](state, action) {

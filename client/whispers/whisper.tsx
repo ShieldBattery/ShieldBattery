@@ -202,6 +202,7 @@ export function ConnectedWhisper({
           hasMoreHistory: whisperSession.hasHistory,
           refreshToken: targetId,
           onLoadMoreMessages,
+          unreadLineTime: whisperSession.unreadLineTime,
         }}
         inputProps={{
           onSendChatMessage,

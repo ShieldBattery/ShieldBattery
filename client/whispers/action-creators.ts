@@ -40,7 +40,14 @@ export function getWhisperLastReadKey(targetId: SbUserId): string {
  * nothing needs to react to this request's outcome.
  */
 export function markWhisperRead(targetId: SbUserId, lastReadTime: number): ThunkAction {
-  return () => {
+  return dispatch => {
+    // Advances the local read position immediately; the reducer's monotonic guard keeps this
+    // correct even for reports the coalescer below ends up dropping.
+    dispatch({
+      type: '@whispers/updateLastReadTime',
+      payload: { targetId, lastReadTime },
+    })
+
     reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time => {
       fetchJson<void>(apiUrl`whispers/${targetId}/mark-read`, {
         method: 'POST',
@@ -111,17 +118,19 @@ export function getMessageHistory(
     const sessionData = byId.get(target)!
     const earliestMessageTime = sessionData.messages.length ? sessionData.messages[0].time : -1
 
+    const promise = fetchJson<GetSessionHistoryResponse>(
+      apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
+    )
     dispatch({
       type: '@whispers/loadMessageHistory',
-      payload: fetchJson<GetSessionHistoryResponse>(
-        apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
-      ),
+      payload: promise,
       meta: {
         target,
         limit,
         beforeTime: earliestMessageTime,
       },
     })
+    await promise
   })
 }
 

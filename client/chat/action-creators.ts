@@ -68,7 +68,14 @@ export function getChannelLastReadKey(channelId: SbChannelId): string {
  * needs to react to this request's outcome.
  */
 export function markChannelRead(channelId: SbChannelId, lastReadTime: number): ThunkAction {
-  return () => {
+  return dispatch => {
+    // Advances the local read position immediately; the reducer's monotonic guard keeps this
+    // correct even for reports the coalescer below ends up dropping.
+    dispatch({
+      type: '@chat/updateLastReadTime',
+      payload: { channelId, lastReadTime },
+    })
+
     reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time => {
       fetchJson<void>(apiUrl`chat/${channelId}/mark-read`, {
         method: 'POST',
