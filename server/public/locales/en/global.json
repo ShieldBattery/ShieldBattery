@@ -1873,6 +1873,7 @@
         "customMouseSensitivity": "Custom mouse sensitivity",
         "grabPan": "Custom grab pan sensitivity",
         "grabPanFaster": "Faster",
+        "grabPanInverted": "Reverse pan direction",
         "grabPanSlower": "Slower",
         "grabPanTooltip": "Adjusts how fast the camera moves when panning with the middle mouse button. When disabled, matches the legacy StarCraft: Remastered behavior.",
         "hardwareCursor": "Hardware cursor",

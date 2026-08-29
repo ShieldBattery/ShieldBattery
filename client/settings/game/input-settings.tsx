@@ -63,6 +63,7 @@ interface GameInputSettingsModel {
   customCursorSize: number
   grabPanSensitivityOn: boolean
   grabPanSensitivity: number
+  grabPanInverted: boolean
 }
 
 export function GameInputSettings() {
@@ -84,6 +85,7 @@ export function GameInputSettings() {
     customCursorSize: localSettings.customCursorSize,
     grabPanSensitivityOn: localSettings.grabPanSensitivityOn,
     grabPanSensitivity: localSettings.grabPanSensitivity,
+    grabPanInverted: localSettings.grabPanInverted,
   }
 
   const { bindCustom, bindCheckable, getInputValue, submit, form } =
@@ -116,6 +118,7 @@ export function GameInputSettings() {
             customCursorSize: model.customCursorSize,
             grabPanSensitivityOn: model.grabPanSensitivityOn,
             grabPanSensitivity: model.grabPanSensitivity,
+            grabPanInverted: model.grabPanInverted,
           },
           {
             onSuccess: () => {},
@@ -170,7 +173,7 @@ export function GameInputSettings() {
               {...bindCustom('grabPanSensitivity')}
               tabIndex={0}
               min={0}
-              max={100}
+              max={150}
               step={5}
               disabled={!getInputValue('grabPanSensitivityOn')}
               showTicks={false}
@@ -180,6 +183,12 @@ export function GameInputSettings() {
               <LabelMedium>{t('settings.game.input.grabPanSlower', 'Slower')}</LabelMedium>
               <LabelMedium>{t('settings.game.input.grabPanFaster', 'Faster')}</LabelMedium>
             </SliderEndpointLabels>
+            <CheckBox
+              {...bindCheckable('grabPanInverted')}
+              label={t('settings.game.input.grabPanInverted', 'Reverse pan direction')}
+              inputProps={{ tabIndex: 0 }}
+              disabled={!getInputValue('grabPanSensitivityOn')}
+            />
           </SubSettings>
         </SectionContainer>
         <SectionContainer>

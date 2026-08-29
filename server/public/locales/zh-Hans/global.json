@@ -1831,6 +1831,7 @@
         "customMouseSensitivity": "自定义鼠标灵敏度",
         "grabPan": "自定义中键平移灵敏度",
         "grabPanFaster": "更快",
+        "grabPanInverted": "反转平移方向",
         "grabPanSlower": "更慢",
         "grabPanTooltip": "调整用鼠标中键平移画面时镜头的移动速度。关闭时与旧版《星际争霸：重制版》行为一致。",
         "hardwareCursor": "硬件指针",

@@ -1865,6 +1865,7 @@
         "customMouseSensitivity": "Sensibilidad personalizada del ratón",
         "grabPan": "Sensibilidad personalizada de arrastre de cámara",
         "grabPanFaster": "Más rápido",
+        "grabPanInverted": "Invertir la dirección de la cámara",
         "grabPanSlower": "Más lento",
         "grabPanTooltip": "Ajusta la velocidad de la cámara al desplazarla con el botón central del ratón. Si está desactivado, mantiene el comportamiento clásico de StarCraft: Remastered.",
         "hardwareCursor": "Cursores de hardware",

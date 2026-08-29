@@ -1831,6 +1831,7 @@
         "customMouseSensitivity": "사용자 지정 마우스 감도",
         "grabPan": "화면 끌기 감도 직접 설정",
         "grabPanFaster": "빠르게",
+        "grabPanInverted": "화면 이동 방향 반전",
         "grabPanSlower": "느리게",
         "grabPanTooltip": "가운데 마우스 버튼으로 화면을 끌 때 카메라가 움직이는 속도를 조절합니다. 비활성화하면 기존 스타크래프트: 리마스터와 동일하게 동작합니다.",
         "hardwareCursor": "하드웨어 커서",

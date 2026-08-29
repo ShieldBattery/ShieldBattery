@@ -16,7 +16,7 @@ import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/te
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 21
+const VERSION = 22
 const SCR_VERSION = 5
 
 /**
@@ -375,6 +375,11 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
         newSettings.ffaColorPreset = FfaColorPreset.Custom
         newSettings.customFfaColors = [...DEFAULT_FFA_COLORS]
       }
+    }
+
+    if (!settings.version || settings.version < 22) {
+      log.verbose('Found settings version 21, migrating to version 22')
+      newSettings.grabPanInverted = DEFAULT_LOCAL_SETTINGS.grabPanInverted
     }
 
     newSettings.version = VERSION

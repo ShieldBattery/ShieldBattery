@@ -337,6 +337,10 @@ pub struct BwScr {
     /// Camera pixels moved per mouse pixel dragged while grab panning, stored as `f32` bits.
     /// Written on the async thread at `set_settings`, read on the game thread per pan update.
     grab_pan_gain: AtomicU32,
+    /// Whether grab panning moves the camera opposite to the drag (drag left pans right), like
+    /// touchpad-style "natural" scrolling. Only takes effect while the custom sensitivity is on,
+    /// since the built-in pan behavior runs untouched otherwise.
+    grab_pan_inverted: AtomicBool,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
     /// True if the network is currently stalled (updated whenever `step_network` is called).
@@ -1636,6 +1640,7 @@ impl BwScr {
             }),
             grab_pan_sensitivity_on: AtomicBool::new(false),
             grab_pan_gain: AtomicU32::new(1.0f32.to_bits()),
+            grab_pan_inverted: AtomicBool::new(false),
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             zoom: Value::new(ctx, zoom),
@@ -4287,7 +4292,12 @@ impl BwScr {
         let Some(ref grab_pan) = self.grab_pan else {
             return;
         };
-        let gain = f32::from_bits(self.grab_pan_gain.load(Ordering::Acquire));
+        let mut gain = f32::from_bits(self.grab_pan_gain.load(Ordering::Acquire));
+        if self.grab_pan_inverted.load(Ordering::Acquire) {
+            // Negating the gain reverses the camera movement on both axes at once; the sub-pixel
+            // carry below is sign-agnostic (trunc and remainder both follow the value's sign).
+            gain = -gain;
+        }
         unsafe {
             let mut pos = POINT { x: 0, y: 0 };
             if GetCursorPos(&mut pos) == 0 {
@@ -5405,11 +5415,17 @@ impl bw::Bw for BwScr {
             .get("grabPanSensitivity")
             .and_then(|x| x.as_f64())
             .unwrap_or(40.0) as f32;
-        // The 0-100 slider value maps exponentially onto a camera-px-per-mouse-px gain of
-        // 0.125..=32 (2^-3..=2^5): the floor pans at an eighth of the cursor's speed for precise
-        // framing, 50 is 1:1, and the top end is a fast sweep. The drag callback accumulates
-        // sub-pixel remainder so gains below 1 still move the camera on slow drags.
-        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 100.0) * 0.08 - 3.0).exp2();
+        let grab_pan_inverted = settings
+            .local
+            .get("grabPanInverted")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
+        // The 0-150 slider value maps exponentially onto a camera-px-per-mouse-px gain of
+        // 0.125..=512 (2^-3..=2^9): the floor pans at an eighth of the cursor's speed for
+        // precise framing, 50 is 1:1, and each 12.5 slider units doubles the speed from there.
+        // The drag callback accumulates sub-pixel remainder so gains below 1 still move the
+        // camera on slow drags.
+        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2();
 
         self.is_carbot.store(is_carbot, Ordering::Release);
         self.show_skins.store(show_skins, Ordering::Release);
@@ -5425,6 +5441,8 @@ impl bw::Bw for BwScr {
             .store(grab_pan_sensitivity_on, Ordering::Release);
         self.grab_pan_gain
             .store(grab_pan_gain.to_bits(), Ordering::Release);
+        self.grab_pan_inverted
+            .store(grab_pan_inverted, Ordering::Release);
 
         *self.team_color_config.lock() =
             settings.team_colors.as_ref().and_then(|tc| tc.to_config());
