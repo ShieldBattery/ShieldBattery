@@ -1,9 +1,13 @@
+import { AnimatePresence, Transition, Variants } from 'motion/react'
+import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useCallback, useContext, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { ElevatedButton } from '../material/button'
 import { MenuItem, MenuItemProps } from '../material/menu/item'
 import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
@@ -18,6 +22,12 @@ import {
 import { ChatContext } from './chat-context'
 import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu'
 
+/**
+ * How far above the bottom of the message list, in viewport heights, the user must scroll before
+ * the jump-to-bottom button appears.
+ */
+const JUMP_TO_BOTTOM_THRESHOLD_SCREENS = 1.5
+
 const MessagesAndInput = styled.div`
   position: relative;
   display: flex;
@@ -27,10 +37,52 @@ const MessagesAndInput = styled.div`
   contain: content;
 `
 
+const MessageListContainer = styled.div`
+  position: relative;
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+`
+
 const StyledMessageList = styled(MessageList)`
   position: relative;
   flex-grow: 1;
 `
+
+const JumpToBottomButtonContainer = styled(m.div)`
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+`
+
+const JumpToBottomButton = styled(ElevatedButton)`
+  pointer-events: auto;
+`
+
+const jumpToBottomVariants: Variants = {
+  initial: {
+    opacity: 0,
+    y: 8,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+  },
+  exit: {
+    opacity: 0,
+    y: 8,
+  },
+}
+
+const jumpToBottomTransition: Transition = {
+  type: 'tween',
+  duration: 0.12,
+}
 
 export interface ChatProps {
   className?: string
@@ -82,10 +134,13 @@ export function Chat({
   disallowMentionInteraction: disallowUserInteraction,
   onAtBottomChange,
 }: ChatProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
+  const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
   // Message lists mount pinned to the bottom, matching how `MessageList` initially scrolls.
   const wasAtBottomRef = useRef(true)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
 
   const onScrollUpdate = useCallback(
     (target: EventTarget) => {
@@ -99,9 +154,21 @@ export function Chat({
         wasAtBottomRef.current = newAtBottom
         onAtBottomChange?.(newAtBottom)
       }
+
+      const distanceFromBottom = scrollHeight - clientHeight - scrollTop
+      setShowJumpToBottom(distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS)
+
+      scrollerRef.current = target as HTMLDivElement
     },
     [onAtBottomChange],
   )
+
+  const onJumpToBottomClick = () => {
+    const scroller = scrollerRef.current
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight
+    }
+  }
 
   const messageInputRef = useRef<MessageInputHandle>(null)
 
@@ -140,7 +207,26 @@ export function Chat({
         <MessagesAndInput className={className}>
           {header}
           {backgroundContent}
-          <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
+          <MessageListContainer>
+            <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
+            <AnimatePresence>
+              {showJumpToBottom ? (
+                <JumpToBottomButtonContainer
+                  key='jump-to-bottom'
+                  variants={jumpToBottomVariants}
+                  initial='initial'
+                  animate='visible'
+                  exit='exit'
+                  transition={jumpToBottomTransition}>
+                  <JumpToBottomButton
+                    iconStart={<MaterialIcon icon='arrow_downward' size={20} />}
+                    label={t('messaging.jumpToBottom', 'Jump to bottom')}
+                    onClick={onJumpToBottomClick}
+                  />
+                </JumpToBottomButtonContainer>
+              ) : null}
+            </AnimatePresence>
+          </MessageListContainer>
           <MessageInput
             {...inputProps}
             ref={messageInputRef}
