@@ -10,15 +10,25 @@ const URGENT_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-tray-urgent.png
 const BALLOON_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-64.png')
 
 export default class SystemTray {
-  private isShowingUrgentIcon: boolean
+  /**
+   * Whether any conversation with tracked read state has unread messages, as reported by the
+   * renderer. Cleared only by the messages actually being read (possibly from another of the
+   * user's sessions), never by window focus.
+   */
+  private hasTrackedUnread = false
+  /**
+   * Attention state for messages with no tracked read state (lobby/matchmaking chat) and urgent
+   * messages, accumulated while the window is unfocused and cleared when it gains focus.
+   */
+  private hasTransientUnread = false
+  private hasTransientUrgent = false
+  private shownIcon = NORMAL_ICON
   private systemTray: Tray
 
   constructor(
     readonly mainWindow: BrowserWindow | null,
     readonly onQuitClick: () => void,
   ) {
-    this.isShowingUrgentIcon = false
-
     this.systemTray = new Tray(NORMAL_ICON)
     this.systemTray.setToolTip(app.name)
     this.systemTray.setContextMenu(this.buildContextMenu())
@@ -60,17 +70,34 @@ export default class SystemTray {
     })
   }
 
-  showUnreadIcon = (urgent = false) => {
-    if (!this.isShowingUrgentIcon) {
-      this.systemTray.setImage(urgent ? URGENT_ICON : UNREAD_ICON)
-    }
-    if (urgent) {
-      this.isShowingUrgentIcon = true
-    }
+  setTrackedUnread = (hasUnread: boolean) => {
+    this.hasTrackedUnread = hasUnread
+    this.updateIcon()
   }
 
-  clearUnreadIcon = () => {
-    this.isShowingUrgentIcon = false
-    this.systemTray.setImage(NORMAL_ICON)
+  showTransientUnreadIcon = (urgent = false) => {
+    this.hasTransientUnread = true
+    this.hasTransientUrgent ||= urgent
+    this.updateIcon()
+  }
+
+  clearTransientUnreadIcon = () => {
+    this.hasTransientUnread = false
+    this.hasTransientUrgent = false
+    this.updateIcon()
+  }
+
+  private updateIcon() {
+    let icon = NORMAL_ICON
+    if (this.hasTransientUrgent) {
+      icon = URGENT_ICON
+    } else if (this.hasTrackedUnread || this.hasTransientUnread) {
+      icon = UNREAD_ICON
+    }
+
+    if (icon !== this.shownIcon) {
+      this.shownIcon = icon
+      this.systemTray.setImage(icon)
+    }
   }
 }

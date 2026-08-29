@@ -343,6 +343,12 @@ interface IpcInvokeables {
 /** Events that can be sent from the renderer process to the main process. */
 interface IpcRendererSendables {
   chatNewMessage: (data: { urgent: boolean }) => void
+  /**
+   * Reports whether any conversation with tracked read state (chat channels, whispers) currently
+   * has unread messages. Sent on every change, including cases where the messages were read from
+   * another of the user's sessions.
+   */
+  chatUnreadState: (data: { hasUnread: boolean }) => void
 
   gameServerRegionsSetList: (regions: GameServerRegion[]) => void
 
