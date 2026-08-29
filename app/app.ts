@@ -697,12 +697,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.on('chatNewMessage', (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
       if (systemTray) {
-        systemTray.showUnreadIcon(data.urgent)
+        systemTray.showTransientUnreadIcon(data.urgent)
       }
 
       if (data.urgent) {
         mainWindow.flashFrame(true)
       }
+    }
+  })
+
+  ipcMain.on('chatUnreadState', (event, data) => {
+    if (systemTray) {
+      systemTray.setTrackedUnread(data.hasUnread)
     }
   })
 
@@ -1247,7 +1253,7 @@ async function createWindow() {
     })
     .on('focus', () => {
       if (systemTray) {
-        systemTray.clearUnreadIcon()
+        systemTray.clearTransientUnreadIcon()
       }
       mainWindow?.flashFrame(false)
       TypedIpcSender.from(mainWindow?.webContents).send('windowFocusChanged', true)
@@ -1257,7 +1263,7 @@ async function createWindow() {
     })
     .on('show', () => {
       if (systemTray) {
-        systemTray.clearUnreadIcon()
+        systemTray.clearTransientUnreadIcon()
       }
       if (needsMaximize && mainWindow) {
         mainWindow.maximize()
