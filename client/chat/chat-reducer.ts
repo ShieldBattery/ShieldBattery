@@ -475,6 +475,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/loadMessageHistory'](state, action) {
     if (action.error) {
       // TODO(2Pac): Handle errors
+      const channelMessages = state.idToMessages.get(action.meta.channelId)
+      if (channelMessages) {
+        channelMessages.loadingHistory = false
+      }
       return
     }
 
@@ -697,8 +701,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
-    updateChannelInfos(state, action.payload.channelMentions)
-    updateDeletedChannels(state, action.payload.deletedChannels)
+    if (!action.error) {
+      updateChannelInfos(state, action.payload.channelMentions)
+      updateDeletedChannels(state, action.payload.deletedChannels)
+    }
   },
 
   ['@lobbies/updateChatMessage'](state, action) {

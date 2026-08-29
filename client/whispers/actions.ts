@@ -4,9 +4,11 @@ import {
   GetWhisperSessionsResponse,
   WhisperMessageEvent,
 } from '../../common/whispers'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type WhisperActions =
   | LoadMessageHistory
+  | LoadMessageHistoryFailure
   | ActivateWhisperSession
   | DeactivateWhisperSession
   | UpdateSessionAtBottom
@@ -30,6 +32,15 @@ export interface GetWhisperSessions {
 export interface LoadMessageHistory {
   type: '@whispers/loadMessageHistory'
   payload: GetSessionHistoryResponse
+  meta: {
+    target: SbUserId
+    limit: number
+    beforeTime: number
+  }
+  error?: false
+}
+
+export interface LoadMessageHistoryFailure extends BaseFetchFailure<'@whispers/loadMessageHistory'> {
   meta: {
     target: SbUserId
     limit: number

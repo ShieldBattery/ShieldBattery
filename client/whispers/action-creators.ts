@@ -118,17 +118,19 @@ export function getMessageHistory(
     const sessionData = byId.get(target)!
     const earliestMessageTime = sessionData.messages.length ? sessionData.messages[0].time : -1
 
+    const promise = fetchJson<GetSessionHistoryResponse>(
+      apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
+    )
     dispatch({
       type: '@whispers/loadMessageHistory',
-      payload: fetchJson<GetSessionHistoryResponse>(
-        apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
-      ),
+      payload: promise,
       meta: {
         target,
         limit,
         beforeTime: earliestMessageTime,
       },
     })
+    await promise
   })
 }
 

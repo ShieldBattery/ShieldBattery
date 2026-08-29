@@ -173,6 +173,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
+    if (action.error) {
+      return
+    }
+
     const { target, limit } = action.meta
 
     const session = state.byId.get(target)
