@@ -19,6 +19,7 @@ import {
   JoinChannelResponse,
   ListChannelBansResponse,
   ListUserChannelEntriesResponse,
+  MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
   SEARCH_CHANNELS_LIMIT,
   SbChannelId,
@@ -128,6 +129,12 @@ const userChannelEntriesThrottle = createThrottle('chatuserchannelentries', {
 const userPreferencesThrottle = createThrottle('chatuserpreferences', {
   rate: 20,
   burst: 40,
+  window: 60000,
+})
+
+const markReadThrottle = createThrottle('chatmarkread', {
+  rate: 30,
+  burst: 60,
   window: 60000,
 })
 
@@ -404,6 +411,24 @@ export class ChatApi {
     })
 
     await this.chatService.updateUserPreferences(channelId, ctx.session!.user.id, body)
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/mark-read')
+  @httpBefore(throttleMiddleware(markReadThrottle, throttleByUser))
+  async markChannelRead(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId },
+      body: { lastReadTime },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      body: Joi.object<MarkChannelReadRequest>({
+        lastReadTime: Joi.number().integer().min(0).required(),
+      }),
+    })
+
+    await this.chatService.markRead(channelId, ctx.session!.user.id, new Date(lastReadTime))
 
     ctx.status = 204
   }

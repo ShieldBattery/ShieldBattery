@@ -6,6 +6,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
   GetWhisperSessionsResponse,
+  MarkWhisperReadRequest,
   SendWhisperMessageRequest,
   WhisperServiceErrorCode,
 } from '../../../common/whispers'
@@ -48,6 +49,12 @@ const sendThrottle = createThrottle('whispersend', {
 const retrievalThrottle = createThrottle('whisperretrieval', {
   rate: 30,
   burst: 120,
+  window: 60000,
+})
+
+const markReadThrottle = createThrottle('whispermarkread', {
+  rate: 30,
+  burst: 60,
   window: 60000,
 })
 
@@ -152,6 +159,26 @@ export class WhisperApi {
     })
 
     await this.whisperService.sendWhisperMessage(ctx.session!.user.id, targetId, message)
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:targetId/mark-read')
+  @httpBefore(throttleMiddleware(markReadThrottle, throttleByUser))
+  async markWhisperRead(ctx: RouterContext): Promise<void> {
+    const {
+      params: { targetId },
+      body: { lastReadTime },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ targetId: SbUserId }>({
+        targetId: joiUserId().required(),
+      }),
+      body: Joi.object<MarkWhisperReadRequest>({
+        lastReadTime: Joi.number().integer().min(0).required(),
+      }),
+    })
+
+    await this.whisperService.markRead(ctx.session!.user.id, targetId, new Date(lastReadTime))
 
     ctx.status = 204
   }

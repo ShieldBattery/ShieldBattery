@@ -30,7 +30,9 @@ import {
   startWhisperSession as dbStartWhisperSession,
   startWhisperSessionsBothDirections as dbStartWhisperSessionsBothDirections,
   getMessagesForWhisperSession,
+  getUnreadWhisperTargets,
   getWhisperSessionsForUser,
+  updateLastReadTime,
 } from './whisper-models'
 
 export class WhisperServiceError extends Error {
@@ -73,12 +75,24 @@ export default class WhisperService {
   }
 
   async getWhisperSessions(userId: SbUserId): Promise<GetWhisperSessionsResponse> {
-    const sessions = await getWhisperSessionsForUser(userId)
+    const [sessions, unreadSessions] = await Promise.all([
+      getWhisperSessionsForUser(userId),
+      getUnreadWhisperTargets(userId),
+    ])
     const users = await findUsersById(sessions)
     return {
       sessions,
       users,
+      unreadSessions,
     }
+  }
+
+  /**
+   * Records the newest message time a user has seen in a whisper conversation. A no-op if the
+   * session doesn't exist (e.g. it was closed, or never opened).
+   */
+  async markRead(userId: SbUserId, targetId: SbUserId, lastReadTime: Date): Promise<void> {
+    await updateLastReadTime(userId, targetId, lastReadTime)
   }
 
   async startWhisperSession(userId: SbUserId, targetUser: SbUserId) {

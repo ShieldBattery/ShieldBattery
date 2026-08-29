@@ -83,6 +83,17 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
       state.byId.set(session, defaultWhisperSession(session))
     }
+
+    // Seeds the unread badge from the server's recorded read position, so it survives a restart
+    // instead of resetting to "read" until the next message arrives. A session the user is
+    // currently viewing is never marked unread, matching how a live message never marks an
+    // activated session unread either.
+    for (const target of action.payload.unreadSessions ?? []) {
+      const session = state.byId.get(target)
+      if (session && !session.activated) {
+        session.hasUnread = true
+      }
+    }
   },
 
   ['@whispers/initSession'](state, action) {
