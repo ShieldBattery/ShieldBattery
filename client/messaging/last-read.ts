@@ -86,3 +86,13 @@ export function flushLastRead(key: string): void {
   state.lastSentAt = Date.now()
   send(state.lastValue)
 }
+
+/** Clears all coalescing state across every key, cancelling any pending timers. Only for use in tests. */
+export function resetLastReadForTesting(): void {
+  for (const state of keyStates.values()) {
+    if (state.pending) {
+      clearTimeout(state.pending.timer)
+    }
+  }
+  keyStates.clear()
+}
