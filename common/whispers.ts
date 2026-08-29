@@ -135,4 +135,10 @@ export interface GetWhisperSessionsResponse {
    * unread. Additive over the base response so older clients ignore it.
    */
   unreadSessions?: SbUserId[]
+  /**
+   * Epoch millis of the user's last recorded read position for each whisper session that has one.
+   * A session whose target ID is absent from this list has no recorded read position. Additive
+   * over the base response so older clients ignore it.
+   */
+  lastReadTimes?: Array<{ targetId: SbUserId; lastReadTime: number }>
 }

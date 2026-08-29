@@ -40,7 +40,14 @@ export function getWhisperLastReadKey(targetId: SbUserId): string {
  * nothing needs to react to this request's outcome.
  */
 export function markWhisperRead(targetId: SbUserId, lastReadTime: number): ThunkAction {
-  return () => {
+  return dispatch => {
+    // Advances the local read position immediately; the reducer's monotonic guard keeps this
+    // correct even for reports the coalescer below ends up dropping.
+    dispatch({
+      type: '@whispers/updateLastReadTime',
+      payload: { targetId, lastReadTime },
+    })
+
     reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time => {
       fetchJson<void>(apiUrl`whispers/${targetId}/mark-read`, {
         method: 'POST',

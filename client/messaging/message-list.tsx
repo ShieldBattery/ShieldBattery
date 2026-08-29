@@ -11,8 +11,48 @@ import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge } from '../styles/typography'
-import { BlockedMessage, NewDayMessage, TextMessage } from './common-message-layout'
-import { CommonMessageType, CommonNewDayMessage, SbMessage } from './message-records'
+import {
+  BlockedMessage,
+  NewDayMessage,
+  TextMessage,
+  UnreadLineMessage,
+} from './common-message-layout'
+import {
+  CommonMessageType,
+  CommonNewDayMessage,
+  isServerOriginMessage,
+  SbMessage,
+} from './message-records'
+
+/**
+ * Returns the index of the message the unread divider should be rendered in front of, or -1 if the
+ * divider shouldn't be rendered. That's the first message with a server-recorded time newer than
+ * the given read position; messages that only exist on the client can't be compared against it at
+ * all, and a message at exactly the read position has been read.
+ *
+ * When every loaded server message is newer than the read position and more history exists, the
+ * true boundary lies above the loaded window, so no index is returned — rendering the divider at
+ * the top of the window would misrepresent where the unread messages start. Loading more history
+ * eventually brings a read message (or the very beginning) into the window, at which point the
+ * divider gets a real position.
+ */
+export function findUnreadLineIndex(
+  messages: ReadonlyArray<SbMessage>,
+  unreadLineTime: number | undefined,
+  hasMoreHistory: boolean | undefined,
+): number {
+  if (unreadLineTime === undefined) {
+    return -1
+  }
+
+  const index = messages.findIndex(m => isServerOriginMessage(m) && m.time > unreadLineTime)
+  if (index === -1) {
+    return -1
+  }
+
+  const hasReadMessageAbove = messages.slice(0, index).some(m => isServerOriginMessage(m))
+  return hasReadMessageAbove || !hasMoreHistory ? index : -1
+}
 
 function isSameDay(d1: Date, d2: Date) {
   return (
@@ -106,9 +146,17 @@ interface PureMessageListProps {
   messages: ReadonlyArray<SbMessage>
   showEmptyState: boolean
   MessageComponent?: MessageComponentType
+  unreadLineTime?: number
+  hasMoreHistory?: boolean
 }
 
-function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMessageListProps) {
+function PureMessageList({
+  messages,
+  showEmptyState,
+  MessageComponent,
+  unreadLineTime,
+  hasMoreHistory,
+}: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
@@ -118,6 +166,8 @@ function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMes
       <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
     ) : undefined
   }
+
+  const unreadLineIndex = findUnreadLineIndex(messages, unreadLineTime, hasMoreHistory)
 
   return (
     <Messages>
@@ -133,25 +183,36 @@ function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMes
         )
 
         const prevMessage = index > 0 ? messages[index - 1] : null
-        if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
+        const needsNewDay =
+          !!prevMessage && !isSameDay(new Date(prevMessage.time), new Date(m.time))
+        const needsUnreadLine = index === unreadLineIndex
+
+        if (!needsNewDay && !needsUnreadLine) {
           return messageLayout
-        } else {
+        }
+
+        const dividers: React.ReactNode[] = []
+        if (needsNewDay) {
           const newDayMessage: CommonNewDayMessage = {
             id: m.time + '-' + CommonMessageType.NewDayMessage,
             type: CommonMessageType.NewDayMessage,
             time: m.time,
           }
 
-          return [
+          dividers.push(
             <CommonMessageOrFallback
               key={'newday-' + m.id}
               message={newDayMessage}
               selfUserId={selfUserId}
               blockedUsers={blocks}
             />,
-            messageLayout,
-          ]
+          )
         }
+        if (needsUnreadLine) {
+          dividers.push(<UnreadLineMessage key={'unread-' + m.id} />)
+        }
+
+        return [...dividers, messageLayout]
       })}
     </Messages>
   )
@@ -191,6 +252,12 @@ export interface MessageListProps {
    */
   onScrollUpdate?: (scrollTarget: EventTarget) => void
   onLoadMoreMessages?: () => void
+  /**
+   * The read position (epoch millis) the unread divider should be placed at, if the list should
+   * show one. The divider goes in front of the first message with a server-recorded time newer
+   * than this.
+   */
+  unreadLineTime?: number
 }
 
 interface MessageListSnapshot {
@@ -276,6 +343,7 @@ export class MessageList extends React.Component<MessageListProps> {
       MessageComponent,
       onLoadMoreMessages,
       showEmptyState = true,
+      unreadLineTime,
     } = this.props
 
     return (
@@ -293,6 +361,8 @@ export class MessageList extends React.Component<MessageListProps> {
             showEmptyState={showEmptyState}
             messages={messages}
             MessageComponent={MessageComponent}
+            unreadLineTime={unreadLineTime}
+            hasMoreHistory={hasMoreHistory}
           />
         </InfiniteScrollList>
       </Scrollable>

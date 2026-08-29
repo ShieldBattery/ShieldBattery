@@ -5,11 +5,19 @@ import db from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
-export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUserId[]> {
+/** A user's whisper session with another user, along with their read position in it. */
+export interface WhisperSessionEntry {
+  targetId: SbUserId
+  /** The user's last recorded read position in the session, if they have one. */
+  lastReadTime: Date | undefined
+}
+
+export async function getWhisperSessionsForUser(userId: SbUserId): Promise<WhisperSessionEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<{ id: SbUserId }>(sql`
-      SELECT ws.target_user_id AS id, COALESCE(wm.sent, ws.start_date) AS last_sent
+    const result = await client.query<{ target_id: SbUserId; last_read_time: Date | null }>(sql`
+      SELECT ws.target_user_id AS target_id, ws.last_read_time,
+        COALESCE(wm.sent, ws.start_date) AS last_sent
       FROM whisper_sessions ws
       LEFT JOIN LATERAL (
         SELECT wm.sent
@@ -22,7 +30,10 @@ export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUse
       WHERE ws.user_id = ${userId}
       ORDER BY last_sent DESC;
     `)
-    return result.rows.map(row => row.id)
+    return result.rows.map(row => ({
+      targetId: row.target_id,
+      lastReadTime: row.last_read_time ?? undefined,
+    }))
   } finally {
     done()
   }

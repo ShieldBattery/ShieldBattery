@@ -238,6 +238,12 @@ export interface InitialChannelData {
    * false means the channel should not be treated as unread.
    */
   hasUnread?: boolean
+  /**
+   * Epoch millis of the user's last recorded read position in the channel, if they have one. Used
+   * to place the unread-messages divider; `hasUnread` stays the authority for badge state since
+   * the client can't compute unreadness itself without messages loaded.
+   */
+  lastReadTime?: number
 }
 
 export interface ChatInitEvent extends InitialChannelData {

@@ -133,6 +133,7 @@ export function ConnectedChatChannel({
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
   const isActivated = useAppSelector(s => s.chat.activatedChannels.has(channelId))
   const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
+  const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLineTime.get(channelId))
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
@@ -289,6 +290,7 @@ export function ConnectedChatChannel({
               refreshToken: channelId,
               MessageComponent: ChannelMessage,
               onLoadMoreMessages,
+              unreadLineTime,
             }}
             inputProps={{
               onSendChatMessage,

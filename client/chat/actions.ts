@@ -50,6 +50,7 @@ export type ChatActions =
   | ActivateChannel
   | DeactivateChannel
   | UpdateChannelAtBottom
+  | UpdateLastReadTime
   | InitChannel
   | InitActiveUsers
   | UpdateJoin
@@ -279,6 +280,19 @@ export interface UpdateChannelAtBottom {
   payload: {
     channelId: SbChannelId
     atBottom: boolean
+  }
+}
+
+/**
+ * The client's read position for a chat channel has advanced. Dispatched optimistically when the
+ * client reports a mark-read, shaped so a future cross-session update published by the server can
+ * dispatch it as well.
+ */
+export interface UpdateLastReadTime {
+  type: '@chat/updateLastReadTime'
+  payload: {
+    channelId: SbChannelId
+    lastReadTime: number
   }
 }
 

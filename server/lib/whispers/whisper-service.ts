@@ -75,15 +75,22 @@ export default class WhisperService {
   }
 
   async getWhisperSessions(userId: SbUserId): Promise<GetWhisperSessionsResponse> {
-    const [sessions, unreadSessions] = await Promise.all([
+    const [sessionEntries, unreadSessions] = await Promise.all([
       getWhisperSessionsForUser(userId),
       getUnreadWhisperTargets(userId),
     ])
+    const sessions = sessionEntries.map(s => s.targetId)
+    const lastReadTimes = sessionEntries.flatMap(s =>
+      s.lastReadTime !== undefined
+        ? [{ targetId: s.targetId, lastReadTime: s.lastReadTime.getTime() }]
+        : [],
+    )
     const users = await findUsersById(sessions)
     return {
       sessions,
       users,
       unreadSessions,
+      lastReadTimes,
     }
   }
 
@@ -317,12 +324,13 @@ export default class WhisperService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const whisperSessionIds = await getWhisperSessionsForUser(userSockets.userId)
+    const whisperSessionEntries = await getWhisperSessionsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their whisper sessions
       return
     }
 
+    const whisperSessionIds = whisperSessionEntries.map(s => s.targetId)
     const targetIdsSet = OrderedSet(whisperSessionIds)
     this.userSessions = this.userSessions.set(userSockets.userId, targetIdsSet)
     for (const id of whisperSessionIds) {

@@ -16,7 +16,7 @@ import {
   LobbyInviteCard,
 } from '../lobbies/lobby-invite-card'
 import { ExternalLink } from '../navigation/external-link'
-import { titleSmall } from '../styles/typography'
+import { labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ChatContext } from './chat-context'
 import { useMentionFilterClick } from './mention-hooks'
@@ -266,5 +266,62 @@ export const NewDayMessage = React.memo<{ time: number }>(props => {
         </Trans>
       </span>
     </SeparatedInfoMessage>
+  )
+})
+
+/**
+ * Selector for the unread divider, used by the code that scrolls the message list to it and by the
+ * banner that offers to.
+ */
+export const UNREAD_LINE_SELECTOR = '[data-unread-line]'
+
+const UnreadLineRoot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 0 8px;
+
+  /**
+    The divider is chrome rather than content, so it must stay out of any text the user copies out
+    of the message list. The doubled selectors outrank the list container's rule that makes all of
+    its descendants selectable.
+  */
+  &&,
+  && * {
+    user-select: none;
+  }
+`
+
+const UnreadLineRule = styled.hr`
+  flex-grow: 1;
+  margin: 0;
+
+  border: none;
+  border-top: 1px solid var(--theme-amber);
+`
+
+const UnreadLineLabel = styled.div`
+  ${labelSmall};
+
+  flex-shrink: 0;
+  padding: 0 6px;
+
+  background-color: var(--theme-amber-container);
+  border-radius: 4px;
+  color: var(--theme-on-amber-container);
+  text-transform: uppercase;
+`
+
+/**
+ * A divider marking where the messages the user hasn't seen yet begin.
+ */
+export const UnreadLineMessage = React.memo(() => {
+  const { t } = useTranslation()
+  return (
+    <UnreadLineRoot data-unread-line=''>
+      <UnreadLineRule />
+      <UnreadLineLabel>{t('messaging.unreadLineLabel', 'New')}</UnreadLineLabel>
+    </UnreadLineRoot>
   )
 })

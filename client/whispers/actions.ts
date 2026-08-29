@@ -14,6 +14,7 @@ export type WhisperActions =
   | WhisperSessionClose
   | WhisperMessageUpdate
   | GetWhisperSessions
+  | UpdateLastReadTime
 
 /**
  * Get the list of whisper sessions for the current user.
@@ -69,6 +70,19 @@ export interface UpdateSessionAtBottom {
   payload: {
     target: SbUserId
     atBottom: boolean
+  }
+}
+
+/**
+ * The client's read position for a whisper session has advanced. Dispatched optimistically when
+ * the client reports a mark-read, shaped so a future cross-session update published by the server
+ * can dispatch it as well.
+ */
+export interface UpdateLastReadTime {
+  type: '@whispers/updateLastReadTime'
+  payload: {
+    targetId: SbUserId
+    lastReadTime: number
   }
 }
 

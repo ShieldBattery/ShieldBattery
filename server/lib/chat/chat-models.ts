@@ -45,19 +45,37 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
 }
 
 /**
+ * A user channel entry, plus their read position in that channel. Only `getChannelsForUser`
+ * returns this; other queries over `channel_users` return the plain `UserChannelEntry`.
+ */
+export type JoinedChannelEntry = UserChannelEntry & {
+  /** The user's last recorded read position in the channel, if they have one. */
+  lastReadTime?: Date
+}
+
+type DbJoinedChannelEntry = Dbify<JoinedChannelEntry & ChannelPreferences & ChannelPermissions>
+
+function convertJoinedChannelEntryFromDb(props: DbJoinedChannelEntry): JoinedChannelEntry {
+  return {
+    ...convertUserChannelEntryFromDb(props),
+    lastReadTime: props.last_read_time ?? undefined,
+  }
+}
+
+/**
  * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
  * join date.
  */
-export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
+export async function getChannelsForUser(userId: SbUserId): Promise<JoinedChannelEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUserChannelEntry>(sql`
+    const result = await client.query<DbJoinedChannelEntry>(sql`
       SELECT *
       FROM channel_users
       WHERE user_id = ${userId}
       ORDER BY join_date;
     `)
-    return result.rows.map(row => convertUserChannelEntryFromDb(row))
+    return result.rows.map(row => convertJoinedChannelEntryFromDb(row))
   } finally {
     done()
   }

@@ -16,6 +16,19 @@ export interface WhisperSession {
   /** Whether this session's message list is scrolled to the bottom. */
   atBottom: boolean
   hasUnread: boolean
+  /**
+   * The client's view of the server-recorded read position (epoch ms) for this session. Seeded
+   * from the server at init, and advanced optimistically whenever the client reports a mark-read
+   * for the session.
+   */
+  lastReadTime?: number
+  /**
+   * The frozen position of the unread divider for the current activation. Captured when an unread
+   * session activates, or when a message arrives while the session is activated and scrolled up,
+   * and held until deactivation so the divider doesn't chase `lastReadTime` as it keeps advancing
+   * underneath it.
+   */
+  unreadLineTime?: number
 }
 
 function defaultWhisperSession(target: SbUserId): WhisperSession {
@@ -26,6 +39,8 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     activated: false,
     atBottom: false,
     hasUnread: false,
+    lastReadTime: undefined,
+    unreadLineTime: undefined,
   }
 }
 
@@ -69,6 +84,19 @@ function updateMessages(
     session.hasUnread = true
   }
 
+  // The session is being actively viewed but scrolled up, so a new message won't be seen right
+  // away. Freeze the unread divider at the read position so it marks where the user left off
+  // instead of chasing the read position as the eager mark-read keeps advancing it.
+  if (
+    makeUnread &&
+    session.activated &&
+    !session.atBottom &&
+    session.unreadLineTime === undefined &&
+    session.lastReadTime !== undefined
+  ) {
+    session.unreadLineTime = session.lastReadTime
+  }
+
   session.hasHistory = session.hasHistory || sliced
 }
 
@@ -92,6 +120,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       const session = state.byId.get(target)
       if (session && !session.activated) {
         session.hasUnread = true
+      }
+    }
+
+    // Seeds each session's read position from the server, so the unread divider has somewhere to
+    // freeze at even before any local mark-read report has happened this session.
+    for (const { targetId, lastReadTime } of action.payload.lastReadTimes ?? []) {
+      const session = state.byId.get(targetId)
+      if (session) {
+        session.lastReadTime = lastReadTime
       }
     }
   },
@@ -165,6 +202,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     const session = state.byId.get(target)!
+
+    // Freeze the unread divider at the read position before clearing the unread flag, so the
+    // divider marks where the user left off instead of where the read position ends up after the
+    // eager mark-read this activation triggers.
+    if (
+      session.hasUnread &&
+      session.unreadLineTime === undefined &&
+      session.lastReadTime !== undefined
+    ) {
+      session.unreadLineTime = session.lastReadTime
+    }
+
     session.activated = true
     // Message lists mount pinned to the bottom.
     session.atBottom = true
@@ -185,6 +234,17 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.hasHistory = session.hasHistory || hasHistory
     session.activated = false
     session.atBottom = false
+    // The unread divider is only consumed once the read position has actually moved past it — a
+    // deactivation where the user never read anything new (including the mount/cleanup/remount
+    // cycle React's StrictMode runs in development) leaves the still-unread divider in place for
+    // the next visit.
+    if (
+      session.unreadLineTime !== undefined &&
+      session.lastReadTime !== undefined &&
+      session.lastReadTime > session.unreadLineTime
+    ) {
+      session.unreadLineTime = undefined
+    }
   },
 
   ['@whispers/updateSessionAtBottom'](state, action) {
@@ -204,6 +264,19 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
       session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
       session.hasHistory = session.hasHistory || hasHistory
+    }
+  },
+
+  ['@whispers/updateLastReadTime'](state, action) {
+    const { targetId, lastReadTime } = action.payload
+
+    const session = state.byId.get(targetId)
+    if (!session) {
+      return
+    }
+
+    if (session.lastReadTime === undefined || lastReadTime > session.lastReadTime) {
+      session.lastReadTime = lastReadTime
     }
   },
 

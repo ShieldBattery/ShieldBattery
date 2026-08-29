@@ -171,6 +171,7 @@ export default class ChatService {
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
         hasUnread: unreadChannelsSet.has(c.channelId),
+        lastReadTime: c.lastReadTime?.getTime(),
       }
     })
   }
@@ -211,8 +212,8 @@ export default class ChatService {
       ])
 
       if (channelInfo && userChannelEntry) {
-        // `hasUnread` is omitted: a membership this fresh has no recorded read position yet, which
-        // `getUnreadChannels` always treats as fully read.
+        // `hasUnread`/`lastReadTime` are omitted: a membership this fresh has no recorded read
+        // position yet, which `getUnreadChannels` always treats as fully read.
         this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
           action: 'init3',
           channelInfo: toBasicChannelInfo(channelInfo),
