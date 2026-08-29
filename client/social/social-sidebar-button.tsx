@@ -59,9 +59,7 @@ export function SocialSidebarButton({ onClick, icon, isOpen }: SocialSidebarButt
         tabIndex={-1}>
         <IconButton icon={icon} onClick={onClick} testName='social-sidebar-button' />
       </Tooltip>
-      {!isOpen && (hasUnreadChat || hasUnreadWhispers) ? (
-        <UnreadIndicator $urgent={hasUrgent} />
-      ) : null}
+      {!isOpen && (hasUnreadChat || hasUrgent) ? <UnreadIndicator $urgent={hasUrgent} /> : null}
     </ButtonContainer>
   )
 }
