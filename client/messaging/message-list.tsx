@@ -322,6 +322,13 @@ export interface MessageListProps {
    * one with a position the user never chose.
    */
   isRestorePending?: (viewStateKey: string) => boolean
+  /**
+   * Called when the page is going away, right after the list has recorded where the user was
+   * reading in the conversation it's showing. The saves made on unmount and on switching
+   * conversations get no such callback: whoever owns the conversation sees those in its own
+   * teardown, which runs after the list's, whereas an unloading page tears nothing down.
+   */
+  onViewStateSavedOnUnload?: () => void
 }
 
 interface MessageListSnapshot {
@@ -341,8 +348,18 @@ export class MessageList extends React.Component<MessageListProps> {
     }
   })
 
+  private onBeforeUnload = () => {
+    if (this.props.viewStateKey === undefined) {
+      return
+    }
+
+    this.saveViewState(this.props.viewStateKey, this.props.messages)
+    this.props.onViewStateSavedOnUnload?.()
+  }
+
   override componentWillUnmount() {
     this.onScroll.cancel()
+    window.removeEventListener('beforeunload', this.onBeforeUnload)
 
     if (this.props.viewStateKey !== undefined) {
       this.saveViewState(this.props.viewStateKey, this.props.messages)
@@ -391,6 +408,10 @@ export class MessageList extends React.Component<MessageListProps> {
   }
 
   override componentDidMount() {
+    // A page that unloads never unmounts anything, so the reading position it would have saved on
+    // the way out has to be taken here instead.
+    window.addEventListener('beforeunload', this.onBeforeUnload)
+
     const scrollable = this.scrollableRef.current
     if (scrollable) {
       scrollable.scrollTop = scrollable.scrollHeight

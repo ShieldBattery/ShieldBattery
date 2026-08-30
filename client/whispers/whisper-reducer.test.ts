@@ -206,10 +206,10 @@ function resetMessageWindowAction(): WhisperActions {
   }
 }
 
-function activateSessionAction(): WhisperActions {
+function activateSessionAction(restoredUnreadLineTime?: number): WhisperActions {
   return {
     type: '@whispers/activateWhisperSession',
-    payload: { target: TARGET_ID },
+    payload: { target: TARGET_ID, restoredUnreadLineTime },
   }
 }
 
@@ -739,6 +739,38 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, activateSessionAction())
 
       expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('takes a restored divider when the session has none', () => {
+      const state = makeState({ lastReadTime: 300 })
+
+      const result = whisperReducer(state, activateSessionAction(100))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('keeps the divider it already has over a restored one', () => {
+      const state = makeState({ lastReadTime: 300, unreadLineTime: 200 })
+
+      const result = whisperReducer(state, activateSessionAction(100))
+
+      expect(sessionOf(result).unreadLineTime).toBe(200)
+    })
+
+    test('a restored divider takes the place of the one this activation would freeze', () => {
+      const state = makeState({ unread: true, lastReadTime: 300 })
+
+      const result = whisperReducer(state, activateSessionAction(100))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('a restored divider the read position has passed is consumed at the bottom', () => {
+      const state = makeState({ lastReadTime: 300, atBottom: true })
+
+      const result = whisperReducer(state, activateSessionAction(100))
+
+      expect(sessionOf(result).unreadLineTime).toBeUndefined()
     })
   })
 

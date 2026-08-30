@@ -994,13 +994,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/activateChannel'](state, action) {
-    const { channelId } = action.payload
+    const { channelId, restoredUnreadLineTime } = action.payload
 
     // Whether the view is opening at the newest messages. The view reports where its viewport
     // settles (`updateChannelAtBottom`) ahead of this dispatch, so the current flag reflects this
     // activation's viewport; a view still on its way back to a saved reading position hasn't
     // reported yet and counts as away from the bottom, which is where it's headed.
     const atBottom = state.atBottomChannels.has(channelId)
+
+    // A divider from a previous session stands in for one this session never had a chance to
+    // freeze. It goes in ahead of everything else that looks at the divider, so the rules for
+    // freezing and consuming it treat it no differently from one frozen here.
+    if (restoredUnreadLineTime !== undefined && !state.idToUnreadLineTime.has(channelId)) {
+      state.idToUnreadLineTime.set(channelId, restoredUnreadLineTime)
+    }
 
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the

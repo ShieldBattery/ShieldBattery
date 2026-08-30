@@ -4,6 +4,10 @@ import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
+import {
+  getStoredRestoreUnreadLineTime,
+  hydrateStoredChatAnchor,
+} from '../messaging/chat-restore-storage'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
 import { isServerOriginMessage } from '../messaging/message-records'
@@ -23,8 +27,10 @@ import {
   getMessagesAround,
   getNewerMessages,
   getWhisperLastReadKey,
+  getWhisperViewStateKey,
   jumpToPresent,
   markWhisperRead,
+  persistWhisperRestorePosition,
   resetMessageWindow,
   sendMessage,
   startWhisperSessionById,
@@ -115,11 +121,17 @@ export function ConnectedWhisper({
     )
   }
 
-  const viewStateKey = `whisper.${targetId}`
+  const viewStateKey = getWhisperViewStateKey(targetId)
 
   const onActivate = useEffectEvent(() => {
+    // A position saved before a reload or restart has to be back in memory before the read below
+    // decides how the conversation opens, and the divider that was saved with it comes along so
+    // the two are restored together.
+    hydrateStoredChatAnchor(selfUser.id, viewStateKey)
+    const restoredUnreadLineTime = getStoredRestoreUnreadLineTime(selfUser.id, viewStateKey)
+
     const anchor = chatViewAnchorStore.get(viewStateKey)
-    dispatch(activateWhisperSession(targetId))
+    dispatch(activateWhisperSession(targetId, restoredUnreadLineTime))
 
     if (anchor && anchorNeedsFetch(whisperSession?.messages ?? [], anchor)) {
       // Getting back to where the user was reading takes a window the client doesn't hold, so that
@@ -170,6 +182,9 @@ export function ConnectedWhisper({
     }
 
     return () => {
+      // The durable copy is taken before deactivating, which is free to consume the divider that
+      // belongs with the position being stored.
+      dispatch(persistWhisperRestorePosition(targetId))
       dispatch(deactivateWhisperSession(targetId))
     }
   }, [isSessionOpen, targetId, dispatch])
@@ -283,6 +298,9 @@ export function ConnectedWhisper({
           windowGeneration: whisperSession.windowGen,
           refreshToken: targetId,
           viewStateKey,
+          onViewStateSavedOnUnload: () => {
+            dispatch(persistWhisperRestorePosition(targetId))
+          },
           onLoadMoreMessages,
           onLoadNewerMessages,
           unreadLineTime,

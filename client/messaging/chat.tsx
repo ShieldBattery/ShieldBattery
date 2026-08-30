@@ -11,6 +11,7 @@ import { ElevatedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { MenuItem, MenuItemProps } from '../material/menu/item'
 import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
+import { hydrateStoredChatAnchor } from '../messaging/chat-restore-storage'
 import {
   ChatViewAnchor,
   chatViewAnchorStore,
@@ -26,7 +27,7 @@ import {
   ScrollUpdateReason,
 } from '../messaging/message-list'
 import { isServerOriginMessage } from '../messaging/message-records'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
 import {
   BaseUserMenuItemsProvider,
@@ -290,6 +291,7 @@ export function Chat({
 }: ChatProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const selfUserId = useAppSelector(s => s.auth.self?.user.id)
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
   const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
   const [showUnreadBanner, setShowUnreadBanner] = useState<boolean>(false)
@@ -336,6 +338,11 @@ export function Chat({
    * settled here and now, since the bottom is where the list already is.
    */
   const startAnchorRestore = (scroller: HTMLDivElement, key: string) => {
+    // The list asks where it should be sitting the moment it mounts, ahead of the conversation's
+    // own activation, so a position that outlived a reload has to be brought back here to be found
+    // at all.
+    hydrateStoredChatAnchor(selfUserId, key)
+
     const anchor = chatViewAnchorStore.get(key)
     if (!anchor) {
       return

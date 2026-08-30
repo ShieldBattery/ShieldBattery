@@ -77,7 +77,11 @@ export function createViewStateStore<T>(
   }
 }
 
-/** Removes all stored entries across every namespace. Only for use in tests. */
-export function resetViewStateForTesting(): void {
+/**
+ * Removes all stored entries across every namespace. Everything kept here belongs to whoever is
+ * signed in — where they were reading, how far down a list they had scrolled — so it all stops
+ * being meaningful at once when that changes. Also used to isolate tests from each other.
+ */
+export function clearViewState(): void {
   entries.clear()
 }

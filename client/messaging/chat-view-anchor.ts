@@ -4,9 +4,10 @@ import { isServerOriginMessage, SbMessage } from './message-records'
 /**
  * How long a saved reading position stays usable. A place in a conversation keeps its meaning
  * longer than a list's scroll offset does, but not indefinitely: coming back much later, the newest
- * messages are the interesting ones.
+ * messages are the interesting ones. Durable copies of a position expire on the same schedule, so
+ * that surviving a reload doesn't make a position outlive its usefulness.
  */
-const ANCHOR_MAX_AGE_MS = 45 * 60 * 1000
+export const CHAT_ANCHOR_MAX_AGE_MS = 45 * 60 * 1000
 
 /** Attribute carrying a message's id on the element that renders it. */
 export const MESSAGE_ID_ATTRIBUTE = 'data-message-id'
@@ -33,7 +34,7 @@ export interface ChatViewAnchor {
  * needs no restoring: message lists open there anyway.
  */
 export const chatViewAnchorStore = createViewStateStore<ChatViewAnchor>('chat-anchor', {
-  maxAgeMs: ANCHOR_MAX_AGE_MS,
+  maxAgeMs: CHAT_ANCHOR_MAX_AGE_MS,
 })
 
 /**

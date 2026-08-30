@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { createViewStateStore, resetViewStateForTesting } from './view-state-store'
+import { clearViewState, createViewStateStore } from './view-state-store'
 
 describe('view-state-store', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    resetViewStateForTesting()
+    clearViewState()
   })
 
   test('get returns undefined for a missing key', () => {

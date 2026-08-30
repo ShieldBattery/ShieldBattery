@@ -13,6 +13,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, type ThunkAction } from '../dispatch-registry'
 import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import logger from '../logging/logger'
+import { clearViewState } from '../navigation/view-state-store'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import {
   CREDENTIAL_STORAGE,
@@ -129,6 +130,9 @@ export function logOut(spec: RequestHandlingSpec): ThunkAction {
     dispatch({ type: '@auth/logOut' })
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()
+    // Reading positions and scroll offsets belong to the account that produced them; the next one
+    // to sign in on this client must not land in them.
+    clearViewState()
   })
 }
 

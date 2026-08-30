@@ -9,6 +9,7 @@ import {
 } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
+import { saveStoredChatRestore } from '../messaging/chat-restore-storage'
 import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
@@ -38,6 +39,14 @@ export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction
 /** The `reportLastRead`/`flushLastRead` coalescing key for a whisper conversation's read position. */
 export function getWhisperLastReadKey(targetId: SbUserId): string {
   return `whisper-${targetId}`
+}
+
+/**
+ * The key a whisper conversation's per-conversation view state — the reading position it was left
+ * at, the draft typed into it — is stored under.
+ */
+export function getWhisperViewStateKey(targetId: SbUserId): string {
+  return `whisper.${targetId}`
 }
 
 /**
@@ -270,10 +279,36 @@ export function jumpToPresent(
   }
 }
 
-export function activateWhisperSession(target: SbUserId): ActivateWhisperSession {
+export function activateWhisperSession(
+  target: SbUserId,
+  restoredUnreadLineTime?: number,
+): ActivateWhisperSession {
   return {
     type: '@whispers/activateWhisperSession',
-    payload: { target },
+    payload: { target, restoredUnreadLineTime },
+  }
+}
+
+/**
+ * Copies where the user was reading in a whisper conversation into durable per-user storage, so
+ * returning to it after a reload or an app restart picks up in the same place. The position it
+ * copies is the one the message list records as it goes away, so this belongs after that: on the
+ * conversation's teardown, or once the list has saved for a page that's unloading. Nobody signed
+ * in means nowhere to store it.
+ */
+export function persistWhisperRestorePosition(target: SbUserId): ThunkAction {
+  return (_dispatch, getStore) => {
+    const { auth, whispers } = getStore()
+    const selfId = auth.self?.user.id
+    const session = whispers.byId.get(target)
+    // Without the conversation having been open, holding no position in memory means it was never
+    // looked at rather than that it was left at the newest messages, and clearing what an earlier
+    // session stored on the strength of that would throw away a position nothing has replaced.
+    if (selfId === undefined || !session?.activated) {
+      return
+    }
+
+    saveStoredChatRestore(selfId, getWhisperViewStateKey(target), session.unreadLineTime)
   }
 }
 

@@ -458,7 +458,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/activateWhisperSession'](state, action) {
-    const { target } = action.payload
+    const { target, restoredUnreadLineTime } = action.payload
     if (!state.byId.has(target)) {
       return
     }
@@ -470,6 +470,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // activation's viewport; a view still on its way back to a saved reading position hasn't
     // reported yet and counts as away from the bottom, which is where it's headed.
     const atBottom = session.atBottom
+
+    // A divider from a previous session stands in for one this session never had a chance to
+    // freeze. It goes in ahead of everything else that looks at the divider, so the rules for
+    // freezing and consuming it treat it no differently from one frozen here.
+    if (restoredUnreadLineTime !== undefined && session.unreadLineTime === undefined) {
+      session.unreadLineTime = restoredUnreadLineTime
+    }
 
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the

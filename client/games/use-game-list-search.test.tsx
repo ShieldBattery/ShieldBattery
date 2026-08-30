@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { GameRecordJson } from '../../common/games/games'
-import { resetViewStateForTesting } from '../navigation/view-state-store'
+import { clearViewState } from '../navigation/view-state-store'
 import { GameListSearchPage, useGameListSearch } from './use-game-list-search'
 
 // The hook only reads `useHistoryEntryKey` from router-hooks, so that's all this mocks. The test
@@ -57,7 +57,7 @@ describe('client/games/use-game-list-search', () => {
   beforeEach(() => {
     currentEntryKey = undefined
     fakeGamesById.clear()
-    resetViewStateForTesting()
+    clearViewState()
   })
 
   afterEach(() => {

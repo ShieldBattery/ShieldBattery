@@ -401,6 +401,12 @@ export interface ActivateChannel {
   type: '@chat/activateChannel'
   payload: {
     channelId: SbChannelId
+    /**
+     * An unread divider carried over from a previous session, restored alongside the reading
+     * position it was saved with. Only used when this session has no divider of its own for the
+     * channel.
+     */
+    restoredUnreadLineTime?: number
   }
 }
 

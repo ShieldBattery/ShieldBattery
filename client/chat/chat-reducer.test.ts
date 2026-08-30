@@ -245,10 +245,10 @@ function resetMessageWindowAction(): ChatActions {
   }
 }
 
-function activateChannelAction(): ChatActions {
+function activateChannelAction(restoredUnreadLineTime?: number): ChatActions {
   return {
     type: '@chat/activateChannel',
-    payload: { channelId: CHANNEL_ID },
+    payload: { channelId: CHANNEL_ID, restoredUnreadLineTime },
   }
 }
 
@@ -948,6 +948,38 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, activateChannelAction())
 
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('takes a restored divider when the channel has none', () => {
+      const state = makeState({ lastReadTime: 300 })
+
+      const result = chatReducer(state, activateChannelAction(100))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('keeps the divider it already has over a restored one', () => {
+      const state = makeState({ lastReadTime: 300, unreadLineTime: 200 })
+
+      const result = chatReducer(state, activateChannelAction(100))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a restored divider takes the place of the one this activation would freeze', () => {
+      const state = makeState({ unread: true, lastReadTime: 300 })
+
+      const result = chatReducer(state, activateChannelAction(100))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a restored divider the read position has passed is consumed at the bottom', () => {
+      const state = makeState({ lastReadTime: 300, atBottom: true })
+
+      const result = chatReducer(state, activateChannelAction(100))
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
     })
   })
 

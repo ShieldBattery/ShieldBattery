@@ -31,6 +31,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
+import { saveStoredChatRestore } from '../messaging/chat-restore-storage'
 import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
@@ -66,6 +67,14 @@ export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction 
 /** The `reportLastRead`/`flushLastRead` coalescing key for a channel's read position. */
 export function getChannelLastReadKey(channelId: SbChannelId): string {
   return `channel-${channelId}`
+}
+
+/**
+ * The key a channel's per-conversation view state — the reading position it was left at, the draft
+ * typed into it — is stored under.
+ */
+export function getChannelViewStateKey(channelId: SbChannelId): string {
+  return `chat.${channelId}`
 }
 
 /**
@@ -755,10 +764,39 @@ export function unbanUser(
   })
 }
 
-export function activateChannel(channelId: SbChannelId): ActivateChannel {
+export function activateChannel(
+  channelId: SbChannelId,
+  restoredUnreadLineTime?: number,
+): ActivateChannel {
   return {
     type: '@chat/activateChannel',
-    payload: { channelId },
+    payload: { channelId, restoredUnreadLineTime },
+  }
+}
+
+/**
+ * Copies where the user was reading in a channel into durable per-user storage, so returning to it
+ * after a reload or an app restart picks up in the same place. The position it copies is the one
+ * the message list records as it goes away, so this belongs after that: on the channel's teardown,
+ * or once the list has saved for a page that's unloading. Nobody signed in means nowhere to store
+ * it.
+ */
+export function persistChannelRestorePosition(channelId: SbChannelId): ThunkAction {
+  return (_dispatch, getStore) => {
+    const { auth, chat } = getStore()
+    const selfId = auth.self?.user.id
+    // Without the channel having been open, holding no position in memory means it was never
+    // looked at rather than that it was left at the newest messages, and clearing what an earlier
+    // session stored on the strength of that would throw away a position nothing has replaced.
+    if (selfId === undefined || !chat.activatedChannels.has(channelId)) {
+      return
+    }
+
+    saveStoredChatRestore(
+      selfId,
+      getChannelViewStateKey(channelId),
+      chat.idToUnreadLineTime.get(channelId),
+    )
   }
 }
 

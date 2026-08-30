@@ -10,6 +10,10 @@ import {
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
+import {
+  getStoredRestoreUnreadLineTime,
+  hydrateStoredChatAnchor,
+} from '../messaging/chat-restore-storage'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/message-input'
@@ -28,12 +32,14 @@ import {
   deactivateChannel,
   getChannelInfo,
   getChannelLastReadKey,
+  getChannelViewStateKey,
   getMessageHistory,
   getMessagesAround,
   getNewerMessages,
   jumpToPresent,
   leaveChannelWithConfirmation,
   markChannelRead,
+  persistChannelRestorePosition,
   resetMessageWindow,
   retrieveUserList,
   sendMessage,
@@ -168,6 +174,7 @@ export function ConnectedChatChannel({
   const isActivated = useAppSelector(s => s.chat.activatedChannels.has(channelId))
   const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
   const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLineTime.get(channelId))
+  const selfUserId = useAppSelector(s => s.auth.self?.user.id)
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
@@ -255,13 +262,19 @@ export function ConnectedChatChannel({
     }
   }, [isLeavingChannel])
 
-  const viewStateKey = `chat.${channelId}`
+  const viewStateKey = getChannelViewStateKey(channelId)
 
   const onActivate = useEffectEvent(() => {
     dispatch(retrieveUserList(channelId))
 
+    // A position saved before a reload or restart has to be back in memory before the read below
+    // decides how the channel opens, and the divider that was saved with it comes along so the two
+    // are restored together.
+    hydrateStoredChatAnchor(selfUserId, viewStateKey)
+    const restoredUnreadLineTime = getStoredRestoreUnreadLineTime(selfUserId, viewStateKey)
+
     const anchor = chatViewAnchorStore.get(viewStateKey)
-    dispatch(activateChannel(channelId))
+    dispatch(activateChannel(channelId, restoredUnreadLineTime))
 
     if (anchor && anchorNeedsFetch(channelMessages?.messages ?? [], anchor)) {
       // Getting back to where the user was reading takes a window the client doesn't hold, so that
@@ -281,6 +294,9 @@ export function ConnectedChatChannel({
     }
 
     return () => {
+      // The durable copy is taken before deactivating, which is free to consume the divider that
+      // belongs with the position being stored.
+      dispatch(persistChannelRestorePosition(channelId))
       dispatch(deactivateChannel(channelId))
     }
   }, [isInChannel, channelId, dispatch])
@@ -359,6 +375,9 @@ export function ConnectedChatChannel({
               windowGeneration: channelMessages?.windowGen,
               refreshToken: channelId,
               viewStateKey,
+              onViewStateSavedOnUnload: () => {
+                dispatch(persistChannelRestorePosition(channelId))
+              },
               MessageComponent: ChannelMessage,
               onLoadMoreMessages,
               onLoadNewerMessages,
