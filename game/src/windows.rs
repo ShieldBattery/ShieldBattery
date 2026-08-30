@@ -1,5 +1,6 @@
 pub mod registry;
 pub mod version;
+pub mod wifi;
 
 use std::ffi::{OsStr, OsString};
 use std::io;

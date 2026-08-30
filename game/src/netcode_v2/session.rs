@@ -33,6 +33,7 @@ use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials}
 use super::rehome::{self, RehomeContext};
 use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
+use crate::windows::wifi::WifiLowLatencyLease;
 
 quick_error! {
     #[derive(Debug)]
@@ -135,6 +136,12 @@ pub async fn establish_session(
     let session_id = identity.token().claims.session.0;
     let endpoint = credentials::bind_endpoint(roots)?;
 
+    // Background Wi-Fi scans can interrupt packet delivery for long enough to stall a real-time
+    // session. Acquire immediately before the first relay dial so the lobby is covered too. The
+    // lease is moved into the reconnecting driver below; a failed or cancelled dial drops it here.
+    // Sessionless games and replays never call this function.
+    let wifi_low_latency = WifiLowLatencyLease::acquire();
+
     // Dial the home relay, racing its candidate addresses (preference order, v6 first, each next
     // candidate staggered in behind the last).
     let (link, relay_addr) = connect_relay(&endpoint, &home, &identity).await?;
@@ -172,7 +179,14 @@ pub async fn establish_session(
     // non-link failure reconnecting can't fix.
     let (driver_done_tx, driver_done_rx) = watch::channel(false);
     tokio::spawn(async move {
-        match driver.run_reconnecting(reconnect).await {
+        let result = if let Some(lease) = wifi_low_latency {
+            lease
+                .maintain_while(driver.run_reconnecting(reconnect))
+                .await
+        } else {
+            driver.run_reconnecting(reconnect).await
+        };
+        match result {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),
         }

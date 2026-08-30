@@ -112,6 +112,7 @@ features = [
   "winsock2",
   "winuser",
   "winver",
+  "wlanapi",
   "ws2def",
   "ws2ipdef",
 ]
