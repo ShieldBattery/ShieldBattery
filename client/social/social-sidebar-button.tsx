@@ -1,18 +1,19 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { channelHasUnreadMention } from '../chat/chat-reducer'
 import { IconButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 
-const UnreadIndicator = styled.div`
+const UnreadIndicator = styled.div<{ $urgent?: boolean }>`
   width: 12px;
   height: 12px;
   position: absolute;
   left: 6px;
   top: 10px;
 
-  background-color: var(--color-amber80);
+  background-color: ${props => (props.$urgent ? 'var(--theme-error)' : 'var(--color-amber80)')};
   border-radius: 50%;
   border: 2px solid rgb(from var(--color-grey-blue10) r g b / 100%);
 
@@ -42,6 +43,13 @@ export function SocialSidebarButton({ onClick, icon, isOpen }: SocialSidebarButt
 
   const hasUnreadChat = useAppSelector(s => s.chat.unreadChannels.size > 0)
   const hasUnreadWhispers = useAppSelector(s => s.whispers.byId.values().some(w => w.hasUnread))
+  // Whisper unread counts as urgent since a whisper is inherently directed at the current user,
+  // matching how the tray's tracked-unread state treats it.
+  const hasUrgent = useAppSelector(
+    s =>
+      s.chat.joinedChannels.values().some(id => channelHasUnreadMention(s.chat, id)) ||
+      hasUnreadWhispers,
+  )
 
   return (
     <ButtonContainer>
@@ -51,7 +59,7 @@ export function SocialSidebarButton({ onClick, icon, isOpen }: SocialSidebarButt
         tabIndex={-1}>
         <IconButton icon={icon} onClick={onClick} testName='social-sidebar-button' />
       </Tooltip>
-      {!isOpen && (hasUnreadChat || hasUnreadWhispers) ? <UnreadIndicator /> : null}
+      {!isOpen && (hasUnreadChat || hasUrgent) ? <UnreadIndicator $urgent={hasUrgent} /> : null}
     </ButtonContainer>
   )
 }

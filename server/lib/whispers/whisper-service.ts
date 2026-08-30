@@ -190,16 +190,21 @@ export default class WhisperService {
     const [processedText, userMentions, channelMentions] = await processMessageContents(text)
     const mentionedUserIds = userMentions.map(u => u.id)
     const mentionedChannelIds = channelMentions.map(c => c.id)
+
+    // Both session rows must exist before the message does: a session with no recorded read
+    // position counts messages from `start_date` on as unread (see `getUnreadWhisperTargets`), so
+    // a `start_date` that postdates the conversation's first message would hide that message from
+    // the recipient's unread state.
+    // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
+    // to throttle people starting tons of tons of sessions with different people
+    await dbStartWhisperSessionsBothDirections(user.id, target.id)
+
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
       text: processedText,
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
     })
-
-    // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
-    // to throttle people starting tons of tons of sessions with different people
-    await dbStartWhisperSessionsBothDirections(user.id, target.id)
     this.applyWhisperSessionState(user, target)
     this.applyWhisperSessionState(target, user)
 

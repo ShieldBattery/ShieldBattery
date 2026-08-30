@@ -78,7 +78,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
-  getUnreadChannels,
+  getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -152,17 +152,18 @@ export default class ChatService {
   }
 
   async getJoinedChannels(userId: SbUserId): Promise<InitialChannelData[]> {
-    const [joinedChannels, unreadChannels] = await Promise.all([
+    const [joinedChannels, unreadChannelInfo] = await Promise.all([
       getChannelsForUser(userId),
-      getUnreadChannels(userId),
+      getUnreadChannelInfo(userId),
     ])
     const channelInfos = await getChannelInfos(joinedChannels.map(c => c.channelId))
 
     const channelInfosMap = new global.Map(channelInfos.map(c => [c.id, c]))
-    const unreadChannelsSet = new global.Set(unreadChannels)
+    const unreadChannelsMap = new global.Map(unreadChannelInfo.map(c => [c.channelId, c]))
 
     return joinedChannels.map(c => {
       const channelInfo = channelInfosMap.get(c.channelId)!
+      const unreadInfo = unreadChannelsMap.get(c.channelId)
 
       return {
         channelInfo: toBasicChannelInfo(channelInfo),
@@ -170,8 +171,9 @@ export default class ChatService {
         joinedChannelInfo: toJoinedChannelInfo(channelInfo),
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
-        hasUnread: unreadChannelsSet.has(c.channelId),
+        hasUnread: unreadInfo !== undefined,
         lastReadTime: c.lastReadTime?.getTime(),
+        latestMentionTime: unreadInfo?.latestMentionTime?.getTime(),
       }
     })
   }
@@ -212,8 +214,8 @@ export default class ChatService {
       ])
 
       if (channelInfo && userChannelEntry) {
-        // `hasUnread`/`lastReadTime` are omitted: a membership this fresh has no recorded read
-        // position yet, which `getUnreadChannels` always treats as fully read.
+        // `hasUnread`/`lastReadTime`/`latestMentionTime` are omitted: a membership this fresh has
+        // no recorded read position yet, which `getUnreadChannelInfo` always treats as fully read.
         this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
           action: 'init3',
           channelInfo: toBasicChannelInfo(channelInfo),

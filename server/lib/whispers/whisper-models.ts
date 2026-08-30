@@ -105,18 +105,22 @@ export async function updateLastReadTime(
 }
 
 /**
- * Returns the IDs of the target users in a user's whisper sessions that have a message from that
- * target after the user's last recorded read position for the session. A session with no recorded
- * read position never counts as unread here, since there's nothing to compare newly-arrived
- * messages against; `markRead` establishes that baseline the first time a client reports one.
+ * Returns the IDs of the target users in a user's whisper sessions that have an unread message
+ * from that target: one sent after the user's last recorded read position for the session, or —
+ * when no read position has been recorded yet — sent at or after the session started. A session
+ * row is created no later than the first message of a conversation (see `sendWhisperMessage`), so
+ * a conversation the user has never opened counts as unread from its very first message;
+ * `markRead` records a read position the first time a client reports one. Closing a session
+ * deletes its row (and read position), so a conversation re-opened by a later message only counts
+ * messages from the new `start_date` on — older history isn't resurrected as unread.
  * Every whisper message is a text message (`WhisperMessageData` has a single variant), so every
  * message from the target counts. A single set-based query over all of the user's sessions, rather
- * than one query per session. `sent` columns store naive UTC wall time (see the timestamp parser
- * setup in `server/lib/db`), so the read position is converted to naive UTC for the comparison
- * instead of being left to the connection's session time zone. The comparison works at millisecond
- * granularity (`sent >= read + 1ms` rather than `sent > read`): read positions arrive as epoch
- * milliseconds while `sent` keeps microseconds, so a full-precision strict comparison would leave
- * the newest message permanently unread.
+ * than one query per session. `sent` and `start_date` columns store naive UTC wall time (see the
+ * timestamp parser setup in `server/lib/db`), so the read position is converted to naive UTC for
+ * the comparison instead of being left to the connection's session time zone. The comparison works
+ * at millisecond granularity (`sent >= read + 1ms` rather than `sent > read`): read positions
+ * arrive as epoch milliseconds while `sent` keeps microseconds, so a full-precision strict
+ * comparison would leave the newest message permanently unread.
  */
 export async function getUnreadWhisperTargets(userId: SbUserId): Promise<SbUserId[]> {
   const { client, done } = await db()
@@ -131,7 +135,7 @@ export async function getUnreadWhisperTargets(userId: SbUserId): Promise<SbUserI
             AND m.from_id = ws.target_user_id
             AND m.sent >= COALESCE(
               (ws.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
-              'infinity'::timestamp
+              ws.start_date
             )
         )
     `)

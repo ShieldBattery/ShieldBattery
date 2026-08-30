@@ -115,7 +115,7 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
-        meta: { channelId },
+        meta: { channelId, mentionsSelf: isUrgent },
       })
 
       const isChannelActivated = activatedChannels.has(channelId)

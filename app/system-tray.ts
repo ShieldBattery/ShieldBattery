@@ -17,6 +17,12 @@ export default class SystemTray {
    */
   private hasTrackedUnread = false
   /**
+   * Whether any of the tracked-read-state unread state reported by the renderer is urgent: a
+   * channel message mentioning the user, or any unread whisper. Cleared the same way as
+   * `hasTrackedUnread`, never by window focus.
+   */
+  private hasTrackedUrgent = false
+  /**
    * Attention state for messages with no tracked read state (lobby/matchmaking chat) and urgent
    * messages, accumulated while the window is unfocused and cleared when it gains focus.
    */
@@ -70,8 +76,9 @@ export default class SystemTray {
     })
   }
 
-  setTrackedUnread = (hasUnread: boolean) => {
-    this.hasTrackedUnread = hasUnread
+  setTrackedUnread = (data: { hasUnread: boolean; hasUnreadUrgent: boolean }) => {
+    this.hasTrackedUnread = data.hasUnread
+    this.hasTrackedUrgent = data.hasUnreadUrgent
     this.updateIcon()
   }
 
@@ -89,7 +96,7 @@ export default class SystemTray {
 
   private updateIcon() {
     let icon = NORMAL_ICON
-    if (this.hasTransientUrgent) {
+    if (this.hasTransientUrgent || this.hasTrackedUrgent) {
       icon = URGENT_ICON
     } else if (this.hasTrackedUnread || this.hasTransientUnread) {
       icon = UNREAD_ICON

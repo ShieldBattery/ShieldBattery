@@ -244,6 +244,11 @@ export interface InitialChannelData {
    * the client can't compute unreadness itself without messages loaded.
    */
   lastReadTime?: number
+  /**
+   * Time (as a Unix timestamp in milliseconds) of the newest message that mentions this user and
+   * is newer than their read position for the channel. Omitted when there is no such message.
+   */
+  latestMentionTime?: number
 }
 
 export interface ChatInitEvent extends InitialChannelData {

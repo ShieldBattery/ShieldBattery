@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { channelHasUnreadMention } from '../chat/chat-reducer'
 import { useAppSelector } from '../redux-hooks'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -8,10 +9,17 @@ function UnreadTraySyncImpl() {
   const hasUnread = useAppSelector(
     s => s.chat.unreadChannels.size > 0 || s.whispers.byId.values().some(w => w.hasUnread),
   )
+  // A whisper is inherently directed at the current user, so any unread whisper counts as urgent
+  // alongside a channel message that mentions them.
+  const hasUnreadUrgent = useAppSelector(
+    s =>
+      s.chat.joinedChannels.values().some(id => channelHasUnreadMention(s.chat, id)) ||
+      s.whispers.byId.values().some(w => w.hasUnread),
+  )
 
   useEffect(() => {
-    ipcRenderer.send('chatUnreadState', { hasUnread })
-  }, [hasUnread])
+    ipcRenderer.send('chatUnreadState', { hasUnread, hasUnreadUrgent })
+  }, [hasUnread, hasUnreadUrgent])
 
   return null
 }

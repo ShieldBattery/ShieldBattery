@@ -380,7 +380,13 @@ export interface UpdateChannelOwner {
 export interface UpdateMessage {
   type: '@chat/updateMessage'
   payload: ChatMessageEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /**
+     * Whether the message mentions the current user and wasn't sent by someone they've blocked.
+     */
+    mentionsSelf: boolean
+  }
 }
 
 /**
