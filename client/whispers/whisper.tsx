@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
+import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { push, replace } from '../navigation/routing'
@@ -101,9 +102,51 @@ export function ConnectedWhisper({
     }
   }, [isClosingWhisper])
 
+  const showMessageLoadError = (err: Error) => {
+    // TODO(tec27): This would probably be better to show at the position the message loading
+    // failed in the message list (and offer a button to retry)
+    snackbarController.showSnackbar(
+      t('whispers.errors.loadingHistory', {
+        defaultValue: 'Error loading message history: {{errorMessage}}',
+        errorMessage: err.message,
+      }),
+      DURATION_LONG,
+    )
+  }
+
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [isLoadingNewer, setIsLoadingNewer] = useState(false)
+
+  const viewStateKey = `whisper.${targetId}`
+
+  const onActivate = useEffectEvent(() => {
+    const anchor = chatViewAnchorStore.get(viewStateKey)
+    dispatch(activateWhisperSession(targetId, anchor === undefined))
+
+    if (anchor && anchorNeedsFetch(whisperSession?.messages ?? [], anchor)) {
+      // Getting back to where the user was reading takes a window the client doesn't hold, so that
+      // window is this activation's history request instead of the newest page the list would
+      // otherwise ask for.
+      dispatch(
+        getMessagesAround(targetId, MESSAGES_LIMIT, anchor.sentTime, {
+          onStart: () => {
+            setIsLoadingHistory(true)
+          },
+          onSuccess: () => {
+            setIsLoadingHistory(false)
+          },
+          onError: err => {
+            setIsLoadingHistory(false)
+            showMessageLoadError(err)
+          },
+        }),
+      )
+    }
+  })
+
   useEffect(() => {
     if (isSessionOpen) {
-      dispatch(activateWhisperSession(targetId))
+      onActivate()
     } else if (!isClosingWhisper) {
       dispatch(
         startWhisperSessionById(targetId, {
@@ -152,21 +195,6 @@ export function ConnectedWhisper({
   useEffect(() => () => flushLastRead(getWhisperLastReadKey(targetId)), [targetId])
 
   const unreadLineTime = whisperSession?.unreadLineTime
-
-  const showMessageLoadError = (err: Error) => {
-    // TODO(tec27): This would probably be better to show at the position the message loading
-    // failed in the message list (and offer a button to retry)
-    snackbarController.showSnackbar(
-      t('whispers.errors.loadingHistory', {
-        defaultValue: 'Error loading message history: {{errorMessage}}',
-        errorMessage: err.message,
-      }),
-      DURATION_LONG,
-    )
-  }
-
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  const [isLoadingNewer, setIsLoadingNewer] = useState(false)
 
   const onLoadMoreMessages = useStableCallback(() => {
     setIsLoadingHistory(true)
@@ -276,13 +304,14 @@ export function ConnectedWhisper({
           hasNewerMessages: whisperSession.hasNewer,
           windowGeneration: whisperSession.windowGen,
           refreshToken: targetId,
+          viewStateKey,
           onLoadMoreMessages,
           onLoadNewerMessages,
           unreadLineTime,
         }}
         inputProps={{
           onSendChatMessage,
-          storageKey: `whisper.${targetId}`,
+          storageKey: viewStateKey,
         }}
         onAtBottomChange={onAtBottomChange}
         onJumpToPresent={onJumpToPresent}

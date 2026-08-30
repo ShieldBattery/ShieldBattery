@@ -161,6 +161,12 @@ export interface ActivateWhisperSession {
   type: '@whispers/activateWhisperSession'
   payload: {
     target: SbUserId
+    /**
+     * Whether the message list is opening at the newest messages. It isn't when the view is being
+     * restored to a position further back, which means the user hasn't necessarily caught up with
+     * the conversation just by opening it.
+     */
+    atBottom: boolean
   }
 }
 

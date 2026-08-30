@@ -239,6 +239,13 @@ function resetMessageWindowAction(): ChatActions {
   }
 }
 
+function activateChannelAction(atBottom: boolean): ChatActions {
+  return {
+    type: '@chat/activateChannel',
+    payload: { channelId: CHANNEL_ID, atBottom },
+  }
+}
+
 function deactivateChannelAction(): ChatActions {
   return {
     type: '@chat/deactivateChannel',
@@ -862,7 +869,101 @@ describe('client/chat/chat-reducer', () => {
     })
   })
 
+  describe('@chat/activateChannel', () => {
+    test('freezes the divider at the read position when the channel has unread messages', () => {
+      const state = makeState({ unread: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, activateChannelAction(true))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.activatedChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('records the at-bottom state the view is opening in', () => {
+      const state = makeState()
+
+      expect(chatReducer(state, activateChannelAction(true)).atBottomChannels.has(CHANNEL_ID)).toBe(
+        true,
+      )
+      expect(
+        chatReducer(state, activateChannelAction(false)).atBottomChannels.has(CHANNEL_ID),
+      ).toBe(false)
+    })
+
+    test('consumes a divider the read position has passed when opening at the bottom', () => {
+      const state = makeState({ lastReadTime: 200, unreadLineTime: 100 })
+
+      const result = chatReducer(state, activateChannelAction(true))
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('keeps a divider the read position has passed when opening away from the bottom', () => {
+      const state = makeState({ lastReadTime: 200, unreadLineTime: 100 })
+
+      const result = chatReducer(state, activateChannelAction(false))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('keeps a divider the read position has not passed', () => {
+      const state = makeState({ lastReadTime: 100, unreadLineTime: 100 })
+
+      const result = chatReducer(state, activateChannelAction(true))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('keeps a divider frozen by this activation', () => {
+      const state = makeState({ unread: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, activateChannelAction(true))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+  })
+
   describe('@chat/deactivateChannel', () => {
+    test('consumes a divider the read position has passed when left at the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        lastReadTime: 200,
+        unreadLineTime: 100,
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('keeps a divider the read position has passed when left away from the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        lastReadTime: 200,
+        unreadLineTime: 100,
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        lastReadTime: 100,
+        unreadLineTime: 100,
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
     test('drops a detached window entirely', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({

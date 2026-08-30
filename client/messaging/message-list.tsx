@@ -11,6 +11,7 @@ import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge } from '../styles/typography'
+import { captureChatViewAnchor, chatViewAnchorStore } from './chat-view-anchor'
 import {
   BlockedMessage,
   NewDayMessage,
@@ -272,6 +273,18 @@ export interface MessageListProps {
    * than this.
    */
   unreadLineTime?: number
+  /**
+   * Key identifying the conversation being displayed, under which the reading position the user
+   * leaves it at is saved. Surfaces whose chat is only meaningful for as long as it's on screen
+   * (lobby chat, say) leave this unset, which turns saving off entirely.
+   */
+  viewStateKey?: string
+  /**
+   * Whether the list is still on its way to the saved reading position for the given key rather
+   * than showing it. Reading a position out of the DOM while that's true would overwrite the saved
+   * one with a position the user never chose.
+   */
+  isRestorePending?: (viewStateKey: string) => boolean
 }
 
 interface MessageListSnapshot {
@@ -293,9 +306,44 @@ export class MessageList extends React.Component<MessageListProps> {
 
   override componentWillUnmount() {
     this.onScroll.cancel()
+
+    if (this.props.viewStateKey !== undefined) {
+      this.saveViewState(this.props.viewStateKey, this.props.messages)
+    }
   }
 
-  override getSnapshotBeforeUpdate() {
+  /**
+   * Records where the user is reading in a conversation, so returning to it can pick up there.
+   * Being at the bottom is the position message lists open at anyway, so it's stored as the absence
+   * of an entry.
+   */
+  private saveViewState(viewStateKey: string, messages: ReadonlyArray<SbMessage>) {
+    const scrollable = this.scrollableRef.current
+    if (!scrollable || this.props.isRestorePending?.(viewStateKey)) {
+      return
+    }
+
+    const atBottom =
+      scrollable.scrollTop + scrollable.clientHeight + AUTOSCROLL_LEEWAY_PX >=
+      scrollable.scrollHeight
+    const anchor = atBottom ? undefined : captureChatViewAnchor(scrollable, messages)
+
+    if (anchor) {
+      chatViewAnchorStore.set(viewStateKey, anchor)
+    } else {
+      chatViewAnchorStore.delete(viewStateKey)
+    }
+  }
+
+  override getSnapshotBeforeUpdate(prevProps: MessageListProps) {
+    const prevViewStateKey = prevProps.viewStateKey
+    if (prevViewStateKey !== undefined && prevViewStateKey !== this.props.viewStateKey) {
+      // The DOM still holds the conversation that's being swapped out, so this is both the last
+      // chance to read where the user was in it and the only one where the incoming conversation's
+      // content can't have clamped the scroll position first.
+      this.saveViewState(prevViewStateKey, prevProps.messages)
+    }
+
     if (!this.scrollableRef.current) {
       return { wasAtBottom: true, lastScrollTop: 0, lastScrollHeight: 0 }
     }
@@ -325,7 +373,24 @@ export class MessageList extends React.Component<MessageListProps> {
     snapshot: MessageListSnapshot,
   ) {
     const scrollable = this.scrollableRef.current
-    if (!scrollable || scrollable.scrollHeight === snapshot.lastScrollHeight) {
+    if (!scrollable) {
+      return
+    }
+
+    if (
+      this.props.viewStateKey !== undefined &&
+      prevProps.viewStateKey !== this.props.viewStateKey
+    ) {
+      // A different conversation's messages have taken this one's place, so nothing of the old
+      // viewport carries over and the list starts at the bottom exactly like a fresh mount does.
+      // Owners that want it somewhere else move it from the scroll update below, which still runs
+      // before anything is painted.
+      scrollable.scrollTop = scrollable.scrollHeight
+      this.props.onScrollUpdate?.(scrollable)
+      return
+    }
+
+    if (scrollable.scrollHeight === snapshot.lastScrollHeight) {
       return
     }
 

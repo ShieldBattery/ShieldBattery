@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -10,6 +10,7 @@ import {
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
+import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MessageComponentProps } from '../messaging/message-list'
@@ -95,17 +96,46 @@ const BackgroundImage = styled.img`
 export function ChannelMessage({ message }: MessageComponentProps) {
   switch (message.type) {
     case ClientChatMessageType.BanUser:
-      return <BanUserMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <BanUserMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ClientChatMessageType.KickUser:
-      return <KickUserMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <KickUserMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ServerChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <JoinChannelMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ClientChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <LeaveChannelMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ClientChatMessageType.NewChannelOwner:
       return (
         <NewChannelOwnerMessage
           key={message.id}
+          msgId={message.id}
           time={message.time}
           newOwnerId={message.newOwnerId}
         />
@@ -224,10 +254,25 @@ export function ConnectedChatChannel({
     }
   }, [isLeavingChannel])
 
+  const viewStateKey = `chat.${channelId}`
+
+  const onActivate = useEffectEvent(() => {
+    dispatch(retrieveUserList(channelId))
+
+    const anchor = chatViewAnchorStore.get(viewStateKey)
+    dispatch(activateChannel(channelId, anchor === undefined))
+
+    if (anchor && anchorNeedsFetch(channelMessages?.messages ?? [], anchor)) {
+      // Getting back to where the user was reading takes a window the client doesn't hold, so that
+      // window is this activation's history request instead of the newest page the list would
+      // otherwise ask for.
+      dispatch(getMessagesAround(channelId, MESSAGES_LIMIT, anchor.sentTime))
+    }
+  })
+
   useEffect(() => {
     if (isInChannel) {
-      dispatch(retrieveUserList(channelId))
-      dispatch(activateChannel(channelId))
+      onActivate()
     }
 
     return () => {
@@ -308,6 +353,7 @@ export function ConnectedChatChannel({
               hasNewerMessages: channelMessages?.hasNewer,
               windowGeneration: channelMessages?.windowGen,
               refreshToken: channelId,
+              viewStateKey,
               MessageComponent: ChannelMessage,
               onLoadMoreMessages,
               onLoadNewerMessages,
@@ -315,7 +361,7 @@ export function ConnectedChatChannel({
             }}
             inputProps={{
               onSendChatMessage,
-              storageKey: `chat.${channelId}`,
+              storageKey: viewStateKey,
               mentionableUsers,
               baseMentionableUsers,
             }}

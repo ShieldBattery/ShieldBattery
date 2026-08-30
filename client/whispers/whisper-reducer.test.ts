@@ -170,6 +170,13 @@ function resetMessageWindowAction(): WhisperActions {
   }
 }
 
+function activateSessionAction(atBottom: boolean): WhisperActions {
+  return {
+    type: '@whispers/activateWhisperSession',
+    payload: { target: TARGET_ID, atBottom },
+  }
+}
+
 function deactivateSessionAction(): WhisperActions {
   return {
     type: '@whispers/deactivateWhisperSession',
@@ -624,7 +631,98 @@ describe('client/whispers/whisper-reducer', () => {
     })
   })
 
+  describe('@whispers/activateWhisperSession', () => {
+    test('freezes the divider at the read position when the session has unread messages', () => {
+      const state = makeState({ unread: true, lastReadTime: 100 })
+
+      const result = whisperReducer(state, activateSessionAction(true))
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBe(100)
+      expect(session.hasUnread).toBe(false)
+      expect(session.activated).toBe(true)
+    })
+
+    test('records the at-bottom state the view is opening in', () => {
+      const state = makeState()
+
+      expect(sessionOf(whisperReducer(state, activateSessionAction(true))).atBottom).toBe(true)
+      expect(sessionOf(whisperReducer(state, activateSessionAction(false))).atBottom).toBe(false)
+    })
+
+    test('consumes a divider the read position has passed when opening at the bottom', () => {
+      const state = makeState({ lastReadTime: 200, unreadLineTime: 100 })
+
+      const result = whisperReducer(state, activateSessionAction(true))
+
+      expect(sessionOf(result).unreadLineTime).toBeUndefined()
+    })
+
+    test('keeps a divider the read position has passed when opening away from the bottom', () => {
+      const state = makeState({ lastReadTime: 200, unreadLineTime: 100 })
+
+      const result = whisperReducer(state, activateSessionAction(false))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('keeps a divider the read position has not passed', () => {
+      const state = makeState({ lastReadTime: 100, unreadLineTime: 100 })
+
+      const result = whisperReducer(state, activateSessionAction(true))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('keeps a divider frozen by this activation', () => {
+      const state = makeState({ unread: true, lastReadTime: 100 })
+
+      const result = whisperReducer(state, activateSessionAction(true))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+  })
+
   describe('@whispers/deactivateWhisperSession', () => {
+    test('consumes a divider the read position has passed when left at the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        lastReadTime: 200,
+        unreadLineTime: 100,
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).unreadLineTime).toBeUndefined()
+    })
+
+    test('keeps a divider the read position has passed when left away from the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        lastReadTime: 200,
+        unreadLineTime: 100,
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        lastReadTime: 100,
+        unreadLineTime: 100,
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
     test('drops a detached window entirely', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({

@@ -873,11 +873,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/activateChannel'](state, action) {
-    const { channelId } = action.payload
+    const { channelId, atBottom } = action.payload
 
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the
-    // eager mark-read this activation triggers.
+    // eager mark-read opening at the newest messages triggers.
     if (
       state.unreadChannels.has(channelId) &&
       !state.idToUnreadLineTime.has(channelId) &&
@@ -886,22 +886,43 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       state.idToUnreadLineTime.set(channelId, state.idToLastReadTime.get(channelId)!)
     }
 
+    // A divider the read position has already moved past outlives that only for as long as the
+    // view keeps returning to where the user stopped reading; opening at the newest messages means
+    // they're caught up and the divider has served its purpose.
+    if (atBottom) {
+      const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+      const lastReadTime = state.idToLastReadTime.get(channelId)
+      if (
+        unreadLineTime !== undefined &&
+        lastReadTime !== undefined &&
+        lastReadTime > unreadLineTime
+      ) {
+        state.idToUnreadLineTime.delete(channelId)
+      }
+    }
+
     state.unreadChannels.delete(channelId)
     state.activatedChannels.add(channelId)
-    // Message lists mount pinned to the bottom.
-    state.atBottomChannels.add(channelId)
+    if (atBottom) {
+      state.atBottomChannels.add(channelId)
+    } else {
+      state.atBottomChannels.delete(channelId)
+    }
   },
 
   ['@chat/deactivateChannel'](state, action) {
     const { channelId } = action.payload
 
-    // The unread divider is only consumed once the read position has actually moved past it — a
-    // deactivation where the user never read anything new (including the mount/cleanup/remount
-    // cycle React's StrictMode runs in development) leaves the still-unread divider in place for
-    // the next visit.
+    // The unread divider is only consumed once the read position has actually moved past it *and*
+    // the user was looking at the newest messages when they left. A deactivation where they never
+    // read anything new (including the mount/cleanup/remount cycle React's StrictMode runs in
+    // development) leaves the still-unread divider in place, and so does one from the middle of the
+    // backlog, where the read position running ahead is an artifact of having passed the bottom on
+    // the way in rather than of having caught up.
     const unreadLineTime = state.idToUnreadLineTime.get(channelId)
     const lastReadTime = state.idToLastReadTime.get(channelId)
     if (
+      state.atBottomChannels.has(channelId) &&
       unreadLineTime !== undefined &&
       lastReadTime !== undefined &&
       lastReadTime > unreadLineTime

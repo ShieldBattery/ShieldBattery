@@ -11,6 +11,12 @@ import { ElevatedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { MenuItem, MenuItemProps } from '../material/menu/item'
 import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
+import {
+  ChatViewAnchor,
+  chatViewAnchorStore,
+  findChatViewPlacement,
+  scrollToAnchoredMessage,
+} from '../messaging/chat-view-anchor'
 import { UNREAD_LINE_SELECTOR } from '../messaging/common-message-layout'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import { MessageList, MessageListProps } from '../messaging/message-list'
@@ -35,12 +41,22 @@ const JUMP_TO_BOTTOM_THRESHOLD_SCREENS = 1.5
 /** How much room to leave above the unread divider when jumping to it, in pixels. */
 const UNREAD_LINE_SCROLL_MARGIN_PX = 8
 
-/** An in-progress hunt for the unread divider, waiting on history the list doesn't hold yet. */
-interface UnreadLineSeek {
-  /** Identifies the conversation the seek was started in. */
+/** A place in a conversation the list is on its way to. */
+type PendingScrollTarget =
+  /** The unread divider, wherever it sat when the move was started. */
+  | { kind: 'unreadLine'; unreadLineTime: number }
+  /** The reading position the user left the conversation at, saved under `viewStateKey`. */
+  | { kind: 'anchor'; viewStateKey: string; anchor: ChatViewAnchor }
+
+/**
+ * A move the list can't make yet because it's waiting on history the list doesn't hold. It carries
+ * what it was started for, so it can't outlive the conversation (or the divider position) it was
+ * aimed at.
+ */
+interface PendingScroll {
+  /** Identifies the conversation the move was started in. */
   refreshToken: unknown
-  /** Where the divider sat when the seek was started. */
-  unreadLineTime: number
+  target: PendingScrollTarget
 }
 
 function findUnreadLine(scroller: HTMLElement): HTMLElement | null {
@@ -155,7 +171,7 @@ const overlayTransition: Transition = {
 
 export interface ChatProps {
   className?: string
-  listProps: Omit<MessageListProps, 'onScrollUpdate'>
+  listProps: Omit<MessageListProps, 'onScrollUpdate' | 'isRestorePending'>
   inputProps: Omit<MessageInputProps, 'showDivider'>
   /**
    * Optional header component which will be rendered on top of the message list. This is useful if
@@ -226,10 +242,12 @@ export function Chat({
   // Message lists mount pinned to the bottom, matching how `MessageList` initially scrolls.
   const wasAtBottomRef = useRef(true)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
-  // Set while we're waiting for the unread divider to come into the loaded window, so we can jump
-  // to it once it does. It carries what it was started for, so a seek can't outlive the
-  // conversation (or the divider position) it was aimed at.
-  const seekRef = useRef<UnreadLineSeek | undefined>(undefined)
+  // Set while the list is waiting for what it needs to reach a position to come into the loaded
+  // window, so it can move there once it does.
+  const pendingScrollRef = useRef<PendingScroll | undefined>(undefined)
+  // The conversation the last scroll update was for, so the first update after a switch can start
+  // that conversation's restore before anything else reads the scroll position.
+  const lastSeenConversationRef = useRef<unknown>(undefined)
   // The divider the user has already had in view. The banner is a one-shot prompt for a divider
   // they haven't laid eyes on yet — once it's been on screen, scrolling back down doesn't
   // resurface the banner. Carries what it was recorded for, so a conversation switch or a newly
@@ -238,18 +256,114 @@ export function Chat({
     undefined,
   )
 
-  const { unreadLineTime, messages, loading, hasMoreHistory, hasNewerMessages, refreshToken } =
-    listProps
+  const {
+    unreadLineTime,
+    messages,
+    loading,
+    hasMoreHistory,
+    hasNewerMessages,
+    refreshToken,
+    viewStateKey,
+  } = listProps
+
+  /**
+   * Starts moving the list to the position the user left this conversation at, if they left one
+   * behind. A position the loaded window doesn't reach becomes a pending move, which the owner is
+   * expected to fetch a window for and which lands once that window arrives.
+   */
+  const startAnchorRestore = (scroller: HTMLDivElement, key: string) => {
+    const anchor = chatViewAnchorStore.get(key)
+    if (!anchor) {
+      return
+    }
+
+    const placement = findChatViewPlacement(messages, anchor)
+    if (
+      placement.kind === 'message' &&
+      scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
+    ) {
+      return
+    }
+
+    pendingScrollRef.current = {
+      refreshToken,
+      target: { kind: 'anchor', viewStateKey: key, anchor },
+    }
+  }
+
+  const applyPendingScroll = (scroller: HTMLDivElement) => {
+    const pending = pendingScrollRef.current
+    if (!pending) {
+      return
+    }
+
+    if (pending.refreshToken !== refreshToken) {
+      pendingScrollRef.current = undefined
+      return
+    }
+
+    if (pending.target.kind === 'unreadLine') {
+      if (pending.target.unreadLineTime !== unreadLineTime) {
+        // Where the divider sits changed out from under the move.
+        pendingScrollRef.current = undefined
+        return
+      }
+
+      const unreadLine = findUnreadLine(scroller)
+      if (unreadLine) {
+        pendingScrollRef.current = undefined
+        scrollToUnreadLine(scroller, unreadLine)
+      } else if (!loading) {
+        // The window the move was waiting on has arrived and holds no divider, which means there
+        // was nothing unread to move to after all.
+        pendingScrollRef.current = undefined
+      }
+      return
+    }
+
+    const placement = findChatViewPlacement(messages, pending.target.anchor)
+    const placed =
+      placement.kind === 'message' &&
+      scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
+    if (placed || !loading) {
+      // Either the list has reached the saved position, or nothing that could hold it is still on
+      // its way and the list keeps the position it was given by default: the newest messages.
+      pendingScrollRef.current = undefined
+    }
+  }
+
+  const isRestorePending = (key: string) => {
+    const target = pendingScrollRef.current?.target
+    return target?.kind === 'anchor' && target.viewStateKey === key
+  }
 
   const onScrollUpdate = (target: EventTarget) => {
     const scroller = target as HTMLDivElement
+    scrollerRef.current = scroller
+
+    // Any move has to happen before the scroll position is read below, so what the rest of this
+    // reports is where the list actually ends up rather than where it passed through.
+    if (lastSeenConversationRef.current !== refreshToken) {
+      lastSeenConversationRef.current = refreshToken
+      pendingScrollRef.current = undefined
+      if (viewStateKey !== undefined) {
+        startAnchorRestore(scroller, viewStateKey)
+      }
+    } else {
+      applyPendingScroll(scroller)
+    }
+
+    // A move that's still pending leaves the list wherever it was placed by default, which says
+    // nothing about whether the user has caught up with the conversation.
+    const restorePending = pendingScrollRef.current?.target.kind === 'anchor'
+
     const { scrollTop, scrollHeight, clientHeight } = scroller
 
     const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
     setIsScrolledUp(newIsScrolledUp)
 
     const newAtBottom = !newIsScrolledUp
-    if (newAtBottom !== wasAtBottomRef.current) {
+    if (!restorePending && newAtBottom !== wasAtBottomRef.current) {
       wasAtBottomRef.current = newAtBottom
       onAtBottomChange?.(newAtBottom)
     }
@@ -257,26 +371,8 @@ export function Chat({
     const distanceFromBottom = scrollHeight - clientHeight - scrollTop
     setShowJumpToBottom(distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS)
 
-    scrollerRef.current = scroller
-
-    const unreadLine = findUnreadLine(scroller)
-
-    const seek = seekRef.current
-    if (seek) {
-      if (seek.refreshToken !== refreshToken || seek.unreadLineTime !== unreadLineTime) {
-        // The conversation, or where its divider sits, changed out from under the seek.
-        seekRef.current = undefined
-      } else if (unreadLine) {
-        seekRef.current = undefined
-        scrollToUnreadLine(scroller, unreadLine)
-      } else if (!loading) {
-        // The window the seek was waiting on has arrived and holds no divider, which means there
-        // was nothing unread to move to after all.
-        seekRef.current = undefined
-      }
-    }
-
     // Rects are read after the scrolling above, so the banner reflects where the divider ended up.
+    const unreadLine = findUnreadLine(scroller)
     let newShowUnreadBanner = false
     if (unreadLineTime !== undefined) {
       if (unreadLine) {
@@ -340,9 +436,12 @@ export function Chat({
     }
 
     if (onSeekToUnread) {
-      // The divider is above the loaded window: ask for a window that contains it, and let the seek
-      // do the scrolling once it renders.
-      seekRef.current = { refreshToken, unreadLineTime }
+      // The divider is above the loaded window: ask for a window that contains it, and let the
+      // pending move do the scrolling once it renders.
+      pendingScrollRef.current = {
+        refreshToken,
+        target: { kind: 'unreadLine', unreadLineTime },
+      }
       onSeekToUnread()
     }
   }
@@ -385,7 +484,11 @@ export function Chat({
           {header}
           {backgroundContent}
           <MessageListContainer>
-            <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
+            <StyledMessageList
+              {...listProps}
+              onScrollUpdate={onScrollUpdate}
+              isRestorePending={isRestorePending}
+            />
             <AnimatePresence>
               {showUnreadBanner && unreadLineTime !== undefined ? (
                 <UnreadBannerButton

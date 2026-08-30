@@ -398,6 +398,12 @@ export interface ActivateChannel {
   type: '@chat/activateChannel'
   payload: {
     channelId: SbChannelId
+    /**
+     * Whether the message list is opening at the newest messages. It isn't when the view is being
+     * restored to a position further back, which means the user hasn't necessarily caught up with
+     * the channel just by opening it.
+     */
+    atBottom: boolean
   }
 }
 
