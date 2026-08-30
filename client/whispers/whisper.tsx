@@ -274,6 +274,7 @@ export function ConnectedWhisper({
           hasMoreHistory: whisperSession.hasHistory,
           loadingNewer: isLoadingNewer,
           hasNewerMessages: whisperSession.hasNewer,
+          windowGeneration: whisperSession.windowGen,
           refreshToken: targetId,
           onLoadMoreMessages,
           onLoadNewerMessages,

@@ -246,6 +246,12 @@ export interface MessageListProps {
    * from the present.
    */
   hasNewerMessages?: boolean
+  /**
+   * A value that changes exactly when the loaded window is replaced or dropped wholesale (rather
+   * than having messages added at one of its ends). On such an update the list leaves the viewport
+   * alone — there's no previous content to hold in view — and whoever asked for the swap places it.
+   */
+  windowGeneration?: number
   /** Whether we are currently requesting newer messages for this message list. */
   loadingNewer?: boolean
   /**
@@ -325,13 +331,10 @@ export class MessageList extends React.Component<MessageListProps> {
 
     // A window that was swapped out for a different one (rather than having messages added to one
     // of its ends) leaves no previous content to hold in view, so whoever asked for the swap places
-    // the viewport instead.
-    const messagesReplaced =
-      prevProps.messages !== this.props.messages &&
-      prevProps.messages.length > 0 &&
-      this.props.messages.length > 0 &&
-      prevProps.messages[0] !== this.props.messages[0] &&
-      prevProps.messages.at(-1) !== this.props.messages.at(-1)
+    // the viewport instead. This has to come from the explicit generation signal: comparing the
+    // arrays' endpoints can't tell a swap from an ordinary append that trimmed the top in the same
+    // update, which changes both ends too.
+    const messagesReplaced = prevProps.windowGeneration !== this.props.windowGeneration
     // A window detached from the present only ever grows by loading pages, so pinning to the bottom
     // would drag the user past a page that just appeared below them. The previous props matter as
     // much as the current ones: the update that loads the last page is also the one that reattaches

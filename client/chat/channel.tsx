@@ -306,6 +306,7 @@ export function ConnectedChatChannel({
               hasMoreHistory: channelMessages?.hasHistory,
               loadingNewer: channelMessages?.loadingNewer,
               hasNewerMessages: channelMessages?.hasNewer,
+              windowGeneration: channelMessages?.windowGen,
               refreshToken: channelId,
               MessageComponent: ChannelMessage,
               onLoadMoreMessages,

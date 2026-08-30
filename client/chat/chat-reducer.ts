@@ -684,6 +684,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateMessages(state, channelId, false, messages =>
       messages.concat(dedupeAgainst(newMessages, messages)),
     )
+    updateChannelInfos(state, action.payload.channelMentions)
+    updateDeletedChannels(state, action.payload.deletedChannels)
 
     // Rejoining the present takes both the server saying nothing is newer and the window having
     // reached everything that arrived live while it was detached. A message sent between the server
@@ -1017,6 +1019,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
+    if (!action.error) {
+      updateChannelInfos(state, action.payload.channelMentions)
+      updateDeletedChannels(state, action.payload.deletedChannels)
+    }
+  },
+
+  ['@whispers/loadNewerMessages'](state, action) {
+    if (!action.error) {
+      updateChannelInfos(state, action.payload.channelMentions)
+      updateDeletedChannels(state, action.payload.deletedChannels)
+    }
+  },
+
+  ['@whispers/loadMessagesAround'](state, action) {
     if (!action.error) {
       updateChannelInfos(state, action.payload.channelMentions)
       updateDeletedChannels(state, action.payload.deletedChannels)
