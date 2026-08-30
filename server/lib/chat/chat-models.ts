@@ -840,12 +840,12 @@ export interface UnreadChannelInfo {
 
 /**
  * Returns unread state for each of a user's joined channels that has a text message sent by
- * someone else after their last recorded read position in that channel. A channel with no
- * recorded read position never counts as unread here, since there's nothing to compare
- * newly-arrived messages against; `markRead` establishes that baseline the first time a client
- * reports one. Only text messages count, mirroring the client's own `makeUnread` flag: join/leave/
- * moderation events never mark a channel unread. A single set-based query over all of the user's
- * channels, rather than one query per channel. `sent` columns store naive UTC wall time (see the
+ * someone else after their last recorded read position in that channel. When no read position has
+ * been recorded yet, messages sent by others at or after the member's `join_date` count as unread
+ * instead, mirroring the whisper query's `start_date` fallback. Only text messages count,
+ * mirroring the client's own `makeUnread` flag: join/leave/moderation events never mark a channel
+ * unread. A single set-based query over all of the user's channels, rather than one query per
+ * channel. `sent` columns store naive UTC wall time (see the
  * timestamp parser setup in `server/lib/db`), so the read position is converted to naive UTC for
  * the comparison instead of being left to the connection's session time zone. The comparison works
  * at millisecond granularity (`sent >= read + 1ms` rather than `sent > read`): read positions
@@ -873,7 +873,7 @@ export async function getUnreadChannelInfo(userId: SbUserId): Promise<UnreadChan
           AND m.user_id != cu.user_id
           AND m.sent >= COALESCE(
             (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
-            'infinity'::timestamp
+            cu.join_date
           )
           AND m.data ? 'mentions'
           AND m.data->'mentions' @> to_jsonb(cu.user_id)
@@ -894,7 +894,7 @@ export async function getUnreadChannelInfo(userId: SbUserId): Promise<UnreadChan
             AND m.user_id != cu.user_id
             AND m.sent >= COALESCE(
               (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
-              'infinity'::timestamp
+              cu.join_date
             )
             AND m.data ->> 'type' = ${ServerChatMessageType.TextMessage}
         )

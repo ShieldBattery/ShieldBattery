@@ -91,11 +91,12 @@ export default class WhisperService {
       getUnreadWhisperTargets(userId),
     ])
     const sessions = sessionEntries.map(s => s.targetId)
-    const lastReadTimes = sessionEntries.flatMap(s =>
-      s.lastReadTime !== undefined
-        ? [{ targetId: s.targetId, lastReadTime: s.lastReadTime.getTime() }]
-        : [],
-    )
+    // The whisper unread query counts messages `sent >= start_date` when no read position has been
+    // recorded, so a session without one still gets a marker here, one millisecond before its start.
+    const lastReadTimes = sessionEntries.map(s => ({
+      targetId: s.targetId,
+      lastReadTime: s.lastReadTime?.getTime() ?? s.startDate.getTime() - 1,
+    }))
     const users = await findUsersById(sessions)
     return {
       sessions,

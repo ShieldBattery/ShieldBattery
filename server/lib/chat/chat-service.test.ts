@@ -543,6 +543,7 @@ describe('chat/chat-service', () => {
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
           hasUnread: false,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
         {
           channelInfo: testBasicInfo,
@@ -551,6 +552,7 @@ describe('chat/chat-service', () => {
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
           hasUnread: false,
+          lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
         },
       ])
     })
@@ -582,6 +584,7 @@ describe('chat/chat-service', () => {
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
           hasUnread: true,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       ])
     })
@@ -615,7 +618,40 @@ describe('chat/chat-service', () => {
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
           hasUnread: true,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
           latestMentionTime: latestMentionTime.getTime(),
+        },
+      ])
+    })
+
+    test('uses the recorded read position when one exists, without falling back to join date', async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+
+      const lastReadTime = new Date('2023-03-15T00:00:00.000Z')
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([
+        { ...user1ShieldBatteryChannelEntry, lastReadTime },
+      ])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+
+      expect(result).toEqual([
+        {
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          selfPreferences: channelPreferences,
+          selfPermissions: channelPermissions,
+          hasUnread: false,
+          lastReadTime: lastReadTime.getTime(),
         },
       ])
     })
@@ -705,6 +741,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       )
     })
@@ -845,6 +882,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       )
     })
@@ -889,6 +927,7 @@ describe('chat/chat-service', () => {
         channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
         joinedChannelInfo: testJoinedInfo,
+        lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
         selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
       })

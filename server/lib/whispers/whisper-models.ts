@@ -12,13 +12,19 @@ export interface WhisperSessionEntry {
   targetId: SbUserId
   /** The user's last recorded read position in the session, if they have one. */
   lastReadTime: Date | undefined
+  /** When the user started this whisper session. */
+  startDate: Date
 }
 
 export async function getWhisperSessionsForUser(userId: SbUserId): Promise<WhisperSessionEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<{ target_id: SbUserId; last_read_time: Date | null }>(sql`
-      SELECT ws.target_user_id AS target_id, ws.last_read_time,
+    const result = await client.query<{
+      target_id: SbUserId
+      last_read_time: Date | null
+      start_date: Date
+    }>(sql`
+      SELECT ws.target_user_id AS target_id, ws.last_read_time, ws.start_date,
         COALESCE(wm.sent, ws.start_date) AS last_sent
       FROM whisper_sessions ws
       LEFT JOIN LATERAL (
@@ -35,6 +41,7 @@ export async function getWhisperSessionsForUser(userId: SbUserId): Promise<Whisp
     return result.rows.map(row => ({
       targetId: row.target_id,
       lastReadTime: row.last_read_time ?? undefined,
+      startDate: row.start_date,
     }))
   } finally {
     done()
