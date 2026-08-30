@@ -46,7 +46,18 @@ type PendingScrollTarget =
   /** The unread divider, wherever it sat when the move was started. */
   | { kind: 'unreadLine'; unreadLineTime: number }
   /** The reading position the user left the conversation at, saved under `viewStateKey`. */
-  | { kind: 'anchor'; viewStateKey: string; anchor: ChatViewAnchor }
+  | {
+      kind: 'anchor'
+      viewStateKey: string
+      anchor: ChatViewAnchor
+      /**
+       * Which loaded window the move was started against. A different one means the replacement
+       * the move was waiting on has arrived.
+       */
+      windowGenAtStart: number | undefined
+      /** Whether a load has been seen in flight since the move was started. */
+      sawLoading: boolean
+    }
 
 /**
  * A move the list can't make yet because it's waiting on history the list doesn't hold. It carries
@@ -262,14 +273,17 @@ export function Chat({
     loading,
     hasMoreHistory,
     hasNewerMessages,
+    windowGeneration,
     refreshToken,
     viewStateKey,
   } = listProps
 
   /**
    * Starts moving the list to the position the user left this conversation at, if they left one
-   * behind. A position the loaded window doesn't reach becomes a pending move, which the owner is
-   * expected to fetch a window for and which lands once that window arrives.
+   * behind. Only a position that lies before the loaded window becomes a pending move: it takes a
+   * replacement window that the owner is expected to ask for, and it lands once that window
+   * arrives. Everything else is settled here and now, since the bottom is where the list already
+   * is.
    */
   const startAnchorRestore = (scroller: HTMLDivElement, key: string) => {
     const anchor = chatViewAnchorStore.get(key)
@@ -278,19 +292,35 @@ export function Chat({
     }
 
     const placement = findChatViewPlacement(messages, anchor)
-    if (
-      placement.kind === 'message' &&
+    if (placement.kind === 'message') {
       scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
-    ) {
+      return
+    }
+    if (placement.kind === 'bottom') {
       return
     }
 
     pendingScrollRef.current = {
       refreshToken,
-      target: { kind: 'anchor', viewStateKey: key, anchor },
+      target: {
+        kind: 'anchor',
+        viewStateKey: key,
+        anchor,
+        windowGenAtStart: windowGeneration,
+        sawLoading: false,
+      },
     }
   }
 
+  /**
+   * Carries a move that couldn't be made when it was started as far as the list now allows.
+   *
+   * A move waiting on a replacement window only ever gives up on something a committed render has
+   * shown it: the window generation changing, or a load it watched start and then finish. "Nothing
+   * is loading" on its own can't be trusted, because this runs from scroll updates as well as from
+   * renders, and a scroll update between a commit and the request it triggers reads the loading
+   * flag a render behind — as idle, when the request is about to be made.
+   */
   const applyPendingScroll = (scroller: HTMLDivElement) => {
     const pending = pendingScrollRef.current
     if (!pending) {
@@ -302,8 +332,9 @@ export function Chat({
       return
     }
 
-    if (pending.target.kind === 'unreadLine') {
-      if (pending.target.unreadLineTime !== unreadLineTime) {
+    const target = pending.target
+    if (target.kind === 'unreadLine') {
+      if (target.unreadLineTime !== unreadLineTime) {
         // Where the divider sits changed out from under the move.
         pendingScrollRef.current = undefined
         return
@@ -321,14 +352,31 @@ export function Chat({
       return
     }
 
-    const placement = findChatViewPlacement(messages, pending.target.anchor)
-    const placed =
+    const placement = findChatViewPlacement(messages, target.anchor)
+    if (
       placement.kind === 'message' &&
       scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
-    if (placed || !loading) {
-      // Either the list has reached the saved position, or nothing that could hold it is still on
-      // its way and the list keeps the position it was given by default: the newest messages.
+    ) {
       pendingScrollRef.current = undefined
+      return
+    }
+
+    if (windowGeneration !== target.windowGenAtStart) {
+      // A replacement window arrived and still can't hold the saved position, so the newest
+      // messages are as close to it as this conversation gets.
+      pendingScrollRef.current = undefined
+      scroller.scrollTop = scroller.scrollHeight
+      return
+    }
+
+    if (target.sawLoading && !loading) {
+      // A request went out and came back without replacing the window, so nothing more is coming.
+      pendingScrollRef.current = undefined
+      return
+    }
+
+    if (loading) {
+      target.sawLoading = true
     }
   }
 
