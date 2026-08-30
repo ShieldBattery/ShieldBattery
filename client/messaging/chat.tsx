@@ -385,13 +385,15 @@ export function Chat({
     return target?.kind === 'anchor' && target.viewStateKey === key
   }
 
-  const onScrollUpdate = (target: EventTarget) => {
+  const onScrollUpdate = (target: EventTarget, isListMount?: boolean) => {
     const scroller = target as HTMLDivElement
     scrollerRef.current = scroller
 
     // Any move has to happen before the scroll position is read below, so what the rest of this
-    // reports is where the list actually ends up rather than where it passed through.
-    if (lastSeenConversationRef.current !== refreshToken) {
+    // reports is where the list actually ends up rather than where it passed through. A list that
+    // has just mounted counts as arriving at its conversation however many times it happens: the
+    // mount pins to the bottom, and nothing else here would put the viewport back.
+    if (isListMount || lastSeenConversationRef.current !== refreshToken) {
       lastSeenConversationRef.current = refreshToken
       pendingScrollRef.current = undefined
       if (viewStateKey !== undefined) {

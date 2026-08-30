@@ -262,9 +262,13 @@ export interface MessageListProps {
   refreshToken?: unknown
   /**
    * Callback whenever the scroll position or scroll height has been updated (debounced to
-   * animation frames).
+   * animation frames). `isListMount` marks the update that follows the list mounting and pinning
+   * itself to the bottom: a mount always starts there, so anyone who wants the viewport somewhere
+   * else has to hear about every one of them. Mounts aren't in one-to-one correspondence with
+   * conversations — a remount that reuses the owner's state (as development StrictMode does) would
+   * otherwise pin to the bottom with nobody left to place the viewport again.
    */
-  onScrollUpdate?: (scrollTarget: EventTarget) => void
+  onScrollUpdate?: (scrollTarget: EventTarget, isListMount?: boolean) => void
   onLoadMoreMessages?: () => void
   onLoadNewerMessages?: () => void
   /**
@@ -361,9 +365,7 @@ export class MessageList extends React.Component<MessageListProps> {
     if (scrollable) {
       scrollable.scrollTop = scrollable.scrollHeight
 
-      if (this.props.onScrollUpdate) {
-        this.props.onScrollUpdate(scrollable)
-      }
+      this.props.onScrollUpdate?.(scrollable, true)
     }
   }
 
