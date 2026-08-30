@@ -106,12 +106,12 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
 }
 
 /**
- * Returns whether `channelId` has an unread message that mentions the current user. `undefined`
- * `idToLastReadTime` is treated the same way the server treats a NULL `last_read_time`: as
- * "everything is read" rather than "everything is unread". The server never seeds mention state
- * for a channel with no recorded read position (there's nothing to compare newly-arrived messages
- * against yet), so the client has to apply the same rule here, or a fresh channel would flip its
- * badge to urgent the moment a message with a stale mention time got merged in.
+ * Returns whether `channelId` has an unread message that mentions the current user. The server
+ * always sends a read marker for a joined channel (falling back to one millisecond before the
+ * member's join date when none has been recorded), so a joined channel with mention state should
+ * always have an `idToLastReadTime` entry; if one is somehow missing, `?? Infinity` fails toward
+ * "everything is read" rather than flipping the badge to urgent with nothing to compare the
+ * mention time against.
  */
 export function channelHasUnreadMention(
   chatState: Immutable<ChatState>,
