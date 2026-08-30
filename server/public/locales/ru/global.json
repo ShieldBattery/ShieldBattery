@@ -1482,13 +1482,20 @@
   },
   "messaging": {
     "blockedMessage": "Заблокированное сообщение",
+    "copyLinkAddress": "Копировать адрес ссылки",
+    "copyMessage": "Копировать сообщение",
+    "jumpToBottom": "Перейти в конец",
+    "jumpToPresent": "Перейти к последним",
     "mention": "Упомянуть",
     "messageTooLongContent": "Сообщение может содержать не более {{maxLength}} символов, а в этом их {{length}}. Сократите его перед отправкой.",
     "messageTooLongTitle": "Слишком длинное сообщение",
     "newDayMessage": "День изменен на <2>{{day}}</2>",
+    "newMessages": "Новые сообщения",
+    "openLink": "Открыть ссылку",
     "searchWithGoogle": "Искать в Google",
     "sendMessage": "Отправить сообщение",
-    "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}"
+    "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}",
+    "unreadLineLabel": "Новое"
   },
   "navigation": {
     "bar": {

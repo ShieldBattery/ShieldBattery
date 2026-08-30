@@ -1431,13 +1431,20 @@
   },
   "messaging": {
     "blockedMessage": "消息被屏蔽",
+    "copyLinkAddress": "复制链接地址",
+    "copyMessage": "复制消息",
+    "jumpToBottom": "跳至底部",
+    "jumpToPresent": "跳至最新消息",
     "mention": "提到",
     "messageTooLongContent": "消息最多只能有 {{maxLength}} 个字符，这条有 {{length}} 个。请缩短后再发送。",
     "messageTooLongTitle": "消息过长",
     "newDayMessage": "日期已变为<2>{{day}}</2>",
+    "newMessages": "新消息",
+    "openLink": "打开链接",
     "searchWithGoogle": "用谷歌搜索",
     "sendMessage": "发送消息",
-    "sendMessageChatRestricted": "限制发送消息至 {{date}}"
+    "sendMessageChatRestricted": "限制发送消息至 {{date}}",
+    "unreadLineLabel": "新"
   },
   "navigation": {
     "bar": {

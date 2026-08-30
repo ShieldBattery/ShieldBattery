@@ -93,6 +93,17 @@ export interface GetSessionHistoryResponse {
   channelMentions: BasicChannelInfo[]
   /** A list of channel IDs saved in various whisper messages that no longer exist. */
   deletedChannels: SbChannelId[]
+  /**
+   * Whether messages older than the returned window exist. For requests with `afterTime`, this is
+   * always true (the cursor implies the client already holds older messages).
+   */
+  hasMoreBefore: boolean
+  /**
+   * Whether messages newer than the returned window existed when the query executed. For requests
+   * with `beforeTime`, this is always true (the cursor implies the client already holds newer
+   * messages); for requests with no cursor (a newest-page fetch), it is always false.
+   */
+  hasMoreAfter: boolean
 }
 
 export enum WhisperServiceErrorCode {

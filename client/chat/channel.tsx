@@ -28,6 +28,9 @@ import {
   getChannelInfo,
   getChannelLastReadKey,
   getMessageHistory,
+  getMessagesAround,
+  getNewerMessages,
+  jumpToPresent,
   leaveChannelWithConfirmation,
   markChannelRead,
   retrieveUserList,
@@ -266,6 +269,20 @@ export function ConnectedChatChannel({
     dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
   )
 
+  const onLoadNewerMessages = () => {
+    dispatch(getNewerMessages(channelId, MESSAGES_LIMIT))
+  }
+
+  const onJumpToPresent = () => {
+    dispatch(jumpToPresent(channelId, MESSAGES_LIMIT))
+  }
+
+  const onSeekToUnread = () => {
+    if (unreadLineTime !== undefined) {
+      dispatch(getMessagesAround(channelId, MESSAGES_LIMIT, unreadLineTime))
+    }
+  }
+
   const onAtBottomChange = (atBottom: boolean) => {
     dispatch(updateChannelAtBottom(channelId, atBottom))
   }
@@ -287,9 +304,12 @@ export function ConnectedChatChannel({
               messages: channelMessages?.messages ?? [],
               loading: channelMessages?.loadingHistory,
               hasMoreHistory: channelMessages?.hasHistory,
+              loadingNewer: channelMessages?.loadingNewer,
+              hasNewerMessages: channelMessages?.hasNewer,
               refreshToken: channelId,
               MessageComponent: ChannelMessage,
               onLoadMoreMessages,
+              onLoadNewerMessages,
               unreadLineTime,
             }}
             inputProps={{
@@ -299,6 +319,8 @@ export function ConnectedChatChannel({
               baseMentionableUsers,
             }}
             onAtBottomChange={onAtBottomChange}
+            onJumpToPresent={onJumpToPresent}
+            onSeekToUnread={onSeekToUnread}
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead
               // of asserting them with ! because better to be safe than sorry, or something.

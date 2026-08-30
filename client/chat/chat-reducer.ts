@@ -34,6 +34,26 @@ export interface MessagesState {
 
   loadingHistory: boolean
   hasHistory: boolean
+  loadingNewer: boolean
+  /**
+   * Whether messages newer than the loaded window exist on the server, i.e. the window is detached
+   * from the present. While this is set, live messages are not appended (they belong on the far
+   * side of the gap), and the window is never trimmed.
+   */
+  hasNewer: boolean
+  /**
+   * The newest server-recorded time (epoch ms) of a message that arrived live while the window was
+   * detached and so was not appended to it. The window has caught back up to the present only once
+   * it has loaded at least this far, which closes the race where a message arrives between the
+   * server running the last page's query and this client applying its response.
+   */
+  detachedNewestTime?: number
+  /**
+   * Counts how many times the loaded window has been replaced or dropped. Every history request
+   * carries the generation it was issued for, and the reducer discards responses that no longer
+   * match, since a page has no boundary in common with a window it wasn't fetched for.
+   */
+  windowGen: number
 }
 
 export interface ChatState {
@@ -213,6 +233,84 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
 }
 
 /**
+ * Returns the time (epoch ms) of the newest message in `messages` that carries a server-recorded
+ * timestamp, or `undefined` if there is none. Client-only messages (join/leave banners and the
+ * like) are stamped with the local clock, so their times can't be compared against or handed back
+ * to the server.
+ */
+export function newestServerOriginTime(messages: readonly ChatMessage[]): number | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (isServerOriginMessage(messages[i])) {
+      return messages[i].time
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Returns `incoming` with every message already present in `existing` removed. The history
+ * endpoints seek by millisecond-precision time, so a page boundary landing inside a group of
+ * messages that share a timestamp can hand back messages the window already holds.
+ */
+function dedupeAgainst(incoming: ChatMessage[], existing: readonly ChatMessage[]): ChatMessage[] {
+  if (!existing.length) {
+    return incoming
+  }
+
+  const existingIds = new Set(existing.map(m => m.id))
+  return incoming.filter(m => !existingIds.has(m.id))
+}
+
+/**
+ * Records that a message the user hasn't seen has arrived in a channel: raises the unread flag and,
+ * where applicable, freezes the unread divider. Kept separate from `updateMessages` because a
+ * message arriving while the loaded window is detached from the present isn't added to the window
+ * at all, yet counts as unread exactly the same.
+ */
+function markChannelUnread(state: ChatState, channelId: SbChannelId) {
+  const isChannelActivated = state.activatedChannels.has(channelId)
+
+  if (!state.unreadChannels.has(channelId) && !isChannelActivated) {
+    state.unreadChannels.add(channelId)
+  }
+
+  // The channel is being actively viewed, but the message still won't be seen right away: either
+  // the view is scrolled up, or the loaded window sits behind the present, where the bottom of the
+  // list isn't the newest message. Freeze the unread divider at the read position so it marks where
+  // the user left off instead of chasing the read position as the eager mark-read keeps advancing
+  // it.
+  const isDetached = state.idToMessages.get(channelId)?.hasNewer ?? false
+  if (
+    isChannelActivated &&
+    (!state.atBottomChannels.has(channelId) || isDetached) &&
+    !state.idToUnreadLineTime.has(channelId)
+  ) {
+    const lastReadTime = state.idToLastReadTime.get(channelId)
+    if (lastReadTime !== undefined) {
+      state.idToUnreadLineTime.set(channelId, lastReadTime)
+    }
+  }
+}
+
+/**
+ * Discards everything loaded for a channel, returning it to the shape a freshly-joined channel has:
+ * nothing loaded, older history assumed to exist, attached to the present. Advancing the generation
+ * makes the reducer discard any page still in flight for the window that was just dropped.
+ */
+function dropMessageWindow(channelMessages: MessagesState) {
+  channelMessages.messages = []
+  channelMessages.hasHistory = true
+  channelMessages.hasNewer = false
+  channelMessages.detachedNewestTime = undefined
+  // In-flight requests for the dropped window will be discarded by the generation check when they
+  // land, so their loading flags have to be lowered here or they'd stay raised forever.
+  channelMessages.loadingHistory = false
+  channelMessages.loadingNewer = false
+  channelMessages.windowGen += 1
+}
+
+/**
  * Update the messages field for a channel, keeping the `hasUnread` flag in proper sync.
  *
  * @param state The complete chat state which holds all of the channels.
@@ -236,11 +334,13 @@ function updateMessages(
   channelMessages.messages = updateFn(channelMessages.messages)
 
   const isChannelActivated = state.activatedChannels.has(channelId)
-  const isChannelUnread = state.unreadChannels.has(channelId)
 
   // Trimming is safe when nobody is reading scrollback: either the channel isn't being viewed, or
-  // the viewer is pinned to the bottom, where auto-scroll makes removing top messages invisible.
-  const canTrim = !isChannelActivated || state.atBottomChannels.has(channelId)
+  // the viewer is pinned to the bottom, where auto-scroll makes removing top messages invisible. A
+  // detached window is never trimmed: the user is paging through it in both directions, and there's
+  // no scroll compensation for messages disappearing off its top.
+  const canTrim =
+    !channelMessages.hasNewer && (!isChannelActivated || state.atBottomChannels.has(channelId))
 
   let sliced = false
   if (canTrim && channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY) {
@@ -248,23 +348,8 @@ function updateMessages(
     sliced = true
   }
 
-  if (makeUnread && !isChannelUnread && !isChannelActivated) {
-    state.unreadChannels.add(channelId)
-  }
-
-  // The channel is being actively viewed but scrolled up, so a new message won't be seen right
-  // away. Freeze the unread divider at the read position so it marks where the user left off
-  // instead of chasing the read position as the eager mark-read keeps advancing it.
-  if (
-    makeUnread &&
-    isChannelActivated &&
-    !state.atBottomChannels.has(channelId) &&
-    !state.idToUnreadLineTime.has(channelId)
-  ) {
-    const lastReadTime = state.idToLastReadTime.get(channelId)
-    if (lastReadTime !== undefined) {
-      state.idToUnreadLineTime.set(channelId, lastReadTime)
-    }
+  if (makeUnread) {
+    markChannelUnread(state, channelId)
   }
 
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
@@ -327,6 +412,10 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     messages: [],
     loadingHistory: false,
     hasHistory: true,
+    loadingNewer: false,
+    hasNewer: false,
+    detachedNewestTime: undefined,
+    windowGen: 0,
   }
   state.joinedChannels.add(channelId)
   state.idToBasicInfo.set(channelId, channelInfo)
@@ -456,10 +545,23 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { message: newMessage, channelMentions } = action.payload
     const { channelId, mentionsSelf } = action.meta
 
-    updateMessages(state, channelId, true, m => {
-      m.push(newMessage)
-      return m
-    })
+    const channelMessages = state.idToMessages.get(channelId)
+    if (channelMessages?.hasNewer) {
+      // The loaded window sits behind the present, so this message belongs past the gap at its far
+      // end rather than at the end of what's loaded. Remembering how far the present has run ahead
+      // is what lets the window tell, once it has paged forward, that it has actually caught up.
+      channelMessages.detachedNewestTime = Math.max(
+        channelMessages.detachedNewestTime ?? -Infinity,
+        newMessage.time,
+      )
+      markChannelUnread(state, channelId)
+    } else {
+      updateMessages(state, channelId, true, m => {
+        m.push(newMessage)
+        return m
+      })
+    }
+
     updateChannelInfos(state, channelMentions)
 
     if (mentionsSelf) {
@@ -524,19 +626,17 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/loadMessageHistory'](state, action) {
-    if (action.error) {
-      // TODO(2Pac): Handle errors
-      const channelMessages = state.idToMessages.get(action.meta.channelId)
-      if (channelMessages) {
-        channelMessages.loadingHistory = false
-      }
+    const { channelId, windowGen } = action.meta
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages || channelMessages.windowGen !== windowGen) {
       return
     }
 
-    const { channelId, limit } = action.meta
+    channelMessages.loadingHistory = false
 
-    const channelMessages = state.idToMessages.get(channelId)
-    if (!channelMessages) {
+    if (action.error) {
+      // TODO(2Pac): Handle errors
       return
     }
 
@@ -544,14 +644,149 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // concatenated with the existing messages which could also contain client chat messages.
     const newMessages = action.payload.messages as ChatMessage[]
 
-    channelMessages.loadingHistory = false
-    if (newMessages.length < limit) {
-      channelMessages.hasHistory = false
-    }
+    channelMessages.hasHistory = action.payload.hasMoreBefore
 
-    updateMessages(state, channelId, false, messages => newMessages.concat(messages))
+    updateMessages(state, channelId, false, messages =>
+      dedupeAgainst(newMessages, messages).concat(messages),
+    )
     updateChannelInfos(state, action.payload.channelMentions)
     updateDeletedChannels(state, action.payload.deletedChannels)
+  },
+
+  ['@chat/loadNewerMessagesBegin'](state, action) {
+    const { channelId } = action.payload
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    channelMessages.loadingNewer = true
+  },
+
+  ['@chat/loadNewerMessages'](state, action) {
+    const { channelId, windowGen } = action.meta
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages || channelMessages.windowGen !== windowGen) {
+      return
+    }
+
+    channelMessages.loadingNewer = false
+
+    if (action.error) {
+      // TODO(2Pac): Handle errors
+      return
+    }
+
+    const newMessages = action.payload.messages as ChatMessage[]
+
+    updateMessages(state, channelId, false, messages =>
+      messages.concat(dedupeAgainst(newMessages, messages)),
+    )
+
+    // Rejoining the present takes both the server saying nothing is newer and the window having
+    // reached everything that arrived live while it was detached. A message sent between the server
+    // running this page's query and this response landing leaves the window one page short, so
+    // `hasNewer` stays set and the list's next-edge sentinel asks again until it converges. The
+    // exception is a request issued when this client already knew of the messages it's waiting on:
+    // live messages are only announced after they're stored, so such a request's query ran late
+    // enough to see them, and them being absent from the response means they've since been deleted.
+    // Attaching then (rather than holding out for a time no remaining message will ever reach)
+    // keeps a deletion from turning the sentinel's retries into an endless loop.
+    if (!action.payload.hasMoreAfter) {
+      const newestLoadedTime = newestServerOriginTime(channelMessages.messages)
+      const { detachedNewestTime } = channelMessages
+      if (
+        detachedNewestTime === undefined ||
+        (newestLoadedTime !== undefined && newestLoadedTime >= detachedNewestTime) ||
+        detachedNewestTime <= action.meta.knownNewestTime
+      ) {
+        channelMessages.hasNewer = false
+        channelMessages.detachedNewestTime = undefined
+      }
+    }
+  },
+
+  ['@chat/loadMessagesAroundBegin'](state, action) {
+    const { channelId } = action.payload
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    // The whole window is about to be replaced, so there's no one edge the wait belongs to; the
+    // older edge's affordance stands in for both.
+    channelMessages.loadingHistory = true
+  },
+
+  ['@chat/loadMessagesAround'](state, action) {
+    const { channelId, windowGen } = action.meta
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages || channelMessages.windowGen !== windowGen) {
+      return
+    }
+
+    channelMessages.loadingHistory = false
+    channelMessages.loadingNewer = false
+
+    if (action.error) {
+      // TODO(2Pac): Handle errors
+      return
+    }
+
+    // Everything this client knows the present ran at least as far as: the newest message it had
+    // loaded (live messages keep appending to an attached window while the request is in flight)
+    // and the newest it observed while detached. The replacement window has caught up to the
+    // present only if it reaches this far.
+    const knownNewest = Math.max(
+      newestServerOriginTime(channelMessages.messages) ?? -Infinity,
+      channelMessages.detachedNewestTime ?? -Infinity,
+    )
+
+    // The fetched range doesn't have to touch what was loaded, so there may be no seam to splice
+    // them together at and the window is replaced outright. Client-only messages go with it: they
+    // only ever existed at the position this session happened to be scrolled to.
+    channelMessages.messages = action.payload.messages as ChatMessage[]
+    channelMessages.hasHistory = action.payload.hasMoreBefore
+    channelMessages.windowGen += 1
+
+    if (action.payload.hasMoreAfter) {
+      channelMessages.hasNewer = true
+      channelMessages.detachedNewestTime = knownNewest === -Infinity ? undefined : knownNewest
+    } else {
+      // The server saw nothing newer than the replacement window, but a message that arrived
+      // between its query running and this response landing exists only past the window's newer
+      // edge, so the window must stay detached and page forward to it. A message this client
+      // already knew of when the request was issued is the exception: the query ran late enough to
+      // have seen it, so its absence means it's been deleted (see the matching reasoning where
+      // newer pages land).
+      const newestLoadedTime = newestServerOriginTime(channelMessages.messages) ?? -Infinity
+      const knownNewestAtDispatch = action.meta.knownNewestTime ?? -Infinity
+      if (newestLoadedTime < knownNewest && knownNewest > knownNewestAtDispatch) {
+        channelMessages.hasNewer = true
+        channelMessages.detachedNewestTime = knownNewest
+      } else {
+        channelMessages.hasNewer = false
+        channelMessages.detachedNewestTime = undefined
+      }
+    }
+
+    updateChannelInfos(state, action.payload.channelMentions)
+    updateDeletedChannels(state, action.payload.deletedChannels)
+  },
+
+  ['@chat/resetMessageWindow'](state, action) {
+    const { channelId } = action.payload
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    dropMessageWindow(channelMessages)
   },
 
   ['@chat/updateMessageDeleted'](state, action) {
@@ -677,10 +912,18 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
+    if (channelMessages.hasNewer) {
+      // Keeping a window that sits mid-history would put the user back where they were reading with
+      // no indication that the channel has run on past it, so a detached window is dropped whole
+      // and the next visit starts from the present like any other fresh open.
+      dropMessageWindow(channelMessages)
+    } else {
+      const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 
-    channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
-    channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
+      channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+      channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
+    }
+
     state.activatedChannels.delete(channelId)
     state.atBottomChannels.delete(channelId)
   },
@@ -702,16 +945,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     if (!state.activatedChannels.has(channelId)) {
       const messages = state.idToMessages.get(channelId)?.messages
-      let newestServerOriginTime: number | undefined
-      if (messages) {
-        for (let i = messages.length - 1; i >= 0; i--) {
-          if (isServerOriginMessage(messages[i])) {
-            newestServerOriginTime = messages[i].time
-            break
-          }
-        }
-      }
-      if (newestServerOriginTime === undefined || newestServerOriginTime <= effective) {
+      const newestKnownTime = messages ? newestServerOriginTime(messages) : undefined
+      if (newestKnownTime === undefined || newestKnownTime <= effective) {
         state.unreadChannels.delete(channelId)
       }
 
@@ -734,9 +969,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     if (atBottom && !wasAtBottom) {
       // The user returned to the bottom after reading scrollback that accumulated past the cap;
-      // drop it now, where the removal is invisible.
+      // drop it now, where the removal is invisible. For a detached window the bottom is only the
+      // end of what's loaded rather than the newest message, and the user is still paging through
+      // it, so nothing is dropped there.
       const channelMessages = state.idToMessages.get(channelId)
-      if (channelMessages) {
+      if (channelMessages && !channelMessages.hasNewer) {
         const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 
         channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)

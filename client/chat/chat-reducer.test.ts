@@ -6,9 +6,11 @@ import {
   ChatMessage,
   ChatMessageEvent,
   ClientChatMessageType,
+  GetChannelHistoryServerResponse,
   InitialChannelData,
   SbChannelId,
   SelfJoinChannelMessage,
+  ServerChatMessage,
   ServerChatMessageType,
   makeSbChannelId,
 } from '../../common/chat'
@@ -53,10 +55,17 @@ function makeState(
   overrides: {
     messages?: ChatMessage[]
     activated?: boolean
+    atBottom?: boolean
     unread?: boolean
     lastReadTime?: number
     latestMentionTime?: number
     unreadLineTime?: number
+    hasHistory?: boolean
+    loadingHistory?: boolean
+    loadingNewer?: boolean
+    hasNewer?: boolean
+    detachedNewestTime?: number
+    windowGen?: number
   } = {},
 ): Immutable<ChatState> {
   const state: ChatState = {
@@ -66,13 +75,24 @@ function makeState(
     idToJoinedInfo: new Map(),
     idToUsers: new Map(),
     idToMessages: new Map([
-      [CHANNEL_ID, { messages: overrides.messages ?? [], loadingHistory: false, hasHistory: true }],
+      [
+        CHANNEL_ID,
+        {
+          messages: overrides.messages ?? [],
+          loadingHistory: overrides.loadingHistory ?? false,
+          hasHistory: overrides.hasHistory ?? true,
+          loadingNewer: overrides.loadingNewer ?? false,
+          hasNewer: overrides.hasNewer ?? false,
+          detachedNewestTime: overrides.detachedNewestTime,
+          windowGen: overrides.windowGen ?? 0,
+        },
+      ],
     ]),
     idToUserProfiles: new Map(),
     idToSelfPreferences: new Map(),
     idToSelfPermissions: new Map(),
     activatedChannels: new Set(overrides.activated ? [CHANNEL_ID] : []),
-    atBottomChannels: new Set(),
+    atBottomChannels: new Set(overrides.atBottom ? [CHANNEL_ID] : []),
     unreadChannels: new Set(overrides.unread ? [CHANNEL_ID] : []),
     deletedChannels: new Set(),
     idToLastReadTime: new Map(
@@ -149,6 +169,98 @@ function updateLeaveSelfAction(): ChatActions {
     type: '@chat/updateLeaveSelf',
     meta: { channelId: CHANNEL_ID },
   }
+}
+
+const HISTORY_LIMIT = 50
+
+function historyResponse(
+  messages: ServerChatMessage[],
+  {
+    hasMoreBefore = true,
+    hasMoreAfter = true,
+  }: { hasMoreBefore?: boolean; hasMoreAfter?: boolean } = {},
+): GetChannelHistoryServerResponse {
+  return {
+    messages,
+    users: [],
+    mentions: [],
+    channelMentions: [],
+    deletedChannels: [],
+    hasMoreBefore,
+    hasMoreAfter,
+  }
+}
+
+function loadMessageHistoryAction(
+  payload: GetChannelHistoryServerResponse,
+  { windowGen = 0, beforeTime = -1 }: { windowGen?: number; beforeTime?: number } = {},
+): ChatActions {
+  return {
+    type: '@chat/loadMessageHistory',
+    payload,
+    meta: { channelId: CHANNEL_ID, limit: HISTORY_LIMIT, beforeTime, windowGen },
+  }
+}
+
+function loadNewerMessagesAction(
+  payload: GetChannelHistoryServerResponse,
+  {
+    windowGen = 0,
+    afterTime = 0,
+    knownNewestTime = afterTime,
+  }: { windowGen?: number; afterTime?: number; knownNewestTime?: number } = {},
+): ChatActions {
+  return {
+    type: '@chat/loadNewerMessages',
+    payload,
+    meta: { channelId: CHANNEL_ID, limit: HISTORY_LIMIT, afterTime, windowGen, knownNewestTime },
+  }
+}
+
+function loadMessagesAroundAction(
+  payload: GetChannelHistoryServerResponse,
+  {
+    windowGen = 0,
+    aroundTime = 0,
+    knownNewestTime,
+  }: { windowGen?: number; aroundTime?: number; knownNewestTime?: number } = {},
+): ChatActions {
+  return {
+    type: '@chat/loadMessagesAround',
+    payload,
+    meta: { channelId: CHANNEL_ID, limit: HISTORY_LIMIT, aroundTime, windowGen, knownNewestTime },
+  }
+}
+
+function resetMessageWindowAction(): ChatActions {
+  return {
+    type: '@chat/resetMessageWindow',
+    payload: { channelId: CHANNEL_ID },
+  }
+}
+
+function deactivateChannelAction(): ChatActions {
+  return {
+    type: '@chat/deactivateChannel',
+    payload: { channelId: CHANNEL_ID },
+  }
+}
+
+function windowOf(state: Immutable<ChatState>) {
+  return state.idToMessages.get(CHANNEL_ID)!
+}
+
+function messageIdsOf(state: Immutable<ChatState>): string[] {
+  return windowOf(state).messages.map(m => m.id)
+}
+
+/** Rewrites a request action into the rejected form the promise middleware dispatches. */
+function asFailure(action: ChatActions): ChatActions {
+  return {
+    ...action,
+    payload: new Error('request failed'),
+    error: true,
+  } as unknown as ChatActions
 }
 
 describe('client/chat/chat-reducer', () => {
@@ -358,6 +470,441 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, updateLeaveSelfAction())
 
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('@chat/loadMessageHistory', () => {
+    test('takes the older edge straight from the response instead of inferring it', () => {
+      const state = makeState()
+
+      // A short page that nonetheless has more behind it: the count says nothing about the edge.
+      const result = chatReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([textMessage(100)], { hasMoreBefore: true })),
+      )
+
+      expect(windowOf(result).hasHistory).toBe(true)
+      expect(windowOf(result).loadingHistory).toBe(false)
+    })
+
+    test('clears the older edge when the response says there is nothing more', () => {
+      const state = makeState()
+
+      const result = chatReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([textMessage(100)], { hasMoreBefore: false })),
+      )
+
+      expect(windowOf(result).hasHistory).toBe(false)
+    })
+
+    test('drops messages the window already holds at the seam', () => {
+      const state = makeState({ messages: [textMessage(100), textMessage(200)] })
+
+      const result = chatReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([textMessage(50), textMessage(100)])),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-50', 'text-100', 'text-200'])
+    })
+
+    test('ignores a page fetched for a window that has since been replaced', () => {
+      const state = makeState({ messages: [textMessage(200)], windowGen: 3 })
+
+      const result = chatReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([textMessage(100)], { hasMoreBefore: false }), {
+          windowGen: 2,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-200'])
+      expect(windowOf(result).hasHistory).toBe(true)
+    })
+
+    test('a failed page clears the loading flag without touching the window', () => {
+      const state = makeState({ messages: [textMessage(200)], loadingHistory: true })
+
+      const result = chatReducer(state, asFailure(loadMessageHistoryAction(historyResponse([]))))
+
+      expect(windowOf(result).loadingHistory).toBe(false)
+      expect(messageIdsOf(result)).toEqual(['text-200'])
+      expect(windowOf(result).hasHistory).toBe(true)
+    })
+  })
+
+  describe('@chat/loadMessagesAround', () => {
+    test('replaces the window and detaches it from the present', () => {
+      const state = makeState({
+        messages: [textMessage(900), selfJoinMessage(950)],
+        loadingHistory: true,
+        loadingNewer: true,
+      })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([textMessage(100), textMessage(200)], {
+            hasMoreBefore: true,
+            hasMoreAfter: true,
+          }),
+          { aroundTime: 150 },
+        ),
+      )
+
+      const window = windowOf(result)
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200'])
+      expect(window.hasHistory).toBe(true)
+      expect(window.hasNewer).toBe(true)
+      expect(window.loadingHistory).toBe(false)
+      expect(window.loadingNewer).toBe(false)
+      expect(window.windowGen).toBe(1)
+    })
+
+    test('lands attached when the fetched window reaches the newest message', () => {
+      const state = makeState({ hasNewer: true, detachedNewestTime: 500 })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([textMessage(400), textMessage(500)], {
+            hasMoreBefore: false,
+            hasMoreAfter: false,
+          }),
+        ),
+      )
+
+      expect(windowOf(result).hasNewer).toBe(false)
+      expect(windowOf(result).hasHistory).toBe(false)
+      expect(windowOf(result).detachedNewestTime).toBeUndefined()
+    })
+
+    test('stays detached when a message arrived while the request was in flight', () => {
+      // The window held messages up to 500 when the request was dispatched (knownNewestTime), and
+      // another message arrived at 600 before the response landed, so the replacement window ending
+      // at 200 cannot have caught the present even though the server saw nothing newer.
+      const state = makeState({ messages: [textMessage(500), textMessage(600)] })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([textMessage(100), textMessage(200)], {
+            hasMoreBefore: true,
+            hasMoreAfter: false,
+          }),
+          { aroundTime: 150, knownNewestTime: 500 },
+        ),
+      )
+
+      const window = windowOf(result)
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200'])
+      expect(window.hasNewer).toBe(true)
+      expect(window.detachedNewestTime).toBe(600)
+    })
+
+    test('lands attached when everything past the window was already known at dispatch', () => {
+      // The newest loaded message (600) was known when the request was dispatched, so the server
+      // not returning anything newer than 200 means the newer messages have been deleted.
+      const state = makeState({ messages: [textMessage(500), textMessage(600)] })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(
+          historyResponse([textMessage(100), textMessage(200)], {
+            hasMoreBefore: true,
+            hasMoreAfter: false,
+          }),
+          { aroundTime: 150, knownNewestTime: 600 },
+        ),
+      )
+
+      const window = windowOf(result)
+      expect(window.hasNewer).toBe(false)
+      expect(window.detachedNewestTime).toBeUndefined()
+    })
+
+    test('ignores a response fetched for a window that has since been replaced', () => {
+      const state = makeState({ messages: [textMessage(900)], windowGen: 2 })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([textMessage(100)]), { windowGen: 1 }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-900'])
+      expect(windowOf(result).windowGen).toBe(2)
+    })
+  })
+
+  describe('a detached message window', () => {
+    test('does not append a live message, but records how far the present has run ahead', () => {
+      const state = makeState({ hasNewer: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(state, updateMessageAction(500, false))
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(windowOf(result).detachedNewestTime).toBe(500)
+    })
+
+    test('keeps the newest time when an older message arrives afterwards', () => {
+      const state = makeState({ hasNewer: true, detachedNewestTime: 500 })
+
+      const result = chatReducer(state, updateMessageAction(400, false))
+
+      expect(windowOf(result).detachedNewestTime).toBe(500)
+    })
+
+    test('a live message still marks the channel unread and records a mention', () => {
+      const state = makeState({ hasNewer: true })
+
+      const result = chatReducer(state, updateMessageAction(500, true))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(500)
+    })
+
+    test('a live message freezes the unread divider even at the bottom of the loaded window', () => {
+      const state = makeState({
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 100,
+      })
+
+      const result = chatReducer(state, updateMessageAction(500, false))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('an attached channel at the bottom does not freeze the divider', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(500, false))
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('is never trimmed while it grows, even when the view is at the bottom of it', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        messages,
+      })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(1000)]), { afterTime: 200 }),
+      )
+
+      expect(windowOf(result).messages.length).toBe(201)
+    })
+
+    test('is not trimmed when the view returns to the bottom of it', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ hasNewer: true, activated: true, messages })
+
+      const result = chatReducer(state, {
+        type: '@chat/updateChannelAtBottom',
+        payload: { channelId: CHANNEL_ID, atBottom: true },
+      })
+
+      expect(windowOf(result).messages.length).toBe(200)
+    })
+  })
+
+  describe('@chat/loadNewerMessages', () => {
+    test('appends the page and reattaches once the server has nothing newer', () => {
+      const state = makeState({ hasNewer: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200)], { hasMoreAfter: false }), {
+          afterTime: 100,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200'])
+      expect(windowOf(result).hasNewer).toBe(false)
+      expect(windowOf(result).loadingNewer).toBe(false)
+    })
+
+    test('drops messages the window already holds at the seam', () => {
+      const state = makeState({ hasNewer: true, messages: [textMessage(100), textMessage(200)] })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200), textMessage(300)])),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200', 'text-300'])
+    })
+
+    test('stays detached while the server still has newer messages', () => {
+      const state = makeState({ hasNewer: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200)], { hasMoreAfter: true })),
+      )
+
+      expect(windowOf(result).hasNewer).toBe(true)
+    })
+
+    test('stays detached when a message arrived past the end of the final page', () => {
+      const state = makeState({
+        hasNewer: true,
+        detachedNewestTime: 300,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200)], { hasMoreAfter: false })),
+      )
+
+      expect(windowOf(result).hasNewer).toBe(true)
+      expect(windowOf(result).detachedNewestTime).toBe(300)
+    })
+
+    test('reattaches when the awaited message was already known at dispatch (deleted)', () => {
+      const state = makeState({
+        hasNewer: true,
+        detachedNewestTime: 300,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200)], { hasMoreAfter: false }), {
+          afterTime: 100,
+          knownNewestTime: 300,
+        }),
+      )
+
+      expect(windowOf(result).hasNewer).toBe(false)
+      expect(windowOf(result).detachedNewestTime).toBeUndefined()
+    })
+
+    test('reattaches once the window catches up to what arrived while detached', () => {
+      const state = makeState({
+        hasNewer: true,
+        detachedNewestTime: 300,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(
+          historyResponse([textMessage(200), textMessage(300)], {
+            hasMoreAfter: false,
+          }),
+        ),
+      )
+
+      expect(windowOf(result).hasNewer).toBe(false)
+      expect(windowOf(result).detachedNewestTime).toBeUndefined()
+    })
+
+    test('ignores a page fetched for a window that has since been replaced', () => {
+      const state = makeState({
+        hasNewer: true,
+        windowGen: 4,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200)], { hasMoreAfter: false }), {
+          windowGen: 3,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(windowOf(result).hasNewer).toBe(true)
+      expect(windowOf(result).loadingNewer).toBe(true)
+    })
+
+    test('a failed page clears the loading flag and leaves the window detached', () => {
+      const state = makeState({ hasNewer: true, loadingNewer: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(state, asFailure(loadNewerMessagesAction(historyResponse([]))))
+
+      expect(windowOf(result).loadingNewer).toBe(false)
+      expect(windowOf(result).hasNewer).toBe(true)
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+    })
+  })
+
+  describe('@chat/resetMessageWindow', () => {
+    test('empties the window and returns it to the present', () => {
+      const state = makeState({
+        messages: [textMessage(100)],
+        hasHistory: false,
+        hasNewer: true,
+        detachedNewestTime: 500,
+        loadingNewer: true,
+        windowGen: 2,
+      })
+
+      const result = chatReducer(state, resetMessageWindowAction())
+
+      const window = windowOf(result)
+      expect(window.messages).toEqual([])
+      expect(window.hasHistory).toBe(true)
+      expect(window.hasNewer).toBe(false)
+      expect(window.detachedNewestTime).toBeUndefined()
+      expect(window.loadingNewer).toBe(false)
+      expect(window.windowGen).toBe(3)
+    })
+  })
+
+  describe('@chat/deactivateChannel', () => {
+    test('drops a detached window entirely', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({
+        activated: true,
+        hasNewer: true,
+        detachedNewestTime: 500,
+        messages,
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      const window = windowOf(result)
+      expect(window.messages).toEqual([])
+      expect(window.hasNewer).toBe(false)
+      expect(window.detachedNewestTime).toBeUndefined()
+      expect(window.hasHistory).toBe(true)
+      expect(window.windowGen).toBe(1)
+    })
+
+    test('dropping a detached window lowers the loading flags of in-flight requests', () => {
+      const state = makeState({
+        activated: true,
+        hasNewer: true,
+        loadingHistory: true,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(windowOf(result).loadingHistory).toBe(false)
+      expect(windowOf(result).loadingNewer).toBe(false)
+    })
+
+    test('trims an attached window down to the history cap', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, messages })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(windowOf(result).messages.length).toBe(150)
+      expect(windowOf(result).windowGen).toBe(0)
     })
   })
 })

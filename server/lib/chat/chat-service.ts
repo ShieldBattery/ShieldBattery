@@ -64,6 +64,7 @@ import {
   ChatMessage,
   EditableChannelFields,
   FullChannelInfo,
+  HistoryCursor,
   LeaveChannelResult,
   addMessageToChannel,
   addUserToChannel,
@@ -957,12 +958,16 @@ export default class ChatService {
     userId,
     limit,
     beforeTime,
+    afterTime,
+    aroundTime,
     isAdmin,
   }: {
     channelId: SbChannelId
     userId: SbUserId
     limit?: number
     beforeTime?: number
+    afterTime?: number
+    aroundTime?: number
     isAdmin?: boolean
   }): Promise<GetChannelHistoryServerResponse> {
     const isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channelId))
@@ -973,11 +978,21 @@ export default class ChatService {
       )
     }
 
-    const dbMessages = await getMessagesForChannel(
-      channelId,
-      limit,
-      beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
-    )
+    // Joi's `.oxor` guarantees at most one of these is present on the request.
+    let cursor: HistoryCursor = { kind: 'newest' }
+    if (beforeTime && beforeTime > -1) {
+      cursor = { kind: 'before', date: new Date(beforeTime) }
+    } else if (afterTime !== undefined && afterTime >= 0) {
+      cursor = { kind: 'after', date: new Date(afterTime) }
+    } else if (aroundTime !== undefined && aroundTime >= 0) {
+      cursor = { kind: 'around', date: new Date(aroundTime) }
+    }
+
+    const {
+      messages: dbMessages,
+      hasMoreBefore,
+      hasMoreAfter,
+    } = await getMessagesForChannel(channelId, limit, cursor)
 
     const messages: ServerChatMessage[] = []
     const userIds = new global.Set<SbUserId>()
@@ -1042,6 +1057,8 @@ export default class ChatService {
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
       deletedChannels,
+      hasMoreBefore,
+      hasMoreAfter,
     }
   }
 

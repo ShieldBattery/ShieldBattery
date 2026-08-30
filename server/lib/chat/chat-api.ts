@@ -365,12 +365,19 @@ export class ChatApi {
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
-      query: { limit, beforeTime },
+      query: { limit, beforeTime, afterTime, aroundTime },
     } = validateRequest(ctx, {
-      query: Joi.object<{ limit: number; beforeTime: number }>({
+      query: Joi.object<{
+        limit: number
+        beforeTime?: number
+        afterTime?: number
+        aroundTime?: number
+      }>({
         limit: Joi.number().min(1).max(100),
         beforeTime: Joi.number().min(-1),
-      }),
+        afterTime: Joi.number().min(0),
+        aroundTime: Joi.number().min(0),
+      }).oxor('beforeTime', 'afterTime', 'aroundTime'),
     })
 
     return await this.chatService.getChannelHistory({
@@ -378,6 +385,8 @@ export class ChatApi {
       userId: ctx.session!.user.id,
       limit,
       beforeTime,
+      afterTime,
+      aroundTime,
     })
   }
 

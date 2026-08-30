@@ -1,6 +1,8 @@
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { WhisperMessageType } from '../../../common/whispers'
+import { HistoryCursor } from '../chat/chat-models'
 import db from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
@@ -228,32 +230,127 @@ export async function addMessageToWhisper(
   }
 }
 
+/**
+ * A page of whisper session messages, along with whether messages exist beyond either edge of the
+ * returned window (evaluated at query time via a `limit`+1 probe row per edge).
+ */
+export interface WhisperMessagePage {
+  /** Messages in the page, ordered oldest to newest. */
+  messages: WhisperMessage[]
+  /** Whether messages older than the returned window exist. */
+  hasMoreBefore: boolean
+  /** Whether messages newer than the returned window exist. */
+  hasMoreAfter: boolean
+}
+
 export async function getMessagesForWhisperSession(
   userId1: SbUserId,
   userId2: SbUserId,
   limit = 50,
-  beforeDate?: Date,
-): Promise<WhisperMessage[]> {
+  cursor: HistoryCursor = { kind: 'newest' },
+): Promise<WhisperMessagePage> {
   const [userLow, userHigh] = userId1 < userId2 ? [userId1, userId2] : [userId2, userId1]
   const { client, done } = await db()
 
   try {
-    const result = await client.query<DbWhisperMessage>(sql`
-      WITH messages AS (
-        SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
-        FROM whisper_messages AS m
-        WHERE m.user_low  = ${userLow}::int4
-          AND m.user_high = ${userHigh}::int4
-          ${beforeDate !== undefined ? sql`AND m.sent < ${beforeDate}` : sql``}
-        ORDER BY m.sent DESC
-        LIMIT ${limit}
-      )
-      SELECT *
-      FROM messages
-      ORDER BY sent ASC;
-    `)
+    switch (cursor.kind) {
+      case 'newest':
+      case 'before': {
+        const result = await client.query<DbWhisperMessage>(sql`
+          SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+          FROM whisper_messages AS m
+          WHERE m.user_low  = ${userLow}::int4
+            AND m.user_high = ${userHigh}::int4
+            ${cursor.kind === 'before' ? sql`AND m.sent < ${cursor.date}` : sql``}
+          ORDER BY m.sent DESC
+          LIMIT ${limit + 1};
+        `)
+        // A `limit`+1'th row means messages older than the page exist; it's dropped below rather
+        // than returned.
+        const hasMoreBefore = result.rows.length > limit
+        const rows = hasMoreBefore ? result.rows.slice(0, limit) : result.rows
 
-    return result.rows.map(row => convertMessageFromDb(row))
+        return {
+          messages: rows.map(row => convertMessageFromDb(row)).reverse(),
+          hasMoreBefore,
+          hasMoreAfter: cursor.kind === 'before',
+        }
+      }
+
+      case 'after': {
+        const result = await client.query<DbWhisperMessage>(sql`
+          SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+          FROM whisper_messages AS m
+          WHERE m.user_low  = ${userLow}::int4
+            AND m.user_high = ${userHigh}::int4
+            AND m.sent > ${cursor.date}
+          ORDER BY m.sent ASC
+          LIMIT ${limit + 1};
+        `)
+        // Ascending scan, so the extra probe row (if present) is the newest of the batch.
+        const hasMoreAfter = result.rows.length > limit
+        const rows = hasMoreAfter ? result.rows.slice(0, limit) : result.rows
+
+        return {
+          messages: rows.map(row => convertMessageFromDb(row)),
+          hasMoreBefore: true,
+          hasMoreAfter,
+        }
+      }
+
+      case 'around': {
+        const beforeLimit = Math.floor(limit / 2)
+        const afterLimit = limit - beforeLimit
+        // `is_before` lets the two halves be told apart in JS without comparing timestamps
+        // against `cursor.date` there (the DB's microsecond-precision `sent` loses precision when
+        // parsed into a JS `Date`, so that comparison has to stay server-side). Each half keeps
+        // its own scan order in the output (`is_before DESC` groups before-half rows first, each
+        // half internally ascending by `sent`), so the probe row for each half is always at a
+        // fixed end: the before-half's oldest row, or the after-half's newest row.
+        const result = await client.query<DbWhisperMessage & { is_before: boolean }>(sql`
+          WITH before_half AS (
+            SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+            FROM whisper_messages AS m
+            WHERE m.user_low  = ${userLow}::int4
+              AND m.user_high = ${userHigh}::int4
+              AND m.sent < ${cursor.date}
+            ORDER BY m.sent DESC
+            LIMIT ${beforeLimit + 1}
+          ), after_half AS (
+            SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+            FROM whisper_messages AS m
+            WHERE m.user_low  = ${userLow}::int4
+              AND m.user_high = ${userHigh}::int4
+              AND m.sent >= ${cursor.date}
+            ORDER BY m.sent ASC
+            LIMIT ${afterLimit + 1}
+          )
+          SELECT *, TRUE AS is_before FROM before_half
+          UNION ALL
+          SELECT *, FALSE AS is_before FROM after_half
+          ORDER BY is_before DESC, sent ASC;
+        `)
+
+        const beforeRows = result.rows.filter(row => row.is_before)
+        const afterRows = result.rows.filter(row => !row.is_before)
+        const hasMoreBefore = beforeRows.length > beforeLimit
+        const hasMoreAfter = afterRows.length > afterLimit
+        // Both halves are already in ascending order (see the query comment above), so the probe
+        // sits at a known end: the before-half's first (oldest) row, or the after-half's last
+        // (newest) row.
+        const trimmedBefore = hasMoreBefore ? beforeRows.slice(1) : beforeRows
+        const trimmedAfter = hasMoreAfter ? afterRows.slice(0, -1) : afterRows
+
+        return {
+          messages: [...trimmedBefore, ...trimmedAfter].map(row => convertMessageFromDb(row)),
+          hasMoreBefore,
+          hasMoreAfter,
+        }
+      }
+
+      default:
+        return assertUnreachable(cursor)
+    }
   } finally {
     done()
   }

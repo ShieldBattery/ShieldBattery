@@ -13,7 +13,13 @@ import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { ActivateWhisperSession, DeactivateWhisperSession, UpdateSessionAtBottom } from './actions'
+import {
+  ActivateWhisperSession,
+  DeactivateWhisperSession,
+  ResetMessageWindow,
+  UpdateSessionAtBottom,
+} from './actions'
+import { newestServerOriginTime } from './whisper-reducer'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -128,10 +134,118 @@ export function getMessageHistory(
         target,
         limit,
         beforeTime: earliestMessageTime,
+        windowGen: sessionData.windowGen,
       },
     })
     await promise
   })
+}
+
+/**
+ * Loads the page of messages that follows the newest one currently loaded for a session, moving a
+ * window that sits behind the present a page closer to it. Does nothing if the session holds no
+ * message with a server-recorded time, since there'd be nothing the server could seek from.
+ */
+export function getNewerMessages(
+  target: SbUserId,
+  limit: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
+    const {
+      whispers: { byId },
+    } = getStore()
+    const sessionData = byId.get(target)
+    if (!sessionData) {
+      return
+    }
+
+    const afterTime = newestServerOriginTime(sessionData.messages)
+    if (afterTime === undefined) {
+      return
+    }
+
+    const promise = fetchJson<GetSessionHistoryResponse>(
+      apiUrl`whispers/${target}/messages2?limit=${limit}&afterTime=${afterTime}`,
+    )
+    dispatch({
+      type: '@whispers/loadNewerMessages',
+      payload: promise,
+      meta: {
+        target,
+        limit,
+        afterTime,
+        windowGen: sessionData.windowGen,
+        knownNewestTime: Math.max(afterTime, sessionData.detachedNewestTime ?? -Infinity),
+      },
+    })
+    await promise
+  })
+}
+
+/**
+ * Loads a window of messages centered on `aroundTime`, replacing whatever is currently loaded for
+ * the session. This is how the client reaches a position that isn't adjacent to what it holds, such
+ * as an unread divider that sits further back than the loaded history reaches.
+ */
+export function getMessagesAround(
+  target: SbUserId,
+  limit: number,
+  aroundTime: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
+    const {
+      whispers: { byId },
+    } = getStore()
+    const sessionData = byId.get(target)
+    if (!sessionData) {
+      return
+    }
+
+    const knownNewest = Math.max(
+      newestServerOriginTime(sessionData.messages) ?? -Infinity,
+      sessionData.detachedNewestTime ?? -Infinity,
+    )
+    const promise = fetchJson<GetSessionHistoryResponse>(
+      apiUrl`whispers/${target}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
+    )
+    dispatch({
+      type: '@whispers/loadMessagesAround',
+      payload: promise,
+      meta: {
+        target,
+        limit,
+        aroundTime,
+        windowGen: sessionData.windowGen,
+        knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
+      },
+    })
+    await promise
+  })
+}
+
+export function resetMessageWindow(target: SbUserId): ResetMessageWindow {
+  return {
+    type: '@whispers/resetMessageWindow',
+    payload: { target },
+  }
+}
+
+/**
+ * Returns a session's message list to the present, however far back it was left. The loaded window
+ * is dropped and the newest page requested in the same tick, so the list never renders an empty
+ * conversation in between.
+ */
+export function jumpToPresent(
+  target: SbUserId,
+  limit: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return dispatch => {
+    dispatch(resetMessageWindow(target))
+    dispatch(getMessageHistory(target, limit, spec))
+  }
 }
 
 export function activateWhisperSession(target: SbUserId): ActivateWhisperSession {

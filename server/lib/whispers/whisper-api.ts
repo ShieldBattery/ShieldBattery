@@ -190,7 +190,10 @@ export class WhisperApi {
   @httpBefore(throttleMiddleware(retrievalThrottle, throttleByUser))
   getSessionHistoryOld(
     ctx: RouterContext,
-  ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions' | 'deletedChannels'> {
+  ): Omit<
+    GetSessionHistoryResponse,
+    'mentions' | 'channelMentions' | 'deletedChannels' | 'hasMoreBefore' | 'hasMoreAfter'
+  > {
     return {
       messages: [],
       users: [],
@@ -202,15 +205,22 @@ export class WhisperApi {
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const {
       params: { targetId },
-      query: { limit, beforeTime },
+      query: { limit, beforeTime, afterTime, aroundTime },
     } = validateRequest(ctx, {
       params: Joi.object<{ targetId: SbUserId }>({
         targetId: joiUserId().required(),
       }),
-      query: Joi.object<{ limit: number; beforeTime: number }>({
+      query: Joi.object<{
+        limit: number
+        beforeTime?: number
+        afterTime?: number
+        aroundTime?: number
+      }>({
         limit: Joi.number().min(1).max(100),
         beforeTime: Joi.number().min(-1),
-      }),
+        afterTime: Joi.number().min(0),
+        aroundTime: Joi.number().min(0),
+      }).oxor('beforeTime', 'afterTime', 'aroundTime'),
     })
 
     return await this.whisperService.getSessionHistory(
@@ -218,6 +228,8 @@ export class WhisperApi {
       targetId,
       limit,
       beforeTime,
+      afterTime,
+      aroundTime,
     )
   }
 }
