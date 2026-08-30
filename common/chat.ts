@@ -239,9 +239,10 @@ export interface InitialChannelData {
    */
   hasUnread?: boolean
   /**
-   * Epoch millis of the user's last recorded read position in the channel, if they have one. Used
-   * to place the unread-messages divider; `hasUnread` stays the authority for badge state since
-   * the client can't compute unreadness itself without messages loaded.
+   * Epoch millis of the user's read position in the channel: their last recorded read position, or
+   * one millisecond before their join date if they've never recorded one. Used to place the
+   * unread-messages divider; `hasUnread` stays the authority for badge state since the client can't
+   * compute unreadness itself without messages loaded.
    */
   lastReadTime?: number
   /**

@@ -172,7 +172,10 @@ export default class ChatService {
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
         hasUnread: unreadInfo !== undefined,
-        lastReadTime: c.lastReadTime?.getTime(),
+        // The unread queries treat everything from others since `joinDate` as unread when no read
+        // position has been recorded, and the divider goes before the first message *after* the
+        // reported marker, so the marker has to sit one millisecond before the join.
+        lastReadTime: c.lastReadTime?.getTime() ?? c.joinDate.getTime() - 1,
         latestMentionTime: unreadInfo?.latestMentionTime?.getTime(),
       }
     })
@@ -214,8 +217,9 @@ export default class ChatService {
       ])
 
       if (channelInfo && userChannelEntry) {
-        // `hasUnread`/`lastReadTime`/`latestMentionTime` are omitted: a membership this fresh has
-        // no recorded read position yet, which `getUnreadChannelInfo` always treats as fully read.
+        // `hasUnread` and `latestMentionTime` are omitted: nothing can be unread or mention the
+        // user at the instant they join. `lastReadTime` is still sent, one millisecond before the
+        // join, so the client can place the unread divider once messages arrive.
         this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
           action: 'init3',
           channelInfo: toBasicChannelInfo(channelInfo),
@@ -223,6 +227,7 @@ export default class ChatService {
           joinedChannelInfo: toJoinedChannelInfo(channelInfo),
           selfPreferences: userChannelEntry.channelPreferences,
           selfPermissions: userChannelEntry.channelPermissions,
+          lastReadTime: userChannelEntry.joinDate.getTime() - 1,
         })
       }
     }
