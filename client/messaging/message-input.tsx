@@ -29,6 +29,12 @@ import { Popover, useElemAnchorPosition, usePopoverController } from '../materia
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import {
+  flushDraftWrite,
+  getStoredDraft,
+  resolveInitialDraftValue,
+  scheduleDraftWrite,
+} from './draft-storage'
 import { getUnicodeEmojiEntries } from './emoji-data'
 import { EmotePickerButton } from './emote-picker'
 import {
@@ -107,35 +113,78 @@ const EmoteSuggestionIcon = styled.span`
   text-align: center;
 `
 
-/** A Map to store the message input contents for each chat instance. */
+/**
+ * A Map to store the message input contents for each chat instance for the current browsing
+ * session, keyed the same way as the durable per-user copy in `draft-storage.ts`. This is the fast
+ * path for switching between conversations already visited this session; `draft-storage.ts` is
+ * what survives a reload or app restart.
+ */
 const messageInputMap = new Map<string, string>()
 
 function useStorageSyncedState(
   defaultInitialValue: string,
-  key?: string,
+  userId?: SbUserId,
+  storageKey?: string,
 ): [value: string, setValue: (value: SetStateAction<string>) => void] {
-  const [value, setValue] = useState<string>(() =>
-    key ? (messageInputMap.get(key) ?? defaultInitialValue) : defaultInitialValue,
-  )
+  const memKey =
+    userId !== undefined && storageKey !== undefined ? `${userId}-${storageKey}` : undefined
+
+  const [value, setValue] = useState<string>(() => {
+    if (!memKey || userId === undefined || storageKey === undefined) {
+      return defaultInitialValue
+    }
+    return resolveInitialDraftValue(
+      messageInputMap.get(memKey),
+      getStoredDraft(userId, storageKey),
+      defaultInitialValue,
+    )
+  })
+
   const syncedSetValue = useCallback(
-    (value: SetStateAction<string>) => {
-      if (typeof value === 'string') {
-        setValue(value)
-        if (key) {
-          messageInputMap.set(key, value)
+    (update: SetStateAction<string>) => {
+      const applyUpdate = (newValue: string) => {
+        if (memKey) {
+          if (newValue) {
+            messageInputMap.set(memKey, newValue)
+          } else {
+            messageInputMap.delete(memKey)
+          }
         }
+        if (userId !== undefined && storageKey !== undefined) {
+          scheduleDraftWrite(userId, storageKey, newValue)
+        }
+      }
+
+      if (typeof update === 'string') {
+        setValue(update)
+        applyUpdate(update)
       } else {
         setValue(prev => {
-          const newValue = value(prev)
-          if (key) {
-            messageInputMap.set(key, newValue)
-          }
+          const newValue = update(prev)
+          applyUpdate(newValue)
           return newValue
         })
       }
     },
-    [key],
+    [memKey, userId, storageKey],
   )
+
+  useEffect(() => {
+    if (userId === undefined || storageKey === undefined) {
+      return undefined
+    }
+
+    // Flush rather than let the coalescing window run out on its own, so a keystroke that landed
+    // just before the conversation goes away (component unmount) or the app closes/reloads
+    // (beforeunload) isn't lost.
+    const flush = () => flushDraftWrite(userId, storageKey)
+    window.addEventListener('beforeunload', flush)
+    return () => {
+      window.removeEventListener('beforeunload', flush)
+      flush()
+    }
+  }, [userId, storageKey])
+
   return [value, syncedSetValue]
 }
 
@@ -145,10 +194,11 @@ export interface MessageInputProps {
   maxRows?: number
   onSendChatMessage: (msg: string) => void
   /**
-   * A key to store the current message input contents under (in a global Map). If provided, the
-   * previous message input contents will be restored when the component is mounted (so the key
-   * should uniquely identify the type + instance of the chat container). The key is prefixed with
-   * the user's ID to handle user changing their account.
+   * A key to store the current message input contents under, both in-session and (per-user) in
+   * `localStorage`. If provided, the previous message input contents will be restored when the
+   * component is mounted, surviving a reload or app restart (so the key should uniquely identify
+   * the type + instance of the chat container). The key is scoped to the user's ID to handle the
+   * user changing their account.
    */
   storageKey?: string
   /**
@@ -186,8 +236,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const dispatch = useAppDispatch()
     const user = useSelfUser()
     const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
-    const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
-    const [message, setMessage] = useStorageSyncedState('', combinedStorageKey)
+    const [message, setMessage] = useStorageSyncedState('', user?.id, storageKey)
     const inputRef = useRef<HTMLInputElement>(null)
     const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
 
