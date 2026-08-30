@@ -1462,9 +1462,34 @@ impl TurnState {
         // directive for the same slot would conflict with it and trip the tracker's per-slot
         // consistency assert. Drain the channel so it doesn't back up, but throw the contents away.
         if self.local_only {
-            while self.channels.leaves.try_recv().is_ok() {}
+            while let Ok(leave) = self.channels.leaves.try_recv() {
+                info!(
+                    "netcode v2: received coordinated leave after local-only transition; \
+                     discarding: slot={} reason={:#010x} apply_frame={} leave_seq={} \
+                     finalized={} final_turn_count={:?}",
+                    leave.slot,
+                    leave.reason,
+                    leave.apply_at_frame,
+                    leave.leave_seq,
+                    leave.finalized,
+                    leave.final_turn_count,
+                );
+            }
         } else {
             while let Ok(leave) = self.channels.leaves.try_recv() {
+                let already_tracked = self.leaves.contains(leave.slot);
+                info!(
+                    "netcode v2: received coordinated leave directive: slot={} reason={:#010x} \
+                     apply_frame={} leave_seq={} finalized={} final_turn_count={:?} \
+                     already_tracked={}",
+                    leave.slot,
+                    leave.reason,
+                    leave.apply_at_frame,
+                    leave.leave_seq,
+                    leave.finalized,
+                    leave.final_turn_count,
+                    already_tracked,
+                );
                 self.leaves.observe(&leave);
             }
         }
@@ -1485,6 +1510,11 @@ impl TurnState {
         for (slot, reason) in self.leaves.take_due(next_frame, consumed) {
             match self.storm_id_for_slot(slot) {
                 Some(storm) => {
+                    info!(
+                        "netcode v2: coordinated leave became due: slot={} storm_slot={} \
+                         reason={:#010x} poll_frame={}",
+                        slot.0, storm.0, reason, next_frame,
+                    );
                     self.mark_slot_left(storm);
                     // Observation-only: tag the slot's net-stats row with how it departed.
                     self.net_stats.record_departure(storm, reason);

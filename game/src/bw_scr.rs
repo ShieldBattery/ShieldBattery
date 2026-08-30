@@ -3170,7 +3170,7 @@ impl BwScr {
                     // Leave pass runs with the turn-state lock released: the leave handlers can issue
                     // commands that re-enter the OUT hook, which would re-lock the turn state.
                     let leaving = self.run_synced_leave_pass(nc);
-                    for storm in leaving {
+                    for (storm, _) in leaving {
                         netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
                     }
                     TurnReceiveOutcome::Ready
@@ -4086,21 +4086,33 @@ impl BwScr {
     /// Reproduces `receive_storm_turns`' synced player-leave pass for the IN replacement: runs
     /// `apply_pending_player_leaves` inside the synced-RNG window (leave handling can consume synced
     /// RNG, so it must run with the same RNG state on every client) and returns the storm slots whose
-    /// pending reason was drained this pass, so the turn state can drop them from its readiness set. Must be
-    /// called with the turn-state lock released — the leave handlers can re-enter the OUT hook.
-    unsafe fn run_synced_leave_pass(&self, nc: &NetcodeV2Bw) -> SmallVec<[StormPlayerId; 4]> {
+    /// pending reason was drained this pass, together with that reason, so the turn state can drop
+    /// them from its readiness set and the completed native boundary can be logged. Must be called
+    /// with the turn-state lock released — the leave handlers can re-enter the OUT hook.
+    unsafe fn run_synced_leave_pass(
+        &self,
+        nc: &NetcodeV2Bw,
+    ) -> SmallVec<[(StormPlayerId, u32); 4]> {
         unsafe {
             let reasons = nc.pending_leave_reason.resolve();
-            let mut leaving = SmallVec::new();
+            let mut leaving: SmallVec<[(StormPlayerId, u32); 4]> = SmallVec::new();
             for i in 0..bw::MAX_STORM_PLAYERS {
-                if *reasons.add(i) != 0 {
-                    leaving.push(StormPlayerId(i as u8));
+                let reason = *reasons.add(i);
+                if reason != 0 {
+                    leaving.push((StormPlayerId(i as u8), reason as u32));
                 }
             }
             let orig_rng = self.enable_rng.resolve();
             self.enable_rng.write(1);
             (nc.apply_pending_player_leaves)();
             self.enable_rng.write(orig_rng);
+            for &(storm, reason) in &leaving {
+                info!(
+                    "netcode v2: native synchronized leave pass completed: storm_slot={} \
+                     reason={:#010x}",
+                    storm.0, reason,
+                );
+            }
             leaving
         }
     }
