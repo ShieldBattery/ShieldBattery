@@ -38,6 +38,13 @@ export type ChatActions =
   | LoadMessageHistoryBegin
   | LoadMessageHistory
   | LoadMessageHistoryFailure
+  | LoadNewerMessagesBegin
+  | LoadNewerMessages
+  | LoadNewerMessagesFailure
+  | LoadMessagesAroundBegin
+  | LoadMessagesAround
+  | LoadMessagesAroundFailure
+  | ResetMessageWindow
   | RetrieveUserListBegin
   | RetrieveUserList
   | RetrieveUserListFailure
@@ -161,6 +168,12 @@ export interface LoadMessageHistoryBegin {
     channelId: SbChannelId
     limit: number
     beforeTime: number
+    /**
+     * The generation of the loaded message window this page was requested for. The reducer drops
+     * pages whose generation no longer matches the channel's, since a window that has since been
+     * replaced or dropped shares no boundary with them.
+     */
+    windowGen: number
   }
 }
 
@@ -174,6 +187,7 @@ export interface LoadMessageHistory {
     channelId: SbChannelId
     limit: number
     beforeTime: number
+    windowGen: number
   }
   error?: false
 }
@@ -183,6 +197,135 @@ export interface LoadMessageHistoryFailure extends BaseFetchFailure<'@chat/loadM
     channelId: SbChannelId
     limit: number
     beforeTime: number
+    windowGen: number
+  }
+}
+
+export interface LoadNewerMessagesBegin {
+  type: '@chat/loadNewerMessagesBegin'
+  payload: {
+    channelId: SbChannelId
+    limit: number
+    afterTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live. Responses that report nothing newer are
+     * authoritative for messages known this early — the server announces messages only after
+     * storing them — so their absence proves deletion rather than a race.
+     */
+    knownNewestTime: number
+  }
+}
+
+/**
+ * Loads the `limit` oldest messages in a chat channel that are newer than a particular time,
+ * extending a loaded window that sits behind the present toward it.
+ */
+export interface LoadNewerMessages {
+  type: '@chat/loadNewerMessages'
+  payload: GetChannelHistoryServerResponse
+  meta: {
+    channelId: SbChannelId
+    limit: number
+    afterTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live. Responses that report nothing newer are
+     * authoritative for messages known this early — the server announces messages only after
+     * storing them — so their absence proves deletion rather than a race.
+     */
+    knownNewestTime: number
+  }
+  error?: false
+}
+
+export interface LoadNewerMessagesFailure extends BaseFetchFailure<'@chat/loadNewerMessages'> {
+  meta: {
+    channelId: SbChannelId
+    limit: number
+    afterTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live. Responses that report nothing newer are
+     * authoritative for messages known this early — the server announces messages only after
+     * storing them — so their absence proves deletion rather than a race.
+     */
+    knownNewestTime: number
+  }
+}
+
+export interface LoadMessagesAroundBegin {
+  type: '@chat/loadMessagesAroundBegin'
+  payload: {
+    channelId: SbChannelId
+    limit: number
+    aroundTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live, or `undefined` when it knew of none.
+     * Responses that report nothing newer are authoritative for messages known this early — the
+     * server announces messages only after storing them — so their absence proves deletion rather
+     * than a race.
+     */
+    knownNewestTime: number | undefined
+  }
+}
+
+/**
+ * Loads a window of up to `limit` messages in a chat channel centered on a particular time. The
+ * result replaces whatever was loaded for the channel, since the fetched range doesn't have to
+ * touch it.
+ */
+export interface LoadMessagesAround {
+  type: '@chat/loadMessagesAround'
+  payload: GetChannelHistoryServerResponse
+  meta: {
+    channelId: SbChannelId
+    limit: number
+    aroundTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live, or `undefined` when it knew of none.
+     * Responses that report nothing newer are authoritative for messages known this early — the
+     * server announces messages only after storing them — so their absence proves deletion rather
+     * than a race.
+     */
+    knownNewestTime: number | undefined
+  }
+  error?: false
+}
+
+export interface LoadMessagesAroundFailure extends BaseFetchFailure<'@chat/loadMessagesAround'> {
+  meta: {
+    channelId: SbChannelId
+    limit: number
+    aroundTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live, or `undefined` when it knew of none.
+     * Responses that report nothing newer are authoritative for messages known this early — the
+     * server announces messages only after storing them — so their absence proves deletion rather
+     * than a race.
+     */
+    knownNewestTime: number | undefined
+  }
+}
+
+/**
+ * Discard everything loaded for a chat channel, returning it to the state a freshly-joined channel
+ * is in: nothing loaded, older history assumed to exist, and attached to the present so live
+ * messages append again.
+ */
+export interface ResetMessageWindow {
+  type: '@chat/resetMessageWindow'
+  payload: {
+    channelId: SbChannelId
   }
 }
 

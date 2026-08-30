@@ -14,7 +14,7 @@ import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
 import { UNREAD_LINE_SELECTOR } from '../messaging/common-message-layout'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import { MessageList, MessageListProps } from '../messaging/message-list'
-import { isServerOriginMessage, SbMessage } from '../messaging/message-records'
+import { isServerOriginMessage } from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
 import {
@@ -35,18 +35,12 @@ const JUMP_TO_BOTTOM_THRESHOLD_SCREENS = 1.5
 /** How much room to leave above the unread divider when jumping to it, in pixels. */
 const UNREAD_LINE_SCROLL_MARGIN_PX = 8
 
-/** An in-progress hunt through older history for the unread divider. */
+/** An in-progress hunt for the unread divider, waiting on history the list doesn't hold yet. */
 interface UnreadLineSeek {
   /** Identifies the conversation the seek was started in. */
   refreshToken: unknown
   /** Where the divider sat when the seek was started. */
   unreadLineTime: number
-  /**
-   * The message list the outstanding history request was issued against. A request only counts as
-   * answered once a different list arrives, since `loading` doesn't turn true until the render
-   * after the request.
-   */
-  requestedFor: ReadonlyArray<SbMessage>
 }
 
 function findUnreadLine(scroller: HTMLElement): HTMLElement | null {
@@ -189,6 +183,19 @@ export interface ChatProps {
    * bottom, so owners should assume at-bottom initially.
    */
   onAtBottomChange?: (atBottom: boolean) => void
+  /**
+   * Called when the user asks to go back to the newest messages while the list is showing a window
+   * of history detached from the present. Owners are expected to load that newest page. Only
+   * meaningful for surfaces that keep history on the server; without it the jump button can only
+   * reach the bottom of what's loaded.
+   */
+  onJumpToPresent?: () => void
+  /**
+   * Called when the user asks to jump to the unread divider but it sits outside the loaded window.
+   * Owners are expected to load a window of history around the read position. Only meaningful for
+   * surfaces that keep history on the server; without it the jump can't reach past what's loaded.
+   */
+  onSeekToUnread?: () => void
 }
 
 /**
@@ -208,6 +215,8 @@ export function Chat({
   MessageMenu = DefaultMessageMenu,
   disallowMentionInteraction: disallowUserInteraction,
   onAtBottomChange,
+  onJumpToPresent,
+  onSeekToUnread,
 }: ChatProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -217,9 +226,9 @@ export function Chat({
   // Message lists mount pinned to the bottom, matching how `MessageList` initially scrolls.
   const wasAtBottomRef = useRef(true)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
-  // Set while we're loading history until the unread divider comes into the loaded window, so we
-  // can jump to it. It carries what it was started for, so a seek can't outlive the conversation
-  // (or the divider position) it was aimed at.
+  // Set while we're waiting for the unread divider to come into the loaded window, so we can jump
+  // to it once it does. It carries what it was started for, so a seek can't outlive the
+  // conversation (or the divider position) it was aimed at.
   const seekRef = useRef<UnreadLineSeek | undefined>(undefined)
   // The divider the user has already had in view. The banner is a one-shot prompt for a divider
   // they haven't laid eyes on yet — once it's been on screen, scrolling back down doesn't
@@ -229,7 +238,7 @@ export function Chat({
     undefined,
   )
 
-  const { unreadLineTime, messages, loading, hasMoreHistory, onLoadMoreMessages, refreshToken } =
+  const { unreadLineTime, messages, loading, hasMoreHistory, hasNewerMessages, refreshToken } =
     listProps
 
   const onScrollUpdate = (target: EventTarget) => {
@@ -260,14 +269,10 @@ export function Chat({
       } else if (unreadLine) {
         seekRef.current = undefined
         scrollToUnreadLine(scroller, unreadLine)
-      } else if (!hasMoreHistory) {
-        // All the history there is has been loaded without turning up a divider, so the top of the
-        // list is as close as we can get to where the user left off.
+      } else if (!loading) {
+        // The window the seek was waiting on has arrived and holds no divider, which means there
+        // was nothing unread to move to after all.
         seekRef.current = undefined
-        scroller.scrollTop = 0
-      } else if (!loading && seek.requestedFor !== messages) {
-        seek.requestedFor = messages
-        onLoadMoreMessages?.()
       }
     }
 
@@ -299,6 +304,12 @@ export function Chat({
   }
 
   const onJumpToBottomClick = () => {
+    if (hasNewerMessages) {
+      // The bottom of the loaded window isn't the newest message, so getting there takes a fetch.
+      onJumpToPresent?.()
+      return
+    }
+
     const scroller = scrollerRef.current
     if (scroller) {
       scroller.scrollTop = scroller.scrollHeight
@@ -322,13 +333,17 @@ export function Chat({
     }
 
     if (!hasMoreHistory) {
+      // Everything there is has been loaded without turning up a divider, so the top of the list is
+      // as close as we can get to where the user left off.
       scroller.scrollTop = 0
       return
     }
 
-    seekRef.current = { refreshToken, unreadLineTime, requestedFor: messages }
-    if (!loading) {
-      onLoadMoreMessages?.()
+    if (onSeekToUnread) {
+      // The divider is above the loaded window: ask for a window that contains it, and let the seek
+      // do the scrolling once it renders.
+      seekRef.current = { refreshToken, unreadLineTime }
+      onSeekToUnread()
     }
   }
 
@@ -387,7 +402,7 @@ export function Chat({
               ) : null}
             </AnimatePresence>
             <AnimatePresence>
-              {showJumpToBottom ? (
+              {showJumpToBottom || hasNewerMessages ? (
                 <JumpToBottomButtonContainer
                   key='jump-to-bottom'
                   variants={jumpToBottomVariants}
@@ -397,7 +412,11 @@ export function Chat({
                   transition={overlayTransition}>
                   <JumpToBottomButton
                     iconStart={<MaterialIcon icon='arrow_downward' size={20} />}
-                    label={t('messaging.jumpToBottom', 'Jump to bottom')}
+                    label={
+                      hasNewerMessages
+                        ? t('messaging.jumpToPresent', 'Jump to present')
+                        : t('messaging.jumpToBottom', 'Jump to bottom')
+                    }
                     onClick={onJumpToBottomClick}
                   />
                 </JumpToBottomButtonContainer>

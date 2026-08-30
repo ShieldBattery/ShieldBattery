@@ -17,7 +17,7 @@ import {
   WhisperSessionInitEvent,
   WhisperUserEvent,
 } from '../../../common/whispers'
-import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
+import { getChannelInfos, HistoryCursor, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -229,6 +229,8 @@ export default class WhisperService {
     targetUser: SbUserId,
     limit?: number,
     beforeTime?: number,
+    afterTime?: number,
+    aroundTime?: number,
   ): Promise<GetSessionHistoryResponse> {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
@@ -242,12 +244,21 @@ export default class WhisperService {
       )
     }
 
-    const dbMessages = await getMessagesForWhisperSession(
-      user.id,
-      target.id,
-      limit,
-      beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
-    )
+    // Joi's `.oxor` guarantees at most one of these is present on the request.
+    let cursor: HistoryCursor = { kind: 'newest' }
+    if (beforeTime && beforeTime > -1) {
+      cursor = { kind: 'before', date: new Date(beforeTime) }
+    } else if (afterTime !== undefined && afterTime >= 0) {
+      cursor = { kind: 'after', date: new Date(afterTime) }
+    } else if (aroundTime !== undefined && aroundTime >= 0) {
+      cursor = { kind: 'around', date: new Date(aroundTime) }
+    }
+
+    const {
+      messages: dbMessages,
+      hasMoreBefore,
+      hasMoreAfter,
+    } = await getMessagesForWhisperSession(user.id, target.id, limit, cursor)
 
     const messages: WhisperMessage[] = []
     const userMentionIds = new Set<SbUserId>()
@@ -298,6 +309,8 @@ export default class WhisperService {
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
       deletedChannels,
+      hasMoreBefore,
+      hasMoreAfter,
     }
   }
 

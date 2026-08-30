@@ -139,7 +139,9 @@ vi.mock('./chat-models', async () => {
     transferChannelOwnership: vi.fn(),
     addUserToChannel: vi.fn(),
     addMessageToChannel: vi.fn(),
-    getMessagesForChannel: vi.fn().mockResolvedValue([]),
+    getMessagesForChannel: vi
+      .fn()
+      .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
     deleteChannelMessage: vi.fn(),
     removeUserFromChannel: vi.fn(),
     updateUserPreferences: vi.fn(),
@@ -2137,13 +2139,17 @@ describe('chat/chat-service', () => {
 
     const mockTextMessages = () => {
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
-      asMockedFunction(getMessagesForChannel).mockResolvedValue([
-        joinUser1TestChannelMessage,
-        textMessage1,
-        textMessage2,
-        textMessage3,
-        textMessage4,
-      ])
+      asMockedFunction(getMessagesForChannel).mockResolvedValue({
+        messages: [
+          joinUser1TestChannelMessage,
+          textMessage1,
+          textMessage2,
+          textMessage3,
+          textMessage4,
+        ],
+        hasMoreBefore: true,
+        hasMoreAfter: false,
+      })
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
     }
     const expectItWorks = (result: GetChannelHistoryServerResponse) => {
@@ -2162,6 +2168,8 @@ describe('chat/chat-service', () => {
           toBasicChannelInfo(testChannel),
         ],
         deletedChannels: [],
+        hasMoreBefore: true,
+        hasMoreAfter: false,
       })
     }
 
@@ -2256,7 +2264,11 @@ describe('chat/chat-service', () => {
         },
       }
 
-      asMockedFunction(getMessagesForChannel).mockResolvedValue([message])
+      asMockedFunction(getMessagesForChannel).mockResolvedValue({
+        messages: [message],
+        hasMoreBefore: false,
+        hasMoreAfter: false,
+      })
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
 
       const result = await chatService.getChannelHistory({
@@ -2274,6 +2286,87 @@ describe('chat/chat-service', () => {
           toBasicChannelInfo(testChannel),
         ],
         deletedChannels: [DELETED_ID],
+        hasMoreBefore: false,
+        hasMoreAfter: false,
+      })
+    })
+
+    describe('cursor selection', () => {
+      beforeEach(() => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+        asMockedFunction(getMessagesForChannel).mockResolvedValue({
+          messages: [],
+          hasMoreBefore: true,
+          hasMoreAfter: true,
+        })
+        asMockedFunction(getChannelInfos).mockResolvedValue([])
+      })
+
+      test('uses a newest cursor and carries through the flags when no time param is given', async () => {
+        const result = await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, { kind: 'newest' })
+        expect(result.hasMoreBefore).toBe(true)
+        expect(result.hasMoreAfter).toBe(true)
+      })
+
+      test('uses a before cursor when beforeTime is greater than -1', async () => {
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          beforeTime: 1000,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'before',
+          date: new Date(1000),
+        })
+      })
+
+      test('uses a newest cursor when beforeTime is -1', async () => {
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          beforeTime: -1,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, { kind: 'newest' })
+      })
+
+      test('uses an after cursor when afterTime is given', async () => {
+        const result = await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          afterTime: 2000,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'after',
+          date: new Date(2000),
+        })
+        expect(result.hasMoreBefore).toBe(true)
+        expect(result.hasMoreAfter).toBe(true)
+      })
+
+      test('uses an around cursor when aroundTime is given', async () => {
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          aroundTime: 3000,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'around',
+          date: new Date(3000),
+        })
       })
     })
   })

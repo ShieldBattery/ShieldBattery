@@ -19,7 +19,10 @@ import {
   correctUsernameForWhisper,
   deactivateWhisperSession,
   getMessageHistory,
+  getMessagesAround,
+  getNewerMessages,
   getWhisperLastReadKey,
+  jumpToPresent,
   markWhisperRead,
   sendMessage,
   startWhisperSessionById,
@@ -148,7 +151,23 @@ export function ConnectedWhisper({
 
   useEffect(() => () => flushLastRead(getWhisperLastReadKey(targetId)), [targetId])
 
+  const unreadLineTime = whisperSession?.unreadLineTime
+
+  const showMessageLoadError = (err: Error) => {
+    // TODO(tec27): This would probably be better to show at the position the message loading
+    // failed in the message list (and offer a button to retry)
+    snackbarController.showSnackbar(
+      t('whispers.errors.loadingHistory', {
+        defaultValue: 'Error loading message history: {{errorMessage}}',
+        errorMessage: err.message,
+      }),
+      DURATION_LONG,
+    )
+  }
+
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [isLoadingNewer, setIsLoadingNewer] = useState(false)
+
   const onLoadMoreMessages = useStableCallback(() => {
     setIsLoadingHistory(true)
     dispatch(
@@ -158,19 +177,62 @@ export function ConnectedWhisper({
         },
         onError: err => {
           setIsLoadingHistory(false)
-          // TODO(tec27): This would probably be better to show at the position the message loading
-          // failed in the message list (and offer a button to retry)
-          snackbarController.showSnackbar(
-            t('whispers.errors.loadingHistory', {
-              defaultValue: 'Error loading message history: {{errorMessage}}',
-              errorMessage: err.message,
-            }),
-            DURATION_LONG,
-          )
+          showMessageLoadError(err)
         },
       }),
     )
   })
+
+  const onLoadNewerMessages = () => {
+    setIsLoadingNewer(true)
+    dispatch(
+      getNewerMessages(targetId, MESSAGES_LIMIT, {
+        onSuccess: () => {
+          setIsLoadingNewer(false)
+        },
+        onError: err => {
+          setIsLoadingNewer(false)
+          showMessageLoadError(err)
+        },
+      }),
+    )
+  }
+
+  const onJumpToPresent = () => {
+    setIsLoadingHistory(true)
+    dispatch(
+      jumpToPresent(targetId, MESSAGES_LIMIT, {
+        onSuccess: () => {
+          setIsLoadingHistory(false)
+        },
+        onError: err => {
+          setIsLoadingHistory(false)
+          showMessageLoadError(err)
+        },
+      }),
+    )
+  }
+
+  const onSeekToUnread = () => {
+    if (unreadLineTime === undefined) {
+      return
+    }
+
+    // The whole window is about to be replaced, so there's no one edge the wait belongs to; the
+    // older edge's affordance stands in for both.
+    setIsLoadingHistory(true)
+    dispatch(
+      getMessagesAround(targetId, MESSAGES_LIMIT, unreadLineTime, {
+        onSuccess: () => {
+          setIsLoadingHistory(false)
+        },
+        onError: err => {
+          setIsLoadingHistory(false)
+          showMessageLoadError(err)
+        },
+      }),
+    )
+  }
 
   const onAtBottomChange = (atBottom: boolean) => {
     dispatch(updateSessionAtBottom(targetId, atBottom))
@@ -210,15 +272,21 @@ export function ConnectedWhisper({
           messages: whisperSession.messages,
           loading: isLoadingHistory,
           hasMoreHistory: whisperSession.hasHistory,
+          loadingNewer: isLoadingNewer,
+          hasNewerMessages: whisperSession.hasNewer,
+          windowGeneration: whisperSession.windowGen,
           refreshToken: targetId,
           onLoadMoreMessages,
-          unreadLineTime: whisperSession.unreadLineTime,
+          onLoadNewerMessages,
+          unreadLineTime,
         }}
         inputProps={{
           onSendChatMessage,
           storageKey: `whisper.${targetId}`,
         }}
         onAtBottomChange={onAtBottomChange}
+        onJumpToPresent={onJumpToPresent}
+        onSeekToUnread={onSeekToUnread}
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={targetId} showHintText={false} />

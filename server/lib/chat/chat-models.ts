@@ -484,38 +484,141 @@ export async function addMessageToChannel<T extends ChatMessageData>(
   }
 }
 
+/**
+ * Where to start a page of message history from, and in which direction to read: `newest` gets
+ * the most recent page with no time bound, `before`/`after` get a page strictly older/newer than
+ * `date`, and `around` gets messages from both sides of `date` (inclusive on the newer side).
+ */
+export type HistoryCursor = { kind: 'newest' } | { kind: 'before' | 'after' | 'around'; date: Date }
+
+/**
+ * A page of channel messages, along with whether messages exist beyond either edge of the
+ * returned window (evaluated at query time via a `limit`+1 probe row per edge).
+ */
+export interface ChannelMessagePage {
+  /** Messages in the page, ordered oldest to newest. */
+  messages: ChatMessage[]
+  /** Whether messages older than the returned window exist. */
+  hasMoreBefore: boolean
+  /** Whether messages newer than the returned window exist. */
+  hasMoreAfter: boolean
+}
+
+function convertChatMessageRow(row: DbChatMessage): ChatMessage {
+  return {
+    msgId: row.msg_id,
+    userId: row.user_id,
+    channelId: row.channel_id,
+    sent: row.sent,
+    data: row.data,
+  }
+}
+
 export async function getMessagesForChannel(
   channelId: SbChannelId,
   limit = 50,
-  beforeDate?: Date,
-): Promise<ChatMessage[]> {
+  cursor: HistoryCursor = { kind: 'newest' },
+): Promise<ChannelMessagePage> {
   const { client, done } = await db()
 
-  let query = sql`
-      WITH messages AS (
-        SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
-        FROM channel_messages as m
-        WHERE m.channel_id = ${channelId} `
-
-  if (beforeDate !== undefined) {
-    query = query.append(sql`AND m.sent < ${beforeDate}`)
-  }
-
-  query = query.append(sql`
-        ORDER BY m.sent DESC
-        LIMIT ${limit}
-      ) SELECT * FROM messages ORDER BY sent ASC`)
-
   try {
-    const result = await client.query<DbChatMessage>(query)
+    switch (cursor.kind) {
+      case 'newest':
+      case 'before': {
+        let query = sql`
+          SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+          FROM channel_messages m
+          WHERE m.channel_id = ${channelId}
+        `
+        if (cursor.kind === 'before') {
+          query = query.append(sql` AND m.sent < ${cursor.date}`)
+        }
+        query = query.append(sql`
+          ORDER BY m.sent DESC
+          LIMIT ${limit + 1};
+        `)
 
-    return result.rows.map(row => ({
-      msgId: row.msg_id,
-      userId: row.user_id,
-      channelId: row.channel_id,
-      sent: row.sent,
-      data: row.data,
-    }))
+        const result = await client.query<DbChatMessage>(query)
+        // A `limit`+1'th row means messages older than the page exist; it's dropped below rather
+        // than returned.
+        const hasMoreBefore = result.rows.length > limit
+        const rows = hasMoreBefore ? result.rows.slice(0, limit) : result.rows
+
+        return {
+          messages: rows.map(convertChatMessageRow).reverse(),
+          hasMoreBefore,
+          hasMoreAfter: cursor.kind === 'before',
+        }
+      }
+
+      case 'after': {
+        const result = await client.query<DbChatMessage>(sql`
+          SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+          FROM channel_messages m
+          WHERE m.channel_id = ${channelId} AND m.sent > ${cursor.date}
+          ORDER BY m.sent ASC
+          LIMIT ${limit + 1};
+        `)
+        // Ascending scan, so the extra probe row (if present) is the newest of the batch.
+        const hasMoreAfter = result.rows.length > limit
+        const rows = hasMoreAfter ? result.rows.slice(0, limit) : result.rows
+
+        return {
+          messages: rows.map(convertChatMessageRow),
+          hasMoreBefore: true,
+          hasMoreAfter,
+        }
+      }
+
+      case 'around': {
+        const beforeLimit = Math.floor(limit / 2)
+        const afterLimit = limit - beforeLimit
+        // `is_before` lets the two halves be told apart in JS without comparing timestamps
+        // against `cursor.date` there (the DB's microsecond-precision `sent` loses precision when
+        // parsed into a JS `Date`, so that comparison has to stay server-side). Each half keeps
+        // its own scan order in the output (`is_before DESC` groups before-half rows first, each
+        // half internally ascending by `sent`), so the probe row for each half is always at a
+        // fixed end: the before-half's oldest row, or the after-half's newest row.
+        const result = await client.query<DbChatMessage & { is_before: boolean }>(sql`
+          WITH before_half AS (
+            SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+            FROM channel_messages m
+            WHERE m.channel_id = ${channelId} AND m.sent < ${cursor.date}
+            ORDER BY m.sent DESC
+            LIMIT ${beforeLimit + 1}
+          ), after_half AS (
+            SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+            FROM channel_messages m
+            WHERE m.channel_id = ${channelId} AND m.sent >= ${cursor.date}
+            ORDER BY m.sent ASC
+            LIMIT ${afterLimit + 1}
+          )
+          SELECT *, TRUE AS is_before FROM before_half
+          UNION ALL
+          SELECT *, FALSE AS is_before FROM after_half
+          ORDER BY is_before DESC, sent ASC;
+        `)
+
+        const beforeRows = result.rows.filter(row => row.is_before)
+        const afterRows = result.rows.filter(row => !row.is_before)
+        const hasMoreBefore = beforeRows.length > beforeLimit
+        const hasMoreAfter = afterRows.length > afterLimit
+        // Both halves are already in ascending order (see the query comment above), so the probe
+        // sits at a known end: the before-half's first (oldest) row, or the after-half's last
+        // (newest) row.
+        const trimmedBefore = hasMoreBefore ? beforeRows.slice(1) : beforeRows
+        const trimmedAfter = hasMoreAfter ? afterRows.slice(0, -1) : afterRows
+
+        return {
+          messages: [...trimmedBefore, ...trimmedAfter].map(convertChatMessageRow),
+          hasMoreBefore,
+          hasMoreAfter,
+        }
+      }
+
+      default:
+        return assertUnreachable(cursor)
+    }
   } finally {
     done()
   }

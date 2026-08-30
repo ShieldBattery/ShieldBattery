@@ -242,6 +242,19 @@ export interface MessageListProps {
   /** Whether this message list has more history available that could be requested. */
   hasMoreHistory?: boolean
   /**
+   * Whether messages newer than the loaded window exist, that is, whether the window is detached
+   * from the present.
+   */
+  hasNewerMessages?: boolean
+  /**
+   * A value that changes exactly when the loaded window is replaced or dropped wholesale (rather
+   * than having messages added at one of its ends). On such an update the list leaves the viewport
+   * alone — there's no previous content to hold in view — and whoever asked for the swap places it.
+   */
+  windowGeneration?: number
+  /** Whether we are currently requesting newer messages for this message list. */
+  loadingNewer?: boolean
+  /**
    * A value that changes when the values the list is displaying change, e.g. if the list is now
    * displaying a different chat channel.
    */
@@ -252,6 +265,7 @@ export interface MessageListProps {
    */
   onScrollUpdate?: (scrollTarget: EventTarget) => void
   onLoadMoreMessages?: () => void
+  onLoadNewerMessages?: () => void
   /**
    * The read position (epoch millis) the unread divider should be placed at, if the list should
    * show one. The divider goes in front of the first message with a server-recorded time newer
@@ -315,11 +329,23 @@ export class MessageList extends React.Component<MessageListProps> {
       return
     }
 
-    if (snapshot.wasAtBottom) {
-      // Auto-scroll
-      scrollable.scrollTop = scrollable.scrollHeight
-    } else if (prevProps.messages !== this.props.messages) {
-      if (
+    // A window that was swapped out for a different one (rather than having messages added to one
+    // of its ends) leaves no previous content to hold in view, so whoever asked for the swap places
+    // the viewport instead. This has to come from the explicit generation signal: comparing the
+    // arrays' endpoints can't tell a swap from an ordinary append that trimmed the top in the same
+    // update, which changes both ends too.
+    const messagesReplaced = prevProps.windowGeneration !== this.props.windowGeneration
+    // A window detached from the present only ever grows by loading pages, so pinning to the bottom
+    // would drag the user past a page that just appeared below them. The previous props matter as
+    // much as the current ones: the update that loads the last page is also the one that reattaches
+    // the window.
+    const detached = prevProps.hasNewerMessages || this.props.hasNewerMessages
+
+    if (!messagesReplaced) {
+      if (snapshot.wasAtBottom && !detached) {
+        // Auto-scroll
+        scrollable.scrollTop = scrollable.scrollHeight
+      } else if (
         prevProps.messages.length < this.props.messages.length &&
         prevProps.messages[0] !== this.props.messages[0]
       ) {
@@ -339,9 +365,12 @@ export class MessageList extends React.Component<MessageListProps> {
       messages,
       loading,
       hasMoreHistory,
+      hasNewerMessages,
+      loadingNewer,
       refreshToken,
       MessageComponent,
       onLoadMoreMessages,
+      onLoadNewerMessages,
       showEmptyState = true,
       unreadLineTime,
     } = this.props
@@ -353,10 +382,14 @@ export class MessageList extends React.Component<MessageListProps> {
         onScroll={this.props.onScrollUpdate ? this.onScroll.handler : undefined}>
         <InfiniteScrollList
           prevLoadingEnabled={true}
+          nextLoadingEnabled={true}
           isLoadingPrev={loading}
+          isLoadingNext={loadingNewer}
           hasPrevData={hasMoreHistory}
+          hasNextData={hasNewerMessages}
           refreshToken={refreshToken}
-          onLoadPrevData={onLoadMoreMessages}>
+          onLoadPrevData={onLoadMoreMessages}
+          onLoadNextData={onLoadNewerMessages}>
           <PureMessageList
             showEmptyState={showEmptyState}
             messages={messages}

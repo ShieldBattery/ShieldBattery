@@ -41,7 +41,13 @@ import { RequestCoalescer } from '../network/request-coalescer'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { ActivateChannel, DeactivateChannel, UpdateChannelAtBottom } from './actions'
+import {
+  ActivateChannel,
+  DeactivateChannel,
+  ResetMessageWindow,
+  UpdateChannelAtBottom,
+} from './actions'
+import { newestServerOriginTime } from './chat-reducer'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -383,7 +389,12 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
     const earliestMessageTime = channelMessages?.messages.length
       ? channelMessages.messages[0].time
       : -1
-    const params = { channelId, limit, beforeTime: earliestMessageTime }
+    const params = {
+      channelId,
+      limit,
+      beforeTime: earliestMessageTime,
+      windowGen: channelMessages?.windowGen ?? 0,
+    }
 
     dispatch({
       type: '@chat/loadMessageHistoryBegin',
@@ -397,6 +408,114 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
       ),
       meta: params,
     })
+  }
+}
+
+/**
+ * Loads the page of messages that follows the newest one currently loaded for a channel, moving a
+ * window that sits behind the present a page closer to it. Does nothing if the channel holds no
+ * message with a server-recorded time, since there'd be nothing the server could seek from.
+ */
+export function getNewerMessages(channelId: SbChannelId, limit: number): ThunkAction {
+  return (dispatch, getStore) => {
+    const {
+      chat: { idToMessages },
+    } = getStore()
+    const channelMessages = idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    const afterTime = newestServerOriginTime(channelMessages.messages)
+    if (afterTime === undefined) {
+      return
+    }
+
+    const params = {
+      channelId,
+      limit,
+      afterTime,
+      windowGen: channelMessages.windowGen,
+      knownNewestTime: Math.max(afterTime, channelMessages.detachedNewestTime ?? -Infinity),
+    }
+
+    dispatch({
+      type: '@chat/loadNewerMessagesBegin',
+      payload: params,
+    })
+    dispatch({
+      type: '@chat/loadNewerMessages',
+      payload: fetchJson<GetChannelHistoryServerResponse>(
+        apiUrl`chat/${channelId}/messages2?limit=${limit}&afterTime=${afterTime}`,
+        { method: 'GET' },
+      ),
+      meta: params,
+    })
+  }
+}
+
+/**
+ * Loads a window of messages centered on `aroundTime`, replacing whatever is currently loaded for
+ * the channel. This is how the client reaches a position that isn't adjacent to what it holds, such
+ * as an unread divider that sits further back than the loaded history reaches.
+ */
+export function getMessagesAround(
+  channelId: SbChannelId,
+  limit: number,
+  aroundTime: number,
+): ThunkAction {
+  return (dispatch, getStore) => {
+    const {
+      chat: { idToMessages },
+    } = getStore()
+    const channelMessages = idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    const knownNewest = Math.max(
+      newestServerOriginTime(channelMessages.messages) ?? -Infinity,
+      channelMessages.detachedNewestTime ?? -Infinity,
+    )
+    const params = {
+      channelId,
+      limit,
+      aroundTime,
+      windowGen: channelMessages.windowGen,
+      knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
+    }
+
+    dispatch({
+      type: '@chat/loadMessagesAroundBegin',
+      payload: params,
+    })
+    dispatch({
+      type: '@chat/loadMessagesAround',
+      payload: fetchJson<GetChannelHistoryServerResponse>(
+        apiUrl`chat/${channelId}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
+        { method: 'GET' },
+      ),
+      meta: params,
+    })
+  }
+}
+
+export function resetMessageWindow(channelId: SbChannelId): ResetMessageWindow {
+  return {
+    type: '@chat/resetMessageWindow',
+    payload: { channelId },
+  }
+}
+
+/**
+ * Returns a channel's message list to the present, however far back it was left. The loaded window
+ * is dropped and the newest page requested in the same tick, so the list never renders an empty
+ * channel in between.
+ */
+export function jumpToPresent(channelId: SbChannelId, limit: number): ThunkAction {
+  return dispatch => {
+    dispatch(resetMessageWindow(channelId))
+    dispatch(getMessageHistory(channelId, limit))
   }
 }
 

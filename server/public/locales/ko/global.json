@@ -1431,13 +1431,20 @@
   },
   "messaging": {
     "blockedMessage": "차단된 메시지",
+    "copyLinkAddress": "링크 주소 복사",
+    "copyMessage": "메시지 복사",
+    "jumpToBottom": "맨 아래로 이동",
+    "jumpToPresent": "최신 메시지로 이동",
     "mention": "멘션",
     "messageTooLongContent": "메시지는 최대 {{maxLength}}자까지 보낼 수 있는데, 이 메시지는 {{length}}자입니다. 줄여서 다시 보내 주세요.",
     "messageTooLongTitle": "메시지가 너무 깁니다",
     "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
+    "newMessages": "새 메시지",
+    "openLink": "링크 열기",
     "searchWithGoogle": "Google에서 검색",
     "sendMessage": "메시지를 입력하세요",
-    "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다"
+    "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다",
+    "unreadLineLabel": "신규"
   },
   "navigation": {
     "bar": {
