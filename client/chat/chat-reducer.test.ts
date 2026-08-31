@@ -17,7 +17,11 @@ import {
 import { SbUser } from '../../common/users/sb-user'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { ChatActions } from './actions'
-import chatReducerImport, { ChatState, channelHasUnreadMention } from './chat-reducer'
+import chatReducerImport, {
+  ChatState,
+  channelHasUnreadMention,
+  oldestServerOriginTime,
+} from './chat-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it chat
 // actions, so narrow the parameter to those, both for the extra checking and so that action objects
@@ -54,6 +58,7 @@ function selfJoinMessage(time: number): SelfJoinChannelMessage {
 function makeState(
   overrides: {
     messages?: ChatMessage[]
+    carriedClientMessages?: ChatMessage[]
     activated?: boolean
     atBottom?: boolean
     unread?: boolean
@@ -79,6 +84,7 @@ function makeState(
         CHANNEL_ID,
         {
           messages: overrides.messages ?? [],
+          carriedClientMessages: overrides.carriedClientMessages ?? [],
           loadingHistory: overrides.loadingHistory ?? false,
           hasHistory: overrides.hasHistory ?? true,
           loadingNewer: overrides.loadingNewer ?? false,
@@ -1006,6 +1012,104 @@ describe('client/chat/chat-reducer', () => {
 
       expect(windowOf(result).messages.length).toBe(150)
       expect(windowOf(result).windowGen).toBe(0)
+    })
+  })
+
+  describe('oldestServerOriginTime', () => {
+    test('returns the oldest server-recorded time, skipping a client-only message at the head', () => {
+      expect(
+        oldestServerOriginTime([
+          selfJoinMessage(999_999_999_999),
+          textMessage(100),
+          textMessage(200),
+        ]),
+      ).toBe(100)
+    })
+
+    test('returns undefined when the window holds no server-origin message', () => {
+      expect(oldestServerOriginTime([selfJoinMessage(100), selfJoinMessage(200)])).toBeUndefined()
+    })
+  })
+
+  describe('carried client-only messages', () => {
+    test('jump to present: a dropped self-join banner returns on the next newest-page fetch', () => {
+      const banner = selfJoinMessage(1_000_000)
+      const state = makeState({ messages: [textMessage(100), textMessage(200), banner] })
+
+      let result = chatReducer(state, resetMessageWindowAction())
+      expect(messageIdsOf(result)).toEqual([])
+      expect(windowOf(result).carriedClientMessages.map(m => m.id)).toEqual([banner.id])
+
+      result = chatReducer(
+        result,
+        loadMessageHistoryAction(
+          historyResponse([textMessage(300), textMessage(400)], { hasMoreBefore: true }),
+          { windowGen: 1 },
+        ),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-300', 'text-400', banner.id])
+      expect(windowOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('deep detour: a banner stays carried through an old-range fetch, then returns on reattach', () => {
+      const banner = selfJoinMessage(1_000_000)
+      const state = makeState({
+        activated: true,
+        hasNewer: true,
+        messages: [textMessage(500), banner],
+      })
+
+      // Deactivating a window detached from the present drops it whole, carrying the banner.
+      let result = chatReducer(state, deactivateChannelAction())
+      expect(messageIdsOf(result)).toEqual([])
+      expect(windowOf(result).carriedClientMessages.map(m => m.id)).toEqual([banner.id])
+
+      // A detour into an old range: the fetched page doesn't reach anywhere near the banner's
+      // time, and the server still has newer messages behind it, so the banner stays carried.
+      result = chatReducer(
+        result,
+        loadMessagesAroundAction(
+          historyResponse([textMessage(100), textMessage(200)], {
+            hasMoreBefore: true,
+            hasMoreAfter: true,
+          }),
+          { windowGen: 1, aroundTime: 150 },
+        ),
+      )
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200'])
+      expect(windowOf(result).carriedClientMessages.map(m => m.id)).toEqual([banner.id])
+
+      // Paging forward until the server reports nothing newer reattaches the window, which now
+      // covers everything newer than what's loaded and reclaims the banner.
+      result = chatReducer(
+        result,
+        loadNewerMessagesAction(historyResponse([textMessage(300)], { hasMoreAfter: false }), {
+          windowGen: 2,
+          afterTime: 200,
+          knownNewestTime: 200,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200', 'text-300', banner.id])
+      expect(windowOf(result).carriedClientMessages).toEqual([])
+      expect(windowOf(result).hasNewer).toBe(false)
+    })
+
+    test('evicts the oldest carried message once the cap is exceeded', () => {
+      const existingCarried = Array.from({ length: 50 }, (_, i) => selfJoinMessage(i + 1))
+      const newBanner = selfJoinMessage(1000)
+      const state = makeState({
+        carriedClientMessages: existingCarried,
+        messages: [textMessage(500), newBanner],
+      })
+
+      const result = chatReducer(state, resetMessageWindowAction())
+
+      const carried = windowOf(result).carriedClientMessages
+      expect(carried.length).toBe(50)
+      expect(carried.map(m => m.id)).not.toContain(existingCarried[0].id)
+      expect(carried.map(m => m.id)).toContain(newBanner.id)
     })
   })
 })

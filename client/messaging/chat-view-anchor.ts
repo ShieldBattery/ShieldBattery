@@ -112,23 +112,49 @@ export function anchorNeedsFetch(
 }
 
 /**
+ * How far, in pixels, the offset a scroller ends up at may sit from the one it was asked for and
+ * still count as reaching it. Scroll offsets can be fractional, and writing one back is allowed to
+ * round it.
+ */
+const SCROLL_PLACEMENT_TOLERANCE_PX = 1
+
+/** What came of moving a message list to a saved reading position. */
+export type AnchorScrollResult =
+  /** The viewport sits at the position. */
+  | 'placed'
+  /**
+   * The list ran out of content below the position, so the viewport stopped above it. A page of
+   * messages added below lets the same move land.
+   */
+  | 'clamped'
+  /** Nothing in the list renders the message the position is measured against. */
+  | 'missing'
+
+/**
  * Scrolls a message list so the top of the given message sits `offsetPx` below the top of the
- * viewport. Returns whether the message was there to scroll to.
+ * viewport, reporting how close it got.
  */
 export function scrollToAnchoredMessage(
   scroller: HTMLElement,
   messageId: string,
   offsetPx: number,
-): boolean {
+): AnchorScrollResult {
   const element = scroller.querySelector<HTMLElement>(
     `[${MESSAGE_ID_ATTRIBUTE}="${CSS.escape(messageId)}"]`,
   )
   if (!element) {
-    return false
+    return 'missing'
   }
 
   const scrollerTop = scroller.getBoundingClientRect().top
   const elementTop = element.getBoundingClientRect().top
-  scroller.scrollTop += elementTop - scrollerTop - offsetPx
-  return true
+  const targetScrollTop = scroller.scrollTop + elementTop - scrollerTop - offsetPx
+  scroller.scrollTop = targetScrollTop
+
+  // A scroller silently clamps a write to the range its content allows. Stopping short of the
+  // target is the case worth reporting: the content the position needs below it isn't loaded, and a
+  // page added there brings the same move within reach. Stopping past the target (a position that
+  // would sit above the very top of the content) is as close as the list can get whatever else
+  // loads below.
+  return scroller.scrollTop < targetScrollTop - SCROLL_PLACEMENT_TOLERANCE_PX ? 'clamped' : 'placed'
 }

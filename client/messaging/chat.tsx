@@ -51,12 +51,18 @@ type PendingScrollTarget =
       viewStateKey: string
       anchor: ChatViewAnchor
       /**
-       * Which loaded window the move was started against. A different one means the replacement
-       * the move was waiting on has arrived.
+       * Which loaded window the current wait was started against. A different one means the
+       * replacement the move was waiting on has arrived.
        */
       windowGenAtStart: number | undefined
-      /** Whether a load has been seen in flight since the move was started. */
+      /** Whether a load has been seen in flight since the current wait was started. */
       sawLoading: boolean
+      /**
+       * Scroll height the last attempt at the position was made against, if one has been made. The
+       * list can't land any closer until its content changes, so further attempts wait for that
+       * rather than fighting whatever scrolling the user does in the meantime.
+       */
+      attemptedScrollHeight: number | undefined
     }
 
 /**
@@ -280,10 +286,11 @@ export function Chat({
 
   /**
    * Starts moving the list to the position the user left this conversation at, if they left one
-   * behind. Only a position that lies before the loaded window becomes a pending move: it takes a
-   * replacement window that the owner is expected to ask for, and it lands once that window
-   * arrives. Everything else is settled here and now, since the bottom is where the list already
-   * is.
+   * behind. A move becomes pending when reaching the position takes messages the window doesn't
+   * hold: the position lies before the window, so a replacement one the owner is expected to ask
+   * for has to arrive first, or the window ends too few messages below the position for the
+   * viewport to sit at it, so a page of newer messages has to be appended. Everything else is
+   * settled here and now, since the bottom is where the list already is.
    */
   const startAnchorRestore = (scroller: HTMLDivElement, key: string) => {
     const anchor = chatViewAnchorStore.get(key)
@@ -292,12 +299,22 @@ export function Chat({
     }
 
     const placement = findChatViewPlacement(messages, anchor)
-    if (placement.kind === 'message') {
-      scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
-      return
-    }
     if (placement.kind === 'bottom') {
       return
+    }
+
+    let attemptedScrollHeight: number | undefined
+    if (placement.kind === 'message') {
+      const result = scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
+      if (result !== 'clamped') {
+        return
+      }
+      if (!hasNewerMessages) {
+        // The bottom of the window is the newest message there is, so a viewport that stopped above
+        // the position is as close to it as the conversation gets.
+        return
+      }
+      attemptedScrollHeight = scroller.scrollHeight
     }
 
     pendingScrollRef.current = {
@@ -308,6 +325,7 @@ export function Chat({
         anchor,
         windowGenAtStart: windowGeneration,
         sawLoading: false,
+        attemptedScrollHeight,
       },
     }
   }
@@ -319,7 +337,13 @@ export function Chat({
    * shown it: the window generation changing, or a load it watched start and then finish. "Nothing
    * is loading" on its own can't be trusted, because this runs from scroll updates as well as from
    * renders, and a scroll update between a commit and the request it triggers reads the loading
-   * flag a render behind — as idle, when the request is about to be made.
+   * flag a render behind — as idle, when the request is about to be made. A generation change to a
+   * window with no messages in it doesn't count as that replacement arriving either: it's the gap
+   * before one, so the move re-arms against the new generation and keeps waiting.
+   *
+   * A move that found its position but couldn't reach it waits on something else entirely: the
+   * content growing, since re-running the same attempt against the same content can only land where
+   * it already did.
    */
   const applyPendingScroll = (scroller: HTMLDivElement) => {
     const pending = pendingScrollRef.current
@@ -353,20 +377,47 @@ export function Chat({
     }
 
     const placement = findChatViewPlacement(messages, target.anchor)
-    if (
-      placement.kind === 'message' &&
-      scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
-    ) {
-      pendingScrollRef.current = undefined
-      return
+    if (placement.kind === 'message') {
+      if (scroller.scrollHeight === target.attemptedScrollHeight) {
+        // The list holds exactly what the last attempt was made against, so trying again would land
+        // in the same place while dragging the viewport away from wherever the user has scrolled.
+        return
+      }
+
+      const result = scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
+      if (result === 'clamped' && hasNewerMessages) {
+        // The window ends too few messages below the position for the viewport to sit at it. The
+        // bottom edge of the list is in view in that state and asks for the page that fixes it, so
+        // the move stays armed to finish once that page lands, waiting now on this window growing
+        // rather than on the one it was originally aimed at.
+        target.windowGenAtStart = windowGeneration
+        target.sawLoading = false
+        target.attemptedScrollHeight = scroller.scrollHeight
+        return
+      }
+      if (result !== 'missing') {
+        // The viewport is either at the position, or stopped short of it with the newest messages
+        // already loaded, which is as close as the conversation goes.
+        pendingScrollRef.current = undefined
+        return
+      }
     }
 
     if (windowGeneration !== target.windowGenAtStart) {
-      // A replacement window arrived and still can't hold the saved position, so the newest
-      // messages are as close to it as this conversation gets.
-      pendingScrollRef.current = undefined
-      scroller.scrollTop = scroller.scrollHeight
-      return
+      if (messages.some(isServerOriginMessage)) {
+        // A replacement window arrived and still can't hold the saved position, so the newest
+        // messages are as close to it as this conversation gets.
+        pendingScrollRef.current = undefined
+        scroller.scrollTop = scroller.scrollHeight
+        return
+      }
+
+      // The generation moved but left no content behind: the window was cleared to make way for a
+      // replacement that hasn't arrived yet, not a replacement that failed to cover the position.
+      // The wait carries over to whatever window fills it, so re-arm against this generation and
+      // fall through to the loading latch below in case a request is already in flight this render.
+      target.windowGenAtStart = windowGeneration
+      target.sawLoading = false
     }
 
     if (target.sawLoading && !loading) {

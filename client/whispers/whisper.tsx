@@ -25,6 +25,7 @@ import {
   getWhisperLastReadKey,
   jumpToPresent,
   markWhisperRead,
+  resetMessageWindow,
   sendMessage,
   startWhisperSessionById,
   updateSessionAtBottom,
@@ -126,7 +127,11 @@ export function ConnectedWhisper({
     if (anchor && anchorNeedsFetch(whisperSession?.messages ?? [], anchor)) {
       // Getting back to where the user was reading takes a window the client doesn't hold, so that
       // window is this activation's history request instead of the newest page the list would
-      // otherwise ask for.
+      // otherwise ask for. Whatever window is still loaded doesn't contain the position either and
+      // is about to be replaced anyway, so it's dropped up front rather than left on screen: leaving
+      // it in place would show the user a spot they weren't (its bottom) only to yank them away once
+      // the requested window lands, whereas an empty window renders as loading for that same wait.
+      dispatch(resetMessageWindow(targetId))
       dispatch(
         getMessagesAround(targetId, MESSAGES_LIMIT, anchor.sentTime, {
           onStart: () => {

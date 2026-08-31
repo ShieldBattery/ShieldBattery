@@ -149,6 +149,8 @@ interface PureMessageListProps {
   MessageComponent?: MessageComponentType
   unreadLineTime?: number
   hasMoreHistory?: boolean
+  /** Whether more history is currently being requested for this list. */
+  loading?: boolean
 }
 
 function PureMessageList({
@@ -157,12 +159,19 @@ function PureMessageList({
   MessageComponent,
   unreadLineTime,
   hasMoreHistory,
+  loading,
 }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
 
   if (messages.length < 1) {
+    if (loading) {
+      // A loader (rendered by the surrounding infinite scroll list) is already telling the user
+      // messages are on their way; showing empty state text at the same time would read as a
+      // contradiction.
+      return undefined
+    }
     return showEmptyState ? (
       <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
     ) : undefined
@@ -463,6 +472,7 @@ export class MessageList extends React.Component<MessageListProps> {
             MessageComponent={MessageComponent}
             unreadLineTime={unreadLineTime}
             hasMoreHistory={hasMoreHistory}
+            loading={loading}
           />
         </InfiniteScrollList>
       </Scrollable>

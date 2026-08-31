@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import { ClientChatMessageType, makeSbChannelId, ServerChatMessageType } from '../../common/chat'
 import { makeSbUserId } from '../../common/users/sb-user-id'
-import { anchorNeedsFetch, ChatViewAnchor, findChatViewPlacement } from './chat-view-anchor'
+import {
+  anchorNeedsFetch,
+  ChatViewAnchor,
+  findChatViewPlacement,
+  MESSAGE_ID_ATTRIBUTE,
+  scrollToAnchoredMessage,
+} from './chat-view-anchor'
 import { SbMessage } from './message-records'
 
 const CHANNEL_ID = makeSbChannelId(1)
@@ -114,5 +120,89 @@ describe('messaging/chat-view-anchor/anchorNeedsFetch', () => {
     expect(anchorNeedsFetch([], anchor())).toBe(true)
     expect(anchorNeedsFetch([serverMessage('b', 200)], anchor())).toBe(false)
     expect(anchorNeedsFetch([serverMessage('a', 100)], anchor())).toBe(false)
+  })
+})
+
+/** Where the top of the stubbed scroller sits on screen. */
+const SCROLLER_TOP = 40
+
+/**
+ * Builds a scroller holding one element per given message id, positioned at the given viewport
+ * coordinate. The test environment lays nothing out, so the rects the scrolling reads and the range
+ * a scroll offset is clamped to are both supplied here: writes past `maxScrollTop` land on it, the
+ * way a real scroller stops at the end of its content.
+ */
+function makeScroller({
+  messageTops,
+  scrollTop = 0,
+  maxScrollTop = Number.MAX_SAFE_INTEGER,
+  roundScrollTop = false,
+}: {
+  messageTops: Record<string, number>
+  scrollTop?: number
+  maxScrollTop?: number
+  roundScrollTop?: boolean
+}): HTMLElement {
+  const scroller = document.createElement('div')
+  scroller.getBoundingClientRect = () => ({ top: SCROLLER_TOP }) as DOMRect
+
+  for (const [messageId, top] of Object.entries(messageTops)) {
+    const element = document.createElement('div')
+    element.setAttribute(MESSAGE_ID_ATTRIBUTE, messageId)
+    element.getBoundingClientRect = () => ({ top }) as DOMRect
+    scroller.appendChild(element)
+  }
+
+  let current = scrollTop
+  Object.defineProperty(scroller, 'scrollTop', {
+    get: () => current,
+    set: (value: number) => {
+      const clamped = Math.min(Math.max(value, 0), maxScrollTop)
+      current = roundScrollTop ? Math.round(clamped) : clamped
+    },
+  })
+
+  return scroller
+}
+
+describe('messaging/chat-view-anchor/scrollToAnchoredMessage', () => {
+  test('puts the message where the position asks for it', () => {
+    const scroller = makeScroller({ messageTops: { b: 250 }, scrollTop: 100, maxScrollTop: 1000 })
+
+    expect(scrollToAnchoredMessage(scroller, 'b', -12)).toBe('placed')
+    expect(scroller.scrollTop).toBe(322)
+  })
+
+  test('reports a clamp when the content below the position runs out', () => {
+    const scroller = makeScroller({ messageTops: { b: 340 }, scrollTop: 500, maxScrollTop: 778 })
+
+    expect(scrollToAnchoredMessage(scroller, 'b', 0)).toBe('clamped')
+    expect(scroller.scrollTop).toBe(778)
+  })
+
+  test('counts a rounded offset as reaching the position', () => {
+    const scroller = makeScroller({
+      messageTops: { b: 250.4 },
+      scrollTop: 100,
+      maxScrollTop: 1000,
+      roundScrollTop: true,
+    })
+
+    expect(scrollToAnchoredMessage(scroller, 'b', 0)).toBe('placed')
+    expect(scroller.scrollTop).toBe(310)
+  })
+
+  test('counts stopping at the top of the content as reaching the position', () => {
+    const scroller = makeScroller({ messageTops: { b: 40 }, scrollTop: 0, maxScrollTop: 1000 })
+
+    expect(scrollToAnchoredMessage(scroller, 'b', 24)).toBe('placed')
+    expect(scroller.scrollTop).toBe(0)
+  })
+
+  test('reports a missing message when the list holds no element for it', () => {
+    const scroller = makeScroller({ messageTops: { a: 100, c: 300 }, scrollTop: 100 })
+
+    expect(scrollToAnchoredMessage(scroller, 'b', -12)).toBe('missing')
+    expect(scroller.scrollTop).toBe(100)
   })
 })
