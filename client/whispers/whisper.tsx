@@ -122,7 +122,7 @@ export function ConnectedWhisper({
 
   const onActivate = useEffectEvent(() => {
     const anchor = chatViewAnchorStore.get(viewStateKey)
-    dispatch(activateWhisperSession(targetId, anchor === undefined))
+    dispatch(activateWhisperSession(targetId))
 
     if (anchor && anchorNeedsFetch(whisperSession?.messages ?? [], anchor)) {
       // Getting back to where the user was reading takes a window the client doesn't hold, so that

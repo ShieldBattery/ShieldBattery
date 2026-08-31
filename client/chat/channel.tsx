@@ -261,7 +261,7 @@ export function ConnectedChatChannel({
     dispatch(retrieveUserList(channelId))
 
     const anchor = chatViewAnchorStore.get(viewStateKey)
-    dispatch(activateChannel(channelId, anchor === undefined))
+    dispatch(activateChannel(channelId))
 
     if (anchor && anchorNeedsFetch(channelMessages?.messages ?? [], anchor)) {
       // Getting back to where the user was reading takes a window the client doesn't hold, so that

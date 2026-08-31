@@ -248,13 +248,10 @@ export function jumpToPresent(
   }
 }
 
-export function activateWhisperSession(
-  target: SbUserId,
-  atBottom: boolean,
-): ActivateWhisperSession {
+export function activateWhisperSession(target: SbUserId): ActivateWhisperSession {
   return {
     type: '@whispers/activateWhisperSession',
-    payload: { target, atBottom },
+    payload: { target },
   }
 }
 

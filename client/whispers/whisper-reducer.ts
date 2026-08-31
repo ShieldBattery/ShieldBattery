@@ -393,12 +393,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/activateWhisperSession'](state, action) {
-    const { target, atBottom } = action.payload
+    const { target } = action.payload
     if (!state.byId.has(target)) {
       return
     }
 
     const session = state.byId.get(target)!
+
+    // Whether the view is opening at the newest messages. The view reports where its viewport
+    // settles (`updateSessionAtBottom`) ahead of this dispatch, so the current flag reflects this
+    // activation's viewport; a view still on its way back to a saved reading position hasn't
+    // reported yet and counts as away from the bottom, which is where it's headed.
+    const atBottom = session.atBottom
 
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the
@@ -424,7 +430,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     session.activated = true
-    session.atBottom = atBottom
     session.hasUnread = false
   },
 

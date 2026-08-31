@@ -212,8 +212,11 @@ export interface ChatProps {
   /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
   disallowMentionInteraction?: boolean
   /**
-   * Called when the user's scrolled-to-bottom state changes. Message lists mount pinned to the
-   * bottom, so owners should assume at-bottom initially.
+   * Called with the at-bottom state the viewport settles in when the list arrives at a
+   * conversation, and again whenever that state changes. The arrival report fires during the
+   * commit that mounts or re-targets the list, before owners' effects run; when a move to a saved
+   * reading position is pending, the report waits for the move to settle instead, so what's
+   * reported is where the user actually ends up.
    */
   onAtBottomChange?: (atBottom: boolean) => void
   /**
@@ -256,8 +259,11 @@ export function Chat({
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
   const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
   const [showUnreadBanner, setShowUnreadBanner] = useState<boolean>(false)
-  // Message lists mount pinned to the bottom, matching how `MessageList` initially scrolls.
-  const wasAtBottomRef = useRef(true)
+  // The last at-bottom state reported through `onAtBottomChange`, so only changes are reported.
+  // Undefined while nothing has been reported for the current conversation, which makes the first
+  // settled update report unconditionally: the owner has no other way to learn where the viewport
+  // actually ended up.
+  const wasAtBottomRef = useRef<boolean | undefined>(undefined)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   // Set while the list is waiting for what it needs to reach a position to come into the loaded
   // window, so it can move there once it does.
@@ -447,6 +453,7 @@ export function Chat({
     if (isListMount || lastSeenConversationRef.current !== refreshToken) {
       lastSeenConversationRef.current = refreshToken
       pendingScrollRef.current = undefined
+      wasAtBottomRef.current = undefined
       if (viewStateKey !== undefined) {
         startAnchorRestore(scroller, viewStateKey)
       }

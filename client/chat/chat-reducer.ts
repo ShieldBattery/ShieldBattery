@@ -990,7 +990,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/activateChannel'](state, action) {
-    const { channelId, atBottom } = action.payload
+    const { channelId } = action.payload
+
+    // Whether the view is opening at the newest messages. The view reports where its viewport
+    // settles (`updateChannelAtBottom`) ahead of this dispatch, so the current flag reflects this
+    // activation's viewport; a view still on its way back to a saved reading position hasn't
+    // reported yet and counts as away from the bottom, which is where it's headed.
+    const atBottom = state.atBottomChannels.has(channelId)
 
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the
@@ -1020,11 +1026,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     state.unreadChannels.delete(channelId)
     state.activatedChannels.add(channelId)
-    if (atBottom) {
-      state.atBottomChannels.add(channelId)
-    } else {
-      state.atBottomChannels.delete(channelId)
-    }
   },
 
   ['@chat/deactivateChannel'](state, action) {

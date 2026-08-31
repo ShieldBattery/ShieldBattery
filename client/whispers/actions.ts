@@ -155,18 +155,15 @@ export interface ResetMessageWindow {
 
 /**
  * Activate a particular whisper session. This is a purely client-side action which marks the
- * session as "active", and removes the unread indicator if there is one.
+ * session as "active", and removes the unread indicator if there is one. The message list reports
+ * the at-bottom state it opened in (`UpdateSessionAtBottom`) ahead of this being dispatched, so
+ * the reducer reads the current flag to tell an open at the newest messages from one restoring a
+ * position further back.
  */
 export interface ActivateWhisperSession {
   type: '@whispers/activateWhisperSession'
   payload: {
     target: SbUserId
-    /**
-     * Whether the message list is opening at the newest messages. It isn't when the view is being
-     * restored to a position further back, which means the user hasn't necessarily caught up with
-     * the conversation just by opening it.
-     */
-    atBottom: boolean
   }
 }
 
@@ -182,7 +179,7 @@ export interface DeactivateWhisperSession {
 }
 
 /**
- * Update whether an activated whisper session's message list is scrolled to the bottom. This is a
+ * Update whether a viewed whisper session's message list is scrolled to the bottom. This is a
  * purely client-side action; the reducer uses it to trim message history down to the same cap
  * applied to inactive sessions, since removing old messages while pinned to the bottom is
  * invisible to the user (auto-scroll keeps the view at the newest message).

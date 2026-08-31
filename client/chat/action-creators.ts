@@ -752,10 +752,10 @@ export function unbanUser(
   })
 }
 
-export function activateChannel(channelId: SbChannelId, atBottom: boolean): ActivateChannel {
+export function activateChannel(channelId: SbChannelId): ActivateChannel {
   return {
     type: '@chat/activateChannel',
-    payload: { channelId, atBottom },
+    payload: { channelId },
   }
 }
 
