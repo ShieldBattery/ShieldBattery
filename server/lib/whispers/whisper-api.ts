@@ -6,6 +6,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
   GetWhisperSessionsResponse,
+  MarkWhisperReadRequest,
   SendWhisperMessageRequest,
   WhisperServiceErrorCode,
 } from '../../../common/whispers'
@@ -48,6 +49,12 @@ const sendThrottle = createThrottle('whispersend', {
 const retrievalThrottle = createThrottle('whisperretrieval', {
   rate: 30,
   burst: 120,
+  window: 60000,
+})
+
+const markReadThrottle = createThrottle('whispermarkread', {
+  rate: 30,
+  burst: 60,
   window: 60000,
 })
 
@@ -156,6 +163,26 @@ export class WhisperApi {
     ctx.status = 204
   }
 
+  @httpPost('/:targetId/mark-read')
+  @httpBefore(throttleMiddleware(markReadThrottle, throttleByUser))
+  async markWhisperRead(ctx: RouterContext): Promise<void> {
+    const {
+      params: { targetId },
+      body: { lastReadTime },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ targetId: SbUserId }>({
+        targetId: joiUserId().required(),
+      }),
+      body: Joi.object<MarkWhisperReadRequest>({
+        lastReadTime: Joi.number().integer().min(0).required(),
+      }),
+    })
+
+    await this.whisperService.markRead(ctx.session!.user.id, targetId, new Date(lastReadTime))
+
+    ctx.status = 204
+  }
+
   // Leaving the old API with a dummy payload in order to not break the auto-update functionality
   // for old clients.
   // Last used: 8.0.2 (November 2021)
@@ -163,7 +190,10 @@ export class WhisperApi {
   @httpBefore(throttleMiddleware(retrievalThrottle, throttleByUser))
   getSessionHistoryOld(
     ctx: RouterContext,
-  ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions' | 'deletedChannels'> {
+  ): Omit<
+    GetSessionHistoryResponse,
+    'mentions' | 'channelMentions' | 'deletedChannels' | 'hasMoreBefore' | 'hasMoreAfter'
+  > {
     return {
       messages: [],
       users: [],
@@ -175,15 +205,22 @@ export class WhisperApi {
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const {
       params: { targetId },
-      query: { limit, beforeTime },
+      query: { limit, beforeTime, afterTime, aroundTime },
     } = validateRequest(ctx, {
       params: Joi.object<{ targetId: SbUserId }>({
         targetId: joiUserId().required(),
       }),
-      query: Joi.object<{ limit: number; beforeTime: number }>({
+      query: Joi.object<{
+        limit: number
+        beforeTime?: number
+        afterTime?: number
+        aroundTime?: number
+      }>({
         limit: Joi.number().min(1).max(100),
         beforeTime: Joi.number().min(-1),
-      }),
+        afterTime: Joi.number().min(0),
+        aroundTime: Joi.number().min(0),
+      }).oxor('beforeTime', 'afterTime', 'aroundTime'),
     })
 
     return await this.whisperService.getSessionHistory(
@@ -191,6 +228,8 @@ export class WhisperApi {
       targetId,
       limit,
       beforeTime,
+      afterTime,
+      aroundTime,
     )
   }
 }

@@ -85,8 +85,16 @@ consistent. (Seed — extend over time.)
 - **color override(s) → reemplazo (de colores)** (noun; verb reemplazar). On/Off mode options use
   Activado/Desactivado. Color scheme→esquema de colores.
 - **video → video** (sin tilde, LatAm form; matches the in-file settings "Video" title).
+- **Recycle Bin → Papelera de reciclaje** (the Windows name). **resolve (game results) →
+  resolver**; Disputed status chip → En disputa; Manually resolved chip → Resolución manual
+  (noun form dodges the juego/partida gender clash).
 - **Home (nav) → Inicio** (fixed from old MT "Hogar"); social Chat tab label → **Chat** (noun, not
   "Charlar").
+- **join code → código** (Introducir código / Introduce este código; no qualifier needed — context
+  carries it). **the app (desktop client) → la app** (feminine: instalada). Buttons use the
+  infinitive (Introducir código), inline prompts use tú imperative (Introduce este código).
+- Old MT rendered slot as "ranura" in the lobby strings — fixed to **espacio** (Espacios,
+  Abrir/Cerrar espacio). Watch for "ranura" resurfacing.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -110,6 +118,12 @@ consistent. (Seed — extend over time.)
   Открыто/Закрыто, legacy unit limit→классический лимит.
 - **color override(s) → замена (цветов)**. On/Off mode options use Включено/Выключено. Color
   scheme→цветовая схема.
+- **Recycle Bin → корзина** (lowercase in menu phrases: Переместить в корзину). **resolve (game
+  results) → разрешить спор** family (Disputed chip → Спорные результаты, Manually resolved →
+  Решено вручную; the dialog "resolves the dispute", not the results).
+- **join code → код лобби** (Введите код лобби; button "Ввести код"). Lobby slot noun stays
+  **слот** in the lobby-slot strings (Открыть/Закрыть слот) — the Открыто/Закрыто rows are the
+  slot *states*, not the noun.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -139,6 +153,12 @@ consistent. (Seed — extend over time.)
 - **color override(s) → (색상) 대체**. On/Off mode options use 사용/사용 안 함 phrasing. Color
   scheme→색상 구성 (with 내 for "your"). Rust (color)→러스트 (fashion-color loanword; never 녹색).
 - **video (file/media) → 동영상** (uploads, inserts); the graphics settings tab stays 비디오.
+- **Recycle Bin → 휴지통** (휴지통으로 이동, the Windows phrasing). **resolve (game results) →
+  확정** (결과 확정 button/title, 수동 확정됨 chip); Disputed status chip → 결과 불일치 (the
+  condition is conflicting reports, not a player-filed dispute). Ladder points → 점수 (matches
+  랭크 점수 in-file).
+- **join code → 참가 코드** (dialog title 참가 코드 입력; browser button just 코드 입력). **the
+  app → 앱** (ShieldBattery 앱에서 열기).
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -163,3 +183,8 @@ consistent. (Seed — extend over time.)
   slot rows use 开放/已关闭, legacy unit limit→旧版单位限制.
 - **color override(s) → (颜色)替换**. On/Off mode options use 开启/关闭 (everywhere→全局开启).
   Color scheme→配色方案.
+- **Recycle Bin → 回收站** (移至回收站). **resolve (game results) → 判定** (判定结果 button,
+  判定游戏结果 dialog, 已手动判定 chip; Disputed chip → 有争议). **region (server region) → 地区**
+  (matches 服务器地区), never 区域. Ladder points → 积分.
+- **join code → 房间码** (never plain 代码 — that reads as source code; matches lobby→房间).
+  **the app (desktop client) → 客户端** (在 ShieldBattery 客户端中打开 / 下载客户端).

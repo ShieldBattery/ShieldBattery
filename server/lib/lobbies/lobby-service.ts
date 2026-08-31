@@ -19,6 +19,7 @@ import {
   LobbyState,
   LobbyVisibility,
 } from '../../../common/lobbies'
+import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
   LobbyPreviewJson,
   LobbySlotCreateEvent,
@@ -43,6 +44,7 @@ import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { genShortRandomCode } from '../users/random-code'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import {
@@ -53,7 +55,11 @@ import {
 import { TypedPublisher } from '../websockets/typed-publisher'
 import * as Lobbies from './lobby'
 import { LobbyPlayerNetworkStore } from './lobby-player-network-store'
-import { setLobbySummaryGetter } from './lobby-summaries'
+import {
+  setLobbyIdByJoinCodeGetter,
+  setLobbyJoinCodeGetter,
+  setLobbySummaryGetter,
+} from './lobby-summaries'
 
 /**
  * Machine-readable codes for every way a lobby operation can fail. Transports translate these into
@@ -181,6 +187,10 @@ export class LobbyService {
   readonly lobbyCountdowns = new Map<SbLobbyId, Countdown>()
   readonly loadingLobbies = new Map<SbLobbyId, AbortController>()
   readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
+  /** A lobby's normalized join code, keyed by lobby id. Populated at create, gone once it closes. */
+  private readonly lobbyJoinCodes = new Map<SbLobbyId, string>()
+  /** The inverse of {@link lobbyJoinCodes}, for resolving a typed-in code back to its lobby. */
+  private readonly joinCodeToLobby = new Map<string, SbLobbyId>()
 
   constructor(
     private publisher: TypedPublisher<LobbyPublishEvent>,
@@ -203,6 +213,31 @@ export class LobbyService {
       }
       return Lobbies.toSummaryJson(lobby)
     })
+    setLobbyJoinCodeGetter(id => this.lobbyJoinCodes.get(id))
+    setLobbyIdByJoinCodeGetter(code => this.joinCodeToLobby.get(code))
+  }
+
+  /**
+   * Mints a join code not currently held by any live lobby. Collisions are vanishingly rare (the
+   * alphabet's ~113M six-character codes against at most hundreds of lobbies live at once), but
+   * the retry loop exists so one could never hand out a code that resolves to someone else's
+   * lobby.
+   */
+  private async _mintJoinCode(): Promise<string> {
+    let code: string
+    do {
+      code = normalizeJoinCode(await genShortRandomCode())
+    } while (this.joinCodeToLobby.has(code))
+    return code
+  }
+
+  /** Removes a lobby's join code from both registry maps, symmetric with its other teardown state. */
+  private _deleteJoinCode(lobbyId: SbLobbyId): void {
+    const code = this.lobbyJoinCodes.get(lobbyId)
+    this.lobbyJoinCodes.delete(lobbyId)
+    if (code !== undefined) {
+      this.joinCodeToLobby.delete(code)
+    }
   }
 
   /** Returns a summary of every lobby that belongs on the public lobby list. */
@@ -222,6 +257,7 @@ export class LobbyService {
     visibility,
     region,
     rttMs,
+    regionManual,
     clientPubkey,
     leaveCurrentLobby,
     user,
@@ -236,6 +272,8 @@ export class LobbyService {
     visibility?: LobbyVisibility
     region?: GameServerRegionId
     rttMs?: number
+    /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
+    regionManual?: boolean
     clientPubkey?: string
     /**
      * When set, a client currently in a different lobby is removed from it as part of this create
@@ -286,6 +324,11 @@ export class LobbyService {
       visibility: lobbyVisibility,
     })
 
+    // Minted before any state mutation below: everything from the current-lobby leave onward must
+    // stay a single synchronous block, both so no await window lets a concurrent create interleave
+    // and so a (however unlikely) minting failure can't strand the client mid-mutation.
+    const joinCode = await this._mintJoinCode()
+
     if (leaveCurrentLobby) {
       this._leaveCurrentLobby(client)
     }
@@ -298,9 +341,15 @@ export class LobbyService {
     }
 
     this.lobbies.set(lobby.id, lobby)
+    this.lobbyJoinCodes.set(lobby.id, joinCode)
+    this.joinCodeToLobby.set(joinCode, lobby.id)
     this.lobbyClients.set(client, lobby.id)
-    if (rttMs !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(lobby.id, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(lobby.id, client.userId, {
+        rttMs,
+        regionManual,
+        netcodeV2Pubkey: clientPubkey,
+      })
     }
     this._subscribeClientToLobby(lobby, user, client)
 
@@ -314,6 +363,7 @@ export class LobbyService {
     id,
     region,
     rttMs,
+    regionManual,
     clientPubkey,
     asObserver,
     leaveCurrentLobby,
@@ -323,6 +373,8 @@ export class LobbyService {
     id: SbLobbyId
     region?: GameServerRegionId
     rttMs?: number
+    /** Whether `region` was hand-picked rather than resolved from the client's measurements. */
+    regionManual?: boolean
     clientPubkey?: string
     /** Whether the joiner wants an observer seat specifically; see the handling below. */
     asObserver?: boolean
@@ -427,8 +479,12 @@ export class LobbyService {
 
     this.lobbies.set(id, updated)
     this.lobbyClients.set(client, id)
-    if (rttMs !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(id, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(id, client.userId, {
+        rttMs,
+        regionManual,
+        netcodeV2Pubkey: clientPubkey,
+      })
     }
 
     this._publishLobbyDiff(lobby, updated)
@@ -1000,6 +1056,7 @@ export class LobbyService {
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
+      this._deleteJoinCode(lobby.id)
       this._publishListChange('delete', lobby)
     } else {
       this.lobbies.set(lobby.id, updatedLobby)
@@ -1122,6 +1179,7 @@ export class LobbyService {
           isObserver: s.type === SlotType.Observer,
           region: s.region,
           rttMs: networkByUser.get(s.userId!)?.rttMs,
+          regionManual: networkByUser.get(s.userId!)?.regionManual,
           netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
         })),
         playerInfos: getPlayerInfos(lobby),
@@ -1208,6 +1266,7 @@ export class LobbyService {
     this.lobbyBannedUsers.delete(lobby.id)
     this.loadingLobbies.delete(lobby.id)
     this.lobbyPlayerNetwork.deleteLobby(lobby.id)
+    this._deleteJoinCode(lobby.id)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)

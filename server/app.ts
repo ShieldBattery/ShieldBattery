@@ -8,6 +8,7 @@ import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaJwt from 'koa-jwt'
 import { container } from 'tsyringe'
+import { internalRoutesMiddleware } from './internal-routes'
 import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
 import isDev from './lib/env/is-dev'
 import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
@@ -104,9 +105,13 @@ app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext
     (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ERR_STREAM_PREMATURE_CLOSE')
   ) {
     // These all mean the client disconnected while we were still sending a response (the stream
-    // variant occurs when the body is piped through stream.pipeline). They aren't severe or even
-    // really fixable (AFAIK), but still may be useful to log in case they start happening for
-    // things we don't expect
+    // variant occurs when the body is piped through stream.pipeline). Server-sent event streams
+    // have no server-side end, so a client disconnect is how every one of those responses
+    // terminates — logging it would just be noise
+    if (ctx?.response?.type === 'text/event-stream') return
+
+    // For other responses they aren't severe or even really fixable (AFAIK), but still may be
+    // useful to log in case they start happening for things we don't expect
     log.warn({ err, req: ctx?.req }, 'server error (non-severe)')
   } else {
     log.error({ err, req: ctx?.req, cause: (err as any)?.cause }, 'server error')
@@ -154,6 +159,11 @@ app
   // See webhook-routes.ts.
   .use(webhookRoutes.routes())
   .use(webhookRoutes.allowedMethods())
+  // Internal routes are similarly mounted ahead of the browser-focused machinery (and of
+  // canonical-host redirects, which would bounce a direct-to-app-port request): their callers are
+  // trusted services on the private network/tailnet. See internal-routes.ts for the access
+  // boundary.
+  .use(internalRoutesMiddleware())
   .use(
     koaCompress({
       // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved

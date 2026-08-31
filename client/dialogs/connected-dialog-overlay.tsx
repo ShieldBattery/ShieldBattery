@@ -55,8 +55,14 @@ const DownloadDialog = React.lazy(() => import('../download/download-dialog'))
 const ReportGameDialog = React.lazy(async () => ({
   default: (await import('../games/report-game-dialog')).ReportGameDialog,
 }))
+const ResolveGameResultsDialog = React.lazy(async () => ({
+  default: (await import('../games/resolve-game-dialog')).ResolveGameResultsDialog,
+}))
 const LeagueExplainerDialog = React.lazy(async () => ({
   default: (await import('../leagues/league-explainer')).LeagueExplainerDialog,
+}))
+const JoinCodeDialog = React.lazy(async () => ({
+  default: (await import('../lobbies/join-code-dialog')).JoinCodeDialog,
 }))
 const LobbyLeaveAndCreateDialog = React.lazy(async () => ({
   default: (await import('../lobbies/lobby-leave-and-create-dialog')).LobbyLeaveAndCreateDialog,
@@ -79,6 +85,9 @@ const FailedToAcceptMatchDialog = React.lazy(async () => ({
 }))
 const MatchmakingBannedDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/matchmaking-banned-dialog')).MatchmakingBannedDialog,
+}))
+const NewsPostSettingsDialog = React.lazy(async () => ({
+  default: (await import('../admin/news-post-settings-dialog')).NewsPostSettingsDialog,
 }))
 const PostMatchDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/post-match-dialog')).PostMatchDialog,
@@ -156,7 +165,7 @@ function getDialog(dialogType: DialogType): {
 } {
   switch (dialogType) {
     case DialogType.AcceptMatch:
-      return { component: AcceptMatchDialog, modal: true }
+      return { component: AcceptMatchDialog }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
     case DialogType.AdminDeleteChatMessage:
@@ -195,6 +204,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ExternalLinkDialog }
     case DialogType.FailedToAcceptMatch:
       return { component: FailedToAcceptMatchDialog }
+    case DialogType.JoinCode:
+      return { component: JoinCodeDialog }
     case DialogType.LaunchingGame:
       return { component: LaunchingGameDialog, modal: true }
     case DialogType.LeagueExplainer:
@@ -213,6 +224,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MarkdownDialog }
     case DialogType.MatchmakingBanned:
       return { component: MatchmakingBannedDialog }
+    case DialogType.NewsPostSettings:
+      return { component: NewsPostSettingsDialog }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:
@@ -227,6 +240,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ReplayLoadDialog, modal: true }
     case DialogType.ReportGame:
       return { component: ReportGameDialog }
+    case DialogType.ResolveGameResults:
+      return { component: ResolveGameResultsDialog }
     case DialogType.Simple:
       return { component: SimpleDialog }
     case DialogType.ShieldBatteryHealth:

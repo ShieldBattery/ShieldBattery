@@ -21,6 +21,7 @@ import {
 import {
   NetcodeV2FlightBlobInfo,
   NetcodeV2FlightBlobsResponse,
+  NetcodeV2RequestedRegion,
 } from '../../common/games/netcode-v2'
 import {
   GameClientResult,
@@ -48,6 +49,7 @@ import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { IconButton, OutlinedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -58,8 +60,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { saveReplayToLibrary, watchReplayFromUrl } from '../replays/action-creators'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { watchReplayFromUrl } from '../replays/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -82,6 +83,7 @@ import {
   viewGame,
 } from './action-creators'
 import { ResultsSubPage } from './results-sub-page'
+import { SaveReplayMenuContent } from './save-replay-menu'
 
 const Container = styled(CenteredContentContainer)`
   padding-block: 16px;
@@ -159,6 +161,28 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface)')};
 `
 
+const StatusRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const StatusChip = styled.div<{ $color: string }>`
+  ${labelMedium};
+  ${singleLine};
+
+  height: 24px;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  color: ${props => props.$color};
+`
+
 const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
   month: 'short',
@@ -188,7 +212,9 @@ export function ConnectedGameResultsPage({
   )
 
   const selfUser = useSelfUser()
-  const hasDebugPermission = !!useSelfPermissions()?.debug
+  const selfPermissions = useSelfPermissions()
+  const hasDebugPermission = !!selfPermissions?.debug
+  const canManageGameReports = !!selfPermissions?.manageGameReports
   const game = useAppSelector(s => s.games.byId.get(gameId))
   const replayInfo = useAppSelector(s => s.games.replayInfoById.get(gameId))
   const [loadingError, setLoadingError] = useState<Error>()
@@ -198,7 +224,11 @@ export function ConnectedGameResultsPage({
   const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
   const [isSavingReplay, setIsSavingReplay] = useState(false)
   const [isReplaySaved, setIsReplaySaved] = useState(false)
-  const snackbarController = useSnackbarController()
+  const [saveAnchor, saveAnchorX, saveAnchorY, refreshSaveAnchorPos] =
+    useRefAnchorPosition<HTMLButtonElement>('left', 'bottom')
+  const [saveMenuOpen, openSaveMenu, closeSaveMenu] = usePopoverController({
+    refreshAnchorPos: refreshSaveAnchorPos,
+  })
 
   const results = game?.results
 
@@ -352,41 +382,6 @@ export function ConnectedGameResultsPage({
     )
   }
 
-  const onSaveReplay = () => {
-    if (!replayInfo || !IS_ELECTRON) return
-
-    cancelSaveRef.current.abort()
-    const abortController = new AbortController()
-    cancelSaveRef.current = abortController
-
-    setIsSavingReplay(true)
-
-    dispatch(
-      saveReplayToLibrary(replayInfo, {
-        signal: abortController.signal,
-        onSuccess: result => {
-          setIsSavingReplay(false)
-          setIsReplaySaved(true)
-          snackbarController.showSnackbar(
-            result.alreadySaved
-              ? t(
-                  'gameDetails.saveReplayAlreadySaved',
-                  "This game's replay is already in your library",
-                )
-              : t('gameDetails.saveReplaySuccess', 'Replay saved to your library'),
-          )
-        },
-        onError: err => {
-          setIsSavingReplay(false)
-          logger.error(`Error saving replay: ${getErrorStack(err)}`)
-          snackbarController.showSnackbar(
-            t('gameDetails.saveReplayError', 'There was a problem saving the replay'),
-          )
-        },
-      }),
-    )
-  }
-
   let content: React.ReactNode
   switch (subPage) {
     case ResultsSubPage.Summary:
@@ -462,9 +457,21 @@ export function ConnectedGameResultsPage({
             </>
           ) : null}
         </HeaderInfo>
-        <LiveFinalIndicator $isLive={isLive}>
-          {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
-        </LiveFinalIndicator>
+        <StatusRow>
+          <LiveFinalIndicator $isLive={isLive}>
+            {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
+          </LiveFinalIndicator>
+          {game?.manuallyResolved ? (
+            <StatusChip $color='var(--theme-on-surface-variant)'>
+              {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
+            </StatusChip>
+          ) : null}
+          {canManageGameReports && game?.disputable ? (
+            <StatusChip $color='var(--theme-amber)'>
+              {t('gameDetails.statusDisputed', 'Disputed')}
+            </StatusChip>
+          ) : null}
+        </StatusRow>
       </HeaderArea>
       <ButtonBar>
         {replayInfo && IS_ELECTRON ? (
@@ -480,12 +487,41 @@ export function ConnectedGameResultsPage({
           />
         ) : null}
         {replayInfo && IS_ELECTRON ? (
-          <OutlinedButton
-            label={saveReplayLabel}
-            iconStart={<MaterialIcon icon={isReplaySaved ? 'check' : 'save'} />}
-            disabled={isSavingReplay || isReplaySaved}
-            onClick={onSaveReplay}
-          />
+          <>
+            <OutlinedButton
+              ref={saveAnchor}
+              label={saveReplayLabel}
+              iconStart={<MaterialIcon icon={isReplaySaved ? 'check' : 'save'} />}
+              disabled={isSavingReplay}
+              onClick={openSaveMenu}
+            />
+            <Popover
+              open={saveMenuOpen}
+              onDismiss={closeSaveMenu}
+              anchorX={saveAnchorX ?? 0}
+              anchorY={saveAnchorY ?? 0}
+              originX='left'
+              originY='top'>
+              <SaveReplayMenuContent
+                replayInfo={replayInfo}
+                onDismiss={closeSaveMenu}
+                getAbortSignal={() => {
+                  cancelSaveRef.current.abort()
+                  const abortController = new AbortController()
+                  cancelSaveRef.current = abortController
+                  return abortController.signal
+                }}
+                onSaveStart={() => setIsSavingReplay(true)}
+                onSaveSettled={result => {
+                  setIsSavingReplay(false)
+                  if (result) {
+                    setIsReplaySaved(true)
+                  }
+                }}
+                onUndone={() => setIsReplaySaved(false)}
+              />
+            </Popover>
+          </>
         ) : null}
         {replayInfo ? (
           <OutlinedButton
@@ -514,6 +550,19 @@ export function ConnectedGameResultsPage({
           />
         ) : null}
         <ButtonSpacer />
+        {canManageGameReports && game?.disputable ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonResolveResults', 'Resolve results')}
+            onClick={() => {
+              dispatch(
+                openDialog({
+                  type: DialogType.ResolveGameResults,
+                  initData: { gameId },
+                }),
+              )
+            }}
+          />
+        ) : null}
         {hasDebugPermission ? (
           <Tooltip text={t('gameDetails.buttonCopyGameId', 'Copy ID')} position='left'>
             <IconButton
@@ -673,7 +722,13 @@ function SummaryPage({
 
     if (game.results) {
       for (const [id, r] of game.results) {
-        result.get(id)![1] = r
+        // Results and the player config are written separately, so a result can reference a user
+        // the config doesn't list (e.g. inconsistent/corrupted rows) -- drop those rather than
+        // taking down the whole page.
+        const entry = result.get(id)
+        if (entry) {
+          entry[1] = r
+        }
       }
     }
 
@@ -1105,6 +1160,26 @@ function getClientResultLabel(result: GameClientResult, t: TFunction): string {
   }
 }
 
+/** Formats a relay-serving-history row's relay cell, e.g. `"us-east (50)"`, falling back to the
+ * bare relay id when the coordinator recorded no region for it. */
+function formatRelay(relayId: number, region: string | undefined): string {
+  return region ? `${region} (${relayId})` : String(relayId)
+}
+
+/**
+ * Names how a slot's requested region was chosen. Blank when it requested none (there's no
+ * selection to describe) and when the record carries a region but no `manual` flag (the client
+ * didn't report how the pick was made, so neither label would be truthful).
+ */
+function formatRegionSource(entry: ReadonlyDeep<NetcodeV2RequestedRegion>, t: TFunction): string {
+  if (entry.region === undefined || entry.manual === undefined) {
+    return ''
+  }
+  return entry.manual
+    ? t('gameDetails.debugInfo.network.selectionManual', 'Manual')
+    : t('gameDetails.debugInfo.network.selectionAuto', 'Auto')
+}
+
 const DEBUG_OPEN_TRANSITION: Transition = {
   type: 'spring',
   mass: 4,
@@ -1301,55 +1376,112 @@ function DebugInfoDisplay({
                 ))}
             </div>
           )}
-          {debugInfo.netcodeV2.session !== null && (
+          {(debugInfo.netcodeV2.session !== null ||
+            debugInfo.netcodeV2.requestedRegions.length > 0) && (
             <div>
               <DebugSubsectionTitle>
                 {t('gameDetails.debugInfo.network.title', 'Network')}
               </DebugSubsectionTitle>
-              <NetworkSessionLine>
-                {t('gameDetails.debugInfo.network.session', 'Session: {{session}}', {
-                  session: debugInfo.netcodeV2.session,
-                })}
-              </NetworkSessionLine>
-              <DebugTableContainer>
-                <DebugTable>
-                  <thead>
-                    <tr>
-                      <th>{t('gameDetails.debugInfo.network.event', 'Event')}</th>
-                      <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
-                      <th>{t('gameDetails.debugInfo.network.address', 'Address')}</th>
-                      <th>{t('gameDetails.debugInfo.network.at', 'At')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {debugInfo.netcodeV2.relays.map((event, i) => (
-                      <tr key={i}>
-                        {event.kind === 'home' ? (
-                          <>
-                            <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
-                            <td>{event.relayId}</td>
-                            <td>{event.relayAddr}</td>
-                          </>
-                        ) : (
-                          <>
-                            <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
+              {debugInfo.netcodeV2.session !== null ? (
+                <NetworkSessionLine>
+                  {t('gameDetails.debugInfo.network.session', 'Session: {{session}}', {
+                    session: debugInfo.netcodeV2.session,
+                  })}
+                </NetworkSessionLine>
+              ) : null}
+              {debugInfo.netcodeV2.requestedRegions.length > 0 ? (
+                <>
+                  <ReportTitle>
+                    {t('gameDetails.debugInfo.network.requestedRegions', 'Requested regions')}
+                  </ReportTitle>
+                  <DebugTableContainer>
+                    <DebugTable>
+                      <thead>
+                        <tr>
+                          <th>{t('gameDetails.debugInfo.network.slot', 'Slot')}</th>
+                          <th>{t('gameDetails.debugInfo.network.player', 'Player')}</th>
+                          <th>{t('gameDetails.debugInfo.network.region', 'Region')}</th>
+                          <th>{t('gameDetails.debugInfo.network.rtt', 'RTT')}</th>
+                          <th>{t('gameDetails.debugInfo.network.selection', 'Selection')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {debugInfo.netcodeV2.requestedRegions.map(entry => (
+                          <tr key={entry.slot}>
+                            <td>{entry.slot}</td>
                             <td>
-                              {event.deadRelayId} {'->'} {event.newRelayId}
+                              <ConnectedUsername userId={entry.userId} />
+                              {entry.observer
+                                ? ` ${t('gameDetails.debugInfo.network.observerSuffix', '(obs)')}`
+                                : ''}
                             </td>
-                            <td>{event.newRelayAddr}</td>
-                          </>
-                        )}
-                        <td>
-                          <Tooltip text={longTimestampWithSeconds.format(event.at)} position='top'>
-                            {longTimestamp.format(event.at)}
-                          </Tooltip>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </DebugTable>
-              </DebugTableContainer>
-              <FlightRecordingsSection gameId={gameId} session={debugInfo.netcodeV2.session} />
+                            <td>{entry.region ?? '—'}</td>
+                            <td>
+                              {entry.rttMs !== undefined
+                                ? t('gameDetails.debugInfo.network.rttValue', '{{rttMs}} ms', {
+                                    rttMs: entry.rttMs,
+                                  })
+                                : ''}
+                            </td>
+                            <td>{formatRegionSource(entry, t)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DebugTable>
+                  </DebugTableContainer>
+                </>
+              ) : null}
+              {debugInfo.netcodeV2.relays.length > 0 ? (
+                <>
+                  <ReportTitle>
+                    {t('gameDetails.debugInfo.network.relayHistory', 'Relay history')}
+                  </ReportTitle>
+                  <DebugTableContainer>
+                    <DebugTable>
+                      <thead>
+                        <tr>
+                          <th>{t('gameDetails.debugInfo.network.event', 'Event')}</th>
+                          <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
+                          <th>{t('gameDetails.debugInfo.network.address', 'Address')}</th>
+                          <th>{t('gameDetails.debugInfo.network.at', 'At')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {debugInfo.netcodeV2.relays.map((event, i) => (
+                          <tr key={i}>
+                            {event.kind === 'home' ? (
+                              <>
+                                <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
+                                <td>{formatRelay(event.relayId, event.region)}</td>
+                                <td>{event.relayAddr}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
+                                <td>
+                                  {event.deadRelayId} {'->'}{' '}
+                                  {formatRelay(event.newRelayId, event.newRelayRegion)}
+                                </td>
+                                <td>{event.newRelayAddr}</td>
+                              </>
+                            )}
+                            <td>
+                              <Tooltip
+                                text={longTimestampWithSeconds.format(event.at)}
+                                position='top'>
+                                {longTimestamp.format(event.at)}
+                              </Tooltip>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DebugTable>
+                  </DebugTableContainer>
+                </>
+              ) : null}
+              {debugInfo.netcodeV2.session !== null ? (
+                <FlightRecordingsSection gameId={gameId} session={debugInfo.netcodeV2.session} />
+              ) : null}
             </div>
           )}
         </DebugCollapsibleContent>

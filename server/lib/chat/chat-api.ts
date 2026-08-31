@@ -19,6 +19,7 @@ import {
   JoinChannelResponse,
   ListChannelBansResponse,
   ListUserChannelEntriesResponse,
+  MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
   SEARCH_CHANNELS_LIMIT,
   SbChannelId,
@@ -128,6 +129,12 @@ const userChannelEntriesThrottle = createThrottle('chatuserchannelentries', {
 const userPreferencesThrottle = createThrottle('chatuserpreferences', {
   rate: 20,
   burst: 40,
+  window: 60000,
+})
+
+const markReadThrottle = createThrottle('chatmarkread', {
+  rate: 30,
+  burst: 60,
   window: 60000,
 })
 
@@ -358,12 +365,19 @@ export class ChatApi {
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
-      query: { limit, beforeTime },
+      query: { limit, beforeTime, afterTime, aroundTime },
     } = validateRequest(ctx, {
-      query: Joi.object<{ limit: number; beforeTime: number }>({
+      query: Joi.object<{
+        limit: number
+        beforeTime?: number
+        afterTime?: number
+        aroundTime?: number
+      }>({
         limit: Joi.number().min(1).max(100),
         beforeTime: Joi.number().min(-1),
-      }),
+        afterTime: Joi.number().min(0),
+        aroundTime: Joi.number().min(0),
+      }).oxor('beforeTime', 'afterTime', 'aroundTime'),
     })
 
     return await this.chatService.getChannelHistory({
@@ -371,6 +385,8 @@ export class ChatApi {
       userId: ctx.session!.user.id,
       limit,
       beforeTime,
+      afterTime,
+      aroundTime,
     })
   }
 
@@ -404,6 +420,24 @@ export class ChatApi {
     })
 
     await this.chatService.updateUserPreferences(channelId, ctx.session!.user.id, body)
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/mark-read')
+  @httpBefore(throttleMiddleware(markReadThrottle, throttleByUser))
+  async markChannelRead(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId },
+      body: { lastReadTime },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      body: Joi.object<MarkChannelReadRequest>({
+        lastReadTime: Joi.number().integer().min(0).required(),
+      }),
+    })
+
+    await this.chatService.markRead(channelId, ctx.session!.user.id, new Date(lastReadTime))
 
     ctx.status = 204
   }

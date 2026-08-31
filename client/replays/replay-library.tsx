@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { getErrorStack } from '../../common/errors'
 import {
   ALL_GAME_FORMATS,
   EncodedMatchupString,
@@ -36,22 +37,32 @@ import {
 } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
 import { parseMatchup } from '../games/game-filter-url'
-import { GameListEntryLayout, SelectableRowContainer } from '../games/game-list-entry'
+import {
+  GameListEntryLayout,
+  GameRelativeTime,
+  SelectableRowContainer,
+} from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
+import { useRememberedFilters } from '../games/use-remembered-filters'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import logger from '../logging/logger'
 import { IconButton, TextButton, useButtonState } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
-import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useHistoryEntryKey, useLocationSearchParam } from '../navigation/router-hooks'
+import { push, replace } from '../navigation/routing'
+import { createViewStateStore } from '../navigation/view-state-store'
+import { useVirtuosoScrollMemory } from '../navigation/virtuoso-scroll-memory'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
@@ -62,12 +73,11 @@ import {
   ReplayInspector,
 } from './replay-inspector'
 import {
-  encodeView,
+  encodeViewPathname,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
   LibraryView,
-  parseView,
   playersToDisplayTeams,
 } from './replay-library-helpers'
 import { ReplayLibraryRail } from './replay-library-rail'
@@ -79,6 +89,37 @@ const ENTER_NUMPAD = 'NumpadEnter'
 
 /** Number of replay entries fetched per infinite-scroll chunk. */
 const LOAD_CHUNK_SIZE = 100
+
+// TTL must match useVirtuosoScrollMemory's: the saved scroll state and the saved entry window
+// restore together, and a scroll restored into a missing window would clamp against a single
+// fresh page. Both are stamped when the user leaves the page.
+const WINDOW_MAX_AGE_MS = 30 * 60 * 1000
+
+interface ReplayListWindow {
+  entries: ReadonlyArray<ReplayLibraryEntry>
+  total: number | undefined
+}
+
+const windowCache = createViewStateStore<ReplayListWindow>('replay-library', {
+  maxAgeMs: WINDOW_MAX_AGE_MS,
+})
+
+const focusedIdCache = createViewStateStore<number>('replay-library-selection', {
+  maxAgeMs: WINDOW_MAX_AGE_MS,
+})
+
+interface RailSnapshot {
+  status: ReplayLibraryStatus | undefined
+  backfill: ReplayBackfillProgress | undefined
+  playlists: ReadonlyArray<ReplayPlaylist>
+}
+
+// The rail's data (index counts, backfill progress, playlists) is library-wide rather than
+// per-visit, but it's fetched and owned by `ReplayLibrary`, which remounts on every view change
+// (keyed in `ReplaysRoot`). Seeding each mount from the previous instance's latest values keeps
+// the rail stable across that remount — without it, the rail would blank (counts at zero, playlist
+// rows gone) until the mount-time fetches answer. The fetches still run and replace the seed.
+let railSnapshot: RailSnapshot = { status: undefined, backfill: undefined, playlists: [] }
 
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
@@ -121,6 +162,7 @@ interface BuildFiltersParams {
   matchup: EncodedMatchupString | undefined
   startDate: string
   endDate: string
+  includeShort: boolean
 }
 
 /** Assembles the query filters (everything but paging) from the current view and filter/sort values. */
@@ -135,6 +177,7 @@ function buildFilters({
   matchup,
   startDate,
   endDate,
+  includeShort,
 }: BuildFiltersParams): ReplayLibraryFilters {
   const filters: ReplayLibraryFilters = {}
   if (view.kind === 'bookmarked') {
@@ -154,6 +197,7 @@ function buildFilters({
   const { startMs, endMs } = resolveDateRangeMs(startDate, endDate)
   if (startMs !== undefined) filters.gameTimeFrom = startMs
   if (endMs !== undefined) filters.gameTimeTo = endMs
+  if (includeShort) filters.includeShort = true
   return filters
 }
 
@@ -182,6 +226,13 @@ const BodyRow = styled.div`
 const ListColumn = styled.div`
   flex-grow: 1;
   min-width: 0;
+
+  /*
+    Named container so row cells (see game-list-entry.tsx) can adapt to the actual width rows get,
+    which is narrower than the replay-library-body container above once the rail's own width is
+    subtracted — rather than reacting to a width that still includes the rail.
+  */
+  container: game-list-rows / inline-size;
 `
 
 // ---- Empty / loading states ------------------------------------------------------------------
@@ -343,6 +394,11 @@ function ReplayListEntry({
       <GameListEntryLayout
         bookmark={bookmark}
         players={players}
+        relativeTime={
+          // A parse-error row's `gameTime` isn't a real timestamp (see `ReplayLibraryEntry`), so
+          // there's nothing meaningful to show — but the empty node still reserves the column.
+          entry.parseError ? <></> : <GameRelativeTime timestampMs={entry.gameTime} />
+        }
         duration={
           entry.parseError || spoilerFree
             ? '—'
@@ -358,29 +414,64 @@ function ReplayListEntry({
 
 // ---- Main component --------------------------------------------------------------------------
 
-export function ReplayLibrary() {
+export interface ReplayLibraryProps {
+  view: LibraryView
+}
+
+export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
 
-  const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry>>()
-  const [total, setTotal] = useState<number>()
+  const entryKey = useHistoryEntryKey()
+  // Read once per mount: the store contract allows a lazy initializer since it runs at most once
+  // and so never re-reads on a re-render.
+  const [initialWindow] = useState(() =>
+    entryKey !== undefined ? windowCache.get(entryKey) : undefined,
+  )
+
+  const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry> | undefined>(
+    initialWindow?.entries,
+  )
+  const [total, setTotal] = useState<number | undefined>(initialWindow?.total)
   const [isLoadingNext, setIsLoadingNext] = useState(false)
-  const [status, setStatus] = useState<ReplayLibraryStatus>()
-  const [backfill, setBackfill] = useState<ReplayBackfillProgress>()
+  const [status, setStatus] = useState<ReplayLibraryStatus | undefined>(() => railSnapshot.status)
+  const [backfill, setBackfill] = useState<ReplayBackfillProgress | undefined>(
+    () => railSnapshot.backfill,
+  )
   // Set when the status query rejects, which in practice means the main-process replay library
   // service failed to start (e.g. the SQLite module couldn't load) and none of its IPC handlers are
   // registered — so every query would hang. We surface that instead of spinning forever.
   const [unavailable, setUnavailable] = useState(false)
-  const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>([])
+  const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>(
+    () => railSnapshot.playlists,
+  )
   // Bumped on every index change so entry-scoped fetches (e.g. the inspector's playlist
   // membership) know to refresh.
   const [changeToken, setChangeToken] = useState(0)
   const [observerToken, restartObserver] = useRefreshToken()
 
-  const [focusedId, setFocusedId] = useState<number>()
+  const [focusedId, setFocusedId] = useState<number | undefined>(() =>
+    entryKey !== undefined ? focusedIdCache.get(entryKey) : undefined,
+  )
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
   const groupedRef = useRef<GroupedVirtuosoHandle>(null)
   const flatRef = useRef<VirtuosoHandle>(null)
+
+  // Only one of the two lists is mounted at a time (see `useFlatList`), so state capture reads
+  // whichever handle is live.
+  const [virtuosoStateRef] = useState(() => ({
+    get current(): GroupedVirtuosoHandle | VirtuosoHandle | null {
+      return groupedRef.current ?? flatRef.current
+    },
+  }))
+  const restoredSnapshot = useVirtuosoScrollMemory(scrollParent, virtuosoStateRef)
+  // A filter/sort change replaces the URL in place, keeping the same visit key, so the snapshot
+  // captured for this entry no longer matches the list contents once any reset happens — after
+  // that it must not re-apply when the (remounting) list comes back with new data. View changes
+  // don't hit this: they push a new pathname and remount the component under a new visit.
+  const [snapshotInvalidated, setSnapshotInvalidated] = useState(false)
+  const restoreStateFrom = snapshotInvalidated ? undefined : restoredSnapshot
 
   // Right-click on a row selects it and opens this menu at the cursor, offering the same actions
   // as the inspector's overflow menu.
@@ -399,16 +490,47 @@ export function ReplayLibrary() {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
-  const [viewParam, setViewParam] = useLocationSearchParam('view')
   const [startDate, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
+  const [includeShortParam, setIncludeShortParam] = useLocationSearchParam('includeShort')
 
-  const duration = parseDuration(durationParam)
-  const sort = parseSort(sortParam)
+  // The library's mode-like filters are remembered per user across visits, with every view (the
+  // whole library, bookmarks, each playlist) sharing one saved set. Each view names only the
+  // params it actually uses, so a preference a view can't express is neither seeded into its URL
+  // nor counted as "the URL specifies the filters" there (saved entries outside a view's params
+  // survive its saves untouched).
+  const rememberedUrlValues: Record<string, string> = {
+    duration: durationParam,
+    gameType: gameTypeParam,
+  }
+  if (view.kind !== 'playlist') {
+    // Inside a playlist an absent sort means the playlist's manual order, and nothing there ever
+    // writes an absent sort back (every menu choice is explicit, and Clear leaves sort alone) — so
+    // seeding a remembered sort would make drag-to-reorder permanently unreachable.
+    rememberedUrlValues.sort = sortParam
+  }
+  if (view.kind === 'all') {
+    rememberedUrlValues.includeShort = includeShortParam
+  }
+  const { values: filterValues, save: saveFilterPrefs } = useRememberedFilters(
+    'replays',
+    rememberedUrlValues,
+  )
+
+  // A playlist reads sort straight from the URL: absent means its manual order, never a
+  // remembered fill-in.
+  const sortValue = view.kind === 'playlist' ? sortParam : filterValues.sort
+
+  const duration = parseDuration(filterValues.duration)
+  const sort = parseSort(sortValue)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
-  const gameType = parseModeFilter(gameTypeParam)
-  const view = parseView(viewParam)
+  const gameType = parseModeFilter(filterValues.gameType)
+  // The minimum-length floor never applies to curation views (bookmarked/playlist) — see
+  // `buildReplaySqlQuery` — so `includeShort` is meaningless there: it isn't read (a hand-edited
+  // URL param must not disable reordering via `hasActiveFilters`), seeded, or saved, and the
+  // checkbox isn't offered.
+  const includeShort = view.kind === 'all' && filterValues.includeShort === 'true'
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
@@ -428,11 +550,12 @@ export function ReplayLibrary() {
     !!matchup ||
     gameType !== undefined ||
     !!startDate ||
-    !!endDate
+    !!endDate ||
+    includeShort
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
-  const manualOrder = isManualPlaylistOrder(view, sortParam)
+  const manualOrder = isManualPlaylistOrder(view, sortValue)
   // A playlist's manual order has no meaningful day boundaries, so it renders flat like the
   // duration sorts do.
   const useFlatList = isDurationSort || manualOrder
@@ -443,6 +566,7 @@ export function ReplayLibrary() {
     setEntries(undefined)
     setTotal(undefined)
     setIsLoadingNext(false)
+    setSnapshotInvalidated(true)
     restartObserver()
   }
 
@@ -491,6 +615,7 @@ export function ReplayLibrary() {
           matchup,
           startDate,
           endDate,
+          includeShort,
         }),
         offset: 0,
         limit,
@@ -505,7 +630,8 @@ export function ReplayLibrary() {
 
   // Fetches the playlists for the rail. Called once on mount and again (debounced) on every index
   // change. Doubles as the consistency check for the current view: if the playlist being viewed no
-  // longer exists (deleted, or a stale URL), we fall back to the whole library.
+  // longer exists (deleted, or a stale URL), the URL is corrected in place to the whole library —
+  // the replace keeps the visit key while the parent's view-keyed remount swaps in a fresh instance.
   const fetchPlaylists = useEffectEvent(() => {
     ipcRenderer
       .invoke('replayLibraryListPlaylists')
@@ -513,23 +639,51 @@ export function ReplayLibrary() {
         if (!result) return
         setPlaylists(result)
         if (view.kind === 'playlist' && !result.some(p => p.id === view.id)) {
-          setViewParam('')
-          reset()
+          replace(encodeViewPathname({ kind: 'all' }) + window.location.search)
         }
       })
       .catch(swallowNonBuiltins)
   })
 
+  // Re-runs everything the debounced `replayLibraryChanged` listener below refreshes: the loaded
+  // window, status/backfill, and playlists, plus bumping the change token.
+  const refreshAfterChange = useEffectEvent(() => {
+    refreshLoadedWindow()
+    fetchStatus()
+    fetchPlaylists()
+    setChangeToken(token => token + 1)
+  })
+
+  // Lets a plain event handler (not an Effect) ask for the same refresh `refreshAfterChange`
+  // performs, to correct an optimistic update that turned out to be wrong -- e.g. a failed trash
+  // attempt -- without hand-rolling a manual revert. Effect Events may only be called from Effects,
+  // so the handler bumps this token instead of calling `refreshAfterChange` itself; the effect
+  // below does the actual call. The first run (mount) is skipped since the other effects here
+  // already fetch everything fresh on mount.
+  const [correctionToken, triggerCorrection] = useRefreshToken()
+  const skipInitialCorrectionRef = useRef(true)
+  useEffect(() => {
+    if (skipInitialCorrectionRef.current) {
+      skipInitialCorrectionRef.current = false
+      return
+    }
+    refreshAfterChange()
+  }, [correctionToken])
+
   // Listen for index change + backfill events only while mounted.
   useEffect(() => {
     fetchStatus()
     fetchPlaylists()
+    if (initialWindow !== undefined) {
+      // The index can change while the page is unmounted (files added/removed, backfill progress)
+      // with nothing listening for the change events, so a restored window is re-queried
+      // immediately; the wholesale replacement keeps the restored scroll position.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time refresh of a restored window on mount
+      refreshLoadedWindow()
+    }
 
     const handleChanged = debounce(() => {
-      refreshLoadedWindow()
-      fetchStatus()
-      fetchPlaylists()
-      setChangeToken(token => token + 1)
+      refreshAfterChange()
     }, 300)
     const handleProgress = (_event: unknown, progress: ReplayBackfillProgress | undefined) => {
       setBackfill(progress)
@@ -544,7 +698,48 @@ export function ReplayLibrary() {
       ipcRenderer.removeAllListeners('replayLibraryChanged')
       ipcRenderer.removeAllListeners('replayLibraryBackfillProgress')
     }
-  }, [])
+  }, [initialWindow])
+
+  // Mirrored on every change (rather than written through in each setter) so functional updates —
+  // e.g. the optimistic bookmark-count bump in `toggleBookmark` — are captured too.
+  useEffect(() => {
+    railSnapshot = { status, backfill, playlists }
+  }, [status, backfill, playlists])
+
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Written at cleanup time (unmount), not as `entries`/`total` change: the store stamps its TTL
+    // at write time, and this needs to match when the scroll state is saved — also at unmount — so
+    // the two entries expire together.
+    return () => {
+      if (entries !== undefined) {
+        windowCache.set(entryKey, { entries, total })
+      } else {
+        // `reset()` (a filter/sort/view change) clears `entries` while replacing the URL in place
+        // under the same visit key. If the user leaves before the first page under the new filters
+        // arrives, the old filters' entry must not survive to be restored against the new URL.
+        windowCache.delete(entryKey)
+      }
+    }
+  }, [entryKey, entries, total])
+
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Cleanup-time write, matching the window save's timing: a selection is never un-made (a
+    // restored id absent from the current list just falls back to the first row), so unlike the
+    // entry window there's nothing to delete here.
+    return () => {
+      if (focusedId !== undefined) {
+        focusedIdCache.set(entryKey, focusedId)
+      }
+    }
+  }, [entryKey, focusedId])
 
   const loadedEntries = entries ?? []
   const focusedEntry = loadedEntries.find(e => e.id === focusedId) ?? loadedEntries[0]
@@ -555,6 +750,47 @@ export function ReplayLibrary() {
   }
   const revealEntry = (entry: ReplayLibraryEntry) => {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
+  }
+
+  const trashEntry = (entry: ReplayLibraryEntry) => {
+    const wasBookmarked = entry.bookmarkedAt !== undefined
+    // Hand focus to a neighboring row before the entry disappears — otherwise the stale
+    // `focusedId` would make the focused-entry fallback jump the selection (and the inspector) to
+    // the first row.
+    if (entry.id === focusedEntry?.id) {
+      const index = loadedEntries.findIndex(e => e.id === entry.id)
+      const neighbor = loadedEntries[index + 1] ?? loadedEntries[index - 1]
+      setFocusedId(neighbor?.id)
+    }
+    // Update optimistically, same as `toggleBookmark`: the watcher notices the file's removal on
+    // its own and its resulting index-changed event will confirm this shortly. A rejection means
+    // nothing actually changed on disk, so it's corrected via the same refresh that event uses.
+    setEntries(prev => prev?.filter(e => e.id !== entry.id))
+    setTotal(prev => (prev !== undefined ? Math.max(0, prev - 1) : prev))
+    if (wasBookmarked) {
+      setStatus(prev =>
+        prev ? { ...prev, bookmarkedCount: Math.max(0, prev.bookmarkedCount - 1) } : prev,
+      )
+    }
+
+    ipcRenderer
+      .invoke('replayLibraryTrashReplay', entry.path)
+      ?.then(trashed => {
+        if (trashed) {
+          snackbarController.showSnackbar(
+            t('replays.library.movedToRecycleBin', 'Replay moved to Recycle Bin'),
+          )
+        }
+        // `trashed: false` means the file was already gone, which the optimistic removal above
+        // already reflects correctly -- nothing further to do.
+      })
+      .catch(err => {
+        logger.error(`Error moving replay to Recycle Bin: ${getErrorStack(err)}`)
+        snackbarController.showSnackbar(
+          t('replays.library.moveToRecycleBinError', 'Something went wrong removing the replay'),
+        )
+        triggerCorrection()
+      })
   }
 
   const handleRowContextMenu = (entry: ReplayLibraryEntry, event: React.MouseEvent) => {
@@ -645,6 +881,7 @@ export function ReplayLibrary() {
           matchup,
           startDate,
           endDate,
+          includeShort,
         }),
         offset: entries?.length ?? 0,
         limit: LOAD_CHUNK_SIZE,
@@ -678,8 +915,11 @@ export function ReplayLibrary() {
     setGameTypeParam('')
     setStartDateParam('')
     setEndDateParam('')
+    setIncludeShortParam('')
+    saveFilterPrefs()
     reset()
-    // `sort` is a view option (not a filter), so it's intentionally left untouched.
+    // `sort` is a view option (not a filter), so it's intentionally left untouched — including in
+    // the remembered set, which `saveFilterPrefs` rewrites from the params that remain.
   }
 
   useKeyListener({
@@ -846,6 +1086,7 @@ export function ReplayLibrary() {
         key='flat'
         ref={flatRef}
         customScrollParent={scrollParent}
+        restoreStateFrom={restoreStateFrom}
         totalCount={loadedEntries.length}
         itemContent={renderRow}
       />
@@ -854,6 +1095,7 @@ export function ReplayLibrary() {
         key='grouped'
         ref={groupedRef}
         customScrollParent={scrollParent}
+        restoreStateFrom={restoreStateFrom}
         groupCounts={groupCounts}
         groupContent={index => {
           const group = dayGroups[index]
@@ -906,6 +1148,7 @@ export function ReplayLibrary() {
           duration={duration}
           setDuration={v => {
             setDurationParam(v === GameDurationFilter.All ? '' : v)
+            saveFilterPrefs()
             reset()
           }}
           sort={sort}
@@ -913,6 +1156,7 @@ export function ReplayLibrary() {
             // Inside a playlist even `latest` stays explicit in the URL, since an absent sort
             // means the playlist's manual order there.
             setSortParam(v === GameSortOption.LatestFirst && view.kind !== 'playlist' ? '' : v)
+            saveFilterPrefs()
             reset()
           }}
           mapName={mapName}
@@ -938,10 +1182,18 @@ export function ReplayLibrary() {
             setMatchupParam(v ?? '')
             reset()
           }}
+          includeShort={includeShort}
+          setIncludeShort={v => {
+            setIncludeShortParam(v ? 'true' : '')
+            saveFilterPrefs()
+            reset()
+          }}
+          showIncludeShort={view.kind === 'all'}
           showGameType={true}
           gameType={gameType}
           setGameType={v => {
             setGameTypeParam(v === undefined ? '' : String(v))
+            saveFilterPrefs()
             reset()
           }}
           spoilerFree={spoilerFree}
@@ -966,10 +1218,16 @@ export function ReplayLibrary() {
             backfill={railBackfill}
             playlists={playlists}
             onSelectView={v => {
-              const encoded = encodeView(v)
-              if (encoded === viewParam) return
-              setViewParam(encoded)
-              reset()
+              const pathname = encodeViewPathname(v)
+              if (pathname === encodeViewPathname(view)) {
+                return
+              }
+              // A view change is a navigation to a new place: pushing a different pathname mints a
+              // new history entry and visit key, and the parent remounts this component keyed on
+              // the view pathname, so the outgoing visit's entry window/scroll/selection save in
+              // unmount cleanups and the new visit starts clean (which is why there's no `reset()`
+              // here). The current filters ride along in the search string.
+              push(pathname + window.location.search)
             }}
           />
 
@@ -1001,6 +1259,7 @@ export function ReplayLibrary() {
               onRemoveFromPlaylist={() => {
                 if (focusedEntry) removeFromCurrentPlaylist(focusedEntry)
               }}
+              onMoveToRecycleBin={trashEntry}
               onMoveUp={() => moveFocusedBy(-1)}
               onMoveDown={() => moveFocusedBy(1)}
             />
@@ -1039,6 +1298,7 @@ export function ReplayLibrary() {
                 onOpenAddToPlaylist: openAddToPlaylistMenu,
                 onRemoveFromPlaylist: () => removeFromCurrentPlaylist(focusedEntry),
                 onReveal: revealEntry,
+                onMoveToRecycleBin: trashEntry,
                 t,
               })}
             </MenuList>

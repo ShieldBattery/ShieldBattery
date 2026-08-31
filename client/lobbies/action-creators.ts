@@ -49,8 +49,10 @@ async function resolveNetworkParams(): Promise<LobbyNetworkParams> {
   return {
     region: desiredRegion?.region,
     // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire format only
-    // distinguishes "present" from "absent", so a null rtt is sent as absent.
+    // distinguishes "present" from "absent", so a null rtt is sent as absent. The region itself is
+    // still sent: it places the occupant's relay, which needs no rtt.
     rttMs: desiredRegion?.rttMs ?? undefined,
+    regionManual: desiredRegion?.manual,
     clientPubkey,
   }
 }

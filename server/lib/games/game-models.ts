@@ -6,11 +6,12 @@ import {
   GameSourceFilter,
   getTeamSizeForFormat,
   MatchupFilter,
+  MIN_GAME_LENGTH_MS,
 } from '../../../common/games/game-filters'
 import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
-import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
-import { ReconciledResults } from '../../../common/games/results'
+import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
+import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -19,6 +20,11 @@ import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import { Dbify } from '../db/types'
 
+/**
+ * A row shape for the `games` table. `manually_resolved` has no physical column behind it — it's
+ * derived from `manually_resolved_at`, so every query producing these rows must select
+ * `manually_resolved_at IS NOT NULL AS manually_resolved` alongside the real columns.
+ */
 type DbGameRecord = Dbify<GameRecord>
 
 export type CreateGameRecordData = Pick<
@@ -42,6 +48,7 @@ function convertFromDb(row: DbGameRecord): GameRecord {
     results: Array.isArray(row.results) ? row.results : null,
     selectedMatchup: row.selected_matchup,
     assignedMatchup: row.assigned_matchup,
+    manuallyResolved: row.manually_resolved,
   }
 }
 
@@ -76,7 +83,8 @@ export async function getGameRecord(gameId: string): Promise<GameRecord | undefi
   try {
     const result = await client.query<DbGameRecord>(sql`
       SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,
-        game_length, results, selected_matchup, assigned_matchup
+        game_length, results, selected_matchup, assigned_matchup,
+        manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games
       WHERE id = ${gameId}`)
     return result.rowCount ? convertFromDb(result.rows[0]) : undefined
@@ -136,6 +144,72 @@ export async function setReconciledResult(
       dispute_requested = false,
       dispute_reviewed = false,
       assigned_matchup = ${assignedMatchup}
+    WHERE id = ${gameId}
+  `)
+}
+
+/**
+ * Locks a game's row for the remainder of the current transaction and returns the dispute state a
+ * manual resolution has to decide against, or `undefined` if the game row no longer exists. Reading
+ * this under the lock is what makes two admins resolving the same game concurrently safe: the first
+ * to commit clears `disputable`, so the second sees a game that can no longer be resolved instead
+ * of applying the additive side effects (win/loss counters, rating changes) a second time.
+ */
+export async function lockGameForManualResolution(
+  client: DbClient,
+  gameId: string,
+): Promise<
+  { disputable: boolean; results: [SbUserId, ReconciledPlayerResult][] | null } | undefined
+> {
+  const result = await client.query<{
+    disputable: boolean
+    results: [SbUserId, ReconciledPlayerResult][] | null
+  }>(sql`
+    SELECT disputable, results FROM games WHERE id = ${gameId} FOR UPDATE
+  `)
+  if (result.rows.length === 0) {
+    return undefined
+  }
+
+  const row = result.rows[0]
+  return {
+    disputable: row.disputable,
+    // Some legacy rows store `results` as an empty object `{}` rather than an array (or null);
+    // normalize those to null so the runtime value matches the declared type.
+    results: Array.isArray(row.results) ? row.results : null,
+  }
+}
+
+/**
+ * Overwrites a game's results with outcomes an admin assigned by hand, clearing its disputable
+ * state and recording who resolved it and when. Intended to be executed in the same transaction
+ * that applies the result-derived side effects.
+ *
+ * `dispute_requested` is left alone: it's the historical record of whether players actually asked
+ * for a review. `game_length` is left alone too — manual resolution only decides outcomes.
+ *
+ * `assigned_matchup` is written as given, `null` included: a disputed game's stored races can
+ * include a fabricated one for a player who appeared in no report, which must never be baked into a
+ * matchup, so callers pass a matchup only when every player's race is known from a trustworthy
+ * source. The column is already NULL for a disputed game, so writing NULL is a no-op in practice.
+ */
+export async function setManuallyResolvedResult(
+  client: DbClient,
+  gameId: string,
+  results: Map<SbUserId, ReconciledPlayerResult>,
+  assignedMatchup: MatchupString | null,
+  resolvedBy: SbUserId,
+  resolvedAt: Date,
+): Promise<void> {
+  await client.query(sql`
+    UPDATE games
+    SET
+      results = ${JSON.stringify(Array.from(results.entries()))},
+      disputable = false,
+      dispute_reviewed = true,
+      assigned_matchup = ${assignedMatchup},
+      manually_resolved_by = ${resolvedBy},
+      manually_resolved_at = ${resolvedAt}
     WHERE id = ${gameId}
   `)
 }
@@ -206,20 +280,45 @@ export async function addNetcodeV2RelayEvents(
 }
 
 /**
- * Returns a game's persisted netcode-v2 coordinator session id and relay-serving history, for the
- * admin debug view. `session` is `null` for a game that never persisted a coordinator session id
- * (not a netcode-v2 game, or the write failed); `relays` is empty when there's no history on record.
+ * Records what each of a game's session slots requested at queue/join time. Written once, at session
+ * create, so this overwrites rather than appends: it's create-time truth, unlike the relay history
+ * that grows as a session moves.
  */
-export async function getNetcodeV2DebugInfo(
+export async function setNetcodeV2RequestedRegions(
   gameId: string,
-): Promise<{ session: number | null; relays: NetcodeV2RelayEvent[] }> {
+  requested: NetcodeV2RequestedRegion[],
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET netcode_v2_requested_regions = ${JSON.stringify(requested)}::jsonb
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a game's persisted netcode-v2 coordinator session id, relay-serving history, and per-slot
+ * requested regions, for the admin debug view. `session` is `null` for a game that never persisted a
+ * coordinator session id (not a netcode-v2 game, or the write failed); `relays` and
+ * `requestedRegions` are empty when there's nothing on record.
+ */
+export async function getNetcodeV2DebugInfo(gameId: string): Promise<{
+  session: number | null
+  relays: NetcodeV2RelayEvent[]
+  requestedRegions: NetcodeV2RequestedRegion[]
+}> {
   const { client, done } = await db()
   try {
     const result = await client.query<{
       netcode_v2_session: string | null
       netcode_v2_relays: NetcodeV2RelayEvent[] | null
+      netcode_v2_requested_regions: NetcodeV2RequestedRegion[] | null
     }>(sql`
-      SELECT netcode_v2_session, netcode_v2_relays
+      SELECT netcode_v2_session, netcode_v2_relays, netcode_v2_requested_regions
       FROM games
       WHERE id = ${gameId}
     `)
@@ -228,6 +327,7 @@ export async function getNetcodeV2DebugInfo(
       // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
       session: row?.netcode_v2_session != null ? Number(row.netcode_v2_session) : null,
       relays: row?.netcode_v2_relays ?? [],
+      requestedRegions: row?.netcode_v2_requested_regions ?? [],
     }
   } finally {
     done()
@@ -282,7 +382,7 @@ export async function getRecentGamesForUser(
   const { client, done } = await db()
   try {
     const result = await client.query<DbGameRecord>(sql`
-      SELECT g.*
+      SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games_users u JOIN games g ON u.game_id = g.id
       WHERE u.user_id = ${userId}
       AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
@@ -348,6 +448,8 @@ export async function getGames(
     sort?: GameSortOption
     startDate?: number
     endDate?: number
+    /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
+    includeShort?: boolean
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -364,6 +466,7 @@ export async function getGames(
     sort,
     startDate,
     endDate,
+    includeShort,
   } = params
 
   const { client, done } = await db(withClient)
@@ -401,6 +504,12 @@ export async function getGames(
         default:
           duration satisfies never
       }
+    }
+
+    if (!includeShort) {
+      // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
+      // their length is unknown rather than known-short.
+      whereClauses.push(sql`(g.game_length IS NULL OR g.game_length >= ${MIN_GAME_LENGTH_MS})`)
     }
 
     if (mapName) {
@@ -469,7 +578,7 @@ export async function getGames(
     }
 
     let query = sql`
-      SELECT g.*
+      SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games g
     `
 
@@ -513,6 +622,8 @@ export async function getGamesForUser(
     sort?: GameSortOption
     startDate?: number
     endDate?: number
+    /** When falsy, games shorter than `MIN_GAME_LENGTH_MS` are excluded. */
+    includeShort?: boolean
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -530,6 +641,7 @@ export async function getGamesForUser(
     sort,
     startDate,
     endDate,
+    includeShort,
   } = params
 
   const { client, done } = await db(withClient)
@@ -568,6 +680,12 @@ export async function getGamesForUser(
         default:
           duration satisfies never
       }
+    }
+
+    if (!includeShort) {
+      // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
+      // their length is unknown rather than known-short.
+      whereClauses.push(sql`(g.game_length IS NULL OR g.game_length >= ${MIN_GAME_LENGTH_MS})`)
     }
 
     if (mapName) {
@@ -636,7 +754,7 @@ export async function getGamesForUser(
     }
 
     let query = sql`
-      SELECT g.*
+      SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games_users gu
       INNER JOIN games g ON gu.game_id = g.id
     `

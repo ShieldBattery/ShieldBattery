@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { makeSbChannelId } from '../../common/chat'
@@ -17,7 +17,7 @@ import {
   LobbyInviteCard,
 } from '../lobbies/lobby-invite-card'
 import { ExternalLink } from '../navigation/external-link'
-import { titleSmall } from '../styles/typography'
+import { labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ChatContext } from './chat-context'
 import { CustomEmote } from './custom-emotes'
@@ -86,7 +86,8 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
   // scrollback loads), which is the moment the age check is about.
   const [mountTime] = useState(() => Date.now())
 
-  const { onContextMenu, contextMenuPopoverProps, selectedText } = useContextMenu()
+  const { onContextMenu, contextMenuPopoverProps, selectedText, linkHref } = useContextMenu()
+  const textRef = useRef<HTMLSpanElement>(null)
 
   const parsedText: React.ReactNode[] = []
   let isHighlighted = false
@@ -165,6 +166,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
     <>
       <TimestampMessageLayout
         time={time}
+        msgId={msgId}
         active={contextMenuPopoverProps.open}
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
@@ -176,7 +178,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
           interactive={!disallowMentionInteraction}
         />
         <Separator>{': '}</Separator>
-        <Text>{parsedText}</Text>
+        <Text ref={textRef}>{parsedText}</Text>
         {inviteLobbyId !== undefined &&
         !disallowMentionInteraction &&
         mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
@@ -187,6 +189,8 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
       <MessageContextMenu
         messageId={msgId}
         selectedText={selectedText}
+        linkHref={linkHref}
+        getMessageText={() => textRef.current?.textContent ?? ''}
         MessageMenu={MessageMenu}
         popoverProps={contextMenuPopoverProps}
       />
@@ -234,7 +238,7 @@ export const BlockedMessage = React.memo<{
 
   return (
     <>
-      <TimestampMessageLayout time={props.time} highlighted={false}>
+      <TimestampMessageLayout time={props.time} msgId={props.msgId} highlighted={false}>
         <BlockedText>{t('messaging.blockedMessage', 'Blocked message')}</BlockedText>
         <BlockedDivider>&mdash;</BlockedDivider>
         <ShowHideLink onClick={() => setShow(!show)}>
@@ -268,5 +272,62 @@ export const NewDayMessage = React.memo<{ time: number }>(props => {
         </Trans>
       </span>
     </SeparatedInfoMessage>
+  )
+})
+
+/**
+ * Selector for the unread divider, used by the code that scrolls the message list to it and by the
+ * banner that offers to.
+ */
+export const UNREAD_LINE_SELECTOR = '[data-unread-line]'
+
+const UnreadLineRoot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 0 8px;
+
+  /**
+    The divider is chrome rather than content, so it must stay out of any text the user copies out
+    of the message list. The doubled selectors outrank the list container's rule that makes all of
+    its descendants selectable.
+  */
+  &&,
+  && * {
+    user-select: none;
+  }
+`
+
+const UnreadLineRule = styled.hr`
+  flex-grow: 1;
+  margin: 0;
+
+  border: none;
+  border-top: 1px solid var(--theme-amber);
+`
+
+const UnreadLineLabel = styled.div`
+  ${labelSmall};
+
+  flex-shrink: 0;
+  padding: 0 6px;
+
+  background-color: var(--theme-amber-container);
+  border-radius: 4px;
+  color: var(--theme-on-amber-container);
+  text-transform: uppercase;
+`
+
+/**
+ * A divider marking where the messages the user hasn't seen yet begin.
+ */
+export const UnreadLineMessage = React.memo(() => {
+  const { t } = useTranslation()
+  return (
+    <UnreadLineRoot data-unread-line=''>
+      <UnreadLineRule />
+      <UnreadLineLabel>{t('messaging.unreadLineLabel', 'New')}</UnreadLineLabel>
+    </UnreadLineRoot>
   )
 })

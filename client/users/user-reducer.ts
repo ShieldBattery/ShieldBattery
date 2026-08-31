@@ -77,6 +77,20 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@chat/loadNewerMessages'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+      updateUsers(state, action.payload.mentions)
+    }
+  },
+
+  ['@chat/loadMessagesAround'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+      updateUsers(state, action.payload.mentions)
+    }
+  },
+
   ['@chat/updateMessage'](state, action) {
     updateUsers(state, [action.payload.user])
     updateUsers(state, action.payload.mentions)
@@ -195,8 +209,24 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
-    updateUsers(state, action.payload.users)
-    updateUsers(state, action.payload.mentions)
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+      updateUsers(state, action.payload.mentions)
+    }
+  },
+
+  ['@whispers/loadNewerMessages'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+      updateUsers(state, action.payload.mentions)
+    }
+  },
+
+  ['@whispers/loadMessagesAround'](state, action) {
+    if (!action.error) {
+      updateUsers(state, action.payload.users)
+      updateUsers(state, action.payload.mentions)
+    }
   },
 
   ['@whispers/updateMessage'](state, action) {

@@ -363,7 +363,7 @@ impl SdfCache {
         file.read_exact(&mut data[..]).await?;
         drop(file);
         let mut glyphs = FxHashMap::with_capacity_and_hasher(sdf_count, Default::default());
-        for sdf in glyph_data.chunks_exact(25) {
+        for sdf in glyph_data.as_chunks::<25>().0 {
             let hash = LittleEndian::read_u64(sdf);
             let scale = LittleEndian::read_u32(&sdf[8..]);
             let key = (

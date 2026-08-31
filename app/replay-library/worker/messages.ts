@@ -21,23 +21,35 @@ export interface ReplayQueryResult {
 }
 
 /**
- * The operations the main thread can invoke on the worker, each mirroring a synchronous method of
- * the worker-side DB. The worker runs the method and answers with a `CallResultMessage`; adding an
- * operation here means implementing it in the worker's `calls` table.
+ * The operations the main thread can invoke on the worker, each mirroring a method of the
+ * worker-side DB (or, for `indexFile`, a parse-and-index step built from the same pieces the
+ * watcher uses). Most are synchronous; `indexFile` does file I/O and returns a `Promise`, which the
+ * worker's dispatch loop awaits before answering. The worker runs the method and answers with a
+ * `CallResultMessage`; adding an operation here means implementing it in the worker's `calls`
+ * table.
  */
 export interface ReplayDbCalls {
   query: (filters: ReplayLibraryFilters) => ReplayQueryResult
   status: () => ReplayLibraryStatus
-  setBookmarked: (replayId: number, bookmarked: boolean) => void
+  /** Returns whether the bookmark state actually changed (false if already in that state). */
+  setBookmarked: (replayId: number, bookmarked: boolean) => boolean
   listPlaylists: () => ReplayPlaylist[]
   createPlaylist: (name: string) => number
   renamePlaylist: (playlistId: number, name: string) => void
   deletePlaylist: (playlistId: number) => void
-  addToPlaylist: (playlistId: number, replayIds: number[]) => void
+  /** Returns the ids actually added (ones not already in the playlist). */
+  addToPlaylist: (playlistId: number, replayIds: number[]) => number[]
   removeFromPlaylist: (playlistId: number, replayIds: number[]) => void
   movePlaylistEntry: (playlistId: number, replayId: number, toIndex: number) => void
   getPlaylistsForReplay: (replayId: number) => Array<{ id: number; name: string }>
   findReplayIdByGameId: (gameId: string) => number | undefined
+  /**
+   * Parses and (re)indexes a single file immediately, then resolves with its index id (`undefined`
+   * only if the write itself fails to produce a row, which shouldn't normally happen). Used by the
+   * "Save replay" IPC to resolve the id of a just-saved file synchronously with the request, rather
+   * than polling for the watcher's own (debounced, asynchronous) reconcile to catch up.
+   */
+  indexFile: (path: string) => Promise<number | undefined>
   /**
    * Replaces the set of watched folders. This is watcher control rather than a DB read/write, but it
    * rides the same call channel so it stays ordered with the queries the worker serves.

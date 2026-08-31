@@ -16,17 +16,16 @@ import {
   GameSidePanelActions,
   GameSidePanelChipsRow,
   GameSidePanelEmpty,
-  GameSidePanelHeader,
+  GameSidePanelRelativeTime,
   GameSidePanelSection,
-  GameSidePanelSubline,
   GameSidePanelTitle,
 } from '../games/game-side-panel'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
-import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Logo from '../logos/logo-no-bg.svg?react'
 import { FilledButton, IconButton } from '../material/button'
-import { MenuItem } from '../material/menu/item'
+import { Divider } from '../material/menu/divider'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { push } from '../navigation/routing'
@@ -110,8 +109,9 @@ const PlaylistChip = styled.div`
 /**
  * Builds the "more actions" menu items shared between the inspector's overflow menu and the
  * library's row context menu: add/remove-from-playlist, an optional reorder pair, view-game-page,
- * and show-in-explorer. Watch/Bookmark aren't included here since each caller surfaces those
- * differently (dedicated buttons in the inspector, leading menu items in the context menu).
+ * show-in-explorer, and move-to-recycle-bin. Watch/Bookmark aren't included here since each caller
+ * surfaces those differently (dedicated buttons in the inspector, leading menu items in the
+ * context menu).
  *
  * Returns a flat array of keyed `MenuItem` elements (rather than a component rendering a
  * fragment) so that spreading it directly into a `<MenuList>`'s children keeps every item a
@@ -125,6 +125,7 @@ export function getReplayActionMenuItems({
   onOpenAddToPlaylist,
   onRemoveFromPlaylist,
   onReveal,
+  onMoveToRecycleBin,
   reorder,
   t,
 }: {
@@ -134,6 +135,7 @@ export function getReplayActionMenuItems({
   onOpenAddToPlaylist: (event: React.MouseEvent | KeyboardEvent) => void
   onRemoveFromPlaylist: () => void
   onReveal: (entry: ReplayLibraryEntry) => void
+  onMoveToRecycleBin: (entry: ReplayLibraryEntry) => void
   /** Present only when Move up/Move down should be offered (the inspector, in manual order). */
   reorder?: {
     canMoveUp: boolean
@@ -220,6 +222,19 @@ export function getReplayActionMenuItems({
     />,
   )
 
+  items.push(
+    <Divider key='move-to-recycle-bin-divider' $dense={true} />,
+    <DestructiveMenuItem
+      key='move-to-recycle-bin'
+      icon={<MaterialIcon icon='delete' />}
+      text={t('replays.library.moveToRecycleBin', 'Move to Recycle Bin')}
+      onClick={() => {
+        closeMenu()
+        onMoveToRecycleBin(entry)
+      }}
+    />,
+  )
+
   return items
 }
 
@@ -297,6 +312,7 @@ export interface ReplayInspectorProps {
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
   onAddToPlaylist: (playlistId: number, entry: ReplayLibraryEntry) => void
   onRemoveFromPlaylist: () => void
+  onMoveToRecycleBin: (entry: ReplayLibraryEntry) => void
   onMoveUp: () => void
   onMoveDown: () => void
 }
@@ -315,6 +331,7 @@ export function ReplayInspector({
   onToggleBookmark,
   onAddToPlaylist,
   onRemoveFromPlaylist,
+  onMoveToRecycleBin,
   onMoveUp,
   onMoveDown,
 }: ReplayInspectorProps) {
@@ -412,6 +429,15 @@ export function ReplayInspector({
     </GameSidePanelChipsRow>
   )
 
+  // An unreadable replay's source and timestamp are unknown (only path/fileName/fileSize are
+  // meaningful then), so it gets no meta row at all.
+  const headerMeta = entry.parseError ? undefined : (
+    <>
+      {chips}
+      <GameSidePanelRelativeTime timestampMs={entry.gameTime} />
+    </>
+  )
+
   const bookmarked = entry.bookmarkedAt !== undefined
   const playlistsForEntry =
     entryPlaylists && entryPlaylists.forId === entry.id ? entryPlaylists.list : []
@@ -454,6 +480,7 @@ export function ReplayInspector({
             onOpenAddToPlaylist: openAddMenu,
             onRemoveFromPlaylist,
             onReveal,
+            onMoveToRecycleBin,
             reorder:
               inPlaylistView && canReorder
                 ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }
@@ -487,35 +514,30 @@ export function ReplayInspector({
     <GameSidePanel
       map={map}
       isMapLoading={mapStatus === 'loading'}
+      headerMeta={headerMeta}
       alignWithFirstRow={alignWithFirstRow}>
       {entry.parseError ? (
         <>
-          <GameSidePanelHeader>
-            {/*
-              No source badge: an unreadable replay's source is genuinely unknown (we couldn't read
-              the embedded SB section), so the SB/B.NET distinction can't be made here.
-            */}
-            <GameSidePanelTitle>{entry.fileName}</GameSidePanelTitle>
-          </GameSidePanelHeader>
+          {/*
+            No source badge: an unreadable replay's source is genuinely unknown (we couldn't read
+            the embedded SB section), so the SB/B.NET distinction can't be made here.
+          */}
+          <GameSidePanelTitle>{entry.fileName}</GameSidePanelTitle>
           <ErrorNote>
             {t('replays.library.inspector.parseError', 'This replay could not be read.')}
           </ErrorNote>
         </>
       ) : (
         <>
-          <GameSidePanelHeader>
-            {chips}
-            {/*
-              The map thumbnail renders its own name label, so a title here would duplicate it once
-              loaded. Show the name as text only when there's genuinely no thumbnail coming (no
-              linked map) — not while it's still loading, which would otherwise shift the header's
-              height when the title is dropped on load.
-            */}
-            {mapStatus === 'unavailable' ? (
-              <GameSidePanelTitle>{filterColorCodes(entry.mapName)}</GameSidePanelTitle>
-            ) : null}
-            <GameSidePanelSubline>{longTimestamp.format(entry.gameTime)}</GameSidePanelSubline>
-          </GameSidePanelHeader>
+          {/*
+            The map thumbnail renders its own name label, so a title here would duplicate it once
+            loaded. Show the name as text only when there's genuinely no thumbnail coming (no
+            linked map) — not while it's still loading, which would otherwise shift the header's
+            height when the title is dropped on load.
+          */}
+          {mapStatus === 'unavailable' ? (
+            <GameSidePanelTitle>{filterColorCodes(entry.mapName)}</GameSidePanelTitle>
+          ) : null}
           <GameSidePanelSection>
             <PlayerTeamsDisplay
               teams={playersToDisplayTeams(layout!, computerLabel, linkedUserIds)}

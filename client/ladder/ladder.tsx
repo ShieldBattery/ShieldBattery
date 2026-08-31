@@ -49,6 +49,7 @@ import { elevationPlus1, elevationPlus2, elevationPlus3 } from '../material/shad
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push, replace } from '../navigation/routing'
+import { useVirtuosoScrollMemory } from '../navigation/virtuoso-scroll-memory'
 import { LoadingDotsArea } from '../progress/dots'
 import { useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -968,6 +969,7 @@ export interface LadderTableProps {
 export function LadderTable(props: LadderTableProps) {
   const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
   const virtuosoRef = useRef<TableVirtuosoHandle>(null)
+  const restoreStateFrom = useVirtuosoScrollMemory(containerElem, virtuosoRef)
   // Whether the user's own row (tagged with `data-self-row`) is currently within the scroll viewport,
   // used to hide the "jump to my rank" button when it's already on screen.
   const isSelfRowVisible = useTargetVisibleInScrollParent(containerElem, '[data-self-row]')
@@ -1145,6 +1147,7 @@ export function LadderTable(props: LadderTableProps) {
             ref={virtuosoRef}
             className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
             customScrollParent={containerElem}
+            restoreStateFrom={restoreStateFrom}
             fixedHeaderContent={Header}
             components={{
               Table,
@@ -1305,9 +1308,13 @@ const TableRow: TableComponents<any, any>['TableRow'] = ({ context, item, ...res
   return <div {...rest} />
 }
 
-const FillerRow = styled.div.attrs<{ height: number }>(props => ({
+const FillerRowElem = styled.div.attrs<{ height: number }>(props => ({
   style: { height: `${props.height}px` },
 }))<{ height: number }>``
+
+const FillerRow: TableComponents<any, any>['FillerRow'] = ({ context, ...rest }) => (
+  <FillerRowElem {...rest} />
+)
 
 const UnratedText = styled.span`
   color: var(--theme-on-surface-variant);

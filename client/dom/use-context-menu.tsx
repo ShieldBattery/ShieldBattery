@@ -28,17 +28,21 @@ export function useContextMenu(props?: UseContextMenuProps): {
   onContextMenu: (event: React.MouseEvent) => void
   contextMenuPopoverProps: Omit<PopoverProps, 'children'>
   selectedText: string
+  /** The `href` of the anchor element under the cursor when the menu was opened, if any. */
+  linkHref: string
 } {
   const [anchor, setAnchor] = useState<Element>()
   const [anchorX, setAnchorX] = useState(0)
   const [anchorY, setAnchorY] = useState(0)
   const [selectedText, setSelectedText] = useState('')
+  const [linkHref, setLinkHref] = useState('')
 
   const [isContextMenuOpen, openContextMenu, closeContextMenu] = usePopoverController()
 
   const onOpen = useCallback(
     (event: React.MouseEvent) => {
       setSelectedText(window.getSelection()?.toString() ?? '')
+      setLinkHref(event.target instanceof Element ? (event.target.closest('a')?.href ?? '') : '')
       event.preventDefault()
 
       // NOTE(2Pac): This callback will be called each time user right-clicks inside an anchor, even
@@ -78,5 +82,6 @@ export function useContextMenu(props?: UseContextMenuProps): {
       originY: props?.originY ?? 'top',
     },
     selectedText,
+    linkHref,
   }
 }

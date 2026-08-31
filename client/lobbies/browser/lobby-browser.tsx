@@ -8,6 +8,8 @@ import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useTrackPageView } from '../../analytics/analytics'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import logger from '../../logging/logger'
@@ -141,7 +143,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
   const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
   const currentLobbyId = useAppSelector(s => s.lobby.info.id)
-  const joinLobbyAction = useJoinLobbyAction()
+  const [joinLobbyAction, isJoinPending] = useJoinLobbyAction()
 
   useRelationshipsLoader()
 
@@ -229,6 +231,10 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   // A row-initiated join failure surfaces in the rail, so it needs to know which lobby it belongs
   // to: the rail only shows it while that lobby is still the one selected.
   const [joinError, setJoinError] = useState<{ lobbyId: SbLobbyId; message: string }>()
+  // Which lobby/seat kind the in-flight join (if any) targets, so the rail can show its loading
+  // affordance on the exact button that was clicked rather than whichever lobby happens to be
+  // selected right now. Only meaningful while `isJoinPending` is true -- see its render-site use.
+  const [pendingJoin, setPendingJoin] = useState<{ lobbyId: SbLobbyId; asObserver: boolean }>()
 
   const selectLobby = (lobbyId: SbLobbyId) => {
     setClickedId(lobbyId)
@@ -298,8 +304,14 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   })
 
   const joinFrom = (summary: LobbySummary, asObserver: boolean) => {
+    if (isJoinPending) {
+      // A row's double-click/Enter or a rail button can still race the disabled state landing;
+      // only one join may be outstanding at a time.
+      return
+    }
     setJoinError(undefined)
     setClickedId(summary.id)
+    setPendingJoin({ lobbyId: summary.id, asObserver })
     joinLobbyAction(summary.id, {
       name: summary.name,
       asObserver,
@@ -373,6 +385,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
                 selected={summary.id === selectedId}
                 friendIds={friendIdsByLobby.get(summary.id) ?? []}
                 isOwn={isOwn}
+                joinDisabled={isJoinPending}
                 onSelect={() => selectLobby(summary.id)}
                 onJoin={() => {
                   if (isOwn) {
@@ -391,6 +404,12 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
           teams={selectedTeams}
           friendIds={(selectedId && friendIdsByLobby.get(selectedId)) || []}
           joinError={joinError && joinError.lobbyId === selectedId ? joinError.message : undefined}
+          joinPending={isJoinPending}
+          pendingAsObserver={
+            isJoinPending && pendingJoin && pendingJoin.lobbyId === selectedId
+              ? pendingJoin.asObserver
+              : undefined
+          }
           onJoin={asObserver => {
             if (selected) {
               joinFrom(selected, asObserver)
@@ -423,6 +442,12 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
           </StatLine>
         </TitleBlock>
         <FlexSpacer />
+        <TextButton
+          label={t('lobbies.browser.enterCode', 'Enter code')}
+          iconStart={<MaterialIcon icon='key' size={20} />}
+          onClick={() => dispatch(openDialog({ type: DialogType.JoinCode }))}
+          testName='enter-join-code-button'
+        />
         {canCreate ? (
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}

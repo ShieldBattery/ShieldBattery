@@ -23,6 +23,7 @@ import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getUrl } from '../files'
 import { findUsersByIdQuery } from '../users/user-model'
+import { MutualKind } from '../users/user-relationship-models'
 
 type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPreferences & ChannelPermissions>
 
@@ -45,19 +46,37 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
 }
 
 /**
+ * A user channel entry, plus their read position in that channel. Only `getChannelsForUser`
+ * returns this; other queries over `channel_users` return the plain `UserChannelEntry`.
+ */
+export type JoinedChannelEntry = UserChannelEntry & {
+  /** The user's last recorded read position in the channel, if they have one. */
+  lastReadTime?: Date
+}
+
+type DbJoinedChannelEntry = Dbify<JoinedChannelEntry & ChannelPreferences & ChannelPermissions>
+
+function convertJoinedChannelEntryFromDb(props: DbJoinedChannelEntry): JoinedChannelEntry {
+  return {
+    ...convertUserChannelEntryFromDb(props),
+    lastReadTime: props.last_read_time ?? undefined,
+  }
+}
+
+/**
  * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
  * join date.
  */
-export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
+export async function getChannelsForUser(userId: SbUserId): Promise<JoinedChannelEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUserChannelEntry>(sql`
+    const result = await client.query<DbJoinedChannelEntry>(sql`
       SELECT *
       FROM channel_users
       WHERE user_id = ${userId}
       ORDER BY join_date;
     `)
-    return result.rows.map(row => convertUserChannelEntryFromDb(row))
+    return result.rows.map(row => convertJoinedChannelEntryFromDb(row))
   } finally {
     done()
   }
@@ -465,38 +484,145 @@ export async function addMessageToChannel<T extends ChatMessageData>(
   }
 }
 
+/**
+ * Where to start a page of message history from, and in which direction to read: `newest` gets
+ * the most recent page with no time bound, `before`/`after` get a page strictly older/newer than
+ * `date`, and `around` gets messages from both sides of `date`, weighted toward the newer side
+ * (inclusive on the newer side).
+ */
+export type HistoryCursor = { kind: 'newest' } | { kind: 'before' | 'after' | 'around'; date: Date }
+
+/**
+ * A page of channel messages, along with whether messages exist beyond either edge of the
+ * returned window (evaluated at query time via a `limit`+1 probe row per edge).
+ */
+export interface ChannelMessagePage {
+  /** Messages in the page, ordered oldest to newest. */
+  messages: ChatMessage[]
+  /** Whether messages older than the returned window exist. */
+  hasMoreBefore: boolean
+  /** Whether messages newer than the returned window exist. */
+  hasMoreAfter: boolean
+}
+
+function convertChatMessageRow(row: DbChatMessage): ChatMessage {
+  return {
+    msgId: row.msg_id,
+    userId: row.user_id,
+    channelId: row.channel_id,
+    sent: row.sent,
+    data: row.data,
+  }
+}
+
 export async function getMessagesForChannel(
   channelId: SbChannelId,
   limit = 50,
-  beforeDate?: Date,
-): Promise<ChatMessage[]> {
+  cursor: HistoryCursor = { kind: 'newest' },
+): Promise<ChannelMessagePage> {
   const { client, done } = await db()
 
-  let query = sql`
-      WITH messages AS (
-        SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
-        FROM channel_messages as m
-        WHERE m.channel_id = ${channelId} `
-
-  if (beforeDate !== undefined) {
-    query = query.append(sql`AND m.sent < ${beforeDate}`)
-  }
-
-  query = query.append(sql`
-        ORDER BY m.sent DESC
-        LIMIT ${limit}
-      ) SELECT * FROM messages ORDER BY sent ASC`)
-
   try {
-    const result = await client.query<DbChatMessage>(query)
+    switch (cursor.kind) {
+      case 'newest':
+      case 'before': {
+        let query = sql`
+          SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+          FROM channel_messages m
+          WHERE m.channel_id = ${channelId}
+        `
+        if (cursor.kind === 'before') {
+          query = query.append(sql` AND m.sent < ${cursor.date}`)
+        }
+        query = query.append(sql`
+          ORDER BY m.sent DESC
+          LIMIT ${limit + 1};
+        `)
 
-    return result.rows.map(row => ({
-      msgId: row.msg_id,
-      userId: row.user_id,
-      channelId: row.channel_id,
-      sent: row.sent,
-      data: row.data,
-    }))
+        const result = await client.query<DbChatMessage>(query)
+        // A `limit`+1'th row means messages older than the page exist; it's dropped below rather
+        // than returned.
+        const hasMoreBefore = result.rows.length > limit
+        const rows = hasMoreBefore ? result.rows.slice(0, limit) : result.rows
+
+        return {
+          messages: rows.map(convertChatMessageRow).reverse(),
+          hasMoreBefore,
+          hasMoreAfter: cursor.kind === 'before',
+        }
+      }
+
+      case 'after': {
+        const result = await client.query<DbChatMessage>(sql`
+          SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+          FROM channel_messages m
+          WHERE m.channel_id = ${channelId} AND m.sent > ${cursor.date}
+          ORDER BY m.sent ASC
+          LIMIT ${limit + 1};
+        `)
+        // Ascending scan, so the extra probe row (if present) is the newest of the batch.
+        const hasMoreAfter = result.rows.length > limit
+        const rows = hasMoreAfter ? result.rows.slice(0, limit) : result.rows
+
+        return {
+          messages: rows.map(convertChatMessageRow),
+          hasMoreBefore: true,
+          hasMoreAfter,
+        }
+      }
+
+      case 'around': {
+        // An around window is used to place the message at `date` near the top of a viewport, so
+        // most of the window belongs to what renders below it: too little content below the
+        // target leaves the viewport unable to scroll down to the position.
+        const beforeLimit = Math.floor(limit / 3)
+        const afterLimit = limit - beforeLimit
+        // `is_before` lets the two halves be told apart in JS without comparing timestamps
+        // against `cursor.date` there (the DB's microsecond-precision `sent` loses precision when
+        // parsed into a JS `Date`, so that comparison has to stay server-side). Each half keeps
+        // its own scan order in the output (`is_before DESC` groups before-half rows first, each
+        // half internally ascending by `sent`), so the probe row for each half is always at a
+        // fixed end: the before-half's oldest row, or the after-half's newest row.
+        const result = await client.query<DbChatMessage & { is_before: boolean }>(sql`
+          WITH before_half AS (
+            SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+            FROM channel_messages m
+            WHERE m.channel_id = ${channelId} AND m.sent < ${cursor.date}
+            ORDER BY m.sent DESC
+            LIMIT ${beforeLimit + 1}
+          ), after_half AS (
+            SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+            FROM channel_messages m
+            WHERE m.channel_id = ${channelId} AND m.sent >= ${cursor.date}
+            ORDER BY m.sent ASC
+            LIMIT ${afterLimit + 1}
+          )
+          SELECT *, TRUE AS is_before FROM before_half
+          UNION ALL
+          SELECT *, FALSE AS is_before FROM after_half
+          ORDER BY is_before DESC, sent ASC;
+        `)
+
+        const beforeRows = result.rows.filter(row => row.is_before)
+        const afterRows = result.rows.filter(row => !row.is_before)
+        const hasMoreBefore = beforeRows.length > beforeLimit
+        const hasMoreAfter = afterRows.length > afterLimit
+        // Both halves are already in ascending order (see the query comment above), so the probe
+        // sits at a known end: the before-half's first (oldest) row, or the after-half's last
+        // (newest) row.
+        const trimmedBefore = hasMoreBefore ? beforeRows.slice(1) : beforeRows
+        const trimmedAfter = hasMoreAfter ? afterRows.slice(0, -1) : afterRows
+
+        return {
+          messages: [...trimmedBefore, ...trimmedAfter].map(convertChatMessageRow),
+          hasMoreBefore,
+          hasMoreAfter,
+        }
+      }
+
+      default:
+        return assertUnreachable(cursor)
+    }
   } finally {
     done()
   }
@@ -520,6 +646,11 @@ export async function deleteChannelMessage(
 
 export interface LeaveChannelResult {
   /**
+   * Whether the user's channel membership was actually removed. `false` when they were no longer
+   * in the channel, e.g. because a concurrent request already removed them.
+   */
+  userWasRemoved: boolean
+  /**
    * The ID of a user that was selected as a new owner of the channel, or `undefined` if the channel
    * ownership has been left unchanged.
    */
@@ -531,10 +662,15 @@ export async function removeUserFromChannel(
   channelId: SbChannelId,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    await client.query(sql`
+    const deleteUserResult = await client.query(sql`
       DELETE FROM channel_users
       WHERE user_id = ${userId} AND channel_id = ${channelId};
     `)
+    if (!deleteUserResult.rowCount) {
+      // The user's membership was already removed by a concurrent request; nothing left for us
+      // to do here
+      return { userWasRemoved: false }
+    }
 
     // NOTE(2Pac): Only non-official channels are deleted when everyone leaves
     const deleteChannelResult = await client.query(sql`
@@ -545,7 +681,7 @@ export async function removeUserFromChannel(
     if (deleteChannelResult.rowCount) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
-      return {}
+      return { userWasRemoved: true }
     }
 
     const channelResult = await client.query<DbChannel>(sql`
@@ -553,12 +689,13 @@ export async function removeUserFromChannel(
       FROM channels
       WHERE id = ${channelId};
     `)
-    if (channelResult.rows[0].owner_id !== userId) {
+    if (channelResult.rows[0]?.owner_id !== userId) {
       // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
-      return {}
+      // (this also covers the channel row being missing, which shouldn't normally happen)
+      return { userWasRemoved: true }
     } else if (channelResult.rows[0].official) {
       // Don't transfer ownership in "official" channels
-      return {}
+      return { userWasRemoved: true }
     }
 
     // Transfer ownership to the user who has joined the channel earliest and has any of the
@@ -594,7 +731,7 @@ export async function removeUserFromChannel(
       throw new Error('No rows returned')
     }
 
-    return { newOwnerId: newOwnerResult.rows[0].owner_id }
+    return { userWasRemoved: true, newOwnerId: newOwnerResult.rows[0].owner_id }
   })
 }
 
@@ -657,6 +794,119 @@ export async function updateUserPermissions(
         edit_permissions = ${perms.editPermissions}
       WHERE channel_id = ${channelId} AND user_id = ${userId};
     `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Advances a user's read position in a channel to `lastReadTime`. The update is monotonic (never
+ * moves the stored position backward) so a stale report from one device can't clobber a newer
+ * position recorded by another, and clamped to `now()` so a client can't push the position into the
+ * future. A silent no-op if the user isn't (or is no longer) a member of the channel.
+ *
+ * Returns the resulting stored read position, or `undefined` if the user isn't a member of the
+ * channel (nothing to update).
+ */
+export async function updateLastReadTime(
+  userId: SbUserId,
+  channelId: SbChannelId,
+  lastReadTime: Date,
+  withClient?: DbClient,
+): Promise<Date | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ last_read_time: Date }>(sql`
+      UPDATE channel_users
+      SET last_read_time = GREATEST(
+        COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
+      )
+      WHERE user_id = ${userId} AND channel_id = ${channelId}
+      RETURNING last_read_time;
+    `)
+    return result.rows[0]?.last_read_time
+  } finally {
+    done()
+  }
+}
+
+/**
+ * A joined channel's unread state for a user, as returned by `getUnreadChannelInfo`.
+ */
+export interface UnreadChannelInfo {
+  channelId: SbChannelId
+  /**
+   * The time of the newest unread message that mentions the user and wasn't sent by someone
+   * they've blocked, or `undefined` if none of the channel's unread messages mention them.
+   */
+  latestMentionTime: Date | undefined
+}
+
+/**
+ * Returns unread state for each of a user's joined channels that has a text message sent by
+ * someone else after their last recorded read position in that channel. When no read position has
+ * been recorded yet, messages sent by others at or after the member's `join_date` count as unread
+ * instead, mirroring the whisper query's `start_date` fallback. Only text messages count,
+ * mirroring the client's own `makeUnread` flag: join/leave/moderation events never mark a channel
+ * unread. A single set-based query over all of the user's channels, rather than one query per
+ * channel. `sent` columns store naive UTC wall time (see the
+ * timestamp parser setup in `server/lib/db`), so the read position is converted to naive UTC for
+ * the comparison instead of being left to the connection's session time zone. The comparison works
+ * at millisecond granularity (`sent >= read + 1ms` rather than `sent > read`): read positions
+ * arrive as epoch milliseconds while `sent` keeps microseconds, so a full-precision strict
+ * comparison would leave the newest message permanently unread.
+ *
+ * Alongside the unread predicate itself, this also computes the time of the newest unread message
+ * that mentions the user, ignoring mentions from users they've blocked (the live client applies the
+ * same block check before treating an incoming mention as urgent, so the seeded state has to agree
+ * with it). That subquery is served by the partial `channel_messages_mentions_idx` index, which
+ * only covers rows whose `data` has a `mentions` key; the `m.data ? 'mentions'` predicate below has
+ * to stay in sync with that index's `WHERE` clause for the index to actually get used.
+ */
+export async function getUnreadChannelInfo(userId: SbUserId): Promise<UnreadChannelInfo[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      channel_id: SbChannelId
+      latest_mention_time: Date | null
+    }>(sql`
+      SELECT cu.channel_id, (
+        SELECT MAX(m.sent)
+        FROM channel_messages m
+        WHERE m.channel_id = cu.channel_id
+          AND m.user_id != cu.user_id
+          AND m.sent >= COALESCE(
+            (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+            cu.join_date
+          )
+          AND m.data ? 'mentions'
+          AND m.data->'mentions' @> to_jsonb(cu.user_id)
+          AND NOT EXISTS (
+            SELECT 1 FROM user_relationships r
+            WHERE r.user_low = LEAST(cu.user_id, m.user_id)
+              AND r.user_high = GREATEST(cu.user_id, m.user_id)
+              AND (r.kind = ${MutualKind.BlockBoth}
+                OR (cu.user_id < m.user_id AND r.kind = ${MutualKind.BlockLowToHigh})
+                OR (cu.user_id > m.user_id AND r.kind = ${MutualKind.BlockHighToLow}))
+          )
+      ) AS latest_mention_time
+      FROM channel_users cu
+      WHERE cu.user_id = ${userId}
+        AND EXISTS (
+          SELECT 1 FROM channel_messages m
+          WHERE m.channel_id = cu.channel_id
+            AND m.user_id != cu.user_id
+            AND m.sent >= COALESCE(
+              (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+              cu.join_date
+            )
+            AND m.data ->> 'type' = ${ServerChatMessageType.TextMessage}
+        )
+    `)
+    return result.rows.map(row => ({
+      channelId: row.channel_id,
+      latestMentionTime: row.latest_mention_time ?? undefined,
+    }))
   } finally {
     done()
   }

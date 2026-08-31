@@ -415,7 +415,7 @@ fn try_capture_screenshot() -> Result<DebugScreenshot, String> {
     let bgra = unsafe { slice::from_raw_parts(bits as *const u8, pixel_count * 4) };
 
     let mut rgba = Vec::with_capacity(bgra.len());
-    for pixel in bgra.chunks_exact(4) {
+    for pixel in bgra.as_chunks::<4>().0 {
         // 32bpp BI_RGB stores each pixel as B, G, R, then a fourth byte GDI leaves undefined, so
         // reorder to RGB and force full opacity rather than trusting that byte as alpha.
         rgba.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 0xFF]);

@@ -83,6 +83,13 @@ export enum GameResultErrorCode {
   InvalidClient = 'InvalidClient',
   /** The game has not been marked as loaded yet, so results cannot be submitted. */
   NotLoaded = 'NotLoaded',
+  /**
+   * The game is not awaiting manual resolution: its reconciled results were never disputed, or an
+   * admin has already resolved it.
+   */
+  NotDisputable = 'NotDisputable',
+  /** The submitted outcomes aren't a valid result for this game (e.g. a draw in matchmaking). */
+  InvalidResults = 'InvalidResults',
 }
 
 /** The payload format for submitting game results to the server. */

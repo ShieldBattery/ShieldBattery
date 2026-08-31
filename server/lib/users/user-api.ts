@@ -695,6 +695,7 @@ export class UserApi {
         offset,
         startDate,
         endDate,
+        includeShort,
       },
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -715,6 +716,7 @@ export class UserApi {
         offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
         startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
         endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+        includeShort: Joi.boolean().default(false),
       }),
     })
 
@@ -739,6 +741,7 @@ export class UserApi {
       sort,
       startDate,
       endDate,
+      includeShort,
     })
 
     const { users, maps, replays } = await getGameListSideData({

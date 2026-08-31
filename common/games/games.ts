@@ -20,7 +20,7 @@ import {
   GameSourceFilter,
 } from './game-filters'
 import { MatchupString } from './matchups'
-import { NetcodeV2RelayEvent } from './netcode-v2'
+import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from './netcode-v2'
 import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export const GET_GAMES_LIMIT = 40
@@ -45,6 +45,11 @@ export interface GameRecord {
   results: [SbUserId, ReconciledPlayerResult][] | null
   selectedMatchup: MatchupString | null
   assignedMatchup: MatchupString | null
+  /**
+   * Whether an admin hand-assigned this game's outcomes instead of them coming purely from
+   * reconciled player reports. Who did it and when is kept server-side only.
+   */
+  manuallyResolved: boolean
 }
 
 export type GameRecordJson = Jsonify<GameRecord>
@@ -65,6 +70,11 @@ export interface GameDebugInfo {
     /** The coordinator session id persisted for this game, or `null` if it never had one. */
     session: number | null
     relays: NetcodeV2RelayEvent[]
+    /**
+     * What each session slot asked for at queue/join time. Empty for a game that never got as far
+     * as a session create.
+     */
+    requestedRegions: NetcodeV2RequestedRegion[]
   }
 }
 
@@ -108,6 +118,7 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
     results: game.results,
     selectedMatchup: game.selectedMatchup,
     assignedMatchup: game.assignedMatchup,
+    manuallyResolved: game.manuallyResolved,
   }
 }
 
@@ -164,6 +175,8 @@ export interface GetGamesQueryParams {
   startDate?: number
   /** Inclusive upper bound (unix ms) on the game's start time. */
   endDate?: number
+  /** When true, includes games shorter than `MIN_GAME_LENGTH_MS` (hidden by default). */
+  includeShort?: boolean
 }
 
 export interface GetGamesResponse {
@@ -209,6 +222,26 @@ export interface NullifyGamePointsResponse {
    * breakdown lives in the `game_points_refunds` audit row.
    */
   refundedUsers: SbUserId[]
+}
+
+/**
+ * Request to hand-assign the outcomes of a disputed game (an admin action). Every player with a
+ * stored result must be given an outcome; the submitted outcomes replace the disputed ones and the
+ * side effects the disputed reconciliation skipped (win/loss counters, and ratings/points for
+ * matchmaking games) are applied.
+ */
+export interface ManuallyResolveGameRequest {
+  results: Array<{ userId: SbUserId; result: 'win' | 'loss' | 'draw' }>
+}
+
+export interface ManuallyResolveGameResponse {
+  game: GameRecordJson
+  /**
+   * Whether matchmaking rating/points changes were applied. This is false for custom games (which
+   * have no ratings) and for matchmaking games whose season is already finalized — the resolution
+   * is still recorded in those cases.
+   */
+  ratingsApplied: boolean
 }
 
 export function getGameDurationString(durationMs: number): string {

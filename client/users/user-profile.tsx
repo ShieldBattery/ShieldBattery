@@ -22,6 +22,7 @@ import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
 import { CopyLinkButton } from '../navigation/copy-link-button'
+import { useScrollMemory } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -311,6 +312,9 @@ export function UserProfilePage({
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  useScrollMemory(scrollerRef)
+
   // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
   // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
   // render in once they arrive. The poll below keeps the Live badge/banner consistent with the
@@ -334,7 +338,9 @@ export function UserProfilePage({
       break
 
     case UserProfileSubPage.MatchHistory:
-      content = <ConnectedMatchHistory userId={user.id} />
+      // Keyed by user id so switching to a different user's profile remounts the list instead of
+      // carrying over the previous user's accumulated games and scroll-restore window.
+      content = <ConnectedMatchHistory key={user.id} userId={user.id} />
       break
 
     case UserProfileSubPage.Stats:
@@ -364,7 +370,7 @@ export function UserProfilePage({
   }
 
   return (
-    <CenteredContentContainer>
+    <CenteredContentContainer ref={scrollerRef}>
       <TopSection>
         <AvatarCircle $isLive={isLive}>
           <StyledAvatar userId={user.id} showLiveIndicator={false} />

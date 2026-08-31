@@ -1,10 +1,11 @@
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { GameSourceFilter } from '../../common/games/game-filters'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { elevationPlus1 } from '../material/shadows'
-import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useLocationSearchParam, useScrollMemory } from '../navigation/router-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -70,6 +71,9 @@ export function GameList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  useScrollMemory(scrollerRef)
+
   // TODO(marko): Figure out if we particularly care about the errors when loading this, since we're
   // hiding the live games feed if there are no live games anyway.
   // TODO(marko): This is a one-shot query (nothing re-executes it), so finished games linger in the
@@ -104,13 +108,15 @@ export function GameList() {
   }
 
   return (
-    <CenteredContentContainer $fullWidth={true} data-content-fullbleed=''>
+    <CenteredContentContainer $fullWidth={true} data-content-fullbleed='' ref={scrollerRef}>
       <PageColumn>
         {showLiveGames ? <LiveGamesFeed query={data} /> : null}
 
         <GameListView
           loadPage={loadPage}
+          surface='games'
           showSourceFilter={true}
+          showResult={true}
           noResultsText={t('games.list.noMatchingGames', 'No matching games.')}
           errorText={t('games.list.retrievingError', 'There was an error retrieving the games.')}
         />

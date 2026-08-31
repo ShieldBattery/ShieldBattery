@@ -15,7 +15,11 @@ import {
 } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { addNetcodeV2RelayEvents, setNetcodeV2Session } from '../games/game-models'
+import {
+  addNetcodeV2RelayEvents,
+  setNetcodeV2RequestedRegions,
+  setNetcodeV2Session,
+} from '../games/game-models'
 import log from '../logging/logger'
 import { worstPairwiseLatencyMs } from './latency-estimate'
 import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './netcode-v2-config'
@@ -204,6 +208,15 @@ interface CoordinatorSlotHome {
   relay: CoordinatorRelayEndpoint
 }
 
+/**
+ * One serving relay's region, as listed in a `CoordinatorSessionResponse`'s `relay_regions`. Only
+ * relays the coordinator tagged with a region appear; an untagged relay has no entry.
+ */
+interface CoordinatorRelayRegionLabel {
+  relay_id: number
+  region: string
+}
+
 interface CoordinatorSessionResponse {
   session: number
   home_relay: CoordinatorRelayEndpoint
@@ -221,6 +234,32 @@ interface CoordinatorSessionResponse {
    * first turn.
    */
   bounds: { min: number; max: number }
+  /**
+   * Each serving relay's region, separate from `home_relay`/`slot_homes` themselves: the
+   * coordinator deliberately never puts a region on those (their shape rides all the way to the
+   * game process, and a region must not reach a client before its own in-game, gameplay-elapsed
+   * release). This list exists only for our own operator-facing tooling (the admin debug view's
+   * relay-serving history) — look a relay id up here, never thread it into
+   * `NetcodeV2RelayInfo`/`NetcodeV2RosterEntry`. Absent (or missing an entry for a given relay) on
+   * a coordinator with no region catalog, or for an untagged relay.
+   */
+  relay_regions?: CoordinatorRelayRegionLabel[]
+}
+
+/** Looks up `relayId`'s region in a session or rehome response's region label list. */
+function findRelayRegion(
+  relayRegions: CoordinatorRelayRegionLabel[] | undefined,
+  relayId: number,
+): string | undefined {
+  return relayRegions?.find(label => label.relay_id === relayId)?.region
+}
+
+/**
+ * `{ region }` when `region` is known, else an empty object — spread into a relay-event literal so
+ * an unknown region omits the key entirely rather than carrying it as `undefined`.
+ */
+function regionField(region: string | undefined): { region: string } | Record<string, never> {
+  return region !== undefined ? { region } : {}
 }
 
 /**
@@ -239,6 +278,12 @@ interface CoordinatorRehomeResponse {
   decision: 'stay' | 'unavailable' | 'newTarget'
   /** Present only for a `newTarget` decision: the replacement relay to dial. */
   relay?: CoordinatorRelayEndpoint
+  /**
+   * `relay`'s region, present only for a `newTarget` decision with a recorded region. Same
+   * tenant-only, operator-facing purpose as `CoordinatorSessionResponse.relay_regions` — never
+   * carried on `relay` itself, and never to be threaded into anything a game client receives.
+   */
+  relay_region?: string
 }
 
 /**
@@ -503,6 +548,11 @@ export class NetcodeV2Service {
        */
       rttMs?: number
       /**
+       * Whether `region` was hand-picked by the player rather than resolved from their measurements.
+       * Recorded onto the game's requested-region record and never forwarded to the coordinator.
+       */
+      regionManual?: boolean
+      /**
        * base64 of the player's per-session public key, submitted at queue/lobby-join time. Required
        * for every slot: a missing key fails create fast (the coordinator embeds it in the slot's
        * session token). Optional in the type so callers thread it in from a per-user lookup that may
@@ -565,6 +615,26 @@ export class NetcodeV2Service {
       ...latencyEstimateField,
     }
 
+    // Records what every slot asked for, before the coordinator is asked for anything: a create that
+    // fails, hangs, or is abandoned mid-provisioning is exactly when knowing what was requested
+    // matters, and after the call there'd be nothing to write it from. Non-fatal — a game whose
+    // requested regions fail to persist just loses that line of the debug view.
+    try {
+      await setNetcodeV2RequestedRegions(
+        gameId,
+        slots.map(({ slot, userId, observer, region, rttMs, regionManual }) => ({
+          slot,
+          userId,
+          observer,
+          region,
+          rttMs,
+          manual: regionManual,
+        })),
+      )
+    } catch (err) {
+      log.warn({ err, gameId }, `failed to persist netcode v2 requested regions for game ${gameId}`)
+    }
+
     const session = await this.createCoordinatorSession(config, request, signal, onProvisioning)
 
     log.info(
@@ -592,6 +662,7 @@ export class NetcodeV2Service {
         kind: 'home',
         relayId: session.home_relay.relay_id,
         relayAddr: session.home_relay.relay_addr,
+        ...regionField(findRelayRegion(session.relay_regions, session.home_relay.relay_id)),
         at,
       })
       for (const { relay } of session.slot_homes ?? []) {
@@ -600,6 +671,7 @@ export class NetcodeV2Service {
             kind: 'home',
             relayId: relay.relay_id,
             relayAddr: relay.relay_addr,
+            ...regionField(findRelayRegion(session.relay_regions, relay.relay_id)),
             at,
           })
         }
@@ -626,6 +698,10 @@ export class NetcodeV2Service {
     }
 
     const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
+    // Every slot's pubkey was already validated non-undefined while building `request` above (the
+    // `.map` there throws synchronously on a gap), so the `!` here is just narrowing what's already
+    // been checked.
+    const pubkeyByUserId = new Map(slots.map(({ userId, pubkey }) => [userId, pubkey!]))
 
     // The slot roster, personalized per recipient: who occupies each slot, plus the create-time
     // home relay the `/netstat` overlay shows per player. `homeRegion` is included only on the
@@ -655,6 +731,9 @@ export class NetcodeV2Service {
         // Floored defensively: a misconfigured or unexpected coordinator bound of 0 would leave
         // the pipe with no latency at all to absorb the network round-trip.
         initialBufferTurns: Math.max(1, session.bounds.min),
+        // Lets the app pick the matching private key out of its own outstanding keypairs when it
+        // holds more than one (see `NetcodeV2ServerSetup.clientPubkey`).
+        clientPubkey: pubkeyByUserId.get(userId),
       })
     }
     if (result.size !== slots.length) {
@@ -819,6 +898,9 @@ export class NetcodeV2Service {
               deadRelayId,
               newRelayId: relay.relay_id,
               newRelayAddr: relay.relay_addr,
+              ...(response.relay_region !== undefined
+                ? { newRelayRegion: response.relay_region }
+                : {}),
               at: Date.now(),
             },
           ])

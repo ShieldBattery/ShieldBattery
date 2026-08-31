@@ -50,6 +50,8 @@ export function LeagueGames({ leagueId }: { leagueId: LeagueId }) {
     <LeagueGamesContainer>
       <GameListView
         loadPage={loadPage}
+        surface='league'
+        showResult={true}
         noResultsText={t('leagues.leagueGames.noMatchingGames', 'No matching games.')}
         errorText={t(
           'leagues.leagueGames.retrievingError',

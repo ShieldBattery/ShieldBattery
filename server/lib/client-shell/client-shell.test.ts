@@ -39,7 +39,7 @@ function render(overrides: Partial<ClientShellData> = {}): string {
 
 describe('server/lib/client-shell/renderClientShell', () => {
   test('nonces the inline scripts it renders, and only those', () => {
-    const html = render({ analyticsId: 'ANALYTICS' })
+    const html = render({ analyticsId: 'ANALYTICS', deepLinkScheme: 'shieldbattery' })
 
     // The build's own tags are external and admitted by origin, so they get no nonce.
     expect(html).toContain('<script type="module" crossorigin src=')
@@ -135,17 +135,24 @@ describe('server/lib/client-shell/renderClientShell', () => {
   })
 
   test('omits optional blocks when their inputs are absent', () => {
-    const html = render({ initData: undefined, analyticsId: undefined, assetsOrigin: undefined })
+    const html = render({
+      initData: undefined,
+      analyticsId: undefined,
+      assetsOrigin: undefined,
+      deepLinkScheme: undefined,
+    })
 
     expect(html).not.toContain('_sbInitData')
     expect(html).not.toContain('usefathom.com')
     expect(html).not.toContain('preconnect')
+    expect(html).not.toContain('SB_DEEP_LINK_SCHEME')
   })
 
   test('renders the optional blocks when their inputs are present', () => {
     const html = render({
       analyticsId: 'ANALYTICS',
       assetsOrigin: 'https://cdn.example.com',
+      deepLinkScheme: 'shieldbattery',
       pageMeta: { ...PAGE_META, noindex: true, cardType: 'summary' },
     })
 
@@ -153,6 +160,7 @@ describe('server/lib/client-shell/renderClientShell', () => {
     expect(html).toContain('data-site="ANALYTICS"')
     expect(html).toContain('<meta name="robots" content="noindex"')
     expect(html).toContain('<meta name="twitter:card" content="summary"')
+    expect(html).toContain('window.SB_DEEP_LINK_SCHEME="shieldbattery"')
   })
 
   test('cache-busts the font stylesheets with the app version', () => {

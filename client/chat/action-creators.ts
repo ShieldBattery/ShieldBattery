@@ -13,6 +13,7 @@ import {
   JoinChannelResponse,
   ListChannelBansResponse,
   ListUserChannelEntriesResponse,
+  MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
   SbChannelId,
   SearchChannelsResponse,
@@ -30,6 +31,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
+import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
@@ -39,7 +41,13 @@ import { RequestCoalescer } from '../network/request-coalescer'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { ActivateChannel, DeactivateChannel, UpdateChannelAtBottom } from './actions'
+import {
+  ActivateChannel,
+  DeactivateChannel,
+  ResetMessageWindow,
+  UpdateChannelAtBottom,
+} from './actions'
+import { newestServerOriginTime, oldestServerOriginTime } from './chat-reducer'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -53,6 +61,38 @@ export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction 
       payload: joinedChannels,
     })
   })
+}
+
+/** The `reportLastRead`/`flushLastRead` coalescing key for a channel's read position. */
+export function getChannelLastReadKey(channelId: SbChannelId): string {
+  return `channel-${channelId}`
+}
+
+/**
+ * Reports the newest message time the current user has read in a channel, coalescing rapid-fire
+ * reports (see `reportLastRead`). Fire-and-forget: there's no `RequestHandlingSpec` since nothing
+ * needs to react to this request's outcome.
+ */
+export function markChannelRead(channelId: SbChannelId, lastReadTime: number): ThunkAction {
+  return dispatch => {
+    // Advances the local read position immediately; the reducer's monotonic guard keeps this
+    // correct even for reports the coalescer below ends up dropping.
+    dispatch({
+      type: '@chat/updateLastReadTime',
+      payload: { channelId, lastReadTime },
+    })
+
+    reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time => {
+      fetchJson<void>(apiUrl`chat/${channelId}/mark-read`, {
+        method: 'POST',
+        body: encodeBodyAsParams<MarkChannelReadRequest>({ lastReadTime: time }),
+      }).catch(err => {
+        logger.error(
+          `Error reporting read position for channel ${channelId}: ${getErrorStack(err)}`,
+        )
+      })
+    })
+  }
 }
 
 /**
@@ -346,10 +386,20 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
       chat: { idToMessages },
     } = getStore()
     const channelMessages = idToMessages.get(channelId)
-    const earliestMessageTime = channelMessages?.messages.length
-      ? channelMessages.messages[0].time
+    // The window's first entry can be a client-only message (the self-join banner right after
+    // joining, or a carried message left behind by a drop that hasn't found a covering window
+    // yet), whose time is stamped with the local clock and means nothing as a server cursor. -1
+    // is the "newest page" sentinel, used both when nothing is loaded and when nothing loaded
+    // carries a server-recorded time.
+    const earliestMessageTime = channelMessages
+      ? (oldestServerOriginTime(channelMessages.messages) ?? -1)
       : -1
-    const params = { channelId, limit, beforeTime: earliestMessageTime }
+    const params = {
+      channelId,
+      limit,
+      beforeTime: earliestMessageTime,
+      windowGen: channelMessages?.windowGen ?? 0,
+    }
 
     dispatch({
       type: '@chat/loadMessageHistoryBegin',
@@ -363,6 +413,114 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
       ),
       meta: params,
     })
+  }
+}
+
+/**
+ * Loads the page of messages that follows the newest one currently loaded for a channel, moving a
+ * window that sits behind the present a page closer to it. Does nothing if the channel holds no
+ * message with a server-recorded time, since there'd be nothing the server could seek from.
+ */
+export function getNewerMessages(channelId: SbChannelId, limit: number): ThunkAction {
+  return (dispatch, getStore) => {
+    const {
+      chat: { idToMessages },
+    } = getStore()
+    const channelMessages = idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    const afterTime = newestServerOriginTime(channelMessages.messages)
+    if (afterTime === undefined) {
+      return
+    }
+
+    const params = {
+      channelId,
+      limit,
+      afterTime,
+      windowGen: channelMessages.windowGen,
+      knownNewestTime: Math.max(afterTime, channelMessages.detachedNewestTime ?? -Infinity),
+    }
+
+    dispatch({
+      type: '@chat/loadNewerMessagesBegin',
+      payload: params,
+    })
+    dispatch({
+      type: '@chat/loadNewerMessages',
+      payload: fetchJson<GetChannelHistoryServerResponse>(
+        apiUrl`chat/${channelId}/messages2?limit=${limit}&afterTime=${afterTime}`,
+        { method: 'GET' },
+      ),
+      meta: params,
+    })
+  }
+}
+
+/**
+ * Loads a window of messages centered on `aroundTime`, replacing whatever is currently loaded for
+ * the channel. This is how the client reaches a position that isn't adjacent to what it holds, such
+ * as an unread divider that sits further back than the loaded history reaches.
+ */
+export function getMessagesAround(
+  channelId: SbChannelId,
+  limit: number,
+  aroundTime: number,
+): ThunkAction {
+  return (dispatch, getStore) => {
+    const {
+      chat: { idToMessages },
+    } = getStore()
+    const channelMessages = idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    const knownNewest = Math.max(
+      newestServerOriginTime(channelMessages.messages) ?? -Infinity,
+      channelMessages.detachedNewestTime ?? -Infinity,
+    )
+    const params = {
+      channelId,
+      limit,
+      aroundTime,
+      windowGen: channelMessages.windowGen,
+      knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
+    }
+
+    dispatch({
+      type: '@chat/loadMessagesAroundBegin',
+      payload: params,
+    })
+    dispatch({
+      type: '@chat/loadMessagesAround',
+      payload: fetchJson<GetChannelHistoryServerResponse>(
+        apiUrl`chat/${channelId}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
+        { method: 'GET' },
+      ),
+      meta: params,
+    })
+  }
+}
+
+export function resetMessageWindow(channelId: SbChannelId): ResetMessageWindow {
+  return {
+    type: '@chat/resetMessageWindow',
+    payload: { channelId },
+  }
+}
+
+/**
+ * Returns a channel's message list to the present, however far back it was left. The loaded window
+ * is dropped and the newest page requested in the same tick, so the list never renders an empty
+ * channel in between.
+ */
+export function jumpToPresent(channelId: SbChannelId, limit: number): ThunkAction {
+  return dispatch => {
+    dispatch(resetMessageWindow(channelId))
+    dispatch(getMessageHistory(channelId, limit))
   }
 }
 

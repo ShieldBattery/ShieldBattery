@@ -23,6 +23,7 @@ import { logger } from './logging/logger'
 import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
 import { DraftScreenOverlay } from './matchmaking/draft-screen-overlay'
 import { zIndexSettings } from './material/zindex'
+import { UnreadTraySync } from './messaging/unread-tray-sync'
 import { NavigationTrapProvider } from './navigation/navigation-trap'
 import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
@@ -261,6 +262,7 @@ const AppContent = React.memo(() => {
       <RedirectOnUnauthorized />
       <SiteSocketManager />
       <RestrictionClearer />
+      <UnreadTraySync />
       <React.Suspense fallback={<LoadingDotsArea />}>
         <Switch>
           {!IS_PRODUCTION ? <Route path='/dev/*?' component={LoadableDev} /> : <></>}

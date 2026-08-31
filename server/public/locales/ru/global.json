@@ -550,6 +550,7 @@
         "under10": "Менее 10 мин"
       },
       "format": "Формат",
+      "includeShort": "Показывать игры короче 2 минут",
       "label": "Фильтры",
       "mapName": "Название карты",
       "matchup": "Матчап",
@@ -629,6 +630,9 @@
       "bottom": "Низ",
       "number": "Команда {{teamNumber}}",
       "top": "Верх"
+    },
+    "time": {
+      "justNow": "Только что"
     }
   },
   "gameDetails": {
@@ -637,6 +641,7 @@
     "buttonDownloadReplay": "Скачать реплей",
     "buttonReplaySaved": "В библиотеке",
     "buttonReport": "Пожаловаться",
+    "buttonResolveResults": "Разрешить спор",
     "buttonSaveReplay": "Сохранить реплей",
     "buttonSaveReplayLoading": "Сохранение…",
     "buttonWatchReplay": "Смотреть реплей",
@@ -669,9 +674,20 @@
           "title": "Записи полёта"
         },
         "home": "Назначение",
+        "observerSuffix": "(зритель)",
+        "player": "Игрок",
+        "region": "Регион",
         "rehome": "Переназначение",
         "relay": "Релей",
+        "relayHistory": "История релеев",
+        "requestedRegions": "Запрошенные регионы",
+        "rtt": "RTT",
+        "rttValue": "{{rttMs}} мс",
+        "selection": "Выбор",
+        "selectionAuto": "Авто",
+        "selectionManual": "Вручную",
         "session": "Сессия: {{session}}",
+        "slot": "Слот",
         "title": "Сеть"
       },
       "player": "Игрок",
@@ -696,11 +712,33 @@
     "infoDuration": "Продолжительность",
     "infoGameType": "Тип",
     "notFound": "Не удалось найти эту игру.",
+    "resolveDialog": {
+      "errorGeneric": "Что-то пошло не так. Попробуйте ещё раз.",
+      "errorInvalidResults": "Эти результаты недопустимы для этой игры. Победить должна ровно одна команда.",
+      "errorNotDisputable": "Эта игра больше не ожидает разрешения.",
+      "matchmakingHint": "Победить должна ровно одна команда.",
+      "resolveButton": "Разрешить",
+      "success": "Результаты обновлены.",
+      "successWithPoints": "Результаты обновлены, очки начислены.",
+      "title": "Разрешить спор о результатах"
+    },
+    "saveReplayAddedToBookmarks": "Добавлено в закладки",
+    "saveReplayAddedToPlaylist": "Добавлено в {{name}}",
     "saveReplayAlreadySaved": "Реплей этой игры уже есть в вашей библиотеке",
     "saveReplayError": "Не удалось сохранить реплей",
+    "saveReplayMenuBookmarks": "Закладки",
+    "saveReplayMenuLibrary": "Библиотека",
+    "saveReplaySavedToBookmarks": "Сохранено в закладки",
+    "saveReplaySavedToPlaylist": "Сохранено в {{name}}",
     "saveReplaySuccess": "Реплей сохранён в вашу библиотеку",
+    "saveReplayUndoError": "Не удалось отменить действие",
+    "saveReplayUndoneBookmarks": "Убрано из закладок",
+    "saveReplayUndoneLibrary": "Реплей удалён из вашей библиотеки",
+    "saveReplayUndonePlaylist": "Убрано из {{name}}",
+    "statusDisputed": "Спорные результаты",
     "statusFinal": "Финал",
     "statusLive": "В реальном времени",
+    "statusManuallyResolved": "Решено вручную",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "Базовые очки",
@@ -758,6 +796,7 @@
     },
     "list": {
       "noMatchingGames": "Нет подходящих игр.",
+      "resultTooltip": "Результат: {{names}}",
       "retrievingError": "Произошла ошибка при получении игр."
     },
     "liveGames": {
@@ -939,6 +978,7 @@
       "emptyAllFull": "Сейчас все лобби заполнены",
       "emptyNoLobbies": "Сейчас нет открытых лобби",
       "emptyNoMatches": "Ни одно лобби не соответствует фильтрам",
+      "enterCode": "Ввести код",
       "filterFriends": "Друзья",
       "filterGameType": "Тип игры",
       "filterGameTypeAll": "Все типы игр",
@@ -1020,7 +1060,6 @@
       "visibilityUnlisted": "Доступ по ссылке"
     },
     "errors": {
-      "alreadyInLobby": "Вы уже находитесь в другом лобби.",
       "load": "Не удалось загрузить это лобби"
     },
     "events": {
@@ -1041,6 +1080,15 @@
       "visibilityListedDescription": "Любой может присоединиться из списка лобби. Игры и реплеи общедоступны.",
       "visibilityUnlistedDescription": "Присоединиться могут только те, у кого есть ссылка. Скачать реплей могут только участники игры."
     },
+    "joinCode": {
+      "explainer": "Вставьте ссылку на лобби или введите код, который показывается при открытии ссылки в браузере.",
+      "genericError": "Что-то пошло не так. Попробуйте ещё раз.",
+      "inputLabel": "Код или ссылка на лобби",
+      "invalidInput": "Введите код или ссылку на лобби.",
+      "notFound": "Это лобби уже закрыто.",
+      "submitAction": "Найти лобби",
+      "title": "Введите код лобби"
+    },
     "joinLobby": {
       "action": "Присоединиться к лобби",
       "browseLobbies": "К списку лобби",
@@ -1058,7 +1106,23 @@
       "openSlotCount_other": "{{count}} слота открыто"
     },
     "landing": {
+      "appLaunch": {
+        "button": "Открыть в приложении ShieldBattery",
+        "failedSubtitle": "Возможно, оно не установлено на этом компьютере.",
+        "failedTitle": "Приложение не открылось.",
+        "fallbackHint": "Ничего не происходит? <1>Попробуйте ещё раз</1> или <4>скачайте приложение</4>",
+        "opening": "Открываем в приложении ShieldBattery…",
+        "retryAfterFailure": "Попробовать открыть приложение ещё раз"
+      },
       "download": "Скачать ShieldBattery",
+      "downloadHint": "Ещё нет ShieldBattery? <1>Скачайте бесплатно</1>",
+      "joinCode": {
+        "copied": "Скопировано в буфер обмена",
+        "copy": "Копировать код",
+        "label": "Или введите этот код в приложении",
+        "labelAfterFailure": "Уже есть приложение? Введите этот код",
+        "labelMobile": "За компьютером? Откройте ShieldBattery и введите этот код"
+      },
       "loadError": "Не удалось загрузить это лобби.",
       "openInApp": "Уже есть ShieldBattery? Откройте эту ссылку из приложения, чтобы присоединиться к лобби."
     },
@@ -1114,7 +1178,7 @@
       "makePlayer": "Сделать игроком",
       "name": "Закрыто",
       "open": "Открыто",
-      "openSlot": "Открытый слот",
+      "openSlot": "Открыть слот",
       "removeComputer": "Удалить компьютер",
       "slotActions": "Действия со слотом"
     },
@@ -1418,13 +1482,20 @@
   },
   "messaging": {
     "blockedMessage": "Заблокированное сообщение",
+    "copyLinkAddress": "Копировать адрес ссылки",
+    "copyMessage": "Копировать сообщение",
+    "jumpToBottom": "Перейти в конец",
+    "jumpToPresent": "Перейти к последним",
     "mention": "Упомянуть",
     "messageTooLongContent": "Сообщение может содержать не более {{maxLength}} символов, а в этом их {{length}}. Сократите его перед отправкой.",
     "messageTooLongTitle": "Слишком длинное сообщение",
     "newDayMessage": "День изменен на <2>{{day}}</2>",
+    "newMessages": "Новые сообщения",
+    "openLink": "Открыть ссылку",
     "searchWithGoogle": "Искать в Google",
     "sendMessage": "Отправить сообщение",
-    "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}"
+    "sendMessageChatRestricted": "Отправка сообщений ограничена до {{date}}",
+    "unreadLineLabel": "Новое"
   },
   "navigation": {
     "bar": {
@@ -1518,6 +1589,9 @@
       },
       "moreActions": "Другие действия",
       "moveDown": "Переместить вниз",
+      "movedToRecycleBin": "Реплей перемещён в корзину",
+      "moveToRecycleBin": "Переместить в корзину",
+      "moveToRecycleBinError": "Не удалось удалить реплей",
       "moveUp": "Переместить вверх",
       "newPlaylistMenu": "Новый плейлист…",
       "noFolders": "Нет папок с реплеями",
@@ -1815,6 +1889,7 @@
         "customMouseSensitivity": "Пользовательская чувствительность мыши",
         "grabPan": "Своя чувствительность перетаскивания камеры",
         "grabPanFaster": "Быстрее",
+        "grabPanInverted": "Инвертировать направление движения камеры",
         "grabPanSlower": "Медленнее",
         "grabPanTooltip": "Настраивает скорость движения камеры при перетаскивании средней кнопкой мыши. Если выключено, поведение совпадает с классическим StarCraft: Remastered.",
         "hardwareCursor": "Аппаратный курсор",
@@ -2080,6 +2155,7 @@
     "moderation": {
       "blocked": "{{name}} больше не показывается в трансляциях",
       "blockError": "Не удалось убрать {{name}} из трансляций",
+      "menuTooltip": "Модерация трансляции",
       "removeTooltip": "Убрать из трансляций",
       "unblockError": "Не удалось вернуть {{name}} в трансляции"
     }

@@ -14,6 +14,8 @@ import {
   GET_GAMES_LIMIT,
   GetGameResponse,
   GetGamesResponse,
+  ManuallyResolveGameRequest,
+  ManuallyResolveGameResponse,
   NullifyGamePointsRequest,
   NullifyGamePointsResponse,
   toGameDebugInfoJson,
@@ -68,7 +70,10 @@ import {
   GamePointsRefundService,
   GamePointsRefundServiceError,
 } from './game-points-refund-service'
-import GameResultService, { GameResultServiceError } from './game-result-service'
+import GameResultService, {
+  ALL_MANUAL_GAME_RESULTS,
+  GameResultServiceError,
+} from './game-result-service'
 import { deriveResultSubmission } from './raw-results'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
@@ -179,6 +184,10 @@ function convertGameResultServiceErrors(err: unknown) {
       throw asHttpError(400, err)
     case GameResultErrorCode.NotLoaded:
       throw asHttpError(409, err)
+    case GameResultErrorCode.NotDisputable:
+      throw asHttpError(409, err)
+    case GameResultErrorCode.InvalidResults:
+      throw asHttpError(400, err)
     default:
       assertUnreachable(err.code)
   }
@@ -250,6 +259,40 @@ export class GameApi {
     })
   }
 
+  @httpPost('/:gameId/manual-resolution')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageGameReports'))
+  async manuallyResolveGame(ctx: RouterContext): Promise<ManuallyResolveGameResponse> {
+    const {
+      params: { gameId },
+      body: { results },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<ManuallyResolveGameRequest>({
+        // 8 is the most human players a game can have.
+        results: Joi.array()
+          .items(
+            Joi.object({
+              userId: joiUserId().required(),
+              result: Joi.string()
+                .valid(...ALL_MANUAL_GAME_RESULTS)
+                .required(),
+            }),
+          )
+          .min(1)
+          .max(8)
+          .required(),
+      }),
+    })
+
+    const { game, ratingsApplied } = await this.gameResultService.resolveGameManually({
+      gameId,
+      results,
+      resolvedBy: ctx.session!.user.id,
+    })
+
+    return { game: toGameRecordJson(game), ratingsApplied }
+  }
+
   @httpGet('/list')
   @httpBefore(throttleMiddleware(gamesListThrottle, throttleByUserOrIp))
   async getGamesList(ctx: RouterContext): Promise<GetGamesResponse> {
@@ -265,6 +308,7 @@ export class GameApi {
         offset,
         startDate,
         endDate,
+        includeShort,
       },
     } = validateRequest(ctx, {
       query: GET_GAMES_QUERY_SCHEMA,
@@ -284,6 +328,7 @@ export class GameApi {
       sort,
       startDate,
       endDate,
+      includeShort,
     })
 
     const { users, maps, replays } = await getGameListSideData({

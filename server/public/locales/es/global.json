@@ -547,6 +547,7 @@
         "under10": "Menos de 10 min"
       },
       "format": "Formato",
+      "includeShort": "Incluir partidas de menos de 2 minutos",
       "label": "Filtros",
       "mapName": "Nombre del mapa",
       "matchup": "Enfrentamiento",
@@ -626,6 +627,9 @@
       "bottom": "Abajo",
       "number": "Equipo {{teamNumber}}",
       "top": "Arriba"
+    },
+    "time": {
+      "justNow": "Ahora mismo"
     }
   },
   "gameDetails": {
@@ -634,6 +638,7 @@
     "buttonDownloadReplay": "Descargar replay",
     "buttonReplaySaved": "En la biblioteca",
     "buttonReport": "Reportar",
+    "buttonResolveResults": "Resolver resultados",
     "buttonSaveReplay": "Guardar replay",
     "buttonSaveReplayLoading": "Guardando…",
     "buttonWatchReplay": "Ver replay",
@@ -666,9 +671,20 @@
           "title": "Grabaciones de vuelo"
         },
         "home": "Asignación",
+        "observerSuffix": "(obs)",
+        "player": "Jugador",
+        "region": "Región",
         "rehome": "Reasignación",
         "relay": "Relay",
+        "relayHistory": "Historial de relays",
+        "requestedRegions": "Regiones solicitadas",
+        "rtt": "RTT",
+        "rttValue": "{{rttMs}} ms",
+        "selection": "Selección",
+        "selectionAuto": "Automática",
+        "selectionManual": "Manual",
         "session": "Sesión: {{session}}",
+        "slot": "Espacio",
         "title": "Red"
       },
       "player": "Jugador",
@@ -693,11 +709,33 @@
     "infoDuration": "Duración",
     "infoGameType": "Tipo",
     "notFound": "No se pudo encontrar esta partida.",
+    "resolveDialog": {
+      "errorGeneric": "Algo salió mal. Inténtalo de nuevo.",
+      "errorInvalidResults": "Estos resultados no son válidos para esta partida. Debe ganar exactamente un equipo.",
+      "errorNotDisputable": "Esta partida ya no está pendiente de resolución.",
+      "matchmakingHint": "Debe ganar exactamente un equipo.",
+      "resolveButton": "Resolver",
+      "success": "Resultados actualizados.",
+      "successWithPoints": "Resultados actualizados y puntos aplicados.",
+      "title": "Resolver resultados de la partida"
+    },
+    "saveReplayAddedToBookmarks": "Añadido a tus marcadores",
+    "saveReplayAddedToPlaylist": "Añadido a {{name}}",
     "saveReplayAlreadySaved": "El replay de esta partida ya está en tu biblioteca",
     "saveReplayError": "Hubo un problema al guardar el replay",
+    "saveReplayMenuBookmarks": "Marcadores",
+    "saveReplayMenuLibrary": "Biblioteca",
+    "saveReplaySavedToBookmarks": "Guardado en tus marcadores",
+    "saveReplaySavedToPlaylist": "Guardado en {{name}}",
     "saveReplaySuccess": "Replay guardado en tu biblioteca",
+    "saveReplayUndoError": "Hubo un problema al deshacer",
+    "saveReplayUndoneBookmarks": "Quitado de tus marcadores",
+    "saveReplayUndoneLibrary": "Replay eliminado de tu biblioteca",
+    "saveReplayUndonePlaylist": "Quitado de {{name}}",
+    "statusDisputed": "En disputa",
     "statusFinal": "Final",
     "statusLive": "En vivo",
+    "statusManuallyResolved": "Resolución manual",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "Base",
@@ -755,6 +793,7 @@
     },
     "list": {
       "noMatchingGames": "No hay partidas que coincidan.",
+      "resultTooltip": "Resultado de {{names}}",
       "retrievingError": "Hubo un error al obtener las partidas."
     },
     "liveGames": {
@@ -936,6 +975,7 @@
       "emptyAllFull": "Ahora mismo todos los lobbies están llenos",
       "emptyNoLobbies": "Ahora mismo no hay ningún lobby abierto",
       "emptyNoMatches": "Ningún lobby coincide con tus filtros",
+      "enterCode": "Introducir código",
       "filterFriends": "Amigos",
       "filterGameType": "Tipo de juego",
       "filterGameTypeAll": "Todos los tipos de juego",
@@ -1009,7 +1049,6 @@
       "visibilityUnlisted": "No listado"
     },
     "errors": {
-      "alreadyInLobby": "Ya estás en otro lobby.",
       "load": "Hubo un problema al cargar este lobby"
     },
     "events": {
@@ -1029,6 +1068,15 @@
       "visibilityListedDescription": "Cualquiera puede unirse desde la lista de lobbies. Las partidas y los replays son públicos.",
       "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Solo quienes estuvieron en la partida pueden descargar el replay."
     },
+    "joinCode": {
+      "explainer": "Pega un enlace de lobby o introduce el código que se muestra al abrir un enlace en el navegador.",
+      "genericError": "Algo salió mal. Inténtalo de nuevo.",
+      "inputLabel": "Código o enlace de lobby",
+      "invalidInput": "Introduce un código o un enlace de lobby.",
+      "notFound": "Ese lobby ya no está abierto.",
+      "submitAction": "Buscar lobby",
+      "title": "Introducir un código"
+    },
     "joinLobby": {
       "action": "Unirse al lobby",
       "browseLobbies": "Explorar lobbies",
@@ -1040,12 +1088,28 @@
       "joined": "Unido",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
       "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
-      "openSlotCount_one": "{{count}} ranura abierta",
-      "openSlotCount_many": "{{count}} de ranuras abiertas",
-      "openSlotCount_other": "{{count}} ranuras abiertas"
+      "openSlotCount_one": "{{count}} espacio abierto",
+      "openSlotCount_many": "{{count}} espacios abiertos",
+      "openSlotCount_other": "{{count}} espacios abiertos"
     },
     "landing": {
+      "appLaunch": {
+        "button": "Abrir en la app de ShieldBattery",
+        "failedSubtitle": "Puede que no esté instalada en esta computadora.",
+        "failedTitle": "La app no se abrió.",
+        "fallbackHint": "¿No pasa nada? <1>Inténtalo de nuevo</1> o <4>descarga la app</4>",
+        "opening": "Abriendo en la app de ShieldBattery…",
+        "retryAfterFailure": "Intentar abrir la app de nuevo"
+      },
       "download": "Descargar ShieldBattery",
+      "downloadHint": "¿Aún no tienes ShieldBattery? <1>Descárgalo gratis</1>",
+      "joinCode": {
+        "copied": "Copiado al portapapeles",
+        "copy": "Copiar código",
+        "label": "O introduce este código en la app",
+        "labelAfterFailure": "¿Ya tienes la app? Introduce este código",
+        "labelMobile": "¿Estás en tu PC? Abre ShieldBattery e introduce este código"
+      },
       "loadError": "Hubo un problema al cargar este lobby.",
       "openInApp": "¿Ya tienes ShieldBattery? Abre este enlace desde la aplicación para unirte al lobby."
     },
@@ -1094,14 +1158,14 @@
       "addComputer": "Agregar computadora",
       "banPlayer": "Banear {{user}}",
       "banUnnamedPlayer": "Banear jugador",
-      "closeSlot": "Cerrar ranura",
+      "closeSlot": "Cerrar espacio",
       "kickPlayer": "Expulsar {{user}}",
       "kickUnnamedPlayer": "Expulsar jugador",
       "makeObserver": "Hacer observador",
       "makePlayer": "Hacer jugador",
       "name": "Cerrado",
       "open": "Abierto",
-      "openSlot": "Ranura abierta",
+      "openSlot": "Abrir espacio",
       "removeComputer": "Quitar computadora",
       "slotActions": "Acciones de tragamonedas"
     },
@@ -1118,7 +1182,7 @@
       "openSlotCount_one": "{{count}} abierta",
       "openSlotCount_many": "{{count}} abiertas",
       "openSlotCount_other": "{{count}} abiertas",
-      "slotsLabel": "Ranuras"
+      "slotsLabel": "Espacios"
     }
   },
   "map": {
@@ -1401,13 +1465,20 @@
   },
   "messaging": {
     "blockedMessage": "Mensaje bloqueado",
+    "copyLinkAddress": "Copiar dirección del enlace",
+    "copyMessage": "Copiar mensaje",
+    "jumpToBottom": "Saltar al final",
+    "jumpToPresent": "Saltar al presente",
     "mention": "Mención",
     "messageTooLongContent": "Los mensajes pueden tener como máximo {{maxLength}} caracteres, y este tiene {{length}}. Acórtalo antes de enviarlo.",
     "messageTooLongTitle": "Mensaje demasiado largo",
     "newDayMessage": "Día cambiado a <2>{{day}}</2>",
+    "newMessages": "Mensajes nuevos",
+    "openLink": "Abrir enlace",
     "searchWithGoogle": "Buscar con Google",
     "sendMessage": "Enviar un mensaje",
-    "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}"
+    "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}",
+    "unreadLineLabel": "Nuevo"
   },
   "navigation": {
     "bar": {
@@ -1501,6 +1572,9 @@
       },
       "moreActions": "Más acciones",
       "moveDown": "Bajar",
+      "movedToRecycleBin": "Replay movido a la Papelera de reciclaje",
+      "moveToRecycleBin": "Mover a la Papelera de reciclaje",
+      "moveToRecycleBinError": "Hubo un problema al eliminar el replay",
       "moveUp": "Subir",
       "newPlaylistMenu": "Nueva playlist…",
       "noFolders": "No hay carpetas de replays",
@@ -1798,6 +1872,7 @@
         "customMouseSensitivity": "Sensibilidad personalizada del ratón",
         "grabPan": "Sensibilidad personalizada de arrastre de cámara",
         "grabPanFaster": "Más rápido",
+        "grabPanInverted": "Invertir la dirección de la cámara",
         "grabPanSlower": "Más lento",
         "grabPanTooltip": "Ajusta la velocidad de la cámara al desplazarla con el botón central del ratón. Si está desactivado, mantiene el comportamiento clásico de StarCraft: Remastered.",
         "hardwareCursor": "Cursores de hardware",
@@ -2060,6 +2135,7 @@
     "moderation": {
       "blocked": "Se quitó a {{name}} de las transmisiones en vivo",
       "blockError": "No se pudo quitar a {{name}} de las transmisiones en vivo",
+      "menuTooltip": "Moderación de la transmisión",
       "removeTooltip": "Quitar de las transmisiones en vivo",
       "unblockError": "No se pudo volver a mostrar a {{name}} en las transmisiones en vivo"
     }

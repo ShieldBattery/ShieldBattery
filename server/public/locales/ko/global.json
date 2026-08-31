@@ -541,6 +541,7 @@
         "under10": "10분 미만"
       },
       "format": "형식",
+      "includeShort": "2분 미만 게임 포함",
       "label": "필터",
       "mapName": "맵 이름",
       "matchup": "종족전",
@@ -620,6 +621,9 @@
       "bottom": "원정팀",
       "number": "{{teamNumber}} 팀",
       "top": "홈팀"
+    },
+    "time": {
+      "justNow": "방금 전"
     }
   },
   "gameDetails": {
@@ -628,6 +632,7 @@
     "buttonDownloadReplay": "리플레이 다운로드",
     "buttonReplaySaved": "라이브러리에 있음",
     "buttonReport": "신고",
+    "buttonResolveResults": "결과 확정",
     "buttonSaveReplay": "리플레이 저장",
     "buttonSaveReplayLoading": "저장 중…",
     "buttonWatchReplay": "리플레이 보기",
@@ -660,9 +665,20 @@
           "title": "비행 기록"
         },
         "home": "배정",
+        "observerSuffix": "(관전)",
+        "player": "플레이어",
+        "region": "지역",
         "rehome": "재배정",
         "relay": "릴레이",
+        "relayHistory": "릴레이 이력",
+        "requestedRegions": "요청된 지역",
+        "rtt": "RTT",
+        "rttValue": "{{rttMs}} ms",
+        "selection": "선택",
+        "selectionAuto": "자동",
+        "selectionManual": "수동",
         "session": "세션: {{session}}",
+        "slot": "슬롯",
         "title": "네트워크"
       },
       "player": "플레이어",
@@ -687,11 +703,33 @@
     "infoDuration": "기간",
     "infoGameType": "유형",
     "notFound": "게임을 찾을 수 없습니다.",
+    "resolveDialog": {
+      "errorGeneric": "문제가 발생했습니다. 다시 시도해 주세요.",
+      "errorInvalidResults": "이 게임에 유효하지 않은 결과입니다. 정확히 한 팀만 승리해야 합니다.",
+      "errorNotDisputable": "이 게임은 더 이상 결과 확정 대기 상태가 아닙니다.",
+      "matchmakingHint": "정확히 한 팀만 승리해야 합니다.",
+      "resolveButton": "확정",
+      "success": "결과가 업데이트되었습니다.",
+      "successWithPoints": "결과가 업데이트되고 점수가 적용되었습니다.",
+      "title": "게임 결과 확정"
+    },
+    "saveReplayAddedToBookmarks": "북마크에 추가했습니다",
+    "saveReplayAddedToPlaylist": "{{name}}에 추가했습니다",
     "saveReplayAlreadySaved": "이 게임의 리플레이는 이미 라이브러리에 있습니다",
     "saveReplayError": "리플레이를 저장하는 중 문제가 발생했습니다",
+    "saveReplayMenuBookmarks": "북마크",
+    "saveReplayMenuLibrary": "라이브러리",
+    "saveReplaySavedToBookmarks": "북마크에 저장했습니다",
+    "saveReplaySavedToPlaylist": "{{name}}에 저장했습니다",
     "saveReplaySuccess": "리플레이를 라이브러리에 저장했습니다",
+    "saveReplayUndoError": "실행 취소 중 문제가 발생했습니다",
+    "saveReplayUndoneBookmarks": "북마크에서 제거했습니다",
+    "saveReplayUndoneLibrary": "리플레이를 라이브러리에서 제거했습니다",
+    "saveReplayUndonePlaylist": "{{name}}에서 제거했습니다",
+    "statusDisputed": "결과 불일치",
     "statusFinal": "마지막",
     "statusLive": "라이브",
+    "statusManuallyResolved": "수동 확정됨",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "기지",
@@ -749,6 +787,7 @@
     },
     "list": {
       "noMatchingGames": "일치하는 게임이 없습니다.",
+      "resultTooltip": "{{names}}의 결과",
       "retrievingError": "게임을 불러오는 중 오류가 발생했습니다."
     },
     "liveGames": {
@@ -930,6 +969,7 @@
       "emptyAllFull": "지금은 모든 로비가 가득 찼습니다",
       "emptyNoLobbies": "지금은 열려 있는 로비가 없습니다",
       "emptyNoMatches": "필터와 일치하는 로비가 없습니다",
+      "enterCode": "코드 입력",
       "filterFriends": "친구",
       "filterGameType": "게임 방식",
       "filterGameTypeAll": "모든 게임 방식",
@@ -987,7 +1027,6 @@
       "visibilityUnlisted": "일부 공개"
     },
     "errors": {
-      "alreadyInLobby": "이미 다른 로비에 참여 중입니다.",
       "load": "로비를 로드하는 중에 문제가 발생했습니다"
     },
     "events": {
@@ -1005,6 +1044,15 @@
       "visibilityListedDescription": "누구나 로비 목록에서 참가할 수 있습니다. 게임과 리플레이가 공개됩니다.",
       "visibilityUnlistedDescription": "링크가 있는 사람만 참가할 수 있습니다. 리플레이는 게임에 참여했던 사람만 다운로드할 수 있습니다."
     },
+    "joinCode": {
+      "explainer": "로비 링크를 붙여넣거나, 링크를 브라우저에서 열었을 때 표시되는 코드를 입력하세요.",
+      "genericError": "문제가 발생했습니다. 다시 시도해 주세요.",
+      "inputLabel": "코드 또는 로비 링크",
+      "invalidInput": "코드나 로비 링크를 입력하세요.",
+      "notFound": "해당 로비는 더 이상 열려 있지 않습니다.",
+      "submitAction": "로비 찾기",
+      "title": "참가 코드 입력"
+    },
     "joinLobby": {
       "action": "로비 참가",
       "browseLobbies": "로비 둘러보기",
@@ -1019,7 +1067,23 @@
       "openSlotCount_other": "{{count}} 슬롯 열림"
     },
     "landing": {
+      "appLaunch": {
+        "button": "ShieldBattery 앱에서 열기",
+        "failedSubtitle": "이 컴퓨터에 설치되어 있지 않을 수 있습니다.",
+        "failedTitle": "앱이 열리지 않았습니다.",
+        "fallbackHint": "아무 반응이 없나요? <1>다시 시도</1>하거나 <4>앱을 다운로드</4>하세요",
+        "opening": "ShieldBattery 앱에서 여는 중…",
+        "retryAfterFailure": "앱 다시 열어 보기"
+      },
       "download": "ShieldBattery 다운로드",
+      "downloadHint": "아직 ShieldBattery가 없나요? <1>무료로 다운로드하세요</1>",
+      "joinCode": {
+        "copied": "클립보드에 복사되었습니다",
+        "copy": "코드 복사",
+        "label": "또는 앱에서 이 코드를 입력하세요",
+        "labelAfterFailure": "이미 앱이 있나요? 이 코드를 입력하세요",
+        "labelMobile": "PC를 사용 중인가요? ShieldBattery를 열고 이 코드를 입력하세요"
+      },
       "loadError": "로비를 불러오는 중 문제가 발생했습니다.",
       "openInApp": "이미 ShieldBattery를 사용 중이신가요? 앱 안에서 이 링크를 열면 로비에 참가할 수 있습니다."
     },
@@ -1367,13 +1431,20 @@
   },
   "messaging": {
     "blockedMessage": "차단된 메시지",
+    "copyLinkAddress": "링크 주소 복사",
+    "copyMessage": "메시지 복사",
+    "jumpToBottom": "맨 아래로 이동",
+    "jumpToPresent": "최신 메시지로 이동",
     "mention": "멘션",
     "messageTooLongContent": "메시지는 최대 {{maxLength}}자까지 보낼 수 있는데, 이 메시지는 {{length}}자입니다. 줄여서 다시 보내 주세요.",
     "messageTooLongTitle": "메시지가 너무 깁니다",
     "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
+    "newMessages": "새 메시지",
+    "openLink": "링크 열기",
     "searchWithGoogle": "Google에서 검색",
     "sendMessage": "메시지를 입력하세요",
-    "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다"
+    "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다",
+    "unreadLineLabel": "신규"
   },
   "navigation": {
     "bar": {
@@ -1467,6 +1538,9 @@
       },
       "moreActions": "추가 작업",
       "moveDown": "아래로 이동",
+      "movedToRecycleBin": "리플레이를 휴지통으로 이동했습니다",
+      "moveToRecycleBin": "휴지통으로 이동",
+      "moveToRecycleBinError": "리플레이를 제거하는 중 문제가 발생했습니다",
       "moveUp": "위로 이동",
       "newPlaylistMenu": "새 재생목록…",
       "noFolders": "리플레이 폴더 없음",
@@ -1764,6 +1838,7 @@
         "customMouseSensitivity": "사용자 지정 마우스 감도",
         "grabPan": "화면 끌기 감도 직접 설정",
         "grabPanFaster": "빠르게",
+        "grabPanInverted": "화면 이동 방향 반전",
         "grabPanSlower": "느리게",
         "grabPanTooltip": "가운데 마우스 버튼으로 화면을 끌 때 카메라가 움직이는 속도를 조절합니다. 비활성화하면 기존 스타크래프트: 리마스터와 동일하게 동작합니다.",
         "hardwareCursor": "하드웨어 커서",
@@ -2020,6 +2095,7 @@
     "moderation": {
       "blocked": "{{name}}님을 라이브 방송에서 제거했습니다",
       "blockError": "{{name}}님을 라이브 방송에서 제거하지 못했습니다",
+      "menuTooltip": "방송 관리",
       "removeTooltip": "라이브 방송에서 제거",
       "unblockError": "{{name}}님을 라이브 방송에 다시 표시하지 못했습니다"
     }

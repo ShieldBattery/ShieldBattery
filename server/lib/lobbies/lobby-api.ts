@@ -85,6 +85,8 @@ const clientIdSchema = Joi.string().required()
  */
 const regionSchema = Joi.string().max(64)
 const rttMsSchema = Joi.number().min(0)
+/** Whether the region was hand-picked rather than resolved from measurements; diagnostics only. */
+const regionManualSchema = Joi.boolean()
 /**
  * The per-session netcode v2 public key is optional (a solo-vs-AI lobby never uses netcode v2), but
  * when present it must decode to exactly 32 raw bytes (an Ed25519 public key).
@@ -213,6 +215,7 @@ export class LobbyApi {
         visibility: Joi.string().valid(...ALL_LOBBY_VISIBILITIES),
         region: regionSchema,
         rttMs: rttMsSchema,
+        regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
         leaveCurrentLobby: Joi.boolean(),
       }),
@@ -230,6 +233,7 @@ export class LobbyApi {
       visibility: body.visibility,
       region: body.region,
       rttMs: body.rttMs,
+      regionManual: body.regionManual,
       clientPubkey: body.clientPubkey,
       leaveCurrentLobby: body.leaveCurrentLobby,
       user,
@@ -246,6 +250,7 @@ export class LobbyApi {
         clientId: clientIdSchema,
         region: regionSchema,
         rttMs: rttMsSchema,
+        regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
         asObserver: Joi.boolean(),
         leaveCurrentLobby: Joi.boolean(),
@@ -258,6 +263,7 @@ export class LobbyApi {
       id: params.lobbyId,
       region: body.region,
       rttMs: body.rttMs,
+      regionManual: body.regionManual,
       clientPubkey: body.clientPubkey,
       asObserver: body.asObserver,
       leaveCurrentLobby: body.leaveCurrentLobby,

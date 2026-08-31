@@ -64,6 +64,8 @@ import {
   ChatMessage,
   EditableChannelFields,
   FullChannelInfo,
+  HistoryCursor,
+  LeaveChannelResult,
   addMessageToChannel,
   addUserToChannel,
   banAllIdentifiersFromChannel,
@@ -77,6 +79,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
+  getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -91,6 +94,7 @@ import {
   transferChannelOwnership,
   unbanUserFromChannel,
   updateChannel,
+  updateLastReadTime,
   updateUserPermissions,
   updateUserPreferences,
 } from './chat-models'
@@ -149,13 +153,18 @@ export default class ChatService {
   }
 
   async getJoinedChannels(userId: SbUserId): Promise<InitialChannelData[]> {
-    const joinedChannels = await getChannelsForUser(userId)
+    const [joinedChannels, unreadChannelInfo] = await Promise.all([
+      getChannelsForUser(userId),
+      getUnreadChannelInfo(userId),
+    ])
     const channelInfos = await getChannelInfos(joinedChannels.map(c => c.channelId))
 
     const channelInfosMap = new global.Map(channelInfos.map(c => [c.id, c]))
+    const unreadChannelsMap = new global.Map(unreadChannelInfo.map(c => [c.channelId, c]))
 
     return joinedChannels.map(c => {
       const channelInfo = channelInfosMap.get(c.channelId)!
+      const unreadInfo = unreadChannelsMap.get(c.channelId)
 
       return {
         channelInfo: toBasicChannelInfo(channelInfo),
@@ -163,6 +172,12 @@ export default class ChatService {
         joinedChannelInfo: toJoinedChannelInfo(channelInfo),
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
+        hasUnread: unreadInfo !== undefined,
+        // The unread queries treat everything from others since `joinDate` as unread when no read
+        // position has been recorded, and the divider goes before the first message *after* the
+        // reported marker, so the marker has to sit one millisecond before the join.
+        lastReadTime: c.lastReadTime?.getTime() ?? c.joinDate.getTime() - 1,
+        latestMentionTime: unreadInfo?.latestMentionTime?.getTime(),
       }
     })
   }
@@ -203,6 +218,9 @@ export default class ChatService {
       ])
 
       if (channelInfo && userChannelEntry) {
+        // `hasUnread` and `latestMentionTime` are omitted: nothing can be unread or mention the
+        // user at the instant they join. `lastReadTime` is still sent, one millisecond before the
+        // join, so the client can place the unread divider once messages arrive.
         this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
           action: 'init3',
           channelInfo: toBasicChannelInfo(channelInfo),
@@ -210,6 +228,7 @@ export default class ChatService {
           joinedChannelInfo: toJoinedChannelInfo(channelInfo),
           selfPreferences: userChannelEntry.channelPreferences,
           selfPermissions: userChannelEntry.channelPermissions,
+          lastReadTime: userChannelEntry.joinDate.getTime() - 1,
         })
       }
     }
@@ -578,13 +597,17 @@ export default class ChatService {
       )
     }
 
-    const newOwnerId = await this.removeUserFromChannel(channelId, userId)
+    const { userWasRemoved, newOwnerId } = await this.removeUserFromChannel(channelId, userId)
 
-    this.publisher.publish(getChannelPath(channelId), {
-      action: 'leave2',
-      userId: userSockets.userId,
-      newOwnerId,
-    })
+    if (userWasRemoved) {
+      // Only the request whose DB delete actually removed the membership publishes the event, so
+      // concurrent duplicate leave requests don't each broadcast a "user has left" event.
+      this.publisher.publish(getChannelPath(channelId), {
+        action: 'leave2',
+        userId: userSockets.userId,
+        newOwnerId,
+      })
+    }
     this.unsubscribeUserFromChannel(userSockets, channelId)
   }
 
@@ -669,14 +692,18 @@ export default class ChatService {
 
     // NOTE(2Pac): New owner can technically be selected if a server moderator removes the current
     // owner.
-    const newOwnerId = await this.removeUserFromChannel(channelId, targetId)
+    const { userWasRemoved, newOwnerId } = await this.removeUserFromChannel(channelId, targetId)
 
-    this.publisher.publish(getChannelPath(channelId), {
-      action: moderationAction,
-      targetId,
-      channelName: channelInfo.name,
-      newOwnerId,
-    })
+    if (userWasRemoved) {
+      // Only the request whose DB delete actually removed the membership publishes the event, so
+      // concurrent duplicate moderation requests don't each broadcast a moderation event.
+      this.publisher.publish(getChannelPath(channelId), {
+        action: moderationAction,
+        targetId,
+        channelName: channelInfo.name,
+        newOwnerId,
+      })
+    }
 
     // NOTE(2Pac): We don't use the helper method here because moderating people while they're
     // offline is allowed.
@@ -936,12 +963,16 @@ export default class ChatService {
     userId,
     limit,
     beforeTime,
+    afterTime,
+    aroundTime,
     isAdmin,
   }: {
     channelId: SbChannelId
     userId: SbUserId
     limit?: number
     beforeTime?: number
+    afterTime?: number
+    aroundTime?: number
     isAdmin?: boolean
   }): Promise<GetChannelHistoryServerResponse> {
     const isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channelId))
@@ -952,11 +983,21 @@ export default class ChatService {
       )
     }
 
-    const dbMessages = await getMessagesForChannel(
-      channelId,
-      limit,
-      beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
-    )
+    // Joi's `.oxor` guarantees at most one of these is present on the request.
+    let cursor: HistoryCursor = { kind: 'newest' }
+    if (beforeTime && beforeTime > -1) {
+      cursor = { kind: 'before', date: new Date(beforeTime) }
+    } else if (afterTime !== undefined && afterTime >= 0) {
+      cursor = { kind: 'after', date: new Date(afterTime) }
+    } else if (aroundTime !== undefined && aroundTime >= 0) {
+      cursor = { kind: 'around', date: new Date(aroundTime) }
+    }
+
+    const {
+      messages: dbMessages,
+      hasMoreBefore,
+      hasMoreAfter,
+    } = await getMessagesForChannel(channelId, limit, cursor)
 
     const messages: ServerChatMessage[] = []
     const userIds = new global.Set<SbUserId>()
@@ -1021,6 +1062,8 @@ export default class ChatService {
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
       deletedChannels,
+      hasMoreBefore,
+      hasMoreAfter,
     }
   }
 
@@ -1354,6 +1397,22 @@ export default class ChatService {
     })
   }
 
+  /**
+   * Records the newest message time a user has seen in a channel, and publishes the resulting
+   * read position to all of that user's connected sessions (so a mark-read made in one session
+   * updates the unread badges and read positions of their others). A no-op if they aren't a member
+   * of the channel (e.g. a stale report arriving after they left).
+   */
+  async markRead(channelId: SbChannelId, userId: SbUserId, lastReadTime: Date): Promise<void> {
+    const stored = await updateLastReadTime(userId, channelId, lastReadTime)
+    if (stored !== undefined) {
+      this.publisher.publish(getChannelUserPath(channelId, userId), {
+        action: 'lastReadTimeChanged',
+        lastReadTime: stored.getTime(),
+      })
+    }
+  }
+
   async updateUserPermissions(
     channelId: SbChannelId,
     userId: SbUserId,
@@ -1481,8 +1540,8 @@ export default class ChatService {
   private async removeUserFromChannel(
     channelId: SbChannelId,
     userId: SbUserId,
-  ): Promise<SbUserId | undefined> {
-    const { newOwnerId } = await removeUserFromChannel(userId, channelId)
+  ): Promise<LeaveChannelResult> {
+    const result = await removeUserFromChannel(userId, channelId)
 
     if (this.state.channels.has(channelId)) {
       const updated = this.state.channels.get(channelId)!.delete(userId)
@@ -1496,7 +1555,7 @@ export default class ChatService {
       this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelId))
     }
 
-    return newOwnerId
+    return result
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {

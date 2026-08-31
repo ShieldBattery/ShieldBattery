@@ -15,8 +15,9 @@ import {
   WhisperMessageType,
   WhisperServiceErrorCode,
   WhisperSessionInitEvent,
+  WhisperUserEvent,
 } from '../../../common/whispers'
-import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
+import { getChannelInfos, HistoryCursor, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -30,7 +31,9 @@ import {
   startWhisperSession as dbStartWhisperSession,
   startWhisperSessionsBothDirections as dbStartWhisperSessionsBothDirections,
   getMessagesForWhisperSession,
+  getUnreadWhisperTargets,
   getWhisperSessionsForUser,
+  updateLastReadTime,
 } from './whisper-models'
 
 export class WhisperServiceError extends Error {
@@ -47,6 +50,16 @@ export function getSessionPath(user: SbUserId, target: SbUserId) {
   return urlPath`/whispers3/${low}-${high}`
 }
 
+/**
+ * Path for events meant only for one user's own sessions, rather than for a conversation. Read
+ * position updates must be published here rather than on `getSessionPath`, since the shared session
+ * path is subscribed to by both participants and the other participant must not see this user's
+ * read position.
+ */
+export function getWhisperUserPath(userId: SbUserId) {
+  return urlPath`/whispers3/users/${userId}`
+}
+
 @singleton()
 export default class WhisperService {
   /** Maps user ID -> OrderedSet of their whisper sessions (as IDs of target users) */
@@ -55,7 +68,7 @@ export default class WhisperService {
   private sessionUsers = IMap<SbUserId, ISet<SbUserId>>()
 
   constructor(
-    private publisher: TypedPublisher<WhisperEvent>,
+    private publisher: TypedPublisher<WhisperEvent | WhisperUserEvent>,
     private userSocketsManager: UserSocketsManager,
     private restrictionService: RestrictionService,
   ) {
@@ -73,11 +86,40 @@ export default class WhisperService {
   }
 
   async getWhisperSessions(userId: SbUserId): Promise<GetWhisperSessionsResponse> {
-    const sessions = await getWhisperSessionsForUser(userId)
+    const [sessionEntries, unreadSessions] = await Promise.all([
+      getWhisperSessionsForUser(userId),
+      getUnreadWhisperTargets(userId),
+    ])
+    const sessions = sessionEntries.map(s => s.targetId)
+    // The whisper unread query counts messages `sent >= start_date` when no read position has been
+    // recorded, so a session without one still gets a marker here, one millisecond before its start.
+    const lastReadTimes = sessionEntries.map(s => ({
+      targetId: s.targetId,
+      lastReadTime: s.lastReadTime?.getTime() ?? s.startDate.getTime() - 1,
+    }))
     const users = await findUsersById(sessions)
     return {
       sessions,
       users,
+      unreadSessions,
+      lastReadTimes,
+    }
+  }
+
+  /**
+   * Records the newest message time a user has seen in a whisper conversation, and publishes the
+   * resulting read position to all of that user's connected sessions (so a mark-read made in one
+   * session updates the unread badges and read positions of their others). A no-op if the session
+   * doesn't exist (e.g. it was closed, or never opened).
+   */
+  async markRead(userId: SbUserId, targetId: SbUserId, lastReadTime: Date): Promise<void> {
+    const stored = await updateLastReadTime(userId, targetId, lastReadTime)
+    if (stored !== undefined) {
+      this.publisher.publish(getWhisperUserPath(userId), {
+        action: 'lastReadTimeChanged',
+        target: targetId,
+        lastReadTime: stored.getTime(),
+      })
     }
   }
 
@@ -149,16 +191,21 @@ export default class WhisperService {
     const [processedText, userMentions, channelMentions] = await processMessageContents(text)
     const mentionedUserIds = userMentions.map(u => u.id)
     const mentionedChannelIds = channelMentions.map(c => c.id)
+
+    // Both session rows must exist before the message does: a session with no recorded read
+    // position counts messages from `start_date` on as unread (see `getUnreadWhisperTargets`), so
+    // a `start_date` that postdates the conversation's first message would hide that message from
+    // the recipient's unread state.
+    // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
+    // to throttle people starting tons of tons of sessions with different people
+    await dbStartWhisperSessionsBothDirections(user.id, target.id)
+
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
       text: processedText,
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
     })
-
-    // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
-    // to throttle people starting tons of tons of sessions with different people
-    await dbStartWhisperSessionsBothDirections(user.id, target.id)
     this.applyWhisperSessionState(user, target)
     this.applyWhisperSessionState(target, user)
 
@@ -183,6 +230,8 @@ export default class WhisperService {
     targetUser: SbUserId,
     limit?: number,
     beforeTime?: number,
+    afterTime?: number,
+    aroundTime?: number,
   ): Promise<GetSessionHistoryResponse> {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
@@ -196,12 +245,21 @@ export default class WhisperService {
       )
     }
 
-    const dbMessages = await getMessagesForWhisperSession(
-      user.id,
-      target.id,
-      limit,
-      beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
-    )
+    // Joi's `.oxor` guarantees at most one of these is present on the request.
+    let cursor: HistoryCursor = { kind: 'newest' }
+    if (beforeTime && beforeTime > -1) {
+      cursor = { kind: 'before', date: new Date(beforeTime) }
+    } else if (afterTime !== undefined && afterTime >= 0) {
+      cursor = { kind: 'after', date: new Date(afterTime) }
+    } else if (aroundTime !== undefined && aroundTime >= 0) {
+      cursor = { kind: 'around', date: new Date(aroundTime) }
+    }
+
+    const {
+      messages: dbMessages,
+      hasMoreBefore,
+      hasMoreAfter,
+    } = await getMessagesForWhisperSession(user.id, target.id, limit, cursor)
 
     const messages: WhisperMessage[] = []
     const userMentionIds = new Set<SbUserId>()
@@ -252,6 +310,8 @@ export default class WhisperService {
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
       deletedChannels,
+      hasMoreBefore,
+      hasMoreAfter,
     }
   }
 
@@ -303,12 +363,17 @@ export default class WhisperService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const whisperSessionIds = await getWhisperSessionsForUser(userSockets.userId)
+    // Subscribed before the awaited DB fetch below so an update published to this user's own path
+    // while that fetch is in flight isn't missed.
+    userSockets.subscribe(getWhisperUserPath(userSockets.userId))
+
+    const whisperSessionEntries = await getWhisperSessionsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their whisper sessions
       return
     }
 
+    const whisperSessionIds = whisperSessionEntries.map(s => s.targetId)
     const targetIdsSet = OrderedSet(whisperSessionIds)
     this.userSessions = this.userSessions.set(userSockets.userId, targetIdsSet)
     for (const id of whisperSessionIds) {

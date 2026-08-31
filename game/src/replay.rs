@@ -149,7 +149,7 @@ fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
             }
             in_pos += 1;
         }
-        for byte in (id[in_pos..]).chunks_exact(2).take(bytes) {
+        for byte in id[in_pos..].as_chunks::<2>().0.iter().take(bytes) {
             buffer[out_pos] = match std::str::from_utf8(byte)
                 .ok()
                 .and_then(|x| u8::from_str_radix(x, 16).ok())

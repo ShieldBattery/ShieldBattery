@@ -1,34 +1,21 @@
-import { useAtomValue, useStore } from 'jotai'
+import { useAtomValue } from 'jotai'
 import * as m from 'motion/react-m'
 import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
-import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
-import {
-  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
-  MatchmakingServiceErrorCode,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
+import { MATCHMAKING_ACCEPT_MATCH_TIME_MS, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { range } from '../../common/range'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { playRandomTickSound } from '../audio/tick-sounds'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useKeyListener } from '../keyboard/key-listener'
-import logger from '../logging/logger'
 import { FilledButton, TextButton } from '../material/button'
 import { decelerateEasing, standardEasing } from '../material/curve-constants'
 import { Dialog, Title } from '../material/dialog'
-import { isFetchError } from '../network/fetch-errors'
-import { useAppDispatch } from '../redux-hooks'
 import { BodyMedium, sofiaSansCondensed } from '../styles/typography'
-import { acceptMatch } from './action-creators'
-import {
-  clearMatchmakingState,
-  currentSearchInfoAtom,
-  foundMatchAtom,
-  hasAcceptedAtom,
-} from './matchmaking-atoms'
+import { currentSearchInfoAtom, foundMatchAtom, hasAcceptedAtom } from './matchmaking-atoms'
+import { useAcceptMatch } from './use-accept-match'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -209,7 +196,6 @@ const fadeUpTransition = { duration: 0.3, ease: [0, 0, 0, 1] as [number, number,
 
 export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
 
   const currentSearchInfo = useAtomValue(currentSearchInfoAtom)
   const foundMatch = useAtomValue(foundMatchAtom)
@@ -228,7 +214,7 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
     }
 
     return () => {}
-  }, [dispatch, currentSearchInfo, foundMatch, close])
+  }, [currentSearchInfo, foundMatch, close])
 
   let contents: React.ReactNode | undefined
   if (currentSearchInfo && !foundMatch) {
@@ -259,7 +245,7 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
       title={t('matchmaking.acceptMatch.matchFound', 'Match found')}
       overline={foundMatch ? matchmakingTypeToLabel(foundMatch.matchmakingType, t) : undefined}
       onCancel={onCancel}
-      showCloseButton={false}>
+      showCloseButton={true}>
       {contents}
     </StyledDialog>
   )
@@ -267,8 +253,6 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
 
 function AcceptingStateView({ close }: { close: () => void }) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const store = useStore()
   const hasAccepted = useAtomValue(hasAcceptedAtom)
   const foundMatch = useAtomValue(foundMatchAtom)
 
@@ -291,8 +275,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
   const parity = secondsLeft % 2 === 1
 
   const acceptButtonRef = useRef<HTMLButtonElement>(null)
-  const retries = useRef(0)
-  const [acceptInProgress, setAcceptInProgress] = useState(false)
+  const { acceptInProgress, triggerAccept } = useAcceptMatch(close)
 
   // A value that never goes below 4 because the countdown sound covers all 5 ticks below that
   const soundTimeLeft = Math.max(4, secondsLeft)
@@ -386,40 +369,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
         <AcceptMatchButton
           ref={acceptButtonRef}
           label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
-          onClick={event => {
-            logger.debug(`Accept match button clicked, programmatic: ${!event.isTrusted}`)
-            setAcceptInProgress(true)
-            dispatch(
-              acceptMatch({
-                signal: AbortSignal.timeout(3000),
-                callbackOnAbort: true,
-                onSuccess: () => {
-                  logger.debug(`Accepted match successfully`)
-                  setAcceptInProgress(false)
-                },
-                onError: err => {
-                  if (isFetchError(err) && err.code === MatchmakingServiceErrorCode.NoActiveMatch) {
-                    logger.error('Accepting match failed, no active match: ' + getErrorStack(err))
-                    clearMatchmakingState(store)
-                    close()
-                  } else {
-                    logger.error(`Accepting match failed: ${getErrorStack(err)}`)
-                    setAcceptInProgress(false)
-                    setTimeout(() => {
-                      if (retries.current < 10) {
-                        retries.current++
-                        // Retry the accept after we let the button un-disable, since the user
-                        // almost certainly wants to and may not have much time to react to an
-                        // error
-                        logger.debug(`Retrying accept match...`)
-                        acceptButtonRef.current?.click()
-                      }
-                    }, 400)
-                  }
-                },
-              }),
-            )
-          }}
+          onClick={() => triggerAccept()}
           disabled={acceptInProgress}
         />
         <TimerCellRow>

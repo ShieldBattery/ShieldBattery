@@ -40,6 +40,11 @@ export interface LobbyClientRequest {
 export interface LobbyNetworkParams {
   region?: GameServerRegionId
   rttMs?: number
+  /**
+   * Whether `region` came from the player's manual server-region setting rather than the auto
+   * (lowest-RTT) resolution; recorded for game diagnostics. Present only alongside `region`.
+   */
+  regionManual?: boolean
   clientPubkey?: string
 }
 
@@ -220,6 +225,12 @@ export interface LobbySummaryResponse {
     'map' | 'createdAt' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds'
   > & { map: LobbySummaryMapJson }
   host: SbUser
+  /**
+   * The lobby's join code, normalized (undashed, uppercase). Present whenever the lobby still has
+   * one registered; callers format it for display. Deliberately absent from `LobbySummaryJson`,
+   * which flows to the authenticated list/preview channels where the code serves no purpose.
+   */
+  joinCode?: string
 }
 
 export interface LobbyInitEvent {

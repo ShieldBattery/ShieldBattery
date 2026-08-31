@@ -70,8 +70,8 @@ pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
-    establish_session, establish_sessionless, set_lobby_session_seed, submit_result_report,
-    wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
+    error_with_root_cause, establish_session, establish_sessionless, set_lobby_session_seed,
+    submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
 };
 
 use self::net_stats::NetStats;
@@ -470,6 +470,14 @@ pub struct TurnState {
     /// [`mark_local_turn_executed`](Self::mark_local_turn_executed); a single counter so the two
     /// events can never be miscounted against each other.
     turns_in_flight: u32,
+    /// How many of each storm slot's turns have been dispatched to the sim — the client-side half
+    /// of a counted leave's coordinate. The relay authors `LeaveDirective::final_turn_count` as the
+    /// departed slot's forwarded-turn total, forwards nothing past it, and every client dispatches
+    /// the identical set one turn per slot per step — so this count reaching the directive's is the
+    /// same simulated step on every client, and [`take_due_leaves`](Self::take_due_leaves) applies
+    /// the leave there. Counts in-game turns only, matching the relay's seq space (lobby traffic
+    /// rides its own frames and its own replay log, not turn seqs).
+    consumed_turns: [u64; bw::MAX_STORM_PLAYERS],
     /// Per-storm-slot FIFO of turns waiting to be dispatched, in arrival order. A remote slot's
     /// turns arrive already per-slot seq-ordered from the driver; the local slot's own turns are
     /// echoed in here at submit time — the relay forwards each turn to every slot *except* its
@@ -614,6 +622,7 @@ impl TurnState {
             relay_regions: HashMap::new(),
             local_slot,
             turns_in_flight: 0,
+            consumed_turns: [0; bw::MAX_STORM_PLAYERS],
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
@@ -1021,7 +1030,11 @@ impl TurnState {
         // Release one turn per required slot; non-required slots dispatch nothing this step.
         for storm in 0..bw::MAX_STORM_PLAYERS {
             self.current_dispatch[storm] = if self.required[storm] {
-                self.inbound_queues[storm].pop_front()
+                let turn = self.inbound_queues[storm].pop_front();
+                if turn.is_some() {
+                    self.consumed_turns[storm] += 1;
+                }
+                turn
             } else {
                 None
             };
@@ -1449,16 +1462,59 @@ impl TurnState {
         // directive for the same slot would conflict with it and trip the tracker's per-slot
         // consistency assert. Drain the channel so it doesn't back up, but throw the contents away.
         if self.local_only {
-            while self.channels.leaves.try_recv().is_ok() {}
+            while let Ok(leave) = self.channels.leaves.try_recv() {
+                info!(
+                    "netcode v2: received coordinated leave after local-only transition; \
+                     discarding: slot={} reason={:#010x} apply_frame={} leave_seq={} \
+                     finalized={} final_turn_count={:?}",
+                    leave.slot,
+                    leave.reason,
+                    leave.apply_at_frame,
+                    leave.leave_seq,
+                    leave.finalized,
+                    leave.final_turn_count,
+                );
+            }
         } else {
             while let Ok(leave) = self.channels.leaves.try_recv() {
+                let already_tracked = self.leaves.contains(leave.slot);
+                info!(
+                    "netcode v2: received coordinated leave directive: slot={} reason={:#010x} \
+                     apply_frame={} leave_seq={} finalized={} final_turn_count={:?} \
+                     already_tracked={}",
+                    leave.slot,
+                    leave.reason,
+                    leave.apply_at_frame,
+                    leave.leave_seq,
+                    leave.finalized,
+                    leave.final_turn_count,
+                    already_tracked,
+                );
                 self.leaves.observe(&leave);
             }
         }
         let mut out = Vec::new();
-        for (slot, reason) in self.leaves.take_due(next_frame) {
+        // Copied out so the closure can read them while the tracker holds `&mut self.leaves`. A
+        // slot with no storm id yet reports zero consumption: its counted leave stays pending
+        // until the mapping exists (and a zero-count leave for it surfaces into the same
+        // unmapped-slot warning below as before).
+        let consumed_turns = self.consumed_turns;
+        let slot_to_storm = self.slot_to_storm;
+        let consumed = move |slot: SlotId| {
+            slot_to_storm
+                .get(slot.0 as usize)
+                .copied()
+                .flatten()
+                .map_or(0, |storm| consumed_turns[storm.0 as usize])
+        };
+        for (slot, reason) in self.leaves.take_due(next_frame, consumed) {
             match self.storm_id_for_slot(slot) {
                 Some(storm) => {
+                    info!(
+                        "netcode v2: coordinated leave became due: slot={} storm_slot={} \
+                         reason={:#010x} poll_frame={}",
+                        slot.0, storm.0, reason, next_frame,
+                    );
                     self.mark_slot_left(storm);
                     // Observation-only: tag the slot's net-stats row with how it departed.
                     self.net_stats.record_departure(storm, reason);
@@ -1574,9 +1630,14 @@ impl TurnState {
             self.leaves.observe(&LeaveDirective {
                 slot: slot_idx as u32,
                 reason: LOCAL_ONLY_LEAVE_REASON,
-                // Due at any frame, so the very next `take_due_leaves` surfaces it.
+                // Due at any frame, so the very next `take_due_leaves` surfaces it. No turn
+                // count: the frame path drives a fabricated local entry, and consumption is
+                // meaningless for a link that is closing. `finalized` qualifies a carried
+                // count, so with none it says nothing.
                 apply_at_frame: 0,
                 leave_seq: 0,
+                final_turn_count: None,
+                finalized: false,
             });
         }
 
@@ -1934,6 +1995,8 @@ mod tests {
 
     fn leave_directive(slot: SlotId, apply_at_frame: u32, reason: u32) -> LeaveDirective {
         LeaveDirective {
+            final_turn_count: None,
+            finalized: false,
             slot: slot.0 as u32,
             reason,
             apply_at_frame,
@@ -2480,6 +2543,49 @@ mod tests {
         assert_eq!(
             state.net_stat_rows(Instant::now())[0].stats.departed,
             Some(DepartureKind::Dropped),
+        );
+    }
+
+    #[test]
+    fn a_counted_leave_applies_after_exactly_that_many_peer_turns() {
+        let (mut state, in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        // The peer leaves after two forwarded turns. The directive's scheduled frame is far
+        // behind every frame this test polls at — a frame-driven application would fire
+        // immediately, so the surfacing below proves consumption drives it.
+        let mut directive = leave_directive(PEER_SLOT, 0, DROPPED);
+        directive.final_turn_count = Some(2);
+        leave_tx.try_send(directive).unwrap();
+        in_tx.try_send(peer_turn(PEER_SLOT, b"p1")).unwrap();
+        in_tx.try_send(peer_turn(PEER_SLOT, b"p2")).unwrap();
+
+        assert!(
+            state.take_due_leaves(10).is_empty(),
+            "nothing consumed yet: the counted leave is not due at any frame"
+        );
+
+        // Step one: the peer's first turn dispatches.
+        assert!(state.submit_local_turn(b"l1", Some(0)));
+        assert!(state.receive_turns(0));
+        assert!(
+            state.take_due_leaves(10).is_empty(),
+            "one of two turns consumed: still not due"
+        );
+
+        // Step two: the peer's second — final — turn dispatches, and the leave comes due at the
+        // very next poll, frame regardless.
+        assert!(state.submit_local_turn(b"l2", Some(1)));
+        assert!(state.receive_turns(1));
+        assert_eq!(state.take_due_leaves(0), vec![(PEER_STORM, DROPPED)]);
+
+        // The leave dropped the peer from the readiness set, so the next step proceeds without it.
+        assert!(state.submit_local_turn(b"l3", Some(2)));
+        assert!(
+            state.receive_turns(2),
+            "the departed peer no longer gates readiness"
         );
     }
 

@@ -27,6 +27,7 @@ export enum DialogType {
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
   FailedToAcceptMatch = 'failedToAcceptMatch',
+  JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
@@ -36,6 +37,7 @@ export enum DialogType {
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
+  NewsPostSettings = 'newsPostSettings',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -43,6 +45,7 @@ export enum DialogType {
   ReplayInfo = 'replayInfo',
   ReplayLoad = 'replayLoad',
   ReportGame = 'reportGame',
+  ResolveGameResults = 'resolveGameResults',
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
@@ -173,6 +176,7 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
   }
 >
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
+type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
 type LobbyLeaveAndCreateDialogPayload = BaseDialogPayload<
@@ -190,8 +194,8 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
     name?: string
     /** Ask for an observer seat specifically, failing rather than taking a player seat or the bench. */
     asObserver?: boolean
-    /** Called with a user-facing message when the join fails. */
-    onJoinFailed?: (message: string) => void
+    /** Called with a user-facing message and the underlying error when the join fails. */
+    onJoinFailed?: (message: string, error: unknown) => void
   }
 >
 type MapDetailsDialogPayload = BaseDialogPayload<
@@ -221,6 +225,27 @@ type MarkdownDialogPayload = BaseDialogPayload<
   }
 >
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
+// Kept as an inline shape (rather than importing from the dialog's own file) so this file stays
+// free of dependencies on dialog implementations, which would otherwise cycle back here through
+// the dialog's use of form/state hooks that ultimately import the dialog reducer.
+type NewsPostStatus =
+  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
+type NewsPostSettingsValues = {
+  summary: string
+  publishMode: 'draft' | 'now' | 'schedule' | 'published'
+  scheduledAt: string
+  coverImagePath: string | null
+  coverImageUrl: string | null
+}
+type NewsPostSettingsDialogPayload = BaseDialogPayload<
+  typeof DialogType.NewsPostSettings,
+  {
+    savedStatus: NewsPostStatus
+    settings: NewsPostSettingsValues
+    /** Called with the edited settings once the dialog is submitted. */
+    onApply: (settings: NewsPostSettingsValues) => void
+  }
+>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -264,6 +289,12 @@ type ReportGameDialogPayload = BaseDialogPayload<
     reportedUserCandidates: SbUserId[]
   }
 >
+type ResolveGameResultsDialogPayload = BaseDialogPayload<
+  typeof DialogType.ResolveGameResults,
+  {
+    gameId: string
+  }
+>
 type SimpleDialogPayload = BaseDialogPayload<
   typeof DialogType.Simple,
   {
@@ -298,6 +329,7 @@ export type DialogPayload =
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | FailedToAcceptMatchDialogPayload
+  | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
   | LobbyLeaveAndCreateDialogPayload
@@ -307,6 +339,7 @@ export type DialogPayload =
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload
+  | NewsPostSettingsDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload
@@ -314,6 +347,7 @@ export type DialogPayload =
   | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
   | ReportGameDialogPayload
+  | ResolveGameResultsDialogPayload
   | SimpleDialogPayload
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload

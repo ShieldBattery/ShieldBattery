@@ -26,7 +26,7 @@ import { Dbify } from '../db/types'
 // the external API here. Instead, those focus on particular actions (requesting/accepting requests,
 // removing friendship, blocking, etc.).
 
-enum MutualKind {
+export enum MutualKind {
   /**
    * Represents a mutual friend relationship between 2 users.
    */

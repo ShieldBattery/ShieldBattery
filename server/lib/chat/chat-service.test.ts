@@ -54,6 +54,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
+  getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -127,6 +128,8 @@ vi.mock('./chat-models', async () => {
   const originalModule = await vi.importActual<typeof import('./chat-models')>('./chat-models')
   return {
     getChannelsForUser: vi.fn().mockResolvedValue([]),
+    getUnreadChannelInfo: vi.fn().mockResolvedValue([]),
+    updateLastReadTime: vi.fn(),
     getUsersForChannel: vi.fn().mockResolvedValue([]),
     getUserChannelEntryForUser: vi.fn(),
     getUserChannelEntriesForUser: vi.fn().mockResolvedValue([]),
@@ -136,7 +139,9 @@ vi.mock('./chat-models', async () => {
     transferChannelOwnership: vi.fn(),
     addUserToChannel: vi.fn(),
     addMessageToChannel: vi.fn(),
-    getMessagesForChannel: vi.fn().mockResolvedValue([]),
+    getMessagesForChannel: vi
+      .fn()
+      .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
     deleteChannelMessage: vi.fn(),
     removeUserFromChannel: vi.fn(),
     updateUserPreferences: vi.fn(),
@@ -537,6 +542,8 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          hasUnread: false,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
         {
           channelInfo: testBasicInfo,
@@ -544,6 +551,107 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: testJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          hasUnread: false,
+          lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
+        },
+      ])
+    })
+
+    test('marks a channel with unread messages', async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([
+        { channelId: shieldBatteryChannel.id, latestMentionTime: undefined },
+      ])
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([])
+
+      expect(result).toEqual([
+        {
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          selfPreferences: channelPreferences,
+          selfPermissions: channelPermissions,
+          hasUnread: true,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+        },
+      ])
+    })
+
+    test('marks a channel with an unread mention', async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+
+      const latestMentionTime = new Date(1577836800000)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([
+        { channelId: shieldBatteryChannel.id, latestMentionTime },
+      ])
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      asMockedFunction(getUnreadChannelInfo).mockResolvedValue([])
+
+      expect(result).toEqual([
+        {
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          selfPreferences: channelPreferences,
+          selfPermissions: channelPermissions,
+          hasUnread: true,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+          latestMentionTime: latestMentionTime.getTime(),
+        },
+      ])
+    })
+
+    test('uses the recorded read position when one exists, without falling back to join date', async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+
+      const lastReadTime = new Date('2023-03-15T00:00:00.000Z')
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([
+        { ...user1ShieldBatteryChannelEntry, lastReadTime },
+      ])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+
+      expect(result).toEqual([
+        {
+          channelInfo: shieldBatteryBasicInfo,
+          detailedChannelInfo: shieldBatteryDetailedInfo,
+          joinedChannelInfo: shieldBatteryJoinedInfo,
+          selfPreferences: channelPreferences,
+          selfPermissions: channelPermissions,
+          hasUnread: false,
+          lastReadTime: lastReadTime.getTime(),
         },
       ])
     })
@@ -633,6 +741,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       )
     })
@@ -773,6 +882,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       )
     })
@@ -817,6 +927,7 @@ describe('chat/chat-service', () => {
         channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
         joinedChannelInfo: testJoinedInfo,
+        lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
         selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
       })
@@ -986,7 +1097,7 @@ describe('chat/chat-service', () => {
     const removeUserFromChannelMock = asMockedFunction(removeUserFromChannel)
 
     beforeEach(async () => {
-      removeUserFromChannelMock.mockResolvedValue({ newOwnerId: undefined })
+      removeUserFromChannelMock.mockResolvedValue({ userWasRemoved: true, newOwnerId: undefined })
     })
 
     test('should throw if not in channel', async () => {
@@ -1035,16 +1146,44 @@ describe('chat/chat-service', () => {
       let mockCalled = false
       removeUserFromChannelMock.mockImplementation(async () => {
         if (mockCalled) {
-          return { newOwnerId: undefined }
+          return { userWasRemoved: true, newOwnerId: undefined }
         }
 
         mockCalled = true
         await chatService.leaveChannel(testChannel.id, user1.id)
 
-        return { newOwnerId: undefined }
+        return { userWasRemoved: true, newOwnerId: undefined }
       })
 
       await chatService.leaveChannel(testChannel.id, user1.id)
+
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
+    })
+
+    test("doesn't publish a leave event when the user was already removed", async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+      await joinUserToChannel(
+        user2,
+        testChannel,
+        user2TestChannelEntry,
+        joinUser2TestChannelMessage,
+      )
+
+      removeUserFromChannelMock.mockResolvedValue({ userWasRemoved: false, newOwnerId: undefined })
+
+      await chatService.leaveChannel(testChannel.id, user1.id)
+
+      expect(removeUserFromChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id)
+      expect(client2.publish).not.toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'leave2',
+        userId: user1.id,
+        newOwnerId: undefined,
+      })
 
       expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
     })
@@ -1055,7 +1194,7 @@ describe('chat/chat-service', () => {
 
     beforeEach(async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
-      removeUserFromChannelMock.mockResolvedValue({ newOwnerId: undefined })
+      removeUserFromChannelMock.mockResolvedValue({ userWasRemoved: true, newOwnerId: undefined })
     })
 
     test("should throw if channel doesn't exist", async () => {
@@ -2039,13 +2178,17 @@ describe('chat/chat-service', () => {
 
     const mockTextMessages = () => {
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
-      asMockedFunction(getMessagesForChannel).mockResolvedValue([
-        joinUser1TestChannelMessage,
-        textMessage1,
-        textMessage2,
-        textMessage3,
-        textMessage4,
-      ])
+      asMockedFunction(getMessagesForChannel).mockResolvedValue({
+        messages: [
+          joinUser1TestChannelMessage,
+          textMessage1,
+          textMessage2,
+          textMessage3,
+          textMessage4,
+        ],
+        hasMoreBefore: true,
+        hasMoreAfter: false,
+      })
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
     }
     const expectItWorks = (result: GetChannelHistoryServerResponse) => {
@@ -2064,6 +2207,8 @@ describe('chat/chat-service', () => {
           toBasicChannelInfo(testChannel),
         ],
         deletedChannels: [],
+        hasMoreBefore: true,
+        hasMoreAfter: false,
       })
     }
 
@@ -2158,7 +2303,11 @@ describe('chat/chat-service', () => {
         },
       }
 
-      asMockedFunction(getMessagesForChannel).mockResolvedValue([message])
+      asMockedFunction(getMessagesForChannel).mockResolvedValue({
+        messages: [message],
+        hasMoreBefore: false,
+        hasMoreAfter: false,
+      })
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
 
       const result = await chatService.getChannelHistory({
@@ -2176,6 +2325,87 @@ describe('chat/chat-service', () => {
           toBasicChannelInfo(testChannel),
         ],
         deletedChannels: [DELETED_ID],
+        hasMoreBefore: false,
+        hasMoreAfter: false,
+      })
+    })
+
+    describe('cursor selection', () => {
+      beforeEach(() => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+        asMockedFunction(getMessagesForChannel).mockResolvedValue({
+          messages: [],
+          hasMoreBefore: true,
+          hasMoreAfter: true,
+        })
+        asMockedFunction(getChannelInfos).mockResolvedValue([])
+      })
+
+      test('uses a newest cursor and carries through the flags when no time param is given', async () => {
+        const result = await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, { kind: 'newest' })
+        expect(result.hasMoreBefore).toBe(true)
+        expect(result.hasMoreAfter).toBe(true)
+      })
+
+      test('uses a before cursor when beforeTime is greater than -1', async () => {
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          beforeTime: 1000,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'before',
+          date: new Date(1000),
+        })
+      })
+
+      test('uses a newest cursor when beforeTime is -1', async () => {
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          beforeTime: -1,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, { kind: 'newest' })
+      })
+
+      test('uses an after cursor when afterTime is given', async () => {
+        const result = await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          afterTime: 2000,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'after',
+          date: new Date(2000),
+        })
+        expect(result.hasMoreBefore).toBe(true)
+        expect(result.hasMoreAfter).toBe(true)
+      })
+
+      test('uses an around cursor when aroundTime is given', async () => {
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          aroundTime: 3000,
+        })
+
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'around',
+          date: new Date(3000),
+        })
       })
     })
   })

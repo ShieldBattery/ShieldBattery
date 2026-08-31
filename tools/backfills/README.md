@@ -45,14 +45,34 @@ ssh $HOST 'docker exec -i shieldbattery-db-1 psql -U shieldbattery -d shieldbatt
   -c "DROP PROCEDURE backfill_teams(int, boolean);"'
 ```
 
+From a Windows terminal, use PowerShell. Nested double quotes don't survive the
+PowerShell → ssh → remote-shell trip, so instead of `-c` the statements are piped through stdin
+(psql executes stdin exactly the same way). `$HOST` is a reserved automatic variable in
+PowerShell, hence `$server`:
+
+```powershell
+$server = 'user@example.org'
+$psql = 'docker exec -i shieldbattery-db-1 psql -U shieldbattery -d shieldbattery'
+
+# 1. Install/update the procedure
+Get-Content -Raw tools\backfills\2026-08-09-backfill-teams.sql | ssh $server "$psql -v ON_ERROR_STOP=1"
+
+# 2. Dry run
+'CALL backfill_teams(dry_run => true);' | ssh $server $psql
+
+# 3. Real run
+'CALL backfill_teams();' | ssh $server $psql
+
+# 4. Cleanup
+'DROP PROCEDURE backfill_teams(int, boolean);' | ssh $server $psql
+```
+
 Notes:
 
 - If in doubt, check the actual db container name with `docker ps` on the host (compose names it
   `<project>-db-1`).
 - `docker exec` + `psql` connects over the container-local socket, which the postgres image trusts
   — no password needed, and the `shieldbattery` role works directly.
-- From PowerShell there is no `<` redirect; use
-  `Get-Content -Raw tools\backfills\2026-08-09-backfill-teams.sql | ssh $HOST '...'`.
 - For long real runs, prefer running the `CALL` from a `tmux`/`screen` session on the host: if the
   connection drops mid-run, the in-flight batch rolls back but committed batches stay, and the
   scripts are safe to simply re-run.

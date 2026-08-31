@@ -30,6 +30,17 @@ export interface GameServerRegion {
 export interface GameServerRegionsEvent {
   type: 'fullUpdate'
   regions: GameServerRegion[]
+  /**
+   * Whether `regions` is a settled answer rather than a cold cache. The server hands its cached
+   * list to a subscribing client without waiting on the coordinator, so the first event after a
+   * server start can carry an empty list that only means "not fetched yet" — this distinguishes
+   * that from a confirmed-empty list (no coordinator configured, or it genuinely serves no
+   * regions). False only while the first fetch attempt is still in flight; a *failed* attempt
+   * settles as ready (clients then proceed regionless rather than waiting out a poll window on a
+   * down coordinator). Optional so an event from a server that predates the field reads as
+   * settled, matching that server's behavior.
+   */
+  ready?: boolean
 }
 
 /** A region's measured latency, as produced by a single measurement attempt. */

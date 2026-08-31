@@ -18,7 +18,6 @@
       },
       "confirmDelete": "Delete \"{{title}}\"? This cannot be undone.",
       "created": "News post created",
-      "createPost": "Create post",
       "createTitle": "Create news post",
       "deleteError": "Error deleting post:",
       "editPost": "Edit post",
@@ -50,9 +49,11 @@
         "insertImageTooltip": "Insert image (up to 5 MB)",
         "insertVideo": "Insert video",
         "insertVideoTooltip": "Insert video (up to 30 MB)",
+        "postSettings": "Post settings",
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
+        "publishPublished": "Published ({{date}})",
         "publishSchedule": "Schedule",
         "scheduleDate": "Publish date and time",
         "scheduleHint": "A future date/time schedules the post; a past date/time publishes it immediately.",
@@ -82,9 +83,15 @@
       "loadMore": "Load more",
       "newPost": "New post",
       "notFound": "No news post found with this ID.",
+      "publishNow": "Publish now",
       "refresh": "Refresh",
       "saveChanges": "Save changes",
       "saved": "News post saved",
+      "saveDraft": "Save draft",
+      "schedulePost": "Schedule post",
+      "settings": {
+        "title": "Post settings"
+      },
       "status": {
         "draft": "Draft",
         "published": "Published",
@@ -466,6 +473,7 @@
       "close": "Close",
       "copy": "Copy",
       "create": "Create",
+      "cut": "Cut",
       "decline": "Decline",
       "delete": "Delete",
       "done": "Done",
@@ -475,6 +483,7 @@
       "join": "Join",
       "next": "Next",
       "okay": "Okay",
+      "paste": "Paste",
       "previous": "Previous",
       "read": "Read",
       "refresh": "Refresh",
@@ -484,6 +493,7 @@
       "reveal": "Reveal",
       "save": "Save",
       "search": "Search",
+      "selectAll": "Select All",
       "show": "Show",
       "start": "Start",
       "stop": "Stop",
@@ -544,6 +554,7 @@
         "under10": "Under 10min"
       },
       "format": "Format",
+      "includeShort": "Include games shorter than 2 minutes",
       "label": "Filters",
       "mapName": "Map name",
       "matchup": "Matchup",
@@ -623,6 +634,9 @@
       "bottom": "Bottom",
       "number": "Team {{teamNumber}}",
       "top": "Top"
+    },
+    "time": {
+      "justNow": "Just now"
     }
   },
   "gameDetails": {
@@ -631,6 +645,7 @@
     "buttonDownloadReplay": "Download replay",
     "buttonReplaySaved": "In library",
     "buttonReport": "Report",
+    "buttonResolveResults": "Resolve results",
     "buttonSaveReplay": "Save replay",
     "buttonSaveReplayLoading": "Saving…",
     "buttonWatchReplay": "Watch replay",
@@ -663,9 +678,20 @@
           "title": "Flight recordings"
         },
         "home": "Home",
+        "observerSuffix": "(obs)",
+        "player": "Player",
+        "region": "Region",
         "rehome": "Rehome",
         "relay": "Relay",
+        "relayHistory": "Relay history",
+        "requestedRegions": "Requested regions",
+        "rtt": "RTT",
+        "rttValue": "{{rttMs}} ms",
+        "selection": "Selection",
+        "selectionAuto": "Auto",
+        "selectionManual": "Manual",
         "session": "Session: {{session}}",
+        "slot": "Slot",
         "title": "Network"
       },
       "player": "Player",
@@ -690,11 +716,33 @@
     "infoDuration": "Duration",
     "infoGameType": "Type",
     "notFound": "This game could not be found.",
+    "resolveDialog": {
+      "errorGeneric": "Something went wrong. Please try again.",
+      "errorInvalidResults": "These results aren't valid for this game. Exactly one team must win.",
+      "errorNotDisputable": "This game is no longer awaiting resolution.",
+      "matchmakingHint": "Exactly one team must win.",
+      "resolveButton": "Resolve",
+      "success": "Results updated.",
+      "successWithPoints": "Results updated and points applied.",
+      "title": "Resolve game results"
+    },
+    "saveReplayAddedToBookmarks": "Added to your bookmarks",
+    "saveReplayAddedToPlaylist": "Added to {{name}}",
     "saveReplayAlreadySaved": "This game's replay is already in your library",
     "saveReplayError": "There was a problem saving the replay",
+    "saveReplayMenuBookmarks": "Bookmarks",
+    "saveReplayMenuLibrary": "Library",
+    "saveReplaySavedToBookmarks": "Saved to your bookmarks",
+    "saveReplaySavedToPlaylist": "Saved to {{name}}",
     "saveReplaySuccess": "Replay saved to your library",
+    "saveReplayUndoError": "There was a problem undoing that",
+    "saveReplayUndoneBookmarks": "Removed from your bookmarks",
+    "saveReplayUndoneLibrary": "Replay removed from your library",
+    "saveReplayUndonePlaylist": "Removed from {{name}}",
+    "statusDisputed": "Disputed",
     "statusFinal": "Final",
     "statusLive": "Live",
+    "statusManuallyResolved": "Manually resolved",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "Base",
@@ -712,8 +760,11 @@
       "viewLobby": "View lobby"
     },
     "matchmaking": {
+      "acceptedCount": "{{accepted}} / {{total}} ready",
       "matchFound": "Match found!",
-      "searching": "Searching for a match…"
+      "reopenAcceptDialog": "Reopen match dialog",
+      "searching": "Searching for a match…",
+      "waitingForPlayers": "Waiting for other players…"
     }
   },
   "gameReport": {
@@ -752,6 +803,7 @@
     },
     "list": {
       "noMatchingGames": "No matching games.",
+      "resultTooltip": "Result for {{names}}",
       "retrievingError": "There was an error retrieving the games."
     },
     "liveGames": {
@@ -933,6 +985,7 @@
       "emptyAllFull": "Every lobby is full right now",
       "emptyNoLobbies": "No one's hosting right now",
       "emptyNoMatches": "No lobbies match your filters",
+      "enterCode": "Enter code",
       "filterFriends": "Friends",
       "filterGameType": "Game type",
       "filterGameTypeAll": "All game types",
@@ -998,7 +1051,6 @@
       "visibilityUnlisted": "Unlisted"
     },
     "errors": {
-      "alreadyInLobby": "You're already in another lobby.",
       "load": "There was a problem loading this lobby"
     },
     "events": {
@@ -1017,6 +1069,15 @@
       "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
       "visibilityUnlistedDescription": "Only people with the link can join. Only people that were in the game can download the replay."
     },
+    "joinCode": {
+      "explainer": "Paste a lobby link, or enter the code shown when a link is opened in a browser.",
+      "genericError": "Something went wrong. Please try again.",
+      "inputLabel": "Code or lobby link",
+      "invalidInput": "Enter a code or a lobby link.",
+      "notFound": "That lobby is no longer open.",
+      "submitAction": "Find lobby",
+      "title": "Enter a join code"
+    },
     "joinLobby": {
       "action": "Join lobby",
       "browseLobbies": "Browse lobbies",
@@ -1032,7 +1093,23 @@
       "openSlotCount_other": "{{count}} slots open"
     },
     "landing": {
+      "appLaunch": {
+        "button": "Open in the ShieldBattery app",
+        "failedSubtitle": "It might not be installed on this computer.",
+        "failedTitle": "The app didn't open.",
+        "fallbackHint": "Nothing happening? <1>Try again</1> or <4>download the app</4>",
+        "opening": "Opening in the ShieldBattery app…",
+        "retryAfterFailure": "Try opening the app again"
+      },
       "download": "Download ShieldBattery",
+      "downloadHint": "Don't have ShieldBattery yet? <1>Download it for free</1>",
+      "joinCode": {
+        "copied": "Copied to clipboard",
+        "copy": "Copy code",
+        "label": "Or enter this code in the app",
+        "labelAfterFailure": "Already have the app? Enter this code",
+        "labelMobile": "On your PC? Open ShieldBattery and enter this code"
+      },
       "loadError": "There was a problem loading this lobby.",
       "openInApp": "Already have ShieldBattery? Open this link from inside the app to join the lobby."
     },
@@ -1216,13 +1293,19 @@
   "markdown": {
     "toolbar": {
       "bold": "Bold",
+      "boldTooltip": "Bold (Ctrl+B)",
       "heading": "Heading",
       "horizontalRule": "Divider",
       "italic": "Italic",
+      "italicTooltip": "Italic (Ctrl+I)",
       "link": "Link",
+      "linkTooltip": "Link (Ctrl+K)",
       "orderedList": "Numbered list",
+      "orderedListTooltip": "Numbered list (Ctrl+Shift+7)",
       "quote": "Quote",
-      "unorderedList": "Bulleted list"
+      "quoteTooltip": "Quote (Ctrl+Shift+.)",
+      "unorderedList": "Bulleted list",
+      "unorderedListTooltip": "Bulleted list (Ctrl+Shift+8)"
     }
   },
   "matchmaking": {
@@ -1384,18 +1467,25 @@
   },
   "messaging": {
     "blockedMessage": "Blocked message",
+    "copyLinkAddress": "Copy link address",
+    "copyMessage": "Copy message",
     "emotePicker": {
       "buttonTitle": "Add emoji",
       "searchPlaceholder": "Search emojis",
       "textArtLabel": "Text art"
     },
+    "jumpToBottom": "Jump to bottom",
+    "jumpToPresent": "Jump to present",
     "mention": "Mention",
     "messageTooLongContent": "Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.",
     "messageTooLongTitle": "Message too long",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
+    "newMessages": "New messages",
+    "openLink": "Open link",
     "searchWithGoogle": "Search with Google",
     "sendMessage": "Send a message",
-    "sendMessageChatRestricted": "Restricted from sending messages until {{date}}"
+    "sendMessageChatRestricted": "Restricted from sending messages until {{date}}",
+    "unreadLineLabel": "New"
   },
   "navigation": {
     "bar": {
@@ -1489,6 +1579,9 @@
       },
       "moreActions": "More actions",
       "moveDown": "Move down",
+      "movedToRecycleBin": "Replay moved to Recycle Bin",
+      "moveToRecycleBin": "Move to Recycle Bin",
+      "moveToRecycleBinError": "Something went wrong removing the replay",
       "moveUp": "Move up",
       "newPlaylistMenu": "New playlist…",
       "noFolders": "No replay folders",
@@ -1786,6 +1879,7 @@
         "customMouseSensitivity": "Custom mouse sensitivity",
         "grabPan": "Custom grab pan sensitivity",
         "grabPanFaster": "Faster",
+        "grabPanInverted": "Reverse pan direction",
         "grabPanSlower": "Slower",
         "grabPanTooltip": "Adjusts how fast the camera moves when panning with the middle mouse button. When disabled, matches the legacy StarCraft: Remastered behavior.",
         "hardwareCursor": "Hardware cursor",
@@ -1846,6 +1940,7 @@
       },
       "title": "Game",
       "video": {
+        "brightness": "Brightness",
         "customFpsLimit": "Custom FPS limit",
         "displayMode": {
           "fullscreen": "Fullscreen",
@@ -2045,6 +2140,7 @@
     "moderation": {
       "blocked": "Removed {{name}} from the live streams feed",
       "blockError": "Couldn't remove {{name}} from the live streams feed",
+      "menuTooltip": "Stream moderation",
       "removeTooltip": "Remove from live streams",
       "unblockError": "Couldn't restore {{name}} to the live streams feed"
     }

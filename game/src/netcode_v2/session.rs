@@ -3,7 +3,8 @@
 //! hooks reach the game-thread-owned [`TurnState`].
 //!
 //! [`establish_session`] runs on the DLL's Tokio runtime: it builds the pinned-trust credentials,
-//! dials the home relay (racing its address families, preferred first), spawns the [`LinkDriver`] that
+//! dials the home relay (racing its address families, preferred first, redialing failed candidates
+//! until a deadline), spawns the [`LinkDriver`] that
 //! services the link — re-dialing itself on a link drop, without tearing the turn channels down —
 //! and stores the resulting [`TurnState`] where the three BW hooks (installed in `bw_scr.rs`) can
 //! reach it via [`with_turn_state`]. [`establish_sessionless`] stores a driverless [`TurnState`] the
@@ -32,6 +33,7 @@ use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials}
 use super::rehome::{self, RehomeContext};
 use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
+use crate::windows::wifi::WifiLowLatencyLease;
 
 quick_error! {
     #[derive(Debug)]
@@ -134,6 +136,12 @@ pub async fn establish_session(
     let session_id = identity.token().claims.session.0;
     let endpoint = credentials::bind_endpoint(roots)?;
 
+    // Background Wi-Fi scans can interrupt packet delivery for long enough to stall a real-time
+    // session. Acquire immediately before the first relay dial so the lobby is covered too. The
+    // lease is moved into the reconnecting driver below; a failed or cancelled dial drops it here.
+    // Sessionless games and replays never call this function.
+    let wifi_low_latency = WifiLowLatencyLease::acquire();
+
     // Dial the home relay, racing its candidate addresses (preference order, v6 first, each next
     // candidate staggered in behind the last).
     let (link, relay_addr) = connect_relay(&endpoint, &home, &identity).await?;
@@ -171,7 +179,14 @@ pub async fn establish_session(
     // non-link failure reconnecting can't fix.
     let (driver_done_tx, driver_done_rx) = watch::channel(false);
     tokio::spawn(async move {
-        match driver.run_reconnecting(reconnect).await {
+        let result = if let Some(lease) = wifi_low_latency {
+            lease
+                .maintain_while(driver.run_reconnecting(reconnect))
+                .await
+        } else {
+            driver.run_reconnecting(reconnect).await
+        };
+        match result {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),
         }
@@ -349,23 +364,99 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
 /// and later candidates rarely even start.
 const DIAL_STAGGER: Duration = Duration::from_millis(250);
 
+/// How long a candidate that failed rests before it is redialed. Long enough not to hammer a
+/// relay that is refusing us (every refused dial still costs it a QUIC handshake), short enough
+/// that the first redial lands after a transient failure — a dial racing the coordinator's
+/// session provisioning to the relay, a momentary path drop — has likely passed.
+const DIAL_RETRY_BACKOFF: Duration = Duration::from_secs(1);
+
+/// How long past the start of the race new redials keep being scheduled; dials already in flight
+/// at the cutoff still run to their own deadlines. A single failed dial must not fail the whole
+/// game load — a game-launch dial happens right when the session was provisioned, and the server
+/// holds the load open far longer than this — but the race must still conclude comfortably inside
+/// the server's load window, so a genuinely unreachable relay surfaces as this client's load
+/// failure with time to spare for releasing the other players.
+const DIAL_RETRY_WINDOW: Duration = Duration::from_secs(30);
+
+/// Whether a failed dial is worth redialing. True for failures that involved actually reaching
+/// (or losing) the network: lost or refused connections, handshake I/O failures, and dial
+/// deadlines. A fresh dial cannot tell a deliberate relay refusal from a transient one — the
+/// relay closes the connection the same way for a token it will never accept and for one whose
+/// session provisioning simply hasn't arrived yet — so refusals retry too, bounded by
+/// [`DIAL_RETRY_WINDOW`]. False for local failures (a malformed address, framing/crypto errors),
+/// which repeat identically on every attempt.
+fn dial_worth_retrying(error: &DialError) -> bool {
+    matches!(
+        error,
+        DialError::Connection(_)
+            | DialError::Write(_)
+            | DialError::Read(_)
+            | DialError::TimedOut { .. }
+    )
+}
+
+/// Formats `error` followed by the root of its `source()` chain when the display text doesn't
+/// already show it — nested error displays often stop short (quinn's "connection lost" hides the
+/// peer's close code and reason a level deeper), and for a failed relay dial that hidden detail
+/// is frequently the only clue to *why* the relay dropped us.
+pub fn error_with_root_cause(error: &dyn std::error::Error) -> String {
+    let mut msg = error.to_string();
+    let mut root: &dyn std::error::Error = error;
+    while let Some(source) = root.source() {
+        root = source;
+    }
+    let root_msg = root.to_string();
+    if !msg.contains(&root_msg) {
+        msg.push_str(&format!(" ({root_msg})"));
+    }
+    msg
+}
+
 /// Dials one relay by racing its candidate addresses ([`RelayTarget::addrs`], preference order):
 /// the first candidate starts immediately, each later one after [`DIAL_STAGGER`] — or as soon as
 /// an earlier candidate fails outright — and the first dial to complete its handshake wins.
-/// Losing dials are dropped, which closes their connections; the relay refuses a second live
-/// connection for a slot it already holds, so a near-simultaneous loser cannot displace the
-/// winner. Every candidate handshakes against the same pinned certificate and server name, so the
-/// race picks which *address* wins, never which identity is trusted.
+/// A candidate whose failure is [worth retrying](dial_worth_retrying) redials (after
+/// [`DIAL_RETRY_BACKOFF`] of rest) until [`DIAL_RETRY_WINDOW`] closes, so one transient failure
+/// on an address family cannot fail the whole game load while a later attempt would succeed —
+/// which matters doubly for a client whose other family is unusable and has no second candidate
+/// to fall back to. Losing dials are dropped, which closes their connections; the relay refuses
+/// a second live connection for a slot it already holds, so a near-simultaneous loser cannot
+/// displace the winner. Every candidate handshakes against the same pinned certificate and
+/// server name, so the race picks which *address* wins, never which identity is trusted.
 ///
 /// Returns the link and the address that won (so a later reconnect redials the address that
-/// demonstrably works for this client rather than re-running the race); errors only if every
-/// candidate fails, with the last failure as the cause.
+/// demonstrably works for this client rather than re-running the race); errors only once every
+/// candidate has failed with no redial pending, reporting the failure that says the most — one
+/// where the network answered over a bare deadline expiry.
 async fn connect_relay(
     endpoint: &ClientEndpoint,
     relay: &RelayTarget,
     identity: &Identity,
 ) -> Result<(Link, SocketAddr), SessionError> {
-    let dial = |addr: SocketAddr| async move {
+    connect_relay_with_timing(
+        endpoint,
+        relay,
+        identity,
+        DIAL_RETRY_WINDOW,
+        DIAL_RETRY_BACKOFF,
+    )
+    .await
+}
+
+/// [`connect_relay`] with the retry timing as parameters, so tests can run the race against
+/// short windows instead of the production ~30s.
+async fn connect_relay_with_timing(
+    endpoint: &ClientEndpoint,
+    relay: &RelayTarget,
+    identity: &Identity,
+    retry_window: Duration,
+    retry_backoff: Duration,
+) -> Result<(Link, SocketAddr), SessionError> {
+    let retry_cutoff = tokio::time::Instant::now() + retry_window;
+    // `delay` lets a redial carry its own rest into the race: a resting redial is just another
+    // in-flight future, so the select needs no separate retry queue.
+    let dial = |addr: SocketAddr, delay: Duration| async move {
+        tokio::time::sleep(delay).await;
         match endpoint.connect(addr, &relay.server_name, identity).await {
             Ok(link) => Ok((link, addr)),
             Err(e) => Err((addr, e)),
@@ -373,33 +464,55 @@ async fn connect_relay(
     };
     let mut in_flight = FuturesUnordered::new();
     // `RelayTarget::addrs` is guaranteed non-empty by `resolve_relay`.
-    in_flight.push(dial(relay.addrs[0]));
+    in_flight.push(dial(relay.addrs[0], Duration::ZERO));
     let mut next_idx = 1;
     let stagger = tokio::time::sleep(DIAL_STAGGER);
     tokio::pin!(stagger);
+    // The failures kept for the race's last word, split by how much they say: a failure where
+    // the network answered (`last_answered`) names how the far side behaved, while a bare
+    // deadline expiry (`last_timeout`) only says nothing did — and a black-holed family's
+    // timeout tends to be the *latest* failure precisely because it takes the longest, so
+    // "most recent" alone would routinely bury the informative one.
+    let mut last_answered: Option<DialError> = None;
+    let mut last_timeout: Option<DialError> = None;
     // Invariant: `in_flight` is non-empty at the top of every iteration (a failure either starts
-    // the next candidate or, with none left in flight, returns), so the select always has a live
-    // branch.
+    // another dial — the next candidate, its own redial — or, with none left in flight, returns),
+    // so the select always has a live branch.
     loop {
         tokio::select! {
             Some(result) = in_flight.next() => match result {
                 Ok(won) => return Ok(won),
                 Err((addr, e)) => {
-                    debug!("netcode v2 dial to {addr} failed: {e}");
+                    debug!("netcode v2 dial to {addr} failed: {}", error_with_root_cause(&e));
                     if next_idx < relay.addrs.len() {
                         // A candidate failing outright is a stronger signal than the stagger
                         // elapsing: start the next one now and push the stagger out behind it.
-                        in_flight.push(dial(relay.addrs[next_idx]));
+                        in_flight.push(dial(relay.addrs[next_idx], Duration::ZERO));
                         next_idx += 1;
                         stagger.as_mut().reset(tokio::time::Instant::now() + DIAL_STAGGER);
-                    } else if in_flight.is_empty() {
-                        // This failure emptied the race, so it is the race's last word.
+                    }
+                    if dial_worth_retrying(&e)
+                        && tokio::time::Instant::now() + retry_backoff < retry_cutoff
+                    {
+                        in_flight.push(dial(addr, retry_backoff));
+                    }
+                    match e {
+                        DialError::TimedOut { .. } => last_timeout = Some(e),
+                        _ => last_answered = Some(e),
+                    }
+                    if in_flight.is_empty() {
+                        // This failure emptied the race — nothing left worth retrying, or the
+                        // retry window has closed — so the race reports its most informative
+                        // failure.
+                        let e = last_answered
+                            .or(last_timeout)
+                            .expect("a failure just emptied the race");
                         return Err(SessionError::Dial(e));
                     }
                 }
             },
             _ = stagger.as_mut(), if next_idx < relay.addrs.len() => {
-                in_flight.push(dial(relay.addrs[next_idx]));
+                in_flight.push(dial(relay.addrs[next_idx], Duration::ZERO));
                 next_idx += 1;
                 stagger.as_mut().reset(tokio::time::Instant::now() + DIAL_STAGGER);
             }
@@ -539,6 +652,7 @@ pub fn with_lobby_session_seed<R>(f: impl FnOnce(&LobbySessionSeed) -> R) -> Opt
 #[cfg(test)]
 mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr, UdpSocket};
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Instant;
 
     use rally_point_client::proto::handshake;
@@ -603,6 +717,16 @@ mod tests {
     /// address to dial, the self-signed leaf certificate to pin, and the endpoint —
     /// which the caller keeps alive for as long as the relay must answer.
     async fn spawn_fake_relay() -> (SocketAddr, CertificateDer<'static>, quinn::Endpoint) {
+        spawn_fake_relay_refusing(0).await
+    }
+
+    /// [`spawn_fake_relay`], but the first `refuse_first` connections are refused the
+    /// way a real relay refuses authorization: the QUIC handshake completes, then the
+    /// relay closes the connection without answering the authorization exchange.
+    /// `usize::MAX` refuses every connection.
+    async fn spawn_fake_relay_refusing(
+        refuse_first: usize,
+    ) -> (SocketAddr, CertificateDer<'static>, quinn::Endpoint) {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
         let cert_der = cert.cert.der().clone();
         let key_der = PrivateKeyDer::try_from(cert.signing_key.serialize_der()).unwrap();
@@ -612,13 +736,22 @@ mod tests {
         let endpoint = quinn::Endpoint::server(server_config, bind).unwrap();
         let addr = endpoint.local_addr().unwrap();
 
+        let refusals_left = Arc::new(AtomicUsize::new(refuse_first));
         let accept_endpoint = endpoint.clone();
         tokio::spawn(async move {
             while let Some(incoming) = accept_endpoint.accept().await {
+                let refusals_left = refusals_left.clone();
                 tokio::spawn(async move {
                     let Ok(conn) = incoming.await else {
                         return;
                     };
+                    let refuse = refusals_left
+                        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+                        .is_ok();
+                    if refuse {
+                        conn.close(quinn::VarInt::from_u32(1), b"refused");
+                        return;
+                    }
                     let Ok(_streams) = run_relay_handshake(&conn).await else {
                         return;
                     };
@@ -756,5 +889,103 @@ mod tests {
             .await
             .expect("the sole candidate connects");
         assert_eq!(winner, relay_addr);
+    }
+
+    #[tokio::test]
+    async fn a_refused_dial_is_redialed_until_it_succeeds() {
+        // The relay refuses the first two connections after their QUIC handshakes —
+        // the shape of an authorization refusal, which on a fresh dial is
+        // indistinguishable from a transient one — then serves normally.
+        let (relay_addr, cert, _relay_endpoint) = spawn_fake_relay_refusing(2).await;
+        let endpoint = client_endpoint(&cert);
+        let identity = credentials::test_identity();
+
+        let relay = relay_target(vec![relay_addr]);
+
+        let backoff = Duration::from_millis(100);
+        let start = Instant::now();
+        let (_link, winner) = connect_relay_with_timing(
+            &endpoint,
+            &relay,
+            &identity,
+            Duration::from_secs(20),
+            backoff,
+        )
+        .await
+        .expect("the third attempt connects");
+        let elapsed = start.elapsed();
+
+        assert_eq!(winner, relay_addr);
+        assert!(
+            elapsed >= 2 * backoff,
+            "two refusals rest out two backoffs before the winning attempt \
+             (elapsed {elapsed:?})",
+        );
+        assert!(
+            elapsed < Duration::from_secs(10),
+            "the redials must succeed promptly, not ride out a dial deadline \
+             (elapsed {elapsed:?})",
+        );
+    }
+
+    #[tokio::test]
+    async fn redials_stop_when_the_retry_window_closes() {
+        // A relay that refuses every connection: each attempt fails fast, so the race
+        // keeps redialing until the window closes, then reports the refusal.
+        let (relay_addr, cert, _relay_endpoint) = spawn_fake_relay_refusing(usize::MAX).await;
+        let endpoint = client_endpoint(&cert);
+        let identity = credentials::test_identity();
+
+        let relay = relay_target(vec![relay_addr]);
+
+        let start = Instant::now();
+        let result = connect_relay_with_timing(
+            &endpoint,
+            &relay,
+            &identity,
+            Duration::from_millis(500),
+            Duration::from_millis(100),
+        )
+        .await;
+        let elapsed = start.elapsed();
+
+        let Err(SessionError::Dial(e)) = result else {
+            panic!("every attempt refused must yield a Dial error");
+        };
+        assert!(
+            !matches!(e, DialError::TimedOut { .. }),
+            "the reported failure must be the relay's refusal, not a bare deadline \
+             expiry (got: {e})",
+        );
+        assert!(
+            elapsed < Duration::from_secs(5),
+            "the race must conclude promptly once the window closes (elapsed {elapsed:?})",
+        );
+    }
+
+    /// A two-level error whose display hides its source, exercising the root-cause
+    /// append; [`TransparentOuter`]'s display *includes* its source, exercising the
+    /// skip.
+    #[derive(Debug, thiserror::Error)]
+    #[error("outer failed")]
+    struct OpaqueOuter(#[source] std::io::Error);
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("outer failed: {0}")]
+    struct TransparentOuter(#[source] std::io::Error);
+
+    #[test]
+    fn root_cause_is_appended_only_when_hidden() {
+        let hidden = OpaqueOuter(std::io::Error::other("inner detail"));
+        assert_eq!(
+            error_with_root_cause(&hidden),
+            "outer failed (inner detail)"
+        );
+
+        let shown = TransparentOuter(std::io::Error::other("inner detail"));
+        assert_eq!(error_with_root_cause(&shown), "outer failed: inner detail");
+
+        let sourceless = std::io::Error::other("just this");
+        assert_eq!(error_with_root_cause(&sourceless), "just this");
     }
 }

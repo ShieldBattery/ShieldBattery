@@ -205,11 +205,17 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    */
   grabPanSensitivityOn: boolean
   /**
-   * A 0-100 slider position controlling grab pan sensitivity, used when `grabPanSensitivityOn` is
+   * A 0-150 slider position controlling grab pan sensitivity, used when `grabPanSensitivityOn` is
    * on. Mapped exponentially to a camera-pixels-per-mouse-pixel gain, from about an eighth of the
-   * cursor's speed at 0 (precise) through 1:1 at 50 up to a fast sweep at 100.
+   * cursor's speed at 0 (precise) through 1:1 at 50 up to a very fast sweep at 150.
    */
   grabPanSensitivity: number
+  /**
+   * Whether the grab pan direction is reversed (dragging left moves the camera right, etc.), like
+   * touchpad-style "natural" scrolling. Only applies while `grabPanSensitivityOn` is on, since the
+   * game's built-in pan behavior runs untouched otherwise.
+   */
+  grabPanInverted: boolean
 
   /**
    * The manually-selected game server region id (see `common/game-server-regions.ts`), or
@@ -260,6 +266,7 @@ export interface ScrSettings {
   cinematicSubtitlesOn: boolean
   originalVoiceOversOn: boolean
   displayMode: DisplayMode
+  gamma: number
   fpsLimitOn: boolean
   fpsLimit: number
   sdGraphicsFilter: number

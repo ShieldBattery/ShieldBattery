@@ -7,6 +7,8 @@ import {
   ALL_DISPLAY_MODES,
   DisplayMode,
   getDisplayModeName,
+  SCR_GAMMA_MAX,
+  SCR_GAMMA_MIN,
 } from '../../../common/settings/blizz-settings'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import logger from '../../logging/logger'
@@ -19,6 +21,24 @@ import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer, SectionContainer } from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+const GAMMA_SLIDER_MIN = 0
+const GAMMA_SLIDER_MAX = 100
+// Steps of five map exactly to SC:R's integer gamma values, so user-selected values do not shift
+// when they are saved and loaded again.
+const GAMMA_SLIDER_STEP = 5
+
+function gammaToSliderValue(gamma: number): number {
+  const clamped = Math.max(SCR_GAMMA_MIN, Math.min(SCR_GAMMA_MAX, gamma))
+  return Math.round(
+    ((clamped - SCR_GAMMA_MIN) / (SCR_GAMMA_MAX - SCR_GAMMA_MIN)) * GAMMA_SLIDER_MAX,
+  )
+}
+
+function sliderValueToGamma(value: number): number {
+  const clamped = Math.max(GAMMA_SLIDER_MIN, Math.min(GAMMA_SLIDER_MAX, value))
+  return Math.round(SCR_GAMMA_MIN + (clamped / GAMMA_SLIDER_MAX) * (SCR_GAMMA_MAX - SCR_GAMMA_MIN))
+}
 
 // NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
 // component just acts as a custom one and does the conversion
@@ -47,6 +67,7 @@ function VsyncCheckBox(props: {
 interface GameVideoSettingsModel {
   displayMode: DisplayMode
   monitorId: number | null
+  gamma: number
   sdGraphicsFilter: number
   fpsLimitOn: boolean
   fpsLimit: number
@@ -71,6 +92,7 @@ export function GameVideoSettings() {
   const initialModel: GameVideoSettingsModel = {
     displayMode: scrSettings.displayMode,
     monitorId: localSettings.monitorId ?? null,
+    gamma: gammaToSliderValue(scrSettings.gamma),
     sdGraphicsFilter: scrSettings.sdGraphicsFilter,
     fpsLimitOn: scrSettings.fpsLimitOn,
     fpsLimit: scrSettings.fpsLimit,
@@ -93,6 +115,7 @@ export function GameVideoSettings() {
         mergeScrSettings(
           {
             displayMode: model.displayMode,
+            gamma: sliderValueToGamma(model.gamma),
             sdGraphicsFilter: model.sdGraphicsFilter,
             fpsLimitOn: model.fpsLimitOn,
             fpsLimit: model.fpsLimit,
@@ -172,6 +195,16 @@ export function GameVideoSettings() {
               ))}
             </Select>
           ) : null}
+          <Slider
+            {...bindCustom('gamma')}
+            label={t('settings.game.video.brightness', 'Brightness')}
+            tabIndex={0}
+            min={GAMMA_SLIDER_MIN}
+            max={GAMMA_SLIDER_MAX}
+            step={GAMMA_SLIDER_STEP}
+            disabled={getInputValue('displayMode') !== DisplayMode.Fullscreen}
+            showTicks={false}
+          />
         </SectionContainer>
         <SectionContainer>
           <Slider

@@ -8,16 +8,20 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
-use winapi::shared::windef::{HMENU, HMONITOR, HWND, POINT, RECT};
+use winapi::shared::windef::{HDC, HMENU, HMONITOR, HWND, POINT, RECT};
 use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
 use crate::bw::{Bw, get_bw};
 use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
+mod gamma;
+
 mod scr_hooks {
 
-    use super::{ATOM, DEVMODEW, HINSTANCE, HMENU, HMONITOR, HWND, POINT, WNDCLASSEXW, c_void};
+    use super::{
+        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, POINT, WNDCLASSEXW, c_void,
+    };
 
     system_hooks!(
         !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
@@ -29,6 +33,8 @@ mod scr_hooks {
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
         !0 => ShowWindow(HWND, i32) -> u32;
+        !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
+        !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
     );
 }
 
@@ -54,7 +60,6 @@ thread_local! {
     static DISABLE_SCR_HOOKS: Cell<i32> = const { Cell::new(0) };
 }
 
-#[expect(dead_code)]
 fn scr_hooks_disabled() -> bool {
     DISABLE_SCR_HOOKS.with(|x| x.get()) != 0
 }
@@ -81,6 +86,7 @@ unsafe extern "system" fn wnd_proc_scr(
         }
 
         let ret = with_scr_hooks_disabled(|| {
+            gamma::handle_window_message(window, msg, wparam);
             match msg {
                 WM_END_WND_PROC_WORKER => {
                     STOP_MESSAGE_PUMP.store(true, Ordering::Release);
@@ -408,6 +414,7 @@ pub fn game_window_handle() -> Option<HWND> {
 impl Forge {
     fn set_window(&mut self, window: Window) {
         assert!(self.window.is_none());
+        gamma::window_created();
         FORGE_WINDOW.store(window.handle as usize, Ordering::Release);
         self.window = Some(window);
     }
@@ -666,6 +673,7 @@ fn monitor_from_point(
 
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
+        use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
         use self::scr_hooks::*;
         // 1161 init could hook just starcraft/storm import table, unfortunately
         // that method doesn't work with SCR, we'll just GetProcAddress the
@@ -685,6 +693,11 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "ShowWindow", ShowWindow, show_window;
+        );
+
+        hook_winapi_exports!(patcher, "gdi32",
+            "GetDeviceGammaRamp", GetDeviceGammaRamp, get_device_gamma_ramp;
+            "SetDeviceGammaRamp", SetDeviceGammaRamp, set_device_gamma_ramp;
         );
 
         #[cfg(target_arch = "x86")]
@@ -730,6 +743,15 @@ pub fn init(
         .get("displayMode")
         .and_then(|v| serde_json::from_value::<DisplayMode>(v.clone()).ok())
         .unwrap_or_default();
+    let gamma_setting = if display_mode == DisplayMode::Fullscreen {
+        scr_settings
+            .get("gamma")
+            .and_then(|v| v.as_u64())
+            .and_then(|v| u32::try_from(v).ok())
+    } else {
+        None
+    };
+    gamma::configure(gamma_setting);
 
     let fake_monitor = display_mode != DisplayMode::Windowed && monitor_bounds.is_some();
     FAKE_PRIMARY_MONITOR.store(fake_monitor, Ordering::Release);

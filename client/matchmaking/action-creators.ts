@@ -60,8 +60,10 @@ export function findMatch(
         identifiers,
         region: desiredRegion?.region,
         // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire format
-        // only distinguishes "present" from "absent", so a null rtt is sent the same as no rtt.
+        // only distinguishes "present" from "absent", so a null rtt is sent the same as no rtt. The
+        // region itself is still sent: it places the player's relay, which needs no rtt.
         rttMs: desiredRegion?.rttMs ?? undefined,
+        regionManual: desiredRegion?.manual,
         clientPubkey,
       }
 

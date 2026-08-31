@@ -110,7 +110,8 @@ describe('game-server-regions/GameServerRegionsService', () => {
     expect(got.get).not.toHaveBeenCalled()
 
     const { subscribe } = connectElectronClient()
-    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [] })
+    // Dormant is a settled answer: the empty list IS the region list, so clients must not wait.
+    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [], ready: true })
     expect(got.get).not.toHaveBeenCalled()
   })
 
@@ -146,8 +147,9 @@ describe('game-server-regions/GameServerRegionsService', () => {
 
     const { subscribe } = connectElectronClient()
 
-    // The demand kicked a fetch, but the subscribe call itself never waited on it.
-    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [] })
+    // The demand kicked a fetch, but the subscribe call itself never waited on it -- and the
+    // cold cache is marked unsettled, so the client knows this empty list is not the answer yet.
+    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [], ready: false })
     expect(nydus.publish).not.toHaveBeenCalled()
 
     pending.resolve([wireRegion('us-east', 'US East', 'a')])
@@ -158,6 +160,7 @@ describe('game-server-regions/GameServerRegionsService', () => {
         regions: [
           { id: 'us-east', displayName: 'US East', beacon: 'beacon-a', fallback: 'fallback-a' },
         ],
+        ready: true,
       })
     })
   })
@@ -201,6 +204,7 @@ describe('game-server-regions/GameServerRegionsService', () => {
         regions: [
           { id: 'us-west', displayName: 'US West', beacon: 'beacon-b', fallback: 'fallback-b' },
         ],
+        ready: true,
       })
     })
   })
@@ -257,6 +261,54 @@ describe('game-server-regions/GameServerRegionsService', () => {
     ])
     // The failure did not re-publish (nothing changed).
     expect(nydus.publish).toHaveBeenCalledTimes(1)
+  })
+
+  test('a first fetch that confirms an empty list still publishes, so cold-cache subscribers settle', async () => {
+    configureCoordinator()
+    const pending = mockCoordinatorPendingOnce()
+    makeService()
+
+    const { subscribe } = connectElectronClient()
+    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [], ready: false })
+
+    // The coordinator genuinely serves no regions: the list content didn't change from the cold
+    // cache, but the answer went from "unknown" to "confirmed empty" and subscribers must hear it
+    // or they'll wait out their poll window for nothing.
+    pending.resolve([])
+    await vi.waitFor(() => {
+      expect(nydus.publish).toHaveBeenCalledWith('/gameServerRegions', {
+        type: 'fullUpdate',
+        regions: [],
+        ready: true,
+      })
+    })
+  })
+
+  test('a failed first fetch settles the cache as regionless rather than leaving clients waiting', async () => {
+    configureCoordinator()
+    let rejectFetch: (err: unknown) => void = () => {}
+    const json = vi.fn().mockReturnValue(
+      new Promise((resolve, reject) => {
+        rejectFetch = reject
+      }),
+    )
+    asMockedFunction(got.get).mockReturnValueOnce({ json } as any)
+    makeService()
+    const { subscribe } = connectElectronClient()
+    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [], ready: false })
+
+    rejectFetch(new Error('coordinator down'))
+
+    // Clients proceed regionless immediately instead of waiting out a poll window against a down
+    // coordinator; a later successful fetch publishes the real list as usual.
+    await vi.waitFor(() => {
+      expect(nydus.publish).toHaveBeenCalledWith('/gameServerRegions', {
+        type: 'fullUpdate',
+        regions: [],
+        ready: true,
+      })
+    })
+    expect(subscribe.mock.calls[0][1]()).toEqual({ type: 'fullUpdate', regions: [], ready: true })
   })
 
   test('getBackboneRtts() awaits and returns the parsed served pair table on the first-ever fetch', async () => {

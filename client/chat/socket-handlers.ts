@@ -104,17 +104,18 @@ const eventToChatAction: EventToChatActionMap = {
 
       const isBlocked = blocks.has(event.message.from)
       const isUrgent = !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
-      if (!isBlocked) {
-        // Notify the main process of the new message, so it can display an appropriate notification
+      if (isUrgent) {
+        // Mentions get the main process's transient attention treatment (urgent tray icon +
+        // taskbar flash); regular messages reach it through the tracked unread state instead.
         ipcRenderer.send('chatNewMessage', {
-          urgent: isUrgent,
+          urgent: true,
         })
       }
 
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
-        meta: { channelId },
+        meta: { channelId, mentionsSelf: isUrgent },
       })
 
       const isChannelActivated = activatedChannels.has(channelId)
@@ -200,6 +201,13 @@ const eventToChatUserAction: EventToChatUserActionMap = {
       type: '@chat/permissionsChanged',
       payload: event,
       meta: { channelId },
+    }
+  },
+
+  lastReadTimeChanged(channelId, event) {
+    return {
+      type: '@chat/updateLastReadTime',
+      payload: { channelId, lastReadTime: event.lastReadTime },
     }
   },
 }

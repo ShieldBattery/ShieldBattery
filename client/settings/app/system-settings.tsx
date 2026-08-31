@@ -145,7 +145,7 @@ function getAutoOptionLabel(
   latencies: GameServerRegionLatencies,
   t: TFunction,
 ): string {
-  const resolved = pickAutoRegion(latencies)
+  const resolved = pickAutoRegion(regions, latencies)
   if (!resolved || resolved.rttMs === null) {
     return t('settings.app.system.serverRegion.autoPlain', 'Auto (recommended)')
   }

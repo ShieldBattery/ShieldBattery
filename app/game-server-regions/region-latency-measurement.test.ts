@@ -1,12 +1,42 @@
 import dgram from 'node:dgram'
 import net from 'node:net'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../common/game-server-regions'
 import {
   measureBeaconMedianRtt,
   measureFallbackMedianRtt,
   measureRegionLatency,
 } from './region-latency-measurement'
+
+/**
+ * Deferral hook for DNS: when `deferred` is set, the measurement module's `lookup` returns that
+ * promise instead of resolving -- modeling a stalled resolver, which is otherwise uncancellable.
+ * Unset (the default), lookups pass through to the real implementation.
+ */
+const lookupControl = vi.hoisted(() => ({
+  deferred: undefined as Promise<{ address: string; family: number }> | undefined,
+}))
+vi.mock('node:dns/promises', async importOriginal => {
+  const original = await importOriginal<typeof import('node:dns/promises')>()
+  const lookup = ((host: string, ...args: unknown[]) => {
+    if (lookupControl.deferred) {
+      return lookupControl.deferred
+    }
+    return (original.lookup as (...a: unknown[]) => unknown)(host, ...args)
+  }) as typeof original.lookup
+  return { ...original, lookup, default: { ...original, lookup } }
+})
+
+/** Counts every UDP socket creation (the test harness's own included -- snapshot around asserts). */
+const dgramControl = vi.hoisted(() => ({ created: 0 }))
+vi.mock('node:dgram', async importOriginal => {
+  const original = await importOriginal<typeof import('node:dgram')>()
+  const createSocket = ((...args: Parameters<typeof original.createSocket>) => {
+    dgramControl.created++
+    return (original.createSocket as (...a: unknown[]) => dgram.Socket)(...args)
+  }) as typeof original.createSocket
+  return { ...original, createSocket, default: { ...original, createSocket } }
+})
 
 const FAST_OPTIONS = { attempts: 3, attemptTimeoutMs: 200, attemptSpacingMs: 20 }
 
@@ -175,6 +205,144 @@ describe('measureRegionLatency', () => {
 
     expect(result?.source).toBe('fallback')
     expect(result?.rttMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('completes the TCP fallback without waiting out every silent beacon attempt', async () => {
+    // A UDP-blocked network drops beacon datagrams silently (no ICMP), so every attempt runs its
+    // full timeout. The fallback must start after a single attempt's head start and win the race
+    // well before the whole beacon sequence exhausts -- otherwise the region resolver's
+    // queue-time budget elapses first and the player's first Auto queue goes regionless despite
+    // a measurable region.
+    const silent = dgram.createSocket('udp4')
+    await new Promise<void>(resolve => silent.bind(0, '127.0.0.1', () => resolve()))
+    const silentPort = (silent.address() as net.AddressInfo).port
+    tcp = await startTcpAcceptClose()
+
+    try {
+      const start = Date.now()
+      const result = await measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: `127.0.0.1:${silentPort}`,
+          fallback: `127.0.0.1:${tcp.port}`,
+        },
+        FAST_OPTIONS,
+      )
+      const elapsed = Date.now() - start
+
+      expect(result?.source).toBe('fallback')
+      // One attempt timeout (200ms) of head start plus a loopback TCP connect -- far under the
+      // full silent beacon sequence (3 x 200ms of timeouts plus spacing).
+      expect(elapsed).toBeLessThan(500)
+    } finally {
+      await new Promise<void>(resolve => silent.close(() => resolve()))
+    }
+  })
+
+  it('an already-aborted signal measures nothing and never dials the fallback', async () => {
+    // A listener added to an already-aborted signal never fires, so without an up-front check the
+    // internal race would be uncancellable and the fallback could still dial and "win".
+    const deadBeaconPort = await getDeadUdpPort()
+    let connections = 0
+    const server = net.createServer(socket => {
+      connections++
+      socket.destroy()
+    })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()))
+    const tcpPort = (server.address() as net.AddressInfo).port
+
+    try {
+      const result = await measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: `127.0.0.1:${deadBeaconPort}`,
+          fallback: `127.0.0.1:${tcpPort}`,
+        },
+        { ...FAST_OPTIONS, signal: AbortSignal.abort() },
+      )
+
+      expect(result).toBeUndefined()
+      // Give any (erroneous) fallback dial time to land before asserting none did.
+      await new Promise(resolve => setTimeout(resolve, 300))
+      expect(connections).toBe(0)
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()))
+    }
+  })
+
+  it('a mid-flight abort settles the measurement promptly', async () => {
+    // A silent (UDP-blocked) beacon runs its full multi-attempt sequence; the fallback, dialed
+    // against a dead port, fails fast and leaves the race waiting on the beacon alone. The
+    // caller's abort must settle the public promise immediately rather than waiting out the rest
+    // of the beacon sequence (or, worse, a stalled DNS lookup neither path can cancel).
+    const silent = dgram.createSocket('udp4')
+    await new Promise<void>(resolve => silent.bind(0, '127.0.0.1', () => resolve()))
+    const silentPort = (silent.address() as net.AddressInfo).port
+    const deadFallbackPort = await getDeadUdpPort()
+
+    try {
+      const abort = new AbortController()
+      const start = Date.now()
+      const pending = measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: `127.0.0.1:${silentPort}`,
+          fallback: `127.0.0.1:${deadFallbackPort}`,
+        },
+        { ...FAST_OPTIONS, signal: abort.signal },
+      )
+      setTimeout(() => abort.abort(), 50)
+
+      const result = await pending
+      const elapsed = Date.now() - start
+
+      expect(result).toBeUndefined()
+      // Well under the silent beacon sequence (3 x 200ms of timeouts plus spacing).
+      expect(elapsed).toBeLessThan(200)
+    } finally {
+      await new Promise<void>(resolve => silent.close(() => resolve()))
+    }
+  })
+
+  it('an abort during a stalled DNS lookup settles promptly and never creates a socket', async () => {
+    // The lookup itself is uncancellable, so this pins the two behaviors around it: the outer
+    // abort settles the public promise without waiting for the resolver, and when the lookup
+    // finally does resolve, the post-lookup guard keeps the continuation from creating a UDP
+    // socket (and sending traffic) on behalf of a caller that already gave up.
+    let releaseLookup!: (value: { address: string; family: number }) => void
+    lookupControl.deferred = new Promise(resolve => {
+      releaseLookup = resolve
+    })
+    const deadFallbackPort = await getDeadUdpPort()
+
+    try {
+      const abort = new AbortController()
+      const start = Date.now()
+      const pending = measureRegionLatency(
+        {
+          id: makeGameServerRegionId('test-region'),
+          displayName: 'Test Region',
+          beacon: 'stalled.example.test:20000',
+          fallback: `127.0.0.1:${deadFallbackPort}`,
+        },
+        { ...FAST_OPTIONS, signal: abort.signal },
+      )
+      setTimeout(() => abort.abort(), 20)
+
+      const result = await pending
+      expect(result).toBeUndefined()
+      expect(Date.now() - start).toBeLessThan(150)
+
+      const socketsBeforeRelease = dgramControl.created
+      releaseLookup({ address: '127.0.0.1', family: 4 })
+      await new Promise(resolve => setTimeout(resolve, 30))
+      expect(dgramControl.created).toBe(socketsBeforeRelease)
+    } finally {
+      lookupControl.deferred = undefined
+    }
   })
 
   it('returns undefined when both the beacon and the fallback are dead', async () => {

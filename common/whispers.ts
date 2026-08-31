@@ -53,8 +53,27 @@ export interface WhisperMessageEvent {
 
 export type WhisperEvent = WhisperSessionInitEvent | WhisperSessionCloseEvent | WhisperMessageEvent
 
+export interface WhisperReadTimeChangedEvent {
+  action: 'lastReadTimeChanged'
+  /** The other user in the conversation whose read position this is for. */
+  target: SbUserId
+  /** Epoch ms of this user's server-recorded read position in the conversation. */
+  lastReadTime: number
+}
+
+/** Events published to a single user (all of their sessions) rather than to a conversation. */
+export type WhisperUserEvent = WhisperReadTimeChangedEvent
+
 export interface SendWhisperMessageRequest {
   message: string
+}
+
+/**
+ * The body data of the API route for reporting a user's read position in a whisper conversation.
+ */
+export interface MarkWhisperReadRequest {
+  /** Epoch ms of the newest message the user has seen in the conversation. */
+  lastReadTime: number
 }
 
 /**
@@ -74,6 +93,17 @@ export interface GetSessionHistoryResponse {
   channelMentions: BasicChannelInfo[]
   /** A list of channel IDs saved in various whisper messages that no longer exist. */
   deletedChannels: SbChannelId[]
+  /**
+   * Whether messages older than the returned window exist. For requests with `afterTime`, this is
+   * always true (the cursor implies the client already holds older messages).
+   */
+  hasMoreBefore: boolean
+  /**
+   * Whether messages newer than the returned window existed when the query executed. For requests
+   * with `beforeTime`, this is always true (the cursor implies the client already holds newer
+   * messages); for requests with no cursor (a newest-page fetch), it is always false.
+   */
+  hasMoreAfter: boolean
 }
 
 export enum WhisperServiceErrorCode {
@@ -121,4 +151,16 @@ export function whisperServiceErrorToString(
 export interface GetWhisperSessionsResponse {
   sessions: SbUserId[]
   users: SbUser[]
+  /**
+   * IDs of the target users whose conversations have messages newer than the user's last recorded
+   * read position. A session whose target ID is absent from this list should not be treated as
+   * unread. Additive over the base response so older clients ignore it.
+   */
+  unreadSessions?: SbUserId[]
+  /**
+   * Epoch millis of the user's read position for each whisper session: their last recorded read
+   * position, or one millisecond before the session's start date if they've never recorded one.
+   * Every session is listed. Additive over the base response so older clients ignore it.
+   */
+  lastReadTimes?: Array<{ targetId: SbUserId; lastReadTime: number }>
 }

@@ -61,6 +61,13 @@ export interface ClientShellData {
   /** Origin to preconnect to when assets are served from somewhere other than this host. */
   assetsOrigin?: string
   analyticsId?: string
+  /**
+   * The URL scheme the desktop app registers for deep links on this deployment's release channel
+   * (e.g. `shieldbattery`), injected as `window.SB_DEEP_LINK_SCHEME` for pages that offer an
+   * "open in app" affordance. Absent when the deployment has none configured (local dev), which
+   * disables that affordance by design.
+   */
+  deepLinkScheme?: string
   /** Used to cache-bust the font stylesheets, which aren't content-hashed. */
   version: string
 }
@@ -102,7 +109,16 @@ export async function getClientShellTemplate(url: string): Promise<string> {
 }
 
 export function renderClientShell(template: string, data: ClientShellData): string {
-  const { cspNonce, initData, pageMeta, publicAssetsUrl, assetsOrigin, analyticsId, version } = data
+  const {
+    cspNonce,
+    initData,
+    pageMeta,
+    publicAssetsUrl,
+    assetsOrigin,
+    analyticsId,
+    deepLinkScheme,
+    version,
+  } = data
   const nonceAttr = ` nonce="${escapeAttribute(cspNonce)}"`
 
   const preconnect = assetsOrigin
@@ -120,6 +136,10 @@ export function renderClientShell(template: string, data: ClientShellData): stri
     initData
       ? `<script type="text/javascript"${nonceAttr}>` +
         `window._sbInitData=${serializeForScript(initData)}</script>`
+      : '',
+    deepLinkScheme
+      ? `<script type="text/javascript"${nonceAttr}>` +
+        `window.SB_DEEP_LINK_SCHEME=${serializeForScript(deepLinkScheme)}</script>`
       : '',
     analyticsId
       ? `<script type="text/javascript" defer${nonceAttr} ` +

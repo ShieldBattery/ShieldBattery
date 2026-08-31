@@ -541,6 +541,7 @@
         "under10": "10分钟以下"
       },
       "format": "形式",
+      "includeShort": "包含少于 2 分钟的游戏",
       "label": "筛选",
       "mapName": "地图名称",
       "matchup": "对阵",
@@ -620,6 +621,9 @@
       "bottom": "客队",
       "number": "{{teamNumber}}队",
       "top": "主队"
+    },
+    "time": {
+      "justNow": "刚刚"
     }
   },
   "gameDetails": {
@@ -628,6 +632,7 @@
     "buttonDownloadReplay": "下载录像",
     "buttonReplaySaved": "已在录像库",
     "buttonReport": "举报",
+    "buttonResolveResults": "判定结果",
     "buttonSaveReplay": "保存录像",
     "buttonSaveReplayLoading": "保存中…",
     "buttonWatchReplay": "观看录像",
@@ -660,9 +665,20 @@
           "title": "飞行记录"
         },
         "home": "分配",
+        "observerSuffix": "（观战）",
+        "player": "玩家",
+        "region": "地区",
         "rehome": "重新分配",
         "relay": "中继",
+        "relayHistory": "中继历史",
+        "requestedRegions": "请求的地区",
+        "rtt": "RTT",
+        "rttValue": "{{rttMs}} ms",
+        "selection": "选择",
+        "selectionAuto": "自动",
+        "selectionManual": "手动",
         "session": "会话：{{session}}",
+        "slot": "槽位",
         "title": "网络"
       },
       "player": "玩家",
@@ -687,11 +703,33 @@
     "infoDuration": "时长",
     "infoGameType": "游戏类型",
     "notFound": "未找到该游戏。",
+    "resolveDialog": {
+      "errorGeneric": "出了点问题，请重试。",
+      "errorInvalidResults": "这些结果对该游戏无效。必须恰好有一支队伍获胜。",
+      "errorNotDisputable": "该游戏已不再等待判定。",
+      "matchmakingHint": "必须恰好有一支队伍获胜。",
+      "resolveButton": "判定",
+      "success": "结果已更新。",
+      "successWithPoints": "结果已更新，积分已生效。",
+      "title": "判定游戏结果"
+    },
+    "saveReplayAddedToBookmarks": "已添加到书签",
+    "saveReplayAddedToPlaylist": "已添加到“{{name}}”",
     "saveReplayAlreadySaved": "该游戏的录像已在您的录像库中",
     "saveReplayError": "保存录像时出现问题",
+    "saveReplayMenuBookmarks": "书签",
+    "saveReplayMenuLibrary": "录像库",
+    "saveReplaySavedToBookmarks": "已保存到书签",
+    "saveReplaySavedToPlaylist": "已保存到“{{name}}”",
     "saveReplaySuccess": "录像已保存到您的录像库",
+    "saveReplayUndoError": "撤销时出现问题",
+    "saveReplayUndoneBookmarks": "已从书签中移除",
+    "saveReplayUndoneLibrary": "录像已从您的录像库中移除",
+    "saveReplayUndonePlaylist": "已从“{{name}}”中移除",
+    "statusDisputed": "有争议",
     "statusFinal": "最终",
     "statusLive": "直播中",
+    "statusManuallyResolved": "已手动判定",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "基础",
@@ -749,6 +787,7 @@
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
+      "resultTooltip": "{{names}}的结果",
       "retrievingError": "获取游戏时出错。"
     },
     "liveGames": {
@@ -930,6 +969,7 @@
       "emptyAllFull": "目前所有房间都已满",
       "emptyNoLobbies": "目前没有人创建房间",
       "emptyNoMatches": "没有符合筛选条件的房间",
+      "enterCode": "输入房间码",
       "filterFriends": "好友",
       "filterGameType": "游戏类型",
       "filterGameTypeAll": "所有游戏类型",
@@ -987,7 +1027,6 @@
       "visibilityUnlisted": "不公开列出"
     },
     "errors": {
-      "alreadyInLobby": "您已经在另一个房间了。",
       "load": "加载该房间时遇到问题"
     },
     "events": {
@@ -1005,6 +1044,15 @@
       "visibilityListedDescription": "任何人都可以从房间列表加入。游戏和录像公开可见。",
       "visibilityUnlistedDescription": "只有拥有链接的人才能加入。只有参与过游戏的人才能下载录像。"
     },
+    "joinCode": {
+      "explainer": "粘贴房间链接，或输入在浏览器中打开链接时显示的房间码。",
+      "genericError": "出了点问题，请重试。",
+      "inputLabel": "房间码或房间链接",
+      "invalidInput": "请输入房间码或房间链接。",
+      "notFound": "该房间已不再开放。",
+      "submitAction": "查找房间",
+      "title": "输入房间码"
+    },
     "joinLobby": {
       "action": "加入房间",
       "browseLobbies": "浏览房间",
@@ -1019,7 +1067,23 @@
       "openSlotCount_other": "有{{count}}个空位"
     },
     "landing": {
+      "appLaunch": {
+        "button": "在 ShieldBattery 客户端中打开",
+        "failedSubtitle": "这台电脑上可能尚未安装。",
+        "failedTitle": "客户端未能打开。",
+        "fallbackHint": "没有反应？<1>重试</1>或<4>下载客户端</4>",
+        "opening": "正在 ShieldBattery 客户端中打开…",
+        "retryAfterFailure": "再次尝试打开客户端"
+      },
       "download": "下载 ShieldBattery",
+      "downloadHint": "还没有 ShieldBattery？<1>免费下载</1>",
+      "joinCode": {
+        "copied": "已复制到剪贴板",
+        "copy": "复制房间码",
+        "label": "或在客户端中输入此房间码",
+        "labelAfterFailure": "已经有客户端了？输入此房间码",
+        "labelMobile": "在电脑上？打开 ShieldBattery 并输入此房间码"
+      },
       "loadError": "加载该房间时遇到问题。",
       "openInApp": "已经安装了 ShieldBattery？在应用内打开此链接即可加入房间。"
     },
@@ -1367,13 +1431,20 @@
   },
   "messaging": {
     "blockedMessage": "消息被屏蔽",
+    "copyLinkAddress": "复制链接地址",
+    "copyMessage": "复制消息",
+    "jumpToBottom": "跳至底部",
+    "jumpToPresent": "跳至最新消息",
     "mention": "提到",
     "messageTooLongContent": "消息最多只能有 {{maxLength}} 个字符，这条有 {{length}} 个。请缩短后再发送。",
     "messageTooLongTitle": "消息过长",
     "newDayMessage": "日期已变为<2>{{day}}</2>",
+    "newMessages": "新消息",
+    "openLink": "打开链接",
     "searchWithGoogle": "用谷歌搜索",
     "sendMessage": "发送消息",
-    "sendMessageChatRestricted": "限制发送消息至 {{date}}"
+    "sendMessageChatRestricted": "限制发送消息至 {{date}}",
+    "unreadLineLabel": "新"
   },
   "navigation": {
     "bar": {
@@ -1467,6 +1538,9 @@
       },
       "moreActions": "更多操作",
       "moveDown": "下移",
+      "movedToRecycleBin": "录像已移至回收站",
+      "moveToRecycleBin": "移至回收站",
+      "moveToRecycleBinError": "移除录像时出现问题",
       "moveUp": "上移",
       "newPlaylistMenu": "新建播放列表…",
       "noFolders": "没有录像文件夹",
@@ -1764,6 +1838,7 @@
         "customMouseSensitivity": "自定义鼠标灵敏度",
         "grabPan": "自定义中键平移灵敏度",
         "grabPanFaster": "更快",
+        "grabPanInverted": "反转平移方向",
         "grabPanSlower": "更慢",
         "grabPanTooltip": "调整用鼠标中键平移画面时镜头的移动速度。关闭时与旧版《星际争霸：重制版》行为一致。",
         "hardwareCursor": "硬件指针",
@@ -2020,6 +2095,7 @@
     "moderation": {
       "blocked": "已将 {{name}} 从直播中移除",
       "blockError": "无法将 {{name}} 从直播中移除",
+      "menuTooltip": "直播管理",
       "removeTooltip": "从直播中移除",
       "unblockError": "无法将 {{name}} 恢复到直播中"
     }

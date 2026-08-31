@@ -112,6 +112,7 @@ features = [
   "winsock2",
   "winuser",
   "winver",
+  "wlanapi",
   "ws2def",
   "ws2ipdef",
 ]
@@ -119,7 +120,7 @@ features = [
 # Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
-rev = "ccd4e691331875879cce539feecaacd47f1785d6"
+rev = "03a8b0db17c40913b845987e0fe6ed0cdd8e71eb"
 
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
@@ -135,7 +136,7 @@ features = ["scr-only"]
 # (version skew is rejected at the TLS handshake by design).
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "be22176ec2862d2ce6f2977eeadaa310bf4bc331"
+rev = "aca8db068ff2738c8b1699e63941508e11bc467e"
 
 [build-dependencies]
 anyhow = "1.0"
@@ -150,6 +151,9 @@ rcgen = { version = "0.14", default-features = false, features = [
   "ring",
   "pem",
 ] }
+# Derived test errors for the error-formatting tests. Already in the dependency
+# graph via rally-point-client, so this costs no extra compilation.
+thiserror = "2"
 
 # -- Local helper crates --
 [workspace]

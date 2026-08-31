@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -6,9 +6,12 @@ import {
   ClientChatMessageType,
   SbChannelId,
   ServerChatMessageType,
+  isServerChatMessage,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { Chat } from '../messaging/chat'
+import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
+import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MessageComponentProps } from '../messaging/message-list'
 import { push } from '../navigation/routing'
@@ -24,8 +27,14 @@ import {
   correctChannelNameForChat,
   deactivateChannel,
   getChannelInfo,
+  getChannelLastReadKey,
   getMessageHistory,
+  getMessagesAround,
+  getNewerMessages,
+  jumpToPresent,
   leaveChannelWithConfirmation,
+  markChannelRead,
+  resetMessageWindow,
   retrieveUserList,
   sendMessage,
   updateChannelAtBottom,
@@ -88,17 +97,46 @@ const BackgroundImage = styled.img`
 export function ChannelMessage({ message }: MessageComponentProps) {
   switch (message.type) {
     case ClientChatMessageType.BanUser:
-      return <BanUserMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <BanUserMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ClientChatMessageType.KickUser:
-      return <KickUserMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <KickUserMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ServerChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <JoinChannelMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ClientChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={message.id} time={message.time} userId={message.userId} />
+      return (
+        <LeaveChannelMessage
+          key={message.id}
+          msgId={message.id}
+          time={message.time}
+          userId={message.userId}
+        />
+      )
     case ClientChatMessageType.NewChannelOwner:
       return (
         <NewChannelOwnerMessage
           key={message.id}
+          msgId={message.id}
           time={message.time}
           newOwnerId={message.newOwnerId}
         />
@@ -127,6 +165,9 @@ export function ConnectedChatChannel({
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const selfPreferences = useAppSelector(s => s.chat.idToSelfPreferences.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
+  const isActivated = useAppSelector(s => s.chat.activatedChannels.has(channelId))
+  const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
+  const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLineTime.get(channelId))
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
@@ -214,16 +255,59 @@ export function ConnectedChatChannel({
     }
   }, [isLeavingChannel])
 
+  const viewStateKey = `chat.${channelId}`
+
+  const onActivate = useEffectEvent(() => {
+    dispatch(retrieveUserList(channelId))
+
+    const anchor = chatViewAnchorStore.get(viewStateKey)
+    dispatch(activateChannel(channelId))
+
+    if (anchor && anchorNeedsFetch(channelMessages?.messages ?? [], anchor)) {
+      // Getting back to where the user was reading takes a window the client doesn't hold, so that
+      // window is this activation's history request instead of the newest page the list would
+      // otherwise ask for. Whatever window is still loaded doesn't contain the position either and
+      // is about to be replaced anyway, so it's dropped up front rather than left on screen: leaving
+      // it in place would show the user a spot they weren't (its bottom) only to yank them away once
+      // the requested window lands, whereas an empty window renders as loading for that same wait.
+      dispatch(resetMessageWindow(channelId))
+      dispatch(getMessagesAround(channelId, MESSAGES_LIMIT, anchor.sentTime))
+    }
+  })
+
   useEffect(() => {
     if (isInChannel) {
-      dispatch(retrieveUserList(channelId))
-      dispatch(activateChannel(channelId))
+      onActivate()
     }
 
     return () => {
       dispatch(deactivateChannel(channelId))
     }
   }, [isInChannel, channelId, dispatch])
+
+  // The newest server-recorded message time: client-only messages (e.g. the self-join banner) are
+  // stamped with the local clock, so they can't be reported as a read position.
+  let newestMessageTime: number | undefined
+  if (channelMessages) {
+    for (let i = channelMessages.messages.length - 1; i >= 0; i--) {
+      const message = channelMessages.messages[i]
+      if (isServerChatMessage(message)) {
+        newestMessageTime = message.time
+        break
+      }
+    }
+  }
+
+  // Reports the read position whenever the channel is both open and scrolled to the bottom, so
+  // arriving at a channel already at the bottom (or scrolling back down to it) reports the newest
+  // message just as much as a message arriving while already there does.
+  useEffect(() => {
+    if (isActivated && isAtBottom && newestMessageTime !== undefined) {
+      dispatch(markChannelRead(channelId, newestMessageTime))
+    }
+  }, [isActivated, isAtBottom, newestMessageTime, channelId, dispatch])
+
+  useEffect(() => () => flushLastRead(getChannelLastReadKey(channelId)), [channelId])
 
   useEffect(() => {
     if (basicChannelInfo && channelNameFromRoute !== basicChannelInfo.name) {
@@ -234,6 +318,20 @@ export function ConnectedChatChannel({
   const onLoadMoreMessages = useStableCallback(() =>
     dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
   )
+
+  const onLoadNewerMessages = () => {
+    dispatch(getNewerMessages(channelId, MESSAGES_LIMIT))
+  }
+
+  const onJumpToPresent = () => {
+    dispatch(jumpToPresent(channelId, MESSAGES_LIMIT))
+  }
+
+  const onSeekToUnread = () => {
+    if (unreadLineTime !== undefined) {
+      dispatch(getMessagesAround(channelId, MESSAGES_LIMIT, unreadLineTime))
+    }
+  }
 
   const onAtBottomChange = (atBottom: boolean) => {
     dispatch(updateChannelAtBottom(channelId, atBottom))
@@ -256,17 +354,25 @@ export function ConnectedChatChannel({
               messages: channelMessages?.messages ?? [],
               loading: channelMessages?.loadingHistory,
               hasMoreHistory: channelMessages?.hasHistory,
+              loadingNewer: channelMessages?.loadingNewer,
+              hasNewerMessages: channelMessages?.hasNewer,
+              windowGeneration: channelMessages?.windowGen,
               refreshToken: channelId,
+              viewStateKey,
               MessageComponent: ChannelMessage,
               onLoadMoreMessages,
+              onLoadNewerMessages,
+              unreadLineTime,
             }}
             inputProps={{
               onSendChatMessage,
-              storageKey: `chat.${channelId}`,
+              storageKey: viewStateKey,
               mentionableUsers,
               baseMentionableUsers,
             }}
             onAtBottomChange={onAtBottomChange}
+            onJumpToPresent={onJumpToPresent}
+            onSeekToUnread={onSeekToUnread}
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead
               // of asserting them with ! because better to be safe than sorry, or something.

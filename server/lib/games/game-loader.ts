@@ -110,6 +110,12 @@ export interface GameLoadPlayer {
    */
   readonly rttMs?: number
   /**
+   * Whether `region` came from this player's manual server-region setting rather than the auto
+   * (lowest-RTT) resolution. Recorded onto the game's netcode debug record and never sent to the
+   * coordinator: it explains how a placement was asked for, it doesn't influence one.
+   */
+  readonly regionManual?: boolean
+  /**
    * This player's per-session netcode v2 public key (base64), submitted at queue/lobby-join time.
    * Threaded per-slot into the netcode v2 session-create request. Required for every human slot of
    * a multi-human (netcode v2) game — a missing value fails the load fast rather than waiting.
@@ -735,6 +741,9 @@ export class GameLoader {
           // The player's measured round-trip time to that region, if recorded. Combined with every
           // other slot's region/rtt to estimate the session's worst pairwise latency.
           rttMs: p.rttMs,
+          // Whether that region was hand-picked rather than resolved from measurements. Recorded
+          // onto the game's netcode debug record only.
+          regionManual: p.regionManual,
           // The player's per-session netcode v2 public key, submitted at queue/lobby-join time. The
           // coordinator embeds it in this slot's session token; a slot missing it fails create fast.
           pubkey: p.netcodeV2Pubkey,

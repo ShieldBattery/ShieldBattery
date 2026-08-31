@@ -1,12 +1,22 @@
 import { useEffect } from 'react'
 import { useRoute } from 'wouter'
-import { lobbySlug, urlForLobby } from '../../common/lobbies/lobby-url'
+import { lobbyIdFromPath, lobbySlug, urlForLobby } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { push, replace } from '../navigation/routing'
 
 /** Navigates to a particular lobby. */
 export function navigateToLobby(id: SbLobbyId, name?: string, transitionFn = push): void {
   transitionFn(urlForLobby(id, name))
+}
+
+/**
+ * Returns whether the current location is already this lobby's route (with any slug). Join flows
+ * that finish by navigating to the lobby check this first: joining from the lobby's own route
+ * (the join preview) must not push a duplicate history entry for the page already on screen,
+ * while joining from anywhere else (the browser, an invite card) still needs the navigation.
+ */
+export function isAtLobbyRoute(id: SbLobbyId): boolean {
+  return lobbyIdFromPath(window.location.pathname) === id
 }
 
 /**

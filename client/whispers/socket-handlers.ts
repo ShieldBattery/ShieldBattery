@@ -1,6 +1,6 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { WhisperEvent } from '../../common/whispers'
+import { WhisperEvent, WhisperUserEvent } from '../../common/whispers'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
@@ -70,12 +70,37 @@ const eventToAction: EventToActionMap = {
   },
 }
 
+type EventToUserActionMap = {
+  [E in WhisperUserEvent['action']]: (
+    event: Extract<WhisperUserEvent, { action: E }>,
+  ) => Dispatchable
+}
+
+const eventToUserAction: EventToUserActionMap = {
+  lastReadTimeChanged(event) {
+    return {
+      type: '@whispers/updateLastReadTime',
+      payload: {
+        targetId: event.target,
+        lastReadTime: event.lastReadTime,
+      },
+    }
+  },
+}
+
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute('/whispers3/:userAndTarget', (route, event) => {
     const actionName = event.action as WhisperEvent['action']
     if (!eventToAction[actionName]) return
 
     const action = eventToAction[actionName]!(event)
+    if (action) dispatch(action)
+  })
+
+  siteSocket.registerRoute('/whispers3/users/:userId', (route, event: WhisperUserEvent) => {
+    if (!Object.hasOwn(eventToUserAction, event.action)) return
+
+    const action = eventToUserAction[event.action](event as any)
     if (action) dispatch(action)
   })
 }

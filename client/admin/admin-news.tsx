@@ -14,6 +14,8 @@ import {
 } from '../../common/news'
 import { apiUrl, urlPath } from '../../common/urls'
 import { useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
 import { required } from '../forms/validators'
 import { graphql } from '../gql'
@@ -24,22 +26,22 @@ import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
 import {
   applyMarkdownFormat,
+  markdownFormatForKeyEvent,
   MarkdownFormatKind,
   MarkdownToolbar,
   ToolbarButton,
 } from '../markdown/markdown-toolbar'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
-import { DateTimeTextField } from '../material/datetime-text-field'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
-import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import { urlForNewsPost } from '../news/news-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -52,6 +54,15 @@ import {
   titleMedium,
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import {
+  NewsPostSettings,
+  PostStatus,
+  PUBLISH_MODE_DRAFT,
+  PUBLISH_MODE_NOW,
+  PUBLISH_MODE_PUBLISHED,
+  PUBLISH_MODE_SCHEDULE,
+  PublishMode,
+} from './news-post-settings-dialog'
 
 const AdminNewsListQuery = graphql(/* GraphQL */ `
   query AdminNewsList($first: Int, $after: String) {
@@ -147,15 +158,6 @@ const NewsDeletePostMutation = graphql(/* GraphQL */ `
 `)
 
 const PAGE_SIZE = 20
-
-export const PUBLISH_MODE_DRAFT = 'draft'
-export const PUBLISH_MODE_NOW = 'now'
-export const PUBLISH_MODE_SCHEDULE = 'schedule'
-type PublishMode =
-  typeof PUBLISH_MODE_DRAFT | typeof PUBLISH_MODE_NOW | typeof PUBLISH_MODE_SCHEDULE
-
-type PostStatus =
-  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
 
 /** Classifies a post's publish state given the current time (`now`, in millis). */
 export function getPostStatus(publishedAt: string | null | undefined, now: number): PostStatus {
@@ -744,29 +746,63 @@ export interface NewsEditorModel {
   scheduledAt: string
 }
 
-const FormArea = styled.div`
-  display: flex;
-  gap: 24px;
-  align-items: stretch;
-`
+// The public news post page renders markdown at a 720px max width (see `news-post-page.tsx`);
+// this is that width plus the preview pane's 24px of horizontal padding on each side. The editor
+// column is capped at the same width so both sides of the split view keep a readable line length.
+const EDITOR_COLUMN_MAX_WIDTH = 768
+const editorColumnWidth = `minmax(0, ${EDITOR_COLUMN_MAX_WIDTH}px)`
 
-const EditorColumn = styled.div`
-  flex: 1 1 50%;
-  min-width: 0;
+const EditorRoot = styled.div`
+  height: 100%;
+  padding-block: 24px;
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 24px;
+`
+
+const FormArea = styled.div`
+  flex: 1 1 0;
+  min-height: 0;
+
+  display: grid;
+  grid-template-columns: ${editorColumnWidth} ${editorColumnWidth};
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    'title preview'
+    'toolbar preview'
+    'editor preview';
+  column-gap: 24px;
+  row-gap: 8px;
+`
+
+const EditorColumn = styled.div`
+  grid-area: editor;
+  min-width: 0;
+  overflow-y: auto;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
+
+const EditorToolbar = styled(MarkdownToolbar)`
+  grid-area: toolbar;
 `
 
 const ContentField = styled(TextField)`
   width: 100%;
 `
 
-const MarkdownPreview = styled(Markdown)`
-  flex: 1 1 50%;
+const PreviewContainer = styled.div`
+  grid-area: preview;
   min-width: 0;
-  min-height: 480px;
+  position: relative;
+`
+
+const MarkdownPreview = styled(Markdown)`
+  position: absolute;
+  inset: 0;
   padding: 16px 24px;
 
   border: 1px solid var(--theme-outline-variant);
@@ -775,92 +811,29 @@ const MarkdownPreview = styled(Markdown)`
 `
 
 const Form = styled.form`
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  max-width: ${2 * EDITOR_COLUMN_MAX_WIDTH + 24}px;
+  margin-inline: auto;
+
   display: flex;
   flex-direction: column;
   gap: 16px;
 `
 
-const PublishControl = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-
-  padding: 16px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  border-radius: 4px;
-`
-
-const ScheduleField = styled(DateTimeTextField)`
-  max-width: 320px;
-`
-
-const ScheduleHint = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
-`
-
-const SaveRow = styled.div`
-  display: flex;
-  gap: 8px;
-`
-
-const CoverSection = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-
-  padding: 16px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  border-radius: 4px;
-`
-
-const CoverLabel = styled.div`
-  ${labelMedium};
-  color: var(--theme-on-surface-variant);
-`
-
-const CoverPreview = styled.div`
+const TitleField = styled(TextField)`
+  grid-area: title;
   width: 100%;
-  max-width: 480px;
-  aspect-ratio: 2 / 1;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 4px;
-  overflow: hidden;
-`
-
-const CoverImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`
-
-const CoverPlaceholder = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
-`
-
-const CoverActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`
-
-const CoverHint = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
 `
 
 const HiddenFileInput = styled.input`
   display: none;
+`
+
+const UploadHint = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
 `
 
 /**
@@ -915,6 +888,7 @@ export function createPublishedAt(model: NewsEditorModel): string | undefined {
     case PUBLISH_MODE_DRAFT:
       return undefined
     case PUBLISH_MODE_NOW:
+    case PUBLISH_MODE_PUBLISHED:
       return new Date().toISOString()
     case PUBLISH_MODE_SCHEDULE:
       return new Date(model.scheduledAt).toISOString()
@@ -931,6 +905,10 @@ export function publishedAtUpdate(
   model: NewsEditorModel,
   originalPublishedAt: string | null,
 ): { value: string | null } | undefined {
+  if (model.publishMode === PUBLISH_MODE_PUBLISHED) {
+    // The post keeps its existing publish time; there's nothing to send.
+    return undefined
+  }
   if (model.publishMode === PUBLISH_MODE_DRAFT) {
     return originalPublishedAt === null ? undefined : { value: null }
   }
@@ -954,6 +932,7 @@ export function publishedAtUpdate(
 
 function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const snackbarController = useSnackbarController()
   const [{ fetching: creating, error: createError }, createPost] =
@@ -963,11 +942,8 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const fetching = creating || updating
   const error = createError ?? updateError
 
-  const coverFileInputRef = useRef<HTMLInputElement>(null)
   const [coverImagePath, setCoverImagePath] = useState<string | null>(post?.coverImagePath ?? null)
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(post?.coverImageUrl ?? null)
-  const [coverUploading, setCoverUploading] = useState(false)
-  const [coverError, setCoverError] = useState<string | undefined>(undefined)
 
   const imageFileInputRef = useRef<HTMLInputElement>(null)
   const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
@@ -981,50 +957,6 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const videoFileInputRef = useRef<HTMLInputElement>(null)
   const [videoUploading, setVideoUploading] = useState(false)
   const [videoError, setVideoError] = useState<string | undefined>(undefined)
-
-  const onCoverFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    // Reset the input so selecting the same file again still fires a change event.
-    event.target.value = ''
-    if (!file) {
-      return
-    }
-    if (!file.type.startsWith('image/')) {
-      setCoverError(t('admin.news.form.coverInvalidType', 'Please choose an image file.'))
-      return
-    }
-    if (file.size > MAX_IMAGE_SIZE_BYTES) {
-      setCoverError(t('admin.news.form.coverTooLarge', 'That image is too large (max 5 MB).'))
-      return
-    }
-
-    setCoverError(undefined)
-    setCoverUploading(true)
-    const formData = new FormData()
-    formData.append('image', file)
-    fetchJson<NewsImageUploadResponse>(apiUrl`news/images`, {
-      method: 'POST',
-      body: formData,
-    })
-      .then(result => {
-        setCoverUploading(false)
-        setCoverImagePath(result.path)
-        setCoverImageUrl(result.url)
-      })
-      .catch(err => {
-        setCoverUploading(false)
-        setCoverError(
-          t('admin.news.form.coverUploadError', 'Something went wrong uploading the cover image.'),
-        )
-        logger.error(`Error uploading news cover image: ${getErrorStack(err)}`)
-      })
-  }
-
-  const onRemoveCover = () => {
-    setCoverError(undefined)
-    setCoverImagePath(null)
-    setCoverImageUrl(null)
-  }
 
   // Splices the uploaded file's URL into the content textarea as inline markdown, at the current
   // cursor position. Shared by the image and video upload handlers: the inserted markdown syntax
@@ -1153,13 +1085,21 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     })
   }
 
+  // The post's saved status at mount, fixed for the lifetime of the editor: a draft starts on the
+  // draft mode, a post scheduled for the future starts on the schedule mode showing that time, and
+  // an already-published post starts on its own published mode rather than presenting as
+  // scheduled. Both the scheduled and published cases prefill scheduledAt from the current publish
+  // time, so switching to the schedule mode starts from where the post already is.
+  const [initialStatus] = useState(() => getPostStatus(post?.publishedAt, Date.now()))
+
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
   let scheduledAt = toDateTimeLocalString(new Date())
-  if (post?.publishedAt) {
-    // Both scheduled (future) and already-published (past) posts start here with their current
-    // publish time prefilled; leaving it untouched preserves it on save.
+  if (initialStatus.kind === 'scheduled') {
     publishMode = PUBLISH_MODE_SCHEDULE
-    scheduledAt = toDateTimeLocalString(new Date(post.publishedAt))
+    scheduledAt = toDateTimeLocalString(initialStatus.date)
+  } else if (initialStatus.kind === 'published') {
+    publishMode = PUBLISH_MODE_PUBLISHED
+    scheduledAt = toDateTimeLocalString(initialStatus.date)
   }
 
   const defaults: NewsEditorModel = {
@@ -1172,7 +1112,11 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
 
   const validations: ValidatorMap<NewsEditorModel> = {
     title: required(t('admin.news.form.titleRequired', 'Title is required')),
-    summary: required(t('admin.news.form.summaryRequired', 'Summary is required')),
+    // Whitespace-only summaries must fail validation, since the save flow only opens the settings
+    // dialog (where the summary error can actually be seen) for summaries that are blank after
+    // trimming.
+    summary: value =>
+      value.trim() ? undefined : t('admin.news.form.summaryRequired', 'Summary is required'),
     content: required(t('admin.news.form.contentRequired', 'Content is required')),
     scheduledAt: (value, model) => {
       if (model.publishMode !== PUBLISH_MODE_SCHEDULE) {
@@ -1250,11 +1194,69 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     },
   })
 
-  const currentPublishMode = getInputValue('publishMode')
+  const openSettings = () => {
+    dispatch(
+      openDialog({
+        type: DialogType.NewsPostSettings,
+        initData: {
+          savedStatus: initialStatus,
+          settings: {
+            summary: getInputValue('summary'),
+            publishMode: getInputValue('publishMode'),
+            scheduledAt: getInputValue('scheduledAt'),
+            coverImagePath,
+            coverImageUrl,
+          },
+          onApply: (s: NewsPostSettings) => {
+            setInputValue('summary', s.summary)
+            setInputValue('publishMode', s.publishMode)
+            setInputValue('scheduledAt', s.scheduledAt)
+            setCoverImagePath(s.coverImagePath)
+            setCoverImageUrl(s.coverImageUrl)
+          },
+        },
+      }),
+    )
+  }
+
+  const onSaveClick = () => {
+    // The summary and schedule fields are edited in the post settings dialog now, so a validation
+    // failure on either needs to open that dialog rather than failing silently against inputs that
+    // no longer appear on this page.
+    const scheduleInvalid =
+      getInputValue('publishMode') === PUBLISH_MODE_SCHEDULE &&
+      Number.isNaN(new Date(getInputValue('scheduledAt')).getTime())
+    if (!getInputValue('summary').trim() || scheduleInvalid) {
+      openSettings()
+    } else {
+      submit()
+    }
+  }
+
+  // The save button doubles as a summary of the publish state chosen in the post settings
+  // dialog, so what saving will do is visible without opening it.
+  const publishModeValue = getInputValue('publishMode')
+  let saveLabel: string
+  switch (publishModeValue) {
+    case PUBLISH_MODE_DRAFT:
+      saveLabel = t('admin.news.saveDraft', 'Save draft')
+      break
+    case PUBLISH_MODE_NOW:
+      saveLabel = t('admin.news.publishNow', 'Publish now')
+      break
+    case PUBLISH_MODE_SCHEDULE:
+      saveLabel = t('admin.news.schedulePost', 'Schedule post')
+      break
+    case PUBLISH_MODE_PUBLISHED:
+      saveLabel = t('admin.news.saveChanges', 'Save changes')
+      break
+    default:
+      saveLabel = publishModeValue satisfies never
+  }
 
   return (
-    <CenteredContentContainer>
-      <Root>
+    <CenteredContentContainer $fullWidth={true} data-content-fullbleed=''>
+      <EditorRoot>
         <HeaderRow>
           <Title>
             {post
@@ -1273,164 +1275,92 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               label={t('admin.news.backToList', 'Back to list')}
               onClick={() => push('/admin/news')}
             />
+            <OutlinedButton
+              label={t('admin.news.form.postSettings', 'Post settings')}
+              iconStart={<MaterialIcon icon='settings' />}
+              onClick={openSettings}
+            />
+            <FilledButton
+              label={saveLabel}
+              onClick={onSaveClick}
+              disabled={fetching || imageUploading || videoUploading}
+            />
           </HeaderActions>
         </HeaderRow>
         {error ? <ErrorText>{error.message}</ErrorText> : null}
-        <Form onSubmit={submit}>
-          <TextField {...bindInput('title')} label={t('admin.news.form.title', 'Title')} />
-          <TextField
-            {...bindInput('summary')}
-            label={t('admin.news.form.summary', 'Summary')}
-            multiline={true}
-            rows={2}
-            maxRows={4}
-          />
+        <Form
+          onSubmit={event => {
+            // Implicit submission (e.g. Enter in the title field) needs the same
+            // missing-summary/schedule handling as the save button, since submitting directly
+            // would fail validation against inputs that only render in the settings dialog.
+            event.preventDefault()
+            onSaveClick()
+          }}>
           <FormArea>
+            <TitleField {...bindInput('title')} label={t('admin.news.form.title', 'Title')} />
+            <EditorToolbar onFormat={onFormat}>
+              <HiddenFileInput
+                ref={imageFileInputRef}
+                type='file'
+                accept='image/*'
+                onChange={onImageFileSelected}
+                data-testid='news-inline-image-file-input'
+              />
+              <ToolbarButton
+                icon={<MaterialIcon icon='add_photo_alternate' />}
+                label={t('admin.news.form.insertImage', 'Insert image')}
+                tooltipText={t('admin.news.form.insertImageTooltip', 'Insert image (up to 5 MB)')}
+                disabled={imageUploading}
+                onClick={() => imageFileInputRef.current?.click()}
+              />
+              {imageUploading ? (
+                <UploadHint>{t('admin.news.form.imageUploading', 'Uploading…')}</UploadHint>
+              ) : null}
+              <HiddenFileInput
+                ref={videoFileInputRef}
+                type='file'
+                accept='video/mp4,video/webm'
+                onChange={onVideoFileSelected}
+                data-testid='news-inline-video-file-input'
+              />
+              <ToolbarButton
+                icon={<MaterialIcon icon='videocam' />}
+                label={t('admin.news.form.insertVideo', 'Insert video')}
+                tooltipText={t('admin.news.form.insertVideoTooltip', 'Insert video (up to 30 MB)')}
+                disabled={videoUploading}
+                onClick={() => videoFileInputRef.current?.click()}
+              />
+              {videoUploading ? (
+                <UploadHint>{t('admin.news.form.videoUploading', 'Uploading…')}</UploadHint>
+              ) : null}
+            </EditorToolbar>
             <EditorColumn>
-              <MarkdownToolbar onFormat={onFormat}>
-                <HiddenFileInput
-                  ref={imageFileInputRef}
-                  type='file'
-                  accept='image/*'
-                  onChange={onImageFileSelected}
-                  data-testid='news-inline-image-file-input'
-                />
-                <ToolbarButton
-                  icon={<MaterialIcon icon='add_photo_alternate' />}
-                  label={t('admin.news.form.insertImage', 'Insert image')}
-                  tooltipText={t('admin.news.form.insertImageTooltip', 'Insert image (up to 5 MB)')}
-                  disabled={imageUploading}
-                  onClick={() => imageFileInputRef.current?.click()}
-                />
-                {imageUploading ? (
-                  <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
-                ) : null}
-                <HiddenFileInput
-                  ref={videoFileInputRef}
-                  type='file'
-                  accept='video/mp4,video/webm'
-                  onChange={onVideoFileSelected}
-                  data-testid='news-inline-video-file-input'
-                />
-                <ToolbarButton
-                  icon={<MaterialIcon icon='videocam' />}
-                  label={t('admin.news.form.insertVideo', 'Insert video')}
-                  tooltipText={t(
-                    'admin.news.form.insertVideoTooltip',
-                    'Insert video (up to 30 MB)',
-                  )}
-                  disabled={videoUploading}
-                  onClick={() => videoFileInputRef.current?.click()}
-                />
-                {videoUploading ? (
-                  <CoverHint>{t('admin.news.form.videoUploading', 'Uploading…')}</CoverHint>
-                ) : null}
-              </MarkdownToolbar>
               <ContentField
                 {...bindInput('content')}
                 ref={contentInputRef}
                 onFocus={() => {
                   contentEverFocusedRef.current = true
                 }}
+                onKeyDown={event => {
+                  const kind = markdownFormatForKeyEvent(event)
+                  if (kind) {
+                    event.preventDefault()
+                    onFormat(kind)
+                  }
+                }}
                 label={t('admin.news.form.content', 'Content (Markdown)')}
                 multiline={true}
                 rows={18}
-                maxRows={40}
               />
               {imageError ? <ErrorText>{imageError}</ErrorText> : null}
               {videoError ? <ErrorText>{videoError}</ErrorText> : null}
             </EditorColumn>
-            <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
+            <PreviewContainer>
+              <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
+            </PreviewContainer>
           </FormArea>
-          <CoverSection>
-            <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
-            <CoverPreview>
-              {coverImageUrl ? (
-                <CoverImage src={coverImageUrl} alt='' draggable={false} />
-              ) : (
-                <CoverPlaceholder>
-                  {t('admin.news.form.coverNone', 'No cover image (a stock image will be used)')}
-                </CoverPlaceholder>
-              )}
-            </CoverPreview>
-            <HiddenFileInput
-              ref={coverFileInputRef}
-              type='file'
-              accept='image/*'
-              onChange={onCoverFileSelected}
-              data-testid='news-cover-file-input'
-            />
-            <CoverActions>
-              <OutlinedButton
-                label={
-                  coverImageUrl
-                    ? t('admin.news.form.coverChange', 'Change cover')
-                    : t('admin.news.form.coverUpload', 'Upload cover')
-                }
-                iconStart={<MaterialIcon icon='image' />}
-                onClick={() => coverFileInputRef.current?.click()}
-                disabled={coverUploading}
-              />
-              {coverImageUrl ? (
-                <TextButton
-                  label={t('admin.news.form.coverRemove', 'Remove cover')}
-                  onClick={onRemoveCover}
-                  disabled={coverUploading}
-                />
-              ) : null}
-            </CoverActions>
-            {coverUploading ? (
-              <CoverHint>{t('admin.news.form.coverUploading', 'Uploading…')}</CoverHint>
-            ) : null}
-            {coverError ? <ErrorText>{coverError}</ErrorText> : null}
-          </CoverSection>
-          <PublishControl>
-            <RadioGroup
-              {...bindInput('publishMode')}
-              label={t('admin.news.form.publish', 'Publish')}
-              dense={true}>
-              <RadioButton
-                value={PUBLISH_MODE_DRAFT}
-                label={t('admin.news.form.publishDraft', 'Draft (not published)')}
-              />
-              <RadioButton
-                value={PUBLISH_MODE_NOW}
-                label={t('admin.news.form.publishNow', 'Publish now')}
-              />
-              <RadioButton
-                value={PUBLISH_MODE_SCHEDULE}
-                label={t('admin.news.form.publishSchedule', 'Schedule')}
-              />
-            </RadioGroup>
-            {currentPublishMode === PUBLISH_MODE_SCHEDULE ? (
-              <>
-                <ScheduleField
-                  {...bindInput('scheduledAt')}
-                  label={t('admin.news.form.scheduleDate', 'Publish date and time')}
-                  floatingLabel={true}
-                />
-                <ScheduleHint>
-                  {t(
-                    'admin.news.form.scheduleHint',
-                    'A future date/time schedules the post; a past date/time publishes it immediately.',
-                  )}
-                </ScheduleHint>
-              </>
-            ) : null}
-          </PublishControl>
-          <SaveRow>
-            <FilledButton
-              label={
-                post
-                  ? t('admin.news.saveChanges', 'Save changes')
-                  : t('admin.news.createPost', 'Create post')
-              }
-              onClick={submit}
-              disabled={fetching || coverUploading || imageUploading || videoUploading}
-            />
-          </SaveRow>
         </Form>
-      </Root>
+      </EditorRoot>
     </CenteredContentContainer>
   )
 }

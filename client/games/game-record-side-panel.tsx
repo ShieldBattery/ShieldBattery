@@ -3,9 +3,9 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton } from '../material/button'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
 import { GamePlayersDisplay } from './game-players-display'
@@ -14,11 +14,11 @@ import {
   GameSidePanelActions,
   GameSidePanelChipsRow,
   GameSidePanelEmpty,
-  GameSidePanelHeader,
+  GameSidePanelRelativeTime,
   GameSidePanelSection,
-  GameSidePanelSubline,
   GameSidePanelTitle,
 } from './game-side-panel'
+import { SaveReplayMenuContent } from './save-replay-menu'
 import { useGameReplayActions } from './use-game-replay-actions'
 
 const GameTypeChip = styled.div`
@@ -39,6 +39,8 @@ export interface GameRecordSidePanelProps {
   game?: ReadonlyDeep<GameRecordJson>
   /** When set, the roster shows win/loss coloring for this user's perspective. */
   forUserId?: SbUserId
+  /** When true, the roster's per-column win/loss result is hidden. */
+  spoilerFree?: boolean
   alignWithFirstRow?: boolean
   onViewResults: (gameId: string) => void
   className?: string
@@ -51,6 +53,7 @@ export interface GameRecordSidePanelProps {
 export function GameRecordSidePanel({
   game,
   forUserId,
+  spoilerFree = false,
   alignWithFirstRow = false,
   onViewResults,
   className,
@@ -69,6 +72,7 @@ export function GameRecordSidePanel({
     <GameRecordSidePanelContent
       game={game}
       forUserId={forUserId}
+      spoilerFree={spoilerFree}
       alignWithFirstRow={alignWithFirstRow}
       onViewResults={onViewResults}
       className={className}
@@ -79,6 +83,7 @@ export function GameRecordSidePanel({
 interface GameRecordSidePanelContentProps {
   game: ReadonlyDeep<GameRecordJson>
   forUserId?: SbUserId
+  spoilerFree: boolean
   alignWithFirstRow: boolean
   onViewResults: (gameId: string) => void
   className?: string
@@ -87,31 +92,49 @@ interface GameRecordSidePanelContentProps {
 function GameRecordSidePanelContent({
   game,
   forUserId,
+  spoilerFree,
   alignWithFirstRow,
   onViewResults,
   className,
 }: GameRecordSidePanelContentProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const { replayInfo, onWatchReplay, onSaveReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
+  const [saveAnchor, saveAnchorX, saveAnchorY, refreshSaveAnchorPos] = useRefAnchorPosition(
+    'right',
+    'bottom',
+  )
+  const [saveMenuOpen, openSaveMenu, closeSaveMenu] = usePopoverController({
+    refreshAnchorPos: refreshSaveAnchorPos,
+  })
 
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
+  const headerMeta = (
+    <>
+      <GameSidePanelChipsRow>
+        <GameTypeChip>{getGameTypeLabel(game, t)}</GameTypeChip>
+      </GameSidePanelChipsRow>
+      <GameSidePanelRelativeTime timestampMs={game.startTime} />
+    </>
+  )
+
   return (
-    <GameSidePanel map={map} alignWithFirstRow={alignWithFirstRow} className={className}>
-      <GameSidePanelHeader>
-        <GameSidePanelChipsRow>
-          <GameTypeChip>{getGameTypeLabel(game, t)}</GameTypeChip>
-        </GameSidePanelChipsRow>
-        <GameSidePanelTitle>{mapName}</GameSidePanelTitle>
-        <GameSidePanelSubline>{longTimestamp.format(game.startTime)}</GameSidePanelSubline>
-      </GameSidePanelHeader>
+    <GameSidePanel
+      map={map}
+      headerMeta={headerMeta}
+      alignWithFirstRow={alignWithFirstRow}
+      className={className}>
+      {/* The map thumbnail carries its own name label; a title is only needed when there's no
+          thumbnail for it to live on. */}
+      {!map ? <GameSidePanelTitle>{mapName}</GameSidePanelTitle> : null}
 
       <GameSidePanelSection>
         <GamePlayersDisplay
           game={game}
           forUserId={forUserId}
           showTeamLabels={true}
+          showTeamResults={!spoilerFree}
           interactiveNames={true}
         />
       </GameSidePanelSection>
@@ -121,7 +144,7 @@ function GameRecordSidePanelContent({
           label={t('games.sidePanel.viewFullResults', 'View full results')}
           onClick={() => onViewResults(game.id)}
         />
-        {IS_ELECTRON && replayInfo ? (
+        {replayInfo && IS_ELECTRON ? (
           <>
             <IconButton
               icon={<MaterialIcon icon='play_circle' />}
@@ -129,11 +152,33 @@ function GameRecordSidePanelContent({
               onClick={onWatchReplay}
             />
             <IconButton
+              ref={saveAnchor}
               icon={<MaterialIcon icon='save' />}
               title={t('gameDetails.buttonSaveReplay', 'Save replay')}
-              onClick={onSaveReplay}
+              onClick={openSaveMenu}
             />
+            <Popover
+              open={saveMenuOpen}
+              onDismiss={closeSaveMenu}
+              anchorX={saveAnchorX ?? 0}
+              anchorY={saveAnchorY ?? 0}
+              originX='right'
+              originY='top'>
+              <SaveReplayMenuContent replayInfo={replayInfo} onDismiss={closeSaveMenu} />
+            </Popover>
           </>
+        ) : null}
+        {replayInfo && !IS_ELECTRON ? (
+          <IconButton
+            icon={<MaterialIcon icon='download' />}
+            title={t('gameDetails.buttonDownloadReplay', 'Download replay')}
+            onClick={() => {
+              const a = document.createElement('a')
+              a.href = replayInfo.url
+              a.target = '_blank'
+              a.click()
+            }}
+          />
         ) : null}
       </GameSidePanelActions>
     </GameSidePanel>

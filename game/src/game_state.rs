@@ -332,7 +332,15 @@ impl GameState {
                 let mut session_start =
                     netcode_v2::establish_session(&setup, has_computers, rehome_context)
                         .await
-                        .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                        // The full root cause matters here: this string is the error the app
+                        // reports to the server as this client's load failure, and the deep
+                        // detail (e.g. the relay's close reason) is often the only clue to why
+                        // a session could not be established.
+                        .map_err(|e| {
+                            GameInitError::NetcodeV2SessionInit(netcode_v2::error_with_root_cause(
+                                &e,
+                            ))
+                        })?;
                 info!("Netcode v2 session established");
                 // Route lobby command traffic through the rp2 turn transport rather than native
                 // Storm networking. This must latch on before any native create/join runs: the

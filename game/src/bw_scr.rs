@@ -337,6 +337,10 @@ pub struct BwScr {
     /// Camera pixels moved per mouse pixel dragged while grab panning, stored as `f32` bits.
     /// Written on the async thread at `set_settings`, read on the game thread per pan update.
     grab_pan_gain: AtomicU32,
+    /// Whether grab panning moves the camera opposite to the drag (drag left pans right), like
+    /// touchpad-style "natural" scrolling. Only takes effect while the custom sensitivity is on,
+    /// since the built-in pan behavior runs untouched otherwise.
+    grab_pan_inverted: AtomicBool,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
     /// True if the network is currently stalled (updated whenever `step_network` is called).
@@ -1636,6 +1640,7 @@ impl BwScr {
             }),
             grab_pan_sensitivity_on: AtomicBool::new(false),
             grab_pan_gain: AtomicU32::new(1.0f32.to_bits()),
+            grab_pan_inverted: AtomicBool::new(false),
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             zoom: Value::new(ctx, zoom),
@@ -3165,7 +3170,7 @@ impl BwScr {
                     // Leave pass runs with the turn-state lock released: the leave handlers can issue
                     // commands that re-enter the OUT hook, which would re-lock the turn state.
                     let leaving = self.run_synced_leave_pass(nc);
-                    for storm in leaving {
+                    for (storm, _) in leaving {
                         netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
                     }
                     TurnReceiveOutcome::Ready
@@ -4081,21 +4086,33 @@ impl BwScr {
     /// Reproduces `receive_storm_turns`' synced player-leave pass for the IN replacement: runs
     /// `apply_pending_player_leaves` inside the synced-RNG window (leave handling can consume synced
     /// RNG, so it must run with the same RNG state on every client) and returns the storm slots whose
-    /// pending reason was drained this pass, so the turn state can drop them from its readiness set. Must be
-    /// called with the turn-state lock released — the leave handlers can re-enter the OUT hook.
-    unsafe fn run_synced_leave_pass(&self, nc: &NetcodeV2Bw) -> SmallVec<[StormPlayerId; 4]> {
+    /// pending reason was drained this pass, together with that reason, so the turn state can drop
+    /// them from its readiness set and the completed native boundary can be logged. Must be called
+    /// with the turn-state lock released — the leave handlers can re-enter the OUT hook.
+    unsafe fn run_synced_leave_pass(
+        &self,
+        nc: &NetcodeV2Bw,
+    ) -> SmallVec<[(StormPlayerId, u32); 4]> {
         unsafe {
             let reasons = nc.pending_leave_reason.resolve();
-            let mut leaving = SmallVec::new();
+            let mut leaving: SmallVec<[(StormPlayerId, u32); 4]> = SmallVec::new();
             for i in 0..bw::MAX_STORM_PLAYERS {
-                if *reasons.add(i) != 0 {
-                    leaving.push(StormPlayerId(i as u8));
+                let reason = *reasons.add(i);
+                if reason != 0 {
+                    leaving.push((StormPlayerId(i as u8), reason as u32));
                 }
             }
             let orig_rng = self.enable_rng.resolve();
             self.enable_rng.write(1);
             (nc.apply_pending_player_leaves)();
             self.enable_rng.write(orig_rng);
+            for &(storm, reason) in &leaving {
+                info!(
+                    "netcode v2: native synchronized leave pass completed: storm_slot={} \
+                     reason={:#010x}",
+                    storm.0, reason,
+                );
+            }
             leaving
         }
     }
@@ -4287,7 +4304,12 @@ impl BwScr {
         let Some(ref grab_pan) = self.grab_pan else {
             return;
         };
-        let gain = f32::from_bits(self.grab_pan_gain.load(Ordering::Acquire));
+        let mut gain = f32::from_bits(self.grab_pan_gain.load(Ordering::Acquire));
+        if self.grab_pan_inverted.load(Ordering::Acquire) {
+            // Negating the gain reverses the camera movement on both axes at once; the sub-pixel
+            // carry below is sign-agnostic (trunc and remainder both follow the value's sign).
+            gain = -gain;
+        }
         unsafe {
             let mut pos = POINT { x: 0, y: 0 };
             if GetCursorPos(&mut pos) == 0 {
@@ -5405,11 +5427,17 @@ impl bw::Bw for BwScr {
             .get("grabPanSensitivity")
             .and_then(|x| x.as_f64())
             .unwrap_or(40.0) as f32;
-        // The 0-100 slider value maps exponentially onto a camera-px-per-mouse-px gain of
-        // 0.125..=32 (2^-3..=2^5): the floor pans at an eighth of the cursor's speed for precise
-        // framing, 50 is 1:1, and the top end is a fast sweep. The drag callback accumulates
-        // sub-pixel remainder so gains below 1 still move the camera on slow drags.
-        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 100.0) * 0.08 - 3.0).exp2();
+        let grab_pan_inverted = settings
+            .local
+            .get("grabPanInverted")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
+        // The 0-150 slider value maps exponentially onto a camera-px-per-mouse-px gain of
+        // 0.125..=512 (2^-3..=2^9): the floor pans at an eighth of the cursor's speed for
+        // precise framing, 50 is 1:1, and each 12.5 slider units doubles the speed from there.
+        // The drag callback accumulates sub-pixel remainder so gains below 1 still move the
+        // camera on slow drags.
+        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2();
 
         self.is_carbot.store(is_carbot, Ordering::Release);
         self.show_skins.store(show_skins, Ordering::Release);
@@ -5425,6 +5453,8 @@ impl bw::Bw for BwScr {
             .store(grab_pan_sensitivity_on, Ordering::Release);
         self.grab_pan_gain
             .store(grab_pan_gain.to_bits(), Ordering::Release);
+        self.grab_pan_inverted
+            .store(grab_pan_inverted, Ordering::Release);
 
         *self.team_color_config.lock() =
             settings.team_colors.as_ref().and_then(|tc| tc.to_config());

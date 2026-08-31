@@ -13,6 +13,7 @@ import { MaterialIcon } from '../../icons/material/material-icon'
 import { openMapPreviewDialog } from '../../maps/action-creators'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { FilledButton, OutlinedButton } from '../../material/button'
+import DotsIndicator from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -379,6 +380,17 @@ export interface LobbyDetailRailProps {
   friendIds: ReadonlyArray<SbUserId>
   /** A join failure aimed at the previewed lobby specifically, or undefined when there's none. */
   joinError?: string
+  /**
+   * Whether a join is currently in flight anywhere in the browser -- both buttons disable while
+   * true, since only one join may be outstanding at a time.
+   */
+  joinPending: boolean
+  /**
+   * When the in-flight join targets the previewed lobby specifically, whether it's for a player
+   * seat (`false`) or as an observer (`true`) -- selects which button shows the loading
+   * affordance. Undefined when there's no in-flight join, or it targets a different lobby.
+   */
+  pendingAsObserver?: boolean
   /** Joins the previewed lobby, or asks for an observer seat when `true` is passed. */
   onJoin: (asObserver: boolean) => void
   className?: string
@@ -399,6 +411,8 @@ export function LobbyDetailRail({
   teams,
   friendIds,
   joinError,
+  joinPending,
+  pendingAsObserver,
   onJoin,
   className,
 }: LobbyDetailRailProps) {
@@ -561,17 +575,27 @@ export function LobbyDetailRail({
             {joinError ? <JoinError>{joinError}</JoinError> : null}
             <FullWidthFilledButton
               label={t('lobbies.browser.joinLobby', 'Join lobby')}
+              iconStart={pendingAsObserver === false ? <DotsIndicator /> : undefined}
               onClick={() => onJoin(false)}
               // A lobby with no open player seats has nothing to join as a player; observing,
-              // when available, keeps its own entry below.
-              disabled={summary.playerSlots.open === 0}
+              // when available, keeps its own entry below. Also disabled while any join --
+              // including one targeting a different lobby -- is already in flight.
+              disabled={summary.playerSlots.open === 0 || joinPending}
               testName='join-lobby-button'
             />
             {summary.observerSlots.open > 0 ? (
               <FullWidthOutlinedButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
-                iconStart={<MaterialIcon icon='visibility' size={20} />}
+                iconStart={
+                  pendingAsObserver === true ? (
+                    <DotsIndicator />
+                  ) : (
+                    <MaterialIcon icon='visibility' size={20} />
+                  )
+                }
                 onClick={() => onJoin(true)}
+                disabled={joinPending}
+                testName='join-as-observer-button'
               />
             ) : null}
           </>

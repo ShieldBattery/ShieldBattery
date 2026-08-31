@@ -74,6 +74,7 @@ const BASE_GAME: GameRecord = {
   results: null,
   selectedMatchup: null,
   assignedMatchup: null,
+  manuallyResolved: false,
 }
 
 describe('games/game-page-meta', () => {

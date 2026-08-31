@@ -5,16 +5,23 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 export interface LobbyPlayerNetworkInfo {
   /** The occupant's measured round-trip time (ms) to their chosen home region, if reported. */
   rttMs?: number
+  /**
+   * Whether the occupant's chosen home region came from their manual server-region setting rather
+   * than the auto (lowest-RTT) resolution, if reported. Recorded onto the game's netcode
+   * diagnostics; never an input to placement.
+   */
+  regionManual?: boolean
   /** base64 of the occupant's per-session netcode v2 public key, if reported. */
   netcodeV2Pubkey?: string
 }
 
 /**
  * Server-only store for each lobby occupant's netcode v2 session-create inputs — their measured
- * round-trip time (ms) to their chosen home region and their per-session public key — keyed by lobby
- * id and user id. These feed the netcode v2 session create (the latency estimate, and the token's
- * embedded pubkey) and must never reach the wire-visible `Slot`: lobby diffs broadcast every slot's
- * full record to every member, and neither a player's rtt nor their pubkey is for peers' eyes. Kept
+ * round-trip time (ms) to their chosen home region, how that region was chosen, and their
+ * per-session public key — keyed by lobby id and user id. These feed the netcode v2 session create
+ * (the latency estimate, the game's netcode diagnostics, and the token's embedded pubkey) and must
+ * never reach the wire-visible `Slot`: lobby diffs broadcast every slot's full record to every
+ * member, and none of a player's rtt, region source, or pubkey is for peers' eyes. Kept
  * as its own small class (rather than inline bookkeeping on `LobbyService`) so its lifecycle is
  * unit-testable without the DI graph `LobbyService` itself requires.
  */

@@ -76,6 +76,8 @@ export interface ReplayLibraryFilters {
    */
   gameType?: number | 'others'
   duration?: GameDurationFilter
+  /** When true, includes replays shorter than `MIN_GAME_LENGTH_MS` (hidden by default). */
+  includeShort?: boolean
   /** Team-size shape (e.g. `1v1`). Required for `matchup` to take effect. */
   format?: GameFormat
   /** Encoded matchup filter with wildcards; only applied together with `format`. */

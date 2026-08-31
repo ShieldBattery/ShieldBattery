@@ -5,7 +5,7 @@ import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import type { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { addNetcodeV2RelayEvents } from '../games/game-models'
+import { addNetcodeV2RelayEvents, setNetcodeV2RequestedRegions } from '../games/game-models'
 import log from '../logging/logger'
 import {
   checkSessionsAlive,
@@ -24,11 +24,12 @@ vi.mock('got', async importOriginal => ({
   },
 }))
 
-// The session id + relay history persistence are best-effort DB writes; stub them so the
-// create/rehome paths don't reach a real database.
+// The session id, relay history, and requested-region persistence are best-effort DB writes; stub
+// them so the create/rehome paths don't reach a real database.
 vi.mock('../games/game-models', () => ({
   setNetcodeV2Session: vi.fn().mockResolvedValue(undefined),
   addNetcodeV2RelayEvents: vi.fn().mockResolvedValue(undefined),
+  setNetcodeV2RequestedRegions: vi.fn().mockResolvedValue(undefined),
 }))
 
 /** A valid `SB_RP2_CLIENT_KEY` fixture (64 hex chars = a 32-byte Ed25519 seed). */
@@ -613,6 +614,94 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     expect(body.players[1]).not.toHaveProperty('region')
   })
 
+  test('records what every slot requested, region-less slots included', async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0, 1, 2]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    const u3 = makeSbUserId(3)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        {
+          slot: 0,
+          userId: u1,
+          observer: false,
+          region: makeGameServerRegionId('us-east'),
+          rttMs: 24,
+          regionManual: true,
+          pubkey: PUBKEY,
+        },
+        {
+          slot: 1,
+          userId: u2,
+          observer: false,
+          region: makeGameServerRegionId('eu-west'),
+          regionManual: false,
+          pubkey: PUBKEY,
+        },
+        { slot: 2, userId: u3, observer: true, pubkey: PUBKEY },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    expect(setNetcodeV2RequestedRegions).toHaveBeenCalledWith('game-1', [
+      { slot: 0, userId: u1, observer: false, region: 'us-east', rttMs: 24, manual: true },
+      // A hand-picked region with nothing measured yet is still what the player asked for.
+      {
+        slot: 1,
+        userId: u2,
+        observer: false,
+        region: 'eu-west',
+        rttMs: undefined,
+        manual: false,
+      },
+      // A region-less entry is itself signal: this player queued region-blind.
+      {
+        slot: 2,
+        userId: u3,
+        observer: true,
+        region: undefined,
+        rttMs: undefined,
+        manual: undefined,
+      },
+    ])
+  })
+
+  test('records the requested regions even when the coordinator never mints a session', async () => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockRejectedValue(new Error('coordinator unreachable'))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+
+    await expect(
+      service.createSessionForGame({
+        gameId: 'game-1',
+        slots: [
+          {
+            slot: 0,
+            userId: u1,
+            observer: false,
+            region: makeGameServerRegionId('us-east'),
+            rttMs: 24,
+            pubkey: PUBKEY,
+          },
+        ],
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow()
+
+    // A create that never completes is exactly when the request side of placement matters, so the
+    // record has to already be down before the coordinator is asked for anything.
+    expect(setNetcodeV2RequestedRegions).toHaveBeenCalledWith('game-1', [
+      expect.objectContaining({ slot: 0, userId: u1, region: 'us-east', rttMs: 24 }),
+    ])
+  })
+
   test('adds a ceiled latency_estimate_ms to the request body when slots carry a latency signal', async () => {
     configureNetcodeV2()
     mockSessionResponse(sessionResponse([0, 1]))
@@ -811,6 +900,45 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     expect(addNetcodeV2RelayEvents).toHaveBeenCalledWith('game-1', [
       expect.objectContaining({ kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900' }),
     ])
+  })
+
+  test('records the home relay region when the coordinator labels it', async () => {
+    configureNetcodeV2()
+    mockSessionResponse({
+      ...sessionResponse([0]),
+      // eslint-disable-next-line camelcase
+      relay_regions: [{ relay_id: 1, region: 'us-east' }],
+    })
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
+      signal: new AbortController().signal,
+    })
+
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledWith('game-1', [
+      expect.objectContaining({ kind: 'home', relayId: 1, region: 'us-east' }),
+    ])
+  })
+
+  test('omits the region on a home event when the coordinator has no label for the relay', async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
+      signal: new AbortController().signal,
+    })
+
+    const [, events] = asMockedFunction(addNetcodeV2RelayEvents).mock.calls[0]
+    expect(events[0]).not.toHaveProperty('region')
   })
 
   test('records one deduped home event per distinct relay across a dev cross-relay split', async () => {
@@ -1029,6 +1157,32 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       expect(resultPromise).rejects.toThrow('coordinator session create failed'),
       vi.advanceTimersByTimeAsync(130_000),
     ])
+  })
+
+  test("each recipient's setup carries the exact pubkey the server embedded for their own slot", async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0, 1]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    const pubkey1 = Buffer.alloc(32, 1).toString('base64')
+    const pubkey2 = Buffer.alloc(32, 2).toString('base64')
+
+    const result = await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false, pubkey: pubkey1 },
+        { slot: 1, userId: u2, observer: false, pubkey: pubkey2 },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    // Each recipient's own setup must echo the pubkey the *server* used for their slot, not some
+    // other participant's -- otherwise the app can't disambiguate which of its outstanding keypairs
+    // the server actually seated.
+    expect(result.get(u1)!.clientPubkey).toBe(pubkey1)
+    expect(result.get(u2)!.clientPubkey).toBe(pubkey2)
   })
 
   test('fails fast (never contacting the coordinator) when a slot is missing its pubkey', async () => {

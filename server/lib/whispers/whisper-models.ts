@@ -1,15 +1,31 @@
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { WhisperMessageType } from '../../../common/whispers'
+import { HistoryCursor } from '../chat/chat-models'
 import db from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
-export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUserId[]> {
+/** A user's whisper session with another user, along with their read position in it. */
+export interface WhisperSessionEntry {
+  targetId: SbUserId
+  /** The user's last recorded read position in the session, if they have one. */
+  lastReadTime: Date | undefined
+  /** When the user started this whisper session. */
+  startDate: Date
+}
+
+export async function getWhisperSessionsForUser(userId: SbUserId): Promise<WhisperSessionEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<{ id: SbUserId }>(sql`
-      SELECT ws.target_user_id AS id, COALESCE(wm.sent, ws.start_date) AS last_sent
+    const result = await client.query<{
+      target_id: SbUserId
+      last_read_time: Date | null
+      start_date: Date
+    }>(sql`
+      SELECT ws.target_user_id AS target_id, ws.last_read_time, ws.start_date,
+        COALESCE(wm.sent, ws.start_date) AS last_sent
       FROM whisper_sessions ws
       LEFT JOIN LATERAL (
         SELECT wm.sent
@@ -22,7 +38,11 @@ export async function getWhisperSessionsForUser(userId: SbUserId): Promise<SbUse
       WHERE ws.user_id = ${userId}
       ORDER BY last_sent DESC;
     `)
-    return result.rows.map(row => row.id)
+    return result.rows.map(row => ({
+      targetId: row.target_id,
+      lastReadTime: row.last_read_time ?? undefined,
+      startDate: row.start_date,
+    }))
   } finally {
     done()
   }
@@ -58,6 +78,77 @@ export async function startWhisperSessionsBothDirections(
         (${userIdB}, ${userIdA}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
       ON CONFLICT DO NOTHING;
     `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Advances a user's read position in a whisper conversation to `lastReadTime`. The update is
+ * monotonic (never moves the stored position backward) so a stale report from one device can't
+ * clobber a newer position recorded by another, and clamped to `now()` so a client can't push the
+ * position into the future. A silent no-op if the session doesn't exist (e.g. it was closed).
+ *
+ * Returns the resulting stored read position, or `undefined` if the session doesn't exist (nothing
+ * to update).
+ */
+export async function updateLastReadTime(
+  userId: SbUserId,
+  targetId: SbUserId,
+  lastReadTime: Date,
+): Promise<Date | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ last_read_time: Date }>(sql`
+      UPDATE whisper_sessions
+      SET last_read_time = GREATEST(
+        COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
+      )
+      WHERE user_id = ${userId} AND target_user_id = ${targetId}
+      RETURNING last_read_time;
+    `)
+    return result.rows[0]?.last_read_time
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the IDs of the target users in a user's whisper sessions that have an unread message
+ * from that target: one sent after the user's last recorded read position for the session, or —
+ * when no read position has been recorded yet — sent at or after the session started. A session
+ * row is created no later than the first message of a conversation (see `sendWhisperMessage`), so
+ * a conversation the user has never opened counts as unread from its very first message;
+ * `markRead` records a read position the first time a client reports one. Closing a session
+ * deletes its row (and read position), so a conversation re-opened by a later message only counts
+ * messages from the new `start_date` on — older history isn't resurrected as unread.
+ * Every whisper message is a text message (`WhisperMessageData` has a single variant), so every
+ * message from the target counts. A single set-based query over all of the user's sessions, rather
+ * than one query per session. `sent` and `start_date` columns store naive UTC wall time (see the
+ * timestamp parser setup in `server/lib/db`), so the read position is converted to naive UTC for
+ * the comparison instead of being left to the connection's session time zone. The comparison works
+ * at millisecond granularity (`sent >= read + 1ms` rather than `sent > read`): read positions
+ * arrive as epoch milliseconds while `sent` keeps microseconds, so a full-precision strict
+ * comparison would leave the newest message permanently unread.
+ */
+export async function getUnreadWhisperTargets(userId: SbUserId): Promise<SbUserId[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ target_user_id: SbUserId }>(sql`
+      SELECT ws.target_user_id FROM whisper_sessions ws
+      WHERE ws.user_id = ${userId}
+        AND EXISTS (
+          SELECT 1 FROM whisper_messages m
+          WHERE m.user_low = LEAST(ws.user_id, ws.target_user_id)
+            AND m.user_high = GREATEST(ws.user_id, ws.target_user_id)
+            AND m.from_id = ws.target_user_id
+            AND m.sent >= COALESCE(
+              (ws.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+              ws.start_date
+            )
+        )
+    `)
+    return result.rows.map(row => row.target_user_id)
   } finally {
     done()
   }
@@ -146,32 +237,130 @@ export async function addMessageToWhisper(
   }
 }
 
+/**
+ * A page of whisper session messages, along with whether messages exist beyond either edge of the
+ * returned window (evaluated at query time via a `limit`+1 probe row per edge).
+ */
+export interface WhisperMessagePage {
+  /** Messages in the page, ordered oldest to newest. */
+  messages: WhisperMessage[]
+  /** Whether messages older than the returned window exist. */
+  hasMoreBefore: boolean
+  /** Whether messages newer than the returned window exist. */
+  hasMoreAfter: boolean
+}
+
 export async function getMessagesForWhisperSession(
   userId1: SbUserId,
   userId2: SbUserId,
   limit = 50,
-  beforeDate?: Date,
-): Promise<WhisperMessage[]> {
+  cursor: HistoryCursor = { kind: 'newest' },
+): Promise<WhisperMessagePage> {
   const [userLow, userHigh] = userId1 < userId2 ? [userId1, userId2] : [userId2, userId1]
   const { client, done } = await db()
 
   try {
-    const result = await client.query<DbWhisperMessage>(sql`
-      WITH messages AS (
-        SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
-        FROM whisper_messages AS m
-        WHERE m.user_low  = ${userLow}::int4
-          AND m.user_high = ${userHigh}::int4
-          ${beforeDate !== undefined ? sql`AND m.sent < ${beforeDate}` : sql``}
-        ORDER BY m.sent DESC
-        LIMIT ${limit}
-      )
-      SELECT *
-      FROM messages
-      ORDER BY sent ASC;
-    `)
+    switch (cursor.kind) {
+      case 'newest':
+      case 'before': {
+        const result = await client.query<DbWhisperMessage>(sql`
+          SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+          FROM whisper_messages AS m
+          WHERE m.user_low  = ${userLow}::int4
+            AND m.user_high = ${userHigh}::int4
+            ${cursor.kind === 'before' ? sql`AND m.sent < ${cursor.date}` : sql``}
+          ORDER BY m.sent DESC
+          LIMIT ${limit + 1};
+        `)
+        // A `limit`+1'th row means messages older than the page exist; it's dropped below rather
+        // than returned.
+        const hasMoreBefore = result.rows.length > limit
+        const rows = hasMoreBefore ? result.rows.slice(0, limit) : result.rows
 
-    return result.rows.map(row => convertMessageFromDb(row))
+        return {
+          messages: rows.map(row => convertMessageFromDb(row)).reverse(),
+          hasMoreBefore,
+          hasMoreAfter: cursor.kind === 'before',
+        }
+      }
+
+      case 'after': {
+        const result = await client.query<DbWhisperMessage>(sql`
+          SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+          FROM whisper_messages AS m
+          WHERE m.user_low  = ${userLow}::int4
+            AND m.user_high = ${userHigh}::int4
+            AND m.sent > ${cursor.date}
+          ORDER BY m.sent ASC
+          LIMIT ${limit + 1};
+        `)
+        // Ascending scan, so the extra probe row (if present) is the newest of the batch.
+        const hasMoreAfter = result.rows.length > limit
+        const rows = hasMoreAfter ? result.rows.slice(0, limit) : result.rows
+
+        return {
+          messages: rows.map(row => convertMessageFromDb(row)),
+          hasMoreBefore: true,
+          hasMoreAfter,
+        }
+      }
+
+      case 'around': {
+        // An around window is used to place the message at `date` near the top of a viewport, so
+        // most of the window belongs to what renders below it: too little content below the
+        // target leaves the viewport unable to scroll down to the position.
+        const beforeLimit = Math.floor(limit / 3)
+        const afterLimit = limit - beforeLimit
+        // `is_before` lets the two halves be told apart in JS without comparing timestamps
+        // against `cursor.date` there (the DB's microsecond-precision `sent` loses precision when
+        // parsed into a JS `Date`, so that comparison has to stay server-side). Each half keeps
+        // its own scan order in the output (`is_before DESC` groups before-half rows first, each
+        // half internally ascending by `sent`), so the probe row for each half is always at a
+        // fixed end: the before-half's oldest row, or the after-half's newest row.
+        const result = await client.query<DbWhisperMessage & { is_before: boolean }>(sql`
+          WITH before_half AS (
+            SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+            FROM whisper_messages AS m
+            WHERE m.user_low  = ${userLow}::int4
+              AND m.user_high = ${userHigh}::int4
+              AND m.sent < ${cursor.date}
+            ORDER BY m.sent DESC
+            LIMIT ${beforeLimit + 1}
+          ), after_half AS (
+            SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
+            FROM whisper_messages AS m
+            WHERE m.user_low  = ${userLow}::int4
+              AND m.user_high = ${userHigh}::int4
+              AND m.sent >= ${cursor.date}
+            ORDER BY m.sent ASC
+            LIMIT ${afterLimit + 1}
+          )
+          SELECT *, TRUE AS is_before FROM before_half
+          UNION ALL
+          SELECT *, FALSE AS is_before FROM after_half
+          ORDER BY is_before DESC, sent ASC;
+        `)
+
+        const beforeRows = result.rows.filter(row => row.is_before)
+        const afterRows = result.rows.filter(row => !row.is_before)
+        const hasMoreBefore = beforeRows.length > beforeLimit
+        const hasMoreAfter = afterRows.length > afterLimit
+        // Both halves are already in ascending order (see the query comment above), so the probe
+        // sits at a known end: the before-half's first (oldest) row, or the after-half's last
+        // (newest) row.
+        const trimmedBefore = hasMoreBefore ? beforeRows.slice(1) : beforeRows
+        const trimmedAfter = hasMoreAfter ? afterRows.slice(0, -1) : afterRows
+
+        return {
+          messages: [...trimmedBefore, ...trimmedAfter].map(row => convertMessageFromDb(row)),
+          hasMoreBefore,
+          hasMoreAfter,
+        }
+      }
+
+      default:
+        return assertUnreachable(cursor)
+    }
   } finally {
     done()
   }

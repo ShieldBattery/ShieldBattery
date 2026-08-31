@@ -112,6 +112,11 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
 
 interface TimestampMessageLayoutProps {
   time: number
+  /**
+   * Id of the message being rendered. Surfaces that restore a reading position locate messages in
+   * the DOM by it, so leaving it out makes a message impossible to anchor to.
+   */
+  msgId?: string
   active?: boolean
   highlighted?: boolean
   className?: string
@@ -128,6 +133,7 @@ export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
       className={props.className}
       role='document'
       onContextMenu={props.onContextMenu}
+      data-message-id={props.msgId}
       data-testid={props.testId}>
       <MessageTimestamp time={props.time} />
       {props.children}

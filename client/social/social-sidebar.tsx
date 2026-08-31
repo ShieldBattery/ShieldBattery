@@ -19,6 +19,7 @@ import {
   leaveChannelWithConfirmation,
 } from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
+import { channelHasUnreadMention } from '../chat/chat-reducer'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useWindowSize } from '../dom/dimension-hooks'
@@ -519,6 +520,7 @@ function ChannelEntry({
   const dispatch = useAppDispatch()
   const basicInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
+  const hasUnreadMention = useAppSelector(s => channelHasUnreadMention(s.chat, channelId))
   const { onNavigation } = useNavigationTracker()
 
   useEffect(() => {
@@ -547,7 +549,8 @@ function ChannelEntry({
   return (
     <Entry
       link={urlPath`/chat/${channelId}/${basicInfo?.name}`}
-      needsAttention={hasUnread}
+      needsAttention={hasUnread || hasUnreadMention}
+      urgentAttention={hasUnreadMention}
       title={basicInfo ? `#${basicInfo.name}` : undefined}
       button={button}
       icon={<ConnectedChannelBadge channelId={channelId} />}
@@ -617,6 +620,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
         button={button}
         icon={<ConnectedAvatar userId={userId} />}
         needsAttention={hasUnread}
+        urgentAttention={hasUnread}
         isActive={isOverlayOpen}
         onContextMenu={onContextMenu}
         onClick={event => {
@@ -699,7 +703,7 @@ const EntryButton = styled.div`
   }
 `
 
-const AttentionIndicator = styled.div`
+const AttentionIndicator = styled.div<{ $urgent?: boolean }>`
   width: 8px;
   height: 8px;
   position: absolute;
@@ -707,7 +711,7 @@ const AttentionIndicator = styled.div`
   top: calc(50% - 4px);
 
   border-radius: 50%;
-  background-color: var(--color-amber80);
+  background-color: ${props => (props.$urgent ? 'var(--theme-error)' : 'var(--color-amber80)')};
 `
 
 const EntryIcon = styled.div`
@@ -733,6 +737,11 @@ interface EntryProps {
   button?: React.ReactNode
   icon?: React.ReactNode
   needsAttention?: boolean
+  /**
+   * Whether the attention indicator should render in its urgent color, e.g. for a channel message
+   * that mentions the current user or a whisper (which is inherently directed at them).
+   */
+  urgentAttention?: boolean
   isActive?: boolean
   className?: string
   onContextMenu?: (event: React.MouseEvent) => void
@@ -745,6 +754,7 @@ function Entry({
   button,
   icon,
   needsAttention,
+  urgentAttention,
   isActive,
   className,
   children,
@@ -772,7 +782,7 @@ function Entry({
       className={className}
       onContextMenu={onContextMenu}>
       {icon ? <EntryIcon>{icon}</EntryIcon> : null}
-      {needsAttention ? <AttentionIndicator /> : null}
+      {needsAttention ? <AttentionIndicator $urgent={urgentAttention} /> : null}
       <EntryText ref={textRef} title={isOverflowing ? title : undefined} data-testid='entry-text'>
         {children}
       </EntryText>

@@ -2,7 +2,7 @@ import Joi from 'joi'
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameConfig, GameSource } from '../../../common/games/configuration'
+import { GameConfig, GameSource, MatchmakingGameConfig } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import {
   GameRecord,
@@ -11,13 +11,20 @@ import {
   MatchmakingResultsEvent,
   toGameRecordJson,
 } from '../../../common/games/games'
-import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
+import {
+  MatchupString,
+  computeMatchupString,
+  getTeamsFromConfig,
+} from '../../../common/games/matchups'
 import {
   ALL_GAME_CLIENT_ALLIANCE_STATES,
   ALL_GAME_CLIENT_LOSE_TYPES,
   ALL_GAME_CLIENT_RESULTS,
   GameResultErrorCode,
   RawGameResultsReport,
+  ReconciledPlayerResult,
+  ReconciledResult,
+  ReconciledResults,
   StoredGameResults,
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
@@ -31,6 +38,7 @@ import {
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { DbClient } from '../db'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
@@ -40,6 +48,8 @@ import {
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   lockGameAndCheckReconciled,
+  lockGameForManualResolution,
+  setManuallyResolvedResult,
   setReconciledResult,
 } from '../games/game-models'
 import {
@@ -72,6 +82,7 @@ import {
 import { calculateChangedRatings } from '../matchmaking/rating'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import {
+  StoredResultReport,
   areAllHumansAccountedFor,
   getCurrentReportedResults,
   getDepartureTimesForGame,
@@ -118,6 +129,169 @@ export function getValidationTeams(
   }
 
   return getTeamsFromConfig(config)?.map(team => team.map(p => p.id)) ?? humans.map(id => [id])
+}
+
+/** An outcome an admin can hand-assign to a player when manually resolving a disputed game. */
+export type ManualGameResult = Exclude<ReconciledResult, 'unknown'>
+
+export const ALL_MANUAL_GAME_RESULTS: ReadonlyArray<ManualGameResult> = ['win', 'loss', 'draw']
+
+/**
+ * The team groupings a matchmaking game's hand-assigned outcomes must line up with: exactly one of
+ * these teams wins and every other player loses. Partitioned the way rating calculation partitions
+ * players — a 1v1 pits its participants against each other individually, every team mode takes the
+ * teams from the config.
+ */
+function getMatchmakingResolutionTeams(
+  config: MatchmakingGameConfig,
+  userIds: ReadonlyArray<SbUserId>,
+): SbUserId[][] {
+  const { gameSourceExtra } = config
+  switch (gameSourceExtra.type) {
+    case MatchmakingType.Match1v1:
+    case MatchmakingType.Match1v1Fastest:
+      return userIds.map(id => [id])
+    case MatchmakingType.Match2v2:
+    case MatchmakingType.Match2v2Bgh:
+    case MatchmakingType.Match2v2Hunters:
+    case MatchmakingType.Match2v2Fastest:
+    case MatchmakingType.Match3v3Bgh:
+    case MatchmakingType.Match3v3Hunters:
+    case MatchmakingType.Match3v3Fastest:
+      // Records created while the observer team was serialized alongside the player teams carry it
+      // as an empty array, which would otherwise read as a team that trivially "wins".
+      return config.teams.map(team => team.map(p => p.id)).filter(team => team.length > 0)
+    default:
+      return assertUnreachable(gameSourceExtra)
+  }
+}
+
+/**
+ * Checks that hand-assigned outcomes describe a result a matchmaking game could actually have had:
+ * matchmaking has no draws, and exactly one full team wins while everyone else loses.
+ */
+function validateMatchmakingResolution(
+  config: MatchmakingGameConfig,
+  results: ReadonlyMap<SbUserId, ManualGameResult>,
+): void {
+  for (const result of results.values()) {
+    if (result === 'draw') {
+      throw new GameResultServiceError(
+        GameResultErrorCode.InvalidResults,
+        'matchmaking games cannot be resolved as a draw',
+      )
+    }
+  }
+
+  const teams = getMatchmakingResolutionTeams(config, Array.from(results.keys()))
+  const teamPlayers = teams.flat()
+  if (teamPlayers.length !== results.size || teamPlayers.some(id => !results.has(id))) {
+    throw new GameResultServiceError(
+      GameResultErrorCode.InvalidResults,
+      "the game's teams don't cover exactly the players being resolved",
+    )
+  }
+
+  const winners = new Set(
+    Array.from(results.entries()).flatMap(([id, result]) => (result === 'win' ? [id] : [])),
+  )
+  const winningTeam = teams.find(team => team.every(id => winners.has(id)))
+  if (!winningTeam || winningTeam.length !== winners.size) {
+    throw new GameResultServiceError(
+      GameResultErrorCode.InvalidResults,
+      'exactly one full team must win a matchmaking game',
+    )
+  }
+}
+
+/**
+ * Digests a game's stored reports into the uniform `ResultSubmission` shape a legacy report already
+ * has, so everything downstream (reconcile, desync policy, departure tiebreak, persistence, matchup
+ * derivation) is agnostic to which form a client submitted. The returned array stays aligned with
+ * the input, `null` for a player who never reported.
+ *
+ * `isUms` comes from our own config, never the client. The raw-report veto (Rule A in
+ * `deriveResultSubmission`) needs cross-report evidence: the set of users whose OWN report claims a
+ * self-Victory is computed once over every stored report and fed to each derivation, so a leaver's
+ * uncorroborated quit-victory in someone else's capture can be stripped while a genuine
+ * winner-who-quit's victory is preserved.
+ */
+function digestStoredReports(
+  config: GameConfig,
+  storedResults: ReadonlyArray<StoredResultReport | null>,
+): Array<ResultSubmission | null> {
+  const isUms = config.gameType === GameType.UseMapSettings
+  const corroboratedVictors = computeCorroboratedVictors(storedResults)
+  return storedResults.map(stored => {
+    if (!stored) {
+      return null
+    }
+    if (stored.kind === 'raw') {
+      return deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
+    }
+    return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
+  })
+}
+
+/**
+ * Determines the assigned matchup for a game being resolved by hand, or `null` when any player's
+ * assigned race can't be established from a trustworthy source.
+ *
+ * A player who picked a specific race in the config settles their own race: the game can't have
+ * given them a different one, so no report is consulted for them. A player who picked random only
+ * has the reports to go on, and a game that ended in a dispute can have reports that disagree about
+ * a race or omit a player entirely, so a random player's race counts as known only when they appear
+ * in at least one report and every appearance agrees. Anything short of that leaves the whole
+ * matchup unknown rather than baking in a guess — the same standard reconciliation applies when it
+ * refuses to assign a matchup to a disputed game.
+ *
+ * Games with computer players never get a matchup: they're exempt from results entirely.
+ */
+async function computeManualResolutionMatchup(
+  gameRecord: GameRecord,
+): Promise<MatchupString | null> {
+  if (gameRecord.config.teams.some(team => team.some(p => p.isComputer))) {
+    return null
+  }
+
+  const teams = getTeamsFromConfig(gameRecord.config)
+  if (!teams) {
+    return null
+  }
+
+  const players = teams.flat()
+  const assignedRaces = new Map<SbUserId, RaceChar>(
+    players.filter(p => p.race !== 'r').map(p => [p.id, p.race]),
+  )
+
+  const randomPlayers = players.filter(p => p.race === 'r')
+  if (randomPlayers.length) {
+    const submissions = digestStoredReports(
+      gameRecord.config,
+      await getCurrentReportedResults(gameRecord.id),
+    )
+
+    for (const player of randomPlayers) {
+      const reportedRaces = new Set<RaceChar>()
+      for (const submission of submissions) {
+        for (const [id, result] of submission?.playerResults ?? []) {
+          if (id === player.id) {
+            reportedRaces.add(result.race)
+          }
+        }
+      }
+
+      if (reportedRaces.size === 1) {
+        assignedRaces.set(player.id, reportedRaces.values().next().value!)
+      }
+    }
+  }
+
+  if (players.some(p => !assignedRaces.has(p.id))) {
+    return null
+  }
+
+  return computeMatchupString(teams.map(team => team.map(p => assignedRaces.get(p.id)!)))
 }
 
 /**
@@ -656,6 +830,12 @@ export default class GameResultService {
         await this.publishReconciledGame(gameId)
       }
     } catch (err: unknown) {
+      if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.NotFound) {
+        // A game whose load was cancelled gets its record deleted, but its netcode-v2 session
+        // still tears down afterward and delivers `sessionClosed` — there's just nothing left to
+        // reconcile for it.
+        return
+      }
       logger.error({ err }, `failed to force-reconcile game ${gameId}`)
     }
   }
@@ -681,24 +861,7 @@ export default class GameResultService {
 
     const gameId = gameRecord.id
     const storedResults = await getCurrentReportedResults(gameId)
-    // Raw reports are digested into the same `ResultSubmission` shape a legacy report already has,
-    // so everything downstream (reconcile, desync policy, departure tiebreak, persistence) is
-    // agnostic to which form a client submitted. `isUms` comes from our own config, never the client.
-    const isUms = gameRecord.config.gameType === GameType.UseMapSettings
-    // Cross-report evidence for the raw-report veto (Rule A in `deriveResultSubmission`): the set of
-    // users whose OWN report claims a self-Victory, computed once over every stored report and fed to
-    // each derivation so a leaver's uncorroborated quit-victory in someone else's capture can be
-    // stripped while a genuine winner-who-quit's victory is preserved.
-    const corroboratedVictors = computeCorroboratedVictors(storedResults)
-    const currentResults: Array<ResultSubmission | null> = storedResults.map(stored => {
-      if (!stored) {
-        return null
-      }
-      if (stored.kind === 'raw') {
-        return deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
-      }
-      return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
-    })
+    const currentResults = digestStoredReports(gameRecord.config, storedResults)
     const humans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id))
     const desyncEvents = await getDesyncEventsForGame(gameId)
 
@@ -828,228 +991,6 @@ export default class GameResultService {
         return false
       }
 
-      // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
-      // and "fixup" rank changes and win/loss counters
-      const resultEntries = Array.from(reconciled.results.entries())
-
-      const idToSelectedRace = new Map(
-        gameRecord.config.teams
-          .map(team =>
-            team
-              .filter(p => !p.isComputer)
-              .map<[id: SbUserId, race: RaceChar]>(p => [p.id, p.race]),
-          )
-          .flat(),
-      )
-
-      const [season, seasonEnd] = await this.matchmakingSeasonsService.getSeasonForDate(
-        gameRecord.startTime,
-      )
-
-      const matchmakingRankingChanges: MatchmakingRating[] = []
-      const leagueLeaderboardChanges: LeagueUser[] = []
-      if (
-        gameRecord.config.gameSource === GameSource.Matchmaking &&
-        !reconciled.disputed &&
-        // Only update matchmaking ratings if we're not past the point that the season is finalized
-        (seasonEnd === undefined ||
-          Number(seasonEnd) + MATCHMAKING_SEASON_FINALIZED_TIME_MS > Number(reconcileDate))
-      ) {
-        // Calculate and update the matchmaking ranks
-
-        // NOTE(tec27): We sort these so we always lock them in the same order and avoid
-        // deadlocks
-        const userIds = Array.from(reconciled.results.keys()).sort()
-
-        const mmrs = await getMatchmakingRatingsWithLock(
-          client,
-          userIds,
-          gameRecord.config.gameSourceExtra.type,
-          season.id,
-        )
-        const activeLeagues = await getActiveLeaguesForUsers(
-          userIds,
-          gameRecord.config.gameSourceExtra.type,
-          gameRecord.startTime,
-          client,
-        )
-        if (mmrs.length !== userIds.length) {
-          throw new Error('missing MMR for some users')
-        }
-
-        const {
-          config: { gameSourceExtra },
-        } = gameRecord
-
-        let teams: [teamA: SbUserId[], teamB: SbUserId[]]
-        if (
-          gameSourceExtra.type === MatchmakingType.Match1v1 ||
-          gameSourceExtra.type === MatchmakingType.Match1v1Fastest
-        ) {
-          teams = [[userIds[0]], [userIds[1]]]
-        } else if (
-          gameSourceExtra.type === MatchmakingType.Match2v2 ||
-          gameSourceExtra.type === MatchmakingType.Match2v2Bgh ||
-          gameSourceExtra.type === MatchmakingType.Match2v2Hunters ||
-          gameSourceExtra.type === MatchmakingType.Match2v2Fastest ||
-          gameSourceExtra.type === MatchmakingType.Match3v3Bgh ||
-          gameSourceExtra.type === MatchmakingType.Match3v3Hunters ||
-          gameSourceExtra.type === MatchmakingType.Match3v3Fastest
-        ) {
-          // TODO(tec27): Pass gameSourceExtra.parties info to rating change calculation
-          teams = gameRecord.config.teams.map(t => t.map(p => p.id)) as [
-            teamA: SbUserId[],
-            teamB: SbUserId[],
-          ]
-        } else {
-          teams = assertUnreachable(gameSourceExtra)
-        }
-
-        const ratingChanges = calculateChangedRatings({
-          season,
-          gameId,
-          gameDate: reconcileDate,
-          results: reconciled.results,
-          mmrs,
-          teams,
-          activeLeagues,
-        })
-
-        for (const mmr of mmrs) {
-          const { matchmaking: matchmakingChange, leagues: leagueChanges } = ratingChanges.get(
-            mmr.userId,
-          )!
-          await insertMatchmakingRatingChange(client, matchmakingChange)
-
-          const selectedRace = idToSelectedRace.get(mmr.userId)!
-          const assignedRace = reconciled.results.get(mmr.userId)!.race
-
-          {
-            const winCount = matchmakingChange.outcome === 'win' ? 1 : 0
-            const lossCount = matchmakingChange.outcome === 'win' ? 0 : 1
-
-            const updatedMmr: MatchmakingRating = {
-              userId: mmr.userId,
-              matchmakingType: mmr.matchmakingType,
-              seasonId: mmr.seasonId,
-              rating: matchmakingChange.rating,
-              uncertainty: matchmakingChange.uncertainty,
-              volatility: matchmakingChange.volatility,
-              points: matchmakingChange.points,
-              pointsConverged: matchmakingChange.pointsConverged,
-              bonusUsed: matchmakingChange.bonusUsed,
-              numGamesPlayed: mmr.numGamesPlayed + 1,
-              lifetimeGames: matchmakingChange.lifetimeGames,
-              lastPlayedDate: reconcileDate,
-              wins: mmr.wins + winCount,
-              losses: mmr.losses + lossCount,
-
-              pWins: mmr.pWins + (selectedRace === 'p' ? winCount : 0),
-              pLosses: mmr.pLosses + (selectedRace === 'p' ? lossCount : 0),
-              tWins: mmr.tWins + (selectedRace === 't' ? winCount : 0),
-              tLosses: mmr.tLosses + (selectedRace === 't' ? lossCount : 0),
-              zWins: mmr.zWins + (selectedRace === 'z' ? winCount : 0),
-              zLosses: mmr.zLosses + (selectedRace === 'z' ? lossCount : 0),
-              rWins: mmr.rWins + (selectedRace === 'r' ? winCount : 0),
-              rLosses: mmr.rLosses + (selectedRace === 'r' ? lossCount : 0),
-
-              rPWins: mmr.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
-              rPLosses:
-                mmr.rPLosses + (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
-              rTWins: mmr.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
-              rTLosses:
-                mmr.rTLosses + (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
-              rZWins: mmr.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
-              rZLosses:
-                mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
-            }
-
-            await updateMatchmakingRating(client, updatedMmr)
-            matchmakingRankingChanges.push(updatedMmr)
-          }
-
-          for (const leagueChange of leagueChanges) {
-            const oldLeagueUser = activeLeagues
-              .get(leagueChange.userId)!
-              .find(l => l.leagueId === leagueChange.leagueId)!
-
-            if (oldLeagueUser.isBanned) {
-              // Don't process league changes for banned users
-              continue
-            }
-
-            await insertLeagueUserChange(leagueChange, client)
-
-            const winCount = leagueChange.outcome === 'win' ? 1 : 0
-            const lossCount = leagueChange.outcome === 'win' ? 0 : 1
-
-            const updatedLeagueUser: LeagueUser = {
-              leagueId: oldLeagueUser.leagueId,
-              userId: oldLeagueUser.userId,
-              isBanned: oldLeagueUser.isBanned,
-              lastPlayedDate: reconcileDate,
-              points: leagueChange.points,
-              pointsConverged: leagueChange.pointsConverged,
-              wins: oldLeagueUser.wins + winCount,
-              losses: oldLeagueUser.losses + lossCount,
-
-              pWins: oldLeagueUser.pWins + (selectedRace === 'p' ? winCount : 0),
-              pLosses: oldLeagueUser.pLosses + (selectedRace === 'p' ? lossCount : 0),
-              tWins: oldLeagueUser.tWins + (selectedRace === 't' ? winCount : 0),
-              tLosses: oldLeagueUser.tLosses + (selectedRace === 't' ? lossCount : 0),
-              zWins: oldLeagueUser.zWins + (selectedRace === 'z' ? winCount : 0),
-              zLosses: oldLeagueUser.zLosses + (selectedRace === 'z' ? lossCount : 0),
-              rWins: oldLeagueUser.rWins + (selectedRace === 'r' ? winCount : 0),
-              rLosses: oldLeagueUser.rLosses + (selectedRace === 'r' ? lossCount : 0),
-
-              rPWins:
-                oldLeagueUser.rPWins +
-                (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
-              rPLosses:
-                oldLeagueUser.rPLosses +
-                (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
-              rTWins:
-                oldLeagueUser.rTWins +
-                (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
-              rTLosses:
-                oldLeagueUser.rTLosses +
-                (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
-              rZWins:
-                oldLeagueUser.rZWins +
-                (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
-              rZLosses:
-                oldLeagueUser.rZLosses +
-                (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
-            }
-
-            await updateLeagueUser(updatedLeagueUser, client)
-            leagueLeaderboardChanges.push(updatedLeagueUser)
-          }
-        }
-      }
-      for (const [userId, result] of resultEntries) {
-        await setUserReconciledResult(client, userId, gameId, result)
-      }
-
-      // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
-      // as when a user has an unknown result?
-
-      if (gameRecord.config.gameType !== GameType.UseMapSettings && !reconciled.disputed) {
-        for (const [userId, result] of reconciled.results.entries()) {
-          if (result.result !== 'win' && result.result !== 'loss') {
-            continue
-          }
-
-          const selectedRace = idToSelectedRace.get(userId)!
-          const assignedRace = result.race
-          const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
-
-          for (const key of countKeys) {
-            await incrementUserStatsCount(client, userId, key)
-          }
-        }
-      }
-
       // Only compute an assigned matchup when we actually know every player's assigned race: skip
       // games with computers (which are excluded from results) and disputed games. A disputed game
       // can have a player who's missing from every report, in which case reconcileResults falls back
@@ -1065,40 +1006,408 @@ export default class GameResultService {
 
       await setReconciledResult(client, gameId, reconciled, assignedMatchup)
 
-      if (matchmakingRankingChanges.length) {
-        // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
-        // cache and can be regenerated from the data at any time. We don't want to update them
-        // unless the DB queries succeed, but the DB queries succeeding and this failing is "okay"
-        // as far as accepting the game results
-        updateRankings(this.redis, matchmakingRankingChanges).catch(err => {
-          logger.error({ err }, 'Error updating rankings, triggering full update')
-          // TODO(tec27): Should probably debounce this update in some way in case we get a ton of
-          // errors in a row for some reason
-          doFullRankingsUpdate(
-            this.redis,
-            matchmakingRankingChanges[0].matchmakingType,
-            season.id,
-          ).catch(err => {
-            logger.error({ err }, 'Error doing full rankings update')
-          })
-        })
-      }
-      if (leagueLeaderboardChanges.length) {
-        // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
-        // cache and can be regenerated from the data at any time. We don't want to update them
-        // unless the DB queries succeed, but the DB queries succeeding and this failing is "okay"
-        // as far as accepting the game results
-        updateLeaderboards(this.redis, leagueLeaderboardChanges).catch(err => {
-          logger.error({ err }, 'Error updating league leaderboards')
-          // TODO(tec27): If this fails, the leaderboards should be queued for regeneration at some
-          // point in the (near) future
-        })
-      }
+      await this.applyReconciledResultEffects(client, gameRecord, reconciled, reconcileDate)
 
       return true
     })
 
     return committed
+  }
+
+  /**
+   * Applies every side effect a set of reconciled results implies, within the caller's transaction:
+   * the matchmaking rating and league point changes, each player's `games_users` result row, and
+   * the lifetime win/loss stat counters. Disputed results get only the `games_users` rows — the
+   * rating changes and stat counters wait until an outcome is actually known.
+   *
+   * Locking the games row and writing the games row itself are the caller's responsibility, and
+   * the write must happen before calling this: the method ends by kicking off best-effort Redis
+   * ranking-cache refreshes, which need to be the transaction's last statements so that a DB
+   * failure after them can't roll back changes the caches already show.
+   *
+   * @returns whether matchmaking rating changes were applied, which is false whenever there were
+   *   none to apply: a game with no ratings at stake (a custom game), a still-disputed result, or a
+   *   season that's already finalized.
+   */
+  private async applyReconciledResultEffects(
+    client: DbClient,
+    gameRecord: GameRecord,
+    reconciled: ReconciledResults,
+    reconcileDate: Date,
+  ): Promise<{ ratingsApplied: boolean }> {
+    const gameId = gameRecord.id
+
+    // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
+    // and "fixup" rank changes and win/loss counters
+    const resultEntries = Array.from(reconciled.results.entries())
+
+    const idToSelectedRace = new Map(
+      gameRecord.config.teams
+        .map(team =>
+          team.filter(p => !p.isComputer).map<[id: SbUserId, race: RaceChar]>(p => [p.id, p.race]),
+        )
+        .flat(),
+    )
+
+    // Activity dates describe when a game was *played*, which can be long before its results are
+    // applied: a periodic sweep or an admin resolving a dispute can land days later. A missing game
+    // length degrades to the start time, which is still far closer than the application time.
+    const gameEndDate = new Date(Number(gameRecord.startTime) + reconciled.time)
+
+    const [season, seasonEnd] = await this.matchmakingSeasonsService.getSeasonForDate(
+      gameRecord.startTime,
+    )
+
+    const matchmakingRankingChanges: MatchmakingRating[] = []
+    const leagueLeaderboardChanges: LeagueUser[] = []
+    if (
+      gameRecord.config.gameSource === GameSource.Matchmaking &&
+      !reconciled.disputed &&
+      // Only update matchmaking ratings if we're not past the point that the season is finalized
+      (seasonEnd === undefined ||
+        Number(seasonEnd) + MATCHMAKING_SEASON_FINALIZED_TIME_MS > Number(reconcileDate))
+    ) {
+      // Calculate and update the matchmaking ranks
+
+      // NOTE(tec27): We sort these so we always lock them in the same order and avoid
+      // deadlocks
+      const userIds = Array.from(reconciled.results.keys()).sort()
+
+      const mmrs = await getMatchmakingRatingsWithLock(
+        client,
+        userIds,
+        gameRecord.config.gameSourceExtra.type,
+        season.id,
+      )
+      const activeLeagues = await getActiveLeaguesForUsers(
+        userIds,
+        gameRecord.config.gameSourceExtra.type,
+        gameRecord.startTime,
+        client,
+      )
+      if (mmrs.length !== userIds.length) {
+        throw new Error('missing MMR for some users')
+      }
+
+      const {
+        config: { gameSourceExtra },
+      } = gameRecord
+
+      let teams: [teamA: SbUserId[], teamB: SbUserId[]]
+      if (
+        gameSourceExtra.type === MatchmakingType.Match1v1 ||
+        gameSourceExtra.type === MatchmakingType.Match1v1Fastest
+      ) {
+        teams = [[userIds[0]], [userIds[1]]]
+      } else if (
+        gameSourceExtra.type === MatchmakingType.Match2v2 ||
+        gameSourceExtra.type === MatchmakingType.Match2v2Bgh ||
+        gameSourceExtra.type === MatchmakingType.Match2v2Hunters ||
+        gameSourceExtra.type === MatchmakingType.Match2v2Fastest ||
+        gameSourceExtra.type === MatchmakingType.Match3v3Bgh ||
+        gameSourceExtra.type === MatchmakingType.Match3v3Hunters ||
+        gameSourceExtra.type === MatchmakingType.Match3v3Fastest
+      ) {
+        // TODO(tec27): Pass gameSourceExtra.parties info to rating change calculation
+        teams = gameRecord.config.teams.map(t => t.map(p => p.id)) as [
+          teamA: SbUserId[],
+          teamB: SbUserId[],
+        ]
+      } else {
+        teams = assertUnreachable(gameSourceExtra)
+      }
+
+      const ratingChanges = calculateChangedRatings({
+        season,
+        gameId,
+        gameDate: reconcileDate,
+        results: reconciled.results,
+        mmrs,
+        teams,
+        activeLeagues,
+      })
+
+      for (const mmr of mmrs) {
+        const { matchmaking: matchmakingChange, leagues: leagueChanges } = ratingChanges.get(
+          mmr.userId,
+        )!
+        await insertMatchmakingRatingChange(client, matchmakingChange)
+
+        const selectedRace = idToSelectedRace.get(mmr.userId)!
+        const assignedRace = reconciled.results.get(mmr.userId)!.race
+
+        {
+          const winCount = matchmakingChange.outcome === 'win' ? 1 : 0
+          const lossCount = matchmakingChange.outcome === 'win' ? 0 : 1
+
+          const updatedMmr: MatchmakingRating = {
+            userId: mmr.userId,
+            matchmakingType: mmr.matchmakingType,
+            seasonId: mmr.seasonId,
+            rating: matchmakingChange.rating,
+            uncertainty: matchmakingChange.uncertainty,
+            volatility: matchmakingChange.volatility,
+            points: matchmakingChange.points,
+            pointsConverged: matchmakingChange.pointsConverged,
+            bonusUsed: matchmakingChange.bonusUsed,
+            numGamesPlayed: mmr.numGamesPlayed + 1,
+            lifetimeGames: matchmakingChange.lifetimeGames,
+            // Never rewind past a newer game that has already been applied.
+            lastPlayedDate: new Date(Math.max(Number(mmr.lastPlayedDate), Number(gameEndDate))),
+            wins: mmr.wins + winCount,
+            losses: mmr.losses + lossCount,
+
+            pWins: mmr.pWins + (selectedRace === 'p' ? winCount : 0),
+            pLosses: mmr.pLosses + (selectedRace === 'p' ? lossCount : 0),
+            tWins: mmr.tWins + (selectedRace === 't' ? winCount : 0),
+            tLosses: mmr.tLosses + (selectedRace === 't' ? lossCount : 0),
+            zWins: mmr.zWins + (selectedRace === 'z' ? winCount : 0),
+            zLosses: mmr.zLosses + (selectedRace === 'z' ? lossCount : 0),
+            rWins: mmr.rWins + (selectedRace === 'r' ? winCount : 0),
+            rLosses: mmr.rLosses + (selectedRace === 'r' ? lossCount : 0),
+
+            rPWins: mmr.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
+            rPLosses: mmr.rPLosses + (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
+            rTWins: mmr.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
+            rTLosses: mmr.rTLosses + (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
+            rZWins: mmr.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
+            rZLosses: mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+          }
+
+          await updateMatchmakingRating(client, updatedMmr)
+          matchmakingRankingChanges.push(updatedMmr)
+        }
+
+        for (const leagueChange of leagueChanges) {
+          const oldLeagueUser = activeLeagues
+            .get(leagueChange.userId)!
+            .find(l => l.leagueId === leagueChange.leagueId)!
+
+          if (oldLeagueUser.isBanned) {
+            // Don't process league changes for banned users
+            continue
+          }
+
+          await insertLeagueUserChange(leagueChange, client)
+
+          const winCount = leagueChange.outcome === 'win' ? 1 : 0
+          const lossCount = leagueChange.outcome === 'win' ? 0 : 1
+
+          const updatedLeagueUser: LeagueUser = {
+            leagueId: oldLeagueUser.leagueId,
+            userId: oldLeagueUser.userId,
+            isBanned: oldLeagueUser.isBanned,
+            // Never rewind past a newer game that has already been applied.
+            lastPlayedDate: new Date(
+              Math.max(Number(oldLeagueUser.lastPlayedDate ?? 0), Number(gameEndDate)),
+            ),
+            points: leagueChange.points,
+            pointsConverged: leagueChange.pointsConverged,
+            wins: oldLeagueUser.wins + winCount,
+            losses: oldLeagueUser.losses + lossCount,
+
+            pWins: oldLeagueUser.pWins + (selectedRace === 'p' ? winCount : 0),
+            pLosses: oldLeagueUser.pLosses + (selectedRace === 'p' ? lossCount : 0),
+            tWins: oldLeagueUser.tWins + (selectedRace === 't' ? winCount : 0),
+            tLosses: oldLeagueUser.tLosses + (selectedRace === 't' ? lossCount : 0),
+            zWins: oldLeagueUser.zWins + (selectedRace === 'z' ? winCount : 0),
+            zLosses: oldLeagueUser.zLosses + (selectedRace === 'z' ? lossCount : 0),
+            rWins: oldLeagueUser.rWins + (selectedRace === 'r' ? winCount : 0),
+            rLosses: oldLeagueUser.rLosses + (selectedRace === 'r' ? lossCount : 0),
+
+            rPWins:
+              oldLeagueUser.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
+            rPLosses:
+              oldLeagueUser.rPLosses +
+              (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
+            rTWins:
+              oldLeagueUser.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
+            rTLosses:
+              oldLeagueUser.rTLosses +
+              (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
+            rZWins:
+              oldLeagueUser.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
+            rZLosses:
+              oldLeagueUser.rZLosses +
+              (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+          }
+
+          await updateLeagueUser(updatedLeagueUser, client)
+          leagueLeaderboardChanges.push(updatedLeagueUser)
+        }
+      }
+    }
+    for (const [userId, result] of resultEntries) {
+      await setUserReconciledResult(client, userId, gameId, result)
+    }
+
+    // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
+    // as when a user has an unknown result?
+
+    if (gameRecord.config.gameType !== GameType.UseMapSettings && !reconciled.disputed) {
+      for (const [userId, result] of reconciled.results.entries()) {
+        if (result.result !== 'win' && result.result !== 'loss') {
+          continue
+        }
+
+        const selectedRace = idToSelectedRace.get(userId)!
+        const assignedRace = result.race
+        const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
+
+        for (const key of countKeys) {
+          await incrementUserStatsCount(client, userId, key)
+        }
+      }
+    }
+
+    if (matchmakingRankingChanges.length) {
+      // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
+      // cache and can be regenerated from the data at any time. We don't want to update them
+      // unless the DB queries succeed, but the DB queries succeeding and this failing is "okay"
+      // as far as accepting the game results
+      updateRankings(this.redis, matchmakingRankingChanges).catch(err => {
+        logger.error({ err }, 'Error updating rankings, triggering full update')
+        // TODO(tec27): Should probably debounce this update in some way in case we get a ton of
+        // errors in a row for some reason
+        doFullRankingsUpdate(
+          this.redis,
+          matchmakingRankingChanges[0].matchmakingType,
+          season.id,
+        ).catch(err => {
+          logger.error({ err }, 'Error doing full rankings update')
+        })
+      })
+    }
+    if (leagueLeaderboardChanges.length) {
+      // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
+      // cache and can be regenerated from the data at any time. We don't want to update them
+      // unless the DB queries succeed, but the DB queries succeeding and this failing is "okay"
+      // as far as accepting the game results
+      updateLeaderboards(this.redis, leagueLeaderboardChanges).catch(err => {
+        logger.error({ err }, 'Error updating league leaderboards')
+        // TODO(tec27): If this fails, the leaderboards should be queued for regeneration at some
+        // point in the (near) future
+      })
+    }
+
+    return { ratingsApplied: matchmakingRankingChanges.length > 0 }
+  }
+
+  /**
+   * Hand-assigns the outcomes of a game whose automatic reconciliation ended in a dispute, and
+   * applies the side effects that dispute skipped: the win/loss stat counters, plus the matchmaking
+   * rating, points and league changes for a ranked game. A disputed game never had any of those
+   * applied, so this only ever adds effects, never reverses them.
+   *
+   * Only the outcomes change: each player's stored race and APM, and the game's length, are left
+   * exactly as reconciliation left them. The assigned matchup is filled in here, since a disputed
+   * game is never given one, but only when every player's race can be established from a
+   * trustworthy source (see `computeManualResolutionMatchup`).
+   *
+   * @returns the updated game record, and whether matchmaking rating changes were actually applied
+   *   (see `applyReconciledResultEffects`)
+   */
+  async resolveGameManually({
+    gameId,
+    results,
+    resolvedBy,
+  }: {
+    gameId: string
+    results: ReadonlyArray<{ userId: SbUserId; result: ManualGameResult }>
+    resolvedBy: SbUserId
+  }): Promise<{ game: GameRecord; ratingsApplied: boolean }> {
+    const gameRecord = await getGameRecord(gameId)
+    if (!gameRecord) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+
+    const resolvedAt = new Date(this.clock.now())
+    // Derived from the config and the stored reports, both immutable once a game has reconciled to
+    // a dispute — so this can run before the transaction rather than acquiring a second pool
+    // connection while holding the games row lock.
+    const assignedMatchup = await computeManualResolutionMatchup(gameRecord)
+
+    const { ratingsApplied } = await transact(async client => {
+      // Everything this decides on has to be read under the games row lock: two admins can submit a
+      // resolution for the same game at once, and the second one must see the first's committed
+      // state (no longer disputable) rather than re-applying the additive side effects.
+      const locked = await lockGameForManualResolution(client, gameId)
+      if (!locked || !locked.disputable || !locked.results) {
+        throw new GameResultServiceError(
+          GameResultErrorCode.NotDisputable,
+          'game is not awaiting manual resolution',
+        )
+      }
+
+      const storedResults = new Map(locked.results)
+      const submitted = new Map(results.map(r => [r.userId, r.result]))
+      if (
+        submitted.size !== results.length ||
+        submitted.size !== storedResults.size ||
+        Array.from(submitted.keys()).some(id => !storedResults.has(id))
+      ) {
+        throw new GameResultServiceError(
+          GameResultErrorCode.InvalidPlayers,
+          "submitted results must cover exactly the game's players, once each",
+        )
+      }
+      for (const { result } of results) {
+        if (!ALL_MANUAL_GAME_RESULTS.includes(result)) {
+          throw new GameResultServiceError(
+            GameResultErrorCode.InvalidResults,
+            `'${result}' is not an outcome a game can be resolved to`,
+          )
+        }
+      }
+
+      if (gameRecord.config.gameSource === GameSource.Matchmaking) {
+        validateMatchmakingResolution(gameRecord.config, submitted)
+      }
+
+      const newResults = new Map<SbUserId, ReconciledPlayerResult>(
+        Array.from(storedResults, ([userId, stored]) => [
+          userId,
+          { ...stored, result: submitted.get(userId)! },
+        ]),
+      )
+      const reconciled: ReconciledResults = {
+        disputed: false,
+        // The game's length isn't in dispute and isn't rewritten, so the reconciled results carry
+        // the length already on record.
+        time: gameRecord.gameLength ?? 0,
+        results: newResults,
+      }
+
+      await setManuallyResolvedResult(
+        client,
+        gameId,
+        newResults,
+        assignedMatchup,
+        resolvedBy,
+        resolvedAt,
+      )
+
+      const { ratingsApplied } = await this.applyReconciledResultEffects(
+        client,
+        gameRecord,
+        reconciled,
+        resolvedAt,
+      )
+
+      return { ratingsApplied }
+    })
+
+    // Subscribers see the resolved game (and any points that moved with it). The client only opens
+    // a post-match dialog for the viewing user's own most recent game, where showing the newly
+    // applied points is the point. The resolution is already committed, so a publish failure is
+    // logged rather than failing the request.
+    try {
+      await this.publishReconciledGame(gameId)
+    } catch (err) {
+      logger.error({ err }, `failed to publish manually resolved game ${gameId}`)
+    }
+
+    return { game: await this.retrieveGame(gameId), ratingsApplied }
   }
 
   /**

@@ -65,6 +65,19 @@ export enum ClientChatMessageType {
 
 export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 
+const SERVER_CHAT_MESSAGE_TYPES: ReadonlySet<ChatMessageType> = new Set(
+  Object.values(ServerChatMessageType),
+)
+
+/**
+ * Returns whether a chat message originated on the server, i.e. it's stored in the database and its
+ * `time` is a server-recorded time. Client-only messages stamp `time` with the local clock, so they
+ * can't be used anywhere a durable server time is needed (e.g. read positions).
+ */
+export function isServerChatMessage(message: { type: ChatMessageType }): boolean {
+  return SERVER_CHAT_MESSAGE_TYPES.has(message.type)
+}
+
 export interface BaseChatMessage {
   id: string
   type: ChatMessageType
@@ -220,6 +233,23 @@ export interface InitialChannelData {
   selfPreferences: ChannelPreferences
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
+  /**
+   * Whether the channel has messages newer than the user's last recorded read position. Absent or
+   * false means the channel should not be treated as unread.
+   */
+  hasUnread?: boolean
+  /**
+   * Epoch millis of the user's read position in the channel: their last recorded read position, or
+   * one millisecond before their join date if they've never recorded one. Used to place the
+   * unread-messages divider; `hasUnread` stays the authority for badge state since the client can't
+   * compute unreadness itself without messages loaded.
+   */
+  lastReadTime?: number
+  /**
+   * Time (as a Unix timestamp in milliseconds) of the newest message that mentions this user and
+   * is newer than their read position for the channel. Omitted when there is no such message.
+   */
+  latestMentionTime?: number
 }
 
 export interface ChatInitEvent extends InitialChannelData {
@@ -356,9 +386,18 @@ export interface ChatPermissionsChangedEvent {
   selfPermissions: ChannelPermissions
 }
 
+export interface ChatReadTimeChangedEvent {
+  action: 'lastReadTimeChanged'
+  /** Epoch ms of this user's server-recorded read position in the channel. */
+  lastReadTime: number
+}
+
 /** Events that are sent to a particular user in a particular chat channel. */
 export type ChatUserEvent =
-  ChatInitEvent | ChatPreferencesChangedEvent | ChatPermissionsChangedEvent
+  | ChatInitEvent
+  | ChatPreferencesChangedEvent
+  | ChatPermissionsChangedEvent
+  | ChatReadTimeChangedEvent
 
 /**
  * The response returned when joining a specific chat channel.
@@ -399,6 +438,14 @@ export interface SendChatMessageServerRequest {
 }
 
 /**
+ * The body data of the API route for reporting a user's read position in a chat channel.
+ */
+export interface MarkChannelReadRequest {
+  /** Epoch ms of the newest message the user has seen in the channel. */
+  lastReadTime: number
+}
+
+/**
  * Payload returned for a request to retrieve the channel message history.
  */
 export interface GetChannelHistoryServerResponse {
@@ -416,6 +463,17 @@ export interface GetChannelHistoryServerResponse {
   channelMentions: BasicChannelInfo[]
   /** A list of channel IDs saved in various channel messages that no longer exist. */
   deletedChannels: SbChannelId[]
+  /**
+   * Whether messages older than the returned window exist. For requests with `afterTime`, this is
+   * always true (the cursor implies the client already holds older messages).
+   */
+  hasMoreBefore: boolean
+  /**
+   * Whether messages newer than the returned window existed when the query executed. For requests
+   * with `beforeTime`, this is always true (the cursor implies the client already holds newer
+   * messages); for requests with no cursor (a newest-page fetch), it is always false.
+   */
+  hasMoreAfter: boolean
 }
 
 /**
