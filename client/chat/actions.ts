@@ -392,7 +392,10 @@ export interface SearchChannels {
 
 /**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel
- * as "active", and removes the unread indicator if there is one.
+ * as "active", and removes the unread indicator if there is one. The message list reports the
+ * at-bottom state it opened in (`UpdateChannelAtBottom`) ahead of this being dispatched, so the
+ * reducer reads the current flag to tell an open at the newest messages from one restoring a
+ * position further back.
  */
 export interface ActivateChannel {
   type: '@chat/activateChannel'
@@ -413,10 +416,10 @@ export interface DeactivateChannel {
 }
 
 /**
- * Update whether an activated chat channel's message list is scrolled to the bottom. This is a
- * purely client-side action; the reducer uses it to trim message history down to the same cap
- * applied to inactive channels, since removing old messages while pinned to the bottom is
- * invisible to the user (auto-scroll keeps the view at the newest message).
+ * Update whether a viewed chat channel's message list is scrolled to the bottom. This is a purely
+ * client-side action; the reducer uses it to trim message history down to the same cap applied to
+ * inactive channels, since removing old messages while pinned to the bottom is invisible to the
+ * user (auto-scroll keeps the view at the newest message).
  */
 export interface UpdateChannelAtBottom {
   type: '@chat/updateChannelAtBottom'

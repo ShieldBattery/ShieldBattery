@@ -20,6 +20,12 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
+// How many client-only messages (join/leave banners and the like) a channel keeps waiting for a
+// loaded window that covers their time, once the window they were loaded in has been dropped or
+// replaced. These messages exist nowhere but this session's memory, so this bounds how much of a
+// long session's history of channel detours it can carry rather than dropping any of it.
+const MAX_CARRIED_CLIENT_MESSAGES = 50
+
 export interface UsersState {
   active: Set<SbUserId>
   idle: Set<SbUserId>
@@ -54,6 +60,14 @@ export interface MessagesState {
    * match, since a page has no boundary in common with a window it wasn't fetched for.
    */
   windowGen: number
+  /**
+   * Client-only messages (join/leave banners and the like) that were in a window dropped or
+   * replaced wholesale, held here until a loaded window's covered time range reaches where they
+   * happened, at which point they're spliced back into `messages`. These messages are never
+   * persisted anywhere but this session's memory, so this is the only thing standing between a
+   * window drop and losing them for good.
+   */
+  carriedClientMessages: ChatMessage[]
 }
 
 export interface ChatState {
@@ -249,6 +263,23 @@ export function newestServerOriginTime(messages: readonly ChatMessage[]): number
 }
 
 /**
+ * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
+ * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why client-only
+ * messages are excluded: a window can open with one at its head (the self-join banner, or all
+ * that's left after a drop leaves only carried messages behind), and such a message's local-clock
+ * time is meaningless as a server request cursor or a window boundary.
+ */
+export function oldestServerOriginTime(messages: readonly ChatMessage[]): number | undefined {
+  for (const message of messages) {
+    if (isServerOriginMessage(message)) {
+      return message.time
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Returns `incoming` with every message already present in `existing` removed. The history
  * endpoints seek by millisecond-precision time, so a page boundary landing inside a group of
  * messages that share a timestamp can hand back messages the window already holds.
@@ -294,11 +325,83 @@ function markChannelUnread(state: ChatState, channelId: SbChannelId) {
 }
 
 /**
+ * Moves every client-only message out of `channelMessages.messages` and into its carry list, ahead
+ * of the window being dropped or replaced wholesale. Unlike a server message, a client-only message
+ * (a join/leave banner and the like) can never be re-fetched, so losing the window it was loaded in
+ * would otherwise erase it for good; `mergeCarriedMessages` is what eventually gives it back a home.
+ * Idempotent against a message already carried from an earlier drop (deduped by id), and caps the
+ * list at `MAX_CARRIED_CLIENT_MESSAGES`, evicting the oldest by time.
+ */
+function carryClientMessages(channelMessages: MessagesState) {
+  const carriedIds = new Set(channelMessages.carriedClientMessages.map(m => m.id))
+  for (const message of channelMessages.messages) {
+    if (!isServerOriginMessage(message) && !carriedIds.has(message.id)) {
+      channelMessages.carriedClientMessages.push(message)
+      carriedIds.add(message.id)
+    }
+  }
+
+  if (channelMessages.carriedClientMessages.length > MAX_CARRIED_CLIENT_MESSAGES) {
+    channelMessages.carriedClientMessages.sort((a, b) => a.time - b.time)
+    channelMessages.carriedClientMessages = channelMessages.carriedClientMessages.slice(
+      -MAX_CARRIED_CLIENT_MESSAGES,
+    )
+  }
+}
+
+/**
+ * Splices carried client-only messages (see `carryClientMessages`) back into the loaded window
+ * wherever the window now covers the moment they happened, removing them from the carry list so a
+ * later call can't merge the same message twice. Must run after anything that changes what time
+ * range the window covers — a fetched page or a reattach — since that's the only way a carried
+ * message's moment can come back into view.
+ *
+ * The covered range runs from the oldest server-origin message's time to the newest, extended to
+ * unbounded-older when `hasHistory` is false (nothing precedes what's loaded) and to
+ * unbounded-newer when `hasNewer` is false (the window is attached to the present, so it covers
+ * everything from here on, same as a live message keeps appending to it). A bound whose flag says
+ * it's *not* unbounded but which has no server-origin message to anchor to (an empty or
+ * all-client-only window) covers nothing on that side.
+ */
+function mergeCarriedMessages(channelMessages: MessagesState) {
+  if (!channelMessages.carriedClientMessages.length) {
+    return
+  }
+
+  const lowerBound = channelMessages.hasHistory
+    ? (oldestServerOriginTime(channelMessages.messages) ?? Infinity)
+    : -Infinity
+  const upperBound = channelMessages.hasNewer
+    ? (newestServerOriginTime(channelMessages.messages) ?? -Infinity)
+    : Infinity
+
+  const stillCarried: ChatMessage[] = []
+  const reclaimed: ChatMessage[] = []
+  for (const message of channelMessages.carriedClientMessages) {
+    if (message.time >= lowerBound && message.time <= upperBound) {
+      reclaimed.push(message)
+    } else {
+      stillCarried.push(message)
+    }
+  }
+
+  if (!reclaimed.length) {
+    return
+  }
+
+  channelMessages.carriedClientMessages = stillCarried
+  channelMessages.messages = channelMessages.messages
+    .concat(reclaimed)
+    .sort((a, b) => a.time - b.time)
+}
+
+/**
  * Discards everything loaded for a channel, returning it to the shape a freshly-joined channel has:
  * nothing loaded, older history assumed to exist, attached to the present. Advancing the generation
  * makes the reducer discard any page still in flight for the window that was just dropped.
  */
 function dropMessageWindow(channelMessages: MessagesState) {
+  carryClientMessages(channelMessages)
   channelMessages.messages = []
   channelMessages.hasHistory = true
   channelMessages.hasNewer = false
@@ -416,6 +519,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     hasNewer: false,
     detachedNewestTime: undefined,
     windowGen: 0,
+    carriedClientMessages: [],
   }
   state.joinedChannels.add(channelId)
   state.idToBasicInfo.set(channelId, channelInfo)
@@ -649,6 +753,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateMessages(state, channelId, false, messages =>
       dedupeAgainst(newMessages, messages).concat(messages),
     )
+    // The older edge just moved (or, for a window left holding only carried messages by a prior
+    // drop, was established for the first time), so re-check whether it now reaches any of them.
+    mergeCarriedMessages(channelMessages)
     updateChannelInfos(state, action.payload.channelMentions)
     updateDeletedChannels(state, action.payload.deletedChannels)
   },
@@ -708,6 +815,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         channelMessages.detachedNewestTime = undefined
       }
     }
+
+    // The newer edge just moved, and reattaching extends coverage all the way to the present, so
+    // re-check whether the window now reaches any carried message.
+    mergeCarriedMessages(channelMessages)
   },
 
   ['@chat/loadMessagesAroundBegin'](state, action) {
@@ -749,8 +860,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     )
 
     // The fetched range doesn't have to touch what was loaded, so there may be no seam to splice
-    // them together at and the window is replaced outright. Client-only messages go with it: they
-    // only ever existed at the position this session happened to be scrolled to.
+    // them together at and the window is replaced outright. A client-only message can't be
+    // refetched at the new range even if it belongs there, so it's carried instead of discarded;
+    // `mergeCarriedMessages` below gives it back a home if the replacement window covers it.
+    carryClientMessages(channelMessages)
     channelMessages.messages = action.payload.messages as ChatMessage[]
     channelMessages.hasHistory = action.payload.hasMoreBefore
     channelMessages.windowGen += 1
@@ -775,6 +888,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         channelMessages.detachedNewestTime = undefined
       }
     }
+
+    // The window's coverage was just established from scratch, so check it against everything
+    // still carried rather than just what changed.
+    mergeCarriedMessages(channelMessages)
 
     updateChannelInfos(state, action.payload.channelMentions)
     updateDeletedChannels(state, action.payload.deletedChannels)
@@ -875,9 +992,15 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/activateChannel'](state, action) {
     const { channelId } = action.payload
 
+    // Whether the view is opening at the newest messages. The view reports where its viewport
+    // settles (`updateChannelAtBottom`) ahead of this dispatch, so the current flag reflects this
+    // activation's viewport; a view still on its way back to a saved reading position hasn't
+    // reported yet and counts as away from the bottom, which is where it's headed.
+    const atBottom = state.atBottomChannels.has(channelId)
+
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the
-    // eager mark-read this activation triggers.
+    // eager mark-read opening at the newest messages triggers.
     if (
       state.unreadChannels.has(channelId) &&
       !state.idToUnreadLineTime.has(channelId) &&
@@ -886,22 +1009,38 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       state.idToUnreadLineTime.set(channelId, state.idToLastReadTime.get(channelId)!)
     }
 
+    // A divider the read position has already moved past outlives that only for as long as the
+    // view keeps returning to where the user stopped reading; opening at the newest messages means
+    // they're caught up and the divider has served its purpose.
+    if (atBottom) {
+      const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+      const lastReadTime = state.idToLastReadTime.get(channelId)
+      if (
+        unreadLineTime !== undefined &&
+        lastReadTime !== undefined &&
+        lastReadTime > unreadLineTime
+      ) {
+        state.idToUnreadLineTime.delete(channelId)
+      }
+    }
+
     state.unreadChannels.delete(channelId)
     state.activatedChannels.add(channelId)
-    // Message lists mount pinned to the bottom.
-    state.atBottomChannels.add(channelId)
   },
 
   ['@chat/deactivateChannel'](state, action) {
     const { channelId } = action.payload
 
-    // The unread divider is only consumed once the read position has actually moved past it — a
-    // deactivation where the user never read anything new (including the mount/cleanup/remount
-    // cycle React's StrictMode runs in development) leaves the still-unread divider in place for
-    // the next visit.
+    // The unread divider is only consumed once the read position has actually moved past it *and*
+    // the user was looking at the newest messages when they left. A deactivation where they never
+    // read anything new (including the mount/cleanup/remount cycle React's StrictMode runs in
+    // development) leaves the still-unread divider in place, and so does one from the middle of the
+    // backlog, where the read position running ahead is an artifact of having passed the bottom on
+    // the way in rather than of having caught up.
     const unreadLineTime = state.idToUnreadLineTime.get(channelId)
     const lastReadTime = state.idToLastReadTime.get(channelId)
     if (
+      state.atBottomChannels.has(channelId) &&
       unreadLineTime !== undefined &&
       lastReadTime !== undefined &&
       lastReadTime > unreadLineTime

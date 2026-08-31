@@ -306,7 +306,10 @@ export async function getMessagesForWhisperSession(
       }
 
       case 'around': {
-        const beforeLimit = Math.floor(limit / 2)
+        // An around window is used to place the message at `date` near the top of a viewport, so
+        // most of the window belongs to what renders below it: too little content below the
+        // target leaves the viewport unable to scroll down to the position.
+        const beforeLimit = Math.floor(limit / 3)
         const afterLimit = limit - beforeLimit
         // `is_before` lets the two halves be told apart in JS without comparing timestamps
         // against `cursor.date` there (the DB's microsecond-precision `sent` loses precision when

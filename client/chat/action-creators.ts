@@ -47,7 +47,7 @@ import {
   ResetMessageWindow,
   UpdateChannelAtBottom,
 } from './actions'
-import { newestServerOriginTime } from './chat-reducer'
+import { newestServerOriginTime, oldestServerOriginTime } from './chat-reducer'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -386,8 +386,13 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
       chat: { idToMessages },
     } = getStore()
     const channelMessages = idToMessages.get(channelId)
-    const earliestMessageTime = channelMessages?.messages.length
-      ? channelMessages.messages[0].time
+    // The window's first entry can be a client-only message (the self-join banner right after
+    // joining, or a carried message left behind by a drop that hasn't found a covering window
+    // yet), whose time is stamped with the local clock and means nothing as a server cursor. -1
+    // is the "newest page" sentinel, used both when nothing is loaded and when nothing loaded
+    // carries a server-recorded time.
+    const earliestMessageTime = channelMessages
+      ? (oldestServerOriginTime(channelMessages.messages) ?? -1)
       : -1
     const params = {
       channelId,

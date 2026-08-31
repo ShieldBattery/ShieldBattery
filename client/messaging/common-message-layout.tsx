@@ -161,6 +161,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
     <>
       <TimestampMessageLayout
         time={time}
+        msgId={msgId}
         active={contextMenuPopoverProps.open}
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
@@ -232,7 +233,7 @@ export const BlockedMessage = React.memo<{
 
   return (
     <>
-      <TimestampMessageLayout time={props.time} highlighted={false}>
+      <TimestampMessageLayout time={props.time} msgId={props.msgId} highlighted={false}>
         <BlockedText>{t('messaging.blockedMessage', 'Blocked message')}</BlockedText>
         <BlockedDivider>&mdash;</BlockedDivider>
         <ShowHideLink onClick={() => setShow(!show)}>

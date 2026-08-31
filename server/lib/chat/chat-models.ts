@@ -487,7 +487,8 @@ export async function addMessageToChannel<T extends ChatMessageData>(
 /**
  * Where to start a page of message history from, and in which direction to read: `newest` gets
  * the most recent page with no time bound, `before`/`after` get a page strictly older/newer than
- * `date`, and `around` gets messages from both sides of `date` (inclusive on the newer side).
+ * `date`, and `around` gets messages from both sides of `date`, weighted toward the newer side
+ * (inclusive on the newer side).
  */
 export type HistoryCursor = { kind: 'newest' } | { kind: 'before' | 'after' | 'around'; date: Date }
 
@@ -571,7 +572,10 @@ export async function getMessagesForChannel(
       }
 
       case 'around': {
-        const beforeLimit = Math.floor(limit / 2)
+        // An around window is used to place the message at `date` near the top of a viewport, so
+        // most of the window belongs to what renders below it: too little content below the
+        // target leaves the viewport unable to scroll down to the position.
+        const beforeLimit = Math.floor(limit / 3)
         const afterLimit = limit - beforeLimit
         // `is_before` lets the two halves be told apart in JS without comparing timestamps
         // against `cursor.date` there (the DB's microsecond-precision `sent` loses precision when

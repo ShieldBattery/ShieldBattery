@@ -11,6 +11,7 @@ import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge } from '../styles/typography'
+import { captureChatViewAnchor, chatViewAnchorStore } from './chat-view-anchor'
 import {
   BlockedMessage,
   NewDayMessage,
@@ -148,6 +149,8 @@ interface PureMessageListProps {
   MessageComponent?: MessageComponentType
   unreadLineTime?: number
   hasMoreHistory?: boolean
+  /** Whether more history is currently being requested for this list. */
+  loading?: boolean
 }
 
 function PureMessageList({
@@ -156,12 +159,19 @@ function PureMessageList({
   MessageComponent,
   unreadLineTime,
   hasMoreHistory,
+  loading,
 }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
 
   if (messages.length < 1) {
+    if (loading) {
+      // A loader (rendered by the surrounding infinite scroll list) is already telling the user
+      // messages are on their way; showing empty state text at the same time would read as a
+      // contradiction.
+      return undefined
+    }
     return showEmptyState ? (
       <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
     ) : undefined
@@ -261,9 +271,13 @@ export interface MessageListProps {
   refreshToken?: unknown
   /**
    * Callback whenever the scroll position or scroll height has been updated (debounced to
-   * animation frames).
+   * animation frames). `isListMount` marks the update that follows the list mounting and pinning
+   * itself to the bottom: a mount always starts there, so anyone who wants the viewport somewhere
+   * else has to hear about every one of them. Mounts aren't in one-to-one correspondence with
+   * conversations — a remount that reuses the owner's state (as development StrictMode does) would
+   * otherwise pin to the bottom with nobody left to place the viewport again.
    */
-  onScrollUpdate?: (scrollTarget: EventTarget) => void
+  onScrollUpdate?: (scrollTarget: EventTarget, isListMount?: boolean) => void
   onLoadMoreMessages?: () => void
   onLoadNewerMessages?: () => void
   /**
@@ -272,6 +286,18 @@ export interface MessageListProps {
    * than this.
    */
   unreadLineTime?: number
+  /**
+   * Key identifying the conversation being displayed, under which the reading position the user
+   * leaves it at is saved. Surfaces whose chat is only meaningful for as long as it's on screen
+   * (lobby chat, say) leave this unset, which turns saving off entirely.
+   */
+  viewStateKey?: string
+  /**
+   * Whether the list is still on its way to the saved reading position for the given key rather
+   * than showing it. Reading a position out of the DOM while that's true would overwrite the saved
+   * one with a position the user never chose.
+   */
+  isRestorePending?: (viewStateKey: string) => boolean
 }
 
 interface MessageListSnapshot {
@@ -293,9 +319,44 @@ export class MessageList extends React.Component<MessageListProps> {
 
   override componentWillUnmount() {
     this.onScroll.cancel()
+
+    if (this.props.viewStateKey !== undefined) {
+      this.saveViewState(this.props.viewStateKey, this.props.messages)
+    }
   }
 
-  override getSnapshotBeforeUpdate() {
+  /**
+   * Records where the user is reading in a conversation, so returning to it can pick up there.
+   * Being at the bottom is the position message lists open at anyway, so it's stored as the absence
+   * of an entry.
+   */
+  private saveViewState(viewStateKey: string, messages: ReadonlyArray<SbMessage>) {
+    const scrollable = this.scrollableRef.current
+    if (!scrollable || this.props.isRestorePending?.(viewStateKey)) {
+      return
+    }
+
+    const atBottom =
+      scrollable.scrollTop + scrollable.clientHeight + AUTOSCROLL_LEEWAY_PX >=
+      scrollable.scrollHeight
+    const anchor = atBottom ? undefined : captureChatViewAnchor(scrollable, messages)
+
+    if (anchor) {
+      chatViewAnchorStore.set(viewStateKey, anchor)
+    } else {
+      chatViewAnchorStore.delete(viewStateKey)
+    }
+  }
+
+  override getSnapshotBeforeUpdate(prevProps: MessageListProps) {
+    const prevViewStateKey = prevProps.viewStateKey
+    if (prevViewStateKey !== undefined && prevViewStateKey !== this.props.viewStateKey) {
+      // The DOM still holds the conversation that's being swapped out, so this is both the last
+      // chance to read where the user was in it and the only one where the incoming conversation's
+      // content can't have clamped the scroll position first.
+      this.saveViewState(prevViewStateKey, prevProps.messages)
+    }
+
     if (!this.scrollableRef.current) {
       return { wasAtBottom: true, lastScrollTop: 0, lastScrollHeight: 0 }
     }
@@ -313,9 +374,7 @@ export class MessageList extends React.Component<MessageListProps> {
     if (scrollable) {
       scrollable.scrollTop = scrollable.scrollHeight
 
-      if (this.props.onScrollUpdate) {
-        this.props.onScrollUpdate(scrollable)
-      }
+      this.props.onScrollUpdate?.(scrollable, true)
     }
   }
 
@@ -325,7 +384,24 @@ export class MessageList extends React.Component<MessageListProps> {
     snapshot: MessageListSnapshot,
   ) {
     const scrollable = this.scrollableRef.current
-    if (!scrollable || scrollable.scrollHeight === snapshot.lastScrollHeight) {
+    if (!scrollable) {
+      return
+    }
+
+    if (
+      this.props.viewStateKey !== undefined &&
+      prevProps.viewStateKey !== this.props.viewStateKey
+    ) {
+      // A different conversation's messages have taken this one's place, so nothing of the old
+      // viewport carries over and the list starts at the bottom exactly like a fresh mount does.
+      // Owners that want it somewhere else move it from the scroll update below, which still runs
+      // before anything is painted.
+      scrollable.scrollTop = scrollable.scrollHeight
+      this.props.onScrollUpdate?.(scrollable)
+      return
+    }
+
+    if (scrollable.scrollHeight === snapshot.lastScrollHeight) {
       return
     }
 
@@ -396,6 +472,7 @@ export class MessageList extends React.Component<MessageListProps> {
             MessageComponent={MessageComponent}
             unreadLineTime={unreadLineTime}
             hasMoreHistory={hasMoreHistory}
+            loading={loading}
           />
         </InfiniteScrollList>
       </Scrollable>

@@ -400,9 +400,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     const session = state.byId.get(target)!
 
+    // Whether the view is opening at the newest messages. The view reports where its viewport
+    // settles (`updateSessionAtBottom`) ahead of this dispatch, so the current flag reflects this
+    // activation's viewport; a view still on its way back to a saved reading position hasn't
+    // reported yet and counts as away from the bottom, which is where it's headed.
+    const atBottom = session.atBottom
+
     // Freeze the unread divider at the read position before clearing the unread flag, so the
     // divider marks where the user left off instead of where the read position ends up after the
-    // eager mark-read this activation triggers.
+    // eager mark-read opening at the newest messages triggers.
     if (
       session.hasUnread &&
       session.unreadLineTime === undefined &&
@@ -411,9 +417,19 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       session.unreadLineTime = session.lastReadTime
     }
 
+    // A divider the read position has already moved past outlives that only for as long as the
+    // view keeps returning to where the user stopped reading; opening at the newest messages means
+    // they're caught up and the divider has served its purpose.
+    if (
+      atBottom &&
+      session.unreadLineTime !== undefined &&
+      session.lastReadTime !== undefined &&
+      session.lastReadTime > session.unreadLineTime
+    ) {
+      session.unreadLineTime = undefined
+    }
+
     session.activated = true
-    // Message lists mount pinned to the bottom.
-    session.atBottom = true
     session.hasUnread = false
   },
 
@@ -424,6 +440,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     const session = state.byId.get(target)!
+    const leftAtBottom = session.atBottom
 
     if (session.hasNewer) {
       // Keeping a window that sits mid-history would put the user back where they were reading with
@@ -439,11 +456,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     session.activated = false
     session.atBottom = false
-    // The unread divider is only consumed once the read position has actually moved past it — a
-    // deactivation where the user never read anything new (including the mount/cleanup/remount
-    // cycle React's StrictMode runs in development) leaves the still-unread divider in place for
-    // the next visit.
+    // The unread divider is only consumed once the read position has actually moved past it *and*
+    // the user was looking at the newest messages when they left. A deactivation where they never
+    // read anything new (including the mount/cleanup/remount cycle React's StrictMode runs in
+    // development) leaves the still-unread divider in place, and so does one from the middle of the
+    // backlog, where the read position running ahead is an artifact of having passed the bottom on
+    // the way in rather than of having caught up.
     if (
+      leftAtBottom &&
       session.unreadLineTime !== undefined &&
       session.lastReadTime !== undefined &&
       session.lastReadTime > session.unreadLineTime
