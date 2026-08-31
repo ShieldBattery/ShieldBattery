@@ -1935,6 +1935,7 @@
       },
       "title": "Game",
       "video": {
+        "brightness": "Brightness",
         "customFpsLimit": "Custom FPS limit",
         "displayMode": {
           "fullscreen": "Fullscreen",

@@ -78,6 +78,12 @@ export enum DisplayMode {
   Fullscreen = 2,
 }
 
+// SC:R stores gamma as an integer percentage, converts it to a multiplier, and clamps that
+// multiplier before constructing the display gamma ramp.
+export const SCR_GAMMA_MIN = 60
+export const SCR_GAMMA_MAX = 140
+export const SCR_GAMMA_DEFAULT = 100
+
 // NOTE(tec27): The Object.values() method doesn't work for number enums because TS adds mirror
 // values for the string names
 export const ALL_DISPLAY_MODES: Readonly<DisplayMode[]> = [

@@ -266,6 +266,7 @@ export interface ScrSettings {
   cinematicSubtitlesOn: boolean
   originalVoiceOversOn: boolean
   displayMode: DisplayMode
+  gamma: number
   fpsLimitOn: boolean
   fpsLimit: number
   sdGraphicsFilter: number

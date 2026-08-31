@@ -1,5 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
-import { Announcer, ConsoleSkin, IngameSkin } from './blizz-settings'
+import { Announcer, ConsoleSkin, IngameSkin, SCR_GAMMA_DEFAULT } from './blizz-settings'
 import {
   FfaColorPreset,
   LocalSettings,
@@ -72,6 +72,7 @@ export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = 
   selectedAnnouncer: Announcer.Default,
   // Video settings
   displayMode: 0,
+  gamma: SCR_GAMMA_DEFAULT,
   fpsLimitOn: false,
   fpsLimit: 0,
   sdGraphicsFilter: 0,

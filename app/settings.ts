@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
+import { SCR_GAMMA_DEFAULT, SCR_GAMMA_MAX, SCR_GAMMA_MIN } from '../common/settings/blizz-settings'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
 import {
   FfaColorPreset,
@@ -17,7 +18,7 @@ import { findInstallPath } from './find-install-path'
 import log from './logger'
 
 const VERSION = 22
-const SCR_VERSION = 5
+const SCR_VERSION = 6
 
 /**
  * The `ffaColorPreset` value of the removed `Classic` preset. Settings files written before version
@@ -412,6 +413,7 @@ export const sbToScrMapping: ReadonlyMap<Omit<keyof ScrSettings, 'version'>, str
   ['cinematicSubtitlesOn', 'cinematicSubtitlesEnabled'],
   ['originalVoiceOversOn', 'originalUnitVO'],
   ['displayMode', 'WindowMode'],
+  ['gamma', 'Gamma'],
   ['fpsLimitOn', 'FPSLimitEnabled'],
   ['fpsLimit', 'FPSLimit'],
   ['sdGraphicsFilter', 'SDFilterMode'],
@@ -468,6 +470,15 @@ export function fromSbToBlizzard(sbSettings: Partial<ScrSettings>): Record<strin
     },
     {} as Record<string, any>,
   )
+}
+
+function normalizeGamma(value: unknown): number {
+  const gamma = Number(value)
+  if (!Number.isFinite(gamma)) {
+    return SCR_GAMMA_DEFAULT
+  }
+
+  return Math.max(SCR_GAMMA_MIN, Math.min(SCR_GAMMA_MAX, Math.round(gamma)))
 }
 
 export class ScrSettingsManager extends SettingsManager<ScrSettings> {
@@ -536,9 +547,11 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
   private async createDefaults() {
     // NOTE(tec27): This is always called *after* we initialize scrSettings the first time. If the
     // `initialize` function above gets rearranged that may no longer be true  (so don't do that :))
+    const blizzSettings = fromBlizzardToSb(this.blizzardSettings)
     return {
       version: SCR_VERSION,
-      ...fromBlizzardToSb(this.blizzardSettings),
+      ...blizzSettings,
+      gamma: normalizeGamma(blizzSettings.gamma),
     }
   }
 
@@ -606,6 +619,11 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
       newSettings.showTurnRate = blizzSettings.showTurnRate
       newSettings.version = 5
     }
+    if (newSettings.version < 6) {
+      const blizzSettings = fromBlizzardToSb(this.blizzardSettings)
+      newSettings.gamma = normalizeGamma(blizzSettings.gamma)
+      newSettings.version = 6
+    }
 
     newSettings.version = SCR_VERSION
     return newSettings
@@ -657,6 +675,9 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     await this.initialized
     const contents = await fsPromises.readFile(this.gameFilepath, { encoding: 'utf8' })
     const newData = fromBlizzardToSb(JSON.parse(contents))
+    if (newData.gamma !== undefined) {
+      newData.gamma = normalizeGamma(newData.gamma)
+    }
     await this.merge(newData)
   }
 }
