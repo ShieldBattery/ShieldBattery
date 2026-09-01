@@ -1,5 +1,6 @@
 import type EmojiPickerComponent from 'emoji-picker-react'
 import type { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react'
+import type { EmojiData } from 'emoji-picker-react/dist/types/exposedTypes'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -13,7 +14,8 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { inter, labelLarge, labelSmall } from '../styles/typography'
 import { customEmoteImageUrl, customEmotesForPicker } from './custom-emotes'
-import { getShortcode, loadShortcodes } from './emoji-shortcodes'
+import { getPickerEmojiData } from './emoji-data'
+import { getShortcode } from './emoji-shortcodes'
 import { recordEmoteUsage } from './emote-suggestions'
 import { TEXT_ART_COMMANDS } from './text-art'
 
@@ -27,6 +29,10 @@ const emojiPickerPromise = () =>
     loadedEmojiPicker = m.default
     return m.default
   })
+
+// The picker's dataset is loaded the same way, so both are ready together and the picker never
+// mounts with the library's own (shortcode-less) bundled data.
+let loadedPickerEmojiData: EmojiData | undefined
 
 const Contents = styled.div`
   width: 350px;
@@ -273,12 +279,13 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
   )
   const [pickerOpen, openPicker, closePicker] = usePopoverController({ refreshAnchorPos })
   const [EmojiPicker, setEmojiPicker] = useState(() => loadedEmojiPicker)
+  const [pickerEmojiData, setPickerEmojiData] = useState(() => loadedPickerEmojiData)
   const contentsRef = useRef<HTMLDivElement>(null)
   const [textArtHost, setTextArtHost] = useState<HTMLElement>()
   const [textArtNavHost, setTextArtNavHost] = useState<HTMLElement>()
 
   useEffect(() => {
-    if (pickerOpen && EmojiPicker) {
+    if (pickerOpen && EmojiPicker && pickerEmojiData) {
       // The library's own search autofocus only applies the first time it mounts, so focus it
       // ourselves to make typing-to-search work on every open
       const timer = setTimeout(() => {
@@ -287,10 +294,10 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
       return () => clearTimeout(timer)
     }
     return undefined
-  }, [pickerOpen, EmojiPicker])
+  }, [pickerOpen, EmojiPicker, pickerEmojiData])
 
   useEffect(() => {
-    if (!pickerOpen || !EmojiPicker) {
+    if (!pickerOpen || !EmojiPicker || !pickerEmojiData) {
       return undefined
     }
 
@@ -327,7 +334,7 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
       navHost?.remove()
       setTextArtNavHost(undefined)
     }
-  }, [pickerOpen, EmojiPicker])
+  }, [pickerOpen, EmojiPicker, pickerEmojiData])
 
   const onPick = useStableCallback((text: string) => {
     closePicker()
@@ -359,12 +366,19 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
               (err: Error) => logger.error(`Failed to load the emoji picker: ${String(err)}`),
             )
           }
-          // Kicked off here (rather than on first hover) so the shortcode map is usually ready
-          // by the time the user hovers an emoji; loadShortcodes() caches its result, so this is
-          // a no-op on every open after the first.
-          loadShortcodes().catch((err: Error) =>
-            logger.error(`Failed to load emoji shortcodes: ${String(err)}`),
-          )
+          if (!loadedPickerEmojiData) {
+            // Also kicks off loadShortcodes() internally, so the shortcode map is usually ready
+            // by the time the user hovers an emoji and the preview bar's getShortcode looks it
+            // up; getPickerEmojiData() caches its result, so this is a no-op on every open after
+            // the first.
+            getPickerEmojiData().then(
+              data => {
+                loadedPickerEmojiData = data
+                setPickerEmojiData(data)
+              },
+              (err: Error) => logger.error(`Failed to load emoji data: ${String(err)}`),
+            )
+          }
           openPicker(event)
         }}
       />
@@ -396,7 +410,7 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
             }
           }}>
           <PickerArea>
-            {EmojiPicker ? (
+            {EmojiPicker && pickerEmojiData ? (
               <EmojiPicker
                 // These are type-only imports so the library stays in its lazy chunk; the casts
                 // match the string values of the library's enums
@@ -413,6 +427,9 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
                 autoFocusSearch={false}
                 skinTonesDisabled={true}
                 customEmojis={customEmotesForPicker()}
+                // Replaces the library's bundled dataset with one that also carries every known
+                // Discord/Slack-style shortcode, so its search finds emojis by shortcode too
+                emojiData={pickerEmojiData}
                 previewConfig={{ showPreview: false }}
                 searchPlaceHolder={t('messaging.emotePicker.searchPlaceholder', 'Search emojis')}
                 onEmojiClick={onEmojiClick}

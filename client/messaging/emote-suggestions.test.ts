@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from 'vitest'
-import { getUnicodeEmojiEntries } from './emoji-data'
+import { getPickerEmojiData, getUnicodeEmojiEntries } from './emoji-data'
 import {
   EMOTE_QUERY_REGEX,
   matchRank,
@@ -96,6 +96,13 @@ describe('messaging/emote-suggestions', () => {
       expect(suggestions[0].key).toBe('bwProbe')
       expect(suggestions[0].name).toBe(':bwProbe:')
     })
+
+    test('a secondary shortcode is searchable too', async () => {
+      const entries = await getUnicodeEmojiEntries()
+      const suggestions = searchUnicodeEmojis(entries, 'thumbsup')
+      expect(suggestions[0].emoji).toBe('👍')
+    })
+
   })
 
   describe('mergeEmoteSuggestions', () => {
@@ -124,6 +131,33 @@ describe('messaging/emote-suggestions', () => {
       const result = mergeEmoteSuggestions([], unicode, key => usage[key] ?? 0)
       // Usage breaks the tie within rank 0, but never promotes a worse match above a better one
       expect(result.map(s => s.key)).toEqual(['u1', 'u0', 'u2'])
+    })
+  })
+
+  describe('getPickerEmojiData against the real dataset', () => {
+    // Builds the augmented dataset from the same two real, dynamically-imported sources as
+    // "suggestions against the real dataset" above, so it needs the same generous timeout.
+    beforeAll(async () => {
+      await getPickerEmojiData()
+    }, 30_000)
+
+    function findEmoji(data: Awaited<ReturnType<typeof getPickerEmojiData>>, unified: string) {
+      return Object.values(data.emojis)
+        .flat()
+        .find(e => e.u === unified)
+    }
+
+    test('a secondary shortcode is prepended to n, keeping the display name last', async () => {
+      const data = await getPickerEmojiData()
+      const emoji = findEmoji(data, '1f605')
+      expect(emoji?.n).toContain('sweat_smile')
+      expect(emoji?.n.at(-1)).toBe('grinning face with sweat')
+    })
+
+    test('the picker searches by shortcode', async () => {
+      const data = await getPickerEmojiData()
+      const emoji = findEmoji(data, '1f44d')
+      expect(emoji?.n).toContain('thumbsup')
     })
   })
 })
