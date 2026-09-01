@@ -103,6 +103,30 @@ describe('messaging/emote-suggestions', () => {
       expect(suggestions[0].emoji).toBe('👍')
     })
 
+    test('a typo with no separator still fuzzy-matches via the shortcode', async () => {
+      const entries = await getUnicodeEmojiEntries()
+      const suggestions = searchUnicodeEmojis(entries, 'swetsmile')
+      const sweatSmile = suggestions.find(s => s.emoji === '😅')
+      expect(sweatSmile?.rank).toBe(3)
+    })
+
+    test('fuzzy matches never outrank exact/prefix/substring ones', async () => {
+      const entries = await getUnicodeEmojiEntries()
+      const merged = mergeEmoteSuggestions(
+        searchCustomEmotes('fire'),
+        searchUnicodeEmojis(entries, 'fire'),
+      )
+      expect(merged[0].emoji).toBe('🔥')
+      // Ranks are sorted ascending, so a rank-3 result can never precede a better one
+      const ranks = merged.map(s => s.rank)
+      expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
+    })
+
+    test('a custom emote fuzzy-matches a subsequence of its code', () => {
+      const suggestions = searchCustomEmotes('frbat')
+      const firebat = suggestions.find(s => s.key === 'bwFirebat')
+      expect(firebat?.rank).toBe(3)
+    })
   })
 
   describe('mergeEmoteSuggestions', () => {
