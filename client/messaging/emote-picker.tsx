@@ -2,7 +2,6 @@ import type EmojiPickerComponent from 'emoji-picker-react'
 import type { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react'
 import type { EmojiData } from 'emoji-picker-react/dist/types/exposedTypes'
 import { type RefObject, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CUSTOM_EMOTES } from '../../common/text/custom-emotes'
@@ -12,12 +11,11 @@ import { IconButton } from '../material/button'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
-import { inter, labelLarge, labelSmall } from '../styles/typography'
+import { labelLarge } from '../styles/typography'
 import { customEmoteImageUrl, customEmotesForPicker } from './custom-emotes'
 import { getPickerEmojiData } from './emoji-data'
 import { getShortcode } from './emoji-shortcodes'
 import { recordEmoteUsage } from './emote-suggestions'
-import { TEXT_ART_COMMANDS } from './text-art'
 
 // Deliberately lazy: the picker (and its emoji data) is a sizable chunk that most chat sessions
 // never open, so it only loads the first time the popover is shown. Loaded imperatively rather
@@ -36,77 +34,6 @@ let loadedPickerEmojiData: EmojiData | undefined
 
 const Contents = styled.div`
   width: 350px;
-`
-
-const TextArtLabel = styled.div`
-  ${labelLarge};
-  /* The picker library styles every element inside it with a bare sans-serif font-family, at
-     higher cascade priority than a single styled-components class — reassert the app font over
-     it for the portalled content */
-  && {
-    ${inter};
-  }
-  position: sticky;
-  top: 0;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  background-color: var(--epr-category-label-bg-color);
-  backdrop-filter: blur(3px);
-`
-
-const TextArtNavButton = styled.button`
-  width: var(--epr-category-navigation-button-size, 30px);
-  height: var(--epr-category-navigation-button-size, 30px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--theme-on-surface);
-  opacity: 0.6;
-  cursor: pointer;
-
-  &:hover,
-  &:focus-visible {
-    opacity: 1;
-  }
-
-  /* The picker library forces sans-serif on every element inside it, which beats the icon
-     component's own single-class font-family and would leave the icon's ligature text visible */
-  && span {
-    font-family: 'Material Symbols Outlined';
-  }
-`
-
-const TextArtChips = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px 10px;
-`
-
-const TextArtChip = styled.button`
-  ${labelSmall};
-  && {
-    ${inter};
-  }
-  padding: 2px 10px;
-  border: none;
-  border-radius: 9999px;
-  background: var(--theme-container-highest);
-  color: var(--theme-on-surface);
-  cursor: pointer;
-
-  &:hover {
-    background: color-mix(in srgb, var(--theme-container-highest), var(--theme-on-surface) 8%);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-amber);
-  }
 `
 
 const PreviewBar = styled.div`
@@ -230,12 +157,6 @@ function PickerPreviewBar({ contentsRef }: { contentsRef: RefObject<HTMLDivEleme
 const PickerArea = styled.div`
   height: 360px;
 
-  /* The text art section is portalled into the picker's scroll body; hide it while a search
-     query is active, the same way non-matching categories get hidden. */
-  .EmojiPickerReact:has(input:not(:placeholder-shown)) .sb-text-art {
-    display: none;
-  }
-
   /* Blend the library's panel into the app theme. */
   .EmojiPickerReact {
     --epr-bg-color: transparent;
@@ -281,8 +202,6 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
   const [EmojiPicker, setEmojiPicker] = useState(() => loadedEmojiPicker)
   const [pickerEmojiData, setPickerEmojiData] = useState(() => loadedPickerEmojiData)
   const contentsRef = useRef<HTMLDivElement>(null)
-  const [textArtHost, setTextArtHost] = useState<HTMLElement>()
-  const [textArtNavHost, setTextArtNavHost] = useState<HTMLElement>()
 
   useEffect(() => {
     if (pickerOpen && EmojiPicker && pickerEmojiData) {
@@ -294,46 +213,6 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
       return () => clearTimeout(timer)
     }
     return undefined
-  }, [pickerOpen, EmojiPicker, pickerEmojiData])
-
-  useEffect(() => {
-    if (!pickerOpen || !EmojiPicker || !pickerEmojiData) {
-      return undefined
-    }
-
-    // The text art section belongs after the last emoji category, scrolling with them, but the
-    // picker library has no slot for extra sections — so a host element is appended to its scroll
-    // body and the section is portalled into it. Deferred a tick so the library's contents exist
-    // (they mount together with the popover's animation, same as the search focus above).
-    let host: HTMLDivElement | undefined
-    let navHost: HTMLDivElement | undefined
-    const timer = setTimeout(() => {
-      const scrollBody = contentsRef.current?.querySelector('.EmojiPickerReact .epr-body')
-      if (scrollBody) {
-        host = document.createElement('div')
-        host.className = 'sb-text-art'
-        scrollBody.appendChild(host)
-        setTextArtHost(host)
-      }
-
-      // A jump-to-section button gets the same treatment in the library's category nav.
-      // `display: contents` lets the portalled button lay out as a direct item of the nav's flex
-      // row, alongside the real category buttons.
-      const nav = contentsRef.current?.querySelector('.EmojiPickerReact .epr-category-nav')
-      if (nav) {
-        navHost = document.createElement('div')
-        navHost.style.display = 'contents'
-        nav.appendChild(navHost)
-        setTextArtNavHost(navHost)
-      }
-    })
-    return () => {
-      clearTimeout(timer)
-      host?.remove()
-      setTextArtHost(undefined)
-      navHost?.remove()
-      setTextArtNavHost(undefined)
-    }
   }, [pickerOpen, EmojiPicker, pickerEmojiData])
 
   const onPick = useStableCallback((text: string) => {
@@ -439,38 +318,6 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
             )}
           </PickerArea>
           <PickerPreviewBar contentsRef={contentsRef} />
-          {textArtHost
-            ? createPortal(
-                <>
-                  <TextArtLabel>{t('messaging.emotePicker.textArtLabel', 'Text art')}</TextArtLabel>
-                  <TextArtChips>
-                    {TEXT_ART_COMMANDS.map(({ command, art }) => (
-                      <TextArtChip
-                        key={command}
-                        type='button'
-                        // Multi-line art doesn't fit in a chip, so those show their command
-                        // instead. The title teaches the command form for everything either way.
-                        title={`/${command}`}
-                        onClick={() => onPick(art.includes('\n') ? art : `${art} `)}>
-                        {art.includes('\n') ? `/${command}` : art}
-                      </TextArtChip>
-                    ))}
-                  </TextArtChips>
-                </>,
-                textArtHost,
-              )
-            : null}
-          {textArtNavHost
-            ? createPortal(
-                <TextArtNavButton
-                  type='button'
-                  title={t('messaging.emotePicker.textArtLabel', 'Text art')}
-                  onClick={() => textArtHost?.scrollIntoView({ block: 'start' })}>
-                  <MaterialIcon icon='emoji_symbols' size={24} filled={false} />
-                </TextArtNavButton>,
-                textArtNavHost,
-              )
-            : null}
         </Contents>
       </Popover>
     </>

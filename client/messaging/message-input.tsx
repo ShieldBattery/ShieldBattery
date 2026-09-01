@@ -40,7 +40,6 @@ import {
   searchCustomEmotes,
   searchUnicodeEmojis,
 } from './emote-suggestions'
-import { applyTextArtCommand } from './text-art'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -452,9 +451,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       event.preventDefault()
 
       if (message.trim().length > 0) {
-        // The text art command applies before the length check, since the art it inserts changes
-        // the length of what actually gets sent
-        const toSend = applyTextArtCommand(message.trim())
+        const toSend = message.trim()
         if (toSend.length > CHAT_MESSAGE_MAXLENGTH) {
           // Blocked rather than sent-and-trimmed so no content is silently lost — the message
           // stays in the input for the user to shorten
