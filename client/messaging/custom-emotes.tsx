@@ -75,6 +75,18 @@ const EmoteImg = styled.img`
   vertical-align: middle;
 `
 
+/**
+ * The emote's shortcode as real (but invisible) text alongside the image, so anything that
+ * extracts text from the rendered message — `textContent`, `Selection.toString()`, copying a
+ * selection, screen readers — round-trips the emote instead of silently dropping it. Zero font
+ * size is the one hiding technique that keeps the text in selections: `display: none` text has no
+ * layout at all, and Blink also excludes text clipped away by a zero-width box, but zero-size
+ * glyphs still get emitted.
+ */
+const EmoteText = styled.span`
+  font-size: 0;
+`
+
 export function CustomEmote({ code, className }: { code: string; className?: string }) {
   const url = EMOTE_URLS.get(code.toLowerCase())
   // The message matcher only matches known codes, but render the literal text as a fallback so a
@@ -82,5 +94,13 @@ export function CustomEmote({ code, className }: { code: string; className?: str
   if (!url) {
     return <>{`:${code}:`}</>
   }
-  return <EmoteImg className={className} src={url} alt={`:${code}:`} title={`:${code}:`} />
+  const shortcode = `:${code}:`
+  // The image stays out of the accessibility tree and out of copied text (browsers emit an img's
+  // alt when copying a selection, which would double up with the adjacent shortcode text)
+  return (
+    <>
+      <EmoteImg className={className} src={url} alt='' aria-hidden={true} title={shortcode} />
+      <EmoteText>{shortcode}</EmoteText>
+    </>
+  )
 }

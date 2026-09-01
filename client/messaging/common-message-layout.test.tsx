@@ -96,6 +96,16 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     expect(doRender('😀😀😀😀😀😀😀😀😀😀😀')).toMatchSnapshot()
   })
 
+  // Custom emotes render as an image, but "Copy message"/selection copy extract the DOM text, so
+  // the shortcode must survive as (invisible) text alongside it
+  test('custom emote round-trips through extracted message text', () => {
+    expect(doRender('gg :bwGg: wp').textContent).toContain('gg :bwGg: wp')
+  })
+
+  test('custom emote typed in a different case round-trips as typed', () => {
+    expect(doRender('gg :BWGG: wp').textContent).toContain('gg :BWGG: wp')
+  })
+
   // Canary for the invite-card tests below: card rendering depends on lobby-link detection, which
   // compares a link's origin against the server origin assembled from the test environment
   // (IS_ELECTRON global + the SB_SERVER define, via `baseUrl`). If this test fails alongside the
