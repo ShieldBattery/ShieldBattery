@@ -86,7 +86,7 @@ export function searchCustomEmotes(query: string): EmoteSuggestion[] {
     const rank = matchRank([e.code.toLowerCase(), e.name.toLowerCase()], q)
     const imgUrl = customEmoteImageUrl(e.code)
     return rank >= 0 && imgUrl
-      ? [{ key: e.code, insertText: `:${e.code}: `, name: e.name, rank, imgUrl }]
+      ? [{ key: e.code, insertText: `:${e.code}: `, name: `:${e.code}:`, rank, imgUrl }]
       : []
   })
 }
@@ -117,7 +117,9 @@ export function searchUnicodeEmojis(
   const toSuggestion = (e: UnicodeEmojiEntry, rank: number): EmoteSuggestion => ({
     key: `u:${e.emoji}`,
     insertText: e.emoji,
-    name: e.name,
+    // Prefer the Discord/Slack-style shortcode when one is known; otherwise fall back to a
+    // shortcode-shaped rendering of the primary name (spaces to underscores)
+    name: `:${e.shortcode ?? e.name.replaceAll(' ', '_')}:`,
     rank,
     emoji: e.emoji,
   })

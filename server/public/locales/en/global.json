@@ -1471,6 +1471,7 @@
     "copyMessage": "Copy message",
     "emotePicker": {
       "buttonTitle": "Add emoji",
+      "previewHint": "Hover an emoji to see its code",
       "searchPlaceholder": "Search emojis",
       "textArtLabel": "Text art"
     },

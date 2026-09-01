@@ -4,13 +4,20 @@
  * first time something asks for it.
  */
 
+import { getShortcode, loadShortcodes } from './emoji-shortcodes'
+
 export interface UnicodeEmojiEntry {
   /** The rendered emoji (may be a multi-codepoint sequence). */
   emoji: string
   /** The primary human-readable name, e.g. "grinning face". */
   name: string
-  /** All the names/keywords this emoji is searchable by, lowercase. */
+  /**
+   * All the names/keywords this emoji is searchable by, lowercase. Includes the shortcode (with
+   * underscores replaced by spaces) when one is known, alongside the dataset's own keywords.
+   */
   names: string[]
+  /** The Discord/Slack-style shortcode, e.g. "sweat_smile", if the shortcode dataset has one. */
+  shortcode?: string
 }
 
 interface EmojiDataFile {
@@ -27,18 +34,25 @@ export function getUnicodeEmojiEntries(): Promise<UnicodeEmojiEntry[]> {
   // NOTE: This reaches into the library's dist internals because it has no public data export;
   // a version bump could move this file and break autocomplete while the picker keeps working.
   // The emote-suggestions tests load this for real, so a break gets caught there.
-  pendingLoad ??= import('emoji-picker-react/dist/data/emojis.json').then(
-    module => {
+  pendingLoad ??= Promise.all([
+    import('emoji-picker-react/dist/data/emojis.json'),
+    loadShortcodes(),
+  ]).then(
+    ([module]) => {
       const data = (module.default ?? module) as unknown as EmojiDataFile
       cache = Object.values(data.emojis)
         .flat()
-        .map(({ n, u }) => ({
-          emoji: String.fromCodePoint(...u.split('-').map(hex => parseInt(hex, 16))),
-          // The names are a mix of keywords and the full name in no reliable order; the longest
-          // one is consistently the most descriptive
-          name: n.reduce((a, b) => (b.length > a.length ? b : a)),
-          names: n,
-        }))
+        .map(({ n, u }) => {
+          const shortcode = getShortcode(u)
+          return {
+            emoji: String.fromCodePoint(...u.split('-').map(hex => parseInt(hex, 16))),
+            // The names are a mix of keywords and the full name in no reliable order; the longest
+            // one is consistently the most descriptive
+            name: n.reduce((a, b) => (b.length > a.length ? b : a)),
+            names: shortcode ? [...n, shortcode.replaceAll('_', ' ')] : n,
+            shortcode,
+          }
+        })
       return cache
     },
     err => {

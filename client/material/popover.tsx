@@ -394,6 +394,11 @@ export function PopoverContent({
     '--sb-transform-origin': `${originX} ${originY}`,
     [propX]: (posX ?? 0) + 'px',
     [propY]: (posY ?? 0) + 'px',
+    // Until both rects have been measured, posX/posY fall back to 0 above, which would paint the
+    // container at the default top-left corner. That's normally invisible since the fade-in starts
+    // at opacity 0, but heavy content can delay the measurement past the fade, making the jump to
+    // the correct position visible. Staying hidden until a real position is known avoids that.
+    ...(posX === undefined || posY === undefined ? { visibility: 'hidden' as const } : {}),
   }
   return (
     <PositioningArea ref={maxSizeRef}>

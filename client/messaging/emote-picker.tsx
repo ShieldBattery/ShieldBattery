@@ -1,9 +1,10 @@
 import type EmojiPickerComponent from 'emoji-picker-react'
 import type { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react'
-import { useEffect, useRef, useState } from 'react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { CUSTOM_EMOTES } from '../../common/text/custom-emotes'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { IconButton } from '../material/button'
@@ -11,7 +12,8 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { inter, labelLarge, labelSmall } from '../styles/typography'
-import { customEmotesForPicker } from './custom-emotes'
+import { customEmoteImageUrl, customEmotesForPicker } from './custom-emotes'
+import { getShortcode, loadShortcodes } from './emoji-shortcodes'
 import { recordEmoteUsage } from './emote-suggestions'
 import { TEXT_ART_COMMANDS } from './text-art'
 
@@ -100,6 +102,124 @@ const TextArtChip = styled.button`
     outline: 2px solid var(--theme-amber);
   }
 `
+
+const PreviewBar = styled.div`
+  height: 44px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-top: 1px solid var(--theme-outline-variant);
+  background-color: var(--theme-container-low);
+`
+
+const PreviewGlyph = styled.span`
+  font-size: 26px;
+  line-height: 1;
+`
+
+const PreviewImg = styled.img`
+  width: 26px;
+  height: 26px;
+`
+
+const PreviewCode = styled.div`
+  ${labelLarge};
+  color: var(--theme-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+
+const PreviewHint = styled.div`
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
+`
+
+interface HoveredEmoji {
+  /** The emoji glyph (built-in) or the custom emote's image URL, mutually exclusive. */
+  glyph?: string
+  imgUrl?: string
+  /** `:shortcode:`-formatted display text, or `undefined` if it couldn't be resolved. */
+  code: string | undefined
+}
+
+/**
+ * A Discord-style preview bar shown at the bottom of the emoji picker, displaying the emoji
+ * currently hovered (or focused via keyboard) and its `:shortcode:`. Hover state lives in this
+ * component rather than in the caller so the constant stream of hover events doesn't re-render
+ * the (heavy) picker library tree above it.
+ */
+function PickerPreviewBar({ contentsRef }: { contentsRef: RefObject<HTMLDivElement | null> }) {
+  const { t } = useTranslation()
+  const [hovered, setHovered] = useState<HoveredEmoji>()
+
+  useEffect(() => {
+    const contents = contentsRef.current
+    if (!contents) {
+      return undefined
+    }
+
+    const onHover = (event: Event) => {
+      // Delegated (rather than one listener per emoji) since the library renders hundreds of
+      // emoji buttons at once
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>('button.epr-emoji')
+      if (!target) {
+        // Don't clear the preview on mouseout/focusout — like Discord, it keeps showing the last
+        // hovered emoji until another one is hovered.
+        return
+      }
+      const unified = target.dataset.unified
+      if (!unified) {
+        return
+      }
+      if (/^[0-9a-f-]+$/.test(unified)) {
+        const shortcode = getShortcode(unified)
+        setHovered({
+          glyph: String.fromCodePoint(...unified.split('-').map(h => parseInt(h, 16))),
+          code: shortcode ? `:${shortcode}:` : undefined,
+        })
+        return
+      }
+      // Custom emoji buttons carry their (lowercased) code as data-unified instead of a Unicode
+      // codepoint sequence, since the library derives it from the `id` passed into its
+      // customEmojis config (see customEmotesForPicker)
+      const custom = CUSTOM_EMOTES.find(e => e.code.toLowerCase() === unified)
+      if (custom) {
+        setHovered({ imgUrl: customEmoteImageUrl(custom.code), code: `:${custom.code}:` })
+      }
+    }
+
+    contents.addEventListener('mouseover', onHover)
+    contents.addEventListener('focusin', onHover)
+    return () => {
+      contents.removeEventListener('mouseover', onHover)
+      contents.removeEventListener('focusin', onHover)
+    }
+  }, [contentsRef])
+
+  if (!hovered) {
+    return (
+      <PreviewBar>
+        <PreviewHint>
+          {t('messaging.emotePicker.previewHint', 'Hover an emoji to see its code')}
+        </PreviewHint>
+      </PreviewBar>
+    )
+  }
+
+  return (
+    <PreviewBar>
+      {hovered.imgUrl ? (
+        <PreviewImg src={hovered.imgUrl} alt='' />
+      ) : (
+        <PreviewGlyph>{hovered.glyph}</PreviewGlyph>
+      )}
+      {hovered.code ? <PreviewCode>{hovered.code}</PreviewCode> : null}
+    </PreviewBar>
+  )
+}
 
 const PickerArea = styled.div`
   height: 360px;
@@ -239,6 +359,12 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
               (err: Error) => logger.error(`Failed to load the emoji picker: ${String(err)}`),
             )
           }
+          // Kicked off here (rather than on first hover) so the shortcode map is usually ready
+          // by the time the user hovers an emoji; loadShortcodes() caches its result, so this is
+          // a no-op on every open after the first.
+          loadShortcodes().catch((err: Error) =>
+            logger.error(`Failed to load emoji shortcodes: ${String(err)}`),
+          )
           openPicker(event)
         }}
       />
@@ -295,6 +421,7 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
               <LoadingDotsArea />
             )}
           </PickerArea>
+          <PickerPreviewBar contentsRef={contentsRef} />
           {textArtHost
             ? createPortal(
                 <>

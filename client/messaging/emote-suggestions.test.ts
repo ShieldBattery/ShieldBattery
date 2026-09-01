@@ -83,6 +83,19 @@ describe('messaging/emote-suggestions', () => {
       const suggestions = searchUnicodeEmojis(entries, 'grinning_face')
       expect(suggestions[0].emoji).toBe('😀')
     })
+
+    test('displays the Discord/Slack-style shortcode as the suggestion name', async () => {
+      const entries = await getUnicodeEmojiEntries()
+      const suggestions = searchUnicodeEmojis(entries, 'sweat_smile')
+      expect(suggestions[0].emoji).toBe('😅')
+      expect(suggestions[0].name).toBe(':sweat_smile:')
+    })
+
+    test('custom emote suggestions display their code, not their human name', () => {
+      const suggestions = searchCustomEmotes('probe')
+      expect(suggestions[0].key).toBe('bwProbe')
+      expect(suggestions[0].name).toBe(':bwProbe:')
+    })
   })
 
   describe('mergeEmoteSuggestions', () => {

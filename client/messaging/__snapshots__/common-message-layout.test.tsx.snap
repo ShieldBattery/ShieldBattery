@@ -57,6 +57,68 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
 </div>
 `;
 
+exports[`client/messaging/common-message-layout/TextMessage > message mixing emoji and text renders them inline-sized 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-edvVIM gplcsU"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-bRBteW fXvcIG"
+      tabindex="0"
+    >
+      <span
+        class="sc-jvDgNt loaLja"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-hjIEjD SNIZG"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-hjIEjD SNIZG"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-gHmoSK kRelkX sc-kIBtVG kcYdqy"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-djMJHV upVlS"
+      >
+                   
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="sc-hjIEjD SNIZG"
+    >
+      : 
+    </i>
+    <span
+      class="sc-kubIlH eOQFbV"
+    >
+      nice game 
+      <span
+        class="sc-fylCKh cidosx"
+      >
+        🔥
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
 exports[`client/messaging/common-message-layout/TextMessage > message with a link 1`] = `
 <div
   data-testid="message-container"
@@ -585,6 +647,134 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
         >
                      
         </span>
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > message with only emoji renders them jumbo-sized 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-edvVIM gplcsU"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-bRBteW fXvcIG"
+      tabindex="0"
+    >
+      <span
+        class="sc-jvDgNt loaLja"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-hjIEjD SNIZG"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-hjIEjD SNIZG"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-gHmoSK kRelkX sc-kIBtVG kcYdqy"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-djMJHV upVlS"
+      >
+                   
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="sc-hjIEjD SNIZG"
+    >
+      : 
+    </i>
+    <span
+      class="sc-kubIlH eOQFbV"
+    >
+      <span
+        class="sc-fylCKh gLbRdi"
+      >
+        🔥🔥
+      </span>
+       
+      <span
+        class="sc-fylCKh gLbRdi"
+      >
+        🎉
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > message with too many emoji for jumbo stays inline-sized 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-edvVIM gplcsU"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-bRBteW fXvcIG"
+      tabindex="0"
+    >
+      <span
+        class="sc-jvDgNt loaLja"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-hjIEjD SNIZG"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-hjIEjD SNIZG"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-gHmoSK kRelkX sc-kIBtVG kcYdqy"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-djMJHV upVlS"
+      >
+                   
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="sc-hjIEjD SNIZG"
+    >
+      : 
+    </i>
+    <span
+      class="sc-kubIlH eOQFbV"
+    >
+      <span
+        class="sc-fylCKh cidosx"
+      >
+        😀😀😀😀😀😀😀😀😀😀😀
       </span>
     </span>
   </div>
