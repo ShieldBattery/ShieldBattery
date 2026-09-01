@@ -15,20 +15,16 @@ import { customEmotesForPicker } from './custom-emotes'
 import { recordEmoteUsage } from './emote-suggestions'
 import { TEXT_ART_COMMANDS } from './text-art'
 
-// Deliberately lazy: the picker (and its emoji data + image URL map) is a sizable chunk that most
-// chat sessions never open, so it only loads the first time the popover is shown. Loaded
-// imperatively rather than through React.lazy/Suspense — a suspending boundary inside the popover
-// wedges AnimatePresence's exit animation, leaving the popover permanently stuck open.
+// Deliberately lazy: the picker (and its emoji data) is a sizable chunk that most chat sessions
+// never open, so it only loads the first time the popover is shown. Loaded imperatively rather
+// than through React.lazy/Suspense — a suspending boundary inside the popover wedges
+// AnimatePresence's exit animation, leaving the popover permanently stuck open.
 let loadedEmojiPicker: typeof EmojiPickerComponent | undefined
-let loadedEmojiImageUrl: ((unified: string) => string | undefined) | undefined
 const emojiPickerPromise = () =>
-  Promise.all([import('emoji-picker-react'), import('./google-emoji-images')]).then(
-    ([m, images]) => {
-      loadedEmojiPicker = m.default
-      loadedEmojiImageUrl = images.googleEmojiImageUrl
-      return m.default
-    },
-  )
+  import('emoji-picker-react').then(m => {
+    loadedEmojiPicker = m.default
+    return m.default
+  })
 
 const Contents = styled.div`
   width: 350px;
@@ -126,6 +122,12 @@ const PickerArea = styled.div`
     --epr-hover-bg-color: rgb(from var(--theme-on-surface) r g b / 0.08);
     --epr-focus-bg-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     --epr-highlight-color: var(--theme-amber);
+  }
+
+  /* The library forces an OS-emoji-first font stack (e.g. "Segoe UI Emoji") on emoji glyphs via
+     an !important rule, so reasserting the self-hosted emoji font needs !important too. */
+  .epr-emoji-native {
+    font-family: 'Noto Color Emoji', sans-serif !important;
   }
 `
 
@@ -273,16 +275,12 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
                 // These are type-only imports so the library stays in its lazy chunk; the casts
                 // match the string values of the library's enums
                 theme={'dark' as Theme}
-                emojiStyle={'google' as EmojiStyle}
+                emojiStyle={'native' as EmojiStyle}
                 // The library injects its stylesheet as an inline <style> tag, which our CSP only
                 // allows when it carries the page's nonce
                 nonce={(window as any).SB_CSP_NONCE}
-                // Self-hosted images instead of the library's CDN default; empty string for
-                // anything missing from the set so nothing falls back to a remote URL
-                getEmojiUrl={unified => loadedEmojiImageUrl?.(unified) ?? ''}
                 width='100%'
                 height='100%'
-                lazyLoadEmojis={true}
                 // The search is focused by our own effect above (which also covers reopening);
                 // the library's autofocus can additionally re-fire while the popover's exit
                 // animation still renders it, stealing focus from the input mid-insert

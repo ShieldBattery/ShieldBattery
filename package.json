@@ -220,7 +220,6 @@
     "electron": "^43.1.1",
     "electron-builder": "^26.15.7",
     "electron-is-dev": "^3.0.1",
-    "emoji-datasource-google": "^16.0.0",
     "engine.io": "^6.6.9",
     "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",

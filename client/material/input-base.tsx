@@ -1,5 +1,5 @@
 import styled, { css } from 'styled-components'
-import { bodyLarge, singleLine } from '../styles/typography'
+import { bodyLarge, inter, singleLine } from '../styles/typography'
 
 export const InputBase = styled.div<{
   $floatingLabel?: boolean
@@ -9,6 +9,7 @@ export const InputBase = styled.div<{
   $leadingIconsLength?: number
   $trailingIconsLength?: number
 }>`
+  ${inter};
   ${bodyLarge};
   flex-grow: 1;
   order: 2;

@@ -120,7 +120,6 @@ export function searchUnicodeEmojis(
     name: e.name,
     rank,
     emoji: e.emoji,
-    imgUrl: e.imgUrl,
   })
   return exactMatches
     .map(e => toSuggestion(e, 0))
