@@ -291,16 +291,17 @@ export async function getMessagesForWhisperSession(
       }
 
       case 'after': {
-        // The window starts one millisecond past the cursor rather than strictly past it: a cursor
-        // names a message the caller already has, but arrives as epoch milliseconds while `sent`
-        // keeps microseconds, so a strict full-precision comparison would hand that same message
-        // back at the head of nearly every page.
+        // The cursor names a message the caller already has, but arrives as epoch milliseconds
+        // while `sent` keeps microseconds, so that message usually comes back at the head of the
+        // page. The client drops it as a duplicate. Starting the page a millisecond later instead
+        // would skip any message stored later within the cursor's millisecond, which is worse than
+        // a duplicate.
         const result = await client.query<DbWhisperMessage>(sql`
           SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
           FROM whisper_messages AS m
           WHERE m.user_low  = ${userLow}::int4
             AND m.user_high = ${userHigh}::int4
-            AND m.sent >= ${cursor.date}::timestamp + interval '1 millisecond'
+            AND m.sent > ${cursor.date}
           ORDER BY m.sent ASC
           LIMIT ${limit + 1};
         `)

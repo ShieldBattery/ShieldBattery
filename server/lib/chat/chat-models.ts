@@ -553,15 +553,15 @@ export async function getMessagesForChannel(
       }
 
       case 'after': {
-        // The window starts one millisecond past the cursor rather than strictly past it: a cursor
-        // names a message the caller already has, but arrives as epoch milliseconds while `sent`
-        // keeps microseconds, so a strict full-precision comparison would hand that same message
-        // back at the head of nearly every page.
+        // The cursor names a message the caller already has, but arrives as epoch milliseconds
+        // while `sent` keeps microseconds, so that message usually comes back at the head of the
+        // page. The client drops it as a duplicate. Starting the page a millisecond later instead
+        // would skip any message stored later within the cursor's millisecond, which is worse than
+        // a duplicate.
         const result = await client.query<DbChatMessage>(sql`
           SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
           FROM channel_messages m
-          WHERE m.channel_id = ${channelId}
-            AND m.sent >= ${cursor.date}::timestamp + interval '1 millisecond'
+          WHERE m.channel_id = ${channelId} AND m.sent > ${cursor.date}
           ORDER BY m.sent ASC
           LIMIT ${limit + 1};
         `)
