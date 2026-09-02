@@ -19,7 +19,7 @@ import {
   ResetMessageWindow,
   UpdateSessionAtBottom,
 } from './actions'
-import { newestServerOriginTime, oldestServerOriginTime } from './whisper-reducer'
+import { newestServerOriginTime } from './whisper-reducer'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -125,9 +125,9 @@ export function getMessageHistory(
     }
 
     const sessionData = byId.get(target)!
-    // -1 is the "newest page" sentinel, used both when nothing is loaded and when nothing loaded
-    // carries a server-recorded time, since such a time means nothing as a server cursor.
-    const earliestMessageTime = oldestServerOriginTime(sessionData.messages) ?? -1
+    // -1 is the "newest page" sentinel for when nothing is loaded. Every whisper message the client
+    // holds is a server-recorded text message, so the oldest one is always a usable cursor.
+    const earliestMessageTime = sessionData.messages.length ? sessionData.messages[0].time : -1
     const params = {
       target,
       limit,

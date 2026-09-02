@@ -112,22 +112,6 @@ export function newestServerOriginTime(messages: readonly CommonTextMessage[]): 
 }
 
 /**
- * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
- * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why other messages
- * are excluded: their local-clock times are meaningless as a server request cursor or a window
- * boundary.
- */
-export function oldestServerOriginTime(messages: readonly CommonTextMessage[]): number | undefined {
-  for (const message of messages) {
-    if (isServerOriginMessage(message)) {
-      return message.time
-    }
-  }
-
-  return undefined
-}
-
-/**
  * Returns `incoming` with every message already present in `existing` removed. The history
  * endpoints seek by millisecond-precision time, so a page boundary landing inside a group of
  * messages that share a timestamp can hand back messages the window already holds.
