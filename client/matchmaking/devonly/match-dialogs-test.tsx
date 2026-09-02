@@ -19,7 +19,6 @@ import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
-import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { BodyMedium } from '../../styles/typography'
 import { closeAcceptMatchDialog, openAcceptMatchDialog } from '../action-creators'
@@ -50,9 +49,10 @@ export function MatchDialogsTest() {
   const [acceptedPlayers, setAcceptedPlayers] = useState(0)
   const [hasAccepted, setHasAccepted] = useState(false)
   const [showProvisioningStatus, setShowProvisioningStatus] = useState(false)
+  const [acceptWindowSecs, setAcceptWindowSecs] = useState(MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000)
   const [autoCloseSecs, setAutoCloseSecs] = useState(10)
 
-  const showAcceptDialog = useStableCallback(() => {
+  const showAcceptDialog = () => {
     store.set(currentSearchInfoAtom, {
       searchedTypes: new Map<MatchmakingType, RaceChar>([[matchmakingType, 'r']]),
       startTime: window.performance.now(),
@@ -61,21 +61,28 @@ export function MatchDialogsTest() {
       matchmakingType,
       numPlayers,
       acceptStart: window.performance.now(),
-      acceptTimeTotalMillis: MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+      acceptTimeTotalMillis: acceptWindowSecs * 1000,
       acceptedPlayers,
       hasAccepted,
     })
     dispatch(openAcceptMatchDialog())
 
-    // The dialog is modal with no close button (the real flow closes it from server events), so
-    // close it and reset the fake state automatically after a bit
+    // Mirrors what the server does when the window runs out: the match goes away while the
+    // search continues, which puts the dialog into its returning-to-queue state until it closes
+    // itself. The final clear covers the case where the dialog was dismissed before then.
     setTimeout(() => {
-      clearMatchmakingState(store)
-      dispatch(closeAcceptMatchDialog())
-    }, autoCloseSecs * 1000)
-  })
+      store.set(foundMatchAtom, undefined)
+    }, acceptWindowSecs * 1000)
+    setTimeout(
+      () => {
+        clearMatchmakingState(store)
+        dispatch(closeAcceptMatchDialog())
+      },
+      acceptWindowSecs * 1000 + 6000,
+    )
+  }
 
-  const showLaunchingDialog = useStableCallback((type: MatchmakingType | undefined) => {
+  const showLaunchingDialog = (type: MatchmakingType | undefined) => {
     store.set(matchLaunchingAtom, true)
     store.set(launchingMatchmakingTypeAtom, type)
     store.set(
@@ -89,14 +96,16 @@ export function MatchDialogsTest() {
       store.set(gameLoadingStatusAtom, undefined)
       dispatch(closeDialog(DialogType.LaunchingGame))
     }, autoCloseSecs * 1000)
-  })
+  }
 
   return (
     <div>
       <ControlsCard>
         <BodyMedium>
-          The accept-match and launching-game dialogs are modal without a close button, so they
-          auto-close after the configured number of seconds.
+          The accept-match dialog runs its full lifecycle: the countdown runs for the configured
+          accept window, then the match dissolves and the dialog shows its returning-to-queue state
+          before closing itself. The launching dialog has no close button, so it auto-closes after
+          the configured number of seconds.
         </BodyMedium>
         <Select
           value={matchmakingType}
@@ -136,7 +145,13 @@ export function MatchDialogsTest() {
           }
         />
         <NumberTextField
-          label='Auto-close after (seconds)'
+          label='Accept window (seconds)'
+          floatingLabel={true}
+          value={acceptWindowSecs}
+          onChange={setAcceptWindowSecs}
+        />
+        <NumberTextField
+          label='Auto-close launching dialog after (seconds)'
           floatingLabel={true}
           value={autoCloseSecs}
           onChange={setAutoCloseSecs}

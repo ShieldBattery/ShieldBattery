@@ -25,11 +25,11 @@ const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
 /**
- * How many cells the accept countdown strip is divided into. Chosen so each cell covers a whole
- * number of seconds of the accept window (3s at the standard 30s), keeping the per-second melt
- * notches evenly sized across every cell.
+ * How many seconds of the accept window each cell of the countdown strip covers. The strip gets
+ * however many cells the window needs at this size, so the per-second melt notches (a third of a
+ * cell each) stay the same size however long the window is.
  */
-const TIMER_CELL_COUNT = 10
+const TIMER_CELL_SECONDS = 3
 /**
  * How often the countdown re-renders. The cells melt in per-second notches, but a fast tick keeps
  * the notch (and the waiting-state drain bar) landing close to the true second boundary.
@@ -296,20 +296,20 @@ function AcceptingStateView({ close }: { close: () => void }) {
   const acceptedPlayers = foundMatch?.acceptedPlayers ?? 0
 
   if (!hasAccepted) {
+    const cellCount = Math.max(1, Math.round(acceptTimeTotal / (TIMER_CELL_SECONDS * 1000)))
     // Quantized to whole seconds so the leading cell melts in discrete notches that land exactly
     // on the ticks (and thus stay in sync with the flash and the tick sounds), rather than
-    // draining smoothly between them.
-    const cellValue = ((secondsLeft * 1000) / acceptTimeTotal) * TIMER_CELL_COUNT
+    // draining smoothly between them. Multiplied out before dividing so the value is exact on the
+    // ticks where it lands on a cell boundary; rounding error there would ceil to the wrong cell.
+    const cellValue = (secondsLeft * 1000 * cellCount) / acceptTimeTotal
     const leadIndex = Math.ceil(cellValue) - 1
     // The flash accompanies a cell that just lost a notch but survived. On ticks where a cell
     // dies instead, its collapse animation is the only accent — flashing the next cell at the
     // same moment would have two cells animating at once.
-    const prevCellValue = (((secondsLeft + 1) * 1000) / acceptTimeTotal) * TIMER_CELL_COUNT
+    const prevCellValue = ((secondsLeft + 1) * 1000 * cellCount) / acceptTimeTotal
     const flashIndex =
-      Math.ceil(prevCellValue) - 1 === leadIndex && prevCellValue <= TIMER_CELL_COUNT
-        ? leadIndex
-        : -1
-    const timerCells = Array.from(range(0, TIMER_CELL_COUNT), i => {
+      Math.ceil(prevCellValue) - 1 === leadIndex && prevCellValue <= cellCount ? leadIndex : -1
+    const timerCells = Array.from(range(0, cellCount), i => {
       const fill = Math.max(0, Math.min(1, cellValue - i))
       const lit = fill > 0
 
