@@ -19,7 +19,7 @@ const eventToChatAction: EventToChatActionMap = {
     return {
       type: '@chat/updateJoin',
       payload: event,
-      meta: { channelId },
+      meta: { channelId, windowFocused: windowFocus.isFocused() },
     }
   },
 
@@ -45,7 +45,7 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateLeave',
         payload: event,
-        meta: { channelId },
+        meta: { channelId, windowFocused: windowFocus.isFocused() },
       })
     }
   },
@@ -63,7 +63,7 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateKick',
         payload: event,
-        meta: { channelId },
+        meta: { channelId, windowFocused: windowFocus.isFocused() },
       })
     }
   },
@@ -81,7 +81,7 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateBan',
         payload: event,
-        meta: { channelId },
+        meta: { channelId, windowFocused: windowFocus.isFocused() },
       })
     }
   },
@@ -90,7 +90,7 @@ const eventToChatAction: EventToChatActionMap = {
     return {
       type: '@chat/ownerChanged',
       payload: event,
-      meta: { channelId },
+      meta: { channelId, windowFocused: windowFocus.isFocused() },
     }
   },
 
@@ -104,6 +104,7 @@ const eventToChatAction: EventToChatActionMap = {
 
       const isBlocked = blocks.has(event.message.from)
       const isUrgent = !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
+      const windowFocused = windowFocus.isFocused()
       if (isUrgent) {
         // Mentions get the main process's transient attention treatment (urgent tray icon +
         // taskbar flash); regular messages reach it through the tracked unread state instead.
@@ -115,11 +116,11 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
-        meta: { channelId, mentionsSelf: isUrgent },
+        meta: { channelId, mentionsSelf: isUrgent, windowFocused },
       })
 
       const isChannelActivated = activatedChannels.has(channelId)
-      if (isUrgent && (!isChannelActivated || !windowFocus.isFocused())) {
+      if (isUrgent && (!isChannelActivated || !windowFocused)) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

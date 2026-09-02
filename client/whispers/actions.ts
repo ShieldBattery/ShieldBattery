@@ -288,5 +288,11 @@ export interface WhisperMessageUpdate {
   meta: {
     /** The other user involved in this whisper (not the one logged in on this client). */
     target: SbUserId
+    /**
+     * Whether the app window was focused when the message arrived. A message landing in an
+     * unfocused window can't have been seen no matter where the session's view is scrolled, so the
+     * reducer counts it as unread regardless.
+     */
+    windowFocused: boolean
   }
 }

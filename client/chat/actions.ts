@@ -457,7 +457,11 @@ export interface InitChannel {
 export interface UpdateJoin {
   type: '@chat/updateJoin'
   payload: ChatJoinEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /** Whether the app window was focused when this arrived. See `UpdateMessage`. */
+    windowFocused: boolean
+  }
 }
 
 /**
@@ -466,7 +470,11 @@ export interface UpdateJoin {
 export interface UpdateLeave {
   type: '@chat/updateLeave'
   payload: ChatLeaveEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /** Whether the app window was focused when this arrived. See `UpdateMessage`. */
+    windowFocused: boolean
+  }
 }
 
 /**
@@ -483,7 +491,11 @@ export interface UpdateLeaveSelf {
 export interface UpdateKick {
   type: '@chat/updateKick'
   payload: ChatKickEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /** Whether the app window was focused when this arrived. See `UpdateMessage`. */
+    windowFocused: boolean
+  }
 }
 
 /**
@@ -500,7 +512,11 @@ export interface UpdateKickSelf {
 export interface UpdateBan {
   type: '@chat/updateBan'
   payload: ChatBanEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /** Whether the app window was focused when this arrived. See `UpdateMessage`. */
+    windowFocused: boolean
+  }
 }
 
 /**
@@ -517,7 +533,11 @@ export interface UpdateBanSelf {
 export interface UpdateChannelOwner {
   type: '@chat/ownerChanged'
   payload: ChatOwnerChangedEvent
-  meta: { channelId: SbChannelId }
+  meta: {
+    channelId: SbChannelId
+    /** Whether the app window was focused when this arrived. See `UpdateMessage`. */
+    windowFocused: boolean
+  }
 }
 
 /**
@@ -532,6 +552,12 @@ export interface UpdateMessage {
      * Whether the message mentions the current user and wasn't sent by someone they've blocked.
      */
     mentionsSelf: boolean
+    /**
+     * Whether the app window was focused when the message arrived. A message landing in an
+     * unfocused window can't have been seen no matter where the channel's view is scrolled, so the
+     * reducer counts it as unread regardless.
+     */
+    windowFocused: boolean
   }
 }
 

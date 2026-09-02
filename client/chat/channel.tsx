@@ -9,6 +9,7 @@ import {
   isServerChatMessage,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { useWindowFocus } from '../dom/window-focus'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
@@ -168,6 +169,7 @@ export function ConnectedChatChannel({
   const isActivated = useAppSelector(s => s.chat.activatedChannels.has(channelId))
   const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
   const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLineTime.get(channelId))
+  const isWindowFocused = useWindowFocus()
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
@@ -298,14 +300,18 @@ export function ConnectedChatChannel({
     }
   }
 
-  // Reports the read position whenever the channel is both open and scrolled to the bottom, so
-  // arriving at a channel already at the bottom (or scrolling back down to it) reports the newest
-  // message just as much as a message arriving while already there does.
+  // Reports the read position whenever the channel is open, scrolled to the bottom, and the app
+  // window is focused, so arriving at a channel already at the bottom (or scrolling back down to
+  // it) reports the newest message just as much as a message arriving while already there does.
+  // The read position never advances while the window is unfocused: messages landing in a channel
+  // that's open and at the bottom while the user is off in another window stay unread until they
+  // come back, at which point this re-runs and reports the newest one. Refocusing with nothing new
+  // to report costs no request — the coalescer drops a position it has already sent.
   useEffect(() => {
-    if (isActivated && isAtBottom && newestMessageTime !== undefined) {
+    if (isActivated && isAtBottom && isWindowFocused && newestMessageTime !== undefined) {
       dispatch(markChannelRead(channelId, newestMessageTime))
     }
-  }, [isActivated, isAtBottom, newestMessageTime, channelId, dispatch])
+  }, [isActivated, isAtBottom, isWindowFocused, newestMessageTime, channelId, dispatch])
 
   useEffect(() => () => flushLastRead(getChannelLastReadKey(channelId)), [channelId])
 
