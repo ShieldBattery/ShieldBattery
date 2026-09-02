@@ -1111,10 +1111,12 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   }
 
   const validations: ValidatorMap<NewsEditorModel> = {
-    title: required(t('admin.news.form.titleRequired', 'Title is required')),
-    // Whitespace-only summaries must fail validation, since the save flow only opens the settings
-    // dialog (where the summary error can actually be seen) for summaries that are blank after
-    // trimming.
+    // Titles and summaries are trimmed on save, so a whitespace-only one has to fail validation
+    // here rather than go out as an empty string. Summaries have the further wrinkle that the save
+    // flow only opens the settings dialog (where the summary error can actually be seen) for
+    // summaries that are blank after trimming.
+    title: value =>
+      value.trim() ? undefined : t('admin.news.form.titleRequired', 'Title is required'),
     summary: value =>
       value.trim() ? undefined : t('admin.news.form.summaryRequired', 'Summary is required'),
     content: required(t('admin.news.form.contentRequired', 'Content is required')),
