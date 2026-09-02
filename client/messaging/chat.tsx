@@ -19,7 +19,12 @@ import {
 } from '../messaging/chat-view-anchor'
 import { UNREAD_LINE_SELECTOR } from '../messaging/common-message-layout'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
-import { MessageList, MessageListProps } from '../messaging/message-list'
+import {
+  isScrolledToBottom,
+  MessageList,
+  MessageListProps,
+  ScrollUpdateReason,
+} from '../messaging/message-list'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
@@ -41,10 +46,34 @@ const JUMP_TO_BOTTOM_THRESHOLD_SCREENS = 1.5
 /** How much room to leave above the unread divider when jumping to it, in pixels. */
 const UNREAD_LINE_SCROLL_MARGIN_PX = 8
 
+/**
+ * How many times a move to a saved reading position may land short of it and wait for another page
+ * of newer messages to arrive. Bounded so a position the list can't quite reach doesn't leave the
+ * move armed forever, suppressing every report of where the viewport actually is.
+ */
+const MAX_CLAMPED_RESTORE_ATTEMPTS = 4
+
+/**
+ * How far, in pixels, a reported scroll offset may sit from the one the list was last left at and
+ * still count as the same position. Scroll offsets can be fractional while the writes that produce
+ * them need not be.
+ */
+const SCROLL_MATCH_TOLERANCE_PX = 1
+
 /** A place in a conversation the list is on its way to. */
 type PendingScrollTarget =
   /** The unread divider, wherever it sat when the move was started. */
-  | { kind: 'unreadLine'; unreadLineTime: number }
+  | {
+      kind: 'unreadLine'
+      unreadLineTime: number
+      /**
+       * Which loaded window the current wait was started against. A different one means the
+       * replacement the move was waiting on has arrived.
+       */
+      windowGenAtStart: number | undefined
+      /** Whether a load has been seen in flight since the current wait was started. */
+      sawLoading: boolean
+    }
   /** The reading position the user left the conversation at, saved under `viewStateKey`. */
   | {
       kind: 'anchor'
@@ -63,6 +92,11 @@ type PendingScrollTarget =
        * rather than fighting whatever scrolling the user does in the meantime.
        */
       attemptedScrollHeight: number | undefined
+      /**
+       * How many times the move has stopped short of the position and armed itself to try again
+       * once more messages arrive below it.
+       */
+      clampedAttempts: number
     }
 
 /**
@@ -271,6 +305,9 @@ export function Chat({
   // The conversation the last scroll update was for, so the first update after a switch can start
   // that conversation's restore before anything else reads the scroll position.
   const lastSeenConversationRef = useRef<unknown>(undefined)
+  // The offset the list was left at by the last scroll update, so a scroll event that reports a
+  // different one can be attributed to the user rather than to the list's own scrolling.
+  const lastScrollTopRef = useRef<number | undefined>(undefined)
   // The divider the user has already had in view. The banner is a one-shot prompt for a divider
   // they haven't laid eyes on yet — once it's been on screen, scrolling back down doesn't
   // resurface the banner. Carries what it was recorded for, so a conversation switch or a newly
@@ -310,6 +347,7 @@ export function Chat({
     }
 
     let attemptedScrollHeight: number | undefined
+    let clampedAttempts = 0
     if (placement.kind === 'message') {
       const result = scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
       if (result !== 'clamped') {
@@ -321,6 +359,7 @@ export function Chat({
         return
       }
       attemptedScrollHeight = scroller.scrollHeight
+      clampedAttempts = 1
     }
 
     pendingScrollRef.current = {
@@ -332,6 +371,7 @@ export function Chat({
         windowGenAtStart: windowGeneration,
         sawLoading: false,
         attemptedScrollHeight,
+        clampedAttempts,
       },
     }
   }
@@ -374,10 +414,28 @@ export function Chat({
       if (unreadLine) {
         pendingScrollRef.current = undefined
         scrollToUnreadLine(scroller, unreadLine)
-      } else if (!loading) {
-        // The window the move was waiting on has arrived and holds no divider, which means there
-        // was nothing unread to move to after all.
+        return
+      }
+
+      if (windowGeneration !== target.windowGenAtStart) {
+        if (messages.some(isServerOriginMessage)) {
+          // The replacement window arrived and holds no divider, which means there was nothing
+          // unread to move to after all.
+          pendingScrollRef.current = undefined
+          return
+        }
+
+        // The generation moved but left no content behind: the window was cleared to make way for a
+        // replacement that hasn't arrived yet. The wait carries over to whatever window fills it.
+        target.windowGenAtStart = windowGeneration
+        target.sawLoading = false
+      }
+
+      if (target.sawLoading && !loading) {
+        // A request went out and came back without turning up a divider, so nothing more is coming.
         pendingScrollRef.current = undefined
+      } else if (loading) {
+        target.sawLoading = true
       }
       return
     }
@@ -387,11 +445,20 @@ export function Chat({
       if (scroller.scrollHeight === target.attemptedScrollHeight) {
         // The list holds exactly what the last attempt was made against, so trying again would land
         // in the same place while dragging the viewport away from wherever the user has scrolled.
+        if (!hasNewerMessages) {
+          // Nothing will be added below it either, so where the last attempt left the viewport is
+          // as close to the position as this conversation gets.
+          pendingScrollRef.current = undefined
+        }
         return
       }
 
       const result = scrollToAnchoredMessage(scroller, placement.messageId, placement.offsetPx)
-      if (result === 'clamped' && hasNewerMessages) {
+      if (
+        result === 'clamped' &&
+        hasNewerMessages &&
+        target.clampedAttempts < MAX_CLAMPED_RESTORE_ATTEMPTS
+      ) {
         // The window ends too few messages below the position for the viewport to sit at it. The
         // bottom edge of the list is in view in that state and asks for the page that fixes it, so
         // the move stays armed to finish once that page lands, waiting now on this window growing
@@ -399,11 +466,13 @@ export function Chat({
         target.windowGenAtStart = windowGeneration
         target.sawLoading = false
         target.attemptedScrollHeight = scroller.scrollHeight
+        target.clampedAttempts += 1
         return
       }
       if (result !== 'missing') {
-        // The viewport is either at the position, or stopped short of it with the newest messages
-        // already loaded, which is as close as the conversation goes.
+        // The viewport is either at the position, or as close to it as the list will get: the
+        // newest messages are loaded, or the pages that kept arriving below never brought the
+        // position within reach.
         pendingScrollRef.current = undefined
         return
       }
@@ -442,21 +511,34 @@ export function Chat({
     return target?.kind === 'anchor' && target.viewStateKey === key
   }
 
-  const onScrollUpdate = (target: EventTarget, isListMount?: boolean) => {
+  const onScrollUpdate = (target: EventTarget, reason: ScrollUpdateReason) => {
     const scroller = target as HTMLDivElement
     scrollerRef.current = scroller
+
+    // Scrolling the list from code emits scroll events of its own, so an update only counts as the
+    // user taking the viewport over when it reports the list somewhere other than where the last
+    // update left it.
+    const userScrolled =
+      reason === 'scroll' &&
+      lastScrollTopRef.current !== undefined &&
+      Math.abs(scroller.scrollTop - lastScrollTopRef.current) > SCROLL_MATCH_TOLERANCE_PX
 
     // Any move has to happen before the scroll position is read below, so what the rest of this
     // reports is where the list actually ends up rather than where it passed through. A list that
     // has just mounted counts as arriving at its conversation however many times it happens: the
     // mount pins to the bottom, and nothing else here would put the viewport back.
-    if (isListMount || lastSeenConversationRef.current !== refreshToken) {
+    if (reason === 'mount' || lastSeenConversationRef.current !== refreshToken) {
       lastSeenConversationRef.current = refreshToken
       pendingScrollRef.current = undefined
       wasAtBottomRef.current = undefined
+      lastScrollTopRef.current = undefined
       if (viewStateKey !== undefined) {
         startAnchorRestore(scroller, viewStateKey)
       }
+    } else if (userScrolled && pendingScrollRef.current?.target.kind === 'anchor') {
+      // Where the user has scrolled to says more about where they want to be than a reading
+      // position they left behind does.
+      pendingScrollRef.current = undefined
     } else {
       applyPendingScroll(scroller)
     }
@@ -466,8 +548,11 @@ export function Chat({
     const restorePending = pendingScrollRef.current?.target.kind === 'anchor'
 
     const { scrollTop, scrollHeight, clientHeight } = scroller
+    // Where the moves above left the list, so the scroll events they cause can be told apart from
+    // the user scrolling.
+    lastScrollTopRef.current = scrollTop
 
-    const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
+    const newIsScrolledUp = !isScrolledToBottom(scroller)
     setIsScrolledUp(newIsScrolledUp)
 
     const newAtBottom = !newIsScrolledUp
@@ -548,7 +633,12 @@ export function Chat({
       // pending move do the scrolling once it renders.
       pendingScrollRef.current = {
         refreshToken,
-        target: { kind: 'unreadLine', unreadLineTime },
+        target: {
+          kind: 'unreadLine',
+          unreadLineTime,
+          windowGenAtStart: windowGeneration,
+          sawLoading: false,
+        },
       }
       onSeekToUnread()
     }

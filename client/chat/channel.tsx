@@ -319,9 +319,9 @@ export function ConnectedChatChannel({
     dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
   )
 
-  const onLoadNewerMessages = () => {
+  const onLoadNewerMessages = useStableCallback(() => {
     dispatch(getNewerMessages(channelId, MESSAGES_LIMIT))
-  }
+  })
 
   const onJumpToPresent = () => {
     dispatch(jumpToPresent(channelId, MESSAGES_LIMIT))

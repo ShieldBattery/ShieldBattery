@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -115,9 +115,6 @@ export function ConnectedWhisper({
     )
   }
 
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  const [isLoadingNewer, setIsLoadingNewer] = useState(false)
-
   const viewStateKey = `whisper.${targetId}`
 
   const onActivate = useEffectEvent(() => {
@@ -134,46 +131,48 @@ export function ConnectedWhisper({
       dispatch(resetMessageWindow(targetId))
       dispatch(
         getMessagesAround(targetId, MESSAGES_LIMIT, anchor.sentTime, {
-          onStart: () => {
-            setIsLoadingHistory(true)
-          },
-          onSuccess: () => {
-            setIsLoadingHistory(false)
-          },
-          onError: err => {
-            setIsLoadingHistory(false)
-            showMessageLoadError(err)
-          },
+          onSuccess: () => {},
+          onError: showMessageLoadError,
         }),
       )
     }
   })
 
+  // Opens a session for the whisper target. A session that has gone away because the user closed
+  // this whisper is left closed: closing navigates away from the whisper rather than reopening it.
+  const onOpenSession = useEffectEvent(() => {
+    if (isClosingWhisper) {
+      return
+    }
+
+    dispatch(
+      startWhisperSessionById(targetId, {
+        onSuccess: () => {},
+        onError: err => {
+          snackbarController.showSnackbar(
+            t('whispers.errors.openSession', {
+              defaultValue: 'Error opening whisper to user: {{errorMessage}}',
+              errorMessage: err.message,
+            }),
+            DURATION_LONG,
+          )
+          push('/')
+        },
+      }),
+    )
+  })
+
   useEffect(() => {
     if (isSessionOpen) {
       onActivate()
-    } else if (!isClosingWhisper) {
-      dispatch(
-        startWhisperSessionById(targetId, {
-          onSuccess: () => {},
-          onError: err => {
-            snackbarController.showSnackbar(
-              t('whispers.errors.openSession', {
-                defaultValue: 'Error opening whisper to user: {{errorMessage}}',
-                errorMessage: err.message,
-              }),
-              DURATION_LONG,
-            )
-            push('/')
-          },
-        }),
-      )
+    } else {
+      onOpenSession()
     }
 
     return () => {
       dispatch(deactivateWhisperSession(targetId))
     }
-  }, [isSessionOpen, isClosingWhisper, targetId, dispatch, t, snackbarController])
+  }, [isSessionOpen, targetId, dispatch])
 
   // The newest server-recorded message time: only server-origin messages carry one, and a read
   // position must never be reported from a locally-stamped time.
@@ -202,46 +201,28 @@ export function ConnectedWhisper({
   const unreadLineTime = whisperSession?.unreadLineTime
 
   const onLoadMoreMessages = useStableCallback(() => {
-    setIsLoadingHistory(true)
     dispatch(
       getMessageHistory(targetId, MESSAGES_LIMIT, {
-        onSuccess: () => {
-          setIsLoadingHistory(false)
-        },
-        onError: err => {
-          setIsLoadingHistory(false)
-          showMessageLoadError(err)
-        },
+        onSuccess: () => {},
+        onError: showMessageLoadError,
       }),
     )
   })
 
-  const onLoadNewerMessages = () => {
-    setIsLoadingNewer(true)
+  const onLoadNewerMessages = useStableCallback(() => {
     dispatch(
       getNewerMessages(targetId, MESSAGES_LIMIT, {
-        onSuccess: () => {
-          setIsLoadingNewer(false)
-        },
-        onError: err => {
-          setIsLoadingNewer(false)
-          showMessageLoadError(err)
-        },
+        onSuccess: () => {},
+        onError: showMessageLoadError,
       }),
     )
-  }
+  })
 
   const onJumpToPresent = () => {
-    setIsLoadingHistory(true)
     dispatch(
       jumpToPresent(targetId, MESSAGES_LIMIT, {
-        onSuccess: () => {
-          setIsLoadingHistory(false)
-        },
-        onError: err => {
-          setIsLoadingHistory(false)
-          showMessageLoadError(err)
-        },
+        onSuccess: () => {},
+        onError: showMessageLoadError,
       }),
     )
   }
@@ -251,18 +232,10 @@ export function ConnectedWhisper({
       return
     }
 
-    // The whole window is about to be replaced, so there's no one edge the wait belongs to; the
-    // older edge's affordance stands in for both.
-    setIsLoadingHistory(true)
     dispatch(
       getMessagesAround(targetId, MESSAGES_LIMIT, unreadLineTime, {
-        onSuccess: () => {
-          setIsLoadingHistory(false)
-        },
-        onError: err => {
-          setIsLoadingHistory(false)
-          showMessageLoadError(err)
-        },
+        onSuccess: () => {},
+        onError: showMessageLoadError,
       }),
     )
   }
@@ -303,9 +276,9 @@ export function ConnectedWhisper({
       <StyledChat
         listProps={{
           messages: whisperSession.messages,
-          loading: isLoadingHistory,
+          loading: whisperSession.loadingHistory,
           hasMoreHistory: whisperSession.hasHistory,
-          loadingNewer: isLoadingNewer,
+          loadingNewer: whisperSession.loadingNewer,
           hasNewerMessages: whisperSession.hasNewer,
           windowGeneration: whisperSession.windowGen,
           refreshToken: targetId,

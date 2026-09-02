@@ -69,6 +69,16 @@ function isSameDay(d1: Date, d2: Date) {
  */
 const AUTOSCROLL_LEEWAY_PX = 8
 
+/**
+ * Whether a scroller counts as sitting at the bottom of its content. Everything that acts on "the
+ * user is caught up" has to agree on this, so it's the one definition: an exact comparison would
+ * disagree with it, since scroll offsets can be fractional (at fractional display scaling, say)
+ * while the heights they're compared against are not.
+ */
+export function isScrolledToBottom(scroller: HTMLElement): boolean {
+  return scroller.scrollTop + scroller.clientHeight + AUTOSCROLL_LEEWAY_PX >= scroller.scrollHeight
+}
+
 const Scrollable = styled.div`
   padding: 8px 16px 0px 8px;
   overflow-y: auto;
@@ -237,6 +247,24 @@ export interface MessageComponentProps {
 /** Component type to render a particular message. */
 export type MessageComponentType = React.ComponentType<MessageComponentProps>
 
+/** What brought a message list scroll update about. */
+export type ScrollUpdateReason =
+  /**
+   * The list mounted and pinned itself to the bottom. A mount always starts there, so anyone who
+   * wants the viewport somewhere else has to hear about every one of them. Mounts aren't in
+   * one-to-one correspondence with conversations — a remount that reuses the owner's state (as
+   * development StrictMode does) would otherwise pin to the bottom with nobody left to place the
+   * viewport again.
+   */
+  | 'mount'
+  /**
+   * The scroller emitted a scroll event. Scrolling the list from code emits these as well, so an
+   * update for this reason is not by itself the user moving the viewport.
+   */
+  | 'scroll'
+  /** The list's content changed, and the list has placed the viewport within the new content. */
+  | 'content'
+
 export interface MessageListProps {
   messages: ReadonlyArray<SbMessage>
   /** Whether to show empty state text when they are no messages. Defaults to true. */
@@ -271,13 +299,9 @@ export interface MessageListProps {
   refreshToken?: unknown
   /**
    * Callback whenever the scroll position or scroll height has been updated (debounced to
-   * animation frames). `isListMount` marks the update that follows the list mounting and pinning
-   * itself to the bottom: a mount always starts there, so anyone who wants the viewport somewhere
-   * else has to hear about every one of them. Mounts aren't in one-to-one correspondence with
-   * conversations — a remount that reuses the owner's state (as development StrictMode does) would
-   * otherwise pin to the bottom with nobody left to place the viewport again.
+   * animation frames), told what brought the update about.
    */
-  onScrollUpdate?: (scrollTarget: EventTarget, isListMount?: boolean) => void
+  onScrollUpdate?: (scrollTarget: EventTarget, reason: ScrollUpdateReason) => void
   onLoadMoreMessages?: () => void
   onLoadNewerMessages?: () => void
   /**
@@ -313,7 +337,7 @@ export class MessageList extends React.Component<MessageListProps> {
   private scrollableRef = React.createRef<HTMLDivElement>()
   private onScroll = animationFrameHandler(target => {
     if (target && this.props.onScrollUpdate) {
-      this.props.onScrollUpdate(target)
+      this.props.onScrollUpdate(target, 'scroll')
     }
   })
 
@@ -336,10 +360,9 @@ export class MessageList extends React.Component<MessageListProps> {
       return
     }
 
-    const atBottom =
-      scrollable.scrollTop + scrollable.clientHeight + AUTOSCROLL_LEEWAY_PX >=
-      scrollable.scrollHeight
-    const anchor = atBottom ? undefined : captureChatViewAnchor(scrollable, messages)
+    const anchor = isScrolledToBottom(scrollable)
+      ? undefined
+      : captureChatViewAnchor(scrollable, messages)
 
     if (anchor) {
       chatViewAnchorStore.set(viewStateKey, anchor)
@@ -364,9 +387,7 @@ export class MessageList extends React.Component<MessageListProps> {
     const scrollable = this.scrollableRef.current
     const lastScrollTop = scrollable.scrollTop
     const lastScrollHeight = scrollable.scrollHeight
-    const wasAtBottom =
-      lastScrollTop + scrollable.clientHeight + AUTOSCROLL_LEEWAY_PX >= lastScrollHeight
-    return { wasAtBottom, lastScrollTop, lastScrollHeight }
+    return { wasAtBottom: isScrolledToBottom(scrollable), lastScrollTop, lastScrollHeight }
   }
 
   override componentDidMount() {
@@ -374,7 +395,7 @@ export class MessageList extends React.Component<MessageListProps> {
     if (scrollable) {
       scrollable.scrollTop = scrollable.scrollHeight
 
-      this.props.onScrollUpdate?.(scrollable, true)
+      this.props.onScrollUpdate?.(scrollable, 'mount')
     }
   }
 
@@ -397,7 +418,7 @@ export class MessageList extends React.Component<MessageListProps> {
       // Owners that want it somewhere else move it from the scroll update below, which still runs
       // before anything is painted.
       scrollable.scrollTop = scrollable.scrollHeight
-      this.props.onScrollUpdate?.(scrollable)
+      this.props.onScrollUpdate?.(scrollable, 'content')
       return
     }
 
@@ -432,7 +453,7 @@ export class MessageList extends React.Component<MessageListProps> {
     }
 
     if (this.props.onScrollUpdate) {
-      this.props.onScrollUpdate(scrollable)
+      this.props.onScrollUpdate(scrollable, 'content')
     }
   }
 
