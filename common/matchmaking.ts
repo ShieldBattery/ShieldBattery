@@ -683,7 +683,7 @@ export function wasPlayerInactive(lastPlayedDate: Date, gameDate: Date): boolean
 }
 
 /** How long users have to accept a match, in milliseconds. */
-export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 30000
+export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 60000
 
 /** Time allowed for each draft pick in milliseconds. */
 export const DRAFT_PICK_TIME_MS = 15000
