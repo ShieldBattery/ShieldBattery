@@ -41,6 +41,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser, throttleMiddlewareFunc } from '../throttle/middleware'
+import { joiTimestampMillis } from '../validation/joi-timestamp'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
 import ChatService, { ChatServiceError } from './chat-service'
@@ -374,9 +375,9 @@ export class ChatApi {
         aroundTime?: number
       }>({
         limit: Joi.number().min(1).max(100),
-        beforeTime: Joi.number().min(-1),
-        afterTime: Joi.number().min(0),
-        aroundTime: Joi.number().min(0),
+        beforeTime: joiTimestampMillis().min(-1),
+        afterTime: joiTimestampMillis().min(0),
+        aroundTime: joiTimestampMillis().min(0),
       }).oxor('beforeTime', 'afterTime', 'aroundTime'),
     })
 
@@ -433,7 +434,7 @@ export class ChatApi {
     } = validateRequest(ctx, {
       params: channelIdParamsSchema(),
       body: Joi.object<MarkChannelReadRequest>({
-        lastReadTime: Joi.number().integer().min(0).required(),
+        lastReadTime: joiTimestampMillis().integer().min(0).required(),
       }),
     })
 
@@ -665,7 +666,7 @@ export class AdminChatApi {
     } = validateRequest(ctx, {
       query: Joi.object<{ limit: number; beforeTime: number }>({
         limit: Joi.number().min(1).max(100),
-        beforeTime: Joi.number().min(-1),
+        beforeTime: joiTimestampMillis().min(-1),
       }),
     })
 

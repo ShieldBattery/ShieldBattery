@@ -86,8 +86,12 @@ export async function startWhisperSessionsBothDirections(
 /**
  * Advances a user's read position in a whisper conversation to `lastReadTime`. The update is
  * monotonic (never moves the stored position backward) so a stale report from one device can't
- * clobber a newer position recorded by another, and clamped to `now()` so a client can't push the
- * position into the future. A silent no-op if the session doesn't exist (e.g. it was closed).
+ * clobber a newer position recorded by another, clamped above by `now()` so a client can't push the
+ * position into the future, and floored at the session's `start_date` so a first report from a
+ * client that has scrolled far back can't park the position before the session began (which would
+ * make the unread query scan history the session never covered). `start_date` stores naive UTC wall
+ * time, so it's converted before being compared against the `timestamptz` read position. A silent
+ * no-op if the session doesn't exist (e.g. it was closed).
  *
  * Returns the resulting stored read position, or `undefined` if the session doesn't exist (nothing
  * to update).
@@ -102,7 +106,9 @@ export async function updateLastReadTime(
     const result = await client.query<{ last_read_time: Date }>(sql`
       UPDATE whisper_sessions
       SET last_read_time = GREATEST(
-        COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
+        COALESCE(last_read_time, '-infinity'::timestamptz),
+        start_date AT TIME ZONE 'UTC',
+        LEAST(${lastReadTime}, now())
       )
       WHERE user_id = ${userId} AND target_user_id = ${targetId}
       RETURNING last_read_time;
@@ -285,12 +291,16 @@ export async function getMessagesForWhisperSession(
       }
 
       case 'after': {
+        // The window starts one millisecond past the cursor rather than strictly past it: a cursor
+        // names a message the caller already has, but arrives as epoch milliseconds while `sent`
+        // keeps microseconds, so a strict full-precision comparison would hand that same message
+        // back at the head of nearly every page.
         const result = await client.query<DbWhisperMessage>(sql`
           SELECT m.id, m.from_id AS "from", m.to_id AS "to", m.sent, m.data
           FROM whisper_messages AS m
           WHERE m.user_low  = ${userLow}::int4
             AND m.user_high = ${userHigh}::int4
-            AND m.sent > ${cursor.date}
+            AND m.sent >= ${cursor.date}::timestamp + interval '1 millisecond'
           ORDER BY m.sent ASC
           LIMIT ${limit + 1};
         `)

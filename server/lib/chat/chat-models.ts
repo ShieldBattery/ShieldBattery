@@ -553,10 +553,15 @@ export async function getMessagesForChannel(
       }
 
       case 'after': {
+        // The window starts one millisecond past the cursor rather than strictly past it: a cursor
+        // names a message the caller already has, but arrives as epoch milliseconds while `sent`
+        // keeps microseconds, so a strict full-precision comparison would hand that same message
+        // back at the head of nearly every page.
         const result = await client.query<DbChatMessage>(sql`
           SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
           FROM channel_messages m
-          WHERE m.channel_id = ${channelId} AND m.sent > ${cursor.date}
+          WHERE m.channel_id = ${channelId}
+            AND m.sent >= ${cursor.date}::timestamp + interval '1 millisecond'
           ORDER BY m.sent ASC
           LIMIT ${limit + 1};
         `)
@@ -802,8 +807,12 @@ export async function updateUserPermissions(
 /**
  * Advances a user's read position in a channel to `lastReadTime`. The update is monotonic (never
  * moves the stored position backward) so a stale report from one device can't clobber a newer
- * position recorded by another, and clamped to `now()` so a client can't push the position into the
- * future. A silent no-op if the user isn't (or is no longer) a member of the channel.
+ * position recorded by another, clamped above by `now()` so a client can't push the position into
+ * the future, and floored at the member's `join_date` so a first report from a client that has
+ * scrolled far back can't park the position before the member existed in the channel (which would
+ * make the unread and mention subqueries scan history the member never had). `join_date` stores
+ * naive UTC wall time, so it's converted before being compared against the `timestamptz` read
+ * position. A silent no-op if the user isn't (or is no longer) a member of the channel.
  *
  * Returns the resulting stored read position, or `undefined` if the user isn't a member of the
  * channel (nothing to update).
@@ -819,7 +828,9 @@ export async function updateLastReadTime(
     const result = await client.query<{ last_read_time: Date }>(sql`
       UPDATE channel_users
       SET last_read_time = GREATEST(
-        COALESCE(last_read_time, '-infinity'::timestamptz), LEAST(${lastReadTime}, now())
+        COALESCE(last_read_time, '-infinity'::timestamptz),
+        join_date AT TIME ZONE 'UTC',
+        LEAST(${lastReadTime}, now())
       )
       WHERE user_id = ${userId} AND channel_id = ${channelId}
       RETURNING last_read_time;

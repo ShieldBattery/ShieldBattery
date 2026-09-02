@@ -69,6 +69,7 @@ import {
   transferChannelOwnership,
   unbanUserFromChannel,
   updateChannel,
+  updateLastReadTime,
   updateUserPermissions,
   updateUserPreferences,
 } from './chat-models'
@@ -3294,6 +3295,34 @@ describe('chat/chat-service', () => {
         action: 'preferencesChanged',
         selfPreferences: channelPreferences,
       })
+    })
+  })
+
+  describe('markRead', () => {
+    const updateLastReadTimeMock = asMockedFunction(updateLastReadTime)
+    const reportedTime = new Date('2023-03-12T00:00:00.000Z')
+
+    test('publishes the position the DB actually stored, on the channel-user path', async () => {
+      // The DB clamps the reported position, so what gets published has to come back from it
+      // rather than being echoed from the request.
+      const storedTime = new Date('2023-03-13T00:00:00.000Z')
+      updateLastReadTimeMock.mockResolvedValue(storedTime)
+
+      await chatService.markRead(testChannel.id, user1.id, reportedTime)
+
+      expect(updateLastReadTimeMock).toHaveBeenCalledWith(user1.id, testChannel.id, reportedTime)
+      expect(nydus.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id), {
+        action: 'lastReadTimeChanged',
+        lastReadTime: storedTime.getTime(),
+      })
+    })
+
+    test('publishes nothing when there was no membership row to update', async () => {
+      updateLastReadTimeMock.mockResolvedValue(undefined)
+
+      await chatService.markRead(testChannel.id, user1.id, reportedTime)
+
+      expect(nydus.publish).not.toHaveBeenCalled()
     })
   })
 

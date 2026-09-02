@@ -15,10 +15,25 @@ common lifecycle is:
 1. Deploy the release (migration applied, new app code writing the column for new rows).
 2. Install the procedure, dry-run it, read the counts.
 3. Run it for real. Progress arrives as `NOTICE` messages per batch.
-4. Optionally re-run after the deploy has settled — the scripts are idempotent and only write rows
-   whose computed value differs, so a second pass cheaply catches games written by old code during
-   the deploy window.
-5. Drop the procedure.
+4. Drop the procedure.
+
+A backfill is a one-shot job: it is run once, at the deploy that introduces it, and the script is
+never edited afterwards. Re-running one is not a routine step. A script's header comment states
+its own re-run behavior, but that statement describes the world the script was written into — a
+backfill that recomputes a column from other columns stops being safe as soon as a later feature
+starts writing that column from a source the backfill can't see. Check the header _and_ the
+exceptions below before re-running anything.
+
+### Do not re-run
+
+- **`2026-08-09-backfill-matchups.sql`** (noted 2026-09-01): manual game resolution derives
+  `assigned_matchup` from evidence the backfill has no access to, and clears `disputable` as part
+  of resolving. The backfill reads `NOT disputable` as proof that a game's stored races are real,
+  but a hand-resolved game keeps whatever races the disputed reconciliation left behind, and those
+  can be inventions. Re-running it would therefore recompute `assigned_matchup` from fabricated
+  races and overwrite the trusted value resolution produced. Its header still calls itself safe to
+  re-run; that predates manual game resolution.
+  `2026-08-27-backfill-manually-resolved-matchups.sql` is the script that covers these games.
 
 ## Running against a deployed server
 
@@ -74,8 +89,9 @@ Notes:
 - `docker exec` + `psql` connects over the container-local socket, which the postgres image trusts
   — no password needed, and the `shieldbattery` role works directly.
 - For long real runs, prefer running the `CALL` from a `tmux`/`screen` session on the host: if the
-  connection drops mid-run, the in-flight batch rolls back but committed batches stay, and the
-  scripts are safe to simply re-run.
+  connection drops mid-run, the in-flight batch rolls back but committed batches stay, so
+  re-invoking the same `CALL` finishes the remaining rows. Resuming an interrupted first pass this
+  way is a different thing from the later re-runs warned about above.
 - Do NOT wrap the `CALL` in an explicit transaction (`psql` `-1`/`--single-transaction`, or a
   surrounding `BEGIN`): the procedures commit internally per batch, which is impossible inside an
   outer transaction.

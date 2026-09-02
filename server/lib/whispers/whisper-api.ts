@@ -19,6 +19,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
 import { findUserByName } from '../users/user-model'
 import { joiUserId, joiUsername } from '../users/user-validators'
+import { joiTimestampMillis } from '../validation/joi-timestamp'
 import { validateRequest } from '../validation/joi-validator'
 import WhisperService, { WhisperServiceError } from './whisper-service'
 
@@ -174,7 +175,7 @@ export class WhisperApi {
         targetId: joiUserId().required(),
       }),
       body: Joi.object<MarkWhisperReadRequest>({
-        lastReadTime: Joi.number().integer().min(0).required(),
+        lastReadTime: joiTimestampMillis().integer().min(0).required(),
       }),
     })
 
@@ -217,9 +218,9 @@ export class WhisperApi {
         aroundTime?: number
       }>({
         limit: Joi.number().min(1).max(100),
-        beforeTime: Joi.number().min(-1),
-        afterTime: Joi.number().min(0),
-        aroundTime: Joi.number().min(0),
+        beforeTime: joiTimestampMillis().min(-1),
+        afterTime: joiTimestampMillis().min(0),
+        aroundTime: joiTimestampMillis().min(0),
       }).oxor('beforeTime', 'afterTime', 'aroundTime'),
     })
 
