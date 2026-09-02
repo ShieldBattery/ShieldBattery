@@ -17,9 +17,10 @@ import {
 /** How many times to retry an accept request that fails for a transient reason. */
 const MAX_ACCEPT_RETRIES = 10
 /**
- * How long to wait before retrying a failed accept request. Short enough that the whole retry budget
- * still fits comfortably inside the accept window, long enough that a struggling server isn't being
- * hammered.
+ * How long to wait before retrying a failed accept request. Short enough that quick failures burn
+ * through the retry budget well inside the accept window, long enough that a struggling server
+ * isn't being hammered. A chain of requests that each run to their timeout can outlast the window,
+ * but the chain stops on its own as soon as the match it belongs to is gone.
  */
 const ACCEPT_RETRY_DELAY_MS = 400
 /** How long an accept request is given to complete before it's abandoned and retried. */
