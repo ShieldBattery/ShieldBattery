@@ -130,23 +130,24 @@ function dedupeAgainst(
 
 /**
  * Records that a message the user hasn't seen has arrived in a whisper session: raises the unread
- * flag and, where applicable, freezes the unread divider. Kept separate from `updateMessages`
- * because a message arriving while the loaded window is detached from the present isn't added to
- * the window at all, yet counts as unread exactly the same.
+ * flag and, where applicable, freezes the unread divider. Both mean the same thing — a message
+ * arrived that the user won't have seen — and an activated session counts as seen only when its
+ * view sits at the bottom of a window attached to the present *and* the app window is focused,
+ * since a message that lands while the user is looking at something else can't have been read no
+ * matter where the list is scrolled. The divider freezes at the read position so it marks where the
+ * user left off instead of chasing the read position as it keeps advancing underneath it.
+ *
+ * Kept separate from `updateMessages` because a message arriving while the loaded window is
+ * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
  */
-function markSessionUnread(session: WhisperSession) {
-  if (!session.hasUnread && !session.activated) {
+function markSessionUnread(session: WhisperSession, windowFocused: boolean) {
+  if (!session.hasUnread && (!session.activated || !windowFocused)) {
     session.hasUnread = true
   }
 
-  // The session is being actively viewed, but the message still won't be seen right away: either
-  // the view is scrolled up, or the loaded window sits behind the present, where the bottom of the
-  // list isn't the newest message. Freeze the unread divider at the read position so it marks where
-  // the user left off instead of chasing the read position as the eager mark-read keeps advancing
-  // it.
   if (
     session.activated &&
-    (!session.atBottom || session.hasNewer) &&
+    (!session.atBottom || session.hasNewer || !windowFocused) &&
     session.unreadLineTime === undefined &&
     session.lastReadTime !== undefined
   ) {
@@ -172,12 +173,24 @@ function dropMessageWindow(session: WhisperSession) {
 }
 
 /**
- * Update the messages field for a whisper, keeping the `hasUnread` flag in proper sync.
+ * The conditions a message arrived under when it reached the session live. Messages that reach a
+ * session any other way (a page of history) carry no arrival and do no unread bookkeeping: only
+ * something happening live can go unseen.
+ */
+interface LiveArrival {
+  /** Whether the app window was focused at the moment the message arrived. */
+  windowFocused: boolean
+}
+
+/**
+ * Update the messages field for a whisper, keeping the `hasUnread` flag in proper sync. `arrival`
+ * carries the conditions a live message arrived under, and is `undefined` when this isn't a live
+ * arrival and so nothing can have gone unread.
  */
 function updateMessages(
   state: WhisperState,
   target: SbUserId,
-  makeUnread: boolean,
+  arrival: LiveArrival | undefined,
   updateFn: (messages: CommonTextMessage[]) => CommonTextMessage[],
 ) {
   const session = state.byId.get(target)
@@ -202,8 +215,8 @@ function updateMessages(
     sliced = true
   }
 
-  if (makeUnread) {
-    markSessionUnread(session)
+  if (arrival) {
+    markSessionUnread(session, arrival.windowFocused)
   }
 
   session.hasHistory = session.hasHistory || sliced
@@ -222,9 +235,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     // Seeds the unread badge from the server's recorded read position, so it survives a restart
-    // instead of resetting to "read" until the next message arrives. A session the user is
-    // currently viewing is never marked unread, matching how a live message never marks an
-    // activated session unread either.
+    // instead of resetting to "read" until the next message arrives. The seed only concerns
+    // sessions that aren't on screen: an activated session's flag is driven by what arrives live
+    // and what the view reads, both of which know things this seed doesn't.
     for (const target of action.payload.unreadSessions ?? []) {
       const session = state.byId.get(target)
       if (session && !session.activated) {
@@ -261,7 +274,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       payload: {
         message: { id, time, from, text },
       },
-      meta: { target },
+      meta: { target, windowFocused },
     },
   ) {
     const newMessage: CommonTextMessage = {
@@ -284,9 +297,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         session.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
-      markSessionUnread(session)
+      markSessionUnread(session, windowFocused)
     } else {
-      updateMessages(state, target, true, m => {
+      updateMessages(state, target, { windowFocused }, m => {
         m.push(newMessage)
         return m
       })
@@ -322,7 +335,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     session.hasHistory = action.payload.hasMoreBefore
 
-    updateMessages(state, target, false, messages =>
+    updateMessages(state, target, undefined, messages =>
       dedupeAgainst(newMessages, messages).concat(messages),
     )
   },
@@ -354,7 +367,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     const newMessages = toTextMessages(action.payload.messages)
 
-    updateMessages(state, target, false, messages =>
+    updateMessages(state, target, undefined, messages =>
       messages.concat(dedupeAgainst(newMessages, messages)),
     )
 
@@ -579,10 +592,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   // This arrives both from this session's own optimistic mark-read reports (dispatched only while
   // the session is activated) and from the socket handler relaying a mark-read made in one of the
   // user's other sessions (which can arrive for a session this session isn't currently viewing).
-  // The unread flag and frozen divider are only re-evaluated in the latter case: an activated
-  // session already has its unread flag cleared, and its divider is re-evaluated by
-  // `deactivateWhisperSession` instead, so it must never move while the session is being viewed
-  // here.
+  // The unread flag is re-evaluated either way: an activated session can carry the flag, since a
+  // message arriving while the app window is unfocused counts as unread no matter what's on screen,
+  // and this is what lowers it once the read position covers that message. The frozen divider is
+  // only re-evaluated for a session that isn't activated: while one is being viewed the divider has
+  // to hold still where it is, and `deactivateWhisperSession` is what re-evaluates it.
   ['@whispers/updateLastReadTime'](state, action) {
     const { targetId, lastReadTime } = action.payload
 
@@ -596,15 +610,25 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
     const effective = session.lastReadTime!
 
-    if (!session.activated) {
-      const newestKnownTime = newestServerOriginTime(session.messages)
-      if (newestKnownTime === undefined || newestKnownTime <= effective) {
-        session.hasUnread = false
-      }
+    // A detached window's present has run ahead of what's loaded, so the newest loaded message
+    // isn't the newest one known to exist. Clearing the flag against the loaded window alone would
+    // call the session read on the strength of a position that only covers that window.
+    const knownTimes = [
+      newestServerOriginTime(session.messages),
+      session.detachedNewestTime,
+    ].filter(t => t !== undefined)
+    const newestKnownTime = knownTimes.length ? Math.max(...knownTimes) : undefined
 
-      if (session.unreadLineTime !== undefined && effective > session.unreadLineTime) {
-        session.unreadLineTime = undefined
-      }
+    if (newestKnownTime === undefined || newestKnownTime <= effective) {
+      session.hasUnread = false
+    }
+
+    if (
+      !session.activated &&
+      session.unreadLineTime !== undefined &&
+      effective > session.unreadLineTime
+    ) {
+      session.unreadLineTime = undefined
     }
   },
 

@@ -155,7 +155,11 @@ function getJoinedChannelsAction(data: InitialChannelData): ChatActions {
   }
 }
 
-function updateMessageAction(time: number, mentionsSelf: boolean): ChatActions {
+function updateMessageAction(
+  time: number,
+  mentionsSelf: boolean,
+  windowFocused = true,
+): ChatActions {
   const payload: ChatMessageEvent = {
     action: 'message2',
     message: textMessage(time),
@@ -166,7 +170,7 @@ function updateMessageAction(time: number, mentionsSelf: boolean): ChatActions {
   return {
     type: '@chat/updateMessage',
     payload,
-    meta: { channelId: CHANNEL_ID, mentionsSelf },
+    meta: { channelId: CHANNEL_ID, mentionsSelf, windowFocused },
   }
 }
 
@@ -338,10 +342,9 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(250)
     })
 
-    test('leaves the unread flag and divider untouched for an activated channel', () => {
+    test('leaves the divider untouched for an activated channel', () => {
       const state = makeState({
         activated: true,
-        unread: true,
         lastReadTime: 100,
         unreadLineTime: 150,
         messages: [textMessage(100)],
@@ -349,11 +352,53 @@ describe('client/chat/chat-reducer', () => {
 
       const result = chatReducer(state, updateLastReadTimeAction(200))
 
-      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(150)
       // The read position itself still advances even while activated, since this is also the path
       // this session's own optimistic mark-read reports take.
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('clears an activated channel flag once the position covers the newest message', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 50,
+        unreadLineTime: 50,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(50)
+    })
+
+    test('keeps an activated channel flag while the position is behind the newest message', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 50,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(state, updateLastReadTimeAction(99))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('keeps the flag when a detached present has run past what the position covers', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 50,
+        hasNewer: true,
+        detachedNewestTime: 200,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(state, updateLastReadTimeAction(100))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
   })
 
@@ -494,6 +539,50 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, updateMessageAction(1000, false))
 
       expect(windowOf(result).messages.length).toBe(150)
+    })
+
+    test('a message arriving at the bottom of an unfocused window counts as unseen', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, false))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a message arriving at the bottom of a focused window counts as seen', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, true))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a message arriving while scrolled up in an unfocused window raises both', () => {
+      const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, false))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a message arriving while scrolled up in a focused window only freezes the divider', () => {
+      const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, true))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a message arriving in a channel that is not being viewed raises the unread flag', () => {
+      const state = makeState({ activated: false, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, true))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
   })
 

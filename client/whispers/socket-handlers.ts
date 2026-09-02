@@ -43,6 +43,7 @@ const eventToAction: EventToActionMap = {
       }
 
       const isBlocked = blocks.has(event.message.from)
+      const windowFocused = windowFocus.isFocused()
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
@@ -55,7 +56,7 @@ const eventToAction: EventToActionMap = {
       dispatch({
         type: '@whispers/updateMessage',
         payload: event,
-        meta: { target },
+        meta: { target, windowFocused },
       })
 
       const session = whispersById.get(target)
@@ -63,7 +64,7 @@ const eventToAction: EventToActionMap = {
         return
       }
 
-      if (!isBlocked && (!session.activated || !windowFocus.isFocused())) {
+      if (!isBlocked && (!session.activated || !windowFocused)) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

@@ -185,7 +185,7 @@ function loadMessagesAroundAction(
   }
 }
 
-function updateMessageAction(time: number): WhisperActions {
+function updateMessageAction(time: number, windowFocused = true): WhisperActions {
   return {
     type: '@whispers/updateMessage',
     payload: {
@@ -195,7 +195,7 @@ function updateMessageAction(time: number): WhisperActions {
       mentions: [],
       channelMentions: [],
     },
-    meta: { target: TARGET_ID },
+    meta: { target: TARGET_ID, windowFocused },
   }
 }
 
@@ -287,10 +287,9 @@ describe('client/whispers/whisper-reducer', () => {
       expect(result.byId.get(TARGET_ID)!.unreadLineTime).toBe(250)
     })
 
-    test('leaves the unread flag and divider untouched for an activated session', () => {
+    test('leaves the divider untouched for an activated session', () => {
       const state = makeState({
         activated: true,
-        unread: true,
         lastReadTime: 100,
         unreadLineTime: 150,
         messages: [textMessage(100)],
@@ -299,11 +298,54 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateLastReadTimeAction(200))
 
       const session = result.byId.get(TARGET_ID)!
-      expect(session.hasUnread).toBe(true)
       expect(session.unreadLineTime).toBe(150)
       // The read position itself still advances even while activated, since this is also the path
       // this session's own optimistic mark-read reports take.
       expect(session.lastReadTime).toBe(200)
+    })
+
+    test('clears an activated session flag once the position covers the newest message', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 50,
+        unreadLineTime: 50,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(100))
+
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(false)
+      expect(session.unreadLineTime).toBe(50)
+    })
+
+    test('keeps an activated session flag while the position is behind the newest message', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 50,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(99))
+
+      expect(sessionOf(result).hasUnread).toBe(true)
+    })
+
+    test('keeps the flag when a detached present has run past what the position covers', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 50,
+        hasNewer: true,
+        detachedNewestTime: 200,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(result).hasUnread).toBe(true)
     })
   })
 
@@ -552,6 +594,54 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateMessageAction(1000))
 
       expect(sessionOf(result).messages.length).toBe(150)
+    })
+
+    test('a message arriving at the bottom of an unfocused window counts as unseen', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = whisperReducer(state, updateMessageAction(200, false))
+
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(true)
+      expect(session.unreadLineTime).toBe(100)
+    })
+
+    test('a message arriving at the bottom of a focused window counts as seen', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = whisperReducer(state, updateMessageAction(200, true))
+
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(false)
+      expect(session.unreadLineTime).toBeUndefined()
+    })
+
+    test('a message arriving while scrolled up in an unfocused window raises both', () => {
+      const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
+
+      const result = whisperReducer(state, updateMessageAction(200, false))
+
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(true)
+      expect(session.unreadLineTime).toBe(100)
+    })
+
+    test('a message arriving while scrolled up in a focused window only freezes the divider', () => {
+      const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
+
+      const result = whisperReducer(state, updateMessageAction(200, true))
+
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(false)
+      expect(session.unreadLineTime).toBe(100)
+    })
+
+    test('a message arriving in a session that is not being viewed raises the unread flag', () => {
+      const state = makeState({ activated: false, lastReadTime: 100 })
+
+      const result = whisperReducer(state, updateMessageAction(200, true))
+
+      expect(sessionOf(result).hasUnread).toBe(true)
     })
   })
 

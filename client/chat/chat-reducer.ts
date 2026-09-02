@@ -167,6 +167,7 @@ function removeUserFromChannel(
   state: ChatState,
   channelId: SbChannelId,
   userId: SbUserId,
+  arrival: LiveArrival,
   newOwnerId?: SbUserId,
   reason?: ChannelModerationAction,
 ) {
@@ -194,7 +195,7 @@ function removeUserFromChannel(
     messageType = ClientChatMessageType.BanUser
   }
 
-  updateMessages(state, channelId, true, m => {
+  updateMessages(state, channelId, arrival, m => {
     m.push({
       id: nanoid(),
       type: messageType,
@@ -206,11 +207,16 @@ function removeUserFromChannel(
   })
 
   if (newOwnerId) {
-    setChannelOwner(state, channelId, newOwnerId)
+    setChannelOwner(state, channelId, newOwnerId, arrival)
   }
 }
 
-function setChannelOwner(state: ChatState, channelId: SbChannelId, newOwnerId: SbUserId) {
+function setChannelOwner(
+  state: ChatState,
+  channelId: SbChannelId,
+  newOwnerId: SbUserId,
+  arrival: LiveArrival,
+) {
   const joinedChannelInfo = state.idToJoinedInfo.get(channelId)
   if (!joinedChannelInfo) {
     return
@@ -218,7 +224,7 @@ function setChannelOwner(state: ChatState, channelId: SbChannelId, newOwnerId: S
 
   joinedChannelInfo.ownerId = newOwnerId
 
-  updateMessages(state, channelId, true, m => {
+  updateMessages(state, channelId, arrival, m => {
     m.push({
       id: nanoid(),
       type: ClientChatMessageType.NewChannelOwner,
@@ -295,26 +301,27 @@ function dedupeAgainst(incoming: ChatMessage[], existing: readonly ChatMessage[]
 
 /**
  * Records that a message the user hasn't seen has arrived in a channel: raises the unread flag and,
- * where applicable, freezes the unread divider. Kept separate from `updateMessages` because a
- * message arriving while the loaded window is detached from the present isn't added to the window
- * at all, yet counts as unread exactly the same.
+ * where applicable, freezes the unread divider. Both mean the same thing — a message arrived that
+ * the user won't have seen — and an activated channel counts as seen only when its view sits at the
+ * bottom of a window attached to the present *and* the app window is focused, since a message that
+ * lands while the user is looking at something else can't have been read no matter where the list
+ * is scrolled. The divider freezes at the read position so it marks where the user left off instead
+ * of chasing the read position as it keeps advancing underneath it.
+ *
+ * Kept separate from `updateMessages` because a message arriving while the loaded window is
+ * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
  */
-function markChannelUnread(state: ChatState, channelId: SbChannelId) {
+function markChannelUnread(state: ChatState, channelId: SbChannelId, windowFocused: boolean) {
   const isChannelActivated = state.activatedChannels.has(channelId)
 
-  if (!state.unreadChannels.has(channelId) && !isChannelActivated) {
+  if (!state.unreadChannels.has(channelId) && (!isChannelActivated || !windowFocused)) {
     state.unreadChannels.add(channelId)
   }
 
-  // The channel is being actively viewed, but the message still won't be seen right away: either
-  // the view is scrolled up, or the loaded window sits behind the present, where the bottom of the
-  // list isn't the newest message. Freeze the unread divider at the read position so it marks where
-  // the user left off instead of chasing the read position as the eager mark-read keeps advancing
-  // it.
   const isDetached = state.idToMessages.get(channelId)?.hasNewer ?? false
   if (
     isChannelActivated &&
-    (!state.atBottomChannels.has(channelId) || isDetached) &&
+    (!state.atBottomChannels.has(channelId) || isDetached || !windowFocused) &&
     !state.idToUnreadLineTime.has(channelId)
   ) {
     const lastReadTime = state.idToLastReadTime.get(channelId)
@@ -414,11 +421,22 @@ function dropMessageWindow(channelMessages: MessagesState) {
 }
 
 /**
+ * The conditions a message arrived under when it reached the channel live. Messages that reach a
+ * channel any other way (a page of history, a deletion) carry no arrival and do no unread
+ * bookkeeping: only something happening live can go unseen.
+ */
+interface LiveArrival {
+  /** Whether the app window was focused at the moment the message arrived. */
+  windowFocused: boolean
+}
+
+/**
  * Update the messages field for a channel, keeping the `hasUnread` flag in proper sync.
  *
  * @param state The complete chat state which holds all of the channels.
  * @param channelId The ID of the channel in which to update the messages.
- * @param makeUnread A boolean flag indicating whether to mark a channel as having unread messages.
+ * @param arrival The conditions a live message arrived under, or `undefined` when this isn't a live
+ *   arrival and so nothing can have gone unread.
  * @param updateFn A function which performs the update operation on the messages field. It may
  *   mutate the passed-in array in place (e.g. via `push`) and must return the array to use as the
  *   new messages value.
@@ -426,7 +444,7 @@ function dropMessageWindow(channelMessages: MessagesState) {
 function updateMessages(
   state: ChatState,
   channelId: SbChannelId,
-  makeUnread: boolean,
+  arrival: LiveArrival | undefined,
   updateFn: (messages: ChatMessage[]) => ChatMessage[],
 ) {
   const channelMessages = state.idToMessages.get(channelId)
@@ -455,8 +473,8 @@ function updateMessages(
     sliced = true
   }
 
-  if (makeUnread) {
-    markChannelUnread(state, channelId)
+  if (arrival) {
+    markChannelUnread(state, channelId, arrival.windowFocused)
   }
 
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
@@ -548,14 +566,14 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   }
 
   // Seeds the unread badge from the server's recorded read position, so it survives a restart
-  // instead of resetting to "read" until the next message arrives. A channel the user is currently
-  // viewing is never marked unread, matching how a live message never marks an activated channel
-  // unread either.
+  // instead of resetting to "read" until the next message arrives. The seed only concerns channels
+  // that aren't on screen: an activated channel's flag is driven by what arrives live and what the
+  // view reads, both of which know things this seed doesn't.
   if (hasUnread && !state.activatedChannels.has(channelId)) {
     state.unreadChannels.add(channelId)
   }
 
-  updateMessages(state, channelId, false, m => {
+  updateMessages(state, channelId, undefined, m => {
     m.push({
       id: nanoid(),
       type: ClientChatMessageType.SelfJoinChannel,
@@ -586,7 +604,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/updateJoin'](state, action) {
     const { user, message } = action.payload
-    const { channelId } = action.meta
+    const { channelId, windowFocused } = action.meta
 
     const channelUsers = state.idToUsers.get(channelId)
     const detailedChannelInfo = state.idToDetailedInfo.get(channelId)
@@ -597,7 +615,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelUsers.active.add(user.id)
     detailedChannelInfo.userCount += 1
 
-    updateMessages(state, channelId, true, m => {
+    updateMessages(state, channelId, { windowFocused }, m => {
       m.push(message)
       return m
     })
@@ -605,9 +623,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/updateLeave'](state, action) {
     const { userId, newOwnerId } = action.payload
-    const { channelId } = action.meta
+    const { channelId, windowFocused } = action.meta
 
-    removeUserFromChannel(state, channelId, userId, newOwnerId)
+    removeUserFromChannel(state, channelId, userId, { windowFocused }, newOwnerId)
   },
 
   ['@chat/updateLeaveSelf'](state, action) {
@@ -618,9 +636,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/updateKick'](state, action) {
     const { targetId, newOwnerId } = action.payload
-    const { channelId } = action.meta
+    const { channelId, windowFocused } = action.meta
 
-    removeUserFromChannel(state, channelId, targetId, newOwnerId, ChannelModerationAction.Kick)
+    removeUserFromChannel(
+      state,
+      channelId,
+      targetId,
+      { windowFocused },
+      newOwnerId,
+      ChannelModerationAction.Kick,
+    )
   },
 
   ['@chat/updateKickSelf'](state, action) {
@@ -631,9 +656,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/updateBan'](state, action) {
     const { targetId, newOwnerId } = action.payload
-    const { channelId } = action.meta
+    const { channelId, windowFocused } = action.meta
 
-    removeUserFromChannel(state, channelId, targetId, newOwnerId, ChannelModerationAction.Ban)
+    removeUserFromChannel(
+      state,
+      channelId,
+      targetId,
+      { windowFocused },
+      newOwnerId,
+      ChannelModerationAction.Ban,
+    )
   },
 
   ['@chat/updateBanSelf'](state, action) {
@@ -644,14 +676,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/ownerChanged'](state, action) {
     const { newOwnerId } = action.payload
-    const { channelId } = action.meta
+    const { channelId, windowFocused } = action.meta
 
-    setChannelOwner(state, channelId, newOwnerId)
+    setChannelOwner(state, channelId, newOwnerId, { windowFocused })
   },
 
   ['@chat/updateMessage'](state, action) {
     const { message: newMessage, channelMentions } = action.payload
-    const { channelId, mentionsSelf } = action.meta
+    const { channelId, mentionsSelf, windowFocused } = action.meta
 
     const channelMessages = state.idToMessages.get(channelId)
     if (channelMessages?.hasNewer) {
@@ -662,9 +694,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         channelMessages.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
-      markChannelUnread(state, channelId)
+      markChannelUnread(state, channelId, windowFocused)
     } else {
-      updateMessages(state, channelId, true, m => {
+      updateMessages(state, channelId, { windowFocused }, m => {
         m.push(newMessage)
         return m
       })
@@ -754,7 +786,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     channelMessages.hasHistory = action.payload.hasMoreBefore
 
-    updateMessages(state, channelId, false, messages =>
+    updateMessages(state, channelId, undefined, messages =>
       dedupeAgainst(newMessages, messages).concat(messages),
     )
     // The older edge just moved (or, for a window left holding only carried messages by a prior
@@ -792,7 +824,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     const newMessages = action.payload.messages as ChatMessage[]
 
-    updateMessages(state, channelId, false, messages =>
+    updateMessages(state, channelId, undefined, messages =>
       messages.concat(dedupeAgainst(newMessages, messages)),
     )
     updateChannelInfos(state, action.payload.channelMentions)
@@ -916,7 +948,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channelId } = action.meta
     const { messageId } = action.payload
 
-    updateMessages(state, channelId, false, messages => messages.filter(m => m.id !== messageId))
+    updateMessages(state, channelId, undefined, messages =>
+      messages.filter(m => m.id !== messageId),
+    )
   },
 
   ['@chat/retrieveUserListBegin'](state, action) {
@@ -1091,9 +1125,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   // This arrives both from this session's own optimistic mark-read reports (dispatched only while
   // the channel is activated) and from the socket handler relaying a mark-read made in one of the
   // user's other sessions (which can arrive for a channel this session isn't currently viewing).
-  // The unread flag and frozen divider are only re-evaluated in the latter case: an activated
-  // channel already has its unread flag cleared, and its divider is re-evaluated by
-  // `deactivateChannel` instead, so it must never move while the channel is being viewed here.
+  // The unread flag is re-evaluated either way: an activated channel can carry the flag, since a
+  // message arriving while the app window is unfocused counts as unread no matter what's on screen,
+  // and this is what lowers it once the read position covers that message. The frozen divider is
+  // only re-evaluated for a channel that isn't activated: while one is being viewed the divider has
+  // to hold still where it is, and `deactivateChannel` is what re-evaluates it.
   ['@chat/updateLastReadTime'](state, action) {
     const { channelId, lastReadTime } = action.payload
 
@@ -1103,13 +1139,21 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
     const effective = state.idToLastReadTime.get(channelId)!
 
-    if (!state.activatedChannels.has(channelId)) {
-      const messages = state.idToMessages.get(channelId)?.messages
-      const newestKnownTime = messages ? newestServerOriginTime(messages) : undefined
-      if (newestKnownTime === undefined || newestKnownTime <= effective) {
-        state.unreadChannels.delete(channelId)
-      }
+    // A detached window's present has run ahead of what's loaded, so the newest loaded message
+    // isn't the newest one known to exist. Clearing the flag against the loaded window alone would
+    // call the channel read on the strength of a position that only covers that window.
+    const channelMessages = state.idToMessages.get(channelId)
+    const knownTimes = [
+      channelMessages ? newestServerOriginTime(channelMessages.messages) : undefined,
+      channelMessages?.detachedNewestTime,
+    ].filter(t => t !== undefined)
+    const newestKnownTime = knownTimes.length ? Math.max(...knownTimes) : undefined
 
+    if (newestKnownTime === undefined || newestKnownTime <= effective) {
+      state.unreadChannels.delete(channelId)
+    }
+
+    if (!state.activatedChannels.has(channelId)) {
       const unreadLineTime = state.idToUnreadLineTime.get(channelId)
       if (unreadLineTime !== undefined && effective > unreadLineTime) {
         state.idToUnreadLineTime.delete(channelId)

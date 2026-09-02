@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
+import { useWindowFocus } from '../dom/window-focus'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
@@ -80,6 +81,7 @@ export function ConnectedWhisper({
   const targetUser = useAppSelector(s => s.users.byId.get(targetId))
   const isSessionOpen = useAppSelector(s => s.whispers.sessions.has(targetId))
   const whisperSession = useAppSelector(s => s.whispers.byId.get(targetId))
+  const isWindowFocused = useWindowFocus()
 
   useEffect(() => {
     if (selfUser.id === targetId) {
@@ -187,14 +189,30 @@ export function ConnectedWhisper({
     }
   }
 
-  // Reports the read position whenever the session is both open and scrolled to the bottom, so
-  // arriving at a session already at the bottom (or scrolling back down to it) reports the newest
-  // message just as much as a message arriving while already there does.
+  // Reports the read position whenever the session is open, scrolled to the bottom, and the app
+  // window is focused, so arriving at a session already at the bottom (or scrolling back down to
+  // it) reports the newest message just as much as a message arriving while already there does.
+  // The read position never advances while the window is unfocused: messages landing in a session
+  // that's open and at the bottom while the user is off in another window stay unread until they
+  // come back, at which point this re-runs and reports the newest one. Refocusing with nothing new
+  // to report costs no request — the coalescer drops a position it has already sent.
   useEffect(() => {
-    if (whisperSession?.activated && whisperSession.atBottom && newestMessageTime !== undefined) {
+    if (
+      whisperSession?.activated &&
+      whisperSession.atBottom &&
+      isWindowFocused &&
+      newestMessageTime !== undefined
+    ) {
       dispatch(markWhisperRead(targetId, newestMessageTime))
     }
-  }, [whisperSession?.activated, whisperSession?.atBottom, newestMessageTime, targetId, dispatch])
+  }, [
+    whisperSession?.activated,
+    whisperSession?.atBottom,
+    isWindowFocused,
+    newestMessageTime,
+    targetId,
+    dispatch,
+  ])
 
   useEffect(() => () => flushLastRead(getWhisperLastReadKey(targetId)), [targetId])
 
