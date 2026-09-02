@@ -457,7 +457,14 @@ export function TextField({
         $multiline={multiline}
         $rows={rows}
         $maxRows={maxRows}
-        onClick={() => inputRef.current?.focus()}
+        onClick={event => {
+          // Trailing icons can anchor portalled content (e.g. an emoji picker popover) whose
+          // clicks bubble here through the React tree even though they land outside the container
+          // in the DOM — focusing the input then would steal focus from the portalled content
+          if (event.currentTarget.contains(event.target as Node)) {
+            inputRef.current?.focus()
+          }
+        }}
         onContextMenu={IS_ELECTRON ? onContainerContextMenu : undefined}>
         {renderLabel}
         {leadingIconsElements.length > 0 ? leadingIconsElements : null}

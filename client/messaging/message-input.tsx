@@ -22,12 +22,22 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp } from '../i18n/date-formats'
 import { useKeyListener } from '../keyboard/key-listener'
+import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { getUnicodeEmojiEntries } from './emoji-data'
+import { EmotePickerButton } from './emote-picker'
+import {
+  EMOTE_QUERY_REGEX,
+  EmoteSuggestion,
+  orderEmoteSuggestions,
+  recordEmoteUsage,
+  searchUnicodeEmojis,
+} from './emote-suggestions'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -88,6 +98,13 @@ const StyledAvatar = styled(ConnectedAvatar)<{ $faded?: boolean }>`
     }
     return ''
   }}
+`
+
+const EmoteSuggestionIcon = styled.span`
+  width: 24px;
+  font-size: 18px;
+  line-height: 24px;
+  text-align: center;
 `
 
 /** A Map to store the message input contents for each chat instance. */
@@ -179,9 +196,17 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const [matchedUsers, setMatchedUsers] = useState<MentionableUser[]>([])
     const [virtuallyFocusedMentionIndex, setVirtuallyFocusedMentionIndex] = useState<number>(0)
 
+    const [emoteQueryStart, setEmoteQueryStart] = useState<number>(-1)
+    const [emoteMatchedText, setEmoteMatchedText] = useState<string>('')
+    const [matchedEmotes, setMatchedEmotes] = useState<EmoteSuggestion[]>([])
+    const [focusedEmoteIndex, setFocusedEmoteIndex] = useState<number>(0)
+    // Guards async emoji data loads against the query having changed by the time they finish
+    const latestEmoteQueryRef = useRef<string | undefined>(undefined)
+
     const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
 
     const [userMentionsOpen, openUserMentions, closeUserMentions] = usePopoverController()
+    const [emotesOpen, openEmotes, closeEmotes] = usePopoverController()
     const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
 
     useImperativeHandle(ref, () => ({
@@ -219,6 +244,33 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           }
 
           // TODO(2Pac): Handle channel mentions as well.
+
+          const emoteMatch = EMOTE_QUERY_REGEX.exec(message.slice(0, selectionStart))
+          if (emoteMatch) {
+            const query = emoteMatch.groups!.query
+            latestEmoteQueryRef.current = query
+            setEmoteQueryStart(emoteMatch.index)
+            setEmoteMatchedText(emoteMatch[0])
+
+            getUnicodeEmojiEntries().then(
+              entries => {
+                if (latestEmoteQueryRef.current !== query) {
+                  return
+                }
+                const suggestions = orderEmoteSuggestions(searchUnicodeEmojis(entries, query))
+                setMatchedEmotes(suggestions)
+                if (suggestions.length) {
+                  openEmotes(event)
+                } else {
+                  closeEmotes()
+                }
+              },
+              (err: Error) => logger.error(`Failed to load emoji data: ${String(err)}`),
+            )
+          } else {
+            latestEmoteQueryRef.current = undefined
+            closeEmotes()
+          }
 
           if (mentionableUsers) {
             if (baseMentionableUsers?.length) {
@@ -280,12 +332,30 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       baseMentionableUsers,
       openUserMentions,
       closeUserMentions,
+      openEmotes,
+      closeEmotes,
       fuzzy,
     ])
 
     const onChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
       const message = event.target.value
       setMessage(message)
+    })
+
+    const insertAtCaret = useStableCallback((text: string) => {
+      // The selection values persist while the input is unfocused (e.g. while the emote picker has
+      // focus), so this inserts wherever the caret last was, replacing any selected content.
+      const start = inputRef.current?.selectionStart ?? message.length
+      const end = inputRef.current?.selectionEnd ?? message.length
+      setMessage(msg => msg.slice(0, start) + text + msg.slice(end))
+
+      inputRef.current?.focus()
+      // Setting the caret position immediately after the focus doesn't work for some reason, so we
+      // need to wait a tick first.
+      queueMicrotask(() => {
+        const newCaretPosition = start + text.length
+        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+      })
     })
 
     const onMentionSelect = (user: MentionableUser) => {
@@ -312,10 +382,46 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       })
     }
 
+    const onEmoteSelect = (suggestion: EmoteSuggestion) => {
+      closeEmotes()
+      setFocusedEmoteIndex(0)
+      recordEmoteUsage(suggestion.key)
+
+      if (emoteQueryStart > -1 && emoteMatchedText) {
+        setMessage(
+          message.slice(0, emoteQueryStart) +
+            suggestion.insertText +
+            message.slice(emoteQueryStart + emoteMatchedText.length),
+        )
+      }
+
+      if (!inputRef.current) {
+        return
+      }
+
+      inputRef.current.focus()
+      // Setting the caret position immediately after the focus doesn't work for some
+      // reason, so we need to wait a tick first.
+      queueMicrotask(() => {
+        const newCaretPosition = emoteQueryStart + suggestion.insertText.length
+        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
+      })
+    }
+
     const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+      // NOTE: The focused indexes are clamped because the suggestion lists can shrink while an
+      // index further down is focused (the menu keeps its index when its children change)
+      if (emotesOpen && matchedEmotes.length > 0) {
+        event.preventDefault()
+        onEmoteSelect(matchedEmotes[Math.min(focusedEmoteIndex, matchedEmotes.length - 1)])
+        return
+      }
+
       if (userMentionsOpen && matchedUsers.length > 0) {
         event.preventDefault()
-        onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
+        onMentionSelect(
+          matchedUsers[Math.min(virtuallyFocusedMentionIndex, matchedUsers.length - 1)],
+        )
         setVirtuallyFocusedMentionIndex(0)
         return
       }
@@ -327,7 +433,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       event.preventDefault()
 
       if (message.trim().length > 0) {
-        if (message.length > CHAT_MESSAGE_MAXLENGTH) {
+        const toSend = message.trim()
+        if (toSend.length > CHAT_MESSAGE_MAXLENGTH) {
           // Blocked rather than sent-and-trimmed so no content is silently lost — the message
           // stays in the input for the user to shorten
           dispatch(
@@ -337,14 +444,14 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 defaultValue:
                   'Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.',
                 maxLength: CHAT_MESSAGE_MAXLENGTH,
-                length: message.length,
+                length: toSend.length,
               }),
             ),
           )
           return
         }
 
-        onSendChatMessage(message)
+        onSendChatMessage(toSend)
         setMessage('')
       }
     })
@@ -403,21 +510,34 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           maxLength={CHAT_MESSAGE_MAXLENGTH}
           showDivider={showDivider}
           disabled={!!chatRestriction}
+          trailingIcons={[
+            <EmotePickerButton
+              key='emotes'
+              disabled={!!chatRestriction}
+              onInsert={insertAtCaret}
+            />,
+          ]}
           inputProps={{
             autoComplete: 'off',
             onClick: event => {
-              if (userMentionsOpen) {
-                // Prevent the user mentions popover from closing when the user clicks on the input
-                // and we have matched users at the current position of their caret.
+              if (userMentionsOpen || emotesOpen) {
+                // Prevent the suggestion popovers from closing when the user clicks on the input
+                // and we have matches at the current position of their caret.
                 event.stopPropagation()
               }
             },
           }}
           onKeyDown={event => {
             if (event.key === 'Tab') {
-              if (userMentionsOpen && matchedUsers.length > 0) {
+              // Indexes clamped for the same reason as in onEnterKeyDown
+              if (emotesOpen && matchedEmotes.length > 0) {
                 event.preventDefault()
-                onMentionSelect(matchedUsers[virtuallyFocusedMentionIndex])
+                onEmoteSelect(matchedEmotes[Math.min(focusedEmoteIndex, matchedEmotes.length - 1)])
+              } else if (userMentionsOpen && matchedUsers.length > 0) {
+                event.preventDefault()
+                onMentionSelect(
+                  matchedUsers[Math.min(virtuallyFocusedMentionIndex, matchedUsers.length - 1)],
+                )
                 setVirtuallyFocusedMentionIndex(0)
               }
             }
@@ -450,6 +570,34 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 $faded={!user.online}
                 icon={<StyledAvatar userId={user.id} $faded={!user.online} />}
                 onClick={() => onMentionSelect(user)}
+              />
+            ))}
+          </StyledMenuList>
+        </Popover>
+
+        <Popover
+          open={emotesOpen}
+          onDismiss={() => {
+            setFocusedEmoteIndex(0)
+            closeEmotes()
+          }}
+          anchorX={anchorX ?? 0}
+          anchorY={(anchorY ?? 0) - 8}
+          originX='left'
+          originY='bottom'
+          // Keep the focus in the message input when the emote suggestions open so the user can
+          // keep typing.
+          focusOnMount={false}>
+          <StyledMenuList
+            dense={true}
+            virtualFocus={true}
+            onActiveIndexChange={setFocusedEmoteIndex}>
+            {matchedEmotes.map(suggestion => (
+              <StyledMenuItem
+                key={suggestion.key}
+                text={suggestion.name}
+                icon={<EmoteSuggestionIcon>{suggestion.emoji}</EmoteSuggestionIcon>}
+                onClick={() => onEmoteSelect(suggestion)}
               />
             ))}
           </StyledMenuList>

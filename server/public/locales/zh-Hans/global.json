@@ -1452,6 +1452,9 @@
     "blockedMessage": "消息被屏蔽",
     "copyLinkAddress": "复制链接地址",
     "copyMessage": "复制消息",
+    "emotePicker": {
+      "previewHint": "将鼠标悬停在表情符号上可查看其短代码"
+    },
     "jumpToBottom": "跳至底部",
     "jumpToPresent": "跳至最新消息",
     "mention": "提到",

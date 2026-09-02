@@ -1,4 +1,4 @@
-import { constructURL, download, DownloadOptions } from 'google-fonts-helper'
+import { constructURL, download, DownloadOptions, FontInputOutput } from 'google-fonts-helper'
 import path from 'path'
 
 /**
@@ -16,6 +16,9 @@ const GOOGLE_FONTS_URL = constructURL({
     'Sofia Sans Condensed': {
       wght: [400],
     },
+    // Noto Color Emoji has a single static weight, not a wght axis; Google rejects axis params
+    // for it, so this must stay `true` rather than a weight object.
+    'Noto Color Emoji': true,
   },
   display: 'swap',
 })
@@ -45,6 +48,19 @@ async function doDownload() {
     ],
   ] satisfies DownloadOptions['headers']
 
+  // Noto Color Emoji's CSS has no per-subset comments (unlike Inter's `/* latin */`), so
+  // google-fonts-helper falls back to naming every one of its ~10 subset files
+  // `Noto_Color_Emoji-normal-400-text.woff2`, each overwriting the last. Google numbers the
+  // source URLs of otherwise-identically-named subsets (`...abc.4.woff2`), so re-derive a unique
+  // output name from that suffix before the file gets written.
+  const deduplicateUnnamedSubsets = (font: FontInputOutput) => {
+    const numbered = /\.(\d+)\.woff2$/.exec(font.inputFont)
+    if (numbered && font.outputFont.endsWith('-text.woff2')) {
+      font.outputFont = font.outputFont.replace(/\.woff2$/, `.${numbered[1]}.woff2`)
+      font.outputText = font.outputText.replace(/\.woff2(?=')/, `.${numbered[1]}.woff2`)
+    }
+  }
+
   const electronDownloader = download(GOOGLE_FONTS_URL, {
     base64: false,
     overwriting: true,
@@ -57,6 +73,7 @@ async function doDownload() {
   electronDownloader.hook('download-font:before', font => {
     console.log(`Processing ${font.inputFont} -> ${font.outputFont}`)
   })
+  electronDownloader.hook('download-font:before', deduplicateUnnamedSubsets)
   const electronIconDownloader = download(ICON_FONT_URL, {
     base64: false,
     overwriting: false,
@@ -81,10 +98,12 @@ async function doDownload() {
     stylePath: 'fonts.css',
     fontsDir: '',
     fontsPath: '.',
+    headers,
   })
   webDownloader.hook('download-font:before', font => {
     console.log(`Processing ${font.inputFont} -> ${font.outputFont}`)
   })
+  webDownloader.hook('download-font:before', deduplicateUnnamedSubsets)
   const webIconDownloader = download(ICON_FONT_URL, {
     base64: false,
     overwriting: false,
@@ -92,6 +111,7 @@ async function doDownload() {
     stylePath: 'icons.css',
     fontsDir: '',
     fontsPath: '.',
+    headers,
   })
   webIconDownloader.hook('download-font:before', font => {
     console.log(`Processing ${font.inputFont} -> ${font.outputFont}`)

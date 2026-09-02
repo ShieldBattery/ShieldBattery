@@ -84,6 +84,18 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     expect(doRender('Hey <@1>')).toMatchSnapshot()
   })
 
+  test('message with only emoji renders them jumbo-sized', () => {
+    expect(doRender('🔥🔥 🎉')).toMatchSnapshot()
+  })
+
+  test('message mixing emoji and text renders them inline-sized', () => {
+    expect(doRender('nice game 🔥')).toMatchSnapshot()
+  })
+
+  test('message with too many emoji for jumbo stays inline-sized', () => {
+    expect(doRender('😀😀😀😀😀😀😀😀😀😀😀')).toMatchSnapshot()
+  })
+
   // Canary for the invite-card tests below: card rendering depends on lobby-link detection, which
   // compares a link's origin against the server origin assembled from the test environment
   // (IS_ELECTRON global + the SB_SERVER define, via `baseUrl`). If this test fails alongside the

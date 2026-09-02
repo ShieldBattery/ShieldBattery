@@ -1486,6 +1486,9 @@
     "blockedMessage": "Mensaje bloqueado",
     "copyLinkAddress": "Copiar dirección del enlace",
     "copyMessage": "Copiar mensaje",
+    "emotePicker": {
+      "previewHint": "Pasa el cursor sobre un emoji para ver su código"
+    },
     "jumpToBottom": "Saltar al final",
     "jumpToPresent": "Saltar al presente",
     "mention": "Mención",

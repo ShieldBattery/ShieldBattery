@@ -5,6 +5,7 @@ import { makeSbChannelId } from '../../common/chat'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
+import { countEmojisIn, matchUnicodeEmojis } from '../../common/text/unicode-emojis'
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
@@ -60,10 +61,53 @@ const MentionedChannelName = styled(ConnectedChannelName)`
   color: var(--color-blue95);
 `
 
+/**
+ * A run of unicode emoji, rendered larger than the surrounding text. Normally it stays inline-sized
+ * so the fixed 20px message line box doesn't grow (the glyph may paint slightly beyond the box).
+ * When a message is nothing but emoji (and whitespace), it renders jumbo-sized instead, growing the
+ * line, so it reads as a sticker rather than a sentence.
+ */
+const UnicodeEmoji = styled.span<{ $jumbo?: boolean }>`
+  font-size: ${props => (props.$jumbo ? '32px' : '20px')};
+  line-height: ${props => (props.$jumbo ? '1.2' : 'inherit')};
+`
+
+const MAX_JUMBO_EMOJI_COUNT = 10
+
+/**
+ * A message qualifies for jumbo emoji rendering when every match in it is a unicode emoji run, the
+ * text outside those runs is whitespace-only, and the total emoji count doesn't exceed the cap (a
+ * long run of emoji reads more like a wall of text than a sticker, so it stays inline-sized).
+ */
+function isJumboEmojiMessage(
+  text: string,
+  sortedMatches: ReadonlyArray<{ type: string; text: string; index: number }>,
+): boolean {
+  if (sortedMatches.length === 0 || !sortedMatches.every(match => match.type === 'unicodeEmoji')) {
+    return false
+  }
+
+  let remainder = ''
+  let cursor = 0
+  for (const match of sortedMatches) {
+    remainder += text.substring(cursor, match.index)
+    cursor = match.index + match.text.length
+  }
+  remainder += text.substring(cursor)
+
+  if (remainder.trim().length > 0) {
+    return false
+  }
+
+  const emojiCount = countEmojisIn(text)
+  return emojiCount > 0 && emojiCount <= MAX_JUMBO_EMOJI_COUNT
+}
+
 function* getAllMatches(text: string) {
   yield* matchUserMentionsMarkup(text)
   yield* matchChannelMentionsMarkup(text)
   yield* matchLinks(text)
+  yield* matchUnicodeEmojis(text)
 }
 
 export interface TextMessageProps {
@@ -91,6 +135,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
   let inviteLobbyId: SbLobbyId | undefined
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
+  const jumboEmoji = isJumboEmojiMessage(text, sortedMatches)
   let lastIndex = 0
 
   for (const match of sortedMatches) {
@@ -144,6 +189,12 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         <ExternalLink key={match.index} href={match.text}>
           {match.text}
         </ExternalLink>,
+      )
+    } else if (match.type === 'unicodeEmoji') {
+      parsedText.push(
+        <UnicodeEmoji key={match.index} $jumbo={jumboEmoji}>
+          {match.text}
+        </UnicodeEmoji>,
       )
     } else {
       match satisfies never

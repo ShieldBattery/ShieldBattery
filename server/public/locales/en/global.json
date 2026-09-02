@@ -1469,6 +1469,11 @@
     "blockedMessage": "Blocked message",
     "copyLinkAddress": "Copy link address",
     "copyMessage": "Copy message",
+    "emotePicker": {
+      "buttonTitle": "Add emoji",
+      "previewHint": "Hover an emoji to see its code",
+      "searchPlaceholder": "Search emojis"
+    },
     "jumpToBottom": "Jump to bottom",
     "jumpToPresent": "Jump to present",
     "mention": "Mention",

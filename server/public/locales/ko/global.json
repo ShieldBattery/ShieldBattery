@@ -1452,6 +1452,9 @@
     "blockedMessage": "차단된 메시지",
     "copyLinkAddress": "링크 주소 복사",
     "copyMessage": "메시지 복사",
+    "emotePicker": {
+      "previewHint": "이모지 위에 마우스를 올리면 코드를 확인할 수 있습니다"
+    },
     "jumpToBottom": "맨 아래로 이동",
     "jumpToPresent": "최신 메시지로 이동",
     "mention": "멘션",

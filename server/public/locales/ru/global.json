@@ -1503,6 +1503,9 @@
     "blockedMessage": "Заблокированное сообщение",
     "copyLinkAddress": "Копировать адрес ссылки",
     "copyMessage": "Копировать сообщение",
+    "emotePicker": {
+      "previewHint": "Наведите курсор на эмодзи, чтобы увидеть его код"
+    },
     "jumpToBottom": "Перейти в конец",
     "jumpToPresent": "Перейти к последним",
     "mention": "Упомянуть",

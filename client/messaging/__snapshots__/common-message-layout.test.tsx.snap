@@ -32,7 +32,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -52,6 +52,68 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
       class="sc-kIBtVG heMaNB"
     >
       This is test message
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > message mixing emoji and text renders them inline-sized 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-jvDgNt jfqicU"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-hjIEjD cGTiYu"
+      tabindex="0"
+    >
+      <span
+        class="sc-bRBteW kFvymL"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-jhbick fENxjz"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-jhbick fENxjz"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-djMJHV upVlS"
+      >
+                   
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="sc-jhbick fENxjz"
+    >
+      : 
+    </i>
+    <span
+      class="sc-kIBtVG heMaNB"
+    >
+      nice game 
+      <span
+        class="sc-bGxLfG fVtgOC"
+      >
+        🔥
+      </span>
     </span>
   </div>
 </div>
@@ -89,7 +151,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -153,7 +215,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -230,7 +292,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -322,7 +384,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -392,7 +454,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -468,7 +530,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -553,7 +615,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-gHmoSK kRelkX sc-cVdwKd hXNzel"
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
       tabindex="0"
     >
       <span
@@ -585,6 +647,134 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
         >
                      
         </span>
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > message with only emoji renders them jumbo-sized 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-jvDgNt jfqicU"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-hjIEjD cGTiYu"
+      tabindex="0"
+    >
+      <span
+        class="sc-bRBteW kFvymL"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-jhbick fENxjz"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-jhbick fENxjz"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-djMJHV upVlS"
+      >
+                   
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="sc-jhbick fENxjz"
+    >
+      : 
+    </i>
+    <span
+      class="sc-kIBtVG heMaNB"
+    >
+      <span
+        class="sc-bGxLfG gtOLJR"
+      >
+        🔥🔥
+      </span>
+       
+      <span
+        class="sc-bGxLfG gtOLJR"
+      >
+        🎉
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > message with too many emoji for jumbo stays inline-sized 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-jvDgNt jfqicU"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-hjIEjD cGTiYu"
+      tabindex="0"
+    >
+      <span
+        class="sc-bRBteW kFvymL"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-jhbick fENxjz"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-jhbick fENxjz"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-gHmoSK kRelkX sc-cVdwKd kHdooS"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-djMJHV upVlS"
+      >
+                   
+      </span>
+    </span>
+    <i
+      aria-hidden="true"
+      class="sc-jhbick fENxjz"
+    >
+      : 
+    </i>
+    <span
+      class="sc-kIBtVG heMaNB"
+    >
+      <span
+        class="sc-bGxLfG fVtgOC"
+      >
+        😀😀😀😀😀😀😀😀😀😀😀
       </span>
     </span>
   </div>
