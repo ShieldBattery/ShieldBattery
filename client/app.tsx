@@ -21,6 +21,7 @@ import { jotaiStore } from './jotai-store'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
 import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
+import { AcceptMatchCountdownSounds } from './matchmaking/accept-match-sounds'
 import { DraftScreenOverlay } from './matchmaking/draft-screen-overlay'
 import { zIndexSettings } from './material/zindex'
 import { UnreadTraySync } from './messaging/unread-tray-sync'
@@ -272,6 +273,7 @@ const AppContent = React.memo(() => {
         </Switch>
       </React.Suspense>
       <GameplayActivityWidget />
+      {IS_ELECTRON ? <AcceptMatchCountdownSounds /> : null}
       <LazyConnectedSettings />
       <DraftScreenOverlay />
       <ConnectedDialogOverlay />

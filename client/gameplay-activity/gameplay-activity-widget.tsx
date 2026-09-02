@@ -21,6 +21,7 @@ import {
   isMatchmakingAtom,
   matchLaunchingAtom,
 } from '../matchmaking/matchmaking-atoms'
+import { useAcceptCountdown } from '../matchmaking/use-accept-countdown'
 import { useAcceptMatch } from '../matchmaking/use-accept-match'
 import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { Portal } from '../material/portal'
@@ -344,8 +345,6 @@ const StyledElapsedTime = styled(ElapsedTime)`
  * accurate.
  */
 const WIDGET_COUNTDOWN_TICK_MS = 1000
-/** Seconds remaining at which the countdown switches to the "low time" treatment. */
-const LOW_TIME_SECONDS = 5
 
 const CountdownText = styled.span<{ $low: boolean }>`
   ${titleLarge};
@@ -374,28 +373,10 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
   const [isCancelling, setIsCancelling] = useState(false)
   const { acceptInProgress, triggerAccept } = useAcceptMatch()
 
-  const [now, setNow] = useState(() => window.performance.now())
-  useEffect(() => {
-    if (!isMatched) {
-      return () => {}
-    }
-
-    const interval = setInterval(() => setNow(window.performance.now()), WIDGET_COUNTDOWN_TICK_MS)
-    return () => clearInterval(interval)
-  }, [isMatched])
+  const { secondsLeft, lowTime } = useAcceptCountdown(foundMatch, WIDGET_COUNTDOWN_TICK_MS)
 
   let bodyContent: React.ReactNode
   if (foundMatch) {
-    // `now` only advances while the countdown interval is running, so on the first render after a
-    // match is found it can lag behind `acceptStart`; clamp so that render shows the full accept
-    // window instead of a bogus value.
-    const remainingMillis = Math.min(
-      foundMatch.acceptTimeTotalMillis,
-      Math.max(0, foundMatch.acceptTimeTotalMillis - (now - foundMatch.acceptStart)),
-    )
-    const secondsLeft = Math.ceil(remainingMillis / 1000)
-    const lowTime = secondsLeft <= LOW_TIME_SECONDS
-
     let readyAction: React.ReactNode
     if (!hasAccepted) {
       readyAction = (

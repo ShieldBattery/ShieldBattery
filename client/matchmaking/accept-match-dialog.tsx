@@ -1,18 +1,15 @@
 import { useAtomValue } from 'jotai'
 import * as m from 'motion/react-m'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { MATCHMAKING_ACCEPT_MATCH_TIME_MS, matchmakingTypeToLabel } from '../../common/matchmaking'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { range } from '../../common/range'
-import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
-import { playRandomTickSound } from '../audio/tick-sounds'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useKeyListener } from '../keyboard/key-listener'
 import { FilledButton, TextButton } from '../material/button'
 import { decelerateEasing, standardEasing } from '../material/curve-constants'
-import { Dialog, Title } from '../material/dialog'
+import { CloseButton, Dialog, Title } from '../material/dialog'
 import { BodyMedium, sofiaSansCondensed } from '../styles/typography'
 import { isInDraftAtom } from './draft-atoms'
 import {
@@ -21,9 +18,8 @@ import {
   hasAcceptedAtom,
   matchLaunchingAtom,
 } from './matchmaking-atoms'
+import { useAcceptCountdown } from './use-accept-countdown'
 import { useAcceptMatch } from './use-accept-match'
-
-const ipcRenderer = new TypedIpcRenderer()
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -34,8 +30,6 @@ const ENTER_NUMPAD = 'NumpadEnter'
  * notches evenly sized across every cell.
  */
 const TIMER_CELL_COUNT = 10
-/** Seconds remaining at which the countdown switches to the "low time" error treatment. */
-const LOW_TIME_SECONDS = 5
 /**
  * How often the countdown re-renders. The cells melt in per-second notches, but a fast tick keeps
  * the notch (and the waiting-state drain bar) landing close to the true second boundary.
@@ -47,6 +41,16 @@ const StyledDialog = styled(Dialog)`
 
   & ${Title} {
     text-align: center;
+  }
+
+  /*
+    The title is centered on the dialog, not on the space left beside the close button, so the
+    button is lifted out of the title bar's flow and sits in the corner over the title's padding.
+  */
+  & ${CloseButton} {
+    position: absolute;
+    top: 0;
+    right: 0;
   }
 `
 
@@ -268,47 +272,14 @@ function AcceptingStateView({ close }: { close: () => void }) {
   const hasAccepted = useAtomValue(hasAcceptedAtom)
   const foundMatch = useAtomValue(foundMatchAtom)
 
-  const acceptTimeTotal = foundMatch?.acceptTimeTotalMillis ?? MATCHMAKING_ACCEPT_MATCH_TIME_MS
-  const acceptStart = foundMatch?.acceptStart ?? window.performance.now()
-
-  const [now, setNow] = useState(() => window.performance.now())
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(window.performance.now())
-    }, TIMER_TICK_MS)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  const remainingMillis = Math.max(0, acceptTimeTotal - (now - acceptStart))
-  const secondsLeft = Math.ceil(remainingMillis / 1000)
-  const remainingFrac = acceptTimeTotal > 0 ? remainingMillis / acceptTimeTotal : 0
-  const lowTime = secondsLeft <= LOW_TIME_SECONDS
+  // The countdown sounds are played by `AcceptMatchCountdownSounds`, which stays mounted when this
+  // dialog is dismissed; nothing here makes a sound.
+  const { secondsLeft, remainingFrac, lowTime } = useAcceptCountdown(foundMatch, TIMER_TICK_MS)
+  const acceptTimeTotal = foundMatch?.acceptTimeTotalMillis ?? 0
   const parity = secondsLeft % 2 === 1
 
   const acceptButtonRef = useRef<HTMLButtonElement>(null)
   const { acceptInProgress, triggerAccept } = useAcceptMatch(close)
-
-  // A value that never goes below 4 because the countdown sound covers all 5 ticks below that
-  const soundTimeLeft = Math.max(4, secondsLeft)
-  useEffect(() => {
-    if (hasAccepted) {
-      return () => {}
-    }
-
-    let sound: FadeableSound | undefined
-    if (soundTimeLeft === 4) {
-      sound = audioManager.playFadeableSound(AvailableSound.Countdown)
-      ipcRenderer.send('userAttentionRequired')
-    } else if (soundTimeLeft && soundTimeLeft > 4 && soundTimeLeft <= 10) {
-      sound = playRandomTickSound()
-      ipcRenderer.send('userAttentionRequired')
-    }
-
-    return () => {
-      sound?.fadeOut()
-    }
-  }, [soundTimeLeft, hasAccepted])
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
