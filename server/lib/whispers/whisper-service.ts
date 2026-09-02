@@ -23,6 +23,7 @@ import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { RestrictionService } from '../users/restriction-service'
 import { findUserById, findUsersById } from '../users/user-model'
+import { UserRelationshipService } from '../users/user-relationship-service'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -71,6 +72,7 @@ export default class WhisperService {
     private publisher: TypedPublisher<WhisperEvent | WhisperUserEvent>,
     private userSocketsManager: UserSocketsManager,
     private restrictionService: RestrictionService,
+    private userRelationshipService: UserRelationshipService,
   ) {
     userSocketsManager
       .on('newUser', userSockets => {
@@ -179,6 +181,23 @@ export default class WhisperService {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.UserChatRestricted,
         'User is chat restricted',
+      )
+    }
+
+    // When either user has blocked the other, no message is stored and no session row is created
+    // in either direction, so a block keeps the blocked user out of the blocker's whisper list
+    // entirely rather than just muting them client-side.
+    const { aBlocksB: senderBlocksTarget, bBlocksA: targetBlocksSender } =
+      await this.userRelationshipService.getBlocksBetween(userId, targetUser)
+    if (targetBlocksSender) {
+      throw new WhisperServiceError(
+        WhisperServiceErrorCode.BlockedByUser,
+        'You have been blocked by this user',
+      )
+    } else if (senderBlocksTarget) {
+      throw new WhisperServiceError(
+        WhisperServiceErrorCode.UserBlocked,
+        'You have blocked this user',
       )
     }
 

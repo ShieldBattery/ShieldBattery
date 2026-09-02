@@ -2,12 +2,14 @@ import { useEffect, useEffectEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { isWhisperServiceErrorCode, whisperServiceErrorToString } from '../../common/whispers'
 import { useSelfUser } from '../auth/auth-utils'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { flushLastRead } from '../messaging/last-read'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { push, replace } from '../navigation/routing'
+import { isFetchError } from '../network/fetch-errors'
 import LoadingIndicator from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -251,10 +253,14 @@ export function ConnectedWhisper({
         onError: err => {
           // TODO(tec27): Offer a retry for the same message content? Display it in the message list
           // ala Discord?
+          const errorMessage =
+            isFetchError(err) && isWhisperServiceErrorCode(err.code ?? '')
+              ? whisperServiceErrorToString(err.code, t)
+              : err.message
           snackbarController.showSnackbar(
             t('whispers.errors.sendingMessage', {
               defaultValue: 'Error sending message: {{errorMessage}}',
-              errorMessage: err.message,
+              errorMessage,
             }),
             DURATION_LONG,
           )

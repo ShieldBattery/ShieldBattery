@@ -2306,6 +2306,7 @@
       "usernameRequired": "Enter a username"
     },
     "errors": {
+      "blockedByUser": "You have been blocked by this user",
       "cantWhisperYourself": "You can't whisper with yourself.",
       "invalidAction": "Must have an active whisper session with a user to retrieve message history",
       "loadingHistory": "Error loading message history: {{errorMessage}}",
@@ -2313,6 +2314,7 @@
       "openSession": "Error opening whisper to user: {{errorMessage}}",
       "sendingMessage": "Error sending message: {{errorMessage}}",
       "unknownError": "Unknown error",
+      "userBlocked": "You have blocked this user",
       "userChatRestricted": "You are currently restricted from sending chat messages",
       "userNotFound": "User not found"
     },

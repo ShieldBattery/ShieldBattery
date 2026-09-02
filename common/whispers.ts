@@ -111,12 +111,14 @@ export enum WhisperServiceErrorCode {
   NoSelfMessaging = 'noSelfMessaging',
   InvalidGetSessionHistoryAction = 'invalidGetSessionHistoryAction',
   UserChatRestricted = 'userChatRestricted',
+  BlockedByUser = 'blockedByUser',
+  UserBlocked = 'userBlocked',
 }
 
 const ALL_WHISPER_SERVICE_ERROR_CODES: ReadonlyArray<WhisperServiceErrorCode> =
   Object.values(WhisperServiceErrorCode)
 
-function isWhisperServiceErrorCode(code: string): code is WhisperServiceErrorCode {
+export function isWhisperServiceErrorCode(code: string): code is WhisperServiceErrorCode {
   return ALL_WHISPER_SERVICE_ERROR_CODES.includes(code as WhisperServiceErrorCode)
 }
 
@@ -140,6 +142,10 @@ export function whisperServiceErrorToString(
           'whispers.errors.userChatRestricted',
           'You are currently restricted from sending chat messages',
         )
+      case WhisperServiceErrorCode.BlockedByUser:
+        return t('whispers.errors.blockedByUser', 'You have been blocked by this user')
+      case WhisperServiceErrorCode.UserBlocked:
+        return t('whispers.errors.userBlocked', 'You have blocked this user')
       default:
         return assertUnreachable(code)
     }

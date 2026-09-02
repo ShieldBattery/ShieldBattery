@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { WhisperMessageType, WhisperServiceErrorCode } from '../../../common/whispers'
 import { RestrictionService } from '../users/restriction-service'
+import { UserRelationshipService } from '../users/user-relationship-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import {
@@ -13,13 +15,19 @@ import {
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
+  addMessageToWhisper,
   getMessagesForWhisperSession,
   getUnreadWhisperTargets,
   getWhisperSessionsForUser,
   startWhisperSession,
+  startWhisperSessionsBothDirections,
   updateLastReadTime,
 } from './whisper-models'
-import WhisperService, { getSessionPath, getWhisperUserPath } from './whisper-service'
+import WhisperService, {
+  getSessionPath,
+  getWhisperUserPath,
+  WhisperServiceError,
+} from './whisper-service'
 
 const { user1, user2, user3 } = vi.hoisted(() => ({
   user1: { id: 1 as SbUserId, name: 'USER_NAME_1', created: 1577836800000 } as SbUser,
@@ -37,6 +45,7 @@ vi.mock('../users/user-model', () => {
     findUsersById: vi.fn().mockImplementation(async (ids: ReadonlyArray<SbUserId>) => {
       return ids.map(id => USERS_BY_ID.get(id)).filter(u => !!u)
     }),
+    findUsersByName: vi.fn().mockResolvedValue([]),
   }
 })
 
@@ -45,6 +54,7 @@ vi.mock('../chat/chat-models', async () => {
     await vi.importActual<typeof import('../chat/chat-models')>('../chat/chat-models')
   return {
     getChannelInfos: vi.fn().mockResolvedValue([]),
+    findChannelsByName: vi.fn().mockResolvedValue([]),
     toBasicChannelInfo: originalModule.toBasicChannelInfo,
   }
 })
@@ -66,6 +76,10 @@ const mockRestrictionService = {
   isRestricted: vi.fn().mockResolvedValue(false),
 } as any as RestrictionService
 
+const mockUserRelationshipService = {
+  getBlocksBetween: vi.fn().mockResolvedValue({ aBlocksB: false, bBlocksA: false }),
+} as any as UserRelationshipService
+
 describe('whispers/whisper-service', () => {
   let nydus: NydusServer
   let whisperService: WhisperService
@@ -83,7 +97,12 @@ describe('whispers/whisper-service', () => {
     const userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
     const publisher = new TypedPublisher(nydus)
 
-    whisperService = new WhisperService(publisher, userSocketsManager, mockRestrictionService)
+    whisperService = new WhisperService(
+      publisher,
+      userSocketsManager,
+      mockRestrictionService,
+      mockUserRelationshipService,
+    )
     connector = new NydusConnector(nydus, sessionLookup)
 
     connector.connectClient(user1, 'USER1_CLIENT_ID')
@@ -156,6 +175,75 @@ describe('whispers/whisper-service', () => {
           // sits one millisecond before that.
           { targetId: user3.id, lastReadTime: user3StartDate.getTime() - 1 },
         ],
+      })
+    })
+  })
+
+  describe('sendWhisperMessage', () => {
+    const getBlocksBetweenMock = asMockedFunction(mockUserRelationshipService.getBlocksBetween)
+    const addMessageToWhisperMock = asMockedFunction(addMessageToWhisper)
+
+    beforeEach(() => {
+      getBlocksBetweenMock.mockResolvedValue({ aBlocksB: false, bBlocksA: false })
+    })
+
+    test('throws and stores nothing when the target has blocked the sender', async () => {
+      getBlocksBetweenMock.mockResolvedValue({ aBlocksB: false, bBlocksA: true })
+
+      const sendPromise = whisperService.sendWhisperMessage(user1.id, user2.id, 'hi')
+      await expect(sendPromise).rejects.toBeInstanceOf(WhisperServiceError)
+      await expect(sendPromise).rejects.toMatchObject({
+        code: WhisperServiceErrorCode.BlockedByUser,
+      })
+
+      expect(startWhisperSessionsBothDirections).not.toHaveBeenCalled()
+      expect(addMessageToWhisperMock).not.toHaveBeenCalled()
+    })
+
+    test('throws and stores nothing when the sender has blocked the target', async () => {
+      getBlocksBetweenMock.mockResolvedValue({ aBlocksB: true, bBlocksA: false })
+
+      const sendPromise = whisperService.sendWhisperMessage(user1.id, user2.id, 'hi')
+      await expect(sendPromise).rejects.toBeInstanceOf(WhisperServiceError)
+      await expect(sendPromise).rejects.toMatchObject({
+        code: WhisperServiceErrorCode.UserBlocked,
+      })
+
+      expect(startWhisperSessionsBothDirections).not.toHaveBeenCalled()
+      expect(addMessageToWhisperMock).not.toHaveBeenCalled()
+    })
+
+    test('stores and publishes the message when neither user has blocked the other', async () => {
+      const sent = new Date('2023-03-12T00:00:00.000Z')
+      addMessageToWhisperMock.mockResolvedValue({
+        id: 'MESSAGE_ID',
+        from: user1.id,
+        to: user2.id,
+        sent,
+        data: { type: WhisperMessageType.TextMessage, text: 'hi' },
+      })
+
+      await whisperService.sendWhisperMessage(user1.id, user2.id, 'hi')
+
+      expect(addMessageToWhisperMock).toHaveBeenCalledWith(user1.id, user2.id, {
+        type: WhisperMessageType.TextMessage,
+        text: 'hi',
+        mentions: undefined,
+        channelMentions: undefined,
+      })
+      expect(nydus.publish).toHaveBeenCalledWith(getSessionPath(user1.id, user2.id), {
+        action: 'message',
+        message: {
+          id: 'MESSAGE_ID',
+          type: WhisperMessageType.TextMessage,
+          from: user1.id,
+          to: user2.id,
+          time: sent.getTime(),
+          text: 'hi',
+        },
+        users: [user1, user2],
+        mentions: [],
+        channelMentions: [],
       })
     })
   })

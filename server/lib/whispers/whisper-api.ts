@@ -71,6 +71,8 @@ const convertWhisperServiceErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(400, err)
     case WhisperServiceErrorCode.NoSelfMessaging:
     case WhisperServiceErrorCode.UserChatRestricted:
+    case WhisperServiceErrorCode.BlockedByUser:
+    case WhisperServiceErrorCode.UserBlocked:
       throw asHttpError(403, err)
     default:
       assertUnreachable(err.code)

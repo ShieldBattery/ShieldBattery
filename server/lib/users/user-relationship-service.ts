@@ -424,9 +424,22 @@ export class UserRelationshipService {
     return await getRelationshipSummaryForUser(userId)
   }
 
-  /** Returns whether the given user with `userId` is blocked by `potentialBlocker`. */
-  async isUserBlockedBy(userId: SbUserId, potentialBlocker: SbUserId): Promise<boolean> {
-    const relationships = await getRelationshipsForUsers(userId, potentialBlocker)
-    return relationships.some(r => r.kind === UserRelationshipKind.Block && r.toId === userId)
+  /**
+   * Returns which of two users has blocked the other, if either has. Both directions are stored in
+   * a single row, so this costs one query regardless of which side is being checked.
+   */
+  async getBlocksBetween(
+    userA: SbUserId,
+    userB: SbUserId,
+  ): Promise<{ aBlocksB: boolean; bBlocksA: boolean }> {
+    const relationships = await getRelationshipsForUsers(userA, userB)
+    return {
+      aBlocksB: relationships.some(
+        r => r.kind === UserRelationshipKind.Block && r.fromId === userA && r.toId === userB,
+      ),
+      bBlocksA: relationships.some(
+        r => r.kind === UserRelationshipKind.Block && r.fromId === userB && r.toId === userA,
+      ),
+    }
   }
 }

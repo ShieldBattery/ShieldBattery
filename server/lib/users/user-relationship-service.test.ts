@@ -349,9 +349,33 @@ vi.mock('./user-relationship-models', () => {
       return result
     }),
 
-    isUserBlockedBy: vi.fn(async (userId: SbUserId, potentialBlocker: SbUserId) => {
-      const blockerSummary = fakeDb.get(potentialBlocker)
-      return blockerSummary?.blocks?.some(r => r.toId === userId) ?? false
+    getRelationshipsForUsers: vi.fn(async (userA: SbUserId, userB: SbUserId) => {
+      const aSummary = fakeDb.get(userA) ?? createSummary()
+      const bSummary = fakeDb.get(userB) ?? createSummary()
+
+      const aBlock = aSummary.blocks.find(r => r.toId === userB)
+      const bBlock = bSummary.blocks.find(r => r.toId === userA)
+      if (aBlock || bBlock) {
+        // Blocks override any other relationships that may exist (note that in the actual DB those
+        // relationships can't actually exist, since it's a single row)
+        return [aBlock, bBlock].filter(r => !!r)
+      }
+
+      const result: UserRelationship[] = []
+      const aRelationship =
+        aSummary.friends.find(r => r.toId === userB) ??
+        aSummary.outgoingRequests.find(r => r.toId === userB)
+      if (aRelationship) {
+        result.push(aRelationship)
+      }
+      const bRelationship =
+        bSummary.friends.find(r => r.toId === userA) ??
+        bSummary.outgoingRequests.find(r => r.toId === userA)
+      if (bRelationship) {
+        result.push(bRelationship)
+      }
+
+      return result
     }),
   }
 })
@@ -1138,6 +1162,36 @@ describe('users/user-relationship-service', () => {
       expect(client1.publish).not.toHaveBeenCalledWith(getFriendActivityStatusPath(OTHER), {
         userId: OTHER,
         status: FriendActivityStatus.Offline,
+      })
+    })
+  })
+
+  describe('getBlocksBetween', () => {
+    const USER = makeSbUserId(1)
+    const OTHER = makeSbUserId(2)
+
+    test('reports a block made by the first user', async () => {
+      await userRelationshipService.blockUser(USER, OTHER)
+
+      expect(await userRelationshipService.getBlocksBetween(USER, OTHER)).toEqual({
+        aBlocksB: true,
+        bBlocksA: false,
+      })
+    })
+
+    test('reports a block made by the second user', async () => {
+      await userRelationshipService.blockUser(OTHER, USER)
+
+      expect(await userRelationshipService.getBlocksBetween(USER, OTHER)).toEqual({
+        aBlocksB: false,
+        bBlocksA: true,
+      })
+    })
+
+    test('reports no blocks between unrelated users', async () => {
+      expect(await userRelationshipService.getBlocksBetween(USER, OTHER)).toEqual({
+        aBlocksB: false,
+        bBlocksA: false,
       })
     })
   })
