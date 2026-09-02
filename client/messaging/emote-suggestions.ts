@@ -49,9 +49,8 @@ function loadUsage(): Record<string, number> {
 }
 
 /**
- * Records that an emote/emoji was inserted, so suggestions can be ordered by frequency of use.
- * Keys are the suggestion keys (custom emote codes or `u:<emoji>`), matched case-insensitively
- * since custom emote codes are.
+ * Records that an emoji was inserted, so suggestions can be ordered by frequency of use. Keys are
+ * the suggestion keys (`u:<emoji>`), matched case-insensitively.
  */
 export function recordEmoteUsage(key: string): void {
   const usage = loadUsage()
