@@ -2136,6 +2136,9 @@
       "blocked": "Removed {{name}} from the live streams feed",
       "blockError": "Couldn't remove {{name}} from the live streams feed",
       "menuTooltip": "Stream moderation",
+      "removeConfirmAction": "Remove stream",
+      "removeDialogBody": "{{name}}'s stream will be hidden from the live streams feed until you unblock it.",
+      "removeDialogTitle": "Remove {{name}} from live streams?",
       "removeTooltip": "Remove from live streams",
       "unblockError": "Couldn't restore {{name}} to the live streams feed"
     }

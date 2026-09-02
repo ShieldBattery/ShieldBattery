@@ -18,7 +18,6 @@
       },
       "confirmDelete": "¿Eliminar \"{{title}}\"? Esto no se puede deshacer.",
       "created": "Noticia creada",
-      "createPost": "Crear noticia",
       "createTitle": "Crear noticia",
       "deleteError": "Error al eliminar la noticia:",
       "editPost": "Editar noticia",
@@ -50,9 +49,11 @@
         "insertImageTooltip": "Insertar imagen (hasta 5 MB)",
         "insertVideo": "Insertar video",
         "insertVideoTooltip": "Insertar video (hasta 30 MB)",
+        "postSettings": "Ajustes de la noticia",
         "publish": "Publicación",
         "publishDraft": "Borrador (sin publicar)",
         "publishNow": "Publicar ahora",
+        "publishPublished": "Publicada ({{date}})",
         "publishSchedule": "Programar",
         "scheduleDate": "Fecha y hora de publicación",
         "scheduleHint": "Una fecha y hora en el futuro programa la noticia; una en el pasado la publica de inmediato.",
@@ -82,9 +83,15 @@
       "loadMore": "Cargar más",
       "newPost": "Nueva noticia",
       "notFound": "No se encontró ninguna noticia con este ID.",
+      "publishNow": "Publicar ahora",
       "refresh": "Actualizar",
       "saveChanges": "Guardar cambios",
       "saved": "Noticia guardada",
+      "saveDraft": "Guardar borrador",
+      "schedulePost": "Programar noticia",
+      "settings": {
+        "title": "Ajustes de la noticia"
+      },
       "status": {
         "draft": "Borrador",
         "published": "Publicada",
@@ -467,6 +474,7 @@
       "close": "Cerrar",
       "copy": "Copiar",
       "create": "Crear",
+      "cut": "Cortar",
       "decline": "Rechazar",
       "delete": "Eliminar",
       "done": "Listo",
@@ -476,6 +484,7 @@
       "join": "Únete",
       "next": "Siguiente",
       "okay": "Aceptar",
+      "paste": "Pegar",
       "previous": "Anterior",
       "read": "Leer",
       "refresh": "Actualizar",
@@ -485,6 +494,7 @@
       "reveal": "Revelar",
       "save": "Guardar",
       "search": "Buscar",
+      "selectAll": "Seleccionar todo",
       "show": "Mostrar",
       "start": "Comenzar",
       "stop": "Para",
@@ -753,8 +763,11 @@
       "viewLobby": "Ver lobby"
     },
     "matchmaking": {
+      "acceptedCount": "{{accepted}} / {{total}} listos",
       "matchFound": "¡Partido encontrado!",
-      "searching": "Buscando un partido…"
+      "reopenAcceptDialog": "Reabrir el diálogo del partido",
+      "searching": "Buscando un partido…",
+      "waitingForPlayers": "Esperando a los demás jugadores…"
     }
   },
   "gameReport": {
@@ -1294,13 +1307,19 @@
   "markdown": {
     "toolbar": {
       "bold": "Negrita",
+      "boldTooltip": "Negrita (Ctrl+B)",
       "heading": "Encabezado",
       "horizontalRule": "Separador",
       "italic": "Cursiva",
+      "italicTooltip": "Cursiva (Ctrl+I)",
       "link": "Enlace",
+      "linkTooltip": "Enlace (Ctrl+K)",
       "orderedList": "Lista numerada",
+      "orderedListTooltip": "Lista numerada (Ctrl+Shift+7)",
       "quote": "Cita",
-      "unorderedList": "Lista con viñetas"
+      "quoteTooltip": "Cita (Ctrl+Shift+.)",
+      "unorderedList": "Lista con viñetas",
+      "unorderedListTooltip": "Lista con viñetas (Ctrl+Shift+8)"
     }
   },
   "matchmaking": {
@@ -1933,6 +1952,7 @@
       },
       "title": "Juego",
       "video": {
+        "brightness": "Brillo",
         "customFpsLimit": "Límite de FPS personalizado",
         "displayMode": {
           "fullscreen": "Pantalla completa",
@@ -2136,6 +2156,9 @@
       "blocked": "Se quitó a {{name}} de las transmisiones en vivo",
       "blockError": "No se pudo quitar a {{name}} de las transmisiones en vivo",
       "menuTooltip": "Moderación de la transmisión",
+      "removeConfirmAction": "Quitar transmisión",
+      "removeDialogBody": "La transmisión de {{name}} se ocultará de las transmisiones en vivo hasta que la desbloquees.",
+      "removeDialogTitle": "¿Quitar a {{name}} de las transmisiones en vivo?",
       "removeTooltip": "Quitar de las transmisiones en vivo",
       "unblockError": "No se pudo volver a mostrar a {{name}} en las transmisiones en vivo"
     }

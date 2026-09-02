@@ -18,7 +18,6 @@
       },
       "confirmDelete": "\"{{title}}\"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
       "created": "소식이 생성되었습니다",
-      "createPost": "소식 만들기",
       "createTitle": "소식 만들기",
       "deleteError": "소식 삭제 오류:",
       "editPost": "소식 편집",
@@ -50,9 +49,11 @@
         "insertImageTooltip": "이미지 삽입 (최대 5MB)",
         "insertVideo": "동영상 삽입",
         "insertVideoTooltip": "동영상 삽입 (최대 30MB)",
+        "postSettings": "게시물 설정",
         "publish": "게시",
         "publishDraft": "초안 (게시 안 함)",
         "publishNow": "지금 게시",
+        "publishPublished": "게시됨 ({{date}})",
         "publishSchedule": "예약",
         "scheduleDate": "게시 날짜 및 시간",
         "scheduleHint": "미래의 날짜/시간을 선택하면 예약 게시되고, 과거의 날짜/시간을 선택하면 즉시 게시됩니다.",
@@ -82,9 +83,15 @@
       "loadMore": "더 불러오기",
       "newPost": "새 소식",
       "notFound": "이 ID의 소식을 찾을 수 없습니다.",
+      "publishNow": "지금 게시",
       "refresh": "새로 고침",
       "saveChanges": "변경 사항 저장",
       "saved": "소식이 저장되었습니다",
+      "saveDraft": "초안 저장",
+      "schedulePost": "게시 예약",
+      "settings": {
+        "title": "게시물 설정"
+      },
       "status": {
         "draft": "초안",
         "published": "게시됨",
@@ -465,6 +472,7 @@
       "close": "닫기",
       "copy": "복사",
       "create": "만들기",
+      "cut": "잘라내기",
       "decline": "거절해",
       "delete": "삭제",
       "done": "완료",
@@ -474,6 +482,7 @@
       "join": "참가",
       "next": "다음",
       "okay": "OK",
+      "paste": "붙여넣기",
       "previous": "이전",
       "read": "읽기",
       "refresh": "새로 고침",
@@ -483,6 +492,7 @@
       "reveal": "노출",
       "save": "저장",
       "search": "찾기",
+      "selectAll": "모두 선택",
       "show": "보기",
       "start": "시작해",
       "stop": "멈추기",
@@ -747,8 +757,11 @@
       "viewLobby": "로비 보기"
     },
     "matchmaking": {
+      "acceptedCount": "{{accepted}} / {{total}} 준비 완료",
       "matchFound": "경기 찾음!",
-      "searching": "경기 검색 중…"
+      "reopenAcceptDialog": "경기 수락 창 다시 열기",
+      "searching": "경기 검색 중…",
+      "waitingForPlayers": "다른 플레이어를 기다리는 중…"
     }
   },
   "gameReport": {
@@ -1266,13 +1279,19 @@
   "markdown": {
     "toolbar": {
       "bold": "굵게",
+      "boldTooltip": "굵게 (Ctrl+B)",
       "heading": "제목",
       "horizontalRule": "구분선",
       "italic": "기울임꼴",
+      "italicTooltip": "기울임꼴 (Ctrl+I)",
       "link": "링크",
+      "linkTooltip": "링크 (Ctrl+K)",
       "orderedList": "번호 목록",
+      "orderedListTooltip": "번호 목록 (Ctrl+Shift+7)",
       "quote": "인용",
-      "unorderedList": "글머리 기호 목록"
+      "quoteTooltip": "인용 (Ctrl+Shift+.)",
+      "unorderedList": "글머리 기호 목록",
+      "unorderedListTooltip": "글머리 기호 목록 (Ctrl+Shift+8)"
     }
   },
   "matchmaking": {
@@ -1899,6 +1918,7 @@
       },
       "title": "게임",
       "video": {
+        "brightness": "밝기",
         "customFpsLimit": "사용자 지정 FPS 제한",
         "displayMode": {
           "fullscreen": "전체 화면",
@@ -2096,6 +2116,9 @@
       "blocked": "{{name}}님을 라이브 방송에서 제거했습니다",
       "blockError": "{{name}}님을 라이브 방송에서 제거하지 못했습니다",
       "menuTooltip": "방송 관리",
+      "removeConfirmAction": "방송 제거",
+      "removeDialogBody": "차단을 해제할 때까지 {{name}}님의 방송이 라이브 방송 목록에 표시되지 않습니다.",
+      "removeDialogTitle": "{{name}}님을 라이브 방송에서 제거하시겠습니까?",
       "removeTooltip": "라이브 방송에서 제거",
       "unblockError": "{{name}}님을 라이브 방송에 다시 표시하지 못했습니다"
     }

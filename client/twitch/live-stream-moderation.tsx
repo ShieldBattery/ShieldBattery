@@ -4,6 +4,8 @@ import styled from 'styled-components'
 import { useMutation } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { logger } from '../logging/logger'
@@ -11,6 +13,7 @@ import { IconButton } from '../material/button'
 import { DestructiveMenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { useAppDispatch } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 
@@ -106,9 +109,10 @@ const OverlayButton = styled(IconButton)`
 
 /**
  * Wraps a live-stream feed entry, overlaying an admin-only moderation menu for users with the
- * `manageLiveStreams` permission. The menu's "Remove from live streams" item is a durable block on
- * the streamer (they stay hidden from the feed until unblocked); the snackbar offers an immediate
- * undo. For everyone else this renders `children` unchanged, with no extra wrapper.
+ * `manageLiveStreams` permission. The menu's "Remove from live streams" item asks for confirmation,
+ * then applies a durable block on the streamer (they stay hidden from the feed until unblocked);
+ * the resulting snackbar offers an immediate undo. For everyone else this renders `children`
+ * unchanged, with no extra wrapper.
  */
 export function LiveStreamModeration({
   userId,
@@ -123,6 +127,7 @@ export function LiveStreamModeration({
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const canModerate = useCanModerateLiveStreams()
   const snackbarController = useSnackbarController()
   const [{ fetching }, blockStream] = useMutation(BlockStreamMutation)
@@ -150,8 +155,17 @@ export function LiveStreamModeration({
       .catch(err => logger.error(`Error undoing stream block: ${err.stack ?? err}`))
   }
 
-  const onRemove = () => {
+  const onRemoveClick = () => {
     closeMenu()
+    dispatch(
+      openDialog({
+        type: DialogType.TwitchRemoveLiveStreamConfirmation,
+        initData: { name, onConfirm: onRemoveConfirmed },
+      }),
+    )
+  }
+
+  const onRemoveConfirmed = () => {
     blockStream({ userId })
       .then(result => {
         if (result.error) {
@@ -203,7 +217,7 @@ export function LiveStreamModeration({
         <MenuList>
           <DestructiveMenuItem
             text={removeLabel}
-            onClick={onRemove}
+            onClick={onRemoveClick}
             disabled={fetching}
             testName='remove-live-stream'
           />

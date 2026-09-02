@@ -18,7 +18,6 @@
       },
       "confirmDelete": "确定删除“{{title}}”吗？此操作无法撤销。",
       "created": "新闻已创建",
-      "createPost": "创建新闻",
       "createTitle": "创建新闻",
       "deleteError": "删除新闻时出错：",
       "editPost": "编辑新闻",
@@ -50,9 +49,11 @@
         "insertImageTooltip": "插入图片（最大 5 MB）",
         "insertVideo": "插入视频",
         "insertVideoTooltip": "插入视频（最大 30 MB）",
+        "postSettings": "文章设置",
         "publish": "发布",
         "publishDraft": "草稿（不发布）",
         "publishNow": "立即发布",
+        "publishPublished": "已发布（{{date}}）",
         "publishSchedule": "定时发布",
         "scheduleDate": "发布日期和时间",
         "scheduleHint": "选择未来的时间将定时发布；选择过去的时间将立即发布。",
@@ -82,9 +83,15 @@
       "loadMore": "加载更多",
       "newPost": "新建新闻",
       "notFound": "未找到此 ID 对应的新闻。",
+      "publishNow": "立即发布",
       "refresh": "刷新",
       "saveChanges": "保存更改",
       "saved": "新闻已保存",
+      "saveDraft": "保存草稿",
+      "schedulePost": "定时发布",
+      "settings": {
+        "title": "文章设置"
+      },
       "status": {
         "draft": "草稿",
         "published": "已发布",
@@ -465,6 +472,7 @@
       "close": "关闭",
       "copy": "复制",
       "create": "创建",
+      "cut": "剪切",
       "decline": "拒绝",
       "delete": "删除",
       "done": "完成",
@@ -474,6 +482,7 @@
       "join": "加入",
       "next": "下一个",
       "okay": "好的",
+      "paste": "粘贴",
       "previous": "上一个",
       "read": "阅读",
       "refresh": "刷新",
@@ -483,6 +492,7 @@
       "reveal": "显示",
       "save": "保存",
       "search": "搜索",
+      "selectAll": "全选",
       "show": "展示",
       "start": "开始",
       "stop": "停止",
@@ -747,8 +757,11 @@
       "viewLobby": "查看房间"
     },
     "matchmaking": {
+      "acceptedCount": "{{accepted}} / {{total}} 已准备",
       "matchFound": "匹配成功！",
-      "searching": "正在寻找比赛…"
+      "reopenAcceptDialog": "重新打开比赛窗口",
+      "searching": "正在寻找比赛…",
+      "waitingForPlayers": "正在等待其他玩家…"
     }
   },
   "gameReport": {
@@ -1266,13 +1279,19 @@
   "markdown": {
     "toolbar": {
       "bold": "加粗",
+      "boldTooltip": "加粗（Ctrl+B）",
       "heading": "标题",
       "horizontalRule": "分割线",
       "italic": "斜体",
+      "italicTooltip": "斜体（Ctrl+I）",
       "link": "链接",
+      "linkTooltip": "链接（Ctrl+K）",
       "orderedList": "有序列表",
+      "orderedListTooltip": "有序列表（Ctrl+Shift+7）",
       "quote": "引用",
-      "unorderedList": "无序列表"
+      "quoteTooltip": "引用（Ctrl+Shift+.）",
+      "unorderedList": "无序列表",
+      "unorderedListTooltip": "无序列表（Ctrl+Shift+8）"
     }
   },
   "matchmaking": {
@@ -1899,6 +1918,7 @@
       },
       "title": "游戏",
       "video": {
+        "brightness": "亮度",
         "customFpsLimit": "自定义帧率上限",
         "displayMode": {
           "fullscreen": "全屏",
@@ -2096,6 +2116,9 @@
       "blocked": "已将 {{name}} 从直播中移除",
       "blockError": "无法将 {{name}} 从直播中移除",
       "menuTooltip": "直播管理",
+      "removeConfirmAction": "移除直播",
+      "removeDialogBody": "{{name}} 的直播将从直播列表中隐藏，直到您解除屏蔽。",
+      "removeDialogTitle": "将 {{name}} 从直播中移除？",
       "removeTooltip": "从直播中移除",
       "unblockError": "无法将 {{name}} 恢复到直播中"
     }

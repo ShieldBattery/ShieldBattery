@@ -1,4 +1,4 @@
-import { ChangeEvent, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
@@ -144,6 +144,12 @@ export interface NewsPostSettingsDialogProps extends CommonDialogProps {
   /** The post's status as of when the editor was opened, fixed for the dialog's lifetime. */
   savedStatus: PostStatus
   settings: NewsPostSettings
+  /**
+   * Shows validation errors for the summary and schedule fields as soon as the dialog opens,
+   * instead of waiting for them to be edited or the dialog submitted. Set when the dialog was
+   * opened because a save attempt outside the dialog already failed validation on one of them.
+   */
+  showErrorsOnOpen?: boolean
   /** Called with the edited settings once the dialog is submitted. */
   onApply: (settings: NewsPostSettings) => void
 }
@@ -151,6 +157,7 @@ export interface NewsPostSettingsDialogProps extends CommonDialogProps {
 export function NewsPostSettingsDialog({
   savedStatus,
   settings,
+  showErrorsOnOpen = false,
   onApply,
   onCancel,
   close,
@@ -230,7 +237,7 @@ export function NewsPostSettingsDialog({
     },
   }
 
-  const { submit, bindInput, form, getInputValue } = useForm<PostSettingsFormModel>(
+  const { submit, bindInput, form, getInputValue, setInputValue } = useForm<PostSettingsFormModel>(
     defaults,
     validations,
   )
@@ -241,6 +248,20 @@ export function NewsPostSettingsDialog({
       close()
     },
   })
+
+  // Neither field has been touched when the dialog opens, so their validators haven't run and no
+  // error is visible even when the dialog was opened specifically because one of them is invalid.
+  // Marking them dirty (with their current, unchanged value) triggers that validation without
+  // submitting the form.
+  const showInitialErrors = useEffectEvent(() => {
+    if (showErrorsOnOpen) {
+      setInputValue('summary', defaults.summary)
+      setInputValue('scheduledAt', defaults.scheduledAt)
+    }
+  })
+  useEffect(() => {
+    showInitialErrors()
+  }, [])
 
   const currentPublishMode = getInputValue('publishMode')
 

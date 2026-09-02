@@ -1136,13 +1136,18 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
 
   useFormCallbacks(form, {
     onSubmit: model => {
+      // Leading/trailing whitespace isn't meaningful in a title or summary, so it's stripped
+      // before comparing against the saved post and before sending to the server.
+      const title = model.title.trim()
+      const summary = model.summary.trim()
+
       if (post) {
         const updates: NewsPostUpdates = {}
-        if (model.title !== post.title) {
-          updates.title = model.title
+        if (title !== post.title) {
+          updates.title = title
         }
-        if (model.summary !== post.summary) {
-          updates.summary = model.summary
+        if (summary !== post.summary) {
+          updates.summary = summary
         }
         if (model.content !== post.content) {
           updates.content = model.content
@@ -1175,8 +1180,8 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           // The server records the creator in the edit log and enforces authorId == self; sending
           // it makes the post render "by {name}" like an authored post.
           authorId: selfUser?.id,
-          title: model.title,
-          summary: model.summary,
+          title,
+          summary,
           content: model.content,
           ...(publishedAt !== undefined ? { publishedAt } : {}),
           ...(coverImagePath !== null ? { coverImagePath } : {}),
@@ -1194,7 +1199,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     },
   })
 
-  const openSettings = () => {
+  const openSettings = (showErrorsOnOpen: boolean = false) => {
     dispatch(
       openDialog({
         type: DialogType.NewsPostSettings,
@@ -1207,6 +1212,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             coverImagePath,
             coverImageUrl,
           },
+          showErrorsOnOpen,
           onApply: (s: NewsPostSettings) => {
             setInputValue('summary', s.summary)
             setInputValue('publishMode', s.publishMode)
@@ -1222,12 +1228,13 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const onSaveClick = () => {
     // The summary and schedule fields are edited in the post settings dialog now, so a validation
     // failure on either needs to open that dialog rather than failing silently against inputs that
-    // no longer appear on this page.
+    // no longer appear on this page. Opening it this way shows the failure immediately, since a
+    // fresh dialog otherwise has no validation errors until a field is touched.
     const scheduleInvalid =
       getInputValue('publishMode') === PUBLISH_MODE_SCHEDULE &&
       Number.isNaN(new Date(getInputValue('scheduledAt')).getTime())
     if (!getInputValue('summary').trim() || scheduleInvalid) {
-      openSettings()
+      openSettings(true)
     } else {
       submit()
     }
@@ -1278,7 +1285,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             <OutlinedButton
               label={t('admin.news.form.postSettings', 'Post settings')}
               iconStart={<MaterialIcon icon='settings' />}
-              onClick={openSettings}
+              onClick={() => openSettings()}
             />
             <FilledButton
               label={saveLabel}

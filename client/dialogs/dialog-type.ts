@@ -50,6 +50,7 @@ export enum DialogType {
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
   TermsOfService = 'termsOfService',
+  TwitchRemoveLiveStreamConfirmation = 'twitchRemoveLiveStreamConfirmation',
   Whispers = 'whispers',
 }
 
@@ -242,6 +243,13 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
   {
     savedStatus: NewsPostStatus
     settings: NewsPostSettingsValues
+    /**
+     * Shows validation errors for the dialog's fields as soon as it opens, rather than waiting for
+     * the fields to be edited or the dialog submitted. Used when the dialog is opened because a
+     * save attempt failed validation on a field that only lives in this dialog, so the failure
+     * would otherwise be invisible until the user edited something or clicked Done.
+     */
+    showErrorsOnOpen?: boolean
     /** Called with the edited settings once the dialog is submitted. */
     onApply: (settings: NewsPostSettingsValues) => void
   }
@@ -306,6 +314,15 @@ type SimpleDialogPayload = BaseDialogPayload<
 type ShieldBatteryHealthDialogPayload = BaseDialogPayload<typeof DialogType.ShieldBatteryHealth>
 type StarcraftHealthDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftHealth>
 type TermsOfServiceDialogPayload = BaseDialogPayload<typeof DialogType.TermsOfService>
+type TwitchRemoveLiveStreamConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.TwitchRemoveLiveStreamConfirmation,
+  {
+    /** The streamer's display name, used in the dialog's title and body copy. */
+    name: string
+    /** Performs the removal (and its own undo snackbar) once the user confirms. */
+    onConfirm: () => void
+  }
+>
 type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 
 export type DialogPayload =
@@ -352,4 +369,5 @@ export type DialogPayload =
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload
   | TermsOfServiceDialogPayload
+  | TwitchRemoveLiveStreamConfirmationDialogPayload
   | WhispersDialogPayload

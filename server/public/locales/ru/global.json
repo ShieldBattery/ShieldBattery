@@ -18,7 +18,6 @@
       },
       "confirmDelete": "Удалить «{{title}}»? Это действие нельзя отменить.",
       "created": "Новость создана",
-      "createPost": "Создать новость",
       "createTitle": "Создать новость",
       "deleteError": "Ошибка при удалении новости:",
       "editPost": "Редактировать новость",
@@ -50,9 +49,11 @@
         "insertImageTooltip": "Вставить изображение (до 5 МБ)",
         "insertVideo": "Вставить видео",
         "insertVideoTooltip": "Вставить видео (до 30 МБ)",
+        "postSettings": "Настройки новости",
         "publish": "Публикация",
         "publishDraft": "Черновик (не опубликовано)",
         "publishNow": "Опубликовать сейчас",
+        "publishPublished": "Опубликовано ({{date}})",
         "publishSchedule": "Запланировать",
         "scheduleDate": "Дата и время публикации",
         "scheduleHint": "Будущие дата и время запланируют новость; прошедшие — опубликуют её сразу.",
@@ -82,9 +83,15 @@
       "loadMore": "Загрузить ещё",
       "newPost": "Добавить новость",
       "notFound": "Новость с таким ID не найдена.",
+      "publishNow": "Опубликовать сейчас",
       "refresh": "Обновить",
       "saveChanges": "Сохранить изменения",
       "saved": "Новость сохранена",
+      "saveDraft": "Сохранить черновик",
+      "schedulePost": "Запланировать публикацию",
+      "settings": {
+        "title": "Настройки новости"
+      },
       "status": {
         "draft": "Черновик",
         "published": "Опубликовано",
@@ -468,6 +475,7 @@
       "close": "Закрыть",
       "copy": "Копировать",
       "create": "Создать",
+      "cut": "Вырезать",
       "decline": "Отказаться",
       "delete": "Удалить",
       "done": "Готово",
@@ -477,6 +485,7 @@
       "join": "Присоединяйся",
       "next": "Далее",
       "okay": "Хорошо",
+      "paste": "Вставить",
       "previous": "Предыдущий",
       "read": "Читать",
       "refresh": "Обновить",
@@ -486,6 +495,7 @@
       "reveal": "Открыть",
       "save": "Сохранить",
       "search": "Поиск",
+      "selectAll": "Выделить всё",
       "show": "Покажи",
       "start": "Начать",
       "stop": "Стоп",
@@ -756,8 +766,11 @@
       "viewLobby": "Открыть лобби"
     },
     "matchmaking": {
+      "acceptedCount": "Готовы: {{accepted}} / {{total}}",
       "matchFound": "Матч найден!",
-      "searching": "Поиск матча…"
+      "reopenAcceptDialog": "Снова открыть окно матча",
+      "searching": "Поиск матча…",
+      "waitingForPlayers": "Ожидание других игроков…"
     }
   },
   "gameReport": {
@@ -1308,13 +1321,19 @@
   "markdown": {
     "toolbar": {
       "bold": "Жирный",
+      "boldTooltip": "Жирный (Ctrl+B)",
       "heading": "Заголовок",
       "horizontalRule": "Разделитель",
       "italic": "Курсив",
+      "italicTooltip": "Курсив (Ctrl+I)",
       "link": "Ссылка",
+      "linkTooltip": "Ссылка (Ctrl+K)",
       "orderedList": "Нумерованный список",
+      "orderedListTooltip": "Нумерованный список (Ctrl+Shift+7)",
       "quote": "Цитата",
-      "unorderedList": "Маркированный список"
+      "quoteTooltip": "Цитата (Ctrl+Shift+.)",
+      "unorderedList": "Маркированный список",
+      "unorderedListTooltip": "Маркированный список (Ctrl+Shift+8)"
     }
   },
   "matchmaking": {
@@ -1950,6 +1969,7 @@
       },
       "title": "Игра",
       "video": {
+        "brightness": "Яркость",
         "customFpsLimit": "Пользовательский лимит FPS",
         "displayMode": {
           "fullscreen": "Полноэкранный",
@@ -2156,6 +2176,9 @@
       "blocked": "{{name}} больше не показывается в трансляциях",
       "blockError": "Не удалось убрать {{name}} из трансляций",
       "menuTooltip": "Модерация трансляции",
+      "removeConfirmAction": "Убрать трансляцию",
+      "removeDialogBody": "Трансляция {{name}} будет скрыта из ленты трансляций, пока Вы не разблокируете её.",
+      "removeDialogTitle": "Убрать {{name}} из трансляций?",
       "removeTooltip": "Убрать из трансляций",
       "unblockError": "Не удалось вернуть {{name}} в трансляции"
     }
