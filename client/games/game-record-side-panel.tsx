@@ -130,6 +130,9 @@ function GameRecordSidePanelContent({
       {!map ? <GameSidePanelTitle>{mapName}</GameSidePanelTitle> : null}
 
       <GameSidePanelSection>
+        {/* Team names are always requested so a column whose result can't be reduced to one
+            outcome (a disputed game, a computer player) still gets an overline; a resolved result
+            replaces the name rather than joining it, so the overline never reads "Top · Win". */}
         <GamePlayersDisplay
           game={game}
           forUserId={forUserId}

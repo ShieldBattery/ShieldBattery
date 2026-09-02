@@ -82,6 +82,11 @@ export function ConnectedUserProfileOverlay({
 
 const PopoverContents = styled.div`
   min-width: 256px;
+  /*
+    Caps the overlay so single-line content (e.g. a live stream's title) truncates instead of
+    stretching the card toward the viewport edge.
+  */
+  max-width: 360px;
   min-height: 200px;
   padding: 16px 16px 8px;
 

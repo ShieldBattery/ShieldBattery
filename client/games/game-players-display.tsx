@@ -42,33 +42,19 @@ function areUsersEqual(a: ReadonlyArray<SbUser>, b: ReadonlyArray<SbUser>): bool
   return true
 }
 
-/**
- * Resolves the display names (from the users store) of every human player in a game, keyed by
- * their user ID. Computer players are never present in the result.
- */
-export function useGamePlayerNames(
-  game: ReadonlyDeep<GameRecordJson>,
-): ReadonlyMap<SbUserId, string> {
-  const players = useAppSelector(usePlayersSelector(game), areUsersEqual)
-  return new Map(players.map(p => [p.id, p.name]))
-}
-
 // TODO(2Pac): Handle game types which can have more than two teams
 /**
- * Orders a game's teams the same way they're shown in `GamePlayersDisplay`, so a row's rendered
- * player order and anything derived from "the first-listed side" (e.g. a result label) can never
- * diverge.
+ * Orders a game's teams for display.
  *
  * For `topVBottom`, the two teams are ordered with `forUserId`'s team first (falling back to
  * alphabetical by first player name when absent or when there's no `forUserId`), then each team's
  * own members are sorted alphabetically. Otherwise, every player is flattened into one alphabetical
- * ordering (`forUserId` first) and split into two roughly-even sides by alternating players into
- * them — the "first side" here is the even-indexed half of that single sorted list, not a real team.
+ * ordering (`forUserId` first) and dealt alternately into two columns.
  *
  * Players with no resolved name (absent from `nameById`, e.g. computer players) sort last within
  * whatever grouping they fall into.
  */
-export function getOrderedTeams(
+function getOrderedTeams(
   teams: ReadonlyArray<ReadonlyArray<GameConfigPlayer>>,
   gameType: GameType,
   nameById: ReadonlyMap<SbUserId, string>,
@@ -195,6 +181,7 @@ export function GamePlayersDisplay({
   forUserId,
   showTeamLabels = true,
   showTeamResults = false,
+  showPlayerResults = false,
   interactiveNames = false,
   className,
 }: {
@@ -203,6 +190,12 @@ export function GamePlayersDisplay({
   showTeamLabels?: boolean
   /** When true, each displayed column's overline gains a win/loss result, colored accordingly. */
   showTeamResults?: boolean
+  /**
+   * When true, each human player's own reconciled result renders as a compact marker beside their
+   * name. Unlike `showTeamResults` this needs no per-column reduction, so it's honest for every
+   * game type, including free-for-all splits and columns with mixed outcomes.
+   */
+  showPlayerResults?: boolean
   /**
    * When true, human players' names render as store-connected, interactive usernames (clicking
    * opens the profile overlay, right-clicking opens the user context menu) instead of plain text.
@@ -226,14 +219,15 @@ export function GamePlayersDisplay({
   }, [results])
 
   const toDisplayPlayer = (player: GameConfigPlayer): PlayerTeamsDisplayPlayer => {
-    const result = player.isComputer ? undefined : resultsById.get(player.id)
+    const playerResult = player.isComputer ? undefined : resultsById.get(player.id)
     return {
-      race: result?.race ?? player.race,
+      race: playerResult?.race ?? player.race,
       isRandom: player.race === 'r',
       name: player.isComputer
         ? t('game.playerName.computer', 'Computer')
         : (nameById.get(player.id) ?? t('game.playerName.unknown', 'Unknown player')),
       userId: interactiveNames && !player.isComputer ? player.id : undefined,
+      result: showPlayerResults ? playerResult?.result : undefined,
     }
   }
 

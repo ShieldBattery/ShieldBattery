@@ -624,6 +624,7 @@
     },
     "results": {
       "draw": "Draw",
+      "drawShort": "D",
       "loss": "Loss",
       "lossShort": "L",
       "unknown": "Unknown",
@@ -803,7 +804,6 @@
     },
     "list": {
       "noMatchingGames": "No matching games.",
-      "resultTooltip": "Result for {{names}}",
       "retrievingError": "There was an error retrieving the games."
     },
     "liveGames": {

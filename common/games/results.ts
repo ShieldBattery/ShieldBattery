@@ -53,6 +53,24 @@ export function getResultLabel(
   return assertUnreachable(result)
 }
 
+/**
+ * A one-letter form of `getResultLabel` for compact per-player markers. Empty for `'unknown'`,
+ * which has no marker.
+ */
+export function getResultShortLabel(result: ReconciledResult, t: TFunction): string {
+  if (result === 'win') {
+    return t('game.results.winShort', 'W')
+  } else if (result === 'loss') {
+    return t('game.results.lossShort', 'L')
+  } else if (result === 'draw') {
+    return t('game.results.drawShort', 'D')
+  } else if (result === 'unknown') {
+    return ''
+  }
+
+  return assertUnreachable(result)
+}
+
 export interface ReconciledPlayerResult {
   result: ReconciledResult
   race: AssignedRaceChar

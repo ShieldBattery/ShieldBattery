@@ -208,6 +208,12 @@ const CloseButton = styled(IconButton)`
 `
 
 const LabeledCloseButton = styled.div`
+  /*
+    Stays put while the settings body scrolls beneath it. The offset matches ContentContainer's
+    padding so the button sticks exactly where it starts.
+  */
+  position: sticky;
+  top: 16px;
   ${labelSmall};
   display: flex;
   flex-direction: column;
