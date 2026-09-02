@@ -120,8 +120,15 @@ const Overline = styled.div`
   text-transform: uppercase;
 `
 
-const CloseButton = styled(IconButton)`
+/**
+ * Sits at the top of the title bar rather than centered in it, so a taller title area (one with
+ * an overline, or a wrapped title) doesn't pull the button down away from the dialog's corner.
+ * The offset matches where centering puts it against a single-line title.
+ */
+export const CloseButton = styled(IconButton)`
   flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 12px;
   margin-right: 12px;
 `
 
