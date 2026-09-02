@@ -4,7 +4,6 @@ import type { EmojiData } from 'emoji-picker-react/dist/types/exposedTypes'
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { CUSTOM_EMOTES } from '../../common/text/custom-emotes'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { IconButton } from '../material/button'
@@ -12,7 +11,6 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { labelLarge } from '../styles/typography'
-import { customEmoteImageUrl, customEmotesForPicker } from './custom-emotes'
 import { getPickerEmojiData } from './emoji-data'
 import { getShortcode } from './emoji-shortcodes'
 import { recordEmoteUsage } from './emote-suggestions'
@@ -52,11 +50,6 @@ const PreviewGlyph = styled.span`
   line-height: 1;
 `
 
-const PreviewImg = styled.img`
-  width: 26px;
-  height: 26px;
-`
-
 const PreviewCode = styled.div`
   ${labelLarge};
   color: var(--theme-on-surface);
@@ -71,9 +64,8 @@ const PreviewHint = styled.div`
 `
 
 interface HoveredEmoji {
-  /** The emoji glyph (built-in) or the custom emote's image URL, mutually exclusive. */
-  glyph?: string
-  imgUrl?: string
+  /** The emoji glyph. */
+  glyph: string
   /** `:shortcode:`-formatted display text, or `undefined` if it couldn't be resolved. */
   code: string | undefined
 }
@@ -107,21 +99,11 @@ function PickerPreviewBar({ contentsRef }: { contentsRef: RefObject<HTMLDivEleme
       if (!unified) {
         return
       }
-      if (/^[0-9a-f-]+$/.test(unified)) {
-        const shortcode = getShortcode(unified)
-        setHovered({
-          glyph: String.fromCodePoint(...unified.split('-').map(h => parseInt(h, 16))),
-          code: shortcode ? `:${shortcode}:` : undefined,
-        })
-        return
-      }
-      // Custom emoji buttons carry their (lowercased) code as data-unified instead of a Unicode
-      // codepoint sequence, since the library derives it from the `id` passed into its
-      // customEmojis config (see customEmotesForPicker)
-      const custom = CUSTOM_EMOTES.find(e => e.code.toLowerCase() === unified)
-      if (custom) {
-        setHovered({ imgUrl: customEmoteImageUrl(custom.code), code: `:${custom.code}:` })
-      }
+      const shortcode = getShortcode(unified)
+      setHovered({
+        glyph: String.fromCodePoint(...unified.split('-').map(h => parseInt(h, 16))),
+        code: shortcode ? `:${shortcode}:` : undefined,
+      })
     }
 
     contents.addEventListener('mouseover', onHover)
@@ -144,11 +126,7 @@ function PickerPreviewBar({ contentsRef }: { contentsRef: RefObject<HTMLDivEleme
 
   return (
     <PreviewBar>
-      {hovered.imgUrl ? (
-        <PreviewImg src={hovered.imgUrl} alt='' />
-      ) : (
-        <PreviewGlyph>{hovered.glyph}</PreviewGlyph>
-      )}
+      <PreviewGlyph>{hovered.glyph}</PreviewGlyph>
       {hovered.code ? <PreviewCode>{hovered.code}</PreviewCode> : null}
     </PreviewBar>
   )
@@ -224,10 +202,8 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
   })
   const onEmojiClick = useStableCallback((data: EmojiClickData) => {
     // Keyed the same way autocomplete suggestions are, so both feed the same frequency ordering
-    recordEmoteUsage(data.isCustom ? data.emoji : `u:${data.emoji}`)
-    // Custom emotes travel in messages as `:code:` text (data.emoji is the code for them), while
-    // built-in emojis are inserted as their Unicode character directly
-    onPick(data.isCustom ? `:${data.emoji}: ` : data.emoji)
+    recordEmoteUsage(`u:${data.emoji}`)
+    onPick(data.emoji)
   })
 
   return (
@@ -305,7 +281,6 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
                 // animation still renders it, stealing focus from the input mid-insert
                 autoFocusSearch={false}
                 skinTonesDisabled={true}
-                customEmojis={customEmotesForPicker()}
                 // Replaces the library's bundled dataset with one that also carries every known
                 // Discord/Slack-style shortcode, so its search finds emojis by shortcode too
                 emojiData={pickerEmojiData}

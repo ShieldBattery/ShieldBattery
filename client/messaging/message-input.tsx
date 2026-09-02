@@ -34,10 +34,8 @@ import { EmotePickerButton } from './emote-picker'
 import {
   EMOTE_QUERY_REGEX,
   EmoteSuggestion,
-  MAX_EMOTE_SUGGESTIONS,
-  mergeEmoteSuggestions,
+  orderEmoteSuggestions,
   recordEmoteUsage,
-  searchCustomEmotes,
   searchUnicodeEmojis,
 } from './emote-suggestions'
 
@@ -107,11 +105,6 @@ const EmoteSuggestionIcon = styled.span`
   font-size: 18px;
   line-height: 24px;
   text-align: center;
-`
-
-const EmoteSuggestionImg = styled.img`
-  width: 22px;
-  height: 22px;
 `
 
 /** A Map to store the message input contents for each chat instance. */
@@ -259,23 +252,12 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             setEmoteQueryStart(emoteMatch.index)
             setEmoteMatchedText(emoteMatch[0])
 
-            const customSuggestions = searchCustomEmotes(query)
-            setMatchedEmotes(customSuggestions.slice(0, MAX_EMOTE_SUGGESTIONS))
-            if (customSuggestions.length) {
-              openEmotes(event)
-            } else {
-              closeEmotes()
-            }
-
             getUnicodeEmojiEntries().then(
               entries => {
                 if (latestEmoteQueryRef.current !== query) {
                   return
                 }
-                const suggestions = mergeEmoteSuggestions(
-                  customSuggestions,
-                  searchUnicodeEmojis(entries, query),
-                )
+                const suggestions = orderEmoteSuggestions(searchUnicodeEmojis(entries, query))
                 setMatchedEmotes(suggestions)
                 if (suggestions.length) {
                   openEmotes(event)
@@ -614,13 +596,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               <StyledMenuItem
                 key={suggestion.key}
                 text={suggestion.name}
-                icon={
-                  suggestion.imgUrl ? (
-                    <EmoteSuggestionImg src={suggestion.imgUrl} alt='' />
-                  ) : (
-                    <EmoteSuggestionIcon>{suggestion.emoji}</EmoteSuggestionIcon>
-                  )
-                }
+                icon={<EmoteSuggestionIcon>{suggestion.emoji}</EmoteSuggestionIcon>}
                 onClick={() => onEmoteSelect(suggestion)}
               />
             ))}

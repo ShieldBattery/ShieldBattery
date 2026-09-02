@@ -1,12 +1,6 @@
 import { beforeAll, describe, expect, test } from 'vitest'
 import { getPickerEmojiData, getUnicodeEmojiEntries } from './emoji-data'
-import {
-  EMOTE_QUERY_REGEX,
-  matchRank,
-  mergeEmoteSuggestions,
-  searchCustomEmotes,
-  searchUnicodeEmojis,
-} from './emote-suggestions'
+import { EMOTE_QUERY_REGEX, orderEmoteSuggestions, searchUnicodeEmojis } from './emote-suggestions'
 
 describe('messaging/emote-suggestions', () => {
   describe('EMOTE_QUERY_REGEX', () => {
@@ -29,15 +23,6 @@ describe('messaging/emote-suggestions', () => {
     })
   })
 
-  describe('matchRank', () => {
-    test('ranks exact over prefix over substring', () => {
-      expect(matchRank(['fire', 'flame'], 'fire')).toBe(0)
-      expect(matchRank(['firebat'], 'fire')).toBe(1)
-      expect(matchRank(['campfire'], 'fire')).toBe(2)
-      expect(matchRank(['water'], 'fire')).toBe(-1)
-    })
-  })
-
   describe('suggestions against the real dataset', () => {
     // The first call dynamically imports and parses the full emoji dataset, which can take
     // longer than the per-test timeout on a cold CI runner — pay that cost here, with a
@@ -46,36 +31,10 @@ describe('messaging/emote-suggestions', () => {
       await getUnicodeEmojiEntries()
     }, 30_000)
 
-    test(':fire suggests the flame emoji ahead of the Firebat emote', async () => {
+    test(':fire suggests the flame emoji first', async () => {
       const entries = await getUnicodeEmojiEntries()
-      const merged = mergeEmoteSuggestions(
-        searchCustomEmotes('fire'),
-        searchUnicodeEmojis(entries, 'fire'),
-      )
-      expect(merged[0].emoji).toBe('🔥')
-      // Firebat is only a prefix match, so it comes after every exact match but is still offered
-      const firebatIndex = merged.findIndex(s => s.key === 'bwFirebat')
-      expect(firebatIndex).toBeGreaterThan(0)
-      expect(merged.slice(0, firebatIndex).every(s => s.rank === 0)).toBe(true)
-    })
-
-    test(':fireb suggests the Firebat emote first', async () => {
-      const entries = await getUnicodeEmojiEntries()
-      const merged = mergeEmoteSuggestions(
-        searchCustomEmotes('fireb'),
-        searchUnicodeEmojis(entries, 'fireb'),
-      )
-      expect(merged[0].key).toBe('bwFirebat')
-    })
-
-    test(':pro suggests the Probe emote first', async () => {
-      const entries = await getUnicodeEmojiEntries()
-      const merged = mergeEmoteSuggestions(
-        searchCustomEmotes('pro'),
-        searchUnicodeEmojis(entries, 'pro'),
-      )
-      expect(merged[0].key).toBe('bwProbe')
-      expect(merged[0].insertText).toBe(':bwProbe: ')
+      const suggestions = orderEmoteSuggestions(searchUnicodeEmojis(entries, 'fire'))
+      expect(suggestions[0].emoji).toBe('🔥')
     })
 
     test('shortcode-style underscores match spaced names', async () => {
@@ -89,12 +48,6 @@ describe('messaging/emote-suggestions', () => {
       const suggestions = searchUnicodeEmojis(entries, 'sweat_smile')
       expect(suggestions[0].emoji).toBe('😅')
       expect(suggestions[0].name).toBe(':sweat_smile:')
-    })
-
-    test('custom emote suggestions display their code, not their human name', () => {
-      const suggestions = searchCustomEmotes('probe')
-      expect(suggestions[0].key).toBe('bwProbe')
-      expect(suggestions[0].name).toBe(':bwProbe:')
     })
 
     test('a secondary shortcode is searchable too', async () => {
@@ -112,39 +65,15 @@ describe('messaging/emote-suggestions', () => {
 
     test('fuzzy matches never outrank exact/prefix/substring ones', async () => {
       const entries = await getUnicodeEmojiEntries()
-      const merged = mergeEmoteSuggestions(
-        searchCustomEmotes('fire'),
-        searchUnicodeEmojis(entries, 'fire'),
-      )
-      expect(merged[0].emoji).toBe('🔥')
+      const suggestions = orderEmoteSuggestions(searchUnicodeEmojis(entries, 'fire'))
+      expect(suggestions[0].emoji).toBe('🔥')
       // Ranks are sorted ascending, so a rank-3 result can never precede a better one
-      const ranks = merged.map(s => s.rank)
+      const ranks = suggestions.map(s => s.rank)
       expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
-    })
-
-    test('a custom emote fuzzy-matches a subsequence of its code', () => {
-      const suggestions = searchCustomEmotes('frbat')
-      const firebat = suggestions.find(s => s.key === 'bwFirebat')
-      expect(firebat?.rank).toBe(3)
     })
   })
 
-  describe('mergeEmoteSuggestions', () => {
-    const noUsage = () => 0
-
-    test('custom emotes win ties in match quality', () => {
-      const custom = [{ key: 'c', insertText: ':c: ', name: 'c', rank: 1, imgUrl: 'x' }]
-      const unicode = [
-        { key: 'u0', insertText: 'a', name: 'a', rank: 0, emoji: 'a' },
-        { key: 'u1', insertText: 'b', name: 'b', rank: 1, emoji: 'b' },
-      ]
-      expect(mergeEmoteSuggestions(custom, unicode, noUsage).map(s => s.key)).toEqual([
-        'u0',
-        'c',
-        'u1',
-      ])
-    })
-
+  describe('orderEmoteSuggestions', () => {
     test('more-used suggestions rank first within the same match quality', () => {
       const unicode = [
         { key: 'u0', insertText: 'a', name: 'a', rank: 0, emoji: 'a' },
@@ -152,7 +81,7 @@ describe('messaging/emote-suggestions', () => {
         { key: 'u2', insertText: 'c', name: 'c', rank: 1, emoji: 'c' },
       ]
       const usage: Record<string, number> = { u1: 5, u2: 100 }
-      const result = mergeEmoteSuggestions([], unicode, key => usage[key] ?? 0)
+      const result = orderEmoteSuggestions(unicode, key => usage[key] ?? 0)
       // Usage breaks the tie within rank 0, but never promotes a worse match above a better one
       expect(result.map(s => s.key)).toEqual(['u1', 'u0', 'u2'])
     })

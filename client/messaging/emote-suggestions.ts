@@ -1,6 +1,4 @@
 import UFuzzy from '@leeoniya/ufuzzy'
-import { CUSTOM_EMOTES } from '../../common/text/custom-emotes'
-import { customEmoteImageUrl } from './custom-emotes'
 import { UnicodeEmojiEntry } from './emoji-data'
 
 /** As with mentions, cap the emote suggestions to a number that doesn't need scrolling. */
@@ -27,14 +25,12 @@ export interface EmoteSuggestion {
   /**
    * Match quality (0 = a name matches the query exactly, 1 = prefix match, 2 = substring match,
    * 3 = fuzzy match — the query's characters appear in a name in order, with anything allowed
-   * between them, same as `@mention` matching). Suggestions are sorted by this when custom and
-   * built-in results merge, so e.g. `:fire` suggests 🔥 (exact) ahead of Firebat (prefix).
+   * between them, same as `@mention` matching). Suggestions are sorted by this, so e.g. `:fire`
+   * suggests 🔥 (exact) ahead of prefix matches.
    */
   rank: number
-  /** The emoji character to display as the icon, for built-in emojis. */
-  emoji?: string
-  /** The image to display as the icon, for custom emotes. */
-  imgUrl?: string
+  /** The emoji character to display as the icon. */
+  emoji: string
 }
 
 const USAGE_STORAGE_KEY = 'sb.emoteUsage'
@@ -70,74 +66,6 @@ export function recordEmoteUsage(key: string): void {
 
 export function getEmoteUsage(key: string): number {
   return loadUsage()[key.toLowerCase()] ?? 0
-}
-
-/** Returns 0 for an exact match, 1 for prefix, 2 for substring, or -1 for no match at all. */
-export function matchRank(names: ReadonlyArray<string>, query: string): number {
-  if (names.some(n => n === query)) {
-    return 0
-  }
-  if (names.some(n => n.startsWith(query))) {
-    return 1
-  }
-  if (names.some(n => n.includes(query))) {
-    return 2
-  }
-  return -1
-}
-
-export function searchCustomEmotes(query: string): EmoteSuggestion[] {
-  const q = query.toLowerCase()
-  const suggestions: EmoteSuggestion[] = []
-  // Emotes with no tier match are set aside for a fuzzy pass, keeping the emotes-with-images
-  // filter (and the tier 0-2 ordering) exactly as it was.
-  const unranked: Array<{ code: string; name: string; imgUrl: string }> = []
-  for (const e of CUSTOM_EMOTES) {
-    const imgUrl = customEmoteImageUrl(e.code)
-    if (!imgUrl) {
-      continue
-    }
-    const rank = matchRank([e.code.toLowerCase(), e.name.toLowerCase()], q)
-    if (rank >= 0) {
-      suggestions.push({
-        key: e.code,
-        insertText: `:${e.code}: `,
-        name: `:${e.code}:`,
-        rank,
-        imgUrl,
-      })
-    } else {
-      unranked.push({ code: e.code, name: e.name, imgUrl })
-    }
-  }
-
-  // The custom emote list is tiny, so a per-call haystack (rather than the module-cached one used
-  // for the much larger unicode dataset below) is cheap enough.
-  const haystack: string[] = []
-  const haystackEntryIndex: number[] = []
-  unranked.forEach((e, i) => {
-    haystack.push(e.code.toLowerCase(), e.name.toLowerCase())
-    haystackEntryIndex.push(i, i)
-  })
-  const fuzzyRows = fuzzy.filter(haystack, q) ?? []
-  const seen = new Set<number>()
-  for (const row of fuzzyRows) {
-    const i = haystackEntryIndex[row]
-    if (seen.has(i)) {
-      continue
-    }
-    seen.add(i)
-    const e = unranked[i]
-    suggestions.push({
-      key: e.code,
-      insertText: `:${e.code}: `,
-      name: `:${e.code}:`,
-      rank: 3,
-      imgUrl: e.imgUrl,
-    })
-  }
-
-  return suggestions
 }
 
 // Flattened (name, owning entry index) rows for the fuzzy pass over the unicode dataset, rebuilt
@@ -226,17 +154,15 @@ export function searchUnicodeEmojis(
 }
 
 /**
- * Merges custom and built-in suggestions into the final capped list, ordered by match quality and
- * then by how often each has been inserted before. The sort is stable, so custom emotes come
- * before built-ins that tie on both.
+ * Orders suggestions by match quality and then by how often each has been inserted before,
+ * capped to the number the menu shows without scrolling.
  */
-export function mergeEmoteSuggestions(
-  custom: ReadonlyArray<EmoteSuggestion>,
-  unicode: ReadonlyArray<EmoteSuggestion>,
+export function orderEmoteSuggestions(
+  suggestions: ReadonlyArray<EmoteSuggestion>,
   getUsage: (key: string) => number = getEmoteUsage,
 ): EmoteSuggestion[] {
-  return custom
-    .concat(unicode)
+  return suggestions
+    .slice()
     .sort((a, b) => a.rank - b.rank || getUsage(b.key) - getUsage(a.key))
     .slice(0, MAX_EMOTE_SUGGESTIONS)
 }
