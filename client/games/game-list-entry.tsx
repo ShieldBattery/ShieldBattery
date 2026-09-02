@@ -12,7 +12,7 @@ import { Tooltip } from '../material/tooltip'
 import { useCurrentMinuteMs } from '../react/date-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
-import { GamePlayersDisplay, getOrderedTeams, useGamePlayerNames } from './game-players-display'
+import { GamePlayersDisplay } from './game-players-display'
 
 // The row's cells respond to the `game-list-rows` container established around the scrolling list
 // in `GameListView` and the replay library (its inline size tracks the actual row width, unlike
@@ -299,6 +299,11 @@ export const SelectableRowContainer = styled.div<ButtonStateStyleProps & { $sele
 
 export interface GameListEntryProps {
   game: ReadonlyDeep<GameRecordJson>
+  /**
+   * Shows each row's result: as a leading Win/Loss column from `forUserId`'s perspective when one
+   * is given, otherwise as a marker beside every player's name, since without a perspective there
+   * is no single side a row-level label could honestly describe.
+   */
   showResult?: boolean
   forUserId?: SbUserId
   /**
@@ -327,7 +332,6 @@ export function GameListEntry({
 }: GameListEntryProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const nameById = useGamePlayerNames(game)
 
   const [buttonProps, rippleRef] = useButtonState({
     onClick: onClick ? () => onClick(game.id) : undefined,
@@ -336,69 +340,31 @@ export function GameListEntry({
 
   const { results } = game
 
-  // The side the result label refers to: `forUserId`'s side when one was given, otherwise
-  // whichever side `GamePlayersDisplay` lists first for this row — sharing its ordering logic
-  // keeps the label and the rendered player order from ever disagreeing. Outside of topVBottom,
-  // the two displayed columns are an alphabetical split of all players rather than real teams, so
-  // only the single first-listed player can honestly be labeled with one result. Left empty
-  // (rather than computed) when the result isn't even shown.
-  const orderedTeams = showResult
-    ? getOrderedTeams(game.config.teams, game.config.gameType, nameById, forUserId)
-    : []
-  const firstSide =
-    game.config.gameType === 'topVBottom'
-      ? (orderedTeams[0] ?? [])
-      : (orderedTeams[0]?.slice(0, 1) ?? [])
-
   // NOTE(2Pac): No need to memoize this under react-compiler; it re-derives only when its inputs
   // change.
   let result: ReconciledResult = 'unknown'
-  if (results) {
-    if (forUserId) {
-      for (const [userId, r] of results) {
-        if (userId === forUserId) {
-          result = r.result
-          break
-        }
-      }
-    } else {
-      // Team members' results agree in practice, so the first member with a reported entry is
-      // enough. A no-op loop over an empty `firstSide` when the result isn't shown.
-      for (const player of firstSide) {
-        if (player.isComputer) continue
-        const entry = results.find(([userId]) => userId === player.id)
-        if (entry) {
-          result = entry[1].result
-          break
-        }
-      }
-    }
+  if (showResult && forUserId && Array.isArray(results)) {
+    result = results.find(([userId]) => userId === forUserId)?.[1].result ?? 'unknown'
   }
 
   const gameType = getGameTypeLabel(game, t)
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
-  const resultForNames = firstSide
-    .map(player =>
-      player.isComputer
-        ? t('game.playerName.computer', 'Computer')
-        : (nameById.get(player.id) ?? t('game.playerName.unknown', 'Unknown player')),
-    )
-    .join(', ')
-
   const layoutProps: GameListEntryLayoutProps = {
-    leading: showResult ? (
-      <Tooltip
-        text={t('games.list.resultTooltip', {
-          defaultValue: 'Result for {{names}}',
-          names: resultForNames,
-        })}>
+    leading:
+      showResult && forUserId ? (
         <GameListEntryResult $result={spoilerFree ? 'unknown' : result}>
           {spoilerFree ? '—' : getResultLabel(result, t, true)}
         </GameListEntryResult>
-      </Tooltip>
-    ) : undefined,
-    players: <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />,
+      ) : undefined,
+    players: (
+      <GamePlayersDisplay
+        game={game}
+        forUserId={forUserId}
+        showTeamLabels={false}
+        showPlayerResults={showResult && !forUserId && !spoilerFree}
+      />
+    ),
     relativeTime: <GameRelativeTime timestampMs={game.startTime} />,
     duration: spoilerFree || !game.gameLength ? '—' : getGameDurationString(game.gameLength),
     mapName,

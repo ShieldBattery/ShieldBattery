@@ -627,6 +627,7 @@
     },
     "results": {
       "draw": "Empate",
+      "drawShort": "E",
       "loss": "Derrota",
       "lossShort": "D",
       "unknown": "Desconocido",
@@ -806,7 +807,6 @@
     },
     "list": {
       "noMatchingGames": "No hay partidas que coincidan.",
-      "resultTooltip": "Resultado de {{names}}",
       "retrievingError": "Hubo un error al obtener las partidas."
     },
     "liveGames": {

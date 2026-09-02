@@ -621,6 +621,7 @@
     },
     "results": {
       "draw": "平局",
+      "drawShort": "平",
       "loss": "失败",
       "lossShort": "败",
       "unknown": "不明",
@@ -800,7 +801,6 @@
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
-      "resultTooltip": "{{names}}的结果",
       "retrievingError": "获取游戏时出错。"
     },
     "liveGames": {

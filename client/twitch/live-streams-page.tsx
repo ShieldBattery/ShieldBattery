@@ -32,7 +32,15 @@ const PageHeader = styled.div`
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  /*
+    Each FeaturedLiveStreamEntry pads itself (10px top/sides, 12px bottom) as room for its
+    thumbnail's hover outline, which would otherwise inset the thumbnails from the page title
+    above and the content edge. Bleeding the grid into that padding keeps the thumbnails flush
+    with the title, and the reduced gap accounts for the padding already separating neighbouring
+    entries.
+  */
+  margin: -10px -10px 0;
+  gap: 4px;
 `
 
 const EmptyText = styled.div`

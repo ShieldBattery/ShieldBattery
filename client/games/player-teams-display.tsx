@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { getResultLabel, ReconciledResult } from '../../common/games/results'
+import { getResultLabel, getResultShortLabel, ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { RaceIcon } from '../lobbies/race-icon'
-import { labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 
 const PlayerTeamsRoot = styled.div`
@@ -50,6 +50,37 @@ const PlayerRowContainer = styled.div`
 
   display: flex;
   align-items: center;
+`
+
+const PlayerResultChip = styled.span<{ $result: ReconciledResult }>`
+  ${labelSmall};
+  /*
+    Sized by its label rather than fixed, since some locales abbreviate results to several
+    characters (e.g. Russian) instead of one letter.
+  */
+  min-width: 16px;
+  padding: 0 3px;
+  height: 16px;
+  margin-right: 6px;
+  flex-shrink: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 4px;
+  font-weight: 700;
+  color: ${props => {
+    switch (props.$result) {
+      case 'win':
+        return 'var(--theme-positive)'
+      case 'loss':
+        return 'var(--theme-negative)'
+      default:
+        return 'var(--theme-on-surface-variant)'
+    }
+  }};
+  background: color-mix(in srgb, currentColor 16%, transparent);
 `
 
 const PlayerRowName = styled.span<{ $dimmed?: boolean }>`
@@ -127,6 +158,11 @@ export interface PlayerTeamsDisplayPlayer {
    * files) should only set this for users known to exist.
    */
   userId?: SbUserId
+  /**
+   * The player's own reconciled result. Anything other than `'unknown'` renders as a compact
+   * win/loss/draw marker ahead of the race icon.
+   */
+  result?: ReconciledResult
 }
 
 /**
@@ -169,6 +205,15 @@ export function PlayerTeamsDisplay({
             ) : null}
             {team.map((player, playerIndex) => (
               <PlayerRowContainer key={`player-${playerIndex}`}>
+                {player.result && player.result !== 'unknown' ? (
+                  <PlayerResultChip
+                    $result={player.result}
+                    role='img'
+                    aria-label={getResultLabel(player.result, t)}
+                    title={getResultLabel(player.result, t)}>
+                    {getResultShortLabel(player.result, t)}
+                  </PlayerResultChip>
+                ) : null}
                 <PlayerRace race={player.race} isRandom={player.isRandom} />
                 {player.userId !== undefined ? (
                   <PlayerRowConnectedName userId={player.userId} />

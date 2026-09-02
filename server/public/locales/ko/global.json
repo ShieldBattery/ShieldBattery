@@ -621,6 +621,7 @@
     },
     "results": {
       "draw": "무승부",
+      "drawShort": "D",
       "loss": "패배",
       "lossShort": "L",
       "unknown": "언노운",
@@ -800,7 +801,6 @@
     },
     "list": {
       "noMatchingGames": "일치하는 게임이 없습니다.",
-      "resultTooltip": "{{names}}의 결과",
       "retrievingError": "게임을 불러오는 중 오류가 발생했습니다."
     },
     "liveGames": {

@@ -630,6 +630,7 @@
     },
     "results": {
       "draw": "Ничья",
+      "drawShort": "Нич.",
       "loss": "Поражение",
       "lossShort": "Пор.",
       "unknown": "Неизвестно",
@@ -809,7 +810,6 @@
     },
     "list": {
       "noMatchingGames": "Нет подходящих игр.",
-      "resultTooltip": "Результат: {{names}}",
       "retrievingError": "Произошла ошибка при получении игр."
     },
     "liveGames": {

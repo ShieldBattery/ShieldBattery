@@ -41,6 +41,7 @@ const GameEntriesRoot = styled.div`
 const StyledLiveGameEntry = styled(LiveGameEntry)`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
+  border-radius: 4px;
 `
 
 const GamesListQuery = graphql(/* GraphQL */ `

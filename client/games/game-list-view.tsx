@@ -113,8 +113,9 @@ export interface GameListViewProps {
   /** Shows the game source (All/Ranked/Custom) filter chip and reads its URL param (games page only). */
   showSourceFilter?: boolean
   /**
-   * Shows each row's win/loss result. From `forUserId`'s perspective when given (match history);
-   * otherwise from whichever side of the matchup is listed first (games page, league games).
+   * Shows each row's result: as a leading Win/Loss column from `forUserId`'s perspective when one
+   * is given, otherwise as a marker beside every player's name, since without a perspective there
+   * is no single side a row-level label could honestly describe.
    */
   showResult?: boolean
   /** Whose perspective results and the side panel roster are shown from (match history only). */
