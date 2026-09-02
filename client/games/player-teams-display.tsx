@@ -178,7 +178,10 @@ export function PlayerTeamsDisplay({
 }: {
   teams: ReadonlyArray<ReadonlyArray<PlayerTeamsDisplayPlayer>>
   teamLabels?: ReadonlyArray<string>
-  /** One reconciled result per team, aligned by index with `teams`. */
+  /**
+   * One reconciled result per team, aligned by index with `teams`. A team's result takes the
+   * place of its label in the column overline; the label only shows for teams without one.
+   */
   teamResults?: ReadonlyArray<ReconciledResult>
   className?: string
 }) {
@@ -189,20 +192,20 @@ export function PlayerTeamsDisplay({
       {teams.map((team, teamIndex) => {
         const label = teamLabels?.[teamIndex]
         const result = teamResults?.[teamIndex]
+        let overline: React.ReactNode
+        if (result) {
+          overline = (
+            <PlayerTeamOverlineResult $result={result}>
+              {getResultLabel(result, t)}
+            </PlayerTeamOverlineResult>
+          )
+        } else if (label) {
+          overline = label
+        }
 
         return (
           <PlayerTeamColumn key={`team-${teamIndex}`}>
-            {label || result ? (
-              <PlayerTeamOverline>
-                {label}
-                {label && result ? ' · ' : null}
-                {result ? (
-                  <PlayerTeamOverlineResult $result={result}>
-                    {getResultLabel(result, t)}
-                  </PlayerTeamOverlineResult>
-                ) : null}
-              </PlayerTeamOverline>
-            ) : null}
+            {overline ? <PlayerTeamOverline>{overline}</PlayerTeamOverline> : null}
             {team.map((player, playerIndex) => (
               <PlayerRowContainer key={`player-${playerIndex}`}>
                 {player.result && player.result !== 'unknown' ? (

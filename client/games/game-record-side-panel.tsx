@@ -130,12 +130,13 @@ function GameRecordSidePanelContent({
       {!map ? <GameSidePanelTitle>{mapName}</GameSidePanelTitle> : null}
 
       <GameSidePanelSection>
-        {/* The column overline holds either the team name or its result; both at once read as
-            noise, so team names only fill in while spoiler-free hides the results. */}
+        {/* Team names are always requested so a column whose result can't be reduced to one
+            outcome (a disputed game, a computer player) still gets an overline; a resolved result
+            replaces the name rather than joining it, so the overline never reads "Top · Win". */}
         <GamePlayersDisplay
           game={game}
           forUserId={forUserId}
-          showTeamLabels={spoilerFree}
+          showTeamLabels={true}
           showTeamResults={!spoilerFree}
           interactiveNames={true}
         />
