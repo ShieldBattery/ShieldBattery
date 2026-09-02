@@ -532,6 +532,29 @@ describe('client/whispers/whisper-reducer', () => {
     })
   })
 
+  describe('@whispers/updateMessage', () => {
+    test('a live message defers the trim of a pinned window while an older page is in flight', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, atBottom: true, loadingHistory: true, messages })
+
+      const result = whisperReducer(state, updateMessageAction(1000))
+
+      // Trimming here would drop the messages the in-flight page was fetched against, leaving a
+      // gap between it and the window once it lands.
+      expect(sessionOf(result).messages.length).toBe(201)
+      expect(sessionOf(result).windowGen).toBe(0)
+    })
+
+    test('a live message trims a pinned window down to the history cap once nothing is in flight', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, atBottom: true, messages })
+
+      const result = whisperReducer(state, updateMessageAction(1000))
+
+      expect(sessionOf(result).messages.length).toBe(150)
+    })
+  })
+
   describe('@whispers/loadNewerMessages', () => {
     test('appends the page and reattaches once the server has nothing newer', () => {
       const state = makeState({ hasNewer: true, messages: [textMessage(100)] })

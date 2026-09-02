@@ -6,7 +6,7 @@ import {
   type ChatMessage,
 } from '../../common/chat'
 import { makeSbUserId } from '../../common/users/sb-user-id'
-import { findUnreadLineIndex } from './message-list'
+import { findUnreadLineIndex, isScrolledToBottom } from './message-list'
 import { CommonMessageType, type CommonTextMessage, type SbMessage } from './message-records'
 
 const CHANNEL_ID = makeSbChannelId(1)
@@ -44,6 +44,11 @@ function whisperText(id: string, time: number): CommonTextMessage {
     from: USER_ID,
     text: 'hi',
   }
+}
+
+/** `isScrolledToBottom` only reads the scroll geometry, so a bare object stands in for the node. */
+function scroller(scrollTop: number, clientHeight: number, scrollHeight: number): HTMLElement {
+  return { scrollTop, clientHeight, scrollHeight } as HTMLElement
 }
 
 describe('client/messaging/message-list/findUnreadLineIndex', () => {
@@ -141,5 +146,35 @@ describe('client/messaging/message-list/findUnreadLineIndex', () => {
     ]
 
     expect(findUnreadLineIndex(messages, 1000, false)).toBe(1)
+  })
+})
+
+describe('client/messaging/message-list/isScrolledToBottom', () => {
+  test('exactly at the bottom', () => {
+    expect(isScrolledToBottom(scroller(900, 100, 1000))).toBe(true)
+  })
+
+  test('a fractional offset short of the bottom is within the leeway', () => {
+    expect(isScrolledToBottom(scroller(99.5, 400, 500))).toBe(true)
+  })
+
+  test('the far edge of the leeway still counts as the bottom', () => {
+    expect(isScrolledToBottom(scroller(892, 100, 1000))).toBe(true)
+  })
+
+  test('one pixel past the leeway is not the bottom', () => {
+    expect(isScrolledToBottom(scroller(891, 100, 1000))).toBe(false)
+  })
+
+  test('a fraction past the leeway is not the bottom', () => {
+    expect(isScrolledToBottom(scroller(891.5, 100, 1000))).toBe(false)
+  })
+
+  test('far from the bottom', () => {
+    expect(isScrolledToBottom(scroller(0, 100, 1000))).toBe(false)
+  })
+
+  test('content that fits without scrolling is at the bottom', () => {
+    expect(isScrolledToBottom(scroller(0, 500, 500))).toBe(true)
   })
 })

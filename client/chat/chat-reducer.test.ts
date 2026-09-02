@@ -474,6 +474,27 @@ describe('client/chat/chat-reducer', () => {
       state = chatReducer(state, updateLastReadTimeAction(150))
       expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
     })
+
+    test('a live message defers the trim of a pinned window while an older page is in flight', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, atBottom: true, loadingHistory: true, messages })
+
+      const result = chatReducer(state, updateMessageAction(1000, false))
+
+      // Trimming here would drop the messages the in-flight page was fetched against, leaving a
+      // gap between it and the window once it lands.
+      expect(windowOf(result).messages.length).toBe(201)
+      expect(windowOf(result).windowGen).toBe(0)
+    })
+
+    test('a live message trims a pinned window down to the history cap once nothing is in flight', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, atBottom: true, messages })
+
+      const result = chatReducer(state, updateMessageAction(1000, false))
+
+      expect(windowOf(result).messages.length).toBe(150)
+    })
   })
 
   describe('leaving a channel', () => {
