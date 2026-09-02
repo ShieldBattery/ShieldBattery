@@ -47,7 +47,8 @@ type EventToActionMap = {
   ) => Dispatchable | undefined | void
 }
 
-const eventToAction: EventToActionMap = {
+/** Exported for tests; the socket routes are registered by the default export. */
+export const eventToAction: EventToActionMap = {
   matchFound: (matchmakingType, event) => {
     logger.debug(
       `Match found, showing accept dialog. ${event.acceptTimeLeftMillis}ms left, ` +

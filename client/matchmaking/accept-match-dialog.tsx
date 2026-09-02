@@ -14,7 +14,13 @@ import { FilledButton, TextButton } from '../material/button'
 import { decelerateEasing, standardEasing } from '../material/curve-constants'
 import { Dialog, Title } from '../material/dialog'
 import { BodyMedium, sofiaSansCondensed } from '../styles/typography'
-import { currentSearchInfoAtom, foundMatchAtom, hasAcceptedAtom } from './matchmaking-atoms'
+import { isInDraftAtom } from './draft-atoms'
+import {
+  currentSearchInfoAtom,
+  foundMatchAtom,
+  hasAcceptedAtom,
+  matchLaunchingAtom,
+} from './matchmaking-atoms'
 import { useAcceptMatch } from './use-accept-match'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -199,6 +205,12 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
 
   const currentSearchInfo = useAtomValue(currentSearchInfoAtom)
   const foundMatch = useAtomValue(foundMatchAtom)
+  // The found match is cleared when the match moves on to a draft or to launching, in the same
+  // update that closes this dialog. The dialog stays mounted through its exit animation, so
+  // without these it would render its "returning to queue" contents while fading out.
+  const inDraft = useAtomValue(isInDraftAtom)
+  const matchLaunching = useAtomValue(matchLaunchingAtom)
+  const matchMovedOn = inDraft || matchLaunching
 
   useEffect(() => {
     if (!currentSearchInfo && !foundMatch) {
@@ -217,7 +229,7 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
   }, [currentSearchInfo, foundMatch, close])
 
   let contents: React.ReactNode | undefined
-  if (currentSearchInfo && !foundMatch) {
+  if (currentSearchInfo && !foundMatch && !matchMovedOn) {
     contents = (
       <StateContent
         key='timeout'
