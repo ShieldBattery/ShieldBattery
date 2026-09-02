@@ -441,9 +441,13 @@ function updateMessages(
   // Trimming is safe when nobody is reading scrollback: either the channel isn't being viewed, or
   // the viewer is pinned to the bottom, where auto-scroll makes removing top messages invisible. A
   // detached window is never trimmed: the user is paging through it in both directions, and there's
-  // no scroll compensation for messages disappearing off its top.
+  // no scroll compensation for messages disappearing off its top. Nor is a window with an older
+  // page in flight: that page was fetched against the window's current oldest message, and dropping
+  // messages from the top before it lands would leave a gap between the two.
   const canTrim =
-    !channelMessages.hasNewer && (!isChannelActivated || state.atBottomChannels.has(channelId))
+    !channelMessages.hasNewer &&
+    !channelMessages.loadingHistory &&
+    (!isChannelActivated || state.atBottomChannels.has(channelId))
 
   let sliced = false
   if (canTrim && channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY) {
@@ -1031,16 +1035,21 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/deactivateChannel'](state, action) {
     const { channelId } = action.payload
 
+    const channelMessages = state.idToMessages.get(channelId)
+
     // The unread divider is only consumed once the read position has actually moved past it *and*
     // the user was looking at the newest messages when they left. A deactivation where they never
     // read anything new (including the mount/cleanup/remount cycle React's StrictMode runs in
     // development) leaves the still-unread divider in place, and so does one from the middle of the
     // backlog, where the read position running ahead is an artifact of having passed the bottom on
-    // the way in rather than of having caught up.
+    // the way in rather than of having caught up. The bottom of a detached window is only the end
+    // of what's loaded rather than the newest message, so leaving from there is such a
+    // mid-backlog leave no matter what the at-bottom flag says.
     const unreadLineTime = state.idToUnreadLineTime.get(channelId)
     const lastReadTime = state.idToLastReadTime.get(channelId)
     if (
       state.atBottomChannels.has(channelId) &&
+      !channelMessages?.hasNewer &&
       unreadLineTime !== undefined &&
       lastReadTime !== undefined &&
       lastReadTime > unreadLineTime
@@ -1048,7 +1057,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       state.idToUnreadLineTime.delete(channelId)
     }
 
-    const channelMessages = state.idToMessages.get(channelId)
+    state.activatedChannels.delete(channelId)
+    state.atBottomChannels.delete(channelId)
+
     if (!channelMessages) {
       return
     }
@@ -1061,12 +1072,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     } else {
       const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 
+      if (channelMessages.loadingHistory || channelMessages.loadingNewer) {
+        // A page in flight was fetched against the window's edges, which the trim below moves;
+        // applying it afterwards would splice it in ahead of a gap in the middle of the history.
+        // Advancing the generation makes it be discarded when it lands, which costs nothing with
+        // the view gone. Lowering the flags then has to happen here too, since the discarded page
+        // no longer lowers them itself and a request that never settles never would.
+        channelMessages.windowGen += 1
+      }
+      channelMessages.loadingHistory = false
+      channelMessages.loadingNewer = false
+
       channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
       channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
     }
-
-    state.activatedChannels.delete(channelId)
-    state.atBottomChannels.delete(channelId)
   },
 
   // This arrives both from this session's own optimistic mark-read reports (dispatched only while
@@ -1112,9 +1131,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       // The user returned to the bottom after reading scrollback that accumulated past the cap;
       // drop it now, where the removal is invisible. For a detached window the bottom is only the
       // end of what's loaded rather than the newest message, and the user is still paging through
-      // it, so nothing is dropped there.
+      // it, so nothing is dropped there. An older page in flight was fetched against the window's
+      // current oldest message, so trimming past it would leave that page splicing in ahead of a
+      // gap; the trim waits for the page instead, since the list is on screen and discarding the
+      // page by advancing the generation would read as the window being replaced under the user.
       const channelMessages = state.idToMessages.get(channelId)
-      if (channelMessages && !channelMessages.hasNewer) {
+      if (channelMessages && !channelMessages.hasNewer && !channelMessages.loadingHistory) {
         const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 
         channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)

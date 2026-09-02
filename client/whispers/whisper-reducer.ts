@@ -15,7 +15,9 @@ export interface WhisperSession {
   target: SbUserId
   messages: CommonTextMessage[]
 
+  loadingHistory: boolean
   hasHistory: boolean
+  loadingNewer: boolean
   /**
    * Whether messages newer than the loaded window exist on the server, i.e. the window is detached
    * from the present. While this is set, live messages are not appended (they belong on the far
@@ -59,7 +61,9 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
   return {
     target,
     messages: [],
+    loadingHistory: false,
     hasHistory: true,
+    loadingNewer: false,
     hasNewer: false,
     detachedNewestTime: undefined,
     windowGen: 0,
@@ -101,6 +105,22 @@ export function newestServerOriginTime(messages: readonly CommonTextMessage[]): 
   for (let i = messages.length - 1; i >= 0; i--) {
     if (isServerOriginMessage(messages[i])) {
       return messages[i].time
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
+ * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why other messages
+ * are excluded: their local-clock times are meaningless as a server request cursor or a window
+ * boundary.
+ */
+export function oldestServerOriginTime(messages: readonly CommonTextMessage[]): number | undefined {
+  for (const message of messages) {
+    if (isServerOriginMessage(message)) {
+      return message.time
     }
   }
 
@@ -160,6 +180,10 @@ function dropMessageWindow(session: WhisperSession) {
   session.hasHistory = true
   session.hasNewer = false
   session.detachedNewestTime = undefined
+  // In-flight requests for the dropped window will be discarded by the generation check when they
+  // land, so their loading flags have to be lowered here or they'd stay raised forever.
+  session.loadingHistory = false
+  session.loadingNewer = false
   session.windowGen += 1
 }
 
@@ -182,8 +206,11 @@ function updateMessages(
   // Trimming is safe when nobody is reading scrollback: either the session isn't being viewed, or
   // the viewer is pinned to the bottom, where auto-scroll makes removing top messages invisible. A
   // detached window is never trimmed: the user is paging through it in both directions, and there's
-  // no scroll compensation for messages disappearing off its top.
-  const canTrim = !session.hasNewer && (!session.activated || session.atBottom)
+  // no scroll compensation for messages disappearing off its top. Nor is a window with an older
+  // page in flight: that page was fetched against the window's current oldest message, and dropping
+  // messages from the top before it lands would leave a gap between the two.
+  const canTrim =
+    !session.hasNewer && !session.loadingHistory && (!session.activated || session.atBottom)
 
   let sliced = false
   if (canTrim && session.messages.length > INACTIVE_SESSION_MAX_HISTORY) {
@@ -282,11 +309,28 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@whispers/loadMessageHistoryBegin'](state, action) {
+    const { target } = action.payload
+
+    const session = state.byId.get(target)
+    if (!session) {
+      return
+    }
+
+    session.loadingHistory = true
+  },
+
   ['@whispers/loadMessageHistory'](state, action) {
     const { target, windowGen } = action.meta
 
     const session = state.byId.get(target)
-    if (!session || session.windowGen !== windowGen || action.error) {
+    if (!session || session.windowGen !== windowGen) {
+      return
+    }
+
+    session.loadingHistory = false
+
+    if (action.error) {
       return
     }
 
@@ -299,11 +343,28 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     )
   },
 
+  ['@whispers/loadNewerMessagesBegin'](state, action) {
+    const { target } = action.payload
+
+    const session = state.byId.get(target)
+    if (!session) {
+      return
+    }
+
+    session.loadingNewer = true
+  },
+
   ['@whispers/loadNewerMessages'](state, action) {
     const { target, windowGen } = action.meta
 
     const session = state.byId.get(target)
-    if (!session || session.windowGen !== windowGen || action.error) {
+    if (!session || session.windowGen !== windowGen) {
+      return
+    }
+
+    session.loadingNewer = false
+
+    if (action.error) {
       return
     }
 
@@ -336,11 +397,31 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@whispers/loadMessagesAroundBegin'](state, action) {
+    const { target } = action.payload
+
+    const session = state.byId.get(target)
+    if (!session) {
+      return
+    }
+
+    // The whole window is about to be replaced, so there's no one edge the wait belongs to; the
+    // older edge's affordance stands in for both.
+    session.loadingHistory = true
+  },
+
   ['@whispers/loadMessagesAround'](state, action) {
     const { target, windowGen } = action.meta
 
     const session = state.byId.get(target)
-    if (!session || session.windowGen !== windowGen || action.error) {
+    if (!session || session.windowGen !== windowGen) {
+      return
+    }
+
+    session.loadingHistory = false
+    session.loadingNewer = false
+
+    if (action.error) {
       return
     }
 
@@ -440,7 +521,27 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     const session = state.byId.get(target)!
-    const leftAtBottom = session.atBottom
+
+    // The unread divider is only consumed once the read position has actually moved past it *and*
+    // the user was looking at the newest messages when they left. A deactivation where they never
+    // read anything new (including the mount/cleanup/remount cycle React's StrictMode runs in
+    // development) leaves the still-unread divider in place, and so does one from the middle of the
+    // backlog, where the read position running ahead is an artifact of having passed the bottom on
+    // the way in rather than of having caught up. The bottom of a detached window is only the end
+    // of what's loaded rather than the newest message, so leaving from there is such a mid-backlog
+    // leave no matter what the at-bottom flag says.
+    if (
+      session.atBottom &&
+      !session.hasNewer &&
+      session.unreadLineTime !== undefined &&
+      session.lastReadTime !== undefined &&
+      session.lastReadTime > session.unreadLineTime
+    ) {
+      session.unreadLineTime = undefined
+    }
+
+    session.activated = false
+    session.atBottom = false
 
     if (session.hasNewer) {
       // Keeping a window that sits mid-history would put the user back where they were reading with
@@ -450,25 +551,19 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     } else {
       const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
 
+      if (session.loadingHistory || session.loadingNewer) {
+        // A page in flight was fetched against the window's edges, which the trim below moves;
+        // applying it afterwards would splice it in ahead of a gap in the middle of the history.
+        // Advancing the generation makes it be discarded when it lands, which costs nothing with
+        // the view gone. Lowering the flags then has to happen here too, since the discarded page
+        // no longer lowers them itself and a request that never settles never would.
+        session.windowGen += 1
+      }
+      session.loadingHistory = false
+      session.loadingNewer = false
+
       session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
       session.hasHistory = session.hasHistory || hasHistory
-    }
-
-    session.activated = false
-    session.atBottom = false
-    // The unread divider is only consumed once the read position has actually moved past it *and*
-    // the user was looking at the newest messages when they left. A deactivation where they never
-    // read anything new (including the mount/cleanup/remount cycle React's StrictMode runs in
-    // development) leaves the still-unread divider in place, and so does one from the middle of the
-    // backlog, where the read position running ahead is an artifact of having passed the bottom on
-    // the way in rather than of having caught up.
-    if (
-      leftAtBottom &&
-      session.unreadLineTime !== undefined &&
-      session.lastReadTime !== undefined &&
-      session.lastReadTime > session.unreadLineTime
-    ) {
-      session.unreadLineTime = undefined
     }
   },
 
@@ -482,11 +577,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const wasAtBottom = session.atBottom
     session.atBottom = atBottom
 
-    if (atBottom && !wasAtBottom && !session.hasNewer) {
+    if (atBottom && !wasAtBottom && !session.hasNewer && !session.loadingHistory) {
       // The user returned to the bottom after reading scrollback that accumulated past the cap;
       // drop it now, where the removal is invisible. For a detached window the bottom is only the
       // end of what's loaded rather than the newest message, and the user is still paging through
-      // it, so nothing is dropped there.
+      // it, so nothing is dropped there. An older page in flight was fetched against the window's
+      // current oldest message, so trimming past it would leave that page splicing in ahead of a
+      // gap; the trim waits for the page instead, since the list is on screen and discarding the
+      // page by advancing the generation would read as the window being replaced under the user.
       const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
 
       session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)

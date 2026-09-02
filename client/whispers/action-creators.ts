@@ -19,7 +19,7 @@ import {
   ResetMessageWindow,
   UpdateSessionAtBottom,
 } from './actions'
-import { newestServerOriginTime } from './whisper-reducer'
+import { newestServerOriginTime, oldestServerOriginTime } from './whisper-reducer'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -54,14 +54,17 @@ export function markWhisperRead(targetId: SbUserId, lastReadTime: number): Thunk
       payload: { targetId, lastReadTime },
     })
 
-    reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time => {
+    // The rejection is passed back out so the coalescer knows the position never landed and lets
+    // the next report carry it again.
+    reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time =>
       fetchJson<void>(apiUrl`whispers/${targetId}/mark-read`, {
         method: 'POST',
         body: encodeBodyAsParams<MarkWhisperReadRequest>({ lastReadTime: time }),
       }).catch(err => {
         logger.error(`Error reporting read position for whisper ${targetId}: ${getErrorStack(err)}`)
-      })
-    })
+        throw err
+      }),
+    )
   }
 }
 
@@ -122,20 +125,27 @@ export function getMessageHistory(
     }
 
     const sessionData = byId.get(target)!
-    const earliestMessageTime = sessionData.messages.length ? sessionData.messages[0].time : -1
+    // -1 is the "newest page" sentinel, used both when nothing is loaded and when nothing loaded
+    // carries a server-recorded time, since such a time means nothing as a server cursor.
+    const earliestMessageTime = oldestServerOriginTime(sessionData.messages) ?? -1
+    const params = {
+      target,
+      limit,
+      beforeTime: earliestMessageTime,
+      windowGen: sessionData.windowGen,
+    }
 
     const promise = fetchJson<GetSessionHistoryResponse>(
       apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
     )
     dispatch({
+      type: '@whispers/loadMessageHistoryBegin',
+      payload: params,
+    })
+    dispatch({
       type: '@whispers/loadMessageHistory',
       payload: promise,
-      meta: {
-        target,
-        limit,
-        beforeTime: earliestMessageTime,
-        windowGen: sessionData.windowGen,
-      },
+      meta: params,
     })
     await promise
   })
@@ -165,19 +175,25 @@ export function getNewerMessages(
       return
     }
 
+    const params = {
+      target,
+      limit,
+      afterTime,
+      windowGen: sessionData.windowGen,
+      knownNewestTime: Math.max(afterTime, sessionData.detachedNewestTime ?? -Infinity),
+    }
+
     const promise = fetchJson<GetSessionHistoryResponse>(
       apiUrl`whispers/${target}/messages2?limit=${limit}&afterTime=${afterTime}`,
     )
     dispatch({
+      type: '@whispers/loadNewerMessagesBegin',
+      payload: params,
+    })
+    dispatch({
       type: '@whispers/loadNewerMessages',
       payload: promise,
-      meta: {
-        target,
-        limit,
-        afterTime,
-        windowGen: sessionData.windowGen,
-        knownNewestTime: Math.max(afterTime, sessionData.detachedNewestTime ?? -Infinity),
-      },
+      meta: params,
     })
     await promise
   })
@@ -207,19 +223,25 @@ export function getMessagesAround(
       newestServerOriginTime(sessionData.messages) ?? -Infinity,
       sessionData.detachedNewestTime ?? -Infinity,
     )
+    const params = {
+      target,
+      limit,
+      aroundTime,
+      windowGen: sessionData.windowGen,
+      knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
+    }
+
     const promise = fetchJson<GetSessionHistoryResponse>(
       apiUrl`whispers/${target}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
     )
     dispatch({
+      type: '@whispers/loadMessagesAroundBegin',
+      payload: params,
+    })
+    dispatch({
       type: '@whispers/loadMessagesAround',
       payload: promise,
-      meta: {
-        target,
-        limit,
-        aroundTime,
-        windowGen: sessionData.windowGen,
-        knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
-      },
+      meta: params,
     })
     await promise
   })

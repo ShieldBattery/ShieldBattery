@@ -176,4 +176,111 @@ describe('messaging/last-read', () => {
     expect(sendFirst).toHaveBeenLastCalledWith(300)
     expect(sendSecond).not.toHaveBeenCalled()
   })
+
+  test('a delivered position stays dropped when it is reported again', async () => {
+    const send = vi.fn().mockResolvedValue(undefined)
+
+    reportLastRead('key', 100, send) // t=0, leading
+    await vi.advanceTimersByTimeAsync(0)
+
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000, leading-edge again
+    reportLastRead('key', 100, send)
+
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  test('a failed send lets the next report carry the same position again', async () => {
+    const send = vi.fn().mockRejectedValueOnce(new Error('request failed'))
+
+    reportLastRead('key', 100, send) // t=0, leading; never reaches the server
+    await vi.advanceTimersByTimeAsync(0)
+
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000, leading-edge again
+    reportLastRead('key', 100, send)
+
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send).toHaveBeenLastCalledWith(100)
+  })
+
+  test('a failed trailing send lets the next report carry its position again', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('request failed'))
+
+    reportLastRead('key', 100, send) // t=0, leading, delivered
+    await vi.advanceTimersByTimeAsync(0)
+    vi.advanceTimersByTime(1000) // t=1000
+    reportLastRead('key', 200, send) // pending, fires at t=5000
+    await vi.advanceTimersByTimeAsync(4000) // t=5000, trailing send fires and fails
+    expect(send).toHaveBeenCalledTimes(2)
+
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=10000, leading-edge again
+    reportLastRead('key', 200, send)
+
+    expect(send).toHaveBeenCalledTimes(3)
+    expect(send).toHaveBeenLastCalledWith(200)
+  })
+
+  test('a failed send does not undo a newer position scheduled while it was in flight', async () => {
+    let failSend: (err: Error) => void = () => {}
+    const send = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            failSend = reject
+          }),
+      )
+      .mockResolvedValueOnce(undefined)
+
+    reportLastRead('key', 100, send) // t=0, leading, still in flight
+    vi.advanceTimersByTime(1000) // t=1000
+    reportLastRead('key', 200, send) // pending, fires at t=5000
+    failSend(new Error('request failed'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    await vi.advanceTimersByTimeAsync(4000) // t=5000
+
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send).toHaveBeenLastCalledWith(200)
+  })
+
+  test('a failed send does not undo a newer position that has already been delivered', async () => {
+    let failSend: (err: Error) => void = () => {}
+    const send = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            failSend = reject
+          }),
+      )
+      .mockResolvedValueOnce(undefined)
+
+    reportLastRead('key', 100, send) // t=0, leading, still in flight
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000
+    reportLastRead('key', 200, send) // leading-edge again, delivered
+    await vi.advanceTimersByTimeAsync(0)
+    failSend(new Error('request failed'))
+    await vi.advanceTimersByTimeAsync(0)
+
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=10000
+    reportLastRead('key', 200, send) // 200 already reached the server, so nothing to re-send
+
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+
+  test('flushLastRead forgets a key with nothing scheduled', () => {
+    const send = vi.fn()
+
+    reportLastRead('key', 100, send) // t=0, leading, nothing left pending
+    flushLastRead('key')
+
+    // With no state left for the key, this report has nothing to be measured against and goes out
+    // as a leading edge of its own.
+    reportLastRead('key', 100, send)
+
+    expect(send).toHaveBeenCalledTimes(2)
+  })
 })

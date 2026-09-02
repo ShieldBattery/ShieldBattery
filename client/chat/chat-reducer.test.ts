@@ -1004,6 +1004,30 @@ describe('client/chat/chat-reducer', () => {
       expect(windowOf(result).loadingNewer).toBe(false)
     })
 
+    test('keeps a divider when the bottom of the window is not the newest message', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        hasNewer: true,
+        lastReadTime: 200,
+        unreadLineTime: 100,
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('clears the activation flags for a channel with nothing loaded', () => {
+      const base = makeState({ activated: true, atBottom: true })
+      const state = { ...base, idToMessages: new Map() } as Immutable<ChatState>
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(result.activatedChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.atBottomChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
     test('trims an attached window down to the history cap', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({ activated: true, messages })
@@ -1011,7 +1035,98 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, deactivateChannelAction())
 
       expect(windowOf(result).messages.length).toBe(150)
+    })
+
+    test('leaves the generation alone when nothing is in flight to invalidate', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, messages })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
       expect(windowOf(result).windowGen).toBe(0)
+    })
+
+    test('lowers the loading flags of an attached window, so a request that never settles cannot wedge them', () => {
+      const state = makeState({
+        activated: true,
+        loadingHistory: true,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(windowOf(result).loadingHistory).toBe(false)
+      expect(windowOf(result).loadingNewer).toBe(false)
+    })
+
+    test('discards a page fetched against the older edge the trim moves', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, loadingHistory: true, messages })
+
+      const deactivated = chatReducer(state, deactivateChannelAction())
+      expect(windowOf(deactivated).windowGen).toBe(1)
+      expect(windowOf(deactivated).messages.length).toBe(150)
+
+      // The page was fetched for the messages the trim just removed, so applying it would leave
+      // the window holding it directly in front of a gap.
+      const result = chatReducer(
+        deactivated,
+        loadMessageHistoryAction(historyResponse([textMessage(0)]), {
+          windowGen: 0,
+          beforeTime: 1,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(messageIdsOf(deactivated))
+      expect(windowOf(result).loadingHistory).toBe(false)
+    })
+  })
+
+  describe('@chat/updateChannelAtBottom', () => {
+    test('trims scrollback down to the history cap when the view returns to the bottom', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, messages })
+
+      const result = chatReducer(state, {
+        type: '@chat/updateChannelAtBottom',
+        payload: { channelId: CHANNEL_ID, atBottom: true },
+      })
+
+      expect(windowOf(result).messages.length).toBe(150)
+    })
+
+    test('defers the trim while an older page is in flight, keeping the window it was fetched for', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, loadingHistory: true, messages })
+
+      const result = chatReducer(state, {
+        type: '@chat/updateChannelAtBottom',
+        payload: { channelId: CHANNEL_ID, atBottom: true },
+      })
+
+      expect(windowOf(result).messages.length).toBe(200)
+      expect(windowOf(result).windowGen).toBe(0)
+    })
+
+    test('a page in flight lands contiguously on the window it was fetched for', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      let result = chatReducer(makeState({ activated: true, loadingHistory: true, messages }), {
+        type: '@chat/updateChannelAtBottom',
+        payload: { channelId: CHANNEL_ID, atBottom: true },
+      })
+      // Scrolling away again before the page lands leaves nothing to trim the seam afterwards, so
+      // a window trimmed past the page's boundary would keep the gap for as long as it's loaded.
+      result = chatReducer(result, {
+        type: '@chat/updateChannelAtBottom',
+        payload: { channelId: CHANNEL_ID, atBottom: false },
+      })
+      result = chatReducer(
+        result,
+        loadMessageHistoryAction(historyResponse([textMessage(0)]), { beforeTime: 1 }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-0', ...messages.map(m => m.id)])
     })
   })
 

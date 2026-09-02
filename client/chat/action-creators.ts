@@ -82,7 +82,9 @@ export function markChannelRead(channelId: SbChannelId, lastReadTime: number): T
       payload: { channelId, lastReadTime },
     })
 
-    reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time => {
+    // The rejection is passed back out so the coalescer knows the position never landed and lets
+    // the next report carry it again.
+    reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time =>
       fetchJson<void>(apiUrl`chat/${channelId}/mark-read`, {
         method: 'POST',
         body: encodeBodyAsParams<MarkChannelReadRequest>({ lastReadTime: time }),
@@ -90,8 +92,9 @@ export function markChannelRead(channelId: SbChannelId, lastReadTime: number): T
         logger.error(
           `Error reporting read position for channel ${channelId}: ${getErrorStack(err)}`,
         )
-      })
-    })
+        throw err
+      }),
+    )
   }
 }
 

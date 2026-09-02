@@ -7,10 +7,13 @@ import {
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type WhisperActions =
+  | LoadMessageHistoryBegin
   | LoadMessageHistory
   | LoadMessageHistoryFailure
+  | LoadNewerMessagesBegin
   | LoadNewerMessages
   | LoadNewerMessagesFailure
+  | LoadMessagesAroundBegin
   | LoadMessagesAround
   | LoadMessagesAroundFailure
   | ResetMessageWindow
@@ -29,6 +32,21 @@ export type WhisperActions =
 export interface GetWhisperSessions {
   type: '@whispers/getWhisperSessions'
   payload: GetWhisperSessionsResponse
+}
+
+export interface LoadMessageHistoryBegin {
+  type: '@whispers/loadMessageHistoryBegin'
+  payload: {
+    target: SbUserId
+    limit: number
+    beforeTime: number
+    /**
+     * The generation of the loaded message window this page was requested for. The reducer drops
+     * pages whose generation no longer matches the session's, since a window that has since been
+     * replaced or dropped shares no boundary with them.
+     */
+    windowGen: number
+  }
 }
 
 /**
@@ -57,6 +75,23 @@ export interface LoadMessageHistoryFailure extends BaseFetchFailure<'@whispers/l
     limit: number
     beforeTime: number
     windowGen: number
+  }
+}
+
+export interface LoadNewerMessagesBegin {
+  type: '@whispers/loadNewerMessagesBegin'
+  payload: {
+    target: SbUserId
+    limit: number
+    afterTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live. Responses that report nothing newer are
+     * authoritative for messages known this early — the server announces messages only after
+     * storing them — so their absence proves deletion rather than a race.
+     */
+    knownNewestTime: number
   }
 }
 
@@ -96,6 +131,24 @@ export interface LoadNewerMessagesFailure extends BaseFetchFailure<'@whispers/lo
      * storing them — so their absence proves deletion rather than a race.
      */
     knownNewestTime: number
+  }
+}
+
+export interface LoadMessagesAroundBegin {
+  type: '@whispers/loadMessagesAroundBegin'
+  payload: {
+    target: SbUserId
+    limit: number
+    aroundTime: number
+    windowGen: number
+    /**
+     * The newest server-recorded message time (epoch ms) this client knew existed when the request
+     * was dispatched, whether loaded or only observed live, or `undefined` when it knew of none.
+     * Responses that report nothing newer are authoritative for messages known this early — the
+     * server announces messages only after storing them — so their absence proves deletion rather
+     * than a race.
+     */
+    knownNewestTime: number | undefined
   }
 }
 

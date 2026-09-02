@@ -42,6 +42,8 @@ function makeState(
     lastReadTime?: number
     unreadLineTime?: number
     hasHistory?: boolean
+    loadingHistory?: boolean
+    loadingNewer?: boolean
     hasNewer?: boolean
     detachedNewestTime?: number
     windowGen?: number
@@ -50,7 +52,9 @@ function makeState(
   const session: WhisperSession = {
     target: TARGET_ID,
     messages: overrides.messages ?? [],
+    loadingHistory: overrides.loadingHistory ?? false,
     hasHistory: overrides.hasHistory ?? true,
+    loadingNewer: overrides.loadingNewer ?? false,
     hasNewer: overrides.hasNewer ?? false,
     detachedNewestTime: overrides.detachedNewestTime,
     windowGen: overrides.windowGen ?? 0,
@@ -105,6 +109,38 @@ function historyResponse(
     deletedChannels: [],
     hasMoreBefore,
     hasMoreAfter,
+  }
+}
+
+function loadMessageHistoryBeginAction({
+  windowGen = 0,
+  beforeTime = -1,
+}: { windowGen?: number; beforeTime?: number } = {}): WhisperActions {
+  return {
+    type: '@whispers/loadMessageHistoryBegin',
+    payload: { target: TARGET_ID, limit: HISTORY_LIMIT, beforeTime, windowGen },
+  }
+}
+
+function loadNewerMessagesBeginAction({
+  windowGen = 0,
+  afterTime = 0,
+  knownNewestTime = afterTime,
+}: { windowGen?: number; afterTime?: number; knownNewestTime?: number } = {}): WhisperActions {
+  return {
+    type: '@whispers/loadNewerMessagesBegin',
+    payload: { target: TARGET_ID, limit: HISTORY_LIMIT, afterTime, windowGen, knownNewestTime },
+  }
+}
+
+function loadMessagesAroundBeginAction({
+  windowGen = 0,
+  aroundTime = 0,
+  knownNewestTime,
+}: { windowGen?: number; aroundTime?: number; knownNewestTime?: number } = {}): WhisperActions {
+  return {
+    type: '@whispers/loadMessagesAroundBegin',
+    payload: { target: TARGET_ID, limit: HISTORY_LIMIT, aroundTime, windowGen, knownNewestTime },
   }
 }
 
@@ -742,6 +778,20 @@ describe('client/whispers/whisper-reducer', () => {
       expect(session.windowGen).toBe(1)
     })
 
+    test('keeps a divider when the bottom of the window is not the newest message', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        hasNewer: true,
+        lastReadTime: 200,
+        unreadLineTime: 100,
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
     test('trims an attached window down to the history cap', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({ activated: true, messages })
@@ -749,7 +799,193 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, deactivateSessionAction())
 
       expect(sessionOf(result).messages.length).toBe(150)
+    })
+
+    test('leaves the generation alone when nothing is in flight to invalidate', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, messages })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
       expect(sessionOf(result).windowGen).toBe(0)
+    })
+
+    test('lowers the loading flags of an attached window, so a request that never settles cannot wedge them', () => {
+      const state = makeState({
+        activated: true,
+        loadingHistory: true,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).loadingHistory).toBe(false)
+      expect(sessionOf(result).loadingNewer).toBe(false)
+    })
+
+    test('dropping a detached window lowers the loading flags of in-flight requests', () => {
+      const state = makeState({
+        activated: true,
+        hasNewer: true,
+        loadingHistory: true,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).loadingHistory).toBe(false)
+      expect(sessionOf(result).loadingNewer).toBe(false)
+    })
+
+    test('discards a page fetched against the older edge the trim moves', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, loadingHistory: true, messages })
+
+      const deactivated = whisperReducer(state, deactivateSessionAction())
+      expect(sessionOf(deactivated).windowGen).toBe(1)
+      expect(sessionOf(deactivated).messages.length).toBe(150)
+
+      // The page was fetched for the messages the trim just removed, so applying it would leave
+      // the window holding it directly in front of a gap.
+      const result = whisperReducer(
+        deactivated,
+        loadMessageHistoryAction(historyResponse([serverMessage(0)]), {
+          windowGen: 0,
+          beforeTime: 1,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(messageIdsOf(deactivated))
+      expect(sessionOf(result).loadingHistory).toBe(false)
+    })
+  })
+
+  describe('@whispers/updateSessionAtBottom', () => {
+    test('trims scrollback down to the history cap when the view returns to the bottom', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, messages })
+
+      const result = whisperReducer(state, {
+        type: '@whispers/updateSessionAtBottom',
+        payload: { target: TARGET_ID, atBottom: true },
+      })
+
+      expect(sessionOf(result).messages.length).toBe(150)
+    })
+
+    test('defers the trim while an older page is in flight, keeping the window it was fetched for', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      const state = makeState({ activated: true, loadingHistory: true, messages })
+
+      const result = whisperReducer(state, {
+        type: '@whispers/updateSessionAtBottom',
+        payload: { target: TARGET_ID, atBottom: true },
+      })
+
+      expect(sessionOf(result).messages.length).toBe(200)
+      expect(sessionOf(result).windowGen).toBe(0)
+    })
+
+    test('a page in flight lands contiguously on the window it was fetched for', () => {
+      const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
+      let result = whisperReducer(makeState({ activated: true, loadingHistory: true, messages }), {
+        type: '@whispers/updateSessionAtBottom',
+        payload: { target: TARGET_ID, atBottom: true },
+      })
+      // Scrolling away again before the page lands leaves nothing to trim the seam afterwards, so
+      // a window trimmed past the page's boundary would keep the gap for as long as it's loaded.
+      result = whisperReducer(result, {
+        type: '@whispers/updateSessionAtBottom',
+        payload: { target: TARGET_ID, atBottom: false },
+      })
+      result = whisperReducer(
+        result,
+        loadMessageHistoryAction(historyResponse([serverMessage(0)]), { beforeTime: 1 }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-0', ...messages.map(m => m.id)])
+    })
+  })
+
+  describe('loading flags', () => {
+    test('an older-page request raises the older edge flag and its response lowers it', () => {
+      let result = whisperReducer(makeState(), loadMessageHistoryBeginAction())
+      expect(sessionOf(result).loadingHistory).toBe(true)
+
+      result = whisperReducer(
+        result,
+        loadMessageHistoryAction(historyResponse([serverMessage(100)])),
+      )
+      expect(sessionOf(result).loadingHistory).toBe(false)
+    })
+
+    test('a failed older-page request lowers the older edge flag', () => {
+      let result = whisperReducer(makeState(), loadMessageHistoryBeginAction())
+      result = whisperReducer(result, asFailure(loadMessageHistoryAction(historyResponse([]))))
+
+      expect(sessionOf(result).loadingHistory).toBe(false)
+    })
+
+    test('a newer-page request raises the newer edge flag and its response lowers it', () => {
+      let result = whisperReducer(
+        makeState({ hasNewer: true, messages: [textMessage(100)] }),
+        loadNewerMessagesBeginAction({ afterTime: 100 }),
+      )
+      expect(sessionOf(result).loadingNewer).toBe(true)
+
+      result = whisperReducer(
+        result,
+        loadNewerMessagesAction(historyResponse([serverMessage(200)]), { afterTime: 100 }),
+      )
+      expect(sessionOf(result).loadingNewer).toBe(false)
+    })
+
+    test('a failed newer-page request lowers the newer edge flag', () => {
+      let result = whisperReducer(
+        makeState({ hasNewer: true, messages: [textMessage(100)] }),
+        loadNewerMessagesBeginAction({ afterTime: 100 }),
+      )
+      result = whisperReducer(
+        result,
+        asFailure(loadNewerMessagesAction(historyResponse([]), { afterTime: 100 })),
+      )
+
+      expect(sessionOf(result).loadingNewer).toBe(false)
+    })
+
+    test('a window replacement waits on the older edge affordance and lowers both flags', () => {
+      let result = whisperReducer(makeState(), loadMessagesAroundBeginAction({ aroundTime: 150 }))
+      expect(sessionOf(result).loadingHistory).toBe(true)
+
+      result = whisperReducer(
+        result,
+        loadMessagesAroundAction(historyResponse([serverMessage(150)]), { aroundTime: 150 }),
+      )
+      expect(sessionOf(result).loadingHistory).toBe(false)
+      expect(sessionOf(result).loadingNewer).toBe(false)
+    })
+
+    test('a response discarded by the generation check leaves the flag alone', () => {
+      const state = makeState({ loadingHistory: true, windowGen: 2 })
+
+      const result = whisperReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([serverMessage(100)]), { windowGen: 1 }),
+      )
+
+      expect(sessionOf(result).loadingHistory).toBe(true)
+      expect(messageIdsOf(result)).toEqual([])
+    })
+
+    test('dropping the window lowers both flags', () => {
+      const state = makeState({ loadingHistory: true, loadingNewer: true })
+
+      const result = whisperReducer(state, resetMessageWindowAction())
+
+      expect(sessionOf(result).loadingHistory).toBe(false)
+      expect(sessionOf(result).loadingNewer).toBe(false)
     })
   })
 })
