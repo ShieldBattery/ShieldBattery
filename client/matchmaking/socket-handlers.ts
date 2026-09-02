@@ -84,6 +84,10 @@ const eventToAction: EventToActionMap = {
       payload: [event.mapInfo],
     })
 
+    // The accept phase is over once the draft begins, and `foundMatchAtom` describes only that
+    // phase.
+    jotaiStore.set(foundMatchAtom, undefined)
+
     resetDraftState(jotaiStore)
     jotaiStore.set(draftStateAtom, event.draftState)
     jotaiStore.set(draftMatchmakingTypeAtom, matchmakingType)
@@ -174,12 +178,17 @@ const eventToAction: EventToActionMap = {
     logger.debug(`Re-entered matchmaking queue`)
     audioManager.playSound(AvailableSound.EnteredQueue)
 
+    // A requeue can follow any phase of a match falling apart. `foundMatchAtom` is only set during
+    // the accept phase, so its presence here is what identifies a requeue caused by players failing
+    // to ready up; a canceled draft or a failed load clears it before the requeue arrives and
+    // carries its own messaging.
+    const failedToAccept = !!jotaiStore.get(foundMatchAtom)
     jotaiStore.set(foundMatchAtom, undefined)
 
     // If the accept-match dialog was dismissed, it won't be around to show its own "returning to
     // queue" message, so show a snackbar with the same information instead.
     const dialogOpen = getState().dialog.history.some(d => d.type === DialogType.AcceptMatch)
-    if (!dialogOpen) {
+    if (failedToAccept && !dialogOpen) {
       externalShowSnackbar(
         i18n.t(
           'matchmaking.acceptMatch.returningToQueue',

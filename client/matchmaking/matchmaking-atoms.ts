@@ -44,7 +44,42 @@ export interface FoundMatch {
   hasAccepted: boolean
 }
 
-export const foundMatchAtom = atom<FoundMatch | undefined>(undefined)
+const foundMatchBaseAtom = atom<FoundMatch | undefined>(undefined)
+const foundMatchGenerationBaseAtom = atom(0)
+
+/**
+ * The match this client is in the accept phase for, or `undefined` when there isn't one. It is set
+ * when a match is found and cleared as soon as that phase ends, whether that's the match dissolving,
+ * a draft starting, or the game beginning to load.
+ *
+ * Writing it moves `foundMatchGenerationAtom` along. Updates to the match that's already here (the
+ * accepted count and this client's accepted flag) go through the atoms below instead and leave the
+ * generation alone.
+ */
+export const foundMatchAtom = atom(
+  get => get(foundMatchBaseAtom),
+  (get, set, match: FoundMatch | undefined) => {
+    set(foundMatchBaseAtom, match)
+    set(foundMatchGenerationBaseAtom, get(foundMatchGenerationBaseAtom) + 1)
+  },
+)
+
+/**
+ * Counter identifying which found match `foundMatchAtom` currently holds. Matches carry no id of
+ * their own in the events that describe them, so this is what tells one found match apart from the
+ * next: it changes every time a match is found, replaced, or cleared. Code that starts an accept
+ * request records the generation it was sent for and compares it before acting on the result, so a
+ * response that arrives after its match is gone can't be applied to the match that took its place.
+ */
+export const foundMatchGenerationAtom = atom(get => get(foundMatchGenerationBaseAtom))
+
+/**
+ * The `foundMatchGenerationAtom` value the most recent accept request this client sent was for, or
+ * `undefined` if it hasn't sent one. `hasAcceptedAtom` only takes writes while this matches the
+ * current generation, which is what keeps a late accept response from marking a match the user
+ * never readied up for as accepted.
+ */
+export const acceptRequestGenerationAtom = atom<number | undefined>(undefined)
 
 export const matchLaunchingAtom = atom(false)
 
@@ -64,10 +99,20 @@ export function clearMatchmakingState(storeOrSetter: JotaiStore | Setter) {
   setter(launchingMatchmakingTypeAtom, undefined)
 }
 
+/**
+ * Whether this client has accepted the current found match. Only the client's own accept request
+ * can write this, and only while the match that request was sent for is still the one being
+ * accepted: accepts are answered asynchronously, so a response can outlive the match it was sent
+ * for and must not carry its result over to the match that replaced it.
+ */
 export const hasAcceptedAtom = atom(
-  get => get(foundMatchAtom)?.hasAccepted ?? false,
-  (_get, set, hasAccepted: boolean) => {
-    set(foundMatchAtom, match => {
+  get => get(foundMatchBaseAtom)?.hasAccepted ?? false,
+  (get, set, hasAccepted: boolean) => {
+    if (get(acceptRequestGenerationAtom) !== get(foundMatchGenerationBaseAtom)) {
+      return
+    }
+
+    set(foundMatchBaseAtom, match => {
       if (!match) return undefined
       return {
         ...match,
@@ -78,9 +123,9 @@ export const hasAcceptedAtom = atom(
 )
 
 export const acceptedPlayersAtom = atom(
-  get => get(foundMatchAtom)?.acceptedPlayers ?? 0,
+  get => get(foundMatchBaseAtom)?.acceptedPlayers ?? 0,
   (_get, set, acceptedPlayers: number) => {
-    set(foundMatchAtom, match => {
+    set(foundMatchBaseAtom, match => {
       if (!match) return undefined
       return {
         ...match,
