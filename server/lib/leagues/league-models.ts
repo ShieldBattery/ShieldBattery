@@ -450,36 +450,41 @@ export async function unbanLeagueUser(leagueUser: LeagueUser, withClient?: DbCli
 
 /**
  * Returns a Map of `userId` -> `LeagueUser`s for all specified users where the leagues are of
- * `matchmakingType` and running as of `atDate`.
+ * `matchmakingType` and running as of `atDate`, locking every returned `league_users` row against
+ * other transactions until this one completes.
+ *
+ * The lock is what makes reading these rows and writing back derived values (points, win/loss
+ * counters, activity dates) safe when two games for the same league membership are applied
+ * concurrently, so this must be called with a transaction's client. Rows are locked in a fixed
+ * order so overlapping transactions can't deadlock against each other. Only the `league_users` rows
+ * are locked: the joined `leagues` rows are read-only here, and locking them would block unrelated
+ * league administration for the duration of the transaction.
  */
-export async function getActiveLeaguesForUsers(
+export async function getActiveLeaguesForUsersWithLock(
   userIds: ReadonlyArray<SbUserId>,
   matchmakingType: MatchmakingType,
   atDate: Date,
-  withClient?: DbClient,
+  client: DbClient,
 ): Promise<Map<SbUserId, LeagueUser[]>> {
-  const { client, done } = await db(withClient)
-  try {
-    const result = await client.query(sql`
-      SELECT lu.*
-      FROM league_users lu
-      JOIN leagues l ON l.id = lu.league_id
-      WHERE lu.user_id = ANY(${userIds})
-        AND l.end_at > ${atDate}
-        AND l.start_at <= ${atDate}
-        AND l.matchmaking_type = ${matchmakingType}
-    `)
+  const result = await client.query(sql`
+    SELECT lu.*
+    FROM league_users lu
+    JOIN leagues l ON l.id = lu.league_id
+    WHERE lu.user_id = ANY(${userIds})
+      AND l.end_at > ${atDate}
+      AND l.start_at <= ${atDate}
+      AND l.matchmaking_type = ${matchmakingType}
+    ORDER BY lu.league_id, lu.user_id
+    FOR UPDATE OF lu
+  `)
 
-    const leaguesByUser: Map<SbUserId, LeagueUser[]> = new Map()
-    for (const row of result.rows) {
-      const leagueUser = convertLeagueUserFromDb(row)
-      appendToMultimap(leaguesByUser, leagueUser.userId, leagueUser)
-    }
-
-    return leaguesByUser
-  } finally {
-    done()
+  const leaguesByUser: Map<SbUserId, LeagueUser[]> = new Map()
+  for (const row of result.rows) {
+    const leagueUser = convertLeagueUserFromDb(row)
+    appendToMultimap(leaguesByUser, leagueUser.userId, leagueUser)
   }
+
+  return leaguesByUser
 }
 
 export interface LeagueUserChange {

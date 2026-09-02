@@ -188,10 +188,13 @@ export async function lockGameForManualResolution(
  * `dispute_requested` is left alone: it's the historical record of whether players actually asked
  * for a review. `game_length` is left alone too — manual resolution only decides outcomes.
  *
- * `assigned_matchup` is written as given, `null` included: a disputed game's stored races can
- * include a fabricated one for a player who appeared in no report, which must never be baked into a
- * matchup, so callers pass a matchup only when every player's race is known from a trustworthy
- * source. The column is already NULL for a disputed game, so writing NULL is a no-op in practice.
+ * `results` and `assigned_matchup` are written as given, `null` matchup included. A disputed game's
+ * stored races can include a fabricated one for a player who appeared in no report, so a caller that
+ * establishes every player's race from a trustworthy source passes those races in `results` and the
+ * matchup they form; a caller that can't establish them passes the stored races back unchanged and a
+ * `null` matchup. The two must always agree, since the stored races are what a game's result display
+ * is drawn from. The matchup column is already NULL for a disputed game, so writing NULL is a no-op
+ * in practice.
  */
 export async function setManuallyResolvedResult(
   client: DbClient,

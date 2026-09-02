@@ -9,10 +9,12 @@ import { GameType } from '../../../common/games/game-type'
 import { GameRecord } from '../../../common/games/games'
 import { makeMatchupString } from '../../../common/games/matchups'
 import {
+  GameClientAllianceState,
   GameClientResult,
   GameResultErrorCode,
   ReconciledPlayerResult,
 } from '../../../common/games/results'
+import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSbMapId } from '../../../common/maps'
 import { MatchmakingSeason, MatchmakingType, makeSeasonId } from '../../../common/matchmaking'
 import { AssignedRaceChar } from '../../../common/races'
@@ -20,7 +22,11 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
 import { updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
-import { getActiveLeaguesForUsers } from '../leagues/league-models'
+import {
+  LeagueUser,
+  getActiveLeaguesForUsersWithLock,
+  updateLeagueUser,
+} from '../leagues/league-models'
 import {
   DEFAULT_MATCHMAKING_RATING,
   MatchmakingRating,
@@ -90,7 +96,7 @@ vi.mock('../leagues/league-models', async () => {
   )
   return {
     ...actual,
-    getActiveLeaguesForUsers: vi.fn(),
+    getActiveLeaguesForUsersWithLock: vi.fn(),
     insertLeagueUserChange: vi.fn(),
     updateLeagueUser: vi.fn(),
   }
@@ -833,6 +839,65 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     return asMockedFunction(setManuallyResolvedResult).mock.calls[0][3]
   }
 
+  /** The same claim in the raw (v2) report form, which the server digests itself. */
+  function rawReportWithRaces(
+    reporter: SbUserId,
+    races: Array<[SbUserId, AssignedRaceChar]>,
+  ): StoredResultReport {
+    return {
+      kind: 'raw',
+      reporter,
+      raw: {
+        version: 2,
+        time: 60_000,
+        players: races.map(([id, race], i) => ({
+          userId: id,
+          bwPlayerId: i,
+          stormId: i,
+          race,
+          victoryState: id === reporter ? GameClientResult.Victory : GameClientResult.Defeat,
+          alliances: Array.from({ length: 8 }, () => GameClientAllianceState.Unallied),
+        })),
+        netPlayers: races.map((_, i) => ({ stormId: i, wasDropped: false, hasQuit: false })),
+        localPlayerLoseType: null,
+      },
+    }
+  }
+
+  /** The per-player results `setManuallyResolvedResult` was called with. */
+  function resolvedResults() {
+    return asMockedFunction(setManuallyResolvedResult).mock.calls[0][2]
+  }
+
+  const LEAGUE_ID = makeLeagueId('league-1')
+
+  function makeLeagueUser(userId: SbUserId, overrides: Partial<LeagueUser> = {}): LeagueUser {
+    return {
+      leagueId: LEAGUE_ID,
+      userId,
+      isBanned: false,
+      points: 0,
+      pointsConverged: false,
+      wins: 0,
+      losses: 0,
+      pWins: 0,
+      pLosses: 0,
+      tWins: 0,
+      tLosses: 0,
+      zWins: 0,
+      zLosses: 0,
+      rWins: 0,
+      rLosses: 0,
+      rPWins: 0,
+      rPLosses: 0,
+      rTWins: 0,
+      rTLosses: 0,
+      rZWins: 0,
+      rZLosses: 0,
+      ...overrides,
+    }
+  }
+
   let clock: FakeClock
   let service: GameResultService
   let getSeasonForDate: ReturnType<typeof vi.fn>
@@ -903,7 +968,8 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     asMockedFunction(getCurrentReportedResults).mockResolvedValue([])
     asMockedFunction(setUserReconciledResult).mockResolvedValue(undefined as any)
     asMockedFunction(incrementUserStatsCount).mockResolvedValue(undefined as any)
-    asMockedFunction(getActiveLeaguesForUsers).mockResolvedValue(new Map())
+    asMockedFunction(getActiveLeaguesForUsersWithLock).mockResolvedValue(new Map())
+    asMockedFunction(updateLeagueUser).mockResolvedValue(undefined as any)
     asMockedFunction(insertMatchmakingRatingChange).mockResolvedValue(undefined as any)
     asMockedFunction(updateMatchmakingRating).mockResolvedValue(undefined as any)
     asMockedFunction(updateRankings).mockResolvedValue(undefined)
@@ -1060,6 +1126,92 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     expect(resolvedMatchup()).toBeNull()
   })
 
+  test('derives the matchup from raw (v2) reports the same way it does from digested ones', async () => {
+    asMockedFunction(getGameRecord).mockResolvedValue(
+      makeDisputedGame({
+        config: lobbyConfig({ teams: RANDOM_PICK_TEAMS, lockedAlliances: true }),
+      }),
+    )
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue([
+      rawReportWithRaces(p1, [
+        [p1, 'p'],
+        [p2, 'z'],
+      ]),
+      rawReportWithRaces(p2, [
+        [p1, 'p'],
+        [p2, 'z'],
+      ]),
+    ])
+
+    await resolve([
+      { userId: p1, result: 'win' },
+      { userId: p2, result: 'loss' },
+    ])
+
+    expect(resolvedMatchup()).toBe(makeMatchupString('p-z'))
+  })
+
+  test('leaves the stored races alone when a race cannot be established', async () => {
+    asMockedFunction(getGameRecord).mockResolvedValue(
+      makeDisputedGame({
+        config: lobbyConfig({ teams: RANDOM_PICK_TEAMS, lockedAlliances: true }),
+      }),
+    )
+    // p1 picked random and appears in no report, so the race reconciliation stored for them is a
+    // placeholder rather than something the reports back up.
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue([
+      rawReportWithRaces(p2, [[p2, 'z']]),
+      null,
+    ])
+
+    await resolve([
+      { userId: p1, result: 'win' },
+      { userId: p2, result: 'loss' },
+    ])
+
+    expect(resolvedMatchup()).toBeNull()
+    expect(resolvedResults()).toEqual(
+      new Map([
+        [p1, { result: 'win', race: 't', apm: 120 }],
+        [p2, { result: 'loss', race: 'z', apm: 80 }],
+      ]),
+    )
+  })
+
+  test('writes the derived races into the stored results alongside the matchup', async () => {
+    // Every player picked a specific race, so the config settles all of them — but the stored
+    // results claim p1 played protoss, which the config says they couldn't have.
+    const storedResults: Array<[SbUserId, ReconciledPlayerResult]> = [
+      [p1, { result: 'unknown', race: 'p', apm: 120 }],
+      [p2, { result: 'unknown', race: 'z', apm: 80 }],
+    ]
+    asMockedFunction(getGameRecord).mockResolvedValue(
+      makeDisputedGame({ config: lobbyConfig({ lockedAlliances: true }), results: storedResults }),
+    )
+    asMockedFunction(lockGameForManualResolution).mockResolvedValue({
+      disputable: true,
+      results: storedResults,
+    })
+
+    await resolve([
+      { userId: p1, result: 'win' },
+      { userId: p2, result: 'loss' },
+    ])
+
+    expect(resolvedMatchup()).toBe(makeMatchupString('t-z'))
+    expect(resolvedResults()).toEqual(
+      new Map([
+        [p1, { result: 'win', race: 't', apm: 120 }],
+        [p2, { result: 'loss', race: 'z', apm: 80 }],
+      ]),
+    )
+    expect(setUserReconciledResult).toHaveBeenCalledWith(expect.anything(), p1, GAME_ID, {
+      result: 'win',
+      race: 't',
+      apm: 120,
+    })
+  })
+
   test('applies rating, points and ranking changes for a 1v1 matchmaking game', async () => {
     asMockedFunction(getGameRecord).mockResolvedValue(
       makeDisputedGame({ config: matchmakingConfig(DEFAULT_TEAMS) }),
@@ -1158,6 +1310,85 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     )
     expect(updatedRatings.find(mmr => mmr.userId === p1)!.lastPlayedDate).toEqual(new Date(900_000))
     expect(updatedRatings.find(mmr => mmr.userId === p2)!.lastPlayedDate).toEqual(new Date(560_000))
+  })
+
+  test('clamps an activity date that a reported game length would push into the future', async () => {
+    asMockedFunction(getGameRecord).mockResolvedValue(
+      makeDisputedGame({
+        config: matchmakingConfig(DEFAULT_TEAMS),
+        startTime: new Date(500_000),
+        // A client-reported length that would end the game long after it was resolved.
+        gameLength: 1_000_000_000,
+      }),
+    )
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue([makeMmr(p1), makeMmr(p2)])
+
+    await resolve([
+      { userId: p1, result: 'win' },
+      { userId: p2, result: 'loss' },
+    ])
+
+    const updatedRatings = asMockedFunction(updateMatchmakingRating).mock.calls.map(
+      ([, mmr]) => mmr,
+    )
+    expect(updatedRatings).toHaveLength(2)
+    for (const mmr of updatedRatings) {
+      expect(mmr.lastPlayedDate).toEqual(new Date(clock.now()))
+    }
+  })
+
+  test('dates the rating activity from the game start when the length is unknown', async () => {
+    asMockedFunction(getGameRecord).mockResolvedValue(
+      makeDisputedGame({
+        config: matchmakingConfig(DEFAULT_TEAMS),
+        startTime: new Date(500_000),
+        gameLength: null,
+      }),
+    )
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue([makeMmr(p1), makeMmr(p2)])
+
+    await resolve([
+      { userId: p1, result: 'win' },
+      { userId: p2, result: 'loss' },
+    ])
+
+    const updatedRatings = asMockedFunction(updateMatchmakingRating).mock.calls.map(
+      ([, mmr]) => mmr,
+    )
+    expect(updatedRatings).toHaveLength(2)
+    for (const mmr of updatedRatings) {
+      expect(mmr.lastPlayedDate).toEqual(new Date(500_000))
+    }
+  })
+
+  test('dates league activity from the end of the game, including a never-played membership', async () => {
+    asMockedFunction(getGameRecord).mockResolvedValue(
+      makeDisputedGame({
+        config: matchmakingConfig(DEFAULT_TEAMS),
+        startTime: new Date(500_000),
+        gameLength: 60_000,
+      }),
+    )
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue([makeMmr(p1), makeMmr(p2)])
+    asMockedFunction(getActiveLeaguesForUsersWithLock).mockResolvedValue(
+      new Map([
+        // p1 has never played in the league, p2 already has a newer game applied.
+        [p1, [makeLeagueUser(p1)]],
+        [p2, [makeLeagueUser(p2, { lastPlayedDate: new Date(900_000) })]],
+      ]),
+    )
+
+    await resolve([
+      { userId: p1, result: 'win' },
+      { userId: p2, result: 'loss' },
+    ])
+
+    const updatedLeagueUsers = asMockedFunction(updateLeagueUser).mock.calls.map(
+      ([leagueUser]) => leagueUser,
+    )
+    expect(updatedLeagueUsers).toHaveLength(2)
+    expect(updatedLeagueUsers.find(l => l.userId === p1)!.lastPlayedDate).toEqual(new Date(560_000))
+    expect(updatedLeagueUsers.find(l => l.userId === p2)!.lastPlayedDate).toEqual(new Date(900_000))
   })
 
   test('records the resolution without rating changes once the season is finalized', async () => {

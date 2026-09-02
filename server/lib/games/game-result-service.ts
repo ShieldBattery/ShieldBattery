@@ -35,7 +35,7 @@ import {
   toMatchmakingSeasonJson,
   toPublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
-import { RaceChar } from '../../../common/races'
+import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
@@ -63,7 +63,7 @@ import { updateLeaderboards } from '../leagues/leaderboard'
 import {
   LeagueUser,
   LeagueUserChange,
-  getActiveLeaguesForUsers,
+  getActiveLeaguesForUsersWithLock,
   getLeagueUserChangesForGame,
   getLeaguesById,
   insertLeagueUserChange,
@@ -234,22 +234,28 @@ function digestStoredReports(
 }
 
 /**
- * Determines the assigned matchup for a game being resolved by hand, or `null` when any player's
- * assigned race can't be established from a trustworthy source.
+ * Determines every player's assigned race for a game being resolved by hand, plus the matchup those
+ * races form, or `null` when any player's assigned race can't be established from a trustworthy
+ * source.
  *
  * A player who picked a specific race in the config settles their own race: the game can't have
  * given them a different one, so no report is consulted for them. A player who picked random only
  * has the reports to go on, and a game that ended in a dispute can have reports that disagree about
  * a race or omit a player entirely, so a random player's race counts as known only when they appear
- * in at least one report and every appearance agrees. Anything short of that leaves the whole
- * matchup unknown rather than baking in a guess — the same standard reconciliation applies when it
- * refuses to assign a matchup to a disputed game.
+ * in at least one report and every appearance agrees. Anything short of that leaves the whole set
+ * unknown rather than baking in a guess — the same standard reconciliation applies when it refuses
+ * to assign a matchup to a disputed game.
  *
- * Games with computer players never get a matchup: they're exempt from results entirely.
+ * The matchup is formatted from exactly these races, so a game's stored per-player races and its
+ * `assigned_matchup` always describe the same game.
+ *
+ * Games with computer players never get races derived this way: they're exempt from results
+ * entirely.
  */
-async function computeManualResolutionMatchup(
-  gameRecord: GameRecord,
-): Promise<MatchupString | null> {
+async function deriveManualResolutionRaces(gameRecord: GameRecord): Promise<{
+  races: Map<SbUserId, AssignedRaceChar>
+  matchup: MatchupString | null
+} | null> {
   if (gameRecord.config.teams.some(team => team.some(p => p.isComputer))) {
     return null
   }
@@ -260,8 +266,8 @@ async function computeManualResolutionMatchup(
   }
 
   const players = teams.flat()
-  const assignedRaces = new Map<SbUserId, RaceChar>(
-    players.filter(p => p.race !== 'r').map(p => [p.id, p.race]),
+  const races = new Map<SbUserId, AssignedRaceChar>(
+    players.flatMap(p => (p.race !== 'r' ? [[p.id, p.race] as const] : [])),
   )
 
   const randomPlayers = players.filter(p => p.race === 'r')
@@ -272,7 +278,7 @@ async function computeManualResolutionMatchup(
     )
 
     for (const player of randomPlayers) {
-      const reportedRaces = new Set<RaceChar>()
+      const reportedRaces = new Set<AssignedRaceChar>()
       for (const submission of submissions) {
         for (const [id, result] of submission?.playerResults ?? []) {
           if (id === player.id) {
@@ -282,16 +288,19 @@ async function computeManualResolutionMatchup(
       }
 
       if (reportedRaces.size === 1) {
-        assignedRaces.set(player.id, reportedRaces.values().next().value!)
+        races.set(player.id, reportedRaces.values().next().value!)
       }
     }
   }
 
-  if (players.some(p => !assignedRaces.has(p.id))) {
+  if (players.some(p => !races.has(p.id))) {
     return null
   }
 
-  return computeMatchupString(teams.map(team => team.map(p => assignedRaces.get(p.id)!)))
+  return {
+    races,
+    matchup: computeMatchupString(teams.map(team => team.map(p => races.get(p.id)!))),
+  }
 }
 
 /**
@@ -1052,7 +1061,14 @@ export default class GameResultService {
     // Activity dates describe when a game was *played*, which can be long before its results are
     // applied: a periodic sweep or an admin resolving a dispute can land days later. A missing game
     // length degrades to the start time, which is still far closer than the application time.
-    const gameEndDate = new Date(Number(gameRecord.startTime) + reconciled.time)
+    //
+    // The length comes from client reports and is only bounded below, so the end date is clamped to
+    // the date these effects are being applied: a game can't have ended after it was recorded, and
+    // the activity dates below only ever move forward, which would make a future date permanent and
+    // hide the player from inactivity handling indefinitely.
+    const gameEndDate = new Date(
+      Math.min(Number(gameRecord.startTime) + reconciled.time, Number(reconcileDate)),
+    )
 
     const [season, seasonEnd] = await this.matchmakingSeasonsService.getSeasonForDate(
       gameRecord.startTime,
@@ -1079,7 +1095,7 @@ export default class GameResultService {
         gameRecord.config.gameSourceExtra.type,
         season.id,
       )
-      const activeLeagues = await getActiveLeaguesForUsers(
+      const activeLeagues = await getActiveLeaguesForUsersWithLock(
         userIds,
         gameRecord.config.gameSourceExtra.type,
         gameRecord.startTime,
@@ -1299,10 +1315,13 @@ export default class GameResultService {
    * rating, points and league changes for a ranked game. A disputed game never had any of those
    * applied, so this only ever adds effects, never reverses them.
    *
-   * Only the outcomes change: each player's stored race and APM, and the game's length, are left
-   * exactly as reconciliation left them. The assigned matchup is filled in here, since a disputed
-   * game is never given one, but only when every player's race can be established from a
-   * trustworthy source (see `computeManualResolutionMatchup`).
+   * Each player's stored APM and the game's length are left exactly as reconciliation left them.
+   * Races and the assigned matchup are filled in together from the same derived races (see
+   * `deriveManualResolutionRaces`), and only when every player's race can be established from a
+   * trustworthy source: reconciliation substitutes a placeholder race for a player who appeared in
+   * no report, so a stored race is only as reliable as the reports behind it, and the stored races
+   * must always describe the same game the matchup does. When some race can't be established,
+   * neither is written and the stored races stand as reconciliation left them.
    *
    * @returns the updated game record, and whether matchmaking rating changes were actually applied
    *   (see `applyReconciledResultEffects`)
@@ -1325,7 +1344,7 @@ export default class GameResultService {
     // Derived from the config and the stored reports, both immutable once a game has reconciled to
     // a dispute — so this can run before the transaction rather than acquiring a second pool
     // connection while holding the games row lock.
-    const assignedMatchup = await computeManualResolutionMatchup(gameRecord)
+    const derived = await deriveManualResolutionRaces(gameRecord)
 
     const { ratingsApplied } = await transact(async client => {
       // Everything this decides on has to be read under the games row lock: two admins can submit a
@@ -1367,7 +1386,11 @@ export default class GameResultService {
       const newResults = new Map<SbUserId, ReconciledPlayerResult>(
         Array.from(storedResults, ([userId, stored]) => [
           userId,
-          { ...stored, result: submitted.get(userId)! },
+          {
+            ...stored,
+            result: submitted.get(userId)!,
+            race: derived?.races.get(userId) ?? stored.race,
+          },
         ]),
       )
       const reconciled: ReconciledResults = {
@@ -1382,7 +1405,7 @@ export default class GameResultService {
         client,
         gameId,
         newResults,
-        assignedMatchup,
+        derived?.matchup ?? null,
         resolvedBy,
         resolvedAt,
       )
