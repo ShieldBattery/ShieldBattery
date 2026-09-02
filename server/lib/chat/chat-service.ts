@@ -77,6 +77,7 @@ import {
   getChannelBans,
   getChannelInfo,
   getChannelInfos,
+  getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
   getUnreadChannelInfo,
@@ -965,6 +966,7 @@ export default class ChatService {
     beforeTime,
     afterTime,
     aroundTime,
+    aroundMessageId,
     isAdmin,
   }: {
     channelId: SbChannelId
@@ -973,6 +975,7 @@ export default class ChatService {
     beforeTime?: number
     afterTime?: number
     aroundTime?: number
+    aroundMessageId?: string
     isAdmin?: boolean
   }): Promise<GetChannelHistoryServerResponse> {
     const isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channelId))
@@ -991,6 +994,15 @@ export default class ChatService {
       cursor = { kind: 'after', date: new Date(afterTime) }
     } else if (aroundTime !== undefined && aroundTime >= 0) {
       cursor = { kind: 'around', date: new Date(aroundTime) }
+    } else if (aroundMessageId !== undefined) {
+      const sentTime = await getChannelMessageSentTime(channelId, aroundMessageId)
+      if (sentTime === undefined) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.MessageNotFound,
+          'Message not found in this channel',
+        )
+      }
+      cursor = { kind: 'around', date: sentTime }
     }
 
     const {

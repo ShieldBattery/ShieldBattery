@@ -301,5 +301,7 @@ export function navigateToWhisper(targetId: SbUserId, targetName: string, transi
  * for their user ID.
  */
 export function correctUsernameForWhisper(userId: SbUserId, username: string) {
-  replace(urlPath`/whispers/${userId}/${username}`)
+  // The correction is only about the name segment: the rest of the URL still describes what the
+  // user asked for, so it survives being sent to the canonical name.
+  replace(urlPath`/whispers/${userId}/${username}` + window.location.search)
 }

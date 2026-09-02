@@ -207,6 +207,7 @@ function convertChatServiceError(err: unknown) {
 
   switch (err.code) {
     case ChatServiceErrorCode.ChannelNotFound:
+    case ChatServiceErrorCode.MessageNotFound:
     case ChatServiceErrorCode.NotInChannel:
     case ChatServiceErrorCode.TargetNotBanned:
     case ChatServiceErrorCode.TargetNotInChannel:
@@ -366,19 +367,21 @@ export class ChatApi {
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
-      query: { limit, beforeTime, afterTime, aroundTime },
+      query: { limit, beforeTime, afterTime, aroundTime, aroundMessageId },
     } = validateRequest(ctx, {
       query: Joi.object<{
         limit: number
         beforeTime?: number
         afterTime?: number
         aroundTime?: number
+        aroundMessageId?: string
       }>({
         limit: Joi.number().min(1).max(100),
         beforeTime: joiTimestampMillis().min(-1),
         afterTime: joiTimestampMillis().min(0),
         aroundTime: joiTimestampMillis().min(0),
-      }).oxor('beforeTime', 'afterTime', 'aroundTime'),
+        aroundMessageId: Joi.string().uuid(),
+      }).oxor('beforeTime', 'afterTime', 'aroundTime', 'aroundMessageId'),
     })
 
     return await this.chatService.getChannelHistory({
@@ -388,6 +391,7 @@ export class ChatApi {
       beforeTime,
       afterTime,
       aroundTime,
+      aroundMessageId,
     })
   }
 

@@ -5,7 +5,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -62,7 +62,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -124,7 +124,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -188,7 +188,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -265,7 +265,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -357,7 +357,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -427,7 +427,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -503,7 +503,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -588,7 +588,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt TFjef"
+    class="sc-jvDgNt bWKAqk"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -658,7 +658,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >
@@ -725,7 +725,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
   data-testid="message-container"
 >
   <div
-    class="sc-jvDgNt jfqicU"
+    class="sc-jvDgNt kzcowL"
     data-message-id="MESSAGE_ID"
     role="document"
   >

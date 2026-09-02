@@ -37,6 +37,7 @@ export enum ChatServiceErrorCode {
   InappropriateImage = 'InappropriateImage',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
+  MessageNotFound = 'MessageNotFound',
   NoInitialChannelData = 'NoChannelData',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',

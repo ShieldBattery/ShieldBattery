@@ -262,7 +262,10 @@ export interface LoadMessagesAroundBegin {
   payload: {
     channelId: SbChannelId
     limit: number
-    aroundTime: number
+    /** The time the window was asked for around, when the request named a time. */
+    aroundTime?: number
+    /** The message the window was asked for around, when the request named a message. */
+    aroundMessageId?: string
     windowGen: number
     /**
      * The newest server-recorded message time (epoch ms) this client knew existed when the request
@@ -276,9 +279,9 @@ export interface LoadMessagesAroundBegin {
 }
 
 /**
- * Loads a window of up to `limit` messages in a chat channel centered on a particular time. The
- * result replaces whatever was loaded for the channel, since the fetched range doesn't have to
- * touch it.
+ * Loads a window of up to `limit` messages in a chat channel centered on a particular point in its
+ * history, named either by time or by one of its messages. The result replaces whatever was loaded
+ * for the channel, since the fetched range doesn't have to touch it.
  */
 export interface LoadMessagesAround {
   type: '@chat/loadMessagesAround'
@@ -286,7 +289,10 @@ export interface LoadMessagesAround {
   meta: {
     channelId: SbChannelId
     limit: number
-    aroundTime: number
+    /** The time the window was asked for around, when the request named a time. */
+    aroundTime?: number
+    /** The message the window was asked for around, when the request named a message. */
+    aroundMessageId?: string
     windowGen: number
     /**
      * The newest server-recorded message time (epoch ms) this client knew existed when the request
@@ -304,7 +310,10 @@ export interface LoadMessagesAroundFailure extends BaseFetchFailure<'@chat/loadM
   meta: {
     channelId: SbChannelId
     limit: number
-    aroundTime: number
+    /** The time the window was asked for around, when the request named a time. */
+    aroundTime?: number
+    /** The message the window was asked for around, when the request named a message. */
+    aroundMessageId?: string
     windowGen: number
     /**
      * The newest server-recorded message time (epoch ms) this client knew existed when the request

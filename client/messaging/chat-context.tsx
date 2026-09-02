@@ -12,6 +12,12 @@ export interface ChatContextValue {
   MessageMenu: MessageMenuComponent
   /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
   disallowMentionInteraction?: boolean
+  /**
+   * Id of the message the list has just been sent to by a link, if any. It's highlighted so the
+   * user can tell which of the messages around it they came for; the highlight is dropped (and
+   * fades out) a short while after the list arrives.
+   */
+  linkedMessageId?: string
 }
 
 export const ChatContext = React.createContext<ChatContextValue>({

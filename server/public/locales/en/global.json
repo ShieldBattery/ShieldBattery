@@ -359,6 +359,10 @@
       "errorMessage": "Error deleting message",
       "successMessage": "Message deleted"
     },
+    "errors": {
+      "loadingHistory": "Error loading message history: {{errorMessage}}",
+      "messageNotFound": "That message couldn't be found. It may have been deleted."
+    },
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
       "genericError": "An error occurred while joining #{{channelName}}",
@@ -390,6 +394,7 @@
       "selfJoinChannel": "You joined <2><0></0></2>"
     },
     "messageMenu": {
+      "copyMessageLink": "Copy message link",
       "deleteMessage": "Delete message"
     },
     "navEntry": {

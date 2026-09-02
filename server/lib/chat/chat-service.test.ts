@@ -7,6 +7,7 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   ChannelPreferences,
+  ChatServiceErrorCode,
   DetailedChannelInfo,
   GetChannelHistoryServerResponse,
   JoinedChannelInfo,
@@ -52,6 +53,7 @@ import {
   getChannelBans,
   getChannelInfo,
   getChannelInfos,
+  getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
   getUnreadChannelInfo,
@@ -143,6 +145,7 @@ vi.mock('./chat-models', async () => {
     getMessagesForChannel: vi
       .fn()
       .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
+    getChannelMessageSentTime: vi.fn(),
     deleteChannelMessage: vi.fn(),
     removeUserFromChannel: vi.fn(),
     updateUserPreferences: vi.fn(),
@@ -2407,6 +2410,37 @@ describe('chat/chat-service', () => {
           kind: 'around',
           date: new Date(3000),
         })
+      })
+
+      test('uses an around cursor at the message time when aroundMessageId is given', async () => {
+        const messageId = 'MESSAGE_ID'
+        asMockedFunction(getChannelMessageSentTime).mockResolvedValue(new Date(3000))
+
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          aroundMessageId: messageId,
+        })
+
+        expect(getChannelMessageSentTime).toHaveBeenCalledWith(testChannel.id, messageId)
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'around',
+          date: new Date(3000),
+        })
+      })
+
+      test('throws MessageNotFound when aroundMessageId names no message in the channel', async () => {
+        asMockedFunction(getChannelMessageSentTime).mockResolvedValue(undefined)
+
+        await expect(
+          chatService.getChannelHistory({
+            channelId: testChannel.id,
+            userId: user1.id,
+            limit: 50,
+            aroundMessageId: 'MESSAGE_ID',
+          }),
+        ).rejects.toMatchObject({ code: ChatServiceErrorCode.MessageNotFound })
       })
     })
   })
