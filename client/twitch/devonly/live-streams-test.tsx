@@ -13,6 +13,7 @@ import {
   ViewerCountPill,
 } from '../live-indicators'
 import { FeaturedLiveStreamEntry } from '../live-stream-entry'
+import { LiveStreamsGrid } from '../live-streams-page'
 
 /** Builds a gradient placeholder thumbnail as a data URI (no remote images in dev). */
 function thumb(from: string, to: string) {
@@ -164,20 +165,14 @@ export function LiveStreamsTest() {
       </LobbySlotRow>
 
       <SectionTitle>Live page grid</SectionTitle>
-      <PageGrid>
+      <LiveStreamsGrid>
         {mockEntries.map((query, i) => (
           <FeaturedLiveStreamEntry key={i} query={query} />
         ))}
-      </PageGrid>
+      </LiveStreamsGrid>
     </Root>
   )
 }
-
-const PageGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-`
 
 const LobbySlotRow = styled.div`
   ${titleSmall};

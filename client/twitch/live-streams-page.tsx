@@ -29,7 +29,8 @@ const PageHeader = styled.div`
   margin-bottom: 24px;
 `
 
-const Grid = styled.div`
+/** The featured-entry grid of the live streams page. */
+export const LiveStreamsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   /*
@@ -63,11 +64,11 @@ export function LiveStreamsPage() {
       <Content>
         <PageHeader>{t('twitch.liveStreams.pageTitle', 'Live streams')}</PageHeader>
         {sorted.length > 0 ? (
-          <Grid>
+          <LiveStreamsGrid>
             {sorted.map(stream => (
               <FeaturedLiveStreamEntry key={stream.twitchLogin} query={stream} />
             ))}
-          </Grid>
+          </LiveStreamsGrid>
         ) : (
           <EmptyText>
             {t('twitch.liveStreams.empty', 'No one is streaming StarCraft right now.')}
