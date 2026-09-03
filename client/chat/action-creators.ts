@@ -544,7 +544,7 @@ export function getMessagesAroundMessage(
 
     const promise = fetchJson<GetChannelHistoryServerResponse>(
       apiUrl`chat/${channelId}/messages2?limit=${limit}&aroundMessageId=${messageId}`,
-      { method: 'GET' },
+      { method: 'GET', signal: spec.signal },
     )
     dispatch({
       type: '@chat/loadMessagesAroundBegin',
