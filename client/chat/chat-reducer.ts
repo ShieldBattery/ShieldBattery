@@ -1016,9 +1016,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    const { channelInfos, detailedChannelInfos, joinedChannelInfos } = action.payload
+    const { channelInfos, detailedChannelInfos, joinedChannelInfos, deletedChannels } =
+      action.payload
 
     updateChannelInfos(state, channelInfos, detailedChannelInfos, joinedChannelInfos)
+    updateDeletedChannels(state, deletedChannels)
   },
 
   ['@chat/searchChannels'](state, action) {

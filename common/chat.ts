@@ -709,6 +709,11 @@ export interface GetBatchedChannelInfosResponse {
   channelInfos: BasicChannelInfo[]
   detailedChannelInfos: DetailedChannelInfo[]
   joinedChannelInfos: JoinedChannelInfo[]
+  /**
+   * Requested channel IDs that name no existing channel (deleted, or never existed), so a client
+   * can stop treating them as still loading.
+   */
+  deletedChannels: SbChannelId[]
 }
 
 /**

@@ -915,10 +915,21 @@ export default class ChatService {
       joinedChannelInfos.push(toJoinedChannelInfo(channel))
     }
 
+    const deletedChannels =
+      channelIds.length === channelInfos.length
+        ? []
+        : Array.from(
+            subtract(
+              new global.Set(channelIds),
+              channelInfos.map(c => c.id),
+            ),
+          )
+
     return {
       channelInfos: channelInfos.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos,
       joinedChannelInfos,
+      deletedChannels,
     }
   }
 

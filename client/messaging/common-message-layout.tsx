@@ -8,6 +8,7 @@ import { matchLinks } from '../../common/text/links'
 import { countEmojisIn, matchUnicodeEmojis } from '../../common/text/unicode-emojis'
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { channelMessageFromMessageLink, ChannelMessageLink } from '../chat/channel-message-link'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { TransInterpolation } from '../i18n/i18next'
@@ -185,11 +186,22 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         inviteLobbyId = lobbyIdFromMessageLink(match.text)
       }
 
-      parsedText.push(
-        <ExternalLink key={match.index} href={match.text}>
-          {match.text}
-        </ExternalLink>,
-      )
+      const channelMessage = channelMessageFromMessageLink(match.text)
+      if (channelMessage) {
+        parsedText.push(
+          <ChannelMessageLink
+            key={match.index}
+            href={match.text}
+            channelId={channelMessage.channelId}
+          />,
+        )
+      } else {
+        parsedText.push(
+          <ExternalLink key={match.index} href={match.text}>
+            {match.text}
+          </ExternalLink>,
+        )
+      }
     } else if (match.type === 'unicodeEmoji') {
       parsedText.push(
         <UnicodeEmoji key={match.index} $jumbo={jumboEmoji}>

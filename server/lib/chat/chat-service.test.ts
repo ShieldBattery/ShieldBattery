@@ -1996,6 +1996,7 @@ describe('chat/chat-service', () => {
         channelInfos: [],
         detailedChannelInfos: [],
         joinedChannelInfos: [],
+        deletedChannels: [],
       })
     })
 
@@ -2011,6 +2012,24 @@ describe('chat/chat-service', () => {
         channelInfos: [shieldBatteryBasicInfo, testBasicInfo],
         detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
         joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+        deletedChannels: [],
+      })
+    })
+
+    test('returns requested ids that name no existing channel as deleted', async () => {
+      const DELETED_ID = makeSbChannelId(999)
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+
+      const result = await chatService.getChannelInfos(
+        [shieldBatteryChannel.id, DELETED_ID],
+        user1.id,
+      )
+
+      expect(result).toEqual({
+        channelInfos: [shieldBatteryBasicInfo],
+        detailedChannelInfos: [shieldBatteryDetailedInfo],
+        joinedChannelInfos: [shieldBatteryJoinedInfo],
+        deletedChannels: [DELETED_ID],
       })
     })
 
@@ -2032,6 +2051,7 @@ describe('chat/chat-service', () => {
           channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
           detailedChannelInfos: [shieldBatteryDetailedInfo],
           joinedChannelInfos: [shieldBatteryJoinedInfo],
+          deletedChannels: [],
         })
       })
 
@@ -2055,6 +2075,7 @@ describe('chat/chat-service', () => {
             { ...testDetailedInfo, userCount: testChannel.userCount },
           ],
           joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+          deletedChannels: [],
         })
       })
     })

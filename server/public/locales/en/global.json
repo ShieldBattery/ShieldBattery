@@ -393,6 +393,9 @@
       "newChannelOwner": "<0><0></0></0> is the new owner of the channel",
       "selfJoinChannel": "You joined <2><0></0></2>"
     },
+    "messageLink": {
+      "label": "message"
+    },
     "messageMenu": {
       "copyMessageLink": "Copy message link",
       "deleteMessage": "Delete message"
