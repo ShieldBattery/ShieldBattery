@@ -39,7 +39,10 @@ export interface ConnectedChannelNameProps {
 
 /**
  * A component which, given a channel ID, displays a clickable channel name, which displays channel
- * info when clicked.
+ * info when clicked. Renders one of three non-name placeholders instead when there's no name to
+ * show: a loading skeleton while the channel's info hasn't arrived yet, "#deleted-channel" for an
+ * id that no longer names any channel, and "#private-channel" for a private channel the viewer
+ * isn't a member of (the server withholds its name from non-members).
  */
 export function ConnectedChannelName({
   className,
@@ -50,12 +53,13 @@ export function ConnectedChannelName({
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const isChannelDeleted = useAppSelector(s => s.chat.deletedChannels.has(channelId))
+  const isChannelPrivate = useAppSelector(s => s.chat.privateChannels.has(channelId))
 
   useEffect(() => {
-    if (!isChannelDeleted) {
+    if (!isChannelDeleted && !isChannelPrivate) {
       dispatch(getBatchChannelInfo(channelId))
     }
-  }, [dispatch, channelId, isChannelDeleted])
+  }, [dispatch, channelId, isChannelDeleted, isChannelPrivate])
 
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController({
@@ -70,7 +74,15 @@ export function ConnectedChannelName({
   }
 
   if (isChannelDeleted) {
-    return <span>#{t('chat.channelName.deletedChannel', 'deleted-channel')}</span>
+    return (
+      <span className={className}>#{t('chat.channelName.deletedChannel', 'deleted-channel')}</span>
+    )
+  }
+
+  if (isChannelPrivate) {
+    return (
+      <span className={className}>#{t('chat.channelName.privateChannel', 'private-channel')}</span>
+    )
   }
 
   return (

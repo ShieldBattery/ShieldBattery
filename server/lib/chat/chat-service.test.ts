@@ -1997,6 +1997,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfos: [],
         joinedChannelInfos: [],
         deletedChannels: [],
+        privateChannels: [],
       })
     })
 
@@ -2013,6 +2014,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
         joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
         deletedChannels: [],
+        privateChannels: [],
       })
     })
 
@@ -2030,6 +2032,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfos: [shieldBatteryDetailedInfo],
         joinedChannelInfos: [shieldBatteryJoinedInfo],
         deletedChannels: [DELETED_ID],
+        privateChannels: [],
       })
     })
 
@@ -2041,17 +2044,18 @@ describe('chat/chat-service', () => {
         ])
       })
 
-      test("doesn't return detailed and joined channel infos for private channels", async () => {
+      test("doesn't return channel, detailed, or joined info for private channels the user isn't in", async () => {
         const result = await chatService.getChannelInfos(
           [shieldBatteryChannel.id, testChannel.id],
           user1.id,
         )
 
         expect(result).toEqual({
-          channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
+          channelInfos: [shieldBatteryBasicInfo],
           detailedChannelInfos: [shieldBatteryDetailedInfo],
           joinedChannelInfos: [shieldBatteryJoinedInfo],
           deletedChannels: [],
+          privateChannels: [testChannel.id],
         })
       })
 
@@ -2076,6 +2080,7 @@ describe('chat/chat-service', () => {
           ],
           joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
           deletedChannels: [],
+          privateChannels: [],
         })
       })
     })

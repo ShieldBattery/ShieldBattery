@@ -674,8 +674,14 @@ const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
 export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
   return (dispatch, getState) => {
     const {
-      chat: { idToBasicInfo, idToDetailedInfo },
+      chat: { idToBasicInfo, idToDetailedInfo, deletedChannels, privateChannels },
     } = getState()
+
+    // The server would just report the same thing again for either of these, so re-requesting
+    // them on every mount of a name for the channel would only add load for no new information.
+    if (deletedChannels.has(channelId) || privateChannels.has(channelId)) {
+      return
+    }
 
     if (!idToBasicInfo.has(channelId) || !idToDetailedInfo.has(channelId)) {
       channelsBatchRequester.request(dispatch, channelId)

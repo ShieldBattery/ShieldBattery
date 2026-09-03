@@ -98,6 +98,12 @@ export interface ChatState {
   /** A set of channel IDs saved in various chat messages that no longer exist. */
   deletedChannels: Set<SbChannelId>
   /**
+   * Channels known to exist whose info the server withheld because they're private and the user
+   * isn't a member. An id leaves this set as soon as its info arrives (e.g. after the user is
+   * invited and joins).
+   */
+  privateChannels: Set<SbChannelId>
+  /**
    * A map of channel ID -> the client's view of the server-recorded read position (epoch ms).
    * Seeded from the server at init, and advanced optimistically whenever the client reports a
    * mark-read for the channel.
@@ -134,6 +140,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   atBottomChannels: new Set(),
   unreadChannels: new Set(),
   deletedChannels: new Set(),
+  privateChannels: new Set(),
   idToLastReadTime: new Map(),
   idToLatestMentionTime: new Map(),
   idToUnreadLineTime: new Map(),
@@ -489,6 +496,7 @@ function updateChannelInfos(
   for (const channel of basicChannelInfos) {
     state.idToBasicInfo.set(channel.id, channel)
     state.deletedChannels.delete(channel.id)
+    state.privateChannels.delete(channel.id)
   }
   for (const channel of detailedChannelInfos) {
     state.idToDetailedInfo.set(channel.id, channel)
@@ -501,6 +509,12 @@ function updateChannelInfos(
 function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[]) {
   for (const channelId of deletedChannels) {
     state.deletedChannels.add(channelId)
+  }
+}
+
+function updatePrivateChannels(state: ChatState, privateChannels: SbChannelId[]) {
+  for (const channelId of privateChannels) {
+    state.privateChannels.add(channelId)
   }
 }
 
@@ -1016,11 +1030,17 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    const { channelInfos, detailedChannelInfos, joinedChannelInfos, deletedChannels } =
-      action.payload
+    const {
+      channelInfos,
+      detailedChannelInfos,
+      joinedChannelInfos,
+      deletedChannels,
+      privateChannels,
+    } = action.payload
 
     updateChannelInfos(state, channelInfos, detailedChannelInfos, joinedChannelInfos)
     updateDeletedChannels(state, deletedChannels)
+    updatePrivateChannels(state, privateChannels)
   },
 
   ['@chat/searchChannels'](state, action) {

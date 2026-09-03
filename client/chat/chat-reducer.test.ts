@@ -6,6 +6,7 @@ import {
   ChatMessage,
   ChatMessageEvent,
   ClientChatMessageType,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   InitialChannelData,
   SbChannelId,
@@ -101,6 +102,7 @@ function makeState(
     atBottomChannels: new Set(overrides.atBottom ? [CHANNEL_ID] : []),
     unreadChannels: new Set(overrides.unread ? [CHANNEL_ID] : []),
     deletedChannels: new Set(),
+    privateChannels: new Set(),
     idToLastReadTime: new Map(
       overrides.lastReadTime !== undefined ? [[CHANNEL_ID, overrides.lastReadTime]] : [],
     ),
@@ -474,6 +476,57 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
 
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('@chat/getBatchChannelInfo', () => {
+    const PRIVATE_CHANNEL_ID = makeSbChannelId(2)
+
+    function getBatchChannelInfoAction(
+      payload: Partial<GetBatchedChannelInfosResponse> = {},
+    ): ChatActions {
+      return {
+        type: '@chat/getBatchChannelInfo',
+        payload: {
+          channelInfos: [],
+          detailedChannelInfos: [],
+          joinedChannelInfos: [],
+          deletedChannels: [],
+          privateChannels: [],
+          ...payload,
+        },
+      }
+    }
+
+    test('adds ids the server reports as private to privateChannels', () => {
+      const state = makeState()
+
+      const result = chatReducer(
+        state,
+        getBatchChannelInfoAction({ privateChannels: [PRIVATE_CHANNEL_ID] }),
+      )
+
+      expect(result.privateChannels.has(PRIVATE_CHANNEL_ID)).toBe(true)
+    })
+
+    test('clears an id from privateChannels once its basic info arrives', () => {
+      const state = makeState()
+      const withPrivate = chatReducer(
+        state,
+        getBatchChannelInfoAction({ privateChannels: [PRIVATE_CHANNEL_ID] }),
+      )
+
+      const result = chatReducer(
+        withPrivate,
+        getBatchChannelInfoAction({
+          channelInfos: [
+            { id: PRIVATE_CHANNEL_ID, name: 'now-visible', private: false, official: false },
+          ],
+        }),
+      )
+
+      expect(result.privateChannels.has(PRIVATE_CHANNEL_ID)).toBe(false)
+      expect(result.idToBasicInfo.get(PRIVATE_CHANNEL_ID)?.name).toBe('now-visible')
     })
   })
 

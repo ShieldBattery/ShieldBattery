@@ -285,7 +285,8 @@
       "kickAction": "Kick {{user}}"
     },
     "channelName": {
-      "deletedChannel": "deleted-channel"
+      "deletedChannel": "deleted-channel",
+      "privateChannel": "private-channel"
     },
     "channelSettings": {
       "bannedUsers": {

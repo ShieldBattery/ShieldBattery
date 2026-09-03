@@ -714,6 +714,12 @@ export interface GetBatchedChannelInfosResponse {
    * can stop treating them as still loading.
    */
   deletedChannels: SbChannelId[]
+  /**
+   * Requested channel IDs that exist but are private and the requester isn't a member of. Nothing
+   * about them is returned beyond the id, so a client can show a generic private-channel label
+   * instead of waiting for a name.
+   */
+  privateChannels: SbChannelId[]
 }
 
 /**
