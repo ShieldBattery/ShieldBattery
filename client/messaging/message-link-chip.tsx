@@ -5,6 +5,7 @@ import { channelMessageFromUrl } from '../chat/channel-url'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ExternalLink, isShieldBatteryUrl } from '../navigation/external-link'
+import { useOpenWhisperMessageLink } from '../whispers/open-whisper-message-link'
 import { whisperMessageFromUrl } from '../whispers/whisper-url'
 
 /** What a message link chip points at: a message in a chat channel, or in a whisper conversation. */
@@ -111,12 +112,21 @@ const Label = styled.span`
  * this chip is shown to everyone reading the channel the link was pasted into, most of whom aren't
  * a party to the whisper it points at, and naming a participant would tell them who's whispering
  * with whom even though they can't open the link themselves.
+ *
+ * A plain click on a whisper chip resolves the link before navigating, rather than following the
+ * anchor to the `/whispers/m/<id>` redirect page: a link the viewer can't open this way leaves them
+ * where they were with a snackbar, instead of bouncing them through a page that redirects home.
  */
 export function MessageLinkChip({ href, target }: { href: string; target: MessageLinkTarget }) {
   const { t } = useTranslation()
+  const openWhisperMessageLink = useOpenWhisperMessageLink()
 
   return (
-    <ChipLink href={href}>
+    <ChipLink
+      href={href}
+      navigate={
+        target.kind === 'whisper' ? () => openWhisperMessageLink(target.messageId, {}) : undefined
+      }>
       <ChipIcon icon='chat' size={16} />
       {target.kind === 'channel' ? (
         <ChannelName channelId={target.channelId} interactive={false} />

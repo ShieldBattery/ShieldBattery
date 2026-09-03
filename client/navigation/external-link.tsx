@@ -11,6 +11,13 @@ export interface ExternalLinkProps {
   children: React.ReactNode
   className?: string
   forceNewWindow?: boolean
+  /**
+   * Replaces the default in-app `push` navigation for a plain click on an internal (ShieldBattery-
+   * origin) link, e.g. to resolve a link to its real destination before navigating. Only affects
+   * that one click path: ctrl/shift-click still opens a new window via the anchor's own `href`, and
+   * external and content links are unaffected.
+   */
+  navigate?: (href: string) => void
 }
 
 const ELECTRON_PROTO = 'shieldbattery:'
@@ -51,7 +58,13 @@ export function isSbContentUrl(url: URL): boolean {
  * content URLs (uploaded files/public assets) open in a new window without a warning, since the
  * app has no page of its own to show them on.
  */
-export function ExternalLink({ href, children, className, forceNewWindow }: ExternalLinkProps) {
+export function ExternalLink({
+  href,
+  children,
+  className,
+  forceNewWindow,
+  navigate,
+}: ExternalLinkProps) {
   const dispatch = useAppDispatch()
 
   const { url, isContent } = useMemo(() => {
@@ -113,7 +126,11 @@ export function ExternalLink({ href, children, className, forceNewWindow }: Exte
     const navigateToLink = (e: React.MouseEvent) => {
       if (!e.ctrlKey && !e.shiftKey) {
         e.preventDefault()
-        push(url.href)
+        if (navigate) {
+          navigate(url.href)
+        } else {
+          push(url.href)
+        }
       }
     }
 

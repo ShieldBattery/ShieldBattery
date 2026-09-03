@@ -1,57 +1,26 @@
 import { useEffect, useEffectEvent } from 'react'
-import { useTranslation } from 'react-i18next'
-import { WhisperServiceErrorCode } from '../../common/whispers'
 import { isMessageLinkId } from '../messaging/message-link'
 import { replace } from '../navigation/routing'
-import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
-import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { resolveWhisperMessageLink } from './action-creators'
-import { urlForWhisperMessage } from './whisper-url'
+import { useOpenWhisperMessageLink } from './open-whisper-message-link'
 
 /**
  * Resolves a viewer-independent whisper message link (`/whispers/m/<id>`) to the conversation it
  * belongs to, from the current user's side, and redirects there. A `replace` rather than a `push`
- * is used throughout: the unresolved link is a waypoint, not a page worth keeping in history.
+ * is used throughout: the unresolved link is a waypoint, not a page worth keeping in history. On
+ * failure there's no "where the user was" to fall back to (they arrived here directly, e.g. by
+ * typing the URL or opening it in a new window), so this falls back to home instead -- unlike the
+ * message-link chip, which stays put and leaves a snackbar.
  */
 export function WhisperMessageLinkRedirect({ messageId }: { messageId: string }) {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
+  const openWhisperMessageLink = useOpenWhisperMessageLink()
 
   const onResolve = useEffectEvent((id: string, signal: AbortSignal) => {
-    dispatch(
-      resolveWhisperMessageLink(id, {
-        signal,
-        onSuccess: ({ targetId, users }) => {
-          const targetName = users.find(u => u.id === targetId)?.name ?? ''
-          replace(urlForWhisperMessage(targetId, targetName, id))
-        },
-        onError: err => {
-          if (isFetchError(err) && err.code === WhisperServiceErrorCode.MessageNotFound) {
-            snackbarController.showSnackbar(
-              t(
-                'whispers.errors.messageNotFound',
-                "That message couldn't be found. It may have been deleted.",
-              ),
-              DURATION_LONG,
-            )
-          } else {
-            snackbarController.showSnackbar(
-              t('whispers.errors.resolveMessageLink', {
-                defaultValue: 'Error opening message link: {{errorMessage}}',
-                errorMessage: err.message,
-              }),
-              DURATION_LONG,
-            )
-          }
-
-          replace('/')
-        },
-      }),
-    )
+    openWhisperMessageLink(id, {
+      transitionFn: replace,
+      signal,
+      onError: () => replace('/'),
+    })
   })
 
   useEffect(() => {
