@@ -1,9 +1,9 @@
+import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import { appendToMultimap } from '../../common/data-structures/maps'
 import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -21,7 +21,15 @@ import { UserSettingsPage } from '../settings/settings-page'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
-import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
+import {
+  bodyLarge,
+  bodySmall,
+  inter,
+  labelMedium,
+  singleLine,
+  titleLarge,
+  titleSmall,
+} from '../styles/typography'
 import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
@@ -222,6 +230,7 @@ interface OnlineData {
   type: FriendsListRowType.Online
   userId: SbUserId
   isLive: boolean
+  status: FriendActivityStatus
 }
 
 interface OfflineData {
@@ -241,21 +250,22 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     areUserEntriesEqual,
   )
   const liveUserIds = useLiveUserIds()
-  const friendsByStatus = useMemo(() => {
-    const result = new Map<FriendActivityStatus, SbUserId[]>()
-    for (const [id] of sortedFriendUserEntries) {
-      appendToMultimap(result, friendActivityStatus.get(id) ?? FriendActivityStatus.Offline, id)
-    }
-    return result
-  }, [friendActivityStatus, sortedFriendUserEntries])
 
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
+    // Every status other than Offline (including the in-activity ones) belongs in the online group.
+    const online: SbUserId[] = []
+    const offline: SbUserId[] = []
+    for (const [id] of sortedFriendUserEntries) {
+      const status = friendActivityStatus.get(id) ?? FriendActivityStatus.Offline
+      ;(status === FriendActivityStatus.Offline ? offline : online).push(id)
+    }
+
     // Surface live friends first within each group (Array.sort is stable, so the existing name
     // order is preserved among equally-live friends).
     const liveFirst = (ids: SbUserId[]) =>
-      [...ids].sort((a, b) => (liveUserIds.has(b) ? 1 : 0) - (liveUserIds.has(a) ? 1 : 0))
+      ids.sort((a, b) => (liveUserIds.has(b) ? 1 : 0) - (liveUserIds.has(a) ? 1 : 0))
 
-    const onlineFriends = liveFirst(friendsByStatus.get(FriendActivityStatus.Online) ?? [])
+    const onlineFriends = liveFirst(online)
     let result: FriendsListRowData[] = [
       {
         type: FriendsListRowType.Header,
@@ -269,10 +279,11 @@ function VirtualizedFriendsList({ height }: { height: number }) {
         type: FriendsListRowType.Online,
         userId,
         isLive: liveUserIds.has(userId),
+        status: friendActivityStatus.get(userId) ?? FriendActivityStatus.Online,
       })),
     )
 
-    const offlineFriends = liveFirst(friendsByStatus.get(FriendActivityStatus.Offline) ?? [])
+    const offlineFriends = liveFirst(offline)
     if (offlineFriends.length > 0) {
       result.push({
         type: FriendsListRowType.Header,
@@ -290,7 +301,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     }
 
     return result
-  }, [friendsByStatus, liveUserIds, t])
+  }, [friendActivityStatus, liveUserIds, sortedFriendUserEntries, t])
 
   const renderRow = useCallback((index: number, row: FriendsListRowData) => {
     if (row.type === FriendsListRowType.Header) {
@@ -301,7 +312,15 @@ function VirtualizedFriendsList({ height }: { height: number }) {
       )
     } else {
       const faded = row.type === FriendsListRowType.Offline
-      return <FriendEntry userId={row.userId} faded={faded} isLive={row.isLive} key={row.userId} />
+      return (
+        <FriendEntry
+          userId={row.userId}
+          faded={faded}
+          isLive={row.isLive}
+          status={row.type === FriendsListRowType.Online ? row.status : undefined}
+          key={row.userId}
+        />
+      )
     }
   }, [])
 
@@ -578,25 +597,61 @@ const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean 
 `
 
 const FriendEntryName = styled.div`
-  ${singleLine};
   flex-grow: 1;
+  min-width: 0;
 `
+
+const FriendEntryNameSingleLine = styled.div`
+  ${singleLine};
+`
+
+const FriendEntryNameLine = styled.div`
+  ${singleLine};
+  line-height: 20px;
+`
+
+const FriendEntryStatusLine = styled.div`
+  ${inter};
+  ${bodySmall};
+  ${singleLine};
+
+  color: var(--theme-on-surface-variant);
+`
+
+function getActivityStatusLabel(
+  t: TFunction,
+  status: FriendActivityStatus | undefined,
+): string | undefined {
+  switch (status) {
+    case FriendActivityStatus.InLobby:
+      return t('social.friendsList.status.inLobby', 'In lobby')
+    case FriendActivityStatus.InQueue:
+      return t('social.friendsList.status.inQueue', 'In queue')
+    case FriendActivityStatus.InGame:
+      return t('social.friendsList.status.inGame', 'In game')
+    default:
+      return undefined
+  }
+}
 
 function FriendEntry({
   userId,
   faded = false,
   isLive = false,
+  status,
   style,
   actions,
 }: {
   userId: SbUserId
   faded?: boolean
   isLive?: boolean
+  status?: FriendActivityStatus
   style?: React.CSSProperties
   actions?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const activityLabel = getActivityStatusLabel(t, status)
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
     useUserOverlays({
@@ -623,7 +678,16 @@ function FriendEntry({
           <StyledAvatar userId={userId} />
         </AvatarContainer>
         {user ? (
-          <FriendEntryName>{user.name}</FriendEntryName>
+          <FriendEntryName>
+            {activityLabel ? (
+              <>
+                <FriendEntryNameLine>{user.name}</FriendEntryNameLine>
+                <FriendEntryStatusLine>{activityLabel}</FriendEntryStatusLine>
+              </>
+            ) : (
+              <FriendEntryNameSingleLine>{user.name}</FriendEntryNameSingleLine>
+            )}
+          </FriendEntryName>
         ) : (
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}

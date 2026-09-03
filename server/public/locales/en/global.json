@@ -2098,6 +2098,11 @@
         "outgoing": "Outgoing"
       },
       "loadingUsername": "Username loading…",
+      "status": {
+        "inGame": "In game",
+        "inLobby": "In lobby",
+        "inQueue": "In queue"
+      },
       "tabs": {
         "addFriends": "Add friends",
         "friendsList": "Friends list",

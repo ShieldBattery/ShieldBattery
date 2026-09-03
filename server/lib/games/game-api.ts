@@ -54,6 +54,7 @@ import throttleMiddleware, {
   throttleByUser,
   throttleByUserOrIp,
 } from '../throttle/middleware'
+import { ActivityStatusService } from '../users/activity-status-service'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
@@ -233,6 +234,7 @@ export class GameApi {
     private replayService: ReplayService,
     private gamePointsRefundService: GamePointsRefundService,
     private netcodeV2Service: NetcodeV2Service,
+    private activityStatusService: ActivityStatusService,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -499,6 +501,12 @@ export class GameApi {
 
     if (status > GameStatus.Finished && status !== GameStatus.Error) {
       throw new httpErrors.BadRequest('invalid game status')
+    }
+
+    if (status === GameStatus.Finished || status === GameStatus.Error) {
+      // Done ahead of the checks below so that a report which arrives too late to be interesting to
+      // the game loader still ends the user's in-game state.
+      this.activityStatusService.clearInGame(user.id, gameId)
     }
 
     if (

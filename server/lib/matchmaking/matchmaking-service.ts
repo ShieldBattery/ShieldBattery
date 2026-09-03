@@ -35,6 +35,7 @@ import {
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { MatchFoundMessage, PublishedMatchmakingMessage } from '../../../common/typeshare'
+import { FriendActivityStatus } from '../../../common/users/relationships'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { withDbClient } from '../db'
@@ -519,7 +520,13 @@ export class MatchmakingService {
       }
     }
 
-    if (!this.activityRegistry.registerActiveClient(userId, clientSockets)) {
+    if (
+      !this.activityRegistry.registerActiveClient(
+        userId,
+        clientSockets,
+        FriendActivityStatus.InQueue,
+      )
+    ) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.GameplayConflict,
         'User is already active in a gameplay activity',
@@ -1334,7 +1341,6 @@ export class MatchmakingService {
     }
     for (const client of clients) {
       this.publishToActiveClient(client.userId, { type: 'gameStarted' })
-      // TODO(tec27): Should this be maintained until the client reports game exit instead?
       this.unregisterActivity(client.userId)
     }
 

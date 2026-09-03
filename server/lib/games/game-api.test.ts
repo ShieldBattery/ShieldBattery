@@ -46,6 +46,7 @@ function makeRehomeApi({
     {} as any,
     {} as any,
     netcodeV2Service as any,
+    {} as any,
   )
   return { api, netcodeV2Service }
 }
@@ -158,8 +159,16 @@ function makeStatusApi({
     registerGameAsLoaded: vi.fn().mockReturnValue(true),
     maybeCancelLoading: vi.fn().mockReturnValue(true),
   }
-  const api = new GameApi({} as any, gameLoader as any, {} as any, {} as any, {} as any)
-  return { api, gameLoader }
+  const activityStatusService = { clearInGame: vi.fn() }
+  const api = new GameApi(
+    {} as any,
+    gameLoader as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    activityStatusService as any,
+  )
+  return { api, gameLoader, activityStatusService }
 }
 
 describe('games/game-api/GameApi#updateGameStatus', () => {
@@ -186,12 +195,13 @@ describe('games/game-api/GameApi#updateGameStatus', () => {
   })
 
   test('cancels the load on a client-reported error regardless of transport', async () => {
-    const { api, gameLoader } = makeStatusApi({ isLocalOnlyLoad: false })
+    const { api, gameLoader, activityStatusService } = makeStatusApi({ isLocalOnlyLoad: false })
     const ctx = makeStatusCtx(GameStatus.Error)
 
     await api.updateGameStatus(ctx)
 
     expect(gameLoader.maybeCancelLoading).toHaveBeenCalledWith('game-1', makeSbUserId(1))
+    expect(activityStatusService.clearInGame).toHaveBeenCalledWith(makeSbUserId(1), 'game-1')
     expect(ctx.status).toBe(204)
   })
 
@@ -219,7 +229,14 @@ function makeFlightApi({ isEnabled = true }: { isEnabled?: boolean } = {}) {
     listFlightBlobs: vi.fn(),
     fetchFlightBlob: vi.fn(),
   }
-  const api = new GameApi({} as any, {} as any, {} as any, {} as any, netcodeV2Service as any)
+  const api = new GameApi(
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    netcodeV2Service as any,
+    {} as any,
+  )
   return { api, netcodeV2Service }
 }
 

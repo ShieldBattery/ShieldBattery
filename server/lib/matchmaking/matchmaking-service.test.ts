@@ -15,6 +15,7 @@ import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { BaseGameLoaderError, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { FakeClock } from '../time/testing/fake-clock'
+import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -206,7 +207,7 @@ describe('matchmaking/matchmaking-service', () => {
     clock.setCurrentTime(1_000_000)
 
     publisher = { publish: vi.fn() }
-    activityRegistry = new GameplayActivityRegistry()
+    activityRegistry = new GameplayActivityRegistry(createFakeActivityStatusService())
     banUser = vi.fn().mockResolvedValue(undefined)
     clientSockets = new Map([
       [USER_A, createFakeClient(USER_A, CLIENT_A)],

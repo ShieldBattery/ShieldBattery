@@ -1,17 +1,29 @@
 import { singleton } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { ActivityStatusService, GameplayActivityStatus } from '../users/activity-status-service'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
+
+interface RegisteredActivity {
+  client: ClientSocketsGroup
+  status: GameplayActivityStatus
+}
 
 @singleton()
 export class GameplayActivityRegistry {
-  private userClients = new Map<SbUserId, ClientSocketsGroup>()
+  private userClients = new Map<SbUserId, RegisteredActivity>()
+
+  constructor(private activityStatusService: ActivityStatusService) {}
 
   /**
    * Attempts to register a client as owning the active gameplay activity for a user.
    *
    * @returns true if no other client was registered for the user, false otherwise.
    */
-  registerActiveClient(userId: SbUserId, client: ClientSocketsGroup): boolean {
+  registerActiveClient(
+    userId: SbUserId,
+    client: ClientSocketsGroup,
+    status: GameplayActivityStatus,
+  ): boolean {
     if (!client.isConnected()) {
       throw new Error('Cannot register a disconnected client')
     }
@@ -20,31 +32,9 @@ export class GameplayActivityRegistry {
       return false
     }
 
-    this.userClients.set(userId, client)
+    this.userClients.set(userId, { client, status })
+    this.activityStatusService.setActivity(userId, status)
     return true
-  }
-
-  /**
-   * Attempts to register all of the specified clients as being in an active gameplay activity. If
-   * any user already has an active client, no clients will be registered.
-   *
-   * @returns A tuple of if the clients were registered, and an array of user IDs that could not be
-   *     registered (empty if they were registered).
-   */
-  registerAll(
-    clients: ReadonlyArray<[userId: SbUserId, client: ClientSocketsGroup]>,
-  ): [registered: boolean, alreadyActiveUsers: SbUserId[]] {
-    const alreadyActiveUsers = clients
-      .filter(([userId, _]) => this.userClients.has(userId))
-      .map(([userId, _]) => userId)
-    if (alreadyActiveUsers.length > 0) {
-      return [false, alreadyActiveUsers]
-    }
-
-    for (const [userId, client] of clients) {
-      this.userClients.set(userId, client)
-    }
-    return [true, []]
   }
 
   /**
@@ -53,13 +43,20 @@ export class GameplayActivityRegistry {
    * @returns true if a client was registered for that user, false otherwise.
    */
   unregisterClientForUser(userId: SbUserId): boolean {
-    return this.userClients.delete(userId)
+    const registered = this.userClients.get(userId)
+    if (!registered) {
+      return false
+    }
+
+    this.userClients.delete(userId)
+    this.activityStatusService.clearActivity(userId, registered.status)
+    return true
   }
 
   /**
    * Returns the currently active client for a user. If no client was active, returns undefined.
    */
   getClientForUser(userId: SbUserId): ClientSocketsGroup | undefined {
-    return this.userClients.get(userId)
+    return this.userClients.get(userId)?.client
   }
 }

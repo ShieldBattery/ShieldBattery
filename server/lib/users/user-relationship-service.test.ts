@@ -15,7 +15,7 @@ import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
 import { RequestSessionLookup } from '../websockets/session-lookup'
-import { UserSocketsManager } from '../websockets/socket-groups'
+import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-groups'
 import {
   InspectableNydusClient,
   NydusConnector,
@@ -23,11 +23,8 @@ import {
   createFakeNydusServer,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import {
-  UserRelationshipService,
-  getFriendActivityStatusPath,
-  getRelationshipsPath,
-} from './user-relationship-service'
+import { ActivityStatusService, getFriendActivityStatusPath } from './activity-status-service'
+import { UserRelationshipService, getRelationshipsPath } from './user-relationship-service'
 
 function clearFakeDb() {
   ;(global as any).__TESTONLY_CLEAR_DB()
@@ -369,6 +366,7 @@ describe('users/user-relationship-service', () => {
   beforeEach(() => {
     nydus = createFakeNydusServer()
     const sessionLookup = new RequestSessionLookup()
+    const clientSocketsManager = new ClientSocketsManager(nydus, sessionLookup)
     const userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
     const publisher = new TypedPublisher(nydus)
 
@@ -378,11 +376,18 @@ describe('users/user-relationship-service', () => {
 
     clearFakeDb()
 
+    const activityStatusService = new ActivityStatusService(
+      publisher,
+      userSocketsManager,
+      clientSocketsManager,
+      clock,
+    )
     userRelationshipService = new UserRelationshipService(
       clock,
       publisher,
       userSocketsManager,
       notificationService,
+      activityStatusService,
     )
     connector = new NydusConnector(nydus, sessionLookup)
 

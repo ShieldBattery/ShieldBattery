@@ -21,6 +21,7 @@ import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { NetcodeV2Service, NetcodeV2SessionLoadState } from '../netcode-v2/netcode-v2-service'
 import { monotonicNow } from '../time/monotonic-now'
+import { ActivityStatusService } from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -345,6 +346,7 @@ export class GameLoader {
     private activityRegistry: GameplayActivityRegistry,
     private restrictionService: RestrictionService,
     private netcodeV2Service: NetcodeV2Service,
+    private activityStatusService: ActivityStatusService,
   ) {}
 
   /**
@@ -532,6 +534,10 @@ export class GameLoader {
       .filter(c => !!c)
     for (const client of activeClients) {
       client.unsubscribe(gameUserPath(gameId, client.userId))
+      // Marking the players as in-game before the load is resolved means the lobby/matchmaking
+      // teardown that follows sees them as playing, and its attempt to clear their lobby/queue
+      // status is a no-op instead of knocking them back to just being online.
+      this.activityStatusService.setInGame(client.userId, gameId, client)
     }
 
     this.recentlyLoadedGames.add(gameId)

@@ -175,6 +175,41 @@ export default function ({
 
         doFetch()
       }
+
+      if (status.state === 'finished' || status.state === 'unknown') {
+        // The app reports `finished` when the game ended through the game-over handshake, and
+        // `unknown` when the process went away without one (a crash, the window being closed, a
+        // forced quit) or the game's config was cleared. Either way the game is over for this user,
+        // which is all the server tracks from this report (it drives friend presence), so both are
+        // reported as finished. Unlike the playing/error report above, a failure here never quits
+        // the game or clears its config: there's nothing left to abort.
+        let attempt = 0
+
+        const doFetch = () => {
+          attempt += 1
+          fetchJson(apiUrl`games/${status.id}/status`, {
+            method: 'put',
+            body: JSON.stringify({ status: stringToStatus('finished') }),
+            signal: AbortSignal.timeout(2000),
+          }).then(
+            () => {
+              logger.debug(`Reported game exit for ${status.id} to server`)
+            },
+            err => {
+              if (attempt < 3) {
+                setTimeout(doFetch, 500)
+              } else {
+                logger.error(
+                  `Failed to report game exit for ${status.id} to server after ` +
+                    `${attempt} attempts: ${err}`,
+                )
+              }
+            },
+          )
+        }
+
+        doFetch()
+      }
     })
     .on('activeGameReplaySaved', (_, gameId, path) => {
       jotaiStore.set(addRecentReplayPathAtom, { gameId, path })

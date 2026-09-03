@@ -31,6 +31,7 @@ import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
+import { FriendActivityStatus } from '../../../common/users/relationships'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
@@ -333,7 +334,9 @@ export class LobbyService {
       this._leaveCurrentLobby(client)
     }
 
-    if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
+    if (
+      !this.activityRegistry.registerActiveClient(user.userId, client, FriendActivityStatus.InLobby)
+    ) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.AlreadyInActivity,
         'user is already active in a gameplay activity',
@@ -466,7 +469,9 @@ export class LobbyService {
       this._leaveCurrentLobby(client)
     }
 
-    if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
+    if (
+      !this.activityRegistry.registerActiveClient(user.userId, client, FriendActivityStatus.InLobby)
+    ) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.JoinAlreadyInActivity,
         'user is already active in a gameplay activity',
