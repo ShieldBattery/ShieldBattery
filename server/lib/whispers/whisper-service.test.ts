@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { WhisperServiceErrorCode } from '../../../common/whispers'
 import { RestrictionService } from '../users/restriction-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
@@ -15,6 +16,8 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   getMessagesForWhisperSession,
   getUnreadWhisperTargets,
+  getWhisperMessageParticipants,
+  getWhisperMessageSentTime,
   getWhisperSessionsForUser,
   startWhisperSession,
   updateLastReadTime,
@@ -60,6 +63,8 @@ vi.mock('./whisper-models', () => ({
   getMessagesForWhisperSession: vi
     .fn()
     .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
+  getWhisperMessageSentTime: vi.fn(),
+  getWhisperMessageParticipants: vi.fn(),
 }))
 
 const mockRestrictionService = {
@@ -222,6 +227,88 @@ describe('whispers/whisper-service', () => {
       expect(getMessagesForWhisperSession).toHaveBeenCalledWith(user1.id, user2.id, 50, {
         kind: 'around',
         date: new Date(3000),
+      })
+    })
+
+    test('uses an around cursor at the message time when aroundMessageId is given', async () => {
+      const messageId = 'MESSAGE_ID'
+      asMockedFunction(getWhisperMessageSentTime).mockResolvedValue(new Date(3000))
+
+      await whisperService.getSessionHistory(
+        user1.id,
+        user2.id,
+        50,
+        undefined,
+        undefined,
+        undefined,
+        messageId,
+      )
+
+      expect(getWhisperMessageSentTime).toHaveBeenCalledWith(user1.id, user2.id, messageId)
+      expect(getMessagesForWhisperSession).toHaveBeenCalledWith(user1.id, user2.id, 50, {
+        kind: 'around',
+        date: new Date(3000),
+      })
+    })
+
+    test('throws MessageNotFound when aroundMessageId names no message in this whisper', async () => {
+      asMockedFunction(getWhisperMessageSentTime).mockResolvedValue(undefined)
+
+      await expect(
+        whisperService.getSessionHistory(
+          user1.id,
+          user2.id,
+          50,
+          undefined,
+          undefined,
+          undefined,
+          'MESSAGE_ID',
+        ),
+      ).rejects.toMatchObject({ code: WhisperServiceErrorCode.MessageNotFound })
+    })
+  })
+
+  describe('getMessageLinkTarget', () => {
+    const messageId = 'MESSAGE_ID'
+
+    test('resolves to the other participant when the requester sent the message', async () => {
+      asMockedFunction(getWhisperMessageParticipants).mockResolvedValue({
+        from: user1.id,
+        to: user2.id,
+      })
+
+      const result = await whisperService.getMessageLinkTarget(user1.id, messageId)
+
+      expect(result).toEqual({ targetId: user2.id, users: [user2] })
+    })
+
+    test('resolves to the other participant when the requester received the message', async () => {
+      asMockedFunction(getWhisperMessageParticipants).mockResolvedValue({
+        from: user2.id,
+        to: user1.id,
+      })
+
+      const result = await whisperService.getMessageLinkTarget(user1.id, messageId)
+
+      expect(result).toEqual({ targetId: user2.id, users: [user2] })
+    })
+
+    test('throws MessageNotFound when the requester is not a participant', async () => {
+      asMockedFunction(getWhisperMessageParticipants).mockResolvedValue({
+        from: user2.id,
+        to: user3.id,
+      })
+
+      await expect(whisperService.getMessageLinkTarget(user1.id, messageId)).rejects.toMatchObject({
+        code: WhisperServiceErrorCode.MessageNotFound,
+      })
+    })
+
+    test('throws MessageNotFound when the message does not exist', async () => {
+      asMockedFunction(getWhisperMessageParticipants).mockResolvedValue(undefined)
+
+      await expect(whisperService.getMessageLinkTarget(user1.id, messageId)).rejects.toMatchObject({
+        code: WhisperServiceErrorCode.MessageNotFound,
       })
     })
   })

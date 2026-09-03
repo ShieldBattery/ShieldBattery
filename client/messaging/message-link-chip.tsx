@@ -1,17 +1,22 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
+import { channelMessageFromUrl } from '../chat/channel-url'
+import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ExternalLink, isShieldBatteryUrl } from '../navigation/external-link'
-import { channelMessageFromUrl, ChannelMessageLinkTarget } from './channel-url'
-import { ConnectedChannelName } from './connected-channel-name'
+import { whisperMessageFromUrl } from '../whispers/whisper-url'
+
+/** What a message link chip points at: a message in a chat channel, or in a whisper conversation. */
+export type MessageLinkTarget =
+  | { kind: 'channel'; channelId: SbChannelId; messageId: string }
+  | { kind: 'whisper'; messageId: string }
 
 /**
- * Returns the channel and message embedded in a chat message link, or undefined if the link isn't
- * a ShieldBattery channel message link (an external URL, or a ShieldBattery URL for something
- * other than a channel message).
+ * Returns the message a chat message link points at, or undefined if `href` isn't one: an external
+ * URL, or a ShieldBattery URL for something other than a channel or whisper message link.
  */
-export function channelMessageFromMessageLink(href: string): ChannelMessageLinkTarget | undefined {
+export function messageLinkFromHref(href: string): MessageLinkTarget | undefined {
   let url: URL
   try {
     url = new URL(href)
@@ -19,7 +24,25 @@ export function channelMessageFromMessageLink(href: string): ChannelMessageLinkT
     return undefined
   }
 
-  return isShieldBatteryUrl(url) ? channelMessageFromUrl(url) : undefined
+  if (!isShieldBatteryUrl(url)) {
+    return undefined
+  }
+
+  const channelMessage = channelMessageFromUrl(url)
+  if (channelMessage) {
+    return {
+      kind: 'channel',
+      channelId: channelMessage.channelId,
+      messageId: channelMessage.messageId,
+    }
+  }
+
+  const whisperMessage = whisperMessageFromUrl(url)
+  if (whisperMessage) {
+    return { kind: 'whisper', messageId: whisperMessage.messageId }
+  }
+
+  return undefined
 }
 
 // Message rows render inside a fixed 20px line box (see `TimestampMessageLayout` in
@@ -77,19 +100,29 @@ const Label = styled.span`
 `
 
 /**
- * Renders a chat message link (minted by "Copy message link", see `channel-menu-items.tsx`) as an
- * in-app chip -- an icon, the channel it points at, and "message" -- rather than the raw URL. The
- * URL is intentionally not shown as text -- it still lives on the rendered anchor's `href`, so
- * "Copy link" in the message context menu (which reads the clicked element's closest anchor's
- * `href`) and ctrl/shift-click to open in a new window both still work on it.
+ * Renders a chat message link (minted by "Copy message link" in a channel or whisper, see
+ * `chat/channel-menu-items.tsx` and `whispers/whisper-menu-items.tsx`) as an in-app chip -- an
+ * icon, what it points at, and "message" -- rather than the raw URL. The URL is intentionally not
+ * shown as text -- it still lives on the rendered anchor's `href`, so "Copy link" in the message
+ * context menu (which reads the clicked element's closest anchor's `href`) and ctrl/shift-click to
+ * open in a new window both still work on it.
+ *
+ * A whisper target renders under a generic "Whisper" label rather than either participant's name:
+ * this chip is shown to everyone reading the channel the link was pasted into, most of whom aren't
+ * a party to the whisper it points at, and naming a participant would tell them who's whispering
+ * with whom even though they can't open the link themselves.
  */
-export function ChannelMessageLink({ href, channelId }: { href: string; channelId: SbChannelId }) {
+export function MessageLinkChip({ href, target }: { href: string; target: MessageLinkTarget }) {
   const { t } = useTranslation()
 
   return (
     <ChipLink href={href}>
       <ChipIcon icon='chat' size={16} />
-      <ChannelName channelId={channelId} interactive={false} />
+      {target.kind === 'channel' ? (
+        <ChannelName channelId={target.channelId} interactive={false} />
+      ) : (
+        <Label>{t('chat.messageLink.whisper', 'Whisper')}</Label>
+      )}
       <Separator>›</Separator>
       <Label>{t('chat.messageLink.label', 'message')}</Label>
     </ChipLink>

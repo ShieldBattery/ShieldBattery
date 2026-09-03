@@ -234,6 +234,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.mentions)
   },
 
+  ['@whispers/resolveMessageLink'](state, action) {
+    updateUsers(state, action.payload.users)
+  },
+
   ['@lobbies/init'](state, action) {
     updateUsers(state, action.payload.userInfos)
   },

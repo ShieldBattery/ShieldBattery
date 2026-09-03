@@ -256,6 +256,51 @@ export interface WhisperMessagePage {
   hasMoreAfter: boolean
 }
 
+/**
+ * Returns when a whisper message was sent, scoped to the conversation between `userId1` and
+ * `userId2`, or `undefined` if it doesn't exist there (deleted, never existed, or belongs to a
+ * different conversation).
+ */
+export async function getWhisperMessageSentTime(
+  userId1: SbUserId,
+  userId2: SbUserId,
+  messageId: string,
+): Promise<Date | undefined> {
+  const [userLow, userHigh] = userId1 < userId2 ? [userId1, userId2] : [userId2, userId1]
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ sent: Date }>(sql`
+      SELECT sent
+      FROM whisper_messages
+      WHERE id = ${messageId} AND user_low = ${userLow}::int4 AND user_high = ${userHigh}::int4;
+    `)
+    return result.rows[0]?.sent
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the two participants of a whisper message (sender and recipient), or `undefined` if the
+ * message doesn't exist.
+ */
+export async function getWhisperMessageParticipants(
+  messageId: string,
+): Promise<{ from: SbUserId; to: SbUserId } | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ from_id: SbUserId; to_id: SbUserId }>(sql`
+      SELECT from_id, to_id
+      FROM whisper_messages
+      WHERE id = ${messageId};
+    `)
+    const row = result.rows[0]
+    return row ? { from: row.from_id, to: row.to_id } : undefined
+  } finally {
+    done()
+  }
+}
+
 export async function getMessagesForWhisperSession(
   userId1: SbUserId,
   userId2: SbUserId,

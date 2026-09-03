@@ -1,18 +1,12 @@
 import { makeSbChannelId, SbChannelId } from '../../common/chat'
 import { urlPath } from '../../common/urls'
+import { isMessageLinkId, MESSAGE_LINK_PARAM } from '../messaging/message-link'
 
 /**
  * Stand-in for a channel's name in its URL when the name isn't known. The route needs something in
  * that segment, and the name is corrected in place once the channel's info is available.
  */
 const UNKNOWN_CHANNEL_NAME = '_'
-
-/**
- * Name of the query param that points a channel URL at one particular message in the channel.
- * Reading and writing it must go through this name so a link and the page that consumes it can't
- * disagree.
- */
-export const MESSAGE_LINK_PARAM = 'm'
 
 /** Returns the URL for a chat channel. */
 export function urlForChannel(channelId: SbChannelId, channelName: string | undefined): string {
@@ -31,9 +25,6 @@ export function urlForChannelMessage(
   const params = new URLSearchParams({ [MESSAGE_LINK_PARAM]: messageId })
   return `${urlForChannel(channelId, channelName)}?${params}`
 }
-
-/** Matches a UUID's `8-4-4-4-12` hex layout, case-insensitively. */
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A channel message link's target: the channel it's in and the message it points at. */
 export interface ChannelMessageLinkTarget {
@@ -61,7 +52,7 @@ export function channelMessageFromUrl(url: URL): ChannelMessageLinkTarget | unde
   }
 
   const messageId = url.searchParams.get(MESSAGE_LINK_PARAM)
-  if (!messageId || !UUID_PATTERN.test(messageId)) {
+  if (!messageId || !isMessageLinkId(messageId)) {
     return undefined
   }
 

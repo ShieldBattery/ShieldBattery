@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { makeSbChannelId } from '../../common/chat'
-import {
-  channelMessageFromUrl,
-  MESSAGE_LINK_PARAM,
-  urlForChannel,
-  urlForChannelMessage,
-} from './channel-url'
+import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
+import { channelMessageFromUrl, urlForChannel, urlForChannelMessage } from './channel-url'
 
 const CHANNEL_ID = makeSbChannelId(7)
 const MESSAGE_ID = '9b2e8d0e-5f3a-4a2b-8c1d-6f5e4d3c2b1a'
