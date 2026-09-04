@@ -1,21 +1,23 @@
-import KoaRouter from '@koa/router'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
-import { container } from 'tsyringe'
+import Joi from 'joi'
+import { Readable } from 'stream'
 import { GameRecord } from '../../../common/games/games'
 import { MapExtension, SbMapId } from '../../../common/maps'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { readFile } from '../files'
-import { setInternalResponseHeaders } from '../http/internal-response-headers'
+import { readFileStream } from '../files'
+import { setAttachmentHeaders } from '../http/attachment-headers'
+import { httpBeforeAll, internalApi } from '../http/http-api'
+import { internalResponseHeaders } from '../http/internal-response-headers'
+import { httpGet } from '../http/route-decorators'
 import { getMapInfos } from '../maps/map-models'
 import { mapPath } from '../maps/paths'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { replayPath } from '../replays/paths'
 import { getAllReplaysForGame } from '../replays/replay-models'
+import { validateRequest } from '../validation/joi-validator'
 import { getGameRecord, getNetcodeV2Session } from './game-models'
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const RELAY_ID_REGEX = /^(0|[1-9][0-9]{0,9})$/
 
 export interface InternalFlightRecordingArtifactJson {
   relayId: number
@@ -48,7 +50,11 @@ export interface InternalReplayArtifactJson {
 
 export interface InternalMapArtifactJson {
   id: SbMapId
-  /** SHA-256 of the map file, hex-encoded. */
+  /**
+   * The map's identity hash, hex-encoded: SHA-256 over the format string (`scx`/`scm`) followed by
+   * the file bytes, as the game client computes it to match a local map file. Not a plain hash of
+   * the file.
+   */
   hash: string
   format: MapExtension
   name: string
@@ -75,33 +81,26 @@ export interface InternalGameArtifactsResponseJson {
   map: InternalMapArtifactJson | null
 }
 
+const GAME_ID_PARAMS = Joi.object<{ gameId: string }>({
+  gameId: Joi.string().uuid().required(),
+})
+
+const FLIGHT_RECORDING_PARAMS = Joi.object<{ gameId: string; relayId: number }>({
+  gameId: Joi.string().uuid().required(),
+  relayId: Joi.number().integer().min(0).required(),
+})
+
+const REPLAY_PARAMS = Joi.object<{ gameId: string; replayId: string }>({
+  gameId: Joi.string().uuid().required(),
+  replayId: Joi.string().uuid().lowercase().required(),
+})
+
 async function getGameOr404(gameId: string): Promise<GameRecord> {
-  // The id column is a Postgres `uuid`, so a malformed id would error inside the query rather
-  // than return no rows. Checking the shape here keeps that from turning into a 500, and callers
-  // can't distinguish a malformed id from an unknown one.
-  if (!UUID_REGEX.test(gameId)) {
-    throw new httpErrors.NotFound('Game not found')
-  }
   const game = await getGameRecord(gameId)
   if (!game) {
     throw new httpErrors.NotFound('Game not found')
   }
   return game
-}
-
-/**
- * Returns the game's netcode v2 session id, or undefined if the game has no session (or netcode v2
- * is disabled, in which case nothing could be fetched for a session anyway).
- */
-async function getNetcodeV2SessionIfEnabled(
-  netcodeV2Service: NetcodeV2Service,
-  gameId: string,
-): Promise<number | undefined> {
-  if (!netcodeV2Service.isEnabled()) {
-    return undefined
-  }
-  const session = await getNetcodeV2Session(gameId)
-  return session ?? undefined
 }
 
 async function getMapArtifact(game: GameRecord): Promise<InternalMapArtifactJson | null> {
@@ -119,18 +118,9 @@ async function getMapArtifact(game: GameRecord): Promise<InternalMapArtifactJson
 }
 
 /**
- * Registers the game artifact routes for service-to-service callers, relative to the internal
- * router's mount:
- *
- * - `GET /games/:gameId/artifacts` lists what's stored for a game (see
- *   `InternalGameArtifactsResponseJson`)
- * - `GET /games/:gameId/artifacts/flight-recordings/:relayId` downloads one relay's flight
- *   recording as JSON
- * - `GET /games/:gameId/artifacts/replays/:replayId` downloads one uploaded replay file
- * - `GET /games/:gameId/artifacts/map` downloads the map file the game was played on
- *
- * No application-level authentication is required — reachability is restricted to the private
- * network/tailnet by the internal router's mounting; see internal-routes.ts.
+ * Game artifact access for service-to-service callers: a manifest of what's stored for a game, and
+ * a download route per artifact. No application-level authentication is required; reachability is
+ * restricted to the private network/tailnet by the internal mount, see internal-routes.ts.
  *
  * Every download route re-derives what it serves from the game id (the coordinator session, the
  * replay ids that belong to the game, the map object key), so a caller can only ever name a game
@@ -140,20 +130,38 @@ async function getMapArtifact(game: GameRecord): Promise<InternalMapArtifactJson
  * could leak wherever the caller logs or forwards it, and flight recordings live in the
  * coordinator's store (behind our tenant key) with no signed-GET flow at all.
  */
-export function registerInternalGameArtifactRoutes(router: KoaRouter) {
-  router.get('/games/:gameId/artifacts', async ctx => {
-    const game = await getGameOr404(ctx.params.gameId)
-    const netcodeV2Service = container.resolve(NetcodeV2Service)
+@internalApi('/games')
+@httpBeforeAll(internalResponseHeaders)
+export class InternalGameArtifactApi {
+  constructor(private netcodeV2Service: NetcodeV2Service) {}
+
+  /**
+   * Returns the game's netcode v2 session id, or undefined if the game has no session (or netcode
+   * v2 is disabled, in which case nothing could be fetched for a session anyway).
+   */
+  private async getNetcodeV2SessionIfEnabled(gameId: string): Promise<number | undefined> {
+    if (!this.netcodeV2Service.isEnabled()) {
+      return undefined
+    }
+    const session = await getNetcodeV2Session(gameId)
+    return session ?? undefined
+  }
+
+  @httpGet('/:gameId/artifacts')
+  async listArtifacts(ctx: RouterContext): Promise<InternalGameArtifactsResponseJson> {
+    const {
+      params: { gameId },
+    } = validateRequest(ctx, { params: GAME_ID_PARAMS })
+    const game = await getGameOr404(gameId)
 
     const [session, replays, map] = await Promise.all([
-      getNetcodeV2SessionIfEnabled(netcodeV2Service, game.id),
+      this.getNetcodeV2SessionIfEnabled(game.id),
       getAllReplaysForGame(game.id),
       getMapArtifact(game),
     ])
-    const blobs = session !== undefined ? await netcodeV2Service.listFlightBlobs(session) : []
+    const blobs = session !== undefined ? await this.netcodeV2Service.listFlightBlobs(session) : []
 
-    setInternalResponseHeaders(ctx)
-    const response: InternalGameArtifactsResponseJson = {
+    return {
       gameId: game.id,
       flightRecordings: blobs.map(b => ({
         relayId: b.relayId,
@@ -172,42 +180,38 @@ export function registerInternalGameArtifactRoutes(router: KoaRouter) {
       })),
       map,
     }
-    ctx.body = response
-  })
+  }
 
-  router.get('/games/:gameId/artifacts/flight-recordings/:relayId', async ctx => {
-    const relayIdParam: string = ctx.params.relayId
-    if (!RELAY_ID_REGEX.test(relayIdParam)) {
-      throw new httpErrors.NotFound('No flight recording for that relay')
-    }
-    const relayId = Number(relayIdParam)
+  @httpGet('/:gameId/artifacts/flight-recordings/:relayId')
+  async getFlightRecording(ctx: RouterContext): Promise<string> {
+    const {
+      params: { gameId, relayId },
+    } = validateRequest(ctx, { params: FLIGHT_RECORDING_PARAMS })
+    const game = await getGameOr404(gameId)
 
-    const game = await getGameOr404(ctx.params.gameId)
-    const netcodeV2Service = container.resolve(NetcodeV2Service)
-    const session = await getNetcodeV2SessionIfEnabled(netcodeV2Service, game.id)
+    const session = await this.getNetcodeV2SessionIfEnabled(game.id)
     if (session === undefined) {
       throw new httpErrors.NotFound('Game has no netcode v2 session')
     }
-
-    const blob = await netcodeV2Service.fetchFlightBlob(session, relayId)
+    const blob = await this.netcodeV2Service.fetchFlightBlob(session, relayId)
     if (blob === undefined) {
       throw new httpErrors.NotFound('No flight recording for that relay')
     }
 
-    setInternalResponseHeaders(ctx)
-    ctx.set('Content-Type', 'application/json')
-    ctx.set('Content-Disposition', `attachment; filename="${game.id}-relay-${relayId}.json"`)
-    ctx.body = blob
-  })
+    setAttachmentHeaders(ctx, {
+      contentType: 'application/json',
+      filename: `${game.id}-relay-${relayId}.json`,
+    })
+    return blob
+  }
 
-  router.get('/games/:gameId/artifacts/replays/:replayId', async ctx => {
-    const replayIdParam: string = ctx.params.replayId
-    if (!UUID_REGEX.test(replayIdParam)) {
-      throw new httpErrors.NotFound('Replay not found')
-    }
-    const replayId = replayIdParam.toLowerCase()
+  @httpGet('/:gameId/artifacts/replays/:replayId')
+  async getReplay(ctx: RouterContext): Promise<Readable> {
+    const {
+      params: { gameId, replayId },
+    } = validateRequest(ctx, { params: REPLAY_PARAMS })
+    const game = await getGameOr404(gameId)
 
-    const game = await getGameOr404(ctx.params.gameId)
     // Looked up through the game (rather than by replay id directly) so only replays this game
     // owns can be fetched via this game's URL.
     const replays = await getAllReplaysForGame(game.id)
@@ -216,32 +220,33 @@ export function registerInternalGameArtifactRoutes(router: KoaRouter) {
       throw new httpErrors.NotFound('Replay not found')
     }
 
-    // Replay uploads are capped at 5 MiB (see MAX_REPLAY_SIZE_BYTES in game-api.ts), so buffering
-    // the whole file is fine.
-    const bytes = await readFile(replayPath(replay.id))
+    const file = await readFileStream(replayPath(replay.id))
+    setAttachmentHeaders(ctx, {
+      contentType: 'application/octet-stream',
+      filename: `${replay.id}.rep`,
+      length: file.size,
+    })
+    return file.stream
+  }
 
-    setInternalResponseHeaders(ctx)
-    ctx.set('Content-Type', 'application/octet-stream')
-    ctx.set('Content-Disposition', `attachment; filename="${replay.id}.rep"`)
-    ctx.body = bytes
-  })
+  @httpGet('/:gameId/artifacts/map')
+  async getMap(ctx: RouterContext): Promise<Readable> {
+    const {
+      params: { gameId },
+    } = validateRequest(ctx, { params: GAME_ID_PARAMS })
+    const game = await getGameOr404(gameId)
 
-  router.get('/games/:gameId/artifacts/map', async ctx => {
-    const game = await getGameOr404(ctx.params.gameId)
     const map = await getMapArtifact(game)
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
 
-    // Maps can be up to 100 MiB (see MAX_MAP_FILE_SIZE_BYTES), so this is the one artifact whose
-    // buffering is noticeable. The file store only offers whole-file reads, and the callers here
-    // are a handful of trusted services rather than the public, so that's tolerated; a streaming
-    // FileStore read would remove the peak if it ever matters.
-    const bytes = await readFile(mapPath(map.hash, map.format))
-
-    setInternalResponseHeaders(ctx)
-    ctx.set('Content-Type', 'application/octet-stream')
-    ctx.set('Content-Disposition', `attachment; filename="${map.hash}.${map.format}"`)
-    ctx.body = bytes
-  })
+    const file = await readFileStream(mapPath(map.hash, map.format))
+    setAttachmentHeaders(ctx, {
+      contentType: 'application/octet-stream',
+      filename: `${map.hash}.${map.format}`,
+      length: file.size,
+    })
+    return file.stream
+  }
 }

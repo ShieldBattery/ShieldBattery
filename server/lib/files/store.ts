@@ -15,9 +15,21 @@ export interface GetSignedUrlOptions {
 
 // TODO(tec27): Type options better
 /** A generic file store type, meant to allow us to swap stores between dev/prod environments. */
+/** A stored file opened for streaming, with its size as reported by the store (when it is). */
+export interface StoredFileStream {
+  stream: Readable
+  /** Size of the file in bytes, if the store reports one. */
+  size?: number
+}
+
 export interface FileStore {
   write(filename: string, data: Readable, options: any): Promise<any>
   read(filename: string, options: any): Promise<Buffer>
+  /**
+   * Opens the file for streaming. Rejects (rather than erroring on the stream) if the file can't be
+   * opened, e.g. because it doesn't exist.
+   */
+  readStream(filename: string): Promise<StoredFileStream>
   delete(filename: string, options: any): Promise<any>
   deleteFiles(prefix: string, options: any): Promise<any>
   url(filename: string): string

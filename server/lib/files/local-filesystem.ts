@@ -1,12 +1,12 @@
 import { createWriteStream } from 'fs'
-import { mkdir, readFile, unlink } from 'fs/promises'
+import { mkdir, open, readFile, unlink } from 'fs/promises'
 import Koa from 'koa'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
 import path from 'path'
 import { rimraf } from 'rimraf'
 import { Readable } from 'stream'
-import { FileStore, GetSignedUrlOptions } from './store'
+import { FileStore, GetSignedUrlOptions, StoredFileStream } from './store'
 
 // How long browsers can cache resources for (in milliseconds). These resources should all be pretty
 // static, so this can be a long time
@@ -44,6 +44,15 @@ export default class LocalFsStore implements FileStore {
   async read(filename: string, options?: any): Promise<Buffer> {
     const full = this.getFullPath(filename)
     return readFile(full)
+  }
+
+  async readStream(filename: string): Promise<StoredFileStream> {
+    const full = this.getFullPath(filename)
+    // Opened here (rather than via `createReadStream(path)`) so a missing file rejects this call
+    // instead of surfacing as an error event on a stream that has already been handed out.
+    const handle = await open(full, 'r')
+    const { size } = await handle.stat()
+    return { stream: handle.createReadStream(), size }
   }
 
   async delete(filename: string) {

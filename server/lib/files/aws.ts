@@ -11,7 +11,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import path from 'path'
 import { Readable } from 'stream'
 import { Except } from 'type-fest'
-import { FileStore, GetSignedUrlOptions } from './store'
+import { FileStore, GetSignedUrlOptions, StoredFileStream } from './store'
 
 // How long browsers can cache resources for (in seconds). These resources should all be pretty
 // static, so this can be a long time
@@ -141,6 +141,22 @@ export default class Aws implements FileStore {
       return Buffer.alloc(0)
     }
     return Buffer.from(await result.Body.transformToByteArray())
+  }
+
+  async readStream(filename: string): Promise<StoredFileStream> {
+    const normalized = this.getNormalizedPath(filename)
+    const params = {
+      Key: normalized,
+      Bucket: this.bucket,
+    }
+
+    const result = await this.client.getObject(params)
+    if (!result.Body) {
+      return { stream: Readable.from([]), size: 0 }
+    }
+    // On Node the SDK's response body is an `IncomingMessage` (a `Readable`) with some conversion
+    // helpers mixed in; the declared union type covers browser payloads too, hence the cast.
+    return { stream: result.Body as Readable, size: result.ContentLength }
   }
 
   // Options object can contain any of the valid keys specified in the AWS SDK for the

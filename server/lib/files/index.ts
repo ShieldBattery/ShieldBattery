@@ -1,6 +1,6 @@
 import Koa from 'koa'
 import { Readable } from 'stream'
-import { FileStore, GetSignedUrlOptions } from './store'
+import { FileStore, GetSignedUrlOptions, StoredFileStream } from './store'
 
 let store: FileStore | null = null
 
@@ -16,6 +16,14 @@ export function writeFile(filename: string, data: Buffer | Readable, options?: a
 
 export async function readFile(filename: string, options?: any) {
   return store!.read(filename, options)
+}
+
+/**
+ * Opens a stored file for streaming (e.g. to hand a large file to a response body without holding
+ * all of it in memory). Rejects if the file can't be opened.
+ */
+export async function readFileStream(filename: string): Promise<StoredFileStream> {
+  return store!.readStream(filename)
 }
 
 export async function deleteFile(filename: string, options?: any) {

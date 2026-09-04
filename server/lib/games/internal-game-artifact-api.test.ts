@@ -1,21 +1,19 @@
-import KoaRouter from '@koa/router'
 import got, { OptionsOfTextResponseBody } from 'got'
-import http from 'http'
-import Koa from 'koa'
-import { AddressInfo } from 'net'
-import { container } from 'tsyringe'
+import { Readable } from 'stream'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameRecord } from '../../../common/games/games'
 import { MapInfo, makeSbMapId } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { errorPayloadMiddleware } from '../errors/error-payload-middleware'
-import { readFile } from '../files'
+import { readFileStream } from '../files'
+import {
+  InternalApiTestServer,
+  startInternalApiTestServer,
+} from '../http/testing/internal-api-server'
 import { getMapInfos } from '../maps/map-models'
-import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { getAllReplaysForGame } from '../replays/replay-models'
 import { getGameRecord, getNetcodeV2Session } from './game-models'
-import { registerInternalGameArtifactRoutes } from './internal-game-artifact-routes'
+import { InternalGameArtifactApi } from './internal-game-artifact-api'
 
 vi.mock('./game-models', () => ({
   getGameRecord: vi.fn(),
@@ -28,14 +26,14 @@ vi.mock('../maps/map-models', () => ({
   getMapInfos: vi.fn(),
 }))
 vi.mock('../files', () => ({
-  readFile: vi.fn(),
+  readFileStream: vi.fn(),
 }))
 
 const mockGetGameRecord = asMockedFunction(getGameRecord)
 const mockGetNetcodeV2Session = asMockedFunction(getNetcodeV2Session)
 const mockGetAllReplaysForGame = asMockedFunction(getAllReplaysForGame)
 const mockGetMapInfos = asMockedFunction(getMapInfos)
-const mockReadFile = asMockedFunction(readFile)
+const mockReadFileStream = asMockedFunction(readFileStream)
 
 const GAME_ID = '11111111-2222-4333-8444-555555555555'
 const MAP_ID = makeSbMapId('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee')
@@ -85,8 +83,8 @@ const REPLAY = {
 
 const NO_THROW: OptionsOfTextResponseBody = { throwHttpErrors: false, retry: { limit: 0 } }
 
-describe('games/internal-game-artifact-routes', () => {
-  let server: http.Server
+describe('games/internal-game-artifact-api', () => {
+  let server: InternalApiTestServer
   let baseUrl: string
   let netcodeV2Service: {
     isEnabled: ReturnType<typeof vi.fn>
@@ -102,37 +100,19 @@ describe('games/internal-game-artifact-routes', () => {
       listFlightBlobs: vi.fn().mockResolvedValue([]),
       fetchFlightBlob: vi.fn(),
     }
-    container.registerInstance(NetcodeV2Service, netcodeV2Service as any)
-
     mockGetGameRecord.mockResolvedValue(GAME)
     mockGetNetcodeV2Session.mockResolvedValue(42)
     mockGetAllReplaysForGame.mockResolvedValue([REPLAY])
     mockGetMapInfos.mockResolvedValue([MAP])
 
-    const router = new KoaRouter({ prefix: '/internal' })
-    registerInternalGameArtifactRoutes(router)
-
-    const app = new Koa()
-    // Swallow the error events errorPayloadMiddleware emits so expected 4xx tests don't log
-    app.on('error', () => {})
-    app.use(errorPayloadMiddleware()).use(router.routes()).use(router.allowedMethods())
-
-    const callback = app.callback()
-    server = http.createServer((req, res) => {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      callback(req, res)
-    })
-    await new Promise<void>(resolve => {
-      server.listen(0, resolve)
-    })
-    baseUrl = `http://localhost:${(server.address() as AddressInfo).port}`
+    server = await startInternalApiTestServer([
+      new InternalGameArtifactApi(netcodeV2Service as any),
+    ])
+    baseUrl = server.baseUrl
   })
 
   afterEach(async () => {
-    container.reset()
-    await new Promise<void>((resolve, reject) => {
-      server.close(err => (err ? reject(err) : resolve()))
-    })
+    await server.close()
   })
 
   describe('manifest', () => {
@@ -220,10 +200,10 @@ describe('games/internal-game-artifact-routes', () => {
       expect(mockGetAllReplaysForGame).not.toHaveBeenCalled()
     })
 
-    test('404s a malformed game id without querying', async () => {
+    test('400s a malformed game id without querying', async () => {
       const res = await got(`${baseUrl}/internal/games/not-a-uuid/artifacts`, NO_THROW)
 
-      expect(res.statusCode).toBe(404)
+      expect(res.statusCode).toBe(400)
       expect(mockGetGameRecord).not.toHaveBeenCalled()
     })
   })
@@ -272,22 +252,22 @@ describe('games/internal-game-artifact-routes', () => {
       expect(netcodeV2Service.fetchFlightBlob).not.toHaveBeenCalled()
     })
 
-    test('404s a malformed relay id without any lookups', async () => {
+    test('400s a malformed relay id without any lookups', async () => {
       const res = await got(
         `${baseUrl}/internal/games/${GAME_ID}/artifacts/flight-recordings/-1`,
         NO_THROW,
       )
 
-      expect(res.statusCode).toBe(404)
+      expect(res.statusCode).toBe(400)
       expect(mockGetGameRecord).not.toHaveBeenCalled()
       expect(netcodeV2Service.fetchFlightBlob).not.toHaveBeenCalled()
     })
   })
 
   describe('replay download', () => {
-    test('serves a replay that belongs to the game', async () => {
+    test('streams a replay that belongs to the game', async () => {
       const bytes = Buffer.from('not really a replay', 'utf8')
-      mockReadFile.mockResolvedValue(bytes)
+      mockReadFileStream.mockResolvedValue({ stream: Readable.from([bytes]), size: bytes.length })
 
       const res = await got(`${baseUrl}/internal/games/${GAME_ID}/artifacts/replays/${REPLAY_ID}`, {
         ...NO_THROW,
@@ -297,10 +277,23 @@ describe('games/internal-game-artifact-routes', () => {
       expect(res.statusCode).toBe(200)
       expect(res.headers['content-type']).toBe('application/octet-stream')
       expect(res.headers['content-disposition']).toBe(`attachment; filename="${REPLAY_ID}.rep"`)
+      expect(res.headers['content-length']).toBe(String(bytes.length))
       expect(res.headers['cache-control']).toBe('private, no-store')
       expect(res.headers['x-content-type-options']).toBe('nosniff')
       expect(Buffer.compare(res.body, bytes)).toBe(0)
-      expect(mockReadFile).toHaveBeenCalledWith(`replays/${REPLAY_ID}.rep`)
+      expect(mockReadFileStream).toHaveBeenCalledWith(`replays/${REPLAY_ID}.rep`)
+    })
+
+    test('matches the replay id case-insensitively', async () => {
+      mockReadFileStream.mockResolvedValue({ stream: Readable.from([Buffer.from('rep')]), size: 3 })
+
+      const res = await got(
+        `${baseUrl}/internal/games/${GAME_ID}/artifacts/replays/${REPLAY_ID.toUpperCase()}`,
+        NO_THROW,
+      )
+
+      expect(res.statusCode).toBe(200)
+      expect(mockReadFileStream).toHaveBeenCalledWith(`replays/${REPLAY_ID}.rep`)
     })
 
     test('404s a replay that exists but belongs to a different game', async () => {
@@ -312,25 +305,25 @@ describe('games/internal-game-artifact-routes', () => {
       )
 
       expect(res.statusCode).toBe(404)
-      expect(mockReadFile).not.toHaveBeenCalled()
+      expect(mockReadFileStream).not.toHaveBeenCalled()
     })
 
-    test('404s a malformed replay id without any lookups', async () => {
+    test('400s a malformed replay id without any lookups', async () => {
       const res = await got(
         `${baseUrl}/internal/games/${GAME_ID}/artifacts/replays/not-a-uuid`,
         NO_THROW,
       )
 
-      expect(res.statusCode).toBe(404)
+      expect(res.statusCode).toBe(400)
       expect(mockGetGameRecord).not.toHaveBeenCalled()
-      expect(mockReadFile).not.toHaveBeenCalled()
+      expect(mockReadFileStream).not.toHaveBeenCalled()
     })
   })
 
   describe('map download', () => {
-    test('serves the map file the game was played on', async () => {
+    test('streams the map file the game was played on', async () => {
       const bytes = Buffer.from('not really a map', 'utf8')
-      mockReadFile.mockResolvedValue(bytes)
+      mockReadFileStream.mockResolvedValue({ stream: Readable.from([bytes]), size: bytes.length })
 
       const res = await got(`${baseUrl}/internal/games/${GAME_ID}/artifacts/map`, {
         ...NO_THROW,
@@ -340,11 +333,12 @@ describe('games/internal-game-artifact-routes', () => {
       expect(res.statusCode).toBe(200)
       expect(res.headers['content-type']).toBe('application/octet-stream')
       expect(res.headers['content-disposition']).toBe(`attachment; filename="${MAP_HASH}.scx"`)
+      expect(res.headers['content-length']).toBe(String(bytes.length))
       expect(res.headers['cache-control']).toBe('private, no-store')
       expect(res.headers['x-content-type-options']).toBe('nosniff')
       expect(Buffer.compare(res.body, bytes)).toBe(0)
       expect(mockGetMapInfos).toHaveBeenCalledWith([MAP_ID])
-      expect(mockReadFile).toHaveBeenCalledWith(`maps/ab/ab/${MAP_HASH}.scx`)
+      expect(mockReadFileStream).toHaveBeenCalledWith(`maps/ab/ab/${MAP_HASH}.scx`)
     })
 
     test('404s when the map record is gone', async () => {
@@ -353,7 +347,7 @@ describe('games/internal-game-artifact-routes', () => {
       const res = await got(`${baseUrl}/internal/games/${GAME_ID}/artifacts/map`, NO_THROW)
 
       expect(res.statusCode).toBe(404)
-      expect(mockReadFile).not.toHaveBeenCalled()
+      expect(mockReadFileStream).not.toHaveBeenCalled()
     })
   })
 })
