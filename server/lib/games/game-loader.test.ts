@@ -44,6 +44,14 @@ const p1 = makeSbUserId(1)
 const p2 = makeSbUserId(2)
 const mapId = makeSbMapId('1')
 
+/** How long a load has to finish before the loader starts deciding whether anyone is at fault. */
+const LOAD_DEADLINE_MS = 75_000
+/**
+ * How long past that deadline the loader keeps asking the coordinator for a record complete enough
+ * to attribute the failure to someone.
+ */
+const FRESHNESS_WAIT_MS = 15_000
+
 function lobbyConfig(teams: GameConfigPlayer[][]): LobbyGameConfig {
   return {
     gameSource: GameSource.Lobby,
@@ -118,6 +126,7 @@ describe('games/game-loader/GameLoader', () => {
     fetchSessionLoadState: Mock<
       (session: number) => Promise<{
         known: boolean
+        freshAsOfMs?: number
         startedAtMs?: number
         connectedSlots: number[]
         startedSlots: number[]
@@ -209,9 +218,18 @@ describe('games/game-loader/GameLoader', () => {
     return { load }
   }
 
-  /** Runs a load past its deadline and returns the timeout error it was cancelled with. */
+  /** Whether any player was told their load was being cancelled. */
+  function wasCancelPublished() {
+    return publisher.publish.mock.calls.some((call: any[]) => call[1]?.type === 'cancelLoading')
+  }
+
+  /**
+   * Runs a load past its deadline and past the whole window the loader spends waiting for a
+   * coordinator record complete enough to attribute a failure, then returns the timeout error it
+   * was cancelled with.
+   */
   async function expectTimeout(load: Promise<any>) {
-    await vi.advanceTimersByTimeAsync(80_000)
+    await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + FRESHNESS_WAIT_MS + 5_000)
     const result = await load
     expect(result.isError()).toBe(true)
     const error = result.errorOrNull() as BaseGameLoaderError<GameLoadErrorType.Timeout>
@@ -227,13 +245,17 @@ describe('games/game-loader/GameLoader', () => {
       vi.useRealTimers()
     })
 
-    /** A coordinator that has held the session since creation but saw nothing beyond the webhooks. */
+    /**
+     * A coordinator that has held the session since creation, whose record is complete as of every
+     * moment it's asked, and that saw nothing beyond what the webhooks already delivered.
+     */
     function coordinatorConfirmsComplete() {
-      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+      netcodeV2Service.fetchSessionLoadState.mockImplementation(async () => ({
         known: true,
+        freshAsOfMs: Date.now(),
         connectedSlots: [],
         startedSlots: [],
-      })
+      }))
     }
 
     test('blames only the player who never reached the relay', async () => {
@@ -279,11 +301,12 @@ describe('games/game-loader/GameLoader', () => {
     })
 
     test('blames the player the coordinator pull shows never connected, with no webhooks at all', async () => {
-      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+      netcodeV2Service.fetchSessionLoadState.mockImplementation(async () => ({
         known: true,
+        freshAsOfMs: Date.now(),
         connectedSlots: [0],
         startedSlots: [],
-      })
+      }))
       const { load } = await startNetworkedLoad('game-pull-connected')
 
       const error = await expectTimeout(load)
@@ -302,17 +325,14 @@ describe('games/game-loader/GameLoader', () => {
       })
       const { load } = await startNetworkedLoad('game-pull-started')
 
-      await vi.advanceTimersByTimeAsync(80_000)
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + 5_000)
       const result = await load
 
       expect(result.isOk()).toBe(true)
-      const canceled = publisher.publish.mock.calls.some(
-        (call: any[]) => call[1]?.type === 'cancelLoading',
-      )
-      expect(canceled).toBe(false)
+      expect(wasCancelPublished()).toBe(false)
     })
 
-    test('blames nobody when the coordinator pull fails, whatever the webhooks said', async () => {
+    test('blames nobody when the coordinator pull keeps failing, whatever the webhooks said', async () => {
       netcodeV2Service.fetchSessionLoadState.mockRejectedValue(new Error('coordinator down'))
       const { load } = await startNetworkedLoad('game-pull-failed')
       gameLoader.recordPlayerConnected('game-pull-failed', p1)
@@ -323,7 +343,7 @@ describe('games/game-loader/GameLoader', () => {
       expect(error.data.unloaded).toEqual([])
     })
 
-    test('blames nobody when the coordinator no longer knows the session', async () => {
+    test('blames nobody when the coordinator never vouches for its record', async () => {
       netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
         known: false,
         connectedSlots: [],
@@ -337,6 +357,128 @@ describe('games/game-loader/GameLoader', () => {
       const error = await expectTimeout(load)
 
       expect(error.data.unloaded).toEqual([])
+    })
+
+    test('completes once the record catches up to a start it had not recorded at the deadline', async () => {
+      netcodeV2Service.fetchSessionLoadState
+        .mockImplementationOnce(async () => ({
+          known: true,
+          // Complete only up to well before the deadline, so p2 not being in it means nothing yet.
+          freshAsOfMs: Date.now() - 10_000,
+          connectedSlots: [0, 1],
+          startedSlots: [0],
+        }))
+        .mockImplementation(async () => ({
+          known: true,
+          freshAsOfMs: Date.now(),
+          startedAtMs: Date.now() - 20_000,
+          connectedSlots: [0, 1],
+          startedSlots: [0, 1],
+        }))
+      const { load } = await startNetworkedLoad('game-record-catches-up')
+
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + FRESHNESS_WAIT_MS + 5_000)
+      const result = await load
+
+      expect(result.isOk()).toBe(true)
+      expect(wasCancelPublished()).toBe(false)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
+    })
+
+    test('blames the player still missing once the record covers the deadline', async () => {
+      netcodeV2Service.fetchSessionLoadState
+        .mockImplementationOnce(async () => ({
+          known: true,
+          freshAsOfMs: Date.now() - 10_000,
+          connectedSlots: [0],
+          startedSlots: [],
+        }))
+        .mockImplementation(async () => ({
+          known: true,
+          freshAsOfMs: Date.now(),
+          connectedSlots: [0],
+          startedSlots: [],
+        }))
+      const { load } = await startNetworkedLoad('game-record-still-missing')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+      // The second pull is what decided it, so the wait cost one poll interval and no more.
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
+    })
+
+    test('blames nobody when the record never catches up to the deadline', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockImplementation(async () => ({
+        known: true,
+        // A relay the coordinator can't reach leaves the record stuck short of the deadline.
+        freshAsOfMs: Date.now() - 30_000,
+        connectedSlots: [0],
+        startedSlots: [],
+      }))
+      const { load } = await startNetworkedLoad('game-record-never-fresh')
+      const startedAt = Date.now()
+
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + FRESHNESS_WAIT_MS - 3_000)
+
+      // Still asking: p2's absence isn't evidence until the record covers the deadline.
+      expect(wasCancelPublished()).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(5_000)
+      const result = await load
+
+      expect(result.isError()).toBe(true)
+      const error = result.errorOrNull() as BaseGameLoaderError<GameLoadErrorType.Timeout>
+      expect(error.code).toBe(GameLoadErrorType.Timeout)
+      expect(error.data.unloaded).toEqual([])
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(LOAD_DEADLINE_MS + FRESHNESS_WAIT_MS)
+    })
+
+    test('completes on positive evidence the coordinator cannot vouch for', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: false,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [0, 1],
+      })
+      const { load } = await startNetworkedLoad('game-unknown-all-started')
+
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + 5_000)
+      const result = await load
+
+      // What the coordinator saw happened whether or not it can promise it saw everything.
+      expect(result.isOk()).toBe(true)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+    })
+
+    test('blames nobody for a partial record the coordinator cannot vouch for', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: false,
+        connectedSlots: [0],
+        startedSlots: [0],
+      })
+      const { load } = await startNetworkedLoad('game-unknown-partial')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('decides on the pull after a failed one, once its record covers the deadline', async () => {
+      netcodeV2Service.fetchSessionLoadState
+        .mockRejectedValueOnce(new Error('coordinator down'))
+        .mockImplementation(async () => ({
+          known: true,
+          freshAsOfMs: Date.now(),
+          connectedSlots: [0],
+          startedSlots: [],
+        }))
+      const { load } = await startNetworkedLoad('game-pull-retried')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
     })
 
     test('still completes on webhook evidence alone when every game loop is known to be running', async () => {

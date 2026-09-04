@@ -1249,6 +1249,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue({
       known: true,
+      freshAsOfMs: 1700000005000,
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
@@ -1271,13 +1272,14 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     )
     expect(result).toEqual({
       known: true,
+      freshAsOfMs: 1700000005000,
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
     })
   })
 
-  test('normalizes an unknown session into empty slot lists', async () => {
+  test('normalizes a response with no slot lists into empty ones', async () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue({ known: false })
     asMockedFunction(got.post).mockReturnValue({ json } as any)
@@ -1287,9 +1289,33 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
 
     expect(result).toEqual({
       known: false,
+      freshAsOfMs: undefined,
       startedAtMs: undefined,
       connectedSlots: [],
       startedSlots: [],
+    })
+  })
+
+  test('keeps the slot lists of a session the coordinator holds but cannot vouch for', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({
+      known: false,
+      startedAtMs: 1700000000000,
+      connectedSlots: [0, 1],
+      startedSlots: [1],
+    })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const result = await service.fetchSessionLoadState(42)
+
+    // What the coordinator did see happened, whether or not it can promise it saw everything.
+    expect(result).toEqual({
+      known: false,
+      freshAsOfMs: undefined,
+      startedAtMs: 1700000000000,
+      connectedSlots: [0, 1],
+      startedSlots: [1],
     })
   })
 

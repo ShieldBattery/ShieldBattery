@@ -4,6 +4,7 @@ import { singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { extendableDeadline } from '../../../common/async/extendable-deadline'
+import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
@@ -34,6 +35,17 @@ const GAME_LOAD_TIMEOUT = 75 * 1000
  * waits out a full provision would otherwise trip the timeout before the game itself begins loading.
  */
 const PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS = 90 * 1000
+
+/**
+ * How long a load that ran out of time keeps re-asking the coordinator for a record complete
+ * enough to attribute its failure, before giving up and blaming nobody. Sized to comfortably cover
+ * the coordinator's relay heartbeat interval plus a slow round trip, since one heartbeat is all
+ * that's needed for a record taken at the deadline to catch up to it.
+ */
+const LOAD_STATE_FRESHNESS_WAIT_MS = 15 * 1000
+
+/** How long to wait between load-state pulls while waiting for the record to catch up. */
+const LOAD_STATE_POLL_INTERVAL_MS = 2 * 1000
 
 export enum GameLoadErrorType {
   /** The game load request was canceled before it completed. */
@@ -166,6 +178,25 @@ const LoadingDatas = {
   /** The players that aren't in `set`, in the load's player order. */
   playersMissingFrom(loadingData: LoadingData, set: ISet<SbUserId>): SbUserId[] {
     return loadingData.players.filter(p => !set.has(p.userId)).map(p => p.userId)
+  },
+
+  /**
+   * Which players a networked load that failed is at fault for, read off how far the session got:
+   * a missing game loop once some are running, or a missing connection while the session was still
+   * waiting for everyone. Empty when nothing distinguishes the players from each other — nobody
+   * connected at all, or everybody did and the session ran but no game loop ever started.
+   *
+   * Only meaningful against a record known to be complete, since every answer here is drawn from a
+   * player's absence from one of the sets.
+   */
+  playersAtFault(loadingData: LoadingData): SbUserId[] {
+    if (!loadingData.finishedPlayers.isEmpty()) {
+      return LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
+    } else if (!loadingData.sessionStarted && !loadingData.connectedPlayers.isEmpty()) {
+      return LoadingDatas.playersMissingFrom(loadingData, loadingData.connectedPlayers)
+    } else {
+      return []
+    }
   },
 }
 
@@ -528,75 +559,101 @@ export class GameLoader {
    *   says nothing about which of them is at fault, since none got far enough to be observed), or
    *   everybody connected and the session was released but no game loop ever started.
    *
+   * Everything positive in the coordinator's answer counts immediately, but the last three rules
+   * read fault out of a player's *absence* from it, and the coordinator's record trails the relays
+   * feeding it by up to a heartbeat: something that happened moments before the deadline can be
+   * missing from a record pulled at the deadline. So absence is only evidence once the record is
+   * complete past the deadline instant, and until it is, the pull is simply repeated. The cost is
+   * that a load can be cancelled up to `LOAD_STATE_FRESHNESS_WAIT_MS` after its deadline — but only
+   * a load that has already failed, since one that succeeded completes on the positive evidence at
+   * the first pull that carries it. A record that never catches up (a relay the coordinator can't
+   * reach) blames nobody, on the same principle: banning a player for a report that never arrived
+   * is far worse than letting a genuinely absent one go unpunished.
+   *
    * A local-only load has none of that evidence, so it falls back to blaming the unfinished players
    * only once at least half of them finished — which for its lone player means blaming them for
    * their own load.
    */
   private async handleLoadDeadlineExpired(gameId: string): Promise<void> {
-    const beforePull = this.loadingGames.get(gameId)
-    let coordinatorStateComplete = false
-    if (beforePull && !beforePull.localOnly) {
-      coordinatorStateComplete = await this.mergeCoordinatorLoadState(gameId)
-    }
+    // The instant fault is judged as of. A player who connected after this was too late regardless
+    // of when the record catches up to saying so.
+    const cutoff = Date.now()
 
-    // The pull above is a network round trip, and the load can finish or be cancelled while it's in
-    // flight; either way there's nothing left here to time out.
-    const loadingData = this.loadingGames.get(gameId)
-    if (!loadingData) {
-      return
-    }
+    for (;;) {
+      const beforePull = this.loadingGames.get(gameId)
+      if (!beforePull) {
+        return
+      }
+      const loadState = beforePull.localOnly
+        ? undefined
+        : await this.mergeCoordinatorLoadState(gameId)
 
-    if (!loadingData.localOnly && LoadingDatas.isAllFinished(loadingData)) {
-      log.info(
-        `game load for ${gameId} passed its deadline with every game loop already running, ` +
-          'completing it',
+      // The pull above is a network round trip, and the load can finish or be cancelled while it's
+      // in flight; either way there's nothing left here to time out.
+      const loadingData = this.loadingGames.get(gameId)
+      if (!loadingData) {
+        return
+      }
+
+      if (!loadingData.localOnly && LoadingDatas.isAllFinished(loadingData)) {
+        log.info(
+          `game load for ${gameId} passed its deadline with every game loop already running, ` +
+            'completing it',
+        )
+        this.completeLoad(gameId, loadingData)
+        return
+      }
+
+      let unloaded: SbUserId[]
+      if (loadingData.localOnly) {
+        unloaded =
+          loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)
+            ? LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
+            : []
+      } else if (
+        loadState?.known &&
+        loadState.freshAsOfMs !== undefined &&
+        loadState.freshAsOfMs >= cutoff
+      ) {
+        unloaded = LoadingDatas.playersAtFault(loadingData)
+      } else if (Date.now() - cutoff < LOAD_STATE_FRESHNESS_WAIT_MS) {
+        const [pollDelay] = timeoutPromise(LOAD_STATE_POLL_INTERVAL_MS)
+        await pollDelay
+        continue
+      } else {
+        log.info(
+          `no complete netcode v2 record for ${gameId} covering its load deadline, ` +
+            'timing out without blaming anyone',
+        )
+        unloaded = []
+      }
+
+      this.maybeCancelLoadingFromSystem(
+        gameId,
+        new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
+          data: { unloaded },
+        }),
       )
-      this.completeLoad(gameId, loadingData)
       return
     }
-
-    let unloaded: SbUserId[]
-    if (loadingData.localOnly) {
-      unloaded =
-        loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)
-          ? LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
-          : []
-    } else if (!coordinatorStateComplete) {
-      // Blame here is inferred from a player's absence from the evidence, and absence only means
-      // anything against a complete record. Without one, a lost notification and a player who
-      // never showed up look identical, and banning the former is far worse than missing the
-      // latter.
-      unloaded = []
-    } else if (!loadingData.finishedPlayers.isEmpty()) {
-      unloaded = LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
-    } else if (!loadingData.sessionStarted && !loadingData.connectedPlayers.isEmpty()) {
-      unloaded = LoadingDatas.playersMissingFrom(loadingData, loadingData.connectedPlayers)
-    } else {
-      unloaded = []
-    }
-
-    this.maybeCancelLoadingFromSystem(
-      gameId,
-      new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
-        data: { unloaded },
-      }),
-    )
   }
 
   /**
    * Folds the coordinator's account of a session's startup into the load's own record, so a
-   * notification dropped after its retries doesn't read as a player who never appeared. A failed
-   * request, or a coordinator that no longer holds the session, contributes nothing and leaves the
-   * local record untouched.
+   * notification dropped after its retries doesn't read as a player who never appeared. Everything
+   * the coordinator holds is merged in regardless of whether it can vouch for the record being
+   * complete: what it saw happened either way. Only a failed request contributes nothing and leaves
+   * the local record untouched.
    *
-   * @returns whether the coordinator vouched for its record being complete: it has held the
-   *   session since creating it, so a slot absent from its sets genuinely never reported. Only
-   *   then may absence be held against a player.
+   * @returns the coordinator's answer, so the caller can weigh how complete it is against what it
+   *   needs, or `undefined` when there was none to merge.
    */
-  private async mergeCoordinatorLoadState(gameId: string): Promise<boolean> {
+  private async mergeCoordinatorLoadState(
+    gameId: string,
+  ): Promise<NetcodeV2SessionLoadState | undefined> {
     const session = this.loadingGames.get(gameId)?.netcodeV2Session
     if (session === undefined) {
-      return false
+      return undefined
     }
 
     let loadState: NetcodeV2SessionLoadState
@@ -604,15 +661,12 @@ export class GameLoader {
       loadState = await this.netcodeV2Service.fetchSessionLoadState(session)
     } catch (err) {
       log.warn({ err }, `couldn't fetch netcode v2 load state for ${gameId}`)
-      return false
-    }
-    if (!loadState.known) {
-      return false
+      return undefined
     }
 
     const loadingData = this.loadingGames.get(gameId)
     if (!loadingData) {
-      return false
+      return loadState
     }
 
     const userBySlot = loadingData.slotByUserId.flip()
@@ -640,7 +694,7 @@ export class GameLoader {
         )
         .set('sessionStarted', loadingData.sessionStarted || loadState.startedAtMs !== undefined),
     )
-    return true
+    return loadState
   }
 
   /**

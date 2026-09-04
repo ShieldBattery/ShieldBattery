@@ -320,23 +320,38 @@ interface CoordinatorWarmResponse {
 /**
  * How far a session got through starting up, as the coordinator currently sees it. Pulled at the
  * moment a load needs to decide who (if anyone) is at fault, so it covers the slots whose
- * connect/start webhooks were dropped after retries. `known: false` means the coordinator holds no
- * state for the session at all (it restarted, or never had it) — no evidence either way, rather
- * than evidence that nothing happened.
+ * connect/start webhooks were dropped after retries.
+ *
+ * Everything the coordinator holds for the session comes back whatever `known` says, and all of it
+ * is positive evidence that can be trusted on its own. `known` is about the opposite reading: only
+ * a known record makes a slot's *absence* mean anything, and only for events before `freshAsOfMs`.
  */
 export interface NetcodeV2SessionLoadState {
+  /**
+   * Whether the coordinator has held this session since it was created and every relay serving it
+   * has reported in at least once. False means the record may be missing things that happened (the
+   * coordinator restarted, never had the session, or a relay has yet to report), so absence from
+   * the sets below says nothing.
+   */
   known: boolean
+  /**
+   * Unix ms on the coordinator's clock up to which the record is complete: the oldest report
+   * across the relays serving the session, so anything that happened after it may not have made it
+   * in yet. Only meaningful alongside `known`, and absent when there's no such point.
+   */
+  freshAsOfMs?: number
   /** Unix ms when the authority relay released the session to run, absent if it never did. */
   startedAtMs?: number
-  /** The slots whose home relay activated their link. Empty when `known` is false. */
+  /** The slots whose home relay activated their link. */
   connectedSlots: number[]
-  /** The slots whose game loop began running. Empty when `known` is false. */
+  /** The slots whose game loop began running. */
   startedSlots: number[]
 }
 
 /** The wire shape of the coordinator's `POST /session/load-state` response. */
 interface CoordinatorSessionLoadStateResponse {
   known: boolean
+  freshAsOfMs?: number
   startedAtMs?: number
   connectedSlots?: number[]
   startedSlots?: number[]
@@ -784,9 +799,11 @@ export class NetcodeV2Service {
    * relay, which slots' game loops began, and when (if ever) the session was released to run.
    *
    * The connect/start webhooks are the fast path for this, but they're at-least-once with a finite
-   * retry budget, so a delivery can be lost outright. This pull is the authoritative answer at the
+   * retry budget, so a delivery can be lost outright. This pull is the authoritative account at the
    * moment it matters — deciding whether a load that ran out of time has anyone to blame — which is
-   * why it's worth a synchronous round trip there and nowhere else.
+   * why it's worth a synchronous round trip there and nowhere else. The record trails the relays
+   * that feed it by up to a heartbeat, so a caller reading absence as fault must check
+   * `freshAsOfMs` covers the instant it cares about, and pull again if it doesn't.
    *
    * Throws `NetcodeV2ServiceError` if netcode v2 isn't configured or the request fails; a caller
    * that can proceed without the answer decides that for itself.
@@ -820,6 +837,7 @@ export class NetcodeV2Service {
 
     return {
       known: response.known,
+      freshAsOfMs: response.freshAsOfMs,
       startedAtMs: response.startedAtMs,
       connectedSlots: response.connectedSlots ?? [],
       startedSlots: response.startedSlots ?? [],
