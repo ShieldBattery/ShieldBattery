@@ -8,6 +8,9 @@ import {
   NetcodeV2GameEvent,
   NetcodeV2ResultNotification,
   NetcodeV2SessionClosedNotification,
+  NetcodeV2SessionStartedNotification,
+  NetcodeV2SlotConnectedNotification,
+  NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
@@ -18,6 +21,9 @@ import {
   recordDesyncNotification,
   recordResultNotification,
   recordSessionClosedNotification,
+  recordSessionStartedNotification,
+  recordSlotConnectedNotification,
+  recordSlotStartedNotification,
 } from './netcode-v2-game-event-service'
 
 const gameEventsThrottle = createThrottle('netcodeV2GameEvents', {
@@ -125,6 +131,44 @@ const SESSION_CLOSED_EVENT_SCHEMA = Joi.object<NetcodeV2SessionClosedNotificatio
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
 
+const SLOT_CONNECTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotConnectedNotification>({
+  event: Joi.string().valid('slotConnected').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).required(),
+  externalId: Joi.string(),
+  slot: Joi.number().integer().min(0).max(MAX_SLOT).required(),
+  externalRef: Joi.string(),
+  resumed: Joi.boolean().required(),
+  connectedAtMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+})
+  // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
+  .unknown(true)
+
+const SESSION_STARTED_EVENT_SCHEMA = Joi.object<NetcodeV2SessionStartedNotification>({
+  event: Joi.string().valid('sessionStarted').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).required(),
+  externalId: Joi.string(),
+  startedAtMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+  initialBufferTurns: Joi.number().integer().min(0),
+})
+  // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
+  .unknown(true)
+
+const SLOT_STARTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotStartedNotification>({
+  event: Joi.string().valid('slotStarted').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).required(),
+  externalId: Joi.string(),
+  slot: Joi.number().integer().min(0).max(MAX_SLOT).required(),
+  externalRef: Joi.string(),
+  arrivalMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+  sessionFrame: Joi.number().integer().min(0),
+  slotFrame: Joi.number().integer().min(0),
+})
+  // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
+  .unknown(true)
+
 /**
  * Validates a `POST /netcode-v2/game-events` body as one of the `NetcodeV2GameEvent` variants,
  * discriminated by `event`. Joi tries each alternative in order and reports the combined errors if
@@ -135,6 +179,9 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
   DESYNC_EVENT_SCHEMA,
   RESULT_EVENT_SCHEMA,
   SESSION_CLOSED_EVENT_SCHEMA,
+  SLOT_CONNECTED_EVENT_SCHEMA,
+  SESSION_STARTED_EVENT_SCHEMA,
+  SLOT_STARTED_EVENT_SCHEMA,
 )
 
 /**
@@ -144,9 +191,8 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
  * authentication is an Ed25519 signature over the request rather than a session; see
  * `netcode-v2-game-event-service.ts` for the auth + classification logic this handler delegates to.
  *
- * One endpoint carries departure, desync, result, and sessionClosed notifications (discriminated
- * by `event`) — the coordinator's notice pipe is a single generalized channel rather than one
- * route per event kind.
+ * One endpoint carries every notification kind (discriminated by `event`) — the coordinator's
+ * notice pipe is a single generalized channel rather than one route per event kind.
  */
 export function registerGameEventWebhookRoutes(router: KoaRouter) {
   router.post(
@@ -184,6 +230,15 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
           break
         case 'sessionClosed':
           await recordSessionClosedNotification(body)
+          break
+        case 'slotConnected':
+          recordSlotConnectedNotification(body)
+          break
+        case 'sessionStarted':
+          recordSessionStartedNotification(body)
+          break
+        case 'slotStarted':
+          recordSlotStartedNotification(body)
           break
         default:
           assertUnreachable(body)

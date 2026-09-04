@@ -259,6 +259,138 @@ describe('netcode-v2/GAME_EVENT_BODY_SCHEMA', () => {
     expect(error).toBeDefined()
   })
 
+  test('accepts a slotConnected event', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'slotConnected',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 0,
+      externalRef: '42',
+      resumed: false,
+      connectedAtMs: Date.now(),
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.event).toBe('slotConnected')
+  })
+
+  test('rejects a slotConnected event missing a required field', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'slotConnected',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 0,
+      // missing `resumed` and `connectedAtMs`
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('rejects a slotConnected event whose slot is out of range', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'slotConnected',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 16,
+      resumed: false,
+      connectedAtMs: Date.now(),
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('accepts a sessionStarted event', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      startedAtMs: Date.now(),
+      initialBufferTurns: 3,
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.event).toBe('sessionStarted')
+  })
+
+  test('accepts a sessionStarted event without initialBufferTurns', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      startedAtMs: Date.now(),
+    })
+
+    expect(error).toBeUndefined()
+  })
+
+  test('rejects a sessionStarted event missing a required field', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      // missing `startedAtMs`
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('rejects a sessionStarted event whose startedAtMs is out of range', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      startedAtMs: 10_000_000_000_001,
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('accepts a slotStarted event', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'slotStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 2,
+      externalRef: '42',
+      arrivalMs: Date.now(),
+      sessionFrame: 12,
+      slotFrame: 11,
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.event).toBe('slotStarted')
+  })
+
+  test('accepts a slotStarted event without frame numbers', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'slotStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 2,
+      externalRef: '42',
+      arrivalMs: Date.now(),
+    })
+
+    expect(error).toBeUndefined()
+  })
+
+  test('rejects a slotStarted event missing a required field', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'slotStarted',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 2,
+      // missing `arrivalMs`
+    })
+
+    expect(error).toBeDefined()
+  })
+
   test('allows unknown extra fields on either variant (coordinator does not deny_unknown_fields)', () => {
     const { error } = GAME_EVENT_BODY_SCHEMA.validate({
       event: 'departure',

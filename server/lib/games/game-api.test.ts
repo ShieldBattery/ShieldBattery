@@ -1,6 +1,8 @@
 import { RouterContext } from '@koa/router'
 import { describe, expect, test, vi } from 'vitest'
+import { GameStatus } from '../../../common/games/game-status'
 import { GameResultErrorCode } from '../../../common/games/results'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { getUserGameRecord } from '../models/games-users'
 import { GameApi } from './game-api'
 import { getNetcodeV2Session } from './game-models'
@@ -130,6 +132,75 @@ describe('games/game-api/GameApi#netcodeV2Rehome', () => {
     // reported dead relay id.
     expect(netcodeV2Service.rehomeSession).toHaveBeenCalledWith('game-1', 42, 5)
     expect(returned).toEqual(decision)
+  })
+})
+
+/** A fake `RouterContext` satisfying `updateGameStatus`'s param/body Joi validation. */
+function makeStatusCtx(status: GameStatus): RouterContext {
+  return {
+    params: { gameId: 'game-1' },
+    request: { body: { status } },
+    session: { user: { id: makeSbUserId(1) } },
+  } as any
+}
+
+/** Builds a `GameApi` with only the loader queries `updateGameStatus` touches mocked. */
+function makeStatusApi({
+  isLoadingOrRecentlyLoaded = true,
+  isLocalOnlyLoad = false,
+}: {
+  isLoadingOrRecentlyLoaded?: boolean
+  isLocalOnlyLoad?: boolean
+} = {}) {
+  const gameLoader = {
+    isLoadingOrRecentlyLoaded: vi.fn().mockReturnValue(isLoadingOrRecentlyLoaded),
+    isLocalOnlyLoad: vi.fn().mockReturnValue(isLocalOnlyLoad),
+    registerGameAsLoaded: vi.fn().mockReturnValue(true),
+    maybeCancelLoading: vi.fn().mockReturnValue(true),
+  }
+  const api = new GameApi({} as any, gameLoader as any, {} as any, {} as any, {} as any)
+  return { api, gameLoader }
+}
+
+describe('games/game-api/GameApi#updateGameStatus', () => {
+  test('completes a local-only load from the client report', async () => {
+    const { api, gameLoader } = makeStatusApi({ isLocalOnlyLoad: true })
+    const ctx = makeStatusCtx(GameStatus.Playing)
+
+    await api.updateGameStatus(ctx)
+
+    expect(gameLoader.registerGameAsLoaded).toHaveBeenCalledWith('game-1', makeSbUserId(1))
+    expect(ctx.status).toBe(204)
+  })
+
+  test('accepts but ignores a networked game client reporting itself as playing', async () => {
+    const { api, gameLoader } = makeStatusApi({ isLocalOnlyLoad: false })
+    const ctx = makeStatusCtx(GameStatus.Playing)
+
+    // The coordinator owns this signal for a networked game, so the client's own report must
+    // neither complete the load nor be answered as an error.
+    await api.updateGameStatus(ctx)
+
+    expect(gameLoader.registerGameAsLoaded).not.toHaveBeenCalled()
+    expect(ctx.status).toBe(204)
+  })
+
+  test('cancels the load on a client-reported error regardless of transport', async () => {
+    const { api, gameLoader } = makeStatusApi({ isLocalOnlyLoad: false })
+    const ctx = makeStatusCtx(GameStatus.Error)
+
+    await api.updateGameStatus(ctx)
+
+    expect(gameLoader.maybeCancelLoading).toHaveBeenCalledWith('game-1', makeSbUserId(1))
+    expect(ctx.status).toBe(204)
+  })
+
+  test('rejects a status report for a game that is neither loading nor recently loaded', async () => {
+    const { api } = makeStatusApi({ isLoadingOrRecentlyLoaded: false })
+
+    const err = await api.updateGameStatus(makeStatusCtx(GameStatus.Playing)).catch(e => e)
+
+    expect(err).toHaveProperty('status', 409)
   })
 })
 

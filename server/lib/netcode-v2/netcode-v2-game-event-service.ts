@@ -8,6 +8,9 @@ import {
   NetcodeV2DesyncNotification,
   NetcodeV2ResultNotification,
   NetcodeV2SessionClosedNotification,
+  NetcodeV2SessionStartedNotification,
+  NetcodeV2SlotConnectedNotification,
+  NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
 import {
   GameResultErrorCode,
@@ -15,6 +18,7 @@ import {
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { GameLoader } from '../games/game-loader'
 import { getGameRecord } from '../games/game-models'
 import GameResultService, {
   GameResultServiceError,
@@ -135,8 +139,8 @@ export async function checkGameEventWebhookAuth(
 
 /**
  * Parses a webhook's `externalId` back into the app server's `gameId`, or returns `undefined` (and
- * logs) if it's missing or not a valid game id. Shared by both departure and desync ingest — the
- * coordinator's correlation id is the same `gameId` string in both cases.
+ * logs) if it's missing or not a valid game id. Shared by every event kind's ingest — the
+ * coordinator's correlation id is the same `gameId` string in all of them.
  */
 function parseGameId(externalId: string | undefined, eventKind: string): string | undefined {
   if (!externalId || !UUID_PATTERN.test(externalId)) {
@@ -152,7 +156,7 @@ function parseGameId(externalId: string | undefined, eventKind: string): string 
 /**
  * Parses a webhook's `externalRef` (the app server's stringified `SbUserId`) back into an
  * `SbUserId`, or returns `undefined` (and logs) if it's missing or not a positive integer. Shared
- * by both departure and desync ingest.
+ * by every per-slot event kind's ingest.
  */
 function parseUserId(
   externalRef: string | undefined,
@@ -491,4 +495,103 @@ export async function recordSessionClosedNotification(
   }
 
   await forceReconcile(gameId)
+}
+
+/** The `GameLoader.recordPlayerConnected` call the load-progress ingest needs, factored out for injection in tests. */
+type RecordPlayerConnected = (gameId: string, userId: SbUserId) => boolean
+
+/** Production `RecordPlayerConnected`: resolves the singleton loader from the DI container. */
+const defaultRecordPlayerConnected: RecordPlayerConnected = (gameId, userId) =>
+  container.resolve(GameLoader).recordPlayerConnected(gameId, userId)
+
+/** The `GameLoader.recordSessionStarted` call the load-progress ingest needs, factored out for injection in tests. */
+type RecordSessionStarted = (gameId: string) => boolean
+
+/** Production `RecordSessionStarted`: resolves the singleton loader from the DI container. */
+const defaultRecordSessionStarted: RecordSessionStarted = gameId =>
+  container.resolve(GameLoader).recordSessionStarted(gameId)
+
+/** The `GameLoader.registerGameAsLoaded` call the load-progress ingest needs, factored out for injection in tests. */
+type RegisterGameAsLoaded = (gameId: string, userId: SbUserId) => boolean
+
+/** Production `RegisterGameAsLoaded`: resolves the singleton loader from the DI container. */
+const defaultRegisterGameAsLoaded: RegisterGameAsLoaded = (gameId, userId) =>
+  container.resolve(GameLoader).registerGameAsLoaded(gameId, userId)
+
+/**
+ * Records that a relay activated a slot's link, which is the app server's evidence that the player
+ * reached the relay at all. A load that later runs out of time uses this to name the slots that
+ * never got that far.
+ *
+ * Same forgiving posture as the other event kinds: an unresolvable `externalId`/`externalRef` is
+ * logged and dropped. A game the loader doesn't know about is a silent no-op — the load may
+ * already have completed or been cancelled, and this webhook can arrive after either.
+ *
+ * @param recordPlayerConnected injectable for testing; defaults to the real loader.
+ */
+export function recordSlotConnectedNotification(
+  notification: NetcodeV2SlotConnectedNotification,
+  recordPlayerConnected: RecordPlayerConnected = defaultRecordPlayerConnected,
+): void {
+  const gameId = parseGameId(notification.externalId, 'slotConnected')
+  if (!gameId) {
+    return
+  }
+
+  const userId = parseUserId(notification.externalRef, { gameId })
+  if (!userId) {
+    return
+  }
+
+  recordPlayerConnected(gameId, userId)
+}
+
+/**
+ * Records that every expected slot connected and the session was released to run. A load that
+ * later runs out of time reads this to tell "somebody never reached the relay" (nobody is at fault
+ * beyond the slots that didn't connect) apart from "everybody reached it but a game loop never
+ * started" (unattributable).
+ *
+ * Same forgiving posture as the other event kinds: an unresolvable `externalId` is logged and
+ * dropped, and a game the loader doesn't know about is a silent no-op.
+ *
+ * @param recordSessionStarted injectable for testing; defaults to the real loader.
+ */
+export function recordSessionStartedNotification(
+  notification: NetcodeV2SessionStartedNotification,
+  recordSessionStarted: RecordSessionStarted = defaultRecordSessionStarted,
+): void {
+  const gameId = parseGameId(notification.externalId, 'sessionStarted')
+  if (!gameId) {
+    return
+  }
+
+  recordSessionStarted(gameId)
+}
+
+/**
+ * Records that a slot's game loop began running. For a networked game this is the only signal
+ * that completes a player's load — the client's own status report to the server never is — so a
+ * load finishes once every slot has produced one.
+ *
+ * Same forgiving posture as the other event kinds: an unresolvable `externalId`/`externalRef` is
+ * logged and dropped, and a game the loader doesn't know about is a silent no-op.
+ *
+ * @param registerGameAsLoaded injectable for testing; defaults to the real loader.
+ */
+export function recordSlotStartedNotification(
+  notification: NetcodeV2SlotStartedNotification,
+  registerGameAsLoaded: RegisterGameAsLoaded = defaultRegisterGameAsLoaded,
+): void {
+  const gameId = parseGameId(notification.externalId, 'slotStarted')
+  if (!gameId) {
+    return
+  }
+
+  const userId = parseUserId(notification.externalRef, { gameId })
+  if (!userId) {
+    return
+  }
+
+  registerGameAsLoaded(gameId, userId)
 }

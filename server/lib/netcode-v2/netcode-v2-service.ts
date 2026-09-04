@@ -317,6 +317,38 @@ interface CoordinatorWarmResponse {
   unknown: string[]
 }
 
+/**
+ * How far a session got through starting up, as the coordinator currently sees it. Pulled at the
+ * moment a load needs to decide who (if anyone) is at fault, so it covers the slots whose
+ * connect/start webhooks were dropped after retries. `known: false` means the coordinator holds no
+ * state for the session at all (it restarted, or never had it) — no evidence either way, rather
+ * than evidence that nothing happened.
+ */
+export interface NetcodeV2SessionLoadState {
+  known: boolean
+  /** Unix ms when the authority relay released the session to run, absent if it never did. */
+  startedAtMs?: number
+  /** The slots whose home relay activated their link. Empty when `known` is false. */
+  connectedSlots: number[]
+  /** The slots whose game loop began running. Empty when `known` is false. */
+  startedSlots: number[]
+}
+
+/** The wire shape of the coordinator's `POST /session/load-state` response. */
+interface CoordinatorSessionLoadStateResponse {
+  known: boolean
+  startedAtMs?: number
+  connectedSlots?: number[]
+  startedSlots?: number[]
+}
+
+/** The session id and per-player handoffs a successful `createSessionForGame` produces. */
+export interface NetcodeV2CreatedSession {
+  /** The coordinator's numeric id for the created session. */
+  session: number
+  setups: Map<SbUserId, NetcodeV2ServerSetup>
+}
+
 /** One address candidate parsed out of a coordinator relay endpoint's `relay_addr`/`relay_addrs`. */
 interface ParsedRelayAddr {
   host: string
@@ -520,8 +552,12 @@ export class NetcodeV2Service {
 
   /**
    * Requests a rally-point2 session for a loading game from each participant's slot (its per-session
-   * public key included), asks the coordinator to mint the session, and returns each player's
-   * server-side handoff. Fails fast if any slot is missing its public key.
+   * public key included), asks the coordinator to mint the session, and returns the session id plus
+   * each player's server-side handoff. Fails fast if any slot is missing its public key.
+   *
+   * The session id is returned (not just persisted) because the caller needs it in memory to ask
+   * the coordinator about this session's progress later, without a database round trip on a path
+   * where the persistence write is deliberately best-effort.
    *
    * @param slots the rally-point2 slot assignment for every participant, in slot order
    */
@@ -567,7 +603,7 @@ export class NetcodeV2Service {
      * players a game server is being brought up while the create POST keeps polling.
      */
     onProvisioning?: (regions: string[]) => void
-  }): Promise<Map<SbUserId, NetcodeV2ServerSetup>> {
+  }): Promise<NetcodeV2CreatedSession> {
     const config = this.config
     if (!config) {
       throw new NetcodeV2ServiceError('netcode v2 is not configured')
@@ -717,14 +753,14 @@ export class NetcodeV2Service {
         ...(slot === ownSlot && region !== undefined ? { homeRegion: region } : {}),
       }))
 
-    const result = new Map<SbUserId, NetcodeV2ServerSetup>()
+    const setups = new Map<SbUserId, NetcodeV2ServerSetup>()
     for (const { slot, token } of session.tokens) {
       const userId = userBySlot.get(slot)
       if (userId === undefined) {
         throw new NetcodeV2ServiceError(`coordinator returned a token for unknown slot ${slot}`)
       }
 
-      result.set(userId, {
+      setups.set(userId, {
         token: Buffer.from(token).toString('base64'),
         homeRelay: slotHomeBySlot.get(slot) ?? homeRelay,
         roster: rosterFor(slot),
@@ -736,11 +772,58 @@ export class NetcodeV2Service {
         clientPubkey: pubkeyByUserId.get(userId),
       })
     }
-    if (result.size !== slots.length) {
+    if (setups.size !== slots.length) {
       throw new NetcodeV2ServiceError('coordinator response was missing a token for a player')
     }
 
-    return result
+    return { session: session.session, setups }
+  }
+
+  /**
+   * Asks the coordinator how far a session got through starting up: which slots connected to their
+   * relay, which slots' game loops began, and when (if ever) the session was released to run.
+   *
+   * The connect/start webhooks are the fast path for this, but they're at-least-once with a finite
+   * retry budget, so a delivery can be lost outright. This pull is the authoritative answer at the
+   * moment it matters — deciding whether a load that ran out of time has anyone to blame — which is
+   * why it's worth a synchronous round trip there and nowhere else.
+   *
+   * Throws `NetcodeV2ServiceError` if netcode v2 isn't configured or the request fails; a caller
+   * that can proceed without the answer decides that for itself.
+   */
+  async fetchSessionLoadState(session: number): Promise<NetcodeV2SessionLoadState> {
+    const config = this.config
+    if (!config) {
+      throw new NetcodeV2ServiceError('netcode v2 is not configured')
+    }
+
+    const url = `${config.coordinatorUrl}/session/load-state`
+    const bodyStr = JSON.stringify({ tenant: config.tenant, session })
+    let response: CoordinatorSessionLoadStateResponse
+    try {
+      response = await got
+        .post(url, {
+          body: bodyStr,
+          headers: {
+            'content-type': 'application/json',
+            ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+          },
+          // Much tighter than the other control-plane calls: the only caller is already past its
+          // deadline and holding a decision open, so a slow coordinator must cost seconds, not tens
+          // of them.
+          timeout: { request: 3000 },
+        })
+        .json<CoordinatorSessionLoadStateResponse>()
+    } catch (err) {
+      throw new NetcodeV2ServiceError('coordinator session load-state fetch failed', { cause: err })
+    }
+
+    return {
+      known: response.known,
+      startedAtMs: response.startedAtMs,
+      connectedSlots: response.connectedSlots ?? [],
+      startedSlots: response.startedSlots ?? [],
+    }
   }
 
   /**

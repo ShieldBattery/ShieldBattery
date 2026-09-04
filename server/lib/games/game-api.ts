@@ -510,13 +510,24 @@ export class GameApi {
     }
 
     if (status < GameStatus.Playing) {
-      // TODO(tec27): Tell the game loader about this so it can better assign fault for failing to
-      // load
+      // Intermediate statuses are accepted but unused. Fault for a load that never finishes is
+      // assigned from what the relay infrastructure observed of each player, not from the
+      // players' own progress reports, so there's nothing for the loader to learn from these.
     } else if (status === GameStatus.Playing) {
-      if (!this.gameLoader.registerGameAsLoaded(gameId, user.id)) {
-        throw new httpErrors.NotFound('game not found')
+      // Only a local-only game (a lone human, no network session) completes its load on its own
+      // player's word. A networked game completes on the coordinator's, which watches the session
+      // itself: a client that never reached the relay can't be told from one that did by asking the
+      // client. Networked clients still send this report, so it's accepted and dropped as redundant
+      // rather than treated as an error.
+      if (this.gameLoader.isLocalOnlyLoad(gameId)) {
+        if (!this.gameLoader.registerGameAsLoaded(gameId, user.id)) {
+          throw new httpErrors.NotFound('game not found')
+        }
       }
     } else if (status === GameStatus.Error) {
+      // A launch failure is local to the reporting client and no relay ever sees it, so this stays
+      // the client's own report for every game — and it's the reporter admitting fault, not
+      // accusing anyone else.
       if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }

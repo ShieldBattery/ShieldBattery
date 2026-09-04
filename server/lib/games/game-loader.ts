@@ -18,7 +18,7 @@ import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
-import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { NetcodeV2Service, NetcodeV2SessionLoadState } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -126,7 +126,29 @@ export interface GameLoadPlayer {
 const createLoadingData = Record({
   gameSource: GameSource.Lobby,
   players: [] as ReadonlyArray<GameLoadPlayer>,
+  /**
+   * The players whose game loop is known to be running. This is what completes a load: once every
+   * player is in here, the game is loaded.
+   */
   finishedPlayers: ISet<SbUserId>(),
+  /**
+   * Whether this game has no network session at all — a lone human playing against the map or
+   * computers. Such a game is the only kind that reports its own load completion, since there's no
+   * network to observe it from; everything else is a networked game whose progress the relay
+   * infrastructure watches directly.
+   */
+  localOnly: false,
+  /**
+   * The coordinator's id for this game's relay session, once one has been created. Never set for a
+   * `localOnly` load, and for any other only after the session-create round trip returns.
+   */
+  netcodeV2Session: undefined as number | undefined,
+  /** Which relay slot each player occupies, for translating the coordinator's slot-keyed reports. */
+  slotByUserId: IMap<SbUserId, number>(),
+  /** The players whose client is known to have reached its relay. */
+  connectedPlayers: ISet<SbUserId>(),
+  /** Whether every slot connected and the session was released to run. */
+  sessionStarted: false,
   abortController: null as unknown as AbortController,
   deferred: null as unknown as Deferred<Result<GameLoadResult, GameLoaderError>>,
   signal: null as unknown as AbortSignal,
@@ -139,6 +161,11 @@ type LoadingData = ReturnType<typeof createLoadingData>
 const LoadingDatas = {
   isAllFinished(loadingData: LoadingData) {
     return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId))
+  },
+
+  /** The players that aren't in `set`, in the load's player order. */
+  playersMissingFrom(loadingData: LoadingData, set: ISet<SbUserId>): SbUserId[] {
+    return loadingData.players.filter(p => !set.has(p.userId)).map(p => p.userId)
   },
 }
 
@@ -328,39 +355,9 @@ export class GameLoader {
         })
 
         deadline.expired.catch(() => {
-          const loadingData = this.loadingGames.get(gameId)
-          if (!loadingData) {
-            // Something else must have already dealt with it
-            return
-          }
-
-          const unloaded = []
-          if (loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)) {
-            // If at least half the players have finished loading, mark the rest of them as failed
-            // since that can only really happen if some players failed to report a status or
-            // crashed on game start.
-            for (const p of loadingData.players) {
-              if (!loadingData.finishedPlayers.has(p.userId)) {
-                unloaded.push(p.userId)
-              }
-            }
-          }
-
-          this.maybeCancelLoadingFromSystem(
-            gameId,
-            new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
-              data: {
-                // TODO(tec27): Better determine who is at fault here. Currently we don't get enough
-                // information from clients about their loading state (just that their game is
-                // started or errored) so timeouts often result in all players being seen
-                // as at fault. We should send all the intermediate statuses from the game
-                // (configuring, setting up, etc.) so that we can see who is behind the rest and
-                // put the blame on them. (There we still likely be a lot of cases where no one
-                // in particular is to blame, though)
-                unloaded,
-              },
-            }),
-          )
+          this.handleLoadDeadlineExpired(gameId).catch(err => {
+            log.error({ err }, `error handling expired load deadline for ${gameId}`)
+          })
         })
       },
       err => {
@@ -391,8 +388,13 @@ export class GameLoader {
   }
 
   /**
-   * The game has successfully loaded for a specific player. Once the game is loaded for all
-   * players, we clean up any remaining state to prevent it from being canceled.
+   * The game has successfully loaded for a specific player, meaning their game loop is running.
+   * For a networked game this comes from the coordinator, which watches the session itself; a
+   * local-only game has no network to watch, so its lone player reports it over HTTP. Once the game
+   * is loaded for all players, we clean up any remaining state to prevent it from being canceled.
+   *
+   * Idempotent: this is the single completion path, and both of its sources can deliver the same
+   * player more than once.
    *
    * @returns whether the relevant game could be found
    */
@@ -402,11 +404,10 @@ export class GameLoader {
       return true
     }
 
-    if (!this.loadingGames.has(gameId)) {
+    let loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
       return false
     }
-
-    let loadingData = this.loadingGames.get(gameId)!
     if (!loadingData.players.some(p => p.userId === playerId)) {
       return false
     }
@@ -415,24 +416,219 @@ export class GameLoader {
     this.loadingGames = this.loadingGames.set(gameId, loadingData)
 
     if (LoadingDatas.isAllFinished(loadingData)) {
-      const allUserIds = loadingData.players.map(p => p.userId)
-      const activeClients = allUserIds
-        .map(userId => this.activityRegistry.getClientForUser(userId))
-        .filter(c => !!c)
-      for (const client of activeClients) {
-        client.unsubscribe(gameUserPath(gameId, client.userId))
-      }
-
-      this.recentlyLoadedGames.add(gameId)
-      this.loadingGames = this.loadingGames.delete(gameId)
-      loadingData.deferred.resolve(Result.ok({ gameId }))
-
-      setTimeout(() => {
-        this.recentlyLoadedGames.delete(gameId)
-      }, 60000)
+      this.completeLoad(gameId, loadingData)
     }
 
     return true
+  }
+
+  /**
+   * A player's client reached its relay. This is weaker evidence than
+   * {@link GameLoader.registerGameAsLoaded} — it says the client got onto the network, not that its
+   * game loop started — and exists so a load that runs out of time can tell a player who never
+   * showed up apart from one who did.
+   *
+   * @returns whether the relevant game could be found
+   */
+  recordPlayerConnected(gameId: string, playerId: SbUserId): boolean {
+    if (this.recentlyLoadedGames.has(gameId)) {
+      return true
+    }
+
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return false
+    }
+    if (!loadingData.players.some(p => p.userId === playerId)) {
+      return false
+    }
+
+    this.loadingGames = this.loadingGames.set(
+      gameId,
+      loadingData.set('connectedPlayers', loadingData.connectedPlayers.add(playerId)),
+    )
+    return true
+  }
+
+  /**
+   * Every slot of the game's relay session connected and the session was released to run. Past this
+   * point a load that runs out of time can't blame anyone for failing to connect, because everyone
+   * did.
+   *
+   * @returns whether the relevant game could be found
+   */
+  recordSessionStarted(gameId: string): boolean {
+    if (this.recentlyLoadedGames.has(gameId)) {
+      return true
+    }
+
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return false
+    }
+
+    this.loadingGames = this.loadingGames.set(gameId, loadingData.set('sessionStarted', true))
+    return true
+  }
+
+  /**
+   * Whether the game currently loading under `gameId` has no network session, and so is the one
+   * kind of load that takes its completion signal from its own player rather than from the relay
+   * path. False for a game that isn't loading, including one that already finished.
+   */
+  isLocalOnlyLoad(gameId: string): boolean {
+    return this.loadingGames.get(gameId)?.localOnly ?? false
+  }
+
+  /**
+   * Resolves a load as successful: unsubscribes every player from its loading updates, drops the
+   * loading state, and hands the caller its game id. The game id is remembered briefly afterwards so
+   * a status report that races the completion is answered as success rather than as an unknown game.
+   */
+  private completeLoad(gameId: string, loadingData: LoadingData) {
+    const allUserIds = loadingData.players.map(p => p.userId)
+    const activeClients = allUserIds
+      .map(userId => this.activityRegistry.getClientForUser(userId))
+      .filter(c => !!c)
+    for (const client of activeClients) {
+      client.unsubscribe(gameUserPath(gameId, client.userId))
+    }
+
+    this.recentlyLoadedGames.add(gameId)
+    this.loadingGames = this.loadingGames.delete(gameId)
+    loadingData.deferred.resolve(Result.ok({ gameId }))
+
+    setTimeout(() => {
+      this.recentlyLoadedGames.delete(gameId)
+    }, 60000)
+  }
+
+  /**
+   * Decides a load that ran out of time: whether it actually succeeded after all, and if not, which
+   * players (if any) are at fault for it.
+   *
+   * There are three kinds of evidence about how far a load got, in decreasing strength: a player's
+   * game loop having started, their client having reached the relay, and the whole session having
+   * been released to run once every slot connected. For a networked game all three come from the
+   * coordinator, which observes the session itself rather than asking the clients being judged.
+   * Those notifications are at-least-once with a finite retry budget, so a permanently dropped
+   * delivery would otherwise read as a player who never appeared — which is why the coordinator is
+   * asked directly for the session's state before any blame is assigned. That pull is the
+   * authoritative account, and this is the one moment it's worth waiting on.
+   *
+   * With it merged in, blame falls out as:
+   *
+   * - Every game loop running means the load in fact succeeded and only the notices saying so were
+   *   lost, so it completes rather than cancelling a game people are already playing.
+   * - Some game loops running blames the players whose loop didn't: the session got far enough that
+   *   a missing start belongs to that player.
+   * - No game loop running, some players connected, and the session never released, blames the
+   *   players who never connected: they are what the session was waiting on.
+   * - Anything else is unattributable and blames nobody — either nobody connected at all (which
+   *   says nothing about which of them is at fault, since none got far enough to be observed), or
+   *   everybody connected and the session was released but no game loop ever started.
+   *
+   * A local-only load has none of that evidence, so it falls back to blaming the unfinished players
+   * only once at least half of them finished — which for its lone player means blaming them for
+   * their own load.
+   */
+  private async handleLoadDeadlineExpired(gameId: string): Promise<void> {
+    const beforePull = this.loadingGames.get(gameId)
+    if (beforePull && !beforePull.localOnly) {
+      await this.mergeCoordinatorLoadState(gameId)
+    }
+
+    // The pull above is a network round trip, and the load can finish or be cancelled while it's in
+    // flight; either way there's nothing left here to time out.
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return
+    }
+
+    if (!loadingData.localOnly && LoadingDatas.isAllFinished(loadingData)) {
+      log.info(
+        `game load for ${gameId} passed its deadline with every game loop already running, ` +
+          'completing it',
+      )
+      this.completeLoad(gameId, loadingData)
+      return
+    }
+
+    let unloaded: SbUserId[]
+    if (loadingData.localOnly) {
+      unloaded =
+        loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)
+          ? LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
+          : []
+    } else if (!loadingData.finishedPlayers.isEmpty()) {
+      unloaded = LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
+    } else if (!loadingData.sessionStarted && !loadingData.connectedPlayers.isEmpty()) {
+      unloaded = LoadingDatas.playersMissingFrom(loadingData, loadingData.connectedPlayers)
+    } else {
+      unloaded = []
+    }
+
+    this.maybeCancelLoadingFromSystem(
+      gameId,
+      new BaseGameLoaderError(GameLoadErrorType.Timeout, 'game load timed out', {
+        data: { unloaded },
+      }),
+    )
+  }
+
+  /**
+   * Folds the coordinator's account of a session's startup into the load's own record, so a
+   * notification dropped after its retries doesn't read as a player who never appeared. A failed
+   * request, or a coordinator that no longer holds the session, contributes nothing and leaves the
+   * local record untouched.
+   */
+  private async mergeCoordinatorLoadState(gameId: string): Promise<void> {
+    const session = this.loadingGames.get(gameId)?.netcodeV2Session
+    if (session === undefined) {
+      return
+    }
+
+    let loadState: NetcodeV2SessionLoadState
+    try {
+      loadState = await this.netcodeV2Service.fetchSessionLoadState(session)
+    } catch (err) {
+      log.warn({ err }, `couldn't fetch netcode v2 load state for ${gameId}`)
+      return
+    }
+    if (!loadState.known) {
+      return
+    }
+
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return
+    }
+
+    const userBySlot = loadingData.slotByUserId.flip()
+    const usersForSlots = (slots: number[]): SbUserId[] => {
+      const users: SbUserId[] = []
+      for (const slot of slots) {
+        const userId = userBySlot.get(slot)
+        if (userId !== undefined) {
+          users.push(userId)
+        }
+      }
+      return users
+    }
+
+    this.loadingGames = this.loadingGames.set(
+      gameId,
+      loadingData
+        .set(
+          'connectedPlayers',
+          loadingData.connectedPlayers.union(usersForSlots(loadState.connectedSlots)),
+        )
+        .set(
+          'finishedPlayers',
+          loadingData.finishedPlayers.union(usersForSlots(loadState.startedSlots)),
+        )
+        .set('sessionStarted', loadingData.sessionStarted || loadState.startedAtMs !== undefined),
+    )
   }
 
   /**
@@ -522,6 +718,19 @@ export class GameLoader {
       })
     }
     loadingData.extendDeadline(PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS)
+  }
+
+  /**
+   * Applies `update` to a game's loading state, doing nothing if the game is no longer loading. The
+   * setup work that fills this state in is asynchronous and the load can be cancelled from under it
+   * at any await, so every write goes through here rather than assuming the entry still exists.
+   */
+  private updateLoadingData(gameId: string, update: (data: LoadingData) => LoadingData): void {
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return
+    }
+    this.loadingGames = this.loadingGames.set(gameId, update(loadingData))
   }
 
   isLoadingOrRecentlyLoaded(gameId: string) {
@@ -623,6 +832,10 @@ export class GameLoader {
         )
       }
       const useNetcodeV2 = hasMultipleHumans
+      // A game with a single human has no network session; anything else is networked. Recorded on
+      // the load because it decides where this load's completion signal comes from, and how a load
+      // that runs out of time assigns fault.
+      this.updateLoadingData(gameId, data => data.set('localOnly', !useNetcodeV2))
       // Persisted onto the game's config so later readers (e.g. result reconciliation deciding
       // whether a game's result can only arrive via the relay, see `usedNetcodeV2`) can see it
       // without re-deriving it — this isn't known until now, so it can't be part of the config
@@ -748,7 +961,12 @@ export class GameLoader {
           // coordinator embeds it in this slot's session token; a slot missing it fails create fast.
           pubkey: p.netcodeV2Pubkey,
         }))
-        const [setups, setupsError] = (
+        // The coordinator reports load progress by slot, so the assignment has to be kept to map
+        // its reports back onto players.
+        this.updateLoadingData(gameId, data =>
+          data.set('slotByUserId', IMap(slots.map(({ slot, userId }) => [userId, slot]))),
+        )
+        const [created, setupsError] = (
           await Result.fromAsyncCatching(
             this.netcodeV2Service.createSessionForGame({
               gameId,
@@ -770,7 +988,9 @@ export class GameLoader {
           )
         }
 
-        for (const [userId, setup] of setups) {
+        this.updateLoadingData(gameId, data => data.set('netcodeV2Session', created.session))
+
+        for (const [userId, setup] of created.setups) {
           this.publisher.publish(gameUserPath(gameId, userId), {
             type: 'setNetcodeV2Setup',
             gameId,

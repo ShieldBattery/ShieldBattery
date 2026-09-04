@@ -1,5 +1,5 @@
 import { register } from 'prom-client'
-import { beforeEach, describe, expect, Mock, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
@@ -113,7 +113,15 @@ describe('games/game-loader/GameLoader', () => {
         }>
         signal: AbortSignal
         onProvisioning?: (regions: string[]) => void
-      }) => Promise<Map<SbUserId, unknown>>
+      }) => Promise<{ session: number; setups: Map<SbUserId, unknown> }>
+    >
+    fetchSessionLoadState: Mock<
+      (session: number) => Promise<{
+        known: boolean
+        startedAtMs?: number
+        connectedSlots: number[]
+        startedSlots: number[]
+      }>
     >
   }
   let gameLoader: GameLoader
@@ -132,7 +140,12 @@ describe('games/game-loader/GameLoader', () => {
     restrictionService = { checkMultipleRestrictions: vi.fn().mockResolvedValue([]) }
     netcodeV2Service = {
       isEnabled: vi.fn().mockReturnValue(true),
-      createSessionForGame: vi.fn().mockResolvedValue(new Map()),
+      createSessionForGame: vi.fn().mockResolvedValue({ session: 1, setups: new Map() }),
+      // A coordinator that holds nothing for the session by default, so a test says what evidence
+      // the pull contributes rather than inheriting some.
+      fetchSessionLoadState: vi
+        .fn()
+        .mockResolvedValue({ known: false, connectedSlots: [], startedSlots: [] }),
     }
 
     gameLoader = new GameLoader(
@@ -148,6 +161,211 @@ describe('games/game-loader/GameLoader', () => {
       players.some(p => p.userId === userId) ? makeClient(userId) : undefined,
     )
   }
+
+  /**
+   * Starts a two-human (networked) load and drains its asynchronous setup, so the relay session and
+   * its slot assignment are on the load before a test crosses the deadline. Slots follow player
+   * order, making p1 slot 0 and p2 slot 1. The pending load is returned wrapped, since an
+   * `AsyncResult` is itself thenable and would otherwise be awaited away by this helper.
+   */
+  async function startNetworkedLoad(gameId: string) {
+    const player1 = makePlayer(p1)
+    const player2 = makePlayer(p2)
+    registerActiveClients([player1.player, player2.player])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 77,
+      setups: new Map([
+        [p1, {} as any],
+        [p2, {} as any],
+      ]),
+    })
+
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId,
+      resultCodes: new Map([
+        [p1, 'code-1'],
+        [p2, 'code-2'],
+      ]),
+    } as any)
+
+    const load = gameLoader.loadGame({
+      players: [player1.player, player2.player],
+      playerInfos: [player1.playerInfo, player2.playerInfo],
+      mapId,
+      gameConfig: lobbyConfig([
+        [{ id: p1, race: 't', isComputer: false }],
+        [{ id: p2, race: 'z', isComputer: false }],
+      ]),
+    })
+
+    // Every awaited step of the setup resolves on an already-resolved promise, so draining the
+    // microtask queue is enough to get the load fully armed.
+    for (let i = 0; i < 100; i++) {
+      await Promise.resolve()
+    }
+
+    return { load }
+  }
+
+  /** Runs a load past its deadline and returns the timeout error it was cancelled with. */
+  async function expectTimeout(load: Promise<any>) {
+    await vi.advanceTimersByTimeAsync(80_000)
+    const result = await load
+    expect(result.isError()).toBe(true)
+    const error = result.errorOrNull() as BaseGameLoaderError<GameLoadErrorType.Timeout>
+    expect(error.code).toBe(GameLoadErrorType.Timeout)
+    return error
+  }
+
+  describe('load deadline attribution', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    test('blames only the player who never reached the relay', async () => {
+      const { load } = await startNetworkedLoad('game-one-missing')
+      gameLoader.recordPlayerConnected('game-one-missing', p1)
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test('blames only the player whose game loop never started once the session started', async () => {
+      const { load } = await startNetworkedLoad('game-one-unstarted')
+      gameLoader.recordPlayerConnected('game-one-unstarted', p1)
+      gameLoader.recordPlayerConnected('game-one-unstarted', p2)
+      gameLoader.recordSessionStarted('game-one-unstarted')
+      gameLoader.registerGameAsLoaded('game-one-unstarted', p1)
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test('blames nobody when no player ever reached the relay', async () => {
+      const { load } = await startNetworkedLoad('game-none-connected')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('blames nobody when everyone connected and the session started but no game loop did', async () => {
+      const { load } = await startNetworkedLoad('game-none-started')
+      gameLoader.recordPlayerConnected('game-none-started', p1)
+      gameLoader.recordPlayerConnected('game-none-started', p2)
+      gameLoader.recordSessionStarted('game-none-started')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('blames the player the coordinator pull shows never connected, with no webhooks at all', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        connectedSlots: [0],
+        startedSlots: [],
+      })
+      const { load } = await startNetworkedLoad('game-pull-connected')
+
+      const error = await expectTimeout(load)
+
+      // Slot 0 is p1, so only p2 is unaccounted for even though no webhook ever arrived.
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledWith(77)
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test('completes the load when the coordinator pull shows every game loop running', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [0, 1],
+      })
+      const { load } = await startNetworkedLoad('game-pull-started')
+
+      await vi.advanceTimersByTimeAsync(80_000)
+      const result = await load
+
+      expect(result.isOk()).toBe(true)
+      const canceled = publisher.publish.mock.calls.some(
+        (call: any[]) => call[1]?.type === 'cancelLoading',
+      )
+      expect(canceled).toBe(false)
+    })
+
+    test('falls back to the webhook evidence when the coordinator pull fails', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockRejectedValue(new Error('coordinator down'))
+      const { load } = await startNetworkedLoad('game-pull-failed')
+      gameLoader.recordPlayerConnected('game-pull-failed', p1)
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test('a local-only load never pulls and keeps its own half-finished rule', async () => {
+      const player1 = makePlayer(p1)
+      registerActiveClients([player1.player])
+      asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1)])
+      netcodeV2Service.isEnabled.mockReturnValue(false)
+      asMockedFunction(registerGame).mockResolvedValue({
+        gameId: 'game-local',
+        resultCodes: new Map([[p1, 'code-1']]),
+      } as any)
+
+      const load = gameLoader.loadGame({
+        players: [player1.player],
+        playerInfos: [player1.playerInfo],
+        mapId,
+        gameConfig: lobbyConfig([[{ id: p1, race: 't', isComputer: false }]]),
+      })
+      for (let i = 0; i < 100; i++) {
+        await Promise.resolve()
+      }
+      expect(gameLoader.isLocalOnlyLoad('game-local')).toBe(true)
+
+      const error = await expectTimeout(load)
+
+      // Zero finished still clears "at least half" for a lone player, so they own their own failure.
+      expect(error.data.unloaded).toEqual([p1])
+      expect(netcodeV2Service.fetchSessionLoadState).not.toHaveBeenCalled()
+    })
+  })
+
+  test('reports a networked load as not local-only', async () => {
+    const { load } = await startNetworkedLoad('game-networked-flag')
+
+    expect(gameLoader.isLocalOnlyLoad('game-networked-flag')).toBe(false)
+
+    gameLoader.registerGameAsLoaded('game-networked-flag', p1)
+    gameLoader.registerGameAsLoaded('game-networked-flag', p2)
+    await load
+  })
+
+  test('accepts late load-progress reports for a finished game and rejects unknown ones', async () => {
+    const { load } = await startNetworkedLoad('game-late-reports')
+    gameLoader.registerGameAsLoaded('game-late-reports', p1)
+    gameLoader.registerGameAsLoaded('game-late-reports', p2)
+    expect((await load).isOk()).toBe(true)
+
+    // A webhook the coordinator retried past the load's completion must read as success, not as an
+    // unknown game — there's simply nothing left to record.
+    expect(gameLoader.recordPlayerConnected('game-late-reports', p1)).toBe(true)
+    expect(gameLoader.recordSessionStarted('game-late-reports')).toBe(true)
+    expect(gameLoader.registerGameAsLoaded('game-late-reports', p1)).toBe(true)
+
+    expect(gameLoader.recordPlayerConnected('game-never-existed', p1)).toBe(false)
+    expect(gameLoader.recordSessionStarted('game-never-existed')).toBe(false)
+    expect(gameLoader.registerGameAsLoaded('game-never-existed', p1)).toBe(false)
+  })
 
   test('fails immediately when a multi-human game loads and netcode v2 is not enabled', async () => {
     const player1 = makePlayer(p1)
@@ -246,12 +464,13 @@ describe('games/game-loader/GameLoader', () => {
     registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
-    netcodeV2Service.createSessionForGame.mockResolvedValue(
-      new Map([
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 1,
+      setups: new Map([
         [p1, {} as any],
         [p2, {} as any],
       ]),
-    )
+    })
 
     asMockedFunction(registerGame).mockResolvedValue({
       gameId: 'game-multi',
@@ -301,12 +520,13 @@ describe('games/game-loader/GameLoader', () => {
     registerActiveClients([player1WithRegion, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
-    netcodeV2Service.createSessionForGame.mockResolvedValue(
-      new Map([
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 1,
+      setups: new Map([
         [p1, {} as any],
         [p2, {} as any],
       ]),
-    )
+    })
 
     asMockedFunction(registerGame).mockResolvedValue({
       gameId: 'game-region',
@@ -350,12 +570,13 @@ describe('games/game-loader/GameLoader', () => {
     registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
-    netcodeV2Service.createSessionForGame.mockResolvedValue(
-      new Map([
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 1,
+      setups: new Map([
         [p1, {} as any],
         [p2, {} as any],
       ]),
-    )
+    })
 
     asMockedFunction(registerGame).mockResolvedValue({
       gameId: 'game-rtt',
@@ -400,12 +621,13 @@ describe('games/game-loader/GameLoader', () => {
     registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
-    netcodeV2Service.createSessionForGame.mockResolvedValue(
-      new Map([
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 1,
+      setups: new Map([
         [p1, {} as any],
         [p2, {} as any],
       ]),
-    )
+    })
 
     asMockedFunction(registerGame).mockResolvedValue({
       gameId: 'game-pubkey',
@@ -456,10 +678,13 @@ describe('games/game-loader/GameLoader', () => {
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockImplementation(async ({ onProvisioning }) => {
       onProvisioning?.(['us-east', 'eu-west'])
-      return new Map([
-        [p1, {} as any],
-        [p2, {} as any],
-      ])
+      return {
+        session: 1,
+        setups: new Map([
+          [p1, {} as any],
+          [p2, {} as any],
+        ]),
+      }
     })
 
     asMockedFunction(registerGame).mockResolvedValue({
@@ -507,10 +732,13 @@ describe('games/game-loader/GameLoader', () => {
       netcodeV2Service.isEnabled.mockReturnValue(true)
       netcodeV2Service.createSessionForGame.mockImplementation(async ({ onProvisioning }) => {
         onProvisioning?.(['us-east'])
-        return new Map([
-          [p1, {} as any],
-          [p2, {} as any],
-        ])
+        return {
+          session: 1,
+          setups: new Map([
+            [p1, {} as any],
+            [p2, {} as any],
+          ]),
+        }
       })
 
       asMockedFunction(registerGame).mockResolvedValue({

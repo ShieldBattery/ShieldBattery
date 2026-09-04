@@ -119,7 +119,16 @@ export default function ({
         jotaiStore.set(lastGameAtom, { id: status.id })
       }
 
-      if (status.state === 'playing' || status.state === 'error') {
+      // A networked game's load completion reaches the server over the relay path, from the
+      // infrastructure that watches the session start; only a local-only game (no network session
+      // at all) has to report its own. The check is written so an unreported transport still sends:
+      // a redundant report is dropped server-side, while a missing one would stall a local game's
+      // load. `error` is always reported — a launch failure never reaches the network.
+      const reportToServer =
+        status.state === 'error' ||
+        (status.state === 'playing' && status.networkStatus?.transport !== 'netcodeV2')
+
+      if (reportToServer) {
         let done = false
         let retries = 0
 

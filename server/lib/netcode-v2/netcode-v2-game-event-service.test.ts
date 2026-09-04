@@ -5,6 +5,9 @@ import {
   NetcodeV2DesyncNotification,
   NetcodeV2ResultNotification,
   NetcodeV2SessionClosedNotification,
+  NetcodeV2SessionStartedNotification,
+  NetcodeV2SlotConnectedNotification,
+  NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
 import {
   GameClientResult,
@@ -22,6 +25,9 @@ import {
   recordDesyncNotification,
   recordResultNotification,
   recordSessionClosedNotification,
+  recordSessionStartedNotification,
+  recordSlotConnectedNotification,
+  recordSlotStartedNotification,
 } from './netcode-v2-game-event-service'
 import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
@@ -778,5 +784,180 @@ describe('netcode-v2/recordSessionClosedNotification', () => {
     )
 
     expect(forceReconcile).not.toHaveBeenCalled()
+  })
+})
+
+function makeSlotConnectedNotification(
+  overrides: Partial<NetcodeV2SlotConnectedNotification> = {},
+): NetcodeV2SlotConnectedNotification {
+  return {
+    event: 'slotConnected',
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
+    slot: 0,
+    externalRef: '42',
+    resumed: false,
+    connectedAtMs: Date.now(),
+    ...overrides,
+  }
+}
+
+function makeSessionStartedNotification(
+  overrides: Partial<NetcodeV2SessionStartedNotification> = {},
+): NetcodeV2SessionStartedNotification {
+  return {
+    event: 'sessionStarted',
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
+    startedAtMs: Date.now(),
+    ...overrides,
+  }
+}
+
+function makeSlotStartedNotification(
+  overrides: Partial<NetcodeV2SlotStartedNotification> = {},
+): NetcodeV2SlotStartedNotification {
+  return {
+    event: 'slotStarted',
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
+    slot: 0,
+    externalRef: '42',
+    arrivalMs: Date.now(),
+    ...overrides,
+  }
+}
+
+describe('netcode-v2/recordSlotConnectedNotification', () => {
+  test('records the resolved game + player as connected', () => {
+    const recordPlayerConnected = vi.fn().mockReturnValue(true)
+
+    recordSlotConnectedNotification(makeSlotConnectedNotification(), recordPlayerConnected)
+
+    expect(recordPlayerConnected).toHaveBeenCalledWith(GAME_ID, makeSbUserId(42))
+  })
+
+  test('drops a notification whose externalId is missing or invalid', () => {
+    const recordPlayerConnected = vi.fn()
+
+    recordSlotConnectedNotification(
+      makeSlotConnectedNotification({ externalId: undefined }),
+      recordPlayerConnected,
+    )
+    recordSlotConnectedNotification(
+      makeSlotConnectedNotification({ externalId: 'not-a-uuid' }),
+      recordPlayerConnected,
+    )
+
+    expect(recordPlayerConnected).not.toHaveBeenCalled()
+  })
+
+  test('drops a notification whose externalRef is missing or invalid', () => {
+    const recordPlayerConnected = vi.fn()
+
+    recordSlotConnectedNotification(
+      makeSlotConnectedNotification({ externalRef: undefined }),
+      recordPlayerConnected,
+    )
+    recordSlotConnectedNotification(
+      makeSlotConnectedNotification({ externalRef: 'not-a-number' }),
+      recordPlayerConnected,
+    )
+
+    expect(recordPlayerConnected).not.toHaveBeenCalled()
+  })
+
+  test('is a no-op for a game the loader no longer knows about', () => {
+    // A load can complete or be cancelled before this webhook lands; the loader saying "no such
+    // game" must not become an error back to the coordinator.
+    const recordPlayerConnected = vi.fn().mockReturnValue(false)
+
+    expect(() =>
+      recordSlotConnectedNotification(makeSlotConnectedNotification(), recordPlayerConnected),
+    ).not.toThrow()
+  })
+})
+
+describe('netcode-v2/recordSessionStartedNotification', () => {
+  test('records the resolved game session as started', () => {
+    const recordSessionStarted = vi.fn().mockReturnValue(true)
+
+    recordSessionStartedNotification(makeSessionStartedNotification(), recordSessionStarted)
+
+    expect(recordSessionStarted).toHaveBeenCalledWith(GAME_ID)
+  })
+
+  test('drops a notification whose externalId is missing or invalid', () => {
+    const recordSessionStarted = vi.fn()
+
+    recordSessionStartedNotification(
+      makeSessionStartedNotification({ externalId: undefined }),
+      recordSessionStarted,
+    )
+    recordSessionStartedNotification(
+      makeSessionStartedNotification({ externalId: 'not-a-uuid' }),
+      recordSessionStarted,
+    )
+
+    expect(recordSessionStarted).not.toHaveBeenCalled()
+  })
+
+  test('is a no-op for a game the loader no longer knows about', () => {
+    const recordSessionStarted = vi.fn().mockReturnValue(false)
+
+    expect(() =>
+      recordSessionStartedNotification(makeSessionStartedNotification(), recordSessionStarted),
+    ).not.toThrow()
+  })
+})
+
+describe('netcode-v2/recordSlotStartedNotification', () => {
+  test('completes the resolved player load', () => {
+    const registerGameAsLoaded = vi.fn().mockReturnValue(true)
+
+    recordSlotStartedNotification(makeSlotStartedNotification(), registerGameAsLoaded)
+
+    expect(registerGameAsLoaded).toHaveBeenCalledWith(GAME_ID, makeSbUserId(42))
+  })
+
+  test('drops a notification whose externalId is missing or invalid', () => {
+    const registerGameAsLoaded = vi.fn()
+
+    recordSlotStartedNotification(
+      makeSlotStartedNotification({ externalId: undefined }),
+      registerGameAsLoaded,
+    )
+    recordSlotStartedNotification(
+      makeSlotStartedNotification({ externalId: 'not-a-uuid' }),
+      registerGameAsLoaded,
+    )
+
+    expect(registerGameAsLoaded).not.toHaveBeenCalled()
+  })
+
+  test('drops a notification whose externalRef is missing or invalid', () => {
+    const registerGameAsLoaded = vi.fn()
+
+    recordSlotStartedNotification(
+      makeSlotStartedNotification({ externalRef: undefined }),
+      registerGameAsLoaded,
+    )
+    recordSlotStartedNotification(
+      makeSlotStartedNotification({ externalRef: '0' }),
+      registerGameAsLoaded,
+    )
+
+    expect(registerGameAsLoaded).not.toHaveBeenCalled()
+  })
+
+  test('is a no-op for a game the loader no longer knows about', () => {
+    const registerGameAsLoaded = vi.fn().mockReturnValue(false)
+
+    expect(() =>
+      recordSlotStartedNotification(makeSlotStartedNotification(), registerGameAsLoaded),
+    ).not.toThrow()
   })
 })

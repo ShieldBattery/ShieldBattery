@@ -1011,18 +1011,18 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     // Each player's roster names other players' regions never, and their own when requested:
     // regions place players geographically, and the handoff arrives before the game starts.
-    expect(result.get(u1)!.roster).toEqual([
+    expect(result.setups.get(u1)!.roster).toEqual([
       { slot: 0, userId: u1, homeRelayId: 1, homeRegion: 'us-east' },
       { slot: 1, userId: u2, homeRelayId: 1 },
       { slot: 2, userId: u3, homeRelayId: 1 },
     ])
-    expect(result.get(u2)!.roster).toEqual([
+    expect(result.setups.get(u2)!.roster).toEqual([
       { slot: 0, userId: u1, homeRelayId: 1 },
       { slot: 1, userId: u2, homeRelayId: 1, homeRegion: 'kr' },
       { slot: 2, userId: u3, homeRelayId: 1 },
     ])
     // A player whose slot requested no region gets none anywhere.
-    expect(result.get(u3)!.roster.every(entry => !('homeRegion' in entry))).toBe(true)
+    expect(result.setups.get(u3)!.roster.every(entry => !('homeRegion' in entry))).toBe(true)
   })
 
   test('roster entries use their slot_homes override relay for homeRelayId', async () => {
@@ -1048,7 +1048,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       signal: new AbortController().signal,
     })
 
-    const roster = result.get(u1)!.roster
+    const roster = result.setups.get(u1)!.roster
     // Slot 0 has no override, so it homes on the session's primary home relay; slot 1's override
     // names the secondary relay instead.
     expect(roster).toEqual([
@@ -1086,7 +1086,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     expect((secondCall[1] as any).headers['x-rp2-signature']).toMatch(/^[0-9a-f]{128}$/)
     expect(onProvisioning).toHaveBeenCalledTimes(1)
     expect(onProvisioning).toHaveBeenCalledWith(['us-east'])
-    expect(result.get(u1)).toBeDefined()
+    expect(result.setups.get(u1)).toBeDefined()
   })
 
   test('announces provisioning only once across repeated 202 replies', async () => {
@@ -1181,8 +1181,8 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     // Each recipient's own setup must echo the pubkey the *server* used for their slot, not some
     // other participant's -- otherwise the app can't disambiguate which of its outstanding keypairs
     // the server actually seated.
-    expect(result.get(u1)!.clientPubkey).toBe(pubkey1)
-    expect(result.get(u2)!.clientPubkey).toBe(pubkey2)
+    expect(result.setups.get(u1)!.clientPubkey).toBe(pubkey1)
+    expect(result.setups.get(u2)!.clientPubkey).toBe(pubkey2)
   })
 
   test('fails fast (never contacting the coordinator) when a slot is missing its pubkey', async () => {
@@ -1206,6 +1206,103 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     ).rejects.toBeInstanceOf(NetcodeV2ServiceError)
 
     expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test('returns the coordinator session id alongside the per-player setups', async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0, 1]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+
+    const result = await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
+        { slot: 1, userId: u2, observer: false, pubkey: PUBKEY },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    // The caller needs the session in hand to ask the coordinator about it later, so it has to come
+    // back from the create rather than only being persisted.
+    expect(result.session).toBe(100)
+    expect(result.setups.size).toBe(2)
+  })
+})
+
+describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  test('throws when netcode v2 is not configured', async () => {
+    const service = makeService()
+
+    await expect(service.fetchSessionLoadState(42)).rejects.toThrow('netcode v2 is not configured')
+    expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test('posts the tenant + session (as a signed body) and returns the load state', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({
+      known: true,
+      startedAtMs: 1700000000000,
+      connectedSlots: [0, 1],
+      startedSlots: [0],
+    })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const result = await service.fetchSessionLoadState(42)
+
+    expect(got.post).toHaveBeenCalledWith(
+      'http://coordinator.example/session/load-state',
+      expect.objectContaining({
+        body: JSON.stringify({ tenant: 'sb-dev', session: 42 }),
+        headers: expect.objectContaining({
+          'content-type': 'application/json',
+          'x-rp2-timestamp': expect.stringMatching(/^\d+$/),
+          'x-rp2-signature': expect.stringMatching(/^[0-9a-f]{128}$/),
+        }),
+      }),
+    )
+    expect(result).toEqual({
+      known: true,
+      startedAtMs: 1700000000000,
+      connectedSlots: [0, 1],
+      startedSlots: [0],
+    })
+  })
+
+  test('normalizes an unknown session into empty slot lists', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({ known: false })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const result = await service.fetchSessionLoadState(42)
+
+    expect(result).toEqual({
+      known: false,
+      startedAtMs: undefined,
+      connectedSlots: [],
+      startedSlots: [],
+    })
+  })
+
+  test('propagates a request failure', async () => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockImplementation(() => {
+      throw new Error('coordinator down')
+    })
+    const service = makeService()
+
+    await expect(service.fetchSessionLoadState(42)).rejects.toThrow(
+      'coordinator session load-state fetch failed',
+    )
   })
 })
 

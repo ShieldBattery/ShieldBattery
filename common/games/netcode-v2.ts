@@ -338,11 +338,90 @@ export interface NetcodeV2SessionClosedNotification {
 }
 
 /**
- * The rally-point2 coordinator's mid-game notification webhook body — a departure, desync,
- * result, or sessionClosed event, discriminated by `event`. POSTed to
- * `POST /webhooks/netcode-v2/game-events`.
+ * A slot-connected webhook body, POSTed by the rally-point2 coordinator to the app server (as one
+ * variant of `NetcodeV2GameEvent`) the first time a home relay activates that slot's link. The
+ * coordinator collapses a slot's later reconnects into this one first-sight notice (flagged with
+ * `resumed`), so a slot produces a single event however many times its link is re-established.
+ *
+ * This is the app server's evidence that a player's client got as far as reaching the relay, which
+ * is what lets a load that never finishes name the slots that never did.
+ *
+ * `externalId`/`externalRef` are the correlation ids the app server attached at session create
+ * (the game's `gameId` and the player's `SbUserId`, respectively) and the coordinator echoes back
+ * so the notification is self-describing.
+ */
+export interface NetcodeV2SlotConnectedNotification {
+  event: 'slotConnected'
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+  slot: number
+  /** The connecting player's `SbUserId`, stringified, if the coordinator still has it on record. */
+  externalRef?: string
+  /** Whether this activation re-established a link the slot had already held once. */
+  resumed: boolean
+  /** Unix ms when the relay activated this slot's link. */
+  connectedAtMs: number
+}
+
+/**
+ * A session-start webhook body, POSTed by the rally-point2 coordinator to the app server (as one
+ * variant of `NetcodeV2GameEvent`) once every expected slot is connected and the authority relay
+ * has issued the session-start directive to the games. It says the session as a whole was released
+ * to run; whether any individual slot's game loop then began is carried per-slot by
+ * {@link NetcodeV2SlotStartedNotification}.
+ */
+export interface NetcodeV2SessionStartedNotification {
+  event: 'sessionStarted'
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+  /** Unix ms when the authority relay issued the session-start directive. */
+  startedAtMs: number
+  /** The turn pipe depth the session was released at, if the coordinator recorded one. */
+  initialBufferTurns?: number
+}
+
+/**
+ * A slot-start webhook body, POSTed by the rally-point2 coordinator to the app server (as one
+ * variant of `NetcodeV2GameEvent`) when a slot's client sends its `GameStarted` control frame over
+ * the relay — that slot's game loop is running. For a networked game this is what the app
+ * server treats as the player having finished loading; the client's own status report to the
+ * server is not, since a client that never reached the relay can't be distinguished from one that
+ * did by asking the client.
+ *
+ * `externalId`/`externalRef` are the correlation ids the app server attached at session create
+ * (the game's `gameId` and the player's `SbUserId`, respectively) and the coordinator echoes back
+ * so the notification is self-describing.
+ */
+export interface NetcodeV2SlotStartedNotification {
+  event: 'slotStarted'
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+  slot: number
+  /** The starting player's `SbUserId`, stringified, if the coordinator still has it on record. */
+  externalRef?: string
+  /** Unix ms when the relay's connection to this slot received the start frame. */
+  arrivalMs: number
+  /** The relay's local lockstep frame at arrival, if known. */
+  sessionFrame?: number
+  /** The starting slot's last stamped frame, if known. */
+  slotFrame?: number
+}
+
+/**
+ * The rally-point2 coordinator's game notification webhook body — a slot connect, session start,
+ * slot start, departure, desync, result, or sessionClosed event, discriminated by `event`. POSTed
+ * to `POST /webhooks/netcode-v2/game-events`.
  */
 export type NetcodeV2GameEvent =
+  | NetcodeV2SlotConnectedNotification
+  | NetcodeV2SessionStartedNotification
+  | NetcodeV2SlotStartedNotification
   | NetcodeV2DepartureNotification
   | NetcodeV2DesyncNotification
   | NetcodeV2ResultNotification
