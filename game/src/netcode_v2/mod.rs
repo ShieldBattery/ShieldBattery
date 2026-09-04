@@ -71,8 +71,7 @@ pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
     error_with_root_cause, establish_session, establish_sessionless, set_lobby_session_seed,
-    submit_game_started, submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed,
-    with_turn_state,
+    submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
 };
 
 use self::net_stats::NetStats;
@@ -541,6 +540,9 @@ pub struct TurnState {
     /// the intent unsent — the relay then sees only a dead link and the surviving players stall on
     /// the drop path instead of getting the prompt "player left".
     result_report_possible: bool,
+    /// Whether the driver has been told the game loop is running. The OUT hook offers the signal
+    /// on every in-game turn; only the first one is handed over.
+    game_started_announced: bool,
     /// Slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game thread.
     /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_unsynced_leaves`), which
     /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
@@ -635,6 +637,7 @@ impl TurnState {
             local_only: false,
             has_computers,
             result_report_possible: true,
+            game_started_announced: false,
             #[cfg(debug_assertions)]
             forced_unsynced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
@@ -1705,14 +1708,19 @@ impl TurnState {
         }
     }
 
-    /// Tells the driver the game loop has started, so it announces that up the relay's reliable
+    /// Tells the driver the game loop is running, so it announces that up the relay's reliable
     /// control stream. The relay forwards the fact to the app server, which treats it as this
-    /// player having finished loading. `try_send` is enough: the driver sends exactly one
-    /// announcement per session and the channel holds one signal. A full or closed channel means
-    /// the driver already has it or the link is gone, neither of which needs more than a debug
-    /// line — the announcement is best-effort, and the app server pulls the relay's own record of
-    /// who started if it never hears this.
-    pub fn submit_game_started(&self) {
+    /// player having finished loading. Called from the OUT hook on every in-game turn and latched
+    /// here, so the driver hears it exactly once, from the first turn the running loop produced.
+    /// `try_send` is enough: the channel holds the one signal, and a closed channel (the link is
+    /// gone) needs no more than a debug line — the app server pulls the relay's own record of who
+    /// started if it never hears this. A sessionless game's signal lands in a parked channel and
+    /// means nothing, which is right: it has no relay and reports its load through the app.
+    pub fn submit_game_started(&mut self) {
+        if self.game_started_announced {
+            return;
+        }
+        self.game_started_announced = true;
         match self.channels.game_started.try_send(()) {
             Ok(()) => debug!("netcode v2: handed game-started signal to driver"),
             Err(e) => debug!("netcode v2: game-started signal not queued: {e}"),
@@ -2984,7 +2992,7 @@ mod tests {
     fn submit_game_started_signals_the_driver_once() {
         let (game_started_tx, mut game_started_rx) = mpsc::channel(1);
         let (state, _result_rx, _result_expected) = turn_state_with_result();
-        let state = TurnState {
+        let mut state = TurnState {
             channels: TurnChannels {
                 game_started: game_started_tx,
                 ..state.channels
@@ -2992,13 +3000,13 @@ mod tests {
             ..state
         };
 
-        // The channel holds one signal: a repeat while it's still queued is dropped without
-        // failing, and the driver sees exactly one.
-        state.submit_game_started();
+        // The OUT hook offers this on every in-game turn; the driver must hear it exactly once.
         state.submit_game_started();
         game_started_rx
             .try_recv()
             .expect("game-started signal handed to the driver");
+        state.submit_game_started();
+        state.submit_game_started();
         assert!(game_started_rx.try_recv().is_err());
     }
 

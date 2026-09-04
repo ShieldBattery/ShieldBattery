@@ -1080,12 +1080,6 @@ impl GameState {
                 }
             }
             GameStarting => {
-                // The relay learns the game loop started at the same moment the app does. For a
-                // networked game that relay-carried signal is what completes this player's load on
-                // the app server; a local-only game has no relay and reports through the app.
-                if netcode_v2::submit_game_started() {
-                    debug!("Announced game start to the relay");
-                }
                 return app_socket::send_message(&self.ws_send, "/game/start", ())
                     .map(|_| ())
                     .boxed();

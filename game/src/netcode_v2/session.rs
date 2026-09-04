@@ -584,31 +584,6 @@ pub fn submit_result_report(report: Vec<u8>) -> bool {
     }
 }
 
-/// Announces that the game loop has started to the relay driver, which carries it up the relay's
-/// reliable control stream (see [`TurnState::submit_game_started`]). Returns whether a
-/// relay-backed session took the signal.
-///
-/// `false` means there is no relay driver — a solo game (which has no network to tell, and reports
-/// its own load completion to the app server), a replay (no turn state at all), or the re-entrant
-/// lock case (which fires from the async game-start handler well off the turn hooks, so it can't
-/// actually happen, but is warned rather than silently skipped).
-pub fn submit_game_started() -> bool {
-    let Some(mut guard) = SESSION.lock() else {
-        warn!("submit_game_started skipped: turn state locked re-entrantly");
-        return false;
-    };
-    match guard.as_mut() {
-        Some(session) => match session.link {
-            SessionLink::Relay(_) => {
-                session.turn_state.submit_game_started();
-                true
-            }
-            SessionLink::Sessionless(_) => false,
-        },
-        None => false,
-    }
-}
-
 /// Tears down the current session (game over / teardown). Idempotent.
 pub fn clear_session() {
     if let Some(mut guard) = SESSION.lock() {
