@@ -48,6 +48,13 @@ GitHub Actions tab with that full SHA (it retags — digest-identical to what wa
 tested), then on the box: `docker-compose pull && docker-compose up -d`.
 Rollback = promote the previous SHA and pull again.
 
+Order across the fleet: coordinator first, then the relay image, then the
+ShieldBattery app server. The app server takes a networked game's load
+completion and load-failure blame from what the relays report through the
+coordinator (`slotStarted` webhooks and `POST /session/load-state`) rather
+than from the clients, so an app server ahead of the coordinator/relay images
+would time out every multiplayer load.
+
 ## First-time setup
 
 1. Copy this directory to the box, `cp sample.env .env`, fill it in; write

@@ -227,7 +227,17 @@ describe('games/game-loader/GameLoader', () => {
       vi.useRealTimers()
     })
 
+    /** A coordinator that has held the session since creation but saw nothing beyond the webhooks. */
+    function coordinatorConfirmsComplete() {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        connectedSlots: [],
+        startedSlots: [],
+      })
+    }
+
     test('blames only the player who never reached the relay', async () => {
+      coordinatorConfirmsComplete()
       const { load } = await startNetworkedLoad('game-one-missing')
       gameLoader.recordPlayerConnected('game-one-missing', p1)
 
@@ -237,6 +247,7 @@ describe('games/game-loader/GameLoader', () => {
     })
 
     test('blames only the player whose game loop never started once the session started', async () => {
+      coordinatorConfirmsComplete()
       const { load } = await startNetworkedLoad('game-one-unstarted')
       gameLoader.recordPlayerConnected('game-one-unstarted', p1)
       gameLoader.recordPlayerConnected('game-one-unstarted', p2)
@@ -301,14 +312,43 @@ describe('games/game-loader/GameLoader', () => {
       expect(canceled).toBe(false)
     })
 
-    test('falls back to the webhook evidence when the coordinator pull fails', async () => {
+    test('blames nobody when the coordinator pull fails, whatever the webhooks said', async () => {
       netcodeV2Service.fetchSessionLoadState.mockRejectedValue(new Error('coordinator down'))
       const { load } = await startNetworkedLoad('game-pull-failed')
       gameLoader.recordPlayerConnected('game-pull-failed', p1)
 
       const error = await expectTimeout(load)
 
-      expect(error.data.unloaded).toEqual([p2])
+      // p2's absence could just as well be a dropped notification, so it can't be held against them.
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('blames nobody when the coordinator no longer knows the session', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: false,
+        connectedSlots: [],
+        startedSlots: [],
+      })
+      const { load } = await startNetworkedLoad('game-pull-unknown')
+      gameLoader.recordPlayerConnected('game-pull-unknown', p1)
+      gameLoader.recordSessionStarted('game-pull-unknown')
+      gameLoader.registerGameAsLoaded('game-pull-unknown', p1)
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('still completes on webhook evidence alone when every game loop is known to be running', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockRejectedValue(new Error('coordinator down'))
+      const { load } = await startNetworkedLoad('game-webhooks-complete')
+      gameLoader.registerGameAsLoaded('game-webhooks-complete', p1)
+      // The second start lands the load before the deadline; the deadline path is not exercised.
+      gameLoader.registerGameAsLoaded('game-webhooks-complete', p2)
+
+      const result = await load
+
+      expect(result.isOk()).toBe(true)
     })
 
     test('a local-only load never pulls and keeps its own half-finished rule', async () => {

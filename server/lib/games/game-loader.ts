@@ -534,8 +534,9 @@ export class GameLoader {
    */
   private async handleLoadDeadlineExpired(gameId: string): Promise<void> {
     const beforePull = this.loadingGames.get(gameId)
+    let coordinatorStateComplete = false
     if (beforePull && !beforePull.localOnly) {
-      await this.mergeCoordinatorLoadState(gameId)
+      coordinatorStateComplete = await this.mergeCoordinatorLoadState(gameId)
     }
 
     // The pull above is a network round trip, and the load can finish or be cancelled while it's in
@@ -560,6 +561,12 @@ export class GameLoader {
         loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)
           ? LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
           : []
+    } else if (!coordinatorStateComplete) {
+      // Blame here is inferred from a player's absence from the evidence, and absence only means
+      // anything against a complete record. Without one, a lost notification and a player who
+      // never showed up look identical, and banning the former is far worse than missing the
+      // latter.
+      unloaded = []
     } else if (!loadingData.finishedPlayers.isEmpty()) {
       unloaded = LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
     } else if (!loadingData.sessionStarted && !loadingData.connectedPlayers.isEmpty()) {
@@ -581,11 +588,15 @@ export class GameLoader {
    * notification dropped after its retries doesn't read as a player who never appeared. A failed
    * request, or a coordinator that no longer holds the session, contributes nothing and leaves the
    * local record untouched.
+   *
+   * @returns whether the coordinator vouched for its record being complete: it has held the
+   *   session since creating it, so a slot absent from its sets genuinely never reported. Only
+   *   then may absence be held against a player.
    */
-  private async mergeCoordinatorLoadState(gameId: string): Promise<void> {
+  private async mergeCoordinatorLoadState(gameId: string): Promise<boolean> {
     const session = this.loadingGames.get(gameId)?.netcodeV2Session
     if (session === undefined) {
-      return
+      return false
     }
 
     let loadState: NetcodeV2SessionLoadState
@@ -593,15 +604,15 @@ export class GameLoader {
       loadState = await this.netcodeV2Service.fetchSessionLoadState(session)
     } catch (err) {
       log.warn({ err }, `couldn't fetch netcode v2 load state for ${gameId}`)
-      return
+      return false
     }
     if (!loadState.known) {
-      return
+      return false
     }
 
     const loadingData = this.loadingGames.get(gameId)
     if (!loadingData) {
-      return
+      return false
     }
 
     const userBySlot = loadingData.slotByUserId.flip()
@@ -629,6 +640,7 @@ export class GameLoader {
         )
         .set('sessionStarted', loadingData.sessionStarted || loadState.startedAtMs !== undefined),
     )
+    return true
   }
 
   /**
