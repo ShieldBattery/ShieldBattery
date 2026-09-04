@@ -649,6 +649,28 @@ export async function deleteChannelMessage(
   }
 }
 
+/**
+ * Returns when a channel message was sent, or `undefined` if it doesn't exist in the channel
+ * (deleted, never existed, or belongs to a different channel).
+ */
+export async function getChannelMessageSentTime(
+  channelId: SbChannelId,
+  messageId: string,
+  withClient?: DbClient,
+): Promise<Date | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ sent: Date }>(sql`
+      SELECT sent
+      FROM channel_messages
+      WHERE id = ${messageId} AND channel_id = ${channelId};
+    `)
+    return result.rows[0]?.sent
+  } finally {
+    done()
+  }
+}
+
 export interface LeaveChannelResult {
   /**
    * Whether the user's channel membership was actually removed. `false` when they were no longer

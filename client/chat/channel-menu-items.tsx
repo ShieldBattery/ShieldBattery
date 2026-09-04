@@ -1,18 +1,22 @@
 import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { appendToMultimap } from '../../common/data-structures/maps'
+import { getErrorStack } from '../../common/errors'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { DestructiveMenuItem } from '../material/menu/item'
+import logger from '../logging/logger'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import {
   MenuItemCategory as MessageMenuItemCategory,
   MessageMenuProps,
 } from '../messaging/message-context-menu'
+import { getServerOrigin } from '../network/server-url'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { getChatUserProfile } from './action-creators'
 import { ChannelContext } from './channel-context'
+import { urlForChannelMessage } from './channel-url'
 
 export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const { t } = useTranslation()
@@ -131,9 +135,25 @@ export function ChannelMessageMenu({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const { channelId } = useContext(ChannelContext)
+  const channelName = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)?.name)
   const isServerModerator = useHasAnyPermission('moderateChatChannels')
 
   const menuItems = new Map(items)
+  appendToMultimap(
+    menuItems,
+    MessageMenuItemCategory.General,
+    <MenuItem
+      key='copy-message-link'
+      text={t('chat.messageMenu.copyMessageLink', 'Copy message link')}
+      onClick={() => {
+        navigator.clipboard
+          .writeText(getServerOrigin() + urlForChannelMessage(channelId, channelName, messageId))
+          .catch(err => logger.error(`Error writing to clipboard: ${getErrorStack(err)}`))
+        onMenuClose()
+      }}
+    />,
+  )
+
   if (isServerModerator) {
     appendToMultimap(
       menuItems,

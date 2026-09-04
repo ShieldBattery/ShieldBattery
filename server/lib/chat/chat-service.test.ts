@@ -7,6 +7,7 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   ChannelPreferences,
+  ChatServiceErrorCode,
   DetailedChannelInfo,
   GetChannelHistoryServerResponse,
   JoinedChannelInfo,
@@ -52,6 +53,7 @@ import {
   getChannelBans,
   getChannelInfo,
   getChannelInfos,
+  getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
   getUnreadChannelInfo,
@@ -143,6 +145,7 @@ vi.mock('./chat-models', async () => {
     getMessagesForChannel: vi
       .fn()
       .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
+    getChannelMessageSentTime: vi.fn(),
     deleteChannelMessage: vi.fn(),
     removeUserFromChannel: vi.fn(),
     updateUserPreferences: vi.fn(),
@@ -1993,6 +1996,8 @@ describe('chat/chat-service', () => {
         channelInfos: [],
         detailedChannelInfos: [],
         joinedChannelInfos: [],
+        deletedChannels: [],
+        privateChannels: [],
       })
     })
 
@@ -2008,6 +2013,26 @@ describe('chat/chat-service', () => {
         channelInfos: [shieldBatteryBasicInfo, testBasicInfo],
         detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
         joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+        deletedChannels: [],
+        privateChannels: [],
+      })
+    })
+
+    test('returns requested ids that name no existing channel as deleted', async () => {
+      const DELETED_ID = makeSbChannelId(999)
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+
+      const result = await chatService.getChannelInfos(
+        [shieldBatteryChannel.id, DELETED_ID],
+        user1.id,
+      )
+
+      expect(result).toEqual({
+        channelInfos: [shieldBatteryBasicInfo],
+        detailedChannelInfos: [shieldBatteryDetailedInfo],
+        joinedChannelInfos: [shieldBatteryJoinedInfo],
+        deletedChannels: [DELETED_ID],
+        privateChannels: [],
       })
     })
 
@@ -2019,16 +2044,18 @@ describe('chat/chat-service', () => {
         ])
       })
 
-      test("doesn't return detailed and joined channel infos for private channels", async () => {
+      test("doesn't return channel, detailed, or joined info for private channels the user isn't in", async () => {
         const result = await chatService.getChannelInfos(
           [shieldBatteryChannel.id, testChannel.id],
           user1.id,
         )
 
         expect(result).toEqual({
-          channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
+          channelInfos: [shieldBatteryBasicInfo],
           detailedChannelInfos: [shieldBatteryDetailedInfo],
           joinedChannelInfos: [shieldBatteryJoinedInfo],
+          deletedChannels: [],
+          privateChannels: [testChannel.id],
         })
       })
 
@@ -2052,6 +2079,8 @@ describe('chat/chat-service', () => {
             { ...testDetailedInfo, userCount: testChannel.userCount },
           ],
           joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+          deletedChannels: [],
+          privateChannels: [],
         })
       })
     })
@@ -2407,6 +2436,37 @@ describe('chat/chat-service', () => {
           kind: 'around',
           date: new Date(3000),
         })
+      })
+
+      test('uses an around cursor at the message time when aroundMessageId is given', async () => {
+        const messageId = 'MESSAGE_ID'
+        asMockedFunction(getChannelMessageSentTime).mockResolvedValue(new Date(3000))
+
+        await chatService.getChannelHistory({
+          channelId: testChannel.id,
+          userId: user1.id,
+          limit: 50,
+          aroundMessageId: messageId,
+        })
+
+        expect(getChannelMessageSentTime).toHaveBeenCalledWith(testChannel.id, messageId)
+        expect(getMessagesForChannel).toHaveBeenCalledWith(testChannel.id, 50, {
+          kind: 'around',
+          date: new Date(3000),
+        })
+      })
+
+      test('throws MessageNotFound when aroundMessageId names no message in the channel', async () => {
+        asMockedFunction(getChannelMessageSentTime).mockResolvedValue(undefined)
+
+        await expect(
+          chatService.getChannelHistory({
+            channelId: testChannel.id,
+            userId: user1.id,
+            limit: 50,
+            aroundMessageId: 'MESSAGE_ID',
+          }),
+        ).rejects.toMatchObject({ code: ChatServiceErrorCode.MessageNotFound })
       })
     })
   })

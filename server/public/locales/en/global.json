@@ -285,7 +285,8 @@
       "kickAction": "Kick {{user}}"
     },
     "channelName": {
-      "deletedChannel": "deleted-channel"
+      "deletedChannel": "deleted-channel",
+      "privateChannel": "private-channel"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -359,6 +360,10 @@
       "errorMessage": "Error deleting message",
       "successMessage": "Message deleted"
     },
+    "errors": {
+      "loadingHistory": "Error loading message history: {{errorMessage}}",
+      "messageNotFound": "That message couldn't be found. It may have been deleted."
+    },
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
       "genericError": "An error occurred while joining #{{channelName}}",
@@ -389,7 +394,11 @@
       "newChannelOwner": "<0><0></0></0> is the new owner of the channel",
       "selfJoinChannel": "You joined <2><0></0></2>"
     },
+    "messageLink": {
+      "label": "message"
+    },
     "messageMenu": {
+      "copyMessageLink": "Copy message link",
       "deleteMessage": "Delete message"
     },
     "navEntry": {

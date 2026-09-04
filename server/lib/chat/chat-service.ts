@@ -5,6 +5,7 @@ import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
+  BasicChannelInfo,
   CHANNEL_BADGE_HEIGHT,
   CHANNEL_BADGE_WIDTH,
   CHANNEL_BANNER_HEIGHT,
@@ -77,6 +78,7 @@ import {
   getChannelBans,
   getChannelInfo,
   getChannelInfos,
+  getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
   getUnreadChannelInfo,
@@ -902,22 +904,40 @@ export default class ChatService {
     ])
 
     const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
+    const visibleChannelInfos: BasicChannelInfo[] = []
     const detailedChannelInfos: DetailedChannelInfo[] = []
     const joinedChannelInfos: JoinedChannelInfo[] = []
+    const privateChannels: SbChannelId[] = []
 
     for (const channel of channelInfos) {
       if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
+        // A private channel's info (including its name) is only for its members; a non-member
+        // gets nothing about it beyond confirmation that the id belongs to a private channel.
+        privateChannels.push(channel.id)
         continue
       }
 
+      visibleChannelInfos.push(toBasicChannelInfo(channel))
       detailedChannelInfos.push(toDetailedChannelInfo(channel))
       joinedChannelInfos.push(toJoinedChannelInfo(channel))
     }
 
+    const deletedChannels =
+      channelIds.length === channelInfos.length
+        ? []
+        : Array.from(
+            subtract(
+              new global.Set(channelIds),
+              channelInfos.map(c => c.id),
+            ),
+          )
+
     return {
-      channelInfos: channelInfos.map(channel => toBasicChannelInfo(channel)),
+      channelInfos: visibleChannelInfos,
       detailedChannelInfos,
       joinedChannelInfos,
+      deletedChannels,
+      privateChannels,
     }
   }
 
@@ -965,6 +985,7 @@ export default class ChatService {
     beforeTime,
     afterTime,
     aroundTime,
+    aroundMessageId,
     isAdmin,
   }: {
     channelId: SbChannelId
@@ -973,6 +994,7 @@ export default class ChatService {
     beforeTime?: number
     afterTime?: number
     aroundTime?: number
+    aroundMessageId?: string
     isAdmin?: boolean
   }): Promise<GetChannelHistoryServerResponse> {
     const isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channelId))
@@ -991,6 +1013,15 @@ export default class ChatService {
       cursor = { kind: 'after', date: new Date(afterTime) }
     } else if (aroundTime !== undefined && aroundTime >= 0) {
       cursor = { kind: 'around', date: new Date(aroundTime) }
+    } else if (aroundMessageId !== undefined) {
+      const sentTime = await getChannelMessageSentTime(channelId, aroundMessageId)
+      if (sentTime === undefined) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.MessageNotFound,
+          'Message not found in this channel',
+        )
+      }
+      cursor = { kind: 'around', date: sentTime }
     }
 
     const {

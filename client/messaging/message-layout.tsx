@@ -1,8 +1,10 @@
 import * as React from 'react'
+import { useContext } from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { Tooltip } from '../material/tooltip'
 import { bodyMedium, labelMedium, titleSmall } from '../styles/typography'
+import { ChatContext } from './chat-context'
 
 /** Hidden separators that only show up in copy+paste. */
 export const Separator = styled.i.attrs({ 'aria-hidden': true })`
@@ -59,7 +61,18 @@ const messageContainerBase = css`
   line-height: 20px;
 `
 
-const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean }>`
+/**
+ * How long the highlight on a message the list was sent to takes to fade back into the
+ * conversation once it's dropped. Slow enough to read as the highlight receding rather than the
+ * message changing.
+ */
+const LINKED_FADE_DURATION = '1s'
+
+const MessageContainer = styled.div<{
+  $active?: boolean
+  $highlighted?: boolean
+  $linked?: boolean
+}>`
   ${messageContainerBase};
   ${bodyMedium};
 
@@ -67,6 +80,28 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
 
   line-height: 20px;
   text-indent: -72px;
+  /**
+    Gives the highlight layer below a stacking context of its own to sit at the bottom of, so it
+    paints above this element's own hover/mention background but below its text.
+  */
+  isolation: isolate;
+
+  /**
+    The highlight on a message the list was sent to is a layer of its own rather than another
+    background color, so it can fade out on its own without dragging the hover and mention
+    backgrounds into the transition.
+  */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+
+    background-color: rgb(from var(--theme-primary) r g b / 0.24);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity ${LINKED_FADE_DURATION} linear;
+  }
 
   ${props => {
     if (!props.$highlighted) {
@@ -84,6 +119,31 @@ const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean 
         bottom: 0;
         width: 2px;
         background-color: var(--color-amber90);
+      }
+
+      /** Leaves the mention's edge showing through the layer painted over it. */
+      &::after {
+        left: 2px;
+      }
+    `
+  }}
+
+  ${props => {
+    if (!props.$linked) {
+      return ''
+    }
+
+    return css`
+      &::after {
+        /**
+          A message that mentions the user keeps the mention's edge: which messages are for them
+          says more than how they got to this one.
+        */
+        ${props.$highlighted ? '' : 'border-left: 2px solid var(--theme-primary);'}
+
+        opacity: 1;
+        /** Arriving at a message is immediate; only leaving it fades. */
+        transition: none;
       }
     `
   }}
@@ -126,10 +186,13 @@ interface TimestampMessageLayoutProps {
 }
 
 export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
+  const { linkedMessageId } = useContext(ChatContext)
+
   return (
     <MessageContainer
       $active={props.active}
       $highlighted={props.highlighted}
+      $linked={props.msgId !== undefined && props.msgId === linkedMessageId}
       className={props.className}
       role='document'
       onContextMenu={props.onContextMenu}

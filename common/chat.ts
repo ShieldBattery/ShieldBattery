@@ -37,6 +37,7 @@ export enum ChatServiceErrorCode {
   InappropriateImage = 'InappropriateImage',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
+  MessageNotFound = 'MessageNotFound',
   NoInitialChannelData = 'NoChannelData',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
@@ -708,6 +709,17 @@ export interface GetBatchedChannelInfosResponse {
   channelInfos: BasicChannelInfo[]
   detailedChannelInfos: DetailedChannelInfo[]
   joinedChannelInfos: JoinedChannelInfo[]
+  /**
+   * Requested channel IDs that name no existing channel (deleted, or never existed), so a client
+   * can stop treating them as still loading.
+   */
+  deletedChannels: SbChannelId[]
+  /**
+   * Requested channel IDs that exist but are private and the requester isn't a member of. Nothing
+   * about them is returned beyond the id, so a client can show a generic private-channel label
+   * instead of waiting for a name.
+   */
+  privateChannels: SbChannelId[]
 }
 
 /**

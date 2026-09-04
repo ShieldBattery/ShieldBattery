@@ -47,6 +47,7 @@ import {
   ResetMessageWindow,
   UpdateChannelAtBottom,
 } from './actions'
+import { urlForChannel } from './channel-url'
 import { newestServerOriginTime, oldestServerOriginTime } from './chat-reducer'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
@@ -508,6 +509,56 @@ export function getMessagesAround(
   }
 }
 
+/**
+ * Loads a window of messages centered on a particular message, replacing whatever is currently
+ * loaded for the channel. This is how the client reaches a message named by a link, which can sit
+ * anywhere in the channel's history. The caller is expected to handle errors: a message the server
+ * can't find in the channel (it never existed there, or has been deleted) fails the request.
+ */
+export function getMessagesAroundMessage(
+  channelId: SbChannelId,
+  limit: number,
+  messageId: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
+    const {
+      chat: { idToMessages },
+    } = getStore()
+    const channelMessages = idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    const knownNewest = Math.max(
+      newestServerOriginTime(channelMessages.messages) ?? -Infinity,
+      channelMessages.detachedNewestTime ?? -Infinity,
+    )
+    const params = {
+      channelId,
+      limit,
+      aroundMessageId: messageId,
+      windowGen: channelMessages.windowGen,
+      knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
+    }
+
+    const promise = fetchJson<GetChannelHistoryServerResponse>(
+      apiUrl`chat/${channelId}/messages2?limit=${limit}&aroundMessageId=${messageId}`,
+      { method: 'GET', signal: spec.signal },
+    )
+    dispatch({
+      type: '@chat/loadMessagesAroundBegin',
+      payload: params,
+    })
+    dispatch({
+      type: '@chat/loadMessagesAround',
+      payload: promise,
+      meta: params,
+    })
+    await promise
+  })
+}
+
 export function resetMessageWindow(channelId: SbChannelId): ResetMessageWindow {
   return {
     type: '@chat/resetMessageWindow',
@@ -623,8 +674,14 @@ const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
 export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
   return (dispatch, getState) => {
     const {
-      chat: { idToBasicInfo, idToDetailedInfo },
+      chat: { idToBasicInfo, idToDetailedInfo, deletedChannels, privateChannels },
     } = getState()
+
+    // The server would just report the same thing again for either of these, so re-requesting
+    // them on every mount of a name for the channel would only add load for no new information.
+    if (deletedChannels.has(channelId) || privateChannels.has(channelId)) {
+      return
+    }
 
     if (!idToBasicInfo.has(channelId) || !idToDetailedInfo.has(channelId)) {
       channelsBatchRequester.request(dispatch, channelId)
@@ -780,7 +837,14 @@ export function updateChannelAtBottom(
 }
 
 export function navigateToChannel(channelId: SbChannelId, channelName: string) {
-  push(urlPath`/chat/${channelId}/${channelName}`)
+  const path = urlForChannel(channelId, channelName)
+  // Arriving at a channel that's already on screen (joining it from its own info page) keeps
+  // whatever the URL carries about this channel, such as a message the user followed a link to.
+  // Coming from anywhere else, the search belongs to the page being left behind.
+  const search = window.location.pathname.startsWith(urlPath`/chat/${channelId}/`)
+    ? window.location.search
+    : ''
+  push(path + search)
 }
 
 /**
@@ -789,5 +853,7 @@ export function navigateToChannel(channelId: SbChannelId, channelName: string) {
  * for their channel ID.
  */
 export function correctChannelNameForChat(channelId: SbChannelId, channelName: string) {
-  replace(urlPath`/chat/${channelId}/${channelName}`)
+  // The correction is only about the name segment: the rest of the URL still describes what the
+  // user asked for, and dropping it would undo a message link before the page could act on it.
+  replace(urlForChannel(channelId, channelName) + window.location.search)
 }

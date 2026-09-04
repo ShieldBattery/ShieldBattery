@@ -136,4 +136,36 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     })
     expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
   })
+
+  describe('channel message links', () => {
+    const CHANNEL_MESSAGE_ID = '9b2e8d0e-5f3a-4a2b-8c1d-6f5e4d3c2b1a'
+
+    test('a ShieldBattery channel message link renders as a channel/message label', () => {
+      doRender(`see this: https://shieldbattery.net/chat/1/some-channel?m=${CHANNEL_MESSAGE_ID}`)
+      const link = screen.getByRole('link')
+
+      expect(link.getAttribute('href')).toBe(
+        `https://shieldbattery.net/chat/1/some-channel?m=${CHANNEL_MESSAGE_ID}`,
+      )
+      expect(link.textContent).not.toContain('shieldbattery.net')
+      expect(link.textContent).not.toContain('https://')
+      // MaterialIcon renders its icon name as text content ('chat'), so this checks for the
+      // translated label rather than asserting exact equality on the chip's full text.
+      expect(link.textContent).toContain('message')
+    })
+
+    test('a same-origin chat URL without a valid message param renders as a plain link', () => {
+      doRender('https://shieldbattery.net/chat/1/some-channel')
+      const link = screen.getByRole('link')
+
+      expect(link.textContent).toBe('https://shieldbattery.net/chat/1/some-channel')
+    })
+
+    test('a foreign-origin chat-shaped URL renders as a plain link', () => {
+      doRender(`https://example.com/chat/1/x?m=${CHANNEL_MESSAGE_ID}`)
+      const link = screen.getByRole('link')
+
+      expect(link.textContent).toBe(`https://example.com/chat/1/x?m=${CHANNEL_MESSAGE_ID}`)
+    })
+  })
 })

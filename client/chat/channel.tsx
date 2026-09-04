@@ -1,4 +1,4 @@
-import React, { useEffect, useEffectEvent, useMemo, useState } from 'react'
+import React, { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -15,11 +15,14 @@ import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-an
 import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MessageComponentProps } from '../messaging/message-list'
+import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, titleLarge } from '../styles/typography'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
@@ -31,6 +34,7 @@ import {
   getChannelLastReadKey,
   getMessageHistory,
   getMessagesAround,
+  getMessagesAroundMessage,
   getNewerMessages,
   jumpToPresent,
   leaveChannelWithConfirmation,
@@ -45,6 +49,7 @@ import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
 import { ConnectedChannelSettings } from './channel-settings/channel-settings'
+import { MESSAGE_LINK_PARAM } from './channel-url'
 import { UserList } from './channel-user-list'
 import {
   BanUserMessage,
@@ -170,6 +175,11 @@ export function ConnectedChatChannel({
   const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
   const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLineTime.get(channelId))
   const isWindowFocused = useWindowFocus()
+  const snackbarController = useSnackbarController()
+  const { t } = useTranslation()
+  // A message named by a link the user followed here. It's consumed rather than kept: once the list
+  // has acted on it the param goes away, so reloading the page afterwards is an ordinary visit.
+  const [linkedMessageId, setLinkedMessageId] = useLocationSearchParam(MESSAGE_LINK_PARAM)
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
@@ -265,6 +275,12 @@ export function ConnectedChatChannel({
     const anchor = chatViewAnchorStore.get(viewStateKey)
     dispatch(activateChannel(channelId))
 
+    if (linkedMessageId) {
+      // A link names the window this activation needs, which the effect below requests. The
+      // position the user left behind is where they were, not where they just asked to go.
+      return
+    }
+
     if (anchor && anchorNeedsFetch(channelMessages?.messages ?? [], anchor)) {
       // Getting back to where the user was reading takes a window the client doesn't hold, so that
       // window is this activation's history request instead of the newest page the list would
@@ -286,6 +302,85 @@ export function ConnectedChatChannel({
       dispatch(deactivateChannel(channelId))
     }
   }, [isInChannel, channelId, dispatch])
+
+  const onLinkedMessage = useEffectEvent((messageId: string, signal: AbortSignal) => {
+    // The window that's loaded doesn't hold the message; the request below replaces it with one that
+    // does, showing the current messages under a loading indicator until it lands. The window isn't
+    // dropped up front: an abandoned request (the user leaving, or a development remount) would
+    // otherwise leave it empty with nothing to refill it.
+    dispatch(
+      getMessagesAroundMessage(channelId, MESSAGES_LIMIT, messageId, {
+        signal,
+        onSuccess: () => {},
+        onError: err => {
+          if (isFetchError(err) && err.code === ChatServiceErrorCode.MessageNotFound) {
+            snackbarController.showSnackbar(
+              t(
+                'chat.errors.messageNotFound',
+                "That message couldn't be found. It may have been deleted.",
+              ),
+              DURATION_LONG,
+            )
+          } else {
+            snackbarController.showSnackbar(
+              t('chat.errors.loadingHistory', {
+                defaultValue: 'Error loading message history: {{errorMessage}}',
+                errorMessage: err.message,
+              }),
+              DURATION_LONG,
+            )
+          }
+
+          // The window was dropped to make room for one that can't be had, so the channel goes back
+          // to the newest messages rather than being left empty.
+          setLinkedMessageId('')
+          dispatch(jumpToPresent(channelId, MESSAGES_LIMIT))
+        },
+      }),
+    )
+  })
+
+  // Holds the request for the window a linked message sits in, so it's made once for a given link
+  // and abandoned only when the link or channel changes — not on the message updates that settling
+  // the channel's own window brings.
+  const linkFetchRef = useRef<AbortController | undefined>(undefined)
+  useEffect(() => {
+    return () => {
+      linkFetchRef.current?.abort()
+      linkFetchRef.current = undefined
+    }
+  }, [channelId, linkedMessageId])
+
+  // A link into a channel is reached by loading the window its message sits in, but only once the
+  // channel's own window has settled. A message already loaded there is placed by the list with no
+  // fetch at all; a fetch made before the entry even exists, or against the empty window a channel
+  // starts with, would either be dropped or race the channel's initial load. So this waits for the
+  // window to hold messages (or to have run out of history) and to be idle, then loads around the
+  // message if it isn't already on screen. The reading position the user left behind gives way to
+  // it: a link names where they just asked to go.
+  useEffect(() => {
+    if (!isInChannel || !linkedMessageId || !channelMessages || linkFetchRef.current) {
+      return
+    }
+    if (channelMessages.messages.some(m => m.id === linkedMessageId)) {
+      return
+    }
+    if (channelMessages.loadingHistory) {
+      return
+    }
+    if (channelMessages.messages.length === 0 && channelMessages.hasHistory) {
+      return
+    }
+
+    const abortController = new AbortController()
+    linkFetchRef.current = abortController
+    onLinkedMessage(linkedMessageId, abortController.signal)
+  }, [isInChannel, channelId, linkedMessageId, channelMessages])
+
+  const onLinkedMessageSettled = () => {
+    // However the move came out, the link has been acted on and shouldn't move the list again.
+    setLinkedMessageId('')
+  }
 
   // The newest server-recorded message time: client-only messages (e.g. the self-join banner) are
   // stamped with the local clock, so they can't be reported as a read position.
@@ -376,6 +471,8 @@ export function ConnectedChatChannel({
               mentionableUsers,
               baseMentionableUsers,
             }}
+            linkedMessageId={linkedMessageId || undefined}
+            onLinkedMessageSettled={onLinkedMessageSettled}
             onAtBottomChange={onAtBottomChange}
             onJumpToPresent={onJumpToPresent}
             onSeekToUnread={onSeekToUnread}
