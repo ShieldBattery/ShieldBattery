@@ -536,6 +536,9 @@ export class GameLoader {
 
     this.recentlyLoadedGames.add(gameId)
     this.loadingGames = this.loadingGames.delete(gameId)
+    // Nothing started on this load's behalf has any use left: a load-state pull still in flight
+    // would answer a question that has been settled, so it's cut off here as it is on cancellation.
+    loadingData.abortController.abort()
     loadingData.deferred.resolve(Result.ok({ gameId }))
 
     setTimeout(() => {

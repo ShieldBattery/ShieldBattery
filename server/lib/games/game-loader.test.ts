@@ -474,6 +474,59 @@ describe('games/game-loader/GameLoader', () => {
       )
     })
 
+    /** A coordinator whose answer never comes within the pull's own timeout. */
+    function pullThatHangs() {
+      const signals: AbortSignal[] = []
+      netcodeV2Service.fetchSessionLoadState.mockImplementation(
+        async (_session: number, options?: { timeoutMs?: number; signal?: AbortSignal }) => {
+          if (options?.signal) {
+            signals.push(options.signal)
+          }
+          const [delay] = timeoutPromise(options?.timeoutMs ?? 6_000)
+          await delay
+          return { known: false, connectedSlots: [], startedSlots: [] }
+        },
+      )
+      return signals
+    }
+
+    test('a completion arriving during a pull aborts the pull', async () => {
+      const signals = pullThatHangs()
+      const { load } = await startNetworkedLoad('game-complete-mid-pull')
+
+      // Past the deadline, so a pull is in flight.
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + 1_000)
+      expect(signals).toHaveLength(1)
+      expect(signals[0].aborted).toBe(false)
+
+      gameLoader.registerGameAsLoaded('game-complete-mid-pull', p1)
+      gameLoader.registerGameAsLoaded('game-complete-mid-pull', p2)
+      const result = await load
+
+      expect(result.isOk()).toBe(true)
+      // The answer has no use anymore, so the request is not left running out its timeout.
+      expect(signals[0].aborted).toBe(true)
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+      expect(wasCancelPublished()).toBe(false)
+    })
+
+    test('a cancellation arriving during a pull aborts the pull', async () => {
+      const signals = pullThatHangs()
+      const { load } = await startNetworkedLoad('game-cancel-mid-pull')
+
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + 1_000)
+      expect(signals).toHaveLength(1)
+
+      gameLoader.maybeCancelLoading('game-cancel-mid-pull', p1)
+      const result = await load
+
+      expect(result.isError()).toBe(true)
+      expect(signals[0].aborted).toBe(true)
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+    })
+
     test('completes on positive evidence the coordinator cannot vouch for', async () => {
       netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
         known: false,
