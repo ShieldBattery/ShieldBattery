@@ -90,6 +90,7 @@ struct ParkedChannels {
     _leaves: mpsc::Sender<LeaveDirective>,
     _leave_intent: mpsc::Receiver<()>,
     _result: mpsc::Receiver<Vec<u8>>,
+    _game_started: mpsc::Receiver<()>,
     _lobby_out: mpsc::Receiver<Vec<u8>>,
     _lobby_in: mpsc::Sender<(SlotId, Vec<u8>)>,
     _chat_out: mpsc::Receiver<ChatOut>,
@@ -297,6 +298,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (leaves_tx, leaves_rx) = mpsc::channel(16);
     let (leave_intent_tx, leave_intent_rx) = mpsc::channel(1);
     let (result_tx, result_rx) = mpsc::channel(1);
+    let (game_started_tx, game_started_rx) = mpsc::channel(1);
     let (lobby_out_tx, lobby_out_rx) = mpsc::channel(256);
     let (lobby_in_tx, lobby_in_rx) = mpsc::channel(256);
     let (chat_out_tx, chat_out_rx) = mpsc::channel(256);
@@ -315,6 +317,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         leaves: leaves_rx,
         leave_intent: leave_intent_tx,
         result: result_tx,
+        game_started: game_started_tx,
         result_expected: Arc::new(AtomicBool::new(false)),
         lobby_out: lobby_out_tx,
         lobby_in: lobby_in_rx,
@@ -334,6 +337,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _leaves: leaves_tx,
         _leave_intent: leave_intent_rx,
         _result: result_rx,
+        _game_started: game_started_rx,
         _lobby_out: lobby_out_rx,
         _lobby_in: lobby_in_tx,
         _chat_out: chat_out_rx,
@@ -574,6 +578,31 @@ pub fn submit_result_report(report: Vec<u8>) -> bool {
             }
             // A sessionless solo game has no relay to deliver over, so it does not take the report
             // and no one reports its result.
+            SessionLink::Sessionless(_) => false,
+        },
+        None => false,
+    }
+}
+
+/// Announces that the game loop has started to the relay driver, which carries it up the relay's
+/// reliable control stream (see [`TurnState::submit_game_started`]). Returns whether a
+/// relay-backed session took the signal.
+///
+/// `false` means there is no relay driver — a solo game (which has no network to tell, and reports
+/// its own load completion to the app server), a replay (no turn state at all), or the re-entrant
+/// lock case (which fires from the async game-start handler well off the turn hooks, so it can't
+/// actually happen, but is warned rather than silently skipped).
+pub fn submit_game_started() -> bool {
+    let Some(mut guard) = SESSION.lock() else {
+        warn!("submit_game_started skipped: turn state locked re-entrantly");
+        return false;
+    };
+    match guard.as_mut() {
+        Some(session) => match session.link {
+            SessionLink::Relay(_) => {
+                session.turn_state.submit_game_started();
+                true
+            }
             SessionLink::Sessionless(_) => false,
         },
         None => false,

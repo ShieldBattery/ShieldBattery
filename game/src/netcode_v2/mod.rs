@@ -71,7 +71,8 @@ pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
     error_with_root_cause, establish_session, establish_sessionless, set_lobby_session_seed,
-    submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
+    submit_game_started, submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed,
+    with_turn_state,
 };
 
 use self::net_stats::NetStats;
@@ -1704,6 +1705,20 @@ impl TurnState {
         }
     }
 
+    /// Tells the driver the game loop has started, so it announces that up the relay's reliable
+    /// control stream. The relay forwards the fact to the app server, which treats it as this
+    /// player having finished loading. `try_send` is enough: the driver sends exactly one
+    /// announcement per session and the channel holds one signal. A full or closed channel means
+    /// the driver already has it or the link is gone, neither of which needs more than a debug
+    /// line — the announcement is best-effort, and the app server pulls the relay's own record of
+    /// who started if it never hears this.
+    pub fn submit_game_started(&self) {
+        match self.channels.game_started.try_send(()) {
+            Ok(()) => debug!("netcode v2: handed game-started signal to driver"),
+            Err(e) => debug!("netcode v2: game-started signal not queued: {e}"),
+        }
+    }
+
     /// Queues a slot for a forced synced leave, for the `forceUnsyncedLeave` debug-control command. The
     /// game thread drains this on its next receive (see `bw_scr::apply_forced_unsynced_leaves`); nothing is
     /// applied here, so this is safe to call from the async side.
@@ -1958,6 +1973,7 @@ mod tests {
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
             result: result_tx,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
@@ -2064,6 +2080,7 @@ mod tests {
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
             result: result_tx,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
@@ -2103,6 +2120,7 @@ mod tests {
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
             result: result_tx,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
@@ -2900,6 +2918,7 @@ mod tests {
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
             result: result_tx,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::clone(&result_expected),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
@@ -2959,6 +2978,28 @@ mod tests {
         );
         // Nothing else queued behind the single report.
         assert!(result_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn submit_game_started_signals_the_driver_once() {
+        let (game_started_tx, mut game_started_rx) = mpsc::channel(1);
+        let (state, _result_rx, _result_expected) = turn_state_with_result();
+        let state = TurnState {
+            channels: TurnChannels {
+                game_started: game_started_tx,
+                ..state.channels
+            },
+            ..state
+        };
+
+        // The channel holds one signal: a repeat while it's still queued is dropped without
+        // failing, and the driver sees exactly one.
+        state.submit_game_started();
+        state.submit_game_started();
+        game_started_rx
+            .try_recv()
+            .expect("game-started signal handed to the driver");
+        assert!(game_started_rx.try_recv().is_err());
     }
 
     #[test]
@@ -3195,6 +3236,7 @@ mod tests {
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
             result: result_tx,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
@@ -3330,6 +3372,7 @@ mod tests {
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
             result: result_tx,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: mpsc::channel(16).0,
             lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
@@ -3386,6 +3429,7 @@ mod tests {
             leaves: mpsc::channel::<LeaveDirective>(16).1,
             leave_intent: mpsc::channel(1).0,
             result: mpsc::channel(1).0,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: mpsc::channel(16).0,
             lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
@@ -3504,6 +3548,7 @@ mod tests {
             leaves: mpsc::channel::<LeaveDirective>(16).1,
             leave_intent: mpsc::channel(1).0,
             result: mpsc::channel(1).0,
+            game_started: mpsc::channel(1).0,
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: mpsc::channel(16).0,
             lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
