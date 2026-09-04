@@ -37,14 +37,14 @@ const GAME_LOAD_TIMEOUT = 75 * 1000
 const PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS = 90 * 1000
 
 /**
- * How long a load that ran out of time keeps re-asking the coordinator for a record complete
- * enough to attribute its failure, before giving up and blaming nobody. Sized to comfortably cover
- * the coordinator's relay heartbeat interval plus a slow round trip, since one heartbeat is all
- * that's needed for a record taken at the deadline to catch up to it.
+ * How many times a load that ran out of time asks the coordinator for an attested record before
+ * giving up on attributing its failure and blaming nobody. Each ask has every relay serving the
+ * session answer afresh, so a retry only helps when a relay was momentarily unreachable; a few
+ * tries a couple of seconds apart cover that without holding the failed load open for long.
  */
-const LOAD_STATE_FRESHNESS_WAIT_MS = 15 * 1000
+const LOAD_STATE_ATTEST_ATTEMPTS = 5
 
-/** How long to wait between load-state pulls while waiting for the record to catch up. */
+/** How long to wait between load-state pulls when the last one wasn't fully attested. */
 const LOAD_STATE_POLL_INTERVAL_MS = 2 * 1000
 
 export enum GameLoadErrorType {
@@ -560,26 +560,24 @@ export class GameLoader {
    *   everybody connected and the session was released but no game loop ever started.
    *
    * Everything positive in the coordinator's answer counts immediately, but the last three rules
-   * read fault out of a player's *absence* from it, and the coordinator's record trails the relays
-   * feeding it by up to a heartbeat: something that happened moments before the deadline can be
-   * missing from a record pulled at the deadline. So absence is only evidence once the record is
-   * complete past the deadline instant, and until it is, the pull is simply repeated. The cost is
-   * that a load can be cancelled up to `LOAD_STATE_FRESHNESS_WAIT_MS` after its deadline — but only
+   * read fault out of a player's *absence* from it, and that is only sound against a record known
+   * to be complete. The coordinator provides exactly that: answering the pull, it has every relay
+   * serving the session take a fresh snapshot and vouches (`known`) only when all of them did, so
+   * whatever happened before the pull was sent is in the sets — no clock on either side is
+   * compared, and the deadline instant itself needs no representing. An answer it couldn't vouch
+   * for (a relay unreachable at that moment, a coordinator that lost the session, a relay replaced
+   * mid-load) is retried a few times and then given up on with nobody blamed: banning a player for
+   * a report that never arrived is far worse than letting a genuinely absent one go unpunished. The
+   * cost of the retries is that a load can be cancelled some seconds after its deadline — but only
    * a load that has already failed, since one that succeeded completes on the positive evidence at
-   * the first pull that carries it. A record that never catches up (a relay the coordinator can't
-   * reach) blames nobody, on the same principle: banning a player for a report that never arrived
-   * is far worse than letting a genuinely absent one go unpunished.
+   * the first pull that carries it.
    *
    * A local-only load has none of that evidence, so it falls back to blaming the unfinished players
    * only once at least half of them finished — which for its lone player means blaming them for
    * their own load.
    */
   private async handleLoadDeadlineExpired(gameId: string): Promise<void> {
-    // The instant fault is judged as of. A player who connected after this was too late regardless
-    // of when the record catches up to saying so.
-    const cutoff = Date.now()
-
-    for (;;) {
+    for (let attempt = 1; ; attempt++) {
       const beforePull = this.loadingGames.get(gameId)
       if (!beforePull) {
         return
@@ -610,19 +608,15 @@ export class GameLoader {
           loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)
             ? LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
             : []
-      } else if (
-        loadState?.known &&
-        loadState.freshAsOfMs !== undefined &&
-        loadState.freshAsOfMs >= cutoff
-      ) {
+      } else if (loadState?.known) {
         unloaded = LoadingDatas.playersAtFault(loadingData)
-      } else if (Date.now() - cutoff < LOAD_STATE_FRESHNESS_WAIT_MS) {
+      } else if (attempt < LOAD_STATE_ATTEST_ATTEMPTS) {
         const [pollDelay] = timeoutPromise(LOAD_STATE_POLL_INTERVAL_MS)
         await pollDelay
         continue
       } else {
         log.info(
-          `no complete netcode v2 record for ${gameId} covering its load deadline, ` +
+          `no attested netcode v2 record for ${gameId} after ${attempt} pulls, ` +
             'timing out without blaming anyone',
         )
         unloaded = []

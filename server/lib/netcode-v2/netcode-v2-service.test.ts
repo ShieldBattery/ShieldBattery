@@ -1249,7 +1249,6 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue({
       known: true,
-      freshAsOfMs: 1700000005000,
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
@@ -1272,7 +1271,6 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     )
     expect(result).toEqual({
       known: true,
-      freshAsOfMs: 1700000005000,
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
@@ -1289,7 +1287,6 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
 
     expect(result).toEqual({
       known: false,
-      freshAsOfMs: undefined,
       startedAtMs: undefined,
       connectedSlots: [],
       startedSlots: [],
@@ -1312,7 +1309,6 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     // What the coordinator did see happened, whether or not it can promise it saw everything.
     expect(result).toEqual({
       known: false,
-      freshAsOfMs: undefined,
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [1],

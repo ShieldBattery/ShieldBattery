@@ -324,22 +324,18 @@ interface CoordinatorWarmResponse {
  *
  * Everything the coordinator holds for the session comes back whatever `known` says, and all of it
  * is positive evidence that can be trusted on its own. `known` is about the opposite reading: only
- * a known record makes a slot's *absence* mean anything, and only for events before `freshAsOfMs`.
+ * a known record makes a slot's *absence* mean anything.
  */
 export interface NetcodeV2SessionLoadState {
   /**
-   * Whether the coordinator has held this session since it was created and every relay serving it
-   * has reported in at least once. False means the record may be missing things that happened (the
-   * coordinator restarted, never had the session, or a relay has yet to report), so absence from
-   * the sets below says nothing.
+   * Whether the coordinator vouches for the record being complete as of this pull: it has held the
+   * session since creation, no relay serving it has been replaced or restarted, and every serving
+   * relay produced a fresh snapshot after this request reached the coordinator — so anything that
+   * happened before the pull was sent is in the sets below, with no clock compared on either side.
+   * False means the record may be missing things that happened (the coordinator restarted, a relay
+   * was unreachable or replaced), so absence from the sets says nothing.
    */
   known: boolean
-  /**
-   * Unix ms on the coordinator's clock up to which the record is complete: the oldest report
-   * across the relays serving the session, so anything that happened after it may not have made it
-   * in yet. Only meaningful alongside `known`, and absent when there's no such point.
-   */
-  freshAsOfMs?: number
   /** Unix ms when the authority relay released the session to run, absent if it never did. */
   startedAtMs?: number
   /** The slots whose home relay activated their link. */
@@ -351,7 +347,6 @@ export interface NetcodeV2SessionLoadState {
 /** The wire shape of the coordinator's `POST /session/load-state` response. */
 interface CoordinatorSessionLoadStateResponse {
   known: boolean
-  freshAsOfMs?: number
   startedAtMs?: number
   connectedSlots?: number[]
   startedSlots?: number[]
@@ -801,9 +796,10 @@ export class NetcodeV2Service {
    * The connect/start webhooks are the fast path for this, but they're at-least-once with a finite
    * retry budget, so a delivery can be lost outright. This pull is the authoritative account at the
    * moment it matters — deciding whether a load that ran out of time has anyone to blame — which is
-   * why it's worth a synchronous round trip there and nowhere else. The record trails the relays
-   * that feed it by up to a heartbeat, so a caller reading absence as fault must check
-   * `freshAsOfMs` covers the instant it cares about, and pull again if it doesn't.
+   * why it's worth a synchronous round trip there and nowhere else. Answering it, the coordinator
+   * has every relay serving the session snapshot its state afresh, and vouches for completeness
+   * (`known`) only when all of them did; a caller reading absence as fault must have that, and may
+   * pull again when it doesn't.
    *
    * Throws `NetcodeV2ServiceError` if netcode v2 isn't configured or the request fails; a caller
    * that can proceed without the answer decides that for itself.
@@ -825,10 +821,11 @@ export class NetcodeV2Service {
             'content-type': 'application/json',
             ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
           },
-          // Much tighter than the other control-plane calls: the only caller is already past its
-          // deadline and holding a decision open, so a slow coordinator must cost seconds, not tens
-          // of them.
-          timeout: { request: 3000 },
+          // Tighter than the other control-plane calls: the only caller is already past its
+          // deadline and holding a decision open. The coordinator itself waits a couple of seconds
+          // for the serving relays to snapshot, so this leaves room for that plus the round trip
+          // and no more.
+          timeout: { request: 6000 },
         })
         .json<CoordinatorSessionLoadStateResponse>()
     } catch (err) {
@@ -837,7 +834,6 @@ export class NetcodeV2Service {
 
     return {
       known: response.known,
-      freshAsOfMs: response.freshAsOfMs,
       startedAtMs: response.startedAtMs,
       connectedSlots: response.connectedSlots ?? [],
       startedSlots: response.startedSlots ?? [],
