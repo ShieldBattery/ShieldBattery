@@ -1,6 +1,7 @@
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   WhisperMessageEvent,
 } from '../../common/whispers'
@@ -25,6 +26,7 @@ export type WhisperActions =
   | WhisperMessageUpdate
   | GetWhisperSessions
   | UpdateLastReadTime
+  | ResolveWhisperMessageLink
 
 /**
  * Get the list of whisper sessions for the current user.
@@ -139,7 +141,10 @@ export interface LoadMessagesAroundBegin {
   payload: {
     target: SbUserId
     limit: number
-    aroundTime: number
+    /** The time the window was asked for around, when the request named a time. */
+    aroundTime?: number
+    /** The message the window was asked for around, when the request named a message. */
+    aroundMessageId?: string
     windowGen: number
     /**
      * The newest server-recorded message time (epoch ms) this client knew existed when the request
@@ -153,9 +158,9 @@ export interface LoadMessagesAroundBegin {
 }
 
 /**
- * Load a window of up to `limit` messages in a whisper session centered on a particular time. The
- * result replaces whatever was loaded for the session, since the fetched range doesn't have to
- * touch it.
+ * Load a window of up to `limit` messages in a whisper session centered on a particular point in
+ * its history, named either by time or by one of its messages. The result replaces whatever was
+ * loaded for the session, since the fetched range doesn't have to touch it.
  */
 export interface LoadMessagesAround {
   type: '@whispers/loadMessagesAround'
@@ -163,7 +168,10 @@ export interface LoadMessagesAround {
   meta: {
     target: SbUserId
     limit: number
-    aroundTime: number
+    /** The time the window was asked for around, when the request named a time. */
+    aroundTime?: number
+    /** The message the window was asked for around, when the request named a message. */
+    aroundMessageId?: string
     windowGen: number
     /**
      * The newest server-recorded message time (epoch ms) this client knew existed when the request
@@ -181,7 +189,10 @@ export interface LoadMessagesAroundFailure extends BaseFetchFailure<'@whispers/l
   meta: {
     target: SbUserId
     limit: number
-    aroundTime: number
+    /** The time the window was asked for around, when the request named a time. */
+    aroundTime?: number
+    /** The message the window was asked for around, when the request named a message. */
+    aroundMessageId?: string
     windowGen: number
     /**
      * The newest server-recorded message time (epoch ms) this client knew existed when the request
@@ -295,4 +306,12 @@ export interface WhisperMessageUpdate {
      */
     windowFocused: boolean
   }
+}
+
+/**
+ * A whisper message link was resolved to the conversation it belongs to.
+ */
+export interface ResolveWhisperMessageLink {
+  type: '@whispers/resolveMessageLink'
+  payload: GetWhisperMessageLinkResponse
 }

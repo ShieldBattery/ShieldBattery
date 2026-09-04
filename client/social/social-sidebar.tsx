@@ -47,6 +47,7 @@ import { getBatchUserInfo } from '../users/action-creators'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { closeWhisperSession, getWhisperSessions } from '../whispers/action-creators'
+import { urlForWhisper } from '../whispers/whisper-url'
 import { FriendsList, useRelationshipsLoader } from './friends-list'
 
 /** The width the window must be greater than for pinning to be enabled. */
@@ -616,7 +617,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
       <ConnectedUserContextMenu {...contextMenuProps} />
 
       <Entry
-        link={urlPath`/whispers/${userId}/${username ?? ''}`}
+        link={urlForWhisper(userId, username ?? '')}
         button={button}
         icon={<ConnectedAvatar userId={userId} />}
         needsAttention={hasUnread}

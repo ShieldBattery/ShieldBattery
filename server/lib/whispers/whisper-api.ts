@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   MarkWhisperReadRequest,
   SendWhisperMessageRequest,
@@ -66,6 +67,7 @@ const convertWhisperServiceErrors = makeErrorConverterMiddleware(err => {
 
   switch (err.code) {
     case WhisperServiceErrorCode.UserNotFound:
+    case WhisperServiceErrorCode.MessageNotFound:
       throw asHttpError(404, err)
     case WhisperServiceErrorCode.InvalidGetSessionHistoryAction:
       throw asHttpError(400, err)
@@ -206,7 +208,7 @@ export class WhisperApi {
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const {
       params: { targetId },
-      query: { limit, beforeTime, afterTime, aroundTime },
+      query: { limit, beforeTime, afterTime, aroundTime, aroundMessageId },
     } = validateRequest(ctx, {
       params: Joi.object<{ targetId: SbUserId }>({
         targetId: joiUserId().required(),
@@ -216,12 +218,14 @@ export class WhisperApi {
         beforeTime?: number
         afterTime?: number
         aroundTime?: number
+        aroundMessageId?: string
       }>({
         limit: Joi.number().min(1).max(100),
         beforeTime: joiTimestampMillis().min(-1),
         afterTime: joiTimestampMillis().min(0),
         aroundTime: joiTimestampMillis().min(0),
-      }).oxor('beforeTime', 'afterTime', 'aroundTime'),
+        aroundMessageId: Joi.string().uuid(),
+      }).oxor('beforeTime', 'afterTime', 'aroundTime', 'aroundMessageId'),
     })
 
     return await this.whisperService.getSessionHistory(
@@ -231,6 +235,24 @@ export class WhisperApi {
       beforeTime,
       afterTime,
       aroundTime,
+      aroundMessageId,
     )
+  }
+
+  // The literal `message-links` first segment can never be matched by the `:targetId` routes above
+  // (a user id is numeric, but more to the point their second path segment is a different literal,
+  // e.g. `messages2`), so this doesn't need to be registered ahead of them to win a conflict.
+  @httpGet('/message-links/:messageId')
+  @httpBefore(throttleMiddleware(retrievalThrottle, throttleByUser))
+  async getMessageLinkTarget(ctx: RouterContext): Promise<GetWhisperMessageLinkResponse> {
+    const {
+      params: { messageId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ messageId: string }>({
+        messageId: Joi.string().uuid().required(),
+      }),
+    })
+
+    return await this.whisperService.getMessageLinkTarget(ctx.session!.user.id, messageId)
   }
 }

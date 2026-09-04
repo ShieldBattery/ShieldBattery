@@ -111,6 +111,7 @@ export enum WhisperServiceErrorCode {
   NoSelfMessaging = 'noSelfMessaging',
   InvalidGetSessionHistoryAction = 'invalidGetSessionHistoryAction',
   UserChatRestricted = 'userChatRestricted',
+  MessageNotFound = 'messageNotFound',
 }
 
 const ALL_WHISPER_SERVICE_ERROR_CODES: ReadonlyArray<WhisperServiceErrorCode> =
@@ -140,12 +141,25 @@ export function whisperServiceErrorToString(
           'whispers.errors.userChatRestricted',
           'You are currently restricted from sending chat messages',
         )
+      case WhisperServiceErrorCode.MessageNotFound:
+        return t(
+          'whispers.errors.messageNotFound',
+          "That message couldn't be found in this whisper.",
+        )
       default:
         return assertUnreachable(code)
     }
   } else {
     return t('whispers.errors.unknownError', 'Unknown error')
   }
+}
+
+/** Response to resolving a whisper message link: which whisper the message belongs to, from the requester's side. */
+export interface GetWhisperMessageLinkResponse {
+  /** The other participant of the whisper the message is in. */
+  targetId: SbUserId
+  /** The target's user info, so the client can build the whisper URL. */
+  users: SbUser[]
 }
 
 export interface GetWhisperSessionsResponse {

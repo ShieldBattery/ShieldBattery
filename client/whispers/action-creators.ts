@@ -1,8 +1,9 @@
 import { getErrorStack } from '../../common/errors'
-import { apiUrl, urlPath } from '../../common/urls'
+import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   MarkWhisperReadRequest,
   SendWhisperMessageRequest,
@@ -20,6 +21,7 @@ import {
   UpdateSessionAtBottom,
 } from './actions'
 import { newestServerOriginTime } from './whisper-reducer'
+import { urlForWhisper } from './whisper-url'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -233,6 +235,7 @@ export function getMessagesAround(
 
     const promise = fetchJson<GetSessionHistoryResponse>(
       apiUrl`whispers/${target}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
+      { signal: spec.signal },
     )
     dispatch({
       type: '@whispers/loadMessagesAroundBegin',
@@ -292,7 +295,7 @@ export function updateSessionAtBottom(target: SbUserId, atBottom: boolean): Upda
 }
 
 export function navigateToWhisper(targetId: SbUserId, targetName: string, transitionFn = push) {
-  transitionFn(urlPath`/whispers/${targetId}/${targetName}`)
+  transitionFn(urlForWhisper(targetId, targetName))
 }
 
 /**
@@ -303,5 +306,80 @@ export function navigateToWhisper(targetId: SbUserId, targetName: string, transi
 export function correctUsernameForWhisper(userId: SbUserId, username: string) {
   // The correction is only about the name segment: the rest of the URL still describes what the
   // user asked for, so it survives being sent to the canonical name.
-  replace(urlPath`/whispers/${userId}/${username}` + window.location.search)
+  replace(urlForWhisper(userId, username) + window.location.search)
+}
+
+/**
+ * Loads a window of messages centered on a particular message, replacing whatever is currently
+ * loaded for the session. This is how the client reaches a message named by a link, which can sit
+ * anywhere in the conversation's history. The caller is expected to handle errors: a message the
+ * server can't find in this whisper (it never existed there, or has been deleted) fails the
+ * request.
+ */
+export function getMessagesAroundMessage(
+  target: SbUserId,
+  limit: number,
+  messageId: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
+    const {
+      whispers: { byId },
+    } = getStore()
+    const sessionData = byId.get(target)
+    if (!sessionData) {
+      return
+    }
+
+    const knownNewest = Math.max(
+      newestServerOriginTime(sessionData.messages) ?? -Infinity,
+      sessionData.detachedNewestTime ?? -Infinity,
+    )
+    const params = {
+      target,
+      limit,
+      aroundMessageId: messageId,
+      windowGen: sessionData.windowGen,
+      knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
+    }
+
+    const promise = fetchJson<GetSessionHistoryResponse>(
+      apiUrl`whispers/${target}/messages2?limit=${limit}&aroundMessageId=${messageId}`,
+      { signal: spec.signal },
+    )
+    dispatch({
+      type: '@whispers/loadMessagesAroundBegin',
+      payload: params,
+    })
+    dispatch({
+      type: '@whispers/loadMessagesAround',
+      payload: promise,
+      meta: params,
+    })
+    await promise
+  })
+}
+
+/**
+ * Resolves a whisper message link to the conversation it belongs to, from the current user's side.
+ * Fails with `WhisperServiceErrorCode.MessageNotFound` (see `common/whispers`) if the message
+ * doesn't exist or the current user isn't one of its participants.
+ */
+export function resolveWhisperMessageLink(
+  messageId: string,
+  spec: RequestHandlingSpec<GetWhisperMessageLinkResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<GetWhisperMessageLinkResponse>(
+      apiUrl`whispers/message-links/${messageId}`,
+      { signal: spec.signal },
+    )
+
+    dispatch({
+      type: '@whispers/resolveMessageLink',
+      payload: result,
+    })
+
+    return result
+  })
 }

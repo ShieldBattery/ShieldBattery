@@ -9,6 +9,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   WhisperEvent,
   WhisperMessage,
@@ -32,6 +33,8 @@ import {
   startWhisperSessionsBothDirections as dbStartWhisperSessionsBothDirections,
   getMessagesForWhisperSession,
   getUnreadWhisperTargets,
+  getWhisperMessageParticipants,
+  getWhisperMessageSentTime,
   getWhisperSessionsForUser,
   updateLastReadTime,
 } from './whisper-models'
@@ -232,6 +235,7 @@ export default class WhisperService {
     beforeTime?: number,
     afterTime?: number,
     aroundTime?: number,
+    aroundMessageId?: string,
   ): Promise<GetSessionHistoryResponse> {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
@@ -253,6 +257,15 @@ export default class WhisperService {
       cursor = { kind: 'after', date: new Date(afterTime) }
     } else if (aroundTime !== undefined && aroundTime >= 0) {
       cursor = { kind: 'around', date: new Date(aroundTime) }
+    } else if (aroundMessageId !== undefined) {
+      const sentTime = await getWhisperMessageSentTime(user.id, target.id, aroundMessageId)
+      if (sentTime === undefined) {
+        throw new WhisperServiceError(
+          WhisperServiceErrorCode.MessageNotFound,
+          'Message not found in this whisper',
+        )
+      }
+      cursor = { kind: 'around', date: sentTime }
     }
 
     const {
@@ -313,6 +326,32 @@ export default class WhisperService {
       hasMoreBefore,
       hasMoreAfter,
     }
+  }
+
+  /**
+   * Resolves a whisper message link for `userId`: which conversation the message belongs to, from
+   * their side. Throws `MessageNotFound` both when the message doesn't exist at all and when
+   * `userId` isn't one of its two participants -- the two cases are indistinguishable to the
+   * caller, so someone probing message ids they weren't sent learns nothing about which case
+   * applies. A participant whose session with the target is currently closed still resolves: the
+   * whisper page reopens the session on visit, the same as navigating there directly would.
+   */
+  async getMessageLinkTarget(
+    userId: SbUserId,
+    messageId: string,
+  ): Promise<GetWhisperMessageLinkResponse> {
+    const participants = await getWhisperMessageParticipants(messageId)
+    if (!participants || (participants.from !== userId && participants.to !== userId)) {
+      throw new WhisperServiceError(
+        WhisperServiceErrorCode.MessageNotFound,
+        'Message not found in this whisper',
+      )
+    }
+
+    const targetId = participants.from === userId ? participants.to : participants.from
+    const target = await this.getUserById(targetId)
+
+    return { targetId, users: [target] }
   }
 
   async getUserById(id: SbUserId): Promise<SbUser> {
