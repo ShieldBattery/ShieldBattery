@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
@@ -115,18 +116,31 @@ const Label = styled.span`
  *
  * A plain click on a whisper chip resolves the link before navigating, rather than following the
  * anchor to the `/whispers/m/<id>` redirect page: a link the viewer can't open this way leaves them
- * where they were with a snackbar, instead of bouncing them through a page that redirects home.
+ * where they were with a snackbar, instead of bouncing them through a page that redirects home. A
+ * resolve still in flight when the chip goes away is abandoned, so it can never navigate a viewer
+ * who has since moved on, and a second click supersedes the first.
  */
 export function MessageLinkChip({ href, target }: { href: string; target: MessageLinkTarget }) {
   const { t } = useTranslation()
   const openWhisperMessageLink = useOpenWhisperMessageLink()
+  const resolveControllerRef = useRef<AbortController | undefined>(undefined)
+
+  useEffect(() => {
+    return () => {
+      resolveControllerRef.current?.abort()
+      resolveControllerRef.current = undefined
+    }
+  }, [])
+
+  const onWhisperClick = () => {
+    resolveControllerRef.current?.abort()
+    const controller = new AbortController()
+    resolveControllerRef.current = controller
+    openWhisperMessageLink(target.messageId, { signal: controller.signal })
+  }
 
   return (
-    <ChipLink
-      href={href}
-      navigate={
-        target.kind === 'whisper' ? () => openWhisperMessageLink(target.messageId, {}) : undefined
-      }>
+    <ChipLink href={href} navigate={target.kind === 'whisper' ? onWhisperClick : undefined}>
       <ChipIcon icon='chat' size={16} />
       {target.kind === 'channel' ? (
         <ChannelName channelId={target.channelId} interactive={false} />
