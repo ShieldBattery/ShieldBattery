@@ -625,7 +625,7 @@ export class GameApi {
   // out the tenant key.
   @httpGet('/:gameId/flight-recordings/:relayId')
   @httpBefore(ensureLoggedIn, checkAllPermissions('debug'))
-  async getFlightRecording(ctx: RouterContext): Promise<unknown> {
+  async getFlightRecording(ctx: RouterContext): Promise<string> {
     const {
       params: { gameId, relayId },
     } = validateRequest(ctx, { params: GAME_ID_AND_RELAY_ID_PARAM })
@@ -644,6 +644,9 @@ export class GameApi {
       throw new httpErrors.NotFound('no flight recording for that relay')
     }
 
+    // The blob is already JSON text; the type is set here so Koa doesn't label the string body as
+    // text/plain when the route framework assigns it.
+    ctx.type = 'application/json'
     return blob
   }
 

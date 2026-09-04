@@ -1463,7 +1463,7 @@ describe('netcode-v2/NetcodeV2Service#fetchFlightBlob', () => {
     expect(got.post).not.toHaveBeenCalled()
   })
 
-  test('posts the tenant + session + relay_id (as a signed body) and returns the parsed recording', async () => {
+  test('posts the tenant + session + relay_id (as a signed body) and returns the recording text', async () => {
     configureNetcodeV2()
     const recording = { events: ['connect', 'leave'] }
     asMockedFunction(got.post).mockResolvedValue({
@@ -1486,7 +1486,7 @@ describe('netcode-v2/NetcodeV2Service#fetchFlightBlob', () => {
         }),
       }),
     )
-    expect(result).toEqual(recording)
+    expect(result).toBe(JSON.stringify(recording))
   })
 
   test('returns undefined when the coordinator has no blob for that relay (a 404)', async () => {

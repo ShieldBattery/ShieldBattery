@@ -290,12 +290,14 @@ describe('games/game-api/GameApi#getFlightRecording', () => {
   test('fetches the blob for the stored session id and the requested relay', async () => {
     const { api, netcodeV2Service } = makeFlightApi()
     vi.mocked(getNetcodeV2Session).mockResolvedValue(42)
-    const recording = { events: ['connect'] }
+    const recording = JSON.stringify({ events: ['connect'] })
     netcodeV2Service.fetchFlightBlob.mockResolvedValue(recording)
+    const ctx = makeFlightCtx(7)
 
-    const returned = await api.getFlightRecording(makeFlightCtx(7))
+    const returned = await api.getFlightRecording(ctx)
 
     expect(netcodeV2Service.fetchFlightBlob).toHaveBeenCalledWith(42, 7)
-    expect(returned).toEqual(recording)
+    expect(returned).toBe(recording)
+    expect(ctx.type).toBe('application/json')
   })
 })

@@ -1041,14 +1041,15 @@ export class NetcodeV2Service {
   }
 
   /**
-   * Fetches one relay's flight-recorder blob for a session, for the admin flight-recording fetch
-   * tool (`GET /games/:gameId/flight-recordings/:relayId`) — the server-side replacement for
-   * running `deployment/coordinator/tools/fetch-flight.mjs` with the tenant key copied off the box.
+   * Fetches one relay's flight-recorder blob for a session, as its JSON text, for the flight
+   * recording download routes (the staff `GET /games/:gameId/flight-recordings/:relayId` and the
+   * internal game-artifacts route) — the server-side replacement for running
+   * `deployment/coordinator/tools/fetch-flight.mjs` with the tenant key copied off the box.
    * Returns `undefined` when the coordinator has no such blob (a `404`): normal for a relay that
    * never shipped one, or one whose retention lifecycle already expired it. Throws
    * `NetcodeV2ServiceError` for anything else, including netcode v2 being unconfigured.
    */
-  async fetchFlightBlob(session: number, relayId: number): Promise<unknown> {
+  async fetchFlightBlob(session: number, relayId: number): Promise<string | undefined> {
     const config = this.config
     if (!config) {
       throw new NetcodeV2ServiceError('netcode v2 is not configured')
@@ -1066,10 +1067,10 @@ export class NetcodeV2Service {
         },
         timeout: { request: 10000 },
       })
-      // The coordinator already decompresses a stored blob on read, so this is plain JSON text;
-      // parsed (rather than forwarded verbatim) so the route handler can return it the same way
-      // every other endpoint returns its body, letting the framework serialize it.
-      return JSON.parse(response.body)
+      // The coordinator already decompresses a stored blob on read, so this is plain JSON text.
+      // It's returned verbatim rather than parsed: a recording can be tens of MiB, and every caller
+      // just forwards it to a client, so parsing and re-serializing would only cost memory and CPU.
+      return response.body
     } catch (err) {
       if (err instanceof HTTPError && err.response.statusCode === 404) {
         return undefined

@@ -1,7 +1,8 @@
-import KoaRouter, { RouterContext } from '@koa/router'
+import KoaRouter from '@koa/router'
 import httpErrors from 'http-errors'
 import { BugReportJson, toBugReportJson } from '../../../common/bugs'
 import { readFile } from '../files'
+import { setInternalResponseHeaders } from '../http/internal-response-headers'
 import { getBugReport } from './bugs-model'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -14,11 +15,6 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  */
 export interface InternalBugReportResponseJson {
   report: BugReportJson
-}
-
-function setInternalResponseHeaders(ctx: RouterContext) {
-  ctx.set('Cache-Control', 'private, no-store')
-  ctx.set('X-Content-Type-Options', 'nosniff')
 }
 
 async function getReportOr404(reportId: string) {

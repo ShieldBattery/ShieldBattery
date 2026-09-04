@@ -1,11 +1,12 @@
 import KoaRouter from '@koa/router'
 import Koa from 'koa'
 import { registerInternalBugReportRoutes } from './lib/bugs/internal-bug-report-routes'
+import { registerInternalGameArtifactRoutes } from './lib/games/internal-game-artifact-routes'
 
 /**
  * Builds a middleware that owns every request under `/internal`: service-to-service endpoints for
- * trusted machine callers on the private network/tailnet (currently: Adjutant's bug report
- * access; future internal consumers should register their routes here too).
+ * trusted machine callers on the private network/tailnet (currently: Adjutant's bug report and
+ * game artifact access; future internal consumers should register their routes here too).
  *
  * Mounted in app.ts *ahead of* the app's normal middleware chain (canonical-host redirects,
  * CSRF/origin checks, cookie/JWT session handling, CORS, security headers, static file serving,
@@ -23,6 +24,7 @@ import { registerInternalBugReportRoutes } from './lib/bugs/internal-bug-report-
 export function internalRoutesMiddleware(): Koa.Middleware {
   const router = new KoaRouter({ prefix: '/internal' })
   registerInternalBugReportRoutes(router)
+  registerInternalGameArtifactRoutes(router)
 
   const routes = router.routes() as Koa.Middleware
   const allowedMethods = router.allowedMethods() as Koa.Middleware
