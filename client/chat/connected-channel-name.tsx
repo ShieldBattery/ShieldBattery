@@ -42,7 +42,9 @@ export interface ConnectedChannelNameProps {
  * info when clicked. Renders one of three non-name placeholders instead when there's no name to
  * show: a loading skeleton while the channel's info hasn't arrived yet, "#deleted-channel" for an
  * id that no longer names any channel, and "#private-channel" for a private channel the viewer
- * isn't a member of (the server withholds its name from non-members).
+ * isn't a member of and whose name the client doesn't already know (the server withholds the name
+ * of a private channel from non-members, but the client can still have learned it separately, e.g.
+ * from a mention in already-loaded message history).
  */
 export function ConnectedChannelName({
   className,
@@ -79,7 +81,7 @@ export function ConnectedChannelName({
     )
   }
 
-  if (isChannelPrivate) {
+  if (isChannelPrivate && !basicChannelInfo) {
     return (
       <span className={className}>#{t('chat.channelName.privateChannel', 'private-channel')}</span>
     )

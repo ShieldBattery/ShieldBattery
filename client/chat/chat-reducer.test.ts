@@ -528,6 +528,30 @@ describe('client/chat/chat-reducer', () => {
       expect(result.privateChannels.has(PRIVATE_CHANNEL_ID)).toBe(false)
       expect(result.idToBasicInfo.get(PRIVATE_CHANNEL_ID)?.name).toBe('now-visible')
     })
+
+    test('clears an id from privateChannels when the channel is joined', () => {
+      const state = makeState()
+      const withPrivate = chatReducer(
+        state,
+        getBatchChannelInfoAction({ privateChannels: [PRIVATE_CHANNEL_ID] }),
+      )
+
+      expect(withPrivate.privateChannels.has(PRIVATE_CHANNEL_ID)).toBe(true)
+
+      const data = initialChannelData()
+      const result = chatReducer(
+        withPrivate,
+        getJoinedChannelsAction({
+          ...data,
+          channelInfo: { ...data.channelInfo, id: PRIVATE_CHANNEL_ID },
+          detailedChannelInfo: { ...data.detailedChannelInfo, id: PRIVATE_CHANNEL_ID },
+          joinedChannelInfo: { ...data.joinedChannelInfo, id: PRIVATE_CHANNEL_ID },
+        }),
+      )
+
+      expect(result.privateChannels.has(PRIVATE_CHANNEL_ID)).toBe(false)
+      expect(result.idToBasicInfo.get(PRIVATE_CHANNEL_ID)).toBeDefined()
+    })
   })
 
   describe('@chat/updateMessage', () => {

@@ -558,9 +558,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     carriedClientMessages: [],
   }
   state.joinedChannels.add(channelId)
-  state.idToBasicInfo.set(channelId, channelInfo)
-  state.idToDetailedInfo.set(channelId, detailedChannelInfo)
-  state.idToJoinedInfo.set(channelId, joinedChannelInfo)
+  updateChannelInfos(state, [channelInfo], [detailedChannelInfo], [joinedChannelInfo])
   initChannelUsers(state, channelId)
   state.idToMessages.set(channelId, messagesState)
   state.idToUserProfiles.set(channelId, new Map())
