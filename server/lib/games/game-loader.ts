@@ -663,16 +663,24 @@ export class GameLoader {
     gameId: string,
     timeoutMs: number,
   ): Promise<NetcodeV2SessionLoadState | undefined> {
-    const session = this.loadingGames.get(gameId)?.netcodeV2Session
-    if (session === undefined) {
+    const pulling = this.loadingGames.get(gameId)
+    const session = pulling?.netcodeV2Session
+    if (!pulling || session === undefined) {
       return undefined
     }
 
     let loadState: NetcodeV2SessionLoadState
     try {
-      loadState = await this.netcodeV2Service.fetchSessionLoadState(session, { timeoutMs })
+      // The load's own signal aborts the pull if the load completes or is cancelled meanwhile: the
+      // answer would go unused, and the coordinator's work producing it is worth sparing.
+      loadState = await this.netcodeV2Service.fetchSessionLoadState(session, {
+        timeoutMs,
+        signal: pulling.signal,
+      })
     } catch (err) {
-      log.warn({ err }, `couldn't fetch netcode v2 load state for ${gameId}`)
+      if (!pulling.signal.aborted) {
+        log.warn({ err }, `couldn't fetch netcode v2 load state for ${gameId}`)
+      }
       return undefined
     }
 

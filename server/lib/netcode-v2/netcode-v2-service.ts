@@ -805,10 +805,12 @@ export class NetcodeV2Service {
    * that can proceed without the answer decides that for itself.
    *
    * @param timeoutMs how long the whole request may take before it fails
+   * @param signal aborts the request early; a load that has completed or been cancelled has no use
+   *   for the answer, and the coordinator's work answering it is worth sparing
    */
   async fetchSessionLoadState(
     session: number,
-    { timeoutMs = 6000 }: { timeoutMs?: number } = {},
+    { timeoutMs = 6000, signal }: { timeoutMs?: number; signal?: AbortSignal } = {},
   ): Promise<NetcodeV2SessionLoadState> {
     const config = this.config
     if (!config) {
@@ -831,6 +833,7 @@ export class NetcodeV2Service {
           // budget. The default leaves room for the coordinator's own wait on the serving relays
           // plus the round trip and no more.
           timeout: { request: timeoutMs },
+          signal,
         })
         .json<CoordinatorSessionLoadStateResponse>()
     } catch (err) {
