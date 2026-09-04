@@ -1256,12 +1256,13 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = makeService()
 
-    const result = await service.fetchSessionLoadState(42)
+    const result = await service.fetchSessionLoadState(42, { timeoutMs: 4000 })
 
     expect(got.post).toHaveBeenCalledWith(
       'http://coordinator.example/session/load-state',
       expect.objectContaining({
         body: JSON.stringify({ tenant: 'sb-dev', session: 42 }),
+        timeout: { request: 4000 },
         headers: expect.objectContaining({
           'content-type': 'application/json',
           'x-rp2-timestamp': expect.stringMatching(/^\d+$/),

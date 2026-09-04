@@ -803,8 +803,13 @@ export class NetcodeV2Service {
    *
    * Throws `NetcodeV2ServiceError` if netcode v2 isn't configured or the request fails; a caller
    * that can proceed without the answer decides that for itself.
+   *
+   * @param timeoutMs how long the whole request may take before it fails
    */
-  async fetchSessionLoadState(session: number): Promise<NetcodeV2SessionLoadState> {
+  async fetchSessionLoadState(
+    session: number,
+    { timeoutMs = 6000 }: { timeoutMs?: number } = {},
+  ): Promise<NetcodeV2SessionLoadState> {
     const config = this.config
     if (!config) {
       throw new NetcodeV2ServiceError('netcode v2 is not configured')
@@ -822,10 +827,10 @@ export class NetcodeV2Service {
             ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
           },
           // Tighter than the other control-plane calls: the only caller is already past its
-          // deadline and holding a decision open. The coordinator itself waits a couple of seconds
-          // for the serving relays to snapshot, so this leaves room for that plus the round trip
-          // and no more.
-          timeout: { request: 6000 },
+          // deadline and holding a decision open, and it cuts each pull to what remains of its own
+          // budget. The default leaves room for the coordinator's own wait on the serving relays
+          // plus the round trip and no more.
+          timeout: { request: timeoutMs },
         })
         .json<CoordinatorSessionLoadStateResponse>()
     } catch (err) {

@@ -1,5 +1,6 @@
 import { register } from 'prom-client'
 import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
+import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
@@ -39,6 +40,11 @@ vi.mock('../maps/map-models', () => ({
 vi.mock('../users/user-model', () => ({
   findUsersById: vi.fn(),
 }))
+// The loader budgets its post-deadline pulls on the monotonic clock, which the fake timers don't
+// drive; reading it off the faked wall clock keeps the two in step for these tests.
+vi.mock('../time/monotonic-now', () => ({
+  monotonicNow: () => Date.now(),
+}))
 
 const p1 = makeSbUserId(1)
 const p2 = makeSbUserId(2)
@@ -48,9 +54,11 @@ const mapId = makeSbMapId('1')
 const LOAD_DEADLINE_MS = 75_000
 /**
  * How long past that deadline the loader can keep asking the coordinator for an attested record
- * before it gives up on attributing the failure: the retry attempts times their spacing.
+ * before it gives up on attributing the failure.
  */
-const ATTEST_RETRY_WINDOW_MS = 5 * 2_000
+const ATTEST_BUDGET_MS = 20_000
+/** How long the loader waits between pulls that weren't attested. */
+const ATTEST_POLL_MS = 2_000
 
 function lobbyConfig(teams: GameConfigPlayer[][]): LobbyGameConfig {
   return {
@@ -124,7 +132,10 @@ describe('games/game-loader/GameLoader', () => {
       }) => Promise<{ session: number; setups: Map<SbUserId, unknown> }>
     >
     fetchSessionLoadState: Mock<
-      (session: number) => Promise<{
+      (
+        session: number,
+        options?: { timeoutMs?: number },
+      ) => Promise<{
         known: boolean
         startedAtMs?: number
         connectedSlots: number[]
@@ -228,7 +239,7 @@ describe('games/game-loader/GameLoader', () => {
    * was cancelled with.
    */
   async function expectTimeout(load: Promise<any>) {
-    await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_RETRY_WINDOW_MS + 5_000)
+    await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_BUDGET_MS + 5_000)
     const result = await load
     expect(result.isError()).toBe(true)
     const error = result.errorOrNull() as BaseGameLoaderError<GameLoadErrorType.Timeout>
@@ -309,7 +320,10 @@ describe('games/game-loader/GameLoader', () => {
       const error = await expectTimeout(load)
 
       // Slot 0 is p1, so only p2 is unaccounted for even though no webhook ever arrived.
-      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledWith(77)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledWith(
+        77,
+        expect.objectContaining({ timeoutMs: expect.any(Number) }),
+      )
       expect(error.data.unloaded).toEqual([p2])
     })
 
@@ -372,7 +386,7 @@ describe('games/game-loader/GameLoader', () => {
         })
       const { load } = await startNetworkedLoad('game-record-catches-up')
 
-      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_RETRY_WINDOW_MS + 5_000)
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_BUDGET_MS + 5_000)
       const result = await load
 
       expect(result.isOk()).toBe(true)
@@ -410,7 +424,7 @@ describe('games/game-loader/GameLoader', () => {
       })
       const { load } = await startNetworkedLoad('game-record-never-attested')
 
-      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_RETRY_WINDOW_MS - 3_000)
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_BUDGET_MS - 3_000)
 
       // Still asking: p2's absence isn't evidence until every relay has vouched for the record.
       expect(wasCancelPublished()).toBe(false)
@@ -422,7 +436,42 @@ describe('games/game-loader/GameLoader', () => {
       const error = result.errorOrNull() as BaseGameLoaderError<GameLoadErrorType.Timeout>
       expect(error.code).toBe(GameLoadErrorType.Timeout)
       expect(error.data.unloaded).toEqual([])
-      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(5)
+      // Instant answers every poll interval until the budget can't fit another wait.
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(
+        ATTEST_BUDGET_MS / ATTEST_POLL_MS,
+      )
+    })
+
+    test('slow pulls are cut to the remaining budget, so the budget bounds the wait', async () => {
+      const SLOW_PULL_MS = 6_000
+      // A coordinator that takes as long as each request allows and never fully attests.
+      netcodeV2Service.fetchSessionLoadState.mockImplementation(
+        async (_session: number, options?: { timeoutMs?: number }) => {
+          const [delay] = timeoutPromise(Math.min(SLOW_PULL_MS, options?.timeoutMs ?? SLOW_PULL_MS))
+          await delay
+          return { known: false, connectedSlots: [0], startedSlots: [] }
+        },
+      )
+      const { load } = await startNetworkedLoad('game-slow-pulls')
+
+      await vi.advanceTimersByTimeAsync(LOAD_DEADLINE_MS + ATTEST_BUDGET_MS - 1_000)
+      expect(wasCancelPublished()).toBe(false)
+
+      // The budget runs out exactly here, not three full pulls later.
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(wasCancelPublished()).toBe(true)
+      const result = await load
+
+      expect(result.isError()).toBe(true)
+      const error = result.errorOrNull() as BaseGameLoaderError<GameLoadErrorType.Timeout>
+      expect(error.data.unloaded).toEqual([])
+      // Three pulls of six, six, and the remaining four seconds, two seconds apart, land exactly on
+      // the budget rather than three full pulls past it.
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(3)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenLastCalledWith(
+        77,
+        expect.objectContaining({ timeoutMs: 4_000 }),
+      )
     })
 
     test('completes on positive evidence the coordinator cannot vouch for', async () => {

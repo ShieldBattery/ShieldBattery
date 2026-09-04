@@ -54,6 +54,11 @@ completion and load-failure blame from what the relays report through the
 coordinator (`slotStarted` webhooks and `POST /session/load-state`) rather
 than from the clients, so an app server ahead of the coordinator/relay images
 would time out every multiplayer load.
+"Coordinator first" means the previous coordinator is fully gone before the app
+server ships: the meaning of the load-state read's `known` has tightened over
+time (it now requires every serving relay to have attested after the request),
+and an app server that trusts the newer meaning against an older coordinator
+could blame the wrong player rather than merely time out.
 
 ## First-time setup
 

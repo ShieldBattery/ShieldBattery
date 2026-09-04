@@ -20,6 +20,7 @@ import log from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { NetcodeV2Service, NetcodeV2SessionLoadState } from '../netcode-v2/netcode-v2-service'
+import { monotonicNow } from '../time/monotonic-now'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -37,15 +38,23 @@ const GAME_LOAD_TIMEOUT = 75 * 1000
 const PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS = 90 * 1000
 
 /**
- * How many times a load that ran out of time asks the coordinator for an attested record before
- * giving up on attributing its failure and blaming nobody. Each ask has every relay serving the
- * session answer afresh, so a retry only helps when a relay was momentarily unreachable; a few
- * tries a couple of seconds apart cover that without holding the failed load open for long.
+ * How long past its deadline a load that ran out of time keeps asking the coordinator for an
+ * attested record before giving up on attributing its failure and blaming nobody. This is the
+ * whole post-deadline budget: every pull is cut to whatever remains of it, so a slow coordinator
+ * can't stretch the wait. Each ask has every relay serving the session answer afresh, so retrying
+ * only helps when a relay was momentarily unreachable; a budget of a few pulls' worth covers that
+ * without holding the failed load open for long.
  */
-const LOAD_STATE_ATTEST_ATTEMPTS = 5
+const LOAD_STATE_ATTEST_BUDGET_MS = 20 * 1000
 
 /** How long to wait between load-state pulls when the last one wasn't fully attested. */
 const LOAD_STATE_POLL_INTERVAL_MS = 2 * 1000
+
+/**
+ * The most one load-state pull may take. The coordinator itself waits a couple of seconds for the
+ * serving relays to answer, so this leaves room for that plus the round trip and no more.
+ */
+const LOAD_STATE_REQUEST_TIMEOUT_MS = 6 * 1000
 
 export enum GameLoadErrorType {
   /** The game load request was canceled before it completed. */
@@ -577,6 +586,11 @@ export class GameLoader {
    * their own load.
    */
   private async handleLoadDeadlineExpired(gameId: string): Promise<void> {
+    // Measured on the monotonic clock: this is a local budget, and a wall-clock adjustment must
+    // neither cut it short nor stretch it.
+    const budgetStart = monotonicNow()
+    const remainingBudget = () => LOAD_STATE_ATTEST_BUDGET_MS - (monotonicNow() - budgetStart)
+
     for (let attempt = 1; ; attempt++) {
       const beforePull = this.loadingGames.get(gameId)
       if (!beforePull) {
@@ -584,7 +598,10 @@ export class GameLoader {
       }
       const loadState = beforePull.localOnly
         ? undefined
-        : await this.mergeCoordinatorLoadState(gameId)
+        : await this.mergeCoordinatorLoadState(
+            gameId,
+            Math.min(LOAD_STATE_REQUEST_TIMEOUT_MS, Math.max(1, remainingBudget())),
+          )
 
       // The pull above is a network round trip, and the load can finish or be cancelled while it's
       // in flight; either way there's nothing left here to time out.
@@ -610,7 +627,7 @@ export class GameLoader {
             : []
       } else if (loadState?.known) {
         unloaded = LoadingDatas.playersAtFault(loadingData)
-      } else if (attempt < LOAD_STATE_ATTEST_ATTEMPTS) {
+      } else if (remainingBudget() > LOAD_STATE_POLL_INTERVAL_MS) {
         const [pollDelay] = timeoutPromise(LOAD_STATE_POLL_INTERVAL_MS)
         await pollDelay
         continue
@@ -644,6 +661,7 @@ export class GameLoader {
    */
   private async mergeCoordinatorLoadState(
     gameId: string,
+    timeoutMs: number,
   ): Promise<NetcodeV2SessionLoadState | undefined> {
     const session = this.loadingGames.get(gameId)?.netcodeV2Session
     if (session === undefined) {
@@ -652,7 +670,7 @@ export class GameLoader {
 
     let loadState: NetcodeV2SessionLoadState
     try {
-      loadState = await this.netcodeV2Service.fetchSessionLoadState(session)
+      loadState = await this.netcodeV2Service.fetchSessionLoadState(session, { timeoutMs })
     } catch (err) {
       log.warn({ err }, `couldn't fetch netcode v2 load state for ${gameId}`)
       return undefined
