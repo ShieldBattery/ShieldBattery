@@ -883,20 +883,24 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    // A private channel's details are only for its members, plus server moderators, who hold the
-    // owner's authority in it and moderate it without joining.
-    const canSeePrivateDetails = !channelInfo.private || isUserInChannel || isServerModerator
+    // A private channel's info, its name included, is only for its members and for server
+    // moderators, who hold the owner's authority in it and moderate it without joining. Anyone
+    // else learns only that the channel is private.
+    if (channelInfo.private && !isUserInChannel && !isServerModerator) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelPrivate, 'Channel is private')
+    }
 
     return {
       channelInfo: toBasicChannelInfo(channelInfo),
-      detailedChannelInfo: canSeePrivateDetails ? toDetailedChannelInfo(channelInfo) : undefined,
-      joinedChannelInfo: canSeePrivateDetails ? toJoinedChannelInfo(channelInfo) : undefined,
+      detailedChannelInfo: toDetailedChannelInfo(channelInfo),
+      joinedChannelInfo: toJoinedChannelInfo(channelInfo),
     }
   }
 
   async getChannelInfos(
     channelIds: SbChannelId[],
     userId: SbUserId,
+    isServerModerator = false,
   ): Promise<GetBatchedChannelInfosResponse> {
     const [channelInfos, userChannelEntries] = await Promise.all([
       getChannelInfos(channelIds),
@@ -910,9 +914,10 @@ export default class ChatService {
     const privateChannels: SbChannelId[] = []
 
     for (const channel of channelInfos) {
-      if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
-        // A private channel's info (including its name) is only for its members; a non-member
-        // gets nothing about it beyond confirmation that the id belongs to a private channel.
+      // A private channel's info, its name included, is only for its members and for server
+      // moderators, who hold the owner's authority in it and moderate it without joining. Anyone
+      // else learns only that the id belongs to a private channel.
+      if (channel.private && !userJoinedChannelsSet.has(channel.id) && !isServerModerator) {
         privateChannels.push(channel.id)
         continue
       }

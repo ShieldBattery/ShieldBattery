@@ -34,6 +34,11 @@ export enum ChatServiceErrorCode {
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateYourself = 'CannotModerateYourself',
   ChannelNotFound = 'ChannelNotFound',
+  /**
+   * The channel exists and is private, and the requester is neither a member nor a server
+   * moderator.
+   */
+  ChannelPrivate = 'ChannelPrivate',
   InappropriateImage = 'InappropriateImage',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
