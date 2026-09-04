@@ -144,7 +144,7 @@ export function whisperServiceErrorToString(
       case WhisperServiceErrorCode.MessageNotFound:
         return t(
           'whispers.errors.messageNotFound',
-          "That message couldn't be found. It may have been deleted.",
+          "That message couldn't be found in this whisper.",
         )
       default:
         return assertUnreachable(code)

@@ -205,7 +205,7 @@ export function ConnectedWhisper({
             snackbarController.showSnackbar(
               t(
                 'whispers.errors.messageNotFound',
-                "That message couldn't be found. It may have been deleted.",
+                "That message couldn't be found in this whisper.",
               ),
               DURATION_LONG,
             )

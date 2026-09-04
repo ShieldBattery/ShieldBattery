@@ -38,7 +38,7 @@ export function useOpenWhisperMessageLink() {
             snackbarController.showSnackbar(
               t(
                 'whispers.errors.messageLinkNotFound',
-                "That message couldn't be opened. It may have been deleted, or it isn't in one of your whispers.",
+                "That message couldn't be opened. It isn't in one of your whispers.",
               ),
               DURATION_LONG,
             )
