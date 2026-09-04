@@ -46,7 +46,7 @@ import {
 } from './action-creators'
 import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
-import { ConnectedChannelInfoCard } from './channel-info-card'
+import { ConnectedChannelInfoCard, PrivateChannelNotice } from './channel-info-card'
 import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
 import { ConnectedChannelSettings } from './channel-settings/channel-settings'
 import { MESSAGE_LINK_PARAM } from './channel-url'
@@ -585,6 +585,10 @@ function ChannelInfoPage({
   let contents
   if (isLoading) {
     contents = <LoadingDotsArea />
+  } else if (error && isFetchError(error) && error.code === ChatServiceErrorCode.ChannelPrivate) {
+    // A private channel's name is only for its members and server moderators, so a requester
+    // who is neither doesn't get the URL's name segment echoed back to them either.
+    contents = <PrivateChannelNotice />
   } else if (error) {
     let errorText
     if (isFetchError(error)) {

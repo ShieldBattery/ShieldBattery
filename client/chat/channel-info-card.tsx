@@ -92,6 +92,23 @@ const PrivateChannelDescriptionText = styled.span`
   text-align: center;
 `
 
+/** The notice shown in place of a private channel's info to anyone who can't see it. */
+export function PrivateChannelNotice() {
+  const { t } = useTranslation()
+
+  return (
+    <PrivateChannelDescriptionContainer>
+      <PrivateChannelIcon size={40} />
+      <PrivateChannelDescriptionText>
+        {t(
+          'chat.channelInfoCard.private',
+          'This channel is private and requires an invite to join.',
+        )}
+      </PrivateChannelDescriptionText>
+    </PrivateChannelDescriptionContainer>
+  )
+}
+
 export const ChannelDescriptionContainer = styled.div`
   ${bodyMedium};
   margin-top: 16px;
@@ -198,17 +215,7 @@ export function ConnectedChannelInfoCard({
   if (!basicChannelInfo) {
     channelDescription = <LoadingDotsArea />
   } else if (basicChannelInfo.private && !isUserInChannel) {
-    channelDescription = (
-      <PrivateChannelDescriptionContainer>
-        <PrivateChannelIcon size={40} />
-        <PrivateChannelDescriptionText>
-          {t(
-            'chat.channelInfoCard.private',
-            'This channel is private and requires an invite to join.',
-          )}
-        </PrivateChannelDescriptionText>
-      </PrivateChannelDescriptionContainer>
-    )
+    channelDescription = <PrivateChannelNotice />
   } else if (detailedChannelInfo?.description) {
     channelDescription = (
       <ChannelDescriptionContainer>

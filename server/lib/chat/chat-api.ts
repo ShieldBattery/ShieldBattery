@@ -222,6 +222,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotEditChannel:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
+    case ChatServiceErrorCode.ChannelPrivate:
     case ChatServiceErrorCode.MaximumJoinedChannels:
     case ChatServiceErrorCode.MaximumOwnedChannels:
     case ChatServiceErrorCode.NotEnoughPermissions:
@@ -613,7 +614,11 @@ export class ChatApi {
       }),
     })
 
-    return await this.chatService.getChannelInfos(channelIds, ctx.session!.user.id)
+    return await this.chatService.getChannelInfos(
+      channelIds,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
+    )
   }
 
   // NOTE: @koa/router 15 (path-to-regexp v8) no longer supports inline regex path params, so the

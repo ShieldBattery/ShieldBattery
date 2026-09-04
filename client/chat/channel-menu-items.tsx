@@ -135,7 +135,7 @@ export function ChannelMessageMenu({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const { channelId } = useContext(ChannelContext)
-  const channelName = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)?.name)
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const isServerModerator = useHasAnyPermission('moderateChatChannels')
 
   const menuItems = new Map(items)
@@ -146,6 +146,10 @@ export function ChannelMessageMenu({
       key='copy-message-link'
       text={t('chat.messageMenu.copyMessageLink', 'Copy message link')}
       onClick={() => {
+        // A private channel's name is only for its members, and a copied link can be pasted
+        // anywhere, so the link names the channel by id alone; the channel page fills in the
+        // name for whoever is allowed to see it.
+        const channelName = basicChannelInfo?.private ? undefined : basicChannelInfo?.name
         navigator.clipboard
           .writeText(getServerOrigin() + urlForChannelMessage(channelId, channelName, messageId))
           .catch(err => logger.error(`Error writing to clipboard: ${getErrorStack(err)}`))

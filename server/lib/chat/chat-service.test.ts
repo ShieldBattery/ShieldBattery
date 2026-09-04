@@ -1928,18 +1928,13 @@ describe('chat/chat-service', () => {
     })
 
     describe('when channel is private', () => {
-      test("doesn't return detailed channel info", async () => {
+      test('rejects for a non-member who is not a server moderator', async () => {
         asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
 
-        const result = await chatService.getChannelInfo(testChannel.id, user1.id, REGULAR_USER)
-
-        expect(result).toEqual({
-          channelInfo: {
-            ...testBasicInfo,
-            private: true,
-          },
-          detailedChannelInfo: undefined,
-          joinedChannelInfo: undefined,
+        await expect(
+          chatService.getChannelInfo(testChannel.id, user1.id, REGULAR_USER),
+        ).rejects.toMatchObject({
+          code: ChatServiceErrorCode.ChannelPrivate,
         })
       })
 
@@ -2078,6 +2073,22 @@ describe('chat/chat-service', () => {
             shieldBatteryDetailedInfo,
             { ...testDetailedInfo, userCount: testChannel.userCount },
           ],
+          joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+          deletedChannels: [],
+          privateChannels: [],
+        })
+      })
+
+      test('returns detailed and joined channel info to a server moderator who is not a member', async () => {
+        const result = await chatService.getChannelInfos(
+          [shieldBatteryChannel.id, testChannel.id],
+          user1.id,
+          SERVER_MODERATOR,
+        )
+
+        expect(result).toEqual({
+          channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
+          detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
           joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
           deletedChannels: [],
           privateChannels: [],
