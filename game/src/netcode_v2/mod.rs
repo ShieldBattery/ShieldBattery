@@ -540,8 +540,8 @@ pub struct TurnState {
     /// the intent unsent — the relay then sees only a dead link and the surviving players stall on
     /// the drop path instead of getting the prompt "player left".
     result_report_possible: bool,
-    /// Whether the driver has been told the game loop is running. The OUT hook offers the signal
-    /// on every in-game turn; only the first one is handed over.
+    /// Whether the driver has been told the game loop is running. The IN hook offers the signal
+    /// on every in-game receive; only the first one is handed over.
     game_started_announced: bool,
     /// Slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game thread.
     /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_unsynced_leaves`), which
@@ -1710,8 +1710,8 @@ impl TurnState {
 
     /// Tells the driver the game loop is running, so it announces that up the relay's reliable
     /// control stream. The relay forwards the fact to the app server, which treats it as this
-    /// player having finished loading. Called from the OUT hook on every in-game turn and latched
-    /// here, so the driver hears it exactly once, from the first turn the running loop produced.
+    /// player having finished loading. Called from the IN hook on every in-game receive and latched
+    /// here, so the driver hears it exactly once, from the running loop's first network step.
     /// `try_send` is enough: the channel holds the one signal, and a closed channel (the link is
     /// gone) needs no more than a debug line — the app server pulls the relay's own record of who
     /// started if it never hears this. A sessionless game's signal lands in a parked channel and
@@ -3000,7 +3000,7 @@ mod tests {
             ..state
         };
 
-        // The OUT hook offers this on every in-game turn; the driver must hear it exactly once.
+        // The IN hook offers this on every in-game receive; the driver must hear it exactly once.
         state.submit_game_started();
         game_started_rx
             .try_recv()

@@ -3028,13 +3028,7 @@ impl BwScr {
             let frame = nc.game_frame_count.resolve();
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
-            match netcode_v2::with_turn_state(|s| {
-                // The first in-game turn the loop hands over is the proof the simulation is
-                // stepping, so this is where the relay (and through it the app server) learns the
-                // load finished. Latched inside; every later turn is a no-op.
-                s.submit_game_started();
-                s.submit_local_turn(&filtered, Some(frame))
-            }) {
+            match netcode_v2::with_turn_state(|s| s.submit_local_turn(&filtered, Some(frame))) {
                 None => TurnSendOutcome::Native,
                 Some(true) => TurnSendOutcome::Submitted,
                 Some(false) => TurnSendOutcome::Failed,
@@ -3101,6 +3095,12 @@ impl BwScr {
                 };
             }
             let nc = &self.netcode_v2;
+            // Only BW's running game loop reaches this branch: the pre-loop pipe seed drives the
+            // send side, and lobby init runs before the started flag flips. Its first pass is
+            // therefore the proof the simulation is stepping, and the moment the relay (and through
+            // it the app server) learns this player's load finished. Latched inside; every later
+            // receive is a no-op.
+            netcode_v2::with_turn_state(|s| s.submit_game_started());
             let next_frame = nc.game_frame_count.resolve();
             // Apply coordinated synced leaves due at this frame BEFORE the readiness check below, so a
             // departing slot is already dropped from `required` when `receive_turns` runs and its
