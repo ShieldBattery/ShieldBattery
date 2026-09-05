@@ -1,13 +1,12 @@
 import * as React from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { useObservedDimensions } from '../../dom/dimension-hooks'
 import { standardEasing } from '../../material/curve-constants'
 
-export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
+export const materialIconFont = css`
   font-family: 'Material Symbols Outlined';
   font-weight: normal;
   font-style: normal;
-  font-size: ${props => props.$size}px;
   line-height: 1;
   letter-spacing: normal;
   text-transform: none;
@@ -20,6 +19,11 @@ export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertCo
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
+`
+
+export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
+  ${materialIconFont};
+  font-size: ${props => props.$size}px;
 
   width: ${props => props.$size}px;
   height: ${props => props.$size}px;

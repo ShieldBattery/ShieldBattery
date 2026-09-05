@@ -94,11 +94,8 @@ export const InputBase = styled.div<{
     if (!props.$trailingIconsLength) return ''
 
     const iconWidth = props.$dense ? 32 : 48
-    const multilinePadding = props.$multiline ? 12 : 0
-    const padding =
-      props.$trailingIconsLength * iconWidth +
-      (props.$trailingIconsLength + 1) * 4 +
-      multilinePadding
+    const edgeInset = props.$multiline ? 12 : 4
+    const padding = props.$trailingIconsLength * (iconWidth + 4) + edgeInset
 
     return `padding-right: ${padding}px;`
   }}

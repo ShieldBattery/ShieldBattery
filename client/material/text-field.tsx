@@ -1,11 +1,7 @@
 import * as React from 'react'
 import { useCallback, useId, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
-import { getErrorStack } from '../../common/errors'
-import { useContextMenu } from '../dom/use-context-menu'
 import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
 import { useMultiplexRef } from '../react/refs'
 import { useStableCallback } from '../react/state-hooks'
 import { IconButton } from './button'
@@ -15,9 +11,7 @@ import { InputError } from './input-error'
 import { FloatingLabel } from './input-floating-label'
 import { Label } from './input-label'
 import { InputUnderline } from './input-underline'
-import { MenuItem } from './menu/item'
-import { MenuList } from './menu/menu'
-import { Popover } from './popover'
+import { useTextInputContextMenu } from './text-input-context-menu'
 import { Tooltip } from './tooltip'
 
 // NOTE(2Pac): You might notice that this component (and others that are used here) might have some
@@ -167,8 +161,9 @@ const TrailingIcon = styled.span<{ $dense?: boolean; $index: number; $multiline?
   ${iconStyle}
   right: ${props => {
     const iconWidth = props.$dense ? 32 : 48
-    const multilinePadding = props.$multiline ? 12 : 0
-    const rightOffset = props.$index * iconWidth + (props.$index + 1) * 4 + multilinePadding
+    // Multiline fields reserve the scrollbar gutter instead of an additional outer gap.
+    const edgeInset = props.$multiline ? 12 : 4
+    const rightOffset = props.$index * (iconWidth + 4) + edgeInset
 
     return `${rightOffset}px`
   }};
@@ -243,25 +238,6 @@ export interface TextFieldProps {
   containerRef?: React.Ref<HTMLDivElement | null>
 }
 
-/** The edit-related state the cut/copy/paste/select-all context menu needs, captured at the point
- * the field is right-clicked (rather than read during render). */
-interface TextFieldEditMenuState {
-  hasSelection: boolean
-  readOnly: boolean
-  isPassword: boolean
-  hasValue: boolean
-}
-
-// Chromium throws when reading selection bounds on input types that don't support text selection
-// (number, date, color, etc.) instead of returning null, so this must swallow that to stay safe.
-function hasTextSelection(el: HTMLInputElement | HTMLTextAreaElement): boolean {
-  try {
-    return el.selectionStart !== el.selectionEnd
-  } catch {
-    return false
-  }
-}
-
 /**
  * A Material text field component with single-line, multi-line and text area variants, supporting
  * with and without floating labels.
@@ -301,27 +277,17 @@ export function TextField({
 
   const multiplexedRef = useMultiplexRef(inputRef, ref)
 
-  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
-  const [editMenuState, setEditMenuState] = useState<TextFieldEditMenuState>({
-    hasSelection: false,
-    readOnly: false,
-    isPassword: false,
-    hasValue: false,
-  })
+  const { onContextMenu: onInputContextMenu, contextMenu } = useTextInputContextMenu()
   const onContainerContextMenu = (event: React.MouseEvent) => {
-    // Stop a TextField nested inside a component with its own context menu (e.g. a chat message
-    // editor) from triggering both menus at once.
-    event.stopPropagation()
-    const el = inputRef.current
-    setEditMenuState({
-      hasSelection: !!el && hasTextSelection(el),
-      readOnly: !!el?.readOnly,
-      isPassword: type === 'password',
-      hasValue: value.length > 0,
-    })
-    onContextMenu(event)
-  }
+    // Portalled content can bubble through the React tree while landing outside this container.
+    if (!event.currentTarget.contains(event.target as Node)) {
+      return
+    }
 
+    if (inputRef.current) {
+      onInputContextMenu(event, inputRef.current)
+    }
+  }
   const onInputBlur = useCallback(
     (event: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(false)
@@ -489,89 +455,8 @@ export function TextField({
             the same as the rest of the field */}
         <StateLayer />
       </TextFieldContainer>
-      {IS_ELECTRON ? (
-        <Popover {...contextMenuPopoverProps}>
-          <TextFieldContextMenuContents
-            editState={editMenuState}
-            inputRef={inputRef}
-            onDismiss={contextMenuPopoverProps.onDismiss}
-          />
-        </Popover>
-      ) : null}
+      {contextMenu}
       {allowErrors ? <InputError error={errorText} /> : null}
     </div>
-  )
-}
-
-/**
- * The cut/copy/paste/select-all context menu shown when right-clicking a `TextField`'s visual box
- * in the Electron app (the web client keeps the browser's native context menu on inputs).
- *
- * Split out from `TextField` so `useTranslation` only runs while the menu is actually open, rather
- * than for every text field on every render.
- */
-function TextFieldContextMenuContents({
-  editState,
-  inputRef,
-  onDismiss,
-}: {
-  editState: TextFieldEditMenuState
-  inputRef: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>
-  onDismiss: () => void
-}) {
-  const { t } = useTranslation()
-  const { hasSelection, readOnly, isPassword, hasValue } = editState
-
-  const focusInput = () => inputRef.current?.focus()
-
-  return (
-    <MenuList dense={true}>
-      <MenuItem
-        text={t('common.actions.cut', 'Cut')}
-        disabled={!hasSelection || readOnly || isPassword}
-        onClick={() => {
-          focusInput()
-          document.execCommand('cut')
-          onDismiss()
-        }}
-      />
-      <MenuItem
-        text={t('common.actions.copy', 'Copy')}
-        disabled={!hasSelection || isPassword}
-        onClick={() => {
-          focusInput()
-          document.execCommand('copy')
-          onDismiss()
-        }}
-      />
-      <MenuItem
-        text={t('common.actions.paste', 'Paste')}
-        disabled={readOnly}
-        onClick={() => {
-          focusInput()
-          // execCommand('insertText') is deprecated, but it's the one mechanism that both
-          // replaces the current selection and dispatches a real `input` event, which is what
-          // makes React's controlled `onChange` fire.
-          navigator.clipboard
-            .readText()
-            .then(text => {
-              if (text) {
-                document.execCommand('insertText', false, text)
-              }
-            })
-            .catch(err => logger.error(`Error reading from clipboard: ${getErrorStack(err)}`))
-          onDismiss()
-        }}
-      />
-      <MenuItem
-        text={t('common.actions.selectAll', 'Select All')}
-        disabled={!hasValue}
-        onClick={() => {
-          focusInput()
-          inputRef.current?.select()
-          onDismiss()
-        }}
-      />
-    </MenuList>
   )
 }

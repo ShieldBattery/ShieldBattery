@@ -1,16 +1,16 @@
 import type EmojiPickerComponent from 'emoji-picker-react'
 import type { EmojiClickData, EmojiStyle, Theme } from 'emoji-picker-react'
 import type { EmojiData } from 'emoji-picker-react/dist/types/exposedTypes'
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import { type ComponentProps, type RefObject, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MaterialIcon } from '../icons/material/material-icon'
+import { IconRoot, MaterialIcon, materialIconFont } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { useTextInputContextMenu } from '../material/text-input-context-menu'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback } from '../react/state-hooks'
-import { labelLarge } from '../styles/typography'
+import { bodyLarge, inter, labelLarge, titleSmall } from '../styles/typography'
 import { getPickerEmojiData } from './emoji-data'
 import { getShortcode } from './emoji-shortcodes'
 import { recordEmoteUsage } from './emote-suggestions'
@@ -30,11 +30,39 @@ const emojiPickerPromise = () =>
 // mounts with the library's own (shortcode-less) bundled data.
 let loadedPickerEmojiData: EmojiData | undefined
 
-const Contents = styled.div`
+const ContentsRoot = styled.div`
   width: 350px;
 `
 
+function Contents({ children, ...props }: ComponentProps<'div'>) {
+  const { onContextMenu, closeContextMenu, contextMenu } = useTextInputContextMenu()
+
+  return (
+    <ContentsRoot
+      {...props}
+      onContextMenu={event => {
+        // Portal events bubble through the React tree into the message input's context menu.
+        event.stopPropagation()
+        if (
+          event.target instanceof HTMLInputElement &&
+          event.currentTarget.contains(event.target)
+        ) {
+          if (IS_ELECTRON) {
+            onContextMenu(event, event.target)
+          }
+        } else {
+          event.preventDefault()
+          closeContextMenu()
+        }
+      }}>
+      {children}
+      {contextMenu}
+    </ContentsRoot>
+  )
+}
+
 const PreviewBar = styled.div`
+  ${inter};
   height: 44px;
   width: 100%;
   display: flex;
@@ -136,17 +164,92 @@ const PickerArea = styled.div`
   height: 360px;
 
   /* Blend the library's panel into the app theme. */
-  .EmojiPickerReact {
+  && .EmojiPickerReact {
     --epr-bg-color: transparent;
     --epr-picker-border-color: transparent;
     --epr-category-label-bg-color: var(--theme-container-low);
     --epr-text-color: var(--theme-on-surface);
     --epr-search-input-bg-color: var(--theme-container-highest);
+    --epr-search-input-bg-color-active: var(--theme-container-highest);
     --epr-search-input-text-color: var(--theme-on-surface);
-    --epr-search-border-color: var(--theme-amber);
+    --epr-search-input-placeholder-color: rgb(from var(--theme-on-surface-variant) r g b / 0.6);
+    --epr-search-input-border-radius: 6px 6px 0 0;
+    --epr-search-input-padding: 0 44px 0 40px;
+    --epr-search-bar-inner-padding: 12px;
+    --epr-search-border-color: var(--theme-on-surface-variant);
+    --epr-search-border-color-active: var(--theme-amber);
+    --epr-category-label-text-color: var(--theme-on-surface);
+    --epr-category-icon-active-color: var(--theme-amber);
     --epr-hover-bg-color: rgb(from var(--theme-on-surface) r g b / 0.08);
     --epr-focus-bg-color: rgb(from var(--theme-on-surface) r g b / 0.12);
     --epr-highlight-color: var(--theme-amber);
+  }
+
+  .EmojiPickerReact .epr-search-container input {
+    ${inter};
+    ${bodyLarge};
+    border: none;
+    border-bottom: 1px solid var(--epr-search-border-color);
+    caret-color: var(--theme-primary);
+
+    &::placeholder {
+      opacity: 1;
+    }
+
+    &:hover {
+      border-bottom-color: var(--theme-on-surface);
+    }
+
+    &:focus {
+      border: none;
+      border-bottom: 1px solid var(--epr-search-border-color-active);
+      box-shadow: inset 0 -2px var(--epr-search-border-color-active);
+    }
+  }
+
+  /* Search controls have no custom icon slots; replace their decorative sprites in place. */
+  .EmojiPickerReact .epr-icn-search,
+  .EmojiPickerReact .epr-icn-clear-search {
+    background-image: none;
+    color: var(--theme-on-surface-variant);
+    pointer-events: none;
+
+    &::before {
+      ${materialIconFont};
+      font-size: 20px;
+      font-variation-settings:
+        'FILL' 0,
+        'opsz' 20,
+        'GRAD' -25;
+    }
+  }
+
+  .EmojiPickerReact .epr-icn-search::before {
+    content: 'search' / '';
+  }
+
+  .EmojiPickerReact .epr-icn-clear-search::before {
+    content: 'close' / '';
+  }
+
+  .EmojiPickerReact .epr-emoji-category-label {
+    ${titleSmall};
+  }
+
+  .EmojiPickerReact .epr-cat-btn {
+    color: var(--theme-on-surface-variant);
+
+    ${IconRoot} {
+      /* Override the library's sans-serif reset so Material icon ligatures still render. */
+      font-family: 'Material Symbols Outlined';
+    }
+  }
+
+  .EmojiPickerReact:not(.epr-search-active) .epr-cat-btn {
+    &:hover,
+    &.epr-active {
+      color: var(--theme-amber);
+    }
   }
 
   /* The library forces an OS-emoji-first font stack (e.g. "Segoe UI Emoji") on emoji glyphs via
@@ -192,19 +295,6 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
     }
     return undefined
   }, [pickerOpen, EmojiPicker, pickerEmojiData])
-
-  const onPick = useStableCallback((text: string) => {
-    closePicker()
-    // The library focuses the picked emoji button on the next animation frame (even when it was
-    // activated with Enter from the search field), which would steal focus from the input right
-    // after the insert refocuses it — so wait out that focus before inserting
-    requestAnimationFrame(() => requestAnimationFrame(() => onInsert(text)))
-  })
-  const onEmojiClick = useStableCallback((data: EmojiClickData) => {
-    // Keyed the same way autocomplete suggestions are, so both feed the same frequency ordering
-    recordEmoteUsage(`u:${data.emoji}`)
-    onPick(data.emoji)
-  })
 
   return (
     <>
@@ -254,7 +344,8 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
             // which stops the popover's own Escape handling from ever closing it. Close ourselves
             // when there's no search text to clear, so that Escape clears the search first and
             // then closes the picker.
-            if (event.key === 'Escape') {
+            // Portalled child menus handle their own Escape key.
+            if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node)) {
               const search =
                 contentsRef.current?.querySelector<HTMLInputElement>('.EmojiPickerReact input')
               if (!search?.value) {
@@ -281,12 +372,34 @@ export function EmotePickerButton({ className, disabled, onInsert }: EmotePicker
                 // animation still renders it, stealing focus from the input mid-insert
                 autoFocusSearch={false}
                 skinTonesDisabled={true}
+                // The bundled category sprite has fixed colors; Material icons inherit the theme.
+                categoryIcons={{
+                  suggested: <MaterialIcon icon='history' filled={false} />,
+                  ['smileys_people']: <MaterialIcon icon='mood' filled={false} />,
+                  ['animals_nature']: <MaterialIcon icon='pets' filled={false} />,
+                  ['food_drink']: <MaterialIcon icon='restaurant' filled={false} />,
+                  ['travel_places']: <MaterialIcon icon='directions_bus' filled={false} />,
+                  activities: <MaterialIcon icon='sports_basketball' filled={false} />,
+                  objects: <MaterialIcon icon='lightbulb' filled={false} />,
+                  symbols: <MaterialIcon icon='music_note' filled={false} />,
+                  flags: <MaterialIcon icon='flag' filled={false} />,
+                }}
                 // Replaces the library's bundled dataset with one that also carries every known
                 // Discord/Slack-style shortcode, so its search finds emojis by shortcode too
                 emojiData={pickerEmojiData}
                 previewConfig={{ showPreview: false }}
                 searchPlaceHolder={t('messaging.emotePicker.searchPlaceholder', 'Search emojis')}
-                onEmojiClick={onEmojiClick}
+                onEmojiClick={(data: EmojiClickData) => {
+                  // Keyed the same way autocomplete suggestions are, so both feed the same
+                  // frequency ordering
+                  recordEmoteUsage(`u:${data.emoji}`)
+                  closePicker()
+                  // The library focuses the picked emoji button on the next animation frame
+                  // (even when it was activated with Enter from the search field), which would
+                  // steal focus from the input right after the insert refocuses it — so wait out
+                  // that focus before inserting
+                  requestAnimationFrame(() => requestAnimationFrame(() => onInsert(data.emoji)))
+                }}
               />
             ) : (
               <LoadingDotsArea />
