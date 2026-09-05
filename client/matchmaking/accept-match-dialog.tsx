@@ -8,7 +8,7 @@ import { range } from '../../common/range'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useKeyListener } from '../keyboard/key-listener'
 import { FilledButton, TextButton } from '../material/button'
-import { decelerateEasing, standardEasing } from '../material/curve-constants'
+import { accelerateEasing, decelerateEasing, standardEasing } from '../material/curve-constants'
 import { CloseButton, Dialog, Title } from '../material/dialog'
 import { BodyMedium, sofiaSansCondensed } from '../styles/typography'
 import { isInDraftAtom } from './draft-atoms'
@@ -26,10 +26,10 @@ const ENTER_NUMPAD = 'NumpadEnter'
 
 /**
  * How many cells the accept countdown strip is divided into. Chosen so each cell covers a whole
- * number of seconds of the accept window (3s at the standard 30s), keeping the per-second melt
- * notches evenly sized across every cell.
+ * number of seconds of the accept window (5s at the standard 60s), keeping the per-second melt
+ * notches evenly sized across every cell and the final cell entirely in the low-time phase.
  */
-const TIMER_CELL_COUNT = 10
+const TIMER_CELL_COUNT = 12
 /**
  * How often the countdown re-renders. The cells melt in per-second notches, but a fast tick keeps
  * the notch (and the waiting-state drain bar) landing close to the true second boundary.
@@ -70,36 +70,25 @@ const lowPulse = keyframes`
 `
 
 /*
-  The leading-cell flash and the numeral pop re-run every second. Swapping between two identical
+  The leading-cell flash re-runs every second. Swapping between two equivalent
   keyframes each second restarts the animation without remounting the element (which would also
-  reset the in-flight drain transitions on the cell itself).
+  reset the in-flight drain transitions on the cell itself). Use different keyframe selectors so
+  styled-components generates distinct animation names instead of deduplicating the pair.
 */
 /*
-  The flash heats the color up (hue toward orange) rather than brightening it — the amber is
+  The flash briefly heats the color up (hue toward orange) rather than brightening it — the amber is
   already at full RGB saturation, so any real brightness lift just clips the channels toward
-  white and reads as pale instead of intense.
+  white and reads as pale instead of intense. Keep the resting glow on the cell itself so the
+  flash does not introduce a separate halo on its first notch.
 */
 const cellFlashA = keyframes`
-  from { filter: hue-rotate(-15deg) brightness(1.1) drop-shadow(0 0 8px rgb(from var(--theme-amber) r g b / 0.85)); }
-  to { filter: hue-rotate(0deg) brightness(1) drop-shadow(0 0 3px rgb(from var(--theme-amber) r g b / 0.35)); }
+  from { filter: hue-rotate(-15deg) brightness(1.1); }
+  to { filter: hue-rotate(0deg) brightness(1); }
 `
 const cellFlashB = keyframes`
-  from { filter: hue-rotate(-15deg) brightness(1.1) drop-shadow(0 0 8px rgb(from var(--theme-amber) r g b / 0.85)); }
-  to { filter: hue-rotate(0deg) brightness(1) drop-shadow(0 0 3px rgb(from var(--theme-amber) r g b / 0.35)); }
+  0% { filter: hue-rotate(-15deg) brightness(1.1); }
+  100% { filter: hue-rotate(0deg) brightness(1); }
 `
-const numeralPopA = keyframes`
-  0% { transform: scale(1.28); }
-  45% { transform: scale(0.96); }
-  70% { transform: scale(1.04); }
-  100% { transform: scale(1); }
-`
-const numeralPopB = keyframes`
-  0% { transform: scale(1.28); }
-  45% { transform: scale(0.96); }
-  70% { transform: scale(1.04); }
-  100% { transform: scale(1); }
-`
-
 const TimerCellRow = styled.div`
   display: flex;
   align-items: center;
@@ -108,19 +97,34 @@ const TimerCellRow = styled.div`
   margin-top: 18px;
 `
 
+const TimerCell = styled.div`
+  width: 10px;
+  height: 18px;
+  border-radius: 2px;
+
+  background-color: var(--theme-container-highest);
+  box-shadow:
+    0 0 0 1px var(--theme-container-highest),
+    0 0 6px rgb(from var(--theme-container-highest) r g b / 0.4);
+  transform: skewX(-14deg);
+`
+
 const CellFlash = styled.div<{ $flash?: 'a' | 'b' }>`
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
   animation: ${props =>
     props.$flash
       ? css`
-          ${props.$flash === 'a' ? cellFlashA : cellFlashB} 0.85s ${decelerateEasing}
+          ${props.$flash === 'a' ? cellFlashA : cellFlashB} 0.18s ${decelerateEasing}
         `
       : 'none'};
 `
 
-const TimerCell = styled.div<{ $pulsing: boolean }>`
-  width: 10px;
-  height: 18px;
-  border-radius: 2px;
+const TimerCellFill = styled.div<{ $lit: boolean; $pulsing: boolean }>`
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
 
   animation: ${props =>
     props.$pulsing
@@ -130,24 +134,22 @@ const TimerCell = styled.div<{ $pulsing: boolean }>`
       : 'none'};
   transition:
     background-color 0.2s,
-    transform 0.12s linear,
-    opacity 0.12s linear;
+    transform
+      ${props => (props.$lit ? css`0.06s ${decelerateEasing}` : css`0.16s ${accelerateEasing}`)},
+    opacity ${props => (props.$lit ? css`0.06s ${decelerateEasing}` : '0.08s linear 0.08s')},
+    box-shadow ${props => (props.$lit ? '0s' : '0.16s linear')};
 `
 
-const TimerText = styled.span<{ $low: boolean; $parity: boolean }>`
+const TimerText = styled.span<{ $low: boolean }>`
   ${sofiaSansCondensed};
   font-size: 20px;
   line-height: 24px;
 
   display: inline-block;
   margin-left: 8px;
-  transform-origin: center;
 
   color: ${props => (props.$low ? 'var(--theme-error)' : 'var(--color-grey-blue80)')};
   font-variant-numeric: tabular-nums;
-  animation: ${props => css`
-    ${props.$parity ? numeralPopA : numeralPopB} 0.4s ${decelerateEasing}
-  `};
 `
 
 const PlayerCellRow = styled.div`
@@ -313,30 +315,29 @@ function AcceptingStateView({ close }: { close: () => void }) {
       const fill = Math.max(0, Math.min(1, cellValue - i))
       const lit = fill > 0
 
-      let backgroundColor = 'var(--theme-container-highest)'
-      if (lit) {
-        backgroundColor = lowTime ? 'var(--theme-error)' : 'var(--theme-amber)'
-      }
       let flash: 'a' | 'b' | undefined
       if (lit && i === flashIndex) {
         flash = parity ? 'a' : 'b'
       }
 
       return (
-        <CellFlash key={i} $flash={flash}>
-          <TimerCell
-            $pulsing={lit && lowTime}
-            style={{
-              backgroundColor,
-              boxShadow:
-                lit && !lowTime
-                  ? `0 0 6px rgb(from var(--theme-amber) r g b / ${(0.4 * fill).toFixed(2)})`
-                  : 'none',
-              opacity: lit ? 0.3 + 0.7 * fill : 1,
-              transform: `skewX(-14deg) scaleY(${lit ? (0.45 + 0.55 * fill).toFixed(2) : 1})`,
-            }}
-          />
-        </CellFlash>
+        <TimerCell key={i}>
+          <CellFlash $flash={flash}>
+            <TimerCellFill
+              $lit={lit}
+              $pulsing={lit && lowTime}
+              style={{
+                backgroundColor: lowTime ? 'var(--theme-error)' : 'var(--theme-amber)',
+                boxShadow:
+                  lit && !lowTime
+                    ? `0 0 6px rgb(from var(--theme-amber) r g b / ${(0.4 * fill).toFixed(2)})`
+                    : 'none',
+                opacity: lit ? 0.6 + 0.4 * fill : 0,
+                transform: `scaleY(${Math.pow(fill, 0.6).toFixed(2)})`,
+              }}
+            />
+          </CellFlash>
+        </TimerCell>
       )
     })
 
@@ -357,7 +358,7 @@ function AcceptingStateView({ close }: { close: () => void }) {
         />
         <TimerCellRow>
           {timerCells}
-          <TimerText $low={lowTime} $parity={parity}>
+          <TimerText $low={lowTime}>
             {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
           </TimerText>
         </TimerCellRow>

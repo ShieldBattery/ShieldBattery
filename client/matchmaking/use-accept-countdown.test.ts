@@ -69,6 +69,43 @@ describe('client/matchmaking/use-accept-countdown', () => {
     expect(result.current.lowTime).toBe(true)
   })
 
+  test('updates at a deadline-relative second boundary when mounted off phase', () => {
+    act(() => {
+      vi.advanceTimersByTime(37)
+    })
+    const match = makeMatch(0, 60000)
+    const { result } = renderHook(() => useAcceptCountdown(match, TICK_MS))
+
+    expect(result.current.secondsLeft).toBe(60)
+
+    act(() => {
+      vi.advanceTimersByTime(962)
+    })
+    expect(result.current.secondsLeft).toBe(60)
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(result.current.secondsLeft).toBe(59)
+  })
+
+  test('switches to low time exactly at the six-to-five-second boundary', () => {
+    const match = makeMatch(performance.now(), 30000)
+    const { result } = renderHook(() => useAcceptCountdown(match, TICK_MS))
+
+    act(() => {
+      vi.advanceTimersByTime(24000)
+    })
+    expect(result.current.secondsLeft).toBe(6)
+    expect(result.current.lowTime).toBe(false)
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(result.current.secondsLeft).toBe(5)
+    expect(result.current.lowTime).toBe(true)
+  })
+
   test('bottoms out at zero once the window has passed', () => {
     const match = makeMatch(performance.now(), 30000)
     const { result } = renderHook(() => useAcceptCountdown(match, TICK_MS))
@@ -85,13 +122,12 @@ describe('client/matchmaking/use-accept-countdown', () => {
     })
   })
 
-  test('shows the full window on the first render after a match is found, before the clock is resampled', () => {
+  test('shows the full window on the first render after a match is found', () => {
     const { result, rerender } = renderHook(
       ({ match }: { match: FoundMatch | undefined }) => useAcceptCountdown(match, TICK_MS),
       { initialProps: { match: undefined as FoundMatch | undefined } },
     )
 
-    // The clock sample the hook holds predates this match's accept start.
     act(() => {
       vi.advanceTimersByTime(5000)
     })
@@ -99,6 +135,31 @@ describe('client/matchmaking/use-accept-countdown', () => {
 
     expect(result.current.secondsLeft).toBe(30)
     expect(result.current.remainingFrac).toBe(1)
+  })
+
+  test('reschedules for a replacement match without accumulating timers', () => {
+    const { result, rerender } = renderHook(
+      ({ match }: { match: FoundMatch | undefined }) => useAcceptCountdown(match, TICK_MS),
+      { initialProps: { match: makeMatch(performance.now(), 30000) as FoundMatch | undefined } },
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(37)
+    })
+    rerender({ match: makeMatch(-5000, 30000) })
+
+    expect(result.current.secondsLeft).toBe(25)
+    expect(vi.getTimerCount()).toBe(1)
+
+    act(() => {
+      vi.advanceTimersByTime(962)
+    })
+    expect(result.current.secondsLeft).toBe(25)
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(result.current.secondsLeft).toBe(24)
   })
 
   test('stops ticking once the match is gone', () => {

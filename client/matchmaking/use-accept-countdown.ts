@@ -17,34 +17,60 @@ export interface AcceptCountdown {
 
 /**
  * Tracks how much of the accept window for `foundMatch` is left, re-rendering every `tickMs` while
- * there is a match to count down. With no match the values describe an empty window and nothing
- * ticks.
+ * there is a match to count down. It also re-renders at each whole-second display boundary, so
+ * separately mounted consumers change seconds at the same deadline-relative time. With no match
+ * the values describe an empty window and nothing ticks.
  *
- * The clock is only sampled while a match is found, so the first render after one is found can
- * see a sample older than the match's accept start; the remaining time is clamped to the full
- * window so that render shows the window untouched rather than a bogus value.
+ * Remaining time is clamped to the full window because a stored clock sample can predate a new
+ * match's accept start.
  */
 export function useAcceptCountdown(
   foundMatch: FoundMatch | undefined,
   tickMs: number,
 ): AcceptCountdown {
-  const matched = !!foundMatch
+  const acceptStart = foundMatch?.acceptStart
+  const acceptTimeTotalMillis = foundMatch?.acceptTimeTotalMillis
   const [now, setNow] = useState(() => window.performance.now())
   useEffect(() => {
-    if (!matched) {
+    if (acceptStart === undefined || acceptTimeTotalMillis === undefined) {
       return () => {}
     }
 
-    const interval = setInterval(() => setNow(window.performance.now()), tickMs)
-    return () => clearInterval(interval)
-  }, [matched, tickMs])
+    const deadline = acceptStart + acceptTimeTotalMillis
+    const updateInterval = Math.max(1, tickMs)
+    let timeout: ReturnType<typeof setTimeout> | undefined
+
+    const scheduleUpdate = () => {
+      const currentNow = window.performance.now()
+      setNow(currentNow)
+
+      const remainingMillis = deadline - currentNow
+      if (remainingMillis <= 0) {
+        return
+      }
+
+      const secondsLeft = Math.ceil(remainingMillis / 1000)
+      const nextSecondBoundary = deadline - (secondsLeft - 1) * 1000
+      const boundaryDelay = nextSecondBoundary - currentNow
+      const delay = Math.max(1, Math.min(updateInterval, boundaryDelay))
+      timeout = setTimeout(scheduleUpdate, delay)
+    }
+
+    timeout = setTimeout(scheduleUpdate, 0)
+    return () => {
+      if (timeout !== undefined) {
+        clearTimeout(timeout)
+      }
+    }
+  }, [acceptStart, acceptTimeTotalMillis, tickMs])
 
   if (!foundMatch) {
     return { remainingMillis: 0, secondsLeft: 0, remainingFrac: 0, lowTime: false }
   }
 
   const total = foundMatch.acceptTimeTotalMillis
-  const remainingMillis = Math.min(total, Math.max(0, total - (now - foundMatch.acceptStart)))
+  const deadline = foundMatch.acceptStart + total
+  const remainingMillis = Math.min(total, Math.max(0, deadline - now))
   const secondsLeft = Math.ceil(remainingMillis / 1000)
   return {
     remainingMillis,
