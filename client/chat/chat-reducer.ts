@@ -428,9 +428,9 @@ function dropMessageWindow(channelMessages: MessagesState) {
 }
 
 /**
- * The conditions a message arrived under when it reached the channel live. Messages that reach a
- * channel any other way (a page of history, a deletion) carry no arrival and do no unread
- * bookkeeping: only something happening live can go unseen.
+ * The conditions a message or system event arrived under when it reached the channel live. Pages
+ * of history, deletions, and the sender's echoed message carry no arrival and do no unread
+ * bookkeeping; other live events can go unseen.
  */
 interface LiveArrival {
   /** Whether the app window was focused at the moment the message arrived. */
@@ -695,7 +695,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/updateMessage'](state, action) {
     const { message: newMessage, channelMentions } = action.payload
-    const { channelId, mentionsSelf, windowFocused } = action.meta
+    const { channelId, isSelfMessage, mentionsSelf, windowFocused } = action.meta
 
     const channelMessages = state.idToMessages.get(channelId)
     if (channelMessages?.hasNewer) {
@@ -706,9 +706,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         channelMessages.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
-      markChannelUnread(state, channelId, windowFocused)
+      if (!isSelfMessage) {
+        markChannelUnread(state, channelId, windowFocused)
+      }
     } else {
-      updateMessages(state, channelId, { windowFocused }, m => {
+      updateMessages(state, channelId, isSelfMessage ? undefined : { windowFocused }, m => {
         m.push(newMessage)
         return m
       })
@@ -716,7 +718,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     updateChannelInfos(state, channelMentions)
 
-    if (mentionsSelf) {
+    if (mentionsSelf && !isSelfMessage) {
       const existing = state.idToLatestMentionTime.get(channelId)
       if (existing === undefined || newMessage.time > existing) {
         state.idToLatestMentionTime.set(channelId, newMessage.time)

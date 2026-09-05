@@ -102,8 +102,10 @@ const eventToChatAction: EventToChatActionMap = {
         relationships: { blocks },
       } = getState()
 
+      const isSelfMessage = event.message.from === auth.self!.user.id
       const isBlocked = blocks.has(event.message.from)
-      const isUrgent = !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
+      const isUrgent =
+        !isSelfMessage && !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
       const windowFocused = windowFocus.isFocused()
       if (isUrgent) {
         // Mentions get the main process's transient attention treatment (urgent tray icon +
@@ -116,7 +118,7 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
-        meta: { channelId, mentionsSelf: isUrgent, windowFocused },
+        meta: { channelId, isSelfMessage, mentionsSelf: isUrgent, windowFocused },
       })
 
       const isChannelActivated = activatedChannels.has(channelId)

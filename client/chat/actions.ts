@@ -558,13 +558,19 @@ export interface UpdateMessage {
   meta: {
     channelId: SbChannelId
     /**
-     * Whether the message mentions the current user and wasn't sent by someone they've blocked.
+     * Whether a message from another user mentions the current user and wasn't sent by someone
+     * they've blocked.
      */
     mentionsSelf: boolean
     /**
-     * Whether the app window was focused when the message arrived. A message landing in an
-     * unfocused window can't have been seen no matter where the channel's view is scrolled, so the
-     * reducer counts it as unread regardless.
+     * Whether the current user authored the message. Self-authored messages do not create unread
+     * state.
+     */
+    isSelfMessage: boolean
+    /**
+     * Whether the app window was focused when the live event arrived. A non-self message landing
+     * in an unfocused window can't have been seen no matter where the channel's view is scrolled,
+     * so the reducer counts it as unread regardless.
      */
     windowFocused: boolean
   }

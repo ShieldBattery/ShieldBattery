@@ -185,7 +185,11 @@ function loadMessagesAroundAction(
   }
 }
 
-function updateMessageAction(time: number, windowFocused = true): WhisperActions {
+function updateMessageAction(
+  time: number,
+  windowFocused = true,
+  isSelfMessage = false,
+): WhisperActions {
   return {
     type: '@whispers/updateMessage',
     payload: {
@@ -195,7 +199,7 @@ function updateMessageAction(time: number, windowFocused = true): WhisperActions
       mentions: [],
       channelMentions: [],
     },
-    meta: { target: TARGET_ID, windowFocused },
+    meta: { target: TARGET_ID, isSelfMessage, windowFocused },
   }
 }
 
@@ -642,6 +646,46 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateMessageAction(200, true))
 
       expect(sessionOf(result).hasUnread).toBe(true)
+    })
+
+    test.each([
+      ['a stale bottom report', { activated: true, atBottom: false, lastReadTime: 100 }, true],
+      ['an unfocused window', { activated: true, atBottom: true, lastReadTime: 100 }, false],
+      ['an inactive session', { activated: false, lastReadTime: 100 }, true],
+    ])('an own echo does not create unread state with %s', (_, stateOverrides, windowFocused) => {
+      const result = whisperReducer(
+        makeState(stateOverrides),
+        updateMessageAction(200, windowFocused, true),
+      )
+
+      const session = sessionOf(result)
+      expect(messageIdsOf(result)).toEqual(['text-200'])
+      expect(session.hasUnread).toBe(false)
+      expect(session.unreadLineTime).toBeUndefined()
+    })
+
+    test('an own echo preserves unread state created by another message', () => {
+      const result = whisperReducer(
+        makeState({ unread: true, unreadLineTime: 100, lastReadTime: 100 }),
+        updateMessageAction(200, true, true),
+      )
+
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(true)
+      expect(session.unreadLineTime).toBe(100)
+    })
+
+    test('an own echo past a detached window still tracks the newest time', () => {
+      const result = whisperReducer(
+        makeState({ hasNewer: true, activated: true, atBottom: true, lastReadTime: 100 }),
+        updateMessageAction(200, true, true),
+      )
+
+      const session = sessionOf(result)
+      expect(messageIdsOf(result)).toEqual([])
+      expect(session.detachedNewestTime).toBe(200)
+      expect(session.hasUnread).toBe(false)
+      expect(session.unreadLineTime).toBeUndefined()
     })
   })
 

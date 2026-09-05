@@ -161,6 +161,7 @@ function updateMessageAction(
   time: number,
   mentionsSelf: boolean,
   windowFocused = true,
+  isSelfMessage = false,
 ): ChatActions {
   const payload: ChatMessageEvent = {
     action: 'message2',
@@ -172,7 +173,7 @@ function updateMessageAction(
   return {
     type: '@chat/updateMessage',
     payload,
-    meta: { channelId: CHANNEL_ID, mentionsSelf, windowFocused },
+    meta: { channelId: CHANNEL_ID, mentionsSelf, isSelfMessage, windowFocused },
   }
 }
 
@@ -660,6 +661,46 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, updateMessageAction(200, false, true))
 
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test.each([
+      ['a stale bottom report', { activated: true, atBottom: false, lastReadTime: 100 }, true],
+      ['an unfocused window', { activated: true, atBottom: true, lastReadTime: 100 }, false],
+      ['an inactive channel', { activated: false, lastReadTime: 100 }, true],
+    ])('an own echo does not create unread state with %s', (_, stateOverrides, windowFocused) => {
+      const result = chatReducer(
+        makeState(stateOverrides),
+        updateMessageAction(200, true, windowFocused, true),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-200'])
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('an own echo preserves unread state created by another message', () => {
+      const result = chatReducer(
+        makeState({ unread: true, unreadLineTime: 100, lastReadTime: 100, latestMentionTime: 150 }),
+        updateMessageAction(200, true, true, true),
+      )
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(150)
+    })
+
+    test('an own echo past a detached window still tracks the newest time', () => {
+      const result = chatReducer(
+        makeState({ hasNewer: true, activated: true, atBottom: true, lastReadTime: 100 }),
+        updateMessageAction(200, true, true, true),
+      )
+
+      expect(messageIdsOf(result)).toEqual([])
+      expect(windowOf(result).detachedNewestTime).toBe(200)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
     })
   })
 

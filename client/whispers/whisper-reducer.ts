@@ -173,9 +173,9 @@ function dropMessageWindow(session: WhisperSession) {
 }
 
 /**
- * The conditions a message arrived under when it reached the session live. Messages that reach a
- * session any other way (a page of history) carry no arrival and do no unread bookkeeping: only
- * something happening live can go unseen.
+ * The conditions a message arrived under when it reached the session live. Pages of history and
+ * the sender's echoed message carry no arrival and do no unread bookkeeping; other live messages
+ * can go unseen.
  */
 interface LiveArrival {
   /** Whether the app window was focused at the moment the message arrived. */
@@ -274,7 +274,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       payload: {
         message: { id, time, from, text },
       },
-      meta: { target, windowFocused },
+      meta: { target, isSelfMessage, windowFocused },
     },
   ) {
     const newMessage: CommonTextMessage = {
@@ -297,9 +297,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         session.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
-      markSessionUnread(session, windowFocused)
+      if (!isSelfMessage) {
+        markSessionUnread(session, windowFocused)
+      }
     } else {
-      updateMessages(state, target, { windowFocused }, m => {
+      updateMessages(state, target, isSelfMessage ? undefined : { windowFocused }, m => {
         m.push(newMessage)
         return m
       })
