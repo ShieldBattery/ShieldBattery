@@ -18,6 +18,7 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
+import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { findUsersById } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import {
@@ -209,7 +210,7 @@ describe('lobbies/lobby-service', () => {
     loadGameRequests = []
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
-      new GameplayActivityRegistry(),
+      new GameplayActivityRegistry(createFakeActivityStatusService()),
       {
         loadGame: vi.fn(async (request: GameLoadRequest) => {
           loadGameRequests.push(request)

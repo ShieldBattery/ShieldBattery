@@ -143,6 +143,7 @@ describe('games/game-loader/GameLoader', () => {
       }>
     >
   }
+  let activityStatusService: { setInGame: ReturnType<typeof vi.fn> }
   let gameLoader: GameLoader
 
   beforeEach(() => {
@@ -166,12 +167,14 @@ describe('games/game-loader/GameLoader', () => {
         .fn()
         .mockResolvedValue({ known: false, connectedSlots: [], startedSlots: [] }),
     }
+    activityStatusService = { setInGame: vi.fn() }
 
     gameLoader = new GameLoader(
       publisher as any,
       activityRegistry as any,
       restrictionService as any,
       netcodeV2Service as any,
+      activityStatusService as any,
     )
   })
 
@@ -783,6 +786,18 @@ describe('games/game-loader/GameLoader', () => {
       expect.objectContaining({ useNetcodeV2: true }),
     )
     expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+
+    expect(activityStatusService.setInGame).toHaveBeenCalledTimes(2)
+    expect(activityStatusService.setInGame).toHaveBeenCalledWith(
+      p1,
+      'game-multi',
+      expect.objectContaining({ userId: p1 }),
+    )
+    expect(activityStatusService.setInGame).toHaveBeenCalledWith(
+      p2,
+      'game-multi',
+      expect.objectContaining({ userId: p2 }),
+    )
   })
 
   test('threads each player selected region through to createSessionForGame', async () => {

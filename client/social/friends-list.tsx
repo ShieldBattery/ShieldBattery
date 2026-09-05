@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import { appendToMultimap } from '../../common/data-structures/maps'
 import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -34,6 +33,7 @@ import {
   getRelationshipsIfNeeded,
   removeFriendRequest,
 } from './action-creators'
+import { FriendActivityStatusLine, NameBlock, NameLine } from './friend-activity-status'
 import { userRelationshipErrorToString } from './relationship-errors'
 
 const FadedFriendsIcon = styledWithAttrs(MaterialIcon, { icon: 'group' })`
@@ -241,21 +241,22 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     areUserEntriesEqual,
   )
   const liveUserIds = useLiveUserIds()
-  const friendsByStatus = useMemo(() => {
-    const result = new Map<FriendActivityStatus, SbUserId[]>()
-    for (const [id] of sortedFriendUserEntries) {
-      appendToMultimap(result, friendActivityStatus.get(id) ?? FriendActivityStatus.Offline, id)
-    }
-    return result
-  }, [friendActivityStatus, sortedFriendUserEntries])
 
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
+    // Every status other than Offline (including the in-activity ones) belongs in the online group.
+    const online: SbUserId[] = []
+    const offline: SbUserId[] = []
+    for (const [id] of sortedFriendUserEntries) {
+      const status = friendActivityStatus.get(id) ?? FriendActivityStatus.Offline
+      ;(status === FriendActivityStatus.Offline ? offline : online).push(id)
+    }
+
     // Surface live friends first within each group (Array.sort is stable, so the existing name
     // order is preserved among equally-live friends).
     const liveFirst = (ids: SbUserId[]) =>
-      [...ids].sort((a, b) => (liveUserIds.has(b) ? 1 : 0) - (liveUserIds.has(a) ? 1 : 0))
+      ids.sort((a, b) => (liveUserIds.has(b) ? 1 : 0) - (liveUserIds.has(a) ? 1 : 0))
 
-    const onlineFriends = liveFirst(friendsByStatus.get(FriendActivityStatus.Online) ?? [])
+    const onlineFriends = liveFirst(online)
     let result: FriendsListRowData[] = [
       {
         type: FriendsListRowType.Header,
@@ -272,7 +273,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
       })),
     )
 
-    const offlineFriends = liveFirst(friendsByStatus.get(FriendActivityStatus.Offline) ?? [])
+    const offlineFriends = liveFirst(offline)
     if (offlineFriends.length > 0) {
       result.push({
         type: FriendsListRowType.Header,
@@ -290,7 +291,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     }
 
     return result
-  }, [friendsByStatus, liveUserIds, t])
+  }, [friendActivityStatus, liveUserIds, sortedFriendUserEntries, t])
 
   const renderRow = useCallback((index: number, row: FriendsListRowData) => {
     if (row.type === FriendsListRowType.Header) {
@@ -577,11 +578,6 @@ const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean 
   }
 `
 
-const FriendEntryName = styled.div`
-  ${singleLine};
-  flex-grow: 1;
-`
-
 function FriendEntry({
   userId,
   faded = false,
@@ -623,7 +619,10 @@ function FriendEntry({
           <StyledAvatar userId={userId} />
         </AvatarContainer>
         {user ? (
-          <FriendEntryName>{user.name}</FriendEntryName>
+          <NameBlock>
+            <NameLine>{user.name}</NameLine>
+            <FriendActivityStatusLine userId={userId} />
+          </NameBlock>
         ) : (
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}

@@ -19,6 +19,7 @@ import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { ActivityStatusService, getFriendActivityStatusPath } from './activity-status-service'
 import {
   acceptFriendRequest,
   blockUser,
@@ -38,54 +39,40 @@ export function getRelationshipsPath(userId: SbUserId): string {
   return `/relationships/${userId}`
 }
 
-export function getFriendActivityStatusPath(userId: SbUserId): string {
-  return `/friends/status/${userId}`
-}
-
 @singleton()
 export class UserRelationshipService {
   constructor(
     private clock: Clock,
-    private publisher: TypedPublisher<UserRelationshipEvent | FriendActivityStatusUpdateEvent>,
+    private publisher: TypedPublisher<UserRelationshipEvent>,
     private userSocketsManager: UserSocketsManager,
     private notificationService: NotificationService,
+    private activityStatusService: ActivityStatusService,
   ) {
-    userSocketsManager
-      .on('newUser', userSockets => {
-        // NOTE(tec27): We don't provide initial data over this as it's potentially a lot of stuff
-        // to send over websockets. We instead expect that the client will get this info by making a
-        // request on load
-        userSockets.subscribe(getRelationshipsPath(userSockets.userId))
-        publisher.publish(getFriendActivityStatusPath(userSockets.userId), {
-          userId: userSockets.userId,
-          status: FriendActivityStatus.Online,
+    userSocketsManager.on('newUser', userSockets => {
+      // NOTE(tec27): We don't provide initial data over this as it's potentially a lot of stuff
+      // to send over websockets. We instead expect that the client will get this info by making a
+      // request on load
+      userSockets.subscribe(getRelationshipsPath(userSockets.userId))
+
+      Promise.resolve()
+        .then(async () => {
+          if (!userSockets.sockets.size) {
+            return
+          }
+
+          const summary = await getRelationshipSummaryForUser(userSockets.userId)
+          if (!userSockets.sockets.size) {
+            return
+          }
+
+          for (const { toId: friendId } of summary.friends) {
+            this.subscribeToFriendActivityStatusUpdates(userSockets, friendId)
+          }
         })
-
-        Promise.resolve()
-          .then(async () => {
-            if (!userSockets.sockets.size) {
-              return
-            }
-
-            const summary = await getRelationshipSummaryForUser(userSockets.userId)
-            if (!userSockets.sockets.size) {
-              return
-            }
-
-            for (const { toId: friendId } of summary.friends) {
-              this.subscribeToFriendActivityStatusUpdates(userSockets, friendId)
-            }
-          })
-          .catch(err => {
-            logger.error({ err }, 'Error subscribing to status updates for friends')
-          })
-      })
-      .on('userQuit', userId => {
-        publisher.publish(getFriendActivityStatusPath(userId), {
-          userId,
-          status: FriendActivityStatus.Offline,
+        .catch(err => {
+          logger.error({ err }, 'Error subscribing to status updates for friends')
         })
-      })
+    })
   }
 
   private publishUpsert(userId: SbUserId, relationship: UserRelationship) {
@@ -118,12 +105,8 @@ export class UserRelationshipService {
         // NOTE(tec27): We only send updates for online users, just to minimize the amount of data
         // that needs to be sent. Clients can assume their friends are offline until they receive
         // this event
-        return this.userSocketsManager.getById(friendId)
-          ? {
-              userId: friendId,
-              status: FriendActivityStatus.Online,
-            }
-          : undefined
+        const status = this.activityStatusService.getStatus(friendId)
+        return status !== FriendActivityStatus.Offline ? { userId: friendId, status } : undefined
       },
     )
   }

@@ -15,6 +15,7 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
+import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { findUsersById } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-groups'
@@ -109,7 +110,7 @@ describe('lobbies/lobby-socket-api', () => {
 
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
-      new GameplayActivityRegistry(),
+      new GameplayActivityRegistry(createFakeActivityStatusService()),
       { loadGame: vi.fn() } as unknown as GameLoader,
       { isRestricted: async () => false } as unknown as RestrictionService,
       { getRegions: async () => [] } as unknown as GameServerRegionsService,

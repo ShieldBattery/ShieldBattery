@@ -25,6 +25,7 @@ import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { FriendActivityStatusLine } from '../social/friend-activity-status'
 import {
   BodyMedium,
   bodyLarge,
@@ -298,6 +299,7 @@ export function UserProfileOverlayContents({
           <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
+      <FriendActivityStatusLine userId={userId} />
       {liveStream ? (
         <LiveWatchRow
           twitchLogin={liveStream.twitchLogin}

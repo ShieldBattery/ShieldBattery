@@ -88,10 +88,19 @@ export interface UserRelationshipDeleteEvent {
   targetUser: SbUserId
 }
 
-// TODO(tec27): Add more stuff to this, like ingame, idle, etc.
+/**
+ * What a friend is currently doing, as shown in the friends list. Only friends receive a user's
+ * status updates, so this never reveals activity beyond the friend graph.
+ */
 export enum FriendActivityStatus {
   Online = 'online',
   Offline = 'offline',
+  /** Seated in a custom lobby (including while that lobby's game is loading). */
+  InLobby = 'inLobby',
+  /** In matchmaking: searching, match found/accepting, drafting, or loading the matched game. */
+  InQueue = 'inQueue',
+  /** All players finished loading; lasts until this user's client reports the game exited. */
+  InGame = 'inGame',
 }
 
 export interface FriendActivityStatusUpdateEvent {

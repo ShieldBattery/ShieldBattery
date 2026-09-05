@@ -48,6 +48,7 @@ import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { closeWhisperSession, getWhisperSessions } from '../whispers/action-creators'
 import { urlForWhisper } from '../whispers/whisper-url'
+import { FriendActivityStatusGlyph } from './friend-activity-status'
 import { FriendsList, useRelationshipsLoader } from './friends-list'
 
 /** The width the window must be greater than for pinning to be enabled. */
@@ -620,6 +621,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
         link={urlForWhisper(userId, username ?? '')}
         button={button}
         icon={<ConnectedAvatar userId={userId} />}
+        trailing={<WhisperActivityGlyph userId={userId} />}
         needsAttention={hasUnread}
         urgentAttention={hasUnread}
         isActive={isOverlayOpen}
@@ -639,6 +641,10 @@ const LoadingName = styled.span`
   margin-right: 0.25em;
   background-color: var(--theme-skeleton);
   border-radius: 4px;
+`
+
+const WhisperActivityGlyph = styled(FriendActivityStatusGlyph)`
+  margin-left: 8px;
 `
 
 const EntryRoot = styled(Link)<{ $isCurrentPath: boolean; $isActive?: boolean }>`
@@ -683,6 +689,7 @@ const EntryText = styled.span`
 
   flex-grow: 1;
   flex-shrink: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 `
@@ -737,6 +744,8 @@ interface EntryProps {
   title?: string
   button?: React.ReactNode
   icon?: React.ReactNode
+  /** Content rendered between the entry's text and its button, e.g. a friend activity glyph. */
+  trailing?: React.ReactNode
   needsAttention?: boolean
   /**
    * Whether the attention indicator should render in its urgent color, e.g. for a channel message
@@ -754,6 +763,7 @@ function Entry({
   title,
   button,
   icon,
+  trailing,
   needsAttention,
   urgentAttention,
   isActive,
@@ -787,6 +797,7 @@ function Entry({
       <EntryText ref={textRef} title={isOverflowing ? title : undefined} data-testid='entry-text'>
         {children}
       </EntryText>
+      {trailing}
       {button ? <EntryButton>{button}</EntryButton> : null}
 
       <EntryRipple ref={rippleRef} />
