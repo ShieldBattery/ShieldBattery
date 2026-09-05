@@ -2098,11 +2098,6 @@
         "outgoing": "Outgoing"
       },
       "loadingUsername": "Username loading…",
-      "status": {
-        "inGame": "In game",
-        "inLobby": "In lobby",
-        "inQueue": "In queue"
-      },
       "tabs": {
         "addFriends": "Add friends",
         "friendsList": "Friends list",
@@ -2179,6 +2174,11 @@
     }
   },
   "users": {
+    "activityStatus": {
+      "inGame": "In game",
+      "inLobby": "In lobby",
+      "inQueue": "In queue"
+    },
     "admin": {
       "avatar": {
         "description": "Permanently remove this user's avatar. This can't be undone.",

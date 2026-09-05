@@ -8,6 +8,7 @@ import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
 import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
+import { FriendActivityStatusLine, NameBlock, NameLine } from '../social/friend-activity-status'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
@@ -121,12 +122,6 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
   }}
 `
 
-const UserListName = styled.span`
-  ${singleLine};
-  flex-grow: 1;
-  flex-shrink: 1;
-`
-
 interface UserListEntryProps {
   userId: SbUserId
   faded?: boolean
@@ -165,7 +160,10 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         onContextMenu={onContextMenu}>
         <StyledAvatar userId={props.userId} />
         {user ? (
-          <UserListName>{user.name}</UserListName>
+          <NameBlock>
+            <NameLine>{user.name}</NameLine>
+            <FriendActivityStatusLine userId={props.userId} />
+          </NameBlock>
         ) : (
           <LoadingName aria-label={t('common.loading.username', 'Username loading…')} />
         )}
