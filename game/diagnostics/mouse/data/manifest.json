@@ -1,0 +1,25 @@
+{
+  "description": "Developer baseline captures with local user/repository path prefixes replaced. Other JSON values are unchanged. Original hashes identify the local pre-redaction captures, not these tracked copies.",
+  "pathReplacements": {
+    "repository": "<repo>",
+    "roamingAppData": "%APPDATA%",
+    "userProfile": "%USERPROFILE%"
+  },
+  "files": [
+    {
+      "name": "mouse-state-20260905-180343.jsonl",
+      "recordCount": 232,
+      "originalSha256": "7bd4584b2ba0707bdb344f6941f9ef1ed0c7d16491e7b8b3efa6f3554522a846"
+    },
+    {
+      "name": "mouse-state-20260905-182539.jsonl",
+      "recordCount": 271,
+      "originalSha256": "a45625e4287415432371952833eb902edf2602e3e45ca74fefb77fb4873cce30"
+    },
+    {
+      "name": "mouse-state-20260905-183515.jsonl",
+      "recordCount": 263,
+      "originalSha256": "51c12e9371a220371b3f47746dca93136bff8e0c987e78abe9fce498167d65e9"
+    }
+  ]
+}

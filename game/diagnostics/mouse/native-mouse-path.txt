@@ -1,0 +1,569 @@
+Read-only Binary Ninja decompilation excerpts, 2026-09-05.
+Image: x86_64 12310g.exe, 1.23.10.13515. Preferred base 0x140000000.
+SHA256 AEDFA558721A6DAF059E3760E99121C5655228BE5EAC934265EA6E850965E2AB
+Function names reflect existing analysis; addresses are build-specific.
+
+sub_140606230
+0x140606240 timeGetDevCaps(&data_1410b6de8, 8)
+0x14060624c timeBeginPeriod(data_1410b6de8)
+0x140606257 int16_t rax = GetKeyState(0x90)
+0x14060625f data_1410b6db0 = 0xa
+0x14060626c data_1410b6de4 = rax
+0x14060627d SystemParametersInfoW(SPI_GETMOUSESPEED, 0, &data_1410b6db0, 0)
+0x140606283 int32_t result = data_1410b6db0
+0x140606289 data_1410b6db4 = result
+0x14060628f data_1410b6daa = 1
+0x140606296 data_140de9fe8 = 1
+0x1406062a1 return result
+
+sub_14036e320
+0x14036e320 int64_t arg_8 = arg1
+0x14036e32d int64_t* rax = sub_1403e3760()
+0x14036e337 arg_8.b = 1
+0x14036e34b void arg_10
+0x14036e34b void* result = sub_14036c6d0(rax, "MouseUseSensitivity", &arg_8, &arg_10)
+0x14036e34b
+0x14036e354 if (*(result + 8) == 0)
+0x14036e385     return result
+0x14036e385
+0x14036e363 uint128_t zmm1_1 = _mm_cvtepi32_ps(zx.o(*(arg2 + 8)))
+0x14036e366 zmm1_1.d = zmm1_1.d f/ 100f
+0x14036e36e zmm1_1.d = zmm1_1.d f+ zmm1_1.d
+0x14036e37b return sub_140606440(_mm_max_ss(0.100000001f, zmm1_1.d)) __tailcall
+
+sub_140606440
+0x140606440 float arg_8 = arg1
+0x14060644a float zmm1 = 0.100000001f
+0x140606455 float arg_10 = 2f
+0x14060645d int32_t arg_18 = 0x3dcccccd
+0x14060645d
+0x140606465 if (not(zmm1 > arg1))
+0x14060646e     float* rax_1 = &arg_10
+0x14060646e
+0x140606478     if (arg1 <= 2f)
+0x140606478         rax_1 = &arg_8
+0x140606478
+0x14060647c     zmm1 = *rax_1
+0x14060647c
+0x140606480 bool cond:1 = data_1410b6da8 == 0
+0x14060648f int32_t result = int.d(zmm1 * 10f)
+0x140606493 data_1410b6db4 = result
+0x140606493
+0x140606499 if (cond:1)
+0x1406064b5     return result
+0x1406064b5
+0x1406064aa return SystemParametersInfoW(SPI_SETMOUSESPEED, 0, sx.q(result), 0) __tailcall
+
+sub_140608860
+0x140608876 if (data_1410b6da8 == arg2)
+0x140608876     return
+0x140608876
+0x14060887c int64_t pvParam = sx.q(data_1410b6db4)
+0x140608885 data_1410b6da8 = arg2
+0x140608890 data_1410b6dac = 0
+0x14060889a __builtin_memset(&data_1410b6df0, 0, 0x20)
+0x14060889a
+0x1406088bb if (arg2 == 0)
+0x1406088bd     pvParam = sx.q(data_1410b6db0)
+0x1406088bd
+0x1406088c4 SystemParametersInfoW(SPI_SETMOUSESPEED, 0, pvParam, 0)
+0x1406088c4
+0x1406088d1 if (data_1410b6dab == 0)
+0x1406088d9     sub_1406079f0(arg1, arg2)
+0x1406088d9
+0x1406088de int64_t r8_1 = 0
+0x1406088e1 int64_t var_18_1 = 0
+0x1406088f4 r8_1.b = data_1410b6da8 != 0
+0x1406088ff sub_140607d00(arg1, 7, r8_1, 0)
+
+sub_140606390
+0x14060639b if (data_1410b6daa == 0)
+0x14060639b     return
+0x14060639b
+0x14060639d int64_t pvParam = sx.q(data_1410b6db0)
+0x14060639d
+0x1406063aa if (data_1410b6db4 != pvParam.d)
+0x1406063b7     SystemParametersInfoW(SPI_SETMOUSESPEED, 0, pvParam, 0)
+0x1406063c3     data_1410b6db4 = data_1410b6db0
+
+sub_1406060c0
+0x1406060da if (GetKeyState(0x90) != data_1410b6de4)
+0x1406060e7     INPUT var_58
+0x1406060e7     memset(&var_58, 0, 0x50)
+0x1406060f0     var_58.type = 1
+0x1406060fd     var_58..mi.w = 0x90
+0x140606102     int32_t var_30_1 = 1
+0x14060610e     int16_t var_28_1 = 0x90
+0x140606113     int32_t var_24_1 = 2
+0x14060611b     SendInput(2, &var_58, 0x28)
+0x14060611b
+0x140606128 if (data_1410b6da8 != 0)
+0x14060612a     int64_t pvParam = sx.q(data_1410b6db0)
+0x14060612a
+0x140606137     if (data_1410b6db4 != pvParam.d)
+0x140606144         SystemParametersInfoW(SPI_SETMOUSESPEED, 0, pvParam, 0)
+0x140606144
+0x14060614a HHOOK hhk = data_1410b6e18
+0x14060614a
+0x140606154 if (hhk != 0)
+0x140606156     UnhookWindowsHookEx(hhk)
+0x14060615c     data_1410b6e18 = 0
+0x14060615c
+0x140606172 return timeEndPeriod(data_1410b6de8) __tailcall
+
+sub_140605b80
+0x140605b96 void var_98
+0x140605b96 int64_t rax_1 = __security_cookie ^ &var_98
+0x140605ba5 int64_t result = GetWindowLongPtrW(arg1, 0xffffffeb)
+0x140605ba5
+0x140605bb2 if (*(result + 0xb3) == 0)
+0x140605bbb     result = IsIconic(arg1)
+0x140605bbb
+0x140605bc3     if (result.d == 0)
+0x140605bfa         RECT rect
+0x140605bfa         GetWindowRect(arg1, &rect)
+0x140605c08         int32_t dwStyle = GetWindowLongW(arg1, 0xfffffff0)
+0x140605c19         int32_t dwExStyle = GetWindowLongW(arg1, 0xffffffec)
+0x140605c35         BOOL bMenu = 0
+0x140605c38         bMenu.b = GetMenu(arg1) != 0
+0x140605c3c         int32_t var_48
+0x140605c3c         SetRectEmpty(&var_48)
+0x140605c4f         BOOL rax_3 = AdjustWindowRectEx(&var_48, dwStyle, bMenu, dwExStyle)
+0x140605c55         LONG top = rect.top
+0x140605c5a         LONG left = rect.left
+0x140605c5d         LONG right = rect.right
+0x140605c60         LONG bottom = rect.bottom
+0x140605c63         int32_t var_40
+0x140605c63
+0x140605c63         if (rax_3 != 0)
+0x140605c65             left -= var_48
+0x140605c68             int32_t var_44
+0x140605c68             top -= var_44
+0x140605c6b             right -= var_40
+0x140605c6e             int32_t var_3c
+0x140605c6e             bottom -= var_3c
+0x140605c7a             rect = struct RECT {
+0x140605c7a                 .bottom = bottom
+0x140605c7a                 .left = left
+0x140605c7a                 .top = top
+0x140605c7a                 .right = right
+0x140605c7a             }
+0x140605c7a
+0x140605c7d         int32_t rdi_1 = bottom - top
+0x140605c7f         int32_t rbx_1 = right - left
+0x140605c84         int32_t var_68 = rbx_1
+0x140605c84
+0x140605c99         if (*(GetWindowLongPtrW(arg1, 0xffffffeb) + 0x7c) != 0)
+0x140605c99             goto label_140605d01
+0x140605c99
+0x140605cac         if (sub_1406032f0(arg1, &var_68, 0) == 0)
+0x140605cfe             rbx_1 = var_68
+0x140605d01         label_140605d01:
+0x140605d01             var_48.q = 0
+0x140605d0f             var_48.q = 0
+0x140605d17             var_40.q = var_68.q
+0x140605d1f             var_48.o = var_48.o
+0x140605d24             sub_140608070(arg1, &var_48)
+0x140605d37             int64_t var_78_1 = 0
+0x140605d3c             result = sub_140607d00(arg1, 4, sx.q(rbx_1), sx.q(rdi_1))
+0x140605cac         else
+0x140605cba             rect.right = rect.left + var_68
+0x140605cc6             rect.bottom = rect.top + rdi_1
+0x140605ccd             AdjustWindowRectEx(&rect, dwStyle, bMenu, dwExStyle)
+0x140605cd9             int32_t top_1 = rect.top
+0x140605ce4             int32_t left_1 = rect.left
+0x140605cf3             result = MoveWindow(arg1, left_1, top_1, rect.right - left_1, rect.bottom - top_1, 0)
+0x140605cf3
+0x140605d72 __security_check_cookie(rax_1 ^ &var_98)
+0x140605d80 return result
+
+draw_software_cursor
+0x1402cbce5 if (game_cursor_rendering_suppressed != 0 || game_cursor_hidden != 0 || use_native_game_cursor != 0)
+0x1402cbce5     return
+0x1402cbce5
+0x1402cbceb int16_t* current_cursor_resource_1 = current_cursor_resource.q
+0x1402cbceb
+0x1402cbcf5 if (current_cursor_resource_1 == 0)
+0x1402cbcf5     return
+0x1402cbcf5
+0x1402cbcfb int16_t rax_1 = *current_cursor_resource_1
+0x1402cbcfb
+0x1402cbd02 if (rax_1 == 0)
+0x1402cbd02     return
+0x1402cbd02
+0x1402cbd1d struct RendererTexture* texture =
+0x1402cbd1d     *(current_cursor_resource_1 + 8) + zx.q(modu.dp.d(0:cursor_animation_frame, zx.d(rax_1))) * 0x18
+0x1402cbd1d
+0x1402cbd24 if (texture == 0)
+0x1402cbd24     return
+0x1402cbd24
+0x1402cbd26 int32_t rcx_2 = sx.d(data_1410c43e2)
+0x1402cbd33 int32_t rdx_3 = sx.d(data_1410c43e4)
+0x1402cbd42 int128_t rgba_white_1 = rgba_white.o
+0x1402cbd49 int32_t rax_5 = sx.d(texture->width) + rcx_2
+0x1402cbd4b struct Rect32 destination
+0x1402cbd4b destination.left = rcx_2
+0x1402cbd4f destination.right = rax_5
+0x1402cbd5b int32_t rax_7 = sx.d(texture->height) + rdx_3
+0x1402cbd5d destination.top = rdx_3
+0x1402cbd61 destination.bottom = rax_7
+0x1402cbd6a int128_t zmm1
+0x1402cbd6a zmm1.d = destination.left
+0x1402cbd6a zmm1:4.d = destination.top
+0x1402cbd6a zmm1:8.d = destination.right
+0x1402cbd6a zmm1:0xc.d = destination.bottom
+0x1402cbd79 destination = struct Rect32 {
+0x1402cbd79     .left = zmm1.d
+0x1402cbd79     .top = zmm1:4.d
+0x1402cbd79     .right = zmm1:8.d
+0x1402cbd79     .bottom = zmm1:0xc.d
+0x1402cbd79 }
+0x1402cbd84 struct RgbaColor color = struct RgbaColor {
+0x1402cbd84     .red = rgba_white_1.d
+0x1402cbd84     .green = rgba_white_1:4.d
+0x1402cbd84     .blue = rgba_white_1:8.d
+0x1402cbd84     .alpha = rgba_white_1:0xc.d
+0x1402cbd84 }
+0x1402cbd8a draw_renderer_texture_in_rect(texture, &destination, 0x1d, false, &color, false)
+
+apply_current_cursor_to_window
+0x1402cbc31 if (use_native_game_cursor == 0 || game_cursor_hidden != 0 || game_cursor_rendering_suppressed != 0)
+0x1402cbcbb     return apply_animated_cursor_to_window(get_game_window_handle(), data_1410b6d60, 0) __tailcall
+0x1402cbcbb
+0x1402cbc38 HWND window = get_game_window_handle()
+0x1402cbc40 uint32_t rax = GetTickCount()
+0x1402cbc54 uint32_t elapsed_ms = cursor_animation_frame * 0x64 - cursor_animation_start_tick + rax
+0x1402cbc54
+0x1402cbc5e if (use_native_game_cursor == 0)
+0x1402cbc73     return apply_animated_cursor_to_window(window, data_1410b6d60, elapsed_ms) __tailcall
+0x1402cbc73
+0x1402cbc88 void* cursor_resources_1 = (&cursor_resources)[zx.q(current_cursor_type)]
+0x1402cbc88
+0x1402cbc8f if (cursor_resources_1 == 0)
+0x1402cbc8f     cursor_resources_1 = cursor_resources
+0x1402cbc8f
+0x1402cbca0 return apply_animated_cursor_to_window(window, cursor_resources_1, elapsed_ms) __tailcall
+
+Additional cursor-mode and timer investigation
+
+cursor-gate
+0x1402cec22 int64_t i
+0x1402cec22
+0x1402cec22 if (arg1 != 0)
+0x1402cec24     i = 0
+0x1402cec24
+0x1402cec3b     while (i == 0xa || (&cursor_resources)[i] != 0)
+0x1402cec3d         i += 1
+0x1402cec3d
+0x1402cec44         if (i s>= 0x13)
+0x1402cec46             use_native_game_cursor = 1
+0x1402cec4d             i.b = 1
+0x1402cec4f             return i
+0x1402cec4f
+0x1402cec50 use_native_game_cursor = 0
+0x1402cec57 i.b = 0
+0x1402cec59 return i
+
+step_game_loop
+0x140306f99 process_events(true)
+0x140306f9e uint32_t rax = GetTickCount()
+0x140306f9e
+0x140306fb0 if (zx.d(network_waiting_for_turns) == 0)
+0x140306fc6     int32_t* rax_4 = sub_140155590(get_game_speed_setting())
+0x140306fde     int32_t temp0_1
+0x140306fde     int32_t temp1_1
+0x140306fde     temp0_1:temp1_1 = sx.q(next_game_step_tick - rax)
+0x140306fde
+0x140306ff7     if ((temp1_1 ^ temp0_1) - temp0_1 s> *(&data_140dcf098 + (sx.q(*rax_4) << 2)))
+0x140306ffd         next_game_step_tick = rax
+0x140306ffd
+0x140307003 update_game_cursor()
+0x140307008 mark_game_layer_dirty()
+0x140307008
+0x14030701e if (data_141067be8 + rax u> 0xa)
+0x140307028     data_141067be8 = not.d(rax) + 1
+0x14030702e     update_screen_scrolling()
+0x14030702e
+0x140307033 process_network_messages()
+0x140307038 send_next_queued_server_chat_command()
+0x14030703d int32_t var_30 = 0
+0x14030703d
+0x140307055 if (rax - next_game_step_tick s>= 0 && zx.d(anti_troll_blocks_game_logic(&anti_troll)) == 0)
+0x14030706d     int32_t rax_20
+0x14030706d     int80_t st0_1
+0x14030706d     rax_20, st0_1 = step_game_logic(0)
+0x140307072     var_30 = rax_20
+0x140307072
+0x140307076 data_141067500 = 0
+0x140307080 char var_38 = 0
+0x140307080
+0x14030708e if (zx.d(game_loop_render_throttle_enabled) != 0)
+0x140307090     uint32_t rax_22 = GetTickCount()
+0x140307090
+0x1403070ad     if (rax_22 - game_loop_render_last_tick u>= game_loop_render_interval_ms)
+0x1403070ba         game_loop_render_last_tick = rax_22
+0x1403070ad     else
+0x1403070af         var_38 = 1
+0x1403070af
+0x1403070c9 if (zx.d(continue_game_loop) == 0)
+0x1403070cb     var_38 = 1
+0x1403070cb
+0x1403070d7 if (zx.d(var_38) == 0)
+0x1403070e7     int64_t (* pre_layer_callbacks)(uint64_t arg1 @ rbx, void* arg2 @ rsi, int64_t arg3 @ rdi,
+0x1403070e7         int64_t arg4 @ r14) = sub_14031a4d0
+0x1403070f6     render_screen(&pre_layer_callbacks, 1)
+0x1403070d7 else
+0x1403070d9     sub_140619140()
+0x1403070d9
+0x1403070fb update_sound_system()
+0x1403070fb
+0x140307105 if (var_30 != 0)
+0x140307107     int32_t var_30_1 = 0
+
+run_game_step_loop
+0x14031c964 turn_timer_accumulator = 0x3e8
+0x14031c96e network_waiting_for_turns = 0
+0x14031c97a next_game_step_tick = GetTickCount()
+0x14031c980 bool enabled = config_vsync_value()
+0x14031c991 bool var_50
+0x14031c991
+0x14031c991 if (get_game_speed_override_level() s<= 2)
+0x14031c99d     var_50 = false
+0x14031c991 else
+0x14031c993     var_50 = true
+0x14031c993
+0x14031c9ae uint32_t rax_3 = GetTickCount()
+0x14031c9b7 uint32_t var_40 = 0x10
+0x14031c9b7
+0x14031c9c6 if (zx.d(var_50) != 0)
+0x14031c9f0     void var_20
+0x14031c9f0     uint32_t var_54_1 = *(sub_140603c40(sub_140607850(get_game_window_handle()), &var_20) + 0x14)
+0x14031c9f0
+0x14031c9f9     if (var_54_1 != 0)
+0x14031ca06         var_54_1 = divu.dp.d(0:1, var_54_1)
+0x14031ca06
+0x14031ca0f     uint32_t var_4c_1
+0x14031ca0f
+0x14031ca0f     var_4c_1 = var_54_1 u<= 0x64 ? var_54_1 : 0x64
+0x14031ca0f
+0x14031ca28     uint32_t var_44_1
+0x14031ca28
+0x14031ca28     if (var_4c_1 u<= 0x10)
+0x14031ca4d         var_44_1 = 0x10
+0x14031ca28     else
+0x14031ca2f         uint32_t var_48_1
+0x14031ca2f
+0x14031ca2f         var_48_1 = var_54_1 u<= 0x64 ? var_54_1 : 0x64
+0x14031ca2f
+0x14031ca47         var_44_1 = var_48_1
+0x14031ca47
+0x14031ca59     var_40 = var_44_1
+0x14031ca5d     int32_t* rax_14 = sub_14041fc10()
+0x14031ca67     int32_t var_3c = 0
+0x14031ca7c     int64_t rbx
+0x14031ca7c     int64_t rdi
+0x14031ca7c     sub_140249ac0(rax_14, &var_3c, 0, rbx, rdi)
+0x14031ca7c
+0x14031ca86 game_loop_render_throttle_enabled = var_50
+0x14031ca90 game_loop_render_last_tick = rax_3
+0x14031ca9a game_loop_render_interval_ms = var_40
+0x14031ca9a
+0x14031caa9 while (zx.d(continue_game_loop) != 0)
+0x14031caab     step_game_loop()
+0x14031caab
+0x14031cab9 if (zx.d(var_50) != 0)
+0x14031cabf     set_vsync_enabled(enabled)
+
+sub_140603140
+0x140603160 int64_t rax = GetWindowLongPtrW(arg1, 0xffffffeb)
+0x140603169 *(rax + 0xa8) += 1
+0x140603170 void* rsi = *(rax + 0x98)
+0x140603170
+0x140603182 if (*(rax + 0xa8) == *(rsi + 8))
+0x140603184     *(rax + 0xa8) = 0
+0x140603184
+0x14060318f uint32_t rax_1 = GetTickCount()
+0x1406031b7 *(rax + 0xa0) = SetTimer(arg1, arg3, *(rsi + 0x18) + arg4 - rax_1, sub_140603140)
+0x1406031be POINT point
+0x1406031be LRESULT result = GetCursorPos(&point)
+0x1406031be
+0x1406031c6 if (result.d != 0)
+0x1406031e5     result = SendMessageW(arg1, 0x84, 0, zx.q(zx.d(point.y.w) << 0x10) | zx.q(point.x.w))
+0x1406031e5
+0x1406031ef     if (result == 1)
+0x1406031f4         return sub_140608910(arg1)
+0x1406031f4
+0x14060320b return result
+
+sub_1402cbbd0
+0x1402cbbd4 int16_t* current_cursor_resource_1 = current_cursor_resource.q
+0x1402cbbd4
+0x1402cbbe4 if (current_cursor_resource_1 != 0 && *current_cursor_resource_1 != 1)
+0x1402cbbe6     current_cursor_resource_1 = GetTickCount()
+0x1402cbbe6
+0x1402cbbf1     if (current_cursor_resource_1.d - cursor_animation_start_tick s>= 0)
+0x1402cbbf3         cursor_animation_frame += 1
+0x1402cbbfc         cursor_animation_start_tick = current_cursor_resource_1.d + 0x64
+0x1402cbc06         return update_software_cursor_bounds() __tailcall
+0x1402cbc06
+0x1402cbc0f return current_cursor_resource_1
+
+move-driver
+0x140233410 int64_t* var_28
+0x140233410 int64_t* rsp_1 = &var_28
+0x140233420 input_context.b = input_context.b
+0x140233423 int32_t entry_rbx
+0x140233423 entry_rbx.b = entry_rbx.b
+0x140233483 ui_mouse_button_down_mask.w |= 1
+0x14023348b int32_t x_1 = x
+0x14023348f int32_t y_1 = y
+0x140233494 struct Point32 position = struct Point32 {
+0x140233494     .x = rsp_1[9].d
+0x140233494     .y = *(rsp_1 + 0x4c)
+0x140233494 }
+0x14023349d return update_ui_mouse_position(position) __tailcall
+
+events-tail2
+0x1402f1885 mov     ecx, dword [rel 0x14106752c]
+0x1402f188b add     ecx, ebx
+0x1402f188d cmp     ecx, 0x64
+0x1402f1890 jb      0x1402f1906
+0x1402f1892 mov     qword [rsp+0x48], rsi
+0x1402f1897 xorps   xmm0, xmm0
+0x1402f189a movdqu  xmmword [rsp+0x50], xmm0
+0x1402f18a0 mov     dword [rsp+0x62], esi
+0x1402f18a4 mov     dword [rsp+0x68], ebx
+0x1402f18a8 mov     eax, 0xd
+0x1402f18ad mov     word [rsp+0x60], ax
+0x1402f18b2 call    0x14022eaa0
+0x1402f18b7 mov     rcx, rax
+0x1402f18ba call    0x14022eaf0
+0x1402f18bf mov     ecx, dword [rax]
+0x1402f18c1 mov     word [rsp+0x62], cx
+0x1402f18c6 call    0x14022eaa0
+0x1402f18cb mov     rcx, rax
+0x1402f18ce call    0x14022eaf0
+0x1402f18d3 mov     ecx, dword [rax+0x4]
+0x1402f18d6 mov     word [rsp+0x64], cx
+0x1402f18db lea     rcx, [rsp+0x48]
+0x1402f18e0 call    0x14063bd70
+0x1402f18e5 test    eax, eax
+0x1402f18e7 jne     0x1402f18fc
+0x1402f18e9 mov     rax, qword [rel 0x141067498]
+0x1402f18f0 test    rax, rax
+0x1402f18f3 je      0x1402f18fc
+0x1402f18f5 lea     rcx, [rsp+0x48]
+0x1402f18fa call    rax
+0x1402f18fc not     ebx
+0x1402f18fe inc     ebx
+0x1402f1900 mov     dword [rel 0x14106752c], ebx
+0x1402f1906 call    0x1403e3260
+0x1402f190b call    0x140243390
+0x1402f1910 test    dil, 0x1
+0x1402f1914 je      0x1402f191c
+0x1402f1916 call    0x140641c90
+0x1402f191b nop
+0x1402f191c lea     rcx, [rsp+0x78]
+0x1402f1921 call    0x140283ac0
+0x1402f1926 lea     r11, [rsp+0x90]
+
+pump-wrapper
+0x14060638a return sub_140607880(nullptr, 0, 0, 0) __tailcall
+
+sub_140607880
+0x140607890 int64_t var_60 = -2
+0x1406078b5 char r12 = 0
+0x1406078b8 char rbx = 0
+0x1406078ba int32_t nExitCode = 0
+0x1406078d8 MSG msg
+0x1406078d8
+0x1406078d8 if (PeekMessageW(&msg, arg1, arg2, arg3, PM_REMOVE) != 0)
+0x1406078de     r12 = 1
+0x140607954     BOOL i
+0x140607954
+0x140607954     do
+0x1406078e6         if (msg.message == 0x12)
+0x1406078eb             if (arg4 == 0)
+0x1406079a2                 uint64_t result = sub_140607d00(data_1410b6db8.q, 0x11, 0, 0)
+0x1406079a7                 result.b = 1
+0x140607987                 return result
+0x140607987
+0x1406078f1             rbx = 1
+0x1406078f3             nExitCode = msg.wParam.d
+0x1406078f3
+0x1406078f7         void* rax_1 = data_140de9fe0
+0x140607901         char rax_2
+0x140607901
+0x140607901         if (rax_1 != 0)
+0x140607908             rax_2 = rax_1(&msg)
+0x140607908
+0x14060790c         if (rax_1 == 0 || rax_2 != 0)
+0x140607913             TranslateMessage(&msg)
+0x14060791e             DispatchMessageW(&msg)
+0x14060791e
+0x140607934         if (sub_140234ee0(&data_1410b6d50) != 0)
+0x1406079ab             int64_t var_68 = 0
+0x1406079cd             void var_58
+0x1406079cd             sub_140608c40(sub_140602740(&var_58, &data_1410b6d50))
+0x1406079cd             noreturn
+0x1406079cd
+0x14060794c         i = PeekMessageW(&msg, arg1, arg2, arg3, PM_REMOVE)
+0x140607954     while (i != 0)
+0x140607954
+0x140607958     if (rbx != 0)
+0x14060795c         PostQuitMessage(nExitCode)
+0x14060795c
+0x140607962 return zx.q(r12)
+
+process_events verified tail disassembly
+0x1402f17b1 call    0x14043cc60
+0x1402f17b6 lea     rcx, [rel 0x141067508]
+0x1402f17bd call    0x1401f1110
+0x1402f17c2 call    0x14028cae0
+0x1402f17c7 mov     rcx, rax
+0x1402f17ca call    0x14028d2f0
+0x1402f17cf test    edi, edi
+0x1402f17d1 jne     0x1402f17e5
+0x1402f17d3 call    0x14022eaa0
+0x1402f17d8 mov     rcx, rax
+0x1402f17db call    0x14022e930
+0x1402f17e0 jmp     0x1402f191c
+0x1402f17e5 call    0x140606380
+0x1402f17ea call    0x1405ffde0
+0x1402f17ef mov     ebx, eax
+0x1402f17f1 xor     esi, esi
+0x1402f17f3 test    byte [rel 0x141090610], 0x1
+0x1402f17fa je      0x1402f1885
+0x1402f1800 call    0x1402cd3f0
+0x1402f1805 mov     eax, 0xfffe
+0x1402f180a and     word [rel 0x141090610], ax
+0x1402f1811 mov     qword [rsp+0x20], rsi
+0x1402f1816 xorps   xmm0, xmm0
+0x1402f1819 movdqu  xmmword [rsp+0x28], xmm0
+0x1402f181f mov     dword [rsp+0x3a], esi
+0x1402f1823 mov     dword [rsp+0x40], ebx
+0x1402f1827 mov     eax, 0x3
+0x1402f182c mov     word [rsp+0x38], ax
+0x1402f1831 call    0x14022eaa0
+0x1402f1836 mov     rcx, rax
+0x1402f1839 call    0x14022eaf0
+0x1402f183e mov     ecx, dword [rax]
+0x1402f1840 mov     word [rsp+0x3a], cx
+0x1402f1845 call    0x14022eaa0
+0x1402f184a mov     rcx, rax
+0x1402f184d call    0x14022eaf0
+0x1402f1852 mov     ecx, dword [rax+0x4]
+0x1402f1855 mov     word [rsp+0x3c], cx
+0x1402f185a lea     rcx, [rsp+0x20]
+0x1402f185f call    0x14063bd70
+0x1402f1864 test    eax, eax
+0x1402f1866 jne     0x1402f187b
+0x1402f1868 mov     rax, qword [rel 0x141067448]
+0x1402f186f test    rax, rax
+0x1402f1872 je      0x1402f187b
+0x1402f1874 lea     rcx, [rsp+0x20]
+0x1402f1879 call    rax
+0x1402f187b mov     dword [rel 0x141067500], 0x1
+0x1402f1885 mov     ecx, dword [rel 0x14106752c]
+0x1402f188b add     ecx, ebx
+0x1402f188d cmp     ecx, 0x64

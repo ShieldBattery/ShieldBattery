@@ -66,3 +66,30 @@ The following files contain BW-side code:
 - `storm.rs` Helper code for calling the few Storm functions we use.
 - `windows.rs` Miscellaneous helper functions for calling Windows APIs. Though usually it is not
   worth it to wrap every one-off Winapi function in a nicer interface.
+
+### Mouse timing diagnostics
+
+For cursor timing investigations, the injected DLL can read `mouse-diagnostics.json` from the
+launch user-data directory before installing hooks:
+
+```json
+{ "clock": "native", "timing": true, "label": "comparison-a" }
+```
+
+`clock` is required and accepts `shieldbattery` (the high-resolution GetTickCount replacement) or
+`native` (no GetTickCount detour). `timing` defaults to false; when enabled it aggregates native
+process-events/render-screen durations and window mouse-message cadence during foreground gameplay.
+The optional label is limited to 80 characters; the whole file is limited to 4096 bytes. Unknown
+fields and invalid values cause a warning and keep normal behavior. A missing file keeps normal
+behavior without logging. Changes take effect on the next StarCraft launch; remove the file to
+restore defaults. The launcher can remain open.
+
+Valid configurations produce a `[MOUSE_DIAGNOSTICS]` startup JSON record in the game log. Timing
+summaries are logged when the game loop exits normally. The measurements use `Instant`, aggregate
+in bounded memory without per-frame logging, and suppress same-kind recursive calls. They are CPU
+function and message-delivery measurements, not native cursor-mode, HID, Present, or mouse-to-photon
+measurements. For subjective clock comparisons, leave timing off to avoid its measurement overhead.
+Native clock mode also changes network scheduling, so compare in local/custom games first.
+
+The [mouse investigation handoff](diagnostics/mouse/README.md) contains the scripts,
+completed measurements, and affected-player test procedure for this experiment.

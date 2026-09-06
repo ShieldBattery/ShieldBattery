@@ -85,6 +85,12 @@ unsafe extern "system" fn wnd_proc_scr(
             return DefWindowProcA(window, msg, wparam, lparam);
         }
 
+        if msg == WM_ACTIVATEAPP {
+            crate::mouse_diagnostics::set_foreground(wparam != 0);
+        }
+        let _mouse_timing = (msg == WM_MOUSEMOVE)
+            .then(|| crate::mouse_diagnostics::begin(crate::mouse_diagnostics::Kind::MouseMove));
+
         let ret = with_scr_hooks_disabled(|| {
             gamma::handle_window_message(window, msg, wparam);
             match msg {

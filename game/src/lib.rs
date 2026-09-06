@@ -58,6 +58,7 @@ mod game_state;
 mod game_thread;
 mod http;
 mod http_proxy;
+mod mouse_diagnostics;
 mod netcode_v2;
 mod recurse_checked_mutex;
 mod replay;
@@ -243,6 +244,7 @@ pub extern "C" fn OnInject() {
         process_id,
         args.log_name,
     );
+    mouse_diagnostics::initialize(&args.user_data_path);
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);

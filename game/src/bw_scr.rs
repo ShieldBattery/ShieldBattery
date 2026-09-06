@@ -1792,6 +1792,35 @@ impl BwScr {
             let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
             let base = base as usize;
 
+            if crate::mouse_diagnostics::timing_enabled() {
+                let address = self.process_events as usize - base;
+                exe.hook_closure_address(
+                    ProcessEvents,
+                    |flags, orig| {
+                        let timing = crate::mouse_diagnostics::begin(
+                            crate::mouse_diagnostics::Kind::ProcessEvents,
+                        );
+                        let result = orig(flags);
+                        drop(timing);
+                        result
+                    },
+                    address,
+                );
+                let address = self.render_screen as usize - base;
+                exe.hook_closure_address(
+                    RenderScreen,
+                    |callbacks, callback_count, orig| {
+                        let timing = crate::mouse_diagnostics::begin(
+                            crate::mouse_diagnostics::Kind::RenderScreen,
+                        );
+                        let result = orig(callbacks, callback_count);
+                        drop(timing);
+                        result
+                    },
+                    address,
+                );
+            }
+
             if let Some(sc_main) = self.sc_main {
                 // This is a hook at early point during program startup, some initial
                 // settings have been done already though.
@@ -2584,9 +2613,15 @@ impl BwScr {
                 "CopyFileW", CopyFileW, copy_file_hook;
                 "CloseHandle", CloseHandle, close_handle_hook;
                 "GetFileAttributesW", GetFileAttributesW, get_file_attributes_closure;
-                "GetTickCount", GetTickCount, get_tick_count_hook;
                 "GetSystemTimePreciseAsFileTime", GetSystemTimePreciseAsFileTime, get_system_time_precise_as_file_time_hook;
             );
+            // Choose the clock before native initialization creates timer deadlines. In native
+            // mode no GetTickCount detour is installed, including for calls from other modules.
+            if !crate::mouse_diagnostics::use_native_clock() {
+                hook_winapi_exports!(&mut active_patcher, "kernel32",
+                    "GetTickCount", GetTickCount, get_tick_count_hook;
+                );
+            }
             hook_winapi_exports!(&mut active_patcher, "shell32",
                 "SHGetFolderPathW", SHGetFolderPathW, sh_get_folder_path_w_hook;
             );
@@ -5484,6 +5519,12 @@ impl bw::Bw for BwScr {
         let turn_seq = self.snet_next_turn_sequence_number();
         debug!("Game loop running, turn seq {turn_seq}");
         unsafe {
+            if crate::mouse_diagnostics::timing_enabled() {
+                let foreground = crate::forge::game_window_handle()
+                    .is_some_and(|hwnd| winapi::um::winuser::GetForegroundWindow() == hwnd);
+                crate::mouse_diagnostics::set_foreground(foreground);
+                crate::mouse_diagnostics::start_gameplay();
+            }
             loop {
                 self.reset_state_for_game_init();
                 self.game_state.write(3); // Playing
@@ -5497,6 +5538,7 @@ impl bw::Bw for BwScr {
                 self.is_replay_seeking.store(false, Ordering::Relaxed);
             }
         }
+        crate::mouse_diagnostics::finish_gameplay();
     }
 
     unsafe fn clean_up_for_exit(&self) {
@@ -6661,6 +6703,10 @@ mod hooks {
     whack_hooks!(0, // cdecl
         !0 => ScMain();
         !0 => GameInit();
+        // Preserve the scalar return register for native callers. ShieldBattery's direct calls
+        // discard it, but the timing scope must not replace it with its destructor's result.
+        !0 => ProcessEvents(u32) -> usize;
+        !0 => RenderScreen(*mut c_void, usize) -> usize;
         !0 => OpenFile(*mut scr::FileHandle, *const u8, *const scr::OpenParams) ->
             *mut scr::FileHandle;
         !0 => Ttf_RenderSdf(

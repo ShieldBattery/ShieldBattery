@@ -1,0 +1,1158 @@
+{
+  "source": "%APPDATA%\\ShieldBattery-Local\\logs\\game.0.log",
+  "settingsPayloadsExactlyEqual": true,
+  "sessions": [
+    {
+      "pid": 19164,
+      "startLine": 7882,
+      "warnings": [
+        {
+          "line": 7974,
+          "beforeGameplay": true,
+          "kind": "egui widget id warning"
+        },
+        {
+          "line": 7975,
+          "beforeGameplay": true,
+          "kind": "egui widget id warning"
+        },
+        {
+          "line": 7976,
+          "beforeGameplay": true,
+          "kind": "egui widget id warning"
+        }
+      ],
+      "errors": [],
+      "startup": {
+        "event": "startup",
+        "schemaVersion": 1,
+        "clock": "shieldbattery",
+        "timing": true,
+        "label": "",
+        "arch": "x86_64"
+      },
+      "startupLine": 7883,
+      "startupUtc": "2026-09-06T02:16:31.469Z",
+      "settingsLine": 7901,
+      "settings": {
+        "local": {
+          "launch32Bit": false,
+          "legacyCursorSizing": true,
+          "useCustomCursorSize": false,
+          "customCursorSize": 0.5,
+          "disableHd": false
+        },
+        "scr": {
+          "displayMode": 1,
+          "fpsLimit": 300,
+          "fpsLimitOn": true,
+          "hardwareCursorOn": true,
+          "mouseScalingOn": false,
+          "mouseSensitivityOn": false,
+          "mouseSensitivity": 25,
+          "mouseConfineOn": true,
+          "pillarboxOn": false,
+          "vsyncOn": 0,
+          "hdGraphicsOn": true
+        }
+      },
+      "loopStartUtc": "2026-09-06T02:16:41.418Z",
+      "summary": {
+        "event": "summary",
+        "schemaVersion": 1,
+        "clock": "shieldbattery",
+        "label": "",
+        "foregroundOnly": true,
+        "metrics": [
+          {
+            "kind": "processEvents",
+            "cadenceDescription": "Time between ProcessEvents hook entries.",
+            "cadenceUs": {
+              "count": 21060,
+              "sumUs": 70050511,
+              "maxUs": 76519,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 408
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 16756
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 3891
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 2
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            },
+            "durationUs": {
+              "count": 21061,
+              "sumUs": 8468191,
+              "maxUs": 26952,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 4827
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 224
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 422
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 7752
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 7220
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 572
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 43
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            }
+          },
+          {
+            "kind": "renderScreen",
+            "cadenceDescription": "Time between RenderScreen hook entries.",
+            "cadenceUs": {
+              "count": 21058,
+              "sumUs": 70016956,
+              "maxUs": 50833,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 65
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 581
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 16577
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 3831
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 2
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            },
+            "durationUs": {
+              "count": 21060,
+              "sumUs": 60610537,
+              "maxUs": 49154,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 95
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 74
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 1901
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 17845
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 1143
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            }
+          },
+          {
+            "kind": "mouseMove",
+            "cadenceDescription": "Time between WM_MOUSEMOVE handler entries; this measures window-message delivery cadence, not HID or input latency.",
+            "cadenceUs": {
+              "count": 24016,
+              "sumUs": 70009653,
+              "maxUs": 635717,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 4
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 64
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 2180
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 5506
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 573
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 587
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 12702
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 2040
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 89
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 90
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 107
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 74
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            },
+            "durationUs": {
+              "count": 24018,
+              "sumUs": 532873,
+              "maxUs": 409,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 23724
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 270
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 23
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "summaryLine": 8085,
+      "summaryUtc": "2026-09-06T02:17:58.524Z",
+      "loopEndUtc": "2026-09-06T02:17:58.550Z",
+      "loopWallSeconds": 77.132,
+      "derived": [
+        {
+          "kind": "processEvents",
+          "measurement": "cadenceUs",
+          "samples": 21060,
+          "meanUs": 3326.2350902184235,
+          "maxUs": 76519,
+          "over8ms": 3,
+          "over16ms": 1,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            }
+          }
+        },
+        {
+          "kind": "processEvents",
+          "measurement": "durationUs",
+          "samples": 21061,
+          "meanUs": 402.0792459997151,
+          "maxUs": 26952,
+          "over8ms": 1,
+          "over16ms": 1,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 250,
+              "upperInclusiveUs": 500
+            },
+            "95": {
+              "lowerExclusiveUs": 500,
+              "upperInclusiveUs": 1000
+            },
+            "99": {
+              "lowerExclusiveUs": 1000,
+              "upperInclusiveUs": 2000
+            }
+          }
+        },
+        {
+          "kind": "renderScreen",
+          "measurement": "cadenceUs",
+          "samples": 21058,
+          "meanUs": 3324.9575458258146,
+          "maxUs": 50833,
+          "over8ms": 3,
+          "over16ms": 1,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            }
+          }
+        },
+        {
+          "kind": "renderScreen",
+          "measurement": "durationUs",
+          "samples": 21060,
+          "meanUs": 2877.993209876543,
+          "maxUs": 49154,
+          "over8ms": 2,
+          "over16ms": 1,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            }
+          }
+        },
+        {
+          "kind": "mouseMove",
+          "measurement": "cadenceUs",
+          "samples": 24016,
+          "meanUs": 2915.1254580279815,
+          "maxUs": 635717,
+          "over8ms": 360,
+          "over16ms": 271,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 16000,
+              "upperInclusiveUs": 33000
+            }
+          }
+        },
+        {
+          "kind": "mouseMove",
+          "measurement": "durationUs",
+          "samples": 24018,
+          "meanUs": 22.186401865267715,
+          "maxUs": 409,
+          "over8ms": 0,
+          "over16ms": 0,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 0,
+              "upperInclusiveUs": 50
+            },
+            "95": {
+              "lowerExclusiveUs": 0,
+              "upperInclusiveUs": 50
+            },
+            "99": {
+              "lowerExclusiveUs": 50,
+              "upperInclusiveUs": 100
+            }
+          }
+        }
+      ]
+    },
+    {
+      "pid": 57052,
+      "startLine": 8226,
+      "warnings": [
+        {
+          "line": 8318,
+          "beforeGameplay": true,
+          "kind": "egui widget id warning"
+        },
+        {
+          "line": 8319,
+          "beforeGameplay": true,
+          "kind": "egui widget id warning"
+        },
+        {
+          "line": 8320,
+          "beforeGameplay": true,
+          "kind": "egui widget id warning"
+        }
+      ],
+      "errors": [],
+      "startup": {
+        "event": "startup",
+        "schemaVersion": 1,
+        "clock": "native",
+        "timing": true,
+        "label": "",
+        "arch": "x86_64"
+      },
+      "startupLine": 8227,
+      "startupUtc": "2026-09-06T02:18:24.502Z",
+      "settingsLine": 8245,
+      "settings": {
+        "local": {
+          "launch32Bit": false,
+          "legacyCursorSizing": true,
+          "useCustomCursorSize": false,
+          "customCursorSize": 0.5,
+          "disableHd": false
+        },
+        "scr": {
+          "displayMode": 1,
+          "fpsLimit": 300,
+          "fpsLimitOn": true,
+          "hardwareCursorOn": true,
+          "mouseScalingOn": false,
+          "mouseSensitivityOn": false,
+          "mouseSensitivity": 25,
+          "mouseConfineOn": true,
+          "pillarboxOn": false,
+          "vsyncOn": 0,
+          "hdGraphicsOn": true
+        }
+      },
+      "loopStartUtc": "2026-09-06T02:18:34.500Z",
+      "summary": {
+        "event": "summary",
+        "schemaVersion": 1,
+        "clock": "native",
+        "label": "",
+        "foregroundOnly": true,
+        "metrics": [
+          {
+            "kind": "processEvents",
+            "cadenceDescription": "Time between ProcessEvents hook entries.",
+            "cadenceUs": {
+              "count": 23382,
+              "sumUs": 77731953,
+              "maxUs": 75467,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 478
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 18401
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 4498
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            },
+            "durationUs": {
+              "count": 23383,
+              "sumUs": 7960686,
+              "maxUs": 25665,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 8800
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 527
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 417
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 7248
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 5878
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 447
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 63
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 2
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            }
+          },
+          {
+            "kind": "renderScreen",
+            "cadenceDescription": "Time between RenderScreen hook entries.",
+            "cadenceUs": {
+              "count": 23380,
+              "sumUs": 77700786,
+              "maxUs": 50503,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 73
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 711
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 18132
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 4462
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            },
+            "durationUs": {
+              "count": 23382,
+              "sumUs": 68541167,
+              "maxUs": 49452,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 55
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 153
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 2043
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 19577
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 1552
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            }
+          },
+          {
+            "kind": "mouseMove",
+            "cadenceDescription": "Time between WM_MOUSEMOVE handler entries; this measures window-message delivery cadence, not HID or input latency.",
+            "cadenceUs": {
+              "count": 19678,
+              "sumUs": 77601517,
+              "maxUs": 580207,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 28
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 1012
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 4644
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 405
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 463
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 10529
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 1937
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 186
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 177
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 156
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 141
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            },
+            "durationUs": {
+              "count": 19680,
+              "sumUs": 528776,
+              "maxUs": 807,
+              "buckets": [
+                {
+                  "upperBoundUs": 50,
+                  "count": 19262
+                },
+                {
+                  "upperBoundUs": 100,
+                  "count": 383
+                },
+                {
+                  "upperBoundUs": 250,
+                  "count": 32
+                },
+                {
+                  "upperBoundUs": 500,
+                  "count": 2
+                },
+                {
+                  "upperBoundUs": 1000,
+                  "count": 1
+                },
+                {
+                  "upperBoundUs": 2000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 4000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 8000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 16000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 33000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 66000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": 1000000,
+                  "count": 0
+                },
+                {
+                  "upperBoundUs": null,
+                  "count": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "summaryLine": 8429,
+      "summaryUtc": "2026-09-06T02:20:01.345Z",
+      "loopEndUtc": "2026-09-06T02:20:01.371Z",
+      "loopWallSeconds": 86.871,
+      "derived": [
+        {
+          "kind": "processEvents",
+          "measurement": "cadenceUs",
+          "samples": 23382,
+          "meanUs": 3324.435591480626,
+          "maxUs": 75467,
+          "over8ms": 3,
+          "over16ms": 2,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            }
+          }
+        },
+        {
+          "kind": "processEvents",
+          "measurement": "durationUs",
+          "samples": 23383,
+          "meanUs": 340.44759012958133,
+          "maxUs": 25665,
+          "over8ms": 1,
+          "over16ms": 1,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 250,
+              "upperInclusiveUs": 500
+            },
+            "95": {
+              "lowerExclusiveUs": 500,
+              "upperInclusiveUs": 1000
+            },
+            "99": {
+              "lowerExclusiveUs": 1000,
+              "upperInclusiveUs": 2000
+            }
+          }
+        },
+        {
+          "kind": "renderScreen",
+          "measurement": "cadenceUs",
+          "samples": 23380,
+          "meanUs": 3323.3869118905045,
+          "maxUs": 50503,
+          "over8ms": 2,
+          "over16ms": 2,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            }
+          }
+        },
+        {
+          "kind": "renderScreen",
+          "measurement": "durationUs",
+          "samples": 23382,
+          "meanUs": 2931.364596698315,
+          "maxUs": 49452,
+          "over8ms": 2,
+          "over16ms": 2,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            }
+          }
+        },
+        {
+          "kind": "mouseMove",
+          "measurement": "cadenceUs",
+          "samples": 19678,
+          "meanUs": 3943.567283260494,
+          "maxUs": 580207,
+          "over8ms": 660,
+          "over16ms": 474,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 2000,
+              "upperInclusiveUs": 4000
+            },
+            "95": {
+              "lowerExclusiveUs": 4000,
+              "upperInclusiveUs": 8000
+            },
+            "99": {
+              "lowerExclusiveUs": 33000,
+              "upperInclusiveUs": 66000
+            }
+          }
+        },
+        {
+          "kind": "mouseMove",
+          "measurement": "durationUs",
+          "samples": 19680,
+          "meanUs": 26.86869918699187,
+          "maxUs": 807,
+          "over8ms": 0,
+          "over16ms": 0,
+          "histogramPercentileBrackets": {
+            "50": {
+              "lowerExclusiveUs": 0,
+              "upperInclusiveUs": 50
+            },
+            "95": {
+              "lowerExclusiveUs": 0,
+              "upperInclusiveUs": 50
+            },
+            "99": {
+              "lowerExclusiveUs": 50,
+              "upperInclusiveUs": 100
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "sourceSha256AtAnalysis": "6eba366497dd0d037dbda9e79f197c8dfc9c5c87013291e3931792e01670b774",
+  "sourceSizeAtAnalysis": 866641
+}
