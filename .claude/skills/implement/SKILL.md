@@ -104,8 +104,8 @@ PR body:
 - Drift notes from step 2 if there were any.
 - Verification performed, tier and outcome.
 
-Draft PR if verification is incomplete. CI results and review comments arrive after the push and
-are separate follow-up work, not part of this skill.
+Draft PR if verification is incomplete. After pushing, the `pr-fix` skill
+(`.claude/skills/pr-fix/SKILL.md`) handles CI and review comments.
 
 ### 7. Report
 
