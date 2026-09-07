@@ -128,15 +128,13 @@ git = "https://github.com/neivv/aise.git"
 rev = "977f44aea5607e3544cb656c1e6e3bb4f04c4a1b"
 features = ["scr-only"]
 
-# Netcode v2 client transport (QUIC via rally-point2). Pinned to a SHA per the Phase-0 cross-repo
-# decision (netcode-v2-build-plan.md §0): no crates.io publish for a single internal consumer, and
-# the pin is bumped only at integration. The crate is `unsafe`-free and CI-built for
-# `i686-pc-windows-msvc`. We consume its re-exported quinn/rustls/proto rather than depending on
-# those directly, so the game DLL and the transport can never drift on quinn/rustls/ALPN versions
-# (version skew is rejected at the TLS handshake by design).
+# Netcode v2 client transport, pinned to an exact revision for reproducible releases.
+# The client uses noq with rustls/ring and builds for both Windows DLL architectures.
+# Consume its re-exported quinn (the compatibility alias for noq), rustls, and proto
+# types so the game DLL shares the transport's dependency versions.
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "48f62738293d758e5d43cb8569addeba1c4993d9"
+rev = "3fc81b34f78efd93cd348c51ec7d3874cfbbe47b"
 
 [build-dependencies]
 anyhow = "1.0"
