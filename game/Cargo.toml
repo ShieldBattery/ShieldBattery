@@ -130,11 +130,11 @@ features = ["scr-only"]
 
 # Netcode v2 client transport, pinned to an exact revision for reproducible releases.
 # The client uses noq with rustls/ring and builds for both Windows DLL architectures.
-# Consume its re-exported quinn (the compatibility alias for noq), rustls, and proto
+# Consume its re-exported noq, rustls, and proto
 # types so the game DLL shares the transport's dependency versions.
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "3fc81b34f78efd93cd348c51ec7d3874cfbbe47b"
+rev = "11228fffd933d49c9236aaa4f69f3d7d272a918f"
 
 [build-dependencies]
 anyhow = "1.0"

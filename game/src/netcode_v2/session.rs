@@ -400,7 +400,7 @@ fn dial_worth_retrying(error: &DialError) -> bool {
 }
 
 /// Formats `error` followed by the root of its `source()` chain when the display text doesn't
-/// already show it — nested error displays often stop short (quinn's "connection lost" hides the
+/// already show it — nested error displays often stop short (noq's "connection lost" hides the
 /// peer's close code and reason a level deeper), and for a failed relay dial that hidden detail
 /// is frequently the only clue to *why* the relay dropped us.
 pub fn error_with_root_cause(error: &dyn std::error::Error) -> String {
@@ -663,7 +663,7 @@ mod tests {
     use rally_point_client::proto::token::{CHALLENGE_LEN, SIGNATURE_LEN};
     use rally_point_client::transport::rustls::RootCertStore;
     use rally_point_client::transport::rustls::pki_types::{CertificateDer, PrivateKeyDer};
-    use rally_point_client::transport::{quic, quinn};
+    use rally_point_client::transport::{noq, quic};
 
     use super::*;
 
@@ -678,9 +678,8 @@ mod tests {
     /// Returns the still-open handshake streams so the caller can keep them (and
     /// thus the connection) alive.
     async fn run_relay_handshake(
-        conn: &quinn::Connection,
-    ) -> Result<(quinn::SendStream, quinn::RecvStream), Box<dyn std::error::Error + Send + Sync>>
-    {
+        conn: &noq::Connection,
+    ) -> Result<(noq::SendStream, noq::RecvStream), Box<dyn std::error::Error + Send + Sync>> {
         let (mut send, mut recv) = conn.accept_bi().await?;
 
         // Token frame: a u16-LE length prefix, then that many token bytes.
@@ -720,7 +719,7 @@ mod tests {
     /// connection open, so a winning client's [`Link`] stays usable. Returns the
     /// address to dial, the self-signed leaf certificate to pin, and the endpoint —
     /// which the caller keeps alive for as long as the relay must answer.
-    async fn spawn_fake_relay() -> (SocketAddr, CertificateDer<'static>, quinn::Endpoint) {
+    async fn spawn_fake_relay() -> (SocketAddr, CertificateDer<'static>, noq::Endpoint) {
         spawn_fake_relay_refusing(0).await
     }
 
@@ -730,14 +729,14 @@ mod tests {
     /// `usize::MAX` refuses every connection.
     async fn spawn_fake_relay_refusing(
         refuse_first: usize,
-    ) -> (SocketAddr, CertificateDer<'static>, quinn::Endpoint) {
+    ) -> (SocketAddr, CertificateDer<'static>, noq::Endpoint) {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
         let cert_der = cert.cert.der().clone();
         let key_der = PrivateKeyDer::try_from(cert.signing_key.serialize_der()).unwrap();
         let server_config = quic::server_config(vec![cert_der.clone()], key_der).unwrap();
 
         let bind: SocketAddr = (Ipv4Addr::LOCALHOST, 0).into();
-        let endpoint = quinn::Endpoint::server(server_config, bind).unwrap();
+        let endpoint = noq::Endpoint::server(server_config, bind).unwrap();
         let addr = endpoint.local_addr().unwrap();
 
         let refusals_left = Arc::new(AtomicUsize::new(refuse_first));
@@ -753,7 +752,7 @@ mod tests {
                         .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
                         .is_ok();
                     if refuse {
-                        conn.close(quinn::VarInt::from_u32(1), b"refused");
+                        conn.close(noq::VarInt::from_u32(1), b"refused");
                         return;
                     }
                     let Ok(_streams) = run_relay_handshake(&conn).await else {
@@ -831,7 +830,7 @@ mod tests {
         let endpoint = client_endpoint(&cert);
         let identity = credentials::test_identity();
 
-        // Port 0 is an invalid remote: `quinn::Endpoint::connect` rejects it inside
+        // Port 0 is an invalid remote: `noq::Endpoint::connect` rejects it inside
         // `connect` itself, before any wait, so this candidate fails outright rather
         // than stalling — which advances the race to the next candidate immediately
         // instead of after the stagger.
