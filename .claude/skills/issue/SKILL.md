@@ -6,7 +6,9 @@ description: File a GitHub issue for ShieldBattery the way this repo wants them 
 # Filing an issue
 
 GitHub Issues is the tracker (org Project board "ShieldBattery" #1 is fed automatically by area
-labels). An issue is a self-contained brief: someone with the repo and the issue, and nothing else,
+labels; its columns are Todo, Ready, In Progress, Done, and Ready means every decision is locked,
+no `needs-*` label remains, dependencies are on master and the issue is not a parent). An issue is
+a self-contained brief: someone with the repo and the issue, and nothing else,
 can do the work. The shape is fixed by `template.md` in this directory; #1460, #1461 and #1457 are
 filed examples of it.
 
@@ -66,7 +68,8 @@ gh issue list --state open --label <area> --limit 100
 | --- | --- |
 | Type | `Bug` (wrong behavior today), `Feature` (new user-facing behavior), `Task` (design, cleanup, infra). Org-level issue types; the legacy `bug`/`enhancement` labels are not used. |
 | Area label | One of `chat`, `lobbies`, `matchmaking`, `replays`: a long-running area, never a feature. The label puts the issue on the board (labeling is the triage act). If none fits, file with no area label and say in chat that it lands in the inbox. |
-| `needs-design` | Add when a product or visual decision gates implementation. |
+| `needs-design` | Add when a visual or interaction design gates implementation: options must be proposed and one picked before code. |
+| `needs-decision` | Add when Decisions has an open item only the maintainers can settle and there is nothing to explore, just a call to make. Both labels may apply. Either is a soft gate for the `implement` skill: it asks once, then builds on its own recommendation if told to go. |
 | Parent | Native sub-issue of a parent when the issue is one phase of a multi-phase plan or one PR of a stacked chain. Design docs live in the parent's body (`docs/` only when they outgrow it). |
 | Milestone | One per multi-phase plan (e.g. "Chat commands"), on the parent and every child. |
 
@@ -81,7 +84,9 @@ correct attribution, no Discord content, and scope that matches one PR. Cross-re
 drafts by `[Working title]`; numbers are substituted at filing.
 
 Section reminders beyond the template: Decisions carries every locked choice AND every rejected
-alternative with who/when, so nobody re-proposes them; Verification names the verify-pr tier and a
+alternative with who/when, so nobody re-proposes them, and anything still open goes under an
+**Open** sub-list with your recommended answer (the issue then carries `needs-decision` or
+`needs-design`); Verification names the verify-pr tier and a
 concrete recipe (which clients, which flow, what to check); Out of scope names the neighbours.
 
 ### 5. Show it
@@ -117,8 +122,8 @@ python .claude/skills/issue/file_issues.py <draft-dir>            # dry run
 python .claude/skills/issue/file_issues.py --create <draft-dir>
 ```
 
-Report the URLs. An issue with an area label lands on the board in Todo by itself; don't touch the
-board.
+Report the URLs. An issue with an area label lands on the board in Todo by itself; whether it moves
+to Ready is the maintainers' call after they read Decisions. Don't touch the board.
 
 ## Spin-off mode
 

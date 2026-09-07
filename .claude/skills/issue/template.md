@@ -8,7 +8,7 @@ self-contained: someone with the repo and the issue, and nothing else, can do th
 One markdown file per issue. First line is the title as `# <title>`. Second line is a metadata
 HTML comment with `;`-separated fields:
 
-`<!-- type: Bug|Feature|Task ; labels: chat|lobbies|matchmaking|replays[,needs-design] ; parent: [Working title] or #N ; milestone: <title> -->`
+`<!-- type: Bug|Feature|Task ; labels: chat|lobbies|matchmaking|replays[,needs-design][,needs-decision] ; parent: [Working title] or #N ; milestone: <title> -->`
 
 `type` and `labels` are required (`labels` may be empty when no area fits). `parent` and
 `milestone` are optional. Then the seven sections below, as `## ` headings, in this order. Short is
@@ -34,7 +34,10 @@ account-level settings to the server". Bad: "[Chat] Fix unread bug", "Settings s
    turns out to be false in the code, say what the code actually does instead.
 3. **Desired behavior** — acceptance criteria as testable statements, one per bullet.
 4. **Decisions** — locked choices and rejected alternatives, with who locked them and when. Include
-   every decision the brief gives you. If none, say "None yet."
+   every decision the brief gives you. If none, say "None yet." Anything still open goes under an
+   **Open** sub-list, one bullet per question with your recommended answer, so a maintainer can
+   settle it in a word; an issue with an Open list carries `needs-decision`, or `needs-design`
+   when the answer needs options explored first.
 5. **Verification** — the verify-pr tier (read `.claude/skills/verify-pr/SKILL.md`, section
    "Verification tiers" and the changed-path matrix) plus the concrete recipe: which clients, which
    flow, what to check in the DB or logs.

@@ -19,13 +19,18 @@ have none of that: then step 2 is where you build the missing spec, in chat, bef
   spin-off issue via the `issue` skill, not part of this PR.
 - **Decisions are locked; rejected alternatives are off the table.** If the code makes a locked
   decision impossible, stop and say so; don't quietly pick the rejected option.
+- **Open decisions are a soft gate, not a wall.** A `needs-design` or `needs-decision` label, or a
+  board status of Todo instead of Ready, means the maintainers still owe the issue something. Say
+  so once, with your recommendation for each open item, and wait. If the user still says go, they
+  are asking for your judgment, not for another question: build on your recommendations and record
+  every call in the PR body.
 
 ## Steps
 
 ### 1. Fetch the issue and its context
 
 ```bash
-gh issue view N --json number,title,body,labels,milestone,state,url
+gh issue view N --json number,title,body,labels,milestone,state,url,projectItems
 gh api graphql -f query='{ repository(owner:"ShieldBattery", name:"ShieldBattery"){ issue(number:N){ parent{ number title } subIssues(first:20){ nodes{ number title state } } } } }'
 gh pr list --state all --search "N in:body" --json number,title,state,headRefName
 ```
@@ -33,6 +38,21 @@ gh pr list --state all --search "N in:body" --json number,title,state,headRefNam
 Stop and report if the issue is closed, or already has an open PR that references it. If it has a
 parent, read the parent's Decisions and rejected alternatives too; they apply. If it has
 sub-issues, it is a parent: implement a child, not the parent.
+
+Then check readiness. The board's Ready column (`projectItems[].status.name`) means every decision
+is locked, no `needs-*` label remains, dependencies are on master and the issue is not a parent.
+If the issue is in Todo instead, or carries `needs-design` or `needs-decision`, post in chat before
+anything else:
+
+- each open item in Decisions, each design question, and each dependency in Links that is not on
+  master yet;
+- your recommended answer for each, one line; for `needs-design`, the two or three options in a
+  line each and which one you would build.
+
+Then ask once whether to proceed. A go-ahead, in chat or in the invocation itself ("implement #N,
+go with your calls"), means: build on your recommendations, leave the issue untouched, and list
+every call in the PR body under **Calls made** so the author can override at review. A go-ahead
+does not skip step 2 and does not widen the scope.
 
 ### 2. Verify the premise and report drift
 
@@ -102,6 +122,8 @@ PR body:
 - Acceptance criteria as a checklist copied from the issue's Desired behavior, each checked with
   how it was verified, unchecked with why it is deferred.
 - Drift notes from step 2 if there were any.
+- **Calls made**, when step 1 flagged open decisions: each one, the option you built and the ones
+  you passed on.
 - Verification performed, tier and outcome.
 
 Draft PR if verification is incomplete. After pushing, the `pr-fix` skill
@@ -109,5 +131,6 @@ Draft PR if verification is incomplete. After pushing, the `pr-fix` skill
 
 ### 7. Report
 
-In chat: the PR URL, which acceptance criteria are met and which are not, drift that mattered,
-spin-off drafts awaiting a go-ahead, and what the next child in the chain is if this was one.
+In chat: the PR URL, which acceptance criteria are met and which are not, drift that mattered, the
+calls you made on a go-ahead, spin-off drafts awaiting a go-ahead, and what the next child in the
+chain is if this was one.
