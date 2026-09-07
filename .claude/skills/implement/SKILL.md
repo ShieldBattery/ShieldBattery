@@ -61,8 +61,11 @@ proceed on that.
 ### 3. Branch
 
 Short, descriptive, no issue number: `friend-presence`, `emote-flag`, not `issue-1462-esc-jumps`.
-From master. A child of a stacked chain branches from the previous child's branch; keep the chain
-rebased, never merged (see the stacked-PR rules in memory or ask).
+From master. A child of a stacked chain branches from the previous child's branch. Stacked branches
+stay linear: each carries only its own commits on top of its parent, so when the parent moves,
+`git rebase --onto <parent-tip> <old-parent-tip>` the child and push with `--force-with-lease`;
+never merge the parent in. When a stack merges bottom-up, retarget the child PR's base to master
+before the parent's branch is deleted, or GitHub auto-closes the child.
 
 ### 4. Build
 
@@ -101,8 +104,8 @@ PR body:
 - Drift notes from step 2 if there were any.
 - Verification performed, tier and outcome.
 
-Draft PR if verification is incomplete. After pushing, the `pr-fix` skill handles CI and review
-comments.
+Draft PR if verification is incomplete. CI results and review comments arrive after the push and
+are separate follow-up work, not part of this skill.
 
 ### 7. Report
 
