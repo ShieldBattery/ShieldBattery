@@ -47,8 +47,13 @@ What runs, and when:
 
 Reading the results:
 
-- Every commit gets two runs of each workflow, one `push` and one `pull_request`. A job that fails
-  in one and passes in the other on the same SHA is a flake by definition.
+- Every commit gets two runs of each workflow, one `push` and one `pull_request`. Both report the
+  branch's head SHA, but `push` builds the branch tip and `pull_request` builds the branch merged
+  into master. A split result on the same SHA is a flake only when the branch is up to date with
+  master (`git fetch origin && git log --oneline HEAD..origin/master` prints nothing). Otherwise
+  the two runs built different code: a `pull_request`-only failure means the branch breaks once
+  merged, so rebase onto master, reproduce locally, and fix it as a regression; a `push`-only
+  failure means master already carries the fix, and the rebase clears it.
 - All workflows cancel in-progress runs on a new push, so a pending rerun on the previous SHA ends
   as `cancelled`. That is not a failure.
 - `claude` (the mention-triggered workflow) shows as `skipping` on every PR. Normal.
@@ -67,8 +72,8 @@ equivalent, fix.
 pnpm test && pnpm run typecheck && pnpm run lint && pnpm run check-circular
 pnpm gen-translations:app --fail-on-update && pnpm gen-translations:email --fail-on-update
 pnpm gen-emails && pnpm gen-graphql && git status --short     # generated files must be clean
-cd server-rs && cargo clippy --all-targets --workspace -- -D warnings && cargo fmt --all -- --check
-cd game && cargo clippy --all-targets --workspace -- -D warnings && cargo fmt --all -- --check
+(cd server-rs && cargo clippy --all-targets --workspace -- -D warnings && cargo fmt --all -- --check)
+(cd game && cargo clippy --all-targets --workspace -- -D warnings && cargo fmt --all -- --check)
 pnpm sqlx-prepare && git status --short server-rs/.sqlx
 ```
 
