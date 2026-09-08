@@ -7,6 +7,7 @@ import styled from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { useKeyListener } from '../keyboard/key-listener'
 import { ElevatedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { MenuItem, MenuItemProps } from '../material/menu/item'
@@ -251,6 +252,8 @@ const overlayTransition: Transition = {
   duration: 0.12,
 }
 
+const ESCAPE = 'Escape'
+
 export interface ChatProps {
   className?: string
   listProps: Omit<MessageListProps, 'onScrollUpdate' | 'isRestorePending'>
@@ -310,6 +313,12 @@ export interface ChatProps {
    * surfaces that keep history on the server; without it the jump can't reach past what's loaded.
    */
   onSeekToUnread?: () => void
+  /**
+   * If true, pressing Escape moves the list to the newest message the same way the jump-to-bottom
+   * button does. Escape is left for other handlers when the list is already at the bottom, since
+   * there is nothing for it to do there. Defaults to false.
+   */
+  escapeJumpsToBottom?: boolean
 }
 
 /**
@@ -333,6 +342,7 @@ export function Chat({
   onAtBottomChange,
   onJumpToPresent,
   onSeekToUnread,
+  escapeJumpsToBottom = false,
 }: ChatProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -818,18 +828,40 @@ export function Chat({
     driveLinkedMessageJump()
   }, [messages])
 
-  const onJumpToBottomClick = () => {
+  /**
+   * Moves the list to the newest message. Returns whether anything had to move: false means the
+   * list was already at the bottom of the newest window (or has no scroller yet).
+   */
+  const jumpToBottom = (): boolean => {
     if (hasNewerMessages) {
       // The bottom of the loaded window isn't the newest message, so getting there takes a fetch.
       onJumpToPresent?.()
-      return
+      return true
     }
 
     const scroller = scrollerRef.current
-    if (scroller) {
-      scroller.scrollTop = scroller.scrollHeight
+    if (!scroller || isScrolledToBottom(scroller)) {
+      return false
     }
+
+    scroller.scrollTop = scroller.scrollHeight
+    return true
   }
+
+  const onJumpToBottomClick = () => {
+    jumpToBottom()
+  }
+
+  useKeyListener({
+    onKeyDown: event => {
+      // An Escape during IME composition cancels the composition; it isn't meant for the list.
+      if (!escapeJumpsToBottom || event.code !== ESCAPE || event.isComposing) {
+        return false
+      }
+
+      return jumpToBottom()
+    },
+  })
 
   const onUnreadBannerClick = () => {
     const scroller = scrollerRef.current
