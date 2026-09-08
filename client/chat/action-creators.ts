@@ -48,7 +48,11 @@ import {
   UpdateChannelAtBottom,
 } from './actions'
 import { urlForChannel } from './channel-url'
-import { newestServerOriginTime, oldestServerOriginTime } from './chat-reducer'
+import {
+  newestKnownChannelTime,
+  newestServerOriginTime,
+  oldestServerOriginTime,
+} from './chat-reducer'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -83,20 +87,45 @@ export function markChannelRead(channelId: SbChannelId, lastReadTime: number): T
       payload: { channelId, lastReadTime },
     })
 
-    // The rejection is passed back out so the coalescer knows the position never landed and lets
-    // the next report carry it again.
-    reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time =>
-      fetchJson<void>(apiUrl`chat/${channelId}/mark-read`, {
-        method: 'POST',
-        body: encodeBodyAsParams<MarkChannelReadRequest>({ lastReadTime: time }),
-      }).catch(err => {
-        logger.error(
-          `Error reporting read position for channel ${channelId}: ${getErrorStack(err)}`,
-        )
-        throw err
-      }),
-    )
+    reportChannelLastRead(channelId, lastReadTime)
   }
+}
+
+/**
+ * Marks a channel read as of now on the user's explicit request, whether or not the channel is open
+ * or has any messages loaded. The reported position is the later of the local clock and the newest
+ * time the client knows about in the channel: server-stamped message times can run ahead of a
+ * client clock that lags the server's, and a position behind the newest message would leave it
+ * unread. (The server clamps whatever is reported to its own clock.) Unlike a position the open
+ * view reports, this also drops the frozen unread divider of an activated channel.
+ */
+export function markChannelReadNow(channelId: SbChannelId): ThunkAction {
+  return (dispatch, getState) => {
+    const newestKnownTime = newestKnownChannelTime(getState().chat, channelId)
+    const lastReadTime = Math.max(Date.now(), newestKnownTime ?? -Infinity)
+
+    dispatch({
+      type: '@chat/updateLastReadTime',
+      payload: { channelId, lastReadTime, dismissUnreadLine: true },
+    })
+
+    reportChannelLastRead(channelId, lastReadTime)
+  }
+}
+
+/** Sends a channel's read position to the server, coalescing rapid-fire reports. */
+function reportChannelLastRead(channelId: SbChannelId, lastReadTime: number): void {
+  // The rejection is passed back out so the coalescer knows the position never landed and lets
+  // the next report carry it again.
+  reportLastRead(getChannelLastReadKey(channelId), lastReadTime, time =>
+    fetchJson<void>(apiUrl`chat/${channelId}/mark-read`, {
+      method: 'POST',
+      body: encodeBodyAsParams<MarkChannelReadRequest>({ lastReadTime: time }),
+    }).catch(err => {
+      logger.error(`Error reporting read position for channel ${channelId}: ${getErrorStack(err)}`)
+      throw err
+    }),
+  )
 }
 
 /**

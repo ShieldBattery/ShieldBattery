@@ -117,10 +117,10 @@ function makeState(
   return state as Immutable<ChatState>
 }
 
-function updateLastReadTimeAction(lastReadTime: number): ChatActions {
+function updateLastReadTimeAction(lastReadTime: number, dismissUnreadLine?: boolean): ChatActions {
   return {
     type: '@chat/updateLastReadTime',
-    payload: { channelId: CHANNEL_ID, lastReadTime },
+    payload: { channelId: CHANNEL_ID, lastReadTime, dismissUnreadLine },
   }
 }
 
@@ -359,6 +359,35 @@ describe('client/chat/chat-reducer', () => {
       // The read position itself still advances even while activated, since this is also the path
       // this session's own optimistic mark-read reports take.
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('drops the frozen divider of an activated channel when dismissing it', () => {
+      const state = makeState({
+        activated: true,
+        unreadLineTime: 100,
+        lastReadTime: 100,
+        messages: [textMessage(150)],
+      })
+
+      const result = chatReducer(state, updateLastReadTimeAction(200, true))
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('keeps the flag while the latest mention is newer than any loaded message', () => {
+      const state = makeState({
+        unread: true,
+        lastReadTime: 100,
+        latestMentionTime: 300,
+        messages: [textMessage(150)],
+      })
+
+      const stillUnread = chatReducer(state, updateLastReadTimeAction(200))
+      expect(stillUnread.unreadChannels.has(CHANNEL_ID)).toBe(true)
+
+      const covered = chatReducer(state, updateLastReadTimeAction(300))
+      expect(covered.unreadChannels.has(CHANNEL_ID)).toBe(false)
     })
 
     test('clears an activated channel flag once the position covers the newest message', () => {

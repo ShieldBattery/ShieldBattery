@@ -112,6 +112,19 @@ export function newestServerOriginTime(messages: readonly CommonTextMessage[]): 
 }
 
 /**
+ * The newest time (epoch ms) of anything known to exist in a whisper session: the newest loaded
+ * server-origin message and the present of a detached window. A read position covering this covers
+ * everything the client knows about.
+ */
+export function newestKnownWhisperTime(session: Immutable<WhisperSession>): number | undefined {
+  const knownTimes = [newestServerOriginTime(session.messages), session.detachedNewestTime].filter(
+    t => t !== undefined,
+  )
+
+  return knownTimes.length ? Math.max(...knownTimes) : undefined
+}
+
+/**
  * Returns `incoming` with every message already present in `existing` removed. The history
  * endpoints seek by millisecond-precision time, so a page boundary landing inside a group of
  * messages that share a timestamp can hand back messages the window already holds.
@@ -598,9 +611,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   // message arriving while the app window is unfocused counts as unread no matter what's on screen,
   // and this is what lowers it once the read position covers that message. The frozen divider is
   // only re-evaluated for a session that isn't activated: while one is being viewed the divider has
-  // to hold still where it is, and `deactivateWhisperSession` is what re-evaluates it.
+  // to hold still where it is, and `deactivateWhisperSession` is what re-evaluates it. An explicit
+  // mark-read carries `dismissUnreadLine`, which drops the divider whether or not the session is
+  // activated, because the user asked for the unread state to go rather than merely scrolling past
+  // it.
   ['@whispers/updateLastReadTime'](state, action) {
-    const { targetId, lastReadTime } = action.payload
+    const { targetId, lastReadTime, dismissUnreadLine } = action.payload
 
     const session = state.byId.get(targetId)
     if (!session) {
@@ -613,19 +629,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const effective = session.lastReadTime!
 
     // A detached window's present has run ahead of what's loaded, so the newest loaded message
-    // isn't the newest one known to exist. Clearing the flag against the loaded window alone would
-    // call the session read on the strength of a position that only covers that window.
-    const knownTimes = [
-      newestServerOriginTime(session.messages),
-      session.detachedNewestTime,
-    ].filter(t => t !== undefined)
-    const newestKnownTime = knownTimes.length ? Math.max(...knownTimes) : undefined
+    // isn't the newest one known to exist; the helper covers that. Clearing the flag against the
+    // loaded window alone would call the session read on the strength of a position that only
+    // covers that window.
+    const newestKnownTime = newestKnownWhisperTime(session)
 
     if (newestKnownTime === undefined || newestKnownTime <= effective) {
       session.hasUnread = false
     }
 
-    if (
+    if (dismissUnreadLine) {
+      session.unreadLineTime = undefined
+    } else if (
       !session.activated &&
       session.unreadLineTime !== undefined &&
       effective > session.unreadLineTime

@@ -20,7 +20,7 @@ import {
   ResetMessageWindow,
   UpdateSessionAtBottom,
 } from './actions'
-import { newestServerOriginTime } from './whisper-reducer'
+import { newestKnownWhisperTime, newestServerOriginTime } from './whisper-reducer'
 import { urlForWhisper } from './whisper-url'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
@@ -56,18 +56,46 @@ export function markWhisperRead(targetId: SbUserId, lastReadTime: number): Thunk
       payload: { targetId, lastReadTime },
     })
 
-    // The rejection is passed back out so the coalescer knows the position never landed and lets
-    // the next report carry it again.
-    reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time =>
-      fetchJson<void>(apiUrl`whispers/${targetId}/mark-read`, {
-        method: 'POST',
-        body: encodeBodyAsParams<MarkWhisperReadRequest>({ lastReadTime: time }),
-      }).catch(err => {
-        logger.error(`Error reporting read position for whisper ${targetId}: ${getErrorStack(err)}`)
-        throw err
-      }),
-    )
+    reportWhisperLastRead(targetId, lastReadTime)
   }
+}
+
+/**
+ * Marks a whisper conversation read as of now on the user's explicit request, whether or not it is
+ * open or has any messages loaded. The reported position is the later of the local clock and the
+ * newest time the client knows about in the conversation: server-stamped message times can run
+ * ahead of a client clock that lags the server's, and a position behind the newest message would
+ * leave it unread. (The server clamps whatever is reported to its own clock.) Unlike a position the
+ * open view reports, this also drops the frozen unread divider of an activated conversation.
+ */
+export function markWhisperReadNow(targetId: SbUserId): ThunkAction {
+  return (dispatch, getState) => {
+    const session = getState().whispers.byId.get(targetId)
+    const newestKnownTime = session ? newestKnownWhisperTime(session) : undefined
+    const lastReadTime = Math.max(Date.now(), newestKnownTime ?? -Infinity)
+
+    dispatch({
+      type: '@whispers/updateLastReadTime',
+      payload: { targetId, lastReadTime, dismissUnreadLine: true },
+    })
+
+    reportWhisperLastRead(targetId, lastReadTime)
+  }
+}
+
+/** Sends a whisper conversation's read position to the server, coalescing rapid-fire reports. */
+function reportWhisperLastRead(targetId: SbUserId, lastReadTime: number): void {
+  // The rejection is passed back out so the coalescer knows the position never landed and lets
+  // the next report carry it again.
+  reportLastRead(getWhisperLastReadKey(targetId), lastReadTime, time =>
+    fetchJson<void>(apiUrl`whispers/${targetId}/mark-read`, {
+      method: 'POST',
+      body: encodeBodyAsParams<MarkWhisperReadRequest>({ lastReadTime: time }),
+    }).catch(err => {
+      logger.error(`Error reporting read position for whisper ${targetId}: ${getErrorStack(err)}`)
+      throw err
+    }),
+  )
 }
 
 export function startWhisperSessionByName(

@@ -276,6 +276,25 @@ export function newestServerOriginTime(messages: readonly ChatMessage[]): number
 }
 
 /**
+ * The newest time (epoch ms) of anything known to exist in a channel: the newest loaded
+ * server-origin message, the present of a detached window, and the latest mention. A read position
+ * covering this covers everything the client knows about.
+ */
+export function newestKnownChannelTime(
+  chatState: Immutable<ChatState>,
+  channelId: SbChannelId,
+): number | undefined {
+  const channelMessages = chatState.idToMessages.get(channelId)
+  const knownTimes = [
+    channelMessages ? newestServerOriginTime(channelMessages.messages) : undefined,
+    channelMessages?.detachedNewestTime,
+    chatState.idToLatestMentionTime.get(channelId),
+  ].filter(t => t !== undefined)
+
+  return knownTimes.length ? Math.max(...knownTimes) : undefined
+}
+
+/**
  * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
  * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why client-only
  * messages are excluded: a window can open with one at its head (the self-join banner, or all
@@ -1151,9 +1170,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   // message arriving while the app window is unfocused counts as unread no matter what's on screen,
   // and this is what lowers it once the read position covers that message. The frozen divider is
   // only re-evaluated for a channel that isn't activated: while one is being viewed the divider has
-  // to hold still where it is, and `deactivateChannel` is what re-evaluates it.
+  // to hold still where it is, and `deactivateChannel` is what re-evaluates it. An explicit
+  // mark-read carries `dismissUnreadLine`, which drops the divider whether or not the channel is
+  // activated, because the user asked for the unread state to go rather than merely scrolling past
+  // it.
   ['@chat/updateLastReadTime'](state, action) {
-    const { channelId, lastReadTime } = action.payload
+    const { channelId, lastReadTime, dismissUnreadLine } = action.payload
 
     const existing = state.idToLastReadTime.get(channelId)
     if (existing === undefined || lastReadTime > existing) {
@@ -1162,20 +1184,18 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const effective = state.idToLastReadTime.get(channelId)!
 
     // A detached window's present has run ahead of what's loaded, so the newest loaded message
-    // isn't the newest one known to exist. Clearing the flag against the loaded window alone would
-    // call the channel read on the strength of a position that only covers that window.
-    const channelMessages = state.idToMessages.get(channelId)
-    const knownTimes = [
-      channelMessages ? newestServerOriginTime(channelMessages.messages) : undefined,
-      channelMessages?.detachedNewestTime,
-    ].filter(t => t !== undefined)
-    const newestKnownTime = knownTimes.length ? Math.max(...knownTimes) : undefined
+    // isn't the newest one known to exist; the helper covers that along with a mention newer than
+    // anything loaded. Clearing the flag against the loaded window alone would call the channel
+    // read on the strength of a position that only covers that window.
+    const newestKnownTime = newestKnownChannelTime(state, channelId)
 
     if (newestKnownTime === undefined || newestKnownTime <= effective) {
       state.unreadChannels.delete(channelId)
     }
 
-    if (!state.activatedChannels.has(channelId)) {
+    if (dismissUnreadLine) {
+      state.idToUnreadLineTime.delete(channelId)
+    } else if (!state.activatedChannels.has(channelId)) {
       const unreadLineTime = state.idToUnreadLineTime.get(channelId)
       if (unreadLineTime !== undefined && effective > unreadLineTime) {
         state.idToUnreadLineTime.delete(channelId)

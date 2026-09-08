@@ -448,6 +448,13 @@ export interface UpdateLastReadTime {
   payload: {
     channelId: SbChannelId
     lastReadTime: number
+    /**
+     * When true, the update comes from the user explicitly marking the channel read, and the frozen
+     * unread divider is dropped even for an activated channel. An ordinary read report only
+     * re-evaluates the divider of a channel that isn't being viewed, so it holds still under the
+     * reader.
+     */
+    dismissUnreadLine?: boolean
   }
 }
 
