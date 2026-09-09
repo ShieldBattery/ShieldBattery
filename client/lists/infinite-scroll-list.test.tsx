@@ -66,6 +66,14 @@ describe('client/lists/infinite-scroll-list', () => {
       unmount: result.unmount,
       rerender: (nextProps: Partial<InfiniteListProps>) =>
         result.rerender(<InfiniteList {...baseProps} {...nextProps} />),
+      // jsdom always reports `scrollWidth`/`scrollHeight` as 0, so tests that care about content
+      // changing need to fake the sentinel parent's extent themselves.
+      setContentHeight: (height: number) => {
+        Object.defineProperty(result.container, 'scrollHeight', {
+          configurable: true,
+          get: () => height,
+        })
+      },
     }
   }
 
@@ -87,6 +95,55 @@ describe('client/lists/infinite-scroll-list', () => {
     rerender({ onLoadPrevData, isLoadingPrev: false })
     rerender({ onLoadPrevData, isLoadingPrev: true })
     rerender({ onLoadPrevData, isLoadingPrev: false })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(2)
+  })
+
+  test('a page that added content is requested again immediately when the sentinel stays in view', () => {
+    const onLoadPrevData = vi.fn()
+    const { rerender, setContentHeight } = doRender({ onLoadPrevData })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    // The page that was loading added items, growing the content, so the retry isn't throttled even
+    // though no time has passed.
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    setContentHeight(500)
+    rerender({ onLoadPrevData, isLoadingPrev: false })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(2)
+
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    setContentHeight(1000)
+    rerender({ onLoadPrevData, isLoadingPrev: false })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(3)
+
+    // A load that leaves the content as it was goes back to being throttled.
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    rerender({ onLoadPrevData, isLoadingPrev: false })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(3)
+
+    advanceTime(MIN_LOAD_INTERVAL_MS)
+    expect(onLoadPrevData).toHaveBeenCalledTimes(4)
+  })
+
+  test('a deferred load is superseded by a load for changed content', () => {
+    const onLoadPrevData = vi.fn()
+    const { rerender, setContentHeight } = doRender({ onLoadPrevData })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    // Unchanged content defers the retry to the end of the interval instead of loading immediately.
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    rerender({ onLoadPrevData, isLoadingPrev: false })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    // Before that deferred timer fires, a load that actually changed the content comes in and is
+    // requested immediately.
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    setContentHeight(500)
+    rerender({ onLoadPrevData, isLoadingPrev: false })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(2)
+
+    // The effect teardown from that last render must have cleared the earlier deferred timer, so it
+    // never fires a third, stale load.
+    advanceTime(MIN_LOAD_INTERVAL_MS * 2)
     expect(onLoadPrevData).toHaveBeenCalledTimes(2)
   })
 
