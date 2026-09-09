@@ -124,8 +124,9 @@ python .claude/skills/issue/file_issues.py <draft-dir>            # dry run
 python .claude/skills/issue/file_issues.py --create <draft-dir>
 ```
 
-Report the URLs. An issue with an area label lands on the board in Todo by itself; whether it moves
-to Ready is the maintainers' call after they read Decisions. Don't touch the board.
+Report the URLs. An issue with an area label lands on the board in Todo by itself. Ready means the
+maintainers have read Decisions and locked everything, so that move is theirs; the `implement`
+skill moves it to In Progress once a branch exists.
 
 ## Spin-off mode
 
@@ -138,8 +139,9 @@ spin-offs this session).
 
 ## Don'ts
 
-- Don't relabel, comment on, edit, assign, close or reopen anything, including issues you created
-  earlier in the session, unless asked.
+- Don't speak as the user: no comments anywhere, no body edits on an issue a person wrote, no
+  closing or reopening unless asked. Labels, assignee and board column are metadata, not speech;
+  keep them accurate.
 - Don't add "raised by Claude" or any attribution lines; the account filing it is the author.
 - Don't put Discord text, links or message ids anywhere in an issue.
 - Don't describe branches, memory files, chat transcripts or "the plan doc"; the issue stands on

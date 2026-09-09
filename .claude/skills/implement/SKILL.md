@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names, and open a PR with `Fixes #N`. Never edits the issue. Use when asked to implement, work on, pick up, build, or fix an issue by number.
+description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names, and open a PR with `Fixes #N`. Never comments on the issue or edits a body a person wrote; keeps assignee and board status accurate. Use when asked to implement, work on, pick up, build, or fix an issue by number.
 ---
 
 # Implementing an issue
@@ -53,9 +53,9 @@ anything else:
   line each and which one you would build.
 
 Then ask once whether to proceed. A go-ahead, in chat or in the invocation itself ("implement #N,
-go with your calls"), means: build on your recommendations, leave the issue untouched, and list
-every call in the PR body under **Calls made** so the author can override at review. A go-ahead
-does not skip step 2 and does not widen the scope.
+go with your calls"), means: build on your recommendations, leave the issue's body and `needs-*`
+labels as they are, and list every call in the PR body under **Calls made** so the author can
+override at review. A go-ahead does not skip step 2 and does not widen the scope.
 
 ### 2. Verify the premise and report drift
 
