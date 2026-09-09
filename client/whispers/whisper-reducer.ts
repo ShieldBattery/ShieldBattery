@@ -57,9 +57,12 @@ export interface WhisperSession {
   lastReadTime?: number
   /**
    * The frozen position of the unread divider for the current activation. Captured when an unread
-   * session activates, or when a message arrives while the session is activated and scrolled up,
-   * and held until deactivation so the divider doesn't chase `lastReadTime` as it keeps advancing
-   * underneath it.
+   * session activates, or when a message goes unseen in an activated session (its view scrolled up,
+   * its window detached from the present, or the app window unfocused) that either has no divider or
+   * has one the read position has already moved past. It then holds still while the user reads
+   * through it, so it doesn't chase `lastReadTime` as that keeps advancing underneath it, and is
+   * dropped when the user sends a message, explicitly marks the session read, or leaves it from the
+   * bottom having read past the divider.
    */
   unreadLineTime?: number
 }
@@ -154,8 +157,9 @@ function dedupeAgainst(
  * focused, the one combination that puts the message in front of the user's eyes — in which case
  * the read position advances over it here, ahead of the view reporting that same position, so the
  * session never reads as unread for even a frame; or it went unseen, and the unread flag goes up.
- * A session being viewed also freezes its unread divider at the read position, so the divider marks
- * where the user left off instead of chasing the read position as it keeps advancing underneath it.
+ * A session being viewed also freezes its unread divider at the read position whenever a new run of
+ * unread messages starts, so the divider marks where the user left off instead of chasing the read
+ * position as it keeps advancing underneath it.
  *
  * Kept separate from `updateMessages` because a message arriving while the loaded window is
  * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
@@ -173,13 +177,57 @@ function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
 
   session.hasUnread = true
 
-  if (
-    session.activated &&
-    session.unreadLineTime === undefined &&
-    session.lastReadTime !== undefined
-  ) {
-    session.unreadLineTime = session.lastReadTime
+  if (session.activated) {
+    // A new run of unread messages starts both where there is no divider yet and where the read
+    // position has moved past the one that is there: the user read through that divider and then
+    // looked away, scrolled up, or paged into history, so it no longer marks anything they haven't
+    // seen and this message is where what they haven't seen begins. A divider the read position has
+    // not passed marks a run that is still growing, and stays where it is.
+    const { lastReadTime, unreadLineTime } = session
+    if (
+      lastReadTime !== undefined &&
+      (unreadLineTime === undefined || lastReadTime > unreadLineTime)
+    ) {
+      session.unreadLineTime = lastReadTime
+    }
   }
+}
+
+/**
+ * Advances a session's read position to `time`, never backwards, and lowers the unread flag once the
+ * position in effect covers everything the client knows exists. Returns that effective position.
+ *
+ * A detached window's present has run ahead of what's loaded, so the newest loaded message isn't the
+ * newest one known to exist; the helper covers that. Clearing the flag against the loaded window
+ * alone would call the session read on the strength of a position that only covers that window.
+ */
+function advanceReadPosition(session: WhisperSession, time: number): number {
+  if (session.lastReadTime === undefined || time > session.lastReadTime) {
+    session.lastReadTime = time
+  }
+  const effective = session.lastReadTime!
+
+  const newestKnownTime = newestKnownWhisperTime(session)
+  if (newestKnownTime === undefined || newestKnownTime <= effective) {
+    session.hasUnread = false
+  }
+
+  return effective
+}
+
+/**
+ * Records that a message the user sent reached the session. Having just spoken, the user is caught
+ * up: the read position advances over their own message, which lowers the unread flag once it covers
+ * everything known, and the unread divider is dropped, since nothing that came before their own
+ * message is news to them. This holds whether the message was sent from this client or from another
+ * of the user's, since the read position is per user, and regardless of whether the whisper session
+ * is activated or where its view sits. The view moves to the bottom on send separately, and
+ * the read report from there is what persists the position taken optimistically here; the server
+ * does not advance the read position on send.
+ */
+function recordSelfMessage(session: WhisperSession, time: number) {
+  advanceReadPosition(session, time)
+  session.unreadLineTime = undefined
 }
 
 /**
@@ -200,9 +248,9 @@ function dropMessageWindow(session: WhisperSession) {
 }
 
 /**
- * The conditions a message arrived under when it reached the session live. Pages of history and
- * the sender's echoed message carry no arrival and do no unread bookkeeping; other live messages
- * can go unseen.
+ * The conditions a message arrived under when it reached the session live. Pages of history carry no
+ * arrival and do no unread bookkeeping, and neither does the sender's echoed message, whose
+ * bookkeeping is `recordSelfMessage`'s instead; other live messages can go unseen.
  */
 interface LiveArrival {
   /** Whether the app window was focused at the moment the message arrived. */
@@ -330,7 +378,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         session.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
-      if (!isSelfMessage) {
+      if (isSelfMessage) {
+        recordSelfMessage(session, newMessage.time)
+      } else {
         recordLiveArrival(session, { windowFocused, time: newMessage.time })
       }
     } else {
@@ -343,6 +393,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
           return m
         },
       )
+      if (isSelfMessage && session) {
+        recordSelfMessage(session, newMessage.time)
+      }
     }
   },
 
@@ -649,20 +702,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    if (session.lastReadTime === undefined || lastReadTime > session.lastReadTime) {
-      session.lastReadTime = lastReadTime
-    }
-    const effective = session.lastReadTime!
-
-    // A detached window's present has run ahead of what's loaded, so the newest loaded message
-    // isn't the newest one known to exist; the helper covers that. Clearing the flag against the
-    // loaded window alone would call the session read on the strength of a position that only
-    // covers that window.
-    const newestKnownTime = newestKnownWhisperTime(session)
-
-    if (newestKnownTime === undefined || newestKnownTime <= effective) {
-      session.hasUnread = false
-    }
+    const effective = advanceReadPosition(session, lastReadTime)
 
     if (dismissUnreadLine) {
       session.unreadLineTime = undefined

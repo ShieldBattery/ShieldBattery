@@ -125,9 +125,12 @@ export interface ChatState {
   idToLatestMentionTime: Map<SbChannelId, number>
   /**
    * A map of channel ID -> the frozen position of the unread divider for the current activation.
-   * Captured when an unread channel activates, or when a message arrives while the channel is
-   * activated and scrolled up, and held until deactivation so the divider doesn't chase
-   * `idToLastReadTime` as it keeps advancing underneath it.
+   * Captured when an unread channel activates, or when a message goes unseen in an activated
+   * channel (its view scrolled up, its window detached from the present, or the app window
+   * unfocused) that either has no divider or has one the read position has already moved past. It
+   * then holds still while the user reads through it, so it doesn't chase `idToLastReadTime` as
+   * that keeps advancing underneath it, and is dropped when the user sends a message, explicitly
+   * marks the channel read, or leaves it from the bottom having read past the divider.
    */
   idToUnreadLineTime: Map<SbChannelId, number>
 }
@@ -335,8 +338,9 @@ function dedupeAgainst(incoming: ChatMessage[], existing: readonly ChatMessage[]
  * focused, the one combination that puts the message in front of the user's eyes — in which case
  * the read position advances over it here, ahead of the view reporting that same position, so the
  * channel never reads as unread for even a frame; or it went unseen, and the unread flag goes up.
- * A channel being viewed also freezes its unread divider at the read position, so the divider marks
- * where the user left off instead of chasing the read position as it keeps advancing underneath it.
+ * A channel being viewed also freezes its unread divider at the read position whenever a new run of
+ * unread messages starts, so the divider marks where the user left off instead of chasing the read
+ * position as it keeps advancing underneath it.
  *
  * Kept separate from `updateMessages` because a message arriving while the loaded window is
  * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
@@ -362,12 +366,60 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
 
   state.unreadChannels.add(channelId)
 
-  if (isChannelActivated && !state.idToUnreadLineTime.has(channelId)) {
+  if (isChannelActivated) {
+    // A new run of unread messages starts both where there is no divider yet and where the read
+    // position has moved past the one that is there: the user read through that divider and then
+    // looked away, scrolled up, or paged into history, so it no longer marks anything they haven't
+    // seen and this message is where what they haven't seen begins. A divider the read position has
+    // not passed marks a run that is still growing, and stays where it is.
     const lastReadTime = state.idToLastReadTime.get(channelId)
-    if (lastReadTime !== undefined) {
+    const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+    if (
+      lastReadTime !== undefined &&
+      (unreadLineTime === undefined || lastReadTime > unreadLineTime)
+    ) {
       state.idToUnreadLineTime.set(channelId, lastReadTime)
     }
   }
+}
+
+/**
+ * Advances a channel's read position to `time`, never backwards, and lowers the unread flag once the
+ * position in effect covers everything the client knows exists. Returns that effective position.
+ *
+ * A detached window's present has run ahead of what's loaded, so the newest loaded message isn't the
+ * newest one known to exist; the helper covers that along with a mention newer than anything loaded.
+ * Clearing the flag against the loaded window alone would call the channel read on the strength of a
+ * position that only covers that window.
+ */
+function advanceReadPosition(state: ChatState, channelId: SbChannelId, time: number): number {
+  const existing = state.idToLastReadTime.get(channelId)
+  if (existing === undefined || time > existing) {
+    state.idToLastReadTime.set(channelId, time)
+  }
+  const effective = state.idToLastReadTime.get(channelId)!
+
+  const newestKnownTime = newestKnownChannelTime(state, channelId)
+  if (newestKnownTime === undefined || newestKnownTime <= effective) {
+    state.unreadChannels.delete(channelId)
+  }
+
+  return effective
+}
+
+/**
+ * Records that a message the user sent reached the channel. Having just spoken, the user is caught
+ * up: the read position advances over their own message, which lowers the unread flag once it covers
+ * everything known, and the unread divider is dropped, since nothing that came before their own
+ * message is news to them. This holds whether the message was sent from this session or from another
+ * of the user's sessions, since the read position is per user, and regardless of whether the channel
+ * is activated or where its view sits. The view moves to the bottom on send separately, and the read
+ * report from there is what persists the position taken optimistically here; the server does not
+ * advance the read position on send.
+ */
+function recordSelfMessage(state: ChatState, channelId: SbChannelId, time: number) {
+  advanceReadPosition(state, channelId, time)
+  state.idToUnreadLineTime.delete(channelId)
 }
 
 /**
@@ -460,9 +512,10 @@ function dropMessageWindow(channelMessages: MessagesState) {
 }
 
 /**
- * The conditions a message or system event arrived under when it reached the channel live. Pages
- * of history, deletions, and the sender's echoed message carry no arrival and do no unread
- * bookkeeping; other live events can go unseen.
+ * The conditions a message or system event arrived under when it reached the channel live. Pages of
+ * history and deletions carry no arrival and do no unread bookkeeping, and neither does the sender's
+ * echoed message, whose bookkeeping is `recordSelfMessage`'s instead; other live events can go
+ * unseen.
  */
 interface LiveArrival {
   /** Whether the app window was focused at the moment the message arrived. */
@@ -744,7 +797,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         channelMessages.detachedNewestTime ?? -Infinity,
         newMessage.time,
       )
-      if (!isSelfMessage) {
+      if (isSelfMessage) {
+        recordSelfMessage(state, channelId, newMessage.time)
+      } else {
         recordLiveArrival(state, channelId, { windowFocused, time: newMessage.time })
       }
     } else {
@@ -757,6 +812,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
           return m
         },
       )
+      if (isSelfMessage && channelMessages) {
+        recordSelfMessage(state, channelId, newMessage.time)
+      }
     }
 
     updateChannelInfos(state, channelMentions)
@@ -1202,21 +1260,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/updateLastReadTime'](state, action) {
     const { channelId, lastReadTime, dismissUnreadLine } = action.payload
 
-    const existing = state.idToLastReadTime.get(channelId)
-    if (existing === undefined || lastReadTime > existing) {
-      state.idToLastReadTime.set(channelId, lastReadTime)
-    }
-    const effective = state.idToLastReadTime.get(channelId)!
-
-    // A detached window's present has run ahead of what's loaded, so the newest loaded message
-    // isn't the newest one known to exist; the helper covers that along with a mention newer than
-    // anything loaded. Clearing the flag against the loaded window alone would call the channel
-    // read on the strength of a position that only covers that window.
-    const newestKnownTime = newestKnownChannelTime(state, channelId)
-
-    if (newestKnownTime === undefined || newestKnownTime <= effective) {
-      state.unreadChannels.delete(channelId)
-    }
+    const effective = advanceReadPosition(state, channelId, lastReadTime)
 
     if (dismissUnreadLine) {
       state.idToUnreadLineTime.delete(channelId)
