@@ -1587,6 +1587,12 @@ impl TurnState {
         self.local_slot
     }
 
+    /// Whether [`begin_local_only`](Self::begin_local_only) has run: the session is closing and the
+    /// sim runs on the local echo alone.
+    pub fn is_local_only(&self) -> bool {
+        self.local_only
+    }
+
     /// Whether the session should close itself now: this game has computer players and no live
     /// remote human slot remains (every remote human has left), and it is not already local-only.
     ///
@@ -1653,10 +1659,18 @@ impl TurnState {
                 continue;
             }
             // A real relay directive may already be tracked for this slot (observed, but not yet
-            // due) — a team-victory co-winner's own clean leave arriving while ours is in flight.
-            // It carries the authoritative apply frame/reason and will surface on its own; fabricating
-            // a second entry for the same slot would conflict with it (different apply frame/reason)
-            // and trip the tracker's per-slot consistency check.
+            // due) — a team-victory co-winner's own clean leave arriving while ours is in flight,
+            // or a drop scheduled at a frame this stalled sim will never reach. Fabricating a second
+            // entry would conflict with it and trip the tracker's per-slot consistency check, and
+            // leaving its schedule alone would keep the slot required for a coordinate that may
+            // never come: a frame past the stalled one, or a turn count needing turns the departed
+            // peer will never send. With no peers left to stay in step with, the schedule no
+            // longer matters: expedite it so the next poll surfaces the real reason, and drop the
+            // slot from the readiness set now so the current stalled receive can assemble.
+            if self.leaves.expedite(slot_idx as u32) {
+                self.mark_slot_left(storm);
+                continue;
+            }
             if self.leaves.contains(slot_idx as u32) {
                 continue;
             }
@@ -2824,6 +2838,37 @@ mod tests {
         // fabricated one — and exactly once.
         assert_eq!(state.take_due_leaves(10), vec![(PEER_STORM, DROPPED)]);
         assert!(state.take_due_leaves(10).is_empty());
+    }
+
+    /// A quit during a stall must not wait on a leave scheduled beyond the stalled step: the
+    /// directive was already known, but its apply frame lies past the frame the sim is stuck at,
+    /// and advancing to that frame needs the very peer turn that will never arrive.
+    #[test]
+    fn local_only_unstalls_a_peer_whose_tracked_leave_is_scheduled_out_of_reach() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 10, DROPPED))
+            .unwrap();
+        assert!(state.take_due_leaves(5).is_empty());
+        assert!(state.submit_local_turn(b"local", Some(5)));
+        assert!(!state.receive_turns(5), "stalled on the peer at frame 5");
+
+        state.begin_local_only();
+
+        assert!(
+            state.receive_turns(5),
+            "the peer is dropped from the readiness set the moment the session goes local-only"
+        );
+        assert_eq!(
+            state.take_due_leaves(5),
+            vec![(PEER_STORM, DROPPED)],
+            "the tracked directive surfaces with its real reason on the next poll"
+        );
+        assert!(state.take_due_leaves(5).is_empty(), "and only once");
     }
 
     #[test]

@@ -413,6 +413,10 @@ struct NetcodeV2Bw {
     /// `pending_leave_reason[12]` base: the synced per-slot leave mailbox (nonzero reason = a pending
     /// leave `apply_pending_player_leaves` will apply, then clear, in the synced-RNG window).
     pending_leave_reason: Value<*mut i32>,
+    /// `continue_game_loop`: the byte the game step loop tests before each step; zero once any
+    /// exit path (menu quit, quit to desktop, window close, the end-of-game dialogs) has asked the
+    /// loop to leave. Read by the IN replacement to notice an exit request while stalled.
+    continue_game_loop: Value<u8>,
     /// Hook target: `storm_join_game(...)`, the Storm-level network join handshake. The netcode-v2
     /// native-lobby join replacement replaces it wholesale (building equivalent session state from
     /// our own inputs) whenever a lobby session seed is staged.
@@ -1082,6 +1086,7 @@ fn resolve_netcode_v2(
     let pending_leave_reason = analysis
         .pending_leave_reason()
         .ok_or("pending_leave_reason")?;
+    let continue_game_loop = analysis.continue_game_loop().ok_or("continue_game_loop")?;
     let storm_join_game = analysis.storm_join_game().ok_or("storm_join_game")?;
     let storm_session_player_lookup_or_create = analysis
         .storm_session_player_lookup_or_create()
@@ -1113,6 +1118,7 @@ fn resolve_netcode_v2(
         player_turns_size: Value::new(ctx, player_turns_size),
         game_frame_count: Value::new(ctx, game_frame_count),
         pending_leave_reason: Value::new(ctx, pending_leave_reason),
+        continue_game_loop: Value::new(ctx, continue_game_loop),
         storm_join_game,
         storm_session_player_lookup_or_create: unsafe {
             mem::transmute(storm_session_player_lookup_or_create.0)
@@ -3171,7 +3177,10 @@ impl BwScr {
             });
             match ready {
                 None => TurnReceiveOutcome::Native,
-                Some(false) => TurnReceiveOutcome::Stall,
+                Some(false) => {
+                    self.end_session_for_requested_exit(nc);
+                    TurnReceiveOutcome::Stall
+                }
                 Some(true) => {
                     // Leave pass runs with the turn-state lock released: the leave handlers can issue
                     // commands that re-enter the OUT hook, which would re-lock the turn state.
@@ -3183,6 +3192,42 @@ impl BwScr {
                 }
             }
         }
+    }
+
+    /// Lets a game that has been asked to exit actually leave a stalled lockstep step.
+    ///
+    /// Once no turn set has arrived for a couple of seconds, `step_network` parks in a native wait
+    /// loop that keeps pumping window messages, events, and rendering, and polls the IN hook until a
+    /// complete step can be assembled. That loop never reads `continue_game_loop`, so a quit
+    /// confirmed from the in-game menu (or a window close) while stalled clears the flag and then
+    /// waits forever: the outer step loop, the only reader of the flag, is never reached again
+    /// while the missing peer's turn never arrives. The player sees the game stop drawing and can
+    /// only kill the process.
+    ///
+    /// Called on every stalled receive. When the flag is already clear, the game's outcome for this
+    /// client is settled (it is leaving), so the session ends the same way the victory dialog ends
+    /// it: the result report is snapshotted first, then the session goes local-only, which
+    /// fabricates a leave for every remote slot and announces our own clean leave. The next poll
+    /// assembles a step from our own echoed turns, the wait loop exits, and the step loop finally
+    /// observes the exit request. The result is taken before the fabricated leaves apply so it
+    /// reflects the game as the player left it, not one in which every opponent left afterwards.
+    /// No-op once local-only (the transition is one-way), and a no-op with no live session.
+    unsafe fn end_session_for_requested_exit(&self, nc: &NetcodeV2Bw) {
+        unsafe {
+            if nc.continue_game_loop.resolve() != 0 {
+                return;
+            }
+        }
+        let already_local_only = netcode_v2::with_turn_state(|s| s.is_local_only()).unwrap_or(true);
+        if already_local_only {
+            return;
+        }
+        info!(
+            "netcode v2: game loop exit requested during a network stall; ending the session \
+             locally so the exit can proceed"
+        );
+        game_thread::send_game_results();
+        netcode_v2::begin_local_only();
     }
 
     /// Fills `player_turns[]` / `player_turns_size[]` / `net_player_flags[]` from a set of dispatched

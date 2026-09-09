@@ -643,6 +643,13 @@ impl<'e> Analysis<'e> {
         self.0.game_frame_count()
     }
 
+    /// Byte global the game step loop tests before each step. Every exit path (menu quit, quit
+    /// to desktop, window close, the victory/defeat dialogs, replay end) clears it through
+    /// `request_game_loop_exit`; the loop leaves once it reads zero.
+    pub fn continue_game_loop(&mut self) -> Option<Operand<'e>> {
+        self.0.continue_game_loop()
+    }
+
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
         self.0.net_format_turn_rate()
     }
