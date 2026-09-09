@@ -1,6 +1,6 @@
 ---
 name: issue
-description: File a GitHub issue for ShieldBattery the way this repo wants them - read the code first, dedupe against the whole backlog, draft seven fixed sections pinned to a commit, show the draft, then create it with type, area label, parent and milestone set at creation. Use whenever asked to file, open, create or write up an issue or ticket; to turn a roadmap item, review finding, design decision or Discord thread into an issue; or to raise a side-issue discovered while working on something else (spin-off mode). Creates issues only - never comments, edits, relabels, assigns, closes or moves them.
+description: File a GitHub issue for ShieldBattery the way this repo wants them - read the code first, dedupe against the whole backlog, draft seven fixed sections pinned to a commit, show the draft, then create it with type, area label, parent and milestone set at creation. Use whenever asked to file, open, create or write up an issue or ticket; to turn a roadmap item, review finding, design decision or Discord thread into an issue; or to raise a side-issue discovered while working on something else (spin-off mode). Creates issues and keeps their metadata honest (labels, assignee, board column); may edit the body of an issue it filed itself, but never comments and never edits a body a person wrote, since those would read as the user's words.
 ---
 
 # Filing an issue
@@ -14,10 +14,12 @@ filed examples of it.
 
 ## Write rules (non-negotiable)
 
-- You may **create** issues, with type, labels, parent and milestone set at creation. You may
-  create a milestone when filing a multi-phase plan. Nothing else: no comments, body edits,
-  relabeling, assigning, closing, reopening or board moves unless the user explicitly asks for that
-  action in the current session. Comments are for humans.
+- You may **create** issues, with type, labels, parent and milestone set at creation, and create
+  a milestone when filing a multi-phase plan. Metadata is yours to keep accurate: labels, assignee
+  and board column are state, not speech. An issue you filed is your own text: you may edit its
+  body later (a stale pointer, a decision the user made in chat). What you never do is speak as
+  the user: no comments, and no body edits on an issue a person wrote. Closing or reopening an
+  issue waits for the user to ask. Comments are for humans.
 - **Discord is private; the repo is public.** Anything from Discord is input only: restate the
   need in your own words with the person's name and the date. Never quote, paraphrase closely,
   paste, or link Discord messages. Public sources (PR reviews, existing issues) may be quoted.
