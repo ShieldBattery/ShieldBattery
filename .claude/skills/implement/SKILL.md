@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names, and open a PR with `Fixes #N`. Never edits the issue. Use when asked to implement, work on, pick up, build, or fix an issue by number.
+description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names, and open a PR with `Fixes #N`. Never comments on the issue or edits a body a person wrote; keeps assignee and board status accurate. Use when asked to implement, work on, pick up, build, or fix an issue by number.
 ---
 
 # Implementing an issue
@@ -12,8 +12,11 @@ have none of that: then step 2 is where you build the missing spec, in chat, bef
 
 ## Rules
 
-- **Never edit the issue.** No body edits, comments, labels, assignees or board moves. Drift,
-  questions and progress go in chat and in the PR body.
+- **Never speak as the user on the issue.** No comments. No body edits either, unless the issue
+  is one you filed yourself through the `issue` skill: that body is your own text and you may keep
+  it current. Drift, questions and progress go in chat and in the PR body regardless. Board
+  status, assignee and labels are metadata, not speech; keep them accurate (step 3 moves the issue
+  to In Progress, merging moves it to Done).
 - **Premise before code.** Nothing is written until the drift report (step 2) is in chat.
 - **Scope is the issue.** Desired behavior in, Out of scope out. Anything else you find becomes a
   spin-off issue via the `issue` skill, not part of this PR.
@@ -50,9 +53,9 @@ anything else:
   line each and which one you would build.
 
 Then ask once whether to proceed. A go-ahead, in chat or in the invocation itself ("implement #N,
-go with your calls"), means: build on your recommendations, leave the issue untouched, and list
-every call in the PR body under **Calls made** so the author can override at review. A go-ahead
-does not skip step 2 and does not widen the scope.
+go with your calls"), means: build on your recommendations, leave the issue's body and `needs-*`
+labels as they are, and list every call in the PR body under **Calls made** so the author can
+override at review. A go-ahead does not skip step 2 and does not widen the scope.
 
 ### 2. Verify the premise and report drift
 
@@ -86,6 +89,22 @@ stay linear: each carries only its own commits on top of its parent, so when the
 `git rebase --onto <parent-tip> <old-parent-tip>` the child and push with `--force-with-lease`;
 never merge the parent in. When a stack merges bottom-up, retarget the child PR's base to master
 before the parent's branch is deleted, or GitHub auto-closes the child.
+
+Once the branch exists, mark the issue as being worked on: assign the user and move its board item
+to In Progress, so the board reflects reality while the PR is open. IDs are resolved at run time
+because option IDs change whenever the Status field is rebuilt:
+
+```bash
+gh issue edit N --add-assignee "$(gh api user --jq .login)"
+PROJECT=$(gh project view 1 --owner ShieldBattery --format json --jq .id)
+FIELD=$(gh project field-list 1 --owner ShieldBattery --format json --jq '.fields[] | select(.name=="Status") | .id')
+OPTION=$(gh project field-list 1 --owner ShieldBattery --format json --jq '.fields[] | select(.name=="Status") | .options[] | select(.name=="In Progress") | .id')
+ITEM=$(gh project item-list 1 --owner ShieldBattery --format json --limit 500 --jq '.items[] | select(.content.number==N) | .id')
+gh project item-edit --project-id "$PROJECT" --id "$ITEM" --field-id "$FIELD" --single-select-option-id "$OPTION"
+```
+
+An issue with no area label has no board item; assign it and move on. Closing or reopening an issue
+is a bigger act than a column move and still waits for the user to ask.
 
 ### 4. Build
 
