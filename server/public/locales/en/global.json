@@ -362,6 +362,7 @@
     },
     "errors": {
       "loadingHistory": "Error loading message history: {{errorMessage}}",
+      "loadingUserList": "Error loading user list: {{errorMessage}}",
       "messageNotFound": "That message couldn't be found. It may have been deleted."
     },
     "joinChannel": {

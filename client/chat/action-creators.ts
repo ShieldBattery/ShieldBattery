@@ -413,8 +413,12 @@ export function deleteMessageAsAdmin(
   })
 }
 
-export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkAction {
-  return (dispatch, getStore) => {
+export function getMessageHistory(
+  channelId: SbChannelId,
+  limit: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
     const {
       chat: { idToMessages },
     } = getStore()
@@ -434,19 +438,21 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
       windowGen: channelMessages?.windowGen ?? 0,
     }
 
+    const promise = fetchJson<GetChannelHistoryServerResponse>(
+      apiUrl`chat/${channelId}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
+      { method: 'GET', signal: spec.signal },
+    )
     dispatch({
       type: '@chat/loadMessageHistoryBegin',
       payload: params,
     })
     dispatch({
       type: '@chat/loadMessageHistory',
-      payload: fetchJson<GetChannelHistoryServerResponse>(
-        apiUrl`chat/${channelId}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
-        { method: 'GET' },
-      ),
+      payload: promise,
       meta: params,
     })
-  }
+    await promise
+  })
 }
 
 /**
@@ -454,8 +460,12 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
  * window that sits behind the present a page closer to it. Does nothing if the channel holds no
  * message with a server-recorded time, since there'd be nothing the server could seek from.
  */
-export function getNewerMessages(channelId: SbChannelId, limit: number): ThunkAction {
-  return (dispatch, getStore) => {
+export function getNewerMessages(
+  channelId: SbChannelId,
+  limit: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
     const {
       chat: { idToMessages },
     } = getStore()
@@ -477,19 +487,21 @@ export function getNewerMessages(channelId: SbChannelId, limit: number): ThunkAc
       knownNewestTime: Math.max(afterTime, channelMessages.detachedNewestTime ?? -Infinity),
     }
 
+    const promise = fetchJson<GetChannelHistoryServerResponse>(
+      apiUrl`chat/${channelId}/messages2?limit=${limit}&afterTime=${afterTime}`,
+      { method: 'GET', signal: spec.signal },
+    )
     dispatch({
       type: '@chat/loadNewerMessagesBegin',
       payload: params,
     })
     dispatch({
       type: '@chat/loadNewerMessages',
-      payload: fetchJson<GetChannelHistoryServerResponse>(
-        apiUrl`chat/${channelId}/messages2?limit=${limit}&afterTime=${afterTime}`,
-        { method: 'GET' },
-      ),
+      payload: promise,
       meta: params,
     })
-  }
+    await promise
+  })
 }
 
 /**
@@ -501,8 +513,9 @@ export function getMessagesAround(
   channelId: SbChannelId,
   limit: number,
   aroundTime: number,
+  spec: RequestHandlingSpec,
 ): ThunkAction {
-  return (dispatch, getStore) => {
+  return abortableThunk(spec, async (dispatch, getStore) => {
     const {
       chat: { idToMessages },
     } = getStore()
@@ -523,19 +536,21 @@ export function getMessagesAround(
       knownNewestTime: knownNewest === -Infinity ? undefined : knownNewest,
     }
 
+    const promise = fetchJson<GetChannelHistoryServerResponse>(
+      apiUrl`chat/${channelId}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
+      { method: 'GET', signal: spec.signal },
+    )
     dispatch({
       type: '@chat/loadMessagesAroundBegin',
       payload: params,
     })
     dispatch({
       type: '@chat/loadMessagesAround',
-      payload: fetchJson<GetChannelHistoryServerResponse>(
-        apiUrl`chat/${channelId}/messages2?limit=${limit}&aroundTime=${aroundTime}`,
-        { method: 'GET' },
-      ),
+      payload: promise,
       meta: params,
     })
-  }
+    await promise
+  })
 }
 
 /**
@@ -600,15 +615,19 @@ export function resetMessageWindow(channelId: SbChannelId): ResetMessageWindow {
  * is dropped and the newest page requested in the same tick, so the list never renders an empty
  * channel in between.
  */
-export function jumpToPresent(channelId: SbChannelId, limit: number): ThunkAction {
+export function jumpToPresent(
+  channelId: SbChannelId,
+  limit: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
   return dispatch => {
     dispatch(resetMessageWindow(channelId))
-    dispatch(getMessageHistory(channelId, limit))
+    dispatch(getMessageHistory(channelId, limit, spec))
   }
 }
 
-export function retrieveUserList(channelId: SbChannelId): ThunkAction {
-  return (dispatch, getStore) => {
+export function retrieveUserList(channelId: SbChannelId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
     const {
       chat: { idToUsers },
     } = getStore()
@@ -618,18 +637,21 @@ export function retrieveUserList(channelId: SbChannelId): ThunkAction {
     }
 
     const params = { channelId }
+    const promise = fetchJson<SbUser[]>(apiUrl`chat/${channelId}/users2`, {
+      method: 'GET',
+      signal: spec.signal,
+    })
     dispatch({
       type: '@chat/retrieveUserListBegin',
       payload: params,
     })
     dispatch({
       type: '@chat/retrieveUserList',
-      payload: fetchJson<SbUser[]>(apiUrl`chat/${channelId}/users2`, {
-        method: 'GET',
-      }),
+      payload: promise,
       meta: params,
     })
-  }
+    await promise
+  })
 }
 
 const getChatUserProfileRequestCoalescer = new RequestCoalescer<`${SbChannelId}|${SbUserId}`>()

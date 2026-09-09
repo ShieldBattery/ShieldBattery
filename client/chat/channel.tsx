@@ -182,6 +182,16 @@ export function ConnectedChatChannel({
   // has acted on it the param goes away, so reloading the page afterwards is an ordinary visit.
   const [linkedMessageId, setLinkedMessageId] = useLocationSearchParam(MESSAGE_LINK_PARAM)
 
+  const showMessageLoadError = (err: Error) => {
+    snackbarController.showSnackbar(
+      t('chat.errors.loadingHistory', {
+        defaultValue: 'Error loading message history: {{errorMessage}}',
+        errorMessage: err.message,
+      }),
+      DURATION_LONG,
+    )
+  }
+
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
   // chatters in the channel as an option to mention.
   const recentChatters = useMemo(() => {
@@ -271,7 +281,19 @@ export function ConnectedChatChannel({
   const viewStateKey = `chat.${channelId}`
 
   const onActivate = useEffectEvent(() => {
-    dispatch(retrieveUserList(channelId))
+    dispatch(
+      retrieveUserList(channelId, {
+        onSuccess: () => {},
+        onError: err =>
+          snackbarController.showSnackbar(
+            t('chat.errors.loadingUserList', {
+              defaultValue: 'Error loading user list: {{errorMessage}}',
+              errorMessage: err.message,
+            }),
+            DURATION_LONG,
+          ),
+      }),
+    )
 
     const anchor = chatViewAnchorStore.get(viewStateKey)
     dispatch(activateChannel(channelId))
@@ -290,7 +312,12 @@ export function ConnectedChatChannel({
       // it in place would show the user a spot they weren't (its bottom) only to yank them away once
       // the requested window lands, whereas an empty window renders as loading for that same wait.
       dispatch(resetMessageWindow(channelId))
-      dispatch(getMessagesAround(channelId, MESSAGES_LIMIT, anchor.sentTime))
+      dispatch(
+        getMessagesAround(channelId, MESSAGES_LIMIT, anchor.sentTime, {
+          onSuccess: () => {},
+          onError: showMessageLoadError,
+        }),
+      )
     }
   })
 
@@ -323,19 +350,18 @@ export function ConnectedChatChannel({
               DURATION_LONG,
             )
           } else {
-            snackbarController.showSnackbar(
-              t('chat.errors.loadingHistory', {
-                defaultValue: 'Error loading message history: {{errorMessage}}',
-                errorMessage: err.message,
-              }),
-              DURATION_LONG,
-            )
+            showMessageLoadError(err)
           }
 
           // The window was dropped to make room for one that can't be had, so the channel goes back
           // to the newest messages rather than being left empty.
           setLinkedMessageId('')
-          dispatch(jumpToPresent(channelId, MESSAGES_LIMIT))
+          dispatch(
+            jumpToPresent(channelId, MESSAGES_LIMIT, {
+              onSuccess: () => {},
+              onError: showMessageLoadError,
+            }),
+          )
         },
       }),
     )
@@ -418,20 +444,40 @@ export function ConnectedChatChannel({
   }, [basicChannelInfo, channelNameFromRoute])
 
   const onLoadMoreMessages = useStableCallback(() =>
-    dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
+    dispatch(
+      getMessageHistory(channelId, MESSAGES_LIMIT, {
+        onSuccess: () => {},
+        onError: showMessageLoadError,
+      }),
+    ),
   )
 
   const onLoadNewerMessages = useStableCallback(() => {
-    dispatch(getNewerMessages(channelId, MESSAGES_LIMIT))
+    dispatch(
+      getNewerMessages(channelId, MESSAGES_LIMIT, {
+        onSuccess: () => {},
+        onError: showMessageLoadError,
+      }),
+    )
   })
 
   const onJumpToPresent = () => {
-    dispatch(jumpToPresent(channelId, MESSAGES_LIMIT))
+    dispatch(
+      jumpToPresent(channelId, MESSAGES_LIMIT, {
+        onSuccess: () => {},
+        onError: showMessageLoadError,
+      }),
+    )
   }
 
   const onSeekToUnread = () => {
     if (unreadLineTime !== undefined) {
-      dispatch(getMessagesAround(channelId, MESSAGES_LIMIT, unreadLineTime))
+      dispatch(
+        getMessagesAround(channelId, MESSAGES_LIMIT, unreadLineTime, {
+          onSuccess: () => {},
+          onError: showMessageLoadError,
+        }),
+      )
     }
   }
 

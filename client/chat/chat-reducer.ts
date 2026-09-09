@@ -891,7 +891,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.loadingHistory = false
 
     if (action.error) {
-      // TODO(2Pac): Handle errors
       return
     }
 
@@ -933,7 +932,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.loadingNewer = false
 
     if (action.error) {
-      // TODO(2Pac): Handle errors
       return
     }
 
@@ -997,7 +995,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.loadingNewer = false
 
     if (action.error) {
-      // TODO(2Pac): Handle errors
       return
     }
 
@@ -1082,7 +1079,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/retrieveUserList'](state, action) {
     if (action.error) {
-      // TODO(2Pac): Handle errors
+      // `retrieveUserListBegin` marks the list as loaded when the request starts, and the action
+      // creator skips the fetch while either flag is set, so a failed request clears both: the
+      // next channel activation asks for the list again.
+      const channelUsers = state.idToUsers.get(action.meta.channelId)
+      if (channelUsers) {
+        channelUsers.loadingUserList = false
+        channelUsers.hasLoadedUserList = false
+      }
       return
     }
 

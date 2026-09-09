@@ -1654,6 +1654,34 @@ describe('client/chat/chat-reducer', () => {
     })
   })
 
+  describe('@chat/retrieveUserList', () => {
+    function retrieveUserListBeginAction(): ChatActions {
+      return {
+        type: '@chat/retrieveUserListBegin',
+        payload: { channelId: CHANNEL_ID },
+      }
+    }
+
+    function retrieveUserListAction(payload: SbUser[] = []): ChatActions {
+      return {
+        type: '@chat/retrieveUserList',
+        payload,
+        meta: { channelId: CHANNEL_ID },
+      }
+    }
+
+    test('a failure clears both the loading and loaded flags so the list can be requested again', () => {
+      const loading = chatReducer(makeState(), retrieveUserListBeginAction())
+      expect(loading.idToUsers.get(CHANNEL_ID)?.loadingUserList).toBe(true)
+      expect(loading.idToUsers.get(CHANNEL_ID)?.hasLoadedUserList).toBe(true)
+
+      const result = chatReducer(loading, asFailure(retrieveUserListAction()))
+
+      expect(result.idToUsers.get(CHANNEL_ID)?.loadingUserList).toBe(false)
+      expect(result.idToUsers.get(CHANNEL_ID)?.hasLoadedUserList).toBe(false)
+    })
+  })
+
   describe('oldestServerOriginTime', () => {
     test('returns the oldest server-recorded time, skipping a client-only message at the head', () => {
       expect(
