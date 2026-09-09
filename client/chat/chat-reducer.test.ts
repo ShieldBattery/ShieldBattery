@@ -9,6 +9,7 @@ import {
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   InitialChannelData,
+  JoinChannelMessage,
   SbChannelId,
   SelfJoinChannelMessage,
   ServerChatMessage,
@@ -16,7 +17,7 @@ import {
   makeSbChannelId,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
-import { makeSbUserId } from '../../common/users/sb-user-id'
+import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
 import { ChatActions } from './actions'
 import chatReducerImport, {
   ChatState,
@@ -43,6 +44,16 @@ function textMessage(time: number): ChannelTextMessage {
     time,
     from: USER_ID,
     text: 'hello',
+  }
+}
+
+function joinMessage(time: number): JoinChannelMessage {
+  return {
+    id: `user-join-${time}`,
+    type: ServerChatMessageType.JoinChannel,
+    channelId: CHANNEL_ID,
+    time,
+    userId: USER_ID,
   }
 }
 
@@ -77,9 +88,20 @@ function makeState(
   const state: ChatState = {
     joinedChannels: new Set([CHANNEL_ID]),
     idToBasicInfo: new Map(),
-    idToDetailedInfo: new Map(),
+    idToDetailedInfo: new Map([[CHANNEL_ID, { id: CHANNEL_ID, userCount: 1 }]]),
     idToJoinedInfo: new Map(),
-    idToUsers: new Map(),
+    idToUsers: new Map([
+      [
+        CHANNEL_ID,
+        {
+          active: new Set<SbUserId>(),
+          idle: new Set<SbUserId>(),
+          offline: new Set<SbUserId>(),
+          hasLoadedUserList: false,
+          loadingUserList: false,
+        },
+      ],
+    ]),
     idToMessages: new Map([
       [
         CHANNEL_ID,
@@ -133,7 +155,9 @@ const CHANNEL_BASIC_INFO: BasicChannelInfo = {
 
 const SENDER: SbUser = { id: USER_ID, name: 'sender', created: 0 }
 
-function initialChannelData(overrides: { latestMentionTime?: number } = {}): InitialChannelData {
+function initialChannelData(
+  overrides: { latestMentionTime?: number; hasUnread?: boolean; lastReadTime?: number } = {},
+): InitialChannelData {
   return {
     channelInfo: CHANNEL_BASIC_INFO,
     detailedChannelInfo: { id: CHANNEL_ID, userCount: 1 },
@@ -146,6 +170,8 @@ function initialChannelData(overrides: { latestMentionTime?: number } = {}): Ini
       togglePrivate: false,
       editPermissions: false,
     },
+    hasUnread: overrides.hasUnread,
+    lastReadTime: overrides.lastReadTime,
     latestMentionTime: overrides.latestMentionTime,
   }
 }
@@ -174,6 +200,18 @@ function updateMessageAction(
     type: '@chat/updateMessage',
     payload,
     meta: { channelId: CHANNEL_ID, mentionsSelf, isSelfMessage, windowFocused },
+  }
+}
+
+function updateJoinAction(time: number, windowFocused = true): ChatActions {
+  return {
+    type: '@chat/updateJoin',
+    payload: {
+      action: 'join2',
+      user: SENDER,
+      message: joinMessage(time),
+    },
+    meta: { channelId: CHANNEL_ID, windowFocused },
   }
 }
 
@@ -459,10 +497,10 @@ describe('client/chat/chat-reducer', () => {
       expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
     })
 
-    test('is false for an activated channel, even with an unread mention', () => {
+    test('is true for an activated channel whose read position is behind the mention', () => {
       const state = makeState({ activated: true, lastReadTime: 100, latestMentionTime: 200 })
 
-      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(false)
+      expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(true)
     })
   })
 
@@ -506,6 +544,17 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
 
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('seeds the unread flag from the server, for a channel on screen as well', () => {
+      const state = makeState({ activated: true, atBottom: true })
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ hasUnread: true, lastReadTime: 100 })),
+      )
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
   })
 
@@ -655,15 +704,34 @@ describe('client/chat/chat-reducer', () => {
 
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
     })
 
-    test('a message arriving at the bottom of a focused window counts as seen', () => {
+    test('a message arriving at the bottom of a focused window is read on arrival', () => {
       const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
 
       const result = chatReducer(state, updateMessageAction(200, false, true))
 
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
       expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a mention read on arrival is not an unread mention', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateMessageAction(200, true, true))
+
+      expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(200)
+      expect(channelHasUnreadMention(result, CHANNEL_ID)).toBe(false)
+    })
+
+    test('a message read on arrival does not regress the read position', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 300 })
+
+      const result = chatReducer(state, updateMessageAction(200, false, true))
+
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(300)
     })
 
     test('a message arriving while scrolled up in an unfocused window raises both', () => {
@@ -675,13 +743,14 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
     })
 
-    test('a message arriving while scrolled up in a focused window only freezes the divider', () => {
+    test('a message arriving while scrolled up in a focused window raises both', () => {
       const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
 
       const result = chatReducer(state, updateMessageAction(200, false, true))
 
-      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
     })
 
     test('a message arriving in a channel that is not being viewed raises the unread flag', () => {
@@ -730,6 +799,37 @@ describe('client/chat/chat-reducer', () => {
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
       expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('@chat/updateJoin', () => {
+    test('a join read on arrival advances the read position like any server message', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(messageIdsOf(result)).toEqual(['user-join-200'])
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a join arriving while scrolled up raises the flag and leaves the read position', () => {
+      const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a banner arriving in a channel that is not being viewed raises the unread flag', () => {
+      const state = makeState({ activated: false, lastReadTime: 100 })
+
+      const result = chatReducer(state, updateJoinAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
   })
 
@@ -934,7 +1034,7 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(500)
     })
 
-    test('a live message freezes the unread divider even at the bottom of the loaded window', () => {
+    test('a live message goes unread at the bottom of the loaded window, freezing the divider', () => {
       const state = makeState({
         hasNewer: true,
         activated: true,
@@ -944,7 +1044,22 @@ describe('client/chat/chat-reducer', () => {
 
       const result = chatReducer(state, updateMessageAction(500, false))
 
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a live mention at the bottom of the loaded window is an unread mention', () => {
+      const state = makeState({
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 100,
+      })
+
+      const result = chatReducer(state, updateMessageAction(500, true))
+
+      expect(channelHasUnreadMention(result, CHANNEL_ID)).toBe(true)
     })
 
     test('an attached channel at the bottom does not freeze the divider', () => {
@@ -1139,8 +1254,36 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, activateChannelAction())
 
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
-      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
       expect(result.activatedChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('keeps the unread flag until the read report covers the newest message', () => {
+      const state = makeState({
+        unread: true,
+        atBottom: true,
+        lastReadTime: 100,
+        messages: [textMessage(200)],
+      })
+
+      const activated = chatReducer(state, activateChannelAction())
+      expect(activated.unreadChannels.has(CHANNEL_ID)).toBe(true)
+
+      const read = chatReducer(activated, updateLastReadTimeAction(200))
+      expect(read.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('keeps the unread flag when the view opens on a read report short of the newest', () => {
+      const state = makeState({
+        unread: true,
+        atBottom: false,
+        lastReadTime: 100,
+        messages: [textMessage(200)],
+      })
+
+      const activated = chatReducer(state, activateChannelAction())
+      const read = chatReducer(activated, updateLastReadTimeAction(150))
+
+      expect(read.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
 
     test('leaves the at-bottom state the view reported in place', () => {
