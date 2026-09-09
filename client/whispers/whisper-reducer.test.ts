@@ -245,6 +245,24 @@ function messageIdsOf(state: Immutable<WhisperState>): string[] {
 }
 
 describe('client/whispers/whisper-reducer', () => {
+  describe('@whispers/getWhisperSessions', () => {
+    test('seeds the unread flag from the server, for a session on screen as well', () => {
+      const state = makeState({ activated: true, atBottom: true })
+
+      const result = whisperReducer(state, {
+        type: '@whispers/getWhisperSessions',
+        payload: {
+          sessions: [TARGET_ID],
+          users: [],
+          unreadSessions: [TARGET_ID],
+          lastReadTimes: [{ targetId: TARGET_ID, lastReadTime: 100 }],
+        },
+      })
+
+      expect(sessionOf(result).hasUnread).toBe(true)
+    })
+  })
+
   describe('@whispers/updateLastReadTime', () => {
     test('does not regress the stored position when the incoming time is stale', () => {
       const state = makeState({ lastReadTime: 1000 })
@@ -550,7 +568,7 @@ describe('client/whispers/whisper-reducer', () => {
       expect(sessionOf(result).hasUnread).toBe(true)
     })
 
-    test('a live message freezes the unread divider even at the bottom of the loaded window', () => {
+    test('a live message goes unread at the bottom of the loaded window, freezing the divider', () => {
       const state = makeState({
         hasNewer: true,
         activated: true,
@@ -560,7 +578,10 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateMessageAction(500))
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      const session = sessionOf(result)
+      expect(session.hasUnread).toBe(true)
+      expect(session.unreadLineTime).toBe(100)
+      expect(session.lastReadTime).toBe(100)
     })
 
     test('an attached session at the bottom does not freeze the divider', () => {
@@ -626,9 +647,10 @@ describe('client/whispers/whisper-reducer', () => {
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(true)
       expect(session.unreadLineTime).toBe(100)
+      expect(session.lastReadTime).toBe(100)
     })
 
-    test('a message arriving at the bottom of a focused window counts as seen', () => {
+    test('a message arriving at the bottom of a focused window is read on arrival', () => {
       const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
 
       const result = whisperReducer(state, updateMessageAction(200, true))
@@ -636,6 +658,15 @@ describe('client/whispers/whisper-reducer', () => {
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(false)
       expect(session.unreadLineTime).toBeUndefined()
+      expect(session.lastReadTime).toBe(200)
+    })
+
+    test('a message read on arrival does not regress the read position', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 300 })
+
+      const result = whisperReducer(state, updateMessageAction(200, true))
+
+      expect(sessionOf(result).lastReadTime).toBe(300)
     })
 
     test('a message arriving while scrolled up in an unfocused window raises both', () => {
@@ -648,14 +679,15 @@ describe('client/whispers/whisper-reducer', () => {
       expect(session.unreadLineTime).toBe(100)
     })
 
-    test('a message arriving while scrolled up in a focused window only freezes the divider', () => {
+    test('a message arriving while scrolled up in a focused window raises both', () => {
       const state = makeState({ activated: true, atBottom: false, lastReadTime: 100 })
 
       const result = whisperReducer(state, updateMessageAction(200, true))
 
       const session = sessionOf(result)
-      expect(session.hasUnread).toBe(false)
+      expect(session.hasUnread).toBe(true)
       expect(session.unreadLineTime).toBe(100)
+      expect(session.lastReadTime).toBe(100)
     })
 
     test('a message arriving in a session that is not being viewed raises the unread flag', () => {
@@ -850,8 +882,36 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.unreadLineTime).toBe(100)
-      expect(session.hasUnread).toBe(false)
       expect(session.activated).toBe(true)
+    })
+
+    test('keeps the unread flag until the read report covers the newest message', () => {
+      const state = makeState({
+        unread: true,
+        atBottom: true,
+        lastReadTime: 100,
+        messages: [textMessage(200)],
+      })
+
+      const activated = whisperReducer(state, activateSessionAction())
+      expect(sessionOf(activated).hasUnread).toBe(true)
+
+      const read = whisperReducer(activated, updateLastReadTimeAction(200))
+      expect(sessionOf(read).hasUnread).toBe(false)
+    })
+
+    test('keeps the unread flag when the view opens on a read report short of the newest', () => {
+      const state = makeState({
+        unread: true,
+        atBottom: false,
+        lastReadTime: 100,
+        messages: [textMessage(200)],
+      })
+
+      const activated = whisperReducer(state, activateSessionAction())
+      const read = whisperReducer(activated, updateLastReadTimeAction(150))
+
+      expect(sessionOf(read).hasUnread).toBe(true)
     })
 
     test('leaves the at-bottom state the view reported in place', () => {

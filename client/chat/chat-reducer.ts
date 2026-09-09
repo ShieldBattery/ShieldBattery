@@ -93,7 +93,12 @@ export interface ChatState {
   activatedChannels: Set<SbChannelId>
   /** A set of joined chat channels whose message list is scrolled to the bottom */
   atBottomChannels: Set<SbChannelId>
-  /** A set of joined chat channels that are unread */
+  /**
+   * A set of joined chat channels that are unread: a message from another user is newer than the
+   * channel's read position. Being on screen is no exemption — a message that arrives while the
+   * view is scrolled up, its window is detached from the present, or the app window is unfocused
+   * is unread until the read position covers it.
+   */
   unreadChannels: Set<SbChannelId>
   /** A set of channel IDs saved in various chat messages that no longer exist. */
   deletedChannels: Set<SbChannelId>
@@ -105,8 +110,9 @@ export interface ChatState {
   privateChannels: Set<SbChannelId>
   /**
    * A map of channel ID -> the client's view of the server-recorded read position (epoch ms).
-   * Seeded from the server at init, and advanced optimistically whenever the client reports a
-   * mark-read for the channel.
+   * Seeded from the server at init, advanced optimistically whenever the client reports a mark-read
+   * for the channel, and advanced over a message that lands in front of the user's eyes (see
+   * `recordLiveArrival`), ahead of the view reporting that same position.
    */
   idToLastReadTime: Map<SbChannelId, number>
   /**
@@ -147,7 +153,9 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
 }
 
 /**
- * Returns whether `channelId` has an unread message that mentions the current user. The server
+ * Returns whether `channelId` has an unread message that mentions the current user. This is derived
+ * from the read position alone — having the channel on screen is not the same as having read it, so
+ * a channel being viewed keeps an unread mention until its read position covers it. The server
  * always sends a read marker for a joined channel (falling back to one millisecond before the
  * member's join date when none has been recorded), so a joined channel with mention state should
  * always have an `idToLastReadTime` entry; if one is somehow missing, `?? Infinity` fails toward
@@ -158,10 +166,6 @@ export function channelHasUnreadMention(
   chatState: Immutable<ChatState>,
   channelId: SbChannelId,
 ): boolean {
-  if (chatState.activatedChannels.has(channelId)) {
-    return false
-  }
-
   const latestMentionTime = chatState.idToLatestMentionTime.get(channelId)
   if (latestMentionTime === undefined) {
     return false
@@ -326,30 +330,39 @@ function dedupeAgainst(incoming: ChatMessage[], existing: readonly ChatMessage[]
 }
 
 /**
- * Records that a message the user hasn't seen has arrived in a channel: raises the unread flag and,
- * where applicable, freezes the unread divider. Both mean the same thing — a message arrived that
- * the user won't have seen — and an activated channel counts as seen only when its view sits at the
- * bottom of a window attached to the present *and* the app window is focused, since a message that
- * lands while the user is looking at something else can't have been read no matter where the list
- * is scrolled. The divider freezes at the read position so it marks where the user left off instead
- * of chasing the read position as it keeps advancing underneath it.
+ * Records that a live message or event reached a channel. It either counts as read on arrival —
+ * the channel is being viewed at the bottom of a window attached to the present with the app window
+ * focused, the one combination that puts the message in front of the user's eyes — in which case
+ * the read position advances over it here, ahead of the view reporting that same position, so the
+ * channel never reads as unread for even a frame; or it went unseen, and the unread flag goes up.
+ * A channel being viewed also freezes its unread divider at the read position, so the divider marks
+ * where the user left off instead of chasing the read position as it keeps advancing underneath it.
  *
  * Kept separate from `updateMessages` because a message arriving while the loaded window is
  * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
  */
-function markChannelUnread(state: ChatState, channelId: SbChannelId, windowFocused: boolean) {
+function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: LiveArrival) {
   const isChannelActivated = state.activatedChannels.has(channelId)
+  const isDetached = state.idToMessages.get(channelId)?.hasNewer ?? false
+  const readOnArrival =
+    isChannelActivated &&
+    state.atBottomChannels.has(channelId) &&
+    !isDetached &&
+    arrival.windowFocused
 
-  if (!state.unreadChannels.has(channelId) && (!isChannelActivated || !windowFocused)) {
-    state.unreadChannels.add(channelId)
+  if (readOnArrival) {
+    if (arrival.time !== undefined) {
+      state.idToLastReadTime.set(
+        channelId,
+        Math.max(state.idToLastReadTime.get(channelId) ?? -Infinity, arrival.time),
+      )
+    }
+    return
   }
 
-  const isDetached = state.idToMessages.get(channelId)?.hasNewer ?? false
-  if (
-    isChannelActivated &&
-    (!state.atBottomChannels.has(channelId) || isDetached || !windowFocused) &&
-    !state.idToUnreadLineTime.has(channelId)
-  ) {
+  state.unreadChannels.add(channelId)
+
+  if (isChannelActivated && !state.idToUnreadLineTime.has(channelId)) {
     const lastReadTime = state.idToLastReadTime.get(channelId)
     if (lastReadTime !== undefined) {
       state.idToUnreadLineTime.set(channelId, lastReadTime)
@@ -454,6 +467,12 @@ function dropMessageWindow(channelMessages: MessagesState) {
 interface LiveArrival {
   /** Whether the app window was focused at the moment the message arrived. */
   windowFocused: boolean
+  /**
+   * The server-recorded time (epoch ms) of the arriving message: a message read on arrival advances
+   * the read position over it. Unset for the client-only leave/kick/ban/owner-change banners, which
+   * are stamped with the local clock, a time the server would never accept as a read position.
+   */
+  time?: number
 }
 
 /**
@@ -500,7 +519,7 @@ function updateMessages(
   }
 
   if (arrival) {
-    markChannelUnread(state, channelId, arrival.windowFocused)
+    recordLiveArrival(state, channelId, arrival)
   }
 
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
@@ -597,10 +616,10 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   }
 
   // Seeds the unread badge from the server's recorded read position, so it survives a restart
-  // instead of resetting to "read" until the next message arrives. The seed only concerns channels
-  // that aren't on screen: an activated channel's flag is driven by what arrives live and what the
-  // view reads, both of which know things this seed doesn't.
-  if (hasUnread && !state.activatedChannels.has(channelId)) {
+  // instead of resetting to "read" until the next message arrives. Whether the channel is on screen
+  // doesn't enter into it: the flag follows the read position either way, and the view's read
+  // report lowers it once that position covers the newest message.
+  if (hasUnread) {
     state.unreadChannels.add(channelId)
   }
 
@@ -646,7 +665,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelUsers.active.add(user.id)
     detailedChannelInfo.userCount += 1
 
-    updateMessages(state, channelId, { windowFocused }, m => {
+    updateMessages(state, channelId, { windowFocused, time: message.time }, m => {
       m.push(message)
       return m
     })
@@ -726,13 +745,18 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         newMessage.time,
       )
       if (!isSelfMessage) {
-        markChannelUnread(state, channelId, windowFocused)
+        recordLiveArrival(state, channelId, { windowFocused, time: newMessage.time })
       }
     } else {
-      updateMessages(state, channelId, isSelfMessage ? undefined : { windowFocused }, m => {
-        m.push(newMessage)
-        return m
-      })
+      updateMessages(
+        state,
+        channelId,
+        isSelfMessage ? undefined : { windowFocused, time: newMessage.time },
+        m => {
+          m.push(newMessage)
+          return m
+        },
+      )
     }
 
     updateChannelInfos(state, channelMentions)
@@ -1077,9 +1101,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // reported yet and counts as away from the bottom, which is where it's headed.
     const atBottom = state.atBottomChannels.has(channelId)
 
-    // Freeze the unread divider at the read position before clearing the unread flag, so the
-    // divider marks where the user left off instead of where the read position ends up after the
-    // eager mark-read opening at the newest messages triggers.
+    // Freeze the unread divider at the read position, so it marks where the user left off instead
+    // of where the read position ends up after the eager mark-read opening at the newest messages
+    // triggers. Activation itself never lowers the unread flag: the flag follows the read position,
+    // and `@chat/updateLastReadTime` lowers it once the view's read report covers every known
+    // message.
     if (
       state.unreadChannels.has(channelId) &&
       !state.idToUnreadLineTime.has(channelId) &&
@@ -1103,7 +1129,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       }
     }
 
-    state.unreadChannels.delete(channelId)
     state.activatedChannels.add(channelId)
   },
 
@@ -1166,14 +1191,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   // This arrives both from this session's own optimistic mark-read reports (dispatched only while
   // the channel is activated) and from the socket handler relaying a mark-read made in one of the
   // user's other sessions (which can arrive for a channel this session isn't currently viewing).
-  // The unread flag is re-evaluated either way: an activated channel can carry the flag, since a
-  // message arriving while the app window is unfocused counts as unread no matter what's on screen,
-  // and this is what lowers it once the read position covers that message. The frozen divider is
-  // only re-evaluated for a channel that isn't activated: while one is being viewed the divider has
-  // to hold still where it is, and `deactivateChannel` is what re-evaluates it. An explicit
-  // mark-read carries `dismissUnreadLine`, which drops the divider whether or not the channel is
-  // activated, because the user asked for the unread state to go rather than merely scrolling past
-  // it.
+  // The unread flag is re-evaluated either way: an activated channel carries the flag whenever a
+  // message arrived that wasn't read on arrival — the view scrolled up, its window detached from
+  // the present, or the app window unfocused — and this is what lowers it once the read position
+  // covers every message known to exist. The frozen divider is only re-evaluated for a channel that
+  // isn't activated: while one is being viewed the divider has to hold still where it is, and
+  // `deactivateChannel` is what re-evaluates it. An explicit mark-read carries `dismissUnreadLine`,
+  // which drops the divider whether or not the channel is activated, because the user asked for the
+  // unread state to go rather than merely scrolling past it.
   ['@chat/updateLastReadTime'](state, action) {
     const { channelId, lastReadTime, dismissUnreadLine } = action.payload
 

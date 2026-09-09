@@ -41,11 +41,18 @@ export interface WhisperSession {
   activated: boolean
   /** Whether this session's message list is scrolled to the bottom. */
   atBottom: boolean
+  /**
+   * Whether this session is unread: a message from the other user is newer than the session's read
+   * position. Being on screen is no exemption — a message that arrives while the view is scrolled
+   * up, its window is detached from the present, or the app window is unfocused is unread until the
+   * read position covers it.
+   */
   hasUnread: boolean
   /**
    * The client's view of the server-recorded read position (epoch ms) for this session. Seeded
-   * from the server at init, and advanced optimistically whenever the client reports a mark-read
-   * for the session.
+   * from the server at init, advanced optimistically whenever the client reports a mark-read for
+   * the session, and advanced over a message that lands in front of the user's eyes (see
+   * `recordLiveArrival`), ahead of the view reporting that same position.
    */
   lastReadTime?: number
   /**
@@ -142,25 +149,32 @@ function dedupeAgainst(
 }
 
 /**
- * Records that a message the user hasn't seen has arrived in a whisper session: raises the unread
- * flag and, where applicable, freezes the unread divider. Both mean the same thing — a message
- * arrived that the user won't have seen — and an activated session counts as seen only when its
- * view sits at the bottom of a window attached to the present *and* the app window is focused,
- * since a message that lands while the user is looking at something else can't have been read no
- * matter where the list is scrolled. The divider freezes at the read position so it marks where the
- * user left off instead of chasing the read position as it keeps advancing underneath it.
+ * Records that a live message reached a whisper session. It either counts as read on arrival — the
+ * session is being viewed at the bottom of a window attached to the present with the app window
+ * focused, the one combination that puts the message in front of the user's eyes — in which case
+ * the read position advances over it here, ahead of the view reporting that same position, so the
+ * session never reads as unread for even a frame; or it went unseen, and the unread flag goes up.
+ * A session being viewed also freezes its unread divider at the read position, so the divider marks
+ * where the user left off instead of chasing the read position as it keeps advancing underneath it.
  *
  * Kept separate from `updateMessages` because a message arriving while the loaded window is
  * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
  */
-function markSessionUnread(session: WhisperSession, windowFocused: boolean) {
-  if (!session.hasUnread && (!session.activated || !windowFocused)) {
-    session.hasUnread = true
+function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
+  const readOnArrival =
+    session.activated && session.atBottom && !session.hasNewer && arrival.windowFocused
+
+  if (readOnArrival) {
+    if (arrival.time !== undefined) {
+      session.lastReadTime = Math.max(session.lastReadTime ?? -Infinity, arrival.time)
+    }
+    return
   }
+
+  session.hasUnread = true
 
   if (
     session.activated &&
-    (!session.atBottom || session.hasNewer || !windowFocused) &&
     session.unreadLineTime === undefined &&
     session.lastReadTime !== undefined
   ) {
@@ -193,6 +207,12 @@ function dropMessageWindow(session: WhisperSession) {
 interface LiveArrival {
   /** Whether the app window was focused at the moment the message arrived. */
   windowFocused: boolean
+  /**
+   * The server-recorded time (epoch ms) of the arriving message: a message read on arrival advances
+   * the read position over it. Optional only to mirror the chat reducer's arrivals, whose
+   * client-only banners carry no server time; every whisper message has one.
+   */
+  time?: number
 }
 
 /**
@@ -229,7 +249,7 @@ function updateMessages(
   }
 
   if (arrival) {
-    markSessionUnread(session, arrival.windowFocused)
+    recordLiveArrival(session, arrival)
   }
 
   session.hasHistory = session.hasHistory || sliced
@@ -248,12 +268,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     // Seeds the unread badge from the server's recorded read position, so it survives a restart
-    // instead of resetting to "read" until the next message arrives. The seed only concerns
-    // sessions that aren't on screen: an activated session's flag is driven by what arrives live
-    // and what the view reads, both of which know things this seed doesn't.
+    // instead of resetting to "read" until the next message arrives. Whether the session is on
+    // screen doesn't enter into it: the flag follows the read position either way, and the view's
+    // read report lowers it once that position covers the newest message.
     for (const target of action.payload.unreadSessions ?? []) {
       const session = state.byId.get(target)
-      if (session && !session.activated) {
+      if (session) {
         session.hasUnread = true
       }
     }
@@ -311,13 +331,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         newMessage.time,
       )
       if (!isSelfMessage) {
-        markSessionUnread(session, windowFocused)
+        recordLiveArrival(session, { windowFocused, time: newMessage.time })
       }
     } else {
-      updateMessages(state, target, isSelfMessage ? undefined : { windowFocused }, m => {
-        m.push(newMessage)
-        return m
-      })
+      updateMessages(
+        state,
+        target,
+        isSelfMessage ? undefined : { windowFocused, time: newMessage.time },
+        m => {
+          m.push(newMessage)
+          return m
+        },
+      )
     }
   },
 
@@ -499,9 +524,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // reported yet and counts as away from the bottom, which is where it's headed.
     const atBottom = session.atBottom
 
-    // Freeze the unread divider at the read position before clearing the unread flag, so the
-    // divider marks where the user left off instead of where the read position ends up after the
-    // eager mark-read opening at the newest messages triggers.
+    // Freeze the unread divider at the read position, so it marks where the user left off instead
+    // of where the read position ends up after the eager mark-read opening at the newest messages
+    // triggers. Activation itself never lowers the unread flag: the flag follows the read position,
+    // and `@whispers/updateLastReadTime` lowers it once the view's read report covers every known
+    // message.
     if (
       session.hasUnread &&
       session.unreadLineTime === undefined &&
@@ -523,7 +550,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     session.activated = true
-    session.hasUnread = false
   },
 
   ['@whispers/deactivateWhisperSession'](state, action) {
@@ -607,14 +633,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   // This arrives both from this session's own optimistic mark-read reports (dispatched only while
   // the session is activated) and from the socket handler relaying a mark-read made in one of the
   // user's other sessions (which can arrive for a session this session isn't currently viewing).
-  // The unread flag is re-evaluated either way: an activated session can carry the flag, since a
-  // message arriving while the app window is unfocused counts as unread no matter what's on screen,
-  // and this is what lowers it once the read position covers that message. The frozen divider is
-  // only re-evaluated for a session that isn't activated: while one is being viewed the divider has
-  // to hold still where it is, and `deactivateWhisperSession` is what re-evaluates it. An explicit
-  // mark-read carries `dismissUnreadLine`, which drops the divider whether or not the session is
-  // activated, because the user asked for the unread state to go rather than merely scrolling past
-  // it.
+  // The unread flag is re-evaluated either way: an activated session carries the flag whenever a
+  // message arrived that wasn't read on arrival — the view scrolled up, its window detached from
+  // the present, or the app window unfocused — and this is what lowers it once the read position
+  // covers every message known to exist. The frozen divider is only re-evaluated for a session that
+  // isn't activated: while one is being viewed the divider has to hold still where it is, and
+  // `deactivateWhisperSession` is what re-evaluates it. An explicit mark-read carries
+  // `dismissUnreadLine`, which drops the divider whether or not the session is activated, because
+  // the user asked for the unread state to go rather than merely scrolling past it.
   ['@whispers/updateLastReadTime'](state, action) {
     const { targetId, lastReadTime, dismissUnreadLine } = action.payload
 

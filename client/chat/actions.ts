@@ -401,10 +401,9 @@ export interface SearchChannels {
 
 /**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel
- * as "active", and removes the unread indicator if there is one. The message list reports the
- * at-bottom state it opened in (`UpdateChannelAtBottom`) ahead of this being dispatched, so the
- * reducer reads the current flag to tell an open at the newest messages from one restoring a
- * position further back.
+ * as "active". The message list reports the at-bottom state it opened in (`UpdateChannelAtBottom`)
+ * ahead of this being dispatched, so the reducer reads the current flag to tell an open at the
+ * newest messages from one restoring a position further back.
  */
 export interface ActivateChannel {
   type: '@chat/activateChannel'
@@ -575,9 +574,10 @@ export interface UpdateMessage {
      */
     isSelfMessage: boolean
     /**
-     * Whether the app window was focused when the live event arrived. A non-self message landing
-     * in an unfocused window can't have been seen no matter where the channel's view is scrolled,
-     * so the reducer counts it as unread regardless.
+     * Whether the app window was focused when the live event arrived. A non-self message counts as
+     * read on arrival only when the window is focused and the view sits at the bottom of a message
+     * window attached to the present; anything else leaves the channel unread until its read
+     * position covers the message.
      */
     windowFocused: boolean
   }
