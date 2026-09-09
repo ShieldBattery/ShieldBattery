@@ -3,6 +3,18 @@ import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import LoadingIndicator from '../progress/dots'
 
+/**
+ * The minimum time between two loads requested for the same edge of the list.
+ *
+ * Restarting the observer (which happens whenever a loading flag changes) reports an edge as
+ * intersecting again if nothing has moved it out of view, so a load that leaves the layout exactly
+ * as it was — a page that failed, or one that came back empty — would otherwise be requested again
+ * in the same frame, indefinitely. Spacing repeat loads for an edge bounds that to one attempt per
+ * interval while still retrying, and a page that legitimately leaves the sentinel in view still
+ * chains into the next one, just no sooner than the interval.
+ */
+const MIN_LOAD_INTERVAL_MS = 1000
+
 const LoadingArea = styled.div`
   display: flex;
   flex-direction: row;
@@ -89,6 +101,11 @@ export default function InfiniteList({
   const prevTargetRef = useRef<HTMLDivElement>(null)
   const nextTargetRef = useRef<HTMLDivElement>(null)
   const observer = useRef<IntersectionObserver>(undefined)
+  const lastLoadRef = useRef<{ token: unknown; prev: number; next: number }>({
+    token: refreshToken,
+    prev: -Infinity,
+    next: -Infinity,
+  })
 
   // NOTE(2Pac): We restart the observer in a couple of cases:
   //   - `hasPrevData`/`hasNextData` has changed; this allows InfiniteScrollList to be rendered
@@ -96,6 +113,34 @@ export default function InfiniteList({
   //   - `refreshToken` has changed; this means the user of this component forcefully wants to
   //     restart observing for whatever reason.
   useEffect(() => {
+    const lastLoad = lastLoadRef.current
+    if (lastLoad.token !== refreshToken) {
+      // A new token means the list was reset (a different channel, a new search, ...), so its first
+      // page shouldn't be made to wait on loads that were requested for the content before it.
+      lastLoad.token = refreshToken
+      lastLoad.prev = -Infinity
+      lastLoad.next = -Infinity
+    }
+
+    const timers: {
+      prev?: ReturnType<typeof setTimeout>
+      next?: ReturnType<typeof setTimeout>
+    } = {}
+
+    const requestLoad = (edge: 'prev' | 'next', load: () => void) => {
+      const elapsed = performance.now() - lastLoad[edge]
+      if (elapsed >= MIN_LOAD_INTERVAL_MS) {
+        lastLoad[edge] = performance.now()
+        load()
+      } else {
+        clearTimeout(timers[edge])
+        timers[edge] = setTimeout(() => {
+          lastLoad[edge] = performance.now()
+          load()
+        }, MIN_LOAD_INTERVAL_MS - elapsed)
+      }
+    }
+
     const startObserving = () => {
       if (!observer.current) {
         return
@@ -120,12 +165,12 @@ export default function InfiniteList({
 
         if (prevLoadingEnabled && entry.target === prevTargetRef.current) {
           if (!isLoadingPrev && hasPrevData && onLoadPrevData) {
-            onLoadPrevData()
+            requestLoad('prev', onLoadPrevData)
           }
         }
         if (nextLoadingEnabled && entry.target === nextTargetRef.current) {
           if (!isLoadingNext && hasNextData && onLoadNextData) {
-            onLoadNextData()
+            requestLoad('next', onLoadNextData)
           }
         }
       }
@@ -140,6 +185,10 @@ export default function InfiniteList({
     startObserving()
 
     return () => {
+      // A deferred load belongs to the effect run that scheduled it: once that run is torn down,
+      // the callbacks it closed over are not necessarily the ones the list wants called.
+      clearTimeout(timers.prev)
+      clearTimeout(timers.next)
       observer.current?.disconnect()
       observer.current = undefined
     }

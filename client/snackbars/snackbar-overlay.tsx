@@ -71,13 +71,25 @@ const transition: Transition = {
 export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
   const idRef = useRef(0)
   const [displayedSnackbar, setDisplayedSnackbar] = useState<QueuedSnackbar>()
+  const displayedRef = useRef<QueuedSnackbar | undefined>(undefined)
   const [isHovering, setIsHovering] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const [queue, setQueue] = useState<QueuedSnackbar[]>([])
   const controller = useMemo<SnackbarController>(
     () => ({
       showSnackbar(message, durationMillis = DURATION_SHORT, options) {
-        setQueue(q => [...q, { id: idRef.current, message, durationMillis, options }])
+        // The dedupe check runs inside the updater so that it sees every snackbar requested this
+        // tick, not just the ones React has re-rendered for.
+        setQueue(q => {
+          if (
+            options?.dedupe &&
+            (displayedRef.current?.message === message || q.some(s => s.message === message))
+          ) {
+            return q
+          }
+
+          return [...q, { id: idRef.current, message, durationMillis, options }]
+        })
         idRef.current = (idRef.current + 1) % Number.MAX_SAFE_INTEGER
       },
     }),
@@ -124,6 +136,10 @@ export function SnackbarOverlay({ children }: { children: React.ReactNode }) {
       startDismissTimer(Math.round(displayedSnackbar.durationMillis / 2))
     }
   })
+
+  useLayoutEffect(() => {
+    displayedRef.current = displayedSnackbar
+  }, [displayedSnackbar])
 
   useEffect(() => {
     registerSnackbarController(controller)

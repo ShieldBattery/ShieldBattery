@@ -189,6 +189,7 @@ export function ConnectedChatChannel({
         errorMessage: err.message,
       }),
       DURATION_LONG,
+      { dedupe: true },
     )
   }
 
@@ -291,6 +292,7 @@ export function ConnectedChatChannel({
               errorMessage: err.message,
             }),
             DURATION_LONG,
+            { dedupe: true },
           ),
       }),
     )
