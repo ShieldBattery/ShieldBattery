@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { Link } from 'wouter'
 import BlueskyLogo from '../icons/brands/bluesky.svg?react'
 import DiscordLogo from '../icons/brands/discord.svg?react'
@@ -15,6 +15,39 @@ const Root = styled.div`
   align-items: center;
 `
 
+/*
+ * A hover-only version of the splash logotext's transmission glitch: a stuttering two-tone
+ * chromatic split in the brand's blue and amber. It never plays on its own — this logo sits on
+ * surfaces players see constantly, so the interference is a small reward for poking at it rather
+ * than ambient motion.
+ */
+const gearGlitch = keyframes`
+  0%, 24.9%, 43%, 61.9%, 78%, 100% {
+    transform: none;
+    filter: none;
+  }
+  25% {
+    transform: translateX(-1px);
+    filter: drop-shadow(2px 0 0 rgb(from var(--color-amber60) r g b / 0.6))
+      drop-shadow(-2px 0 0 rgb(from var(--color-blue80) r g b / 0.6));
+  }
+  34% {
+    transform: translateX(1px) skewX(-1deg);
+    filter: drop-shadow(-2px 0 0 rgb(from var(--color-amber60) r g b / 0.6))
+      drop-shadow(2px 0 0 rgb(from var(--color-blue80) r g b / 0.6));
+  }
+  62% {
+    transform: translateX(1px);
+    filter: drop-shadow(-3px 0 0 rgb(from var(--color-amber60) r g b / 0.5))
+      drop-shadow(3px 0 0 rgb(from var(--color-blue80) r g b / 0.5));
+  }
+  70% {
+    transform: translateX(-1px);
+    filter: drop-shadow(1px 0 0 rgb(from var(--color-amber60) r g b / 0.6))
+      drop-shadow(-1px 0 0 rgb(from var(--color-blue80) r g b / 0.6));
+  }
+`
+
 const StyledLogo = styled(Logo)`
   width: 112px;
   height: auto;
@@ -24,6 +57,12 @@ const StyledLogo = styled(Logo)`
 
   & path {
     fill: currentColor !important;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    &:hover {
+      animation: ${gearGlitch} 1.1s linear infinite;
+    }
   }
 `
 
