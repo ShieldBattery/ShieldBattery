@@ -543,6 +543,10 @@ pub struct TurnState {
     /// Whether the driver has been told the game loop is running. The IN hook offers the signal
     /// on every in-game receive; only the first one is handed over.
     game_started_announced: bool,
+    /// Whether the first framed outbound turn has been logged. One line per game: the frame the
+    /// running loop first stamps is the evidence that the stamp restarted from near zero after
+    /// the pre-loop pipe seed, which a log can then check against the relay's flight recording.
+    first_frame_logged: bool,
     /// Slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game thread.
     /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_unsynced_leaves`), which
     /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
@@ -638,6 +642,7 @@ impl TurnState {
             has_computers,
             result_report_possible: true,
             game_started_announced: false,
+            first_frame_logged: false,
             #[cfg(debug_assertions)]
             forced_unsynced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
@@ -799,6 +804,19 @@ impl TurnState {
     /// the executable-turn index for an in-game turn, or `None` for a lobby turn (the consensus
     /// coordinate the relay preserves; leave it `None` only for lobby turns).
     ///
+    /// The frame is forwarded only once the game loop has taken its first network step (the
+    /// [`submit_game_started`](Self::submit_game_started) latch). BW's executable-turn index is
+    /// incremented by every `step_network`, which the lobby screen polls too, so it climbs through
+    /// the lobby and countdown; BW zeroes it at the top of its initialized-game loop prelude,
+    /// immediately before its own pre-loop pipe flush and first in-loop `step_network`. Our
+    /// initial-buffer pipe seed runs before that prelude (see `seed_netcode_v2_pipe`), so it reads
+    /// the lobby-era value, hundreds of frames past where the loop actually starts. The relay keeps
+    /// each slot's frame as a monotone high-water mark and schedules an unfinalized drop's leave
+    /// one past the departed slot's last frame, so a stale seed stamp on a slot that drops in the
+    /// game's first seconds would place that leave at a frame the survivors, pinned at the in-loop
+    /// frame where they stall, can never reach. Such turns go out frameless, exactly like lobby
+    /// turns; every stamp after the latch is post-zero and monotone.
+    ///
     /// Returns `false` if the channel to the driver is closed or full (the driver died or the game
     /// stalled) — the caller decides how to surface that (stall UI / teardown). `seq` and `slot`
     /// are left zero: the driver assigns the seq and the relay binds the slot from the token.
@@ -811,11 +829,22 @@ impl TurnState {
             self.echo_local_turn(commands);
             return true;
         }
+        let game_frame_count = if self.game_started_announced {
+            frame
+        } else {
+            None
+        };
+        if let Some(frame) = game_frame_count
+            && !self.first_frame_logged
+        {
+            self.first_frame_logged = true;
+            debug!("netcode v2: first in-loop turn stamped at frame {frame}");
+        }
         let payload = Payload {
             seq: 0,
             slot: 0,
             commands: commands.clone(),
-            game_frame_count: frame,
+            game_frame_count,
             // We never originate relay directives; the relay stamps the buffer directive onto turns
             // it forwards, so our own outbound turn carries none.
             buffer_directive: None,
@@ -2271,6 +2300,8 @@ mod tests {
             _lobby_in_tx,
         ) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        // The loop is stepping, so the turn carries its frame.
+        state.submit_game_started();
 
         assert!(state.submit_local_turn(b"local", Some(7)));
         // It went out to the relay...
@@ -2695,6 +2726,43 @@ mod tests {
         // And only a single clean-leave signal reached the driver.
         assert_eq!(leave_intent_rx.try_recv(), Ok(()));
         assert!(leave_intent_rx.try_recv().is_err());
+    }
+
+    /// The pipe seed is flushed before the loop's first network step, while BW's executable-turn
+    /// index still holds its lobby-era value. Those turns must leave frameless: a stale coordinate
+    /// recorded for this slot would schedule a frame-based leave for it past where survivors stall.
+    #[test]
+    fn submit_local_turn_is_frameless_until_the_game_loop_steps() {
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+
+        // Seed time: the counter reads a lobby-era value.
+        assert!(state.submit_local_turn(b"seed", Some(215)));
+        let sent = out_rx
+            .try_recv()
+            .expect("seed turn forwarded to the driver");
+        assert_eq!(&sent.commands[..], b"seed");
+        assert_eq!(
+            sent.game_frame_count, None,
+            "a turn produced before the loop's first step carries no frame"
+        );
+
+        // The first in-loop receive latches the loop as stepping; from here the stamp is real.
+        state.submit_game_started();
+        assert!(state.submit_local_turn(b"in-loop", Some(0)));
+        let sent = out_rx
+            .try_recv()
+            .expect("in-loop turn forwarded to the driver");
+        assert_eq!(&sent.commands[..], b"in-loop");
+        assert_eq!(sent.game_frame_count, Some(0));
     }
 
     #[test]

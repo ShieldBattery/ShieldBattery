@@ -3248,6 +3248,11 @@ impl BwScr {
     /// reach peers via the relay fan-out (and ourselves via the local echo), so everyone's first
     /// receive finds a full turn queued. No-op when there is no live session (the lobby's native
     /// flush already primed the native pipe).
+    ///
+    /// This runs before BW zeroes its executable-turn index (done at the top of the initialized-game
+    /// loop, ahead of the native pre-loop flush), so the seeded turns are stamped with the lobby-era
+    /// index; the turn state sends them frameless for that reason (see
+    /// [`TurnState::submit_local_turn`](netcode_v2::TurnState::submit_local_turn)).
     pub fn seed_netcode_v2_pipe(&self) {
         unsafe {
             self.netcode_v2_flush_pipe();
