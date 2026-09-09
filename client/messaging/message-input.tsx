@@ -38,6 +38,7 @@ import {
   recordEmoteUsage,
   searchUnicodeEmojis,
 } from './emote-suggestions'
+import { SentMessageHistory } from './sent-message-history'
 
 // We limit the number of users we display in user mention popup to 10 so we don't need to have
 // scrollbars; and usually the person who is trying to mention someone is interested in only one
@@ -139,6 +140,29 @@ function useStorageSyncedState(
   return [value, syncedSetValue]
 }
 
+/** The sent-message history for each chat instance, keyed the same way as `messageInputMap`. */
+const sentMessageHistoryMap = new Map<string, SentMessageHistory>()
+
+/**
+ * Returns the sent-message history for a chat instance. With a key, the history is shared across
+ * mounts of that instance (so it survives navigating away and back); without one it lives only as
+ * long as this component. Like `useStorageSyncedState`, the key is read on mount only.
+ */
+function useSentMessageHistory(key?: string): SentMessageHistory {
+  const [history] = useState(() => {
+    if (!key) {
+      return new SentMessageHistory()
+    }
+    let history = sentMessageHistoryMap.get(key)
+    if (!history) {
+      history = new SentMessageHistory()
+      sentMessageHistoryMap.set(key, history)
+    }
+    return history
+  })
+  return history
+}
+
 export interface MessageInputProps {
   className?: string
   showDivider?: boolean
@@ -148,7 +172,8 @@ export interface MessageInputProps {
    * A key to store the current message input contents under (in a global Map). If provided, the
    * previous message input contents will be restored when the component is mounted (so the key
    * should uniquely identify the type + instance of the chat container). The key is prefixed with
-   * the user's ID to handle user changing their account.
+   * the user's ID to handle user changing their account. The sent-message history used for
+   * Up/Down recall is stored under this same key.
    */
   storageKey?: string
   /**
@@ -188,6 +213,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
     const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
     const [message, setMessage] = useStorageSyncedState('', combinedStorageKey)
+    const sentHistory = useSentMessageHistory(combinedStorageKey)
     const inputRef = useRef<HTMLInputElement>(null)
     const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
 
@@ -452,6 +478,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         }
 
         onSendChatMessage(toSend)
+        sentHistory.push(toSend)
         setMessage('')
       }
     })
@@ -540,6 +567,35 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 )
                 setVirtuallyFocusedMentionIndex(0)
               }
+            } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+              if (
+                event.shiftKey ||
+                event.ctrlKey ||
+                event.altKey ||
+                event.metaKey ||
+                event.nativeEvent.isComposing
+              ) {
+                return
+              }
+              if (emotesOpen || userMentionsOpen) {
+                // The open suggestion list owns the arrow keys (it moves its highlighted item on
+                // them)
+                return
+              }
+
+              const recalled =
+                event.key === 'ArrowUp' ? sentHistory.older(message) : sentHistory.newer(message)
+              if (recalled === undefined) {
+                return
+              }
+
+              event.preventDefault()
+              setMessage(recalled)
+              // The caret goes to the end of the recalled text once the new value has been applied,
+              // which happens after this handler returns
+              queueMicrotask(() => {
+                inputRef.current?.setSelectionRange(recalled.length, recalled.length)
+              })
             }
           }}
           onEnterKeyDown={onEnterKeyDown}
