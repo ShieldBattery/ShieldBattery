@@ -73,10 +73,13 @@ function makeState(
   return state as Immutable<WhisperState>
 }
 
-function updateLastReadTimeAction(lastReadTime: number): WhisperActions {
+function updateLastReadTimeAction(
+  lastReadTime: number,
+  dismissUnreadLine?: boolean,
+): WhisperActions {
   return {
     type: '@whispers/updateLastReadTime',
-    payload: { targetId: TARGET_ID, lastReadTime },
+    payload: { targetId: TARGET_ID, lastReadTime, dismissUnreadLine },
   }
 }
 
@@ -306,6 +309,21 @@ describe('client/whispers/whisper-reducer', () => {
       // The read position itself still advances even while activated, since this is also the path
       // this session's own optimistic mark-read reports take.
       expect(session.lastReadTime).toBe(200)
+    })
+
+    test('drops the frozen divider of an activated session when dismissing it', () => {
+      const state = makeState({
+        activated: true,
+        unreadLineTime: 100,
+        lastReadTime: 100,
+        messages: [textMessage(150)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(200, true))
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.hasUnread).toBe(false)
     })
 
     test('clears an activated session flag once the position covers the newest message', () => {

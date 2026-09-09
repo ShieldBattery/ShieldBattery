@@ -266,6 +266,13 @@ export interface UpdateLastReadTime {
   payload: {
     targetId: SbUserId
     lastReadTime: number
+    /**
+     * When true, the update comes from the user explicitly marking the conversation read, and the
+     * frozen unread divider is dropped even for an activated session. An ordinary read report only
+     * re-evaluates the divider of a session that isn't being viewed, so it holds still under the
+     * reader.
+     */
+    dismissUnreadLine?: boolean
   }
 }
 

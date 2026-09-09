@@ -3,7 +3,7 @@ import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useContext, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -190,31 +190,56 @@ const JumpToBottomButton = styled(ElevatedButton)`
   pointer-events: auto;
 `
 
-const UnreadBannerButton = styled(m.button)`
-  ${buttonReset};
-  ${labelMedium};
-
+const UnreadBanner = styled(m.div)`
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 24px;
-  padding: 0 12px;
 
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: stretch;
 
   background-color: var(--theme-amber-container);
   border-radius: 0 0 4px 4px;
   color: var(--theme-on-amber-container);
+`
+
+const unreadBannerActionCss = css`
+  ${buttonReset};
+  ${labelMedium};
+
+  height: 100%;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: inherit;
   text-align: left;
 
   &:focus-visible {
     outline: 2px solid var(--theme-on-amber-container);
     outline-offset: -2px;
   }
+`
+
+/**
+ * The banner's primary action: the whole width that isn't the mark-read action jumps to the
+ * divider.
+ */
+const UnreadBannerJump = styled.button`
+  ${unreadBannerActionCss};
+  flex-grow: 1;
+  min-width: 0;
+`
+
+const UnreadBannerMarkRead = styled.button`
+  ${unreadBannerActionCss};
+  flex-shrink: 0;
+  gap: 4px;
+  border-left: 1px solid rgb(from var(--theme-on-amber-container) r g b / 0.24);
 `
 
 const jumpToBottomVariants: Variants = {
@@ -314,6 +339,12 @@ export interface ChatProps {
    */
   onSeekToUnread?: () => void
   /**
+   * Called when the user asks, from the "New messages" banner, for everything in the conversation
+   * to count as read without moving the view. Owners are expected to advance the read position to
+   * now and drop the unread divider. The banner only offers the action when this is provided.
+   */
+  onMarkRead?: () => void
+  /**
    * If true, pressing Escape moves the list to the newest message the same way the jump-to-bottom
    * button does. Escape is left for other handlers when the list is already at the bottom, since
    * there is nothing for it to do there. Defaults to false.
@@ -342,6 +373,7 @@ export function Chat({
   onAtBottomChange,
   onJumpToPresent,
   onSeekToUnread,
+  onMarkRead,
   escapeJumpsToBottom = false,
 }: ChatProps) {
   const { t } = useTranslation()
@@ -955,17 +987,24 @@ export function Chat({
             />
             <AnimatePresence>
               {showUnreadBanner && unreadLineTime !== undefined ? (
-                <UnreadBannerButton
+                <UnreadBanner
                   key='new-messages'
                   variants={unreadBannerVariants}
                   initial='initial'
                   animate='visible'
                   exit='exit'
-                  transition={overlayTransition}
-                  onClick={onUnreadBannerClick}>
-                  <span>{t('messaging.newMessages', 'New messages')}</span>
-                  <MaterialIcon icon='arrow_upward' size={16} />
-                </UnreadBannerButton>
+                  transition={overlayTransition}>
+                  <UnreadBannerJump onClick={onUnreadBannerClick}>
+                    <span>{t('messaging.newMessages', 'New messages')}</span>
+                    <MaterialIcon icon='arrow_upward' size={16} />
+                  </UnreadBannerJump>
+                  {onMarkRead ? (
+                    <UnreadBannerMarkRead onClick={onMarkRead}>
+                      <span>{t('common.actions.markAsRead', 'Mark as read')}</span>
+                      <MaterialIcon icon='check' size={16} />
+                    </UnreadBannerMarkRead>
+                  ) : null}
+                </UnreadBanner>
               ) : null}
             </AnimatePresence>
             <AnimatePresence>

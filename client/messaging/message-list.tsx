@@ -16,6 +16,7 @@ import {
   BlockedMessage,
   NewDayMessage,
   TextMessage,
+  UNREAD_LINE_SELECTOR,
   UnreadLineMessage,
 } from './common-message-layout'
 import {
@@ -331,6 +332,8 @@ interface MessageListSnapshot {
   lastScrollTop: number
   /** What the scroll height of the content was before the last update. */
   lastScrollHeight: number
+  /** Whether an unread divider that this update removes sat entirely above the viewport. */
+  removedUnreadLineAboveViewport: boolean
 }
 
 export class MessageList extends React.Component<MessageListProps> {
@@ -381,13 +384,34 @@ export class MessageList extends React.Component<MessageListProps> {
     }
 
     if (!this.scrollableRef.current) {
-      return { wasAtBottom: true, lastScrollTop: 0, lastScrollHeight: 0 }
+      return {
+        wasAtBottom: true,
+        lastScrollTop: 0,
+        lastScrollHeight: 0,
+        removedUnreadLineAboveViewport: false,
+      }
     }
 
     const scrollable = this.scrollableRef.current
     const lastScrollTop = scrollable.scrollTop
     const lastScrollHeight = scrollable.scrollHeight
-    return { wasAtBottom: isScrolledToBottom(scrollable), lastScrollTop, lastScrollHeight }
+
+    // The DOM still holds the divider this update takes away, so this is the only chance to see
+    // where it was relative to the viewport.
+    let removedUnreadLineAboveViewport = false
+    if (prevProps.unreadLineTime !== undefined && this.props.unreadLineTime === undefined) {
+      const unreadLine = scrollable.querySelector<HTMLElement>(UNREAD_LINE_SELECTOR)
+      removedUnreadLineAboveViewport =
+        !!unreadLine &&
+        unreadLine.getBoundingClientRect().bottom <= scrollable.getBoundingClientRect().top
+    }
+
+    return {
+      wasAtBottom: isScrolledToBottom(scrollable),
+      lastScrollTop,
+      lastScrollHeight,
+      removedUnreadLineAboveViewport,
+    }
   }
 
   override componentDidMount() {
@@ -447,6 +471,12 @@ export class MessageList extends React.Component<MessageListProps> {
         prevProps.messages[0] !== this.props.messages[0]
       ) {
         // Inserted elements at the top, maintain scroll position relative to the last top element
+        scrollable.scrollTop =
+          snapshot.lastScrollTop + scrollable.scrollHeight - snapshot.lastScrollHeight
+      } else if (snapshot.removedUnreadLineAboveViewport) {
+        // The divider that went away sat above the viewport, so what's on screen would slide up by
+        // its height unless the scroll position gives that height back. A divider below the
+        // viewport needs no compensation, since nothing above the viewport changed.
         scrollable.scrollTop =
           snapshot.lastScrollTop + scrollable.scrollHeight - snapshot.lastScrollHeight
       }

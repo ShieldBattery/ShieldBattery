@@ -1,12 +1,23 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { ChannelPermissions, SbChannelId, makeSbChannelId } from '../../common/chat'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  ChannelPermissions,
+  ChannelTextMessage,
+  SbChannelId,
+  ServerChatMessageType,
+  makeSbChannelId,
+} from '../../common/chat'
 import { asMockedFunction } from '../../common/testing/mocks'
 import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
 import { DispatchFunction } from '../dispatch-registry'
 import { LastReadSender, reportLastRead } from '../messaging/last-read'
 import { fetchJson } from '../network/fetch'
 import { RootState } from '../root-reducer'
-import { ChannelLeaveSeverity, getChannelLeaveSeverity, markChannelRead } from './action-creators'
+import {
+  ChannelLeaveSeverity,
+  getChannelLeaveSeverity,
+  markChannelRead,
+  markChannelReadNow,
+} from './action-creators'
 
 vi.mock('../network/fetch', () => ({
   fetchJson: vi.fn(),
@@ -207,5 +218,107 @@ describe('chat/action-creators/markChannelRead', () => {
     const { send } = runMarkRead()
 
     await expect(send(LAST_READ_TIME)).rejects.toBe(error)
+  })
+})
+
+const NOW = 5_000_000
+
+/** A `RootState` carrying just the chat slice `markChannelReadNow` reads. */
+function makeReadPositionState({
+  messages = [],
+  latestMentionTime,
+}: {
+  messages?: ChannelTextMessage[]
+  latestMentionTime?: number
+} = {}): RootState {
+  const chat = {
+    idToMessages: new Map([
+      [
+        CHANNEL_ID,
+        {
+          messages,
+          carriedClientMessages: [],
+          loadingHistory: false,
+          hasHistory: true,
+          loadingNewer: false,
+          hasNewer: false,
+          detachedNewestTime: undefined,
+          windowGen: 0,
+        },
+      ],
+    ]),
+    idToLatestMentionTime: new Map(
+      latestMentionTime !== undefined ? [[CHANNEL_ID, latestMentionTime]] : [],
+    ),
+  }
+  return { chat } as unknown as RootState
+}
+
+function textMessage(time: number): ChannelTextMessage {
+  return {
+    id: `text-${time}`,
+    type: ServerChatMessageType.TextMessage,
+    channelId: CHANNEL_ID,
+    time,
+    from: OTHER_ID,
+    text: 'hello',
+  }
+}
+
+/** Runs the `markChannelReadNow` thunk against `state` and hands back what it dispatched. */
+function runMarkReadNow(state: RootState) {
+  const dispatched: unknown[] = []
+  const dispatch = ((action: unknown) => {
+    dispatched.push(action)
+  }) as DispatchFunction<any>
+
+  markChannelReadNow(CHANNEL_ID)(dispatch, () => state)
+
+  return { dispatched }
+}
+
+describe('chat/action-creators/markChannelReadNow', () => {
+  beforeEach(() => {
+    fetchJsonMock.mockReset()
+    reportLastReadMock.mockReset()
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  test('marks read as of now when nothing known is newer', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState({ messages: [textMessage(NOW - 100)] }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@chat/updateLastReadTime',
+        payload: { channelId: CHANNEL_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
+  })
+
+  test('reports a known time that has run ahead of the local clock', () => {
+    const newerTime = NOW + 5000
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState({ messages: [textMessage(newerTime)], latestMentionTime: NOW - 100 }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@chat/updateLastReadTime',
+        payload: { channelId: CHANNEL_ID, lastReadTime: newerTime, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(
+      expect.any(String),
+      newerTime,
+      expect.any(Function),
+    )
   })
 })

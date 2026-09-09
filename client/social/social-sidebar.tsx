@@ -8,6 +8,7 @@ import styled, { css } from 'styled-components'
 import { Link } from 'wouter'
 import { usePathname } from 'wouter/use-browser-location'
 import { SbChannelId } from '../../common/chat'
+import { cloneMultimap, prependToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
 import { urlPath } from '../../common/urls'
 import { FriendActivityStatus } from '../../common/users/relationships'
@@ -17,6 +18,7 @@ import {
   getBatchChannelInfo,
   getJoinedChannels,
   leaveChannelWithConfirmation,
+  markChannelReadNow,
 } from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
 import { channelHasUnreadMention } from '../chat/chat-reducer'
@@ -25,10 +27,15 @@ import { DialogType } from '../dialogs/dialog-type'
 import { useWindowSize } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
+import { useContextMenu } from '../dom/use-context-menu'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
 import { IconButton, keyEventMatches, OutlinedButton, useButtonState } from '../material/button'
+import { Divider } from '../material/menu/divider'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { elevationPlus1 } from '../material/shadows'
@@ -44,9 +51,17 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { dialogScrimOpacity } from '../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
-import { ConnectedUserContextMenu } from '../users/user-context-menu'
+import {
+  ConnectedUserContextMenu,
+  MenuItemCategory,
+  UserMenuProps,
+} from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
-import { closeWhisperSession, getWhisperSessions } from '../whispers/action-creators'
+import {
+  closeWhisperSession,
+  getWhisperSessions,
+  markWhisperReadNow,
+} from '../whispers/action-creators'
 import { urlForWhisper } from '../whispers/whisper-url'
 import { FriendActivityStatusGlyph } from './friend-activity-status'
 import { FriendsList, useRelationshipsLoader } from './friends-list'
@@ -523,7 +538,10 @@ function ChannelEntry({
   const basicInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
   const hasUnreadMention = useAppSelector(s => channelHasUnreadMention(s.chat, channelId))
+  const hasUnreadLine = useAppSelector(s => s.chat.idToUnreadLineTime.has(channelId))
+  const canMarkRead = hasUnread || hasUnreadMention || hasUnreadLine
   const { onNavigation } = useNavigationTracker()
+  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
   useEffect(() => {
     dispatch(getBatchChannelInfo(channelId))
@@ -549,20 +567,45 @@ function ChannelEntry({
   )
 
   return (
-    <Entry
-      link={urlPath`/chat/${channelId}/${basicInfo?.name}`}
-      needsAttention={hasUnread || hasUnreadMention}
-      urgentAttention={hasUnreadMention}
-      title={basicInfo ? `#${basicInfo.name}` : undefined}
-      button={button}
-      icon={<ConnectedChannelBadge channelId={channelId} />}
-      onClick={event => {
-        if (!event.defaultPrevented) {
-          onNavigation()
-        }
-      }}>
-      {displayName}
-    </Entry>
+    <>
+      <Popover {...contextMenuPopoverProps}>
+        <MenuList dense={true}>
+          <MenuItem
+            text={t('common.actions.markAsRead', 'Mark as read')}
+            disabled={!canMarkRead}
+            onClick={() => {
+              contextMenuPopoverProps.onDismiss()
+              dispatch(markChannelReadNow(channelId))
+            }}
+          />
+          <Divider $dense={true} />
+          <DestructiveMenuItem
+            text={t('chat.navEntry.leaveChannel', 'Leave channel')}
+            onClick={() => {
+              contextMenuPopoverProps.onDismiss()
+              onLeave(channelId)
+            }}
+          />
+        </MenuList>
+      </Popover>
+
+      <Entry
+        link={urlPath`/chat/${channelId}/${basicInfo?.name}`}
+        needsAttention={hasUnread || hasUnreadMention}
+        urgentAttention={hasUnreadMention}
+        title={basicInfo ? `#${basicInfo.name}` : undefined}
+        button={button}
+        icon={<ConnectedChannelBadge channelId={channelId} />}
+        isActive={contextMenuPopoverProps.open}
+        onContextMenu={onContextMenu}
+        onClick={event => {
+          if (!event.defaultPrevented) {
+            onNavigation()
+          }
+        }}>
+        {displayName}
+      </Entry>
+    </>
   )
 }
 
@@ -577,6 +620,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
 
   const { isOverlayOpen, contextMenuProps, onContextMenu } = useUserOverlays({
     userId,
+    UserMenu: WhisperEntryUserMenu,
   })
 
   useEffect(() => {
@@ -635,6 +679,36 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
       </Entry>
     </>
   )
+}
+
+/**
+ * Adds "Mark as read" to the user context menu when it's opened from a whisper entry, the one place
+ * the menu is about the conversation as much as the user.
+ */
+function WhisperEntryUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const canMarkRead = useAppSelector(s => {
+    const session = s.whispers.byId.get(userId)
+    return session !== undefined && (session.hasUnread || session.unreadLineTime !== undefined)
+  })
+
+  const menuItems = cloneMultimap(items)
+  prependToMultimap(
+    menuItems,
+    MenuItemCategory.General,
+    <MenuItem
+      key='mark-as-read'
+      text={t('common.actions.markAsRead', 'Mark as read')}
+      disabled={!canMarkRead}
+      onClick={() => {
+        onMenuClose()
+        dispatch(markWhisperReadNow(userId))
+      }}
+    />,
+  )
+
+  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
 }
 
 const LoadingName = styled.span`

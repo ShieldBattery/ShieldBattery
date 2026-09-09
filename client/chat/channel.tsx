@@ -40,6 +40,7 @@ import {
   jumpToPresent,
   leaveChannelWithConfirmation,
   markChannelRead,
+  markChannelReadNow,
   resetMessageWindow,
   retrieveUserList,
   sendMessage,
@@ -434,6 +435,10 @@ export function ConnectedChatChannel({
     }
   }
 
+  const onMarkRead = () => {
+    dispatch(markChannelReadNow(channelId))
+  }
+
   const onAtBottomChange = (atBottom: boolean) => {
     dispatch(updateChannelAtBottom(channelId, atBottom))
   }
@@ -476,6 +481,7 @@ export function ConnectedChatChannel({
             onAtBottomChange={onAtBottomChange}
             onJumpToPresent={onJumpToPresent}
             onSeekToUnread={onSeekToUnread}
+            onMarkRead={onMarkRead}
             escapeJumpsToBottom
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead

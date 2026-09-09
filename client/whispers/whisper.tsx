@@ -31,6 +31,7 @@ import {
   getWhisperLastReadKey,
   jumpToPresent,
   markWhisperRead,
+  markWhisperReadNow,
   resetMessageWindow,
   sendMessage,
   startWhisperSessionById,
@@ -351,6 +352,10 @@ export function ConnectedWhisper({
     )
   }
 
+  const onMarkRead = () => {
+    dispatch(markWhisperReadNow(targetId))
+  }
+
   const onAtBottomChange = (atBottom: boolean) => {
     dispatch(updateSessionAtBottom(targetId, atBottom))
   }
@@ -407,6 +412,7 @@ export function ConnectedWhisper({
         onAtBottomChange={onAtBottomChange}
         onJumpToPresent={onJumpToPresent}
         onSeekToUnread={onSeekToUnread}
+        onMarkRead={onMarkRead}
         escapeJumpsToBottom
         extraContent={
           <UserInfoContainer>
