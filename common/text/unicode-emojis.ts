@@ -8,8 +8,12 @@
  */
 const UNICODE_EMOJI_REGEX = /(?:\p{RGI_Emoji})+/gv
 
-/** Matches individual emoji sequences (not grouped into runs), used to count emoji in a string. */
-const UNICODE_EMOJI_COUNT_REGEX = /\p{RGI_Emoji}/gv
+/**
+ * Matches a single (ungrouped) emoji sequence. Used both to split a run of adjacent emoji (as
+ * produced by `matchUnicodeEmojis`) back into its individual sequences and to count emoji in a
+ * string.
+ */
+const SINGLE_UNICODE_EMOJI_REGEX = /\p{RGI_Emoji}/gv
 
 export interface UnicodeEmojiMatch {
   type: 'unicodeEmoji'
@@ -32,5 +36,13 @@ export function* matchUnicodeEmojis(text: string): Generator<UnicodeEmojiMatch> 
 
 /** Counts the number of individual emoji sequences present in a string. */
 export function countEmojisIn(text: string): number {
-  return Array.from(text.matchAll(UNICODE_EMOJI_COUNT_REGEX)).length
+  return Array.from(text.matchAll(SINGLE_UNICODE_EMOJI_REGEX)).length
+}
+
+/**
+ * Splits a run of adjacent emoji (as produced by `matchUnicodeEmojis`) into its individual RGI
+ * emoji sequences, in order.
+ */
+export function splitEmojiRun(run: string): string[] {
+  return Array.from(run.matchAll(SINGLE_UNICODE_EMOJI_REGEX), match => match[0])
 }

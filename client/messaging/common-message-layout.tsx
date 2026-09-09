@@ -5,7 +5,7 @@ import { makeSbChannelId } from '../../common/chat'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
-import { countEmojisIn, matchUnicodeEmojis } from '../../common/text/unicode-emojis'
+import { countEmojisIn, matchUnicodeEmojis, splitEmojiRun } from '../../common/text/unicode-emojis'
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
@@ -22,6 +22,7 @@ import { ConnectedUsername } from '../users/connected-username'
 import { ChatContext } from './chat-context'
 import { useMentionFilterClick } from './mention-hooks'
 import { MessageContextMenu } from './message-context-menu'
+import { MessageEmoji } from './message-emoji'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -60,17 +61,6 @@ const MentionedUsername = styled(ConnectedUsername)`
 
 const MentionedChannelName = styled(ConnectedChannelName)`
   color: var(--color-blue95);
-`
-
-/**
- * A run of unicode emoji, rendered larger than the surrounding text. Normally it stays inline-sized
- * so the fixed 20px message line box doesn't grow (the glyph may paint slightly beyond the box).
- * When a message is nothing but emoji (and whitespace), it renders jumbo-sized instead, growing the
- * line, so it reads as a sticker rather than a sentence.
- */
-const UnicodeEmoji = styled.span<{ $jumbo?: boolean }>`
-  font-size: ${props => (props.$jumbo ? '32px' : '20px')};
-  line-height: ${props => (props.$jumbo ? '1.2' : 'inherit')};
 `
 
 const MAX_JUMBO_EMOJI_COUNT = 10
@@ -199,11 +189,11 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         )
       }
     } else if (match.type === 'unicodeEmoji') {
-      parsedText.push(
-        <UnicodeEmoji key={match.index} $jumbo={jumboEmoji}>
-          {match.text}
-        </UnicodeEmoji>,
-      )
+      let emojiIndex = match.index
+      for (const emoji of splitEmojiRun(match.text)) {
+        parsedText.push(<MessageEmoji key={emojiIndex} emoji={emoji} jumbo={jumboEmoji} />)
+        emojiIndex += emoji.length
+      }
     } else {
       match satisfies never
     }
