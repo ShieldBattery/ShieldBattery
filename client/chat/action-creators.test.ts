@@ -15,6 +15,7 @@ import { RootState } from '../root-reducer'
 import {
   ChannelLeaveSeverity,
   getChannelLeaveSeverity,
+  getMessageHistory,
   markChannelRead,
   markChannelReadNow,
 } from './action-creators'
@@ -276,6 +277,34 @@ function runMarkReadNow(state: RootState) {
 
   return { dispatched }
 }
+
+describe('chat/action-creators/getMessageHistory', () => {
+  beforeEach(() => {
+    fetchJsonMock.mockReset()
+  })
+
+  test('reports a fetch failure through the spec, having already dispatched the begin action', async () => {
+    const error = new Error('network go boom')
+    fetchJsonMock.mockRejectedValue(error)
+
+    const dispatched: unknown[] = []
+    const dispatch = ((action: unknown) => {
+      dispatched.push(action)
+    }) as DispatchFunction<any>
+    // No entry for the channel: the creator tolerates that, treating it the same as "nothing
+    // loaded yet".
+    const state = { chat: { idToMessages: new Map() } } as unknown as RootState
+
+    const onError = vi.fn()
+    getMessageHistory(CHANNEL_ID, 50, { onSuccess: () => {}, onError })(dispatch, () => state)
+
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(error))
+
+    expect(dispatched).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: '@chat/loadMessageHistoryBegin' })]),
+    )
+  })
+})
 
 describe('chat/action-creators/markChannelReadNow', () => {
   beforeEach(() => {

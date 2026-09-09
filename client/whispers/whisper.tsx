@@ -124,6 +124,7 @@ export function ConnectedWhisper({
         errorMessage: err.message,
       }),
       DURATION_LONG,
+      { dedupe: true },
     )
   }
 

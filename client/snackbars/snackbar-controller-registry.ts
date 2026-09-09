@@ -10,6 +10,11 @@ export interface SnackbarOptions {
   signal?: AbortSignal
   /** A value that will be set as `data-testid` on the snackbar element. */
   testName?: string
+  /**
+   * If true, the snackbar is dropped when one with the same message is already showing or waiting
+   * to show.
+   */
+  dedupe?: boolean
 }
 
 export interface SnackbarController {
