@@ -777,15 +777,57 @@ describe('client/chat/chat-reducer', () => {
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
     })
 
-    test('an own echo preserves unread state created by another message', () => {
+    test('an own echo drops the divider and reads the channel through the echoed message', () => {
       const result = chatReducer(
         makeState({ unread: true, unreadLineTime: 100, lastReadTime: 100, latestMentionTime: 150 }),
         updateMessageAction(200, true, true, true),
       )
 
-      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
-      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
       expect(result.idToLatestMentionTime.get(CHANNEL_ID)).toBe(150)
+      expect(channelHasUnreadMention(result, CHANNEL_ID)).toBe(false)
+    })
+
+    test('an own echo does not regress the read position', () => {
+      const result = chatReducer(
+        makeState({ unread: true, unreadLineTime: 100, lastReadTime: 300 }),
+        updateMessageAction(200, false, true, true),
+      )
+
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(300)
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('an own echo drops a divider the read position has not passed', () => {
+      const result = chatReducer(
+        makeState({
+          activated: true,
+          atBottom: false,
+          unread: true,
+          unreadLineTime: 100,
+          lastReadTime: 100,
+          messages: [textMessage(150)],
+        }),
+        updateMessageAction(200, false, true, true),
+      )
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('an own echo in a channel that is not being viewed still reads it', () => {
+      const result = chatReducer(
+        makeState({ activated: false, unread: true, unreadLineTime: 100, lastReadTime: 100 }),
+        updateMessageAction(200, false, true, true),
+      )
+
+      expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
     })
 
     test('an own echo past a detached window still tracks the newest time', () => {
@@ -798,7 +840,73 @@ describe('client/chat/chat-reducer', () => {
       expect(windowOf(result).detachedNewestTime).toBe(200)
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
       expect(result.idToUnreadLineTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
       expect(result.idToLatestMentionTime.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a message arriving in an unfocused window re-freezes a divider the read position has passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = chatReducer(state, updateMessageAction(300, false, false))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(200)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a message arriving while scrolled up re-freezes a divider the read position has passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = chatReducer(state, updateMessageAction(300, false, true))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('a message arriving while scrolled up keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        lastReadTime: 100,
+      })
+
+      const result = chatReducer(state, updateMessageAction(300, false, true))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a message arriving while unfocused keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 100,
+      })
+
+      const result = chatReducer(state, updateMessageAction(300, false, false))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a message arriving in a channel that is not being viewed does not re-freeze a passed divider', () => {
+      const state = makeState({ activated: false, unreadLineTime: 100, lastReadTime: 200 })
+
+      const result = chatReducer(state, updateMessageAction(300, false, true))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
   })
 
@@ -1047,6 +1155,22 @@ describe('client/chat/chat-reducer', () => {
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
       expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(100)
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a live message past a detached window re-freezes a divider the read position has passed', () => {
+      const state = makeState({
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+      })
+
+      const result = chatReducer(state, updateMessageAction(500, false))
+
+      expect(result.idToUnreadLineTime.get(CHANNEL_ID)).toBe(200)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(windowOf(result).detachedNewestTime).toBe(500)
     })
 
     test('a live mention at the bottom of the loaded window is an unread mention', () => {

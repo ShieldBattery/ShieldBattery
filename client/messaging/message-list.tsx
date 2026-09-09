@@ -446,7 +446,11 @@ export class MessageList extends React.Component<MessageListProps> {
       return
     }
 
-    if (scrollable.scrollHeight === snapshot.lastScrollHeight) {
+    // A divider that moves to a different spot in the same window changes nothing about the scroll
+    // height, but it does change what the owner's unread affordances should say, so it's reported
+    // like any other change to the content.
+    const unreadLineMoved = prevProps.unreadLineTime !== this.props.unreadLineTime
+    if (scrollable.scrollHeight === snapshot.lastScrollHeight && !unreadLineMoved) {
       return
     }
 

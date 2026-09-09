@@ -414,6 +414,7 @@ export function ConnectedWhisper({
         onSeekToUnread={onSeekToUnread}
         onMarkRead={onMarkRead}
         escapeJumpsToBottom
+        jumpToBottomOnSend
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={targetId} showHintText={false} />

@@ -350,6 +350,12 @@ export interface ChatProps {
    * there is nothing for it to do there. Defaults to false.
    */
   escapeJumpsToBottom?: boolean
+  /**
+   * If true, sending a message moves the list to the newest message the same way the jump-to-bottom
+   * button does, loading the newest page first when the loaded window is detached from the present,
+   * so the sender sees their message land. Defaults to false.
+   */
+  jumpToBottomOnSend?: boolean
 }
 
 /**
@@ -361,7 +367,7 @@ export interface ChatProps {
 export function Chat({
   className,
   listProps,
-  inputProps,
+  inputProps: { onSendChatMessage, ...inputProps },
   header,
   backgroundContent,
   extraContent,
@@ -375,6 +381,7 @@ export function Chat({
   onSeekToUnread,
   onMarkRead,
   escapeJumpsToBottom = false,
+  jumpToBottomOnSend = false,
 }: ChatProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -884,6 +891,14 @@ export function Chat({
     jumpToBottom()
   }
 
+  const onSendMessage = (msg: string) => {
+    onSendChatMessage(msg)
+
+    if (jumpToBottomOnSend) {
+      jumpToBottom()
+    }
+  }
+
   useKeyListener({
     onKeyDown: event => {
       // An Escape during IME composition cancels the composition; it isn't meant for the list.
@@ -1031,6 +1046,7 @@ export function Chat({
           </MessageListContainer>
           <MessageInput
             {...inputProps}
+            onSendChatMessage={onSendMessage}
             ref={messageInputRef}
             showDivider={isScrolledUp}
             key={inputProps.storageKey}

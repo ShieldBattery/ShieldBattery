@@ -483,6 +483,7 @@ export function ConnectedChatChannel({
             onSeekToUnread={onSeekToUnread}
             onMarkRead={onMarkRead}
             escapeJumpsToBottom
+            jumpToBottomOnSend
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead
               // of asserting them with ! because better to be safe than sorry, or something.

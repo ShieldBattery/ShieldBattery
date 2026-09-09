@@ -584,6 +584,23 @@ describe('client/whispers/whisper-reducer', () => {
       expect(session.lastReadTime).toBe(100)
     })
 
+    test('a live message past a detached window re-freezes a divider the read position has passed', () => {
+      const state = makeState({
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+      })
+
+      const result = whisperReducer(state, updateMessageAction(500))
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBe(200)
+      expect(session.hasUnread).toBe(true)
+      expect(session.detachedNewestTime).toBe(500)
+    })
+
     test('an attached session at the bottom does not freeze the divider', () => {
       const state = makeState({ activated: true, atBottom: true, lastReadTime: 100 })
 
@@ -714,15 +731,59 @@ describe('client/whispers/whisper-reducer', () => {
       expect(session.unreadLineTime).toBeUndefined()
     })
 
-    test('an own echo preserves unread state created by another message', () => {
+    test('an own echo drops the divider and reads the session through the echoed message', () => {
       const result = whisperReducer(
         makeState({ unread: true, unreadLineTime: 100, lastReadTime: 100 }),
         updateMessageAction(200, true, true),
       )
 
       const session = sessionOf(result)
-      expect(session.hasUnread).toBe(true)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.hasUnread).toBe(false)
+      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.lastReadTime).toBe(200)
+    })
+
+    test('an own echo does not regress the read position', () => {
+      const result = whisperReducer(
+        makeState({ unread: true, unreadLineTime: 100, lastReadTime: 300 }),
+        updateMessageAction(200, true, true),
+      )
+
+      const session = sessionOf(result)
+      expect(session.lastReadTime).toBe(300)
+      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.hasUnread).toBe(false)
+    })
+
+    test('an own echo drops a divider the read position has not passed', () => {
+      const result = whisperReducer(
+        makeState({
+          activated: true,
+          atBottom: false,
+          unread: true,
+          unreadLineTime: 100,
+          lastReadTime: 100,
+          messages: [textMessage(150)],
+        }),
+        updateMessageAction(200, true, true),
+      )
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.hasUnread).toBe(false)
+      expect(session.lastReadTime).toBe(200)
+    })
+
+    test('an own echo in a session that is not being viewed still reads it', () => {
+      const result = whisperReducer(
+        makeState({ activated: false, unread: true, unreadLineTime: 100, lastReadTime: 100 }),
+        updateMessageAction(200, true, true),
+      )
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.hasUnread).toBe(false)
+      expect(session.lastReadTime).toBe(200)
     })
 
     test('an own echo past a detached window still tracks the newest time', () => {
@@ -736,6 +797,74 @@ describe('client/whispers/whisper-reducer', () => {
       expect(session.detachedNewestTime).toBe(200)
       expect(session.hasUnread).toBe(false)
       expect(session.unreadLineTime).toBeUndefined()
+      expect(session.lastReadTime).toBe(200)
+    })
+
+    test('a message arriving in an unfocused window re-freezes a divider the read position has passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = whisperReducer(state, updateMessageAction(300, false))
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBe(200)
+      expect(session.hasUnread).toBe(true)
+      expect(session.lastReadTime).toBe(200)
+    })
+
+    test('a message arriving while scrolled up re-freezes a divider the read position has passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = whisperReducer(state, updateMessageAction(300, true))
+
+      expect(sessionOf(result).unreadLineTime).toBe(200)
+    })
+
+    test('a message arriving while scrolled up keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        lastReadTime: 100,
+      })
+
+      const result = whisperReducer(state, updateMessageAction(300, true))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('a message arriving while unfocused keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        lastReadTime: 100,
+      })
+
+      const result = whisperReducer(state, updateMessageAction(300, false))
+
+      expect(sessionOf(result).unreadLineTime).toBe(100)
+    })
+
+    test('a message arriving in a session that is not being viewed does not re-freeze a passed divider', () => {
+      const state = makeState({ activated: false, unreadLineTime: 100, lastReadTime: 200 })
+
+      const result = whisperReducer(state, updateMessageAction(300, true))
+
+      const session = sessionOf(result)
+      expect(session.unreadLineTime).toBe(100)
+      expect(session.hasUnread).toBe(true)
     })
   })
 
