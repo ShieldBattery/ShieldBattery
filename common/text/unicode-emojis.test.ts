@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { countEmojisIn, matchUnicodeEmojis } from './unicode-emojis'
+import { countEmojisIn, matchUnicodeEmojis, splitEmojiRun } from './unicode-emojis'
 
 describe('common/text/unicode-emojis/matchUnicodeEmojis', () => {
   const doMatch = (text: string): Array<{ text: string; index: number }> => {
@@ -72,5 +72,31 @@ describe('common/text/unicode-emojis/countEmojisIn', () => {
 
   test('counts emoji across multiple runs', () => {
     expect(countEmojisIn('😀 wp 🎉🎉')).toBe(3)
+  })
+})
+
+describe('common/text/unicode-emojis/splitEmojiRun', () => {
+  test('single emoji', () => {
+    expect(splitEmojiRun('😀')).toEqual(['😀'])
+  })
+
+  test('a run of distinct emoji splits into each one', () => {
+    expect(splitEmojiRun('😀😂🎉')).toEqual(['😀', '😂', '🎉'])
+  })
+
+  test('multi-codepoint ZWJ sequence stays one item', () => {
+    expect(splitEmojiRun('👨‍👩‍👦')).toEqual(['👨‍👩‍👦'])
+  })
+
+  test('skin-tone variant stays one item', () => {
+    expect(splitEmojiRun('👍🏽')).toEqual(['👍🏽'])
+  })
+
+  test('keycap sequence stays one item', () => {
+    expect(splitEmojiRun('1️⃣')).toEqual(['1️⃣'])
+  })
+
+  test('two flags split into each one', () => {
+    expect(splitEmojiRun('🇫🇷🇩🇪')).toEqual(['🇫🇷', '🇩🇪'])
   })
 })
