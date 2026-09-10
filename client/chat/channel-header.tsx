@@ -32,6 +32,7 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
+import { useChannelNotificationMenuItems } from './channel-notification-menu-items'
 import { openChannelSettings } from './channel-settings/channel-settings-action-creators'
 
 export const CHANNEL_HEADER_HEIGHT = 72
@@ -146,6 +147,12 @@ export function ChannelHeader({
 
   const [channelTopicRef, isChannelTopicOverflowing] = useOverflowingElement()
 
+  const notificationMenuItems = useChannelNotificationMenuItems(
+    basicChannelInfo.id,
+    closeOverflowMenu,
+    { dense: true },
+  )
+
   // TODO(2Pac): Figure out if we can share this with common-message-layout somehow.
   const parsedChannelTopic = useMemo(() => {
     if (!joinedChannelInfo.topic) {
@@ -241,6 +248,15 @@ export function ChannelHeader({
       />,
     )
   }
+  if (isServerModerator) {
+    actions.push(
+      <MenuItem
+        key='open-admin-view'
+        text={t('chat.channelHeader.actionItems.openAdminView', 'Open admin view')}
+        onClick={onOpenAdminViewClick}
+      />,
+    )
+  }
   if (detailedChannelInfo.bannerPath) {
     actions.push(
       <CheckableMenuItem
@@ -251,19 +267,9 @@ export function ChannelHeader({
       />,
     )
   }
-  if (isServerModerator) {
-    actions.push(
-      <MenuItem
-        key='open-admin-view'
-        text={t('chat.channelHeader.actionItems.openAdminView', 'Open admin view')}
-        onClick={onOpenAdminViewClick}
-      />,
-    )
-  }
-  // The divider sets the destructive leave action apart from the management items above it.
-  if (actions.length > 0) {
-    actions.push(<Divider key='divider' />)
-  }
+  actions.push(...notificationMenuItems)
+  // The divider sets the destructive leave action apart from the items above it.
+  actions.push(<Divider key='divider' $dense={true} />)
   actions.push(
     <DestructiveMenuItem
       key='leave-channel'

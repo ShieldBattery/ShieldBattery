@@ -21,7 +21,12 @@ import {
   markChannelReadNow,
 } from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
-import { channelHasUnreadMention } from '../chat/chat-reducer'
+import { useChannelNotificationMenuItems } from '../chat/channel-notification-menu-items'
+import {
+  channelHasUnreadMention,
+  channelNeedsAttention,
+  isChannelMuted,
+} from '../chat/chat-reducer'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useWindowSize } from '../dom/dimension-hooks'
@@ -539,9 +544,16 @@ function ChannelEntry({
   const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
   const hasUnreadMention = useAppSelector(s => channelHasUnreadMention(s.chat, channelId))
   const hasUnreadLine = useAppSelector(s => s.chat.idToUnreadLineTime.has(channelId))
+  const needsAttention = useAppSelector(s => channelNeedsAttention(s.chat, channelId))
+  const isMuted = useAppSelector(s => isChannelMuted(s.chat, channelId))
   const canMarkRead = hasUnread || hasUnreadMention || hasUnreadLine
   const { onNavigation } = useNavigationTracker()
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
+  const notificationMenuItems = useChannelNotificationMenuItems(
+    channelId,
+    contextMenuPopoverProps.onDismiss,
+    { dense: true },
+  )
 
   useEffect(() => {
     dispatch(getBatchChannelInfo(channelId))
@@ -559,7 +571,7 @@ function ChannelEntry({
   )
 
   const displayName = basicInfo?.name ? (
-    <span>#{basicInfo.name}</span>
+    <ChannelNameText $muted={isMuted}>#{basicInfo.name}</ChannelNameText>
   ) : (
     <LoadingName aria-label={t('common.loading.channelName', 'Channel name loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
@@ -578,6 +590,7 @@ function ChannelEntry({
               dispatch(markChannelReadNow(channelId))
             }}
           />
+          {notificationMenuItems}
           <Divider $dense={true} />
           <DestructiveMenuItem
             text={t('chat.navEntry.leaveChannel', 'Leave channel')}
@@ -591,11 +604,18 @@ function ChannelEntry({
 
       <Entry
         link={urlPath`/chat/${channelId}/${basicInfo?.name}`}
-        needsAttention={hasUnread || hasUnreadMention}
+        needsAttention={needsAttention}
         urgentAttention={hasUnreadMention}
         title={basicInfo ? `#${basicInfo.name}` : undefined}
         button={button}
         icon={<ConnectedChannelBadge channelId={channelId} />}
+        trailing={
+          isMuted ? (
+            <MutedGlyph title={t('chat.notifications.mutedTitle', 'Muted')}>
+              <MaterialIcon icon='notifications_off' size={20} />
+            </MutedGlyph>
+          ) : undefined
+        }
         isActive={contextMenuPopoverProps.open}
         onContextMenu={onContextMenu}
         onClick={event => {
@@ -719,6 +739,20 @@ const LoadingName = styled.span`
 
 const WhisperActivityGlyph = styled(FriendActivityStatusGlyph)`
   margin-left: 8px;
+`
+
+const MutedGlyph = styled.div`
+  margin-left: 8px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+
+  color: var(--theme-on-surface-variant);
+`
+
+const ChannelNameText = styled.span<{ $muted?: boolean }>`
+  opacity: ${props => (props.$muted ? 0.6 : 1)};
 `
 
 const EntryRoot = styled(Link)<{ $isCurrentPath: boolean; $isActive?: boolean }>`

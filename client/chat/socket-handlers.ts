@@ -1,5 +1,12 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
-import { ChatEvent, ChatUserEvent, SbChannelId, makeSbChannelId } from '../../common/chat'
+import {
+  ChannelNotificationLevel,
+  ChatEvent,
+  ChatUserEvent,
+  DEFAULT_CHANNEL_PREFERENCES,
+  SbChannelId,
+  makeSbChannelId,
+} from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { AvailableSound, audioManager } from '../audio/audio-manager'
 import { Dispatchable, dispatch } from '../dispatch-registry'
@@ -98,31 +105,41 @@ const eventToChatAction: EventToChatActionMap = {
     return (dispatch, getState) => {
       const {
         auth,
-        chat: { activatedChannels },
+        chat: { activatedChannels, idToSelfPreferences },
         relationships: { blocks },
       } = getState()
 
       const isSelfMessage = event.message.from === auth.self!.user.id
       const isBlocked = blocks.has(event.message.from)
-      const isUrgent =
+      const isMention =
         !isSelfMessage && !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
+      const preferences = idToSelfPreferences.get(channelId) ?? DEFAULT_CHANNEL_PREFERENCES
+      // Muting silences everything but a mention; only the `Nothing` level silences mentions too.
+      const shouldAlert =
+        !isSelfMessage &&
+        !isBlocked &&
+        preferences.notificationLevel !== ChannelNotificationLevel.Nothing &&
+        (isMention ||
+          (preferences.notificationLevel === ChannelNotificationLevel.All && !preferences.muted))
       const windowFocused = windowFocus.isFocused()
-      if (isUrgent) {
-        // Mentions get the main process's transient attention treatment (urgent tray icon +
-        // taskbar flash); regular messages reach it through the tracked unread state instead.
+      if (shouldAlert) {
+        // The main process shows a transient tray icon for every alert but only flashes the taskbar
+        // for urgent ones, which is reserved for messages aimed at this user.
         ipcRenderer.send('chatNewMessage', {
-          urgent: true,
+          urgent: isMention,
         })
       }
 
+      // Unread and mention tracking record what happened in the channel regardless of what the
+      // user chose to be alerted about, so that muting or unmuting reveals the true state.
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
-        meta: { channelId, isSelfMessage, mentionsSelf: isUrgent, windowFocused },
+        meta: { channelId, isSelfMessage, mentionsSelf: isMention, windowFocused },
       })
 
       const isChannelActivated = activatedChannels.has(channelId)
-      if (isUrgent && (!isChannelActivated || !windowFocused)) {
+      if (shouldAlert && (!isChannelActivated || !windowFocused)) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

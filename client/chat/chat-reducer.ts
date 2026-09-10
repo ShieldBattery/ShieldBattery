@@ -177,6 +177,33 @@ export function channelHasUnreadMention(
   return latestMentionTime > (chatState.idToLastReadTime.get(channelId) ?? Infinity)
 }
 
+/**
+ * Returns whether the current user has muted `channelId`. Channels the user hasn't loaded
+ * preferences for are treated as unmuted, matching the default preferences.
+ */
+export function isChannelMuted(chatState: Immutable<ChatState>, channelId: SbChannelId): boolean {
+  return chatState.idToSelfPreferences.get(channelId)?.muted ?? false
+}
+
+/**
+ * Returns whether `channelId` should be pulling the user's attention passively: the sidebar's
+ * unread dot, the social button's indicator, and the tray's tracked unread state. A muted channel
+ * qualifies only through an unread mention, since a mention is aimed at the user personally while
+ * mute is about the channel's ambient traffic.
+ *
+ * Mute is applied here, at read time, rather than when unread state is recorded, so that unmuting
+ * immediately surfaces whatever accumulated while the channel was muted.
+ */
+export function channelNeedsAttention(
+  chatState: Immutable<ChatState>,
+  channelId: SbChannelId,
+): boolean {
+  return (
+    (chatState.unreadChannels.has(channelId) && !isChannelMuted(chatState, channelId)) ||
+    channelHasUnreadMention(chatState, channelId)
+  )
+}
+
 function removeUserFromChannel(
   state: ChatState,
   channelId: SbChannelId,

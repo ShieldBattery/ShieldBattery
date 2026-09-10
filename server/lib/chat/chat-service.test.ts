@@ -5,6 +5,7 @@ import {
   BasicChannelInfo,
   ChannelBanEntry,
   ChannelModerationAction,
+  ChannelNotificationLevel,
   ChannelPermissions,
   ChannelPreferences,
   ChatServiceErrorCode,
@@ -19,6 +20,7 @@ import {
   UserChannelEntry,
 } from '../../../common/chat'
 import { NotificationType } from '../../../common/notifications'
+import { Patch } from '../../../common/patch'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -248,6 +250,8 @@ describe('chat/chat-service', () => {
 
   const channelPreferences: ChannelPreferences = {
     hideBanner: false,
+    notificationLevel: ChannelNotificationLevel.Mentions,
+    muted: false,
   }
   const channelPermissions: ChannelPermissions = {
     kick: false,
@@ -3365,6 +3369,44 @@ describe('chat/chat-service', () => {
       expect(client1.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id), {
         action: 'preferencesChanged',
         selfPreferences: channelPreferences,
+      })
+    })
+
+    test('works when updating notification preferences', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+
+      const notificationPreferences: Patch<ChannelPreferences> = {
+        notificationLevel: ChannelNotificationLevel.Nothing,
+        muted: true,
+      }
+      const updatedChannelEntry: UserChannelEntry = {
+        ...user1TestChannelEntry,
+        channelPreferences: {
+          ...channelPreferences,
+          notificationLevel: ChannelNotificationLevel.Nothing,
+          muted: true,
+        },
+      }
+      updateUserPreferencesMock.mockResolvedValueOnce(updatedChannelEntry)
+
+      await chatService.updateUserPreferences(testChannel.id, user1.id, notificationPreferences)
+
+      expect(updateUserPreferencesMock).toHaveBeenCalledWith(
+        testChannel.id,
+        user1.id,
+        notificationPreferences,
+      )
+      expect(client1.publish).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id), {
+        action: 'preferencesChanged',
+        selfPreferences: updatedChannelEntry.channelPreferences,
       })
     })
   })

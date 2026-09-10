@@ -408,7 +408,17 @@
     },
     "notifications": {
       "ban": "You have been banned from <1>#{{channelName}}</1>.",
+      "errors": {
+        "updateFailed": "Something went wrong updating the notification settings"
+      },
       "kick": "You have been kicked from <1>#{{channelName}}</1>.",
+      "level": {
+        "all": "Notify for all messages",
+        "mentions": "Notify for mentions only",
+        "nothing": "Never notify"
+      },
+      "muteChannel": "Mute channel",
+      "mutedTitle": "Muted",
       "unban": "Your ban from <1>#{{channelName}}</1> has been lifted."
     },
     "transferOwnership": {

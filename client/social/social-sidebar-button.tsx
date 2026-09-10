@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { channelHasUnreadMention } from '../chat/chat-reducer'
+import { channelHasUnreadMention, channelNeedsAttention } from '../chat/chat-reducer'
 import { IconButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
@@ -41,7 +41,9 @@ export interface SocialSidebarButtonProps {
 export function SocialSidebarButton({ onClick, icon, isOpen }: SocialSidebarButtonProps) {
   const { t } = useTranslation()
 
-  const hasUnreadChat = useAppSelector(s => s.chat.unreadChannels.size > 0)
+  const hasUnreadChat = useAppSelector(s =>
+    s.chat.joinedChannels.values().some(id => channelNeedsAttention(s.chat, id)),
+  )
   const hasUnreadWhispers = useAppSelector(s => s.whispers.byId.values().some(w => w.hasUnread))
   // Whisper unread counts as urgent since a whisper is inherently directed at the current user,
   // matching how the tray's tracked-unread state treats it.
