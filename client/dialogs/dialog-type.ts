@@ -15,7 +15,9 @@ export enum DialogType {
   ChangeEmail = 'changeEmail',
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
+  ChatCommandHelp = 'chatCommandHelp',
   ChannelBanUser = 'channelBanUser',
+  ChannelCreateConfirmation = 'channelCreateConfirmation',
   ChannelKickUserConfirmation = 'channelKickUserConfirmation',
   ChannelLeaveConfirmation = 'channelLeaveConfirmation',
   ChannelTransferOwnership = 'channelTransferOwnership',
@@ -93,8 +95,29 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+    /** A reason to prefill the dialog's reason field with; the user can still edit it. */
+    banReason?: string
     /** Called once the user has been banned successfully. */
     onSuccess?: () => void
+  }
+>
+type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelCreateConfirmation,
+  {
+    /** The name of the channel that would be created (without a leading `#`). */
+    channelName: string
+    /** Performs the join that creates the channel once the user confirms. */
+    onConfirm: () => void
+  }
+>
+type ChatCommandHelpDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChatCommandHelp,
+  {
+    /**
+     * Every command available where the dialog was opened from, in display order. Usage strings
+     * and descriptions are already localized.
+     */
+    commands: Array<{ usage: string; description: string }>
   }
 >
 type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
@@ -336,6 +359,8 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
+  | ChannelCreateConfirmationDialogPayload
+  | ChatCommandHelpDialogPayload
   | ChannelKickUserConfirmationDialogPayload
   | ChannelLeaveConfirmationDialogPayload
   | ChannelTransferOwnershipDialogPayload

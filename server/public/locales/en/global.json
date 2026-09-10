@@ -346,6 +346,48 @@
       "pattern": "Channel name contains invalid characters",
       "required": "Enter a channel name"
     },
+    "commands": {
+      "ban": {
+        "description": "Bans a user from this channel.",
+        "noSelfBan": "You can't ban yourself."
+      },
+      "close": {
+        "description": "Closes this whisper conversation.",
+        "error": "Couldn't close the conversation: {{errorMessage}}"
+      },
+      "errors": {
+        "ambiguousMember": "More than one member matches <1>{{name}}</1>.",
+        "commandFailed": "Something went wrong while running <2>{{command}}</2>.",
+        "invalidArgument": "Invalid <1>{{arg}}</1>: {{value}}. Usage: <7>{{usage}}</7>",
+        "missingArgument": "Missing <1>{{arg}}</1>. Usage: <4>{{usage}}</4>",
+        "noSuchMember": "No one named <1>{{name}}</1> is in this channel.",
+        "tooManyArguments": "Too many arguments. Usage: <1>{{usage}}</1>",
+        "unknownCommand": "Unknown command <1>{{command}}</1>. Type <4>/help</4> for a list of commands."
+      },
+      "help": {
+        "aliasesLine": "Aliases: <1>{{aliases}}</1>",
+        "commandLine": "<0>{{usage}}</0> — {{description}}",
+        "description": "Lists the commands you can use here.",
+        "dialogTitle": "Chat commands"
+      },
+      "join": {
+        "description": "Joins a chat channel, creating it if it does not exist."
+      },
+      "kick": {
+        "description": "Kicks a user out of this channel.",
+        "noSelfKick": "You can't kick yourself."
+      },
+      "leave": {
+        "description": "Leaves the channel or lobby you are in."
+      },
+      "whisper": {
+        "description": "Sends a private message to a user.",
+        "noSelfMessaging": "You can't whisper yourself.",
+        "sendError": "Couldn't send the whisper to <1>{{target}}</1>: {{errorMessage}}",
+        "startError": "Couldn't start a whisper with <1>{{target}}</1>: {{errorMessage}}",
+        "userNotFound": "No user named <1>{{target}}</1>."
+      }
+    },
     "createChannel": {
       "bannedError": "You are banned from this channel.",
       "channelName": "Channel name",
@@ -353,6 +395,11 @@
       "defaultError": "An error occurred while creating the channel.",
       "maximumOwnedError": "You have reached the limit of created channels. You must leave one channel you created before you can create another.",
       "title": "Create channel"
+    },
+    "createChannelConfirmation": {
+      "body": "If no channel named #{{channelName}} exists yet, joining it will create the channel and make you its owner.",
+      "confirmAction": "Create",
+      "dialogTitle": "Create #{{channelName}}?"
     },
     "deleteMessage": {
       "dialogBody": "This will permanently delete the message. This can't be undone.",
@@ -1498,6 +1545,9 @@
     },
     "jumpToBottom": "Jump to bottom",
     "jumpToPresent": "Jump to present",
+    "localLine": {
+      "onlyYou": "only you"
+    },
     "mention": "Mention",
     "messageTooLongContent": "Messages can be at most {{maxLength}} characters, and this one is {{length}}. Please shorten it before sending.",
     "messageTooLongTitle": "Message too long",

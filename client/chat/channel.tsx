@@ -9,9 +9,12 @@ import {
   isServerChatMessage,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { useWindowFocus } from '../dom/window-focus'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
+import { ChannelCommandContext } from '../messaging/commands/command-context'
 import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/message-input'
 import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
@@ -165,9 +168,12 @@ export function ConnectedChatChannel({
   channelName: channelNameFromRoute,
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
+  const selfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
+  const isServerModerator = useHasAnyPermission('moderateChatChannels')
   const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const selfPreferences = useAppSelector(s => s.chat.idToSelfPreferences.get(channelId))
@@ -254,6 +260,22 @@ export function ConnectedChatChannel({
 
     return onlineRecentChatters.concat(offlineRecentChatters)
   }, [channelUsers?.active, channelUsers?.idle, channelUsers?.offline, sortedRecentChattersEntries])
+
+  // Mirrors when the member list offers an enabled Kick or Ban action: the channel owner and server
+  // moderators can always use them, and everyone else needs the matching channel permission.
+  const isSelfChannelOwner = selfUser !== undefined && joinedChannelInfo?.ownerId === selfUser.id
+  const canModerateChannel = isSelfChannelOwner || isServerModerator
+  const commandContext: ChannelCommandContext | undefined = selfUser
+    ? {
+        surface: 'channel',
+        channelId,
+        selfUserId: selfUser.id,
+        members: mentionableUsers,
+        canKick:
+          canModerateChannel || !!(selfPermissions?.editPermissions || selfPermissions?.kick),
+        canBan: canModerateChannel || !!(selfPermissions?.editPermissions || selfPermissions?.ban),
+      }
+    : undefined
 
   const sortedActiveUserIds = useMemo(
     () => sortedActiveUserEntries.map(([id]) => id),
@@ -524,6 +546,7 @@ export function ConnectedChatChannel({
               mentionableUsers,
               baseMentionableUsers,
             }}
+            commandContext={commandContext}
             linkedMessageId={linkedMessageId || undefined}
             onLinkedMessageSettled={onLinkedMessageSettled}
             onAtBottomChange={onAtBottomChange}

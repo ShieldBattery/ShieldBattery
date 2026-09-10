@@ -1,8 +1,10 @@
+import * as React from 'react'
 import { ChatMessage, ServerChatMessageType } from '../../common/chat'
 import { DraftChatMessage } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 import { BaseMessage } from './base-message-record'
+import { LocalLineKind } from './commands/local-output'
 
 /**
  * A common message type that's used in all messaging-related services (e.g. chat, whispers,
@@ -12,6 +14,7 @@ import { BaseMessage } from './base-message-record'
 export enum CommonMessageType {
   TextMessage = 'message',
   NewDayMessage = 'newDayMessage',
+  LocalLine = 'localLine',
 }
 
 export interface CommonTextMessage extends BaseMessage {
@@ -24,7 +27,18 @@ export interface CommonNewDayMessage extends BaseMessage {
   readonly type: CommonMessageType.NewDayMessage
 }
 
-export type CommonMessage = CommonTextMessage | CommonNewDayMessage
+/**
+ * A line only this user sees: the answer to, or the error from, a chat command they ran. These
+ * live in the running session's memory only, never in a surface's message array or on the server,
+ * so `time` is a placement hint among the loaded messages rather than anything the server recorded.
+ */
+export interface CommonLocalLineMessage extends BaseMessage {
+  readonly type: CommonMessageType.LocalLine
+  readonly kind: LocalLineKind
+  readonly content: React.ReactNode
+}
+
+export type CommonMessage = CommonTextMessage | CommonNewDayMessage | CommonLocalLineMessage
 export type SbMessage = CommonMessage | ChatMessage | LobbyMessage | DraftChatMessage
 
 const SERVER_ORIGIN_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>([

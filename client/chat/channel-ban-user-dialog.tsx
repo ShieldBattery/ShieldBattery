@@ -102,6 +102,8 @@ interface BanUserModel {
 export interface ChannelBanUserDialogProps extends CommonDialogProps {
   channelId: SbChannelId
   userId: SbUserId
+  /** A reason to start the reason field off with; the user can still edit it before banning. */
+  banReason?: string
   /** Called once the user has been banned successfully. */
   onSuccess?: () => void
 }
@@ -110,6 +112,7 @@ export function ChannelBanUserDialog({
   onCancel,
   channelId,
   userId,
+  banReason,
   onSuccess,
 }: ChannelBanUserDialogProps) {
   const { t } = useTranslation()
@@ -124,7 +127,7 @@ export function ChannelBanUserDialog({
     form,
   } = useForm<BanUserModel>(
     {
-      banReason: '',
+      banReason: banReason ?? '',
     },
     {},
   )
