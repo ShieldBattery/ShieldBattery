@@ -261,6 +261,16 @@ export function useUserLocalStorageValue<T>(
 }
 
 /**
+ * Reads and parses a value from localStorage for the specified user. The non-hook counterpart of
+ * `setUserLocalStorageValue`, for code outside React components (e.g. action creators) that needs a
+ * one-off read rather than a subscription. Parsing failures are logged and treated as unset.
+ */
+export function getUserLocalStorageValue<T>(userId: SbUserId | 0, key: string): T | undefined {
+  const userKey = `${String(userId)}|${key}`
+  return loadAndParseLocalStorage(userKey) as T | undefined
+}
+
+/**
  * Sets a value in localStorage for the specified user, properly interfacing with any
  * `useUserLocalStorageValue` hooks that may use the key. `undefined` values will unset the key.
  * T must be serializable to JSON.

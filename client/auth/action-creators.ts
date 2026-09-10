@@ -20,6 +20,7 @@ import {
   encodeBodyAsParams,
   fetchJson,
 } from '../network/fetch'
+import { loadCachedAccountSettings } from '../settings/action-creators'
 
 const typedIpc = new TypedIpcRenderer()
 
@@ -78,6 +79,7 @@ function initSession(
       type: '@auth/loadCurrentSession',
       payload: session,
     })
+    dispatch(loadCachedAccountSettings(session.user.id))
 
     dispatch(maybeChangeLanguageLocally(session.user.locale))
     scheduleSessionRefresh()

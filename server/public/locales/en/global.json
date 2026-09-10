@@ -2073,6 +2073,15 @@
         "selectLanguage": "Select a language",
         "title": "Language"
       },
+      "notifications": {
+        "inGame": {
+          "description": "While you're in a game, messages won't play a sound or flash the taskbar, even ones that mention you. Saved to your account and applies on every device you log in from.",
+          "title": "In game"
+        },
+        "quietChannelsWhileInGame": "Quiet channels while in a game",
+        "quietWhispersWhileInGame": "Quiet whispers while in a game",
+        "title": "Notifications"
+      },
       "social": {
         "blockedUsers": {
           "count": "{{blocked}} / {{max}}",

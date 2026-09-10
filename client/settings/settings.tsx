@@ -41,9 +41,10 @@ import {
   SettingsPage,
   UserSettingsPage,
 } from './settings-page'
-import { AccountSettings } from './user/account-settings'
+import { UserAccountSettings } from './user/account-settings'
 import { ConnectionSettings } from './user/connection-settings'
 import { UserLanguageSettings } from './user/language-settings'
+import { UserNotificationSettings } from './user/notification-settings'
 import { UserSocialSettings } from './user/social-settings'
 
 const ESCAPE = 'Escape'
@@ -144,7 +145,12 @@ function Settings({
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
         {(isLoggedIn
-          ? [UserSettingsPage.Account, UserSettingsPage.Social, UserSettingsPage.Connections]
+          ? [
+              UserSettingsPage.Account,
+              UserSettingsPage.Social,
+              UserSettingsPage.Notifications,
+              UserSettingsPage.Connections,
+            ]
           : []
         ).map(getNavEntriesMapper())}
         {[UserSettingsPage.Language].map(getNavEntriesMapper())}
@@ -218,9 +224,11 @@ function NavEntry({
 function SettingsPageDisplay({ page }: { page: SettingsPage }) {
   switch (page) {
     case UserSettingsPage.Account:
-      return <AccountSettings />
+      return <UserAccountSettings />
     case UserSettingsPage.Social:
       return <UserSocialSettings />
+    case UserSettingsPage.Notifications:
+      return <UserNotificationSettings />
     case UserSettingsPage.Connections:
       return <ConnectionSettings />
     case UserSettingsPage.Language:
@@ -259,6 +267,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
       break
     case UserSettingsPage.Social:
       title = t('settings.user.social.title', 'Social')
+      break
+    case UserSettingsPage.Notifications:
+      title = t('settings.user.notifications.title', 'Notifications')
       break
     case UserSettingsPage.Connections:
       title = t('settings.user.connections.title', 'Connections')

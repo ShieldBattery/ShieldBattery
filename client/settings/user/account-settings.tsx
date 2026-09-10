@@ -170,7 +170,7 @@ const AccountSettingsQuery = graphql(/* GraphQL */ `
   }
 `)
 
-export function AccountSettings() {
+export function UserAccountSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [{ data }, refreshQuery] = useQuery({
