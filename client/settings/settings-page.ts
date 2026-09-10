@@ -1,6 +1,7 @@
 export enum UserSettingsPage {
   Account = 'UserAccount',
   Social = 'UserSocial',
+  Notifications = 'UserNotifications',
   Connections = 'UserConnections',
   Language = 'UserLanguage',
 }

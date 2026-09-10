@@ -8,6 +8,7 @@ import lobbies from '../lobbies/socket-handlers'
 import logger from '../logging/logger'
 import news from '../news/socket-handlers'
 import notifications from '../notifications/socket-handlers'
+import settings from '../settings/socket-handlers'
 import users from '../users/socket-handlers'
 import whispers from '../whispers/socket-handlers'
 import { isConnectedAtom } from './network-atoms'
@@ -40,6 +41,7 @@ const handlers: SocketHandler[] = [
   networkStatusHandler,
   news,
   notifications,
+  settings,
   users,
   whispers,
 ]

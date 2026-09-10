@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { AccountSettings, DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import {
   DEFAULT_LOCAL_SETTINGS,
   DEFAULT_SCR_SETTINGS,
@@ -13,11 +14,13 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 export interface SettingsState {
   local: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
   scr: Omit<ScrSettings, 'version'>
+  account: AccountSettings
 }
 
 const DEFAULT_SETTINGS_STATE: ReadonlyDeep<SettingsState> = {
   local: DEFAULT_LOCAL_SETTINGS,
   scr: DEFAULT_SCR_SETTINGS,
+  account: DEFAULT_ACCOUNT_SETTINGS,
 }
 
 export default immerKeyedReducer(DEFAULT_SETTINGS_STATE, {
@@ -39,5 +42,15 @@ export default immerKeyedReducer(DEFAULT_SETTINGS_STATE, {
       const k = key as keyof Omit<ScrSettings, 'version'>
       ;(state.scr[k] as any) = action.payload[key]
     }
+  },
+
+  ['@settings/updateAccountSettings'](state, action) {
+    state.account = action.payload
+  },
+
+  // Account settings are tied to the logged-in account, unlike `local`/`scr`, which describe this
+  // machine and stay put across a log out.
+  ['@auth/logOut'](state) {
+    state.account = { ...DEFAULT_ACCOUNT_SETTINGS }
   },
 })
