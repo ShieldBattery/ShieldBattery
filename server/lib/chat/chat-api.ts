@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa, { ExtendableContext, Next } from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  ALL_CHANNEL_NOTIFICATION_LEVELS,
   CHANNEL_BANS_LIMIT,
   CHANNEL_USER_PERMISSIONS_LIMIT,
   ChannelPermissions,
@@ -422,6 +423,8 @@ export class ChatApi {
       params: channelIdParamsSchema(),
       body: Joi.object<UpdateChannelUserPreferencesRequest>({
         hideBanner: Joi.boolean(),
+        notificationLevel: Joi.string().valid(...ALL_CHANNEL_NOTIFICATION_LEVELS),
+        muted: Joi.boolean(),
       }),
     })
 

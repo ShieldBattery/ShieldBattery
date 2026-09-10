@@ -1,6 +1,13 @@
 ﻿import type { NydusClient } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { type ChatMessageEvent, makeSbChannelId, ServerChatMessageType } from '../../common/chat'
+import {
+  ChannelNotificationLevel,
+  type ChannelPreferences,
+  type ChatMessageEvent,
+  DEFAULT_CHANNEL_PREFERENCES,
+  makeSbChannelId,
+  ServerChatMessageType,
+} from '../../common/chat'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { registerDispatch } from '../dispatch-registry'
 import type { RootState } from '../root-reducer'
@@ -24,17 +31,142 @@ const OTHER = { id: makeSbUserId(2), name: 'other', created: 0 }
 
 beforeEach(() => vi.clearAllMocks())
 
+interface MessageCase {
+  name: string
+  fromSelf?: boolean
+  blocked?: boolean
+  mentionsSelf?: boolean
+  /** Omitted to leave the channel without a preferences entry, exercising the defaults. */
+  level?: ChannelNotificationLevel
+  muted?: boolean
+  /** Whether the message should be recorded as mentioning the current user. */
+  mention: boolean
+  /** Whether the message should alert: the attention IPC plus the alert sound. */
+  alerts: boolean
+  /** Whether an alert should ask for the urgent (taskbar-flashing) treatment. */
+  urgent?: boolean
+}
+
 describe('channel message echoes', () => {
-  test.each([
-    { fromSelf: true, blocked: false, mentionsSelf: true, alerts: false },
-    { fromSelf: false, blocked: false, mentionsSelf: true, alerts: true },
-    { fromSelf: false, blocked: false, mentionsSelf: false, alerts: false },
-    { fromSelf: false, blocked: true, mentionsSelf: true, alerts: false },
-  ])('classifies $fromSelf self / $blocked blocked / $mentionsSelf mention', options => {
+  test.each<MessageCase>([
+    {
+      name: 'a self message never alerts, even when it mentions self',
+      fromSelf: true,
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'a blocked sender never alerts, even when they mention self',
+      blocked: true,
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'mentions level alerts urgently for a mention',
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.Mentions,
+      mention: true,
+      alerts: true,
+      urgent: true,
+    },
+    {
+      name: 'mentions level stays silent for a message that mentions no one',
+      level: ChannelNotificationLevel.Mentions,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'mentions level still alerts for a mention while muted',
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.Mentions,
+      muted: true,
+      mention: true,
+      alerts: true,
+      urgent: true,
+    },
+    {
+      name: 'mentions level stays silent for a non-mention while muted',
+      level: ChannelNotificationLevel.Mentions,
+      muted: true,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'all level alerts non-urgently for a message that mentions no one',
+      level: ChannelNotificationLevel.All,
+      mention: false,
+      alerts: true,
+      urgent: false,
+    },
+    {
+      name: 'all level alerts urgently for a mention',
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      mention: true,
+      alerts: true,
+      urgent: true,
+    },
+    {
+      name: 'all level muted stays silent for a message that mentions no one',
+      level: ChannelNotificationLevel.All,
+      muted: true,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'all level muted still alerts urgently for a mention',
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      muted: true,
+      mention: true,
+      alerts: true,
+      urgent: true,
+    },
+    {
+      name: 'nothing level stays silent for a mention',
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.Nothing,
+      mention: true,
+      alerts: false,
+    },
+    {
+      name: 'nothing level stays silent for a message that mentions no one',
+      level: ChannelNotificationLevel.Nothing,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'a channel with no stored preferences alerts urgently for a mention',
+      mentionsSelf: true,
+      mention: true,
+      alerts: true,
+      urgent: true,
+    },
+    {
+      name: 'a channel with no stored preferences stays silent for a non-mention',
+      mention: false,
+      alerts: false,
+    },
+  ])('$name', options => {
     const sender = options.fromSelf ? SELF : OTHER
+    const preferences: ChannelPreferences | undefined =
+      options.level !== undefined
+        ? {
+            ...DEFAULT_CHANNEL_PREFERENCES,
+            notificationLevel: options.level,
+            muted: options.muted ?? false,
+          }
+        : undefined
     const state = {
       auth: { self: { user: SELF } },
-      chat: { activatedChannels: new Set() },
+      chat: {
+        activatedChannels: new Set(),
+        idToSelfPreferences: new Map(preferences ? [[CHANNEL_ID, preferences]] : []),
+      },
       relationships: { blocks: new Map(options.blocked ? [[sender.id, {}]] : []) },
     } as unknown as RootState
     const dispatched = vi.fn()
@@ -69,12 +201,14 @@ describe('channel message echoes', () => {
       payload: event,
       meta: {
         channelId: CHANNEL_ID,
-        isSelfMessage: options.fromSelf,
-        mentionsSelf: options.alerts,
+        isSelfMessage: options.fromSelf ?? false,
+        mentionsSelf: options.mention,
         windowFocused: false,
       },
     })
-    expect(mocks.send).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
+    expect(mocks.send.mock.calls).toEqual(
+      options.alerts ? [['chatNewMessage', { urgent: options.urgent }]] : [],
+    )
     expect(mocks.playSound).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
   })
 })

@@ -204,9 +204,43 @@ export interface JoinedChannelInfo {
   topic?: string
 }
 
+/**
+ * Which messages in a channel actively alert the user (the alert sound, plus the transient tray
+ * icon and taskbar flash), as opposed to only marking the channel unread.
+ */
+export enum ChannelNotificationLevel {
+  /** Every message alerts. */
+  All = 'all',
+  /** Only messages that mention the user alert. */
+  Mentions = 'mentions',
+  /** No message alerts, mentions included. */
+  Nothing = 'nothing',
+}
+
+export const ALL_CHANNEL_NOTIFICATION_LEVELS: ReadonlyArray<ChannelNotificationLevel> =
+  Object.values(ChannelNotificationLevel)
+
 export interface ChannelPreferences {
   /** A flag indicating whether to show/hide the channel banner for a user. */
   hideBanner: boolean
+  /**
+   * Which messages alert the user. Mute doesn't change this: a mention still alerts at the
+   * `Mentions` and `All` levels while the channel is muted, and `Nothing` silences mentions too.
+   */
+  notificationLevel: ChannelNotificationLevel
+  /**
+   * Whether the channel is muted. A muted channel never alerts for a message that doesn't mention
+   * the user and doesn't show as unread for one, so a busy channel can stay joined without pulling
+   * attention. Mentions still show and (subject to `notificationLevel`) still alert, and messages
+   * keep arriving and rendering normally.
+   */
+  muted: boolean
+}
+
+export const DEFAULT_CHANNEL_PREFERENCES: Readonly<ChannelPreferences> = {
+  hideBanner: false,
+  notificationLevel: ChannelNotificationLevel.Mentions,
+  muted: false,
 }
 
 export interface ChannelPermissions {

@@ -6,6 +6,7 @@ import {
   ChatMessage,
   ChatMessageEvent,
   ClientChatMessageType,
+  DEFAULT_CHANNEL_PREFERENCES,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   InitialChannelData,
@@ -22,6 +23,8 @@ import { ChatActions } from './actions'
 import chatReducerImport, {
   ChatState,
   channelHasUnreadMention,
+  channelNeedsAttention,
+  isChannelMuted,
   oldestServerOriginTime,
 } from './chat-reducer'
 
@@ -77,6 +80,7 @@ function makeState(
     lastReadTime?: number
     latestMentionTime?: number
     unreadLineTime?: number
+    muted?: boolean
     hasHistory?: boolean
     loadingHistory?: boolean
     loadingNewer?: boolean
@@ -118,7 +122,11 @@ function makeState(
       ],
     ]),
     idToUserProfiles: new Map(),
-    idToSelfPreferences: new Map(),
+    idToSelfPreferences: new Map(
+      overrides.muted !== undefined
+        ? [[CHANNEL_ID, { ...DEFAULT_CHANNEL_PREFERENCES, muted: overrides.muted }]]
+        : [],
+    ),
     idToSelfPermissions: new Map(),
     activatedChannels: new Set(overrides.activated ? [CHANNEL_ID] : []),
     atBottomChannels: new Set(overrides.atBottom ? [CHANNEL_ID] : []),
@@ -162,7 +170,7 @@ function initialChannelData(
     channelInfo: CHANNEL_BASIC_INFO,
     detailedChannelInfo: { id: CHANNEL_ID, userCount: 1 },
     joinedChannelInfo: { id: CHANNEL_ID },
-    selfPreferences: { hideBanner: false },
+    selfPreferences: { ...DEFAULT_CHANNEL_PREFERENCES },
     selfPermissions: {
       kick: false,
       ban: false,
@@ -501,6 +509,68 @@ describe('client/chat/chat-reducer', () => {
       const state = makeState({ activated: true, lastReadTime: 100, latestMentionTime: 200 })
 
       expect(channelHasUnreadMention(state, CHANNEL_ID)).toBe(true)
+    })
+  })
+
+  describe('isChannelMuted', () => {
+    test('is false for a channel with no stored preferences', () => {
+      const state = makeState()
+
+      expect(isChannelMuted(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is false when the stored preferences say unmuted', () => {
+      const state = makeState({ muted: false })
+
+      expect(isChannelMuted(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is true when the stored preferences say muted', () => {
+      const state = makeState({ muted: true })
+
+      expect(isChannelMuted(state, CHANNEL_ID)).toBe(true)
+    })
+  })
+
+  describe('channelNeedsAttention', () => {
+    test('is false when nothing is unread', () => {
+      const state = makeState({ lastReadTime: 100 })
+
+      expect(channelNeedsAttention(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is true for an unread channel that is not muted', () => {
+      const state = makeState({ unread: true })
+
+      expect(channelNeedsAttention(state, CHANNEL_ID)).toBe(true)
+    })
+
+    test('is false for an unread channel that is muted', () => {
+      const state = makeState({ unread: true, muted: true })
+
+      expect(channelNeedsAttention(state, CHANNEL_ID)).toBe(false)
+    })
+
+    test('is true for a muted channel with an unread mention', () => {
+      const state = makeState({
+        unread: true,
+        muted: true,
+        lastReadTime: 100,
+        latestMentionTime: 200,
+      })
+
+      expect(channelNeedsAttention(state, CHANNEL_ID)).toBe(true)
+    })
+
+    test('is false for a muted channel whose mention has been read', () => {
+      const state = makeState({
+        unread: true,
+        muted: true,
+        lastReadTime: 200,
+        latestMentionTime: 200,
+      })
+
+      expect(channelNeedsAttention(state, CHANNEL_ID)).toBe(false)
     })
   })
 

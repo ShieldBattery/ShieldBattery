@@ -34,6 +34,8 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
     joinDate: props.join_date,
     channelPreferences: {
       hideBanner: props.hide_banner,
+      notificationLevel: props.notification_level,
+      muted: props.muted,
     },
     channelPermissions: {
       kick: props.kick,
@@ -786,6 +788,12 @@ export async function updateUserPreferences(
           switch (key) {
             case 'hideBanner':
               return sql`hide_banner = ${value}`
+
+            case 'notificationLevel':
+              return sql`notification_level = ${value}`
+
+            case 'muted':
+              return sql`muted = ${value}`
 
             default:
               return assertUnreachable(key)
