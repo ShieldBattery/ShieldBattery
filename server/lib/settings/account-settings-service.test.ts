@@ -37,7 +37,7 @@ describe('settings/account-settings-service', () => {
 
   describe('on connect', () => {
     test('subscribes the user and sends stored settings merged over defaults', async () => {
-      asMockedFunction(getAccountSettings).mockResolvedValue({ quietWhileInGame: false })
+      asMockedFunction(getAccountSettings).mockResolvedValue({ quietChannelsWhileInGame: false })
 
       const client = connector.connectClient(user1, 'USER1_CLIENT_ID')
       // The initial data getter is async, so its publish lands on a later tick.
@@ -45,7 +45,7 @@ describe('settings/account-settings-service', () => {
 
       expect(client.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
-        settings: { quietWhileInGame: false },
+        settings: { quietChannelsWhileInGame: false, quietWhispersWhileInGame: true },
       })
     })
 
@@ -76,15 +76,19 @@ describe('settings/account-settings-service', () => {
 
   describe('updateSettings', () => {
     test('stores the patch, publishes the filled-in settings, and returns them', async () => {
-      asMockedFunction(updateAccountSettings).mockResolvedValue({ quietWhileInGame: false })
+      asMockedFunction(updateAccountSettings).mockResolvedValue({
+        quietChannelsWhileInGame: false,
+      })
 
-      const result = await service.updateSettings(user1.id, { quietWhileInGame: false })
+      const result = await service.updateSettings(user1.id, { quietChannelsWhileInGame: false })
 
-      expect(updateAccountSettings).toHaveBeenCalledWith(user1.id, { quietWhileInGame: false })
-      expect(result).toEqual({ quietWhileInGame: false })
+      expect(updateAccountSettings).toHaveBeenCalledWith(user1.id, {
+        quietChannelsWhileInGame: false,
+      })
+      expect(result).toEqual({ quietChannelsWhileInGame: false, quietWhispersWhileInGame: true })
       expect(nydus.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
-        settings: { quietWhileInGame: false },
+        settings: { quietChannelsWhileInGame: false, quietWhispersWhileInGame: true },
       })
     })
   })

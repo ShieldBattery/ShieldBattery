@@ -117,7 +117,7 @@ const eventToChatAction: EventToChatActionMap = {
       const isMention =
         !isSelfMessage && !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
       const preferences = idToSelfPreferences.get(channelId) ?? DEFAULT_CHANNEL_PREFERENCES
-      const quietInGame = accountSettings.quietWhileInGame && isInActiveGame(gameClient)
+      const quietInGame = accountSettings.quietChannelsWhileInGame && isInActiveGame(gameClient)
       // Muting silences everything but a mention; only the `Nothing` level silences mentions too.
       // While this client is in a game with quiet-while-in-game on, nothing in a channel alerts,
       // mentions included, since a sound or taskbar flash is most disruptive mid-game; the unread

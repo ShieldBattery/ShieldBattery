@@ -2075,10 +2075,11 @@
       },
       "notifications": {
         "inGame": {
-          "description": "While you're in a game, channel messages won't play a sound or flash the taskbar, even ones that mention you. Whispers still will. Saved to your account and applies on every device you log in from.",
+          "description": "While you're in a game, messages won't play a sound or flash the taskbar, even ones that mention you. Saved to your account and applies on every device you log in from.",
           "title": "In game"
         },
-        "quietWhileInGame": "Quiet channels while in a game",
+        "quietChannelsWhileInGame": "Quiet channels while in a game",
+        "quietWhispersWhileInGame": "Quiet whispers while in a game",
         "title": "Notifications"
       },
       "social": {

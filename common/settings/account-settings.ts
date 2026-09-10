@@ -14,13 +14,20 @@ export interface AccountSettings {
   /**
    * While this client is in a game, channel messages (mentions included) play no alert sound and
    * don't ask the main process for attention (transient tray icon / taskbar flash); unread and
-   * mention marks still record so the true state shows after the game. Whispers are unaffected.
+   * mention marks still record so the true state shows after the game.
    */
-  quietWhileInGame: boolean
+  quietChannelsWhileInGame: boolean
+  /**
+   * While this client is in a game, an incoming whisper plays no alert sound and doesn't ask the
+   * main process for attention; the conversation still records as unread so it shows after the
+   * game.
+   */
+  quietWhispersWhileInGame: boolean
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
-  quietWhileInGame: true,
+  quietChannelsWhileInGame: true,
+  quietWhispersWhileInGame: true,
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(

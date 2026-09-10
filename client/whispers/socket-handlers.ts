@@ -1,6 +1,7 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { WhisperEvent, WhisperUserEvent } from '../../common/whispers'
+import { isInActiveGame } from '../active-game/game-client-reducer'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
@@ -36,6 +37,8 @@ const eventToAction: EventToActionMap = {
         auth: { self },
         relationships: { blocks },
         whispers: { byId: whispersById },
+        settings: { account: accountSettings },
+        gameClient,
       } = getState()
 
       if (!self) {
@@ -45,7 +48,11 @@ const eventToAction: EventToActionMap = {
       const isSelfMessage = event.message.from === self.user.id
       const isBlocked = blocks.has(event.message.from)
       const windowFocused = windowFocus.isFocused()
-      if (!isSelfMessage && !isBlocked) {
+      // While this client is in a game with the whisper quiet setting on, a whisper neither
+      // sounds nor asks for attention, since that is exactly when an interruption hurts most; the
+      // unread recording in the `@whispers/updateMessage` dispatch below is unaffected.
+      const quietInGame = accountSettings.quietWhispersWhileInGame && isInActiveGame(gameClient)
+      if (!isSelfMessage && !isBlocked && !quietInGame) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
           urgent: true,
@@ -65,7 +72,7 @@ const eventToAction: EventToActionMap = {
         return
       }
 
-      if (!isSelfMessage && !isBlocked && (!session.activated || !windowFocused)) {
+      if (!isSelfMessage && !isBlocked && !quietInGame && (!session.activated || !windowFocused)) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

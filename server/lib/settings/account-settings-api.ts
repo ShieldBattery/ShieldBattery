@@ -29,7 +29,8 @@ export class AccountSettingsApi {
     const { body } = validateRequest(ctx, {
       // Every `AccountSettings` key needs a rule here; unknown keys are rejected.
       body: Joi.object<UpdateAccountSettingsRequest>({
-        quietWhileInGame: Joi.boolean(),
+        quietChannelsWhileInGame: Joi.boolean(),
+        quietWhispersWhileInGame: Joi.boolean(),
       })
         .min(1)
         .required(),

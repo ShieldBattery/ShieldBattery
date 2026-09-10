@@ -23,9 +23,9 @@ export function UserNotificationSettings() {
         <SettingsSectionDescription>
           {t(
             'settings.user.notifications.inGame.description',
-            "While you're in a game, channel messages won't play a sound or flash the taskbar, " +
-              'even ones that mention you. Whispers still will. Saved to your account and applies ' +
-              'on every device you log in from.',
+            "While you're in a game, messages won't play a sound or flash the taskbar, even ones " +
+              'that mention you. Saved to your account and applies on every device you log in ' +
+              'from.',
           )}
         </SettingsSectionDescription>
         {/*
@@ -34,19 +34,35 @@ export function UserNotificationSettings() {
           would never pick up that change.
         */}
         <CheckBox
-          checked={settings.quietWhileInGame}
+          checked={settings.quietChannelsWhileInGame}
           onChange={event =>
             dispatch(
               mergeAccountSettings(
-                { quietWhileInGame: event.target.checked },
+                { quietChannelsWhileInGame: event.target.checked },
                 { onSuccess: () => {}, onError: () => {} },
               ),
             )
           }
-          name='quietWhileInGame'
+          name='quietChannelsWhileInGame'
           label={t(
-            'settings.user.notifications.quietWhileInGame',
+            'settings.user.notifications.quietChannelsWhileInGame',
             'Quiet channels while in a game',
+          )}
+        />
+        <CheckBox
+          checked={settings.quietWhispersWhileInGame}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { quietWhispersWhileInGame: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='quietWhispersWhileInGame'
+          label={t(
+            'settings.user.notifications.quietWhispersWhileInGame',
+            'Quiet whispers while in a game',
           )}
         />
       </SectionContainer>

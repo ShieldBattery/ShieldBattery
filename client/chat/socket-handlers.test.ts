@@ -47,8 +47,8 @@ interface MessageCase {
   urgent?: boolean
   /** Whether the reported game client status puts this client in a running game. */
   inGame?: boolean
-  /** The account's `quietWhileInGame` setting. Defaults to `true`. */
-  quietWhileInGame?: boolean
+  /** The account's `quietChannelsWhileInGame` setting. Defaults to `true`. */
+  quietChannelsWhileInGame?: boolean
 }
 
 describe('channel message echoes', () => {
@@ -181,7 +181,7 @@ describe('channel message echoes', () => {
     {
       name: 'in a game with quiet off, a mention alerts urgently',
       inGame: true,
-      quietWhileInGame: false,
+      quietChannelsWhileInGame: false,
       mentionsSelf: true,
       level: ChannelNotificationLevel.Mentions,
       mention: true,
@@ -191,7 +191,7 @@ describe('channel message echoes', () => {
     {
       name: 'in a game with quiet off, a non-mention at the all level alerts non-urgently',
       inGame: true,
-      quietWhileInGame: false,
+      quietChannelsWhileInGame: false,
       level: ChannelNotificationLevel.All,
       mention: false,
       alerts: true,
@@ -223,7 +223,12 @@ describe('channel message echoes', () => {
         idToSelfPreferences: new Map(preferences ? [[CHANNEL_ID, preferences]] : []),
       },
       relationships: { blocks: new Map(options.blocked ? [[sender.id, {}]] : []) },
-      settings: { account: { quietWhileInGame: options.quietWhileInGame ?? true } },
+      settings: {
+        account: {
+          quietChannelsWhileInGame: options.quietChannelsWhileInGame ?? true,
+          quietWhispersWhileInGame: true,
+        },
+      },
       gameClient: {
         gameId: options.inGame ? 'game-1' : undefined,
         status: options.inGame ? { id: 'game-1', state: 'playing', isReplay: false } : undefined,
