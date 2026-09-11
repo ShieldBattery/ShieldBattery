@@ -46,7 +46,8 @@ const whisperContext: WhisperCommandContext = {
 
 const joinRun = vi.fn()
 const kickRun = vi.fn()
-const hiddenRun = vi.fn()
+const leaveRun = vi.fn()
+const blockedRun = vi.fn()
 const listsRun = vi.fn()
 
 const testCommands: ReadonlyArray<ChatCommand> = [
@@ -66,12 +67,19 @@ const testCommands: ReadonlyArray<ChatCommand> = [
     run: kickRun,
   }),
   defineCommand({
-    name: 'hidden',
-    description: () => 'Never available anywhere.',
-    surfaces: ['channel'],
-    isAvailable: () => false,
+    name: 'leave',
+    description: () => 'Leaves where you are.',
+    surfaces: ['channel', 'lobby'],
     args: [],
-    run: hiddenRun,
+    run: leaveRun,
+  }),
+  defineCommand({
+    name: 'blocked',
+    description: () => 'Never runnable anywhere.',
+    surfaces: ['channel'],
+    getUnavailableReason: () => 'Nope.',
+    args: [],
+    run: blockedRun,
   }),
   defineCommand({
     name: 'boom',
@@ -84,7 +92,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   }),
   defineCommand({
     name: 'lists',
-    description: () => 'Reports what else is available.',
+    description: () => 'Reports what else there is.',
     surfaces: ['channel'],
     args: [],
     run: listsRun,
@@ -184,29 +192,44 @@ describe('messaging/commands/run-chat-command', () => {
     expect(text).toContain('/kick <user>')
   })
 
-  test('a command outside its surfaces is simply unknown', () => {
+  test('a command outside its surfaces answers with where it can be used', () => {
     const { result, emit } = runInput('/kick tec27', whisperContext)
 
     expect(result).toEqual({ kind: 'command' })
     expect(kickRun).not.toHaveBeenCalled()
-    expect(renderLine(emit.mock.calls[0][0].content)).toContain('Unknown command')
+    expect(emit.mock.calls[0][0].kind).toBe('error')
+    expect(renderLine(emit.mock.calls[0][0].content)).toContain(
+      '/kick can only be used in channels.',
+    )
   })
 
-  test('a command whose availability says no is simply unknown', () => {
-    const { result, emit } = runInput('/hidden')
+  test('a command with several surfaces lists them all', () => {
+    const { emit } = runInput('/leave', whisperContext)
+
+    expect(leaveRun).not.toHaveBeenCalled()
+    expect(renderLine(emit.mock.calls[0][0].content)).toContain(
+      '/leave can only be used in channels or lobbies.',
+    )
+  })
+
+  test('a command that cannot be run answers with the reason it gives', () => {
+    const { result, emit } = runInput('/blocked')
 
     expect(result).toEqual({ kind: 'command' })
-    expect(hiddenRun).not.toHaveBeenCalled()
-    expect(renderLine(emit.mock.calls[0][0].content)).toContain('Unknown command')
+    expect(blockedRun).not.toHaveBeenCalled()
+    expect(emit).toHaveBeenCalledTimes(1)
+    expect(emit.mock.calls[0][0]).toEqual({ kind: 'error', content: 'Nope.' })
   })
 
-  test('a command is only handed the commands available where it ran', () => {
+  test('a command is handed every command there is', () => {
     runInput('/lists')
 
     expect(listsRun).toHaveBeenCalledTimes(1)
-    expect(listsRun.mock.calls[0][0].availableCommands.map((c: ChatCommand) => c.name)).toEqual([
+    expect(listsRun.mock.calls[0][0].commands.map((c: ChatCommand) => c.name)).toEqual([
       'join',
       'kick',
+      'leave',
+      'blocked',
       'boom',
       'lists',
     ])

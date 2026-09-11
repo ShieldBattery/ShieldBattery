@@ -1,4 +1,3 @@
-import { CommandContext } from './command-context'
 import { ChatCommand, matchesCommandName } from './command-schema'
 import { closeCommand } from './commands/close'
 import { helpCommand } from './commands/help'
@@ -38,28 +37,14 @@ function assertUniqueCommandNames(commands: ReadonlyArray<ChatCommand>): void {
 
 assertUniqueCommandNames(ALL_COMMANDS)
 
-/** Whether a command exists at all in a particular context. */
-export function isCommandAvailable(command: ChatCommand, context: CommandContext): boolean {
-  return command.surfaces.includes(context.surface) && (command.isAvailable?.(context) ?? true)
-}
-
-/** The commands that can run in a context, in display order. */
-export function getAvailableCommands(
-  context: CommandContext,
-  commands: ReadonlyArray<ChatCommand> = ALL_COMMANDS,
-): ReadonlyArray<ChatCommand> {
-  return commands.filter(command => isCommandAvailable(command, context))
-}
-
 /**
- * Resolves a typed name (without its leading slash, and in whatever case it was typed) to a
- * command that can run in `context`. A command that exists but can't run there is not found, which
- * is what makes it indistinguishable from one that doesn't exist.
+ * Resolves a typed name (without its leading slash, and in whatever case it was typed) to the
+ * command it names, wherever that command can be run. Whether it can be run where it was typed is
+ * for the caller to ask.
  */
 export function findCommand(
   name: string,
-  context: CommandContext,
   commands: ReadonlyArray<ChatCommand> = ALL_COMMANDS,
 ): ChatCommand | undefined {
-  return getAvailableCommands(context, commands).find(command => matchesCommandName(command, name))
+  return commands.find(command => matchesCommandName(command, name))
 }

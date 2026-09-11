@@ -3,19 +3,54 @@ import * as React from 'react'
 import { Trans } from 'react-i18next'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { TransInterpolation } from '../../i18n/i18next'
+import { CommandSurface } from './command-context'
 import { ParseArgsFailure } from './command-parser'
+import { ALL_COMMAND_SURFACES, ChatCommand } from './command-schema'
 import { LocalStrong } from './local-strong'
 
-/**
- * The line a name that reaches no command answers with. A command that exists but isn't available
- * where it was typed answers with this one too: from the user's side it simply isn't there.
- */
+/** Joins the surfaces a command works in into a list of alternatives, e.g. `channels or lobbies`. */
+const surfaceListFormat = new Intl.ListFormat(navigator.language, { type: 'disjunction' })
+
+/** The line a name that reaches no command answers with. */
 export function unknownCommandLine(name: string, t: TFunction): React.ReactNode {
   const command = `/${name}`
   return (
     <Trans t={t} i18nKey='chat.commands.errors.unknownCommand'>
       Unknown command <LocalStrong>{{ command } as TransInterpolation}</LocalStrong>. Type{' '}
       <LocalStrong>/help</LocalStrong> for a list of commands.
+    </Trans>
+  )
+}
+
+/** What a sentence listing the surfaces a command works in calls one of them. */
+function getSurfaceNoun(surface: CommandSurface, t: TFunction): string {
+  switch (surface) {
+    case 'channel':
+      return t('chat.commands.surfaces.channel', 'channels')
+    case 'whisper':
+      return t('chat.commands.surfaces.whisper', 'whispers')
+    case 'lobby':
+      return t('chat.commands.surfaces.lobby', 'lobbies')
+    default:
+      return assertUnreachable(surface)
+  }
+}
+
+/** The line a command typed outside the surfaces it works in answers with. */
+export function wrongSurfaceLine(command: ChatCommand, t: TFunction): React.ReactNode {
+  const name = `/${command.name}`
+  // Ordered as the surfaces themselves are rather than as this command happens to list them, so
+  // that the same pair of surfaces always reads the same way.
+  const surfaces = surfaceListFormat.format(
+    ALL_COMMAND_SURFACES.filter(surface => command.surfaces.includes(surface)).map(surface =>
+      getSurfaceNoun(surface, t),
+    ),
+  )
+
+  return (
+    <Trans t={t} i18nKey='chat.commands.errors.wrongSurface'>
+      <LocalStrong>{{ command: name } as TransInterpolation}</LocalStrong> can only be used in{' '}
+      {{ surfaces } as TransInterpolation}.
     </Trans>
   )
 }

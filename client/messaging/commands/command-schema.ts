@@ -4,7 +4,7 @@ import { DispatchFunction } from '../../dispatch-registry'
 import { CommandContext, CommandSurface } from './command-context'
 import { LocalLineEmitter } from './local-output'
 
-/** Every surface a command can be declared for, in no particular order. */
+/** Every surface a command can be declared for, in the order a sentence listing them reads. */
 export const ALL_COMMAND_SURFACES: ReadonlyArray<CommandSurface> = ['channel', 'whisper', 'lobby']
 
 interface BaseArg {
@@ -134,10 +134,11 @@ export interface CommandInvocation<Args = ParsedArgValues> {
   /** Puts a line only the running user sees into the surface the command was run in. */
   emit: LocalLineEmitter
   /**
-   * Every command available in `context`, in display order. Handed in rather than looked up, so a
-   * command that lists or resolves its siblings doesn't have to import the registry that holds it.
+   * Every command there is, in display order. Handed in rather than imported so that a command
+   * which lists or resolves its siblings doesn't import the registry that holds it. Whether one
+   * exists in a surface is `surfaces`; whether it can run is `getUnavailableReason`.
    */
-  availableCommands: ReadonlyArray<ChatCommand>
+  commands: ReadonlyArray<ChatCommand>
 }
 
 /** A command as the registry holds it and the runner runs it, with its argument schema erased. */
@@ -147,14 +148,18 @@ export interface ChatCommand {
   /** Other lower-case names that reach this command. Never localized. */
   aliases?: readonly string[]
   description: (t: TFunction) => string
-  /** The surfaces the command can run in. Anywhere else it doesn't exist at all. */
+  /**
+   * The surfaces the command can run in. Typed outside of them, it answers with where it can be
+   * used instead.
+   */
   surfaces: readonly CommandSurface[]
   /**
-   * Decides whether the command exists for a particular context, on top of `surfaces`. A command
-   * that is unavailable is indistinguishable from one that doesn't exist: it is left out of help,
-   * and naming it produces the unknown-command error.
+   * Decides whether the command can be run in a context that is one of its `surfaces`, and when it
+   * can't, says why in a sentence the user is shown. Returns `undefined` when it can. A command
+   * that can't be run still exists: help lists it, greyed and with this reason, and naming it
+   * answers with this reason rather than the unknown-command line.
    */
-  isAvailable?: (context: CommandContext) => boolean
+  getUnavailableReason?: (context: CommandContext, t: TFunction) => string | undefined
   args: readonly CommandArg[]
   // Declared as a method so that a command written against a precise argument schema is still one
   // of these, which is all the registry and the runner ever need it to be.
@@ -187,6 +192,14 @@ export function matchesCommandName(command: ChatCommand, name: string): boolean 
     command.name.toLowerCase() === lowered ||
     (command.aliases?.some(alias => alias.toLowerCase() === lowered) ?? false)
   )
+}
+
+/** The commands that exist in a surface, in the order they were given in. */
+export function getSurfaceCommands(
+  commands: ReadonlyArray<ChatCommand>,
+  surface: CommandSurface,
+): ReadonlyArray<ChatCommand> {
+  return commands.filter(command => command.surfaces.includes(surface))
 }
 
 /** What usage strings and error messages call an argument. */

@@ -58,7 +58,13 @@ export const kickCommand = defineCommand({
   name: 'kick',
   description: t => t('chat.commands.kick.description', 'Kicks a user out of this channel.'),
   surfaces: ['channel'],
-  isAvailable: context => context.surface === 'channel' && context.canKick,
+  getUnavailableReason: (context, t) =>
+    context.surface === 'channel' && !context.canKick
+      ? t(
+          'chat.commands.kick.noPermission',
+          "You don't have permission to kick users from this channel.",
+        )
+      : undefined,
   // The kick dialog collects no reason of its own, so one typed here is read and dropped. Both
   // moderation commands take the same shape so that neither needs to be retyped as the other.
   args: [
@@ -102,7 +108,13 @@ export const banCommand = defineCommand({
   name: 'ban',
   description: t => t('chat.commands.ban.description', 'Bans a user from this channel.'),
   surfaces: ['channel'],
-  isAvailable: context => context.surface === 'channel' && context.canBan,
+  getUnavailableReason: (context, t) =>
+    context.surface === 'channel' && !context.canBan
+      ? t(
+          'chat.commands.ban.noPermission',
+          "You don't have permission to ban users from this channel.",
+        )
+      : undefined,
   args: [
     { kind: 'user', name: 'user' },
     { kind: 'rest', name: 'reason', optional: true },

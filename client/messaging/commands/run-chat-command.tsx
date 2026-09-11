@@ -4,9 +4,14 @@ import { ReduxAction } from '../../action-types'
 import { DispatchFunction } from '../../dispatch-registry'
 import logger from '../../logging/logger'
 import { CommandContext } from './command-context'
-import { argumentFailureLine, commandFailedLine, unknownCommandLine } from './command-lines'
+import {
+  argumentFailureLine,
+  commandFailedLine,
+  unknownCommandLine,
+  wrongSurfaceLine,
+} from './command-lines'
 import { parseArgs, splitCommandInput } from './command-parser'
-import { ALL_COMMANDS, findCommand, getAvailableCommands } from './command-registry'
+import { ALL_COMMANDS, findCommand } from './command-registry'
 import { ChatCommand, getCommandUsage } from './command-schema'
 import { LocalLineEmitter } from './local-output'
 
@@ -48,9 +53,20 @@ export function runChatCommandWith(
     return { kind: 'text', text: split.text }
   }
 
-  const command = findCommand(split.name, context, commands)
+  const command = findCommand(split.name, commands)
   if (!command) {
     emit({ kind: 'error', content: unknownCommandLine(split.name, t) })
+    return { kind: 'command' }
+  }
+
+  if (!command.surfaces.includes(context.surface)) {
+    emit({ kind: 'error', content: wrongSurfaceLine(command, t) })
+    return { kind: 'command' }
+  }
+
+  const unavailableReason = command.getUnavailableReason?.(context, t)
+  if (unavailableReason !== undefined) {
+    emit({ kind: 'error', content: unavailableReason })
     return { kind: 'command' }
   }
 
@@ -67,7 +83,7 @@ export function runChatCommandWith(
       dispatch,
       t,
       emit,
-      availableCommands: getAvailableCommands(context, commands),
+      commands,
     })
   } catch (err) {
     // A command that fell over has already cost the user their input, so it owes them an answer

@@ -349,6 +349,7 @@
     "commands": {
       "ban": {
         "description": "Bans a user from this channel.",
+        "noPermission": "You don't have permission to ban users from this channel.",
         "noSelfBan": "You can't ban yourself."
       },
       "close": {
@@ -362,7 +363,8 @@
         "missingArgument": "Missing <1>{{arg}}</1>. Usage: <4>{{usage}}</4>",
         "noSuchMember": "No one named <1>{{name}}</1> is in this channel.",
         "tooManyArguments": "Too many arguments. Usage: <1>{{usage}}</1>",
-        "unknownCommand": "Unknown command <1>{{command}}</1>. Type <4>/help</4> for a list of commands."
+        "unknownCommand": "Unknown command <1>{{command}}</1>. Type <4>/help</4> for a list of commands.",
+        "wrongSurface": "<0>{{command}}</0> can only be used in {{surfaces}}."
       },
       "help": {
         "aliasesLabel": "Also",
@@ -377,10 +379,16 @@
       },
       "kick": {
         "description": "Kicks a user out of this channel.",
+        "noPermission": "You don't have permission to kick users from this channel.",
         "noSelfKick": "You can't kick yourself."
       },
       "leave": {
         "description": "Leaves the channel or lobby you are in."
+      },
+      "surfaces": {
+        "channel": "channels",
+        "lobby": "lobbies",
+        "whisper": "whispers"
       },
       "whisper": {
         "description": "Sends a private message to a user.",
