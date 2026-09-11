@@ -387,23 +387,22 @@ export function transferChannelOwnership(
   })
 }
 
-export function sendMessage(channelId: SbChannelId, message: string): ThunkAction {
-  return dispatch => {
-    const params = { channelId, message }
-    dispatch({
-      type: '@chat/sendMessageBegin',
-      payload: params,
-    })
-
-    dispatch({
-      type: '@chat/sendMessage',
-      payload: fetchJson<void>(apiUrl`chat/${channelId}/messages`, {
-        method: 'POST',
-        body: encodeBodyAsParams<SendChatMessageServerRequest>({ message }),
+export function sendMessage(
+  channelId: SbChannelId,
+  message: string,
+  spec: RequestHandlingSpec,
+  options: { emote?: boolean } = {},
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/messages`, {
+      method: 'POST',
+      body: encodeBodyAsParams<SendChatMessageServerRequest>({
+        message,
+        emote: options.emote ? true : undefined,
       }),
-      meta: params,
+      signal: spec.signal,
     })
-  }
+  })
 }
 
 export function deleteMessageAsAdmin(

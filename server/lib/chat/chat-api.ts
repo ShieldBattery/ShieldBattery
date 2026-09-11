@@ -343,14 +343,15 @@ export class ChatApi {
   async sendChatMessage(ctx: RouterContext): Promise<void> {
     const channelId = getValidatedChannelId(ctx)
     const {
-      body: { message },
+      body: { message, emote },
     } = validateRequest(ctx, {
       body: Joi.object<SendChatMessageServerRequest>({
         message: Joi.string().min(1).required(),
+        emote: Joi.boolean(),
       }),
     })
 
-    await this.chatService.sendChatMessage(channelId, ctx.session!.user.id, message)
+    await this.chatService.sendChatMessage(channelId, ctx.session!.user.id, message, { emote })
 
     ctx.status = 204
   }

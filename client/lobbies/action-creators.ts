@@ -233,13 +233,27 @@ export function startCountdown(): ThunkAction {
   )
 }
 
-export function sendChat(text: string): ThunkAction {
-  return currentLobbyRequest('sending a lobby chat message', lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/chat`, {
+export function sendChat(
+  text: string,
+  spec: RequestHandlingSpec,
+  options: { emote?: boolean } = {},
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) {
+      return
+    }
+
+    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/chat`, {
       method: 'POST',
-      body: encodeBodyAsParams<SendLobbyChatRequest>({ clientId, text }),
-    }),
-  )
+      body: encodeBodyAsParams<SendLobbyChatRequest>({
+        clientId,
+        text,
+        emote: options.emote ? true : undefined,
+      }),
+      signal: spec.signal,
+    })
+  })
 }
 
 const STATE_CACHE_TIMEOUT = 20 * 1000

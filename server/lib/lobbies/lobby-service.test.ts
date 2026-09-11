@@ -11,6 +11,7 @@ import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { findChannelsByName } from '../chat/chat-models'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
@@ -107,6 +108,11 @@ vi.mock('../maps/map-operations', async () => {
 vi.mock('../users/user-model', async () => {
   const actual = await vi.importActual<typeof import('../users/user-model')>('../users/user-model')
   return { ...actual, findUsersById: vi.fn() }
+})
+// Chat messages resolve their channel mentions through this, which would otherwise reach the DB.
+vi.mock('../chat/chat-models', async () => {
+  const actual = await vi.importActual<typeof import('../chat/chat-models')>('../chat/chat-models')
+  return { ...actual, findChannelsByName: vi.fn() }
 })
 
 const HOST_USER: SbUser = { id: makeSbUserId(1), name: 'HostUser' } as SbUser
@@ -232,6 +238,7 @@ describe('lobbies/lobby-service', () => {
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(findUsersById).mockResolvedValue([])
+    asMockedFunction(findChannelsByName).mockResolvedValue([])
 
     const connector = new NydusConnector(nydus, sessionLookup)
     connect = (user: SbUser, clientId: string): Sockets => {
@@ -864,6 +871,31 @@ describe('lobbies/lobby-service', () => {
 
       expect(getLobbyJoinCode(id)).toBeUndefined()
       expect(getLobbyIdByJoinCode(code)).toBeUndefined()
+    })
+  })
+
+  describe('sendChat', () => {
+    /** Returns the chat events published to a lobby's occupants, in order. */
+    function chatPublishes(lobbyId: SbLobbyId): Array<{ message: any }> {
+      return fakeNydus.publish.mock.calls
+        .filter(([path, data]) => path === `/lobbies/${lobbyId}` && data?.type === 'chat')
+        .map(([, data]) => data)
+    }
+
+    test('publishes an action line with the emote flag', async () => {
+      const { id } = await createLobby(host, 'Chatty lobby')
+
+      await lobbyService.sendChat({ client: host.client, text: 'waves', emote: true })
+
+      expect(chatPublishes(id)[0].message).toMatchObject({ text: 'waves', emote: true })
+    })
+
+    test('carries no emote key at all for an ordinary message', async () => {
+      const { id } = await createLobby(host, 'Chatty lobby')
+
+      await lobbyService.sendChat({ client: host.client, text: 'hello' })
+
+      expect(chatPublishes(id)[0].message).not.toHaveProperty('emote')
     })
   })
 

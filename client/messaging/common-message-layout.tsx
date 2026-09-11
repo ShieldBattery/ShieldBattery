@@ -63,6 +63,30 @@ const MentionedChannelName = styled(ConnectedChannelName)`
   color: var(--color-blue95);
 `
 
+/** The `*` that opens an action line, plus the space that separates it from the name. */
+const EmoteGlyph = styled.span`
+  line-height: inherit;
+
+  color: var(--theme-on-surface-variant);
+  font-style: italic;
+`
+
+/**
+ * The name in an action line, which reads `* Name action`. A real space separates it from the text,
+ * so it carries no margin of its own.
+ */
+const EmoteUsername = styled(Username)`
+  margin-right: 0;
+
+  color: var(--theme-on-surface-variant);
+  font-style: italic;
+`
+
+const EmoteText = styled(Text)`
+  color: var(--theme-on-surface-variant);
+  font-style: italic;
+`
+
 const MAX_JUMBO_EMOJI_COUNT = 10
 
 /**
@@ -107,10 +131,23 @@ export interface TextMessageProps {
   selfUserId: SbUserId
   time: number
   text: string
+  /**
+   * Whether the message is an action line (sent with `/me`), which reads `* Name action` rather
+   * than `Name: text`.
+   */
+  emote?: boolean
   testId?: string
 }
 
-export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: TextMessageProps) {
+export function TextMessage({
+  msgId,
+  userId,
+  selfUserId,
+  time,
+  text,
+  emote,
+  testId,
+}: TextMessageProps) {
   const filterClick = useMentionFilterClick()
   const { UserMenu, MessageMenu, disallowMentionInteraction } = useContext(ChatContext)
   // The invite-card age gate needs the current time, which a pure render can't read directly;
@@ -206,6 +243,9 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
     parsedText.push(text.substring(lastIndex))
   }
 
+  const UsernameComponent = emote ? EmoteUsername : Username
+  const TextComponent = emote ? EmoteText : Text
+
   return (
     <>
       <TimestampMessageLayout
@@ -215,14 +255,15 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
         testId={testId}>
-        <Username
+        {emote ? <EmoteGlyph>{'* '}</EmoteGlyph> : undefined}
+        <UsernameComponent
           userId={userId}
           filterClick={filterClick}
           UserMenu={UserMenu}
           interactive={!disallowMentionInteraction}
         />
-        <Separator>{': '}</Separator>
-        <Text ref={textRef}>{parsedText}</Text>
+        {emote ? ' ' : <Separator>{': '}</Separator>}
+        <TextComponent ref={textRef}>{parsedText}</TextComponent>
         {inviteLobbyId !== undefined &&
         !disallowMentionInteraction &&
         mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
@@ -276,6 +317,7 @@ export const BlockedMessage = React.memo<{
   selfUserId: SbUserId
   time: number
   text: string
+  emote?: boolean
 }>(props => {
   const { t } = useTranslation()
   const [show, setShow] = useState(false)
@@ -297,6 +339,7 @@ export const BlockedMessage = React.memo<{
             selfUserId={props.selfUserId}
             time={props.time}
             text={props.text}
+            emote={props.emote}
           />
         </VisibleBlockedMessage>
       ) : undefined}

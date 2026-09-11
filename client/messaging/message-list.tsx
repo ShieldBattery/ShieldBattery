@@ -123,7 +123,10 @@ function CommonMessageOrFallback({
       return <LocalLineMessage key={message.id} kind={message.kind} content={message.content} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
-    case ServerChatMessageType.TextMessage:
+    case ServerChatMessageType.TextMessage: {
+      // Several text message shapes share this type value, and only the ones that come from a
+      // surface with a `/me` command carry an action-line flag.
+      const emote = 'emote' in message && message.emote === true
       // TODO(tec27): Would probably be nice to collect adjacent blocked messages into a single
       // item?
       return blockedUsers.has(message.from) ? (
@@ -134,6 +137,7 @@ function CommonMessageOrFallback({
           selfUserId={selfUserId}
           time={message.time}
           text={message.text}
+          emote={emote}
         />
       ) : (
         <TextMessage
@@ -143,8 +147,10 @@ function CommonMessageOrFallback({
           selfUserId={selfUserId}
           time={message.time}
           text={message.text}
+          emote={emote}
         />
       )
+    }
     default:
       return FallbackComponent ? (
         <FallbackComponent

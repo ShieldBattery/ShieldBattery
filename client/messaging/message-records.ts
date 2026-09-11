@@ -21,6 +21,11 @@ export interface CommonTextMessage extends BaseMessage {
   readonly type: CommonMessageType.TextMessage
   readonly from: SbUserId
   readonly text: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  readonly emote?: boolean
 }
 
 export interface CommonNewDayMessage extends BaseMessage {

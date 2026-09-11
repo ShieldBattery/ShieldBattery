@@ -426,6 +426,11 @@ export interface TextMessageData extends BaseMessageData {
    * were no channels mentioned in this message.
    */
   channelMentions?: SbChannelId[]
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never stored as `false`.
+   */
+  emote?: boolean
 }
 
 export interface JoinChannelData extends BaseMessageData {

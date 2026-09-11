@@ -385,6 +385,11 @@
       "leave": {
         "description": "Leaves the channel or lobby you are in."
       },
+      "me": {
+        "chatRestricted": "You're currently restricted from sending chat messages.",
+        "description": "Sends an action line, shown as \"* YourName does something\".",
+        "sendError": "Couldn't send your emote: {{errorMessage}}"
+      },
       "surfaces": {
         "channel": "channels",
         "lobby": "lobbies",

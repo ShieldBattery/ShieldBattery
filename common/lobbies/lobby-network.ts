@@ -88,6 +88,11 @@ export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams
 /** The body of a request to send a chat message to a lobby. */
 export interface SendLobbyChatRequest extends LobbyClientRequest {
   text: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  emote?: boolean
 }
 
 /** The body of a request that acts on a single slot of a lobby. */
@@ -310,6 +315,11 @@ export interface LobbyChatMessage {
   time: number
   from: SbUserId
   text: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  emote?: boolean
 }
 
 export interface LobbyChatEvent {

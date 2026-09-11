@@ -20,6 +20,7 @@ import {
 } from '../../../common/whispers'
 import { getChannelInfos, HistoryCursor, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
+import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { RestrictionService } from '../users/restriction-service'
@@ -166,7 +167,12 @@ export default class WhisperService {
     return true
   }
 
-  async sendWhisperMessage(userId: SbUserId, targetUser: SbUserId, message: string) {
+  async sendWhisperMessage(
+    userId: SbUserId,
+    targetUser: SbUserId,
+    message: string,
+    options: { emote?: boolean } = {},
+  ) {
     if (userId === targetUser) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
@@ -208,6 +214,7 @@ export default class WhisperService {
       text: processedText,
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
+      ...emoteField(options.emote),
     })
     this.applyWhisperSessionState(user, target)
     this.applyWhisperSessionState(target, user)
@@ -221,6 +228,7 @@ export default class WhisperService {
         to: result.to,
         time: Number(result.sent),
         text: result.data.text,
+        ...emoteField(result.data.emote),
       },
       users: [user, target],
       mentions: userMentions,
@@ -288,6 +296,7 @@ export default class WhisperService {
             to: msg.to,
             time: Number(msg.sent),
             text: msg.data.text,
+            ...emoteField(msg.data.emote),
           })
           for (const mention of msg.data.mentions ?? []) {
             userMentionIds.add(mention)

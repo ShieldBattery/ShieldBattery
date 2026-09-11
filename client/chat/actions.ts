@@ -32,9 +32,6 @@ export type ChatActions =
   | LeaveChannelBegin
   | LeaveChannel
   | LeaveChannelFailure
-  | SendMessageBegin
-  | SendMessage
-  | SendMessageFailure
   | LoadMessageHistoryBegin
   | LoadMessageHistory
   | LoadMessageHistoryFailure
@@ -131,34 +128,6 @@ export interface LeaveChannel {
 export interface LeaveChannelFailure extends BaseFetchFailure<'@chat/leaveChannel'> {
   meta: {
     channelId: SbChannelId
-  }
-}
-
-export interface SendMessageBegin {
-  type: '@chat/sendMessageBegin'
-  payload: {
-    channelId: SbChannelId
-    message: string
-  }
-}
-
-/**
- * Send a chat message to a chat channel.
- */
-export interface SendMessage {
-  type: '@chat/sendMessage'
-  payload: void
-  meta: {
-    channelId: SbChannelId
-    message: string
-  }
-  error?: false
-}
-
-export interface SendMessageFailure extends BaseFetchFailure<'@chat/sendMessage'> {
-  meta: {
-    channelId: SbChannelId
-    message: string
   }
 }
 

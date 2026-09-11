@@ -293,12 +293,18 @@ export class LobbyApi {
       body: Joi.object<SendLobbyChatRequest>({
         clientId: clientIdSchema,
         text: Joi.string().min(1).required(),
+        emote: Joi.boolean(),
       }),
     })
 
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
-    await this.lobbyService.sendChat({ client, lobbyId: params.lobbyId, text: body.text })
+    await this.lobbyService.sendChat({
+      client,
+      lobbyId: params.lobbyId,
+      text: body.text,
+      emote: body.emote,
+    })
   }
 
   @httpPost('/:lobbyId/add-computer')
