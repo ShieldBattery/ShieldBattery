@@ -144,6 +144,36 @@ export function joinChannel(
 }
 
 /**
+ * Returns a message explaining why an attempt to join a channel failed, and logs the failures that
+ * nothing more specific can be said about.
+ */
+export function getJoinChannelErrorMessage(err: unknown, channelName: string): string {
+  if (isFetchError(err) && err.code) {
+    if (err.code === ChatServiceErrorCode.MaximumJoinedChannels) {
+      return i18n.t(
+        'chat.joinChannel.maximumChannelsError',
+        'You have reached the limit of joined channels. ' +
+          'You must leave one before you can join another.',
+      )
+    } else if (err.code === ChatServiceErrorCode.UserBanned) {
+      return i18n.t('chat.joinChannel.bannedError', {
+        defaultValue: 'You are banned from #{{channelName}}',
+        channelName,
+      })
+    }
+
+    logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
+  } else {
+    logger.error(`Error when joining ${channelName}: ${getErrorStack(err)}`)
+  }
+
+  return i18n.t('chat.joinChannel.genericError', {
+    defaultValue: 'An error occurred while joining #{{channelName}}',
+    channelName,
+  })
+}
+
+/**
  * Makes a request to join a user to the channel. This function has built-in error handling.
  */
 export function joinChannelWithErrorHandling(
@@ -157,31 +187,7 @@ export function joinChannelWithErrorHandling(
     })
       .then(channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name))
       .catch(err => {
-        let message = i18n.t('chat.joinChannel.genericError', {
-          defaultValue: 'An error occurred while joining #{{channelName}}',
-          channelName,
-        })
-
-        if (isFetchError(err) && err.code) {
-          if (err.code === ChatServiceErrorCode.MaximumJoinedChannels) {
-            message = i18n.t(
-              'chat.joinChannel.maximumChannelsError',
-              'You have reached the limit of joined channels. ' +
-                'You must leave one before you can join another.',
-            )
-          } else if (err.code === ChatServiceErrorCode.UserBanned) {
-            message = i18n.t('chat.joinChannel.bannedError', {
-              defaultValue: 'You are banned from #{{channelName}}',
-              channelName,
-            })
-          } else {
-            logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
-          }
-        } else {
-          logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
-        }
-
-        externalShowSnackbar(message, DURATION_LONG)
+        externalShowSnackbar(getJoinChannelErrorMessage(err, channelName), DURATION_LONG)
 
         throw err
       })

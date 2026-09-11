@@ -23,6 +23,7 @@ import { FilledButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
+import { LobbyCommandContext } from '../messaging/commands/command-context'
 import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
 import { useLinkCopier } from '../navigation/copy-link-button'
@@ -197,6 +198,7 @@ interface LobbyProps {
   loadingState: LobbyLoadingState
   chat: SbMessage[]
   user: ReadonlyDeep<SelfUserJson>
+  commandContext: LobbyCommandContext
   onLeaveLobbyClick: () => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onAddComputer: (slotId: string) => void
@@ -340,7 +342,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
   }
 
   override render() {
-    const { lobby, onLeaveLobbyClick, onSendChatMessage, t } = this.props
+    const { lobby, commandContext, onLeaveLobbyClick, onSendChatMessage, t } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
@@ -372,6 +374,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           <StyledChat
             listProps={{ messages: this.props.chat, MessageComponent: LobbyChatMessage }}
             inputProps={{ onSendChatMessage }}
+            commandContext={commandContext}
             UserMenu={LobbyUserMenu}
           />
         </Left>

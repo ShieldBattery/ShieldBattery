@@ -13,6 +13,7 @@ import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { openMapPreviewDialog } from '../maps/action-creators'
 import { FilledButton } from '../material/button'
+import { LobbyCommandContext } from '../messaging/commands/command-context'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
 import { usePrevious } from '../react/state-hooks'
@@ -155,12 +156,15 @@ function ConnectedLobby() {
   const loadingState = useAppSelector(s => s.lobby.loadingState)
   const chat = useAppSelector(s => s.lobby.chat)
 
+  const commandContext: LobbyCommandContext = { surface: 'lobby', selfUserId: selfUser!.id }
+
   return (
     <LobbyComponent
       lobby={lobby}
       loadingState={loadingState}
       chat={chat}
       user={selfUser!}
+      commandContext={commandContext}
       onLeaveLobbyClick={() => {
         dispatch(leaveLobby())
       }}

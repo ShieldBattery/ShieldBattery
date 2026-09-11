@@ -7,6 +7,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { useWindowFocus } from '../dom/window-focus'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
+import { WhisperCommandContext } from '../messaging/commands/command-context'
 import { flushLastRead } from '../messaging/last-read'
 import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
 import { isServerOriginMessage } from '../messaging/message-records'
@@ -380,6 +381,12 @@ export function ConnectedWhisper({
     )
   })
 
+  const commandContext: WhisperCommandContext = {
+    surface: 'whisper',
+    selfUserId: selfUser.id,
+    targetId,
+  }
+
   if (!whisperSession) {
     return (
       <LoadingArea>
@@ -408,6 +415,7 @@ export function ConnectedWhisper({
           onSendChatMessage,
           storageKey: viewStateKey,
         }}
+        commandContext={commandContext}
         linkedMessageId={linkedMessageId || undefined}
         onLinkedMessageSettled={onLinkedMessageSettled}
         onAtBottomChange={onAtBottomChange}

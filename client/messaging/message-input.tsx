@@ -29,6 +29,9 @@ import { Popover, useElemAnchorPosition, usePopoverController } from '../materia
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { CommandContext } from './commands/command-context'
+import { LocalLineEmitter } from './commands/local-output'
+import { runChatCommand } from './commands/run-chat-command'
 import { getUnicodeEmojiEntries } from './emoji-data'
 import { EmotePickerButton } from './emote-picker'
 import {
@@ -139,6 +142,14 @@ function useStorageSyncedState(
   return [value, syncedSetValue]
 }
 
+/** What an input needs to run the chat commands its surface offers. */
+export interface MessageInputCommands {
+  /** The surface the input belongs to, which decides what commands can be run and how they act. */
+  context: CommandContext
+  /** Takes the only-you lines a command answers with into the surface. */
+  emit: LocalLineEmitter
+}
+
 export interface MessageInputProps {
   className?: string
   showDivider?: boolean
@@ -162,6 +173,11 @@ export interface MessageInputProps {
    * has only typed the @ character and nothing else after it.
    */
   baseMentionableUsers?: MentionableUser[]
+  /**
+   * What the input needs to treat submitted text starting with a slash as a command. Without it,
+   * everything the user submits is sent as an ordinary message.
+   */
+  commands?: MessageInputCommands
 }
 
 export interface MessageInputHandle {
@@ -178,6 +194,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       storageKey,
       mentionableUsers,
       baseMentionableUsers,
+      commands,
       onSendChatMessage,
     },
     ref,
@@ -448,6 +465,23 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               }),
             ),
           )
+          return
+        }
+
+        if (commands) {
+          // A command is never also sent as chat text, and the input is cleared whether the command
+          // ran or was refused: what it answered with is in the conversation, and a rejected command
+          // is retyped rather than left sitting in the input.
+          const result = runChatCommand(toSend, {
+            context: commands.context,
+            dispatch,
+            t,
+            emit: commands.emit,
+          })
+          if (result.kind === 'text') {
+            onSendChatMessage(result.text)
+          }
+          setMessage('')
           return
         }
 

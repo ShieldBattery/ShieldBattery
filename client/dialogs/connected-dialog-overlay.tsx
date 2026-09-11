@@ -34,6 +34,9 @@ const AdminDeleteChatMessageDialog = React.lazy(async () => ({
 const ChannelBanUserDialog = React.lazy(async () => ({
   default: (await import('../chat/channel-ban-user-dialog')).ChannelBanUserDialog,
 }))
+const ChannelCreateConfirmation = React.lazy(async () => ({
+  default: (await import('../chat/channel-create-confirmation-dialog')).ChannelCreateConfirmation,
+}))
 const ChannelKickUserConfirmation = React.lazy(async () => ({
   default: (await import('../chat/channel-kick-user-dialog')).ChannelKickUserConfirmation,
 }))
@@ -50,6 +53,9 @@ const ChannelTransferOwnershipDialog = React.lazy(async () => ({
 }))
 const ChannelUnbanUserConfirmation = React.lazy(async () => ({
   default: (await import('../chat/channel-unban-user-dialog')).ChannelUnbanUserConfirmation,
+}))
+const ChatCommandHelpDialog = React.lazy(async () => ({
+  default: (await import('../messaging/commands/chat-command-help-dialog')).ChatCommandHelpDialog,
 }))
 const DownloadDialog = React.lazy(() => import('../download/download-dialog'))
 const ReportGameDialog = React.lazy(async () => ({
@@ -185,6 +191,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChangePasswordDialog }
     case DialogType.ChannelBanUser:
       return { component: ChannelBanUserDialog }
+    case DialogType.ChannelCreateConfirmation:
+      return { component: ChannelCreateConfirmation }
     case DialogType.ChannelKickUserConfirmation:
       return { component: ChannelKickUserConfirmation }
     case DialogType.ChannelLeaveConfirmation:
@@ -195,6 +203,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelUnbanUserConfirmation }
     case DialogType.ChannelUserPermissions:
       return { component: ChannelUserPermissionsDialog }
+    case DialogType.ChatCommandHelp:
+      return { component: ChatCommandHelpDialog }
     case DialogType.CreatePlaylist:
       return { component: CreatePlaylistDialog }
     case DialogType.DeletePlaylist:

@@ -1,5 +1,6 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
+import { nanoid } from 'nanoid'
 import * as React from 'react'
 import { useContext, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +20,8 @@ import {
   findChatViewPlacement,
   scrollToAnchoredMessage,
 } from '../messaging/chat-view-anchor'
+import { CommandContext } from '../messaging/commands/command-context'
+import { LocalLineContent } from '../messaging/commands/local-output'
 import { UNREAD_LINE_SELECTOR } from '../messaging/common-message-layout'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import {
@@ -27,7 +30,12 @@ import {
   MessageListProps,
   ScrollUpdateReason,
 } from '../messaging/message-list'
-import { isServerOriginMessage } from '../messaging/message-records'
+import {
+  CommonLocalLineMessage,
+  CommonMessageType,
+  isServerOriginMessage,
+  SbMessage,
+} from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
 import {
@@ -71,6 +79,86 @@ const LINKED_MESSAGE_VIEWPORT_FRACTION = 0.25
 
 /** How long a message the list was sent to by a link stays highlighted after the list arrives. */
 const LINKED_MESSAGE_FLASH_MS = 2000
+
+/**
+ * How many only-you lines a conversation keeps on screen at once. They're answers to what the user
+ * just did rather than conversation history, so old ones are dropped instead of piling up.
+ */
+const MAX_LOCAL_LINES = 20
+
+/** The only-you lines produced in one conversation, kept for as long as the user stays in it. */
+interface LocalOutput {
+  /** Which conversation the lines were produced in; lines from any other one are stale. */
+  conversation: unknown
+  lines: ReadonlyArray<CommonLocalLineMessage>
+}
+
+/**
+ * Works out where among the loaded messages a line produced right now belongs.
+ *
+ * Message times come from the server while this runs on a local clock, so the two can't be compared
+ * with any confidence. Taking the newest loaded message's time puts the line at the end of what the
+ * user is looking at, whatever the clocks say. A window detached from the present is showing
+ * history, where the end of the window isn't the end of the conversation, so the line takes the
+ * later of the two times and lands near the present once the user is back there.
+ */
+function getLocalLineTime(
+  messages: ReadonlyArray<SbMessage>,
+  hasNewerMessages: boolean | undefined,
+): number {
+  let newestTime: number | undefined
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (isServerOriginMessage(messages[i])) {
+      newestTime = messages[i].time
+      break
+    }
+  }
+
+  if (newestTime === undefined) {
+    return Date.now()
+  }
+
+  return hasNewerMessages ? Math.max(newestTime, Date.now()) : newestTime
+}
+
+/**
+ * Places only-you lines among the conversation's messages, in time order. A message wins a tie, so
+ * a line stamped with the newest message's time sits after it. A line older than the oldest loaded
+ * message belongs above the loaded window, where there's nothing for it to sit next to, so it's
+ * left out until the window it belongs in is on screen again.
+ */
+function mergeLocalLines(
+  messages: ReadonlyArray<SbMessage>,
+  lines: ReadonlyArray<CommonLocalLineMessage>,
+): ReadonlyArray<SbMessage> {
+  if (lines.length === 0) {
+    return messages
+  }
+
+  const oldestServerTime = messages.find(isServerOriginMessage)?.time
+  const placeable = lines
+    .filter(line => oldestServerTime === undefined || line.time >= oldestServerTime)
+    .sort((a, b) => a.time - b.time)
+  if (placeable.length === 0) {
+    return messages
+  }
+
+  const merged: SbMessage[] = []
+  let lineIndex = 0
+  for (const message of messages) {
+    while (lineIndex < placeable.length && placeable[lineIndex].time < message.time) {
+      merged.push(placeable[lineIndex])
+      lineIndex += 1
+    }
+    merged.push(message)
+  }
+  while (lineIndex < placeable.length) {
+    merged.push(placeable[lineIndex])
+    lineIndex += 1
+  }
+
+  return merged
+}
 
 /** How a move to a message named by a link came out. */
 export type LinkedMessageOutcome =
@@ -282,7 +370,12 @@ const ESCAPE = 'Escape'
 export interface ChatProps {
   className?: string
   listProps: Omit<MessageListProps, 'onScrollUpdate' | 'isRestorePending'>
-  inputProps: Omit<MessageInputProps, 'showDivider'>
+  inputProps: Omit<MessageInputProps, 'showDivider' | 'commands'>
+  /**
+   * What this surface is, for the commands the user can run in it. Without it the input has no
+   * commands at all and everything submitted is sent as an ordinary message.
+   */
+  commandContext?: CommandContext
   /**
    * Optional header component which will be rendered on top of the message list. This is useful if
    * you need to show more information about the current chat content.
@@ -368,6 +461,7 @@ export function Chat({
   className,
   listProps,
   inputProps: { onSendChatMessage, ...inputProps },
+  commandContext,
   header,
   backgroundContent,
   extraContent,
@@ -388,6 +482,13 @@ export function Chat({
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
   const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
   const [showUnreadBanner, setShowUnreadBanner] = useState<boolean>(false)
+  const [localOutput, setLocalOutput] = useState<LocalOutput>({
+    conversation: listProps.refreshToken,
+    lines: [],
+  })
+  // Whether the only-you lines are being kept off screen because the user has scrolled away from
+  // the newest messages.
+  const [hiddenByScroll, setHiddenByScroll] = useState<boolean>(false)
   // The last at-bottom state reported through `onAtBottomChange`, so only changes are reported.
   // Undefined while nothing has been reported for the current conversation, which makes the first
   // settled update report unconditionally: the owner has no other way to learn where the viewport
@@ -432,6 +533,42 @@ export function Chat({
     refreshToken,
     viewStateKey,
   } = listProps
+
+  // Only-you lines belong to the conversation they were produced in, so arriving at a different one
+  // starts with none. Adjusted here rather than in an effect so the lines never render against the
+  // wrong conversation, even for a frame.
+  if (localOutput.conversation !== refreshToken) {
+    setLocalOutput({ conversation: refreshToken, lines: [] })
+  }
+
+  /** Takes a line a command produced into this conversation, at the end of what's on screen. */
+  const emitLocalLine = (line: LocalLineContent) => {
+    const conversation = refreshToken
+    const time = getLocalLineTime(messages, hasNewerMessages)
+
+    setLocalOutput(prev => {
+      if (prev.conversation !== conversation) {
+        // The command finished after the user moved on, so the line has nowhere to go.
+        return prev
+      }
+
+      const lines = [
+        ...prev.lines,
+        {
+          id: nanoid(),
+          type: CommonMessageType.LocalLine,
+          time,
+          kind: line.kind,
+          content: line.content,
+        } satisfies CommonLocalLineMessage,
+      ]
+
+      return {
+        conversation,
+        lines: lines.length > MAX_LOCAL_LINES ? lines.slice(lines.length - MAX_LOCAL_LINES) : lines,
+      }
+    })
+  }
 
   /**
    * Starts moving the list to the position the user left this conversation at, if they left one
@@ -783,7 +920,18 @@ export function Chat({
     }
 
     const distanceFromBottom = scrollHeight - clientHeight - scrollTop
-    setShowJumpToBottom(distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS)
+    const newShowJumpToBottom = distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS
+    setShowJumpToBottom(newShowJumpToBottom)
+
+    // Only-you lines are taken away once the user has scrolled well clear of the newest messages,
+    // and come back when they return to them. The at-bottom band can't be the threshold: taking the
+    // lines away shortens the content, which clamps the scroll position back to the bottom and puts
+    // them right back, over and over. Waiting for the jump affordance keeps the change off screen.
+    if (newShowJumpToBottom) {
+      setHiddenByScroll(true)
+    } else if (newAtBottom) {
+      setHiddenByScroll(false)
+    }
 
     // Rects are read after the scrolling above, so the banner reflects where the divider ended up.
     const unreadLine = findUnreadLine(scroller)
@@ -973,6 +1121,13 @@ export function Chat({
       ? linkFlash.messageId
       : undefined
 
+  // Only-you lines only make sense where the newest messages are: a window detached from the
+  // present isn't where they were emitted.
+  const visibleLines = !hasNewerMessages && !hiddenByScroll ? localOutput.lines : []
+  // Only the list sees the lines. Everything else in here (restoring a position, moving to a linked
+  // message, reporting what's been read) is about the conversation itself.
+  const messagesWithLocalLines = mergeLocalLines(messages, visibleLines)
+
   return (
     <BaseUserMenuItemsProvider
       items={
@@ -997,6 +1152,7 @@ export function Chat({
           <MessageListContainer>
             <StyledMessageList
               {...listProps}
+              messages={messagesWithLocalLines}
               onScrollUpdate={onScrollUpdate}
               isRestorePending={isRestorePending}
             />
@@ -1046,6 +1202,7 @@ export function Chat({
           </MessageListContainer>
           <MessageInput
             {...inputProps}
+            commands={commandContext ? { context: commandContext, emit: emitLocalLine } : undefined}
             onSendChatMessage={onSendMessage}
             ref={messageInputRef}
             showDivider={isScrolledUp}

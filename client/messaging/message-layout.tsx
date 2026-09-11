@@ -25,7 +25,11 @@ const StyledTooltip = styled(Tooltip)`
 // NOTE(tec27): These styles are done a bit oddly to ensure that message contents wraps in a
 // pleasing way. We effectively pad everything and then push the timestamps into the padding. By
 // doing this we also ensure copy+paste looks decent (instead of on separate lines)
-const Timestamp = styled.span`
+/**
+ * The fixed-width column every message line starts with, which the line's text is then indented
+ * out of. Holds a timestamp for the messages that have one, and a label for the lines that don't.
+ */
+export const GutterLabel = styled.span`
   ${labelMedium};
   width: 72px;
   display: inline-block;
@@ -42,11 +46,11 @@ interface MessageTimestampProps {
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
   <StyledTooltip text={longTimestamp.format(props.time)} position='top'>
-    <Timestamp>
+    <GutterLabel>
       <Separator>[</Separator>
       {shortTimestamp.format(props.time)}
       <Separator>] </Separator>
-    </Timestamp>
+    </GutterLabel>
   </StyledTooltip>
 )
 
@@ -171,7 +175,13 @@ const MessageContainer = styled.div<{
 `
 
 interface TimestampMessageLayoutProps {
-  time: number
+  /**
+   * When the message was sent, shown as a timestamp in the gutter. Lines with no time worth showing
+   * fill the gutter with `gutter` instead; exactly one of the two should be given.
+   */
+  time?: number
+  /** Content for the gutter, in place of a timestamp. */
+  gutter?: React.ReactNode
   /**
    * Id of the message being rendered. Surfaces that restore a reading position locate messages in
    * the DOM by it, so leaving it out makes a message impossible to anchor to.
@@ -198,7 +208,7 @@ export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
       onContextMenu={props.onContextMenu}
       data-message-id={props.msgId}
       data-testid={props.testId}>
-      <MessageTimestamp time={props.time} />
+      {props.gutter ?? (props.time !== undefined ? <MessageTimestamp time={props.time} /> : null)}
       {props.children}
     </MessageContainer>
   )

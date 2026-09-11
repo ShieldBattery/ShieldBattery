@@ -19,6 +19,7 @@ import {
   UNREAD_LINE_SELECTOR,
   UnreadLineMessage,
 } from './common-message-layout'
+import { LocalLineMessage } from './local-line-message'
 import {
   CommonMessageType,
   CommonNewDayMessage,
@@ -118,6 +119,8 @@ function CommonMessageOrFallback({
   switch (message.type) {
     case CommonMessageType.NewDayMessage:
       return <NewDayMessage key={message.id} time={message.time} />
+    case CommonMessageType.LocalLine:
+      return <LocalLineMessage key={message.id} kind={message.kind} content={message.content} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage:

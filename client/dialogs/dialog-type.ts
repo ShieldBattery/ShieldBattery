@@ -15,7 +15,9 @@ export enum DialogType {
   ChangeEmail = 'changeEmail',
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
+  ChatCommandHelp = 'chatCommandHelp',
   ChannelBanUser = 'channelBanUser',
+  ChannelCreateConfirmation = 'channelCreateConfirmation',
   ChannelKickUserConfirmation = 'channelKickUserConfirmation',
   ChannelLeaveConfirmation = 'channelLeaveConfirmation',
   ChannelTransferOwnership = 'channelTransferOwnership',
@@ -93,8 +95,37 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+    /** A reason to prefill the dialog's reason field with; the user can still edit it. */
+    banReason?: string
     /** Called once the user has been banned successfully. */
     onSuccess?: () => void
+  }
+>
+type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelCreateConfirmation,
+  {
+    /** The name of the channel that would be created (without a leading `#`). */
+    channelName: string
+    /** Performs the join that creates the channel once the user confirms. */
+    onConfirm: () => void
+  }
+>
+type ChatCommandHelpDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChatCommandHelp,
+  {
+    /** Every command that exists where the dialog was opened from, in display order. */
+    commands: Array<{
+      /** The canonical name, without its leading slash. */
+      name: string
+      /** Other names that reach the command, without their leading slashes. Empty when there are none. */
+      aliases: string[]
+      /** The arguments in order, as usage strings spell them. */
+      args: Array<{ label: string; optional: boolean }>
+      /** Already localized. */
+      description: string
+      /** Why the command can't be run where the dialog was opened from. Absent when it can. */
+      unavailableReason?: string
+    }>
   }
 >
 type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
@@ -336,6 +367,8 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
+  | ChannelCreateConfirmationDialogPayload
+  | ChatCommandHelpDialogPayload
   | ChannelKickUserConfirmationDialogPayload
   | ChannelLeaveConfirmationDialogPayload
   | ChannelTransferOwnershipDialogPayload
