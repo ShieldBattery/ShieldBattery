@@ -40,11 +40,27 @@ const errorTransition: Transition = {
   opacity: { type: 'spring', duration: 0.2, bounce: 0 },
 }
 
+const SupportingText = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+`
+
 export interface InputErrorProps {
   error?: string
+  /** Shown in the strip in place of the error while there isn't one. */
+  supportingText?: React.ReactNode
   className?: string
 }
 
+/**
+ * The strip below a text field: an animated error message while there is one, otherwise plain
+ * supporting text, otherwise empty.
+ */
 export function InputError(props: InputErrorProps) {
   const nodeRef = useRef(null)
 
@@ -65,6 +81,9 @@ export function InputError(props: InputErrorProps) {
           </ErrorText>
         ) : null}
       </AnimatePresence>
+      {!props.error && props.supportingText !== undefined ? (
+        <SupportingText>{props.supportingText}</SupportingText>
+      ) : null}
     </StyledContainer>
   )
 }

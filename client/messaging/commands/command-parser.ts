@@ -3,6 +3,8 @@ import { isValidChannelName, isValidUsername } from '../../../common/constants'
 import {
   ChatCommand,
   CommandArg,
+  CommandArgUsage,
+  getArgLabel,
   ParsedArgValues,
   ParsedSubcommand,
   SubcommandOption,
@@ -100,6 +102,11 @@ class ArgTokenizer {
   private pos = 0
 
   constructor(private readonly text: string) {}
+
+  /** How far into the text the reading has got, as an index into it. */
+  get position(): number {
+    return this.pos
+  }
 
   private skipWhitespace(): void {
     while (this.pos < this.text.length && WHITESPACE.test(this.text[this.pos])) {
@@ -303,4 +310,100 @@ export function parseArgs(command: ChatCommand, argText: string): ParseArgsResul
   }
 
   return { ok: true, args }
+}
+
+export interface ArgCaret {
+  /**
+   * Every argument the typed text reaches, as usage spells them: the command's own arguments, and
+   * after a subcommand argument whose option has been typed, that option's arguments.
+   */
+  signature: CommandArgUsage[]
+  /**
+   * Index into `signature` of the argument the caret is in, or undefined when the caret is past
+   * every argument the command takes (or in text no argument accepts).
+   */
+  activeIndex: number | undefined
+  /** The schema entry the caret is in, when `activeIndex` is defined. */
+  activeArg: CommandArg | undefined
+  /**
+   * What has been typed for the active argument so far, and where it starts in `argTextBeforeCaret`.
+   * `text` is empty when the argument has not been started. Undefined whenever `activeIndex` is.
+   */
+  token: { start: number; text: string } | undefined
+}
+
+interface ArgWalkState {
+  signature: CommandArgUsage[]
+  active: { index: number; arg: CommandArg; token: { start: number; text: string } } | undefined
+}
+
+/**
+ * Reads `args` the way the parser would, recording each one's usage and stopping at whichever one
+ * the end of `text` falls in. Once an argument has been found active the rest are only spelled
+ * out, since nothing past the caret is read.
+ */
+function walkArgsToCaret(
+  args: readonly CommandArg[],
+  tokenizer: ArgTokenizer,
+  text: string,
+  state: ArgWalkState,
+): void {
+  for (const arg of args) {
+    const index = state.signature.length
+    state.signature.push({ label: getArgLabel(arg), optional: arg.optional ?? false })
+
+    if (state.active) {
+      continue
+    }
+
+    // This also skips the whitespace in front of the value, so the position below is where the
+    // value itself starts.
+    if (tokenizer.atEnd()) {
+      state.active = { index, arg, token: { start: text.length, text: '' } }
+      continue
+    }
+
+    const start = tokenizer.position
+    if (arg.kind === 'rest') {
+      // Everything left over is one value, so a caret anywhere past here is inside it.
+      tokenizer.rest()
+      state.active = { index, arg, token: { start, text: text.slice(start) } }
+      continue
+    } else if (arg.kind === 'word') {
+      tokenizer.nextWord()
+    } else {
+      tokenizer.nextToken()
+    }
+
+    if (tokenizer.position >= text.length) {
+      state.active = { index, arg, token: { start, text: text.slice(start) } }
+      continue
+    }
+
+    // The value is complete and more was typed after it, so the caret is in a later argument.
+    if (arg.kind === 'subcommand') {
+      const option = arg.options.find(o => matchesOption(o, text.slice(start, tokenizer.position)))
+      if (!option) {
+        // Nothing is known about what follows a name no option answers to.
+        return
+      }
+      walkArgsToCaret(option.args, tokenizer, text, state)
+    }
+  }
+}
+
+/**
+ * Finds which argument the caret is in. `argTextBeforeCaret` is the text after the command name
+ * (it may start with whitespace) up to the caret; nothing after the caret matters.
+ */
+export function locateArgAtCaret(command: ChatCommand, argTextBeforeCaret: string): ArgCaret {
+  const state: ArgWalkState = { signature: [], active: undefined }
+  walkArgsToCaret(command.args, new ArgTokenizer(argTextBeforeCaret), argTextBeforeCaret, state)
+
+  return {
+    signature: state.signature,
+    activeIndex: state.active?.index,
+    activeArg: state.active?.arg,
+    token: state.active?.token,
+  }
 }

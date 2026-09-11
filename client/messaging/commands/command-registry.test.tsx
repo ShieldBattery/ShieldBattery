@@ -34,8 +34,8 @@ function channelContext(canKick: boolean, canBan: boolean): ChannelCommandContex
     channelId: makeSbChannelId(1),
     selfUserId,
     members: [
-      { id: selfUserId, name: 'Marko' },
-      { id: otherUserId, name: 'tec27' },
+      { id: selfUserId, name: 'Marko', online: true },
+      { id: otherUserId, name: 'tec27', online: true },
     ],
     canKick,
     canBan,

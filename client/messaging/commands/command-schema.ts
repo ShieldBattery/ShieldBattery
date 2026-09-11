@@ -1,11 +1,27 @@
 import { TFunction } from 'i18next'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
 import { DispatchFunction } from '../../dispatch-registry'
+import { RootState } from '../../root-reducer'
 import { CommandContext, CommandSurface } from './command-context'
 import { LocalLineEmitter } from './local-output'
 
 /** Every surface a command can be declared for, in the order a sentence listing them reads. */
 export const ALL_COMMAND_SURFACES: ReadonlyArray<CommandSurface> = ['channel', 'whisper', 'lobby']
+
+/** One value the argument palette can complete an argument with. */
+export interface ArgSuggestion {
+  /** What accepting the suggestion types into the input, e.g. a username or a channel name. */
+  value: string
+  /** When the value names a user: whose avatar the row shows, faded along with the text while offline. */
+  user?: { id: SbUserId; online: boolean }
+}
+
+export interface ArgSuggestDeps {
+  context: CommandContext
+  /** Reads the store as of when the palette was opened; suggestions are not kept live. */
+  getState: () => RootState
+}
 
 interface BaseArg {
   /**
@@ -18,6 +34,13 @@ interface BaseArg {
    * left-out one parses to `undefined`.
    */
   optional?: boolean
+  /**
+   * Offers values for the argument palette to complete this argument with. Without it, an argument
+   * is completed from what its kind implies: a `user` from the surface's members, a `channel` from
+   * the channels the client knows of, an `enum` or `subcommand` from its own values, and the other
+   * kinds from nothing. Returns every candidate; the palette narrows them to what has been typed.
+   */
+  suggest?: (deps: ArgSuggestDeps) => ReadonlyArray<ArgSuggestion>
 }
 
 /** One token, with a leading `@` stripped, that has to look like a username. */
@@ -203,7 +226,7 @@ export function getSurfaceCommands(
 }
 
 /** What usage strings and error messages call an argument. */
-function getArgLabel(arg: CommandArg): string {
+export function getArgLabel(arg: CommandArg): string {
   switch (arg.kind) {
     case 'enum':
       return arg.values.join('|')

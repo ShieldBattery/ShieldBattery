@@ -98,6 +98,9 @@ export function MenuItem({
   className,
   testName,
   virtualFocus,
+  id,
+  role,
+  'aria-selected': ariaSelected,
 }: MenuItemProps) {
   const [buttonProps, rippleRef] = useButtonState({ onClick, onKeyDown, disabled })
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -115,6 +118,9 @@ export function MenuItem({
   return (
     <Item
       ref={buttonRef}
+      id={id}
+      role={role}
+      aria-selected={ariaSelected}
       className={className}
       data-testid={testName}
       {...buttonProps}

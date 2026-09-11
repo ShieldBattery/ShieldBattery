@@ -1,11 +1,10 @@
-import UFuzzy from '@leeoniya/ufuzzy'
-
 import {
   SetStateAction,
   useCallback,
   useEffect,
+  useEffectEvent,
+  useId,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -13,10 +12,9 @@ import {
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { CHAT_MESSAGE_MAXLENGTH } from '../../common/constants'
-import { matchUserMentions } from '../../common/text/user-mentions'
 import { RestrictionKind } from '../../common/users/restrictions'
-import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -24,34 +22,33 @@ import { longTimestamp } from '../i18n/date-formats'
 import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
+import { getMenuItemId, MenuList } from '../material/menu/menu'
 import { Popover, useElemAnchorPosition, usePopoverController } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector, useAppStore } from '../redux-hooks'
 import { CommandContext } from './commands/command-context'
+import {
+  createCommandArgProvider,
+  createCommandNameProvider,
+  getSignatureHelpAtCaret,
+  locateCommandCaret,
+  SignatureHelp,
+} from './commands/command-provider'
+import { ALL_COMMANDS } from './commands/command-registry'
+import { getCommandArgUsages } from './commands/command-schema'
+import { CommandSignatureHelp } from './commands/command-signature-help'
 import { LocalLineEmitter } from './commands/local-output'
 import { runChatCommand } from './commands/run-chat-command'
-import { getUnicodeEmojiEntries } from './emoji-data'
 import { EmotePickerButton } from './emote-picker'
+import { emoteProvider } from './emote-provider'
+import { createMentionProvider, MentionableUser } from './mention-provider'
 import {
-  EMOTE_QUERY_REGEX,
-  EmoteSuggestion,
-  orderEmoteSuggestions,
-  recordEmoteUsage,
-  searchUnicodeEmojis,
-} from './emote-suggestions'
-
-// We limit the number of users we display in user mention popup to 10 so we don't need to have
-// scrollbars; and usually the person who is trying to mention someone is interested in only one
-// user anyway.
-export const MAX_MENTIONED_USERS = 10
-
-export interface MentionableUser {
-  id: SbUserId
-  name: string
-  online: boolean
-}
+  matchTypeahead,
+  TypeaheadProvider,
+  TypeaheadSuggestion,
+  TypeaheadVisual,
+} from './typeahead'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;
@@ -110,6 +107,36 @@ const EmoteSuggestionIcon = styled.span`
   text-align: center;
 `
 
+/** The icon a suggestion row shows, if it has one. */
+function suggestionIcon(visual: TypeaheadVisual): React.ReactNode {
+  switch (visual.kind) {
+    case 'user':
+      return <StyledAvatar userId={visual.userId} $faded={!visual.online} />
+    case 'emoji':
+      return <EmoteSuggestionIcon>{visual.emoji}</EmoteSuggestionIcon>
+    case 'command':
+    case 'plain':
+      return undefined
+    default:
+      return assertUnreachable(visual)
+  }
+}
+
+/** Whether a suggestion row is shown dimmed, e.g. an offline user or a command that can't be run. */
+function isSuggestionFaded(visual: TypeaheadVisual): boolean {
+  switch (visual.kind) {
+    case 'user':
+      return !visual.online
+    case 'command':
+      return visual.unavailable
+    case 'emoji':
+    case 'plain':
+      return false
+    default:
+      return assertUnreachable(visual)
+  }
+}
+
 /** A Map to store the message input contents for each chat instance. */
 const messageInputMap = new Map<string, string>()
 
@@ -150,6 +177,20 @@ export interface MessageInputCommands {
   emit: LocalLineEmitter
 }
 
+/** The palette the input is currently offering, and where its rows would be typed. */
+interface ActiveTypeahead {
+  provider: TypeaheadProvider
+  /** Index in the message where the text the rows complete starts. */
+  start: number
+  /** The text the rows complete: from `start` up to the caret. */
+  matchedText: string
+  suggestions: ReadonlyArray<TypeaheadSuggestion>
+  /** Enter on an exact suggestion sends the message instead of accepting the suggestion. */
+  submitOnExact: boolean
+  /** Space accepts the suggestion when it is the only one offered and it is not exact. */
+  spaceAcceptsSingle: boolean
+}
+
 export interface MessageInputProps {
   className?: string
   showDivider?: boolean
@@ -175,7 +216,8 @@ export interface MessageInputProps {
   baseMentionableUsers?: MentionableUser[]
   /**
    * What the input needs to treat submitted text starting with a slash as a command. Without it,
-   * everything the user submits is sent as an ordinary message.
+   * everything the user submits is sent as an ordinary message. It also drives the command and
+   * argument palettes and the signature help shown while a command is being typed.
    */
   commands?: MessageInputCommands
 }
@@ -201,6 +243,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
   ) => {
     const { t } = useTranslation()
     const dispatch = useAppDispatch()
+    const store = useAppStore()
     const user = useSelfUser()
     const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
     const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
@@ -208,23 +251,29 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const inputRef = useRef<HTMLInputElement>(null)
     const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
 
-    const [userMentionStartIndex, setUserMentionStartIndex] = useState<number>(-1)
-    const [userMentionMatchedText, setUserMentionMatchedText] = useState<string>('')
-    const [matchedUsers, setMatchedUsers] = useState<MentionableUser[]>([])
-    const [virtuallyFocusedMentionIndex, setVirtuallyFocusedMentionIndex] = useState<number>(0)
+    const [typeahead, setTypeahead] = useState<ActiveTypeahead | undefined>(undefined)
+    const [activeIndex, setActiveIndex] = useState(0)
+    const [paletteOpen, openPalette, closePalette] = usePopoverController()
+    const [caretSignatureHelp, setCaretSignatureHelp] = useState<SignatureHelp | undefined>(
+      undefined,
+    )
+    // Guards suggestions that load asynchronously against the caret having moved on by the time
+    // they arrive
+    const latestRequestRef = useRef(0)
+    const listId = useId()
 
-    const [emoteQueryStart, setEmoteQueryStart] = useState<number>(-1)
-    const [emoteMatchedText, setEmoteMatchedText] = useState<string>('')
-    const [matchedEmotes, setMatchedEmotes] = useState<EmoteSuggestion[]>([])
-    const [focusedEmoteIndex, setFocusedEmoteIndex] = useState<number>(0)
-    // Guards async emoji data loads against the query having changed by the time they finish
-    const latestEmoteQueryRef = useRef<string | undefined>(undefined)
-
-    const fuzzy = useMemo(() => new UFuzzy({ intraIns: Infinity, intraChars: '.' }), [])
-
-    const [userMentionsOpen, openUserMentions, closeUserMentions] = usePopoverController()
-    const [emotesOpen, openEmotes, closeEmotes] = usePopoverController()
     const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
+
+    // The first provider to claim the caret owns the palette, so the more specific ones come first.
+    const providers: TypeaheadProvider[] = []
+    if (commands) {
+      const deps = { context: commands.context, getState: store.getState, t }
+      providers.push(createCommandNameProvider(deps), createCommandArgProvider(deps))
+    }
+    if (mentionableUsers) {
+      providers.push(createMentionProvider(mentionableUsers, baseMentionableUsers))
+    }
+    providers.push(emoteProvider)
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -249,110 +298,81 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       },
     }))
 
-    useEffect(() => {
-      const onSelectionChange = (event: Event) => {
-        if (event.target instanceof HTMLTextAreaElement) {
-          // This logic looks for the caret moving within a message that starts with @, while
-          // ignoring any cases where the user has made an actual selection.
+    const onSelectionChange = useEffectEvent((event: Event) => {
+      if (!(event.target instanceof HTMLTextAreaElement)) {
+        return
+      }
 
-          const { selectionStart, selectionEnd } = event.target
-          if (selectionStart === null || selectionStart !== selectionEnd) {
-            return
-          }
+      // A caret moving through the text is what a palette completes at; an actual selection is not
+      // a position to complete anything at.
+      const { selectionStart, selectionEnd } = event.target
+      if (selectionStart === null || selectionStart !== selectionEnd) {
+        return
+      }
 
-          // TODO(2Pac): Handle channel mentions as well.
+      // TODO(2Pac): Handle channel mentions as well.
 
-          const emoteMatch = EMOTE_QUERY_REGEX.exec(message.slice(0, selectionStart))
-          if (emoteMatch) {
-            const query = emoteMatch.groups!.query
-            latestEmoteQueryRef.current = query
-            setEmoteQueryStart(emoteMatch.index)
-            setEmoteMatchedText(emoteMatch[0])
+      // The DOM value is what the caret offsets refer to; React state can still be a render behind.
+      const textBeforeCaret = event.target.value.slice(0, selectionStart)
 
-            getUnicodeEmojiEntries().then(
-              entries => {
-                if (latestEmoteQueryRef.current !== query) {
-                  return
-                }
-                const suggestions = orderEmoteSuggestions(searchUnicodeEmojis(entries, query))
-                setMatchedEmotes(suggestions)
-                if (suggestions.length) {
-                  openEmotes(event)
-                } else {
-                  closeEmotes()
-                }
-              },
-              (err: Error) => logger.error(`Failed to load emoji data: ${String(err)}`),
+      setCaretSignatureHelp(
+        commands
+          ? getSignatureHelpAtCaret(
+              locateCommandCaret(textBeforeCaret, ALL_COMMANDS, commands.context.surface),
             )
-          } else {
-            latestEmoteQueryRef.current = undefined
-            closeEmotes()
-          }
+          : undefined,
+      )
 
-          if (mentionableUsers) {
-            if (baseMentionableUsers?.length) {
-              // Looking for an @ with no characters after it to display base mentionable users.
-              const messageBeforeCaret = message.slice(0, selectionStart)
-              if (messageBeforeCaret === '@' || messageBeforeCaret.endsWith(' @')) {
-                setUserMentionStartIndex(selectionStart - 1)
-                setUserMentionMatchedText('@')
-                setMatchedUsers(baseMentionableUsers)
-                openUserMentions(event)
-                return
-              }
-            }
+      const requestId = ++latestRequestRef.current
+      const result = matchTypeahead(providers, textBeforeCaret)
+      if (!result) {
+        setTypeahead(undefined)
+        closePalette()
+        return
+      }
 
-            // This gets the index of the last word in the message from the current caret position
-            // going backwards until the @ character is reached.
-            const userMentionStartIndex = message.slice(0, selectionStart).search(/(?<=^|\s)@\S*$/)
-            if (userMentionStartIndex === -1) {
-              closeUserMentions()
-              return
-            }
+      const { provider, match } = result
+      const apply = (suggestions: ReadonlyArray<TypeaheadSuggestion>) => {
+        if (latestRequestRef.current !== requestId) {
+          // A later caret position superseded this one
+          return
+        }
 
-            const userMentions = Array.from(
-              matchUserMentions(message.slice(userMentionStartIndex, selectionStart)),
-            )
-            // There should be only one mention here
-            const userMention = userMentions[0]
+        if (provider.id !== typeahead?.provider.id) {
+          // A different kind of palette starts at its first row rather than wherever the last one
+          // was left
+          setActiveIndex(0)
+        }
+        setTypeahead({
+          provider,
+          start: match.start,
+          matchedText: match.matchedText,
+          suggestions,
+          submitOnExact: !!match.submitOnExact,
+          spaceAcceptsSingle: !!match.spaceAcceptsSingle,
+        })
 
-            if (!userMention) {
-              closeUserMentions()
-              return
-            }
-
-            const matchedUserIndexes = fuzzy.filter(
-              mentionableUsers.map(u => u.name),
-              userMention.groups.username,
-            )
-            const matchedUsers = matchedUserIndexes?.map(i => mentionableUsers[i]) ?? []
-
-            setUserMentionStartIndex(userMentionStartIndex)
-            setUserMentionMatchedText(userMention.text)
-            setMatchedUsers(matchedUsers.slice(0, MAX_MENTIONED_USERS))
-
-            if (matchedUsers.length) {
-              openUserMentions(event)
-            } else {
-              closeUserMentions()
-            }
-          }
+        if (suggestions.length > 0) {
+          openPalette(event)
+        } else {
+          closePalette()
         }
       }
 
+      if (match.suggestions instanceof Promise) {
+        match.suggestions.then(apply, (err: Error) =>
+          logger.error(`Failed to load typeahead suggestions: ${String(err)}`),
+        )
+      } else {
+        apply(match.suggestions)
+      }
+    })
+
+    useEffect(() => {
       const inputRefValue = inputRef.current
       inputRefValue?.addEventListener('selectionchange', onSelectionChange)
       return () => inputRefValue?.removeEventListener('selectionchange', onSelectionChange)
-    }, [
-      message,
-      mentionableUsers,
-      baseMentionableUsers,
-      openUserMentions,
-      closeUserMentions,
-      openEmotes,
-      closeEmotes,
-      fuzzy,
-    ])
+    }, [])
 
     const onChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
       const message = event.target.value
@@ -375,42 +395,36 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       })
     })
 
-    const onMentionSelect = (user: MentionableUser) => {
-      closeUserMentions()
+    const suggestions = typeahead?.suggestions ?? []
+    // NOTE: The active index is clamped because the suggestion lists can shrink while an index
+    // further down is focused (the menu keeps its index when its children change)
+    const clampedActiveIndex = Math.min(activeIndex, Math.max(suggestions.length - 1, 0))
+    const activeSuggestion = suggestions[clampedActiveIndex]
+    const paletteShowing = paletteOpen && suggestions.length > 0
 
-      if (userMentionStartIndex > -1 && userMentionMatchedText) {
-        setMessage(
-          message.slice(0, userMentionStartIndex) +
-            `@${user.name} ` +
-            message.slice(userMentionStartIndex + userMentionMatchedText.length),
-        )
-      }
-
-      if (!inputRef.current) {
-        return
-      }
-
-      inputRef.current.focus()
-      // Setting the caret position immediately after the focus doesn't work for some
-      // reason, so we need to wait a tick first.
-      queueMicrotask(() => {
-        const newCaretPosition = userMentionStartIndex + user.name.length + 2
-        inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
-      })
+    // Clearing the input programmatically moves the caret without a `selectionchange` event, so
+    // what was derived from the old caret position has to be dropped by hand.
+    const clearInput = () => {
+      latestRequestRef.current += 1
+      setTypeahead(undefined)
+      setCaretSignatureHelp(undefined)
+      setActiveIndex(0)
+      closePalette()
+      setMessage('')
     }
 
-    const onEmoteSelect = (suggestion: EmoteSuggestion) => {
-      closeEmotes()
-      setFocusedEmoteIndex(0)
-      recordEmoteUsage(suggestion.key)
-
-      if (emoteQueryStart > -1 && emoteMatchedText) {
-        setMessage(
-          message.slice(0, emoteQueryStart) +
-            suggestion.insertText +
-            message.slice(emoteQueryStart + emoteMatchedText.length),
-        )
+    const acceptSuggestion = (suggestion: TypeaheadSuggestion) => {
+      if (!typeahead) {
+        return
       }
+
+      const { provider, start, matchedText } = typeahead
+      closePalette()
+      setActiveIndex(0)
+      provider.onAccept?.(suggestion)
+      setMessage(
+        message.slice(0, start) + suggestion.insertText + message.slice(start + matchedText.length),
+      )
 
       if (!inputRef.current) {
         return
@@ -420,27 +434,21 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       // Setting the caret position immediately after the focus doesn't work for some
       // reason, so we need to wait a tick first.
       queueMicrotask(() => {
-        const newCaretPosition = emoteQueryStart + suggestion.insertText.length
+        const newCaretPosition = start + suggestion.insertText.length
         inputRef.current?.setSelectionRange(newCaretPosition, newCaretPosition)
       })
     }
 
     const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-      // NOTE: The focused indexes are clamped because the suggestion lists can shrink while an
-      // index further down is focused (the menu keeps its index when its children change)
-      if (emotesOpen && matchedEmotes.length > 0) {
-        event.preventDefault()
-        onEmoteSelect(matchedEmotes[Math.min(focusedEmoteIndex, matchedEmotes.length - 1)])
-        return
-      }
-
-      if (userMentionsOpen && matchedUsers.length > 0) {
-        event.preventDefault()
-        onMentionSelect(
-          matchedUsers[Math.min(virtuallyFocusedMentionIndex, matchedUsers.length - 1)],
-        )
-        setVirtuallyFocusedMentionIndex(0)
-        return
+      if (paletteShowing && typeahead && activeSuggestion) {
+        if (typeahead.submitOnExact && activeSuggestion.exact) {
+          // What's typed already spells the highlighted suggestion, so Enter means send
+          closePalette()
+        } else {
+          event.preventDefault()
+          acceptSuggestion(activeSuggestion)
+          return
+        }
       }
 
       if (event.shiftKey) {
@@ -481,12 +489,12 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           if (result.kind === 'text') {
             onSendChatMessage(result.text)
           }
-          setMessage('')
+          clearInput()
           return
         }
 
         onSendChatMessage(toSend)
-        setMessage('')
+        clearInput()
       }
     })
 
@@ -528,6 +536,18 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       })
     }
 
+    // The highlighted row of the command palette is the command about to be typed, so its usage is
+    // what the signature help describes until the caret reaches the arguments.
+    let signatureHelp = caretSignatureHelp
+    if (
+      paletteShowing &&
+      typeahead?.provider.id === 'command' &&
+      activeSuggestion?.visual.kind === 'command'
+    ) {
+      const { command } = activeSuggestion.visual
+      signatureHelp = { command, signature: getCommandArgUsages(command), active: 'name' }
+    }
+
     return (
       <>
         <StyledTextField
@@ -541,6 +561,15 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           maxRows={maxRows}
           floatingLabel={false}
           allowErrors={false}
+          supportingText={
+            signatureHelp ? (
+              <CommandSignatureHelp
+                command={signatureHelp.command}
+                signature={signatureHelp.signature}
+                active={signatureHelp.active}
+              />
+            ) : undefined
+          }
           maxLength={CHAT_MESSAGE_MAXLENGTH}
           showDivider={showDivider}
           disabled={!!chatRestriction}
@@ -553,9 +582,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           ]}
           inputProps={{
             autoComplete: 'off',
+            role: 'combobox',
+            'aria-autocomplete': 'list',
+            'aria-expanded': paletteShowing,
+            'aria-controls': paletteShowing ? listId : undefined,
+            'aria-activedescendant': paletteShowing
+              ? getMenuItemId(listId, clampedActiveIndex)
+              : undefined,
             onClick: event => {
-              if (userMentionsOpen || emotesOpen) {
-                // Prevent the suggestion popovers from closing when the user clicks on the input
+              if (paletteShowing) {
+                // Prevent the suggestion popover from closing when the user clicks on the input
                 // and we have matches at the current position of their caret.
                 event.stopPropagation()
               }
@@ -563,16 +599,22 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           }}
           onKeyDown={event => {
             if (event.key === 'Tab') {
-              // Indexes clamped for the same reason as in onEnterKeyDown
-              if (emotesOpen && matchedEmotes.length > 0) {
+              if (paletteShowing && activeSuggestion) {
                 event.preventDefault()
-                onEmoteSelect(matchedEmotes[Math.min(focusedEmoteIndex, matchedEmotes.length - 1)])
-              } else if (userMentionsOpen && matchedUsers.length > 0) {
+                acceptSuggestion(activeSuggestion)
+              }
+            } else if (event.key === ' ') {
+              // When a palette has narrowed to one row that isn't typed out yet, the space that
+              // would move past it accepts it instead; its inserted text carries the space along.
+              const onlySuggestion = suggestions.length === 1 ? suggestions[0] : undefined
+              if (
+                paletteShowing &&
+                typeahead?.spaceAcceptsSingle &&
+                onlySuggestion &&
+                !onlySuggestion.exact
+              ) {
                 event.preventDefault()
-                onMentionSelect(
-                  matchedUsers[Math.min(virtuallyFocusedMentionIndex, matchedUsers.length - 1)],
-                )
-                setVirtuallyFocusedMentionIndex(0)
+                acceptSuggestion(onlySuggestion)
               }
             }
           }}
@@ -581,57 +623,33 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         />
 
         <Popover
-          open={userMentionsOpen}
+          open={paletteOpen}
           onDismiss={() => {
-            setVirtuallyFocusedMentionIndex(0)
-            closeUserMentions()
+            setActiveIndex(0)
+            closePalette()
           }}
           anchorX={anchorX ?? 0}
           anchorY={(anchorY ?? 0) - 8}
           originX='left'
           originY='bottom'
-          // Keep the focus in the message input when user mentions popover opens so the user can
-          // keep typing.
+          // Keep the focus in the message input when the suggestions open so the user can keep
+          // typing.
           focusOnMount={false}>
           <StyledMenuList
+            key={typeahead?.provider.id}
+            id={listId}
+            role='listbox'
             dense={true}
             virtualFocus={true}
-            onActiveIndexChange={setVirtuallyFocusedMentionIndex}>
-            {matchedUsers.map(user => (
-              <StyledMenuItem
-                key={user.id}
-                text={user.name}
-                $faded={!user.online}
-                icon={<StyledAvatar userId={user.id} $faded={!user.online} />}
-                onClick={() => onMentionSelect(user)}
-              />
-            ))}
-          </StyledMenuList>
-        </Popover>
-
-        <Popover
-          open={emotesOpen}
-          onDismiss={() => {
-            setFocusedEmoteIndex(0)
-            closeEmotes()
-          }}
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) - 8}
-          originX='left'
-          originY='bottom'
-          // Keep the focus in the message input when the emote suggestions open so the user can
-          // keep typing.
-          focusOnMount={false}>
-          <StyledMenuList
-            dense={true}
-            virtualFocus={true}
-            onActiveIndexChange={setFocusedEmoteIndex}>
-            {matchedEmotes.map(suggestion => (
+            onActiveIndexChange={setActiveIndex}>
+            {suggestions.map(suggestion => (
               <StyledMenuItem
                 key={suggestion.key}
-                text={suggestion.name}
-                icon={<EmoteSuggestionIcon>{suggestion.emoji}</EmoteSuggestionIcon>}
-                onClick={() => onEmoteSelect(suggestion)}
+                text={suggestion.text}
+                secondaryText={suggestion.secondaryText}
+                $faded={isSuggestionFaded(suggestion.visual)}
+                icon={suggestionIcon(suggestion.visual)}
+                onClick={() => acceptSuggestion(suggestion)}
               />
             ))}
           </StyledMenuList>
