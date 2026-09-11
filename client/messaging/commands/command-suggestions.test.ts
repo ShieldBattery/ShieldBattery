@@ -178,11 +178,31 @@ describe('messaging/commands/command-suggestions/getRunnableCommands', () => {
 })
 
 describe('messaging/commands/command-suggestions/getArgSuggestions', () => {
-  test('a user argument offers the members of the channel', () => {
+  test('a user argument offers the members of the channel, other than the caller', () => {
     const arg: CommandArg = { kind: 'user', name: 'user' }
 
     expect(getArgSuggestions(arg, deps(channelContext()))).toEqual([
-      { value: 'Marko', user: { id: selfUserId, online: true } },
+      { value: 'tec27', user: { id: tec27Id, online: true } },
+      { value: 'ZergRush', user: { id: offlineUserId, online: false } },
+    ])
+  })
+
+  test('a user argument leaves out the caller no matter where they fall in the list', () => {
+    const arg: CommandArg = { kind: 'user', name: 'user' }
+    const context: ChannelCommandContext = {
+      surface: 'channel',
+      channelId: makeSbChannelId(1),
+      selfUserId,
+      members: [
+        { id: tec27Id, name: 'tec27', online: true },
+        { id: selfUserId, name: 'Marko', online: true },
+        { id: offlineUserId, name: 'ZergRush', online: false },
+      ],
+      canKick: false,
+      canBan: false,
+    }
+
+    expect(getArgSuggestions(arg, deps(context))).toEqual([
       { value: 'tec27', user: { id: tec27Id, online: true } },
       { value: 'ZergRush', user: { id: offlineUserId, online: false } },
     ])

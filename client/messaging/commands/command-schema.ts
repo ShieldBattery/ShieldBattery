@@ -40,9 +40,10 @@ interface BaseArg {
   optional?: boolean
   /**
    * Offers values for the argument palette to complete this argument with. Without it, an argument
-   * is completed from what its kind implies: a `user` from the surface's members, a `channel` from
-   * the channels the client knows of, an `enum` or `subcommand` from its own values, and the other
-   * kinds from nothing. Returns every candidate; the palette narrows them to what has been typed.
+   * is completed from what its kind implies: a `user` from the surface's members (never the
+   * caller), a `channel` from the channels the client knows of, an `enum` or `subcommand` from its
+   * own values, and the other kinds from nothing. Returns every candidate; the palette narrows them
+   * to what has been typed.
    */
   suggest?: (deps: ArgSuggestDeps) => ReadonlyArray<ArgSuggestion>
 }

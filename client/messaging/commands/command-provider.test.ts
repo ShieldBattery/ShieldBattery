@@ -194,7 +194,7 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
 })
 
 describe('messaging/commands/command-provider/createCommandArgProvider', () => {
-  test('a user argument offers the members of the channel', () => {
+  test('a user argument offers the members of the channel, other than the caller', () => {
     const match = argMatch('/kick ', true)
 
     expect(match).toMatchObject({
@@ -203,8 +203,8 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
       submitOnExact: true,
       spaceAcceptsSingle: false,
     })
-    expect(rows(match).map(r => r.text)).toEqual(['Marko', 'tec27', 'ZergRush'])
-    expect(rows(match)[2]).toMatchObject({
+    expect(rows(match).map(r => r.text)).toEqual(['tec27', 'ZergRush'])
+    expect(rows(match)[1]).toMatchObject({
       key: 'argument:ZergRush',
       insertText: 'ZergRush ',
       visual: { kind: 'user', userId: offlineUserId, online: false },
