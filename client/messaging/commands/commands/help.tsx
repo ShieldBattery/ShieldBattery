@@ -9,7 +9,7 @@ import {
   formatAliases,
   getCommandArgUsages,
   getCommandUsage,
-  getSurfaceCommands,
+  getRunnableCommands,
   matchesCommandName,
 } from '../command-schema'
 import { LocalStrong } from '../local-strong'
@@ -27,12 +27,11 @@ export const helpCommand = defineCommand({
         openDialog({
           type: DialogType.ChatCommandHelp,
           initData: {
-            commands: getSurfaceCommands(commands, context.surface).map(command => ({
+            commands: getRunnableCommands(commands, context, t).map(command => ({
               name: command.name,
               aliases: [...(command.aliases ?? [])],
               args: getCommandArgUsages(command),
               description: command.description(t),
-              unavailableReason: command.getUnavailableReason?.(context, t),
             })),
           },
         }),

@@ -1,5 +1,5 @@
 // eslint-disable-next-line no-restricted-imports
-import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux'
+import { TypedUseSelectorHook, useDispatch, useSelector, useStore } from 'react-redux'
 import { ReduxAction } from './action-types'
 import { DispatchFunction } from './dispatch-registry'
 import { RootState } from './root-reducer'
@@ -35,3 +35,9 @@ export const useAppDispatch = () => {
  * }
  */
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector
+
+/**
+ * A hook to access the Redux store itself, for reading state outside of render (e.g. in event
+ * handlers).
+ */
+export const useAppStore = () => useStore<RootState>()

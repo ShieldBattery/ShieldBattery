@@ -54,4 +54,10 @@ export interface BaseMenuItemProps {
   onClick?: (event: React.MouseEvent | KeyboardEvent) => void
   onKeyDown?: (event: React.KeyboardEvent) => void
   virtualFocus?: boolean
+  /** Set by MenuList when it is rendered as a listbox. */
+  id?: string
+  /** Set by MenuList when it is rendered as a listbox. */
+  role?: React.AriaRole
+  /** Set by MenuList when it is rendered as a listbox. */
+  'aria-selected'?: boolean
 }

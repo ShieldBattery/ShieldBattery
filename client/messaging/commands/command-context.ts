@@ -8,6 +8,8 @@ export type CommandSurface = 'channel' | 'whisper' | 'lobby'
 export interface CommandUserEntry {
   id: SbUserId
   name: string
+  /** Whether the user is currently online, which the argument palette fades offline users by. */
+  online: boolean
 }
 
 /**

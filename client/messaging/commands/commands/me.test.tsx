@@ -63,7 +63,7 @@ const channelContext: ChannelCommandContext = {
   surface: 'channel',
   channelId: CHANNEL_ID,
   selfUserId: SELF_ID,
-  members: [{ id: TARGET_ID, name: 'tec27' }],
+  members: [{ id: TARGET_ID, name: 'tec27', online: true }],
   canKick: false,
   canBan: false,
 }

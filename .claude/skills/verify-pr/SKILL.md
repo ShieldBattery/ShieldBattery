@@ -392,6 +392,21 @@ bits in here, and keep this lean:
     killing the task can orphan the child node.exe holding :5555 (new boot dies with EADDRINUSE but
     curl still answers with **old** code) — `netstat -ano | findstr :5555` and kill the PID.
 
+- **Chat command palette / typeahead (T3, plain member + channel owner + whisper peer).** Drive it
+  with the keyboard, never `fill` (a programmatic value set fires no `selectionchange`, so the
+  palette never reacts): focus via `eval "(document.querySelector('textarea[role=combobox]').focus(),'f')"`,
+  then `MSYS_NO_PATHCONV=1 playwright-cli -s=cN type "/ki"` (the env var stops Git Bash rewriting
+  `/` into `C:/Program Files/Git/`) and `press "Space"|"Tab"|"Enter"|"ArrowDown"|"Escape"`; clear
+  with `press "Control+a"` + `press "Backspace"`. Read the state in one eval: the textarea's
+  `value`/`selectionStart`/`aria-expanded`/`aria-activedescendant` (= `<listbox id>-<index>`) plus
+  `[role=listbox] [role=option]` textContent (a command row reads `/kick <user> [reason]Kicks a
+  user…`, alias chips as `Also/w/m…`; a mouse accept is `option.click()` in an eval). Fixtures:
+  `/chat/15/modtest26` (claude-admin id 9 = owner → kick/ban listed; claude-1 id 10 = plain member
+  → hidden), whisper surface `/whispers/11/claude-2`; navigate with the pushState+popstate IIFE.
+  `/help` + Enter opens the "Chat commands" dialog (`[role=dialog]` textContent lists the rows;
+  Escape closes). Gotcha: `/whisper <user> …` moves the sender into that whisper view, so whatever
+  is typed next lands there — go back to the channel before testing a channel-only command.
+
 ### Known issues / open questions (prune when resolved)
 
 Unconfirmed oddities seen during verification — heads-ups, not asserted bugs. Reproduce on a clean
