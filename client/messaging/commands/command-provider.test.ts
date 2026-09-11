@@ -8,7 +8,6 @@ import { ChannelCommandContext } from './command-context'
 import {
   createCommandArgProvider,
   createCommandNameProvider,
-  getSignatureHelpAtCaret,
   locateCommandCaret,
 } from './command-provider'
 import { ALL_COMMANDS } from './command-registry'
@@ -110,7 +109,7 @@ describe('messaging/commands/command-provider/locateCommandCaret', () => {
     if (caret.kind !== 'args') return
     expect(caret.command.name).toBe('kick')
     expect(caret.argStart).toBe(5)
-    expect(caret.caret.activeIndex).toBe(0)
+    expect(caret.caret.activeArg).toEqual({ kind: 'user', name: 'user' })
     expect(caret.caret.token).toEqual({ start: 1, text: 'te' })
   })
 
@@ -149,22 +148,24 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
     ])
   })
 
-  test('a command that cannot be run here is listed with its reason instead of its description', () => {
+  test('a command that cannot be run here carries its reason', () => {
     const kick = rows(nameMatch('/')).find(r => r.text.startsWith('/kick'))!
 
-    expect(kick.secondaryText).toBe("You don't have permission to kick users from this channel.")
     expect(kick.visual).toEqual({
       kind: 'command',
       command: expect.objectContaining({ name: 'kick' }),
-      unavailable: true,
+      description: 'Kicks a user out of this channel.',
+      unavailableReason: "You don't have permission to kick users from this channel.",
     })
   })
 
-  test('a command that can be run here shows its description', () => {
+  test('a command that can be run here has no reason', () => {
     const kick = rows(nameMatch('/', true)).find(r => r.text.startsWith('/kick'))!
 
-    expect(kick.secondaryText).toBe('Kicks a user out of this channel.')
-    expect(kick.visual).toMatchObject({ unavailable: false })
+    expect(kick.visual).toMatchObject({
+      description: 'Kicks a user out of this channel.',
+      unavailableReason: undefined,
+    })
   })
 
   test('an alias narrows to its command', () => {
@@ -261,39 +262,5 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
     expect(argMatch('/kic')).toBeUndefined()
     expect(argMatch('//kick ')).toBeUndefined()
     expect(argMatch('hello ')).toBeUndefined()
-  })
-})
-
-describe('messaging/commands/command-provider/getSignatureHelpAtCaret', () => {
-  test('the argument the caret is in is the active one', () => {
-    const help = getSignatureHelpAtCaret(
-      locateCommandCaret('/kick tec27 ', ALL_COMMANDS, 'channel'),
-    )
-
-    expect(help!.command.name).toBe('kick')
-    expect(help!.signature).toEqual([
-      { label: 'user', optional: false },
-      { label: 'reason', optional: true },
-    ])
-    expect(help!.active).toBe(1)
-  })
-
-  test('a caret past every argument emphasizes nothing', () => {
-    const help = getSignatureHelpAtCaret(locateCommandCaret('/join sb ', ALL_COMMANDS, 'channel'))
-
-    expect(help!.signature).toEqual([{ label: 'channel', optional: false }])
-    expect(help!.active).toBeUndefined()
-  })
-
-  test('there is nothing to show outside a known command', () => {
-    expect(
-      getSignatureHelpAtCaret(locateCommandCaret('/ki', ALL_COMMANDS, 'channel')),
-    ).toBeUndefined()
-    expect(
-      getSignatureHelpAtCaret(locateCommandCaret('/nope ', ALL_COMMANDS, 'channel')),
-    ).toBeUndefined()
-    expect(
-      getSignatureHelpAtCaret(locateCommandCaret('hello', ALL_COMMANDS, 'channel')),
-    ).toBeUndefined()
   })
 })

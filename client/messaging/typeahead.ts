@@ -6,12 +6,24 @@ export const MAX_TYPEAHEAD_ROWS = 10
 
 /** What a suggestion row shows next to its text. */
 export type TypeaheadVisual =
-  /** An avatar, faded along with the text while the user is offline. */
-  | { kind: 'user'; userId: SbUserId; online: boolean }
+  /** An avatar, faded along with the text while the user is known to be offline. */
+  | {
+      kind: 'user'
+      userId: SbUserId
+      /** Undefined when the client doesn't track that user's presence. */
+      online?: boolean
+    }
   /** The emoji character itself as the row's icon. */
   | { kind: 'emoji'; emoji: string }
-  /** A command, faded while it can't be run where it was typed. */
-  | { kind: 'command'; command: ChatCommand; unavailable: boolean }
+  /** A command, as the palette spells it out: usage, what it does, and whether it can be run. */
+  | {
+      kind: 'command'
+      command: ChatCommand
+      /** Already localized. */
+      description: string
+      /** Why the command can't be run where it was typed; undefined when it can. */
+      unavailableReason: string | undefined
+    }
   /** Text only, as channel names and enum values are shown. */
   | { kind: 'plain' }
 

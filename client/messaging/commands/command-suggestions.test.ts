@@ -1,6 +1,7 @@
 import { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
 import { makeSbChannelId } from '../../../common/chat'
+import { FriendActivityStatus } from '../../../common/users/relationships'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { RootState } from '../../root-reducer'
 import {
@@ -16,6 +17,7 @@ import {
   matchCommands,
   rankByQuery,
 } from './command-suggestions'
+import { whisperCommand } from './commands/whisper'
 
 // Answers with whatever default value the caller supplied, which is what the real translations
 // hold for English anyway.
@@ -246,5 +248,82 @@ describe('messaging/commands/command-suggestions/filterArgSuggestions', () => {
 
   test('an empty query keeps everything', () => {
     expect(filterArgSuggestions(suggestions, '')).toEqual(suggestions)
+  })
+})
+
+describe('messaging/commands/command-suggestions/whisper user suggestions', () => {
+  const friendId = makeSbUserId(4)
+  const offlineFriendId = makeSbUserId(5)
+  const sessionId = makeSbUserId(6)
+  const namelessId = makeSbUserId(7)
+
+  /** A store holding what the whisper command reads to work out who to offer. */
+  const getState = (): RootState =>
+    ({
+      // Kept in recency order by the whisper reducer, newest conversation first.
+      whispers: { sessions: new Set([sessionId, tec27Id, namelessId]) },
+      users: {
+        byId: new Map([
+          [selfUserId, { id: selfUserId, name: 'Marko' }],
+          [tec27Id, { id: tec27Id, name: 'tec27' }],
+          [offlineUserId, { id: offlineUserId, name: 'ZergRush' }],
+          [friendId, { id: friendId, name: 'Friendly' }],
+          [offlineFriendId, { id: offlineFriendId, name: 'Sleepy' }],
+          [sessionId, { id: sessionId, name: 'Chatty' }],
+        ]),
+      },
+      relationships: {
+        friends: new Map([
+          [offlineFriendId, {}],
+          [friendId, {}],
+          [tec27Id, {}],
+        ]),
+        friendActivityStatus: new Map([
+          [offlineFriendId, FriendActivityStatus.Offline],
+          [friendId, FriendActivityStatus.Online],
+          [tec27Id, FriendActivityStatus.InGame],
+        ]),
+      },
+    }) as unknown as RootState
+
+  const targetArg = whisperCommand.args[0]
+
+  test('open conversations come first, then friends, then the rest of the surface', () => {
+    expect(getArgSuggestions(targetArg, deps(channelContext(), getState))).toEqual([
+      { value: 'Chatty', user: { id: sessionId, online: undefined } },
+      { value: 'tec27', user: { id: tec27Id, online: undefined } },
+      { value: 'Friendly', user: { id: friendId, online: true } },
+      { value: 'Sleepy', user: { id: offlineFriendId, online: false } },
+      { value: 'ZergRush', user: { id: offlineUserId, online: false } },
+    ])
+  })
+
+  test('a user reached by several sources is offered once, in the best position', () => {
+    // tec27 has a conversation, is a friend, and is in the channel.
+    const values = getArgSuggestions(targetArg, deps(channelContext(), getState)).map(s => s.value)
+
+    expect(values.filter(value => value === 'tec27')).toHaveLength(1)
+    expect(values.indexOf('tec27')).toBe(1)
+  })
+
+  test('the user running the command is never offered', () => {
+    const values = getArgSuggestions(targetArg, deps(channelContext(), getState)).map(s => s.value)
+
+    expect(values).not.toContain('Marko')
+  })
+
+  test('a user whose name the client does not know is skipped', () => {
+    expect(getArgSuggestions(targetArg, deps(channelContext(), getState))).toHaveLength(5)
+  })
+
+  test('surfaces with no member list still offer conversations and friends', () => {
+    const expected = ['Chatty', 'tec27', 'Friendly', 'Sleepy']
+
+    expect(getArgSuggestions(targetArg, deps(whisperContext, getState)).map(s => s.value)).toEqual(
+      expected,
+    )
+    expect(getArgSuggestions(targetArg, deps(lobbyContext, getState)).map(s => s.value)).toEqual(
+      expected,
+    )
   })
 })

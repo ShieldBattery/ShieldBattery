@@ -13,8 +13,12 @@ export const ALL_COMMAND_SURFACES: ReadonlyArray<CommandSurface> = ['channel', '
 export interface ArgSuggestion {
   /** What accepting the suggestion types into the input, e.g. a username or a channel name. */
   value: string
-  /** When the value names a user: whose avatar the row shows, faded along with the text while offline. */
-  user?: { id: SbUserId; online: boolean }
+  /**
+   * When the value names a user: whose avatar the row shows, faded along with the text while the
+   * user is known to be offline. `online` is undefined when the client doesn't track that user's
+   * presence.
+   */
+  user?: { id: SbUserId; online?: boolean }
 }
 
 export interface ArgSuggestDeps {

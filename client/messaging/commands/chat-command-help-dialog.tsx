@@ -1,10 +1,10 @@
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { TextButton } from '../../material/button'
 import { Dialog } from '../../material/dialog'
-import { bodyMedium, labelMedium, labelSmall, titleSmall } from '../../styles/typography'
+import { bodyMedium, titleSmall } from '../../styles/typography'
+import { CommandAliases, CommandUnavailableReason, CommandUsage } from './command-usage'
 
 const Intro = styled.div`
   ${bodyMedium};
@@ -45,46 +45,6 @@ const UsageCell = styled.div<{ $unavailable: boolean }>`
   opacity: ${props => (props.$unavailable ? 0.5 : 1)};
 `
 
-const Usage = styled.div`
-  ${titleSmall};
-  white-space: nowrap;
-`
-
-const CommandName = styled.span`
-  color: var(--theme-amber);
-`
-
-const Arg = styled.span<{ $optional: boolean }>`
-  font-weight: 400;
-  color: ${props =>
-    props.$optional
-      ? 'rgb(from var(--theme-on-surface-variant) r g b / 0.6)'
-      : 'var(--theme-on-surface-variant)'};
-`
-
-const Aliases = styled.div`
-  margin-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-`
-
-const AliasesLabel = styled.span`
-  ${labelSmall};
-  color: rgb(from var(--theme-on-surface-variant) r g b / 0.6);
-  margin-right: 2px;
-`
-
-const AliasChip = styled.span`
-  ${labelMedium};
-  padding: 1px 6px;
-  border-radius: 4px;
-
-  background-color: var(--theme-container-high);
-  color: var(--theme-on-surface-variant);
-`
-
 const DescriptionCell = styled.div`
   min-width: 0;
 `
@@ -93,18 +53,6 @@ const Description = styled.div<{ $unavailable: boolean }>`
   ${bodyMedium};
   color: var(--theme-on-surface);
   opacity: ${props => (props.$unavailable ? 0.5 : 1)};
-`
-
-// Kept at full strength while the rest of the row is faded: it is the one part of the row that says
-// why the row looks the way it does.
-const UnavailableReason = styled.div`
-  ${labelSmall};
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  color: var(--theme-on-surface-variant);
 `
 
 export interface ChatCommandHelpDialogProps extends CommonDialogProps {
@@ -153,30 +101,13 @@ export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommand
           return (
             <CommandRow key={command.name}>
               <UsageCell $unavailable={unavailable}>
-                <Usage>
-                  <CommandName>/{command.name}</CommandName>
-                  {command.args.map((arg, i) => (
-                    <Arg key={i} $optional={arg.optional}>
-                      {` ${arg.optional ? `[${arg.label}]` : `<${arg.label}>`}`}
-                    </Arg>
-                  ))}
-                </Usage>
-                {command.aliases.length > 0 ? (
-                  <Aliases>
-                    <AliasesLabel>{t('chat.commands.help.aliasesLabel', 'Also')}</AliasesLabel>
-                    {command.aliases.map(alias => (
-                      <AliasChip key={alias}>/{alias}</AliasChip>
-                    ))}
-                  </Aliases>
-                ) : null}
+                <CommandUsage name={command.name} args={command.args} />
+                <CommandAliases aliases={command.aliases} />
               </UsageCell>
               <DescriptionCell>
                 <Description $unavailable={unavailable}>{command.description}</Description>
                 {command.unavailableReason !== undefined ? (
-                  <UnavailableReason>
-                    <MaterialIcon icon='lock' size={16} />
-                    {command.unavailableReason}
-                  </UnavailableReason>
+                  <CommandUnavailableReason reason={command.unavailableReason} />
                 ) : null}
               </DescriptionCell>
             </CommandRow>

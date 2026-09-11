@@ -3,8 +3,6 @@ import { isValidChannelName, isValidUsername } from '../../../common/constants'
 import {
   ChatCommand,
   CommandArg,
-  CommandArgUsage,
-  getArgLabel,
   ParsedArgValues,
   ParsedSubcommand,
   SubcommandOption,
@@ -312,63 +310,43 @@ export function parseArgs(command: ChatCommand, argText: string): ParseArgsResul
   return { ok: true, args }
 }
 
+/** Where the caret sits among a command's arguments. */
 export interface ArgCaret {
   /**
-   * Every argument the typed text reaches, as usage spells them: the command's own arguments, and
-   * after a subcommand argument whose option has been typed, that option's arguments.
+   * The schema entry the caret is in, or undefined when the caret is past every argument the
+   * command takes (or in text no argument accepts).
    */
-  signature: CommandArgUsage[]
-  /**
-   * Index into `signature` of the argument the caret is in, or undefined when the caret is past
-   * every argument the command takes (or in text no argument accepts).
-   */
-  activeIndex: number | undefined
-  /** The schema entry the caret is in, when `activeIndex` is defined. */
   activeArg: CommandArg | undefined
   /**
-   * What has been typed for the active argument so far, and where it starts in `argTextBeforeCaret`.
-   * `text` is empty when the argument has not been started. Undefined whenever `activeIndex` is.
+   * What has been typed for the active argument so far, and where it starts in
+   * `argTextBeforeCaret`. `text` is empty when the argument has not been started. Defined exactly
+   * when `activeArg` is.
    */
   token: { start: number; text: string } | undefined
 }
 
-interface ArgWalkState {
-  signature: CommandArgUsage[]
-  active: { index: number; arg: CommandArg; token: { start: number; text: string } } | undefined
-}
-
 /**
- * Reads `args` the way the parser would, recording each one's usage and stopping at whichever one
- * the end of `text` falls in. Once an argument has been found active the rest are only spelled
- * out, since nothing past the caret is read.
+ * Reads `args` the way the parser would, stopping at whichever one the end of `text` falls in.
+ * Nothing past the caret is read, so the arguments after the active one are never looked at.
+ * Undefined means the caret is past every argument that could be read.
  */
 function walkArgsToCaret(
   args: readonly CommandArg[],
   tokenizer: ArgTokenizer,
   text: string,
-  state: ArgWalkState,
-): void {
+): ArgCaret | undefined {
   for (const arg of args) {
-    const index = state.signature.length
-    state.signature.push({ label: getArgLabel(arg), optional: arg.optional ?? false })
-
-    if (state.active) {
-      continue
-    }
-
     // This also skips the whitespace in front of the value, so the position below is where the
     // value itself starts.
     if (tokenizer.atEnd()) {
-      state.active = { index, arg, token: { start: text.length, text: '' } }
-      continue
+      return { activeArg: arg, token: { start: text.length, text: '' } }
     }
 
     const start = tokenizer.position
     if (arg.kind === 'rest') {
       // Everything left over is one value, so a caret anywhere past here is inside it.
       tokenizer.rest()
-      state.active = { index, arg, token: { start, text: text.slice(start) } }
-      continue
+      return { activeArg: arg, token: { start, text: text.slice(start) } }
     } else if (arg.kind === 'word') {
       tokenizer.nextWord()
     } else {
@@ -376,20 +354,18 @@ function walkArgsToCaret(
     }
 
     if (tokenizer.position >= text.length) {
-      state.active = { index, arg, token: { start, text: text.slice(start) } }
-      continue
+      return { activeArg: arg, token: { start, text: text.slice(start) } }
     }
 
     // The value is complete and more was typed after it, so the caret is in a later argument.
     if (arg.kind === 'subcommand') {
       const option = arg.options.find(o => matchesOption(o, text.slice(start, tokenizer.position)))
-      if (!option) {
-        // Nothing is known about what follows a name no option answers to.
-        return
-      }
-      walkArgsToCaret(option.args, tokenizer, text, state)
+      // Nothing is known about what follows a name no option answers to.
+      return option ? walkArgsToCaret(option.args, tokenizer, text) : undefined
     }
   }
+
+  return undefined
 }
 
 /**
@@ -397,13 +373,10 @@ function walkArgsToCaret(
  * (it may start with whitespace) up to the caret; nothing after the caret matters.
  */
 export function locateArgAtCaret(command: ChatCommand, argTextBeforeCaret: string): ArgCaret {
-  const state: ArgWalkState = { signature: [], active: undefined }
-  walkArgsToCaret(command.args, new ArgTokenizer(argTextBeforeCaret), argTextBeforeCaret, state)
-
-  return {
-    signature: state.signature,
-    activeIndex: state.active?.index,
-    activeArg: state.active?.arg,
-    token: state.active?.token,
-  }
+  return (
+    walkArgsToCaret(command.args, new ArgTokenizer(argTextBeforeCaret), argTextBeforeCaret) ?? {
+      activeArg: undefined,
+      token: undefined,
+    }
+  )
 }

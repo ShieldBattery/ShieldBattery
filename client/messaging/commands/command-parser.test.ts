@@ -318,11 +318,6 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
 
   test('nothing typed yet starts on the first argument', () => {
     expect(locateArgAtCaret(userAndReason, '')).toEqual({
-      signature: [
-        { label: 'user', optional: false },
-        { label: 'reason', optional: true },
-      ],
-      activeIndex: 0,
       activeArg: { kind: 'user', name: 'user' },
       token: { start: 0, text: '' },
     })
@@ -331,21 +326,20 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
   test('the whitespace after the name still sits on the first argument', () => {
     const caret = locateArgAtCaret(userAndReason, ' ')
 
-    expect(caret.activeIndex).toBe(0)
+    expect(caret.activeArg).toEqual({ kind: 'user', name: 'user' })
     expect(caret.token).toEqual({ start: 1, text: '' })
   })
 
   test('a partly typed value is the active token', () => {
     const caret = locateArgAtCaret(userAndReason, ' tec')
 
-    expect(caret.activeIndex).toBe(0)
+    expect(caret.activeArg).toEqual({ kind: 'user', name: 'user' })
     expect(caret.token).toEqual({ start: 1, text: 'tec' })
   })
 
   test('whitespace after a complete value moves on to the next argument', () => {
     const caret = locateArgAtCaret(userAndReason, ' tec27 ')
 
-    expect(caret.activeIndex).toBe(1)
     expect(caret.activeArg).toEqual({ kind: 'rest', name: 'reason', optional: true })
     expect(caret.token).toEqual({ start: 7, text: '' })
   })
@@ -353,7 +347,7 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
   test('a rest argument holds everything left, spaces and all', () => {
     const caret = locateArgAtCaret(userAndReason, ' tec27 some reason')
 
-    expect(caret.activeIndex).toBe(1)
+    expect(caret.activeArg).toEqual({ kind: 'rest', name: 'reason', optional: true })
     expect(caret.token).toEqual({ start: 7, text: 'some reason' })
   })
 
@@ -370,7 +364,7 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
     ])
     const caret = locateArgAtCaret(command, ' "multi word')
 
-    expect(caret.activeIndex).toBe(0)
+    expect(caret.activeArg).toEqual({ kind: 'word', name: 'word' })
     expect(caret.token).toEqual({ start: 1, text: '"multi word' })
   })
 
@@ -378,8 +372,6 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
     const command = commandWithArgs([{ kind: 'channel', name: 'channel' }])
 
     expect(locateArgAtCaret(command, ' sb ')).toEqual({
-      signature: [{ label: 'channel', optional: false }],
-      activeIndex: undefined,
       activeArg: undefined,
       token: undefined,
     })
@@ -387,8 +379,6 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
 
   test('a command with no arguments has nothing to be in', () => {
     expect(locateArgAtCaret(commandWithArgs([]), '')).toEqual({
-      signature: [],
-      activeIndex: undefined,
       activeArg: undefined,
       token: undefined,
     })
@@ -413,34 +403,28 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
   test('a subcommand starts on its own name', () => {
     const caret = locateArgAtCaret(subcommand, ' ad')
 
-    expect(caret.signature).toEqual([{ label: 'add|list', optional: false }])
-    expect(caret.activeIndex).toBe(0)
+    expect(caret.activeArg?.name).toBe('action')
     expect(caret.token).toEqual({ start: 1, text: 'ad' })
   })
 
-  test('a named option adds its own arguments to the signature', () => {
+  test('a named option continues into its own arguments', () => {
     const caret = locateArgAtCaret(subcommand, ' add ')
 
-    expect(caret.signature).toEqual([
-      { label: 'add|list', optional: false },
-      { label: 'user', optional: false },
-    ])
-    expect(caret.activeIndex).toBe(1)
+    expect(caret.activeArg).toEqual({ kind: 'user', name: 'user' })
     expect(caret.token).toEqual({ start: 5, text: '' })
   })
 
   test('an alias reaches the same option', () => {
     const caret = locateArgAtCaret(subcommand, ' a tec')
 
-    expect(caret.activeIndex).toBe(1)
+    expect(caret.activeArg).toEqual({ kind: 'user', name: 'user' })
     expect(caret.token).toEqual({ start: 3, text: 'tec' })
   })
 
   test('nothing is known past an option name that was never declared', () => {
     const caret = locateArgAtCaret(subcommand, ' nope tec')
 
-    expect(caret.signature).toEqual([{ label: 'add|list', optional: false }])
-    expect(caret.activeIndex).toBeUndefined()
+    expect(caret.activeArg).toBeUndefined()
     expect(caret.token).toBeUndefined()
   })
 })

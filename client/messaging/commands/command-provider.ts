@@ -11,7 +11,6 @@ import { ArgCaret, locateArgAtCaret } from './command-parser'
 import { ALL_COMMANDS } from './command-registry'
 import {
   ChatCommand,
-  CommandArgUsage,
   getCommandUsage,
   getSurfaceCommands,
   matchesCommandName,
@@ -98,8 +97,12 @@ export function createCommandNameProvider(deps: CommandProviderDeps): TypeaheadP
         .map(({ command, unavailableReason }): TypeaheadSuggestion => ({
           key: `command:${command.name}`,
           text: getCommandUsage(command),
-          secondaryText: unavailableReason ?? command.description(deps.t),
-          visual: { kind: 'command', command, unavailable: unavailableReason !== undefined },
+          visual: {
+            kind: 'command',
+            command,
+            description: command.description(deps.t),
+            unavailableReason,
+          },
           insertText: `/${command.name} `,
           exact: matchesCommandName(command, caret.query),
         }))
@@ -173,25 +176,4 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
       }
     },
   }
-}
-
-/** What signature help shows: a command's usage with one part emphasized. */
-export interface SignatureHelp {
-  command: ChatCommand
-  signature: CommandArgUsage[]
-  /**
-   * Which part is being typed: the name, an index into `signature`, or nothing (the caret is past
-   * every argument).
-   */
-  active: 'name' | number | undefined
-}
-
-/**
- * Signature help for the caret, when it is in a known command's arguments. (The name case is built
- * by the input from the palette's highlighted row.)
- */
-export function getSignatureHelpAtCaret(caret: CommandCaret): SignatureHelp | undefined {
-  return caret.kind === 'args'
-    ? { command: caret.command, signature: caret.caret.signature, active: caret.caret.activeIndex }
-    : undefined
 }

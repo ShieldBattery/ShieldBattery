@@ -231,12 +231,6 @@ export interface TextFieldProps {
   onFocus?: (event: React.FocusEvent<HTMLInputElement>) => void
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
   rows?: number
-  /**
-   * Text shown in the strip below the field while there is no error text to show. A field with
-   * `allowErrors={false}` still lays out the strip while it has supporting text, and not
-   * otherwise.
-   */
-  supportingText?: React.ReactNode
   trailingIcons?: React.ReactElement[]
   type?: string
   value: string
@@ -271,7 +265,6 @@ export function TextField({
   onFocus,
   onKeyDown,
   rows = 1,
-  supportingText,
   trailingIcons = [],
   type = 'text',
   value,
@@ -463,9 +456,7 @@ export function TextField({
         <StateLayer />
       </TextFieldContainer>
       {contextMenu}
-      {allowErrors || supportingText !== undefined ? (
-        <InputError error={errorText} supportingText={supportingText} />
-      ) : null}
+      {allowErrors ? <InputError error={errorText} /> : null}
     </div>
   )
 }
