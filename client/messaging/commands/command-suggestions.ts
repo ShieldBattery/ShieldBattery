@@ -7,7 +7,7 @@ import {
   ArgSuggestion,
   ChatCommand,
   CommandArg,
-  getSurfaceCommands,
+  getRunnableCommands,
 } from './command-schema'
 
 // Same options as the @-mention and emote matchers: the query's characters in order, anything
@@ -70,33 +70,18 @@ export function rankByQuery<T>(
   return exact.concat(prefix, fuzzyMatches)
 }
 
-export interface CommandMatch {
-  command: ChatCommand
-  /** Why the command can't be run in the context, when it can't. */
-  unavailableReason: string | undefined
-}
-
-/**
- * The commands that exist in the context's surface and answer to `query` by name or alias, best
- * first. Commands that can't be run here are still listed, with their reason.
- */
+/** The commands that can be run here and answer to `query` by name or alias, best first. */
 export function matchCommands(
   commands: ReadonlyArray<ChatCommand>,
   context: CommandContext,
   query: string,
   t: TFunction,
-): CommandMatch[] {
-  const inSurface = getSurfaceCommands(commands, context.surface)
-  const ranked = rankByQuery(
-    inSurface,
+): ChatCommand[] {
+  return rankByQuery(
+    getRunnableCommands(commands, context, t),
     command => [command.name, ...(command.aliases ?? [])],
     query,
   )
-
-  return ranked.map(command => ({
-    command,
-    unavailableReason: command.getUnavailableReason?.(context, t),
-  }))
 }
 
 /** Every value the palette could complete `arg` with: the argument's own `suggest`, or what its kind implies. */

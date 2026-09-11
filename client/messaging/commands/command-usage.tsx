@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { labelMedium, labelSmall, titleSmall } from '../../styles/typography'
 import { CommandArgUsage } from './command-schema'
 
@@ -90,34 +89,5 @@ export function CommandAliases({ aliases, className }: CommandAliasesProps) {
         <AliasChip key={alias}>/{alias}</AliasChip>
       ))}
     </AliasRow>
-  )
-}
-
-const ReasonRow = styled.div`
-  ${labelSmall};
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  color: var(--theme-on-surface-variant);
-`
-
-export interface CommandUnavailableReasonProps {
-  /** Already localized. */
-  reason: string
-  className?: string
-}
-
-/**
- * Why a command can't be run where it is being listed. Meant to sit at full strength inside a
- * faded row, since it is the one part of the row that says why the row looks the way it does.
- */
-export function CommandUnavailableReason({ reason, className }: CommandUnavailableReasonProps) {
-  return (
-    <ReasonRow className={className}>
-      <MaterialIcon icon='lock' size={16} />
-      {reason}
-    </ReasonRow>
   )
 }

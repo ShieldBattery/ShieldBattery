@@ -131,7 +131,6 @@ function isSuggestionFaded(visual: TypeaheadVisual): boolean {
   switch (visual.kind) {
     case 'user':
       return visual.online === false
-    // Command rows fade themselves, since only part of the row fades.
     case 'command':
     case 'emoji':
     case 'plain':
@@ -619,7 +618,6 @@ export function MessageInput({
                 key={suggestion.key}
                 command={suggestion.visual.command}
                 description={suggestion.visual.description}
-                unavailableReason={suggestion.visual.unavailableReason}
                 onClick={() => acceptSuggestion(suggestion)}
               />
             ) : (

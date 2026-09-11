@@ -6,13 +6,13 @@ import {
   TypeaheadProvider,
   TypeaheadSuggestion,
 } from '../typeahead'
-import { CommandContext, CommandSurface } from './command-context'
+import { CommandContext } from './command-context'
 import { ArgCaret, locateArgAtCaret } from './command-parser'
 import { ALL_COMMANDS } from './command-registry'
 import {
   ChatCommand,
   getCommandUsage,
-  getSurfaceCommands,
+  getRunnableCommands,
   matchesCommandName,
 } from './command-schema'
 import { filterArgSuggestions, getArgSuggestions, matchCommands } from './command-suggestions'
@@ -34,21 +34,20 @@ export type CommandCaret =
    */
   | { kind: 'name'; start: number; query: string }
   /**
-   * The name is complete and names a command that exists in this surface; the caret is in its
-   * arguments. `argStart` is the message index the argument text starts at.
+   * The name is complete and names one of the given commands; the caret is in its arguments.
+   * `argStart` is the message index the argument text starts at.
    */
   | { kind: 'args'; command: ChatCommand; argStart: number; caret: ArgCaret }
-  /** The name is complete (whitespace follows it) but no command of this surface answers to it. */
+  /** The name is complete (whitespace follows it) but no given command answers to it. */
   | { kind: 'unknown' }
 
 /**
- * Where in a command the caret at the end of `textBeforeCaret` sits. Leading whitespace is
- * allowed, as when submitting.
+ * Where in a command the caret at the end of `textBeforeCaret` sits, among the commands that can
+ * be completed here. Leading whitespace is allowed, as when submitting.
  */
 export function locateCommandCaret(
   textBeforeCaret: string,
   commands: ReadonlyArray<ChatCommand>,
-  surface: CommandSurface,
 ): CommandCaret {
   const slashIndex = textBeforeCaret.length - textBeforeCaret.trimStart().length
   const typed = textBeforeCaret.slice(slashIndex)
@@ -61,11 +60,7 @@ export function locateCommandCaret(
     return { kind: 'name', start: slashIndex, query: typed.slice(1) }
   }
 
-  // A command that exists in the surface but can't be run still has arguments worth completing:
-  // typing it out is how the user finds out why it won't run.
-  const command = getSurfaceCommands(commands, surface).find(c =>
-    matchesCommandName(c, typed.slice(1, nameEnd)),
-  )
+  const command = commands.find(c => matchesCommandName(c, typed.slice(1, nameEnd)))
   if (!command) {
     return { kind: 'unknown' }
   }
@@ -87,21 +82,20 @@ export function createCommandNameProvider(deps: CommandProviderDeps): TypeaheadP
     id: 'command',
 
     match(textBeforeCaret: string): TypeaheadMatch | undefined {
-      const caret = locateCommandCaret(textBeforeCaret, commands, deps.context.surface)
+      const caret = locateCommandCaret(textBeforeCaret, commands)
       if (caret.kind !== 'name') {
         return undefined
       }
 
       const suggestions = matchCommands(commands, deps.context, caret.query, deps.t)
         .slice(0, MAX_TYPEAHEAD_ROWS)
-        .map(({ command, unavailableReason }): TypeaheadSuggestion => ({
+        .map((command): TypeaheadSuggestion => ({
           key: `command:${command.name}`,
           text: getCommandUsage(command),
           visual: {
             kind: 'command',
             command,
             description: command.description(deps.t),
-            unavailableReason,
           },
           insertText: `/${command.name} `,
           exact: matchesCommandName(command, caret.query),
@@ -128,7 +122,8 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
     id: 'argument',
 
     match(textBeforeCaret: string): TypeaheadMatch | undefined {
-      const caret = locateCommandCaret(textBeforeCaret, commands, deps.context.surface)
+      const runnable = getRunnableCommands(commands, deps.context, deps.t)
+      const caret = locateCommandCaret(textBeforeCaret, runnable)
       if (caret.kind !== 'args') {
         return undefined
       }

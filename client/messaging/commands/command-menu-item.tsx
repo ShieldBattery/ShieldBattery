@@ -7,7 +7,7 @@ import { MenuItemSymbol, MenuItemType } from '../../material/menu/menu-item-symb
 import { Ripple } from '../../material/ripple'
 import { bodyMedium } from '../../styles/typography'
 import { ChatCommand, getCommandArgUsages } from './command-schema'
-import { CommandAliases, CommandUnavailableReason, CommandUsage } from './command-usage'
+import { CommandAliases, CommandUsage } from './command-usage'
 
 // The columns come from the list this sits in, so every row's usage and description line up.
 const Row = styled(MenuItemButton)`
@@ -21,27 +21,21 @@ const Row = styled(MenuItemButton)`
   padding: 6px 8px;
 `
 
-const UsageCell = styled.div<{ $unavailable: boolean }>`
-  min-width: 0;
-  opacity: ${props => (props.$unavailable ? 0.5 : 1)};
-`
-
-const DescriptionCell = styled.div`
+const UsageCell = styled.div`
   min-width: 0;
 `
 
-const Description = styled.div<{ $unavailable: boolean }>`
+const Description = styled.div`
+  min-width: 0;
+
   ${bodyMedium};
   color: var(--theme-on-surface);
-  opacity: ${props => (props.$unavailable ? 0.5 : 1)};
 `
 
 export interface CommandMenuItemProps {
   command: ChatCommand
   /** What the command does, already localized. */
   description: string
-  /** Why the command can't be run where it was typed. Absent when it can. */
-  unavailableReason?: string
   className?: string
   focused?: boolean
   dense?: boolean
@@ -61,13 +55,11 @@ export interface CommandMenuItemProps {
 
 /**
  * A menu row listing one command the way the help sheet does: its usage and aliases in the left
- * column, what it does in the right one, and for a command that can't be run where it was typed, a
- * faded row with the reason at full strength under its description.
+ * column, what it does in the right one.
  */
 export function CommandMenuItem({
   command,
   description,
-  unavailableReason,
   className,
   focused,
   dense,
@@ -90,8 +82,6 @@ export function CommandMenuItem({
     }
   }, [focused, virtualFocus])
 
-  const unavailable = unavailableReason !== undefined
-
   return (
     <Row
       ref={buttonRef}
@@ -102,16 +92,11 @@ export function CommandMenuItem({
       {...buttonProps}
       $dense={dense}
       $focused={focused && virtualFocus}>
-      <UsageCell $unavailable={unavailable}>
+      <UsageCell>
         <CommandUsage name={command.name} args={getCommandArgUsages(command)} />
         <CommandAliases aliases={command.aliases ?? []} />
       </UsageCell>
-      <DescriptionCell>
-        <Description $unavailable={unavailable}>{description}</Description>
-        {unavailableReason !== undefined ? (
-          <CommandUnavailableReason reason={unavailableReason} />
-        ) : null}
-      </DescriptionCell>
+      <Description>{description}</Description>
       <Ripple ref={rippleRef} />
     </Row>
   )

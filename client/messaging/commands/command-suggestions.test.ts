@@ -10,7 +10,7 @@ import {
   WhisperCommandContext,
 } from './command-context'
 import { ALL_COMMANDS } from './command-registry'
-import { ArgSuggestDeps, CommandArg } from './command-schema'
+import { ArgSuggestDeps, CommandArg, getRunnableCommands } from './command-schema'
 import {
   filterArgSuggestions,
   getArgSuggestions,
@@ -112,7 +112,7 @@ describe('messaging/commands/command-suggestions/rankByQuery', () => {
 
 describe('messaging/commands/command-suggestions/matchCommands', () => {
   test('only the commands of the surface are offered', () => {
-    expect(matchCommands(ALL_COMMANDS, channelContext(), '', t).map(m => m.command.name)).toEqual([
+    expect(matchCommands(ALL_COMMANDS, channelContext(true), '', t).map(c => c.name)).toEqual([
       'help',
       'join',
       'whisper',
@@ -121,14 +121,14 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'ban',
       'me',
     ])
-    expect(matchCommands(ALL_COMMANDS, whisperContext, '', t).map(m => m.command.name)).toEqual([
+    expect(matchCommands(ALL_COMMANDS, whisperContext, '', t).map(c => c.name)).toEqual([
       'help',
       'join',
       'whisper',
       'close',
       'me',
     ])
-    expect(matchCommands(ALL_COMMANDS, lobbyContext, '', t).map(m => m.command.name)).toEqual([
+    expect(matchCommands(ALL_COMMANDS, lobbyContext, '', t).map(c => c.name)).toEqual([
       'help',
       'join',
       'whisper',
@@ -138,7 +138,7 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
   })
 
   test('an alias reaches its command', () => {
-    expect(matchCommands(ALL_COMMANDS, channelContext(), 'w', t).map(m => m.command.name)).toEqual([
+    expect(matchCommands(ALL_COMMANDS, channelContext(true), 'w', t).map(c => c.name)).toEqual([
       'whisper',
     ])
   })
@@ -147,16 +147,33 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
     expect(matchCommands(ALL_COMMANDS, channelContext(), 'close', t)).toEqual([])
   })
 
-  test('a command that cannot be run here is still listed, with its reason', () => {
-    const [kick] = matchCommands(ALL_COMMANDS, channelContext(false), 'kick', t)
+  test('a command that cannot be run here is left out', () => {
+    expect(matchCommands(ALL_COMMANDS, channelContext(false), 'kick', t)).toEqual([])
+    expect(matchCommands(ALL_COMMANDS, channelContext(true), 'kick', t).map(c => c.name)).toEqual([
+      'kick',
+    ])
+  })
+})
 
-    expect(kick.command.name).toBe('kick')
-    expect(kick.unavailableReason).toBe(
-      "You don't have permission to kick users from this channel.",
-    )
-    expect(
-      matchCommands(ALL_COMMANDS, channelContext(true), 'kick', t)[0].unavailableReason,
-    ).toBeUndefined()
+describe('messaging/commands/command-suggestions/getRunnableCommands', () => {
+  test('a moderation command is excluded without permission to run it', () => {
+    const names = getRunnableCommands(ALL_COMMANDS, channelContext(false), t).map(c => c.name)
+
+    expect(names).not.toContain('kick')
+    expect(names).not.toContain('ban')
+  })
+
+  test('a moderation command is included with permission to run it', () => {
+    const names = getRunnableCommands(ALL_COMMANDS, channelContext(true), t).map(c => c.name)
+
+    expect(names).toContain('kick')
+    expect(names).toContain('ban')
+  })
+
+  test('a command of another surface is excluded regardless of permission', () => {
+    const names = getRunnableCommands(ALL_COMMANDS, channelContext(true), t).map(c => c.name)
+
+    expect(names).not.toContain('close')
   })
 })
 

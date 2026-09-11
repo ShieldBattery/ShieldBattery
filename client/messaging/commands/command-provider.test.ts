@@ -72,22 +72,22 @@ function rows(match: TypeaheadMatch | undefined): ReadonlyArray<TypeaheadSuggest
 
 describe('messaging/commands/command-provider/locateCommandCaret', () => {
   test('ordinary text is not a command', () => {
-    expect(locateCommandCaret('hello', ALL_COMMANDS, 'channel')).toEqual({ kind: 'none' })
-    expect(locateCommandCaret('', ALL_COMMANDS, 'channel')).toEqual({ kind: 'none' })
-    expect(locateCommandCaret('say /leave', ALL_COMMANDS, 'channel')).toEqual({ kind: 'none' })
+    expect(locateCommandCaret('hello', ALL_COMMANDS)).toEqual({ kind: 'none' })
+    expect(locateCommandCaret('', ALL_COMMANDS)).toEqual({ kind: 'none' })
+    expect(locateCommandCaret('say /leave', ALL_COMMANDS)).toEqual({ kind: 'none' })
   })
 
   test('the doubled-slash escape is not a command', () => {
-    expect(locateCommandCaret('//lea', ALL_COMMANDS, 'channel')).toEqual({ kind: 'none' })
+    expect(locateCommandCaret('//lea', ALL_COMMANDS)).toEqual({ kind: 'none' })
   })
 
   test('a name still being typed', () => {
-    expect(locateCommandCaret('/', ALL_COMMANDS, 'channel')).toEqual({
+    expect(locateCommandCaret('/', ALL_COMMANDS)).toEqual({
       kind: 'name',
       start: 0,
       query: '',
     })
-    expect(locateCommandCaret('/ki', ALL_COMMANDS, 'channel')).toEqual({
+    expect(locateCommandCaret('/ki', ALL_COMMANDS)).toEqual({
       kind: 'name',
       start: 0,
       query: 'ki',
@@ -95,7 +95,7 @@ describe('messaging/commands/command-provider/locateCommandCaret', () => {
   })
 
   test('leading whitespace still starts a command', () => {
-    expect(locateCommandCaret('  /ki', ALL_COMMANDS, 'channel')).toEqual({
+    expect(locateCommandCaret('  /ki', ALL_COMMANDS)).toEqual({
       kind: 'name',
       start: 2,
       query: 'ki',
@@ -103,7 +103,7 @@ describe('messaging/commands/command-provider/locateCommandCaret', () => {
   })
 
   test('a complete name puts the caret in the arguments', () => {
-    const caret = locateCommandCaret('/kick te', ALL_COMMANDS, 'channel')
+    const caret = locateCommandCaret('/kick te', ALL_COMMANDS)
 
     expect(caret.kind).toBe('args')
     if (caret.kind !== 'args') return
@@ -113,23 +113,23 @@ describe('messaging/commands/command-provider/locateCommandCaret', () => {
     expect(caret.caret.token).toEqual({ start: 1, text: 'te' })
   })
 
-  test('a command that cannot be run here still has arguments', () => {
-    const caret = locateCommandCaret('/kick ', ALL_COMMANDS, 'channel')
-
-    expect(caret.kind).toBe('args')
-  })
-
-  test('a name no command of this surface answers to', () => {
-    expect(locateCommandCaret('/nope ', ALL_COMMANDS, 'channel')).toEqual({ kind: 'unknown' })
-    // `close` exists, but only in whispers.
-    expect(locateCommandCaret('/close ', ALL_COMMANDS, 'channel')).toEqual({ kind: 'unknown' })
-    expect(locateCommandCaret('/close ', ALL_COMMANDS, 'whisper').kind).toBe('args')
+  test('a name not among the given commands is unknown', () => {
+    expect(locateCommandCaret('/nope ', ALL_COMMANDS)).toEqual({ kind: 'unknown' })
+    // `kick` exists in ALL_COMMANDS, but is left out of the list handed in here.
+    expect(
+      locateCommandCaret(
+        '/kick ',
+        ALL_COMMANDS.filter(c => c.name !== 'kick'),
+      ),
+    ).toEqual({
+      kind: 'unknown',
+    })
   })
 })
 
 describe('messaging/commands/command-provider/createCommandNameProvider', () => {
   test('a lone slash lists the commands of the surface', () => {
-    const match = nameMatch('/')
+    const match = nameMatch('/', true)
 
     expect(match).toMatchObject({
       start: 0,
@@ -148,23 +148,17 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
     ])
   })
 
-  test('a command that cannot be run here carries its reason', () => {
-    const kick = rows(nameMatch('/')).find(r => r.text.startsWith('/kick'))!
+  test('a command that cannot be run here is not offered', () => {
+    expect(rows(nameMatch('/')).some(r => r.text.startsWith('/kick'))).toBe(false)
+  })
+
+  test('a command that can be run here is offered', () => {
+    const kick = rows(nameMatch('/', true)).find(r => r.text.startsWith('/kick'))!
 
     expect(kick.visual).toEqual({
       kind: 'command',
       command: expect.objectContaining({ name: 'kick' }),
       description: 'Kicks a user out of this channel.',
-      unavailableReason: "You don't have permission to kick users from this channel.",
-    })
-  })
-
-  test('a command that can be run here has no reason', () => {
-    const kick = rows(nameMatch('/', true)).find(r => r.text.startsWith('/kick'))!
-
-    expect(kick.visual).toMatchObject({
-      description: 'Kicks a user out of this channel.',
-      unavailableReason: undefined,
     })
   })
 
@@ -187,7 +181,7 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
   })
 
   test('a name still being typed is not exact', () => {
-    expect(rows(nameMatch('/ki'))[0].exact).toBe(false)
+    expect(rows(nameMatch('/ki', true))[0].exact).toBe(false)
   })
 
   test('the doubled-slash escape is left alone', () => {
@@ -201,7 +195,7 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
 
 describe('messaging/commands/command-provider/createCommandArgProvider', () => {
   test('a user argument offers the members of the channel', () => {
-    const match = argMatch('/kick ')
+    const match = argMatch('/kick ', true)
 
     expect(match).toMatchObject({
       start: 6,
@@ -219,21 +213,25 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
   })
 
   test('what has been typed narrows the members', () => {
-    const match = argMatch('/kick te')
+    const match = argMatch('/kick te', true)
 
     expect(match).toMatchObject({ start: 6, matchedText: 'te', spaceAcceptsSingle: true })
     expect(rows(match).map(r => r.text)).toEqual(['tec27'])
   })
 
   test('a typed sigil is kept rather than completed over', () => {
-    const match = argMatch('/kick @te')
+    const match = argMatch('/kick @te', true)
 
     expect(match).toMatchObject({ start: 6, matchedText: '@te' })
     expect(rows(match)[0]).toMatchObject({ text: 'tec27', insertText: '@tec27 ' })
   })
 
   test('a fully typed value is exact', () => {
-    expect(rows(argMatch('/kick TEC27'))[0]).toMatchObject({ text: 'tec27', exact: true })
+    expect(rows(argMatch('/kick TEC27', true))[0]).toMatchObject({ text: 'tec27', exact: true })
+  })
+
+  test('a command that cannot be run here has no arguments to complete', () => {
+    expect(argMatch('/kick te')).toBeUndefined()
   })
 
   test('a channel argument offers joined channels first', () => {
@@ -251,7 +249,7 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
     // `/me` takes a `rest` argument, which is where mentions and emotes get to run.
     expect(argMatch('/me hel')).toBeUndefined()
     // The reason a kick is given is a `rest` argument as well.
-    expect(argMatch('/kick tec27 bec')).toBeUndefined()
+    expect(argMatch('/kick tec27 bec', true)).toBeUndefined()
   })
 
   test('a caret past every argument has no argument to complete', () => {

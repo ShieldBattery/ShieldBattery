@@ -4,7 +4,7 @@ import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { TextButton } from '../../material/button'
 import { Dialog } from '../../material/dialog'
 import { bodyMedium, titleSmall } from '../../styles/typography'
-import { CommandAliases, CommandUnavailableReason, CommandUsage } from './command-usage'
+import { CommandAliases, CommandUsage } from './command-usage'
 
 const Intro = styled.div`
   ${bodyMedium};
@@ -40,23 +40,19 @@ const CommandRow = styled.div`
   }
 `
 
-const UsageCell = styled.div<{ $unavailable: boolean }>`
-  min-width: 0;
-  opacity: ${props => (props.$unavailable ? 0.5 : 1)};
-`
-
-const DescriptionCell = styled.div`
+const UsageCell = styled.div`
   min-width: 0;
 `
 
-const Description = styled.div<{ $unavailable: boolean }>`
+const Description = styled.div`
+  min-width: 0;
+
   ${bodyMedium};
   color: var(--theme-on-surface);
-  opacity: ${props => (props.$unavailable ? 0.5 : 1)};
 `
 
 export interface ChatCommandHelpDialogProps extends CommonDialogProps {
-  /** Every command that exists where the dialog was opened from, in display order. */
+  /** Every command that can be run where the dialog was opened from, in display order. */
   commands: ReadonlyArray<{
     /** The canonical name, without its leading slash. */
     name: string
@@ -66,15 +62,12 @@ export interface ChatCommandHelpDialogProps extends CommonDialogProps {
     args: ReadonlyArray<{ label: string; optional: boolean }>
     /** Already localized. */
     description: string
-    /** Why the command can't be run where the dialog was opened from. Absent when it can. */
-    unavailableReason?: string
   }>
 }
 
 /**
- * A two-column reference sheet for the commands that exist where the dialog was opened from: each
- * row's usage (name, arguments, and aliases) on the left and what it does on the right. A command
- * that can't be run from there is faded, with the reason under its description.
+ * A two-column reference sheet for the commands that can be run where the dialog was opened from:
+ * each row's usage (name, arguments, and aliases) on the left and what it does on the right.
  */
 export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommandHelpDialogProps) {
   const { t } = useTranslation()
@@ -95,24 +88,15 @@ export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommand
         </Trans>
       </Intro>
       <CommandTable>
-        {commands.map(command => {
-          const unavailable = command.unavailableReason !== undefined
-
-          return (
-            <CommandRow key={command.name}>
-              <UsageCell $unavailable={unavailable}>
-                <CommandUsage name={command.name} args={command.args} />
-                <CommandAliases aliases={command.aliases} />
-              </UsageCell>
-              <DescriptionCell>
-                <Description $unavailable={unavailable}>{command.description}</Description>
-                {command.unavailableReason !== undefined ? (
-                  <CommandUnavailableReason reason={command.unavailableReason} />
-                ) : null}
-              </DescriptionCell>
-            </CommandRow>
-          )
-        })}
+        {commands.map(command => (
+          <CommandRow key={command.name}>
+            <UsageCell>
+              <CommandUsage name={command.name} args={command.args} />
+              <CommandAliases aliases={command.aliases} />
+            </UsageCell>
+            <Description>{command.description}</Description>
+          </CommandRow>
+        ))}
       </CommandTable>
     </Dialog>
   )

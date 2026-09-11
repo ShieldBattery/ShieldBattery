@@ -183,8 +183,8 @@ export interface ChatCommand {
   /**
    * Decides whether the command can be run in a context that is one of its `surfaces`, and when it
    * can't, says why in a sentence the user is shown. Returns `undefined` when it can. A command
-   * that can't be run still exists: help lists it, greyed and with this reason, and naming it
-   * answers with this reason rather than the unknown-command line.
+   * that can't be run still exists: help and the palette leave it out, but naming it answers with
+   * this reason rather than the unknown-command line.
    */
   getUnavailableReason?: (context: CommandContext, t: TFunction) => string | undefined
   args: readonly CommandArg[]
@@ -227,6 +227,17 @@ export function getSurfaceCommands(
   surface: CommandSurface,
 ): ReadonlyArray<ChatCommand> {
   return commands.filter(command => command.surfaces.includes(surface))
+}
+
+/** The commands that exist in the context's surface and can be run from it, in the order given. */
+export function getRunnableCommands(
+  commands: ReadonlyArray<ChatCommand>,
+  context: CommandContext,
+  t: TFunction,
+): ReadonlyArray<ChatCommand> {
+  return getSurfaceCommands(commands, context.surface).filter(
+    command => command.getUnavailableReason?.(context, t) === undefined,
+  )
 }
 
 /** What usage strings and error messages call an argument. */

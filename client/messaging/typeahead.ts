@@ -15,14 +15,12 @@ export type TypeaheadVisual =
     }
   /** The emoji character itself as the row's icon. */
   | { kind: 'emoji'; emoji: string }
-  /** A command, as the palette spells it out: usage, what it does, and whether it can be run. */
+  /** A command, as the palette spells it out: usage and what it does. */
   | {
       kind: 'command'
       command: ChatCommand
       /** Already localized. */
       description: string
-      /** Why the command can't be run where it was typed; undefined when it can. */
-      unavailableReason: string | undefined
     }
   /** Text only, as channel names and enum values are shown. */
   | { kind: 'plain' }
