@@ -201,13 +201,24 @@ function getArgLabel(arg: CommandArg): string {
   }
 }
 
-function getArgUsage(arg: CommandArg): string {
-  return arg.optional ? `[${getArgLabel(arg)}]` : `<${getArgLabel(arg)}>`
+/** One argument as a usage string spells it, for a listing that typesets the pieces separately. */
+export interface CommandArgUsage {
+  /** What usage strings call the argument, e.g. `user` or `kick|ban`. */
+  label: string
+  optional: boolean
+}
+
+/** The arguments of a command in order, each as its usage string would spell it. */
+export function getCommandArgUsages(command: ChatCommand): CommandArgUsage[] {
+  return command.args.map(arg => ({ label: getArgLabel(arg), optional: arg.optional ?? false }))
 }
 
 /** Spells out how a command is typed, e.g. `/kick <user> [reason]`. */
 export function getCommandUsage(command: ChatCommand): string {
-  return [`/${command.name}`, ...command.args.map(getArgUsage)].join(' ')
+  const args = getCommandArgUsages(command).map(arg =>
+    arg.optional ? `[${arg.label}]` : `<${arg.label}>`,
+  )
+  return [`/${command.name}`, ...args].join(' ')
 }
 
 /** Lists a command's aliases as they'd be typed, e.g. `/j, /channel`. Empty when it has none. */

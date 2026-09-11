@@ -7,6 +7,7 @@ import {
   ALL_COMMAND_SURFACES,
   defineCommand,
   formatAliases,
+  getCommandArgUsages,
   getCommandUsage,
   matchesCommandName,
 } from '../command-schema'
@@ -26,7 +27,9 @@ export const helpCommand = defineCommand({
           type: DialogType.ChatCommandHelp,
           initData: {
             commands: availableCommands.map(command => ({
-              usage: getCommandUsage(command),
+              name: command.name,
+              aliases: [...(command.aliases ?? [])],
+              args: getCommandArgUsages(command),
               description: command.description(t),
             })),
           },

@@ -365,10 +365,12 @@
         "unknownCommand": "Unknown command <1>{{command}}</1>. Type <4>/help</4> for a list of commands."
       },
       "help": {
+        "aliasesLabel": "Also",
         "aliasesLine": "Aliases: <1>{{aliases}}</1>",
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "Lists the commands you can use here.",
-        "dialogTitle": "Chat commands"
+        "dialogTitle": "Chat commands",
+        "intro": "Type a command at the start of a message to run it. To send a message that begins with a slash, type <1>//</1> instead."
       },
       "join": {
         "description": "Joins a chat channel, creating it if it does not exist."

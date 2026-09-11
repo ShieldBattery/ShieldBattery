@@ -1,31 +1,112 @@
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { TextButton } from '../../material/button'
 import { Dialog } from '../../material/dialog'
-import { bodyMedium, titleSmall } from '../../styles/typography'
+import { bodyMedium, labelMedium, labelSmall, titleSmall } from '../../styles/typography'
 
-const CommandList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const CommandUsage = styled.div`
-  ${titleSmall};
-`
-
-const CommandDescription = styled.div`
+const Intro = styled.div`
   ${bodyMedium};
+  margin-bottom: 8px;
+
   color: var(--theme-on-surface-variant);
+`
+
+const InlineCommand = styled.span`
+  ${titleSmall};
+  line-height: inherit;
+
+  color: var(--theme-amber);
+`
+
+const CommandTable = styled.div`
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 24px;
+`
+
+const CommandRow = styled.div`
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--theme-outline-variant);
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+`
+
+const UsageCell = styled.div`
+  min-width: 0;
+`
+
+const Usage = styled.div`
+  ${titleSmall};
+  white-space: nowrap;
+`
+
+const CommandName = styled.span`
+  color: var(--theme-amber);
+`
+
+const Arg = styled.span<{ $optional: boolean }>`
+  font-weight: 400;
+  color: ${props =>
+    props.$optional
+      ? 'rgb(from var(--theme-on-surface-variant) r g b / 0.6)'
+      : 'var(--theme-on-surface-variant)'};
+`
+
+const Aliases = styled.div`
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+`
+
+const AliasesLabel = styled.span`
+  ${labelSmall};
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.6);
+  margin-right: 2px;
+`
+
+const AliasChip = styled.span`
+  ${labelMedium};
+  padding: 1px 6px;
+  border-radius: 4px;
+
+  background-color: var(--theme-container-high);
+  color: var(--theme-on-surface-variant);
+`
+
+const Description = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface);
 `
 
 export interface ChatCommandHelpDialogProps extends CommonDialogProps {
   /** Every command available where the dialog was opened from, in display order. */
-  commands: ReadonlyArray<{ usage: string; description: string }>
+  commands: ReadonlyArray<{
+    /** The canonical name, without its leading slash. */
+    name: string
+    /** Other names that reach the command, without their leading slashes. Empty when there are none. */
+    aliases: ReadonlyArray<string>
+    /** The arguments in order, as usage strings spell them. */
+    args: ReadonlyArray<{ label: string; optional: boolean }>
+    /** Already localized. */
+    description: string
+  }>
 }
 
-/** Lists the commands that can be run where the dialog was opened from, with what each one does. */
+/**
+ * A two-column reference sheet for the commands that can be run where the dialog was opened
+ * from: each row's usage (name, arguments, and aliases) on the left and what it does on the
+ * right.
+ */
 export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommandHelpDialogProps) {
   const { t } = useTranslation()
 
@@ -38,14 +119,37 @@ export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommand
       title={t('chat.commands.help.dialogTitle', 'Chat commands')}
       buttons={buttons}
       onCancel={onCancel}>
-      <CommandList>
+      <Intro>
+        <Trans t={t} i18nKey='chat.commands.help.intro'>
+          Type a command at the start of a message to run it. To send a message that begins with a
+          slash, type <InlineCommand>{'//'}</InlineCommand> instead.
+        </Trans>
+      </Intro>
+      <CommandTable>
         {commands.map(command => (
-          <div key={command.usage}>
-            <CommandUsage>{command.usage}</CommandUsage>
-            <CommandDescription>{command.description}</CommandDescription>
-          </div>
+          <CommandRow key={command.name}>
+            <UsageCell>
+              <Usage>
+                <CommandName>/{command.name}</CommandName>
+                {command.args.map((arg, i) => (
+                  <Arg key={i} $optional={arg.optional}>
+                    {` ${arg.optional ? `[${arg.label}]` : `<${arg.label}>`}`}
+                  </Arg>
+                ))}
+              </Usage>
+              {command.aliases.length > 0 ? (
+                <Aliases>
+                  <AliasesLabel>{t('chat.commands.help.aliasesLabel', 'Also')}</AliasesLabel>
+                  {command.aliases.map(alias => (
+                    <AliasChip key={alias}>/{alias}</AliasChip>
+                  ))}
+                </Aliases>
+              ) : null}
+            </UsageCell>
+            <Description>{command.description}</Description>
+          </CommandRow>
         ))}
-      </CommandList>
+      </CommandTable>
     </Dialog>
   )
 }

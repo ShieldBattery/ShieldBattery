@@ -122,15 +122,51 @@ describe('messaging/commands/command-registry', () => {
       type: 'chatCommandHelp',
       initData: {
         commands: [
-          { usage: '/help [command]', description: 'Lists the commands you can use here.' },
           {
-            usage: '/join <channel>',
+            name: 'help',
+            aliases: ['?'],
+            args: [{ label: 'command', optional: true }],
+            description: 'Lists the commands you can use here.',
+          },
+          {
+            name: 'join',
+            aliases: ['j', 'channel'],
+            args: [{ label: 'channel', optional: false }],
             description: 'Joins a chat channel, creating it if it does not exist.',
           },
-          { usage: '/whisper <user> [message]', description: 'Sends a private message to a user.' },
-          { usage: '/leave', description: 'Leaves the channel or lobby you are in.' },
-          { usage: '/kick <user> [reason]', description: 'Kicks a user out of this channel.' },
-          { usage: '/ban <user> [reason]', description: 'Bans a user from this channel.' },
+          {
+            name: 'whisper',
+            aliases: ['w', 'm', 'msg', 'tell', 't'],
+            args: [
+              { label: 'user', optional: false },
+              { label: 'message', optional: true },
+            ],
+            description: 'Sends a private message to a user.',
+          },
+          {
+            name: 'leave',
+            aliases: [],
+            args: [],
+            description: 'Leaves the channel or lobby you are in.',
+          },
+          {
+            name: 'kick',
+            aliases: [],
+            args: [
+              { label: 'user', optional: false },
+              { label: 'reason', optional: true },
+            ],
+            description: 'Kicks a user out of this channel.',
+          },
+          {
+            name: 'ban',
+            aliases: [],
+            args: [
+              { label: 'user', optional: false },
+              { label: 'reason', optional: true },
+            ],
+            description: 'Bans a user from this channel.',
+          },
         ],
       },
     })

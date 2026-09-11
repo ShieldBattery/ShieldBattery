@@ -113,11 +113,17 @@ type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
 type ChatCommandHelpDialogPayload = BaseDialogPayload<
   typeof DialogType.ChatCommandHelp,
   {
-    /**
-     * Every command available where the dialog was opened from, in display order. Usage strings
-     * and descriptions are already localized.
-     */
-    commands: Array<{ usage: string; description: string }>
+    /** Every command available where the dialog was opened from, in display order. */
+    commands: Array<{
+      /** The canonical name, without its leading slash. */
+      name: string
+      /** Other names that reach the command, without their leading slashes. Empty when there are none. */
+      aliases: string[]
+      /** The arguments in order, as usage strings spell them. */
+      args: Array<{ label: string; optional: boolean }>
+      /** Already localized. */
+      description: string
+    }>
   }
 >
 type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
