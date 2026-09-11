@@ -25,6 +25,11 @@ export interface BaseWhisperMessage {
 export interface WhisperTextMessage extends BaseWhisperMessage {
   type: typeof WhisperMessageType.TextMessage
   text: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  emote?: boolean
 }
 
 export type WhisperMessage = WhisperTextMessage
@@ -66,6 +71,11 @@ export type WhisperUserEvent = WhisperReadTimeChangedEvent
 
 export interface SendWhisperMessageRequest {
   message: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  emote?: boolean
 }
 
 /**

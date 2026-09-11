@@ -33,7 +33,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
   })
 
   const store = createStore()
-  const doRender = (text: string, { time = 0 }: { time?: number } = {}): HTMLElement => {
+  const doRender = (
+    text: string,
+    { time = 0, emote }: { time?: number; emote?: boolean } = {},
+  ): HTMLElement => {
     render(
       <ReduxProvider store={store}>
         <div data-testid='message-container'>
@@ -43,6 +46,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             selfUserId={selfUserId}
             time={time}
             text={text}
+            emote={emote}
           />
         </div>
       </ReduxProvider>,
@@ -52,6 +56,15 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
 
   test('message as a normal text', () => {
     expect(doRender('This is test message')).toMatchSnapshot()
+  })
+
+  test('message sent as an emote reads as an action line', () => {
+    const container = doRender('waves at everyone', { emote: true })
+
+    // The name is still loading in this store, so the glyph and its space are what precede it.
+    expect(container.textContent).toContain('* ')
+    expect(container.textContent).not.toContain(': ')
+    expect(container).toMatchSnapshot()
   })
 
   test('message with a link', () => {

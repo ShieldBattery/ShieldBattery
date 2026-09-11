@@ -124,6 +124,63 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
 </div>
 `;
 
+exports[`client/messaging/common-message-layout/TextMessage > message sent as an emote reads as an action line 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-djDiuc jOQYWn"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-ikrMhg iRLQJB sc-ewKWQi ekGrcY"
+      tabindex="0"
+    >
+      <span
+        class="sc-eillgj hCvGOa"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-hKOsxR HaWPv"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-hKOsxR HaWPv"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-dxdKQw cuWvaS"
+    >
+      * 
+    </span>
+    <span
+      class="sc-edvVIM BgKKj sc-egVbnM sc-gVZcgN heJhVC ijAExg"
+      tabindex="0"
+    >
+      <span
+        aria-label="Username loading…"
+        class="sc-jmvSDW kJMgdI"
+      >
+                   
+      </span>
+    </span>
+     
+    <span
+      class="sc-hFQsEd sc-hKlkwe hNjprR ipLGyN"
+    >
+      waves at everyone
+    </span>
+  </div>
+</div>
+`;
+
 exports[`client/messaging/common-message-layout/TextMessage > message with a link 1`] = `
 <div
   data-testid="message-container"

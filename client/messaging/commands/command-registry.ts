@@ -4,6 +4,7 @@ import { helpCommand } from './commands/help'
 import { joinCommand } from './commands/join'
 import { banCommand, kickCommand } from './commands/kick-ban'
 import { leaveCommand } from './commands/leave'
+import { meCommand } from './commands/me'
 import { whisperCommand } from './commands/whisper'
 
 /** Every command there is, in the order help lists them. */
@@ -15,6 +16,7 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   closeCommand,
   kickCommand,
   banCommand,
+  meCommand,
 ]
 
 /**

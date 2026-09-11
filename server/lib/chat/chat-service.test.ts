@@ -196,6 +196,7 @@ function toTextMessageJson(dbMessage: FakeDbTextChannelMessage) {
     from: dbMessage.userId,
     time: Number(dbMessage.sent),
     text: dbMessage.data.text,
+    ...(dbMessage.data.emote ? { emote: true } : {}),
   }
 }
 
@@ -396,6 +397,7 @@ describe('chat/chat-service', () => {
     processedMessageString: string,
     userMentions: SbUser[],
     channelMentions: FullChannelInfo[],
+    emote?: boolean,
   ) {
     textMessage = {
       msgId: 'MESSAGE_ID',
@@ -407,6 +409,7 @@ describe('chat/chat-service', () => {
         text: processedMessageString,
         mentions: userMentions.length > 0 ? userMentions.map(m => m.id) : undefined,
         channelMentions: channelMentions.length > 0 ? channelMentions.map(c => c.id) : undefined,
+        ...(emote ? { emote: true } : {}),
       },
     }
     // NOTE(2Pac): The `joinUserToChannel` call already mocks the return value of this function,
@@ -1834,6 +1837,41 @@ describe('chat/chat-service', () => {
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
 
         expectItWorks(processedText, [], channelMentions)
+      })
+
+      test('stores and publishes an action line with the emote flag', async () => {
+        const messageString = 'waves at everyone'
+        mockTextMessage(user1, testChannel, messageString, [], [], true)
+
+        await chatService.sendChatMessage(testChannel.id, user1.id, messageString, { emote: true })
+
+        expect(addMessageToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, {
+          type: textMessage.data.type,
+          text: messageString,
+          mentions: undefined,
+          channelMentions: undefined,
+          emote: true,
+        })
+        expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+          action: 'message2',
+          message: expect.objectContaining({ text: messageString, emote: true }),
+          user: user1,
+          mentions: [],
+          channelMentions: [],
+        })
+      })
+
+      test('carries no emote key at all for an ordinary message', async () => {
+        const messageString = 'Hello World!'
+        mockTextMessage(user1, testChannel, messageString, [], [])
+
+        await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
+
+        expect(addMessageToChannelMock.mock.calls[0][2]).not.toHaveProperty('emote')
+        const [, published] = asMockedFunction(client2.publish).mock.calls.find(
+          ([, data]) => data?.action === 'message2',
+        )!
+        expect(published.message).not.toHaveProperty('emote')
       })
 
       test('works when there are both user and channel mentions in a message', async () => {

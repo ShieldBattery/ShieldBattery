@@ -57,6 +57,7 @@ describe('messaging/commands/command-registry', () => {
       'close',
       'kick',
       'ban',
+      'me',
     ])
   })
 
@@ -68,18 +69,21 @@ describe('messaging/commands/command-registry', () => {
       'leave',
       'kick',
       'ban',
+      'me',
     ])
     expect(getSurfaceCommands(ALL_COMMANDS, 'whisper').map(c => c.name)).toEqual([
       'help',
       'join',
       'whisper',
       'close',
+      'me',
     ])
     expect(getSurfaceCommands(ALL_COMMANDS, 'lobby').map(c => c.name)).toEqual([
       'help',
       'join',
       'whisper',
       'leave',
+      'me',
     ])
   })
 
@@ -181,6 +185,12 @@ describe('messaging/commands/command-registry', () => {
             ],
             description: 'Bans a user from this channel.',
             unavailableReason: "You don't have permission to ban users from this channel.",
+          },
+          {
+            name: 'me',
+            aliases: ['emote'],
+            args: [{ label: 'action', optional: false }],
+            description: 'Sends an action line, shown as "* YourName does something".',
           },
         ],
       },

@@ -70,12 +70,18 @@ function initAction(): LobbyActions {
   return { type: '@lobbies/init', payload: { type: 'init', lobby: LOBBY, userInfos: [] } }
 }
 
-function chatAction(text: string): LobbyActions {
+function chatAction(text: string, emote?: boolean): LobbyActions {
   return {
     type: '@lobbies/updateChatMessage',
     payload: {
       type: 'chat',
-      message: { lobbyName: LOBBY.name, time: 27, from: HOST_SLOT.userId!, text },
+      message: {
+        lobbyName: LOBBY.name,
+        time: 27,
+        from: HOST_SLOT.userId!,
+        text,
+        ...(emote ? { emote: true } : {}),
+      },
       mentions: [],
       channelMentions: [],
     },
@@ -183,6 +189,13 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(state.chat).toHaveLength(0)
     expect(state.activated).toBe(false)
     expect(state.hasUnread).toBe(true)
+  })
+
+  test('an arriving action line keeps its emote flag', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, chatAction('waves', true))
+
+    expect(state.chat[state.chat.length - 1]).toMatchObject({ emote: true })
   })
 
   test('chat while deactivated marks unread; activating clears it', () => {

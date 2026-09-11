@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { getErrorStack } from '../../common/errors'
 import { LobbyState } from '../../common/lobbies'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
@@ -11,6 +12,7 @@ import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { openMapPreviewDialog } from '../maps/action-creators'
 import { FilledButton } from '../material/button'
 import { LobbyCommandContext } from '../messaging/commands/command-context'
@@ -199,7 +201,14 @@ function ConnectedLobby() {
         dispatch(startCountdown())
       }}
       onSendChatMessage={message => {
-        dispatch(sendChat(message))
+        dispatch(
+          sendChat(message, {
+            onSuccess: () => {},
+            onError: err => {
+              logger.error(`Error while sending a lobby chat message: ${getErrorStack(err)}`)
+            },
+          }),
+        )
       }}
       onMapPreview={() => {
         dispatch(openMapPreviewDialog(lobby.map!.id))

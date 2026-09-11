@@ -3,17 +3,19 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { WhisperServiceErrorCode } from '../../../common/whispers'
+import { WhisperMessageType, WhisperServiceErrorCode } from '../../../common/whispers'
 import { RestrictionService } from '../users/restriction-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import {
   clearTestLogs,
   createFakeNydusServer,
+  FakeNydusServer,
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
+  addMessageToWhisper,
   getMessagesForWhisperSession,
   getUnreadWhisperTargets,
   getWhisperMessageParticipants,
@@ -40,6 +42,7 @@ vi.mock('../users/user-model', () => {
     findUsersById: vi.fn().mockImplementation(async (ids: ReadonlyArray<SbUserId>) => {
       return ids.map(id => USERS_BY_ID.get(id)).filter(u => !!u)
     }),
+    findUsersByName: vi.fn().mockResolvedValue([]),
   }
 })
 
@@ -48,6 +51,7 @@ vi.mock('../chat/chat-models', async () => {
     await vi.importActual<typeof import('../chat/chat-models')>('../chat/chat-models')
   return {
     getChannelInfos: vi.fn().mockResolvedValue([]),
+    findChannelsByName: vi.fn().mockResolvedValue([]),
     toBasicChannelInfo: originalModule.toBasicChannelInfo,
   }
 })
@@ -162,6 +166,59 @@ describe('whispers/whisper-service', () => {
           { targetId: user3.id, lastReadTime: user3StartDate.getTime() - 1 },
         ],
       })
+    })
+  })
+
+  describe('sendWhisperMessage', () => {
+    const addMessageToWhisperMock = asMockedFunction(addMessageToWhisper)
+
+    /** Makes the stored-message lookup answer with a message of the given text and flag. */
+    function mockStoredMessage(text: string, emote?: boolean) {
+      addMessageToWhisperMock.mockResolvedValue({
+        id: 'MESSAGE_ID',
+        from: user1.id,
+        to: user2.id,
+        sent: new Date('2023-03-11T00:00:00.000Z'),
+        data: {
+          type: WhisperMessageType.TextMessage,
+          text,
+          mentions: undefined,
+          channelMentions: undefined,
+          ...(emote ? { emote: true } : {}),
+        },
+      })
+    }
+
+    /** The data of the message event published to the conversation, if there was one. */
+    function publishedMessageEvent(): any {
+      const fakeNydus = nydus as unknown as FakeNydusServer
+      return fakeNydus.publish.mock.calls.find(
+        ([path, data]) => path === getSessionPath(user1.id, user2.id) && data?.action === 'message',
+      )?.[1]
+    }
+
+    test('stores and publishes an action line with the emote flag', async () => {
+      mockStoredMessage('waves', true)
+
+      await whisperService.sendWhisperMessage(user1.id, user2.id, 'waves', { emote: true })
+
+      expect(addMessageToWhisperMock).toHaveBeenCalledWith(user1.id, user2.id, {
+        type: WhisperMessageType.TextMessage,
+        text: 'waves',
+        mentions: undefined,
+        channelMentions: undefined,
+        emote: true,
+      })
+      expect(publishedMessageEvent().message).toMatchObject({ text: 'waves', emote: true })
+    })
+
+    test('carries no emote key at all for an ordinary message', async () => {
+      mockStoredMessage('hello')
+
+      await whisperService.sendWhisperMessage(user1.id, user2.id, 'hello')
+
+      expect(addMessageToWhisperMock.mock.calls[0][2]).not.toHaveProperty('emote')
+      expect(publishedMessageEvent().message).not.toHaveProperty('emote')
     })
   })
 

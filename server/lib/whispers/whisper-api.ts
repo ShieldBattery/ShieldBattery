@@ -151,17 +151,20 @@ export class WhisperApi {
   async sendWhisperMessage(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
-      body: { message },
+      body: { message, emote },
     } = validateRequest(ctx, {
       params: Joi.object<{ targetId: SbUserId }>({
         targetId: joiUserId().required(),
       }),
       body: Joi.object<SendWhisperMessageRequest>({
         message: Joi.string().min(1).required(),
+        emote: Joi.boolean(),
       }),
     })
 
-    await this.whisperService.sendWhisperMessage(ctx.session!.user.id, targetId, message)
+    await this.whisperService.sendWhisperMessage(ctx.session!.user.id, targetId, message, {
+      emote,
+    })
 
     ctx.status = 204
   }

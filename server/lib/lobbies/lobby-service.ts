@@ -42,6 +42,7 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
+import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
@@ -581,10 +582,12 @@ export class LobbyService {
     client,
     lobbyId,
     text,
+    emote,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
     text: string
+    emote?: boolean
   }): Promise<void> {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const time = Date.now()
@@ -609,6 +612,7 @@ export class LobbyService {
         time,
         from: client.userId,
         text: processedText,
+        ...emoteField(emote),
       },
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),

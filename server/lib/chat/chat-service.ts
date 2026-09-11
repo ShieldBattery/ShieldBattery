@@ -52,6 +52,7 @@ import { writeFile } from '../files'
 import { createImagePath, resizeImage } from '../files/images'
 import { ImageService } from '../images/image-service'
 import logger from '../logging/logger'
+import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import NotificationService from '../notifications/notification-service'
@@ -790,7 +791,12 @@ export default class ChatService {
     })
   }
 
-  async sendChatMessage(channelId: SbChannelId, userId: SbUserId, message: string): Promise<void> {
+  async sendChatMessage(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    message: string,
+    options: { emote?: boolean } = {},
+  ): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     if (
       !this.state.users.has(userSockets.userId) ||
@@ -819,6 +825,7 @@ export default class ChatService {
       text: processedText,
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
+      ...emoteField(options.emote),
     })
     // The sender just posted a message, so they're guaranteed to exist
     const user = (await findUserById(result.userId))!
@@ -832,6 +839,7 @@ export default class ChatService {
         from: result.userId,
         time: Number(result.sent),
         text: result.data.text,
+        ...emoteField(result.data.emote),
       },
       user,
       mentions: userMentions,
@@ -1050,6 +1058,7 @@ export default class ChatService {
             from: msg.userId,
             time: Number(msg.sent),
             text: msg.data.text,
+            ...emoteField(msg.data.emote),
           })
           userIds.add(msg.userId)
           for (const mentionId of msg.data.mentions ?? []) {

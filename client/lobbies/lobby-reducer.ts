@@ -243,6 +243,7 @@ const lobbyHandlers = {
       time: message.time,
       from: message.from,
       text: message.text,
+      ...(message.emote ? { emote: true } : {}),
     })
   },
 

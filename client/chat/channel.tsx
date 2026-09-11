@@ -8,10 +8,12 @@ import {
   ServerChatMessageType,
   isServerChatMessage,
 } from '../../common/chat'
+import { getErrorStack } from '../../common/errors'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
 import { useWindowFocus } from '../dom/window-focus'
+import logger from '../logging/logger'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { ChannelCommandContext } from '../messaging/commands/command-context'
@@ -514,7 +516,14 @@ export function ConnectedChatChannel({
   }
 
   const onSendChatMessage = useStableCallback((msg: string) =>
-    dispatch(sendMessage(channelId, msg)),
+    dispatch(
+      sendMessage(channelId, msg, {
+        onSuccess: () => {},
+        onError: err => {
+          logger.error(`Error sending a chat message: ${getErrorStack(err)}`)
+        },
+      }),
+    ),
   )
 
   const onLeaveChannel = useStableCallback((channelId: SbChannelId) => {

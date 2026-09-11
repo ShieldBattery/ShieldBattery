@@ -132,11 +132,16 @@ export function sendMessage(
   target: SbUserId,
   message: string,
   spec: RequestHandlingSpec,
+  options: { emote?: boolean } = {},
 ): ThunkAction {
   return abortableThunk(spec, async () => {
     return fetchJson<void>(apiUrl`whispers/${target}/messages`, {
       method: 'POST',
-      body: encodeBodyAsParams<SendWhisperMessageRequest>({ message }),
+      body: encodeBodyAsParams<SendWhisperMessageRequest>({
+        message,
+        emote: options.emote ? true : undefined,
+      }),
+      signal: spec.signal,
     })
   })
 }

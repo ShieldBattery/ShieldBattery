@@ -96,6 +96,11 @@ export interface ChannelTextMessage extends BaseChatMessage {
   type: typeof ServerChatMessageType.TextMessage
   from: SbUserId
   text: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  emote?: boolean
 }
 
 /** A message that is displayed in the chat when someone joins the channel. */
@@ -475,6 +480,11 @@ export interface EditChannelResponse {
 
 export interface SendChatMessageServerRequest {
   message: string
+  /**
+   * Present and `true` for an action line the user sent with `/me`, which renders as
+   * `* Name action` instead of `Name: text`. Never carried as `false`.
+   */
+  emote?: boolean
 }
 
 /**
