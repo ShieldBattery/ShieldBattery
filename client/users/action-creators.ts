@@ -15,6 +15,8 @@ import {
   AdminRemoveUserAvatarResponse,
   AdminSetStaffBadgeRequest,
   AdminSetStaffBadgeResponse,
+  AdminUnbanUserRequest,
+  AdminUnbanUserResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetMatchHistoryQueryParams,
@@ -232,6 +234,24 @@ export function adminBanUser(
       signal: spec.signal,
     })
     dispatch({ type: '@users/adminBanUser', payload: res })
+
+    return res
+  })
+}
+
+export function adminUnbanUser(
+  { userId, reason }: { userId: SbUserId; reason?: string },
+  spec: RequestHandlingSpec<AdminUnbanUserResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminUnbanUserResponse>(apiUrl`admin/users/${userId}/unban`, {
+      method: 'POST',
+      body: encodeBodyAsParams<AdminUnbanUserRequest>({
+        reason,
+      }),
+      signal: spec.signal,
+    })
+    dispatch({ type: '@users/adminUnbanUser', payload: res })
 
     return res
   })

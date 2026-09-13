@@ -4,6 +4,7 @@ import {
   AdminBanUserResponse,
   AdminGetBansResponse,
   AdminGetUserIpsResponse,
+  AdminUnbanUserResponse,
   GetBatchUserInfoResponse,
   GetMatchHistoryResponse,
   GetUserProfileResponse,
@@ -17,6 +18,7 @@ export type UserActions =
   | GetMatchHistory
   | AdminGetUserBanHistory
   | AdminBanUser
+  | AdminUnbanUser
   | AdminGetUserIps
   | AdminAvatarCleared
   | GetUserRankingHistory
@@ -63,6 +65,11 @@ export interface AdminGetUserBanHistory {
 export interface AdminBanUser {
   type: '@users/adminBanUser'
   payload: AdminBanUserResponse
+}
+
+export interface AdminUnbanUser {
+  type: '@users/adminUnbanUser'
+  payload: AdminUnbanUserResponse
 }
 
 export interface AdminGetUserIps {

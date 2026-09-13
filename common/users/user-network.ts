@@ -154,6 +154,9 @@ export interface BanHistoryEntry {
   startTime: Date
   endTime: Date
   reason?: string
+  unbannedBy?: SbUserId
+  unbannedAt?: Date
+  unbanReason?: string
 }
 
 export type BanHistoryEntryJson = Jsonify<BanHistoryEntry>
@@ -166,6 +169,9 @@ export function toBanHistoryEntryJson(entry: BanHistoryEntry) {
     startTime: Number(entry.startTime),
     endTime: Number(entry.endTime),
     reason: entry.reason,
+    unbannedBy: entry.unbannedBy,
+    unbannedAt: entry.unbannedAt ? Number(entry.unbannedAt) : undefined,
+    unbanReason: entry.unbanReason,
   }
 }
 
@@ -182,6 +188,24 @@ export interface AdminBanUserRequest {
 
 export interface AdminBanUserResponse {
   ban: BanHistoryEntryJson
+  users: SbUser[]
+}
+
+export interface AdminUnbanUserRequest {
+  /** Admin-only note about why the ban was lifted (never shown to the user). */
+  reason?: string
+}
+
+export interface AdminUnbanUserResponse {
+  /** The target user's bans that were lifted (empty if they had no active ban). */
+  bans: BanHistoryEntryJson[]
+  /**
+   * Every user whose ban was lifted by this action: the target plus any accounts connected to it
+   * by shared identifiers.
+   */
+  unbannedUsers: SbUserId[]
+  /** Number of machine identifier bans that were expired. */
+  liftedIdentifierBans: number
   users: SbUser[]
 }
 

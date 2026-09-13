@@ -60,6 +60,8 @@ import {
   AdminRemoveUserAvatarResponse,
   AdminSetStaffBadgeRequest,
   AdminSetStaffBadgeResponse,
+  AdminUnbanUserRequest,
+  AdminUnbanUserResponse,
   AuthEvent,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
@@ -1261,6 +1263,42 @@ export class AdminUserApi {
     return {
       ban: toBanHistoryEntryJson(ban),
       users: [user, bannedBy],
+    }
+  }
+
+  @httpPost('/:id/unban')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async unbanUser(ctx: RouterContext): Promise<AdminUnbanUserResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<AdminUnbanUserRequest>({
+        reason: Joi.string().max(500),
+      }).required(),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const { liftedBans, liftedIdentifierBans } = await this.banEnacter.enactUnban({
+      targetId: user.id,
+      unbannedBy: ctx.session!.user.id,
+      reason: body.reason,
+    })
+
+    const unbannedUsers = Array.from(new Set(liftedBans.map(b => b.userId)))
+    const users = await findUsersById(
+      Array.from(new Set(unbannedUsers.concat(ctx.session!.user.id, user.id))),
+    )
+
+    return {
+      bans: liftedBans.filter(b => b.userId === user.id).map(b => toBanHistoryEntryJson(b)),
+      unbannedUsers,
+      liftedIdentifierBans,
+      users,
     }
   }
 

@@ -10,7 +10,12 @@ import {
   restrictionReasonToLabel,
 } from '../../../common/users/restrictions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
-import { BanHistoryEntryJson, UserRestrictionHistoryJson } from '../../../common/users/user-network'
+import { SbUserId } from '../../../common/users/sb-user-id'
+import {
+  AdminUnbanUserResponse,
+  BanHistoryEntryJson,
+  UserRestrictionHistoryJson,
+} from '../../../common/users/user-network'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
@@ -29,6 +34,7 @@ import {
   adminBanUser,
   adminGetUserBanHistory,
   adminGetUserRestrictions,
+  adminUnbanUser,
 } from '../action-creators'
 import { ConnectedUsername } from '../connected-username'
 
@@ -98,6 +104,10 @@ interface BanFormModel {
   reason?: string
 }
 
+interface UnbanFormModel {
+  reason?: string
+}
+
 interface RestrictionFormModel {
   kind: RestrictionKind
   endTime: string
@@ -107,6 +117,10 @@ interface RestrictionFormModel {
 
 const BAN_FORM_DEFAULTS: BanFormModel = {
   endTime: '',
+  reason: '',
+}
+
+const UNBAN_FORM_DEFAULTS: UnbanFormModel = {
   reason: '',
 }
 
@@ -169,6 +183,7 @@ function AdminAvatarSection({ user }: { user: SbUser }) {
 function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }) {
   const dispatch = useAppDispatch()
   const [banHistory, setBanHistory] = useState<ReadonlyDeep<BanHistoryEntryJson[]>>()
+  const [unbanResult, setUnbanResult] = useState<ReadonlyDeep<AdminUnbanUserResponse>>()
 
   const [requestError, setRequestError] = useState<Error>()
   const cancelLoadRef = useRef(new AbortController())
@@ -188,6 +203,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
         signal: abortController.signal,
         onStart: () => {
           setBanHistory(undefined)
+          setUnbanResult(undefined)
         },
         onSuccess: response => {
           setRequestError(undefined)
@@ -212,36 +228,92 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
         <BanHistoryList banHistory={banHistory} now={now} />
       )}
       {!isSelf ? (
-        <BanUserForm
-          key={`form-${userId}`}
-          model={BAN_FORM_DEFAULTS}
-          onSubmit={model => {
-            dispatch(
-              adminBanUser(
-                {
-                  userId,
-                  endTime: Date.parse(model.endTime),
-                  reason: model.reason?.length ? model.reason : undefined,
-                },
-                {
-                  onSuccess: response => {
-                    setBanHistory(history => {
-                      if (!history?.some(b => b.id === response.ban.id)) {
-                        return [response.ban].concat(history || [])
-                      }
-
-                      return history
-                    })
-                    setRequestError(undefined)
+        <>
+          <BanUserForm
+            key={`form-${userId}`}
+            model={BAN_FORM_DEFAULTS}
+            onSubmit={model => {
+              dispatch(
+                adminBanUser(
+                  {
+                    userId,
+                    endTime: Date.parse(model.endTime),
+                    reason: model.reason?.length ? model.reason : undefined,
                   },
-                  onError: err => setRequestError(err),
-                },
-              ),
-            )
-          }}
-        />
+                  {
+                    onSuccess: response => {
+                      setBanHistory(history => {
+                        if (!history?.some(b => b.id === response.ban.id)) {
+                          return [response.ban].concat(history || [])
+                        }
+
+                        return history
+                      })
+                      setRequestError(undefined)
+                    },
+                    onError: err => setRequestError(err),
+                  },
+                ),
+              )
+            }}
+          />
+          <UnbanUserForm
+            key={`unban-form-${userId}`}
+            model={UNBAN_FORM_DEFAULTS}
+            onSubmit={model => {
+              dispatch(
+                adminUnbanUser(
+                  {
+                    userId,
+                    reason: model.reason?.length ? model.reason : undefined,
+                  },
+                  {
+                    onSuccess: response => {
+                      const lifted = new Map(response.bans.map(b => [b.id, b]))
+                      setBanHistory(history => history?.map(b => lifted.get(b.id) ?? b))
+                      setRequestError(undefined)
+                      setUnbanResult(response)
+                    },
+                    onError: err => setRequestError(err),
+                  },
+                ),
+              )
+            }}
+          />
+          {unbanResult ? <UnbanResult result={unbanResult} userId={userId} /> : null}
+        </>
       ) : null}
     </AdminSection>
+  )
+}
+
+function UnbanResult({
+  result,
+  userId,
+}: {
+  result: ReadonlyDeep<AdminUnbanUserResponse>
+  userId: SbUserId
+}) {
+  const otherUsers = result.unbannedUsers.filter(id => id !== userId)
+
+  return (
+    <BodyMedium>
+      {result.bans.length
+        ? `Lifted ${result.bans.length} ban(s) on this account`
+        : 'This account had no active ban'}
+      {` and expired ${result.liftedIdentifierBans} identifier ban(s).`}
+      {otherUsers.length ? (
+        <>
+          {' Connected accounts also unbanned: '}
+          {otherUsers.map((id, i) => (
+            <span key={id}>
+              {i > 0 ? ', ' : ''}
+              <ConnectedUsername userId={id} />
+            </span>
+          ))}
+        </>
+      ) : null}
+    </BodyMedium>
   )
 }
 
@@ -268,6 +340,7 @@ function BanHistoryList({
           <TimeCell as='th'>End time</TimeCell>
           <UsernameCell as='th'>Banned by</UsernameCell>
           <th>Reason</th>
+          <th>Unbanned</th>
         </tr>
       </thead>
       <tbody>
@@ -284,11 +357,26 @@ function BanHistoryList({
                 )}
               </UsernameCell>
               <td>{b.reason ?? ''}</td>
+              <td>
+                {b.unbannedBy !== undefined || b.unbannedAt !== undefined ? (
+                  <>
+                    <div>
+                      {b.unbannedBy !== undefined ? (
+                        <ConnectedUsername userId={b.unbannedBy} />
+                      ) : (
+                        <span>- system -</span>
+                      )}
+                      {b.unbannedAt !== undefined ? ` ${banDateFormat.format(b.unbannedAt)}` : ''}
+                    </div>
+                    {b.unbanReason !== undefined ? <div>{b.unbanReason}</div> : null}
+                  </>
+                ) : null}
+              </td>
             </BanRow>
           ))
         ) : (
           <BanRow>
-            <EmptyState colSpan={4}>No bans found</EmptyState>
+            <EmptyState colSpan={5}>No bans found</EmptyState>
           </BanRow>
         )}
       </tbody>
@@ -339,6 +427,44 @@ function BanUserForm({
         }}
       />
       <FilledButton label='Ban' tabIndex={0} onClick={submit} />
+    </form>
+  )
+}
+
+function UnbanUserForm({
+  model,
+  onSubmit,
+}: {
+  model: UnbanFormModel
+  onSubmit: (model: ReadonlyDeep<UnbanFormModel>) => void
+}) {
+  const { submit, bindInput, form } = useForm<UnbanFormModel>(model, {})
+
+  useFormCallbacks(form, {
+    onSubmit,
+  })
+
+  return (
+    <form noValidate={true} onSubmit={submit}>
+      <TitleLarge>Unban user</TitleLarge>
+      <BodyMedium>
+        Lifts every active ban on this account and on any accounts connected to it by shared
+        identifiers, and clears the machine bans on their identifiers so they won't be flagged for
+        ban evasion.
+      </BodyMedium>
+      <TextField
+        {...bindInput('reason')}
+        label='Notes (optional, admin-only)'
+        floatingLabel={true}
+        inputProps={{
+          tabIndex: 0,
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+        }}
+      />
+      <FilledButton label='Unban' tabIndex={0} onClick={submit} />
     </form>
   )
 }

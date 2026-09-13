@@ -156,6 +156,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
+  ['@users/adminUnbanUser'](state, action) {
+    updateUsers(state, action.payload.users)
+  },
+
   ['@users/adminGetUserBanHistory'](state, action) {
     updateUsers(state, action.payload.users)
   },

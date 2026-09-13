@@ -5,9 +5,9 @@ import { Redis } from '../redis/redis'
 import { DeletedSessionRegistry } from '../session/deleted-sessions'
 import { sessionKey, userSessionsKey } from '../session/jwt-session-middleware'
 import { UserSocketsManager } from '../websockets/socket-groups'
-import { banUsers, UserBanRow } from './ban-models'
+import { banUsers, liftUserBans, UserBanRow } from './ban-models'
 import { MIN_IDENTIFIER_MATCHES } from './client-ids'
-import { banAllIdentifiers, findConnectedUsers } from './user-identifiers'
+import { banAllIdentifiers, findConnectedUsers, liftIdentifierBans } from './user-identifiers'
 
 @injectable()
 export class BanEnacter {
@@ -92,5 +92,38 @@ export class BanEnacter {
     }
 
     throw new Error(`Failed to find ban entry for user ${targetId} after banning.`)
+  }
+
+  /**
+   * Lifts a user's ban. Mirrors `enactBan`: the accounts connected to the target by shared
+   * identifiers are unbanned alongside it (their bans were applied as a group), and every
+   * identifier ban covering any of those accounts' identifiers is expired so nobody in the group is
+   * flagged for ban evasion on their next login.
+   */
+  async enactUnban({
+    targetId,
+    unbannedBy,
+    reason,
+  }: {
+    targetId: SbUserId
+    unbannedBy?: SbUserId
+    reason?: string
+  }): Promise<{
+    /** All bans that were lifted, for the target and any connected accounts. */
+    liftedBans: UserBanRow[]
+    /** Number of identifier bans that were expired. */
+    liftedIdentifierBans: number
+  }> {
+    // No session or socket cleanup is needed here: a banned user has no active sessions to clear.
+    return await transact(async client => {
+      const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
+      const users = connectedUsers.concat(targetId)
+      const now = new Date()
+
+      const liftedBans = await liftUserBans({ users, unbannedBy, reason, now }, client)
+      const liftedIdentifierBans = await liftIdentifierBans({ users, now }, client)
+
+      return { liftedBans, liftedIdentifierBans }
+    })
   }
 }

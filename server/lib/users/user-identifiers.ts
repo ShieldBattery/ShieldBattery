@@ -232,6 +232,35 @@ export async function banAllIdentifiers(
 }
 
 /**
+ * Expires every active identifier ban on any identifier belonging to the given users, so none of
+ * them (nor a new account on the same machine) is treated as evading a ban afterwards. Returns the
+ * number of identifier bans that were expired.
+ */
+export async function liftIdentifierBans(
+  { users, now = new Date() }: { users: ReadonlyArray<SbUserId>; now?: Date },
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+
+  try {
+    const result = await client.query(sql`
+      UPDATE user_identifier_bans uib
+      SET banned_until = ${now}
+      WHERE uib.banned_until > ${now}
+      AND (uib.identifier_type, uib.identifier_hash) IN (
+        SELECT identifier_type, identifier_hash
+        FROM user_identifiers
+        WHERE user_id = ANY(${users})
+      )
+    `)
+
+    return result.rowCount ?? 0
+  } finally {
+    done()
+  }
+}
+
+/**
  * Cleans up any identifiers that haven't been used since `olderThan`, provided they have not been
  * the subject of a punishment for any user. Returns the number of identifiers cleaned up.
  */

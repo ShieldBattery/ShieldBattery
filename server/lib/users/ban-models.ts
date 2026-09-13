@@ -10,6 +10,9 @@ export interface UserBanRow {
   endTime: Date
   bannedBy?: SbUserId
   reason?: string
+  unbannedBy?: SbUserId
+  unbannedAt?: Date
+  unbanReason?: string
 }
 
 type DbUserBanRow = Dbify<UserBanRow>
@@ -22,6 +25,9 @@ export function toUserBanRow(dbRow: DbUserBanRow): UserBanRow {
     endTime: dbRow.end_time,
     bannedBy: dbRow.banned_by !== null ? dbRow.banned_by : undefined,
     reason: dbRow.reason ?? undefined,
+    unbannedBy: dbRow.unbanned_by !== null ? dbRow.unbanned_by : undefined,
+    unbannedAt: dbRow.unbanned_at ?? undefined,
+    unbanReason: dbRow.unban_reason ?? undefined,
   }
 }
 
@@ -33,7 +39,8 @@ export async function retrieveBanHistory(
   const { client, done } = await db(withClient)
   try {
     let query = sql`
-      SELECT id, user_id, start_time, end_time, banned_by, reason
+      SELECT id, user_id, start_time, end_time, banned_by, reason,
+        unbanned_by, unbanned_at, unban_reason
       FROM user_bans
       WHERE user_id = ${userId}
       ORDER BY start_time DESC
@@ -79,6 +86,41 @@ export async function banUsers(
         ${new Array(users.length).fill(bannedBy ?? null)}::int4[],
         ${new Array(users.length).fill(reason ?? null)}::text[]
       ) AS t(user_id, start_time, end_time, banned_by, reason)
+      RETURNING *
+    `)
+
+    return result.rows.map(r => toUserBanRow(r))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Ends every currently active ban for the given users at `now`, recording who lifted them and why.
+ * Returns the bans that were lifted.
+ */
+export async function liftUserBans(
+  {
+    users,
+    unbannedBy,
+    reason,
+    now = new Date(),
+  }: {
+    users: ReadonlyArray<SbUserId>
+    unbannedBy?: SbUserId
+    reason?: string
+    now?: Date
+  },
+  withClient?: DbClient,
+): Promise<UserBanRow[]> {
+  const { client, done } = await db(withClient)
+
+  try {
+    const result = await client.query<DbUserBanRow>(sql`
+      UPDATE user_bans
+      SET end_time = ${now}, unbanned_by = ${unbannedBy ?? null}, unbanned_at = ${now},
+          unban_reason = ${reason ?? null}
+      WHERE user_id = ANY(${users}) AND end_time > ${now}
       RETURNING *
     `)
 
