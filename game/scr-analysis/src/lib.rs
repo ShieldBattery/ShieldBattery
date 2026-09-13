@@ -15,7 +15,7 @@
 //! method in this file is the whole job.
 
 pub use samase_scarf::scarf;
-pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, StateBlockSizes};
+pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, DynamicPathing, StateBlockSizes};
 
 use std::rc::Rc;
 
@@ -1334,6 +1334,21 @@ impl<'e> Analysis<'e> {
     /// Base of the byte array holding one visibility mask per sprite hline row.
     pub fn current_sync_vision_bytes(&mut self) -> Option<Operand<'e>> {
         self.0.current_sync_vision_bytes()
+    }
+
+    /// 32-bit global holding how many entries of the unit position search arrays are live. The x-
+    /// and y-sorted arrays share it, and a unit takes two entries in each, so it counts collision
+    /// box edges rather than units.
+    pub fn unit_position_search_entry_count(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_position_search_entry_count()
+    }
+
+    /// Where the pathing state block keeps its pointer to the dynamic state, and how large the
+    /// block that pointer points at is. The dynamic state holds the collision edge arrays'
+    /// pointers, counts, capacities and bounds; the edges themselves are separate allocations that
+    /// grow as they fill. A zero `struct_size` means the analysis found none of it.
+    pub fn dynamic_pathing(&mut self) -> DynamicPathing {
+        self.0.dynamic_pathing()
     }
 
     /// The statically allocated AI object pools, each with the base of its entry array, the

@@ -188,10 +188,6 @@ const CAPACITY_MASK: usize = usize::MAX >> 1;
 /// was read from something that is not a pool vector, and copying that many bytes would run off
 /// the end of the heap.
 const MAX_POOL_CAPACITY: usize = 1 << 20;
-/// Bytes of the pathing state's dynamic-state block: four edge array pointers, their counts and
-/// growth limits, and the collision bounds.
-#[cfg(target_arch = "x86_64")]
-const PATHING_DYNAMIC_STATE_SIZE: usize = 0x48;
 
 /// How a range's address and length are derived from one analysis result.
 ///
@@ -210,22 +206,18 @@ enum RangeKind {
     StorageBlock { len: usize },
     /// `len` bytes at `offset` from the address the operand evaluates to.
     Block { offset: isize, len: usize },
+    /// `len` bytes of the block whose address is held in the pointer `offset` bytes into what the
+    /// operand evaluates to.
+    IndirectBlock { offset: usize, len: usize },
     /// One tile array: `map_width_tiles * map_height_tiles * stride` bytes at the address the
     /// operand evaluates to.
     MapTiles { stride: usize },
     /// A pool's vector header plus the whole of its storage, `capacity` elements of
-    /// `element_size` bytes. `live_count_name` names a vector whose number of live entries is
-    /// kept in a separate 32-bit global just before the header, which must be restored with it.
-    PoolVector {
-        element_size: usize,
-        live_count_name: Option<&'static str>,
-    },
+    /// `element_size` bytes.
+    PoolVector { element_size: usize },
     /// One pointer per AI player, each to that player's array of one `AiRegion` per pathing region
     /// of the current map.
     AiRegions,
-    /// The block the pathing state's last word points at, which holds the collision edge arrays'
-    /// pointers, counts and bounds. Taken from the pathing state operand.
-    PathingDynamicState,
 }
 
 /// Synced state the snapshot deliberately leaves out, with the reason. Logged beside the layout so
@@ -239,7 +231,10 @@ const EXCLUDED: &[(&str, &str)] = &[
     (
         "pathing_dynamic_state_edges",
         "the collision edge arrays it points at are built from the terrain at map init and only \
-         read while a game runs",
+         read while a game runs; the analysis gives each array's pointer, count, capacity and \
+         entry size offsets should copying them ever be wanted, and their capacity is grown as \
+         they fill, so a copier has to size each array from those live fields rather than from a \
+         constant",
     ),
 ];
 
@@ -459,6 +454,16 @@ pub fn analyze_ranges(
         ("first_free_unit", analysis.first_free_unit()),
         ("last_free_unit", analysis.last_free_unit()),
         ("unit_count", analysis.unit_count()),
+        // Live entry count shared by the two unit position search arrays, which hold two entries
+        // per tracked unit. It is a global of its own rather than a field of either array's
+        // vector header, and which header it neighbours is a layout detail of the build, so it is
+        // resolved from the analysis instead of derived from a header's address. The arrays are
+        // maintained incrementally with no rebuild path, so a count that is not rewound with them
+        // drifts until an insertion walks past the live entries into stale slots.
+        (
+            "unit_position_search_entry_count",
+            analysis.unit_position_search_entry_count(),
+        ),
         ("pylon_refresh", analysis.pylon_refresh()),
         ("pylon_auras_visible", analysis.pylon_auras_visible()),
         ("order_timer_reset", analysis.order_timer_reset_counter()),
@@ -705,10 +710,20 @@ pub fn analyze_ranges(
         },
     );
     add("ai_regions", analysis.ai_regions(), RangeKind::AiRegions);
+    // The pathing state block ends with a pointer to the dynamic state, a small heap struct
+    // holding the collision edge arrays' pointers, counts, capacities and bounds. Both where that
+    // pointer sits and how large the struct is differ between the architectures, so both come
+    // from the analysis; a struct size of zero means it found neither.
+    let dynamic_pathing = analysis.dynamic_pathing();
     add(
         "pathing_dynamic_state",
-        analysis.pathing(),
-        RangeKind::PathingDynamicState,
+        analysis
+            .pathing()
+            .filter(|_| dynamic_pathing.struct_size != 0),
+        RangeKind::IndirectBlock {
+            offset: dynamic_pathing.state_offset as usize,
+            len: dynamic_pathing.struct_size as usize,
+        },
     );
 
     // Statically allocated pools of fixed size entries, each with a free list threaded through
@@ -801,9 +816,6 @@ struct Pool {
 struct AuxiliaryArray {
     name: &'static str,
     element_size: usize,
-    /// Name of the array's live entry count when that count lives in a 32-bit global directly
-    /// before the vector header rather than in the header's length field.
-    live_count_name: Option<&'static str>,
     /// How the array's length is derived from the pool's object count: `count * mul.max(1) + add`.
     /// Checked against what the analysis reports for the vector it is matched with, so a change in
     /// the order a pool's vectors are enumerated in is caught instead of silently applying one
@@ -819,13 +831,11 @@ const SPRITE_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         // A sort key and a sprite pointer, the key padded out to the pointer's alignment.
         element_size: 2 * size_of::<usize>(),
         length: (1, 0),
-        live_count_name: None,
     },
     AuxiliaryArray {
         name: "sprite_draw_order",
         element_size: size_of::<usize>(),
         length: (0, 0),
-        live_count_name: None,
     },
 ];
 
@@ -836,36 +846,27 @@ const UNIT_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         name: "air_splash_candidates",
         element_size: size_of::<usize>(),
         length: (0, 0),
-        live_count_name: None,
     },
     AuxiliaryArray {
         name: "unit_position_search_x",
         // A unit pool index and a coordinate, both 32-bit, so the same size on both architectures.
         element_size: 8,
         length: (0, 2),
-        // Both search arrays share one live entry count (two entries per tracked unit), kept in
-        // the global just before this vector. The arrays are maintained incrementally with no
-        // rebuild path, so a count that is not rewound with them drifts until an insertion walks
-        // past the live entries into stale slots.
-        live_count_name: Some("unit_position_search_entry_count"),
     },
     AuxiliaryArray {
         name: "unit_position_search_y",
         element_size: 8,
         length: (0, 2),
-        live_count_name: None,
     },
     AuxiliaryArray {
         name: "unit_query_scratch_marks",
         element_size: 4,
         length: (1, 0),
-        live_count_name: None,
     },
     AuxiliaryArray {
         name: "unit_query_results",
         element_size: size_of::<usize>(),
         length: (1, 0),
-        live_count_name: None,
     },
 ];
 
@@ -928,7 +929,6 @@ fn pool_specs(
             op: None,
             kind: RangeKind::PoolVector {
                 element_size: pool.object_size,
-                live_count_name: None,
             },
         };
         let Some(entries) = vectors.get(index) else {
@@ -946,13 +946,11 @@ fn pool_specs(
         };
         let mut auxiliary = pool.auxiliary.iter();
         for (slot, &(op, add, mul)) in entries.iter().enumerate() {
-            let (name, element_size, live_count_name) = if Some(slot) == object_index {
-                (pool.name, pool.object_size, None)
+            let (name, element_size) = if Some(slot) == object_index {
+                (pool.name, pool.object_size)
             } else {
                 match auxiliary.next() {
-                    Some(array) if array.length == (add, mul) => {
-                        (array.name, array.element_size, array.live_count_name)
-                    }
+                    Some(array) if array.length == (add, mul) => (array.name, array.element_size),
                     _ => {
                         out.push(unresolved());
                         continue;
@@ -962,10 +960,7 @@ fn pool_specs(
             out.push(RangeSpec {
                 name,
                 op: Some(ctx.copy_operand(op)),
-                kind: RangeKind::PoolVector {
-                    element_size,
-                    live_count_name,
-                },
+                kind: RangeKind::PoolVector { element_size },
             });
         }
     }
@@ -1037,13 +1032,20 @@ impl Harness {
                         let start = resolve_operand(op, &[]).wrapping_add_signed(offset);
                         list.add(spec.name, start, len);
                     }
+                    RangeKind::IndirectBlock { offset, len } => {
+                        let block = resolve_operand(op, &[]);
+                        match block != 0 {
+                            true => {
+                                let slot = (block + offset) as *const usize;
+                                list.add(spec.name, slot.read(), len);
+                            }
+                            false => list.omit(spec.name),
+                        }
+                    }
                     RangeKind::MapTiles { stride } => {
                         list.add(spec.name, resolve_operand(op, &[]), map_tiles * stride);
                     }
-                    RangeKind::PoolVector {
-                        element_size,
-                        live_count_name,
-                    } => {
+                    RangeKind::PoolVector { element_size } => {
                         let vector = resolve_operand(op, &[]) as *const scr::BwVector;
                         if vector.is_null() {
                             list.omit(spec.name);
@@ -1059,43 +1061,6 @@ impl Harness {
                             ),
                             false => list.omit(spec.name),
                         }
-                        if let Some(count_name) = live_count_name {
-                            // The count sits one pointer before the header on x86_64. Its position
-                            // relative to the header has not been confirmed on the 32-bit build,
-                            // so there it is left out rather than guessed; a count that is not
-                            // within the array's capacity means the word is something else.
-                            #[cfg(target_arch = "x86_64")]
-                            {
-                                let count_address = vector as usize - size_of::<usize>();
-                                let count = (count_address as *const u32).read() as usize;
-                                match count <= capacity {
-                                    true => list.add(count_name, count_address, 4),
-                                    false => list.omit(count_name),
-                                }
-                            }
-                            #[cfg(target_arch = "x86")]
-                            list.omit(count_name);
-                        }
-                    }
-                    RangeKind::PathingDynamicState => {
-                        // The pointer is the pathing state's last word.
-                        #[cfg(target_arch = "x86_64")]
-                        {
-                            let state = resolve_operand(op, &[]);
-                            match state != 0 {
-                                true => {
-                                    let slot = (state + size_of::<bw::Pathing>()
-                                        - size_of::<usize>())
-                                        as *const usize;
-                                    list.add(spec.name, slot.read(), PATHING_DYNAMIC_STATE_SIZE);
-                                }
-                                false => list.omit(spec.name),
-                            }
-                        }
-                        // The block's 32-bit size has not been verified against the 32-bit build,
-                        // and it is small enough that leaving it out costs little.
-                        #[cfg(target_arch = "x86")]
-                        list.omit(spec.name);
                     }
                     RangeKind::AiRegions => {
                         let base = resolve_operand(op, &[]);
