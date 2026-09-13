@@ -141,14 +141,39 @@ pub unsafe fn unprotect_memory(
     addr: *mut c_void,
     length: usize,
 ) -> Result<MemoryProtectionGuard, io::Error> {
-    use winapi::um::memoryapi::VirtualProtect;
     use winapi::um::winnt::PAGE_EXECUTE_READWRITE;
+    unsafe { set_memory_protection(addr, length, PAGE_EXECUTE_READWRITE) }
+}
+
+unsafe fn set_memory_protection(
+    addr: *mut c_void,
+    length: usize,
+    protection: u32,
+) -> Result<MemoryProtectionGuard, io::Error> {
+    use winapi::um::memoryapi::VirtualProtect;
     let mut old = 0;
-    let ok = unsafe { VirtualProtect(addr as *mut _, length, PAGE_EXECUTE_READWRITE, &mut old) };
+    let ok = unsafe { VirtualProtect(addr as *mut _, length, protection, &mut old) };
     match ok {
         0 => Err(io::Error::last_os_error()),
         _ => Ok(MemoryProtectionGuard(addr, length, old)),
     }
+}
+
+/// Describes the page containing `addr` (state, protection, type) for diagnostics, or the error
+/// `VirtualQuery` returned.
+pub unsafe fn describe_page(addr: *const c_void) -> String {
+    use winapi::um::memoryapi::VirtualQuery;
+    use winapi::um::winnt::MEMORY_BASIC_INFORMATION;
+    let mut info: MEMORY_BASIC_INFORMATION = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<MEMORY_BASIC_INFORMATION>();
+    let written = unsafe { VirtualQuery(addr as *const _, &mut info, size) };
+    if written == 0 {
+        return format!("VirtualQuery failed: {}", io::Error::last_os_error());
+    }
+    format!(
+        "base {:p} size {:#x} state {:#x} protect {:#x} type {:#x}",
+        info.BaseAddress, info.RegionSize, info.State, info.Protect, info.Type,
+    )
 }
 
 #[must_use]

@@ -658,6 +658,20 @@ impl<'e> Analysis<'e> {
         self.0.continue_game_loop()
     }
 
+    /// Count of game logic frames the game loop asks a single `step_game_logic` call to simulate.
+    /// The loop writes it before each call (normally 1); replay fast-forward raises it so one call
+    /// simulates a whole run of frames without rendering in between.
+    pub fn step_game_frames(&mut self) -> Option<Operand<'e>> {
+        self.0.step_game_frames()
+    }
+
+    /// Timestamp of the next scheduled logic step. `step_game_logic` advances it by the frame
+    /// delay once per simulated frame, so the game loop paces itself against it; a call that
+    /// simulates many frames pushes it that far into the future.
+    pub fn next_game_step_tick(&mut self) -> Option<Operand<'e>> {
+        self.0.next_game_step_tick()
+    }
+
     /// `Mem16` countdown the trigger step decrements once per game frame; every player's triggers
     /// run on the frame it is read as zero, after which it is reset to 30. Native code writes 1
     /// into it to force a trigger pass on the following frame (a player leaving does this).
@@ -912,6 +926,19 @@ impl<'e> Analysis<'e> {
 
     pub fn print_text(&mut self) -> Option<VirtualAddress> {
         self.0.print_text()
+    }
+
+    /// Allocation function of the engine's second allocation path, a plain
+    /// `alloc(size, tag, tag2, flags)` over the same OS heap as the allocator vtable object.
+    /// Pathing, AI regions, replay recording and save/load allocate through it.
+    pub fn engine_alloc(&mut self) -> Option<VirtualAddress> {
+        self.0.engine_alloc()
+    }
+
+    /// Deallocation function paired with [`Analysis::engine_alloc`],
+    /// `free(ptr, tag, tag2, flags)`.
+    pub fn engine_free(&mut self) -> Option<VirtualAddress> {
+        self.0.engine_free()
     }
 
     pub fn snet_local_player_list(&mut self) -> Option<Operand<'e>> {

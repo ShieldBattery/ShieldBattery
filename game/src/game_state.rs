@@ -34,6 +34,12 @@ use crate::replay;
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
+/// How long a rollback-probe batch request waits for the game thread to run it before the reply
+/// gives up. Generous, because the point of a batch is to simulate a long run of frames in one
+/// call, and the request has to survive whatever stall put the caller in a position to want one.
+#[cfg(debug_assertions)]
+const ROLLBACK_PROBE_BATCH_DEADLINE: Duration = Duration::from_secs(60);
+
 pub struct GameState {
     init_state: InitState,
     ws_send: app_socket::SendMessages,
@@ -998,6 +1004,81 @@ impl GameState {
                         // Faults right here on the async runtime thread; the process won't
                         // survive to reply.
                         crate::debug_control::crash(kind);
+                    }
+                    DebugControlCommand::RollbackProbe { action } => {
+                        use crate::debug_control::{
+                            RollbackProbeAction, RollbackProbeBatchResult, RollbackProbeResponse,
+                        };
+                        let ws_send = self.ws_send.clone();
+                        let batch = match action {
+                            RollbackProbeAction::Start => {
+                                let status = crate::rollback_probe::start();
+                                return app_socket::send_message(
+                                    &self.ws_send,
+                                    "/game/debug/rollbackProbe",
+                                    RollbackProbeResponse::Status(status),
+                                )
+                                .map(|_| ())
+                                .boxed();
+                            }
+                            RollbackProbeAction::Stop => {
+                                let status = crate::rollback_probe::stop();
+                                return app_socket::send_message(
+                                    &self.ws_send,
+                                    "/game/debug/rollbackProbe",
+                                    RollbackProbeResponse::Status(status),
+                                )
+                                .map(|_| ())
+                                .boxed();
+                            }
+                            RollbackProbeAction::DumpAllocations => {
+                                let status = crate::rollback_probe::dump_allocations();
+                                return app_socket::send_message(
+                                    &self.ws_send,
+                                    "/game/debug/rollbackProbe",
+                                    RollbackProbeResponse::Status(status),
+                                )
+                                .map(|_| ())
+                                .boxed();
+                            }
+                            RollbackProbeAction::Batch { frames } => frames,
+                        };
+                        // The batch only runs once the game thread reaches its next logic step,
+                        // so the reply waits on the game thread rather than on this one. Nothing
+                        // answers at all when no game loop is running, hence the deadline.
+                        let recv = crate::rollback_probe::request_batch(batch);
+                        return async move {
+                            let result =
+                                match tokio::time::timeout(ROLLBACK_PROBE_BATCH_DEADLINE, recv)
+                                    .await
+                                {
+                                    Ok(Ok(result)) => result,
+                                    Ok(Err(_)) => RollbackProbeBatchResult {
+                                        requested: batch,
+                                        simulated: 0,
+                                        elapsed_micros: 0,
+                                        error: Some(
+                                            "superseded by another batch request".to_string(),
+                                        ),
+                                    },
+                                    Err(_) => RollbackProbeBatchResult {
+                                        requested: batch,
+                                        simulated: 0,
+                                        elapsed_micros: 0,
+                                        error: Some(
+                                            "no game logic step ran before the deadline"
+                                                .to_string(),
+                                        ),
+                                    },
+                                };
+                            let _ = app_socket::send_message(
+                                &ws_send,
+                                "/game/debug/rollbackProbe",
+                                RollbackProbeResponse::Batch(result),
+                            )
+                            .await;
+                        }
+                        .boxed();
                     }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();

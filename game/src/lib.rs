@@ -64,6 +64,8 @@ mod offline_cookie;
 mod recurse_checked_mutex;
 mod replay;
 mod replay_name;
+#[cfg(debug_assertions)]
+mod rollback_probe;
 mod snp;
 mod sync;
 mod team_colors;
@@ -257,6 +259,8 @@ pub extern "C" fn OnInject() {
     // This runs on the game's main thread, which executes most of our hooks.
     crash_dump::reserve_exception_handler_stack();
     crash_dump::start_dump_thread();
+    #[cfg(debug_assertions)]
+    rollback_probe::init_from_env();
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);

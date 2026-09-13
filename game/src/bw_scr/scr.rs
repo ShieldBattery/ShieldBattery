@@ -632,6 +632,18 @@ pub struct AllocatorVtable {
     pub free: Thiscall<unsafe extern "C" fn(*mut Allocator, *mut u8)>,
 }
 
+// Five pointer-width slots. Code that swaps the `alloc`/`free` slots in place relies on the
+// layout matching the game's own vtable exactly, so the size is pinned per architecture rather
+// than left to whatever the field types happen to add up to.
+#[cfg(target_arch = "x86")]
+const _: () = assert!(std::mem::size_of::<AllocatorVtable>() == 0x14);
+#[cfg(target_arch = "x86_64")]
+const _: () = assert!(std::mem::size_of::<AllocatorVtable>() == 0x28);
+#[cfg(target_arch = "x86")]
+const _: () = assert!(std::mem::size_of::<Allocator>() == 0x4);
+#[cfg(target_arch = "x86_64")]
+const _: () = assert!(std::mem::size_of::<Allocator>() == 0x8);
+
 #[repr(C)]
 pub struct ReplayBfix {
     pub flags: u32,

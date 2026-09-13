@@ -65,7 +65,7 @@ mod pe_image;
 mod replay_save;
 mod sdf_cache;
 mod shader_replaces;
-mod thiscall;
+pub(crate) mod thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -115,6 +115,11 @@ pub struct BwScr {
     /// but not when the recorded leave command plays back, so replay playback restores that write
     /// itself (see [`process_replay_commands`](Self::process_replay_commands)).
     trigger_execution_timer: Value<u16>,
+    /// The tick at which the game loop wants its next logic step. `step_game_logic` adds the
+    /// frame delay to it once per simulated frame, so anything that makes one call simulate extra
+    /// frames also pushes real-time pacing that far ahead unless the value is restored.
+    #[cfg(debug_assertions)]
+    next_game_step_tick: Value<u32>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     local_visions: Value<u8>,
@@ -300,6 +305,15 @@ pub struct BwScr {
     starcraft_tls_index: SendPtr<*mut u32>,
     print_text_addr: VirtualAddress,
     net_player_count_addr: VirtualAddress,
+    /// Allocation function of the engine's second allocation path: a plain
+    /// `alloc(size, tag, tag2, flags)` over the same OS heap the allocator vtable object uses.
+    /// Pathing, AI regions, replay recording and save/load allocate through this one rather than
+    /// through the vtable object.
+    #[cfg(debug_assertions)]
+    engine_alloc: VirtualAddress,
+    /// Deallocation function paired with `engine_alloc`, `free(ptr, tag, tag2, flags)`.
+    #[cfg(debug_assertions)]
+    engine_free: VirtualAddress,
 
     // State
     exe_build: u32,
@@ -1439,6 +1453,10 @@ impl BwScr {
         let trigger_execution_timer = analysis
             .trigger_execution_timer()
             .ok_or("trigger_execution_timer")?;
+        #[cfg(debug_assertions)]
+        let next_game_step_tick = analysis
+            .next_game_step_tick()
+            .ok_or("next_game_step_tick")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let local_visions = analysis.local_visions().ok_or("local_visions")?;
@@ -1627,6 +1645,10 @@ impl BwScr {
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
         let net_player_count_addr = analysis.net_player_count().ok_or("net_player_count")?;
+        #[cfg(debug_assertions)]
+        let engine_alloc = analysis.engine_alloc().ok_or("engine_alloc")?;
+        #[cfg(debug_assertions)]
+        let engine_free = analysis.engine_free().ok_or("engine_free")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1704,6 +1726,8 @@ impl BwScr {
             replay_data: Value::new(ctx, replay_data),
             replay_header: Value::new(ctx, replay_header),
             trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
+            #[cfg(debug_assertions)]
+            next_game_step_tick: Value::new(ctx, next_game_step_tick),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             local_visions: Value::new(ctx, local_visions),
@@ -1833,6 +1857,10 @@ impl BwScr {
             step_game_logic,
             print_text_addr,
             net_player_count_addr,
+            #[cfg(debug_assertions)]
+            engine_alloc,
+            #[cfg(debug_assertions)]
+            engine_free,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1894,6 +1922,11 @@ impl BwScr {
             let mut active_patcher = crate::PATCHER.lock();
             let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
             let base = base as usize;
+            #[cfg(debug_assertions)]
+            {
+                crate::rollback_probe::set_writable_image(image);
+                crate::rollback_probe::install_at_init(self, "patch_game");
+            }
 
             if let Some(sc_main) = self.sc_main {
                 // This is a hook at early point during program startup, some initial
@@ -1921,6 +1954,8 @@ impl BwScr {
                 GameInit,
                 move |_| {
                     debug!("SCR game init hook");
+                    #[cfg(debug_assertions)]
+                    crate::rollback_probe::install_at_init(self, "game_init");
                     crate::process_init_hook();
                 },
                 address,
@@ -2541,6 +2576,40 @@ impl BwScr {
                 move |a, o| step_game_logic_hook(self, a, o),
                 address,
             );
+
+            #[cfg(debug_assertions)]
+            {
+                let address = self.play_sound as usize - base;
+                exe.hook_closure_address(
+                    PlaySound,
+                    |id, volume, unk, x, y, orig| {
+                        crate::rollback_probe::note_play_sound();
+                        orig(id, volume, unk, x, y)
+                    },
+                    address,
+                );
+
+                let address = self.engine_alloc.0 as usize - base;
+                exe.hook_closure_address(
+                    EngineAlloc,
+                    |size, tag, flags, unk, orig| {
+                        let block = orig(size, tag, flags, unk);
+                        crate::rollback_probe::note_flags_alloc(block, size, tag, flags);
+                        block
+                    },
+                    address,
+                );
+
+                let address = self.engine_free.0 as usize - base;
+                exe.hook_closure_address(
+                    EngineFree,
+                    |ptr, tag, flags, unk, orig| {
+                        crate::rollback_probe::note_flags_free(ptr);
+                        orig(ptr, tag, flags, unk)
+                    },
+                    address,
+                );
+            }
 
             let address = self.decide_cursor_type.0 as usize - base;
             exe.hook_closure_address(
@@ -5673,6 +5742,64 @@ pub enum BwCursorType {
     ScrollUpLeft = 18,
 }
 
+/// Accessors the rollback probe needs into BW state. Kept apart from the rest of `BwScr` because
+/// they exist solely for debug instrumentation and are compiled out of release DLLs along with it.
+#[cfg(debug_assertions)]
+impl BwScr {
+    /// The vtable shared by the game allocator instances, so instrumentation can swap slots in it.
+    pub(crate) unsafe fn probe_allocator_vtable(&self) -> *mut scr::AllocatorVtable {
+        unsafe {
+            let allocator = self.allocator.resolve();
+            if allocator.is_null() {
+                return null_mut();
+            }
+            (*allocator).vtable
+        }
+    }
+
+    /// The tick the game loop schedules its next logic step for.
+    pub(crate) unsafe fn probe_next_game_step_tick(&self) -> u32 {
+        unsafe { self.next_game_step_tick.resolve() }
+    }
+
+    pub(crate) unsafe fn probe_set_next_game_step_tick(&self, value: u32) {
+        unsafe { self.next_game_step_tick.write(value) }
+    }
+
+    /// Reads the synced-state fingerprint of the current frame, or `None` when no game is loaded.
+    ///
+    /// Same fields the low-rate sync probe logs: the words around the RNG seed operand (the seed
+    /// plus the advancing draw state), the first four players' resources, and the trigger
+    /// countdown. Together they move with essentially every synced operation, which is what makes
+    /// them usable as a per-frame equality check between two runs of the same game.
+    pub(crate) unsafe fn probe_fingerprint(&self) -> Option<crate::rollback_probe::Fingerprint> {
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return None;
+            }
+            let seed_ptr = self.rng_seed.resolve_as_ptr();
+            let mut rng = [0u32; 6];
+            for (i, out) in rng.iter_mut().enumerate() {
+                *out = seed_ptr.add(i).read_unaligned();
+            }
+            let all_minerals = (*game).minerals;
+            let all_gas = (*game).gas;
+            let mut minerals = [0u32; 4];
+            minerals.copy_from_slice(&all_minerals[..4]);
+            let mut gas = [0u32; 4];
+            gas.copy_from_slice(&all_gas[..4]);
+            Some(crate::rollback_probe::Fingerprint {
+                frame: (*game).frame_count,
+                rng,
+                minerals,
+                gas,
+                trigger_timer: self.trigger_execution_timer.resolve(),
+            })
+        }
+    }
+}
+
 impl bw::Bw for BwScr {
     fn set_settings(&self, settings: &Settings) {
         let is_carbot = settings
@@ -7130,6 +7257,22 @@ mod hooks {
         !0 => SaveReplayByName(*const i8, u8) -> i32;
     );
 
+    // Instrumentation-only hooks, all cdecl.
+    //
+    // PlaySound counts how many sounds a simulation step asks for; its signature matches the
+    // `play_sound` function pointer BwScr calls directly: (sound id, volume, unknown, x, y).
+    //
+    // EngineAlloc / EngineFree are the engine's second allocation path over the OS heap, counted
+    // per simulation step alongside the allocator vtable object's own traffic. Both take (size or
+    // pointer, allocation tag pointer, tag, flags); the free's boolean result comes back in the
+    // low byte of the return register, so the whole register value is passed through.
+    #[cfg(debug_assertions)]
+    whack_hooks!(0, // cdecl
+        !0 => PlaySound(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32;
+        !0 => EngineAlloc(usize, usize, u32, u32) -> *mut u8;
+        !0 => EngineFree(*mut u8, usize, u32, u32) -> u32;
+    );
+
     system_hooks!(
         // Storm's network join handshake, stdcall with 9 dword args (retn 0x24 on x86). The netcode
         // v2 native-lobby join replacement replaces it wholesale when a lobby session seed is staged.
@@ -7314,7 +7457,7 @@ unsafe fn step_game_logic_hook(
     let has_obs_vision_ui = game_thread::is_replay()
         || BwPlayerId(bw.local_unique_player_id.resolve() as u8).is_observer();
     if !has_obs_vision_ui {
-        return orig(param);
+        return step_one_game_logic_step(bw, param, orig);
     }
     let units = bw.units.resolve();
     {
@@ -7329,7 +7472,7 @@ unsafe fn step_game_logic_hook(
             (*unit_ptr.add(i)).detection_status = value;
         }
     }
-    let ret = orig(param);
+    let ret = step_one_game_logic_step(bw, param, orig);
     {
         let mut detection_status = bw.detection_status_copy.lock();
         let unit_count = (*units).length;
@@ -7338,6 +7481,25 @@ unsafe fn step_game_logic_hook(
         detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
     }
     ret
+}
+
+/// The single place [`step_game_logic_hook`] hands control to BW's own logic step, so anything
+/// that has to bracket the simulation only has to be attached here instead of at each of the
+/// hook's exit paths.
+unsafe fn step_one_game_logic_step(
+    bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    #[cfg(debug_assertions)]
+    {
+        crate::rollback_probe::run_game_logic_step(bw, param, orig)
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = bw;
+        unsafe { orig(param) }
+    }
 }
 
 unsafe fn check_documents_starcraft_path_accessibility() {

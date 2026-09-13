@@ -73,6 +73,9 @@ pub enum DebugControlCommand {
     /// `[CRASH]` lines in the game log, a fresh non-empty `latest_crash.dmp`, and the crash exit
     /// code the app records.
     Crash { kind: DebugCrashKind },
+    /// Drive the rollback probe (see [`crate::rollback_probe`]). Every action replies on
+    /// `/game/debug/rollbackProbe` with a [`RollbackProbeResponse`].
+    RollbackProbe { action: RollbackProbeAction },
 }
 
 /// The fault [`DebugControlCommand::Crash`] raises.
@@ -112,6 +115,57 @@ fn exhaust_stack(depth: usize) -> usize {
     } else {
         depth
     }
+}
+
+/// What a [`DebugControlCommand::RollbackProbe`] asks the probe to do.
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RollbackProbeAction {
+    /// Arm the probe: open a fresh csv and start counting. Instrumentation attaches to BW on the
+    /// game thread's next logic step, so the first frame or two after this may be unmeasured.
+    Start,
+    /// Disarm the probe and flush the csv.
+    Stop,
+    /// Ask a single logic step to simulate `frames` frames, and report how many it actually
+    /// simulated and how long that took. Replies only once the step has run.
+    Batch { frames: u32 },
+    /// Write the allocation tables seen so far (busiest call sites, per-tag counts, and the
+    /// blocks allocated inside a logic step that are still live) to the game log and the csv.
+    DumpAllocations,
+}
+
+/// Reply payload for [`DebugControlCommand::RollbackProbe`], sent on `/game/debug/rollbackProbe`.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RollbackProbeResponse {
+    Status(RollbackProbeStatus),
+    Batch(RollbackProbeBatchResult),
+}
+
+/// Where the probe stands right now.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackProbeStatus {
+    /// Whether the probe is armed. Arming takes effect on the game thread's next logic step.
+    pub active: bool,
+    /// How many logic steps have been written to the csv this run.
+    pub frames_logged: u32,
+    /// The csv being written, or `None` if one could not be opened.
+    pub path: Option<String>,
+}
+
+/// What one batched logic step did.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackProbeBatchResult {
+    /// Frames the request asked a single logic step to simulate.
+    pub requested: u32,
+    /// Frames the game frame counter actually advanced over that call.
+    pub simulated: u32,
+    /// Wall time the call took.
+    pub elapsed_micros: u64,
+    /// `None` when the batch ran; otherwise why it did not (no logic step reached it in time).
+    pub error: Option<String>,
 }
 
 /// The chat scope for [`DebugControlCommand::SendChat`], a serde-friendly mirror of
@@ -613,6 +667,74 @@ mod tests {
                         }],
                     },
                 },
+            })
+        );
+    }
+
+    #[test]
+    fn rollback_probe_command_parses_camel_case() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"rollbackProbe","action":{"kind":"start"}}"#).unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::RollbackProbe {
+                action: RollbackProbeAction::Start,
+            }
+        );
+
+        let cmd: DebugControlCommand = serde_json::from_str(
+            r#"{"type":"rollbackProbe","action":{"kind":"batch","frames":120}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::RollbackProbe {
+                action: RollbackProbeAction::Batch { frames: 120 },
+            }
+        );
+
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"rollbackProbe","action":{"kind":"dumpAllocations"}}"#)
+                .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::RollbackProbe {
+                action: RollbackProbeAction::DumpAllocations,
+            }
+        );
+    }
+
+    #[test]
+    fn rollback_probe_response_serializes_camel_case() {
+        let response = RollbackProbeResponse::Status(RollbackProbeStatus {
+            active: true,
+            frames_logged: 480,
+            path: Some("C:/logs/rollback-probe-1.csv".to_string()),
+        });
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::json!({
+                "kind": "status",
+                "active": true,
+                "framesLogged": 480,
+                "path": "C:/logs/rollback-probe-1.csv",
+            })
+        );
+
+        let response = RollbackProbeResponse::Batch(RollbackProbeBatchResult {
+            requested: 120,
+            simulated: 120,
+            elapsed_micros: 34567,
+            error: None,
+        });
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::json!({
+                "kind": "batch",
+                "requested": 120,
+                "simulated": 120,
+                "elapsedMicros": 34567,
+                "error": null,
             })
         );
     }
