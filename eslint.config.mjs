@@ -58,6 +58,9 @@ export default [
     // NOTE(tec27): Make sure not to add any keys to this object or these won't be counted as global
     // ignores (you'll probably notice because it will take 10 years to lint)
     ignores: [
+      '.claude/',
+      '.claude-scratch/',
+      '.playwright-cli/',
       '.react-email/',
       'build/',
       'dist/',
