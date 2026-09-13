@@ -314,6 +314,10 @@ pub struct BwScr {
     /// Deallocation function paired with `engine_alloc`, `free(ptr, tag, tag2, flags)`.
     #[cfg(debug_assertions)]
     engine_free: VirtualAddress,
+    /// The synced simulation state the rollback harness snapshots, as resolved analysis results
+    /// that still have to be turned into addresses once a game is running.
+    #[cfg(debug_assertions)]
+    rollback_ranges: Vec<crate::rollback_harness::RangeSpec>,
 
     // State
     exe_build: u32,
@@ -986,7 +990,7 @@ const ZOOM_IGNORING_EFFECT_SOUNDS: &[(&str, &str)] = &[
     ("SND_YAMATO_BLAST", "tBaYam02.wav"),
 ];
 
-unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
+pub(crate) unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
     unsafe {
         use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
         match *op.ty() {
@@ -1649,6 +1653,10 @@ impl BwScr {
         let engine_alloc = analysis.engine_alloc().ok_or("engine_alloc")?;
         #[cfg(debug_assertions)]
         let engine_free = analysis.engine_free().ok_or("engine_free")?;
+        // Analysis failures here are not fatal: the harness reports whatever it could not resolve
+        // as missing from its snapshot and runs with the rest.
+        #[cfg(debug_assertions)]
+        let rollback_ranges = crate::rollback_harness::analyze_ranges(&mut analysis, ctx);
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1861,6 +1869,8 @@ impl BwScr {
             engine_alloc,
             #[cfg(debug_assertions)]
             engine_free,
+            #[cfg(debug_assertions)]
+            rollback_ranges,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -2584,6 +2594,12 @@ impl BwScr {
                     PlaySound,
                     |id, volume, unk, x, y, orig| {
                         crate::rollback_probe::note_play_sound();
+                        // A frame being re-simulated has already had its sounds played once;
+                        // playing them again would stutter every sound the game makes. The
+                        // original returns the channel it used, and 1 is a valid one.
+                        if crate::rollback_harness::sounds_suppressed() {
+                            return 1;
+                        }
                         orig(id, volume, unk, x, y)
                     },
                     address,
@@ -5055,6 +5071,8 @@ impl BwScr {
     /// seeks replay backwards and it has to be simulated from start over again, so
     /// we don't need to and shouldn't reset any network state.
     fn reset_state_for_game_init(&self) {
+        #[cfg(debug_assertions)]
+        crate::rollback_harness::reset_for_game_init();
         self.detection_status_copy.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
@@ -5755,6 +5773,16 @@ impl BwScr {
             }
             (*allocator).vtable
         }
+    }
+
+    /// The analysis results the rollback harness turns into snapshot ranges.
+    pub(crate) fn rollback_range_specs(&self) -> &[crate::rollback_harness::RangeSpec] {
+        &self.rollback_ranges
+    }
+
+    /// The current map's pathing state, or null before a map has been loaded.
+    pub(crate) unsafe fn rollback_pathing(&self) -> *mut bw::Pathing {
+        unsafe { self.pathing.resolve() }
     }
 
     /// The tick the game loop schedules its next logic step for.
@@ -7493,7 +7521,7 @@ unsafe fn step_one_game_logic_step(
 ) -> usize {
     #[cfg(debug_assertions)]
     {
-        crate::rollback_probe::run_game_logic_step(bw, param, orig)
+        crate::rollback_harness::run_game_logic_step(bw, param, orig)
     }
     #[cfg(not(debug_assertions))]
     {

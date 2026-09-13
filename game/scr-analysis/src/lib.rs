@@ -988,4 +988,287 @@ impl<'e> Analysis<'e> {
     pub fn chat_box_mode(&mut self) -> Option<Operand<'e>> {
         self.0.chat_box_mode()
     }
+
+    // --- Synced simulation state, for taking a whole-state snapshot of a running game. ---
+    //
+    // Every one of these is either a static array base (the operand *is* the address) or a
+    // `MemXX[address]` global (the operand's own storage is the value, and its value is the
+    // pointer for the heap blocks). Callers have to know which of the two a given result is;
+    // the doc comment on each says so where it isn't obvious from the name.
+
+    /// The object pools' `vector` structs (data pointer, length, capacity), one list per pool:
+    /// index 0 images, 1 sprites, 2 lone sprites, 3 units, 4 bullets, 5 orders, 6 fow sprites.
+    /// One of a pool's entries holds the objects themselves and the rest are auxiliary per-object
+    /// arrays resized alongside them; nothing about the order says which is which, so the object
+    /// array has to be recognised by comparing against [`units`](Self::units) /
+    /// [`sprites`](Self::sprites) / [`images`](Self::images). Each operand is the vector struct's
+    /// address, and each `(add, mul)` pair is how that vector's length is derived from the pool's
+    /// object count: `count * mul.max(1) + add`.
+    pub fn pool_vectors(&mut self) -> Vec<Vec<(Operand<'e>, u32, u32)>> {
+        self.0.limits().arrays.clone()
+    }
+
+    /// Address of the `vector<bw::Sprite>` struct the sprite pool lives in, in the same form
+    /// [`pool_vectors`](Self::pool_vectors) reports.
+    pub fn sprites(&mut self) -> Option<Operand<'e>> {
+        self.0
+            .sprites()
+            .and_then(|x| x.if_memory())
+            .map(|mem| mem.address_op(self.2))
+    }
+
+    /// Address of the `vector<bw::Image>` struct the image pool lives in, in the same form
+    /// [`pool_vectors`](Self::pool_vectors) reports.
+    pub fn images(&mut self) -> Option<Operand<'e>> {
+        self.0
+            .images()
+            .and_then(|x| x.if_memory())
+            .map(|mem| mem.address_op(self.2))
+    }
+
+    pub fn last_active_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.last_active_unit()
+    }
+
+    pub fn first_hidden_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_hidden_unit()
+    }
+
+    pub fn first_dying_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_dying_unit()
+    }
+
+    pub fn first_revealer(&mut self) -> Option<Operand<'e>> {
+        self.0.first_revealer()
+    }
+
+    pub fn first_invisible_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_invisible_unit()
+    }
+
+    pub fn first_pylon(&mut self) -> Option<Operand<'e>> {
+        self.0.first_pylon()
+    }
+
+    pub fn first_free_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_unit()
+    }
+
+    pub fn last_free_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_unit()
+    }
+
+    pub fn unit_count(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_count()
+    }
+
+    pub fn pylon_refresh(&mut self) -> Option<Operand<'e>> {
+        self.0.pylon_refresh()
+    }
+
+    pub fn pylon_auras_visible(&mut self) -> Option<Operand<'e>> {
+        self.0.pylon_auras_visible()
+    }
+
+    pub fn order_timer_reset_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.order_timer_reset_counter()
+    }
+
+    pub fn secondary_order_timer_reset_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.secondary_order_timer_reset_counter()
+    }
+
+    pub fn first_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.first_lone_sprite()
+    }
+
+    pub fn last_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.last_lone_sprite()
+    }
+
+    pub fn first_free_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_lone_sprite()
+    }
+
+    pub fn last_free_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_lone_sprite()
+    }
+
+    pub fn first_free_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_bullet()
+    }
+
+    pub fn last_free_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_bullet()
+    }
+
+    pub fn first_active_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.first_active_bullet()
+    }
+
+    pub fn last_active_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.last_active_bullet()
+    }
+
+    /// Base of the ring of splash-lurker hit records `lurker_hits_pos` indexes.
+    pub fn lurker_hits(&mut self) -> Option<Operand<'e>> {
+        self.0.lurker_hits()
+    }
+
+    pub fn lurker_hits_frame(&mut self) -> Option<Operand<'e>> {
+        self.0.lurker_hits_frame()
+    }
+
+    pub fn lurker_hits_pos(&mut self) -> Option<Operand<'e>> {
+        self.0.lurker_hits_pos()
+    }
+
+    pub fn vision_update_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.vision_update_counter()
+    }
+
+    pub fn vision_updated(&mut self) -> Option<Operand<'e>> {
+        self.0.vision_updated()
+    }
+
+    /// The player whose triggers the trigger step is currently running.
+    pub fn trigger_current_player(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_current_player()
+    }
+
+    /// Base of the per-player, per-unit-id count of completed units that trigger conditions read.
+    pub fn trigger_completed_units_cache(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_completed_units_cache()
+    }
+
+    /// Base of the per-player, per-unit-id count of all units that trigger conditions read.
+    pub fn trigger_all_units_cache(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_all_units_cache()
+    }
+
+    /// Base of the per-player selection arrays (the synced selection, not the local client's).
+    pub fn selections(&mut self) -> Option<Operand<'e>> {
+        self.0.selections()
+    }
+
+    /// Base of the mineral/gas cluster table the AI keeps for the map.
+    pub fn resource_areas(&mut self) -> Option<Operand<'e>> {
+        self.0.resource_areas()
+    }
+
+    pub fn foliage_state(&mut self) -> Option<Operand<'e>> {
+        self.0.foliage_state()
+    }
+
+    /// Pointer global holding the unit movement path pool.
+    pub fn path_array(&mut self) -> Option<Operand<'e>> {
+        self.0.path_array()
+    }
+
+    /// Pointer global holding the head of the free list inside [`path_array`](Self::path_array).
+    pub fn first_free_path(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_path()
+    }
+
+    /// Pointer global holding the unit repulsion field.
+    pub fn repulse_state(&mut self) -> Option<Operand<'e>> {
+        self.0.repulse_state()
+    }
+
+    /// Pointer global holding the per-tile flags array (`map_width_tiles * map_height_tiles`
+    /// `u32`s).
+    pub fn map_tile_flags(&mut self) -> Option<Operand<'e>> {
+        self.0.map_tile_flags()
+    }
+
+    /// Pointer global holding the per-tile tileset index array.
+    pub fn tileset_indexed_map_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.tileset_indexed_map_tiles()
+    }
+
+    /// Pointer global holding the per-tile VX4 index array.
+    pub fn vx4_map_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.vx4_map_tiles()
+    }
+
+    /// Pointer global holding the pre-creep terrain tiles, used to restore terrain when creep
+    /// recedes.
+    pub fn creep_original_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.creep_original_tiles()
+    }
+
+    /// Pointer global holding the per-tile creep border state.
+    pub fn creep_tile_borders(&mut self) -> Option<Operand<'e>> {
+        self.0.creep_tile_borders()
+    }
+
+    /// Base of the disappearing-creep hash table, indexed by
+    /// `(x + y * 0x11) & 0x3ff`, so it holds 0x400 pointer-sized slots.
+    pub fn dcreep_lookup(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_lookup()
+    }
+
+    /// Base of the per-list head pointers of the disappearing-creep lists.
+    pub fn dcreep_list_begin(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_list_begin()
+    }
+
+    /// Base of the per-list entry counts of the disappearing-creep lists.
+    pub fn dcreep_list_size(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_list_size()
+    }
+
+    pub fn dcreep_next_update(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_next_update()
+    }
+
+    pub fn dcreep_unit_next_update(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_unit_next_update()
+    }
+
+    /// Base of the per-player AI data array (`PlayerAiData[8]`).
+    pub fn player_ai(&mut self) -> Option<Operand<'e>> {
+        self.0.player_ai()
+    }
+
+    /// Base of the per-player AI town list heads; each entry is two pointers (whole array, first
+    /// entry).
+    pub fn player_ai_towns(&mut self) -> Option<Operand<'e>> {
+        self.0.player_ai_towns()
+    }
+
+    /// Base of the per-player guard AI list heads, laid out like
+    /// [`player_ai_towns`](Self::player_ai_towns).
+    pub fn first_guard_ai(&mut self) -> Option<Operand<'e>> {
+        self.0.first_guard_ai()
+    }
+
+    /// Base of the per-player pointers to that player's `AiRegion` array. Each array holds one
+    /// entry per pathing region of the current map.
+    pub fn ai_regions(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_regions()
+    }
+
+    /// Pointer global holding the head of the AI script list.
+    pub fn first_ai_script(&mut self) -> Option<Operand<'e>> {
+        self.0.first_ai_script()
+    }
+
+    pub fn ai_military_update_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_military_update_counter()
+    }
+
+    pub fn ai_target_ignore_reset_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_target_ignore_reset_counter()
+    }
+
+    pub fn step_ai_regions_player(&mut self) -> Option<Operand<'e>> {
+        self.0.step_ai_regions_player()
+    }
+
+    /// Base of the ring of recent sync checksums, with its counters immediately before it and the
+    /// per-entry kinds immediately after it.
+    pub fn sync_data(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_data()
+    }
 }
