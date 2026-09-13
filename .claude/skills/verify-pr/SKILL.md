@@ -101,11 +101,11 @@ through matchmaking when you actually need a matchmaking outcome: MMR/rank chang
 itself. (Lobby launch mechanics — `c1` hosts, `c2` joins, host starts — are in the **verify-app**
 skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both paths.)
 
-**Setup** (validated 2026-06-13 — read these, they each cost a failed run):
-- Dev stack up incl. webpack dev server; two app instances logged in as two seeded accounts (see
-  **verify-app**).
-- **Rebuild the game DLL first**: `cmd /c "game\build.bat debug"` (from PowerShell; the bare
-  `cmd /c game\build.bat` from Git Bash opens cmd interactively and does nothing). A stale
+**Setup**:
+- Dev stack up incl. the app renderer dev server (`pnpm run dev`); two app instances logged in as
+  two seeded accounts (see **verify-app**).
+- **Rebuild the game DLL first**: `.\game\build.bat` from PowerShell (`cmd //c game\build.bat`
+  from Git Bash opens cmd interactively and does nothing). A stale
   injected DLL **crashes StarCraft at game-start with `0xc0000005`** (Forge graphics
   init) even when only a trivial source line changed — always build a current DLL. The running app
   injects `game/dist/shieldbattery_64.dll` at launch (`shieldbattery.dll` if the `launch32Bit`
@@ -124,7 +124,7 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
    - `%APPDATA%\ShieldBattery-Local\logs\game-<session>.0.log` (e.g. `game-session1.0.log`; prod /
      no `SB_SESSION` → `game.0.log`): grep past the last `[SESSION_START]` for this run, then
      `All players have joined` → `Readying lobby for start` → **`Forge: Game started`** = really
-     in-game. Each session writes its own `.0.log`, so no more scanning for the right slot.
+     in-game. Each session writes its own `.0.log`.
    - App log (`app-<session>.0.log`; prod → `app.0.log`): `Game status updated to 'configuring'` →
      `'playing'`.
 4. Decisive finish — three paths:
@@ -133,7 +133,7 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      **not** by closing the window / Alt-F4 / killing the process. A graceful leave ends the game
      normally on the opponent's side (no dropped-player dialog to hang on), so both DLLs report a
      decisive result → clean winner-up/loser-down MMR. This is the way to get a real MMR delta in
-     this env (validated PR #1286, both 1v1 and 2v2). For **2v2**, the whole losing *team* must
+     this env (works for both 1v1 and 2v2). For **2v2**, the whole losing *team* must
      leave: have the user leave both of one team's windows.
    - **Debug-tooling drop (unattended, netcode-v2 debug builds).** The debug DLL exposes a
      game-control surface over CDP — `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)`
@@ -205,13 +205,12 @@ bits in here, and keep this lean:
   - A formed match writes `matchmaking_completions` (`completion_type='found'`, one row per player) —
     this lands the instant the match forms, *before* the `games` row (created at game load). No
     `found` rows ⇒ no match yet.
-  - Since the Rust matcher (PR #1286+), two players that are **rating-equal** match on the **first
-    ~6s tick** (adaptive threshold relaxes for small queues). The seeded accounts are *not* equal —
-    they carry real ratings from prior test games (e.g. 1567 vs 1327), and the quality formula
-    (unchanged since #1286) can stall a ~240-point gap for minutes. To force a fast clean match,
+  - Two players that are **rating-equal** match on the **first ~6s tick** (the adaptive threshold
+    relaxes for small queues). The seeded accounts drift apart as test games accumulate, and the
+    quality formula can stall a ~240-point gap for minutes. To force a fast clean match,
     equalize first: `UPDATE matchmaking_ratings SET rating=1500, uncertainty=350, volatility=0.06
     WHERE user_id IN (...) AND matchmaking_type='<mode>';` then queue.
-  - **Multi-queue UI (PR #1288+).** `/play/matchmaking` is a **multi-select checkbox list**, not
+  - **Multi-queue UI.** `/play/matchmaking` is a **multi-select checkbox list**, not
     buttons/tabs: three `input[type=checkbox]` in fixed order **[0]=1v1, [1]=1v1 Fastest, [2]=2v2**.
     Check one or more, then the single **"Find match"** button (`getByRole('button',{name:'Find
     match',exact:true})`) queues for *all* checked types at once. A player checked for N types shows
@@ -222,22 +221,25 @@ bits in here, and keep this lean:
     `cancel`/`disconnect` completion per queued type. After a game a **"Match results" dialog** stays
     open and silently blocks the next Find match — close it with the **"Close dialog"** button before
     re-queuing.
-  - **playwright-cli in this Electron app: drive clicks in-page, not via role/CSS `click`.** The
-    `click` command's actionability wait routinely times out here (login submit, checkboxes, Find
-    match). Reliable pattern: `eval "(()=>{const b=[...document.querySelectorAll('button')]
+  - **Clicking in this Electron app.** Role and test-id locators (`click "getByRole(...)"`,
+    `getByTestId(...)`) are the default; the login and lobby recipes in **verify-app** use them.
+    If a `click` times out on its actionability wait, first check for the dev-server error overlay
+    covering the page (verify-app has the removal one-liner). For a button that is genuinely
+    present, an in-page fallback is `eval "(()=>{const b=[...document.querySelectorAll('button')]
     .find(b=>/^\s*Find match\s*$/.test(b.textContent)); if(b&&!b.disabled){b.click(); return 'ok'}
-    return 'no'})()"`. Two gotchas: (1) `eval` wraps input as `() => (<expr>)`, so a statement with
-    `;` is a SyntaxError — use a single-expression IIFE; (2) the checkboxes are MUI and re-render on
-    each toggle, so clicking several from one captured `querySelectorAll` array hits stale nodes and
-    toggles the wrong boxes — click **one index at a time, re-query each time, and verify+retry**.
-    For ready-up auto-clickers, `run-code`'s Node scope lacks `setTimeout` — poll with
-    `await page.waitForTimeout(250)`.
+    return 'no'})()"`. Don't use that fallback for the app-bar "Log in" button: its `.click()`
+    does not fire the React handler (see verify-app). Two `eval` gotchas: (1) it wraps input as
+    `() => (<expr>)`, so a statement with `;` is a SyntaxError — use a single-expression IIFE;
+    (2) the matchmaking checkboxes re-render on each toggle, so clicking several from one captured
+    `querySelectorAll` array hits stale nodes and toggles the wrong boxes — click **one index at a
+    time, re-query each time, and verify+retry**. For ready-up auto-clickers, `run-code`'s Node
+    scope lacks `setTimeout` — poll with `await page.waitForTimeout(250)`.
   - server-rs restart watchdog: queue a player, kill the `cargo run` on :5556 and restart it (new
     process → new `/matchmaker/token` UUID). Within ~10s Node logs `failed to fetch ... process
     token — will retry` then `Rust matchmaker restart detected — surfacing failure`, ejects searching
     players, and the client shows the **"Matchmaking error — interrupted due to a server error"**
-    dialog (the new `matchmakingServiceError`). Mid-match players are deliberately spared.
-  - Restored gauge: `curl -s localhost:5555/metrics | grep shieldbattery_matchmaker_queue_size`
+    dialog (`matchmakingServiceError`). Mid-match players are deliberately spared.
+  - Queue gauge: `curl -s localhost:5555/metrics | grep shieldbattery_matchmaker_queue_size`
     (direct GET only — an `x-forwarded-for` header 403s) reflects live `queueEntries` per type; the
     label disappears when the queue empties.
 
@@ -413,7 +415,7 @@ path before treating one as real; delete it once resolved.
   Electron fallback → game reconciles **disputed** (both `unknown`) → **no `matchmaking_rating_changes`,
   ratings unmoved**. **Resolved for runs with a human available:** a *graceful in-game leave* (F10 →
   Quit/Leave) instead of a process kill ends the game normally and yields a clean winner-up/loser-down
-  MMR delta — validated for both 1v1 and 2v2 on PR #1286 (see T4 "Decisive finish" → human path).
+  MMR delta — validated for both 1v1 and 2v2 (see T4 "Decisive finish" → human path).
   So this is only a hazard for fully-unattended runs; when you need the MMR delta, get a human to
   leave gracefully rather than killing the process. (The matcher-side writes — formation,
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)

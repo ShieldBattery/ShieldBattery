@@ -101,11 +101,11 @@ tests (see the **verify-app** skill). Details: `tools/seed-dev-users.ts`.
 - **Servers**: read the background process output (the IDs returned when you launched them).
 - **Electron app + game**: `%APPDATA%\ShieldBattery-Local\logs\`
   - `app-<session>.0.log` — current Electron app log for that `SB_SESSION` (rotates to `.1`, `.2`).
-    Each session gets its own log (e.g. `app-session1.0.log`), so multi-instance runs no longer
+    Each session gets its own log (e.g. `app-session1.0.log`), so multi-instance runs don't
     interleave. Prod / no `SB_SESSION` → `app.0.log`.
   - `game-<session>.0.log` — current in-game DLL log for that session (e.g. `game-session1.0.log`;
     rotates `.0`–`.19`). Since only that session's game writes it, the newest run is **always
-    `.0.log`** — no guessing which slot. Prod / no `SB_SESSION` → `game.0.log`. The file is reused
+    `.0.log`**. Prod / no `SB_SESSION` → `game.0.log`. The file is reused
     (line-trimmed, not truncated) across a session's launches, so grep to the last `[SESSION_START]`
     line to find the current run's boundary (that line also carries the DLL build version).
 

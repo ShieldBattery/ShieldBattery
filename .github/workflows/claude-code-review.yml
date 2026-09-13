@@ -135,7 +135,8 @@ jobs:
 
             ## Posting
 
-            - 1-3 sentences per finding
+            - Each finding states the problem, where it is, and its consequence; no preamble and
+              no restating the diff
             - `mcp__github_inline_comment__create_inline_comment` for line-anchored findings
             - `gh pr comment` for approach-level feedback
             - Comment "gg, ship it" whenever the PR is ready to go as-is — nothing new to

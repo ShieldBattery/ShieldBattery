@@ -40,8 +40,8 @@ different account) and a distinct port per instance.
 **Launch with PowerShell `Start-Process -PassThru` and record the PID** — do NOT launch via
 `npx electron` (or bash + the electron binary) as a background task. Every wrapper layer (npx,
 pnpm, Git Bash's `env`/MSYS exec emulation) breaks the Windows process tree, so `TaskStop` kills
-only the wrapper and the real `electron.exe` survives as an orphaned, visible window (verified:
-even a direct-binary bash launch orphans). `Start-Process` returns the *actual* electron PID, and
+only the wrapper and the real `electron.exe` survives as an orphaned, visible window; a
+direct-binary bash launch orphans too. `Start-Process` returns the *actual* electron PID, and
 `Stop-Process` on it takes down the whole app, Chromium children included:
 
 ```powershell
@@ -136,7 +136,7 @@ both sides.
 > playwright-cli -s=cN click "getByTestId('submit-button')"
 > ```
 > Then confirm: `eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"` →
-> e.g. `"claude-1Novice"`. No native-value-setter fallback is needed on later instances.
+> e.g. `"claude-1Novice"`.
 > **Do NOT click "Log in" via an `eval` that finds the button by text and calls `.click()`** — that
 > silently does *not* fire the React handler (the form never opens, `input[name=username]` stays
 > absent). Use the `getByRole` locator (or a `snapshot` ref click) instead. If a rare transient
@@ -257,8 +257,8 @@ Poll both instances in the same loop for a two-client game. If the session does 
   None of the three produces a clean MMR-scored finish on its own; a human leaving via the
   in-game menu is the clean path when the test needs a real scored result (verify-pr T4).
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
-- **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app.0.log` — shared across instances, so grep by
-  the message you expect rather than assuming ordering.
+- **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app-<session>.0.log`, one file per
+  `SB_SESSION` (`app-session1.0.log` for instance 1). `app.0.log` is the no-session/prod name.
 - **Network**: `playwright-cli -s=cN requests` to confirm an API call fired and its status.
 - **Server-side truth**: query Postgres directly (`DATABASE_URL` in `.env`) when the UI isn't
   enough — e.g. confirm a row was written. This is first-class; don't rely on UI alone for data
@@ -276,7 +276,7 @@ leave something running if you'll reuse it in the same session. Leave Docker run
 This is why the launch section captures the PID via `Start-Process -PassThru` — killing that PID
 reliably takes down the whole app (Chromium children included). `TaskStop` on a wrapper task
 (npx/pnpm/bash) does NOT work: it kills the wrapper and orphans the real `electron.exe` with its
-window still open (verified the hard way — the user had to close them manually).
+window still open.
 
 ```powershell
 Stop-Process -Id <pid1>,<pid2> -Force

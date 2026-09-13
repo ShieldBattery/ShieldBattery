@@ -97,7 +97,6 @@ The design system provides the vocabulary. Use it:
 - **Components**: `client/material/` — buttons, dialogs, inputs, menus (extend, don't recreate)
 - **Animation**: `motion/react` with spring physics, `client/material/curves.ts` for CSS transitions
 - **Icons**: `MaterialIcon` component with [Material Symbols](https://fonts.google.com/icons)
-  - **Never use emoji** in the UI. Use MaterialIcon for visual indicators. Emoji break visual consistency and feel out of place in a competitive gaming platform.
 
 For patterns, look at existing features:
 
