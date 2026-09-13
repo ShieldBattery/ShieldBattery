@@ -13,6 +13,15 @@
 //! plays on unchanged; state the list misses shows up as a fingerprint divergence against a plain
 //! playback's [`crate::rollback_probe`] rows, keyed by frame.
 //!
+//! On top of that it can hold chosen players' commands back, which is what makes the rollback do
+//! work instead of reproducing what it rolled back over. A player given a delay of `K` frames is
+//! only heard from `K` frames after the frame a command was issued for, so the re-simulated span
+//! runs without those commands and the frames it produces are a prediction. The confirmed step at
+//! the back of the span always has them, because `R` is held at or above every delay, so the
+//! confirmed frames still reproduce plain playback exactly while the present frames differ by
+//! however wrong the prediction was. Each row of the log carries both frames, which is the
+//! measurement.
+//!
 //! Everything here is compiled out of release DLLs: it drives the simulation off the game loop's
 //! own schedule and writes into live BW memory, so a release build must not contain the code at
 //! all rather than merely decline to run it.
@@ -29,6 +38,7 @@ use scr_analysis::scarf::{MemAccessSize, Operand, OperandCtx, OperandType};
 
 use bw_dat::structs::Path as BwPath;
 
+use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw};
 use crate::bw_scr::{BwScr, resolve_operand, scr};
 use crate::game_thread;
@@ -39,8 +49,42 @@ use crate::rollback_probe::Fingerprint;
 /// least 1.
 const ENV_VAR: &str = "SB_ROLLBACK_HARNESS";
 
+/// Environment variable that gives chosen players a command delay, holding a comma-separated list
+/// of `<storm player id>:<frames>`: with `SB_ROLLBACK_DELAY=1:3,2:2` storm player 1's commands are
+/// only known three frames after the frame they were issued for and storm player 2's two frames
+/// after. Does nothing on its own; the delays are only applied while [`ENV_VAR`] arms the harness.
+const DELAY_ENV_VAR: &str = "SB_ROLLBACK_DELAY";
+
 /// Rollback depth in frames, or 0 when the harness is not armed.
 static ROLLBACK_FRAMES: AtomicU32 = AtomicU32::new(0);
+
+/// Each storm player's command delay in frames; 0 for a player whose commands are known as soon as
+/// the frame they were issued for is simulated.
+static DELAYS: [AtomicU32; bw::MAX_STORM_PLAYERS] =
+    [const { AtomicU32::new(0) }; bw::MAX_STORM_PLAYERS];
+
+/// Whether any player has a nonzero delay, so that a run with none pays a single relaxed load per
+/// replay command.
+static ANY_DELAY: AtomicBool = AtomicBool::new(false);
+
+/// Whether the steps of a tick are running, so the replay's commands are gated on the delays. A
+/// step taken outside a tick is not part of a prediction and applies every command it reads.
+static GATING_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// How many steps of the current tick run after the one in progress, which is how far ahead of the
+/// frame a step reads commands for the tick's newest frame is.
+static STEPS_AFTER_CURRENT: AtomicU32 = AtomicU32::new(0);
+
+/// Whether the step in progress is the tick's confirmed step, the one whose frame no later tick
+/// simulates again.
+static IN_CONFIRMED_STEP: AtomicBool = AtomicBool::new(false);
+
+/// Commands the current tick left unapplied because the player that issued them is delayed and the
+/// tick's newest frame has not reached them yet.
+static SUPPRESSED_COMMANDS: AtomicU32 = AtomicU32::new(0);
+
+/// Commands of delayed players that the current tick's confirmed step applied.
+static APPLIED_DELAYED_COMMANDS: AtomicU32 = AtomicU32::new(0);
 
 /// Whether sound requests are being swallowed because the frame being simulated has already been
 /// played once. Read by the `play_sound` hook.
@@ -110,6 +154,8 @@ const AI_PLAYERS: usize = 8;
 const PLAYERS: usize = 0xc;
 /// Units one player can have selected at once.
 const SELECTION_SIZE: usize = 0xc;
+/// Selection hotkey groups one player has.
+const SELECTION_HOTKEY_GROUPS: usize = 8;
 /// Unit ids the trigger unit-count caches hold a count for, per player.
 const TRIGGER_CACHE_UNIT_IDS: usize = 228;
 /// Tile rows the sprite hline lists are bucketed into.
@@ -129,11 +175,10 @@ const LURKER_HITS_PER_FRAME: usize = 0x10;
 const SYNC_RING_ENTRIES: usize = 0x10;
 /// Bytes of one sync checksum ring entry.
 const SYNC_RING_ENTRY: usize = 0x10c;
-/// Bytes of ring counters stored immediately before the sync checksum ring.
-const SYNC_COUNTERS_BEFORE: usize = 0x10;
-/// Bytes stored immediately after the sync checksum ring: the per-entry kinds, then the map-row
-/// cursor the next recorded checksum reads.
-const SYNC_KINDS_AFTER: usize = 0x24;
+/// Check kinds the recorded checksums rotate through, one byte each.
+const SYNC_CHECK_KINDS: usize = 0x20;
+/// Sprite hline rows the current sync check folds a visibility mask of, one byte each.
+const SYNC_VISION_BYTES: usize = 0x100;
 /// Bytes of the unit repulsion field, a fixed 0xab by 0xab grid of one byte per chunk.
 const REPULSE_STATE_SIZE: usize = 0xab * 0xab;
 /// A pool vector's capacity word carries a flag in its top bit for storage the vector does not
@@ -169,11 +214,11 @@ enum RangeKind {
     /// operand evaluates to.
     MapTiles { stride: usize },
     /// A pool's vector header plus the whole of its storage, `capacity` elements of
-    /// `element_size` bytes. `live_count_before` marks a vector whose number of live entries is
+    /// `element_size` bytes. `live_count_name` names a vector whose number of live entries is
     /// kept in a separate 32-bit global just before the header, which must be restored with it.
     PoolVector {
         element_size: usize,
-        live_count_before: bool,
+        live_count_name: Option<&'static str>,
     },
     /// One pointer per AI player, each to that player's array of one `AiRegion` per pathing region
     /// of the current map.
@@ -190,10 +235,6 @@ const EXCLUDED: &[(&str, &str)] = &[
     (
         "foliage_state",
         "the simulation marks resource footprints in it but only rendering reads it",
-    ),
-    (
-        "dcreep_state_pool",
-        "no analysis result locates the pool the disappearing-creep lists link into",
     ),
     (
         "pathing_dynamic_state_edges",
@@ -261,15 +302,106 @@ struct HarnessFile {
 /// the game thread exists.
 pub fn init_from_env() {
     let Ok(spec) = std::env::var(ENV_VAR) else {
+        if std::env::var(DELAY_ENV_VAR).is_ok() {
+            error!("{DELAY_ENV_VAR} needs {ENV_VAR} to be set as well; ignoring it");
+        }
         return;
     };
-    match spec.parse::<u32>() {
-        Ok(frames) if frames >= 1 => {
-            ROLLBACK_FRAMES.store(frames, Ordering::Release);
-            info!("{ENV_VAR}={frames}: every logic step will roll back {frames} frames");
+    let frames = match spec.parse::<u32>() {
+        Ok(frames) if frames >= 1 => frames,
+        _ => {
+            error!("{ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it");
+            return;
         }
-        _ => error!("{ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it"),
+    };
+    // A tick's confirmed step is `frames` behind its newest frame, and it has to stay at or behind
+    // every delayed player's known-through frame: a confirmed step that ran without commands the
+    // player has since sent would leave those unapplied for good, and the confirmed timeline would
+    // stop matching plain playback.
+    let max_delay = init_delays_from_env();
+    let frames = match frames < max_delay {
+        true => {
+            info!(
+                "{ENV_VAR}={frames} is shallower than the largest delay; rolling back \
+                 {max_delay} frames instead"
+            );
+            max_delay
+        }
+        false => frames,
+    };
+    ROLLBACK_FRAMES.store(frames, Ordering::Release);
+    info!("{ENV_VAR} armed: every logic step will roll back {frames} frames");
+}
+
+/// Reads the per-player command delays out of the environment and stores them, returning the
+/// largest one so the caller can keep the rollback depth at or above it.
+fn init_delays_from_env() -> u32 {
+    let Ok(spec) = std::env::var(DELAY_ENV_VAR) else {
+        return 0;
+    };
+    let mut max_delay = 0;
+    for entry in spec.split(',').filter(|x| !x.trim().is_empty()) {
+        let parsed = entry.split_once(':').and_then(|(player, delay)| {
+            let player = player.trim().parse::<usize>().ok()?;
+            let delay = delay.trim().parse::<u32>().ok()?;
+            (player < bw::MAX_STORM_PLAYERS).then_some((player, delay))
+        });
+        let Some((player, delay)) = parsed else {
+            error!(
+                "{DELAY_ENV_VAR} entry {entry:?} is not <storm player id>:<frames> with an id \
+                 below {}; ignoring it",
+                bw::MAX_STORM_PLAYERS,
+            );
+            continue;
+        };
+        DELAYS[player].store(delay, Ordering::Release);
+        if delay != 0 {
+            ANY_DELAY.store(true, Ordering::Release);
+            max_delay = max_delay.max(delay);
+            info!("Storm player {player}'s commands will be known {delay} frames late");
+        }
     }
+    max_delay
+}
+
+/// Whether the command the replay records for `command_frame` from `storm_player` has been
+/// received by the time the tick in progress reaches its newest frame.
+///
+/// A step reads the commands of one frame, `step_frame`, and the tick runs
+/// [`STEPS_AFTER_CURRENT`] more steps after it, so the tick's newest frame (the present the
+/// simulation is being driven to) is `present = step_frame + steps_after_current`. A player with a
+/// delay of `K` frames is heard from `K` frames after the frame a command was issued for, so the
+/// command counts as known once `present >= command_frame + K`, which is the test below.
+///
+/// The confirmed step reads `step_frame = present - R`, and `R` is at least every delayed player's
+/// `K`, so `command_frame <= present - R <= present - K` holds for every command it reads and the
+/// confirmed timeline applies all of them on the frame the replay recorded them for. A command a
+/// predicted step skips is read again on a later tick, since restoring a snapshot rewinds the
+/// replay cursor along with the simulation.
+pub fn replay_command_is_known(
+    storm_player: StormPlayerId,
+    command_frame: u32,
+    step_frame: u32,
+) -> bool {
+    if !ANY_DELAY.load(Ordering::Relaxed) || !GATING_ACTIVE.load(Ordering::Relaxed) {
+        return true;
+    }
+    let Some(delay) = DELAYS.get(storm_player.0 as usize) else {
+        return true;
+    };
+    let delay = delay.load(Ordering::Relaxed);
+    if delay == 0 {
+        return true;
+    }
+    let present = step_frame.saturating_add(STEPS_AFTER_CURRENT.load(Ordering::Relaxed));
+    if command_frame.saturating_add(delay) > present {
+        SUPPRESSED_COMMANDS.fetch_add(1, Ordering::Relaxed);
+        return false;
+    }
+    if IN_CONFIRMED_STEP.load(Ordering::Relaxed) {
+        APPLIED_DELAYED_COMMANDS.fetch_add(1, Ordering::Relaxed);
+    }
+    true
 }
 
 /// Whether the frame being simulated has already been played once, so its sounds must not be
@@ -303,6 +435,7 @@ pub fn analyze_ranges(
         return Vec::new();
     }
     let word = size_of::<usize>();
+    let sizes = analysis.state_block_sizes();
     let mut out = Vec::new();
     let mut add = |name, op: Option<Operand<'_>>, kind| {
         out.push(RangeSpec {
@@ -378,6 +511,29 @@ pub fn analyze_ranges(
             analysis.ai_target_ignore_reset_counter(),
         ),
         ("step_ai_regions_player", analysis.step_ai_regions_player()),
+        // The cursors the sync checksum ring is written through, and the accumulators whose
+        // value the next recorded checksum picks up. Each is a global of its own beside the
+        // ring rather than a field of it.
+        ("sync_slot_index", analysis.sync_slot_index()),
+        ("sync_check_kind_index", analysis.sync_check_kind_index()),
+        ("sync_check_kind_count", analysis.sync_check_kind_count()),
+        ("sync_map_row_index", analysis.sync_map_row_index()),
+        (
+            "captured_minimap_unit_vision_sync_value",
+            analysis.captured_minimap_unit_vision_sync_value(),
+        ),
+        (
+            "captured_minimap_marker_count_sync_value",
+            analysis.captured_minimap_marker_count_sync_value(),
+        ),
+        (
+            "current_sync_state_byte",
+            analysis.current_sync_state_byte(),
+        ),
+        (
+            "current_sync_check_hash",
+            analysis.current_sync_check_hash(),
+        ),
     ];
     for (name, op) in words {
         add(name, op, RangeKind::Storage);
@@ -385,6 +541,12 @@ pub fn analyze_ranges(
 
     // Fixed-size blocks, each at the address its analysis result evaluates to: a static array base
     // is that address itself, and a pointer global holds it.
+    let trigger_cache_size = checked_size(
+        "trigger_unit_caches",
+        PLAYERS * TRIGGER_CACHE_UNIT_IDS * size_of::<u32>(),
+        sizes.trigger_completed_units_cache,
+    );
+    let path_entry_size = checked_size("path_array_entry", size_of::<BwPath>(), sizes.path_entry);
     let blocks = [
         (
             "first_player_unit",
@@ -404,12 +566,12 @@ pub fn analyze_ranges(
         (
             "trigger_completed_units_cache",
             analysis.trigger_completed_units_cache(),
-            PLAYERS * TRIGGER_CACHE_UNIT_IDS * size_of::<u32>(),
+            trigger_cache_size,
         ),
         (
             "trigger_all_units_cache",
             analysis.trigger_all_units_cache(),
-            PLAYERS * TRIGGER_CACHE_UNIT_IDS * size_of::<u32>(),
+            trigger_cache_size,
         ),
         (
             "selections",
@@ -417,16 +579,34 @@ pub fn analyze_ranges(
             AI_PLAYERS * SELECTION_SIZE * word,
         ),
         (
+            "local_selection",
+            analysis.local_selection(),
+            SELECTION_SIZE * word,
+        ),
+        (
+            "selection_hotkey_last_used_frames",
+            analysis.selection_hotkey_last_used_frames(),
+            AI_PLAYERS * SELECTION_HOTKEY_GROUPS * size_of::<u16>(),
+        ),
+        (
             "resource_areas",
             analysis.resource_areas(),
-            size_of::<bw::ResourceAreaArray>(),
+            checked_size(
+                "resource_areas",
+                size_of::<bw::ResourceAreaArray>(),
+                sizes.resource_areas,
+            ),
         ),
         (
             "path_array",
             analysis.path_array(),
-            PATH_COUNT * size_of::<BwPath>(),
+            checked_size("path_array", PATH_COUNT * path_entry_size, sizes.path_array),
         ),
-        ("pathing", analysis.pathing(), size_of::<bw::Pathing>()),
+        (
+            "pathing",
+            analysis.pathing(),
+            checked_size("pathing", size_of::<bw::Pathing>(), sizes.pathing_state),
+        ),
         (
             "repulse_state",
             analysis.repulse_state(),
@@ -450,7 +630,11 @@ pub fn analyze_ranges(
         (
             "player_ai",
             analysis.player_ai(),
-            AI_PLAYERS * size_of::<bw::PlayerAiData>(),
+            checked_size(
+                "player_ai",
+                AI_PLAYERS * size_of::<bw::PlayerAiData>(),
+                sizes.player_ai,
+            ),
         ),
         (
             "player_ai_towns",
@@ -461,6 +645,23 @@ pub fn analyze_ranges(
             "first_guard_ai",
             analysis.first_guard_ai(),
             AI_PLAYERS * 2 * word,
+        ),
+        // The sync checksum ring and the arrays beside it. None of them holds a pointer, so the
+        // same lengths describe both architectures.
+        (
+            "sync_data",
+            analysis.sync_data(),
+            SYNC_RING_ENTRIES * SYNC_RING_ENTRY,
+        ),
+        (
+            "sync_check_kinds",
+            analysis.sync_check_kinds(),
+            SYNC_CHECK_KINDS,
+        ),
+        (
+            "current_sync_vision_bytes",
+            analysis.current_sync_vision_bytes(),
+            SYNC_VISION_BYTES,
         ),
     ];
     for (name, op, len) in blocks {
@@ -503,17 +704,6 @@ pub fn analyze_ranges(
             len: LURKER_HIT_FRAMES * LURKER_HITS_PER_FRAME * 2 * word,
         },
     );
-    // The sync checksum ring, together with the counters immediately before it and the per-entry
-    // kinds and map-row cursor immediately after it. The whole span holds no pointers, so it is
-    // the same on both architectures.
-    add(
-        "sync_data",
-        analysis.sync_data(),
-        RangeKind::Block {
-            offset: -(SYNC_COUNTERS_BEFORE as isize),
-            len: SYNC_COUNTERS_BEFORE + SYNC_RING_ENTRIES * SYNC_RING_ENTRY + SYNC_KINDS_AFTER,
-        },
-    );
     add("ai_regions", analysis.ai_regions(), RangeKind::AiRegions);
     add(
         "pathing_dynamic_state",
@@ -521,8 +711,81 @@ pub fn analyze_ranges(
         RangeKind::PathingDynamicState,
     );
 
+    // Statically allocated pools of fixed size entries, each with a free list threaded through
+    // the entries it has not handed out. The entries and that list head have to be rewound as
+    // one: a list head left pointing past a rolled back allocation hands the same entry out
+    // twice, and one left pointing at an entry the rollback un-freed loses the rest of the list.
+    // The entry size and count come from the analysis rather than from a constant here, since
+    // they differ between the two architectures.
+    let ai_pools = analysis.ai_pools();
+    let pools = [
+        (
+            "worker_ai_pool_storage",
+            "worker_ai_free_list",
+            ai_pools.worker,
+        ),
+        (
+            "building_ai_pool_storage",
+            "building_ai_free_list",
+            ai_pools.building,
+        ),
+        ("ai_town_pool_storage", "ai_town_free_list", ai_pools.town),
+        (
+            "ai_script_pool_storage",
+            "ai_script_free_list",
+            ai_pools.script,
+        ),
+        (
+            "military_ai_pool_storage",
+            "military_ai_free_list",
+            ai_pools.military,
+        ),
+        (
+            "guard_ai_pool_storage",
+            "guard_ai_free_list",
+            ai_pools.guard,
+        ),
+        (
+            "dcreep_state_pool",
+            "dcreep_state_free_list",
+            ai_pools.dcreep,
+        ),
+    ];
+    for (storage_name, free_list_name, pool) in pools {
+        let len = pool.entry_size as usize * pool.entry_count as usize;
+        add(
+            storage_name,
+            pool.storage,
+            RangeKind::Block { offset: 0, len },
+        );
+        add(free_list_name, pool.free_list, RangeKind::Storage);
+    }
+    add(
+        "ai_spending_player_index",
+        ai_pools.ai_spending_player_index,
+        RangeKind::Storage,
+    );
+
     out.extend(pool_specs(analysis, ctx));
     out
+}
+
+/// The byte size a fixed state block is snapshotted at: the size the struct it is declared as
+/// says, warning when the analysis of the running build disagrees.
+///
+/// The struct is what the rest of the DLL is compiled against, so it stays the size that is
+/// copied; the analysis reads the size out of the code that allocates and zeroes the block in the
+/// build actually running, so a disagreement means that build's layout is not the one the DLL
+/// expects and the snapshot either misses part of the block or reaches past it. An analysis that
+/// found no size at all reports zero, which says nothing and is not worth a warning.
+fn checked_size(name: &'static str, struct_size: usize, analysis_size: u32) -> usize {
+    if analysis_size != 0 && analysis_size as usize != struct_size {
+        warn!(
+            "Rollback harness snapshots {name} as {struct_size:#x} bytes, but the running build \
+             lays it out as {analysis_size:#x}"
+        );
+    }
+    struct_size
 }
 
 /// A pool's name, the size of the object it holds, and the auxiliary arrays that are resized
@@ -538,9 +801,9 @@ struct Pool {
 struct AuxiliaryArray {
     name: &'static str,
     element_size: usize,
-    /// Whether the array's live entry count lives in a 32-bit global directly before the vector
-    /// header rather than in the header's length field.
-    live_count_before: bool,
+    /// Name of the array's live entry count when that count lives in a 32-bit global directly
+    /// before the vector header rather than in the header's length field.
+    live_count_name: Option<&'static str>,
     /// How the array's length is derived from the pool's object count: `count * mul.max(1) + add`.
     /// Checked against what the analysis reports for the vector it is matched with, so a change in
     /// the order a pool's vectors are enumerated in is caught instead of silently applying one
@@ -556,13 +819,13 @@ const SPRITE_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         // A sort key and a sprite pointer, the key padded out to the pointer's alignment.
         element_size: 2 * size_of::<usize>(),
         length: (1, 0),
-        live_count_before: false,
+        live_count_name: None,
     },
     AuxiliaryArray {
         name: "sprite_draw_order",
         element_size: size_of::<usize>(),
         length: (0, 0),
-        live_count_before: false,
+        live_count_name: None,
     },
 ];
 
@@ -573,7 +836,7 @@ const UNIT_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         name: "air_splash_candidates",
         element_size: size_of::<usize>(),
         length: (0, 0),
-        live_count_before: false,
+        live_count_name: None,
     },
     AuxiliaryArray {
         name: "unit_position_search_x",
@@ -584,25 +847,25 @@ const UNIT_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         // the global just before this vector. The arrays are maintained incrementally with no
         // rebuild path, so a count that is not rewound with them drifts until an insertion walks
         // past the live entries into stale slots.
-        live_count_before: true,
+        live_count_name: Some("unit_position_search_entry_count"),
     },
     AuxiliaryArray {
         name: "unit_position_search_y",
         element_size: 8,
         length: (0, 2),
-        live_count_before: false,
+        live_count_name: None,
     },
     AuxiliaryArray {
         name: "unit_query_scratch_marks",
         element_size: 4,
         length: (1, 0),
-        live_count_before: false,
+        live_count_name: None,
     },
     AuxiliaryArray {
         name: "unit_query_results",
         element_size: size_of::<usize>(),
         length: (1, 0),
-        live_count_before: false,
+        live_count_name: None,
     },
 ];
 
@@ -665,7 +928,7 @@ fn pool_specs(
             op: None,
             kind: RangeKind::PoolVector {
                 element_size: pool.object_size,
-                live_count_before: false,
+                live_count_name: None,
             },
         };
         let Some(entries) = vectors.get(index) else {
@@ -683,12 +946,12 @@ fn pool_specs(
         };
         let mut auxiliary = pool.auxiliary.iter();
         for (slot, &(op, add, mul)) in entries.iter().enumerate() {
-            let (name, element_size, live_count_before) = if Some(slot) == object_index {
-                (pool.name, pool.object_size, false)
+            let (name, element_size, live_count_name) = if Some(slot) == object_index {
+                (pool.name, pool.object_size, None)
             } else {
                 match auxiliary.next() {
                     Some(array) if array.length == (add, mul) => {
-                        (array.name, array.element_size, array.live_count_before)
+                        (array.name, array.element_size, array.live_count_name)
                     }
                     _ => {
                         out.push(unresolved());
@@ -701,7 +964,7 @@ fn pool_specs(
                 op: Some(ctx.copy_operand(op)),
                 kind: RangeKind::PoolVector {
                     element_size,
-                    live_count_before,
+                    live_count_name,
                 },
             });
         }
@@ -779,7 +1042,7 @@ impl Harness {
                     }
                     RangeKind::PoolVector {
                         element_size,
-                        live_count_before,
+                        live_count_name,
                     } => {
                         let vector = resolve_operand(op, &[]) as *const scr::BwVector;
                         if vector.is_null() {
@@ -796,7 +1059,7 @@ impl Harness {
                             ),
                             false => list.omit(spec.name),
                         }
-                        if live_count_before {
+                        if let Some(count_name) = live_count_name {
                             // The count sits one pointer before the header on x86_64. Its position
                             // relative to the header has not been confirmed on the 32-bit build,
                             // so there it is left out rather than guessed; a count that is not
@@ -806,12 +1069,12 @@ impl Harness {
                                 let count_address = vector as usize - size_of::<usize>();
                                 let count = (count_address as *const u32).read() as usize;
                                 match count <= capacity {
-                                    true => list.add("live_entry_count", count_address, 4),
-                                    false => list.omit("live_entry_count"),
+                                    true => list.add(count_name, count_address, 4),
+                                    false => list.omit(count_name),
                                 }
                             }
                             #[cfg(target_arch = "x86")]
-                            list.omit("live_entry_count");
+                            list.omit(count_name);
                         }
                     }
                     RangeKind::PathingDynamicState => {
@@ -964,8 +1227,12 @@ unsafe fn run_tick(
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         };
 
-        let step = |suppress_sounds: bool| {
+        // `steps_after` is how many further steps the tick runs once this one is done, which is
+        // what turns the frame a step reads commands for into the tick's newest frame.
+        let step = |suppress_sounds: bool, steps_after: usize, confirmed: bool| {
             SUPPRESS_SOUNDS.store(suppress_sounds, Ordering::Release);
+            STEPS_AFTER_CURRENT.store(steps_after as u32, Ordering::Relaxed);
+            IN_CONFIRMED_STEP.store(confirmed, Ordering::Relaxed);
             let start = Instant::now();
             let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
             let elapsed = start.elapsed();
@@ -981,7 +1248,13 @@ unsafe fn run_tick(
         // future, so after a tick that simulates several frames it goes back to the value the
         // first step left it at, keeping real-time pacing at exactly one frame per tick.
         let mut paced_tick = None;
+        // The fingerprint of the state the tick's snapshot holds: the newest frame that every
+        // command the replay records for it has been applied on.
+        let confirmed_fingerprint;
 
+        SUPPRESSED_COMMANDS.store(0, Ordering::Relaxed);
+        APPLIED_DELAYED_COMMANDS.store(0, Ordering::Relaxed);
+        GATING_ACTIVE.store(true, Ordering::Relaxed);
         match harness.confirmed {
             // Steady state: the snapshot is `rollback_frames` frames behind the simulation, so
             // going back to it and simulating one frame re-derives the frame the snapshot moves on
@@ -991,10 +1264,11 @@ unsafe fn run_tick(
                 harness.restore(confirmed);
                 restore_micros = start.elapsed();
 
-                let (step_ret, elapsed) = step(true);
+                let (step_ret, elapsed) = step(true, rollback_frames, true);
                 ret = step_ret;
                 steps_micros += elapsed;
                 paced_tick = Some(bw.probe_next_game_step_tick());
+                confirmed_fingerprint = bw.probe_fingerprint();
 
                 let start = Instant::now();
                 harness.take(1 - confirmed);
@@ -1003,7 +1277,9 @@ unsafe fn run_tick(
                 for frame in 0..rollback_frames {
                     // Only the last step reaches a frame the game has never simulated, so it is
                     // the only one whose sounds belong to the present.
-                    let (step_ret, elapsed) = step(frame + 1 != rollback_frames);
+                    let steps_after = rollback_frames - 1 - frame;
+                    let (step_ret, elapsed) =
+                        step(frame + 1 != rollback_frames, steps_after, false);
                     ret = step_ret;
                     steps_micros += elapsed;
                 }
@@ -1014,9 +1290,12 @@ unsafe fn run_tick(
                 let start = Instant::now();
                 harness.take(0);
                 snapshot_micros = start.elapsed();
+                // No step of this tick re-derives a frame, so the state the snapshot just captured
+                // is the confirmed one and its fingerprint is already final.
+                confirmed_fingerprint = bw.probe_fingerprint();
 
                 for frame in 0..rollback_frames {
-                    let (step_ret, elapsed) = step(false);
+                    let (step_ret, elapsed) = step(false, rollback_frames - 1 - frame, false);
                     ret = step_ret;
                     steps_micros += elapsed;
                     if frame == 0 {
@@ -1026,19 +1305,37 @@ unsafe fn run_tick(
             }
         }
 
+        GATING_ACTIVE.store(false, Ordering::Relaxed);
+        IN_CONFIRMED_STEP.store(false, Ordering::Relaxed);
         if let Some(paced_tick) = paced_tick {
             bw.probe_set_next_game_step_tick(paced_tick);
         }
         drop(guard);
 
-        if let Some(fingerprint) = bw.probe_fingerprint() {
-            write_row(&fingerprint, restore_micros, steps_micros, snapshot_micros);
+        if let (Some(present), Some(confirmed)) = (bw.probe_fingerprint(), confirmed_fingerprint) {
+            write_row(
+                &present,
+                &confirmed,
+                SUPPRESSED_COMMANDS.load(Ordering::Relaxed),
+                APPLIED_DELAYED_COMMANDS.load(Ordering::Relaxed),
+                restore_micros,
+                steps_micros,
+                snapshot_micros,
+            );
         }
         ret
     }
 }
 
-fn write_row(fingerprint: &Fingerprint, restore: Duration, steps: Duration, snapshot: Duration) {
+fn write_row(
+    present: &Fingerprint,
+    confirmed: &Fingerprint,
+    suppressed_commands: u32,
+    applied_delayed_commands: u32,
+    restore: Duration,
+    steps: Duration,
+    snapshot: Duration,
+) {
     let mut log_file = LOG_FILE.lock();
     if log_file.is_none() {
         match HarnessFile::create() {
@@ -1056,12 +1353,30 @@ fn write_row(fingerprint: &Fingerprint, restore: Duration, steps: Duration, snap
     let Some(log_file) = log_file.as_mut() else {
         return;
     };
+    let result = writeln!(
+        &mut log_file.file,
+        "{},{},{suppressed_commands},{applied_delayed_commands},{},{},{}",
+        fingerprint_columns(present),
+        fingerprint_columns(confirmed),
+        restore.as_micros(),
+        steps.as_micros(),
+        snapshot.as_micros(),
+    );
+    if let Err(e) = result {
+        // Give up on the file rather than logging once per frame for the rest of the game.
+        error!("Rollback harness write failed, closing the log: {e}");
+        ROLLBACK_FRAMES.store(0, Ordering::Release);
+    }
+}
+
+/// One fingerprint as CSV columns: the frame it was taken on, the words around the RNG seed, the
+/// first four players' minerals and gas, and the trigger countdown.
+fn fingerprint_columns(fingerprint: &Fingerprint) -> String {
     let rng = &fingerprint.rng;
     let minerals = &fingerprint.minerals;
     let gas = &fingerprint.gas;
-    let result = writeln!(
-        &mut log_file.file,
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+    format!(
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         fingerprint.frame,
         rng[0],
         rng[1],
@@ -1078,15 +1393,7 @@ fn write_row(fingerprint: &Fingerprint, restore: Duration, steps: Duration, snap
         gas[2],
         gas[3],
         fingerprint.trigger_timer,
-        restore.as_micros(),
-        steps.as_micros(),
-        snapshot.as_micros(),
-    );
-    if let Err(e) = result {
-        // Give up on the file rather than logging once per frame for the rest of the game.
-        error!("Rollback harness write failed, closing the log: {e}");
-        ROLLBACK_FRAMES.store(0, Ordering::Release);
-    }
+    )
 }
 
 impl HarnessFile {
@@ -1106,6 +1413,9 @@ impl HarnessFile {
             &mut file,
             "frame,rng0,rng1,rng2,rng3,rng4,rng5,\
              minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,\
+             confirmed_frame,c_rng0,c_rng1,c_rng2,c_rng3,c_rng4,c_rng5,\
+             c_minerals0,c_minerals1,c_minerals2,c_minerals3,c_gas0,c_gas1,c_gas2,c_gas3,\
+             c_trigger_timer,suppressed_commands,applied_delayed_commands,\
              restore_micros,steps_micros,snapshot_micros"
         )
         .map_err(|e| format!("{}: {e}", path.display()))?;

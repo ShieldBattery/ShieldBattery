@@ -15,7 +15,9 @@
 //! method in this file is the whole job.
 
 pub use samase_scarf::scarf;
-pub use samase_scarf::{DatTablePtr, DatType};
+pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, StateBlockSizes};
+
+use std::rc::Rc;
 
 use scarf::exec_state::ExecutionState as _;
 use scarf::exec_state::VirtualAddress as _;
@@ -1151,6 +1153,18 @@ impl<'e> Analysis<'e> {
         self.0.selections()
     }
 
+    /// Base of the local client's own selection, a row of unit pointers laid out right after the
+    /// per-player arrays [`selections`](Self::selections) points at and as long as one of them.
+    pub fn local_selection(&mut self) -> Option<Operand<'e>> {
+        self.0.local_selection()
+    }
+
+    /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
+    /// group was last written on.
+    pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {
+        self.0.selection_hotkey_last_used_frames()
+    }
+
     /// Base of the mineral/gas cluster table the AI keeps for the map.
     pub fn resource_areas(&mut self) -> Option<Operand<'e>> {
         self.0.resource_areas()
@@ -1266,9 +1280,73 @@ impl<'e> Analysis<'e> {
         self.0.step_ai_regions_player()
     }
 
-    /// Base of the ring of recent sync checksums, with its counters immediately before it and the
-    /// per-entry kinds immediately after it.
+    /// Base of the ring of recent sync checksums.
     pub fn sync_data(&mut self) -> Option<Operand<'e>> {
         self.0.sync_data()
+    }
+
+    /// Single byte cursor into [`sync_check_kinds`](Self::sync_check_kinds), wrapping at
+    /// [`sync_check_kind_count`](Self::sync_check_kind_count).
+    pub fn sync_check_kind_index(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_check_kind_index()
+    }
+
+    /// Single byte global holding how many of [`sync_check_kinds`](Self::sync_check_kinds) the
+    /// turns rotate through.
+    pub fn sync_check_kind_count(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_check_kind_count()
+    }
+
+    /// Base of the byte array of check kinds the turns rotate through.
+    pub fn sync_check_kinds(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_check_kinds()
+    }
+
+    /// 32-bit global holding the `map_tile_flags` row hashed this turn, stepped by one per turn
+    /// and wrapped at the map height.
+    pub fn sync_map_row_index(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_map_row_index()
+    }
+
+    /// Single byte snapshot of the minimap unit vision accumulator, taken once per turn and
+    /// copied into the ring slot the next turn records.
+    pub fn captured_minimap_unit_vision_sync_value(&mut self) -> Option<Operand<'e>> {
+        self.0.captured_minimap_unit_vision_sync_value()
+    }
+
+    /// Single byte snapshot of the minimap marker count accumulator, taken alongside
+    /// [`captured_minimap_unit_vision_sync_value`](Self::captured_minimap_unit_vision_sync_value).
+    pub fn captured_minimap_marker_count_sync_value(&mut self) -> Option<Operand<'e>> {
+        self.0.captured_minimap_marker_count_sync_value()
+    }
+
+    /// Single byte global holding the fold of the sprite vision rows the current check covers.
+    pub fn current_sync_state_byte(&mut self) -> Option<Operand<'e>> {
+        self.0.current_sync_state_byte()
+    }
+
+    /// 32-bit global holding the first sprite hline row of the window
+    /// [`current_sync_state_byte`](Self::current_sync_state_byte) was folded from.
+    pub fn current_sync_check_hash(&mut self) -> Option<Operand<'e>> {
+        self.0.current_sync_check_hash()
+    }
+
+    /// Base of the byte array holding one visibility mask per sprite hline row.
+    pub fn current_sync_vision_bytes(&mut self) -> Option<Operand<'e>> {
+        self.0.current_sync_vision_bytes()
+    }
+
+    /// The statically allocated AI object pools, each with the base of its entry array, the
+    /// pointer global holding the head of the free list threaded through its unused entries, and
+    /// the entry size and count the game's own initialiser lays it out with. The
+    /// disappearing-creep state pool is reported alongside them because it is built the same way.
+    pub fn ai_pools(&mut self) -> Rc<AiPools<'e>> {
+        self.0.ai_pools()
+    }
+
+    /// Byte sizes of the fixed simulation state blocks, read out of the code that allocates and
+    /// zeroes them rather than from a struct declaration.
+    pub fn state_block_sizes(&mut self) -> StateBlockSizes {
+        self.0.state_block_sizes()
     }
 }

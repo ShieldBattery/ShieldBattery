@@ -771,12 +771,38 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
             }
             data = rest;
             while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
-                bw.process_replay_commands(command, storm_player);
+                if replay_command_is_known(storm_player, frame_data.frame, frame) {
+                    bw.process_replay_commands(command, storm_player);
+                }
             }
         }
         let new_pos = (data_end as usize - data.len()) as *mut u8;
         (*replay).data_pos = new_pos;
     }
+}
+
+/// Whether a command block the replay records for `command_frame`, read while the simulation
+/// steps `step_frame`, is handed to the simulation now.
+///
+/// Always true outside the debug rollback harness. The harness can hold back the commands of
+/// players it has been given a network delay for, and leaving the block itself consumed keeps the
+/// replay cursor on the same path it takes without a delay.
+#[cfg(debug_assertions)]
+fn replay_command_is_known(
+    storm_player: StormPlayerId,
+    command_frame: u32,
+    step_frame: u32,
+) -> bool {
+    crate::rollback_harness::replay_command_is_known(storm_player, command_frame, step_frame)
+}
+
+#[cfg(not(debug_assertions))]
+fn replay_command_is_known(
+    _storm_player: StormPlayerId,
+    _command_frame: u32,
+    _step_frame: u32,
+) -> bool {
+    true
 }
 
 struct ReplayFrame<'a> {
