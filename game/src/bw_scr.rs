@@ -6959,6 +6959,8 @@ unsafe fn step_game_logic_hook(
     // the first diverged interval without any special tooling. The `rng` words are the u32s
     // around the operand the analysis resolves as the RNG seed — the block holds the seed and
     // the advancing rand state/draw counters, so some of the words move with every synced draw.
+    // `trigger_timer` is the trigger step's countdown: a live-vs-playback difference in it
+    // means the two run their trigger passes on different frames (a player leave restarts it).
     {
         let game = bw.game();
         if !game.is_null() {
@@ -6973,12 +6975,14 @@ unsafe fn step_game_logic_hook(
                 }
                 let minerals = (*game).minerals;
                 let gas = (*game).gas;
+                let trigger_timer = bw.trigger_execution_timer.resolve();
                 debug!(
-                    "Sync probe: frame {} rng {:x?} minerals {:?} gas {:?}",
+                    "Sync probe: frame {} rng {:x?} minerals {:?} gas {:?} trigger_timer {}",
                     frame,
                     rng_words,
                     &minerals[..4],
                     &gas[..4],
+                    trigger_timer,
                 );
             }
         }
