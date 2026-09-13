@@ -106,6 +106,11 @@ pub struct BwScr {
     sprite_y: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
     replay_data: Value<*mut bw::ReplayData>,
     replay_header: Value<*mut bw::ReplayHeader>,
+    /// Countdown the trigger step decrements once per frame: triggers run on the frame it reads
+    /// as zero, then it resets to 30. The native player-leave handler forces it to 1 in live games
+    /// but not when the recorded leave command plays back, so replay playback restores that write
+    /// itself (see [`process_replay_commands`](Self::process_replay_commands)).
+    trigger_execution_timer: Value<u16>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     local_visions: Value<u8>,
@@ -843,6 +848,15 @@ impl BwValue for u8 {
     }
 }
 
+impl BwValue for u16 {
+    fn from_usize(val: usize) -> Self {
+        val as u16
+    }
+    fn to_usize(val: Self) -> usize {
+        val as usize
+    }
+}
+
 impl BwValue for u32 {
     fn from_usize(val: usize) -> Self {
         val as u32
@@ -1391,6 +1405,9 @@ impl BwScr {
 
         let replay_data = analysis.replay_data().ok_or("replay_data")?;
         let replay_header = analysis.replay_header().ok_or("replay_header")?;
+        let trigger_execution_timer = analysis
+            .trigger_execution_timer()
+            .ok_or("trigger_execution_timer")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let local_visions = analysis.local_visions().ok_or("local_visions")?;
@@ -1609,6 +1626,7 @@ impl BwScr {
             sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
             replay_data: Value::new(ctx, replay_data),
             replay_header: Value::new(ctx, replay_header),
+            trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             local_visions: Value::new(ctx, local_visions),
@@ -5973,6 +5991,28 @@ impl bw::Bw for BwScr {
             self.unique_command_user.write(unique_player as u32);
             self.enable_rng.write(1);
             (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
+            if commands.first() == Some(&commands::id::LEAVE_GAME) {
+                // A live game applies a player's departure through the pending-leave drain, which
+                // besides removing the player also forces the trigger step to run on the next
+                // frame. The leave command it records into the replay reproduces the removal on
+                // playback but not that forced trigger pass, leaving playback's 30-frame trigger
+                // cycle out of phase with the live game's from the departure onward; any later
+                // trigger-driven elimination then lands on a different frame and the replay
+                // diverges. Restoring the write here keeps playback on the live schedule (both
+                // run the command handling before the trigger step, so the pass fires on the same
+                // frame either way).
+                self.trigger_execution_timer.write(1);
+                let game = self.game();
+                let frame = if game.is_null() {
+                    0
+                } else {
+                    (*game).frame_count
+                };
+                debug!(
+                    "Replay: storm player {} left at frame {}; forcing the next trigger pass",
+                    storm_player.0, frame,
+                );
+            }
             self.command_user.write(self.local_player_id.resolve());
             self.unique_command_user
                 .write(self.local_unique_player_id.resolve());

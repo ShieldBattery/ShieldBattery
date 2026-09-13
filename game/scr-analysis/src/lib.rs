@@ -650,6 +650,13 @@ impl<'e> Analysis<'e> {
         self.0.continue_game_loop()
     }
 
+    /// `Mem16` countdown the trigger step decrements once per game frame; every player's triggers
+    /// run on the frame it is read as zero, after which it is reset to 30. Native code writes 1
+    /// into it to force a trigger pass on the following frame (a player leaving does this).
+    pub fn trigger_execution_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_execution_timer()
+    }
+
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
         self.0.net_format_turn_rate()
     }
