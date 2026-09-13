@@ -63,6 +63,7 @@ export default [
       '.playwright-cli/',
       '.react-email/',
       'build/',
+      'coverage/',
       'dist/',
       'node_modules/',
       'app/build/',
