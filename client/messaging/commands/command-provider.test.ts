@@ -161,8 +161,6 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       '/whois [user]',
       '/who <channel>',
       '/whoami',
-      '/friend <user>',
-      '/unfriend <user>',
       '/f <add|remove|list>',
       '/block <user>',
       '/unblock <user>',

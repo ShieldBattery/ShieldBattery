@@ -17,7 +17,7 @@ import { findUserByName } from '../../../users/action-creators'
 import { ChannelCommandContext } from '../command-context'
 import { LocalLineContent } from '../local-output'
 import { runChatCommandWith } from '../run-chat-command'
-import { friendCommand, friendsCommand, unfriendCommand } from './friend'
+import { friendsCommand } from './friend'
 
 vi.mock('../../../logging/logger', () => ({
   default: { verbose: vi.fn(), debug: vi.fn(), warning: vi.fn(), error: vi.fn() },
@@ -144,7 +144,7 @@ function makeState({
 function runInput(input: string, state: unknown = makeState()) {
   store.state = state
   const emit = vi.fn<(line: LocalLineContent) => void>()
-  const result = runChatCommandWith([friendCommand, unfriendCommand, friendsCommand], input, {
+  const result = runChatCommandWith([friendsCommand], input, {
     context: channelContext,
     dispatch: store.dispatch,
     t,
@@ -176,8 +176,8 @@ describe('messaging/commands/commands/friend', () => {
     activityStatus.clear()
   })
 
-  test('/friend sends a friend request', () => {
-    const { result, emit } = runForTarget('/friend tec27')
+  test('/f add sends a friend request', () => {
+    const { result, emit } = runForTarget('/f add tec27')
 
     expect(result).toEqual({ kind: 'command' })
     expect(sendFriendRequest).toHaveBeenCalledWith(TARGET_ID, expect.anything())
@@ -187,8 +187,8 @@ describe('messaging/commands/commands/friend', () => {
     expect(renderLine(emit.mock.calls[0][0].content)).toBe('Friend request sent to tec27.')
   })
 
-  test('/friend accepts a request that is already waiting', () => {
-    const { emit } = runForTarget('/friend tec27', makeState({ incomingRequests: [TARGET_ID] }))
+  test('/f add accepts a request that is already waiting', () => {
+    const { emit } = runForTarget('/f add tec27', makeState({ incomingRequests: [TARGET_ID] }))
 
     expect(sendFriendRequest).not.toHaveBeenCalled()
     expect(acceptFriendRequest).toHaveBeenCalledWith(TARGET_ID, expect.anything())
@@ -197,16 +197,16 @@ describe('messaging/commands/commands/friend', () => {
     expect(renderLine(emit.mock.calls[0][0].content)).toBe("You're now friends with tec27.")
   })
 
-  test('/friend says so when the friendship already exists', () => {
-    const { emit } = runForTarget('/friend tec27', makeState({ friends: [TARGET_ID] }))
+  test('/f add says so when the friendship already exists', () => {
+    const { emit } = runForTarget('/f add tec27', makeState({ friends: [TARGET_ID] }))
 
     expect(sendFriendRequest).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('info')
     expect(renderLine(emit.mock.calls[0][0].content)).toBe("You're already friends with tec27.")
   })
 
-  test('/friend says so when a request has already been sent', () => {
-    const { emit } = runForTarget('/friend tec27', makeState({ outgoingRequests: [TARGET_ID] }))
+  test('/f add says so when a request has already been sent', () => {
+    const { emit } = runForTarget('/f add tec27', makeState({ outgoingRequests: [TARGET_ID] }))
 
     expect(sendFriendRequest).not.toHaveBeenCalled()
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
@@ -214,16 +214,16 @@ describe('messaging/commands/commands/friend', () => {
     )
   })
 
-  test('/friend refuses to name the user running it', () => {
-    const { emit } = runForTarget('/friend Marko', undefined, SELF_ID)
+  test('/f add refuses to name the user running it', () => {
+    const { emit } = runForTarget('/f add Marko', undefined, SELF_ID)
 
     expect(sendFriendRequest).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('error')
     expect(emit.mock.calls[0][0].content).toBe("You can't send yourself a friend request.")
   })
 
-  test('/friend asks the server when the relationships have not loaded', () => {
-    runForTarget('/friend tec27', makeState({ loaded: false, friends: [TARGET_ID] }))
+  test('/f add asks the server when the relationships have not loaded', () => {
+    runForTarget('/f add tec27', makeState({ loaded: false, friends: [TARGET_ID] }))
 
     expect(sendFriendRequest).toHaveBeenCalledWith(TARGET_ID, expect.anything())
   })
@@ -246,8 +246,8 @@ describe('messaging/commands/commands/friend', () => {
     }
   })
 
-  test('/unfriend removes the friend and offers to undo it', () => {
-    const { emit } = runForTarget('/unfriend tec27', makeState({ friends: [TARGET_ID] }))
+  test('/f remove removes the friend and offers to undo it', () => {
+    const { emit } = runForTarget('/f remove tec27', makeState({ friends: [TARGET_ID] }))
 
     expect(removeFriend).toHaveBeenCalledWith(TARGET_ID, expect.anything())
     asMockedFunction(removeFriend).mock.calls[0][1].onSuccess()
@@ -264,8 +264,8 @@ describe('messaging/commands/commands/friend', () => {
     expect(container.textContent).toBe('Friend request sent to tec27.')
   })
 
-  test('/unfriend says so when the user is not a friend', () => {
-    const { emit } = runForTarget('/unfriend tec27')
+  test('/f remove says so when the user is not a friend', () => {
+    const { emit } = runForTarget('/f remove tec27')
 
     expect(removeFriend).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('error')

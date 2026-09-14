@@ -64,8 +64,6 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
-      'friend',
-      'unfriend',
       'f',
       'block',
       'unblock',
@@ -91,8 +89,6 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
-      'friend',
-      'unfriend',
       'f',
       'block',
       'unblock',
@@ -114,8 +110,6 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
-      'friend',
-      'unfriend',
       'f',
       'block',
       'unblock',
@@ -133,8 +127,6 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
-      'friend',
-      'unfriend',
       'f',
       'block',
       'unblock',
@@ -189,8 +181,6 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('whois')!)).toBe('/whois [user]')
     expect(getCommandUsage(findCommand('who')!)).toBe('/who <channel>')
     expect(getCommandUsage(findCommand('whoami')!)).toBe('/whoami')
-    expect(getCommandUsage(findCommand('friend')!)).toBe('/friend <user>')
-    expect(getCommandUsage(findCommand('unfriend')!)).toBe('/unfriend <user>')
     expect(getCommandUsage(findCommand('f')!)).toBe('/f <add|remove|list>')
     expect(getCommandUsage(findCommand('block')!)).toBe('/block <user>')
     expect(getCommandUsage(findCommand('unblock')!)).toBe('/unblock <user>')
@@ -279,18 +269,6 @@ describe('messaging/commands/command-registry', () => {
             aliases: [],
             args: [],
             description: 'Shows the name and user ID you are logged in as.',
-          },
-          {
-            name: 'friend',
-            aliases: [],
-            args: [{ label: 'user', optional: false }],
-            description: 'Sends a friend request to a user.',
-          },
-          {
-            name: 'unfriend',
-            aliases: [],
-            args: [{ label: 'user', optional: false }],
-            description: 'Removes a user from your friends.',
           },
           {
             name: 'f',

@@ -81,7 +81,7 @@ function getFriendSuggestions(deps: ArgSuggestDeps): ArgSuggestion[] {
 
 function alreadyFriendsLine(userId: SbUserId, t: TFunction): React.ReactNode {
   return (
-    <Trans t={t} i18nKey='chat.commands.friend.alreadyFriends'>
+    <Trans t={t} i18nKey='chat.commands.friends.add.alreadyFriends'>
       You're already friends with{' '}
       <LocalStrong>
         <ConnectedUsername userId={userId} />
@@ -93,7 +93,7 @@ function alreadyFriendsLine(userId: SbUserId, t: TFunction): React.ReactNode {
 
 function alreadyRequestedLine(userId: SbUserId, t: TFunction): React.ReactNode {
   return (
-    <Trans t={t} i18nKey='chat.commands.friend.alreadyRequested'>
+    <Trans t={t} i18nKey='chat.commands.friends.add.alreadyRequested'>
       You've already sent{' '}
       <LocalStrong>
         <ConnectedUsername userId={userId} />
@@ -105,7 +105,7 @@ function alreadyRequestedLine(userId: SbUserId, t: TFunction): React.ReactNode {
 
 function nowFriendsLine(userId: SbUserId, t: TFunction): React.ReactNode {
   return (
-    <Trans t={t} i18nKey='chat.commands.friend.nowFriends'>
+    <Trans t={t} i18nKey='chat.commands.friends.add.nowFriends'>
       You're now friends with{' '}
       <LocalStrong>
         <ConnectedUsername userId={userId} />
@@ -117,7 +117,7 @@ function nowFriendsLine(userId: SbUserId, t: TFunction): React.ReactNode {
 
 function requestSentLine(userId: SbUserId, t: TFunction): React.ReactNode {
   return (
-    <Trans t={t} i18nKey='chat.commands.friend.requestSent'>
+    <Trans t={t} i18nKey='chat.commands.friends.add.requestSent'>
       Friend request sent to{' '}
       <LocalStrong>
         <ConnectedUsername userId={userId} />
@@ -129,7 +129,7 @@ function requestSentLine(userId: SbUserId, t: TFunction): React.ReactNode {
 
 function removedFriendLine(userId: SbUserId, t: TFunction): React.ReactNode {
   return (
-    <Trans t={t} i18nKey='chat.commands.unfriend.removed'>
+    <Trans t={t} i18nKey='chat.commands.friends.remove.removed'>
       Removed{' '}
       <LocalStrong>
         <ConnectedUsername userId={userId} />
@@ -350,28 +350,6 @@ function listFriends({ dispatch, t, emit }: FriendDeps): void {
     }),
   )
 }
-
-export const friendCommand = defineCommand({
-  name: 'friend',
-  description: t => t('chat.commands.friend.description', 'Sends a friend request to a user.'),
-  surfaces: ALL_COMMAND_SURFACES,
-  args: [{ kind: 'user', name: 'user' }],
-
-  run(invocation) {
-    resolveTarget(invocation.args.user, invocation, target => addFriend(target, invocation))
-  },
-})
-
-export const unfriendCommand = defineCommand({
-  name: 'unfriend',
-  description: t => t('chat.commands.unfriend.description', 'Removes a user from your friends.'),
-  surfaces: ALL_COMMAND_SURFACES,
-  args: [{ kind: 'user', name: 'user', exhaustive: true, suggest: getFriendSuggestions }],
-
-  run(invocation) {
-    resolveTarget(invocation.args.user, invocation, target => removeFriend(target, invocation))
-  },
-})
 
 export const friendsCommand = defineCommand({
   name: 'f',

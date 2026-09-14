@@ -381,16 +381,13 @@
         "userLookupFailed": "Couldn't look up <1>{{name}}</1>: {{errorMessage}}",
         "wrongSurface": "<0>{{command}}</0> can only be used in {{surfaces}}."
       },
-      "friend": {
-        "alreadyFriends": "You're already friends with <2><0></0></2>.",
-        "alreadyRequested": "You've already sent <2><0></0></2> a friend request.",
-        "description": "Sends a friend request to a user.",
-        "nowFriends": "You're now friends with <2><0></0></2>.",
-        "requestSent": "Friend request sent to <2><0></0></2>."
-      },
       "friends": {
         "add": {
-          "description": "Sends a friend request, or accepts a pending one."
+          "alreadyFriends": "You're already friends with <2><0></0></2>.",
+          "alreadyRequested": "You've already sent <2><0></0></2> a friend request.",
+          "description": "Sends a friend request, or accepts a pending one.",
+          "nowFriends": "You're now friends with <2><0></0></2>.",
+          "requestSent": "Friend request sent to <2><0></0></2>."
         },
         "description": "Manages your friends list: add, remove, or list them with their current activity.",
         "empty": "Your friends list is empty.",
@@ -400,7 +397,8 @@
         },
         "loadError": "Couldn't load your friends list: {{errorMessage}}",
         "remove": {
-          "description": "Removes a user from your friends."
+          "description": "Removes a user from your friends.",
+          "removed": "Removed <2><0></0></2> from your friends."
         }
       },
       "help": {
@@ -474,10 +472,6 @@
       "unblock": {
         "description": "Unblocks a user.",
         "unblocked": "Unblocked <2><0></0></2>."
-      },
-      "unfriend": {
-        "description": "Removes a user from your friends.",
-        "removed": "Removed <2><0></0></2> from your friends."
       },
       "whisper": {
         "description": "Sends a private message to a user.",

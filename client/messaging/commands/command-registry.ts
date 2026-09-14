@@ -2,7 +2,7 @@ import { ChatCommand, matchesCommandName } from './command-schema'
 import { blockCommand, unblockCommand } from './commands/block'
 import { cancelCommand } from './commands/cancel'
 import { closeCommand } from './commands/close'
-import { friendCommand, friendsCommand, unfriendCommand } from './commands/friend'
+import { friendsCommand } from './commands/friend'
 import { helpCommand } from './commands/help'
 import { joinCommand } from './commands/join'
 import { banCommand, kickCommand } from './commands/kick-ban'
@@ -27,8 +27,6 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   whoisCommand,
   whoCommand,
   whoamiCommand,
-  friendCommand,
-  unfriendCommand,
   friendsCommand,
   blockCommand,
   unblockCommand,
