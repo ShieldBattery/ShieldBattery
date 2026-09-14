@@ -19,6 +19,7 @@ import {
   getRecentGamesForUser,
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
+  wasUserInGame,
 } from './game-models'
 
 vi.mock('../db', () => ({
@@ -544,5 +545,32 @@ describe('games/game-models/getNetcodeV2DebugInfo', () => {
 
     const template = query.mock.calls[0][0]
     expect(template.text).toContain('netcode_v2_requested_regions')
+  })
+})
+
+describe('games/game-models/wasUserInGame', () => {
+  test('is true when the query finds the user in the game, false otherwise', async () => {
+    mockDbClient([{ '?column?': 1 }])
+    expect(await wasUserInGame('game-1', makeSbUserId(7))).toBe(true)
+
+    mockDbClient([])
+    expect(await wasUserInGame('game-1', makeSbUserId(7))).toBe(false)
+  })
+
+  test('accepts a player through their games_users row or an observer through the game config', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(7)
+
+    await wasUserInGame('game-1', userId)
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain(
+      'EXISTS (SELECT 1 FROM games_users gu WHERE gu.game_id = g.id AND gu.user_id =',
+    )
+    // Observers have no games_users row; they're found by containment on the config's observer
+    // list, which takes a one-element JSON array (not a bare scalar) on the right-hand side.
+    expect(template.text).toMatch(/g\.config->'observers' @> \$\d+::jsonb/)
+    expect(template.values).toEqual(['game-1', userId, JSON.stringify([userId])])
   })
 })
