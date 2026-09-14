@@ -57,11 +57,14 @@ import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { Clock, TimeoutId } from '../time/clock'
+import { IN_GAME_DISCONNECT_GRACE_MS } from '../users/activity-status-service'
 import { genShortRandomCode } from '../users/random-code'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import {
   ClientSocketsGroup,
+  ClientSocketsManager,
   UserSocketsGroup,
   UserSocketsManager,
 } from '../websockets/socket-groups'
@@ -269,7 +272,18 @@ export class LobbyService {
   private readonly lobbyJoinCodes = new Map<SbLobbyId, string>()
   /** The inverse of {@link lobbyJoinCodes}, for resolving a typed-in code back to its lobby. */
   private readonly joinCodeToLobby = new Map<string, SbLobbyId>()
+  /**
+   * The in-game members whose client has dropped and whose seat is being held until either the
+   * client comes back or the grace period runs out, keyed by user id.
+   */
+  private readonly pendingDisconnects = new Map<
+    SbUserId,
+    { lobbyId: SbLobbyId; client: ClientSocketsGroup; timer: TimeoutId }
+  >()
 
+  // Every parameter is a dependency the container injects, so the count is a measure of what a
+  // lobby touches rather than of what a caller has to assemble.
+  // eslint-disable-next-line max-params
   constructor(
     private publisher: TypedPublisher<LobbyPublishEvent>,
     private activityRegistry: GameplayActivityRegistry,
@@ -279,6 +293,8 @@ export class LobbyService {
     private netcodeV2Service: NetcodeV2Service,
     private userSockets: UserSocketsManager,
     private gameLifecycleEvents: GameLifecycleEvents,
+    private clientSockets: ClientSocketsManager,
+    private clock: Clock,
   ) {
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
@@ -312,6 +328,13 @@ export class LobbyService {
         this._onGameEnded(gameId)
       } catch (err) {
         logger.error({ err }, "error handling the end of a lobby's game")
+      }
+    })
+    this.clientSockets.on('newClient', client => {
+      try {
+        this._maybeResumeClient(client)
+      } catch (err) {
+        logger.error({ err }, 'error resuming a lobby member whose client reconnected')
       }
     })
 
@@ -736,6 +759,15 @@ export class LobbyService {
   }
 
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
+    this._subscribeClientPathsToLobby(lobby, client)
+    this._subscribeUserPathToLobby(lobby.id, user)
+  }
+
+  /**
+   * Subscribes one client of a member to the channels that carry the lobby itself: the shared lobby
+   * channel (whose initial data is the whole lobby) and the client's own channel.
+   */
+  private _subscribeClientPathsToLobby(lobby: Lobby, client: ClientSocketsGroup) {
     const lobbyId = lobby.id
     client.subscribe(
       getLobbyPath(lobbyId),
@@ -768,19 +800,86 @@ export class LobbyService {
       },
       client => {
         try {
-          this._removeClientFromLobby(this.lobbies.get(lobbyId)!, client)
+          this._onClientClosed(lobbyId, client)
         } catch (err) {
           logger.warn({ err }, 'error removing client from lobby on disconnect')
         }
       },
     )
+    client.subscribe(getLobbyClientPath(lobbyId, client.userId, client.clientId))
+  }
+
+  /** Subscribes a member's user-wide channel, which carries the lobby's summary to their clients. */
+  private _subscribeUserPathToLobby(lobbyId: SbLobbyId, user: UserSocketsGroup) {
     user.subscribe(getLobbyUserPath(lobbyId, user.userId), () => {
       return {
         type: 'status',
         lobby: this._toSummaryJson(this.lobbies.get(lobbyId)!),
       }
     })
-    client.subscribe(getLobbyClientPath(lobbyId, client.userId, client.clientId))
+  }
+
+  /**
+   * Reacts to a member's client losing its last socket. A client that is in the middle of the
+   * lobby's game keeps its seat for {@link IN_GAME_DISCONNECT_GRACE_MS}, so a network blip during a
+   * long game doesn't hand the seat to someone on the bench and regroup the lobby under a game that
+   * is still being played. Every other client is out of the lobby the moment it goes away.
+   */
+  private _onClientClosed(lobbyId: SbLobbyId, client: ClientSocketsGroup) {
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby) {
+      return
+    }
+
+    if (!this.runStates.get(lobbyId)?.inGameUsers.has(client.userId)) {
+      this._removeClientFromLobby(lobby, client)
+      return
+    }
+
+    const timer = this.clock.setTimeout(() => {
+      this.pendingDisconnects.delete(client.userId)
+      const current = this.lobbies.get(lobbyId)
+      if (current && this.lobbyClients.get(client) === lobbyId) {
+        this._removeClientFromLobby(current, client)
+      }
+    }, IN_GAME_DISCONNECT_GRACE_MS)
+    this.pendingDisconnects.set(client.userId, { lobbyId, client, timer })
+  }
+
+  /**
+   * Puts a member whose seat is being held back in their lobby when their client comes back, moving
+   * the membership and the gameplay activity onto the new client group and re-subscribing it.
+   *
+   * Only the client that dropped resumes: a connection under a different client id is another app
+   * instance entirely, which has its own idea of what it is doing and no claim on the held seat.
+   */
+  private _maybeResumeClient(client: ClientSocketsGroup) {
+    const pending = this.pendingDisconnects.get(client.userId)
+    if (!pending || pending.client.clientId !== client.clientId) {
+      return
+    }
+
+    this.clock.clearTimeout(pending.timer)
+    this.pendingDisconnects.delete(client.userId)
+
+    const lobby = this.lobbies.get(pending.lobbyId)
+    if (!lobby) {
+      return
+    }
+
+    this.lobbyClients.delete(pending.client)
+    this.lobbyClients.set(client, lobby.id)
+    this.activityRegistry.rebindClient(client.userId, client)
+
+    this._subscribeClientPathsToLobby(lobby, client)
+    // A user's socket group is created after their first client's, so when the reconnecting client
+    // is the only one they have, there is no user group to subscribe here yet. That path carries
+    // only the lobby's summary for the user's *other* clients, and a user group that doesn't exist
+    // has no other clients to carry it to.
+    const user = this.userSockets.getById(client.userId)
+    if (user) {
+      this._subscribeUserPathToLobby(lobby.id, user)
+    }
   }
 
   async sendChat({
@@ -1585,8 +1684,18 @@ export class LobbyService {
     removalType = REMOVAL_TYPE_NORMAL,
     seatFromBench = true,
   ) {
-    // Someone who disappears mid-game is out of it as far as the lobby is concerned, or the lobby
-    // would sit `inGame` forever waiting on a client that is never coming back.
+    const pending = this.pendingDisconnects.get(client.userId)
+    if (pending?.client === client) {
+      // However this removal came about, the client it names is gone from the lobby now, so there
+      // is no seat left to hold for it.
+      this.clock.clearTimeout(pending.timer)
+      this.pendingDisconnects.delete(client.userId)
+    }
+
+    // A client whose socket closes mid-game starts a grace period instead of arriving here, so a
+    // member removed while the game runs is one whose grace ran out or who left outright. Either
+    // way they are out of the game as far as the lobby is concerned, or it would sit `inGame`
+    // forever waiting on a client that is never coming back.
     const wasInGame = this.runStates.get(lobby.id)?.inGameUsers.delete(client.userId) ?? false
 
     const [teamIndex, slotIndex, player] = findSlotByUserId(lobby, client.userId)

@@ -25,6 +25,8 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
+import { IN_GAME_DISCONNECT_GRACE_MS } from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
 import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { findUsersById } from '../users/user-model'
@@ -168,6 +170,8 @@ describe('lobbies/lobby-service', () => {
   let gameLifecycleEvents: GameLifecycleEvents
   /** The registry the service holds gameplay activity in, so tests can check who is in one. */
   let activityRegistry: GameplayActivityRegistry
+  /** The clock the service schedules its timeouts on, so tests can drive them. */
+  let clock: FakeClock
 
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
   let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
@@ -255,6 +259,9 @@ describe('lobbies/lobby-service', () => {
     vi.useFakeTimers()
     lobbyService.startCountdown({ client: sockets.client })
     await vi.advanceTimersByTimeAsync(5000)
+    // `FakeClock` waits on a real timer between the tasks it runs, which never comes back while
+    // vitest is faking timers, so the countdown gives them back as soon as it's done with them.
+    vi.useRealTimers()
   }
 
   /** Signals that one member's game is over, the way the games code does when a report lands. */
@@ -268,6 +275,12 @@ describe('lobbies/lobby-service', () => {
     const sessionLookup = new RequestSessionLookup()
     const clientSockets = new ClientSocketsManager(nydus, sessionLookup)
     const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
+
+    clock = new FakeClock()
+    // Timeouts are driven by hand: run automatically, every one of them would fire as a microtask
+    // as soon as it was scheduled, no matter how far off its deadline is.
+    clock.autoRunTimeouts = false
+    clock.setCurrentTime(Number(new Date('2022-08-31T00:00:00.000Z')))
 
     loadGameRequests = []
     loadGameMock = vi.fn<(request: GameLoadRequest) => Promise<unknown>>(async request => {
@@ -293,6 +306,8 @@ describe('lobbies/lobby-service', () => {
       } as unknown as NetcodeV2Service,
       userSockets,
       gameLifecycleEvents,
+      clientSockets,
+      clock,
     )
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
@@ -2083,6 +2098,28 @@ describe('lobbies/lobby-service', () => {
       return id
     }
 
+    /**
+     * The initial data a socket was handed when it was subscribed to a lobby's own channel, which
+     * is everything a client needs to render the lobby it just (re)joined.
+     */
+    async function lobbyInitFor(socket: InspectableNydusClient, id: SbLobbyId) {
+      const call = fakeNydus.subscribeClient.mock.calls.find(
+        ([client, path]) => client === socket && path === `/lobbies/${id}`,
+      )
+      return await call?.[2]
+    }
+
+    /**
+     * Runs every timeout due within `ms`, leaving the clock exactly `ms` later. The extra timeout
+     * is what stops it there: the clock only moves by running a task, so with nothing scheduled at
+     * that moment it would run whatever comes next instead, however far off that is.
+     */
+    async function advanceClockBy(ms: number) {
+      const timeMillis = clock.now() + ms
+      clock.setTimeout(() => {}, ms)
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.TimeReached, timeMillis })
+    }
+
     test('a started game keeps the lobby, with everyone in it and in their activity', async () => {
       const id = await createLobbyInGame()
 
@@ -2285,7 +2322,24 @@ describe('lobbies/lobby-service', () => {
       expect(lobby.host.userId).toBe(JOINER_USER.id)
     })
 
-    test('the last in-game member disconnecting regroups the lobby', async () => {
+    test('a socket drop during the game keeps the member seated', async () => {
+      const id = await createLobbyInGame()
+      await joinLobby(otherHost, id)
+      fakeNydus.publish.mockClear()
+
+      joiner.socket.disconnect()
+
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+      expect(lobbyService.lobbyClients.get(joiner.client)).toBe(id)
+      // Nothing about the lobby changed, so its occupants are told nothing.
+      expect(lobbyPublishes(id)).toEqual([])
+    })
+
+    test('a socket drop that outlasts the grace period removes the member', async () => {
       const id = await createLobbyInGame()
       await joinLobby(otherHost, id)
       endGameFor(host)
@@ -2293,12 +2347,76 @@ describe('lobbies/lobby-service', () => {
 
       // An app that dies mid-game never reports anything; only its socket closing says it is gone.
       joiner.socket.disconnect()
+      await advanceClockBy(IN_GAME_DISCONNECT_GRACE_MS)
 
       expect(lobbyService.runStates.has(id)).toBe(false)
       expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
       expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]!.type).toBe('human')
+    })
+
+    test('the same client reconnecting within the grace period takes its seat back', async () => {
+      const id = await createLobbyInGame()
+      joiner.socket.disconnect()
+
+      const reconnected = connect(JOINER_USER, 'JOINER_CLIENT')
+
+      expect(lobbyService.lobbyClients.get(reconnected.client)).toBe(id)
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+      expect(activityRegistry.getClientForUser(JOINER_USER.id)).toBe(reconnected.client)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+      // The reconnected client knows nothing about the lobby until it is sent the whole thing.
+      await expect(lobbyInitFor(reconnected.socket, id)).resolves.toMatchObject({
+        type: 'init',
+        lobby: expect.objectContaining({ id }),
+        runState: expect.objectContaining({ gameId: 'test-game-id' }),
+      })
+
+      await advanceClockBy(IN_GAME_DISCONNECT_GRACE_MS)
+
+      expect(lobbyService.lobbyClients.get(reconnected.client)).toBe(id)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+    })
+
+    test('a reconnect under a different client id leaves the held seat alone', async () => {
+      const id = await createLobbyInGame()
+      joiner.socket.disconnect()
+
+      // Another app instance of the same user is not the client that was playing the game.
+      const secondClient = connectSecondClient(JOINER_USER)
+
+      expect(lobbyService.lobbyClients.has(secondClient.client)).toBe(false)
+      expect(lobbyService.lobbyClients.get(joiner.client)).toBe(id)
+
+      await advanceClockBy(IN_GAME_DISCONNECT_GRACE_MS)
+
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('a socket drop with no game to be in removes the member right away', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      joiner.socket.disconnect()
+
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+    })
+
+    test("a socket drop after the member's own game ended removes them right away", async () => {
+      const id = await createLobbyInGame()
+      endGameFor(joiner)
+
+      joiner.socket.disconnect()
+
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
     })
 
     test('a lobby that empties during its game drops its run state', async () => {

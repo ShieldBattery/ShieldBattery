@@ -38,6 +38,29 @@ export class GameplayActivityRegistry {
   }
 
   /**
+   * Moves a user's registered activity onto another of their clients, keeping the activity and the
+   * status it was registered with. The user never stopped doing what they were doing, so their
+   * published status is left exactly as it is — a game running on top of the activity has
+   * overridden it with in-game, and re-announcing the activity's own status here would throw that
+   * away.
+   *
+   * @returns true if the user had a registered activity to move, false otherwise.
+   */
+  rebindClient(userId: SbUserId, client: ClientSocketsGroup): boolean {
+    if (!client.isConnected()) {
+      throw new Error('Cannot register a disconnected client')
+    }
+
+    const registered = this.userClients.get(userId)
+    if (!registered) {
+      return false
+    }
+
+    this.userClients.set(userId, { client, status: registered.status })
+    return true
+  }
+
+  /**
    * Unregisters the active client for a user.
    *
    * @returns true if a client was registered for that user, false otherwise.
