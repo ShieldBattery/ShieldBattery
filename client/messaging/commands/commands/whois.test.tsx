@@ -69,6 +69,7 @@ const channelContext: ChannelCommandContext = {
   members: [],
   canKick: false,
   canBan: false,
+  canEditChannel: false,
 }
 
 interface FakeChannel {

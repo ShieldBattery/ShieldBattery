@@ -52,6 +52,7 @@ const channelContext: ChannelCommandContext = {
   members: [{ id: TARGET_ID, name: 'tec27', online: true }],
   canKick: false,
   canBan: false,
+  canEditChannel: false,
 }
 
 const state = {

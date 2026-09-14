@@ -36,6 +36,7 @@ const channelContext: ChannelCommandContext = {
   members: [{ id: makeSbUserId(2), name: 'tec27', online: true }],
   canKick: true,
   canBan: true,
+  canEditChannel: false,
 }
 
 const whisperContext: WhisperCommandContext = {

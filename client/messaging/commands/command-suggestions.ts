@@ -122,7 +122,7 @@ export function getArgSuggestions(
       return arg.values.map(value => ({ value }))
 
     case 'subcommand':
-      return arg.options.map(option => ({ value: option.name }))
+      return arg.options.map(option => ({ value: option.name, aliases: option.aliases }))
 
     case 'word':
     case 'rest':
@@ -145,10 +145,26 @@ export function isExhaustiveArg(arg: CommandArg): boolean {
   return arg.kind === 'enum' || arg.kind === 'subcommand' || arg.exhaustive === true
 }
 
-/** Narrows suggestions to those answering `query` (see rankByQuery over `value`). Uncapped. */
+/** Whether `query` spells the suggestion's value or one of its aliases out in full, in any case. */
+export function spellsArgSuggestion(suggestion: ArgSuggestion, query: string): boolean {
+  const lowered = query.toLowerCase()
+  return (
+    suggestion.value.toLowerCase() === lowered ||
+    (suggestion.aliases?.some(alias => alias.toLowerCase() === lowered) ?? false)
+  )
+}
+
+/**
+ * Narrows suggestions to those answering `query` (see rankByQuery over `value` and `aliases`).
+ * Uncapped.
+ */
 export function filterArgSuggestions(
   suggestions: ReadonlyArray<ArgSuggestion>,
   query: string,
 ): ArgSuggestion[] {
-  return rankByQuery(suggestions, suggestion => [suggestion.value], query)
+  return rankByQuery(
+    suggestions,
+    suggestion => [suggestion.value, ...(suggestion.aliases ?? [])],
+    query,
+  )
 }

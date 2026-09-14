@@ -32,6 +32,12 @@ export interface ChannelCommandContext {
   canKick: boolean
   /** Same as `canKick`, for Ban (`editPermissions` or `ban`). */
   canBan: boolean
+  /**
+   * Whether this user can edit the channel itself (its topic and description): the channel owner or
+   * a server moderator, which is the rule the edit-channel endpoint applies. Narrower than the
+   * per-user `changeTopic` channel permission, which no endpoint honours yet.
+   */
+  canEditChannel: boolean
 }
 
 export interface WhisperCommandContext {

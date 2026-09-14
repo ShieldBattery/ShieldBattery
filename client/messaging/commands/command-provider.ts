@@ -20,6 +20,7 @@ import {
   getArgSuggestions,
   isExhaustiveArg,
   matchCommands,
+  spellsArgSuggestion,
 } from './command-suggestions'
 
 export interface CommandProviderDeps {
@@ -162,7 +163,7 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
             ? { kind: 'user', userId: suggestion.user.id, online: suggestion.user.online }
             : { kind: 'plain' },
           insertText: `${prefix}${suggestion.value} `,
-          exact: query.toLowerCase() === suggestion.value.toLowerCase(),
+          exact: spellsArgSuggestion(suggestion, query),
         }))
 
       return {

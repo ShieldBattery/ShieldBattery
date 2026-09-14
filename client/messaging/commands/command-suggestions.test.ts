@@ -42,6 +42,7 @@ function channelContext(canModerate = false): ChannelCommandContext {
     ],
     canKick: canModerate,
     canBan: canModerate,
+    canEditChannel: false,
   }
 }
 
@@ -124,10 +125,17 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'friend',
+      'unfriend',
+      'f',
+      'block',
+      'unblock',
       'leave',
       'kick',
       'ban',
+      'unban',
       'me',
+      'cancel',
     ])
     expect(matchCommands(ALL_COMMANDS, whisperContext, '', t).map(c => c.name)).toEqual([
       'help',
@@ -139,8 +147,14 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'friend',
+      'unfriend',
+      'f',
+      'block',
+      'unblock',
       'close',
       'me',
+      'cancel',
     ])
     expect(matchCommands(ALL_COMMANDS, lobbyContext, '', t).map(c => c.name)).toEqual([
       'help',
@@ -152,8 +166,14 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'friend',
+      'unfriend',
+      'f',
+      'block',
+      'unblock',
       'leave',
       'me',
+      'cancel',
     ])
   })
 
@@ -223,6 +243,7 @@ describe('messaging/commands/command-suggestions/getArgSuggestions', () => {
       ],
       canKick: false,
       canBan: false,
+      canEditChannel: false,
     }
 
     expect(getArgSuggestions(arg, deps(context))).toEqual([

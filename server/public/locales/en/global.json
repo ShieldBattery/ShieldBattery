@@ -352,6 +352,19 @@
         "noPermission": "You don't have permission to ban users from this channel.",
         "noSelfBan": "You can't ban yourself."
       },
+      "block": {
+        "alreadyBlocked": "<0><0></0></0> is already blocked.",
+        "blocked": "Blocked <2><0></0></2>. Their messages are hidden here and in any game you launch from now on.",
+        "blockedAgain": "Blocked <2><0></0></2> again.",
+        "description": "Blocks a user: hides their messages here and in any game you launch."
+      },
+      "cancel": {
+        "alreadyMatched": "A match has already been found, so the search can't be cancelled.",
+        "cancelled": "Matchmaking search cancelled.",
+        "description": "Cancels your current matchmaking search.",
+        "error": "Couldn't cancel the search: {{errorMessage}}",
+        "notSearching": "You aren't searching for a match."
+      },
       "close": {
         "description": "Closes this whisper conversation.",
         "error": "Couldn't close the conversation: {{errorMessage}}"
@@ -367,6 +380,28 @@
         "unknownCommand": "Unknown command <1>{{command}}</1>. Type <4>/help</4> for a list of commands.",
         "userLookupFailed": "Couldn't look up <1>{{name}}</1>: {{errorMessage}}",
         "wrongSurface": "<0>{{command}}</0> can only be used in {{surfaces}}."
+      },
+      "friend": {
+        "alreadyFriends": "You're already friends with <2><0></0></2>.",
+        "alreadyRequested": "You've already sent <2><0></0></2> a friend request.",
+        "description": "Sends a friend request to a user.",
+        "nowFriends": "You're now friends with <2><0></0></2>.",
+        "requestSent": "Friend request sent to <2><0></0></2>."
+      },
+      "friends": {
+        "add": {
+          "description": "Sends a friend request, or accepts a pending one."
+        },
+        "description": "Manages your friends list: add, remove, or list them with their current activity.",
+        "empty": "Your friends list is empty.",
+        "header": "Friends ({{online}} online, {{offline}} offline):",
+        "list": {
+          "description": "Lists your friends and what they are doing."
+        },
+        "loadError": "Couldn't load your friends list: {{errorMessage}}",
+        "remove": {
+          "description": "Removes a user from your friends."
+        }
       },
       "help": {
         "aliasesLabel": "Also",
@@ -398,6 +433,23 @@
       "rank": {
         "description": "Shows a user's current ranked divisions."
       },
+      "relationships": {
+        "acceptFailed": "Couldn't accept <2><0></0></2>'s friend request: {{errorMessage}}",
+        "blockedByUser": "<0><0></0></0> has blocked you.",
+        "blockFailed": "Couldn't block <2><0></0></2>: {{errorMessage}}",
+        "friendFailed": "Couldn't send a friend request to <2><0></0></2>: {{errorMessage}}",
+        "maxBlocks": "You've reached the maximum of {{max}} blocked users.",
+        "maxFriends": "You've reached the maximum of {{max}} friends.",
+        "noFriendRequest": "<0><0></0></0> hasn't sent you a friend request.",
+        "notBlocked": "<0><0></0></0> isn't blocked.",
+        "notOnFriendsList": "<0><0></0></0> isn't on your friends list.",
+        "selfBlock": "You can't block yourself.",
+        "selfFriend": "You can't send yourself a friend request.",
+        "selfUnblock": "You can't unblock yourself.",
+        "selfUnfriend": "You can't remove yourself from your friends.",
+        "unblockFailed": "Couldn't unblock <2><0></0></2>: {{errorMessage}}",
+        "unfriendFailed": "Couldn't remove <2><0></0></2> from your friends: {{errorMessage}}"
+      },
       "stats": {
         "description": "Shows a user's win/loss record and ranks."
       },
@@ -405,6 +457,27 @@
         "channel": "channels",
         "lobby": "lobbies",
         "whisper": "whispers"
+      },
+      "topic": {
+        "description": "Sets this channel's topic.",
+        "error": "Couldn't set the topic: {{errorMessage}}",
+        "noPermission": "Only the channel owner and server moderators can change the topic.",
+        "set": "Topic set to: <1>{{topic}}</1>"
+      },
+      "unban": {
+        "description": "Lifts a user's ban from this channel.",
+        "error": "Couldn't unban <2><0></0></2>: {{errorMessage}}",
+        "noPermission": "You don't have permission to unban users from this channel.",
+        "notBanned": "<0><0></0></0> isn't banned from this channel.",
+        "unbanned": "<0><0></0></0> is no longer banned from this channel."
+      },
+      "unblock": {
+        "description": "Unblocks a user.",
+        "unblocked": "Unblocked <2><0></0></2>."
+      },
+      "unfriend": {
+        "description": "Removes a user from your friends.",
+        "removed": "Removed <2><0></0></2> from your friends."
       },
       "whisper": {
         "description": "Sends a private message to a user.",

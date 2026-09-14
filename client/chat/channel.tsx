@@ -276,6 +276,7 @@ export function ConnectedChatChannel({
         canKick:
           canModerateChannel || !!(selfPermissions?.editPermissions || selfPermissions?.kick),
         canBan: canModerateChannel || !!(selfPermissions?.editPermissions || selfPermissions?.ban),
+        canEditChannel: canModerateChannel,
       }
     : undefined
 
