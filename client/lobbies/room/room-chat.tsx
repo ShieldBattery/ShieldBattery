@@ -3,8 +3,9 @@ import * as React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { isTeamType } from '../../../common/games/game-type'
 import { getGameDurationString } from '../../../common/games/games'
-import { findSlotByUserId, Lobby } from '../../../common/lobbies'
+import { findSlotByUserId, isUms, Lobby } from '../../../common/lobbies'
 import { LobbyChangedSetting, LobbySeriesPlayerJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -250,7 +251,11 @@ const VictoryActions = styled.div`
   gap: 4px;
 `
 
-/** Describes where in the lobby a member is sitting right now, e.g. `Team 2 · Bottom`. */
+/**
+ * Describes where in the lobby a member is sitting right now, e.g. `Team 2 · Bottom`, or nothing
+ * when there is nothing to say: a Melee, FFA or 1v1 lobby seats everyone on one unnamed team, so
+ * naming it would only tell the reader they are in the lobby they can already see.
+ */
 function seatDescription(lobby: Lobby, userId: SbUserId, t: TFunction): string | undefined {
   const found = findSlotByUserId(lobby, userId)
   if (found.length !== 3) {
@@ -261,6 +266,9 @@ function seatDescription(lobby: Lobby, userId: SbUserId, t: TFunction): string |
   const team = lobby.teams[teamIndex]
   if (team.isObserver) {
     return t('lobbies.room.chat.watching', 'watching')
+  }
+  if (!isTeamType(lobby.gameType) && !isUms(lobby.gameType)) {
+    return undefined
   }
 
   return lobbyTeamLabel(team, t)
