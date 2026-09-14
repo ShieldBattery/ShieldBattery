@@ -42,14 +42,13 @@ export const lobbyPageMetadata: PageMetadataResolver = async (params, context) =
   const gameTypeLabel = gameTypeToLabel(summary.gameType, englishT)
   const openSlots = summary.playerSlots.open
   const slotWord = openSlots === 1 ? 'slot' : 'slots'
+  const status = summary.lifecycle === 'inGame' ? 'in game' : `${openSlots} open ${slotWord}`
 
   return {
     url: context.canonicalHost + urlForLobby(summary.id, summary.name),
     type: 'website',
     title: summary.name,
-    description:
-      `${gameTypeLabel} lobby on ${summary.map.name} — ${openSlots} open ` +
-      `${slotWord}. Hosted by ${host.name}.`,
+    description: `${gameTypeLabel} lobby on ${summary.map.name} — ${status}. Hosted by ${host.name}.`,
     // `summary.map` is the same `MapInfoJson` the game/league resolvers use, so the same fallback
     // chain applies directly — no separate server-side map lookup is needed here.
     image:

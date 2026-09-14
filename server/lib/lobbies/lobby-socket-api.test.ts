@@ -9,11 +9,13 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
+import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { FakeClock } from '../time/testing/fake-clock'
 import { RestrictionService } from '../users/restriction-service'
 import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { findUsersById } from '../users/user-model'
@@ -108,6 +110,11 @@ describe('lobbies/lobby-socket-api', () => {
     clientSockets = new ClientSocketsManager(nydus, sessionLookup)
     userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
 
+    const clock = new FakeClock()
+    // Timeouts are driven by hand: run automatically, every one of them would fire as a microtask
+    // as soon as it was scheduled, no matter how far off its deadline is.
+    clock.autoRunTimeouts = false
+
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
       new GameplayActivityRegistry(createFakeActivityStatusService()),
@@ -116,6 +123,9 @@ describe('lobbies/lobby-socket-api', () => {
       { getRegions: async () => [] } as unknown as GameServerRegionsService,
       { warmRegions: () => {} } as unknown as NetcodeV2Service,
       userSockets,
+      new GameLifecycleEvents(),
+      clientSockets,
+      clock,
     )
     // The API resolves its service from the container, so the instance under test has to be
     // registered before it's constructed.

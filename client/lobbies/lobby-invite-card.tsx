@@ -51,10 +51,11 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
   return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
 }
 
-// The info column stacks 3 rows (lobby name, host/game type, open slot count) separated by the
-// shared info gap; their combined height comes straight from the typography tokens those rows
-// render with (`titleSmall`/`bodySmall`'s `line-height`, see client/styles/typography.ts) rather
-// than a guessed number, so it stays correct if either token's line-height ever changes.
+// The info column stacks 3 rows (lobby name, host/game type, open slots or in-game status)
+// separated by the shared info gap; their combined height comes straight from the typography
+// tokens those rows render with (`titleSmall`/`bodySmall`'s `line-height`, see
+// client/styles/typography.ts) rather than a guessed number, so it stays correct if either
+// token's line-height ever changes.
 const LOBBY_NAME_LINE_HEIGHT = 20 // titleSmall
 const SECONDARY_LINE_HEIGHT = 16 // bodySmall
 const INFO_STACK_HEIGHT =
@@ -92,6 +93,7 @@ export interface LobbyInviteDisplayData {
   gameType: GameType
   hostName: string
   openSlotCount: number
+  inGame: boolean
 }
 
 /**
@@ -116,10 +118,12 @@ function LobbyInviteCardBody({
   const dispatch = useAppDispatch()
 
   const hostAndGameType = `${display.hostName} · ${gameTypeToLabel(display.gameType, t)}`
-  const slotsText = t('lobbies.joinLobby.openSlotCount', {
-    defaultValue: '{{count}} slots open',
-    count: display.openSlotCount,
-  })
+  const statusText = display.inGame
+    ? t('lobbies.lobby.inGame', 'In game')
+    : t('lobbies.joinLobby.openSlotCount', {
+        defaultValue: '{{count}} slots open',
+        count: display.openSlotCount,
+      })
 
   return (
     <InlineCardRoot $height={CARD_HEIGHT}>
@@ -134,7 +138,7 @@ function LobbyInviteCardBody({
       <InlineCardInfoColumn>
         <InlineCardTitle title={display.name}>{display.name}</InlineCardTitle>
         <InlineCardSecondaryLine title={hostAndGameType}>{hostAndGameType}</InlineCardSecondaryLine>
-        <InlineCardSecondaryLine title={slotsText}>{slotsText}</InlineCardSecondaryLine>
+        <InlineCardSecondaryLine title={statusText}>{statusText}</InlineCardSecondaryLine>
       </InlineCardInfoColumn>
       {joinButton.joined ? (
         <JoinButton
@@ -199,6 +203,7 @@ export function LobbyInviteCardContent({
         gameType: lobby.gameType,
         hostName: host.name,
         openSlotCount: lobby.playerSlots.open,
+        inGame: lobby.lifecycle === 'inGame',
       }}
       joinButton={{ joined: false, onClick: onJoinClick }}
     />
@@ -262,6 +267,7 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
 function OwnLobbyInviteCard() {
   const info = useAppSelector(s => s.lobby.info)
   const hostName = useAppSelector(s => s.users.byId.get(info.host.userId!)?.name) ?? ''
+  const inGame = useAppSelector(s => s.lobby.runState !== undefined)
 
   return (
     <LobbyInviteJoinedCard
@@ -271,6 +277,7 @@ function OwnLobbyInviteCard() {
         gameType: info.gameType,
         hostName,
         openSlotCount: countOpenLobbySlots(info),
+        inGame,
       }}
     />
   )

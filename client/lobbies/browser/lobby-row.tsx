@@ -9,6 +9,7 @@ import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { HostCrown, LobbyChip } from './browser-parts'
+import { InGameChip } from './in-game-chip'
 import { LobbySummary } from './summary-utils'
 
 const RowRoot = styled.button<{ $selected: boolean }>`
@@ -216,6 +217,9 @@ const StatusSlot = styled.div`
 function StatusBadge({ summary }: { summary: LobbySummary }) {
   const { t } = useTranslation()
 
+  if (summary.lifecycle === 'inGame') {
+    return <InGameChip elapsedMs={summary.elapsedMs} />
+  }
   // Player seats, not overall joinability: the badge explains why a lobby's count reads 8/8.
   // When an open observer seat is what's keeping the lobby in the default (joinable) view, say
   // that instead — it covers both why the count is maxed and why the lobby is still listed.

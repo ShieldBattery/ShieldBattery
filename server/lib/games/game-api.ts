@@ -58,6 +58,7 @@ import { ActivityStatusService } from '../users/activity-status-service'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from './game-list-data'
 import { GameLoader } from './game-loader'
 import {
@@ -65,6 +66,7 @@ import {
   getGames,
   getNetcodeV2DebugInfo,
   getNetcodeV2Session,
+  wasUserInGame,
 } from './game-models'
 import {
   GamePointsRefundErrorCode,
@@ -235,6 +237,7 @@ export class GameApi {
     private gamePointsRefundService: GamePointsRefundService,
     private netcodeV2Service: NetcodeV2Service,
     private activityStatusService: ActivityStatusService,
+    private gameLifecycleEvents: GameLifecycleEvents,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -510,8 +513,8 @@ export class GameApi {
     }
 
     if (
-      ((status >= GameStatus.Launching && status <= GameStatus.Playing) ||
-        status === GameStatus.Error) &&
+      status >= GameStatus.Launching &&
+      status <= GameStatus.Playing &&
       !this.gameLoader.isLoadingOrRecentlyLoaded(gameId)
     ) {
       throw new httpErrors.Conflict('game must be loading')
@@ -535,10 +538,30 @@ export class GameApi {
     } else if (status === GameStatus.Error) {
       // A launch failure is local to the reporting client and no relay ever sees it, so this stays
       // the client's own report for every game — and it's the reporter admitting fault, not
-      // accusing anyone else.
-      if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
+      // accusing anyone else. During a load, an error report cancels the load (and assigns fault; a
+      // no-op otherwise). After the load is done the game is no longer the loader's concern, but the
+      // report still means the reporter's game is over - e.g. a crash mid-game - so it is accepted
+      // rather than rejected, or the game-end signal below would never fire for clients that die
+      // instead of finishing. The return value is ignored: it's false both when the game is no
+      // longer loading and when the reporter was never a participant in it, and those two cases
+      // can't be told apart from this call alone — the game-user record check below is what tells
+      // them apart.
+      this.gameLoader.maybeCancelLoading(gameId, user.id)
+    }
+
+    if (status === GameStatus.Finished || status === GameStatus.Error) {
+      // The report ends the reporter's own participation, so it has to be for a game they actually
+      // hold. The game record and its players' rows are written when the game is registered, before
+      // any client is told to launch, so both a load-time error and a post-load finish find them
+      // here. Observers count too: they have no row of their own, but the lobby they came from
+      // waits on their game ending just like a player's.
+      if (!(await wasUserInGame(gameId, user.id))) {
         throw new httpErrors.NotFound('game not found')
       }
+
+      // The reporter's game is over one way or the other, so anything waiting on them (a lobby that
+      // regroups when its game ends) can stop waiting.
+      this.gameLifecycleEvents.emit('userGameEnded', { gameId, userId: user.id })
     }
 
     ctx.status = 204

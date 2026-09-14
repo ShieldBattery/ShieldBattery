@@ -22,6 +22,7 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.ComputerInObserverSlot]: { status: 400 },
   [LobbyServiceErrorCode.CountingDown]: { status: 409 },
   [LobbyServiceErrorCode.ForcedRace]: { status: 403 },
+  [LobbyServiceErrorCode.GameInProgress]: { status: 409 },
   [LobbyServiceErrorCode.InvalidGameSubType]: { status: 400 },
   [LobbyServiceErrorCode.InvalidGameType]: { status: 400 },
   [LobbyServiceErrorCode.InvalidMap]: { status: 400 },

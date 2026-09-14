@@ -42,6 +42,7 @@ const MOCK_JOINED_DISPLAY: LobbyInviteDisplayData = {
   gameType: MOCK_LOBBY_SUMMARY.summary.gameType,
   hostName: MOCK_LOBBY_SUMMARY.host.name,
   openSlotCount: MOCK_LOBBY_SUMMARY.summary.playerSlots.open,
+  inGame: false,
 }
 
 export function LobbyInviteCardTest() {

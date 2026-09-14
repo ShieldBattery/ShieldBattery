@@ -15,8 +15,11 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 /**
  * How long a user stays in the in-game state after the client that was playing the game
  * disconnects, so that a short network blip doesn't bounce them out of (and back into) that state.
+ *
+ * A lobby holds an in-game member's seat for the same grace period, so that presence and lobby
+ * membership agree about when a dropped player is gone.
  */
-const IN_GAME_DISCONNECT_GRACE_MS = 60_000
+export const IN_GAME_DISCONNECT_GRACE_MS = 60_000
 
 export function getFriendActivityStatusPath(userId: SbUserId): string {
   return `/friends/status/${userId}`

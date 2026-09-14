@@ -33,6 +33,15 @@ class UnifiedTicker {
 }
 const unifiedTicker = new UnifiedTicker()
 
+/**
+ * Registers a callback on the shared once-a-second tick, returning an unregister function. Every
+ * per-second readout sharing this one timer keeps them advancing in lockstep instead of drifting
+ * apart on timers of their own.
+ */
+export function registerSecondsListener(callback: () => void): () => void {
+  return unifiedTicker.register(callback)
+}
+
 export interface ElapsedTimeProps {
   /**
    * A prefix

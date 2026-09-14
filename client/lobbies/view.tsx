@@ -97,7 +97,9 @@ export function LobbyView(props: LobbyViewProps) {
     }
   }, [isLeavingLobby, isActiveGame])
   useEffect(() => {
-    if (!isActiveGame && prevIsActiveGame) {
+    if (!isActiveGame && prevIsActiveGame && !inLobby) {
+      // A member whose lobby survived its game is already looking at it (this view only mounts on
+      // the lobby's route), so only someone no longer in it moves on to the results.
       if (prevGameClientGameId) {
         navigateToGameResults(
           prevGameClientGameId,
@@ -109,7 +111,7 @@ export function LobbyView(props: LobbyViewProps) {
         replace('/')
       }
     }
-  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame])
+  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame, inLobby])
 
   const isConnected = useAppSelector(s => s.network.isConnected)
   useEffect(() => {
@@ -157,6 +159,7 @@ function ConnectedLobby() {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const lobby = useAppSelector(s => s.lobby.info)
+  const runState = useAppSelector(s => s.lobby.runState)
   const loadingState = useAppSelector(s => s.lobby.loadingState)
   const chat = useAppSelector(s => s.lobby.chat)
 
@@ -165,6 +168,7 @@ function ConnectedLobby() {
   return (
     <LobbyComponent
       lobby={lobby}
+      runState={runState}
       loadingState={loadingState}
       chat={chat}
       user={selfUser!}

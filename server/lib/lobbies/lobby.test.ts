@@ -159,7 +159,7 @@ const expectedSlotCounts = (lobby: Lobby) => {
 }
 
 const evaluateSummarizedJson = (lobby: Lobby, openPlayerSlotCount: number) => {
-  const json = JSON.stringify(toSummaryJson(lobby))
+  const json = JSON.stringify(toSummaryJson(lobby, 'gathering'))
   const parsed = JSON.parse(json)
 
   const hostId = lobby.host.userId
@@ -176,15 +176,16 @@ const evaluateSummarizedJson = (lobby: Lobby, openPlayerSlotCount: number) => {
     host: { id: hostId },
     useLegacyLimits: lobby.useLegacyLimits,
     ...counts,
+    lifecycle: 'gathering',
     createdAt: lobby.createdAt,
   })
 }
 
 const evaluatePreviewJson = (lobby: Lobby) => {
-  const parsed = JSON.parse(JSON.stringify(toPreviewJson(lobby)))
+  const parsed = JSON.parse(JSON.stringify(toPreviewJson(lobby, toSummaryJson(lobby, 'gathering'))))
 
   expect(parsed).toEqual({
-    ...JSON.parse(JSON.stringify(toSummaryJson(lobby))),
+    ...JSON.parse(JSON.stringify(toSummaryJson(lobby, 'gathering'))),
     teams: lobby.teams.map(team => ({
       name: team.name,
       isObserver: team.isObserver,
@@ -278,8 +279,8 @@ describe('Lobbies - melee', () => {
       visibility: 'unlisted',
     })
 
-    expect(toSummaryJson(BOXER_LOBBY)).not.toHaveProperty('visibility')
-    expect(toSummaryJson(unlisted)).not.toHaveProperty('visibility')
+    expect(toSummaryJson(BOXER_LOBBY, 'gathering')).not.toHaveProperty('visibility')
+    expect(toSummaryJson(unlisted, 'gathering')).not.toHaveProperty('visibility')
   })
 
   test('should find available slot', () => {
@@ -1800,10 +1801,19 @@ describe('Lobbies - observers', () => {
 })
 
 describe('Lobbies - toSummaryJson', () => {
+  test('carries the lifecycle it is given, and only carries elapsedMs when it is inGame', () => {
+    expect(toSummaryJson(BOXER_LOBBY, 'gathering').lifecycle).toBe('gathering')
+    expect(toSummaryJson(BOXER_LOBBY, 'countingDown').lifecycle).toBe('countingDown')
+    expect(toSummaryJson(BOXER_LOBBY, 'countingDown', 1234)).not.toHaveProperty('elapsedMs')
+    expect(toSummaryJson(BOXER_LOBBY, 'inGame').lifecycle).toBe('inGame')
+    expect(toSummaryJson(BOXER_LOBBY, 'inGame')).not.toHaveProperty('elapsedMs')
+    expect(toSummaryJson(BOXER_LOBBY, 'inGame', 1234).elapsedMs).toBe(1234)
+  })
+
   test('counts player seats without folding in the observer team', () => {
     const lobby = makeObserver(BOXER_LOBBY_WITH_OBSERVERS, 0, 0)
 
-    const json = toSummaryJson(lobby)
+    const json = toSummaryJson(lobby, 'gathering')
 
     // The host moved from a player seat to an observer one, so the player seats lose an occupant
     // and gain nothing: an observer team of its own size must not inflate the lobby's capacity.
@@ -1815,11 +1825,11 @@ describe('Lobbies - toSummaryJson', () => {
   test('reports an observer team whose seats are all closed', () => {
     // Nothing about the counts distinguishes this from a lobby with no observer team at all, which
     // is why the flag is on the wire in its own right.
-    const json = toSummaryJson(BOXER_LOBBY_WITH_OBSERVERS)
+    const json = toSummaryJson(BOXER_LOBBY_WITH_OBSERVERS, 'gathering')
 
     expect(json.observerSlots).toEqual({ taken: 0, open: 0 })
     expect(json.hasObserverTeam).toBe(true)
-    expect(toSummaryJson(BOXER_LOBBY).hasObserverTeam).toBe(false)
+    expect(toSummaryJson(BOXER_LOBBY, 'gathering').hasObserverTeam).toBe(false)
   })
 
   test('lists every seated person once, players and observers alike, in seating order', () => {
@@ -1828,7 +1838,7 @@ describe('Lobbies - toSummaryJson', () => {
     let lobby = addPlayer(BOXER_LOBBY_WITH_OBSERVERS, t1!, s1!, other)
     lobby = makeObserver(lobby, 0, 0)
 
-    expect(toSummaryJson(lobby).occupantIds).toEqual([other.userId, HOST_USER_ID])
+    expect(toSummaryJson(lobby, 'gathering').occupantIds).toEqual([other.userId, HOST_USER_ID])
   })
 
   test('leaves computers out of the occupant list', () => {
@@ -1836,25 +1846,25 @@ describe('Lobbies - toSummaryJson', () => {
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
     const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
-    const json = toSummaryJson(lobby)
+    const json = toSummaryJson(lobby, 'gathering')
 
     expect(json.occupantIds).toEqual([HOST_USER_ID])
     expect(json.playerSlots).toEqual({ taken: 2, total: 4, open: 2 })
   })
 
   test('carries the lobby creation time', () => {
-    expect(toSummaryJson(BOXER_LOBBY).createdAt).toBe(BOXER_LOBBY.createdAt)
+    expect(toSummaryJson(BOXER_LOBBY, 'gathering').createdAt).toBe(BOXER_LOBBY.createdAt)
   })
 
   test('counts the members waiting on the bench', () => {
     const lobby = addToBench(BOXER_LOBBY, { userId: makeSbUserId(1), race: 'z', joinedAt: 1000 })
 
-    expect(toSummaryJson(BOXER_LOBBY).benchCount).toBe(0)
-    expect(toSummaryJson(lobby).benchCount).toBe(1)
+    expect(toSummaryJson(BOXER_LOBBY, 'gathering').benchCount).toBe(0)
+    expect(toSummaryJson(lobby, 'gathering').benchCount).toBe(1)
   })
 
   test('leaves the slot layout to the preview', () => {
-    expect(toSummaryJson(BOXER_LOBBY)).not.toHaveProperty('teams')
+    expect(toSummaryJson(BOXER_LOBBY, 'gathering')).not.toHaveProperty('teams')
   })
 })
 
@@ -1864,7 +1874,7 @@ describe('Lobbies - toPreviewJson', () => {
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
     const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
 
-    const json = toPreviewJson(lobby)
+    const json = toPreviewJson(lobby, toSummaryJson(lobby, 'gathering'))
 
     expect(json.teams).toEqual([
       {
@@ -1887,7 +1897,7 @@ describe('Lobbies - toPreviewJson', () => {
     lobby = closeSlot(lobby, 0, 1)
     expect(lobby.teams[0].slots[1].type).toBe('controlledClosed')
 
-    const json = toPreviewJson(lobby)
+    const json = toPreviewJson(lobby, toSummaryJson(lobby, 'gathering'))
 
     expect(json.teams[0].slots[0]).toEqual({ type: 'human', userId: HOST_USER_ID, race: 'r' })
     expect(json.teams[0].slots[1]).toEqual({ type: 'closed' })
@@ -1899,7 +1909,7 @@ describe('Lobbies - toPreviewJson', () => {
   })
 
   test('reads UMS computers as computers', () => {
-    const json = toPreviewJson(UMS_LOBBY_1)
+    const json = toPreviewJson(UMS_LOBBY_1, toSummaryJson(UMS_LOBBY_1, 'gathering'))
 
     // team2 and team3 of UMS_LOBBY_1 are single-slot umsComputer teams.
     expect(json.teams[1].slots[0]).toEqual({ type: 'computer', race: 'z' })
@@ -1909,7 +1919,7 @@ describe('Lobbies - toPreviewJson', () => {
   test('maps the observer team with isObserver and seated observers', () => {
     const lobby = makeObserver(BOXER_LOBBY_WITH_OBSERVERS, 0, 0)
 
-    const json = toPreviewJson(lobby)
+    const json = toPreviewJson(lobby, toSummaryJson(lobby, 'gathering'))
 
     const obsTeam = json.teams[1]
     expect(obsTeam.isObserver).toBe(true)
@@ -1917,7 +1927,9 @@ describe('Lobbies - toPreviewJson', () => {
   })
 
   test('carries everything the summary does', () => {
-    expect(toPreviewJson(BOXER_LOBBY)).toMatchObject(toSummaryJson(BOXER_LOBBY))
+    expect(toPreviewJson(BOXER_LOBBY, toSummaryJson(BOXER_LOBBY, 'gathering'))).toMatchObject(
+      toSummaryJson(BOXER_LOBBY, 'gathering'),
+    )
   })
 })
 
@@ -2301,28 +2313,55 @@ describe('Lobbies - settings changes', () => {
     expect(updated.teams[2].slots.every(slot => slot.type === 'computer')).toBe(true)
   })
 
-  test('should reject turning observers off when it would leave the host without a seat', () => {
+  test('should bench an observing host that turning observers off has no seat for', () => {
     let lobby = createLobby({
-      name: 'No seat for the host',
+      name: 'Host without a seat',
       map: BigGameHunters,
       gameType: GameType.Melee,
       gameSubType: 0,
-      numSlots: 2,
+      numSlots: 4,
       hostUserId: HOST_USER_ID,
       hostRace: 'r',
       allowObservers: true,
     })
-    lobby = addHumans(lobby, 1)
-    // The host observes, and the seat they left behind gets taken
+    lobby = addHumans(lobby, 3)
+    // The host watches their own lobby, and the seat they left gets taken while they do
     lobby = makeObserver(lobby, 0, 0)
-    lobby = addPlayer(lobby, 0, 0, humanAt(2, 'z', 2000))
-    expect(lobby.host.type).toBe('observer')
+    lobby = addPlayer(lobby, 0, 0, humanAt(4, 'z', 4000))
+    expect(lobby.host.userId).toBe(HOST_USER_ID)
 
-    // A displaced observer's claim to a seat is weaker than the sitting players', so this change
-    // has nowhere to put the host but the bench, and a host is never left without a seat
-    expect(() => applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))).toThrow(
-      /no slot for the lobby host/,
-    )
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))
+
+    expect(updated.teams).toHaveLength(1)
+    expect(updated.teams[0].slots.every(s => s.type === 'human')).toBe(true)
+    expect(updated.bench.map(b => b.userId)).toEqual([HOST_USER_ID])
+    // Someone who is in the lobby has to be able to run it, so the role goes to whoever has been
+    // seated the longest
+    expect(updated.host.userId).toBe(makeSbUserId(1))
+    expect(updated.teams[0].slots.some(s => s.id === updated.host.id)).toBe(true)
+  })
+
+  test('should refuse a change that would leave nobody to host the lobby', () => {
+    let lobby = createLobby({
+      name: 'Comps only',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    // The host watches a lobby they have filled entirely with computers, so turning observers off
+    // would seat nobody who could run it
+    lobby = makeObserver(lobby, 0, 0)
+    for (let i = 0; i < 4; i++) {
+      lobby = addPlayer(lobby, 0, i, createComputer('t'))
+    }
+
+    expect(() =>
+      applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false })),
+    ).toThrow()
   })
 
   test('should seat the members waiting on the bench when the layout grows', () => {

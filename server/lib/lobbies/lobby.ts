@@ -21,6 +21,7 @@ import {
   teamTakenSlotCount,
 } from '../../../common/lobbies'
 import {
+  LobbyLifecycle,
   LobbyPreviewJson,
   LobbySummaryJson,
   LobbySummarySlotJson,
@@ -177,8 +178,18 @@ function toSummarySlotCounts(
  * Two calls on structurally equal lobbies produce identical JSON (the fields are written in a fixed
  * order), so callers can compare serialized summaries to tell whether a change is one the list
  * would show at all.
+ *
+ * `lifecycle` is required since the caller is the one tracking it; there is no lobby-derived default
+ * that would be correct for a lobby whose game is loading or running.
+ *
+ * `elapsedMs` is only carried into the result when `lifecycle` is `inGame`, since it describes a
+ * running game's duration.
  */
-export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
+export function toSummaryJson(
+  lobby: Lobby,
+  lifecycle: LobbyLifecycle,
+  elapsedMs?: number,
+): LobbySummaryJson {
   return {
     id: lobby.id,
     name: lobby.name,
@@ -189,16 +200,18 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     useLegacyLimits: lobby.useLegacyLimits,
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
+    lifecycle,
+    ...(lifecycle === 'inGame' && elapsedMs !== undefined ? { elapsedMs } : {}),
     createdAt: lobby.createdAt,
   }
 }
 
 /**
  * Serializes a lobby for the people previewing it specifically: its summary plus who is sitting in
- * which seat. Callers that have already serialized the lobby's summary can pass it in to avoid
- * walking every slot a second time.
+ * which seat. `summary` is required so the caller's lifecycle tracking is the one source of truth
+ * for it, the same as {@link toSummaryJson}.
  */
-export function toPreviewJson(lobby: Lobby, summary = toSummaryJson(lobby)): LobbyPreviewJson {
+export function toPreviewJson(lobby: Lobby, summary: LobbySummaryJson): LobbyPreviewJson {
   return {
     ...summary,
     teams: lobby.teams.map(toSummaryTeamJson),
@@ -1106,16 +1119,22 @@ export interface LobbySettings {
  * any the host has closed — as they are, and finding the people who were observing a seat.
  *
  * Any other change gives the lobby the layout the new settings describe, and pours the members who
- * held a slot back into it in order of who has the strongest claim to a seat: the host first (a host
- * is never left without one), then the players by how long they have been here, then any observers
- * the change unseats. Whoever is left over goes to the observer team if there is one, and to the
- * bench if there isn't: a settings change never removes anyone from the lobby.
+ * held a slot back into it in order of who has the strongest claim to a seat: the host first, then
+ * the players by how long they have been here, then any observers the change unseats. Whoever is
+ * left over goes to the observer team if there is one, and to the bench if there isn't: a settings
+ * change never removes anyone from the lobby.
  *
  * The members who were already waiting on the bench are poured in last, behind anyone the change
  * has just displaced onto it, and only into player slots — waiting for a seat is waiting to play,
  * so it never turns someone into an observer. Whoever still finds no slot keeps waiting, in the
  * order they were already in. Computers are added back after everyone else, and only as far as the
  * new layout has room for them.
+ *
+ * The host has no claim on a seat beyond going first, so a change that leaves them without one
+ * (turning observers off while they are observing a lobby whose player slots are all taken) puts
+ * them on the bench like anyone else, and the host role passes to the longest-seated member. A
+ * change that would leave nobody seated to pass it to is refused, since the result would be a lobby
+ * no one could change anything in.
  *
  * Members keep the slot ids they had, so clients can tell that someone moved rather than that one
  * member left and another arrived.
@@ -1265,12 +1284,12 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   }
 
   const withHost = reassignHost(updated)
-  // Checked against the pre-change host: even with the front-of-queue claim to a seat, the host
-  // can find none to claim (an observer host turning observers off while every player slot is
-  // taken), and `reassignHost` would then quietly hand their lobby to a seated player while they
-  // land on the bench.
-  if (!getLobbySlots(withHost).some(slot => slot.id === lobby.host.id)) {
-    throw new Error('the new settings leave no slot for the lobby host')
+  // Checked against the host the new layout picked, not the old one: a host who loses their seat
+  // is benched like anyone else and the role passes to the longest-seated member. Only a layout
+  // that seats nobody who could host is refused, since every host-only operation — including
+  // changing these settings back — would then be unusable.
+  if (!getLobbySlots(withHost).some(slot => slot.id === withHost.host.id)) {
+    throw new Error('the new settings leave nobody who could host the lobby')
   }
   return withHost
 }

@@ -8,23 +8,30 @@ import {
   getObserverTeam,
   LobbyVisibility,
   MAX_BENCH,
+  openSlotCount,
 } from '../../../common/lobbies'
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
+import { FriendActivityStatus } from '../../../common/users/relationships'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { findChannelsByName } from '../chat/chat-models'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
+import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
+import {
+  ActivityStatusService,
+  IN_GAME_DISCONNECT_GRACE_MS,
+} from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
-import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { findUsersById } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import {
@@ -37,6 +44,7 @@ import {
   clearTestLogs,
   createFakeNydusServer,
   FakeNydusServer,
+  InspectableNydusClient,
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -138,6 +146,8 @@ const LISTER_USER: SbUser = { id: makeSbUserId(4), name: 'ListerUser' } as SbUse
 interface Sockets {
   user: UserSocketsGroup
   client: ClientSocketsGroup
+  /** The one socket behind the groups above, so a test can drop the connection. */
+  socket: InspectableNydusClient
 }
 
 describe('lobbies/lobby-service', () => {
@@ -151,12 +161,22 @@ describe('lobbies/lobby-service', () => {
   let lister: Sockets
   /** Connects a client for a user that isn't one of the four the tests share. */
   let connectExtra: (id: number) => Sockets
+  /** Connects another client session for a user that already has one. */
+  let connectSecondClient: (user: SbUser) => Sockets
 
   /** Connects a further client (another tab/machine of `user`) and returns its socket groups. */
   let connect: (user: SbUser, clientId: string) => Sockets
 
   /** Every request the stubbed `GameLoader` received via `loadGame`, in call order. */
   let loadGameRequests: GameLoadRequest[]
+  /** The real emitter the service listens on, so tests can signal game ends into it. */
+  let gameLifecycleEvents: GameLifecycleEvents
+  /** The registry the service holds gameplay activity in, so tests can check who is in one. */
+  let activityRegistry: GameplayActivityRegistry
+  /** The clock the service schedules its timeouts on, so tests can drive them. */
+  let clock: FakeClock
+  /** The real status service the activity registry publishes through. */
+  let activityStatusService: ActivityStatusService
 
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
   let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
@@ -239,6 +259,21 @@ describe('lobbies/lobby-service', () => {
       .flatMap(data => data.diffEvents)
   }
 
+  /** Runs the countdown started by `startCountdown` to completion, letting the game load begin. */
+  async function runCountdown(sockets: Sockets) {
+    vi.useFakeTimers()
+    lobbyService.startCountdown({ client: sockets.client })
+    await vi.advanceTimersByTimeAsync(5000)
+    // `FakeClock` waits on a real timer between the tasks it runs, which never comes back while
+    // vitest is faking timers, so the countdown gives them back as soon as it's done with them.
+    vi.useRealTimers()
+  }
+
+  /** Signals that one member's game is over, the way the games code does when a report lands. */
+  function endGameFor(sockets: Sockets, gameId = 'test-game-id') {
+    gameLifecycleEvents.emit('userGameEnded', { gameId, userId: sockets.user.userId })
+  }
+
   beforeEach(() => {
     nydus = createFakeNydusServer()
     fakeNydus = nydus as unknown as FakeNydusServer
@@ -246,14 +281,28 @@ describe('lobbies/lobby-service', () => {
     const clientSockets = new ClientSocketsManager(nydus, sessionLookup)
     const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
 
+    clock = new FakeClock()
+    // Timeouts are driven by hand: run automatically, every one of them would fire as a microtask
+    // as soon as it was scheduled, no matter how far off its deadline is.
+    clock.autoRunTimeouts = false
+    clock.setCurrentTime(Number(new Date('2022-08-31T00:00:00.000Z')))
+
     loadGameRequests = []
     loadGameMock = vi.fn<(request: GameLoadRequest) => Promise<unknown>>(async request => {
       loadGameRequests.push(request)
       return Result.ok({ gameId: 'test-game-id' })
     })
+    gameLifecycleEvents = new GameLifecycleEvents()
+    activityStatusService = new ActivityStatusService(
+      new TypedPublisher(nydus),
+      userSockets,
+      clientSockets,
+      clock,
+    )
+    activityRegistry = new GameplayActivityRegistry(activityStatusService)
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
-      new GameplayActivityRegistry(createFakeActivityStatusService()),
+      activityRegistry,
       {
         loadGame: loadGameMock,
       } as unknown as GameLoader,
@@ -267,6 +316,9 @@ describe('lobbies/lobby-service', () => {
         warmRegions: () => {},
       } as unknown as NetcodeV2Service,
       userSockets,
+      gameLifecycleEvents,
+      clientSockets,
+      clock,
     )
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
@@ -276,10 +328,11 @@ describe('lobbies/lobby-service', () => {
 
     const connector = new NydusConnector(nydus, sessionLookup)
     connect = (user: SbUser, clientId: string): Sockets => {
-      connector.connectClient(user, clientId)
+      const socket = connector.connectClient(user, clientId)
       return {
         user: userSockets.getById(user.id)!,
         client: clientSockets.getById(user.id, clientId)!,
+        socket,
       }
     }
     host = connect(HOST_USER, 'HOST_CLIENT')
@@ -288,6 +341,7 @@ describe('lobbies/lobby-service', () => {
     lister = connect(LISTER_USER, 'LISTER_CLIENT')
     connectExtra = id =>
       connect({ id: makeSbUserId(id), name: `User${id}` } as SbUser, `CLIENT_${id}`)
+    connectSecondClient = user => connect(user, `SECOND_CLIENT_${user.id}`)
 
     clearTestLogs(nydus)
   })
@@ -544,6 +598,7 @@ describe('lobbies/lobby-service', () => {
       })
       // They are in the lobby like anyone else, and so can't be off in another activity
       expect(lobbyService.lobbyClients.get(otherHost.client)).toBe(id)
+      expect(activityRegistry.getClientForUser(OTHER_HOST_USER.id)).toBe(otherHost.client)
     })
 
     test('joining a lobby whose bench is also full rejects with a LobbyFull code', async () => {
@@ -825,6 +880,33 @@ describe('lobbies/lobby-service', () => {
     })
   })
 
+  describe('leave', () => {
+    test('a leave from another client of the same user is rejected', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      const secondClient = connectSecondClient(HOST_USER)
+
+      // Membership is per client, so a client that is in no lobby has nothing to leave, even when
+      // another client of the same user is in one.
+      expect(() => lobbyService.leaveLobby({ client: secondClient.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotInLobby }),
+      )
+
+      expect(lobbyService.lobbies.has(id)).toBe(true)
+      expect(lobbyService.lobbyClients.get(host.client)).toBe(id)
+    })
+
+    test('the client the request names is the one that leaves', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      lobbyService.leaveLobby({ client: joiner.client, lobbyId: id })
+
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+      expect(lobbyService.lobbyClients.get(host.client)).toBe(id)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+    })
+  })
+
   describe('bench', () => {
     /** Creates a 1v1 lobby with both slots taken and `otherHost` waiting on the bench. */
     async function createLobbyWithBench(region?: string) {
@@ -836,19 +918,25 @@ describe('lobbies/lobby-service', () => {
 
     test('a member leaving the bench leaves the lobby', async () => {
       const id = await createLobbyWithBench()
+      fakeNydus.publish.mockClear()
 
       lobbyService.leaveLobby({ client: otherHost.client })
 
       expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(0)
       expect(lobbyService.lobbyClients.has(otherHost.client)).toBe(false)
       expect(lobbyService.getLobbyState({ lobbyId: id }).lobbyState).toBe('exists')
-      // No leave event is published for someone without a slot, so the benchRemove has to say why
-      // they're gone itself
+      // Someone waiting for a seat holds no slot, so no leave/kick/ban is published for them: this
+      // is the only event that tells their own client it is out of the lobby.
       expect(diffEvents(id)).toContainEqual({
         type: 'benchRemove',
         userId: OTHER_HOST_USER.id,
         reason: 'left',
       })
+      expect(
+        fakeNydus.publish.mock.calls.some(
+          ([path, data]) => path === `/lobbies/${id}/${OTHER_HOST_USER.id}` && data?.lobby === null,
+        ),
+      ).toBe(true)
     })
 
     test('closing a computer slot that dissolves its team seats waiting members', async () => {
@@ -957,15 +1045,14 @@ describe('lobbies/lobby-service', () => {
 
       finishLoad!()
       await vi.waitFor(() => {
-        expect(lobbyService.lobbies.has(id)).toBe(false)
+        expect(lobbyService.runStates.has(id)).toBe(true)
       })
 
       // The first lobby's start must not have released their registration in the new activity.
-      // Joining their own lobby is a no-op success, so the probe is a third lobby: with a live
-      // registration elsewhere, that join has to be rejected.
+      // Joining their own lobby is a no-op success, so the probe aims at the first lobby: with a
+      // live registration elsewhere, that join has to be rejected.
       expect(lobbyService.lobbies.has(otherId)).toBe(true)
-      const { id: probeId } = await createLobby(lister, 'Probe lobby', 'listed')
-      await expect(joinLobby(otherHost, probeId)).rejects.toMatchObject({
+      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.JoinAlreadyInActivity,
       })
     })
@@ -986,6 +1073,7 @@ describe('lobbies/lobby-service', () => {
 
     test('a member banned from the bench cannot rejoin', async () => {
       const id = await createLobbyWithBench()
+      fakeNydus.publish.mockClear()
 
       // Someone waiting for a seat has no slot, so the host names them by their user id
       lobbyService.banPlayer({ client: host.client, slotId: String(OTHER_HOST_USER.id) })
@@ -1017,7 +1105,13 @@ describe('lobbies/lobby-service', () => {
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeDefined()
       expect(lobby.bench.map(b => b.userId)).toEqual([LISTER_USER.id])
-      expect(diffEvents(id)).toContainEqual({ type: 'benchRemove', userId: OTHER_HOST_USER.id })
+      // An absent reason is what says they were seated rather than removed from the lobby; the
+      // accompanying slot events describe the seat they got.
+      expect(diffEvents(id)).toContainEqual({
+        type: 'benchRemove',
+        userId: OTHER_HOST_USER.id,
+        reason: undefined,
+      })
     })
 
     test('opening a slot seats a waiting member', async () => {
@@ -1257,6 +1351,20 @@ describe('lobbies/lobby-service', () => {
       await expect(
         lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true }),
       ).rejects.toMatchObject({ code: LobbyServiceErrorCode.CountingDown })
+    })
+
+    test('a race cannot be changed once the lobby is counting down', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const [, , hostSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client })
+
+      // The countdown has already handed the races it found to the game's configuration.
+      expect(() =>
+        lobbyService.setRace({ client: host.client, slotId: hostSlot!.id, race: 'z' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.CountingDown }))
     })
 
     test('a change publishes the new lobby along with what the host changed', async () => {
@@ -1874,6 +1982,17 @@ describe('lobbies/lobby-service', () => {
 
       expect(getLobbySummary(id)).toBeUndefined()
     })
+
+    test('a lobby with a game in progress reports its summary', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      // Someone following an invite link mid-game still gets the lobby, since they can join its
+      // bench and play the next game with everyone else.
+      expect(getLobbySummary(id)).toEqual(expect.objectContaining({ id, lifecycle: 'inGame' }))
+    })
   })
 
   describe('join codes', () => {
@@ -1903,7 +2022,7 @@ describe('lobbies/lobby-service', () => {
       expect(getLobbyIdByJoinCode(code)).toBeUndefined()
     })
 
-    test('the join code stops resolving once the lobby is torn down by game load', async () => {
+    test('the join code outlives a game and stops resolving once the lobby is torn down', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       const code = getLobbyJoinCode(id)!
@@ -1911,6 +2030,13 @@ describe('lobbies/lobby-service', () => {
       vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client })
       await vi.advanceTimersByTimeAsync(5000)
+
+      // The lobby persists through its game, and so does the way in to it
+      expect(getLobbyJoinCode(id)).toBe(code)
+      expect(getLobbyIdByJoinCode(code)).toBe(id)
+
+      lobbyService.leaveLobby({ client: joiner.client })
+      lobbyService.leaveLobby({ client: host.client })
 
       expect(getLobbyJoinCode(id)).toBeUndefined()
       expect(getLobbyIdByJoinCode(code)).toBeUndefined()
@@ -1943,13 +2069,6 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('game config', () => {
-    /** Runs the countdown started by `startCountdown` to completion, letting the game load begin. */
-    async function runCountdown(sockets: Sockets) {
-      vi.useFakeTimers()
-      lobbyService.startCountdown({ client: sockets.client })
-      await vi.advanceTimersByTimeAsync(5000)
-    }
-
     test('records visibility and an empty observers list for a listed lobby with no observers', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
@@ -1992,6 +2111,446 @@ describe('lobbies/lobby-service', () => {
       expect(loadGameRequests[0].gameConfig.teams.flat()).not.toContainEqual(
         expect.objectContaining({ id: LISTER_USER.id }),
       )
+    })
+  })
+
+  describe('running a game', () => {
+    /** Creates a lobby with `host` and `joiner` seated, and runs it into a started game. */
+    async function createLobbyInGame() {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await runCountdown(host)
+      return id
+    }
+
+    /**
+     * The initial data a socket was handed when it was subscribed to a lobby's own channel, which
+     * is everything a client needs to render the lobby it just (re)joined.
+     */
+    async function lobbyInitFor(socket: InspectableNydusClient, id: SbLobbyId) {
+      const call = fakeNydus.subscribeClient.mock.calls.find(
+        ([client, path]) => client === socket && path === `/lobbies/${id}`,
+      )
+      return await call?.[2]
+    }
+
+    /**
+     * Runs every timeout due within `ms`, leaving the clock exactly `ms` later. The extra timeout
+     * is what stops it there: the clock only moves by running a task, so with nothing scheduled at
+     * that moment it would run whatever comes next instead, however far off that is.
+     */
+    async function advanceClockBy(ms: number) {
+      const timeMillis = clock.now() + ms
+      clock.setTimeout(() => {}, ms)
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.TimeReached, timeMillis })
+    }
+
+    test('a started game keeps the lobby, with everyone in it and in their activity', async () => {
+      const id = await createLobbyInGame()
+
+      expect(lobbyService.lobbies.has(id)).toBe(true)
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'gameStarted',
+        runState: {
+          gameId: 'test-game-id',
+          inGameUsers: [HOST_USER.id, JOINER_USER.id],
+          elapsedMs: expect.any(Number),
+        },
+      })
+      // Holding the activity through the game is what keeps everyone out of matchmaking and other
+      // lobbies until this one is done with them.
+      expect(activityRegistry.getClientForUser(HOST_USER.id)).toBe(host.client)
+      expect(activityRegistry.getClientForUser(JOINER_USER.id)).toBe(joiner.client)
+      expect(lobbyService.lobbyClients.get(host.client)).toBe(id)
+    })
+
+    test('a started lobby goes back on the list marked as being in a game', async () => {
+      const id = await createLobbyInGame()
+
+      expect(listPublishes().at(-1)).toEqual({
+        action: 'add',
+        payload: expect.objectContaining({ id, lifecycle: 'inGame' }),
+      })
+      expect(lobbyService.getListedSummaries().map(l => l.lifecycle)).toEqual(['inGame'])
+    })
+
+    test('a member whose game ends is announced and dropped from the run state', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      endGameFor(joiner)
+
+      expect(lobbyPublishes(id)).toEqual([{ type: 'memberGameEnded', userId: JOINER_USER.id }])
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([HOST_USER.id])
+    })
+
+    test('a member is in the lobby again once their game is reported over', async () => {
+      await createLobbyInGame()
+      // Everyone is marked as playing once the game is actually running.
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InGame)
+
+      // A client reporting its game as finished clears the in-game state and ends the game for
+      // that member, in that order.
+      activityStatusService.clearInGame(JOINER_USER.id, 'test-game-id')
+      endGameFor(joiner)
+
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a member is in the lobby again when only a result ends their game', async () => {
+      await createLobbyInGame()
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+
+      // A result report ends the game without the client ever reporting its own status.
+      endGameFor(joiner)
+
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a whole-game end puts everyone back in the lobby', async () => {
+      await createLobbyInGame()
+      activityStatusService.setInGame(HOST_USER.id, 'test-game-id', host.client)
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+
+      expect(activityStatusService.getStatus(HOST_USER.id)).toBe(FriendActivityStatus.InLobby)
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a member who leaves after their game is done is no longer in a lobby', async () => {
+      await createLobbyInGame()
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+      endGameFor(joiner)
+
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.Online)
+    })
+
+    test('a whole-game end signal regroups everyone still marked as playing', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      // Nobody reported individually - e.g. both apps crashed - but the relay session closing
+      // fired the authoritative whole-game signal.
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toEqual([{ type: 'regroup', gameId: 'test-game-id' }])
+    })
+
+    test('a game that never signals its end is regrouped at the deadline', async () => {
+      const id = await createLobbyInGame()
+      activityStatusService.setInGame(HOST_USER.id, 'test-game-id', host.client)
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+      fakeNydus.publish.mockClear()
+
+      // A game with nothing to report its end - no relay session, no surviving client - leaves the
+      // deadline as the only thing that will ever move the lobby on.
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      expect(activityStatusService.getStatus(HOST_USER.id)).toBe(FriendActivityStatus.InLobby)
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a lobby that already regrouped is untouched when its deadline comes around', async () => {
+      const id = await createLobbyInGame()
+      endGameFor(host)
+      endGameFor(joiner)
+      fakeNydus.publish.mockClear()
+
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
+
+      expect(lobbyPublishes(id).filter(data => data?.type === 'regroup')).toEqual([])
+    })
+
+    test('a whole-game end for a game no lobby is running is ignored', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'a-different-game' })
+
+      expect(lobbyService.runStates.has(id)).toBe(true)
+      expect(lobbyPublishes(id)).toEqual([])
+    })
+
+    test('a repeated signal for a member who is already out is ignored', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      // A status report and a result report both arrive for the same player and game.
+      endGameFor(joiner)
+      endGameFor(joiner)
+
+      expect(lobbyPublishes(id)).toEqual([{ type: 'memberGameEnded', userId: JOINER_USER.id }])
+    })
+
+    test('a signal naming a game the lobby is not running is ignored', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      endGameFor(joiner, 'a-different-game')
+
+      expect(lobbyPublishes(id)).toEqual([])
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+    })
+
+    test('the lobby regroups with its seats and races once everyone is done', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const [, , joinerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)
+      lobbyService.setRace({ client: joiner.client, slotId: joinerSlot!.id, race: 'z' })
+      await runCountdown(host)
+      fakeNydus.publish.mockClear()
+
+      endGameFor(host)
+      endGameFor(joiner)
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, HOST_USER.id)[2]).toBeDefined()
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]!.race).toBe('z')
+      expect(getLobbySummary(id)!.lifecycle).toBe('gathering')
+      expect(listPublishes().at(-1)).toEqual({
+        action: 'update',
+        payload: expect.objectContaining({ id, lifecycle: 'gathering' }),
+      })
+    })
+
+    test('joining while a game is running lands on the bench even with seats open', async () => {
+      const id = await createLobbyInGame()
+      // The seats that are still open belong to a game in progress, not to whoever shows up next.
+      expect(openSlotCount(lobbyService.lobbies.get(id)!)).toBeGreaterThan(0)
+      fakeNydus.publish.mockClear()
+
+      await joinLobby(otherHost, id)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeUndefined()
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+      expect(diffEvents(id)).toContainEqual({
+        type: 'benchAdd',
+        user: expect.objectContaining({ userId: OTHER_HOST_USER.id }),
+      })
+    })
+
+    test('joining a lobby that is loading its game rejects with a JoinAlreadyStarted code', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.loadingLobbies.set(id, new AbortController())
+
+      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.JoinAlreadyStarted,
+      })
+    })
+
+    test('a member who joined during the game is seated when the lobby regroups', async () => {
+      const id = await createLobbyInGame()
+      await joinLobby(otherHost, id)
+
+      endGameFor(host)
+      endGameFor(joiner)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.bench).toHaveLength(0)
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]!.type).toBe('human')
+    })
+
+    test('slot operations, settings changes, and a new countdown are rejected', async () => {
+      const id = await createLobbyInGame()
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[2]
+      const [, , hostSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
+
+      expect(() => lobbyService.closeSlot({ client: host.client, slotId: openSlot.id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }),
+      )
+      expect(() =>
+        lobbyService.setRace({ client: host.client, slotId: hostSlot!.id, race: 'z' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }))
+      await expect(
+        lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.GameInProgress })
+      expect(() => lobbyService.startCountdown({ client: host.client })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }),
+      )
+    })
+
+    test('a member on the bench cannot take a seat until the game is over', async () => {
+      const id = await createLobbyInGame()
+      await joinLobby(otherHost, id)
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[2]
+
+      expect(() =>
+        lobbyService.changeSlot({ client: otherHost.client, slotId: openSlot.id }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }))
+    })
+
+    test('the host can kick a benched member during a game but not a seated one', async () => {
+      const id = await createLobbyInGame()
+      await joinLobby(otherHost, id)
+      const [, , joinerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)
+
+      expect(() =>
+        lobbyService.kickPlayer({ client: host.client, slotId: joinerSlot!.id }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }))
+
+      // Someone waiting for a seat has no slot, so the host names them by their user id
+      lobbyService.kickPlayer({ client: host.client, slotId: String(OTHER_HOST_USER.id) })
+
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(0)
+      expect(lobbyService.lobbyClients.has(otherHost.client)).toBe(false)
+    })
+
+    test('kicking or banning an id that names nobody reports an unknown slot', async () => {
+      await createLobbyInGame()
+
+      expect(() =>
+        lobbyService.kickPlayer({ client: host.client, slotId: 'no-such-slot' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotId }))
+      expect(() => lobbyService.banPlayer({ client: host.client, slotId: 'no-such-slot' })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotId }),
+      )
+    })
+
+    test('a member leaving during a game leaves the lobby and can regroup it', async () => {
+      const id = await createLobbyInGame()
+      endGameFor(joiner)
+      fakeNydus.publish.mockClear()
+
+      lobbyService.leaveLobby({ client: host.client })
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, HOST_USER.id)[2]).toBeUndefined()
+      expect(lobby.host.userId).toBe(JOINER_USER.id)
+    })
+
+    test('a socket drop during the game keeps the member seated', async () => {
+      const id = await createLobbyInGame()
+      await joinLobby(otherHost, id)
+      fakeNydus.publish.mockClear()
+
+      joiner.socket.disconnect()
+
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+      expect(lobbyService.lobbyClients.get(joiner.client)).toBe(id)
+      // Nothing about the lobby changed, so its occupants are told nothing.
+      expect(lobbyPublishes(id)).toEqual([])
+    })
+
+    test('a socket drop that outlasts the grace period removes the member', async () => {
+      const id = await createLobbyInGame()
+      await joinLobby(otherHost, id)
+      endGameFor(host)
+      fakeNydus.publish.mockClear()
+
+      // An app that dies mid-game never reports anything; only its socket closing says it is gone.
+      joiner.socket.disconnect()
+      await advanceClockBy(IN_GAME_DISCONNECT_GRACE_MS)
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]!.type).toBe('human')
+    })
+
+    test('the same client reconnecting within the grace period takes its seat back', async () => {
+      const id = await createLobbyInGame()
+      joiner.socket.disconnect()
+
+      const reconnected = connect(JOINER_USER, 'JOINER_CLIENT')
+
+      expect(lobbyService.lobbyClients.get(reconnected.client)).toBe(id)
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+      expect(activityRegistry.getClientForUser(JOINER_USER.id)).toBe(reconnected.client)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+      expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+      // The reconnected client knows nothing about the lobby until it is sent the whole thing.
+      await expect(lobbyInitFor(reconnected.socket, id)).resolves.toMatchObject({
+        type: 'init',
+        lobby: expect.objectContaining({ id }),
+        runState: expect.objectContaining({ gameId: 'test-game-id' }),
+      })
+
+      await advanceClockBy(IN_GAME_DISCONNECT_GRACE_MS)
+
+      expect(lobbyService.lobbyClients.get(reconnected.client)).toBe(id)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+    })
+
+    test('a reconnect under a different client id leaves the held seat alone', async () => {
+      const id = await createLobbyInGame()
+      joiner.socket.disconnect()
+
+      // Another app instance of the same user is not the client that was playing the game.
+      const secondClient = connectSecondClient(JOINER_USER)
+
+      expect(lobbyService.lobbyClients.has(secondClient.client)).toBe(false)
+      expect(lobbyService.lobbyClients.get(joiner.client)).toBe(id)
+
+      await advanceClockBy(IN_GAME_DISCONNECT_GRACE_MS)
+
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('a socket drop with no game to be in removes the member right away', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      joiner.socket.disconnect()
+
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+    })
+
+    test("a socket drop after the member's own game ended removes them right away", async () => {
+      const id = await createLobbyInGame()
+      endGameFor(joiner)
+
+      joiner.socket.disconnect()
+
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+    })
+
+    test('a lobby that empties during its game drops its run state', async () => {
+      const id = await createLobbyInGame()
+
+      lobbyService.leaveLobby({ client: host.client })
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect(lobbyService.lobbies.has(id)).toBe(false)
+      expect(lobbyService.runStates.has(id)).toBe(false)
+    })
+
+    test('the lobby can start another game once it has regrouped', async () => {
+      const id = await createLobbyInGame()
+      endGameFor(host)
+      endGameFor(joiner)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(2)
+      expect(lobbyService.runStates.get(id)!.gameId).toBe('test-game-id')
+      expect(lobbyPublishes(id).filter(data => data?.type === 'gameStarted')).toHaveLength(2)
     })
   })
 })

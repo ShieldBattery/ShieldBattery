@@ -15,7 +15,7 @@ const MOCK_HOST: SbUser = { id: makeSbUserId(1), name: 'HostUser', created: 0 }
 
 const MOCK_LOBBY_ID = makeSbLobbyId(encodePrettyId('5eed0000-0000-0000-0000-000000000042'))
 
-const MOCK_LOBBY_SUMMARY_BASE = {
+const MOCK_LOBBY_SUMMARY_BASE: LobbySummaryResponse = {
   summary: {
     id: MOCK_LOBBY_ID,
     name: 'Fastest Game Ever',
@@ -29,6 +29,7 @@ const MOCK_LOBBY_SUMMARY_BASE = {
     host: { id: MOCK_HOST.id },
     playerSlots: { taken: 1, total: 4, open: 3 },
     useLegacyLimits: false,
+    lifecycle: 'gathering',
   },
   host: MOCK_HOST,
 }
