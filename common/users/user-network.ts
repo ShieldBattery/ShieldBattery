@@ -118,6 +118,11 @@ export interface GetBatchUserInfoResponse {
   userInfos: SbUser[]
 }
 
+/** The user that a display name resolves to (`GET /users/by-name/:name`). */
+export interface GetUserByNameResponse {
+  user: SbUser
+}
+
 export interface AcceptPoliciesRequest {
   policies: Array<[policyType: SbPolicyType, version: number]>
 }

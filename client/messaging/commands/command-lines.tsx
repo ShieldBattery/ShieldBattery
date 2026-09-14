@@ -2,7 +2,9 @@ import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { UserErrorCode } from '../../../common/users/user-network'
 import { TransInterpolation } from '../../i18n/i18next'
+import { isFetchError } from '../../network/fetch-errors'
 import { CommandSurface } from './command-context'
 import { ParseArgsFailure } from './command-parser'
 import { ALL_COMMAND_SURFACES, ChatCommand } from './command-schema'
@@ -94,6 +96,25 @@ export function argumentFailureLine(
     default:
       return assertUnreachable(failure)
   }
+}
+
+/** The line a command that had to look a user up by name answers with when the lookup failed. */
+export function userLookupFailedLine(name: string, err: Error, t: TFunction): React.ReactNode {
+  if (isFetchError(err) && err.code === UserErrorCode.NotFound) {
+    return (
+      <Trans t={t} i18nKey='chat.commands.errors.noSuchUser'>
+        No user named <LocalStrong>{{ name } as TransInterpolation}</LocalStrong>.
+      </Trans>
+    )
+  }
+
+  const errorMessage = err.message
+  return (
+    <Trans t={t} i18nKey='chat.commands.errors.userLookupFailed'>
+      Couldn't look up <LocalStrong>{{ name } as TransInterpolation}</LocalStrong>:{' '}
+      {{ errorMessage } as TransInterpolation}
+    </Trans>
+  )
 }
 
 /** The line a command that threw on its way through answers with. */

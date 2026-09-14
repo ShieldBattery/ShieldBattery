@@ -69,6 +69,7 @@ import {
   GetBatchUserInfoResponse,
   GetMatchHistoryQueryParams,
   GetMatchHistoryResponse,
+  GetUserByNameResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
   RANDOM_EMAIL_CODE_PATTERN,
@@ -579,6 +580,27 @@ export class UserApi {
     return {
       userInfos: users,
     }
+  }
+
+  /**
+   * Resolves a display name to the user carrying it, matching without regard to case. Answers 404
+   * if no user has that name.
+   */
+  @httpGet('/by-name/:name')
+  @httpBefore(throttleMiddleware(accountRetrievalThrottle, throttleByUserOrIp))
+  async getUserByName(ctx: RouterContext): Promise<GetUserByNameResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ name: string }>({
+        name: joiUsername().required(),
+      }).required(),
+    })
+
+    const user = await findUserByName(params.name)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    return { user }
   }
 
   @httpGet('/:id/profile')
