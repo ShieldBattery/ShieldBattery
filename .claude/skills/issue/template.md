@@ -8,7 +8,7 @@ self-contained: someone with the repo and the issue, and nothing else, can do th
 One markdown file per issue. First line is the title as `# <title>`. Second line is a metadata
 HTML comment with `;`-separated fields:
 
-`<!-- type: Bug|Feature|Task ; labels: chat|lobbies|matchmaking|replays[,needs-design][,needs-decision] ; parent: [Working title] or #N ; milestone: <title> -->`
+`<!-- type: Bug|Feature|Task ; labels: chat|lobbies|matchmaking|replays|game[,needs-design][,needs-decision] ; parent: [Working title] or #N ; milestone: <title> -->`
 
 `type` and `labels` are required (`labels` may be empty when no area fits). `parent` and
 `milestone` are optional. Then the seven sections below, as `## ` headings, in this order. Short is

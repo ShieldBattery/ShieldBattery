@@ -69,7 +69,7 @@ gh issue list --state open --label <area> --limit 100
 | Axis | Rule |
 | --- | --- |
 | Type | `Bug` (wrong behavior today), `Feature` (new user-facing behavior), `Task` (design, cleanup, infra). Org-level issue types; the legacy `bug`/`enhancement` labels are not used. |
-| Area label | One of `chat`, `lobbies`, `matchmaking`, `replays`: a long-running area, never a feature. The label puts the issue on the board (labeling is the triage act). If none fits, file with no area label and say in chat that it lands in the inbox. |
+| Area label | One of `chat`, `lobbies`, `matchmaking`, `replays`, `game` (game DLL, game launch, netcode, in-game UI): a long-running area, never a feature. The label puts the issue on the board (labeling is the triage act). If none fits, file with no area label and say in chat that it lands in the inbox. |
 | `needs-design` | Add when a visual or interaction design gates implementation: options must be proposed and one picked before code. |
 | `needs-decision` | Add when Decisions has an open item only the maintainers can settle and there is nothing to explore, just a call to make. Both labels may apply. Either is a soft gate for the `implement` skill: it asks once, then builds on its own recommendation if told to go. |
 | Parent | Native sub-issue of a parent when the issue is one phase of a multi-phase plan or one PR of a stacked chain. Design docs live in the parent's body (`docs/` only when they outgrow it). |
