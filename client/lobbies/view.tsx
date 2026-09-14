@@ -47,6 +47,7 @@ import {
   startCountdown,
   swapTeams,
 } from './action-creators'
+import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
@@ -194,8 +195,21 @@ function watchLobbyGameReplay(gameId: string, spec: RequestHandlingSpec<void>): 
 function ConnectedLobby() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
   const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(selfUser.id))
+
+  // Everything the room dispatches is a request the server can refuse (the lobby moved on, the
+  // layout won't take the change), and the viewer is watching for it to happen, so a refusal has to
+  // say so rather than leaving the room looking like it ignored the click.
+  const onActionError = (err: unknown) => {
+    logger.error(`Error performing a lobby action: ${getErrorStack(err)}`)
+    snackbarController.showSnackbar(lobbyActionErrorMessage(err, t))
+  }
+  const actionSpec: RequestHandlingSpec<void> = {
+    onSuccess: () => {},
+    onError: onActionError,
+  }
 
   const onWatchReplay = (gameId: string) => {
     dispatch(
@@ -235,48 +249,48 @@ function ConnectedLobby() {
         )
       }}
       onSetRace={(slotId, race) => {
-        dispatch(setRace(slotId, race))
+        dispatch(setRace(slotId, race, actionSpec))
       }}
       onSitInSlot={slotId => {
-        dispatch(changeSlot(slotId))
+        dispatch(changeSlot(slotId, actionSpec))
       }}
       onLeaveLobby={() => {
-        dispatch(leaveLobby())
+        dispatch(leaveLobby(actionSpec))
       }}
       onToggleReady={() => {
-        dispatch(setReady(!isViewerReady))
+        dispatch(setReady(!isViewerReady, actionSpec))
       }}
       onStartGame={() => {
-        dispatch(startCountdown())
+        dispatch(startCountdown(false, actionSpec))
       }}
       onForceStart={() => {
-        dispatch(startCountdown(true))
+        dispatch(startCountdown(true, actionSpec))
       }}
       onCancelCountdown={() => {
-        dispatch(cancelCountdown())
+        dispatch(cancelCountdown(actionSpec))
       }}
       onSlotAction={(action, slotId) => {
         switch (action) {
           case SlotAction.Close:
-            dispatch(closeSlot(slotId))
+            dispatch(closeSlot(slotId, actionSpec))
             break
           case SlotAction.Open:
-            dispatch(openSlot(slotId))
+            dispatch(openSlot(slotId, actionSpec))
             break
           case SlotAction.AddComputer:
-            dispatch(addComputer(slotId))
+            dispatch(addComputer(slotId, actionSpec))
             break
           case SlotAction.Kick:
-            dispatch(kickPlayer(slotId))
+            dispatch(kickPlayer(slotId, actionSpec))
             break
           case SlotAction.Ban:
-            dispatch(banPlayer(slotId))
+            dispatch(banPlayer(slotId, actionSpec))
             break
           case SlotAction.MakeObserver:
-            dispatch(makeObserver(slotId))
+            dispatch(makeObserver(slotId, actionSpec))
             break
           case SlotAction.RemoveObserver:
-            dispatch(removeObserver(slotId))
+            dispatch(removeObserver(slotId, actionSpec))
             break
           case SlotAction.Move:
             dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
@@ -288,10 +302,10 @@ function ConnectedLobby() {
       onArrangeTeams={arrangement => {
         switch (arrangement) {
           case TeamArrangement.Swap:
-            dispatch(swapTeams())
+            dispatch(swapTeams(actionSpec))
             break
           case TeamArrangement.Shuffle:
-            dispatch(shuffleSlots())
+            dispatch(shuffleSlots(actionSpec))
             break
           default:
             assertUnreachable(arrangement)

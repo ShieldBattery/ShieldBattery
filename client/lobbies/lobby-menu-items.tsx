@@ -1,15 +1,21 @@
 import { useTranslation } from 'react-i18next'
 import { appendToMultimap } from '../../common/data-structures/maps'
+import { getErrorStack } from '../../common/errors'
 import { findSlotByUserId } from '../../common/lobbies'
+import logger from '../logging/logger'
 import { DestructiveMenuItem } from '../material/menu/item'
+import { RequestHandlingSpec } from '../network/abortable-thunk'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { banPlayer, kickPlayer } from './action-creators'
+import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { isInLobby } from './lobby-reducer'
 
 export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
@@ -18,6 +24,14 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
 
   const isHost = lobby.host.userId === selfUserId
   const isSelf = user?.id === selfUserId
+
+  const actionSpec: RequestHandlingSpec<void> = {
+    onSuccess: () => {},
+    onError: err => {
+      logger.error(`Error performing a lobby action: ${getErrorStack(err)}`)
+      snackbarController.showSnackbar(lobbyActionErrorMessage(err, t))
+    },
+  }
 
   const menuItems = new Map(items)
   if (inLobby && user && slot && !isSelf && isHost) {
@@ -31,7 +45,7 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
           user: user.name,
         })}
         onClick={() => {
-          dispatch(kickPlayer(slot.id))
+          dispatch(kickPlayer(slot.id, actionSpec))
           onMenuClose()
         }}
       />,
@@ -46,7 +60,7 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
           user: user.name,
         })}
         onClick={() => {
-          dispatch(banPlayer(slot.id))
+          dispatch(banPlayer(slot.id, actionSpec))
           onMenuClose()
         }}
       />,

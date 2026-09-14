@@ -149,102 +149,114 @@ export function joinLobby(
  * Sends a request for an operation on the lobby the user is currently in, doing nothing if they
  * aren't in one.
  *
- * Nothing consumes the outcome: the lobby's server-to-client events are what move the view, so a
- * failed operation simply leaves it as it was, and the failure is logged rather than surfaced.
+ * The lobby's server-to-client events are what move the view, so a rejected operation simply leaves
+ * it as it was. Only the caller knows whether someone is waiting on the outcome, so the rejection
+ * is handed back through `spec` rather than being swallowed here.
  */
 function currentLobbyRequest(
-  description: string,
+  spec: RequestHandlingSpec<void>,
   makeRequest: (lobbyId: SbLobbyId) => Promise<void>,
 ): ThunkAction {
-  return (_dispatch, getState) => {
+  return abortableThunk(spec, async (_dispatch, getState) => {
     const { lobby } = getState()
     if (!isInLobby(lobby)) {
       return
     }
 
-    makeRequest(lobby.info.id).catch(err => {
-      logger.error(`Error while ${description}: ${getErrorStack(err)}`)
-    })
-  }
+    await makeRequest(lobby.info.id)
+  })
 }
 
 /** Sends a request that acts on a single slot of the lobby the user is currently in. */
-function currentLobbySlotRequest(description: string, path: string, slotId: string): ThunkAction {
-  return currentLobbyRequest(description, lobbyId =>
+function currentLobbySlotRequest(
+  path: string,
+  slotId: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/${path}`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbySlotRequest>({ clientId, slotId }),
+      signal: spec.signal,
     }),
   )
 }
 
-export function addComputer(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('adding a computer', 'add-computer', slotId)
+export function addComputer(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('add-computer', slotId, spec)
 }
 
-export function changeSlot(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('changing slots', 'change-slot', slotId)
+export function changeSlot(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('change-slot', slotId, spec)
 }
 
-export function setRace(slotId: string, race: RaceChar): ThunkAction {
-  return currentLobbyRequest('setting a race', lobbyId =>
+export function setRace(
+  slotId: string,
+  race: RaceChar,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/set-race`, {
       method: 'POST',
       body: encodeBodyAsParams<SetLobbyRaceRequest>({ clientId, slotId, race }),
+      signal: spec.signal,
     }),
   )
 }
 
-export function openSlot(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('opening a slot', 'open-slot', slotId)
+export function openSlot(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('open-slot', slotId, spec)
 }
 
-export function closeSlot(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('closing a slot', 'close-slot', slotId)
+export function closeSlot(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('close-slot', slotId, spec)
 }
 
-export function kickPlayer(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('kicking a player', 'kick-player', slotId)
+export function kickPlayer(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('kick-player', slotId, spec)
 }
 
-export function banPlayer(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('banning a player', 'ban-player', slotId)
+export function banPlayer(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('ban-player', slotId, spec)
 }
 
-export function makeObserver(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('making a player an observer', 'make-observer', slotId)
+export function makeObserver(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('make-observer', slotId, spec)
 }
 
-export function removeObserver(slotId: string): ThunkAction {
-  return currentLobbySlotRequest('removing an observer', 'remove-observer', slotId)
+export function removeObserver(slotId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbySlotRequest('remove-observer', slotId, spec)
 }
 
 /** Marks the current user as ready for the lobby's next game, or takes that back. */
-export function setReady(isReady: boolean): ThunkAction {
-  return currentLobbyRequest('setting a ready state', lobbyId =>
+export function setReady(isReady: boolean, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/ready`, {
       method: 'POST',
       body: encodeBodyAsParams<SetLobbyReadyRequest>({ clientId, isReady }),
+      signal: spec.signal,
     }),
   )
 }
 
 /** Exchanges the occupants of the lobby's two player teams. */
-export function swapTeams(): ThunkAction {
-  return currentLobbyRequest('swapping teams', lobbyId =>
+export function swapTeams(spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/swap-teams`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+      signal: spec.signal,
     }),
   )
 }
 
 /** Redistributes the lobby's players randomly among its player slots. */
-export function shuffleSlots(): ThunkAction {
-  return currentLobbyRequest('shuffling slots', lobbyId =>
+export function shuffleSlots(spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/shuffle`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+      signal: spec.signal,
     }),
   )
 }
@@ -253,44 +265,41 @@ export function shuffleSlots(): ThunkAction {
  * Updates the settings of the lobby the user is currently hosting. `settings` should contain only
  * the fields the caller wants changed (e.g. the diff between a settings form and the lobby's
  * current values) — anything absent is left as-is by the server.
- *
- * Unlike the fire-and-forget slot operations, this is a form submit with server-side validation
- * that can reject (and some rejections, like a change that would leave the host without a seat,
- * are reachable through normal use), so the caller handles the outcome through `spec`.
  */
 export function updateLobbySettings(
   settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>>,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return abortableThunk(spec, async (_dispatch, getState) => {
-    const { lobby } = getState()
-    if (!isInLobby(lobby)) {
-      return
-    }
-
-    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/settings`, {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
       method: 'POST',
       body: encodeBodyAsParams<UpdateLobbySettingsRequest>({ clientId, ...settings }),
       signal: spec.signal,
-    })
-  })
-}
-
-/** Moves the occupant of `fromSlotId` into `toSlotId`, swapping the two occupants if it's taken. */
-export function moveSlot(fromSlotId: string, toSlotId: string): ThunkAction {
-  return currentLobbyRequest('moving a player between slots', lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/move-slot`, {
-      method: 'POST',
-      body: encodeBodyAsParams<MoveSlotRequest>({ clientId, fromSlotId, toSlotId }),
     }),
   )
 }
 
-export function leaveLobby(): ThunkAction {
-  return currentLobbyRequest('leaving a lobby', lobbyId =>
+/** Moves the occupant of `fromSlotId` into `toSlotId`, swapping the two occupants if it's taken. */
+export function moveSlot(
+  fromSlotId: string,
+  toSlotId: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
+    fetchJson<void>(apiUrl`lobbies/${lobbyId}/move-slot`, {
+      method: 'POST',
+      body: encodeBodyAsParams<MoveSlotRequest>({ clientId, fromSlotId, toSlotId }),
+      signal: spec.signal,
+    }),
+  )
+}
+
+export function leaveLobby(spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/leave`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+      signal: spec.signal,
     }),
   )
 }
@@ -299,21 +308,23 @@ export function leaveLobby(): ThunkAction {
  * Starts the countdown into the lobby's next game. Without `force`, a lobby whose seated members
  * haven't all marked themselves ready refuses to start.
  */
-export function startCountdown(force?: boolean): ThunkAction {
-  return currentLobbyRequest('starting a lobby countdown', lobbyId =>
+export function startCountdown(force: boolean, spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/start-countdown`, {
       method: 'POST',
       body: encodeBodyAsParams<StartLobbyCountdownRequest>({ clientId, force }),
+      signal: spec.signal,
     }),
   )
 }
 
 /** Calls off a countdown that's already running. */
-export function cancelCountdown(): ThunkAction {
-  return currentLobbyRequest('canceling a lobby countdown', lobbyId =>
+export function cancelCountdown(spec: RequestHandlingSpec<void>): ThunkAction {
+  return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/cancel-countdown`, {
       method: 'POST',
       body: encodeBodyAsParams<LobbyClientRequest>({ clientId }),
+      signal: spec.signal,
     }),
   )
 }

@@ -3,19 +3,23 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { getErrorStack } from '../../common/errors'
 import { GameType } from '../../common/games/game-type'
 import { getLobbySlotsWithIndexes, Team } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import logger from '../logging/logger'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { MenuItem } from '../material/menu/item'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { labelMedium } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import { moveSlot } from './action-creators'
+import { lobbyActionErrorMessage } from './lobby-action-errors'
 
 const StyledDialog = styled(Dialog)`
   max-width: 420px;
@@ -110,6 +114,7 @@ export interface LobbyMoveSlotDialogProps extends CommonDialogProps {
 export function LobbyMoveSlotDialog({ onCancel, close, fromSlotId }: LobbyMoveSlotDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const lobby = useAppSelector(s => s.lobby.info)
   const usersById = useAppSelector(s => s.users.byId)
 
@@ -152,7 +157,15 @@ export function LobbyMoveSlotDialog({ onCancel, close, fromSlotId }: LobbyMoveSl
             isInvalidDestination(lobby.gameType, fromTeam, fromSlot, team, slot)
           }
           onClick={() => {
-            dispatch(moveSlot(fromSlotId, slot.id))
+            dispatch(
+              moveSlot(fromSlotId, slot.id, {
+                onSuccess: () => {},
+                onError: err => {
+                  logger.error(`Error while moving a lobby slot: ${getErrorStack(err)}`)
+                  snackbarController.showSnackbar(lobbyActionErrorMessage(err, t))
+                },
+              }),
+            )
             close()
           }}
         />,

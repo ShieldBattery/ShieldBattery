@@ -3,11 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { hasObservers } from '../../../common/lobbies'
-import { UpdateLobbySettingsRequest } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyServiceErrorCode,
+  UpdateLobbySettingsRequest,
+} from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
 import { openSimpleDialog } from '../../dialogs/action-creators'
 import { FilledButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
+import { isFetchError } from '../../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { getLobbyPreferences, updateLobbySettings } from '../action-creators'
 import { GameSetupForm, GameSetupFormHandle, GameSetupModel } from '../create/game-setup-form'
@@ -121,23 +125,46 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             settings.allowObservers = model.allowObservers
           }
 
+          // A rename touches nothing about the game being set up, so it can't fail for any of the
+          // reasons a reconfiguration can.
+          const isRenameOnly = settings.name !== undefined && Object.keys(settings).length === 1
+
           if (Object.keys(settings).length > 0) {
             dispatch(
               updateLobbySettings(settings, {
                 onSuccess: () => {
                   onClose()
                 },
-                onError: () => {
+                onError: err => {
+                  const code = isFetchError(err) ? err.code : undefined
+                  let message: string
+                  if (
+                    code === LobbyServiceErrorCode.CountingDown ||
+                    code === LobbyServiceErrorCode.GameInProgress
+                  ) {
+                    message = t(
+                      'lobbies.lobbySettings.errorTransient',
+                      'The lobby is starting or playing a game. Try again once it regroups.',
+                    )
+                  } else if (isRenameOnly) {
+                    message = t(
+                      'lobbies.lobbySettings.errorRename',
+                      'The lobby could not be renamed. Please try again.',
+                    )
+                  } else {
+                    message = t(
+                      'lobbies.lobbySettings.errorGeneric',
+                      'The lobby settings could not be updated. The current members may not fit ' +
+                        'the new configuration.',
+                    )
+                  }
+
                   // The surface stays open with the submitted values, so the host can adjust and
                   // retry.
                   dispatch(
                     openSimpleDialog(
                       t('lobbies.lobbySettings.errorDialogTitle', 'Error updating settings'),
-                      t(
-                        'lobbies.lobbySettings.errorGeneric',
-                        'The lobby settings could not be updated. The current members may not fit ' +
-                          'the new configuration.',
-                      ),
+                      message,
                     ),
                   )
                 },
