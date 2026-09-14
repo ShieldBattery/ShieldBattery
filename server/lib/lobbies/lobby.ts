@@ -179,12 +179,15 @@ function toSummarySlotCounts(
  * order), so callers can compare serialized summaries to tell whether a change is one the list
  * would show at all.
  *
+ * `lifecycle` is required since the caller is the one tracking it; there is no lobby-derived default
+ * that would be correct for a lobby whose game is loading or running.
+ *
  * `elapsedMs` is only carried into the result when `lifecycle` is `inGame`, since it describes a
  * running game's duration.
  */
 export function toSummaryJson(
   lobby: Lobby,
-  lifecycle: LobbyLifecycle = 'gathering',
+  lifecycle: LobbyLifecycle,
   elapsedMs?: number,
 ): LobbySummaryJson {
   return {
@@ -205,10 +208,10 @@ export function toSummaryJson(
 
 /**
  * Serializes a lobby for the people previewing it specifically: its summary plus who is sitting in
- * which seat. Callers that have already serialized the lobby's summary can pass it in to avoid
- * walking every slot a second time.
+ * which seat. `summary` is required so the caller's lifecycle tracking is the one source of truth
+ * for it, the same as {@link toSummaryJson}.
  */
-export function toPreviewJson(lobby: Lobby, summary = toSummaryJson(lobby)): LobbyPreviewJson {
+export function toPreviewJson(lobby: Lobby, summary: LobbySummaryJson): LobbyPreviewJson {
   return {
     ...summary,
     teams: lobby.teams.map(toSummaryTeamJson),
