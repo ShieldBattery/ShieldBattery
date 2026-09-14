@@ -14,6 +14,7 @@ import {
   getLobbySlots,
   getLobbySlotsWithIndexes,
   getObserverTeam,
+  hasControlledOpens,
   hasObservers,
   isLobbyEmpty,
   isSlotUnoccupied,
@@ -46,10 +47,6 @@ import { MapForce, MapInfo, getTeamNames, numTeams, toMapInfoJson } from '../../
 import { encodePrettyId } from '../../../common/pretty-id'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
-
-export function hasControlledOpens(gameType: GameType) {
-  return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll
-}
 
 export function isTeamEmpty(team: Team) {
   // Team is deemed empty if it's only consisted of open and/or closed type of slots

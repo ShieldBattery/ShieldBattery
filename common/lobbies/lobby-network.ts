@@ -1,6 +1,7 @@
 import { BasicChannelInfo } from '../chat'
 import { GameServerRegionId } from '../game-server-regions'
 import { GameType } from '../games/game-type'
+import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
@@ -20,6 +21,52 @@ export enum LobbyJoinErrorCode {
   Banned = 'banned',
   AlreadyStarted = 'alreadyStarted',
   AlreadyInActivity = 'alreadyInActivity',
+}
+
+/**
+ * Machine-readable codes for every way a lobby operation can fail. Transports translate these into
+ * whatever their callers understand (status codes, client-facing error codes), so the messages
+ * carried alongside them are the only human-readable part.
+ *
+ * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `ObserversFull`, `Banned`,
+ * `JoinAlreadyStarted`, `JoinAlreadyInActivity`): joining is the one operation whose failures the
+ * client renders individually, so its outcomes are distinguished from the otherwise-identical
+ * failures of the host-only operations.
+ */
+export enum LobbyServiceErrorCode {
+  AlreadyInActivity = 'AlreadyInActivity',
+  AlreadyInSlot = 'AlreadyInSlot',
+  AlreadyStarted = 'AlreadyStarted',
+  Banned = 'Banned',
+  ChatRestricted = 'ChatRestricted',
+  ComputerInObserverSlot = 'ComputerInObserverSlot',
+  CountingDown = 'CountingDown',
+  ForcedRace = 'ForcedRace',
+  GameInProgress = 'GameInProgress',
+  InvalidGameSubType = 'InvalidGameSubType',
+  InvalidGameType = 'InvalidGameType',
+  InvalidMap = 'InvalidMap',
+  InvalidSlotId = 'InvalidSlotId',
+  InvalidSlotOperation = 'InvalidSlotOperation',
+  InvalidSlotType = 'InvalidSlotType',
+  InvalidTeamLayout = 'InvalidTeamLayout',
+  JoinAlreadyInActivity = 'JoinAlreadyInActivity',
+  JoinAlreadyStarted = 'JoinAlreadyStarted',
+  LobbyFull = 'LobbyFull',
+  NoActiveClient = 'NoActiveClient',
+  NoLobby = 'NoLobby',
+  NotCountingDown = 'NotCountingDown',
+  NotEnoughSides = 'NotEnoughSides',
+  NotEveryoneReady = 'NotEveryoneReady',
+  NotHost = 'NotHost',
+  NotInLobby = 'NotInLobby',
+  NotObserverSlot = 'NotObserverSlot',
+  NotOwnSlot = 'NotOwnSlot',
+  NotSeated = 'NotSeated',
+  NotSlotController = 'NotSlotController',
+  ObserversFull = 'ObserversFull',
+  TargetNoActiveClient = 'TargetNoActiveClient',
+  UserOffline = 'UserOffline',
 }
 
 /**
@@ -155,6 +202,11 @@ export type LobbySeriesPlayerJson =
 
 /** One side of a game a lobby played. `name` is absent in game types whose teams are unnamed. */
 export interface LobbySeriesTeamJson {
+  /**
+   * The lobby team's own id (`Team.teamId`), so the side is labelled the way the live layout labels
+   * it however the roster that played it was arranged.
+   */
+  teamId: number
   name?: string
   players: LobbySeriesPlayerJson[]
 }
@@ -162,11 +214,10 @@ export interface LobbySeriesTeamJson {
 /** How a game a lobby played turned out. */
 export interface LobbySeriesGameResultJson {
   /**
-   * The index, into the game's own `teams`, of the team that won. Absent when no single team of the
-   * roster can be called the winner — a draw, a game whose winner was a computer, or one where
-   * everyone the lobby seated lost.
+   * How each player the game's record has a result for fared. Only the people the game itself
+   * reported on appear, so a side's computers and anyone whose client never reported are absent.
    */
-  winningTeamIndex?: number
+  outcomes: Array<{ userId: SbUserId; result: ReconciledResult }>
   /** How long the game ran, in milliseconds. */
   durationMs: number
 }

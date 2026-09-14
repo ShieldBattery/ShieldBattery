@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { LobbyJoinErrorCode } from '../../../common/lobbies/lobby-network'
+import { LobbyJoinErrorCode, LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { convertLobbyServiceError } from './lobby-api'
-import { LobbyServiceError, LobbyServiceErrorCode } from './lobby-service'
+import { LobbyServiceError } from './lobby-service'
 
 /**
  * The status and response-body code the client must receive for each service failure. This table is

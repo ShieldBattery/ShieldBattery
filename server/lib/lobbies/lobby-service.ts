@@ -5,7 +5,6 @@ import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isTeamType } from '../../../common/games/game-type'
-import { ReconciledPlayerResult } from '../../../common/games/results'
 import {
   BenchedUser,
   findBenchedUser,
@@ -16,6 +15,7 @@ import {
   getLobbySlotsWithIndexes,
   getObserverTeam,
   getPlayerInfos,
+  hasControlledOpens,
   hasObservers,
   hasOpposingSides,
   isLobbyEmpty,
@@ -38,6 +38,7 @@ import {
   LobbySeriesGameResultJson,
   LobbySeriesPlayerJson,
   LobbySeriesTeamJson,
+  LobbyServiceErrorCode,
   LobbySlotCreateEvent,
   LobbySummaryJson,
 } from '../../../common/lobbies/lobby-network'
@@ -84,52 +85,6 @@ import {
   setLobbyJoinCodeGetter,
   setLobbySummaryGetter,
 } from './lobby-summaries'
-
-/**
- * Machine-readable codes for every way a lobby operation can fail. Transports translate these into
- * whatever their callers understand (status codes, client-facing error codes), so the messages
- * carried alongside them are the only human-readable part.
- *
- * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `ObserversFull`, `Banned`,
- * `JoinAlreadyStarted`, `JoinAlreadyInActivity`): joining is the one operation whose failures the
- * client renders individually, so its outcomes are distinguished from the otherwise-identical
- * failures of the host-only operations.
- */
-export enum LobbyServiceErrorCode {
-  AlreadyInActivity = 'AlreadyInActivity',
-  AlreadyInSlot = 'AlreadyInSlot',
-  AlreadyStarted = 'AlreadyStarted',
-  Banned = 'Banned',
-  ChatRestricted = 'ChatRestricted',
-  ComputerInObserverSlot = 'ComputerInObserverSlot',
-  CountingDown = 'CountingDown',
-  ForcedRace = 'ForcedRace',
-  GameInProgress = 'GameInProgress',
-  InvalidGameSubType = 'InvalidGameSubType',
-  InvalidGameType = 'InvalidGameType',
-  InvalidMap = 'InvalidMap',
-  InvalidSlotId = 'InvalidSlotId',
-  InvalidSlotOperation = 'InvalidSlotOperation',
-  InvalidSlotType = 'InvalidSlotType',
-  InvalidTeamLayout = 'InvalidTeamLayout',
-  JoinAlreadyInActivity = 'JoinAlreadyInActivity',
-  JoinAlreadyStarted = 'JoinAlreadyStarted',
-  LobbyFull = 'LobbyFull',
-  NoActiveClient = 'NoActiveClient',
-  NoLobby = 'NoLobby',
-  NotCountingDown = 'NotCountingDown',
-  NotEnoughSides = 'NotEnoughSides',
-  NotEveryoneReady = 'NotEveryoneReady',
-  NotHost = 'NotHost',
-  NotInLobby = 'NotInLobby',
-  NotObserverSlot = 'NotObserverSlot',
-  NotOwnSlot = 'NotOwnSlot',
-  NotSeated = 'NotSeated',
-  NotSlotController = 'NotSlotController',
-  ObserversFull = 'ObserversFull',
-  TargetNoActiveClient = 'TargetNoActiveClient',
-  UserOffline = 'UserOffline',
-}
 
 export class LobbyServiceError extends CodedError<LobbyServiceErrorCode> {}
 
@@ -239,7 +194,9 @@ function getLobbyMemberIds(lobby: Lobby): SbUserId[] {
 
 /**
  * Captures the sides of the game a lobby is launching: each player team that has someone in it,
- * with everyone occupying one of its seats and the race they hold.
+ * with everyone occupying one of its seats and the race they hold. Each side carries the lobby
+ * team's own id, so it can be named the way the lobby's live layout names it however the roster is
+ * arranged.
  *
  * The observer team is left out — observers are on nobody's side — as are teams nobody is in and
  * seats nobody occupies, so what remains is exactly the game's participants.
@@ -262,37 +219,10 @@ function toSeriesTeams(lobby: Lobby): LobbySeriesTeamJson[] {
 
     if (players.length) {
       // Game types whose teams aren't named carry an empty name, which is nothing to show
-      teams.push({ ...(team.name ? { name: team.name } : {}), players })
+      teams.push({ teamId: team.teamId, ...(team.name ? { name: team.name } : {}), players })
     }
   }
   return teams
-}
-
-/**
- * Returns which of a game's sides won, going by the people the lobby seated on each of them.
- *
- * Only a single winning side counts as an answer: a game nobody won (a draw, or one every seated
- * human lost — the winner may have been a computer, which reports no result of its own), and the
- * contradiction of winners on two different sides, both leave the winner unknown.
- */
-function findWinningTeamIndex(
-  teams: ReadonlyArray<LobbySeriesTeamJson>,
-  results: ReadonlyArray<[SbUserId, ReconciledPlayerResult]>,
-): number | undefined {
-  const winners = new Set(
-    results.filter(([, result]) => result.result === 'win').map(([userId]) => userId),
-  )
-  if (!winners.size) {
-    return undefined
-  }
-
-  const winningTeams: number[] = []
-  teams.forEach((team, teamIndex) => {
-    if (team.players.some(player => player.type === 'human' && winners.has(player.userId))) {
-      winningTeams.push(teamIndex)
-    }
-  })
-  return winningTeams.length === 1 ? winningTeams[0] : undefined
 }
 
 /**
@@ -330,6 +260,37 @@ function onlyRaceDiffers(oldSlot: Slot, newSlot: Slot): boolean {
   return true
 }
 
+/**
+ * Orders a lobby's dealable player seats so that filling them in order leaves its teams as evenly
+ * sized as their seats allow: one seat from each team in turn, cycling, taking a team's own seats
+ * in layout order and passing over a team whose seats are all spoken for.
+ */
+function orderSeatsRoundRobin(
+  positions: ReadonlyArray<Lobbies.SlotPosition>,
+): Lobbies.SlotPosition[] {
+  const seatsByTeam = new Map<number, Lobbies.SlotPosition[]>()
+  for (const position of positions) {
+    const seats = seatsByTeam.get(position[0])
+    if (seats) {
+      seats.push(position)
+    } else {
+      seatsByTeam.set(position[0], [position])
+    }
+  }
+
+  const teamSeats = [...seatsByTeam.values()]
+  const mostSeats = Math.max(0, ...teamSeats.map(seats => seats.length))
+  const ordered: Lobbies.SlotPosition[] = []
+  for (let round = 0; round < mostSeats; round++) {
+    for (const seats of teamSeats) {
+      if (round < seats.length) {
+        ordered.push(seats[round])
+      }
+    }
+  }
+  return ordered
+}
+
 function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSlots: number) {
   if (gameType === 'topVBottom') {
     if (gameSubType < 1 || gameSubType > numSlots - 1) {
@@ -357,7 +318,13 @@ export class LobbyService {
    * holding a slot are ever in here, and a lobby's set lives exactly as long as the lobby does.
    */
   readonly readyUsers = new Map<SbLobbyId, Set<SbUserId>>()
-  /** The games each lobby has played this session, oldest first. */
+  /**
+   * The games each lobby has played this session, oldest first.
+   *
+   * A lobby's history is bounded by the lobby's own lifetime rather than by a cap: a lobby closes
+   * as soon as its last member leaves, a game takes minutes at minimum, and an entry is one small
+   * roster, so even a marathon lobby accumulates a few dozen of them.
+   */
   readonly series = new Map<SbLobbyId, LobbySeriesGameJson[]>()
   /**
    * The lobby waiting on each game's results, so a reconciliation that lands long after the game
@@ -1261,7 +1228,7 @@ export class LobbyService {
     }
     const isMove = isSlotUnoccupied(destSlot)
     if (
-      Lobbies.hasControlledOpens(lobby.gameType) &&
+      hasControlledOpens(lobby.gameType) &&
       sourceSlot.type === SlotType.Computer &&
       (destSlot.type === SlotType.ControlledOpen ||
         destSlot.type === SlotType.ControlledClosed ||
@@ -1368,21 +1335,26 @@ export class LobbyService {
    * computer alike, lands in one of the seats those teams currently offer. Closed slots stay closed
    * and receive nobody, and the observer team and the bench are untouched.
    *
+   * Only the order the occupants are dealt in is random; the seats are handed out one team at a
+   * time in turn, so the teams come out as evenly filled as their seats allow. A layout with
+   * opposing sides therefore still has them afterwards, instead of a run of luck collecting
+   * everybody behind one of them.
+   *
    * There is nothing to deal out unless the lobby has more than one team to deal between.
    */
   shuffleSlots({
     client,
     lobbyId,
-    shuffleFn = positions => multipleRandomItems(positions.length, positions),
+    shuffleFn = occupants => multipleRandomItems(occupants.length, occupants),
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
     /**
-     * Decides which seat each occupant ends up in, by returning the lobby's seats in the order they
-     * should be filled. Defaults to a uniformly random permutation; a caller that needs a
-     * particular arrangement passes its own.
+     * Decides the order the occupants are dealt in, by returning the positions they currently sit
+     * at, permuted. Which seat each one then lands in is the deal's own business. Defaults to a
+     * uniformly random permutation; a caller that needs a particular order passes its own.
      */
-    shuffleFn?: (positions: Lobbies.SlotPosition[]) => Lobbies.SlotPosition[]
+    shuffleFn?: (occupants: Lobbies.SlotPosition[]) => Lobbies.SlotPosition[]
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
@@ -1396,7 +1368,7 @@ export class LobbyService {
       )
     }
     if (
-      Lobbies.hasControlledOpens(lobby.gameType) &&
+      hasControlledOpens(lobby.gameType) &&
       getLobbySlots(lobby).some(slot => slot.type === SlotType.Computer)
     ) {
       // In these game types a computer takes up a whole team rather than a seat of its own, so it
@@ -1407,9 +1379,28 @@ export class LobbyService {
       )
     }
 
+    const positions = Lobbies.getPlayerSlotPositions(lobby)
+    // Everything in `positions` is either occupied or an open seat, so the ones that aren't
+    // unoccupied are exactly the occupants being dealt.
+    const occupants = positions.filter(
+      ([teamIndex, slotIndex]) => !isSlotUnoccupied(lobby.teams[teamIndex].slots[slotIndex]),
+    )
+    const seats = orderSeatsRoundRobin(positions)
+    const seatByOccupantId = new Map<string, Lobbies.SlotPosition>()
+    shuffleFn(occupants).forEach(([teamIndex, slotIndex], i) => {
+      seatByOccupantId.set(lobby.teams[teamIndex].slots[slotIndex].id, seats[i])
+    })
+
     let updated
     try {
-      updated = Lobbies.arrangeOccupants(lobby, shuffleFn(Lobbies.getPlayerSlotPositions(lobby)))
+      // `arrangeOccupants` fills the positions it is given with the occupants in layout order, so
+      // each of them is named where it sits now; the seats nobody was dealt are the leftovers.
+      updated = Lobbies.arrangeOccupants(lobby, [
+        ...occupants.map(([teamIndex, slotIndex]) =>
+          seatByOccupantId.get(lobby.teams[teamIndex].slots[slotIndex].id)!,
+        ),
+        ...seats.slice(occupants.length),
+      ])
     } catch (err) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.InvalidSlotOperation,
@@ -2428,9 +2419,11 @@ export class LobbyService {
       return
     }
 
-    const winningTeamIndex = findWinningTeamIndex(entry.teams, record.results)
     const result: LobbySeriesGameResultJson = {
-      ...(winningTeamIndex !== undefined ? { winningTeamIndex } : {}),
+      outcomes: record.results.map(([userId, playerResult]) => ({
+        userId,
+        result: playerResult.result,
+      })),
       durationMs: record.gameLength,
     }
     entry.result = result

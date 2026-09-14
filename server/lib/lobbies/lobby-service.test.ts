@@ -9,11 +9,14 @@ import {
   findSlotByUserId,
   getHumanSlots,
   getObserverTeam,
+  hasOpposingSides,
   LobbyVisibility,
   MAX_BENCH,
   openSlotCount,
 } from '../../../common/lobbies'
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
+import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
+import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
@@ -53,7 +56,7 @@ import {
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { getPlayerSlotPositions, openSlot, removePlayer, SlotPosition } from './lobby'
-import { knownRegionOrUndefined, LobbyService, LobbyServiceErrorCode } from './lobby-service'
+import { knownRegionOrUndefined, LobbyService } from './lobby-service'
 import { getLobbyIdByJoinCode, getLobbyJoinCode, getLobbySummary } from './lobby-summaries'
 
 function region(id: string): GameServerRegion {
@@ -120,6 +123,43 @@ const TWO_SLOT_MAP: MapInfo = {
   hash: '43ab7',
   name: 'Heartbreak Ridge',
   mapData: { ...BIG_GAME_HUNTERS.mapData, originalName: 'Heartbreak Ridge', slots: 2, umsSlots: 2 },
+}
+
+/** A UMS map with two forces people can play from, plus a computer the map places itself. */
+const UMS_MAP: MapInfo = {
+  ...BIG_GAME_HUNTERS,
+  id: makeSbMapId('team-micro'),
+  hash: '13579',
+  name: 'Team Micro',
+  mapData: {
+    ...BIG_GAME_HUNTERS.mapData,
+    originalName: 'Team Micro',
+    slots: 5,
+    umsSlots: 5,
+    umsForces: [
+      {
+        name: 'Team I',
+        teamId: 1,
+        players: [
+          { id: 0, race: 't', typeId: 6, computer: false },
+          { id: 1, race: 't', typeId: 6, computer: false },
+        ],
+      },
+      {
+        name: 'Team II',
+        teamId: 2,
+        players: [
+          { id: 2, race: 'z', typeId: 6, computer: false },
+          { id: 3, race: 'z', typeId: 6, computer: false },
+        ],
+      },
+      {
+        name: 'Map by Cygnus',
+        teamId: 3,
+        players: [{ id: 4, race: 't', typeId: 5, computer: true }],
+      },
+    ],
+  },
 }
 
 vi.mock('../maps/map-models', async () => {
@@ -3017,8 +3057,18 @@ describe('lobbies/lobby-service', () => {
     })
 
     describe('shuffleSlots', () => {
-      /** Deals the seats out back to front, so a test knows exactly where everyone lands. */
-      const reversed = (positions: SlotPosition[]) => [...positions].reverse()
+      /** Deals the occupants out back to front, so a test knows exactly where everyone lands. */
+      const reversed = (occupants: SlotPosition[]) => [...occupants].reverse()
+      /** Deals the occupants out in the order they already sit in. */
+      const inPlace = (occupants: SlotPosition[]) => occupants
+
+      /** Returns how many people each of a lobby's player teams holds, in layout order. */
+      function humansPerTeam(id: SbLobbyId): number[] {
+        return lobbyService.lobbies
+          .get(id)!
+          .teams.filter(team => !team.isObserver)
+          .map(team => team.slots.filter(slot => slot.type === 'human').length)
+      }
 
       test('every occupant is dealt a seat, and closed slots stay closed', async () => {
         const { id } = await createTeamLobby()
@@ -3030,8 +3080,7 @@ describe('lobbies/lobby-service', () => {
         lobbyService.addComputer({ client: host.client, slotId: computerSeat.id })
 
         const before = lobbyService.lobbies.get(id)!
-        const positions = getPlayerSlotPositions(before)
-        const occupantIds = positions
+        const occupantIds = getPlayerSlotPositions(before)
           .map(([teamIndex, slotIndex]) => before.teams[teamIndex].slots[slotIndex])
           .filter(slot => slot.type === 'human' || slot.type === 'computer')
           .map(slot => slot.id)
@@ -3040,16 +3089,91 @@ describe('lobbies/lobby-service', () => {
 
         lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
 
+        // Dealt back to front into the seats taken a team at a time in turn: the first team's
+        // first seat, the second team's first, the first team's second, and so on.
+        const landings: Array<[occupantId: string, seat: SlotPosition]> = [
+          [occupantIds[3], [0, 0]],
+          [occupantIds[2], [1, 0]],
+          [occupantIds[1], [0, 1]],
+          [occupantIds[0], [1, 1]],
+        ]
         const after = lobbyService.lobbies.get(id)!
-        const seats = reversed(positions)
-        occupantIds.forEach((slotId, i) => {
-          const [teamIndex, slotIndex] = seats[i]
-          expect(after.teams[teamIndex].slots[slotIndex].id).toBe(slotId)
-        })
+        for (const [occupantId, [teamIndex, slotIndex]] of landings) {
+          expect(after.teams[teamIndex].slots[slotIndex].id).toBe(occupantId)
+        }
         // The seat the host took out of the lobby is not one of the seats being dealt
         expect(after.teams[1].slots[3].type).toBe('closed')
         expect(getHumanSlots(after)).toHaveLength(3)
         expect(after.bench).toEqual([])
+      })
+
+      test.each([
+        ['back to front', reversed],
+        ['in place', inPlace],
+      ])('two people dealt %s still end up on opposing sides', async (_order, shuffleFn) => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn })
+
+        const [hostTeamIndex] = seatOf(id, HOST_USER.id)
+        const [joinerTeamIndex] = seatOf(id, JOINER_USER.id)
+        expect(hostTeamIndex).not.toBe(joinerTeamIndex)
+        expect(hasOpposingSides(lobbyService.lobbies.get(id)!)).toBe(true)
+      })
+
+      test('two people in a team melee lobby end up on opposing teams', async () => {
+        const { id } = await lobbyService.createLobby({
+          name: 'Team melee lobby',
+          map: BIG_GAME_HUNTERS.id,
+          gameType: GameType.TeamMelee,
+          gameSubType: 2,
+          visibility: 'listed',
+          user: host.user,
+          client: host.client,
+        })
+        await joinLobby(joiner, id)
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        const [hostTeamIndex] = seatOf(id, HOST_USER.id)
+        const [joinerTeamIndex] = seatOf(id, JOINER_USER.id)
+        expect(hostTeamIndex).not.toBe(joinerTeamIndex)
+        expect(hasOpposingSides(lobbyService.lobbies.get(id)!)).toBe(true)
+      })
+
+      test("a UMS lobby deals across the map's forces and leaves its computers alone", async () => {
+        asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
+        asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([UMS_MAP])
+        const { id } = await lobbyService.createLobby({
+          name: 'UMS lobby',
+          map: UMS_MAP.id,
+          gameType: GameType.UseMapSettings,
+          visibility: 'listed',
+          user: host.user,
+          client: host.client,
+        })
+        await joinLobby(joiner, id)
+        const computerSlot = lobbyService.lobbies.get(id)!.teams[2].slots[0]
+        expect(computerSlot.type).toBe('umsComputer')
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        const [hostTeamIndex] = seatOf(id, HOST_USER.id)
+        const [joinerTeamIndex] = seatOf(id, JOINER_USER.id)
+        expect(hostTeamIndex).not.toBe(joinerTeamIndex)
+        // The map places its own computers, so they are not seats anyone can be dealt into
+        expect(lobbyService.lobbies.get(id)!.teams[2].slots).toEqual([computerSlot])
+      })
+
+      test('three people over two teams come out split 2 and 1', async () => {
+        const { id } = await createTeamLobby()
+        await joinLobby(joiner, id)
+        await joinLobby(otherHost, id)
+
+        lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
+
+        expect(humansPerTeam(id).sort()).toEqual([1, 2])
       })
 
       test('the shuffle is published as one diff', async () => {
@@ -3171,13 +3295,18 @@ describe('lobbies/lobby-service', () => {
       // and the open seats have nobody to record.
       expect(teams).toEqual([
         {
+          teamId: 1,
           name: 'Top',
           players: [
             { type: 'human', userId: HOST_USER.id, race: 'r' },
             { type: 'computer', race: 'r' },
           ],
         },
-        { name: 'Bottom', players: [{ type: 'human', userId: JOINER_USER.id, race: 'z' }] },
+        {
+          teamId: 2,
+          name: 'Bottom',
+          players: [{ type: 'human', userId: JOINER_USER.id, race: 'z' }],
+        },
       ])
       expect(lobbyService.runStates.get(id)!.mapId).toBe(BIG_GAME_HUNTERS.id)
     })
@@ -3194,6 +3323,7 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyService.runStates.get(id)!.teams).toEqual([
         {
+          teamId: 0,
           players: [
             { type: 'human', userId: HOST_USER.id, race: 'r' },
             { type: 'computer', race: 't' },
@@ -3212,8 +3342,16 @@ describe('lobbies/lobby-service', () => {
         gameId: GAME_ID,
         mapId: BIG_GAME_HUNTERS.id,
         teams: [
-          { name: 'Top', players: [{ type: 'human', userId: HOST_USER.id, race: 'r' }] },
-          { name: 'Bottom', players: [{ type: 'human', userId: JOINER_USER.id, race: 'r' }] },
+          {
+            teamId: 1,
+            name: 'Top',
+            players: [{ type: 'human', userId: HOST_USER.id, race: 'r' }],
+          },
+          {
+            teamId: 2,
+            name: 'Bottom',
+            players: [{ type: 'human', userId: JOINER_USER.id, race: 'r' }],
+          },
         ],
       }
       // No outcome yet: the game's results are settled after it ends, if they ever are
@@ -3233,9 +3371,10 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
-    test('a reconciled game names the side that won and is announced to the lobby', async () => {
+    test('a reconciled game records how everyone fared and is announced to the lobby', async () => {
       const id = await playGame()
       const [hostTeamIndex] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
+      const hostTeamId = lobbyService.lobbies.get(id)!.teams[hostTeamIndex!].teamId
       await endGame()
       fakeNydus.publish.mockClear()
       asMockedFunction(getGameRecord).mockResolvedValue(
@@ -3248,14 +3387,54 @@ describe('lobbies/lobby-service', () => {
       gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
       await flushAsync()
 
-      const result = { winningTeamIndex: hostTeamIndex, durationMs: 480000 }
+      const result = {
+        outcomes: [
+          { userId: HOST_USER.id, result: 'win' },
+          { userId: JOINER_USER.id, result: 'loss' },
+        ],
+        durationMs: 480000,
+      }
       expect(lobbyPublishes(id)).toEqual([{ type: 'seriesGameUpdated', gameId: GAME_ID, result }])
       expect(lobbyService.series.get(id)![0].result).toEqual(result)
+      expect(findSeriesGameWinner(lobbyService.series.get(id)![0])).toEqual({
+        kind: 'team',
+        teamId: hostTeamId,
+        name: 'Top',
+      })
       // Nothing is waiting on this game any more
       expect(lobbyService.seriesGameLobbies.has(GAME_ID)).toBe(false)
     })
 
-    test('a game no seated player won has no winning side', async () => {
+    test('a melee game names the player who won it', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await runCountdown(host)
+      vi.useRealTimers()
+      await endGame()
+      asMockedFunction(getGameRecord).mockResolvedValue(
+        reconciledRecord([
+          [HOST_USER.id, 'win'],
+          [JOINER_USER.id, 'loss'],
+        ]),
+      )
+
+      gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
+      await flushAsync()
+
+      // A melee lobby seats everyone on one side, so the win belongs to a person rather than to
+      // the side they all sit on
+      expect(lobbyService.series.get(id)![0].teams).toHaveLength(1)
+      expect(lobbyService.series.get(id)![0].result!.outcomes).toEqual([
+        { userId: HOST_USER.id, result: 'win' },
+        { userId: JOINER_USER.id, result: 'loss' },
+      ])
+      expect(findSeriesGameWinner(lobbyService.series.get(id)![0])).toEqual({
+        kind: 'player',
+        userId: HOST_USER.id,
+      })
+    })
+
+    test('a game no seated player won has no winner', async () => {
       const id = await playGame()
       await endGame()
       fakeNydus.publish.mockClear()
@@ -3270,11 +3449,18 @@ describe('lobbies/lobby-service', () => {
       gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
       await flushAsync()
 
-      expect(lobbyService.series.get(id)![0].result).toEqual({ durationMs: 480000 })
-      expect(seriesUpdates(id)[0].result.winningTeamIndex).toBeUndefined()
+      expect(lobbyService.series.get(id)![0].result).toEqual({
+        outcomes: [
+          { userId: HOST_USER.id, result: 'loss' },
+          { userId: JOINER_USER.id, result: 'loss' },
+        ],
+        durationMs: 480000,
+      })
+      expect(findSeriesGameWinner(lobbyService.series.get(id)![0])).toBeUndefined()
+      expect(seriesUpdates(id)).toHaveLength(1)
     })
 
-    test('winners on both sides leave the winning side unknown', async () => {
+    test('winners on both sides leave the winner unknown', async () => {
       const id = await playGame()
       await endGame()
       asMockedFunction(getGameRecord).mockResolvedValue(
@@ -3287,7 +3473,8 @@ describe('lobbies/lobby-service', () => {
       gameLifecycleEvents.emit('gameReconciled', { gameId: GAME_ID })
       await flushAsync()
 
-      expect(lobbyService.series.get(id)![0].result).toEqual({ durationMs: 480000 })
+      expect(lobbyService.series.get(id)![0].result!.durationMs).toBe(480000)
+      expect(findSeriesGameWinner(lobbyService.series.get(id)![0])).toBeUndefined()
     })
 
     test('a game whose results have not settled keeps no outcome', async () => {
@@ -3317,7 +3504,10 @@ describe('lobbies/lobby-service', () => {
       await endGame()
 
       expect(lobbyService.series.get(id)![0].result).toEqual({
-        winningTeamIndex: expect.any(Number),
+        outcomes: [
+          { userId: HOST_USER.id, result: 'win' },
+          { userId: JOINER_USER.id, result: 'loss' },
+        ],
         durationMs: 480000,
       })
       expect(seriesUpdates(id)).toHaveLength(1)

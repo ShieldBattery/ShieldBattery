@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { GameType } from '../../../common/games/game-type'
-import { BenchedUser, findSlotById, Lobby, Team } from '../../../common/lobbies'
-import { LobbySeriesGameJson, LobbySeriesTeamJson } from '../../../common/lobbies/lobby-network'
+import { ReconciledResult } from '../../../common/games/results'
+import { BenchedUser, findSlotById, getHumanSlots, Lobby, Team } from '../../../common/lobbies'
+import {
+  LobbySeriesGameJson,
+  LobbySeriesGameResultJson,
+  LobbySeriesTeamJson,
+} from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   createClosed,
@@ -54,13 +59,15 @@ const MOCK_USERS: SbUser[] = [
 
 const MOCK_MAP: MapInfo = { ...BigGameHunters, uploadDate: new Date(BigGameHunters.uploadDate) }
 
-type ScenarioId = 'gathering' | 'full' | 'settingsChanged' | 'regroup'
+type ScenarioId = 'gathering' | 'full' | 'settingsChanged' | 'countingDown' | 'inGame' | 'regroup'
 type ViewpointId = 'host' | 'member' | 'benched'
 
 const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'gathering', label: 'Gathering' },
   { id: 'full', label: 'Gathering · full + bench' },
   { id: 'settingsChanged', label: 'Gathering · setting changed' },
+  { id: 'countingDown', label: 'Counting down' },
+  { id: 'inGame', label: 'In game' },
   { id: 'regroup', label: 'Regroup' },
 ]
 
@@ -110,6 +117,12 @@ function loadSelfSessionAction(userId: SbUserId): ReduxAction {
 
 const SEED_ACTIONS: ReadonlyArray<ReduxAction> = [loadSelfSessionAction(VIEWER_IDS.host)]
 
+// A team game numbers its player sides from 1, and the observer team a lobby carries alongside them
+// always has id 0.
+const TOP_TEAM_ID = 1
+const BOTTOM_TEAM_ID = 2
+const OBSERVER_TEAM_ID = 0
+
 function makeTeam(name: string, teamId: number, slots: Slot[], isObserver = false): Team {
   return { name, teamId, isObserver, slots, hiddenSlots: [] }
 }
@@ -131,9 +144,9 @@ function makeLobby(topSlots: Slot[], bottomSlots: Slot[], observers: Slot[]): Lo
     gameType: GameType.TopVsBottom,
     gameSubType: 4,
     teams: [
-      makeTeam('Top', 0, topSlots),
-      makeTeam('Bottom', 1, bottomSlots),
-      makeTeam('Observers', 2, observers, true),
+      makeTeam('Top', TOP_TEAM_ID, topSlots),
+      makeTeam('Bottom', BOTTOM_TEAM_ID, bottomSlots),
+      makeTeam('Observers', OBSERVER_TEAM_ID, observers, true),
     ],
     bench: [makeBenched(BLUESKY, 'z')],
     host: topSlots[0],
@@ -186,6 +199,7 @@ function makeRegroupLobby(): Lobby {
 // each game in a series keeps its own snapshot of who played where rather than sharing one roster.
 const REGROUP_TEAMS: LobbySeriesTeamJson[] = [
   {
+    teamId: TOP_TEAM_ID,
     name: 'Top',
     players: [
       { type: 'human', userId: TEC27, race: 't' },
@@ -194,6 +208,7 @@ const REGROUP_TEAMS: LobbySeriesTeamJson[] = [
     ],
   },
   {
+    teamId: BOTTOM_TEAM_ID,
     name: 'Bottom',
     players: [
       { type: 'human', userId: DRONEBRO, race: 'p' },
@@ -205,6 +220,7 @@ const REGROUP_TEAMS: LobbySeriesTeamJson[] = [
 /** The 2v2 rosters once sunn0's seat sits empty, filled out with a computer. */
 const POST_SUNN0_TEAMS: LobbySeriesTeamJson[] = [
   {
+    teamId: TOP_TEAM_ID,
     name: 'Top',
     players: [
       { type: 'human', userId: TEC27, race: 't' },
@@ -212,6 +228,7 @@ const POST_SUNN0_TEAMS: LobbySeriesTeamJson[] = [
     ],
   },
   {
+    teamId: BOTTOM_TEAM_ID,
     name: 'Bottom',
     players: [
       { type: 'human', userId: DRONEBRO, race: 'p' },
@@ -224,6 +241,7 @@ const POST_SUNN0_TEAMS: LobbySeriesTeamJson[] = [
 /** The rosters after the host shuffles teams partway through the night. */
 const SHUFFLED_TEAMS: LobbySeriesTeamJson[] = [
   {
+    teamId: TOP_TEAM_ID,
     name: 'Top',
     players: [
       { type: 'human', userId: TEC27, race: 't' },
@@ -231,6 +249,7 @@ const SHUFFLED_TEAMS: LobbySeriesTeamJson[] = [
     ],
   },
   {
+    teamId: BOTTOM_TEAM_ID,
     name: 'Bottom',
     players: [
       { type: 'human', userId: PACHI, race: 'z' },
@@ -238,6 +257,28 @@ const SHUFFLED_TEAMS: LobbySeriesTeamJson[] = [
     ],
   },
 ]
+
+/**
+ * Builds the per-player outcomes of a game the given team won, or of one nobody won when no team id
+ * is given. Only the people a game reported on carry an outcome, so a side's computers get none.
+ */
+function makeOutcomes(
+  teams: ReadonlyArray<LobbySeriesTeamJson>,
+  winningTeamId?: number,
+): LobbySeriesGameResultJson['outcomes'] {
+  return teams.flatMap(team =>
+    team.players.flatMap(player =>
+      player.type === 'human'
+        ? [
+            {
+              userId: player.userId,
+              result: (team.teamId === winningTeamId ? 'win' : 'loss') as ReconciledResult,
+            },
+          ]
+        : [],
+    ),
+  )
+}
 
 // The last two games cover the outcomes a lobby's series has to render without a winner: one whose
 // results settled with nobody the server can call the winner, and one still waiting on results that
@@ -247,31 +288,43 @@ const REGROUP_SERIES: LobbySeriesGameJson[] = [
     gameId: 'mock-game-1',
     mapId: BigGameHunters.id,
     teams: REGROUP_TEAMS,
-    result: { winningTeamIndex: 0, durationMs: 18 * 60 * 1000 + 22 * 1000 },
+    result: {
+      outcomes: makeOutcomes(REGROUP_TEAMS, TOP_TEAM_ID),
+      durationMs: 18 * 60 * 1000 + 22 * 1000,
+    },
   },
   {
     gameId: 'mock-game-2',
     mapId: BigGameHunters.id,
     teams: REGROUP_TEAMS,
-    result: { winningTeamIndex: 1, durationMs: 31 * 60 * 1000 + 7 * 1000 },
+    result: {
+      outcomes: makeOutcomes(REGROUP_TEAMS, BOTTOM_TEAM_ID),
+      durationMs: 31 * 60 * 1000 + 7 * 1000,
+    },
   },
   {
     gameId: 'mock-game-3',
     mapId: BigGameHunters.id,
     teams: REGROUP_TEAMS,
-    result: { winningTeamIndex: 0, durationMs: 23 * 60 * 1000 + 41 * 1000 },
+    result: {
+      outcomes: makeOutcomes(REGROUP_TEAMS, TOP_TEAM_ID),
+      durationMs: 23 * 60 * 1000 + 41 * 1000,
+    },
   },
   {
     gameId: 'mock-game-4',
     mapId: FightingSpirit.id,
     teams: POST_SUNN0_TEAMS,
-    result: { winningTeamIndex: 0, durationMs: 14 * 60 * 1000 + 53 * 1000 },
+    result: {
+      outcomes: makeOutcomes(POST_SUNN0_TEAMS, TOP_TEAM_ID),
+      durationMs: 14 * 60 * 1000 + 53 * 1000,
+    },
   },
   {
     gameId: 'mock-game-5',
     mapId: FightingSpirit.id,
     teams: SHUFFLED_TEAMS,
-    result: { durationMs: 27 * 60 * 1000 + 16 * 1000 },
+    result: { outcomes: makeOutcomes(SHUFFLED_TEAMS), durationMs: 27 * 60 * 1000 + 16 * 1000 },
   },
   {
     gameId: 'mock-game-6',
@@ -384,6 +437,25 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
   }
 
   sendMockChat(dispatch, PACHI, '"one game" — famous last words')
+
+  if (scenario === 'countingDown') {
+    dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })
+  }
+
+  if (scenario === 'inGame') {
+    // Everyone seated is in the game except Pachi, whose game has already ended, so the room shows
+    // both what an in-game member looks like and what one waiting out the rest looks like.
+    const inGameUsers = getHumanSlots(lobby)
+      .map(slot => slot.userId)
+      .filter((userId): userId is SbUserId => userId !== undefined && userId !== PACHI)
+    dispatch({
+      type: '@lobbies/updateGameStarted',
+      payload: {
+        runState: { gameId: 'mock-running-game', inGameUsers, elapsedMs: 5 * 60 * 1000 },
+        isParticipant: true,
+      },
+    })
+  }
 }
 
 const Container = styled.div`

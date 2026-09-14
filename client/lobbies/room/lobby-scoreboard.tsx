@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getPlayerSlots } from '../../../common/lobbies'
+import { getWinsByUser } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
@@ -9,7 +10,6 @@ import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import { getWinsByUser } from './room-parts'
 
 const ScoreboardRoot = styled.div`
   display: flex;

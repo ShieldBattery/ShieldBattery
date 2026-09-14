@@ -11,6 +11,7 @@ import {
   JoinLobbyRequest,
   LobbyClientRequest,
   LobbyJoinErrorCode,
+  LobbyServiceErrorCode,
   LobbySlotRequest,
   MoveSlotRequest,
   SendLobbyChatRequest,
@@ -36,7 +37,7 @@ import {
   ClientSocketsManager,
   UserSocketsGroup,
 } from '../websockets/socket-groups'
-import { LobbyService, LobbyServiceError, LobbyServiceErrorCode } from './lobby-service'
+import { LobbyService, LobbyServiceError } from './lobby-service'
 
 // Creating, joining, and leaving are one-off transitions in and out of a lobby, so a
 // matchmaking-like rate is plenty. Leaving deliberately sits here rather than on the in-lobby

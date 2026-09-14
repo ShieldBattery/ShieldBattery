@@ -88,8 +88,12 @@ const SERIES_GAME: LobbySeriesGameJson = {
   gameId: 'game-0',
   mapId: 'map-1' as SbMapId,
   teams: [
-    { name: 'Team 1', players: [{ type: 'human', userId: HOST_SLOT.userId!, race: 'r' }] },
-    { name: 'Team 2', players: [{ type: 'computer', race: 'z' }] },
+    {
+      teamId: 1,
+      name: 'Team 1',
+      players: [{ type: 'human', userId: HOST_SLOT.userId!, race: 'r' }],
+    },
+    { teamId: 2, name: 'Team 2', players: [{ type: 'computer', race: 'z' }] },
   ],
 }
 
@@ -684,12 +688,15 @@ describe('client/lobbies/lobby-reducer', () => {
       payload: {
         type: 'seriesGameUpdated',
         gameId: 'game-1',
-        result: { winningTeamIndex: 0, durationMs: 1000 },
+        result: { outcomes: [{ userId: HOST_SLOT.userId!, result: 'win' }], durationMs: 1000 },
       },
     })
 
     expect(state.series[0].result).toBeUndefined()
-    expect(state.series[1].result).toEqual({ winningTeamIndex: 0, durationMs: 1000 })
+    expect(state.series[1].result).toEqual({
+      outcomes: [{ userId: HOST_SLOT.userId!, result: 'win' }],
+      durationMs: 1000,
+    })
   })
 
   test('a seriesGameUpdated for a game we never saw is dropped', () => {
@@ -701,7 +708,7 @@ describe('client/lobbies/lobby-reducer', () => {
         payload: {
           type: 'seriesGameUpdated',
           gameId: 'game-nobody-here-has-heard-of',
-          result: { durationMs: 1000 },
+          result: { outcomes: [], durationMs: 1000 },
         },
       })
     }).not.toThrow()
