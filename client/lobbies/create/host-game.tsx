@@ -77,8 +77,8 @@ export interface HostGameProps {
 }
 
 /**
- * The redesigned "Host a game" surface: a form built on the shared `GameSetupForm` core, prefilled
- * from the user's saved lobby preferences.
+ * The "Host a game" surface: a form built on the shared `GameSetupForm` core, prefilled from the
+ * user's saved lobby preferences.
  */
 export function HostGame(props: HostGameProps) {
   useTrackPageView('/lobbies/create')

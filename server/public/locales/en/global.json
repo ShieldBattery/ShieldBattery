@@ -1101,6 +1101,17 @@
     }
   },
   "lobbies": {
+    "actionErrors": {
+      "countingDown": "The lobby is already counting down",
+      "gameInProgress": "The lobby is in a game right now",
+      "generic": "Something went wrong. Please try again.",
+      "invalidSlotOperation": "That seat cannot be changed right now",
+      "invalidTeamLayout": "The teams cannot be rearranged in this layout",
+      "notEnoughSides": "The game needs players on at least two sides",
+      "notEveryoneReady": "Not everyone is ready yet",
+      "notHost": "Only the host can do that",
+      "throttled": "Too many requests, try again in a moment"
+    },
     "activity": {
       "title": "Lobbies ({{lobbyCount}})"
     },
@@ -1263,11 +1274,17 @@
       "memberBody": "Joining {{target}} will remove you from {{current}}."
     },
     "lobby": {
-      "inGame": "In game"
+      "gameSubType": "Teams",
+      "inGame": "In game",
+      "unitLimit": "Unit limit",
+      "unitLimitExtended": "Extended",
+      "unitLimitLegacy": "Legacy"
     },
     "lobbySettings": {
       "errorDialogTitle": "Error updating settings",
-      "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration."
+      "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration.",
+      "errorRename": "The lobby could not be renamed. Please try again.",
+      "errorTransient": "The lobby is starting or playing a game. Try again once it regroups."
     },
     "messageLayout": {
       "gameStarted": "The game has started",
@@ -1284,6 +1301,7 @@
     "room": {
       "banner": {
         "shuffle": "Shuffle",
+        "shuffleBlockedByComputers": "Remove the computers to shuffle",
         "statMode": "Mode",
         "statPeople": "People",
         "statSize": "Size",
@@ -1318,13 +1336,21 @@
         "visibilityPublic": "Public",
         "visibilityUnlisted": "Unlisted"
       },
+      "racePicker": {
+        "label": "Race"
+      },
       "rail": {
         "benchHeading": "Bench · {{benchCount}}",
-        "benchTooltip": "Joined while seats were full — the first in line takes the next opening",
-        "holdToStartCaption": "Enables when everyone's ready · hold to start now",
+        "benchTooltip": "Joined while seats were full. The first in line takes the next opening.",
+        "enablesWhenReady": "Enables when everyone is ready",
+        "forceStartConfirm_one": "Start without waiting for {{count}} player?",
+        "forceStartConfirm_other": "Start without waiting for {{count}} players?",
+        "needsOpposingSides": "Needs players on at least two sides",
         "readyCount": "{{readyCount}} of {{readyTotal}} ready",
+        "startAnyway": "Start anyway",
         "startGame": "Start game",
-        "startWhenReady": "Start when ready",
+        "startingGame": "Starting game",
+        "startNow": "Start now",
         "waitingForHost": "Waiting for the host to start"
       },
       "readyMark": {
@@ -1340,15 +1366,20 @@
         "earlierGames": "Earlier games",
         "fullSummary": "Full summary",
         "gameNumber": "Game {{number}}",
+        "gameNumberShort": "G{{number}}",
         "gamesLabel": "Games",
+        "headlineNoWinner": "Game {{number}}: no recorded winner ({{duration}})",
+        "headlinePlayerWon": "Game {{number}}: {{player}} won ({{duration}})",
+        "headlineTeamWon": "Game {{number}}: {{team}} won ({{duration}})",
+        "headlineWaiting": "Game {{number}}, waiting for results",
         "next": "Next",
         "noRecordedWinner": "No recorded winner",
+        "playing": "Playing",
         "standings": "Standings",
         "starting": "Starting",
         "tileNoWinner": "No winner",
         "tilePending": "Pending",
         "unknownMap": "unknown map",
-        "victoryTeam": "Victory Team {{number}}",
         "waitingForResults": "Waiting for results",
         "watchReplay": "Watch replay"
       },
@@ -1359,7 +1390,8 @@
         "moveIntoPlayerSlot": "Move into a player slot",
         "moveToAnotherSlot": "Move to another slot",
         "remove": "Remove"
-      }
+      },
+      "teamLabelNamed": "Team {{number}} · {{name}}"
     },
     "slots": {
       "addComputer": "Add computer",

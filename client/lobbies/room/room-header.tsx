@@ -9,7 +9,7 @@ import { useLinkCopier } from '../../navigation/copy-link-button'
 import { getServerOrigin } from '../../network/server-url'
 import { useAppSelector } from '../../redux-hooks'
 import { titleLarge } from '../../styles/typography'
-import { RoomChip } from './room-parts'
+import { RoomChip, useLobbyLifecycle } from './room-parts'
 
 const HeaderRoot = styled.div`
   padding: 12px 16px;
@@ -56,6 +56,7 @@ function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
       }
       iconStart={<MaterialIcon icon='link' />}
       onClick={copyLink}
+      testName='copy-invite-link-button'
     />
   )
 }
@@ -105,6 +106,9 @@ export function RoomHeader({
   const isHost = lobby.host.userId === viewerId
   const isBenched = !!findBenchedUser(lobby, viewerId)
   const isViewerReady = readyUserIds.includes(viewerId)
+  // A countdown snapshots what the lobby is about to play, so from then until the game is over
+  // there's nothing left to ready up for or to change about the setup.
+  const isGathering = useLobbyLifecycle() === 'gathering'
 
   return (
     <HeaderRoot>
@@ -123,15 +127,17 @@ export function RoomHeader({
           label={t('lobbies.room.header.leave', 'Leave')}
           iconStart={<MaterialIcon icon='logout' />}
           onClick={onLeaveLobby}
+          testName='leave-lobby-button'
         />
-        {isHost ? (
+        {isHost && isGathering ? (
           <OutlinedButton
             label={t('lobbies.gameSetup.title', 'Game setup')}
             iconStart={<MaterialIcon icon='tune' />}
             onClick={onOpenGameSetup}
+            testName='lobby-settings-button'
           />
         ) : null}
-        {!isBenched ? (
+        {!isBenched && isGathering ? (
           <ReadyButton isViewerReady={isViewerReady} onToggleReady={onToggleReady} />
         ) : null}
       </HeaderActions>

@@ -1,9 +1,15 @@
+import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
-import { gameTypeToLabel } from '../../../common/games/game-type'
+import { assertUnreachable } from '../../../common/assert-unreachable'
+import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
+import { getGameDurationString } from '../../../common/games/games'
+import { getLobbySlots, hasControlledOpens, isUms, Lobby, slotCount } from '../../../common/lobbies'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
+import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
+import { SlotType } from '../../../common/lobbies/slot'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -14,7 +20,8 @@ import { IconButton, TextButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
-import { Popover, usePopoverController, useRefAnchorPosition } from '../../material/popover'
+import { Popover } from '../../material/popover'
+import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -24,8 +31,16 @@ import {
   titleLarge,
   titleMedium,
 } from '../../styles/typography'
+import { getBatchUserInfo } from '../../users/action-creators'
 import { LobbyScoreboard } from './lobby-scoreboard'
-import { formatGameDuration, memberCount, SectionLabel, TeamArrangement } from './room-parts'
+import {
+  lobbyTeamLabel,
+  memberCount,
+  SectionLabel,
+  TeamArrangement,
+  useAnchoredMenu,
+  useLobbyLifecycle,
+} from './room-parts'
 
 const BannerRoot = styled.div`
   position: relative;
@@ -102,10 +117,15 @@ const InfoColumn = styled.div`
   gap: 12px;
 `
 
+/**
+ * Wraps rather than squeezing: six stats and their dividers outgrow the column beside the
+ * thumbnail, and a stat truncated to its first letters reads as nothing.
+ */
 const StatsRow = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 8px 20px;
   min-width: 0;
 `
 
@@ -294,7 +314,7 @@ const breathe = keyframes`
   }
 `
 
-const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' }>`
+const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'playing' }>`
   min-width: 96px;
   padding: 8px 12px;
 
@@ -440,6 +460,34 @@ const SeriesAction = styled(IconButton)`
   flex-shrink: 0;
 `
 
+/**
+ * Names whoever won a finished game, or `undefined` when there is nobody to name: the winning side
+ * in the lobby's own team labels, or the winning player in a game played as a single side, where no
+ * team took anything.
+ *
+ * A lobby's earlier games can name people who have since left it, whom nothing else in the room has
+ * any reason to have loaded, so the winner's name is fetched on demand.
+ */
+function useWinnerLabel(winner: LobbySeriesWinner | undefined): string | undefined {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const winnerUserId = winner?.kind === 'player' ? winner.userId : undefined
+  const winnerName = useAppSelector(s =>
+    winnerUserId !== undefined ? s.users.byId.get(winnerUserId)?.name : undefined,
+  )
+
+  useEffect(() => {
+    if (winnerUserId !== undefined) {
+      dispatch(getBatchUserInfo(winnerUserId))
+    }
+  }, [dispatch, winnerUserId])
+
+  if (winner === undefined) {
+    return undefined
+  }
+  return winner.kind === 'team' ? lobbyTeamLabel(winner, t) : (winnerName ?? '…')
+}
+
 /** One finished game from the lobby's games so far: what was played, who took it, and how to revisit it. */
 function SeriesGameRow({
   game,
@@ -462,27 +510,22 @@ function SeriesGameRow({
     dispatch(batchGetMapInfo(game.mapId))
   }, [dispatch, game.mapId])
 
-  const winningTeamIndex = game.result?.winningTeamIndex
-  const winningTeam = winningTeamIndex !== undefined ? game.teams[winningTeamIndex] : undefined
+  const winnerLabel = useWinnerLabel(findSeriesGameWinner(game))
 
   return (
     <SeriesRow>
-      <SeriesGameNumber>G{gameNumber}</SeriesGameNumber>
+      <SeriesGameNumber>
+        {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
+      </SeriesGameNumber>
       <SeriesMain>
         <SeriesMapName title={mapName}>
           {mapName ?? t('lobbies.room.series.unknownMap', 'unknown map')}
         </SeriesMapName>
         <SeriesFactRow>
-          {winningTeamIndex !== undefined ? (
+          {winnerLabel !== undefined ? (
             <>
               <SeriesTrophyIcon icon='trophy' size={14} filled />
-              <SeriesWinner>
-                {t('game.teamName.number', {
-                  defaultValue: 'Team {{teamNumber}}',
-                  teamNumber: winningTeamIndex + 1,
-                })}
-                {winningTeam?.name ? ` · ${winningTeam.name}` : ''}
-              </SeriesWinner>
+              <SeriesWinner>{winnerLabel}</SeriesWinner>
             </>
           ) : (
             <SeriesWinner>
@@ -494,7 +537,7 @@ function SeriesGameRow({
           {game.result ? (
             <>
               <SeriesFactDivider>·</SeriesFactDivider>
-              <SeriesDuration>{formatGameDuration(game.result.durationMs)}</SeriesDuration>
+              <SeriesDuration>{getGameDurationString(game.result.durationMs)}</SeriesDuration>
             </>
           ) : null}
         </SeriesFactRow>
@@ -514,7 +557,7 @@ function SeriesGameRow({
 }
 
 /**
- * One tile in the session's games timeline: a finished game's number, length, and winning team,
+ * One tile in the session's games timeline: a finished game's number, length, and who took it,
  * opening a small menu to watch its replay or read its full summary.
  */
 function GameTile({
@@ -529,32 +572,34 @@ function GameTile({
   onViewGameSummary: (gameId: string) => void
 }) {
   const { t } = useTranslation()
-  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'bottom')
-  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+  const { anchorRef, anchorX, anchorY, isOpen, openMenu, closeMenu } =
+    useAnchoredMenu<HTMLButtonElement>('left', 'bottom')
 
-  const winningTeamIndex = game.result?.winningTeamIndex
+  const winnerLabel = useWinnerLabel(findSeriesGameWinner(game))
 
   return (
     <>
-      <GameTileButton ref={anchorRef} type='button' onClick={openMenu}>
+      <GameTileButton
+        ref={anchorRef}
+        type='button'
+        aria-haspopup='menu'
+        aria-expanded={isOpen}
+        onClick={openMenu}>
         <GameTileTopRow>
-          <GameTileNumber>G{gameNumber}</GameTileNumber>
+          <GameTileNumber>
+            {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
+          </GameTileNumber>
           {game.result ? (
-            <GameTileDuration>{formatGameDuration(game.result.durationMs)}</GameTileDuration>
+            <GameTileDuration>{getGameDurationString(game.result.durationMs)}</GameTileDuration>
           ) : null}
         </GameTileTopRow>
         <GameTileBottomRow>
-          {winningTeamIndex !== undefined ? (
+          {winnerLabel !== undefined ? (
             <>
               <GameTileTrophy>
                 <MaterialIcon icon='trophy' size={14} filled />
               </GameTileTrophy>
-              <GameTileWinner>
-                {t('game.teamName.number', {
-                  defaultValue: 'Team {{teamNumber}}',
-                  teamNumber: winningTeamIndex + 1,
-                })}
-              </GameTileWinner>
+              <GameTileWinner>{winnerLabel}</GameTileWinner>
             </>
           ) : (
             <GameTileUnresolved>
@@ -566,7 +611,7 @@ function GameTile({
         </GameTileBottomRow>
       </GameTileButton>
       <Popover
-        open={menuOpen}
+        open={isOpen}
         onDismiss={closeMenu}
         anchorX={anchorX ?? 0}
         anchorY={anchorY ?? 0}
@@ -596,47 +641,73 @@ function GameTile({
 }
 
 /**
- * The timeline's trailing slot: a preview of the game that would start next. Reflects the
- * countdown once the host has started one, then the load once the game itself is launching.
+ * The timeline's trailing slot: the game the lobby is headed into. It counts down once the host has
+ * started one, follows the load as the game launches, and stands in for the game while it runs,
+ * becoming a preview of the next one again as soon as the lobby regroups.
  */
 function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
   const { t } = useTranslation()
-  const loadingState = useAppSelector(s => s.lobby.loadingState)
+  const lifecycle = useLobbyLifecycle()
+  const countdownTimer = useAppSelector(s => s.lobby.loadingState.countdownTimer)
   const gameLabel = t('lobbies.room.series.gameNumber', 'Game {{number}}', {
     number: nextGameNumber,
   })
 
-  if (loadingState.isCountingDown) {
-    return (
-      <NextSlotRoot $state='countdown'>
-        <NextSlotLabel>{t('lobbies.room.series.starting', 'Starting')}</NextSlotLabel>
-        <NextSlotNumeral>{loadingState.countdownTimer}</NextSlotNumeral>
-      </NextSlotRoot>
-    )
+  switch (lifecycle) {
+    case 'countingDown':
+      return (
+        <NextSlotRoot $state='countdown'>
+          <NextSlotLabel>{t('lobbies.room.series.starting', 'Starting')}</NextSlotLabel>
+          <NextSlotNumeral>{countdownTimer}</NextSlotNumeral>
+        </NextSlotRoot>
+      )
+    case 'loading':
+      return (
+        <NextSlotRoot $state='loading'>
+          <NextSlotLabel>{t('lobbies.room.series.starting', 'Starting')}</NextSlotLabel>
+          <NextSlotValue>{gameLabel}</NextSlotValue>
+        </NextSlotRoot>
+      )
+    case 'inGame':
+      return (
+        <NextSlotRoot $state='playing'>
+          <NextSlotLabel>{t('lobbies.room.series.playing', 'Playing')}</NextSlotLabel>
+          <NextSlotValue>{gameLabel}</NextSlotValue>
+        </NextSlotRoot>
+      )
+    case 'gathering':
+      return (
+        <NextSlotRoot $state='idle'>
+          <NextSlotLabel>{t('lobbies.room.series.next', 'Next')}</NextSlotLabel>
+          <NextSlotValue>{gameLabel}</NextSlotValue>
+        </NextSlotRoot>
+      )
+    default:
+      return assertUnreachable(lifecycle)
+  }
+}
+
+/** A label for the way a lobby's seats are split up, e.g. "3 vs 5" or "3 teams". */
+function gameSubTypeLabel(lobby: Lobby, t: TFunction): string {
+  if (lobby.gameType === GameType.TopVsBottom) {
+    return t('lobbies.createLobby.gameSubTypeOptionTvB', {
+      defaultValue: '{{topSlots}} vs {{bottomSlots}}',
+      topSlots: lobby.gameSubType,
+      bottomSlots: slotCount(lobby) - lobby.gameSubType,
+    })
   }
 
-  if (loadingState.isLoading) {
-    return (
-      <NextSlotRoot $state='loading'>
-        <NextSlotLabel>{t('lobbies.room.series.starting', 'Starting')}</NextSlotLabel>
-        <NextSlotValue>{gameLabel}</NextSlotValue>
-      </NextSlotRoot>
-    )
-  }
-
-  return (
-    <NextSlotRoot $state='idle'>
-      <NextSlotLabel>{t('lobbies.room.series.next', 'Next')}</NextSlotLabel>
-      <NextSlotValue>{gameLabel}</NextSlotValue>
-    </NextSlotRoot>
-  )
+  return t('lobbies.createLobby.gameSubTypeOption', {
+    defaultValue: '{{numTeams}} teams',
+    numTeams: lobby.gameSubType,
+  })
 }
 
 /**
  * The lobby room's map banner: a full-bleed, theme-tinted crop of the map sits behind a
  * thumbnail card, the lobby's key facts, and the host's seating tools, giving the room a sense of
- * place. Below that runs a horizontal timeline of the lobby's games so far, ending in the upcoming
- * game's slot, which reflects the countdown as the lobby heads into its next game.
+ * place. Below that runs a horizontal timeline of the lobby's games so far, ending in a slot for the
+ * game it is headed into, which follows that game from the countdown through to its finish.
  */
 export function RoomMapBanner({
   viewerId,
@@ -653,32 +724,86 @@ export function RoomMapBanner({
   const lobby = useAppSelector(s => s.lobby.info)
   const map = lobby.map!
   const series = useAppSelector(s => s.lobby.series)
+  const lifecycle = useLobbyLifecycle()
 
   const isHost = lobby.host.userId === viewerId
-  const playerTeamCount = lobby.teams.filter(team => !team.isObserver).length
+  const playerTeams = lobby.teams.filter(team => !team.isObserver)
+  // Trading two teams' occupants only means anything between two equally sized sides, and a UMS
+  // lobby's teams are the map's own forces, which cannot trade places at all. Shuffling needs teams
+  // to deal between, and in game types where a computer takes a whole team rather than a seat of
+  // its own, there is no seat to deal it into.
+  const canSwap =
+    !isUms(lobby.gameType) &&
+    playerTeams.length === 2 &&
+    playerTeams[0].slots.length === playerTeams[1].slots.length
+  const canShuffle = playerTeams.length >= 2
+  const shuffleBlockedByComputers =
+    hasControlledOpens(lobby.gameType) &&
+    getLobbySlots(lobby).some(slot => slot.type === SlotType.Computer)
+  // Only a gathering lobby's layout can be rearranged; from the countdown until the game ends its
+  // seats are what the game was configured with.
+  const showHostTools = isHost && lifecycle === 'gathering' && (canSwap || canShuffle)
 
   const mapStats: Array<[label: string, value: React.ReactNode]> = [
     [t('lobbies.room.banner.statMode', 'Mode'), gameTypeToLabel(lobby.gameType, t)],
+  ]
+  if (isTeamType(lobby.gameType)) {
+    mapStats.push([t('lobbies.lobby.gameSubType', 'Teams'), gameSubTypeLabel(lobby, t)])
+  }
+  mapStats.push(
     [t('lobbies.room.banner.statSize', 'Size'), `${map.mapData.width}×${map.mapData.height}`],
     [t('lobbies.room.banner.statTileset', 'Tileset'), tilesetToName(map.mapData.tileset, t)],
+    [
+      t('lobbies.lobby.unitLimit', 'Unit limit'),
+      lobby.useLegacyLimits
+        ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
+        : t('lobbies.lobby.unitLimitExtended', 'Extended'),
+    ],
     [t('lobbies.room.banner.statPeople', 'People'), memberCount(lobby)],
-  ]
+  )
 
   const recentStartIndex = Math.max(0, series.length - 3)
   const recentGames = series
     .slice(recentStartIndex)
     .map((game, i) => ({ game, gameNumber: recentStartIndex + i + 1 }))
 
-  const [allGamesAnchorRef, allGamesAnchorX, allGamesAnchorY, refreshAllGamesAnchorPos] =
-    useRefAnchorPosition('right', 'bottom')
-  const [allGamesOpen, openAllGames, closeAllGames] = usePopoverController({
-    refreshAnchorPos: refreshAllGamesAnchorPos,
-  })
+  const {
+    anchorRef: allGamesAnchorRef,
+    anchorX: allGamesAnchorX,
+    anchorY: allGamesAnchorY,
+    isOpen: allGamesOpen,
+    openMenu: openAllGames,
+    closeMenu: closeAllGames,
+  } = useAnchoredMenu<HTMLButtonElement>('right', 'bottom')
+
+  let shuffleTool: React.ReactNode = null
+  if (canShuffle) {
+    const shuffleButton = (
+      <HostToolButton
+        label={t('lobbies.room.banner.shuffle', 'Shuffle')}
+        iconStart={<MaterialIcon icon='shuffle' size={18} />}
+        disabled={shuffleBlockedByComputers}
+        onClick={() => onArrangeTeams(TeamArrangement.Shuffle)}
+      />
+    )
+    shuffleTool = shuffleBlockedByComputers ? (
+      <Tooltip
+        text={t(
+          'lobbies.room.banner.shuffleBlockedByComputers',
+          'Remove the computers to shuffle',
+        )}>
+        {shuffleButton}
+      </Tooltip>
+    ) : (
+      shuffleButton
+    )
+  }
 
   return (
     <BannerRoot>
       <Backdrop>
-        <MapInfoImage map={map} size={1024} />
+        {/* Decorative: the map is named and shown for real in the thumbnail card alongside it. */}
+        <MapInfoImage map={map} size={512} altText='' />
       </Backdrop>
       <TintLayer />
       <Scrim />
@@ -698,18 +823,16 @@ export function RoomMapBanner({
               </React.Fragment>
             ))}
           </StatsRow>
-          {isHost && playerTeamCount > 1 ? (
+          {showHostTools ? (
             <HostTools>
-              <HostToolButton
-                label={t('lobbies.room.banner.swapTeams', 'Swap teams')}
-                iconStart={<MaterialIcon icon='swap_horiz' size={18} />}
-                onClick={() => onArrangeTeams(TeamArrangement.Swap)}
-              />
-              <HostToolButton
-                label={t('lobbies.room.banner.shuffle', 'Shuffle')}
-                iconStart={<MaterialIcon icon='shuffle' size={18} />}
-                onClick={() => onArrangeTeams(TeamArrangement.Shuffle)}
-              />
+              {canSwap ? (
+                <HostToolButton
+                  label={t('lobbies.room.banner.swapTeams', 'Swap teams')}
+                  iconStart={<MaterialIcon icon='swap_horiz' size={18} />}
+                  onClick={() => onArrangeTeams(TeamArrangement.Swap)}
+                />
+              ) : null}
+              {shuffleTool}
             </HostTools>
           ) : null}
           <TimelineSection>
@@ -717,7 +840,12 @@ export function RoomMapBanner({
               <SectionLabel>{t('lobbies.room.series.gamesLabel', 'Games')}</SectionLabel>
               <TimelineSpacer />
               {series.length > 0 ? (
-                <AllGamesButton ref={allGamesAnchorRef} type='button' onClick={openAllGames}>
+                <AllGamesButton
+                  ref={allGamesAnchorRef}
+                  type='button'
+                  aria-haspopup='dialog'
+                  aria-expanded={allGamesOpen}
+                  onClick={openAllGames}>
                   <span>{t('lobbies.room.series.allGames', 'All games')}</span>
                   <MaterialIcon icon='expand_more' size={16} />
                 </AllGamesButton>
@@ -728,6 +856,8 @@ export function RoomMapBanner({
                 <OverflowChip
                   type='button'
                   title={t('lobbies.room.series.earlierGames', 'Earlier games')}
+                  aria-haspopup='dialog'
+                  aria-expanded={allGamesOpen}
                   onClick={openAllGames}>
                   +{series.length - 3}
                 </OverflowChip>

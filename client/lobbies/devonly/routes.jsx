@@ -15,13 +15,13 @@ class DevLobbiesDashboard extends Component {
     return (
       <ul>
         <li>
-          <Link href={`${BASE_URL}/browser`}>Lobby browser (redesign)</Link>
+          <Link href={`${BASE_URL}/browser`}>Lobby browser</Link>
         </li>
         <li>
-          <Link href={`${BASE_URL}/room`}>Lobby room (redesign)</Link>
+          <Link href={`${BASE_URL}/room`}>Lobby room</Link>
         </li>
         <li>
-          <Link href={`${BASE_URL}/host-game`}>Host a game (redesign)</Link>
+          <Link href={`${BASE_URL}/host-game`}>Host a game</Link>
         </li>
         <li>
           <Link href={`${BASE_URL}/race-picker`}>Race picker component</Link>

@@ -1,12 +1,22 @@
+import { TFunction } from 'i18next'
+import * as React from 'react'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getHumanSlots, Lobby } from '../../../common/lobbies'
-import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { RaceChar, raceCharToLabel } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { buttonReset } from '../../material/button-reset'
+import {
+  OriginX,
+  OriginY,
+  PopoverOpenState,
+  usePopoverController,
+  useRefAnchorPosition,
+} from '../../material/popover'
 import { Tooltip } from '../../material/tooltip'
+import { useAppSelector } from '../../redux-hooks'
 import { getRaceColor } from '../../styles/colors'
 import { labelSmall, singleLine } from '../../styles/typography'
 import { RaceIcon } from '../race-icon'
@@ -43,6 +53,23 @@ const RaceOption = styled.button<{ $race: RaceChar; $active: boolean }>`
   color: ${props => (props.$active ? 'var(--sb-race-color)' : 'var(--theme-on-surface-variant)')};
   opacity: ${props => (props.$active ? 1 : 0.72)};
 
+  /*
+   * The picked race is underlined as well as colored, so which one is picked still reads where
+   * color doesn't carry it (color blindness, a forced-colors theme, a screenshot in greyscale).
+   */
+  &::after {
+    content: '';
+    position: absolute;
+    inset-inline: 4px;
+    bottom: 0;
+
+    height: 2px;
+    border-radius: 1px;
+
+    background-color: currentColor;
+    opacity: ${props => (props.$active ? 1 : 0)};
+  }
+
   &:hover {
     color: var(--sb-race-color);
     opacity: 1;
@@ -74,11 +101,17 @@ export function InlineRacePicker({
 }) {
   const { t } = useTranslation()
   return (
-    <RacePickerRoot className={className}>
+    <RacePickerRoot
+      className={className}
+      role='radiogroup'
+      aria-label={t('lobbies.room.racePicker.label', 'Race')}>
       {RACE_ORDER.map(r => (
         <RaceOption
           key={r}
           type='button'
+          role='radio'
+          aria-checked={r === race}
+          aria-label={raceCharToLabel(r, t)}
           $race={r}
           $active={r === race}
           title={raceCharToLabel(r, t)}
@@ -104,7 +137,7 @@ const ReadyMarkRoot = styled.span<{ $ready: boolean }>`
  * NOTE: Rendered as a filled check or an outlined ring rather than a colored dot, so it can't be
  * mistaken for a presence indicator.
  */
-export function ReadyMark({ ready }: { ready: boolean }) {
+export function ReadyMark({ ready, tabIndex }: { ready: boolean; tabIndex?: number }) {
   const { t } = useTranslation()
   return (
     <Tooltip
@@ -112,7 +145,8 @@ export function ReadyMark({ ready }: { ready: boolean }) {
         ready
           ? t('lobbies.room.readyMark.ready', 'Ready')
           : t('lobbies.room.readyMark.notReady', 'Not ready yet')
-      }>
+      }
+      tabIndex={tabIndex}>
       <ReadyMarkRoot $ready={ready}>
         <MaterialIcon icon={ready ? 'check_circle' : 'circle'} size={18} filled={ready} />
       </ReadyMarkRoot>
@@ -185,39 +219,83 @@ export function memberCount(lobby: Lobby): number {
 }
 
 /**
- * Returns how many of a series' games each player won.
+ * Names one of a lobby's teams the way the room labels it everywhere it comes up: the rail's
+ * headings, a member's seat in their arrival card, and the side that won a finished game.
  *
- * Only games with a settled result that names a winning team count, and only for the people on it:
- * a game still waiting on its results, one no team can be said to have won, and the computers a
- * winning team was made up of all add nothing to anyone's tally.
+ * Team ids are the lobby's own (a team game's sides are numbered from 1; a map's forces carry the
+ * map's ids), so a series game's teams, captured when it launched, label the same way the live
+ * layout does.
  */
-export function getWinsByUser(games: ReadonlyArray<LobbySeriesGameJson>): Map<SbUserId, number> {
-  const wins = new Map<SbUserId, number>()
-  for (const game of games) {
-    const winningTeamIndex = game.result?.winningTeamIndex
-    if (winningTeamIndex === undefined) {
-      continue
-    }
-
-    for (const player of game.teams[winningTeamIndex]?.players ?? []) {
-      if (player.type === 'human') {
-        wins.set(player.userId, (wins.get(player.userId) ?? 0) + 1)
-      }
-    }
-  }
-
-  return wins
+export function lobbyTeamLabel(team: { teamId: number; name?: string }, t: TFunction): string {
+  return team.name
+    ? t('lobbies.room.teamLabelNamed', {
+        defaultValue: 'Team {{number}} · {{name}}',
+        number: team.teamId,
+        name: team.name,
+      })
+    : t('game.teamName.number', {
+        defaultValue: 'Team {{teamNumber}}',
+        teamNumber: team.teamId,
+      })
 }
 
-/** Formats a game's length as `M:SS`, growing to `H:MM:SS` once it runs past an hour. */
-export function formatGameDuration(durationMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000))
-  const seconds = totalSeconds % 60
-  const minutes = Math.floor(totalSeconds / 60) % 60
-  const hours = Math.floor(totalSeconds / 3600)
+/**
+ * Where a lobby stands relative to its next game.
+ *
+ * Only a gathering lobby's layout can be changed: the countdown snapshots the game's configuration
+ * (seats and races included), and the server refuses changes to it from then until the game ends
+ * and the lobby regroups. The one exception is the bench, which takes no part in the game and
+ * stays the host's to manage while it runs.
+ */
+export type LobbyLifecycle = 'gathering' | 'countingDown' | 'loading' | 'inGame'
 
-  const paddedSeconds = String(seconds).padStart(2, '0')
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${paddedSeconds}`
-    : `${minutes}:${paddedSeconds}`
+/** Reads the current lobby's {@link LobbyLifecycle} from the store. */
+export function useLobbyLifecycle(): LobbyLifecycle {
+  return useAppSelector(s => {
+    if (s.lobby.runState) {
+      return 'inGame'
+    }
+    if (s.lobby.loadingState.isLoading) {
+      return 'loading'
+    }
+    if (s.lobby.loadingState.isCountingDown) {
+      return 'countingDown'
+    }
+    return 'gathering'
+  })
+}
+
+/**
+ * Wires a popover menu to the button that opens it: the anchor position the popover is placed at,
+ * and open/close state whose close puts keyboard focus back on that button. A dismissed popover
+ * otherwise leaves focus on the document body, stranding whoever opened it from the keyboard.
+ */
+export function useAnchoredMenu<T extends HTMLElement>(
+  originX: OriginX,
+  originY: OriginY,
+): {
+  anchorRef: (elem: T | null) => void
+  anchorX: number | undefined
+  anchorY: number | undefined
+  isOpen: PopoverOpenState
+  openMenu: (triggeringEvent: Event | React.SyntheticEvent) => boolean
+  closeMenu: () => void
+} {
+  const anchorElem = useRef<T | null>(null)
+  const [positionRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition<T>(
+    originX,
+    originY,
+  )
+  const [isOpen, openMenu, closePopover] = usePopoverController({ refreshAnchorPos })
+
+  const anchorRef = (elem: T | null) => {
+    anchorElem.current = elem
+    positionRef(elem)
+  }
+  const closeMenu = () => {
+    closePopover()
+    anchorElem.current?.focus()
+  }
+
+  return { anchorRef, anchorX, anchorY, isOpen, openMenu, closeMenu }
 }

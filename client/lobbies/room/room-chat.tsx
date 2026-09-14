@@ -3,8 +3,10 @@ import * as React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { getGameDurationString } from '../../../common/games/games'
 import { findSlotByUserId, Lobby } from '../../../common/lobbies'
 import { LobbyChangedSetting, LobbySeriesPlayerJson } from '../../../common/lobbies/lobby-network'
+import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { TransInterpolation } from '../../i18n/i18next'
@@ -13,21 +15,24 @@ import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { TextButton } from '../../material/button'
 import { Chat } from '../../messaging/chat'
 import { LobbyCommandContext } from '../../messaging/commands/command-context'
+import { useMentionFilterClick } from '../../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../../messaging/message-layout'
 import { MessageComponentProps } from '../../messaging/message-list'
 import { SbMessage } from '../../messaging/message-records'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyMedium, labelSmall, singleLine } from '../../styles/typography'
+import { getBatchUserInfo } from '../../users/action-creators'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
 import { LobbyMessageType } from '../lobby-message-records'
 import { RaceIcon } from '../race-icon'
-import { formatGameDuration, SectionLabel } from './room-parts'
+import { lobbyTeamLabel, SectionLabel } from './room-parts'
 
 function Username({ userId }: { userId: SbUserId }) {
+  const filterClick = useMentionFilterClick()
   return (
     <SystemImportant>
-      <ConnectedUsername userId={userId} UserMenu={LobbyUserMenu} />
+      <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={LobbyUserMenu} />
     </SystemImportant>
   )
 }
@@ -204,6 +209,11 @@ const TeamHeadingTrophyIcon = styled(MaterialIcon)`
   color: var(--theme-amber);
 `
 
+const PlayerRowTrophyIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
+  color: var(--theme-amber);
+`
+
 const PlayerRow = styled.div`
   display: flex;
   align-items: center;
@@ -253,18 +263,16 @@ function seatDescription(lobby: Lobby, userId: SbUserId, t: TFunction): string |
     return t('lobbies.room.chat.watching', 'watching')
   }
 
-  const teamLabel = t('game.teamName.number', {
-    defaultValue: 'Team {{teamNumber}}',
-    teamNumber: teamIndex + 1,
-  })
-  return team.name ? `${teamLabel} · ${team.name}` : teamLabel
+  return lobbyTeamLabel(team, t)
 }
 
 /** The card that lands in chat when someone new turns up, so arrivals read as social events. */
 function ArrivalCard({ userId }: { userId: SbUserId }) {
   const { t } = useTranslation()
-  const lobby = useAppSelector(s => s.lobby.info)
-  const seat = seatDescription(lobby, userId, t)
+  // Selecting the description rather than the lobby it comes from: a chat log holds a card for
+  // every arrival, and a string compares by value, so none of them re-render when a slot, a race,
+  // or a setting changes elsewhere in the lobby.
+  const seat = useAppSelector(s => seatDescription(s.lobby.info, userId, t))
 
   return (
     <JoinCard>
@@ -352,8 +360,18 @@ const GameSummaryContext = React.createContext<GameSummaryActions>({
   onViewGameSummary: () => {},
 })
 
-/** One player of a finished game's roster: a lobby member, or one of the computers they played. */
-function ResultPlayerRow({ player }: { player: LobbySeriesPlayerJson }) {
+/**
+ * One player of a finished game's roster: a lobby member, or one of the computers they played.
+ * `isWinner` marks the player who won a game played as a single side, where there is no team to
+ * carry the trophy instead.
+ */
+function ResultPlayerRow({
+  player,
+  isWinner,
+}: {
+  player: LobbySeriesPlayerJson
+  isWinner?: boolean
+}) {
   const { t } = useTranslation()
   if (player.type === 'computer') {
     return (
@@ -371,6 +389,7 @@ function ResultPlayerRow({ player }: { player: LobbySeriesPlayerJson }) {
       <PlayerName>
         <ConnectedUsername userId={player.userId} UserMenu={LobbyUserMenu} />
       </PlayerName>
+      {isWinner ? <PlayerRowTrophyIcon icon='trophy' size={14} /> : null}
     </PlayerRow>
   )
 }
@@ -382,6 +401,7 @@ function ResultPlayerRow({ player }: { player: LobbySeriesPlayerJson }) {
  */
 function GameSummaryCard({ gameId }: { gameId: string }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const { isRegrouping, onWatchReplay, onViewGameSummary } = React.useContext(GameSummaryContext)
   const series = useAppSelector(s => s.lobby.series)
   const gameIndex = series.findIndex(g => g.gameId === gameId)
@@ -389,6 +409,19 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
   const isLatest = gameIndex >= 0 && gameIndex === series.length - 1
 
   const map = useAppSelector(s => (game ? s.maps.byId.get(game.mapId) : undefined))
+
+  const winner = game ? findSeriesGameWinner(game) : undefined
+  const winnerUserId = winner?.kind === 'player' ? winner.userId : undefined
+  // A game won by a single player can name someone who has since left the lobby, whom nothing else
+  // in the room has any reason to have loaded.
+  const winnerName = useAppSelector(s =>
+    winnerUserId !== undefined ? s.users.byId.get(winnerUserId)?.name : undefined,
+  )
+  React.useEffect(() => {
+    if (winnerUserId !== undefined) {
+      dispatch(getBatchUserInfo(winnerUserId))
+    }
+  }, [dispatch, winnerUserId])
 
   const [override, setOverride] = React.useState<boolean | null>(null)
   const expanded = override ?? (isLatest && isRegrouping)
@@ -400,27 +433,37 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
   // A game's results settle some time after it ends, and games that report none never settle at
   // all, so the headline says as much as the lobby actually knows.
   const result = game.result
-  const winningTeamIndex = result?.winningTeamIndex
-  const gameLabel = t('lobbies.room.series.gameNumber', 'Game {{number}}', {
-    number: gameIndex + 1,
-  })
+  const gameNumber = gameIndex + 1
+  const duration = result ? getGameDurationString(result.durationMs) : ''
   let headline: string
   if (!result) {
-    headline = `${gameLabel} — ${t('lobbies.room.series.waitingForResults', 'Waiting for results')}`
+    headline = t('lobbies.room.series.headlineWaiting', 'Game {{number}}, waiting for results', {
+      number: gameNumber,
+    })
+  } else if (winner?.kind === 'team') {
+    headline = t(
+      'lobbies.room.series.headlineTeamWon',
+      'Game {{number}}: {{team}} won ({{duration}})',
+      { number: gameNumber, team: lobbyTeamLabel(winner, t), duration },
+    )
+  } else if (winner?.kind === 'player') {
+    headline = t(
+      'lobbies.room.series.headlinePlayerWon',
+      'Game {{number}}: {{player}} won ({{duration}})',
+      { number: gameNumber, player: winnerName ?? '…', duration },
+    )
   } else {
-    const outcome =
-      winningTeamIndex !== undefined
-        ? t('lobbies.room.series.victoryTeam', 'Victory Team {{number}}', {
-            number: winningTeamIndex + 1,
-          })
-        : t('lobbies.room.series.noRecordedWinner', 'No recorded winner')
-    headline = `${gameLabel} — ${outcome} · ${formatGameDuration(result.durationMs)}`
+    headline = t(
+      'lobbies.room.series.headlineNoWinner',
+      'Game {{number}}: no recorded winner ({{duration}})',
+      { number: gameNumber, duration },
+    )
   }
 
   return (
     <SummaryCardRoot>
       <SummaryToggle type='button' aria-expanded={expanded} onClick={() => setOverride(!expanded)}>
-        {winningTeamIndex !== undefined ? (
+        {winner ? (
           <TrophyIcon icon='trophy' size={20} />
         ) : (
           <UnresolvedIcon icon={result ? 'sports_esports' : 'hourglass_empty'} size={20} />
@@ -436,22 +479,30 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
             </ResultMapFrame>
             <ResultDetails>
               <TeamsRow>
-                {game.teams.map((team, teamIndex) => (
-                  <TeamColumn key={teamIndex}>
-                    <TeamHeading>
-                      <span>
-                        {t('game.teamName.number', {
-                          defaultValue: 'Team {{teamNumber}}',
-                          teamNumber: teamIndex + 1,
-                        })}
-                        {team.name ? ` · ${team.name}` : ''}
-                      </span>
-                      {teamIndex === winningTeamIndex ? (
-                        <TeamHeadingTrophyIcon icon='trophy' size={14} />
-                      ) : null}
-                    </TeamHeading>
+                {game.teams.map(team => (
+                  <TeamColumn key={team.teamId}>
+                    {/*
+                      A game played as a single side has no sides to tell apart, so naming its one
+                      team would only add noise above the roster.
+                    */}
+                    {game.teams.length > 1 ? (
+                      <TeamHeading>
+                        <span>{lobbyTeamLabel(team, t)}</span>
+                        {winner?.kind === 'team' && winner.teamId === team.teamId ? (
+                          <TeamHeadingTrophyIcon icon='trophy' size={14} />
+                        ) : null}
+                      </TeamHeading>
+                    ) : null}
                     {team.players.map((player, playerIndex) => (
-                      <ResultPlayerRow key={playerIndex} player={player} />
+                      <ResultPlayerRow
+                        key={playerIndex}
+                        player={player}
+                        isWinner={
+                          winnerUserId !== undefined &&
+                          player.type === 'human' &&
+                          player.userId === winnerUserId
+                        }
+                      />
                     ))}
                   </TeamColumn>
                 ))}
