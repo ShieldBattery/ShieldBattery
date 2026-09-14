@@ -6,7 +6,7 @@ import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { getUserGameRecord } from '../models/games-users'
 import { GameApi } from './game-api'
 import { GameLifecycleEvents } from './game-lifecycle-events'
-import { getNetcodeV2Session } from './game-models'
+import { getNetcodeV2Session, wasUserInGame } from './game-models'
 import { GameResultServiceError } from './game-result-service'
 
 vi.mock('../models/games-users', async importOriginal => ({
@@ -16,6 +16,7 @@ vi.mock('../models/games-users', async importOriginal => ({
 vi.mock('./game-models', async importOriginal => ({
   ...(await importOriginal<typeof import('./game-models')>()),
   getNetcodeV2Session: vi.fn(),
+  wasUserInGame: vi.fn(),
 }))
 
 /** A fake `RouterContext` satisfying `netcodeV2Rehome`'s param/body Joi validation. */
@@ -177,10 +178,8 @@ function makeStatusApi({
 
 describe('games/game-api/GameApi#updateGameStatus', () => {
   beforeEach(() => {
-    vi.mocked(getUserGameRecord).mockResolvedValue({
-      userId: makeSbUserId(1),
-      gameId: 'game-1',
-    } as any)
+    vi.clearAllMocks()
+    vi.mocked(wasUserInGame).mockResolvedValue(true)
   })
 
   test('completes a local-only load from the client report', async () => {
@@ -254,7 +253,7 @@ describe('games/game-api/GameApi#updateGameStatus', () => {
   })
 
   test('rejects a Finished report for a game the reporter is not in, without emitting', async () => {
-    vi.mocked(getUserGameRecord).mockResolvedValue(null)
+    vi.mocked(wasUserInGame).mockResolvedValue(false)
     const { api, activityStatusService, gameLifecycleEvents } = makeStatusApi()
     const ctx = makeStatusCtx(GameStatus.Finished)
     const listener = vi.fn()
@@ -266,6 +265,21 @@ describe('games/game-api/GameApi#updateGameStatus', () => {
     expect(listener).not.toHaveBeenCalled()
     // `clearInGame` runs ahead of the participation check by design, so it still fires here.
     expect(activityStatusService.clearInGame).toHaveBeenCalledWith(makeSbUserId(1), 'game-1')
+  })
+
+  test('asks the game record whether the reporter was in the game, so observers count too', async () => {
+    const { api, gameLifecycleEvents } = makeStatusApi({ isLoadingOrRecentlyLoaded: false })
+    const ctx = makeStatusCtx(GameStatus.Finished)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await api.updateGameStatus(ctx)
+
+    // Observers have no `games_users` row of their own, so a row lookup would turn them away.
+    expect(wasUserInGame).toHaveBeenCalledWith('game-1', makeSbUserId(1))
+    expect(getUserGameRecord).not.toHaveBeenCalled()
+    expect(listener).toHaveBeenCalledWith({ gameId: 'game-1', userId: makeSbUserId(1) })
+    expect(ctx.status).toBe(204)
   })
 
   test('emits nothing for a Playing report', async () => {

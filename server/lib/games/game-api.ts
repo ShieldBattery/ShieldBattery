@@ -66,6 +66,7 @@ import {
   getGames,
   getNetcodeV2DebugInfo,
   getNetcodeV2Session,
+  wasUserInGame,
 } from './game-models'
 import {
   GamePointsRefundErrorCode,
@@ -550,10 +551,11 @@ export class GameApi {
 
     if (status === GameStatus.Finished || status === GameStatus.Error) {
       // The report ends the reporter's own participation, so it has to be for a game they actually
-      // hold. The games/games_users rows are written when the game is registered, before any client
-      // is told to launch, so both a load-time error and a post-load finish find the row here.
-      const gameUserRecord = await getUserGameRecord(user.id, gameId)
-      if (!gameUserRecord) {
+      // hold. The game record and its players' rows are written when the game is registered, before
+      // any client is told to launch, so both a load-time error and a post-load finish find them
+      // here. Observers count too: they have no row of their own, but the lobby they came from
+      // waits on their game ending just like a player's.
+      if (!(await wasUserInGame(gameId, user.id))) {
         throw new httpErrors.NotFound('game not found')
       }
 

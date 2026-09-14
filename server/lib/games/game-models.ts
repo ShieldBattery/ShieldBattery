@@ -94,6 +94,28 @@ export async function getGameRecord(gameId: string): Promise<GameRecord | undefi
 }
 
 /**
+ * Returns whether a user took part in a game, either as a player (who has a `games_users` row) or
+ * as an observer (who is recorded only in the game config's `observers`, never as a row).
+ */
+export async function wasUserInGame(gameId: string, userId: SbUserId): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`
+      SELECT 1
+      FROM games g
+      WHERE g.id = ${gameId}
+        AND (
+          EXISTS (SELECT 1 FROM games_users gu WHERE gu.game_id = g.id AND gu.user_id = ${userId})
+          OR g.config->'observers' @> ${JSON.stringify([userId])}::jsonb
+        )
+    `)
+    return (result.rowCount ?? 0) > 0
+  } finally {
+    done()
+  }
+}
+
+/**
  * Deletes a record from the `games` table. This should likely be accompanied by deleting the
  * user-specific result rows in `games_users`.
  */
