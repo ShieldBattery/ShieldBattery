@@ -2,6 +2,7 @@ import { useSearch } from 'wouter'
 import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
+import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
   AdminApplyRestrictionRequest,
@@ -21,6 +22,7 @@ import {
   GetBatchUserInfoResponse,
   GetMatchHistoryQueryParams,
   GetMatchHistoryResponse,
+  GetUserByNameResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
 } from '../../common/users/user-network'
@@ -151,6 +153,33 @@ export function getBatchUserInfo(userId: SbUserId): ThunkAction {
       infoBatchRequester.request(dispatch, userId)
     }
   }
+}
+
+/**
+ * Resolves a display name to the user carrying it, without regard to case. A user the client already
+ * knows (a channel member, a friend, anyone it has seen) answers without a request; anyone else is
+ * looked up on the server and merged into the store. Fails with a `FetchError` whose code is
+ * `UserErrorCode.NotFound` when no user has the name.
+ */
+export function findUserByName(name: string, spec: RequestHandlingSpec<SbUser>): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    // The server resolves names without regard to case, so this scan has to as well: matching
+    // exactly here would send a differently-cased name to the server and come back with the very
+    // user that was already in hand.
+    const lowered = name.toLowerCase()
+    for (const user of getState().users.byId.values()) {
+      if (user.name.toLowerCase() === lowered) {
+        return user
+      }
+    }
+
+    const { user } = await fetchJson<GetUserByNameResponse>(apiUrl`users/by-name/${name}`, {
+      signal: spec.signal,
+    })
+    dispatch({ type: '@users/loadUsers', payload: [user] })
+
+    return user
+  })
 }
 
 export function getMatchHistory(

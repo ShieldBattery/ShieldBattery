@@ -53,6 +53,12 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'leave',
       'close',
       'kick',
@@ -66,6 +72,12 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'leave',
       'kick',
       'ban',
@@ -75,6 +87,12 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'close',
       'me',
     ])
@@ -82,6 +100,12 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'leave',
       'me',
     ])
@@ -117,7 +141,13 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('whisper')!)).toBe('/whisper <user> [message]')
     expect(getCommandUsage(findCommand('leave')!)).toBe('/leave')
     expect(getCommandUsage(findCommand('kick')!)).toBe('/kick <user> [reason]')
+    expect(getCommandUsage(findCommand('profile')!)).toBe('/profile [user]')
+    expect(getCommandUsage(findCommand('stats')!)).toBe('/stats [user]')
+    expect(getCommandUsage(findCommand('whois')!)).toBe('/whois [user]')
+    expect(getCommandUsage(findCommand('who')!)).toBe('/who <channel>')
+    expect(getCommandUsage(findCommand('whoami')!)).toBe('/whoami')
     expect(formatAliases(findCommand('join')!)).toBe('/j, /channel')
+    expect(formatAliases(findCommand('whois')!)).toBe('/where, /whereis')
     expect(formatAliases(findCommand('leave')!)).toBe('')
   })
 
@@ -159,6 +189,42 @@ describe('messaging/commands/command-registry', () => {
               { label: 'message', optional: true },
             ],
             description: 'Sends a private message to a user.',
+          },
+          {
+            name: 'profile',
+            aliases: ['p'],
+            args: [{ label: 'user', optional: true }],
+            description: "Shows a user's profile card: their rank and win/loss record.",
+          },
+          {
+            name: 'stats',
+            aliases: ['astat'],
+            args: [{ label: 'user', optional: true }],
+            description: "Shows a user's win/loss record and ranks.",
+          },
+          {
+            name: 'rank',
+            aliases: ['mmr'],
+            args: [{ label: 'user', optional: true }],
+            description: "Shows a user's current ranked divisions.",
+          },
+          {
+            name: 'whois',
+            aliases: ['where', 'whereis'],
+            args: [{ label: 'user', optional: true }],
+            description: 'Shows what a user is doing, as far as you can see.',
+          },
+          {
+            name: 'who',
+            aliases: [],
+            args: [{ label: 'channel', optional: false }],
+            description: 'Lists who is in a channel you have joined.',
+          },
+          {
+            name: 'whoami',
+            aliases: [],
+            args: [],
+            description: 'Shows the name and user ID you are logged in as.',
           },
           {
             name: 'leave',

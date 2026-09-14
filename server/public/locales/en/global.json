@@ -362,8 +362,10 @@
         "invalidArgument": "Invalid <1>{{arg}}</1>: {{value}}. Usage: <7>{{usage}}</7>",
         "missingArgument": "Missing <1>{{arg}}</1>. Usage: <4>{{usage}}</4>",
         "noSuchMember": "No one named <1>{{name}}</1> is in this channel.",
+        "noSuchUser": "No user named <1>{{name}}</1>.",
         "tooManyArguments": "Too many arguments. Usage: <1>{{usage}}</1>",
         "unknownCommand": "Unknown command <1>{{command}}</1>. Type <4>/help</4> for a list of commands.",
+        "userLookupFailed": "Couldn't look up <1>{{name}}</1>: {{errorMessage}}",
         "wrongSurface": "<0>{{command}}</0> can only be used in {{surfaces}}."
       },
       "help": {
@@ -390,6 +392,15 @@
         "description": "Sends an action line, shown as \"* YourName does something\".",
         "sendError": "Couldn't send your emote: {{errorMessage}}"
       },
+      "profile": {
+        "description": "Shows a user's profile card: their rank and win/loss record."
+      },
+      "rank": {
+        "description": "Shows a user's current ranked divisions."
+      },
+      "stats": {
+        "description": "Shows a user's win/loss record and ranks."
+      },
       "surfaces": {
         "channel": "channels",
         "lobby": "lobbies",
@@ -401,6 +412,35 @@
         "sendError": "Couldn't send the whisper to <1>{{target}}</1>: {{errorMessage}}",
         "startError": "Couldn't start a whisper with <1>{{target}}</1>: {{errorMessage}}",
         "userNotFound": "No user named <1>{{target}}</1>."
+      },
+      "who": {
+        "description": "Lists who is in a channel you have joined.",
+        "line": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline): <10></10>",
+        "lineTruncated_one": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline): <10></10> and {{count}} more",
+        "lineTruncated_other": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline): <10></10> and {{count}} more",
+        "loadError": "Couldn't load who is in <2><0></0></2>: {{errorMessage}}",
+        "noneOnline": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline).",
+        "notInChannel": "You aren't in <1>#{{channel}}</1>."
+      },
+      "whoami": {
+        "description": "Shows the name and user ID you are logged in as.",
+        "line": "You are <2><0></0></2> (user ID {{id}})."
+      },
+      "whois": {
+        "channelsLabel": "Channels:",
+        "description": "Shows what a user is doing, as far as you can see.",
+        "inGame": "<0><0></0></0> is in a game.",
+        "inLobby": "<0><0></0></0> is in a lobby.",
+        "inQueue": "<0><0></0></0> is in the matchmaking queue.",
+        "offline": "<0><0></0></0> is offline.",
+        "online": "<0><0></0></0> is online.",
+        "presence": {
+          "active": "active",
+          "idle": "idle",
+          "offline": "offline"
+        },
+        "self": "You are <2><0></0></2>.",
+        "unknown": "Can't tell what <2><0></0></2> is doing: only friends and members of your channels share their status."
       }
     },
     "createChannel": {
@@ -2345,6 +2385,14 @@
       "punishments": {
         "title": "Punishments"
       }
+    },
+    "card": {
+      "loadError": "Couldn't load this user's profile.",
+      "noGames": "No games played",
+      "record_one": "{{count}} game · {{wins}}–{{losses}}",
+      "record_other": "{{count}} games · {{wins}}–{{losses}}",
+      "unranked": "Unranked",
+      "viewProfile": "Profile"
     },
     "contextMenu": {
       "addFriend": "Add friend",

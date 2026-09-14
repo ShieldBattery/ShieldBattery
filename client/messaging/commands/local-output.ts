@@ -1,10 +1,11 @@
 import * as React from 'react'
 
 /**
- * The two kinds of line a command can answer with. Info lines use the system-message colours;
- * error lines use the error colour.
+ * The kinds of line a command can answer with. Info lines use the system-message colours; error
+ * lines use the error colour. A card line carries a block of UI (an inline card such as the user
+ * card) beside the gutter in place of a sentence, and takes no colour of its own.
  */
-export type LocalLineKind = 'info' | 'error'
+export type LocalLineKind = 'info' | 'error' | 'card'
 
 /**
  * What a command emits: a line only the running user sees. The surface that takes the line in

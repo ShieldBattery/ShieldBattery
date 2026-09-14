@@ -17,6 +17,19 @@ const ErrorLine = styled(TimestampMessageLayout)`
   color: var(--theme-error);
 `
 
+/**
+ * Holds the block of UI a card line carries. The slot sits on the line beside the gutter label the
+ * way message text would, with its top aligned to the label. Being an inline-block makes it a block
+ * container of its own, so the line's hanging-indent `text-indent` has to be reset here or the
+ * card's own text would inherit it.
+ */
+const CardSlot = styled.span`
+  display: inline-block;
+  vertical-align: top;
+  max-width: 100%;
+  text-indent: 0;
+`
+
 export interface LocalLineMessageProps {
   kind: LocalLineKind
   content: React.ReactNode
@@ -29,17 +42,26 @@ export interface LocalLineMessageProps {
  */
 export function LocalLineMessage({ kind, content }: LocalLineMessageProps) {
   const { t } = useTranslation()
+  const gutter = (
+    <GutterLabel>
+      <Separator>[</Separator>
+      {t('messaging.localLine.onlyYou', 'only you')}
+      <Separator>] </Separator>
+    </GutterLabel>
+  )
+
+  if (kind === 'card') {
+    return (
+      <TimestampMessageLayout gutter={gutter}>
+        <CardSlot>{content}</CardSlot>
+      </TimestampMessageLayout>
+    )
+  }
+
   const Line = kind === 'error' ? ErrorLine : InfoLine
 
   return (
-    <Line
-      gutter={
-        <GutterLabel>
-          <Separator>[</Separator>
-          {t('messaging.localLine.onlyYou', 'only you')}
-          <Separator>] </Separator>
-        </GutterLabel>
-      }>
+    <Line gutter={gutter}>
       <span>{content}</span>
     </Line>
   )

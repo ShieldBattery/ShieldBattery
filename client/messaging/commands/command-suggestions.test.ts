@@ -118,6 +118,12 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'leave',
       'kick',
       'ban',
@@ -127,6 +133,12 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'close',
       'me',
     ])
@@ -134,14 +146,23 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'help',
       'join',
       'whisper',
+      'profile',
+      'stats',
+      'rank',
+      'whois',
+      'who',
+      'whoami',
       'leave',
       'me',
     ])
   })
 
-  test('an alias reaches its command', () => {
+  test('an alias reaches its command ahead of the names that merely start the same way', () => {
     expect(matchCommands(ALL_COMMANDS, channelContext(true), 'w', t).map(c => c.name)).toEqual([
       'whisper',
+      'whois',
+      'who',
+      'whoami',
     ])
   })
 

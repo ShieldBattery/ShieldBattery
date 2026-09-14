@@ -5,13 +5,23 @@ import { joinCommand } from './commands/join'
 import { banCommand, kickCommand } from './commands/kick-ban'
 import { leaveCommand } from './commands/leave'
 import { meCommand } from './commands/me'
+import { profileCommand, rankCommand, statsCommand } from './commands/user-card'
 import { whisperCommand } from './commands/whisper'
+import { whoCommand } from './commands/who'
+import { whoamiCommand } from './commands/whoami'
+import { whoisCommand } from './commands/whois'
 
 /** Every command there is, in the order help lists them. */
 export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   helpCommand,
   joinCommand,
   whisperCommand,
+  profileCommand,
+  statsCommand,
+  rankCommand,
+  whoisCommand,
+  whoCommand,
+  whoamiCommand,
   leaveCommand,
   closeCommand,
   kickCommand,

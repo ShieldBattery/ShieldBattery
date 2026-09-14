@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import { openSlotCount as countOpenLobbySlots } from '../../common/lobbies'
@@ -9,9 +9,19 @@ import { MapImageInfo, SbMapId } from '../../common/maps'
 import { openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
+import {
+  getInlineCardHeight,
+  INLINE_CARD_INFO_GAP,
+  INLINE_CARD_THUMBNAIL_SIZE,
+  InlineCardGone,
+  InlineCardInfoColumn,
+  InlineCardLoading,
+  InlineCardRoot,
+  InlineCardSecondaryLine,
+  InlineCardTitle,
+} from '../messaging/inline-card'
 import { isShieldBatteryUrl } from '../navigation/external-link'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useJoinLobbyAction } from './use-join-lobby-action'
@@ -41,122 +51,35 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
   return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
 }
 
-// All card states share one fixed width, and no state is ever taller than the loading placeholder,
-// so a state transition can only keep or shrink the card's footprint (shrinking is safe for the
-// message list's autoscroll; only growth breaks it).
-const CARD_WIDTH = 440
-const CARD_PADDING = 8
-const CARD_BORDER_WIDTH = 1
-
-const THUMBNAIL_SIZE = 64
-
-// InfoColumn stacks 3 rows (lobby name, host/game type, open slot count) separated by its own
-// `gap`; their combined height comes straight from the typography tokens those rows render with
-// (`titleSmall`/`bodySmall`'s `line-height`, see client/styles/typography.ts) rather than a
-// guessed number, so it stays correct if either token's line-height ever changes.
-const INFO_COLUMN_GAP = 2
+// The info column stacks 3 rows (lobby name, host/game type, open slot count) separated by the
+// shared info gap; their combined height comes straight from the typography tokens those rows
+// render with (`titleSmall`/`bodySmall`'s `line-height`, see client/styles/typography.ts) rather
+// than a guessed number, so it stays correct if either token's line-height ever changes.
 const LOBBY_NAME_LINE_HEIGHT = 20 // titleSmall
 const SECONDARY_LINE_HEIGHT = 16 // bodySmall
-const INFO_STACK_HEIGHT = LOBBY_NAME_LINE_HEIGHT + SECONDARY_LINE_HEIGHT * 2 + INFO_COLUMN_GAP * 2
+const INFO_STACK_HEIGHT =
+  LOBBY_NAME_LINE_HEIGHT + SECONDARY_LINE_HEIGHT * 2 + INLINE_CARD_INFO_GAP * 2
 
-// The loaded card's height is determined by whichever of its two columns is taller -- the
-// thumbnail (forced to a square aspect ratio below, regardless of the actual map's dimensions) or
-// the 3-row info stack -- plus the card's own padding and border. Fixed here so the loading state
-// can reserve the same height and a loaded card never grows past its placeholder.
-const CARD_HEIGHT =
-  Math.max(THUMBNAIL_SIZE, INFO_STACK_HEIGHT) + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
-
-const cardShell = css`
-  width: ${CARD_WIDTH}px;
-  max-width: 100%;
-  margin-top: 4px;
-  /* The card renders as a block child of the message container, whose hanging-indent trick
-   * (72px padding pushed back out with a negative text-indent) is meant for message text only. */
-  text-indent: 0;
-
-  border-radius: 8px;
-
-  /* The chat area sets user-select: text on every descendant so message text copies cleanly; the
-   * card is UI rather than message text and must not splice itself into a copied selection. The
-   * doubled class outranks that rule. */
-  &&,
-  && * {
-    user-select: none;
-  }
-`
-
-const cardBase = css`
-  ${cardShell};
-  height: ${CARD_HEIGHT}px;
-
-  background-color: var(--theme-container-low);
-  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
-`
-
-const CardRoot = styled.div`
-  ${cardBase};
-  padding: ${CARD_PADDING}px;
-
-  display: flex;
-  align-items: center;
-  gap: 12px;
-`
-
-// The same surface treatment as a live card, but collapsed to a single quiet line since there's
-// nothing else to show. Shorter than the loading placeholder it replaces, which only ever shrinks
-// the message.
-const GoneCard = styled.div`
-  ${cardShell};
-  ${bodySmall};
-  ${singleLine};
-  padding: 8px 12px;
-
-  color: var(--theme-on-surface-variant);
-  background-color: var(--theme-container-low);
-  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
-`
-
-// A purely visual placeholder shown while the summary is loading, sized to match `CardRoot` (the
-// tallest state) so the card never grows once the real content replaces it.
-const LoadingCard = styled.div`
-  ${cardBase};
-`
+// The thumbnail is forced to a square aspect ratio below, regardless of the actual map's
+// dimensions, so it and the 3-row info stack are the two columns the card's height is chosen
+// between.
+const CARD_HEIGHT = getInlineCardHeight(INFO_STACK_HEIGHT)
 
 const ThumbnailContainer = styled.div`
   flex-shrink: 0;
-  width: ${THUMBNAIL_SIZE}px;
+  width: ${INLINE_CARD_THUMBNAIL_SIZE}px;
   /* The thumbnail's no-image fallback sizes itself to its (larger) placeholder icon rather than
    * the requested size, so both axes are pinned and the excess clipped to keep the card's fixed
    * height holding for maps without a generated image. */
-  height: ${THUMBNAIL_SIZE}px;
+  height: ${INLINE_CARD_THUMBNAIL_SIZE}px;
   overflow: hidden;
 `
 
-// A long lobby name gives InfoColumn a large flex basis that would otherwise shrink the button
+// A long lobby name gives the info column a large flex basis that would otherwise shrink the button
 // past its label (which hard-clips, since the button contains its content); the name is the one
 // that truncates instead.
 const JoinButton = styled(FilledButton)`
   flex-shrink: 0;
-`
-
-const InfoColumn = styled.div`
-  min-width: 0;
-  flex-grow: 1;
-
-  display: flex;
-  flex-direction: column;
-  gap: ${INFO_COLUMN_GAP}px;
-`
-
-const LobbyName = styled.div`
-  ${titleSmall};
-  ${singleLine};
-`
-
-const SecondaryLine = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
 `
 
 /**
@@ -199,20 +122,20 @@ function LobbyInviteCardBody({
   })
 
   return (
-    <CardRoot>
+    <InlineCardRoot $height={CARD_HEIGHT}>
       <ThumbnailContainer>
         <MapThumbnail
           map={display.map}
-          size={THUMBNAIL_SIZE}
+          size={INLINE_CARD_THUMBNAIL_SIZE}
           forceAspectRatio={1}
           onPreview={() => dispatch(openMapPreviewDialog(display.map.id))}
         />
       </ThumbnailContainer>
-      <InfoColumn>
-        <LobbyName title={display.name}>{display.name}</LobbyName>
-        <SecondaryLine title={hostAndGameType}>{hostAndGameType}</SecondaryLine>
-        <SecondaryLine title={slotsText}>{slotsText}</SecondaryLine>
-      </InfoColumn>
+      <InlineCardInfoColumn>
+        <InlineCardTitle title={display.name}>{display.name}</InlineCardTitle>
+        <InlineCardSecondaryLine title={hostAndGameType}>{hostAndGameType}</InlineCardSecondaryLine>
+        <InlineCardSecondaryLine title={slotsText}>{slotsText}</InlineCardSecondaryLine>
+      </InlineCardInfoColumn>
       {joinButton.joined ? (
         <JoinButton
           label={t('lobbies.joinLobby.joined', 'Joined')}
@@ -226,7 +149,7 @@ function LobbyInviteCardBody({
           testName='lobby-invite-card-join-button'
         />
       )}
-    </CardRoot>
+    </InlineCardRoot>
   )
 }
 
@@ -251,7 +174,7 @@ export function LobbyInviteCardContent({
   const { t } = useTranslation()
 
   if (!state) {
-    return <LoadingCard aria-hidden={true} />
+    return <InlineCardLoading $height={CARD_HEIGHT} aria-hidden={true} />
   }
 
   if (state.status === 'error') {
@@ -259,7 +182,11 @@ export function LobbyInviteCardContent({
   }
 
   if (state.status === 'notFound') {
-    return <GoneCard>{t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')}</GoneCard>
+    return (
+      <InlineCardGone>
+        {t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')}
+      </InlineCardGone>
+    )
   }
 
   const { summary: lobby, host } = state.data

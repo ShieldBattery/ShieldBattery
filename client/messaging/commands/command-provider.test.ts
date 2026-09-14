@@ -148,10 +148,18 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       submitOnExact: true,
       spaceAcceptsSingle: false,
     })
+    // Unlike the query-ranked palettes, the command-name palette is not capped: it lists every
+    // command the surface can run, in the order the registry lists them.
     expect(rows(match).map(r => r.text)).toEqual([
       '/help [command]',
       '/join <channel>',
       '/whisper <user> [message]',
+      '/profile [user]',
+      '/stats [user]',
+      '/rank [user]',
+      '/whois [user]',
+      '/who <channel>',
+      '/whoami',
       '/leave',
       '/kick <user> [reason]',
       '/ban <user> [reason]',
@@ -160,11 +168,11 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
   })
 
   test('a command that cannot be run here is not offered', () => {
-    expect(rows(nameMatch('/')).some(r => r.text.startsWith('/kick'))).toBe(false)
+    expect(rows(nameMatch('/kick'))).toEqual([])
   })
 
   test('a command that can be run here is offered', () => {
-    const kick = rows(nameMatch('/', true)).find(r => r.text.startsWith('/kick'))!
+    const kick = rows(nameMatch('/kick', true)).find(r => r.text.startsWith('/kick'))!
 
     expect(kick.visual).toEqual({
       kind: 'command',
@@ -173,12 +181,16 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
     })
   })
 
-  test('an alias narrows to its command', () => {
+  test('an alias leads the names that start the same way', () => {
     const match = nameMatch('/w')
     const [whisper] = rows(match)
 
-    expect(rows(match)).toHaveLength(1)
-    expect(whisper.key).toBe('command:whisper')
+    expect(rows(match).map(r => r.key)).toEqual([
+      'command:whisper',
+      'command:whois',
+      'command:who',
+      'command:whoami',
+    ])
     expect(whisper.insertText).toBe('/whisper ')
     // The alias spells the command out, so Enter sends rather than completing it.
     expect(whisper.exact).toBe(true)

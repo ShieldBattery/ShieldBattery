@@ -1,7 +1,10 @@
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ChatCommand } from './commands/command-schema'
 
-/** How many rows a palette shows; more would need scrolling. */
+/**
+ * How many rows the query-ranked palettes (mentions, emotes, command argument values) show. The
+ * command-name palette is not capped: it lists every runnable command and scrolls past this many.
+ */
 export const MAX_TYPEAHEAD_ROWS = 10
 
 /** What a suggestion row shows next to its text. */
