@@ -123,21 +123,17 @@ export default function ({
       // infrastructure that watches the session start; only a local-only game (no network session
       // at all) has to report its own. The check is written so an unreported transport still sends:
       // a redundant report is dropped server-side, while a missing one would stall a local game's
-      // load. `error` is always reported — a launch failure never reaches the network — and so is
-      // `finished`: a clean finish is otherwise announced only by the relay session closing, which
-      // a game without a session (solo against computers) never gets.
+      // load. `error` is always reported — a launch failure never reaches the network.
       const reportToServer =
         status.state === 'error' ||
-        status.state === 'finished' ||
         (status.state === 'playing' && status.networkStatus?.transport !== 'netcodeV2')
 
       if (reportToServer) {
         let done = false
         let retries = 0
 
-        // NOTE(tec27): Because these states are terminal (playing is terminal for the loading
-        // phase this reports on; finished/error for the game itself), we don't need to worry
-        // about further game states coming in that would need to abort these ones. If that ever changes, we'd
+        // NOTE(tec27): Because these states are terminal, we don't need to worry about further
+        // game states coming in that would need to abort these ones. If that ever changes, we'd
         // probably need a Map of game id -> abort controller or something
         const doFetch = () => {
           fetchJson(apiUrl`games/${status.id}/status`, {
