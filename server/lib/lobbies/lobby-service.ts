@@ -1430,16 +1430,21 @@ export class LobbyService {
     this.ensureIsLobbyHost(lobby, player)
 
     const [teamIndex, slotIndex, playerToKick] = findSlotById(lobby, slotId)
-    const benched = playerToKick ? undefined : findBenchedTarget(lobby, slotId)
-    this.ensureHostCanRemove(lobby, !!benched)
+    if (!playerToKick) {
+      const benched = findBenchedTarget(lobby, slotId)
+      if (!benched) {
+        // An id that names neither a slot nor someone on the bench is a bad request whatever the
+        // lobby happens to be doing, so it is answered as one rather than as whatever a lobby in a
+        // game would have refused first.
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
+      }
 
-    if (benched) {
+      this.ensureHostCanRemove(lobby, true)
       this._removeUserFromLobby(lobby, benched.userId, REMOVAL_TYPE_KICK)
       return
     }
-    if (!playerToKick) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
-    }
+
+    this.ensureHostCanRemove(lobby, false)
     if (
       playerToKick.type !== 'human' &&
       playerToKick.type !== 'computer' &&
@@ -1505,11 +1510,14 @@ export class LobbyService {
 
     const [, , playerToBan] = findSlotById(lobby, slotId)
     const benched = playerToBan ? undefined : findBenchedTarget(lobby, slotId)
-    this.ensureHostCanRemove(lobby, !!benched)
-
     if (!playerToBan && !benched) {
+      // An id that names neither a slot nor someone on the bench is a bad request whatever the
+      // lobby happens to be doing, so it is answered as one rather than as whatever a lobby in a
+      // game would have refused first.
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
+
+    this.ensureHostCanRemove(lobby, !!benched)
     if (playerToBan && playerToBan.type !== 'human' && playerToBan.type !== 'observer') {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }

@@ -2391,6 +2391,17 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbyClients.has(otherHost.client)).toBe(false)
     })
 
+    test('kicking or banning an id that names nobody reports an unknown slot', async () => {
+      await createLobbyInGame()
+
+      expect(() =>
+        lobbyService.kickPlayer({ client: host.client, slotId: 'no-such-slot' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotId }))
+      expect(() => lobbyService.banPlayer({ client: host.client, slotId: 'no-such-slot' })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotId }),
+      )
+    })
+
     test('a member leaving during a game leaves the lobby and can regroup it', async () => {
       const id = await createLobbyInGame()
       endGameFor(joiner)
