@@ -7,6 +7,7 @@ import { manualGameServerRegionAtom } from '../game-server-regions/game-server-r
 import { jotaiStore } from '../jotai-store'
 import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'
 import { starcraftPathValid, starcraftVersionValid } from '../starcraft/health-state'
+import { gameDefaultsChoicePendingAtom } from './settings-atoms'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   let lastMasterVolume: number | undefined
@@ -44,6 +45,11 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
       })
 
       afterLocalSettingsChange(settings)
+
+      if (settings.gameDefaultsPreset !== undefined) {
+        // A choice was persisted, possibly by another window or a second running instance.
+        jotaiStore.set(gameDefaultsChoicePendingAtom, false)
+      }
     })
     .on('settingsScrChanged', (event, settings) => {
       dispatch({
@@ -62,6 +68,10 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
       })
 
       afterLocalSettingsChange(settings)
+
+      if (settings.gameDefaultsPreset === undefined) {
+        jotaiStore.set(gameDefaultsChoicePendingAtom, true)
+      }
     })
     .catch(swallowNonBuiltins)
   ipcRenderer

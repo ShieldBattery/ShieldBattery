@@ -9,6 +9,7 @@ import { SCR_GAMMA_DEFAULT, SCR_GAMMA_MAX, SCR_GAMMA_MIN } from '../common/setti
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
 import {
   FfaColorPreset,
+  GameDefaultsPreset,
   LocalSettings,
   ScrSettings,
   StartingFog,
@@ -17,7 +18,7 @@ import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/te
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 22
+const VERSION = 23
 const SCR_VERSION = 6
 
 /**
@@ -381,6 +382,13 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!settings.version || settings.version < 22) {
       log.verbose('Found settings version 21, migrating to version 22')
       newSettings.grabPanInverted = DEFAULT_LOCAL_SETTINGS.grabPanInverted
+    }
+
+    if (!settings.version || settings.version < 23) {
+      log.verbose('Found settings version 22, migrating to version 23')
+      // Installs that predate the game defaults preset have been running on the recommended
+      // defaults all along, so they keep them rather than being prompted to choose.
+      newSettings.gameDefaultsPreset = GameDefaultsPreset.Recommended
     }
 
     newSettings.version = VERSION

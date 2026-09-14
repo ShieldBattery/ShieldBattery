@@ -4,6 +4,7 @@ import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/lea
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { MatchmakingSeasonJson, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
+import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
 
 export enum DialogType {
@@ -29,6 +30,8 @@ export enum DialogType {
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
   FailedToAcceptMatch = 'failedToAcceptMatch',
+  GameDefaultsApply = 'gameDefaultsApply',
+  GameDefaultsFirstRun = 'gameDefaultsFirstRun',
   JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
@@ -206,6 +209,18 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
   }
 >
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
+type GameDefaultsApplyDialogPayload = BaseDialogPayload<
+  typeof DialogType.GameDefaultsApply,
+  {
+    preset: GameDefaultsPreset
+    /**
+     * Whether the user just switched to `preset` (versus asking to re-apply the one already
+     * selected), which changes how the dialog is titled.
+     */
+    justSwitched: boolean
+  }
+>
+type GameDefaultsFirstRunDialogPayload = BaseDialogPayload<typeof DialogType.GameDefaultsFirstRun>
 type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
@@ -377,6 +392,8 @@ export type DialogPayload =
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
   | FailedToAcceptMatchDialogPayload
+  | GameDefaultsApplyDialogPayload
+  | GameDefaultsFirstRunDialogPayload
   | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload

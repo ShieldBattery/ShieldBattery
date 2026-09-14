@@ -35,6 +35,7 @@ import { RootErrorBoundary } from './root-error-boundary'
 import { RootState } from './root-reducer'
 import { getServerConfig } from './server-config-storage'
 import { useIsSettingsOpen } from './settings/action-creators'
+import { GameDefaultsFirstRunPrompt } from './settings/game/game-defaults-first-run-prompt'
 import { SnackbarOverlay } from './snackbars/snackbar-overlay'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -274,6 +275,7 @@ const AppContent = React.memo(() => {
       </React.Suspense>
       <GameplayActivityWidget />
       {IS_ELECTRON ? <AcceptMatchCountdownSounds /> : null}
+      {IS_ELECTRON ? <GameDefaultsFirstRunPrompt /> : null}
       <LazyConnectedSettings />
       <DraftScreenOverlay />
       <ConnectedDialogOverlay />

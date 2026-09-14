@@ -125,6 +125,13 @@ const ReplayInfoDialog = React.lazy(async () => ({
 const ReplayLoadDialog = React.lazy(async () => ({
   default: (await import('../replays/replay-load-dialog')).ReplayLoadDialog,
 }))
+const GameDefaultsApplyDialog = React.lazy(async () => ({
+  default: (await import('../settings/game/game-defaults-apply-dialog')).GameDefaultsApplyDialog,
+}))
+const GameDefaultsFirstRunDialog = React.lazy(async () => ({
+  default: (await import('../settings/game/game-defaults-first-run-dialog'))
+    .GameDefaultsFirstRunDialog,
+}))
 const ChangeDisplayNameDialog = React.lazy(async () => ({
   default: (await import('../settings/user/account-settings')).ChangeDisplayNameDialog,
 }))
@@ -217,6 +224,10 @@ function getDialog(dialogType: DialogType): {
       return { component: ExternalLinkDialog }
     case DialogType.FailedToAcceptMatch:
       return { component: FailedToAcceptMatchDialog }
+    case DialogType.GameDefaultsApply:
+      return { component: GameDefaultsApplyDialog }
+    case DialogType.GameDefaultsFirstRun:
+      return { component: GameDefaultsFirstRunDialog, modal: true }
     case DialogType.JoinCode:
       return { component: JoinCodeDialog }
     case DialogType.LaunchingGame:

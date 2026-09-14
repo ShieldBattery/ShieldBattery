@@ -16,6 +16,7 @@ import { starcraftHealthy } from '../starcraft/health-state'
 import { closeSettings, SETTINGS_PAGE_KEY, useIsSettingsOpen } from './action-creators'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
+import { GameDefaultsSettings } from './game/game-defaults-settings'
 import { GameplaySettings } from './game/gameplay-settings'
 import { GameInputSettings } from './game/input-settings'
 import { GameSoundSettings } from './game/sound-settings'
@@ -174,6 +175,7 @@ function Settings({
               GameSettingsPage.Sound,
               GameSettingsPage.Video,
               GameSettingsPage.Gameplay,
+              GameSettingsPage.Defaults,
             ].map(getNavEntriesMapper({ disabled: !isStarcraftHealthy }))}
           </>
         ) : null}
@@ -251,6 +253,8 @@ function SettingsPageDisplay({ page }: { page: SettingsPage }) {
         return <GameVideoSettings />
       case GameSettingsPage.Gameplay:
         return <GameplaySettings />
+      case GameSettingsPage.Defaults:
+        return <GameDefaultsSettings />
       default:
         page satisfies never
     }
@@ -297,6 +301,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
       break
     case GameSettingsPage.Gameplay:
       title = t('settings.game.gameplay.title', 'Gameplay')
+      break
+    case GameSettingsPage.Defaults:
+      title = t('settings.game.defaults.title', 'Defaults')
       break
     default:
       title = page satisfies never

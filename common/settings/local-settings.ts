@@ -24,6 +24,19 @@ export enum StartingFog {
 
 export const ALL_STARTING_FOG: Readonly<StartingFog[]> = Object.values(StartingFog)
 
+/**
+ * Which set of values ShieldBattery's own gameplay settings start on. `Recommended` is
+ * ShieldBattery's tuned defaults; `Legacy` reproduces stock Battle.net/Remastered behavior. See
+ * `common/settings/game-defaults.ts` for the settings each preset covers and their values.
+ */
+export enum GameDefaultsPreset {
+  Recommended = 'recommended',
+  Legacy = 'legacy',
+}
+
+export const ALL_GAME_DEFAULTS_PRESETS: Readonly<GameDefaultsPreset[]> =
+  Object.values(GameDefaultsPreset)
+
 export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
   switch (fog) {
     case StartingFog.ShowTerrainAndResources:
@@ -148,6 +161,15 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinHeight?: number
   monitorId?: number
   quickOpenReplays: boolean
+  /**
+   * The preset the user chose for ShieldBattery's gameplay defaults. Choosing one applies its
+   * values to the settings it covers, and later migrations that add a new gameplay setting use it
+   * to pick between that setting's recommended and legacy default. Undefined until the user has
+   * chosen (a freshly created settings file); the app prompts for a choice while it's unset.
+   * Installs that predate the preset are migrated to `Recommended`, since that's what they've been
+   * running on.
+   */
+  gameDefaultsPreset?: GameDefaultsPreset
   startingFog: StartingFog
   /**
    * The minimap player-color mode, cycled in-game with Shift+Tab. Saved when a game exits and

@@ -17,6 +17,7 @@ export enum GameSettingsPage {
   Sound = 'GameSound',
   Video = 'GameVideo',
   Gameplay = 'GameGameplay',
+  Defaults = 'GameDefaults',
 }
 
 export type SettingsPage = UserSettingsPage | AppSettingsPage | GameSettingsPage

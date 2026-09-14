@@ -1769,6 +1769,62 @@
       "save": "There was an issue saving the settings."
     },
     "game": {
+      "defaults": {
+        "apply": {
+          "explanation_one": "New features will use {{preset}} defaults from now on. What about the {{count}} setting this preset covers?",
+          "explanation_other": "New features will use {{preset}} defaults from now on. What about the {{count}} settings this preset covers?",
+          "keepChoice": "Keep my current settings",
+          "keepChoiceDescription": "Nothing changes today. Only new features follow {{preset}}.",
+          "resetChoice": "Reset them to {{preset}}",
+          "resetTitle": "Reset to {{preset}}?",
+          "resetToLegacyDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the Battle.net behavior.",
+          "resetToRecommendedDescription": "Starting fog, cursor sizing, team colors and drag pan switch to the ShieldBattery defaults.",
+          "switchedTitle": "Switched to {{preset}}"
+        },
+        "firstRun": {
+          "continue": "Continue",
+          "cursorSize": "Cursor size",
+          "cursorSizeDescription": "<0>Recommended</0> draws every cursor at its original size. <3>Legacy</3> scales some larger cursors down.",
+          "dragPan": "Drag pan",
+          "dragPanDescription": "<0>Recommended</0> pans more slowly and is adjustable in Settings › Input. <2>Legacy</2> keeps the fixed original speed.",
+          "footnote": "Your other Battle.net settings carry over either way. Change this later in Settings › Game › Defaults.",
+          "intro": "ShieldBattery tunes a few gameplay details differently from Battle.net, and we recommend giving them a try. If you would rather keep things exactly how you remember them, Legacy leaves everything alone. Whichever you pick also becomes the default for features we add later.",
+          "overline": "First launch",
+          "playerColors": "Player colors",
+          "playerColorsDescription": "Shift+Tab colors. <1>Recommended</1>: allies cool, enemies warm, everyone distinct. <3>Legacy</3>: you teal, allies yellow, enemies red.",
+          "presetLabel": "Game defaults preset",
+          "startingFog": "Starting fog",
+          "startingFogDescription": "<0>Recommended</0> shows unexplored terrain dimly. <3>Legacy</3> keeps it black until scouted.",
+          "title": "Same game. Your call on the details."
+        },
+        "intro": "The preset decides which values ShieldBattery's own gameplay settings start on. It also picks the default for anything added later.",
+        "legacyDescription": "Matches Battle.net.",
+        "preset": {
+          "legacy": "Legacy",
+          "recommended": "Recommended"
+        },
+        "presetLabel": "Game defaults preset",
+        "preview": {
+          "grabPanAdjustable": "Adjustable",
+          "grabPanFixed": "Fixed speed"
+        },
+        "recommendedDescription": "ShieldBattery's tuned defaults.",
+        "resetToPreset": "Reset to preset",
+        "table": {
+          "caption": "Amber dot: your value differs from the selected preset.",
+          "cursorConsistent": "Consistent",
+          "cursorPerCursor": "Per-cursor",
+          "cursorSizing": "Cursor sizing",
+          "dragPanAdjustable": "Adjustable",
+          "dragPanFixed": "Fixed",
+          "dragPanSensitivity": "Drag pan sensitivity",
+          "setting": "Setting",
+          "startingFog": "Starting fog",
+          "teamColorPreset": "Team color preset",
+          "yourValue": "Your value"
+        },
+        "title": "Defaults"
+      },
       "gameplay": {
         "apmAlert": "Alert when APM falls below",
         "apmAlertHeader": "APM alert",

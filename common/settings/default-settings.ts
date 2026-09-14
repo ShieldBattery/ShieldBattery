@@ -24,6 +24,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinWidth: undefined,
   gameWinHeight: undefined,
   quickOpenReplays: false,
+  gameDefaultsPreset: undefined,
   startingFog: StartingFog.ShowTerrainAndResources,
   minimapColorMode: MinimapColorMode.Standard,
   minimapTerrainHidden: false,

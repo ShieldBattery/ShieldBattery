@@ -68,6 +68,10 @@ must match what `Start-Process` returned.
 `session1`/`session2`/`session3` already have their settings files configured (incl. the StarCraft
 path) under `%APPDATA%\ShieldBattery-Local`.
 
+> A fresh `SB_SESSION` with no settings file yet gets the "First launch" game defaults dialog after
+> login (modal — click its Continue button to get it out of the way). `session1`/`session2`/
+> `session3` already have settings files, so they won't see it.
+
 > If `SB_HOT=1` shows a blank window, the renderer dev server (:5566) isn't ready yet — wait for it to
 > finish compiling, then reload (`playwright-cli reload`).
 
