@@ -458,6 +458,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
       lobby,
       user,
       runState,
+      loadingState,
       onSetRace,
       onAddComputer,
       onSwitchSlot,
@@ -478,6 +479,9 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
     const canAddObsSlots = canAddObservers(lobby)
     const canRemoveObsSlots = canRemoveObservers(lobby)
     const inGameUsers = runState ? new Set(runState.inGameUsers) : undefined
+    // The server snapshots the game config, races included, once the lobby starts counting down,
+    // and refuses race changes from that point through the end of the game.
+    const racesLocked = !!runState || loadingState.isCountingDown || loadingState.isLoading
 
     return team.slots.map((slot: Slot) => {
       const { type, userId, race, id, controlledBy } = slot
@@ -513,7 +517,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               userId={userId}
               race={race}
               isHost={isHost}
-              canSetRace={slot === mySlot && !slot.hasForcedRace}
+              canSetRace={!racesLocked && slot === mySlot && !slot.hasForcedRace}
               canMakeObserver={canAddObsSlots}
               isSelf={slot === mySlot}
               inGame={inGame}
@@ -549,7 +553,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               userId={userId}
               race={race}
               isComputer={true}
-              canSetRace={isHost}
+              canSetRace={!racesLocked && isHost}
               isHost={isHost}
               isSelf={false}
               onSetRace={(race: RaceChar) => onSetRace(id, race)}
@@ -566,7 +570,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               key={id}
               race={race}
               controlledOpen={true}
-              canSetRace={mySlot && controlledBy === mySlot.id}
+              canSetRace={!racesLocked && mySlot && controlledBy === mySlot.id}
               isHost={isHost}
               onSetRace={(race: RaceChar) => onSetRace(id, race)}
               onSwitchClick={runState ? undefined : () => onSwitchSlot(id)}
@@ -579,7 +583,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               key={id}
               race={race}
               controlledClosed={true}
-              canSetRace={mySlot && controlledBy === mySlot.id}
+              canSetRace={!racesLocked && mySlot && controlledBy === mySlot.id}
               isHost={isHost}
               onOpenSlot={() => onOpenSlot(id)}
               onSetRace={(race: RaceChar) => onSetRace(id, race)}
@@ -739,7 +743,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
     return (
       <InfoItem>
         <InfoLabel as='span'>{t('lobbies.lobby.status', 'Status')}</InfoLabel>
-        <InfoValue>
+        <InfoValue as='span'>
           {t('lobbies.lobby.inGame', 'In game')}
           <StatusElapsedTime startTimeMs={runState.startedAt} prefix=' · ' />
         </InfoValue>

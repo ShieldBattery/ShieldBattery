@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { getGameDurationString } from '../../../common/games/games'
 import { registerSecondsListener } from '../../matchmaking/elapsed-time'
-import { formatGameDuration, LobbyChip } from './browser-parts'
+import { LobbyChip } from './browser-parts'
 
 function AnchoredElapsedTime({ elapsedMs }: { elapsedMs: number }) {
   const [anchoredAt] = useState(() => performance.now())
@@ -10,7 +11,7 @@ function AnchoredElapsedTime({ elapsedMs }: { elapsedMs: number }) {
 
   useEffect(() => registerSecondsListener(() => setNow(performance.now())), [])
 
-  return <>{formatGameDuration(elapsedMs + (now - anchoredAt))}</>
+  return <>{getGameDurationString(elapsedMs + (now - anchoredAt))}</>
 }
 
 /**
