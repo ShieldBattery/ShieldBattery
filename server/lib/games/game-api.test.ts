@@ -1,5 +1,5 @@
 import { RouterContext } from '@koa/router'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameStatus } from '../../../common/games/game-status'
 import { GameResultErrorCode } from '../../../common/games/results'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
@@ -162,6 +162,7 @@ function makeStatusApi({
     maybeCancelLoading: vi.fn().mockReturnValue(true),
   }
   const activityStatusService = { clearInGame: vi.fn() }
+  const gameLifecycleEvents = new GameLifecycleEvents()
   const api = new GameApi(
     {} as any,
     gameLoader as any,
@@ -169,12 +170,19 @@ function makeStatusApi({
     {} as any,
     {} as any,
     activityStatusService as any,
-    new GameLifecycleEvents(),
+    gameLifecycleEvents,
   )
-  return { api, gameLoader, activityStatusService }
+  return { api, gameLoader, activityStatusService, gameLifecycleEvents }
 }
 
 describe('games/game-api/GameApi#updateGameStatus', () => {
+  beforeEach(() => {
+    vi.mocked(getUserGameRecord).mockResolvedValue({
+      userId: makeSbUserId(1),
+      gameId: 'game-1',
+    } as any)
+  })
+
   test('completes a local-only load from the client report', async () => {
     const { api, gameLoader } = makeStatusApi({ isLocalOnlyLoad: true })
     const ctx = makeStatusCtx(GameStatus.Playing)
@@ -214,6 +222,61 @@ describe('games/game-api/GameApi#updateGameStatus', () => {
     const err = await api.updateGameStatus(makeStatusCtx(GameStatus.Playing)).catch(e => e)
 
     expect(err).toHaveProperty('status', 409)
+  })
+
+  test('emits userGameEnded and answers 204 for a Finished report, even past the load window', async () => {
+    const { api, gameLifecycleEvents } = makeStatusApi({ isLoadingOrRecentlyLoaded: false })
+    const ctx = makeStatusCtx(GameStatus.Finished)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await api.updateGameStatus(ctx)
+
+    expect(listener).toHaveBeenCalledWith({ gameId: 'game-1', userId: makeSbUserId(1) })
+    expect(ctx.status).toBe(204)
+  })
+
+  test('emits userGameEnded, clears in-game state, and answers 204 for an Error report after the load', async () => {
+    const { api, gameLoader, activityStatusService, gameLifecycleEvents } = makeStatusApi({
+      isLocalOnlyLoad: false,
+      isLoadingOrRecentlyLoaded: false,
+    })
+    gameLoader.maybeCancelLoading.mockReturnValue(false)
+    const ctx = makeStatusCtx(GameStatus.Error)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await api.updateGameStatus(ctx)
+
+    expect(listener).toHaveBeenCalledWith({ gameId: 'game-1', userId: makeSbUserId(1) })
+    expect(activityStatusService.clearInGame).toHaveBeenCalledWith(makeSbUserId(1), 'game-1')
+    expect(ctx.status).toBe(204)
+  })
+
+  test('rejects a Finished report for a game the reporter is not in, without emitting', async () => {
+    vi.mocked(getUserGameRecord).mockResolvedValue(null)
+    const { api, activityStatusService, gameLifecycleEvents } = makeStatusApi()
+    const ctx = makeStatusCtx(GameStatus.Finished)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    const err = await api.updateGameStatus(ctx).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+    expect(listener).not.toHaveBeenCalled()
+    // `clearInGame` runs ahead of the participation check by design, so it still fires here.
+    expect(activityStatusService.clearInGame).toHaveBeenCalledWith(makeSbUserId(1), 'game-1')
+  })
+
+  test('emits nothing for a Playing report', async () => {
+    const { api, gameLifecycleEvents } = makeStatusApi({ isLocalOnlyLoad: true })
+    const ctx = makeStatusCtx(GameStatus.Playing)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await api.updateGameStatus(ctx)
+
+    expect(listener).not.toHaveBeenCalled()
   })
 })
 

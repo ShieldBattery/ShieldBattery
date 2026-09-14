@@ -541,11 +541,22 @@ export class GameApi {
       // no-op otherwise). After the load is done the game is no longer the loader's concern, but the
       // report still means the reporter's game is over - e.g. a crash mid-game - so it is accepted
       // rather than rejected, or the game-end signal below would never fire for clients that die
-      // instead of finishing.
+      // instead of finishing. The return value is ignored: it's false both when the game is no
+      // longer loading and when the reporter was never a participant in it, and those two cases
+      // can't be told apart from this call alone — the game-user record check below is what tells
+      // them apart.
       this.gameLoader.maybeCancelLoading(gameId, user.id)
     }
 
     if (status === GameStatus.Finished || status === GameStatus.Error) {
+      // The report ends the reporter's own participation, so it has to be for a game they actually
+      // hold. The games/games_users rows are written when the game is registered, before any client
+      // is told to launch, so both a load-time error and a post-load finish find the row here.
+      const gameUserRecord = await getUserGameRecord(user.id, gameId)
+      if (!gameUserRecord) {
+        throw new httpErrors.NotFound('game not found')
+      }
+
       // The reporter's game is over one way or the other, so anything waiting on them (a lobby that
       // regroups when its game ends) can stop waiting.
       this.gameLifecycleEvents.emit('userGameEnded', { gameId, userId: user.id })
