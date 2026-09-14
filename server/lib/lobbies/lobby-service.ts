@@ -1982,6 +1982,7 @@ export class LobbyService {
     }
 
     runState.inGameUsers.delete(userId)
+    this.activityRegistry.reapplyStatus(userId)
     this._publishTo(lobby, { type: 'memberGameEnded', userId })
     this._maybeRegroup(lobbyId)
   }
@@ -1994,11 +1995,22 @@ export class LobbyService {
   private _onGameEnded(gameId: string) {
     for (const [lobbyId, runState] of this.runStates) {
       if (runState.gameId === gameId) {
-        runState.inGameUsers.clear()
-        this._maybeRegroup(lobbyId)
+        this._endGameForEveryone(lobbyId, runState)
         return
       }
     }
+  }
+
+  /**
+   * Ends a lobby's game for every member still marked as being in it and regroups the lobby, for
+   * the end signals that speak for the whole game at once rather than for one member.
+   */
+  private _endGameForEveryone(lobbyId: SbLobbyId, runState: LobbyRunState) {
+    for (const userId of runState.inGameUsers) {
+      this.activityRegistry.reapplyStatus(userId)
+    }
+    runState.inGameUsers.clear()
+    this._maybeRegroup(lobbyId)
   }
 
   /**

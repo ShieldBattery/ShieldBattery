@@ -77,6 +77,22 @@ export class GameplayActivityRegistry {
   }
 
   /**
+   * Publishes a user's registered activity status again, for whoever still holds the activity to
+   * reassert it. A running game overrides the activity's status with in-game, and clearing that
+   * leaves the user looking merely online even though they are still in the lobby or queue that
+   * started the game, so the holder says so again once the game is over. No-op for a user with no
+   * registered activity.
+   */
+  reapplyStatus(userId: SbUserId): void {
+    const registered = this.userClients.get(userId)
+    if (!registered) {
+      return
+    }
+
+    this.activityStatusService.setActivity(userId, registered.status)
+  }
+
+  /**
    * Returns the currently active client for a user. If no client was active, returns undefined.
    */
   getClientForUser(userId: SbUserId): ClientSocketsGroup | undefined {

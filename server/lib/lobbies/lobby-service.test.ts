@@ -15,6 +15,7 @@ import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
+import { FriendActivityStatus } from '../../../common/users/relationships'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { findChannelsByName } from '../chat/chat-models'
@@ -26,9 +27,11 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
-import { IN_GAME_DISCONNECT_GRACE_MS } from '../users/activity-status-service'
+import {
+  ActivityStatusService,
+  IN_GAME_DISCONNECT_GRACE_MS,
+} from '../users/activity-status-service'
 import { RestrictionService } from '../users/restriction-service'
-import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
 import { findUsersById } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import {
@@ -172,6 +175,8 @@ describe('lobbies/lobby-service', () => {
   let activityRegistry: GameplayActivityRegistry
   /** The clock the service schedules its timeouts on, so tests can drive them. */
   let clock: FakeClock
+  /** The real status service the activity registry publishes through. */
+  let activityStatusService: ActivityStatusService
 
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
   let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
@@ -288,7 +293,13 @@ describe('lobbies/lobby-service', () => {
       return Result.ok({ gameId: 'test-game-id' })
     })
     gameLifecycleEvents = new GameLifecycleEvents()
-    activityRegistry = new GameplayActivityRegistry(createFakeActivityStatusService())
+    activityStatusService = new ActivityStatusService(
+      new TypedPublisher(nydus),
+      userSockets,
+      clientSockets,
+      clock,
+    )
+    activityRegistry = new GameplayActivityRegistry(activityStatusService)
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
       activityRegistry,
@@ -2157,6 +2168,51 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyPublishes(id)).toEqual([{ type: 'memberGameEnded', userId: JOINER_USER.id }])
       expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([HOST_USER.id])
+    })
+
+    test('a member is in the lobby again once their game is reported over', async () => {
+      await createLobbyInGame()
+      // Everyone is marked as playing once the game is actually running.
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InGame)
+
+      // A client reporting its game as finished clears the in-game state and ends the game for
+      // that member, in that order.
+      activityStatusService.clearInGame(JOINER_USER.id, 'test-game-id')
+      endGameFor(joiner)
+
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a member is in the lobby again when only a result ends their game', async () => {
+      await createLobbyInGame()
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+
+      // A result report ends the game without the client ever reporting its own status.
+      endGameFor(joiner)
+
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a whole-game end puts everyone back in the lobby', async () => {
+      await createLobbyInGame()
+      activityStatusService.setInGame(HOST_USER.id, 'test-game-id', host.client)
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+
+      expect(activityStatusService.getStatus(HOST_USER.id)).toBe(FriendActivityStatus.InLobby)
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a member who leaves after their game is done is no longer in a lobby', async () => {
+      await createLobbyInGame()
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+      endGameFor(joiner)
+
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.Online)
     })
 
     test('a whole-game end signal regroups everyone still marked as playing', async () => {
