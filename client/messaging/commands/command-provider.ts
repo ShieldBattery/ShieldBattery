@@ -15,7 +15,12 @@ import {
   getRunnableCommands,
   matchesCommandName,
 } from './command-schema'
-import { filterArgSuggestions, getArgSuggestions, matchCommands } from './command-suggestions'
+import {
+  filterArgSuggestions,
+  getArgSuggestions,
+  isExhaustiveArg,
+  matchCommands,
+} from './command-suggestions'
 
 export interface CommandProviderDeps {
   context: CommandContext
@@ -146,6 +151,7 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
           ? token.text[0]
           : ''
       const query = token.text.slice(prefix.length)
+      const exhaustive = isExhaustiveArg(activeArg)
 
       const suggestions = filterArgSuggestions(base, query)
         .slice(0, MAX_TYPEAHEAD_ROWS)
@@ -166,8 +172,10 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
         submitOnExact: true,
         // An argument nothing has been typed for yet is being skipped over, not completed, when
         // the user presses space; a single row is only worth accepting once it has been typed
-        // towards.
-        spaceAcceptsSingle: query.length > 0,
+        // towards. An argument that accepts values beyond the ones it offers is never rewritten by
+        // a space at all, since what has been typed may be a value the rows simply don't hold.
+        spaceAcceptsSingle: query.length > 0 && exhaustive,
+        openEnded: !exhaustive,
       }
     },
   }

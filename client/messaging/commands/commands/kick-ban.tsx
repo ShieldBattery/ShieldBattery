@@ -68,7 +68,9 @@ export const kickCommand = defineCommand({
   // The kick dialog collects no reason of its own, so one typed here is read and dropped. Both
   // moderation commands take the same shape so that neither needs to be retyped as the other.
   args: [
-    { kind: 'user', name: 'user' },
+    // `findMember` resolves the name against the channel's members and nothing else, so the rows
+    // the palette offers are the only names this argument goes anywhere with.
+    { kind: 'user', name: 'user', exhaustive: true },
     { kind: 'rest', name: 'reason', optional: true },
   ],
 
@@ -116,7 +118,9 @@ export const banCommand = defineCommand({
         )
       : undefined,
   args: [
-    { kind: 'user', name: 'user' },
+    // `findMember` resolves the name against the channel's members and nothing else, so the rows
+    // the palette offers are the only names this argument goes anywhere with.
+    { kind: 'user', name: 'user', exhaustive: true },
     { kind: 'rest', name: 'reason', optional: true },
   ],
 

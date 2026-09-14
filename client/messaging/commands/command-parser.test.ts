@@ -368,6 +368,28 @@ describe('messaging/commands/command-parser/locateArgAtCaret', () => {
     expect(caret.token).toEqual({ start: 1, text: '"multi word' })
   })
 
+  test('a closed quote is a complete value, so the caret moves on to the next argument', () => {
+    const command = commandWithArgs([
+      { kind: 'word', name: 'word' },
+      { kind: 'rest', name: 'rest', optional: true },
+    ])
+    const caret = locateArgAtCaret(command, ' "multi word" ')
+
+    expect(caret.activeArg).toEqual({ kind: 'rest', name: 'rest', optional: true })
+    expect(caret.token).toEqual({ start: 14, text: '' })
+  })
+
+  test('a name outside of ASCII is the active token as typed', () => {
+    expect(locateArgAtCaret(userAndReason, ' 저그러시').token).toEqual({
+      start: 1,
+      text: '저그러시',
+    })
+    expect(locateArgAtCaret(userAndReason, ' @Ünïcode').token).toEqual({
+      start: 1,
+      text: '@Ünïcode',
+    })
+  })
+
   test('a caret past every argument is in none of them', () => {
     const command = commandWithArgs([{ kind: 'channel', name: 'channel' }])
 

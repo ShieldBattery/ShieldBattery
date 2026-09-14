@@ -136,6 +136,15 @@ export function getArgSuggestions(
   }
 }
 
+/**
+ * Whether the values `getArgSuggestions` offers for `arg` are the only ones it accepts. An `enum`
+ * or a `subcommand` is exhaustive whatever it declares, since the parser refuses anything they
+ * don't list.
+ */
+export function isExhaustiveArg(arg: CommandArg): boolean {
+  return arg.kind === 'enum' || arg.kind === 'subcommand' || arg.exhaustive === true
+}
+
 /** Narrows suggestions to those answering `query` (see rankByQuery over `value`). Uncapped. */
 export function filterArgSuggestions(
   suggestions: ReadonlyArray<ArgSuggestion>,

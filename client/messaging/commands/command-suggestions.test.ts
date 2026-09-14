@@ -14,9 +14,11 @@ import { ArgSuggestDeps, CommandArg, getRunnableCommands } from './command-schem
 import {
   filterArgSuggestions,
   getArgSuggestions,
+  isExhaustiveArg,
   matchCommands,
   rankByQuery,
 } from './command-suggestions'
+import { kickCommand } from './commands/kick-ban'
 import { whisperCommand } from './commands/whisper'
 
 // Answers with whatever default value the caller supplied, which is what the real translations
@@ -270,6 +272,31 @@ describe('messaging/commands/command-suggestions/getArgSuggestions', () => {
     }
 
     expect(getArgSuggestions(arg, deps(channelContext()))).toEqual([{ value: 'channel' }])
+  })
+})
+
+describe('messaging/commands/command-suggestions/isExhaustiveArg', () => {
+  test('an enum or a subcommand accepts nothing but the values it lists', () => {
+    expect(isExhaustiveArg({ kind: 'enum', name: 'mode', values: ['add', 'remove'] })).toBe(true)
+    expect(
+      isExhaustiveArg({
+        kind: 'subcommand',
+        name: 'action',
+        options: [{ name: 'add', description: () => 'add', args: [] }],
+      }),
+    ).toBe(true)
+  })
+
+  test('an argument that declares itself exhaustive is one', () => {
+    expect(isExhaustiveArg({ kind: 'user', name: 'user', exhaustive: true })).toBe(true)
+    expect(isExhaustiveArg(kickCommand.args[0])).toBe(true)
+  })
+
+  test('an argument that can take values it does not offer is not', () => {
+    expect(isExhaustiveArg({ kind: 'user', name: 'user' })).toBe(false)
+    expect(isExhaustiveArg({ kind: 'channel', name: 'channel' })).toBe(false)
+    expect(isExhaustiveArg({ kind: 'word', name: 'word' })).toBe(false)
+    expect(isExhaustiveArg(whisperCommand.args[0])).toBe(false)
   })
 })
 

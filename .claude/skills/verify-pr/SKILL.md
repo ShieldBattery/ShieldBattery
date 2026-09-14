@@ -394,11 +394,13 @@ bits in here, and keep this lean:
 
 - **Chat command palette / typeahead (T3, plain member + channel owner + whisper peer).** Drive it
   with the keyboard, never `fill` (a programmatic value set fires no `selectionchange`, so the
-  palette never reacts): focus via `eval "(document.querySelector('textarea[role=combobox]').focus(),'f')"`,
-  then `MSYS_NO_PATHCONV=1 playwright-cli -s=cN type "/ki"` (the env var stops Git Bash rewriting
+  palette never reacts): focus via
+  `eval "(document.querySelector('textarea[aria-autocomplete=list]').focus(),'f')"`, then
+  `MSYS_NO_PATHCONV=1 playwright-cli -s=cN type "/ki"` (the env var stops Git Bash rewriting
   `/` into `C:/Program Files/Git/`) and `press "Space"|"Tab"|"Enter"|"ArrowDown"|"Escape"`; clear
   with `press "Control+a"` + `press "Backspace"`. Read the state in one eval: the textarea's
-  `value`/`selectionStart`/`aria-expanded`/`aria-activedescendant` (= `<listbox id>-<index>`) plus
+  `value`/`selectionStart`/`aria-controls` (set only while a palette is open, so it doubles as the
+  open signal)/`aria-activedescendant` (= `<listbox id>-<index>`) plus
   `[role=listbox] [role=option]` textContent (a command row reads `/kick <user> [reason]Kicks a
   user…`, alias chips as `Also/w/m…`; a mouse accept is `option.click()` in an eval). Fixtures:
   `/chat/15/modtest26` (claude-admin id 9 = owner → kick/ban listed; claude-1 id 10 = plain member

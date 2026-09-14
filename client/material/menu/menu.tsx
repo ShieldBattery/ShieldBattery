@@ -73,6 +73,12 @@ export interface MenuListProps {
    * to track which item is visually focused for keyboard selection.
    */
   onActiveIndexChange?: (index: number) => void
+  /**
+   * Which item is active, when the owner decides that rather than the list. The list shows this row
+   * focused and reports through `onActiveIndexChange` where the arrow keys would move it, instead
+   * of moving on its own. Left out, the list keeps the index itself.
+   */
+  activeIndex?: number
   id?: string
   /**
    * `listbox` makes each menu item an `option`, with `aria-selected` following the active index
@@ -95,10 +101,12 @@ export function MenuList({
   dense,
   virtualFocus,
   onActiveIndexChange,
+  activeIndex: controlledActiveIndex,
   id,
   role,
 }: MenuListProps) {
-  const [activeIndex, setActiveIndex] = useState(virtualFocus ? 0 : -1)
+  const [uncontrolledIndex, setUncontrolledIndex] = useState(virtualFocus ? 0 : -1)
+  const activeIndex = controlledActiveIndex ?? uncontrolledIndex
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const menuItems = useMemo(() => {
@@ -117,7 +125,7 @@ export function MenuList({
     newIndex = newIndex % menuItems.length
 
     if (newIndex !== activeIndex) {
-      setActiveIndex(newIndex)
+      setUncontrolledIndex(newIndex)
       onActiveIndexChange?.(newIndex)
     }
 

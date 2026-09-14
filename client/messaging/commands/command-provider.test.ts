@@ -39,7 +39,7 @@ function channelContext(canModerate = false): ChannelCommandContext {
 const shieldBatteryId = makeSbChannelId(1)
 const devId = makeSbChannelId(2)
 
-/** A store holding only what the argument defaults read out of it. */
+/** A store holding what the arguments completed here read out of it. */
 const getState = (): RootState =>
   ({
     chat: {
@@ -49,6 +49,17 @@ const getState = (): RootState =>
       ]),
       joinedChannels: new Set([devId]),
     },
+    // What the whisper target suggestions read: nobody has a conversation open or a friend here,
+    // so the channel's members are all there is to offer.
+    users: {
+      byId: new Map([
+        [selfUserId, { id: selfUserId, name: 'Marko' }],
+        [tec27Id, { id: tec27Id, name: 'tec27' }],
+        [offlineUserId, { id: offlineUserId, name: 'ZergRush' }],
+      ]),
+    },
+    whispers: { sessions: new Set() },
+    relationships: { friends: new Map(), friendActivityStatus: new Map() },
   }) as unknown as RootState
 
 function nameMatch(text: string, canModerate = false): TypeaheadMatch | undefined {
@@ -109,7 +120,7 @@ describe('messaging/commands/command-provider/locateCommandCaret', () => {
     if (caret.kind !== 'args') return
     expect(caret.command.name).toBe('kick')
     expect(caret.argStart).toBe(5)
-    expect(caret.caret.activeArg).toEqual({ kind: 'user', name: 'user' })
+    expect(caret.caret.activeArg).toEqual({ kind: 'user', name: 'user', exhaustive: true })
     expect(caret.caret.token).toEqual({ start: 1, text: 'te' })
   })
 
@@ -202,6 +213,7 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
       matchedText: '',
       submitOnExact: true,
       spaceAcceptsSingle: false,
+      openEnded: false,
     })
     expect(rows(match).map(r => r.text)).toEqual(['tec27', 'ZergRush'])
     expect(rows(match)[1]).toMatchObject({
@@ -215,8 +227,30 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
   test('what has been typed narrows the members', () => {
     const match = argMatch('/kick te', true)
 
-    expect(match).toMatchObject({ start: 6, matchedText: 'te', spaceAcceptsSingle: true })
+    // A kick lands on a member of this channel or on nobody, so the one row left over is what was
+    // meant and a space may take it.
+    expect(match).toMatchObject({
+      start: 6,
+      matchedText: 'te',
+      spaceAcceptsSingle: true,
+      openEnded: false,
+    })
     expect(rows(match).map(r => r.text)).toEqual(['tec27'])
+  })
+
+  test('a whisper target is never rewritten by a space, since it can be anyone', () => {
+    const match = argMatch('/w Zerg')
+
+    expect(match).toMatchObject({ spaceAcceptsSingle: false, openEnded: true })
+    expect(rows(match).map(r => r.text)).toEqual(['ZergRush'])
+    expect(rows(match)[0].exact).toBe(false)
+  })
+
+  test('a channel name is never rewritten by a space either', () => {
+    const match = argMatch('/join sb')
+
+    expect(match).toMatchObject({ spaceAcceptsSingle: false, openEnded: true })
+    expect(rows(match).map(r => r.text)).toEqual(['sb-dev', 'ShieldBattery'])
   })
 
   test('a typed sigil is kept rather than completed over', () => {

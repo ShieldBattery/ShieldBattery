@@ -51,10 +51,16 @@ export interface TypeaheadMatch {
   submitOnExact?: boolean
   /** Space accepts the suggestion when it is the only one offered and it is not `exact`. */
   spaceAcceptsSingle?: boolean
+  /**
+   * Whether the rows are offers rather than the only answers. What has been typed may be what the
+   * user means in its own right, so Enter sends it as typed unless a row was picked with the arrow
+   * keys, and space never replaces it.
+   */
+  openEnded?: boolean
 }
 
 export interface TypeaheadProvider {
-  /** Distinguishes what a provider renders from what another did (list state resets when it changes). */
+  /** Distinguishes one provider's rows from another's; the palette's active row resets when it changes. */
   id: string
   /**
    * What the provider offers for the caret at the end of `textBeforeCaret`; undefined when nothing

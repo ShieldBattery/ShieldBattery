@@ -23,7 +23,10 @@ export interface ArgSuggestion {
 
 export interface ArgSuggestDeps {
   context: CommandContext
-  /** Reads the store as of when the palette was opened; suggestions are not kept live. */
+  /**
+   * Reads the store as of the moment the suggestions are built. The palette builds them afresh for
+   * every caret change, so what an argument offers follows the store as it is typed at.
+   */
   getState: () => RootState
 }
 
@@ -46,6 +49,20 @@ interface BaseArg {
    * to what has been typed.
    */
   suggest?: (deps: ArgSuggestDeps) => ReadonlyArray<ArgSuggestion>
+  /**
+   * Whether the values offered for completion (`suggest`, or what the kind implies) are the only
+   * ones the argument accepts. An `enum` or a `subcommand` is exhaustive whatever this says, since
+   * the parser refuses anything they don't list. A `user` argument that its command resolves
+   * strictly against the surface's members, as the moderation commands do, declares this; a whisper
+   * target or a channel name, which can be anyone on the server or any channel that could exist,
+   * leaves it unset.
+   *
+   * Only an exhaustive set lets the palette rewrite what has been typed when the user presses
+   * space: a lone remaining row is then what they must have meant. For an open-ended argument what
+   * has been typed may be the intended value in its own right, so Enter sends it as typed unless a
+   * row was picked.
+   */
+  exhaustive?: boolean
 }
 
 /** One token, with a leading `@` stripped, that has to look like a username. */

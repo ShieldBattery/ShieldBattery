@@ -192,6 +192,11 @@ interface ActiveTypeahead {
   submitOnExact: boolean
   /** Space accepts the suggestion when it is the only one offered and it is not exact. */
   spaceAcceptsSingle: boolean
+  /**
+   * The rows are offers rather than the only answers, so Enter sends what has been typed unless a
+   * row was picked with the arrow keys.
+   */
+  openEnded: boolean
 }
 
 export interface MessageInputProps {
@@ -232,9 +237,9 @@ export interface MessageInputHandle {
   addMention: (username: string) => void
 }
 
-// A plain function component rather than a forwardRef one: react-dom only refreshes
-// `useEffectEvent` handlers on plain function components, and a forwardRef wrapper would leave
-// `onSelectionChange` frozen at its mount-time closure.
+// A plain function component rather than a forwardRef or a React.memo one: react-dom only
+// refreshes `useEffectEvent` handlers for plain function-component fibers, so either wrapper would
+// leave `onSelectionChange` frozen at its mount-time closure.
 export function MessageInput({
   className,
   showDivider,
@@ -258,11 +263,22 @@ export function MessageInput({
 
   const [typeahead, setTypeahead] = useState<ActiveTypeahead | undefined>(undefined)
   const [activeIndex, setActiveIndex] = useState(0)
+  // Whether the highlight has been moved with the arrow keys since the palette opened, which is
+  // what picks a row out of the offers an open-ended argument makes.
+  const [pickedRow, setPickedRow] = useState(false)
   const [paletteOpen, openPalette, closePalette] = usePopoverController()
   // Guards suggestions that load asynchronously against the caret having moved on by the time
   // they arrive
   const latestRequestRef = useRef(0)
   const listId = useId()
+
+  // Every way a palette closes runs through here, so the next one to open starts on its first row
+  // with nothing picked rather than wherever the last one was left.
+  const resetPalette = () => {
+    setActiveIndex(0)
+    setPickedRow(false)
+    closePalette()
+  }
 
   const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
 
@@ -321,7 +337,7 @@ export function MessageInput({
     const result = matchTypeahead(providers, textBeforeCaret)
     if (!result) {
       setTypeahead(undefined)
-      closePalette()
+      resetPalette()
       return
     }
 
@@ -334,8 +350,10 @@ export function MessageInput({
 
       if (provider.id !== typeahead?.provider.id) {
         // A different kind of palette starts at its first row rather than wherever the last one
-        // was left
+        // was left. A provider can change without the palette closing in between, e.g. backspacing
+        // out of a command's argument and back into its name.
         setActiveIndex(0)
+        setPickedRow(false)
       }
       setTypeahead({
         provider,
@@ -344,12 +362,13 @@ export function MessageInput({
         suggestions,
         submitOnExact: !!match.submitOnExact,
         spaceAcceptsSingle: !!match.spaceAcceptsSingle,
+        openEnded: !!match.openEnded,
       })
 
       if (suggestions.length > 0) {
         openPalette(event)
       } else {
-        closePalette()
+        resetPalette()
       }
     }
 
@@ -390,8 +409,8 @@ export function MessageInput({
   })
 
   const suggestions = typeahead?.suggestions ?? []
-  // NOTE: The active index is clamped because the suggestion lists can shrink while an index
-  // further down is focused (the menu keeps its index when its children change)
+  // NOTE: The suggestion list can shrink while an index further down is active, so the index is
+  // narrowed to the rows that are actually there before it is handed down to the list.
   const clampedActiveIndex = Math.min(activeIndex, Math.max(suggestions.length - 1, 0))
   const activeSuggestion = suggestions[clampedActiveIndex]
   const paletteShowing = paletteOpen && suggestions.length > 0
@@ -401,8 +420,7 @@ export function MessageInput({
   const clearInput = () => {
     latestRequestRef.current += 1
     setTypeahead(undefined)
-    setActiveIndex(0)
-    closePalette()
+    resetPalette()
     setMessage('')
   }
 
@@ -412,8 +430,7 @@ export function MessageInput({
     }
 
     const { provider, start, matchedText } = typeahead
-    closePalette()
-    setActiveIndex(0)
+    resetPalette()
     provider.onAccept?.(suggestion)
     setMessage(
       message.slice(0, start) + suggestion.insertText + message.slice(start + matchedText.length),
@@ -434,9 +451,14 @@ export function MessageInput({
 
   const onEnterKeyDown = useStableCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (paletteShowing && typeahead && activeSuggestion) {
-      if (typeahead.submitOnExact && activeSuggestion.exact) {
-        // What's typed already spells the highlighted suggestion, so Enter means send
-        closePalette()
+      // Two ways what is in the input is already the answer: it spells the highlighted suggestion
+      // out, or it sits in an argument whose rows are only offers, where the typed token is a
+      // value in its own right. Moving the highlight is the exception to the latter, since that
+      // picks a row to take.
+      const sendAsTyped =
+        (typeahead.submitOnExact && activeSuggestion.exact) || (typeahead.openEnded && !pickedRow)
+      if (sendAsTyped) {
+        resetPalette()
       } else {
         event.preventDefault()
         acceptSuggestion(activeSuggestion)
@@ -552,9 +574,10 @@ export function MessageInput({
         ]}
         inputProps={{
           autoComplete: 'off',
-          role: 'combobox',
+          // No explicit role and no `aria-expanded`: ARIA in HTML allows neither on a `textarea`,
+          // whose implicit `textbox` role has no expanded state. Whether a palette is showing and
+          // which row it holds is carried by `aria-controls` and `aria-activedescendant`.
           'aria-autocomplete': 'list',
-          'aria-expanded': paletteShowing,
           'aria-controls': paletteShowing ? listId : undefined,
           'aria-activedescendant': paletteShowing
             ? getMenuItemId(listId, clampedActiveIndex)
@@ -572,6 +595,12 @@ export function MessageInput({
             if (paletteShowing && activeSuggestion) {
               event.preventDefault()
               acceptSuggestion(activeSuggestion)
+            }
+          } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            // Deliberately not prevented: the popover's key boundary skips events whose default is
+            // already prevented, and the suggestion list needs the key to move its highlight.
+            if (paletteShowing) {
+              setPickedRow(true)
             }
           } else if (event.key === ' ') {
             // When a palette has narrowed to one row that isn't typed out yet, the space that
@@ -594,10 +623,7 @@ export function MessageInput({
 
       <Popover
         open={paletteOpen}
-        onDismiss={() => {
-          setActiveIndex(0)
-          closePalette()
-        }}
+        onDismiss={resetPalette}
         anchorX={anchorX ?? 0}
         anchorY={(anchorY ?? 0) - 8}
         originX='left'
@@ -606,11 +632,11 @@ export function MessageInput({
         // typing.
         focusOnMount={false}>
         <SuggestionList
-          key={typeahead?.provider.id}
           id={listId}
           role='listbox'
           dense={true}
           virtualFocus={true}
+          activeIndex={clampedActiveIndex}
           onActiveIndexChange={setActiveIndex}>
           {suggestions.map(suggestion =>
             suggestion.visual.kind === 'command' ? (
