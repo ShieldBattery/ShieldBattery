@@ -8,7 +8,17 @@ import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
-const Item = styled.button<{ $dense?: boolean; $focused?: boolean; $hasSecondaryText?: boolean }>`
+/**
+ * The button chrome a menu item is built out of: the button reset, the room a `Ripple` needs, and
+ * the virtual-focus, hover and disabled styling that makes a row look like part of a menu. A menu
+ * item with a layout of its own styles this and tags its component with `MenuItemSymbol` so that
+ * `MenuList` treats it as an item rather than as decoration.
+ */
+export const MenuItemButton = styled.button<{
+  $dense?: boolean
+  $focused?: boolean
+  $hasSecondaryText?: boolean
+}>`
   ${buttonReset};
   position: relative;
   width: auto;
@@ -98,6 +108,9 @@ export function MenuItem({
   className,
   testName,
   virtualFocus,
+  id,
+  role,
+  'aria-selected': ariaSelected,
 }: MenuItemProps) {
   const [buttonProps, rippleRef] = useButtonState({ onClick, onKeyDown, disabled })
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -113,8 +126,11 @@ export function MenuItem({
   }, [focused, virtualFocus])
 
   return (
-    <Item
+    <MenuItemButton
       ref={buttonRef}
+      id={id}
+      role={role}
+      aria-selected={ariaSelected}
       className={className}
       data-testid={testName}
       {...buttonProps}
@@ -128,7 +144,7 @@ export function MenuItem({
       </ItemTextColumn>
       {trailingContent}
       <Ripple ref={rippleRef} />
-    </Item>
+    </MenuItemButton>
   )
 }
 

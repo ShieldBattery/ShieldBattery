@@ -53,6 +53,11 @@ const Padding = styled.div`
   flex-shrink: 0;
 `
 
+/** The DOM id MenuList gives the menu item at `index` when it has `id` and is a listbox. */
+export function getMenuItemId(listId: string, index: number): string {
+  return `${listId}-${index}`
+}
+
 export interface MenuListProps {
   children: React.ReactNode
   className?: string
@@ -68,6 +73,19 @@ export interface MenuListProps {
    * to track which item is visually focused for keyboard selection.
    */
   onActiveIndexChange?: (index: number) => void
+  /**
+   * Which item is active, when the owner decides that rather than the list. The list shows this row
+   * focused and reports through `onActiveIndexChange` where the arrow keys would move it, instead
+   * of moving on its own. Left out, the list keeps the index itself.
+   */
+  activeIndex?: number
+  id?: string
+  /**
+   * `listbox` makes each menu item an `option`, with `aria-selected` following the active index
+   * and an id from `getMenuItemId`, so an input that keeps DOM focus can point
+   * `aria-activedescendant` at the active row.
+   */
+  role?: React.AriaRole
 }
 
 /**
@@ -83,8 +101,12 @@ export function MenuList({
   dense,
   virtualFocus,
   onActiveIndexChange,
+  activeIndex: controlledActiveIndex,
+  id,
+  role,
 }: MenuListProps) {
-  const [activeIndex, setActiveIndex] = useState(virtualFocus ? 0 : -1)
+  const [uncontrolledIndex, setUncontrolledIndex] = useState(virtualFocus ? 0 : -1)
+  const activeIndex = controlledActiveIndex ?? uncontrolledIndex
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const menuItems = useMemo(() => {
@@ -103,7 +125,7 @@ export function MenuList({
     newIndex = newIndex % menuItems.length
 
     if (newIndex !== activeIndex) {
-      setActiveIndex(newIndex)
+      setUncontrolledIndex(newIndex)
       onActiveIndexChange?.(newIndex)
     }
 
@@ -157,6 +179,13 @@ export function MenuList({
       dense,
       focused: index === activeIndex,
       virtualFocus,
+      ...(role === 'listbox'
+        ? {
+            role: 'option',
+            id: id ? getMenuItemId(id, index) : undefined,
+            'aria-selected': index === activeIndex,
+          }
+        : null),
     })
     i++
 
@@ -164,7 +193,7 @@ export function MenuList({
   })
 
   return (
-    <Overlay key='menu' ref={overlayRef} className={className} $dense={dense}>
+    <Overlay key='menu' ref={overlayRef} id={id} role={role} className={className} $dense={dense}>
       <Padding />
       {items}
       <Padding />

@@ -34,8 +34,8 @@ function channelContext(canKick: boolean, canBan: boolean): ChannelCommandContex
     channelId: makeSbChannelId(1),
     selfUserId,
     members: [
-      { id: selfUserId, name: 'Marko' },
-      { id: otherUserId, name: 'tec27' },
+      { id: selfUserId, name: 'Marko', online: true },
+      { id: otherUserId, name: 'tec27', online: true },
     ],
     canKick,
     canBan,
@@ -167,26 +167,6 @@ describe('messaging/commands/command-registry', () => {
             description: 'Leaves the channel or lobby you are in.',
           },
           {
-            name: 'kick',
-            aliases: [],
-            args: [
-              { label: 'user', optional: false },
-              { label: 'reason', optional: true },
-            ],
-            description: 'Kicks a user out of this channel.',
-            unavailableReason: "You don't have permission to kick users from this channel.",
-          },
-          {
-            name: 'ban',
-            aliases: [],
-            args: [
-              { label: 'user', optional: false },
-              { label: 'reason', optional: true },
-            ],
-            description: 'Bans a user from this channel.',
-            unavailableReason: "You don't have permission to ban users from this channel.",
-          },
-          {
             name: 'me',
             aliases: ['emote'],
             args: [{ label: 'action', optional: false }],
@@ -197,15 +177,21 @@ describe('messaging/commands/command-registry', () => {
     })
   })
 
-  test('/help gives no reason for a command that can be run', () => {
+  test('/help leaves out the commands that cannot be run here', () => {
     const dispatch = vi.fn()
     const emit = vi.fn()
 
-    runChatCommand('/help', { context: channelContext(true, true), dispatch, t, emit })
+    runChatCommand('/help', { context: channelContext(false, false), dispatch, t, emit })
+    let names = dispatch.mock.calls[0][0].payload.initData.commands.map(
+      (c: { name: string }) => c.name,
+    )
+    expect(names).not.toContain('kick')
+    expect(names).not.toContain('ban')
 
-    for (const command of dispatch.mock.calls[0][0].payload.initData.commands) {
-      expect(command.unavailableReason).toBeUndefined()
-    }
+    runChatCommand('/help', { context: channelContext(true, true), dispatch, t, emit })
+    names = dispatch.mock.calls[1][0].payload.initData.commands.map((c: { name: string }) => c.name)
+    expect(names).toContain('kick')
+    expect(names).toContain('ban')
   })
 
   test('/help names a command that only works somewhere else', () => {

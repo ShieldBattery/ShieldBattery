@@ -1,11 +1,34 @@
 import { TFunction } from 'i18next'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
 import { DispatchFunction } from '../../dispatch-registry'
+import { RootState } from '../../root-reducer'
 import { CommandContext, CommandSurface } from './command-context'
 import { LocalLineEmitter } from './local-output'
 
 /** Every surface a command can be declared for, in the order a sentence listing them reads. */
 export const ALL_COMMAND_SURFACES: ReadonlyArray<CommandSurface> = ['channel', 'whisper', 'lobby']
+
+/** One value the argument palette can complete an argument with. */
+export interface ArgSuggestion {
+  /** What accepting the suggestion types into the input, e.g. a username or a channel name. */
+  value: string
+  /**
+   * When the value names a user: whose avatar the row shows, faded along with the text while the
+   * user is known to be offline. `online` is undefined when the client doesn't track that user's
+   * presence.
+   */
+  user?: { id: SbUserId; online?: boolean }
+}
+
+export interface ArgSuggestDeps {
+  context: CommandContext
+  /**
+   * Reads the store as of the moment the suggestions are built. The palette builds them afresh for
+   * every caret change, so what an argument offers follows the store as it is typed at.
+   */
+  getState: () => RootState
+}
 
 interface BaseArg {
   /**
@@ -18,6 +41,28 @@ interface BaseArg {
    * left-out one parses to `undefined`.
    */
   optional?: boolean
+  /**
+   * Offers values for the argument palette to complete this argument with. Without it, an argument
+   * is completed from what its kind implies: a `user` from the surface's members (never the
+   * caller), a `channel` from the channels the client knows of, an `enum` or `subcommand` from its
+   * own values, and the other kinds from nothing. Returns every candidate; the palette narrows them
+   * to what has been typed.
+   */
+  suggest?: (deps: ArgSuggestDeps) => ReadonlyArray<ArgSuggestion>
+  /**
+   * Whether the values offered for completion (`suggest`, or what the kind implies) are the only
+   * ones the argument accepts. An `enum` or a `subcommand` is exhaustive whatever this says, since
+   * the parser refuses anything they don't list. A `user` argument that its command resolves
+   * strictly against the surface's members, as the moderation commands do, declares this; a whisper
+   * target or a channel name, which can be anyone on the server or any channel that could exist,
+   * leaves it unset.
+   *
+   * Only an exhaustive set lets the palette rewrite what has been typed when the user presses
+   * space: a lone remaining row is then what they must have meant. For an open-ended argument what
+   * has been typed may be the intended value in its own right, so Enter sends it as typed unless a
+   * row was picked.
+   */
+  exhaustive?: boolean
 }
 
 /** One token, with a leading `@` stripped, that has to look like a username. */
@@ -156,8 +201,8 @@ export interface ChatCommand {
   /**
    * Decides whether the command can be run in a context that is one of its `surfaces`, and when it
    * can't, says why in a sentence the user is shown. Returns `undefined` when it can. A command
-   * that can't be run still exists: help lists it, greyed and with this reason, and naming it
-   * answers with this reason rather than the unknown-command line.
+   * that can't be run still exists: help and the palette leave it out, but naming it answers with
+   * this reason rather than the unknown-command line.
    */
   getUnavailableReason?: (context: CommandContext, t: TFunction) => string | undefined
   args: readonly CommandArg[]
@@ -202,8 +247,19 @@ export function getSurfaceCommands(
   return commands.filter(command => command.surfaces.includes(surface))
 }
 
+/** The commands that exist in the context's surface and can be run from it, in the order given. */
+export function getRunnableCommands(
+  commands: ReadonlyArray<ChatCommand>,
+  context: CommandContext,
+  t: TFunction,
+): ReadonlyArray<ChatCommand> {
+  return getSurfaceCommands(commands, context.surface).filter(
+    command => command.getUnavailableReason?.(context, t) === undefined,
+  )
+}
+
 /** What usage strings and error messages call an argument. */
-function getArgLabel(arg: CommandArg): string {
+export function getArgLabel(arg: CommandArg): string {
   switch (arg.kind) {
     case 'enum':
       return arg.values.join('|')

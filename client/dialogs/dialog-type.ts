@@ -113,7 +113,7 @@ type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
 type ChatCommandHelpDialogPayload = BaseDialogPayload<
   typeof DialogType.ChatCommandHelp,
   {
-    /** Every command that exists where the dialog was opened from, in display order. */
+    /** Every command that can be run where the dialog was opened from, in display order. */
     commands: Array<{
       /** The canonical name, without its leading slash. */
       name: string
@@ -123,8 +123,6 @@ type ChatCommandHelpDialogPayload = BaseDialogPayload<
       args: Array<{ label: string; optional: boolean }>
       /** Already localized. */
       description: string
-      /** Why the command can't be run where the dialog was opened from. Absent when it can. */
-      unavailableReason?: string
     }>
   }
 >

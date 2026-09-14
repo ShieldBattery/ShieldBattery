@@ -1,6 +1,8 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
+import { FriendActivityStatus } from '../../../../common/users/relationships'
+import { SbUserId } from '../../../../common/users/sb-user-id'
 import { WhisperServiceErrorCode } from '../../../../common/whispers'
 import { TransInterpolation } from '../../../i18n/i18next'
 import { isFetchError } from '../../../network/fetch-errors'
@@ -9,7 +11,12 @@ import {
   sendMessage as sendWhisperMessage,
   startWhisperSessionByName,
 } from '../../../whispers/action-creators'
-import { ALL_COMMAND_SURFACES, defineCommand } from '../command-schema'
+import {
+  ALL_COMMAND_SURFACES,
+  ArgSuggestDeps,
+  ArgSuggestion,
+  defineCommand,
+} from '../command-schema'
 import { LocalStrong } from '../local-strong'
 
 function startFailedLine(target: string, err: Error, t: TFunction): React.ReactNode {
@@ -44,13 +51,58 @@ function sendFailedLine(target: string, err: Error, t: TFunction): React.ReactNo
   )
 }
 
+/**
+ * Who a whisper is likeliest to be meant for, best first: the conversations already open (most
+ * recently active first), then friends (online ones ahead of offline ones), then whoever else is
+ * in the surface the command was typed in. Each user is offered once, in the best position they
+ * reach, and the user running the command is never offered, since the server refuses self-whispers.
+ */
+function getWhisperTargets({ context, getState }: ArgSuggestDeps): ArgSuggestion[] {
+  const { relationships, users, whispers } = getState()
+
+  const suggestions: ArgSuggestion[] = []
+  const offered = new Set<SbUserId>([context.selfUserId])
+  const offer = (id: SbUserId, online?: boolean) => {
+    const name = users.byId.get(id)?.name
+    if (offered.has(id) || name === undefined) {
+      return
+    }
+
+    offered.add(id)
+    suggestions.push({ value: name, user: { id, online } })
+  }
+
+  for (const id of whispers.sessions) {
+    // The client tracks no presence for the people it has conversations with.
+    offer(id)
+  }
+
+  const friendIds = Array.from(relationships.friends.keys())
+  const isFriendOnline = (id: SbUserId) =>
+    relationships.friendActivityStatus.get(id) !== FriendActivityStatus.Offline
+  for (const id of friendIds.filter(isFriendOnline)) {
+    offer(id, true)
+  }
+  for (const id of friendIds.filter(id => !isFriendOnline(id))) {
+    offer(id, false)
+  }
+
+  if (context.surface === 'channel') {
+    for (const member of context.members) {
+      offer(member.id, member.online)
+    }
+  }
+
+  return suggestions
+}
+
 export const whisperCommand = defineCommand({
   name: 'whisper',
   aliases: ['w', 'm', 'msg', 'tell', 't'],
   description: t => t('chat.commands.whisper.description', 'Sends a private message to a user.'),
   surfaces: ALL_COMMAND_SURFACES,
   args: [
-    { kind: 'user', name: 'user' },
+    { kind: 'user', name: 'user', suggest: getWhisperTargets },
     { kind: 'rest', name: 'message', optional: true },
   ],
 
