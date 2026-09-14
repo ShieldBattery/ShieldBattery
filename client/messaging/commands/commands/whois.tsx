@@ -2,8 +2,11 @@ import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
 import { assertUnreachable } from '../../../../common/assert-unreachable'
+import { SbChannelId } from '../../../../common/chat'
 import { FriendActivityStatus } from '../../../../common/users/relationships'
-import { TransInterpolation } from '../../../i18n/i18next'
+import { SbUserId } from '../../../../common/users/sb-user-id'
+import { ConnectedChannelName } from '../../../chat/connected-channel-name'
+import { ConnectedUsername } from '../../../users/connected-username'
 import { ALL_COMMAND_SURFACES, defineCommand } from '../command-schema'
 import { LocalStrong } from '../local-strong'
 import { resolveTarget } from './user-card'
@@ -12,7 +15,7 @@ import { resolveTarget } from './user-card'
 type ChannelPresence = 'active' | 'idle' | 'offline'
 
 interface ChannelPresenceEntry {
-  channelName: string
+  channelId: SbChannelId
   presence: ChannelPresence
 }
 
@@ -35,49 +38,71 @@ function getPresenceWord(presence: ChannelPresence, t: TFunction): string {
   }
 }
 
-function getStatusSentence(name: string, status: WhoisStatus, t: TFunction): React.ReactNode {
+function getStatusSentence(userId: SbUserId, status: WhoisStatus, t: TFunction): React.ReactNode {
   switch (status) {
     case 'self':
       return (
         <Trans t={t} i18nKey='chat.commands.whois.self'>
-          You are <LocalStrong>{{ name } as TransInterpolation}</LocalStrong>.
+          You are{' '}
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>
+          .
         </Trans>
       )
     case FriendActivityStatus.InLobby:
       return (
         <Trans t={t} i18nKey='chat.commands.whois.inLobby'>
-          <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> is in a lobby.
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>{' '}
+          is in a lobby.
         </Trans>
       )
     case FriendActivityStatus.InQueue:
       return (
         <Trans t={t} i18nKey='chat.commands.whois.inQueue'>
-          <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> is in the matchmaking queue.
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>{' '}
+          is in the matchmaking queue.
         </Trans>
       )
     case FriendActivityStatus.InGame:
       return (
         <Trans t={t} i18nKey='chat.commands.whois.inGame'>
-          <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> is in a game.
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>{' '}
+          is in a game.
         </Trans>
       )
     case FriendActivityStatus.Online:
       return (
         <Trans t={t} i18nKey='chat.commands.whois.online'>
-          <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> is online.
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>{' '}
+          is online.
         </Trans>
       )
     case FriendActivityStatus.Offline:
       return (
         <Trans t={t} i18nKey='chat.commands.whois.offline'>
-          <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> is offline.
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>{' '}
+          is offline.
         </Trans>
       )
     case 'unknown':
       return (
         <Trans t={t} i18nKey='chat.commands.whois.unknown'>
-          Can't tell what <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> is doing: only
-          friends and members of your channels share their status.
+          Can't tell what{' '}
+          <LocalStrong>
+            <ConnectedUsername userId={userId} />
+          </LocalStrong>{' '}
+          is doing: only friends and members of your channels share their status.
         </Trans>
       )
     default:
@@ -100,15 +125,15 @@ function getChannelsClause(
       <Trans t={t} i18nKey='chat.commands.whois.channelsLabel'>
         Channels:
       </Trans>{' '}
-      {entries.map((entry, i) => {
-        const channel = `#${entry.channelName}`
-        return (
-          <React.Fragment key={entry.channelName}>
-            {i > 0 ? ', ' : undefined}
-            <LocalStrong>{channel}</LocalStrong> ({getPresenceWord(entry.presence, t)})
-          </React.Fragment>
-        )
-      })}
+      {entries.map((entry, i) => (
+        <React.Fragment key={entry.channelId}>
+          {i > 0 ? ', ' : undefined}
+          <LocalStrong>
+            <ConnectedChannelName channelId={entry.channelId} />
+          </LocalStrong>{' '}
+          ({getPresenceWord(entry.presence, t)})
+        </React.Fragment>
+      ))}
       .
     </>
   )
@@ -140,17 +165,16 @@ export const whoisCommand = defineCommand({
         // so a channel that hasn't loaded one is no evidence either way.
         const entries: ChannelPresenceEntry[] = []
         for (const [channelId, users] of chat.idToUsers) {
-          const channelName = chat.idToBasicInfo.get(channelId)?.name
-          if (!users.hasLoadedUserList || channelName === undefined) {
+          if (!users.hasLoadedUserList || !chat.idToBasicInfo.has(channelId)) {
             continue
           }
 
           if (users.active.has(target.id)) {
-            entries.push({ channelName, presence: 'active' })
+            entries.push({ channelId, presence: 'active' })
           } else if (users.idle.has(target.id)) {
-            entries.push({ channelName, presence: 'idle' })
+            entries.push({ channelId, presence: 'idle' })
           } else if (users.offline.has(target.id)) {
-            entries.push({ channelName, presence: 'offline' })
+            entries.push({ channelId, presence: 'offline' })
           }
         }
 
@@ -171,7 +195,7 @@ export const whoisCommand = defineCommand({
           kind: 'info',
           content: (
             <>
-              {getStatusSentence(target.name, status, t)}
+              {getStatusSentence(target.id, status, t)}
               {getChannelsClause(entries, t)}
             </>
           ),

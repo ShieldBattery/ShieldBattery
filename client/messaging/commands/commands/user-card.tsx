@@ -74,9 +74,7 @@ export const statsCommand = defineCommand({
   description: t =>
     t('chat.commands.stats.description', "Shows a user's win/loss record and ranks."),
   surfaces: ALL_COMMAND_SURFACES,
-  // Battle.net's `/stats <user> [product]` shape is accepted so that muscle memory works, but there
-  // is only one product here, so the argument is read and dropped.
-  args: [USER_ARG, { kind: 'word', name: 'product', optional: true }],
+  args: [USER_ARG],
 
   run: showUserCard,
 })

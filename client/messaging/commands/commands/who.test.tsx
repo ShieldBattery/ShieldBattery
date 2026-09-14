@@ -23,6 +23,21 @@ vi.mock('../../../chat/action-creators', async importOriginal => ({
   retrieveUserList: vi.fn(() => ({ type: 'TEST/retrieveUserList' })),
 }))
 
+// `ConnectedUsername` and `ConnectedChannelName` need a Redux Provider to render for real, so they
+// are stood in for with plain text lookups against the fixture's own id-to-name mappings below.
+const { userNames, channelNames } = vi.hoisted(() => ({
+  userNames: new Map<number, string>(),
+  channelNames: new Map<number, string>(),
+}))
+
+vi.mock('../../../users/connected-username', () => ({
+  ConnectedUsername: ({ userId }: { userId: number }) => userNames.get(userId),
+}))
+
+vi.mock('../../../chat/connected-channel-name', () => ({
+  ConnectedChannelName: ({ channelId }: { channelId: number }) => `#${channelNames.get(channelId)}`,
+}))
+
 // The command layer builds its lines with `Trans`, which needs an i18next instance to render
 // against even though every line hands it a `t` of its own. `escapeValue` matches how the app
 // initializes i18next: React escapes what it renders, so escaping again would put entities on
@@ -45,6 +60,21 @@ const BAR_ID = makeSbChannelId(2)
 const ALICE = makeSbUserId(2)
 const BOB = makeSbUserId(3)
 const CAROL = makeSbUserId(4)
+const DAVE = makeSbUserId(5)
+const EVE = makeSbUserId(6)
+const FRANK = makeSbUserId(7)
+const GRACE = makeSbUserId(8)
+
+userNames.set(SELF_ID, 'Marko')
+userNames.set(ALICE, 'Alice')
+userNames.set(BOB, 'bob')
+userNames.set(CAROL, 'Carol')
+userNames.set(DAVE, 'Dave')
+userNames.set(EVE, 'Eve')
+userNames.set(FRANK, 'Frank')
+userNames.set(GRACE, 'Grace')
+channelNames.set(FOO_ID, 'foo')
+channelNames.set(BAR_ID, 'bar')
 
 const channelContext: ChannelCommandContext = {
   surface: 'channel',
@@ -91,6 +121,10 @@ function makeState({
         [ALICE, { id: ALICE, name: 'Alice', created: 0 }],
         [BOB, { id: BOB, name: 'bob', created: 0 }],
         [CAROL, { id: CAROL, name: 'Carol', created: 0 }],
+        [DAVE, { id: DAVE, name: 'Dave', created: 0 }],
+        [EVE, { id: EVE, name: 'Eve', created: 0 }],
+        [FRANK, { id: FRANK, name: 'Frank', created: 0 }],
+        [GRACE, { id: GRACE, name: 'Grace', created: 0 }],
       ]),
     },
   } as any
@@ -141,6 +175,7 @@ describe('messaging/commands/commands/who', () => {
   test('names who is around and counts who is not', () => {
     const { emit } = runInput(
       '/who foo',
+      // bob is active and Alice is only idle, so despite the name ordering, bob is named first.
       makeState({ active: [BOB], idle: [ALICE], offline: [CAROL] }),
     )
 
@@ -151,7 +186,36 @@ describe('messaging/commands/commands/who', () => {
 
     expect(emit.mock.calls[0][0].kind).toBe('info')
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
-      'Users in #foo (2 online, 1 offline): Alice, bob',
+      'Users in #foo (2 online, 1 offline): bob, Alice',
+    )
+  })
+
+  test('active members are named before idle ones, and only the first few are named', () => {
+    const { emit } = runInput(
+      '/who foo',
+      makeState({
+        active: [BOB, ALICE],
+        idle: [CAROL, DAVE, EVE, FRANK, GRACE],
+      }),
+    )
+
+    asMockedFunction(retrieveUserList).mock.calls[0][1].onSuccess(undefined)
+
+    expect(renderLine(emit.mock.calls[0][0].content)).toBe(
+      'Users in #foo (7 online, 0 offline): Alice, bob, Carol, Dave, Eve and 2 more',
+    )
+  })
+
+  test('exactly as many online as fit are all named', () => {
+    const { emit } = runInput(
+      '/who foo',
+      makeState({ active: [BOB, ALICE], idle: [CAROL, DAVE, EVE] }),
+    )
+
+    asMockedFunction(retrieveUserList).mock.calls[0][1].onSuccess(undefined)
+
+    expect(renderLine(emit.mock.calls[0][0].content)).toBe(
+      'Users in #foo (5 online, 0 offline): Alice, bob, Carol, Dave, Eve',
     )
   })
 

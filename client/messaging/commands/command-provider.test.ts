@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest'
 import { makeSbChannelId } from '../../../common/chat'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { RootState } from '../../root-reducer'
-import { MAX_TYPEAHEAD_ROWS, TypeaheadMatch, TypeaheadSuggestion } from '../typeahead'
+import { TypeaheadMatch, TypeaheadSuggestion } from '../typeahead'
 import { ChannelCommandContext } from './command-context'
 import {
   createCommandArgProvider,
@@ -148,20 +148,22 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       submitOnExact: true,
       spaceAcceptsSingle: false,
     })
-    // A surface with more commands than the palette has rows shows the first of them, in the order
-    // the registry lists them; the rest are reached by typing towards them.
-    expect(rows(match)).toHaveLength(MAX_TYPEAHEAD_ROWS)
+    // Unlike the query-ranked palettes, the command-name palette is not capped: it lists every
+    // command the surface can run, in the order the registry lists them.
     expect(rows(match).map(r => r.text)).toEqual([
       '/help [command]',
       '/join <channel>',
       '/whisper <user> [message]',
       '/profile [user]',
-      '/stats [user] [product]',
+      '/stats [user]',
       '/rank [user]',
       '/whois [user]',
       '/who <channel>',
       '/whoami',
       '/leave',
+      '/kick <user> [reason]',
+      '/ban <user> [reason]',
+      '/me <action>',
     ])
   })
 

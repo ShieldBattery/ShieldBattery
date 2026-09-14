@@ -1,9 +1,12 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
+import { SbChannelId } from '../../../../common/chat'
 import { SbUserId } from '../../../../common/users/sb-user-id'
 import { retrieveUserList } from '../../../chat/action-creators'
+import { ConnectedChannelName } from '../../../chat/connected-channel-name'
 import { TransInterpolation } from '../../../i18n/i18next'
+import { ConnectedUsername } from '../../../users/connected-username'
 import {
   ALL_COMMAND_SURFACES,
   ArgSuggestDeps,
@@ -14,6 +17,13 @@ import { LocalStrong } from '../local-strong'
 
 /** Orders names the way a reader looks for them, rather than putting every capital first. */
 const nameCollator = new Intl.Collator(navigator.language, { sensitivity: 'base' })
+
+/**
+ * The answer is a glance, not a roster: naming every online member would swamp a busy channel.
+ * The command only works for channels the caller has joined, and the channel's own member list is
+ * where everyone can already be seen, so a short, most-likely-to-be-around sample is enough here.
+ */
+const MAX_NAMED_ONLINE = 5
 
 /**
  * The channels the caller has joined. The command only answers for those, so offering any other
@@ -31,6 +41,24 @@ function getJoinedChannels({ getState }: ArgSuggestDeps): ArgSuggestion[] {
   return suggestions
 }
 
+/** The online users in a `who` answer, comma-separated and each individually clickable. */
+function OnlineUserList({
+  users,
+}: {
+  users: ReadonlyArray<{ id: SbUserId; name: string }>
+}): React.ReactNode {
+  return (
+    <>
+      {users.map((user, i) => (
+        <React.Fragment key={user.id}>
+          {i > 0 ? ', ' : undefined}
+          <ConnectedUsername userId={user.id} />
+        </React.Fragment>
+      ))}
+    </>
+  )
+}
+
 function notInChannelLine(channel: string, t: TFunction): React.ReactNode {
   return (
     <Trans t={t} i18nKey='chat.commands.who.notInChannel'>
@@ -39,39 +67,62 @@ function notInChannelLine(channel: string, t: TFunction): React.ReactNode {
   )
 }
 
-function loadFailedLine(channel: string, err: Error, t: TFunction): React.ReactNode {
+function loadFailedLine(channelId: SbChannelId, err: Error, t: TFunction): React.ReactNode {
   const errorMessage = err.message
   return (
     <Trans t={t} i18nKey='chat.commands.who.loadError'>
-      Couldn't load who is in <LocalStrong>#{{ channel } as TransInterpolation}</LocalStrong>:{' '}
-      {{ errorMessage } as TransInterpolation}
+      Couldn't load who is in{' '}
+      <LocalStrong>
+        <ConnectedChannelName channelId={channelId} />
+      </LocalStrong>
+      : {{ errorMessage } as TransInterpolation}
     </Trans>
   )
 }
 
 function memberListLine(
-  channel: string,
-  onlineNames: ReadonlyArray<string>,
+  channelId: SbChannelId,
+  namedOnlineUsers: ReadonlyArray<{ id: SbUserId; name: string }>,
+  moreCount: number,
   offlineCount: number,
   t: TFunction,
 ): React.ReactNode {
-  const onlineCount = onlineNames.length
+  const onlineCount = namedOnlineUsers.length + moreCount
   if (!onlineCount) {
     return (
       <Trans t={t} i18nKey='chat.commands.who.noneOnline'>
-        Users in <LocalStrong>#{{ channel } as TransInterpolation}</LocalStrong> (
-        {{ onlineCount } as TransInterpolation} online, {{ offlineCount } as TransInterpolation}{' '}
+        Users in{' '}
+        <LocalStrong>
+          <ConnectedChannelName channelId={channelId} />
+        </LocalStrong>{' '}
+        ({{ onlineCount } as TransInterpolation} online, {{ offlineCount } as TransInterpolation}{' '}
         offline).
       </Trans>
     )
   }
 
-  const names = onlineNames.join(', ')
+  if (moreCount > 0) {
+    return (
+      <Trans t={t} i18nKey='chat.commands.who.lineTruncated' count={moreCount}>
+        Users in{' '}
+        <LocalStrong>
+          <ConnectedChannelName channelId={channelId} />
+        </LocalStrong>{' '}
+        ({{ onlineCount } as TransInterpolation} online, {{ offlineCount } as TransInterpolation}{' '}
+        offline): <OnlineUserList users={namedOnlineUsers} /> and{' '}
+        {{ count: moreCount } as TransInterpolation} more
+      </Trans>
+    )
+  }
+
   return (
     <Trans t={t} i18nKey='chat.commands.who.line'>
-      Users in <LocalStrong>#{{ channel } as TransInterpolation}</LocalStrong> (
-      {{ onlineCount } as TransInterpolation} online, {{ offlineCount } as TransInterpolation}{' '}
-      offline): {{ names } as TransInterpolation}
+      Users in{' '}
+      <LocalStrong>
+        <ConnectedChannelName channelId={channelId} />
+      </LocalStrong>{' '}
+      ({{ onlineCount } as TransInterpolation} online, {{ offlineCount } as TransInterpolation}{' '}
+      offline): <OnlineUserList users={namedOnlineUsers} />
     </Trans>
   )
 }
@@ -107,26 +158,37 @@ export const whoCommand = defineCommand({
             // from the store rather than from anything the request handed back.
             const state = getState()
             const users = state.chat.idToUsers.get(channel.id)
-            const namesOf = (...idSets: Array<ReadonlySet<SbUserId> | undefined>) =>
+            const namesOf = (
+              ...idSets: Array<ReadonlySet<SbUserId> | undefined>
+            ): Array<{ id: SbUserId; name: string }> =>
               idSets
                 .flatMap(ids => Array.from(ids ?? []))
-                .map(id => state.users.byId.get(id)?.name)
-                .filter(name => name !== undefined)
+                .flatMap(id => {
+                  const name = state.users.byId.get(id)?.name
+                  return name !== undefined ? [{ id, name }] : []
+                })
 
-            // Only the people who are around are named; the rest are counted, so a large channel
-            // that everyone stays joined to answers with a line rather than hundreds of names.
-            const onlineNames = namesOf(users?.active, users?.idle).sort((a, b) =>
-              nameCollator.compare(a, b),
-            )
+            // Active members come before idle ones, since they're the likelier to still be
+            // around; only the first MAX_NAMED_ONLINE of that order are named and the rest are
+            // counted, so a large channel that everyone stays joined to answers with a line
+            // rather than hundreds of names.
+            const byName = (a: { name: string }, b: { name: string }) =>
+              nameCollator.compare(a.name, b.name)
+            const onlineUsers = [
+              ...namesOf(users?.active).sort(byName),
+              ...namesOf(users?.idle).sort(byName),
+            ]
+            const namedOnlineUsers = onlineUsers.slice(0, MAX_NAMED_ONLINE)
+            const moreCount = onlineUsers.length - namedOnlineUsers.length
             const offlineCount = namesOf(users?.offline).length
 
             emit({
               kind: 'info',
-              content: memberListLine(channel.name, onlineNames, offlineCount, t),
+              content: memberListLine(channel.id, namedOnlineUsers, moreCount, offlineCount, t),
             })
           },
           onError: err => {
-            emit({ kind: 'error', content: loadFailedLine(channel.name, err, t) })
+            emit({ kind: 'error', content: loadFailedLine(channel.id, err, t) })
           },
         }),
       )

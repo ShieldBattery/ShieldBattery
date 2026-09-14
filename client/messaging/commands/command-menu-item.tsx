@@ -79,6 +79,10 @@ export function CommandMenuItem({
       } else {
         buttonRef.current?.blur()
       }
+    } else if (focused) {
+      // A row is as tall as its wrapped description, not a fixed item height, so the list's
+      // fixed-height scroll bookkeeping can't place it; the row scrolls itself into view instead.
+      buttonRef.current?.scrollIntoView({ block: 'nearest' })
     }
   }, [focused, virtualFocus])
 

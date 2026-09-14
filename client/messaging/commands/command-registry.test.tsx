@@ -142,7 +142,7 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('leave')!)).toBe('/leave')
     expect(getCommandUsage(findCommand('kick')!)).toBe('/kick <user> [reason]')
     expect(getCommandUsage(findCommand('profile')!)).toBe('/profile [user]')
-    expect(getCommandUsage(findCommand('stats')!)).toBe('/stats [user] [product]')
+    expect(getCommandUsage(findCommand('stats')!)).toBe('/stats [user]')
     expect(getCommandUsage(findCommand('whois')!)).toBe('/whois [user]')
     expect(getCommandUsage(findCommand('who')!)).toBe('/who <channel>')
     expect(getCommandUsage(findCommand('whoami')!)).toBe('/whoami')
@@ -199,10 +199,7 @@ describe('messaging/commands/command-registry', () => {
           {
             name: 'stats',
             aliases: ['astat'],
-            args: [
-              { label: 'user', optional: true },
-              { label: 'product', optional: true },
-            ],
+            args: [{ label: 'user', optional: true }],
             description: "Shows a user's win/loss record and ranks.",
           },
           {

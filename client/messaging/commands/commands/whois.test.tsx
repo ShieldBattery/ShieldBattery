@@ -24,6 +24,23 @@ vi.mock('../../../users/action-creators', async importOriginal => ({
   findUserByName: vi.fn(() => ({ type: 'TEST/findUserByName' })),
 }))
 
+// `ConnectedUsername` and `ConnectedChannelName` need a Redux Provider to render for real, so they
+// are stood in for with plain text lookups against the fixture's own id-to-name mappings below.
+// `makeState` fills `channelNames` in as it builds each test's channels; `userNames` only ever
+// holds the two fixed users these tests name.
+const { userNames, channelNames } = vi.hoisted(() => ({
+  userNames: new Map<number, string>(),
+  channelNames: new Map<number, string>(),
+}))
+
+vi.mock('../../../users/connected-username', () => ({
+  ConnectedUsername: ({ userId }: { userId: number }) => userNames.get(userId),
+}))
+
+vi.mock('../../../chat/connected-channel-name', () => ({
+  ConnectedChannelName: ({ channelId }: { channelId: number }) => `#${channelNames.get(channelId)}`,
+}))
+
 // The command layer builds its lines with `Trans`, which needs an i18next instance to render
 // against even though every line hands it a `t` of its own. `escapeValue` matches how the app
 // initializes i18next: React escapes what it renders, so escaping again would put entities on
@@ -41,6 +58,9 @@ const t = ((key: string, options?: string | { defaultValue?: string }) =>
 
 const SELF_ID = makeSbUserId(1)
 const TARGET_ID = makeSbUserId(2)
+
+userNames.set(SELF_ID, 'Marko')
+userNames.set(TARGET_ID, 'tec27')
 
 const channelContext: ChannelCommandContext = {
   surface: 'channel',
@@ -83,6 +103,7 @@ function makeState({
     })
     if (channel.name !== undefined) {
       idToBasicInfo.set(channelId, { id: channelId, name: channel.name })
+      channelNames.set(channelId, channel.name)
     }
   }
 

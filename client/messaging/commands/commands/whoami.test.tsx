@@ -14,6 +14,14 @@ vi.mock('../../../logging/logger', () => ({
   default: { verbose: vi.fn(), debug: vi.fn(), warning: vi.fn(), error: vi.fn() },
 }))
 
+// `ConnectedUsername` needs a Redux Provider to render for real, so it is stood in for with a
+// plain text lookup against the fixture's own id-to-name mapping below.
+const { userNames } = vi.hoisted(() => ({ userNames: new Map<number, string>() }))
+
+vi.mock('../../../users/connected-username', () => ({
+  ConnectedUsername: ({ userId }: { userId: number }) => userNames.get(userId),
+}))
+
 // The command layer builds its lines with `Trans`, which needs an i18next instance to render
 // against even though every line hands it a `t` of its own. `escapeValue` matches how the app
 // initializes i18next: React escapes what it renders, so escaping again would put entities on
@@ -30,6 +38,8 @@ const t = ((key: string, options?: string | { defaultValue?: string }) =>
   typeof options === 'string' ? options : (options?.defaultValue ?? key)) as unknown as TFunction
 
 const SELF_ID = makeSbUserId(1)
+
+userNames.set(SELF_ID, 'Marko')
 
 const channelContext: ChannelCommandContext = {
   surface: 'channel',
@@ -70,7 +80,6 @@ describe('messaging/commands/commands/whoami', () => {
   test('names the account the command was run from', () => {
     const { result, emit } = runWhoami({
       auth: { self: { user: { id: SELF_ID, name: 'Marko' } } },
-      users: { byId: new Map() },
     } as any)
 
     expect(result).toEqual({ kind: 'command' })
@@ -78,11 +87,8 @@ describe('messaging/commands/commands/whoami', () => {
     expect(renderLine(emit.mock.calls[0][0].content)).toBe('You are Marko (user ID 1).')
   })
 
-  test('falls back to the stored user when there is no session to read', () => {
-    const { emit } = runWhoami({
-      auth: {},
-      users: { byId: new Map([[SELF_ID, { id: SELF_ID, name: 'Marko', created: 0 }]]) },
-    } as any)
+  test('falls back to the context user id when there is no session to read', () => {
+    const { emit } = runWhoami({ auth: {} } as any)
 
     expect(renderLine(emit.mock.calls[0][0].content)).toBe('You are Marko (user ID 1).')
   })

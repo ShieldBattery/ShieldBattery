@@ -139,22 +139,15 @@ describe('messaging/commands/commands/user-card', () => {
     )
   })
 
-  test('/stats takes the product argument Battle.net had and ignores it', () => {
-    const { emit } = runInput('/stats tec27 SEXP')
-
-    expect(findUserByName).toHaveBeenCalledWith('tec27', expect.anything())
-    expect(emit).not.toHaveBeenCalled()
-  })
-
-  test('/stats takes nothing past the product', () => {
-    const { emit } = runInput('/stats tec27 SEXP extra')
+  test('/stats takes nothing past the user', () => {
+    const { emit } = runInput('/stats tec27 extra')
 
     expect(findUserByName).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('error')
 
     const text = renderLine(emit.mock.calls[0][0].content)
     expect(text).toContain('Too many arguments')
-    expect(text).toContain('/stats [user] [product]')
+    expect(text).toContain('/stats [user]')
   })
 
   test('the aliases reach the commands they belong to', () => {

@@ -92,9 +92,8 @@ export function createCommandNameProvider(deps: CommandProviderDeps): TypeaheadP
         return undefined
       }
 
-      const suggestions = matchCommands(commands, deps.context, caret.query, deps.t)
-        .slice(0, MAX_TYPEAHEAD_ROWS)
-        .map((command): TypeaheadSuggestion => ({
+      const suggestions = matchCommands(commands, deps.context, caret.query, deps.t).map(
+        (command): TypeaheadSuggestion => ({
           key: `command:${command.name}`,
           text: getCommandUsage(command),
           visual: {
@@ -104,7 +103,8 @@ export function createCommandNameProvider(deps: CommandProviderDeps): TypeaheadP
           },
           insertText: `/${command.name} `,
           exact: matchesCommandName(command, caret.query),
-        }))
+        }),
+      )
 
       return {
         start: caret.start,

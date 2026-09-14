@@ -415,30 +415,32 @@
       },
       "who": {
         "description": "Lists who is in a channel you have joined.",
-        "line": "Users in <1>#{{channel}}</1> ({{onlineCount}} online, {{offlineCount}} offline): {{names}}",
-        "loadError": "Couldn't load who is in <1>#{{channel}}</1>: {{errorMessage}}",
-        "noneOnline": "Users in <1>#{{channel}}</1> ({{onlineCount}} online, {{offlineCount}} offline).",
+        "line": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline): <10></10>",
+        "lineTruncated_one": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline): <10></10> and {{count}} more",
+        "lineTruncated_other": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline): <10></10> and {{count}} more",
+        "loadError": "Couldn't load who is in <2><0></0></2>: {{errorMessage}}",
+        "noneOnline": "Users in <2><0></0></2> ({{onlineCount}} online, {{offlineCount}} offline).",
         "notInChannel": "You aren't in <1>#{{channel}}</1>."
       },
       "whoami": {
         "description": "Shows the name and user ID you are logged in as.",
-        "line": "You are <1>{{name}}</1> (user ID {{id}})."
+        "line": "You are <2><0></0></2> (user ID {{id}})."
       },
       "whois": {
         "channelsLabel": "Channels:",
         "description": "Shows what a user is doing, as far as you can see.",
-        "inGame": "<0>{{name}}</0> is in a game.",
-        "inLobby": "<0>{{name}}</0> is in a lobby.",
-        "inQueue": "<0>{{name}}</0> is in the matchmaking queue.",
-        "offline": "<0>{{name}}</0> is offline.",
-        "online": "<0>{{name}}</0> is online.",
+        "inGame": "<0><0></0></0> is in a game.",
+        "inLobby": "<0><0></0></0> is in a lobby.",
+        "inQueue": "<0><0></0></0> is in the matchmaking queue.",
+        "offline": "<0><0></0></0> is offline.",
+        "online": "<0><0></0></0> is online.",
         "presence": {
           "active": "active",
           "idle": "idle",
           "offline": "offline"
         },
-        "self": "You are <1>{{name}}</1>.",
-        "unknown": "Can't tell what <1>{{name}}</1> is doing: only friends and members of your channels share their status."
+        "self": "You are <2><0></0></2>.",
+        "unknown": "Can't tell what <2><0></0></2> is doing: only friends and members of your channels share their status."
       }
     },
     "createChannel": {

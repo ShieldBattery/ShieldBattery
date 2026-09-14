@@ -63,13 +63,15 @@ const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
 `
 
 const StyledMenuList = styled(MenuList)`
-  // Since we limit the number of items in the menu to 10, we don't need scrolling.
+  // The mention, emote and command-argument palettes are capped at MAX_TYPEAHEAD_ROWS rows, so
+  // they never need to scroll.
   max-height: none;
 `
 
 // The rows of the command palette line their usage and description up with each other, which takes
-// the columns living on the list. The list's own padding elements span them both.
-const CommandMenuList = styled(StyledMenuList)`
+// the columns living on the list. The list's own padding elements span them both. The command
+// palette is uncapped, so it keeps MenuList's own max-height and scrolls past it.
+const CommandMenuList = styled(MenuList)`
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   max-width: min(640px, calc(100vw - 32px));
