@@ -94,7 +94,12 @@ const Section = styled.div`
   gap: 4px;
 `
 
-/** The row contents a menu takes over on hover/focus: everything but the crown. */
+/**
+ * The row contents a menu takes over on hover/focus: everything but the crown. A row whose
+ * trailing content is itself interactive (a race picker the viewer can use) keeps it, and the
+ * menu button appears beside it instead — hiding it would make the picker unreachable by pointer
+ * and drop keyboard focus out of the row.
+ */
 const RowTrailing = styled.span`
   display: flex;
   align-items: center;
@@ -129,7 +134,7 @@ const RowMenu = styled.span`
   }
 `
 
-const rowBase = css<{ $hasMenu?: boolean }>`
+const rowBase = css<{ $hasMenu?: boolean; $keepsTrailing?: boolean }>`
   position: relative;
   min-height: 40px;
   padding: 2px 8px;
@@ -143,10 +148,6 @@ const rowBase = css<{ $hasMenu?: boolean }>`
   ${props =>
     props.$hasMenu
       ? css`
-          &:is(:hover, :focus-within, :has([data-menu-open='true'])) ${RowTrailing} {
-            display: none;
-          }
-
           &:is(:hover, :focus-within) ${RowMenu} {
             width: auto;
             margin-inline-start: 0;
@@ -154,9 +155,23 @@ const rowBase = css<{ $hasMenu?: boolean }>`
           }
         `
       : ''}
+
+  ${props =>
+    props.$hasMenu && !props.$keepsTrailing
+      ? css`
+          &:is(:hover, :focus-within, :has([data-menu-open='true'])) ${RowTrailing} {
+            display: none;
+          }
+        `
+      : ''}
 `
 
-const OccupiedRow = styled.div<{ $isViewer: boolean; $hasMenu?: boolean; $inGame?: boolean }>`
+const OccupiedRow = styled.div<{
+  $isViewer: boolean
+  $hasMenu?: boolean
+  $keepsTrailing?: boolean
+  $inGame?: boolean
+}>`
   ${rowBase};
   background-color: var(--theme-container-low);
   opacity: ${props => (props.$inGame ? 0.6 : 1)};
@@ -168,12 +183,16 @@ const OccupiedRow = styled.div<{ $isViewer: boolean; $hasMenu?: boolean; $inGame
       : ''}
 `
 
-const EmptyRow = styled.div<{ $hasMenu?: boolean }>`
+const EmptyRow = styled.div<{ $hasMenu?: boolean; $keepsTrailing?: boolean }>`
   ${rowBase};
   color: var(--theme-on-surface-variant);
 `
 
-const DashedRow = styled.div<{ $hasMenu?: boolean; $sittable?: boolean }>`
+const DashedRow = styled.div<{
+  $hasMenu?: boolean
+  $keepsTrailing?: boolean
+  $sittable?: boolean
+}>`
   ${rowBase};
 
   border: 1px dashed var(--theme-outline);
@@ -562,9 +581,16 @@ function SlotRow({
 
   switch (slot.type) {
     case SlotType.Open:
-    case SlotType.ControlledOpen:
+    case SlotType.ControlledOpen: {
+      const canPickRace =
+        slot.type === SlotType.ControlledOpen && isGathering && slot.controlledBy === viewerSlotId
+
       return (
-        <DashedRow $hasMenu={!!menu} $sittable={isGathering} data-testid='lobby-slot'>
+        <DashedRow
+          $hasMenu={!!menu}
+          $keepsTrailing={canPickRace}
+          $sittable={isGathering}
+          data-testid='lobby-slot'>
           <SitButton disabled={!isGathering} onClick={() => onSitInSlot(slot.id)}>
             <MaterialIcon icon='add' size={20} />
             <span>{t('lobbies.slots.open', 'Open')}</span>
@@ -573,7 +599,7 @@ function SlotRow({
             <RowTrailing>
               <RaceControl
                 race={slot.race}
-                canPick={isGathering && slot.controlledBy === viewerSlotId}
+                canPick={canPickRace}
                 onSetRace={race => onSetRace(slot.id, race)}
               />
             </RowTrailing>
@@ -581,17 +607,21 @@ function SlotRow({
           {menu}
         </DashedRow>
       )
+    }
     case SlotType.Closed:
-    case SlotType.ControlledClosed:
+    case SlotType.ControlledClosed: {
+      const canPickRace =
+        slot.type === SlotType.ControlledClosed && isGathering && slot.controlledBy === viewerSlotId
+
       return (
-        <EmptyRow $hasMenu={!!menu} data-testid='lobby-slot'>
+        <EmptyRow $hasMenu={!!menu} $keepsTrailing={canPickRace} data-testid='lobby-slot'>
           <MaterialIcon icon='block' size={20} />
           <RowName>{t('lobbies.slots.name', 'Closed')}</RowName>
           {slot.type === SlotType.ControlledClosed ? (
             <RowTrailing>
               <RaceControl
                 race={slot.race}
-                canPick={isGathering && slot.controlledBy === viewerSlotId}
+                canPick={canPickRace}
                 onSetRace={race => onSetRace(slot.id, race)}
               />
             </RowTrailing>
@@ -599,30 +629,40 @@ function SlotRow({
           {menu}
         </EmptyRow>
       )
+    }
     case SlotType.Computer:
-    case SlotType.UmsComputer:
+    case SlotType.UmsComputer: {
+      const canPickRace = isHost && isGathering && !slot.hasForcedRace
+
       return (
-        <OccupiedRow $isViewer={false} $hasMenu={!!menu} data-testid='lobby-slot'>
+        <OccupiedRow
+          $isViewer={false}
+          $hasMenu={!!menu}
+          $keepsTrailing={canPickRace}
+          data-testid='lobby-slot'>
           <MaterialIcon icon='smart_toy' size={20} />
           <RowName>{t('game.playerName.computer', 'Computer')}</RowName>
           <RowTrailing>
             <RaceControl
               race={slot.race}
-              canPick={isHost && isGathering && !slot.hasForcedRace}
+              canPick={canPickRace}
               onSetRace={race => onSetRace(slot.id, race)}
             />
           </RowTrailing>
           {menu}
         </OccupiedRow>
       )
+    }
     case SlotType.Human:
     case SlotType.Observer: {
       const isViewer = slot.userId === viewerId
+      const canPickRace = !isObserverTeam && isViewer && isGathering && !slot.hasForcedRace
 
       return (
         <OccupiedRow
           $isViewer={isViewer}
           $hasMenu={!!menu}
+          $keepsTrailing={canPickRace}
           $inGame={isInGame}
           data-testid='lobby-slot'>
           <RowAvatar userId={slot.userId!} />
@@ -635,7 +675,7 @@ function SlotRow({
             {!isObserverTeam ? (
               <RaceControl
                 race={slot.race}
-                canPick={isViewer && isGathering && !slot.hasForcedRace}
+                canPick={canPickRace}
                 onSetRace={race => onSetRace(slot.id, race)}
               />
             ) : null}
