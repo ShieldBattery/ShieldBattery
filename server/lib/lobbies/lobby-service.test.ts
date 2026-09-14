@@ -2227,6 +2227,33 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyPublishes(id)).toEqual([{ type: 'regroup', gameId: 'test-game-id' }])
     })
 
+    test('a game that never signals its end is regrouped at the deadline', async () => {
+      const id = await createLobbyInGame()
+      activityStatusService.setInGame(HOST_USER.id, 'test-game-id', host.client)
+      activityStatusService.setInGame(JOINER_USER.id, 'test-game-id', joiner.client)
+      fakeNydus.publish.mockClear()
+
+      // A game with nothing to report its end - no relay session, no surviving client - leaves the
+      // deadline as the only thing that will ever move the lobby on.
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup', gameId: 'test-game-id' })
+      expect(activityStatusService.getStatus(HOST_USER.id)).toBe(FriendActivityStatus.InLobby)
+      expect(activityStatusService.getStatus(JOINER_USER.id)).toBe(FriendActivityStatus.InLobby)
+    })
+
+    test('a lobby that already regrouped is untouched when its deadline comes around', async () => {
+      const id = await createLobbyInGame()
+      endGameFor(host)
+      endGameFor(joiner)
+      fakeNydus.publish.mockClear()
+
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
+
+      expect(lobbyPublishes(id).filter(data => data?.type === 'regroup')).toEqual([])
+    })
+
     test('a whole-game end for a game no lobby is running is ignored', async () => {
       const id = await createLobbyInGame()
       fakeNydus.publish.mockClear()

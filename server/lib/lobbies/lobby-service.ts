@@ -192,8 +192,10 @@ interface Countdown {
 interface LobbyRunState {
   gameId: string
   inGameUsers: Set<SbUserId>
-  /** When the game started, for the stuck-game backstop's deadline. */
+  /** When the game started, for a summary's elapsed time. */
   startedAt: number
+  /** Fires the stuck-game backstop, and is cancelled with the rest of this state. */
+  deadlineTimer: TimeoutId
 }
 
 /**
@@ -202,6 +204,11 @@ interface LobbyRunState {
  * StarCraft process dies abnormally the app reports nothing — and a lobby wedged in its in-game
  * state (host controls hidden, joins benched) until everyone leaves is worse than a regroup that
  * fires under a still-running marathon game, which the members can simply ignore.
+ *
+ * A regroup at this deadline is not an end the game itself agreed to: the members' clients may
+ * still be playing and still treating the game as active, so the host gets the start button back
+ * under a game nobody has signalled the end of. It is a backstop against a lobby stuck forever,
+ * not a normal way for a game to finish.
  */
 const MAX_IN_GAME_MS = 8 * 60 * 60 * 1000
 
@@ -337,20 +344,6 @@ export class LobbyService {
         logger.error({ err }, 'error resuming a lobby member whose client reconnected')
       }
     })
-
-    setInterval(() => {
-      const now = Date.now()
-      for (const [lobbyId, runState] of this.runStates) {
-        if (now - runState.startedAt > MAX_IN_GAME_MS) {
-          logger.warn(
-            { lobbyId, gameId: runState.gameId },
-            'lobby game exceeded the in-game deadline without an end signal; regrouping',
-          )
-          runState.inGameUsers.clear()
-          this._maybeRegroup(lobbyId)
-        }
-      }
-    }, 60 * 1000).unref()
   }
 
   /**
@@ -402,7 +395,7 @@ export class LobbyService {
    */
   private _elapsedMsOf(lobbyId: SbLobbyId): number | undefined {
     const runState = this.runStates.get(lobbyId)
-    return runState ? Date.now() - runState.startedAt : undefined
+    return runState ? this.clock.now() - runState.startedAt : undefined
   }
 
   /**
@@ -1724,7 +1717,7 @@ export class LobbyService {
       )
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
-      this.runStates.delete(lobby.id)
+      this._clearRunState(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
       this._deleteJoinCode(lobby.id)
       this._publishListChange('delete', lobby)
@@ -1946,11 +1939,23 @@ export class LobbyService {
     // The roster comes from the loader's snapshot rather than the live lobby: a join can land a
     // seat between the countdown snapshotting its players and the load finishing, and someone the
     // game never included must not be waited on to report its end.
-    this.runStates.set(lobbyId, {
+    const runState: LobbyRunState = {
       gameId,
       inGameUsers: new Set(inGameUsers),
-      startedAt: Date.now(),
-    })
+      startedAt: this.clock.now(),
+      deadlineTimer: this.clock.setTimeout(() => {
+        if (this.runStates.get(lobbyId) !== runState) {
+          return
+        }
+
+        logger.warn(
+          { lobbyId, gameId },
+          'lobby game exceeded the in-game deadline without an end signal; regrouping',
+        )
+        this._endGameForEveryone(lobbyId, runState)
+      }, MAX_IN_GAME_MS),
+    }
+    this.runStates.set(lobbyId, runState)
 
     this._publishTo(lobby, { type: 'gameStarted', runState: this._runStateJson(lobbyId)! })
     // The lobby left the public list when its countdown began; it belongs back on it now, marked as
@@ -2025,7 +2030,7 @@ export class LobbyService {
       return
     }
 
-    this.runStates.delete(lobbyId)
+    this._clearRunState(lobbyId)
     const lobby = this.lobbies.get(lobbyId)
     if (!lobby) {
       return
@@ -2042,6 +2047,17 @@ export class LobbyService {
       this._publishLobbyDiff(lobby, updated)
       this._warmLobbyRegions(updated)
     }
+  }
+
+  /** Drops a lobby's running game, cancelling the stuck-game deadline that came with it. */
+  private _clearRunState(lobbyId: SbLobbyId) {
+    const runState = this.runStates.get(lobbyId)
+    if (!runState) {
+      return
+    }
+
+    this.clock.clearTimeout(runState.deadlineTimer)
+    this.runStates.delete(lobbyId)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
