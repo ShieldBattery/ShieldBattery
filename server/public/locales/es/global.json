@@ -286,7 +286,8 @@
       "kickAction": "Expulsar {{user}}"
     },
     "channelName": {
-      "deletedChannel": "canal-borrado"
+      "deletedChannel": "canal-borrado",
+      "privateChannel": "canal-privado"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -346,6 +347,63 @@
       "pattern": "El nombre del canal contiene caracteres inválidos",
       "required": "Ingresa un nombre de canal"
     },
+    "commands": {
+      "ban": {
+        "description": "Banea a un usuario de este canal.",
+        "noPermission": "No tienes permiso para banear usuarios de este canal.",
+        "noSelfBan": "No puedes banearte a ti mismo."
+      },
+      "close": {
+        "description": "Cierra esta conversación de susurros.",
+        "error": "No se pudo cerrar la conversación: {{errorMessage}}"
+      },
+      "errors": {
+        "ambiguousMember": "Más de un miembro coincide con <1>{{name}}</1>.",
+        "commandFailed": "Algo salió mal al ejecutar <2>{{command}}</2>.",
+        "invalidArgument": "<1>{{arg}}</1> no válido: {{value}}. Uso: <7>{{usage}}</7>",
+        "missingArgument": "Falta <1>{{arg}}</1>. Uso: <4>{{usage}}</4>",
+        "noSuchMember": "No hay nadie llamado <1>{{name}}</1> en este canal.",
+        "tooManyArguments": "Demasiados argumentos. Uso: <1>{{usage}}</1>",
+        "unknownCommand": "Comando desconocido <1>{{command}}</1>. Escribe <4>/help</4> para ver la lista de comandos.",
+        "wrongSurface": "<0>{{command}}</0> solo se puede usar en {{surfaces}}."
+      },
+      "help": {
+        "aliasesLabel": "También",
+        "aliasesLine": "Alias: <1>{{aliases}}</1>",
+        "commandLine": "<0>{{usage}}</0> — {{description}}",
+        "description": "Muestra los comandos que puedes usar aquí.",
+        "dialogTitle": "Comandos del chat",
+        "intro": "Escribe un comando al inicio de un mensaje para ejecutarlo. Para enviar un mensaje que empiece con una barra, escribe <1>//</1> en su lugar."
+      },
+      "join": {
+        "description": "Entra a un canal de chat y lo crea si no existe."
+      },
+      "kick": {
+        "description": "Expulsa a un usuario de este canal.",
+        "noPermission": "No tienes permiso para expulsar usuarios de este canal.",
+        "noSelfKick": "No puedes expulsarte a ti mismo."
+      },
+      "leave": {
+        "description": "Sale del canal o lobby en el que estás."
+      },
+      "me": {
+        "chatRestricted": "Ahora mismo tienes restringido el envío de mensajes de chat.",
+        "description": "Envía una línea de acción, que se muestra como \"* TuNombre hace algo\".",
+        "sendError": "No se pudo enviar tu acción: {{errorMessage}}"
+      },
+      "surfaces": {
+        "channel": "canales",
+        "lobby": "lobbies",
+        "whisper": "susurros"
+      },
+      "whisper": {
+        "description": "Envía un mensaje privado a un usuario.",
+        "noSelfMessaging": "No puedes susurrarte a ti mismo.",
+        "sendError": "No se pudo enviar el susurro a <1>{{target}}</1>: {{errorMessage}}",
+        "startError": "No se pudo iniciar un susurro con <1>{{target}}</1>: {{errorMessage}}",
+        "userNotFound": "No hay ningún usuario llamado <1>{{target}}</1>."
+      }
+    },
     "createChannel": {
       "bannedError": "Estás baneado de este canal.",
       "channelName": "Nombre del canal",
@@ -354,11 +412,21 @@
       "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
       "title": "Crea canal"
     },
+    "createChannelConfirmation": {
+      "body": "Si todavía no existe un canal llamado #{{channelName}}, al entrar se creará y serás su propietario.",
+      "confirmAction": "Crear",
+      "dialogTitle": "¿Crear #{{channelName}}?"
+    },
     "deleteMessage": {
       "dialogBody": "El mensaje se eliminará permanentemente, y esto no se puede deshacer.",
       "dialogTitle": "¿Eliminar mensaje?",
       "errorMessage": "Algo salió mal al eliminar el mensaje",
       "successMessage": "Mensaje eliminado"
+    },
+    "errors": {
+      "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
+      "loadingUserList": "Error al cargar la lista de usuarios: {{errorMessage}}",
+      "messageNotFound": "No se encontró ese mensaje. Puede que se haya eliminado."
     },
     "joinChannel": {
       "bannedError": "Estás baneado de #{{channelName}}",
@@ -390,7 +458,12 @@
       "newChannelOwner": "<0><0></0></0> es el nuevo dueño del canal",
       "selfJoinChannel": "Te uniste <2><0></0></2>"
     },
+    "messageLink": {
+      "label": "mensaje",
+      "whisper": "Susurro"
+    },
     "messageMenu": {
+      "copyMessageLink": "Copiar enlace al mensaje",
       "deleteMessage": "Eliminar mensaje"
     },
     "navEntry": {
@@ -398,7 +471,17 @@
     },
     "notifications": {
       "ban": "Has sido baneado de <1>#{{channelName}}</1>.",
+      "errors": {
+        "updateFailed": "Algo salió mal al actualizar la configuración de notificaciones"
+      },
       "kick": "Has sido expulsado de <1>#{{channelName}}</1>.",
+      "level": {
+        "all": "Notificar todos los mensajes",
+        "mentions": "Notificar solo las menciones",
+        "nothing": "No notificar nunca"
+      },
+      "muteChannel": "Silenciar canal",
+      "mutedTitle": "Silenciado",
       "unban": "Se ha levantado tu baneo de <1>#{{channelName}}</1>."
     },
     "transferOwnership": {
@@ -482,6 +565,7 @@
       "edit": "Editar",
       "hide": "Esconder",
       "join": "Únete",
+      "markAsRead": "Marcar como leído",
       "next": "Siguiente",
       "okay": "Aceptar",
       "paste": "Pegar",
@@ -1487,10 +1571,15 @@
     "copyLinkAddress": "Copiar dirección del enlace",
     "copyMessage": "Copiar mensaje",
     "emotePicker": {
-      "previewHint": "Pasa el cursor sobre un emoji para ver su código"
+      "buttonTitle": "Añadir emoji",
+      "previewHint": "Pasa el cursor sobre un emoji para ver su código",
+      "searchPlaceholder": "Buscar emojis"
     },
     "jumpToBottom": "Saltar al final",
     "jumpToPresent": "Saltar al presente",
+    "localLine": {
+      "onlyYou": "solo tú"
+    },
     "mention": "Mención",
     "messageTooLongContent": "Los mensajes pueden tener como máximo {{maxLength}} caracteres, y este tiene {{length}}. Acórtalo antes de enviarlo.",
     "messageTooLongTitle": "Mensaje demasiado largo",
@@ -1697,6 +1786,63 @@
       "save": "Hubo un problema al guardar la configuración."
     },
     "game": {
+      "defaults": {
+        "apply": {
+          "explanation_one": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajuste. ¿Qué hacemos con él?",
+          "explanation_many": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajustes. ¿Qué hacemos con ellos?",
+          "explanation_other": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajustes. ¿Qué hacemos con ellos?",
+          "keepChoice": "Mantener mi configuración actual",
+          "keepChoiceDescription": "Hoy no cambia nada. Solo las funciones nuevas usarán {{preset}}.",
+          "resetChoice": "Restablecerlos a {{preset}}",
+          "resetTitle": "¿Restablecer a {{preset}}?",
+          "resetToLegacyDescription": "La niebla inicial, el tamaño del cursor, los colores de equipo y el arrastre de cámara pasan al comportamiento de Battle.net.",
+          "resetToRecommendedDescription": "La niebla inicial, el tamaño del cursor, los colores de equipo y el arrastre de cámara pasan a los valores predeterminados de ShieldBattery.",
+          "switchedTitle": "Cambiado a {{preset}}"
+        },
+        "firstRun": {
+          "continue": "Continuar",
+          "cursorSize": "Tamaño del cursor",
+          "cursorSizeDescription": "<0>Recomendado</0> dibuja cada cursor a su tamaño original. <3>Clásico</3> reduce algunos cursores grandes.",
+          "dragPan": "Arrastre de cámara",
+          "dragPanDescription": "<0>Recomendado</0> desplaza la cámara más despacio y se puede ajustar en Ajustes › Entrada. <2>Clásico</2> mantiene la velocidad original fija.",
+          "footnote": "El resto de tu configuración de Battle.net se conserva en cualquier caso. Puedes cambiar esto más tarde en Ajustes › Juego › Predeterminados.",
+          "intro": "ShieldBattery ajusta algunos detalles del gameplay de forma distinta a Battle.net, y te recomendamos probarlos. Si prefieres dejarlo todo exactamente como lo recuerdas, Clásico no toca nada. Lo que elijas también será el valor predeterminado para las funciones que añadamos más adelante.",
+          "overline": "Primer inicio",
+          "playerColors": "Colores de los jugadores",
+          "playerColorsDescription": "Colores de Shift+Tab. <1>Recomendado</1>: aliados en tonos fríos, enemigos en cálidos, todos distinguibles. <3>Clásico</3>: tú en turquesa, aliados en amarillo, enemigos en rojo.",
+          "presetLabel": "Preajuste de valores predeterminados del juego",
+          "startingFog": "Niebla inicial",
+          "startingFogDescription": "<0>Recomendado</0> muestra tenuemente el terreno sin explorar. <3>Clásico</3> lo deja en negro hasta que lo explores.",
+          "title": "El mismo juego. Los detalles los decides tú."
+        },
+        "intro": "El preajuste decide con qué valores empiezan los ajustes de gameplay propios de ShieldBattery. También define el valor predeterminado de todo lo que se añada después.",
+        "legacyDescription": "Igual que Battle.net.",
+        "preset": {
+          "legacy": "Clásico",
+          "recommended": "Recomendado"
+        },
+        "presetLabel": "Preajuste de valores predeterminados del juego",
+        "preview": {
+          "grabPanAdjustable": "Ajustable",
+          "grabPanFixed": "Velocidad fija"
+        },
+        "recommendedDescription": "Los valores afinados de ShieldBattery.",
+        "resetToPreset": "Restablecer al preajuste",
+        "table": {
+          "caption": "Punto ámbar: tu valor difiere del preajuste seleccionado.",
+          "cursorConsistent": "Uniforme",
+          "cursorPerCursor": "Por cursor",
+          "cursorSizing": "Tamaño del cursor",
+          "dragPanAdjustable": "Ajustable",
+          "dragPanFixed": "Fija",
+          "dragPanSensitivity": "Sensibilidad de arrastre de cámara",
+          "setting": "Ajuste",
+          "startingFog": "Niebla inicial",
+          "teamColorPreset": "Preajuste de colores de equipo",
+          "yourValue": "Tu valor"
+        },
+        "title": "Predeterminados"
+      },
       "gameplay": {
         "apmAlert": "Alerta cuando APM cae por debajo",
         "apmAlertHeader": "Alerta APM",
@@ -2068,6 +2214,15 @@
         "selectLanguage": "Selecciona un idioma",
         "title": "Idioma"
       },
+      "notifications": {
+        "inGame": {
+          "description": "Mientras estás en una partida, los mensajes no reproducirán sonido ni harán parpadear la barra de tareas, ni siquiera los que te mencionan. Se guarda en tu cuenta y se aplica en todos los dispositivos desde los que inicies sesión.",
+          "title": "En partida"
+        },
+        "quietChannelsWhileInGame": "Silenciar canales durante la partida",
+        "quietWhispersWhileInGame": "Silenciar susurros durante la partida",
+        "title": "Notificaciones"
+      },
       "social": {
         "blockedUsers": {
           "count": "{{blocked}} / {{max}}",
@@ -2182,6 +2337,11 @@
     }
   },
   "users": {
+    "activityStatus": {
+      "inGame": "En partida",
+      "inLobby": "En un lobby",
+      "inQueue": "En cola"
+    },
     "admin": {
       "avatar": {
         "description": "Elimina permanentemente el avatar de este usuario. No se puede deshacer.",
@@ -2328,12 +2488,18 @@
       "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
       "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
       "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
+      "messageLinkNotFound": "No se pudo abrir ese mensaje. No está en ninguno de tus susurros.",
+      "messageNotFound": "No se encontró ese mensaje en este susurro.",
       "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
       "openSession": "Error al abrir susurro al usuario: {{errorMessage}}",
+      "resolveMessageLink": "Error al abrir el enlace al mensaje: {{errorMessage}}",
       "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
       "unknownError": "Error desconocido",
       "userChatRestricted": "Actualmente tienes restringido el envío de mensajes de chat",
       "userNotFound": "Usuario no encontrado"
+    },
+    "messageMenu": {
+      "copyMessageLink": "Copiar enlace al mensaje"
     },
     "navEntry": {
       "closeWhisper": "Cerrar susurro"

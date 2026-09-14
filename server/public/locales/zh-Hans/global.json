@@ -284,7 +284,8 @@
       "kickAction": "踢出 {{user}}"
     },
     "channelName": {
-      "deletedChannel": "被删除的频道"
+      "deletedChannel": "被删除的频道",
+      "privateChannel": "私密频道"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -344,6 +345,63 @@
       "pattern": "频道名称含有不可用字符",
       "required": "请输入频道名称"
     },
+    "commands": {
+      "ban": {
+        "description": "将某个用户封禁出此频道。",
+        "noPermission": "您没有权限在此频道封禁用户。",
+        "noSelfBan": "您不能封禁自己。"
+      },
+      "close": {
+        "description": "关闭此私聊会话。",
+        "error": "无法关闭会话：{{errorMessage}}"
+      },
+      "errors": {
+        "ambiguousMember": "有多名成员与 <1>{{name}}</1> 匹配。",
+        "commandFailed": "运行 <2>{{command}}</2> 时出现问题。",
+        "invalidArgument": "无效的 <1>{{arg}}</1>：{{value}}。用法：<7>{{usage}}</7>",
+        "missingArgument": "缺少 <1>{{arg}}</1>。用法：<4>{{usage}}</4>",
+        "noSuchMember": "此频道中没有名为 <1>{{name}}</1> 的成员。",
+        "tooManyArguments": "参数过多。用法：<1>{{usage}}</1>",
+        "unknownCommand": "未知命令 <1>{{command}}</1>。输入 <4>/help</4> 查看命令列表。",
+        "wrongSurface": "<0>{{command}}</0> 只能在{{surfaces}}中使用。"
+      },
+      "help": {
+        "aliasesLabel": "别名",
+        "aliasesLine": "别名：<1>{{aliases}}</1>",
+        "commandLine": "<0>{{usage}}</0> — {{description}}",
+        "description": "列出您可以在此使用的命令。",
+        "dialogTitle": "聊天命令",
+        "intro": "在消息开头输入命令即可运行。若要发送以斜杠开头的消息，请改为输入 <1>//</1>。"
+      },
+      "join": {
+        "description": "加入一个聊天频道，如果不存在则创建它。"
+      },
+      "kick": {
+        "description": "将某个用户踢出此频道。",
+        "noPermission": "您没有权限将用户踢出此频道。",
+        "noSelfKick": "您不能踢出自己。"
+      },
+      "leave": {
+        "description": "离开您所在的频道或房间。"
+      },
+      "me": {
+        "chatRestricted": "您目前被限制发送聊天消息。",
+        "description": "发送一条动作消息，显示为“* 您的名字 做了某事”。",
+        "sendError": "无法发送您的动作消息：{{errorMessage}}"
+      },
+      "surfaces": {
+        "channel": "频道",
+        "lobby": "房间",
+        "whisper": "私聊"
+      },
+      "whisper": {
+        "description": "向某个用户发送私信。",
+        "noSelfMessaging": "您不能与自己私聊。",
+        "sendError": "无法向 <1>{{target}}</1> 发送私聊：{{errorMessage}}",
+        "startError": "无法与 <1>{{target}}</1> 开始私聊：{{errorMessage}}",
+        "userNotFound": "没有名为 <1>{{target}}</1> 的用户。"
+      }
+    },
     "createChannel": {
       "bannedError": "您被禁止访问此频道。",
       "channelName": "频道名称",
@@ -352,11 +410,21 @@
       "maximumOwnedError": "您已达到创建频道的限制。您必须先离开您创建的一个频道，然后才能创建新的频道。",
       "title": "创建频道"
     },
+    "createChannelConfirmation": {
+      "body": "如果尚不存在名为 #{{channelName}} 的频道，加入时将创建该频道，并由您担任频道所有者。",
+      "confirmAction": "创建",
+      "dialogTitle": "创建 #{{channelName}}？"
+    },
     "deleteMessage": {
       "dialogBody": "该消息将被永久删除，此操作无法撤销。",
       "dialogTitle": "删除消息？",
       "errorMessage": "删除消息时出现问题",
       "successMessage": "消息已删除"
+    },
+    "errors": {
+      "loadingHistory": "加载消息记录时出错：{{errorMessage}}",
+      "loadingUserList": "加载用户列表时出错：{{errorMessage}}",
+      "messageNotFound": "找不到该消息，它可能已被删除。"
     },
     "joinChannel": {
       "bannedError": "您被 #{{channelName}} 封禁",
@@ -388,7 +456,12 @@
       "newChannelOwner": "<0><0></0></0> 已成为新的频道主",
       "selfJoinChannel": "您加入了 <2><0></0></2>"
     },
+    "messageLink": {
+      "label": "消息",
+      "whisper": "私聊"
+    },
     "messageMenu": {
+      "copyMessageLink": "复制消息链接",
       "deleteMessage": "删除消息"
     },
     "navEntry": {
@@ -396,7 +469,17 @@
     },
     "notifications": {
       "ban": "您已被 <1>#{{channelName}}</1> 封禁。",
+      "errors": {
+        "updateFailed": "更新通知设置时出现问题"
+      },
       "kick": "您已被踢出 <1>#{{channelName}}</1>。",
+      "level": {
+        "all": "所有消息都通知",
+        "mentions": "仅提及时通知",
+        "nothing": "从不通知"
+      },
+      "muteChannel": "频道静音",
+      "mutedTitle": "已静音",
       "unban": "您在 <1>#{{channelName}}</1> 的封禁已解除。"
     },
     "transferOwnership": {
@@ -480,6 +563,7 @@
       "edit": "编辑",
       "hide": "隐藏",
       "join": "加入",
+      "markAsRead": "标记为已读",
       "next": "下一个",
       "okay": "好的",
       "paste": "粘贴",
@@ -1453,10 +1537,15 @@
     "copyLinkAddress": "复制链接地址",
     "copyMessage": "复制消息",
     "emotePicker": {
-      "previewHint": "将鼠标悬停在表情符号上可查看其短代码"
+      "buttonTitle": "添加表情符号",
+      "previewHint": "将鼠标悬停在表情符号上可查看其短代码",
+      "searchPlaceholder": "搜索表情符号"
     },
     "jumpToBottom": "跳至底部",
     "jumpToPresent": "跳至最新消息",
+    "localLine": {
+      "onlyYou": "仅您可见"
+    },
     "mention": "提到",
     "messageTooLongContent": "消息最多只能有 {{maxLength}} 个字符，这条有 {{length}} 个。请缩短后再发送。",
     "messageTooLongTitle": "消息过长",
@@ -1663,6 +1752,61 @@
       "save": "保存设置时遇到问题。"
     },
     "game": {
+      "defaults": {
+        "apply": {
+          "explanation_other": "从现在起，新功能将使用{{preset}}默认值。该预设涵盖的 {{count}} 项设置要如何处理？",
+          "keepChoice": "保留我当前的设置",
+          "keepChoiceDescription": "现在不会有任何变化，只有新功能会遵循{{preset}}。",
+          "resetChoice": "将它们重置为{{preset}}",
+          "resetTitle": "重置为{{preset}}？",
+          "resetToLegacyDescription": "初始迷雾、光标大小、队伍颜色和中键平移将切换为 Battle.net 的行为。",
+          "resetToRecommendedDescription": "初始迷雾、光标大小、队伍颜色和中键平移将切换为 ShieldBattery 默认值。",
+          "switchedTitle": "已切换为{{preset}}"
+        },
+        "firstRun": {
+          "continue": "继续",
+          "cursorSize": "光标大小",
+          "cursorSizeDescription": "<0>推荐</0>按原始大小绘制每个光标。<3>经典</3>会缩小部分较大的光标。",
+          "dragPan": "中键平移",
+          "dragPanDescription": "<0>推荐</0>平移速度更慢，并可在“设置 › 输入”中调整。<2>经典</2>保持原来的固定速度。",
+          "footnote": "无论选哪个，您的其他 Battle.net 设置都会保留。之后可在“设置 › 游戏 › 默认值”中更改。",
+          "intro": "ShieldBattery 对一些游戏细节做了与 Battle.net 不同的调整，我们推荐您试一试。如果您更想保持记忆中的原样，选择“经典”即可，一切保持不变。无论选哪个，它也会成为我们日后新增功能的默认值。",
+          "overline": "首次启动",
+          "playerColors": "玩家颜色",
+          "playerColorsDescription": "Shift+Tab 颜色。<1>推荐</1>：盟友用冷色，敌人用暖色，人人可辨。<3>经典</3>：您是青色，盟友黄色，敌人红色。",
+          "presetLabel": "游戏默认值预设",
+          "startingFog": "初始迷雾",
+          "startingFogDescription": "<0>推荐</0>会以暗色显示未探索的地形。<3>经典</3>在侦查前保持全黑。",
+          "title": "同样的游戏，细节由您决定。"
+        },
+        "intro": "预设决定 ShieldBattery 自有游戏设置的初始值，也决定日后新增内容的默认值。",
+        "legacyDescription": "与 Battle.net 一致。",
+        "preset": {
+          "legacy": "经典",
+          "recommended": "推荐"
+        },
+        "presetLabel": "游戏默认值预设",
+        "preview": {
+          "grabPanAdjustable": "可调节",
+          "grabPanFixed": "固定速度"
+        },
+        "recommendedDescription": "ShieldBattery 调校过的默认值。",
+        "resetToPreset": "重置为预设",
+        "table": {
+          "caption": "琥珀色圆点：您的值与所选预设不同。",
+          "cursorConsistent": "统一",
+          "cursorPerCursor": "逐个缩放",
+          "cursorSizing": "光标缩放",
+          "dragPanAdjustable": "可调节",
+          "dragPanFixed": "固定",
+          "dragPanSensitivity": "中键平移灵敏度",
+          "setting": "设置项",
+          "startingFog": "初始迷雾",
+          "teamColorPreset": "队伍颜色预设",
+          "yourValue": "您的值"
+        },
+        "title": "默认值"
+      },
       "gameplay": {
         "apmAlert": "当APM低于该数值时发出警报",
         "apmAlertHeader": "APM 警报",
@@ -2030,6 +2174,15 @@
         "selectLanguage": "选择语言",
         "title": "语言"
       },
+      "notifications": {
+        "inGame": {
+          "description": "当您在游戏中时，消息不会播放提示音或闪烁任务栏，即使是提到您的消息也一样。此设置保存在您的账号中，在您登录的所有设备上生效。",
+          "title": "游戏中"
+        },
+        "quietChannelsWhileInGame": "游戏中静音频道",
+        "quietWhispersWhileInGame": "游戏中静音私聊",
+        "title": "通知"
+      },
       "social": {
         "blockedUsers": {
           "count": "{{blocked}} / {{max}}",
@@ -2142,6 +2295,11 @@
     }
   },
   "users": {
+    "activityStatus": {
+      "inGame": "游戏中",
+      "inLobby": "房间中",
+      "inQueue": "队列中"
+    },
     "admin": {
       "avatar": {
         "description": "永久删除此用户的头像。此操作无法撤销。",
@@ -2286,12 +2444,18 @@
       "cantWhisperYourself": "您不能与自己私聊。",
       "invalidAction": "必须与该用户正在私聊中才能查询历史信息记录",
       "loadingHistory": "加载历史信息记录时遇到错误：{{errorMessage}}",
+      "messageLinkNotFound": "无法打开该消息，它不在您的任何私聊中。",
+      "messageNotFound": "在此私聊中找不到该消息。",
       "noSelfMessaging": "您不能对自己发送信息",
       "openSession": "私聊用户时遇到错误：{{errorMessage}}",
+      "resolveMessageLink": "打开消息链接时出错：{{errorMessage}}",
       "sendingMessage": "发送信息时遇到错误：{{errorMessage}}",
       "unknownError": "未知错误",
       "userChatRestricted": "你目前被限制发送聊天消息",
       "userNotFound": "未找到用户"
+    },
+    "messageMenu": {
+      "copyMessageLink": "复制消息链接"
     },
     "navEntry": {
       "closeWhisper": "关闭私聊"
