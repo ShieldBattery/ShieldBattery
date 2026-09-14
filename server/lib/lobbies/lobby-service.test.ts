@@ -1353,6 +1353,20 @@ describe('lobbies/lobby-service', () => {
       ).rejects.toMatchObject({ code: LobbyServiceErrorCode.CountingDown })
     })
 
+    test('a race cannot be changed once the lobby is counting down', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const [, , hostSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client })
+
+      // The countdown has already handed the races it found to the game's configuration.
+      expect(() =>
+        lobbyService.setRace({ client: host.client, slotId: hostSlot!.id, race: 'z' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.CountingDown }))
+    })
+
     test('a change publishes the new lobby along with what the host changed', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
@@ -2353,10 +2367,14 @@ describe('lobbies/lobby-service', () => {
     test('slot operations, settings changes, and a new countdown are rejected', async () => {
       const id = await createLobbyInGame()
       const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[2]
+      const [, , hostSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)
 
       expect(() => lobbyService.closeSlot({ client: host.client, slotId: openSlot.id })).toThrow(
         expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }),
       )
+      expect(() =>
+        lobbyService.setRace({ client: host.client, slotId: hostSlot!.id, race: 'z' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.GameInProgress }))
       await expect(
         lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true }),
       ).rejects.toMatchObject({ code: LobbyServiceErrorCode.GameInProgress })

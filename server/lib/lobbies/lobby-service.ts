@@ -1254,7 +1254,9 @@ export class LobbyService {
     race: RaceChar
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
-    this.ensureLobbyNotLoading(lobby)
+    // The countdown snapshots the races into the game's configuration, so a change from here on
+    // would show in the lobby and never reach the game being played.
+    this.ensureLobbyNotTransient(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     if (!player) {
       // A member waiting on the bench has no slot of their own, and every slot they could name
@@ -2136,12 +2138,6 @@ export class LobbyService {
   ensureIsLobbyHost(lobby: Lobby, player: Slot | undefined) {
     if (player?.id !== lobby.host.id) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NotHost, 'must be a lobby host')
-    }
-  }
-
-  ensureLobbyNotLoading(lobby: Lobby) {
-    if (this.loadingLobbies.has(lobby.id)) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyStarted, 'lobby has already started')
     }
   }
 
