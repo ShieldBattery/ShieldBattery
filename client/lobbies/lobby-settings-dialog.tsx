@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
+import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import { hasObservers } from '../../common/lobbies'
 import { UpdateLobbySettingsRequest } from '../../common/lobbies/lobby-network'
 import { SbMapId } from '../../common/maps'
@@ -87,17 +87,13 @@ export function LobbySettingsDialog({ onCancel, close }: CommonDialogProps) {
   // Captured once when the dialog opens: the values a save should be diffed against, and the
   // form's starting point. The form intentionally doesn't track later changes to the lobby itself
   // while it's open (the host is composing a new set of settings, not watching them shift).
-  const initialModel = useMemo<LobbySettingsModel>(
-    () => ({
-      gameType: lobby.gameType,
-      gameSubType: lobby.gameSubType,
-      useLegacyLimits: lobby.useLegacyLimits,
-      allowObservers: hasObservers(lobby),
-      mapId: lobby.map!.id,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above, captured once only
-    [],
-  )
+  const [initialModel] = useState<LobbySettingsModel>(() => ({
+    gameType: lobby.gameType,
+    gameSubType: lobby.gameSubType,
+    useLegacyLimits: lobby.useLegacyLimits,
+    allowObservers: hasObservers(lobby),
+    mapId: lobby.map!.id,
+  }))
 
   const { bindCustom, bindCheckable, getInputValue, setInputValue, form, submit } =
     useForm<LobbySettingsModel>(initialModel, {})
@@ -243,7 +239,7 @@ export function LobbySettingsDialog({ onCancel, close }: CommonDialogProps) {
             {...bindCustom('gameType')}
             label={t('lobbies.createLobby.gameTypeHeader', 'Game type')}
             tabIndex={0}>
-            {Object.values(GameType).map(type => (
+            {ALL_GAME_TYPES.map(type => (
               <SelectOption key={type} value={type} text={gameTypeToLabel(type, t)} />
             ))}
           </Select>

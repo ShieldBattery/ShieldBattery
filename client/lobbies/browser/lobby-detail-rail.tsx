@@ -616,7 +616,7 @@ export function LobbyDetailRail({
               <BenchCaption>
                 {t(
                   'lobbies.browser.benchCaptionObserverFallback',
-                  'Player slots are full — joining will seat you as an observer',
+                  'Player slots are full, so joining will seat you as an observer',
                 )}
               </BenchCaption>
             ) : null}
@@ -626,7 +626,7 @@ export function LobbyDetailRail({
               <BenchCaption>
                 {t(
                   'lobbies.browser.benchCaptionFull',
-                  "Lobby is full — you'll wait on the bench for a seat",
+                  "Lobby is full, so you'll wait on the bench for a seat",
                 )}
               </BenchCaption>
             ) : null}
