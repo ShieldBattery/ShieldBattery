@@ -264,6 +264,41 @@ describe('client/lobbies/lobby-reducer', () => {
     expect((lastMessage as SettingsChangeMessage).changedSettings).toEqual(['useLegacyLimits'])
   })
 
+  test('settingsChange logs a bench-join for a user newly benched by the reconciled lobby', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    const alreadyBenched: BenchedUser = { userId: 5 as any, race: 'z', joinedAt: 0 }
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: {
+        type: 'settingsChange',
+        changedSettings: ['gameType'],
+        lobby: { ...LOBBY, bench: [alreadyBenched] },
+      },
+    })
+    const chatLengthAfterFirstChange = state.chat.length
+
+    const newlyBenched: BenchedUser = { userId: SLOT_A.userId!, race: SLOT_A.race, joinedAt: 0 }
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: {
+        type: 'settingsChange',
+        changedSettings: ['gameSubType'],
+        lobby: { ...LOBBY, bench: [alreadyBenched, newlyBenched] },
+      },
+    })
+
+    // The already-benched user gets no new line, only the newly-displaced one does
+    expect(state.chat.length).toBe(chatLengthAfterFirstChange + 2)
+
+    const settingsMessage = state.chat[state.chat.length - 2]
+    expect(settingsMessage.type).toBe(LobbyMessageType.LobbySettingsChange)
+
+    const benchMessage = state.chat[state.chat.length - 1]
+    expect(benchMessage.type).toBe(LobbyMessageType.LobbyBenchJoin)
+    expect((benchMessage as BenchJoinMessage).userId).toBe(newlyBenched.userId)
+  })
+
   test('a settingsChange trailing our own leave does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
     state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })

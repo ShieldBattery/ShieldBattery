@@ -1994,6 +1994,91 @@ describe('Lobbies - settings changes', () => {
     expect(updated.bench).toBe(lobby.bench)
   })
 
+  test('should keep every slot as it is when a game type describes the same teams', () => {
+    let lobby = createLobby({
+      name: 'Same shape, different rules',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 3)
+    for (let slotIndex = 4; slotIndex < 8; slotIndex++) {
+      lobby = closeSlot(lobby, 0, slotIndex)
+    }
+    lobby = addToBench(lobby, { userId: makeSbUserId(4), race: 'p', joinedAt: 4000 })
+    const slotIds = lobby.teams[0].slots.map(slot => slot.id)
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.FreeForAll }),
+    )
+
+    // Melee and ffa split the same map into the same single team, so nothing about the lobby but
+    // its rules changes: the slots the host closed stay closed rather than reopening for the bench
+    expect(updated.gameType).toBe(GameType.FreeForAll)
+    expect(updated.teams).toBe(lobby.teams)
+    expect(updated.teams[0].slots.map(slot => slot.id)).toEqual(slotIds)
+    expect(updated.teams[0].slots.slice(4).every(slot => slot.type === 'closed')).toBe(true)
+    expect(updated.bench).toBe(lobby.bench)
+  })
+
+  test('should keep the controlled slots when one controlled game type becomes the other', () => {
+    const lobby = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'z', 1000))
+    expect(lobby.teams[0].slots.slice(1).every(slot => slot.type === 'controlledOpen')).toBe(true)
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TeamFreeForAll }),
+    )
+
+    expect(updated.gameType).toBe(GameType.TeamFreeForAll)
+    expect(updated.teams).toBe(lobby.teams)
+    expect(updated.teams[0].slots.slice(1).every(slot => slot.controlledBy === lobby.host.id)).toBe(
+      true,
+    )
+  })
+
+  test('should rebuild the layout when a game type describes different teams', () => {
+    let lobby = createLobby({
+      name: 'Splitting up',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 3)
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TopVsBottom, gameSubType: 4 }),
+    )
+
+    expect(updated.teams.map(team => team.slots.length)).toEqual([4, 4])
+    expect(updated.teams[0].slots.filter(slot => slot.type === 'human')).toHaveLength(2)
+    expect(updated.teams[1].slots.filter(slot => slot.type === 'human')).toHaveLength(2)
+  })
+
+  test('should rebuild the layout when controlled teams give way to teams of the same sizes', () => {
+    const lobby = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'z', 1000))
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TopVsBottom, gameSubType: 4 }),
+    )
+
+    // Both layouts split 8 slots into [4, 4], but a top vs bottom team's spare slots belong to
+    // nobody, so the teams have to be built anew
+    expect(updated.teams.map(team => team.slots.length)).toEqual([4, 4])
+    expect(updated.teams.flatMap(team => team.slots).some(slot => slot.controlledBy)).toBe(false)
+  })
+
   test('should send the players a shrink leaves over to the observer team, closed slots first', () => {
     let lobby = createLobby({
       name: 'Shrinking',
@@ -2089,7 +2174,7 @@ describe('Lobbies - settings changes', () => {
     expect(seated.id).toBe(observerSlot.id)
   })
 
-  test('should seat waiting members into the observer team that turning observers on adds', () => {
+  test('should leave waiting members on the bench when turning observers on', () => {
     let lobby = createLobby({
       name: 'Observers to the rescue',
       map: BigGameHunters,
@@ -2105,11 +2190,12 @@ describe('Lobbies - settings changes', () => {
 
     const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: true }))
 
-    expect(updated.bench).toEqual([])
+    // Waiting for a seat is waiting to play, so the observer team the change adds is for the people
+    // who ask for a slot in it, not for the members the player teams have no room for
+    expect(updated.bench).toEqual(lobby.bench)
     const observerTeam = updated.teams[1]
     expect(observerTeam.isObserver).toBe(true)
-    const seated = observerTeam.slots.find(slot => slot.type === 'observer')
-    expect(seated?.userId).toBe(makeSbUserId(2))
+    expect(observerTeam.slots.every(slot => slot.type === 'closed')).toBe(true)
   })
 
   test('should leave the player slots alone when observers are turned on', () => {
@@ -2491,7 +2577,35 @@ describe('Lobbies - swapping slots', () => {
     expect(updated.host).toBe(updated.teams[1].slots[0])
   })
 
-  test('should refuse to swap anything but two players in team melee', () => {
+  test('should hand a team melee team over to an observer swapped into it', () => {
+    let lobby = createLobby({
+      name: 'Observed team melee',
+      map: BigGameHunters,
+      gameType: GameType.TeamMelee,
+      gameSubType: 2,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addPlayer(lobby, 1, 0, humanAt(1, 'z', 1000))
+    lobby = makeObserver(lobby, 1, 0)
+    const observer = lobby.teams[2].slots[0]
+    expect(observer.type).toBe('observer')
+
+    const updated = swapSlots(lobby, 0, 0, 2, 0)
+
+    const seated = updated.teams[0].slots[0]
+    expect(seated.type).toBe('human')
+    expect(seated.userId).toBe(makeSbUserId(1))
+    expect(seated.id).toBe(observer.id)
+    expect(updated.teams[2].slots[0].type).toBe('observer')
+    expect(updated.teams[2].slots[0].userId).toBe(HOST_USER_ID)
+    // The team's controlled slots follow the swap to whoever is sitting in it now
+    expect(updated.teams[0].slots.slice(1).every(s => s.controlledBy === seated.id)).toBe(true)
+  })
+
+  test('should refuse to swap a computer in team melee', () => {
     let lobby = TEAM_MELEE_2
     lobby = addPlayer(lobby, 1, 0, createComputer('t'))
 

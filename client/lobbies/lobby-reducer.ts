@@ -198,6 +198,8 @@ const lobbyHandlers = {
       return
     }
 
+    const previousBenchIds = new Set(draft.info.bench.map(benched => benched.userId))
+
     draft.info = castDraft(action.payload.lobby)
     pushChat(draft, {
       id: nanoid(),
@@ -205,6 +207,20 @@ const lobbyHandlers = {
       time: Date.now(),
       changedSettings: action.payload.changedSettings,
     })
+
+    // The server sends only the settings-change event for this transition, with no accompanying
+    // benchAdd diffs, so a layout shrink that displaces seated members onto the bench needs its
+    // own bench-join lines here or nobody in the lobby sees that those members are now waiting.
+    for (const benched of draft.info.bench) {
+      if (!previousBenchIds.has(benched.userId)) {
+        pushChat(draft, {
+          id: nanoid(),
+          type: LobbyMessageType.LobbyBenchJoin,
+          time: Date.now(),
+          userId: benched.userId,
+        })
+      }
+    }
   },
 
   '@lobbies/updateBenchAdd'(draft, action) {

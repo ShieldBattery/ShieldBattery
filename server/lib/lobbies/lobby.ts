@@ -676,13 +676,14 @@ export function movePlayerToSlot(
   return updated
 }
 
+/** Returns whether a slot holds a person, whether they are playing (`human`) or observing. */
+function holdsPerson(slot: Slot): boolean {
+  return slot.type === SlotType.Human || slot.type === SlotType.Observer
+}
+
 /** Returns whether a slot holds someone who could be moved to (or swapped into) another slot. */
 function isSlotOccupied(slot: Slot): boolean {
-  return (
-    slot.type === SlotType.Human ||
-    slot.type === SlotType.Observer ||
-    slot.type === SlotType.Computer
-  )
+  return holdsPerson(slot) || slot.type === SlotType.Computer
 }
 
 /**
@@ -718,9 +719,10 @@ function reassignControlledSlots(lobby: Lobby, teamIndex: number): Lobby {
  * into one.
  *
  * Team melee/ffa lobbies build their player teams out of slots controlled by whoever occupies them,
- * so only two humans can be exchanged there — any other combination would leave a team's controlled
- * slots without a player to belong to. Control of those slots follows the swap: a team whose
- * controller was swapped out hands them to its longest-seated remaining player.
+ * so only people can be exchanged there — a computer only ever belongs to such a team as a whole
+ * team of computers, and swapping one in or out would leave that team's controlled slots without a
+ * player to belong to. Control of those slots follows the swap: a team whose controller was swapped
+ * out hands them to its longest-seated remaining player.
  */
 export function swapSlots(
   lobby: Lobby,
@@ -746,11 +748,8 @@ export function swapSlots(
   ) {
     throw new Error('trying to swap a computer into the observer team')
   }
-  if (
-    hasControlledOpens(lobby.gameType) &&
-    (sourceSlot.type !== SlotType.Human || destSlot.type !== SlotType.Human)
-  ) {
-    throw new Error('only players can be swapped in this game type: ' + lobby.gameType)
+  if (hasControlledOpens(lobby.gameType) && (!holdsPerson(sourceSlot) || !holdsPerson(destSlot))) {
+    throw new Error('only people can be swapped in this game type: ' + lobby.gameType)
   }
 
   const intoDest = occupantInSlot(lobby.gameType, sourceSlot, sourceTeam, destTeam, destSlot)
@@ -1044,10 +1043,13 @@ export function seatBenchedUser(
 
 /**
  * Finds the player slot someone should be seated in, spread across the teams the same way a joiner
- * would be. Returns `undefined` once every player team is full, since the observer team is only
- * ever a destination for the people a new layout has no room for.
+ * would be. Returns `undefined` once every player team is full: the bench is a queue for a seat in
+ * the game, so nothing that seats the people waiting on it — neither seating them as slots free up
+ * nor the re-pour a settings change does — ever puts one of them in the observer team. That team is
+ * a destination only for seated members a new layout has no room for, and for the people who choose
+ * it themselves by joining as an observer or picking an observer slot.
  */
-function findPlayerSeat(lobby: Lobby): [teamIndex: number, slotIndex: number] | undefined {
+export function findPlayerSeat(lobby: Lobby): [teamIndex: number, slotIndex: number] | undefined {
   const [teamIndex, slotIndex] = findAvailableSlot(lobby)
   if (teamIndex === undefined || slotIndex === undefined || lobby.teams[teamIndex].isObserver) {
     return undefined
@@ -1098,28 +1100,45 @@ export interface LobbySettings {
  * Applies a change to a lobby's settings, rebuilding its slot layout and reconciling everyone in it
  * into the result. Returns the updated lobby.
  *
- * A change that leaves the layout alone (a different unit limit, or a map with exactly the same
- * team sizes) keeps every slot as it is, so nobody moves. Turning observers on or off only adds or
- * removes the observer team, leaving the player slots — including any the host has closed — as they
- * are, and finding the people who were observing a seat.
+ * A change that leaves the layout alone (a different unit limit, or new settings that describe
+ * exactly the teams the lobby already has) keeps every slot as it is, so nobody moves. Turning
+ * observers on or off only adds or removes the observer team, leaving the player slots — including
+ * any the host has closed — as they are, and finding the people who were observing a seat.
  *
- * Any other change gives the lobby the layout the new settings describe, and pours its members back
- * into it in order of who has the strongest claim to a seat: the host first (a host is never left
- * without one), then the players by how long they have been here, then any observers the change
- * unseats, and finally whoever was waiting on the bench. Anyone left over goes to the observer team
- * if there is one, and to the bench if there isn't: a settings change never removes anyone from the
- * lobby. Computers are added back last, and only as far as the new layout has room for them.
+ * Any other change gives the lobby the layout the new settings describe, and pours the members who
+ * held a slot back into it in order of who has the strongest claim to a seat: the host first (a host
+ * is never left without one), then the players by how long they have been here, then any observers
+ * the change unseats. Whoever is left over goes to the observer team if there is one, and to the
+ * bench if there isn't: a settings change never removes anyone from the lobby.
+ *
+ * The members who were already waiting on the bench are poured in last, behind anyone the change
+ * has just displaced onto it, and only into player slots — waiting for a seat is waiting to play,
+ * so it never turns someone into an observer. Whoever still finds no slot keeps waiting, in the
+ * order they were already in. Computers are added back after everyone else, and only as far as the
+ * new layout has room for them.
  *
  * Members keep the slot ids they had, so clients can tell that someone moved rather than that one
  * member left and another arrived.
  */
 export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
-  const keepsLayout =
-    lobby.gameType === next.gameType &&
-    lobby.gameSubType === next.gameSubType &&
-    (lobby.map!.id === next.map.id || keepsSlotsPerTeam(lobby, next))
+  // A non-UMS layout is fully described by the shapes of its teams plus whether the players in them
+  // control their team's remaining slots: melee and ffa on the same map produce the same teams down
+  // to their ids and names, while teamMelee at sub-type 2 and topVBottom at sub-type 4 both split 8
+  // slots into [4, 4] but differ in the slot types they use. A UMS layout comes from the map, so
+  // only the same UMS map describes the same one.
+  const keepsLayout = isUms(lobby.gameType)
+    ? isUms(next.gameType) && lobby.map!.id === next.map.id
+    : !isUms(next.gameType) &&
+      hasControlledOpens(lobby.gameType) === hasControlledOpens(next.gameType) &&
+      keepsSlotsPerTeam(lobby, next)
   if (keepsLayout && hasObservers(lobby) === next.allowObservers) {
-    return { ...lobby, map: next.map, useLegacyLimits: next.useLegacyLimits }
+    return {
+      ...lobby,
+      map: next.map,
+      gameType: next.gameType,
+      gameSubType: next.gameSubType,
+      useLegacyLimits: next.useLegacyLimits,
+    }
   }
 
   const byJoinedAt = (a: Slot, b: Slot) => a.joinedAt - b.joinedAt
@@ -1160,7 +1179,6 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   if (hostIndex > 0) {
     needSeats.unshift(...needSeats.splice(hostIndex, 1))
   }
-  needSeats.push(...lobby.bench.map(occupantOfBenched))
 
   let updated: Lobby = {
     ...lobby,
@@ -1200,6 +1218,22 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       continue
     }
     updated = addPlayer(updated, observerTeamIndex!, observerSlotIndex, observerSlotFor(occupant))
+  }
+
+  for (const benched of lobby.bench) {
+    const seat = findPlayerSeat(updated)
+    if (!seat) {
+      bench.push(benched)
+      continue
+    }
+    const [teamIndex, slotIndex] = seat
+    const destSlot = updated.teams[teamIndex].slots[slotIndex]
+    updated = addPlayer(
+      updated,
+      teamIndex,
+      slotIndex,
+      humanSlotFor(occupantOfBenched(benched), destSlot, next.gameType),
+    )
   }
   updated = { ...updated, bench }
 
@@ -1241,13 +1275,12 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   return withHost
 }
 
-/** Returns whether the new settings describe teams of exactly the same sizes the lobby has now. */
+/**
+ * Returns whether the new settings describe player teams of exactly the same sizes the lobby has
+ * now. Only meaningful for non-UMS settings on a non-UMS lobby: a UMS team leaves the map's hidden
+ * slots out of the team it builds, while the sizes the settings describe count them.
+ */
 function keepsSlotsPerTeam(lobby: Lobby, next: LobbySettings): boolean {
-  if (isUms(next.gameType)) {
-    // A UMS map decides the races, player ids, and computers of every slot, so two of them having
-    // the same team sizes doesn't make their layouts interchangeable.
-    return false
-  }
   const current = lobby.teams.filter(team => !team.isObserver).map(team => team.slots.length)
   const wanted = getSlotsPerTeam(
     next.gameType,

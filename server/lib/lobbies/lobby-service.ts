@@ -196,6 +196,25 @@ function findBenchedTarget(lobby: Lobby, id: string): BenchedUser | undefined {
   return lobby.bench.find(benched => String(benched.userId) === id)
 }
 
+/**
+ * Returns whether two versions of one slot differ in their race and in nothing else. Every field of
+ * a `Slot` is a primitive, so comparing the value each key holds is an exact comparison of the two
+ * slots.
+ */
+function onlyRaceDiffers(oldSlot: Slot, newSlot: Slot): boolean {
+  if (oldSlot.race === newSlot.race) {
+    return false
+  }
+  const keys = new Set([...Object.keys(oldSlot), ...Object.keys(newSlot)])
+  keys.delete('race')
+  for (const key of keys) {
+    if (oldSlot[key as keyof Slot] !== newSlot[key as keyof Slot]) {
+      return false
+    }
+  }
+  return true
+}
+
 function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSlots: number) {
   if (gameType === 'topVBottom') {
     if (gameSubType < 1 || gameSubType > numSlots - 1) {
@@ -778,6 +797,9 @@ export class LobbyService {
       changedSettings,
       lobby: updated,
     })
+    // A settings change can rearrange every seat in the lobby, so the people previewing it need the
+    // new layout just as much as the people in it do.
+    this._publishPreview(updated)
     this._publishListChange('update', updated)
     this._warmLobbyRegions(updated)
   }
@@ -824,18 +846,18 @@ export class LobbyService {
     const isMove = isSlotUnoccupied(destSlot)
     if (
       Lobbies.hasControlledOpens(lobby.gameType) &&
-      sourceSlot.type !== SlotType.Human &&
+      sourceSlot.type === SlotType.Computer &&
       (destSlot.type === SlotType.ControlledOpen ||
         destSlot.type === SlotType.ControlledClosed ||
         !isSlotUnoccupied(destSlot))
     ) {
-      // A controlled team is built around the humans in it, so only they can enter one: a computer
+      // A controlled team is built around the people in it, so only they can enter one: a computer
       // team is moved or removed as a whole (a lone computer taken out of one would blank the rest
       // of its team), same as everywhere else computers are placed in these game types. Moving into
       // an *empty* team stays allowed — its plain open slots build a new team around the arrival.
       throw new LobbyServiceError(
         LobbyServiceErrorCode.InvalidSlotType,
-        'only players can be moved in this game type',
+        'only people can be moved in this game type',
       )
     }
     if (lobby.teams[destTeamIndex!].isObserver && sourceSlot.type === SlotType.Computer) {
@@ -876,8 +898,8 @@ export class LobbyService {
         { cause: err },
       )
     }
-    // A move (e.g. into an observer slot) leaves the source slot open, so someone waiting on the
-    // bench may have a seat
+    // A move leaves the slot its occupant came from open, so sending a player off to the observer
+    // team frees up a player seat for someone waiting on the bench
     updated = this._seatBenchOverflow(updated)
 
     this.lobbies.set(lobby.id, updated)
@@ -979,8 +1001,8 @@ export class LobbyService {
         { cause: err },
       )
     }
-    // A seated player switching seats leaves their old slot open, so someone waiting on the bench
-    // may have a seat
+    // A seated member switching seats leaves their old slot open, so someone waiting on the bench
+    // may have a player seat now
     updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
@@ -1153,7 +1175,8 @@ export class LobbyService {
       )
     }
     // In controlled game types, removing the occupant can have dissolved a whole team into open
-    // slots (only the target slot gets closed afterwards), so someone waiting may have a seat now
+    // player slots (only the target slot gets closed afterwards), so someone waiting may have a
+    // seat now
     updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(afterKick, updated)
@@ -1337,8 +1360,6 @@ export class LobbyService {
         { cause: err },
       )
     }
-    // The observer slot they vacated is open now, so someone waiting on the bench may have a seat
-    updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
@@ -1370,19 +1391,32 @@ export class LobbyService {
 
   /**
    * Seats the members waiting on the bench, longest-waiting first, for as long as the lobby has
-   * both someone waiting and a slot they could have joined into directly. Also picks a new host if
-   * the lobby's is gone, which is how a lobby whose last seated member left is handed to whoever
-   * was waiting behind them.
+   * both someone waiting and a player slot they could have joined into directly. Also picks a new
+   * host if the lobby's is gone, which is how a lobby whose last seated member left is handed to
+   * whoever was waiting behind them.
+   *
+   * A lobby that still has people waiting in it is never left with nobody seated, and so never
+   * without a host to run it: when no slot holds anyone at all, the longest-waiting member takes
+   * whatever slot is free, an observer slot included. That is the one case where waiting for a seat
+   * lands someone in the observer team, and it jumps nobody's queue — there is nobody to jump.
    */
   private _seatBenchOverflow(lobby: Lobby): Lobby {
     let updated = lobby
     while (updated.bench.length > 0) {
-      const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(updated)
-      if (teamIndex === undefined || slotIndex === undefined) {
+      const seat = Lobbies.findPlayerSeat(updated)
+      if (!seat) {
         break
       }
-      updated = Lobbies.seatBenchedUser(updated, updated.bench[0].userId, teamIndex, slotIndex)
+      updated = Lobbies.seatBenchedUser(updated, updated.bench[0].userId, seat[0], seat[1])
     }
+
+    if (updated.bench.length > 0 && getHumanSlots(updated).length === 0) {
+      const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(updated)
+      if (teamIndex !== undefined && slotIndex !== undefined) {
+        updated = Lobbies.seatBenchedUser(updated, updated.bench[0].userId, teamIndex, slotIndex)
+      }
+    }
+
     return Lobbies.reassignHost(updated)
   }
 
@@ -1892,20 +1926,23 @@ export class LobbyService {
       const samePlace = oldTeamIndex === newTeamIndex && oldSlotIndex === newSlotIndex
       if (samePlace && oldSlot === newSlot) continue
 
-      // Everything else about a kept slot - a new position, or in-place changes like a controlled
-      // slot's controller handoff - is communicated by re-sending the whole slot
-      diffEvents.push({
-        type: 'slotChange',
-        teamIndex: newTeamIndex,
-        slotIndex: newSlotIndex,
-        player: newSlot,
-      })
-      if (samePlace && oldSlot.race !== newSlot.race) {
+      // The two events are alternatives, not a pair: a race pick is by far the most common change
+      // to a kept slot and needs only the race sent, while everything else about one - a new
+      // position, a controlled slot's controller handoff, a retype across the observer boundary -
+      // is communicated by re-sending the whole slot.
+      if (samePlace && onlyRaceDiffers(oldSlot, newSlot)) {
         diffEvents.push({
           type: 'raceChange',
           teamIndex: newTeamIndex,
           slotIndex: newSlotIndex,
           newRace: newSlot.race,
+        })
+      } else {
+        diffEvents.push({
+          type: 'slotChange',
+          teamIndex: newTeamIndex,
+          slotIndex: newSlotIndex,
+          player: newSlot,
         })
       }
     }

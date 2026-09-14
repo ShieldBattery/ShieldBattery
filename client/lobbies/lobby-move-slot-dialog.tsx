@@ -35,9 +35,10 @@ const TeamHeader = styled.div`
  * Returns whether the server would refuse to move/swap the occupant of `fromSlot` into `destSlot`,
  * so the dialog can disable the destinations that would fail: UMS computers (they're part of the
  * map), computers entering the observer team from either side of a swap, and — in game types whose
- * teams are built out of controlled slots — anything but a human entering a controlled slot (open
- * or closed) or exchanging with another human. A closed slot is otherwise a valid destination: this
- * dialog is host-only, and the host moving someone onto one opens it as part of the move.
+ * teams are built out of controlled slots — anything but a human or observer entering a controlled
+ * slot (open or closed) or exchanging with another human or observer. A closed slot is otherwise a
+ * valid destination: this dialog is host-only, and the host moving someone onto one opens it as
+ * part of the move.
  */
 function isInvalidDestination(
   gameType: GameType,
@@ -61,12 +62,14 @@ function isInvalidDestination(
     destSlot.type === SlotType.Observer ||
     destSlot.type === SlotType.Computer
   if (gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll) {
-    if (destOccupied && (fromSlot.type !== SlotType.Human || destSlot.type !== SlotType.Human)) {
+    const isHumanOrObserver = (slot: Slot) =>
+      slot.type === SlotType.Human || slot.type === SlotType.Observer
+    if (destOccupied && (!isHumanOrObserver(fromSlot) || !isHumanOrObserver(destSlot))) {
       return true
     }
     if (
       (destSlot.type === SlotType.ControlledOpen || destSlot.type === SlotType.ControlledClosed) &&
-      fromSlot.type !== SlotType.Human
+      !isHumanOrObserver(fromSlot)
     ) {
       return true
     }

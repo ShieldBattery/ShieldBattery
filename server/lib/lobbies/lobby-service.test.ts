@@ -420,6 +420,20 @@ describe('lobbies/lobby-service', () => {
       expect(countPublishes()).toEqual([])
     })
 
+    test('a race change is published on its own, not alongside the whole slot', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      setRace(joiner, id, 'z')
+
+      // A client applies a whole slot over the one it holds, so sending both would have it re-set a
+      // race it already took from the slot
+      expect(diffEvents(id)).toEqual([
+        { type: 'raceChange', teamIndex: 0, slotIndex: 1, newRace: 'z' },
+      ])
+    })
+
     test('a join reaches both the list and previewers', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
@@ -1080,7 +1094,7 @@ describe('lobbies/lobby-service', () => {
       )
     })
 
-    test('an observer slot vacated by making its occupant a player seats a waiting member', async () => {
+    test('an observer slot vacated by making its occupant a player is left for a joiner', async () => {
       const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
       await joinLobby(joiner, id)
 
@@ -1096,17 +1110,88 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(otherHost, id)
       expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
 
-      // Making the observer a player sends them to the closed player slot, and the observer slot
-      // they vacate goes to the member who was waiting
+      // Making the observer a player sends them to the closed player slot
       lobby = lobbyService.lobbies.get(id)!
-      const [, obsTeam] = getObserverTeam(lobby)
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
       const obsSlot = obsTeam!.slots.find(slot => slot.type === 'observer')!
       lobbyService.removeObserver({ client: host.client, slotId: obsSlot.id })
 
       const updated = lobbyService.lobbies.get(id)!
-      expect(updated.bench).toHaveLength(0)
       expect(findSlotByUserId(updated, JOINER_USER.id)[2]!.type).toBe('human')
+      // The bench queues for a seat in the game, so the observer slot that opened up stays open for
+      // whoever wants to watch rather than going to the member waiting to play
+      expect(updated.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+      expect(updated.teams[obsTeamIndex!].slots[0].type).toBe('open')
+    })
+
+    test('an observer slot the host opens goes to the next joiner, not to the bench', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      // Both player slots are taken, so the next join waits for one
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobbyService.lobbies.get(id)!)
+      lobbyService.openSlot({ client: host.client, slotId: obsTeam!.slots[0].id })
+
+      // Opening a slot to watch from is an invitation to spectators, not a seat to play in
+      let lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+      expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('open')
+
+      const spectator = connectExtra(100)
+      await joinLobby(spectator, id)
+
+      lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, makeSbUserId(100))[2]!.type).toBe('observer')
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+    })
+
+    test('a waiting member can take an open observer slot themselves', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobbyService.lobbies.get(id)!)
+      lobbyService.openSlot({ client: host.client, slotId: obsTeam!.slots[0].id })
+
+      // Nobody is put in an observer slot for waiting, but a waiting member who would rather watch
+      // than keep waiting can still pick one
+      const openObsSlot = lobbyService.lobbies.get(id)!.teams[obsTeamIndex!].slots[0]
+      lobbyService.changeSlot({ client: otherHost.client, slotId: openObsSlot.id })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.bench).toHaveLength(0)
       expect(findSlotByUserId(updated, OTHER_HOST_USER.id)[2]!.type).toBe('observer')
+    })
+
+    test('a waiting member takes an observer slot when it is the only one left in the lobby', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
+
+      // The host watches rather than plays, and takes every player slot out of the lobby
+      let lobby = lobbyService.lobbies.get(id)!
+      lobbyService.makeObserver({ client: host.client, slotId: lobby.host.id })
+      lobby = lobbyService.lobbies.get(id)!
+      for (const slot of lobby.teams[0].slots) {
+        lobbyService.closeSlot({ client: host.client, slotId: slot.id })
+      }
+
+      // With nothing left to join, the next arrival waits
+      await joinLobby(joiner, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([JOINER_USER.id])
+
+      lobbyService.leaveLobby({ client: host.client })
+
+      // The slot the host vacated is the only one anyone can hold, and a lobby with people still
+      // waiting in it is never left with nobody seated and no host
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.bench).toHaveLength(0)
+      const [obsTeamIndex] = getObserverTeam(updated)
+      const seated = updated.teams[obsTeamIndex!].slots[0]
+      expect(seated.type).toBe('observer')
+      expect(seated.userId).toBe(JOINER_USER.id)
+      expect(updated.host.id).toBe(seated.id)
     })
 
     test('the lobby is handed to a waiting member when its last player leaves', async () => {
@@ -1213,6 +1298,26 @@ describe('lobbies/lobby-service', () => {
       expect(published[0].type).toBe('settingsChange')
       expect(published[0].changedSettings).toEqual(['map'])
       expect(published[0].lobby.bench).toEqual(lobby.bench)
+    })
+
+    test('a change reaches the people previewing the lobby with its new seats', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
+      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, map: TWO_SLOT_MAP.id })
+
+      // A preview is a seat-by-seat picture of the lobby, and a settings change can rearrange every
+      // one of them
+      const previews = previewPublishes(id)
+      expect(previews).toHaveLength(1)
+      expect(previews[0].payload.teams).toHaveLength(1)
+      expect(previews[0].payload.teams[0].slots).toEqual([
+        { type: 'human', userId: HOST_USER.id, race: 'r' },
+        { type: 'human', userId: JOINER_USER.id, race: 'r' },
+      ])
     })
 
     test('a change to a game type the map cannot support is rejected', async () => {
@@ -1532,6 +1637,109 @@ describe('lobbies/lobby-service', () => {
           toSlotId: obsSlot.id,
         }),
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ComputerInObserverSlot }))
+    })
+
+    test('the host can move an observer into a controlled team', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        allowObservers: true,
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      let lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: joinerSlot!.id })
+
+      lobby = lobbyService.lobbies.get(id)!
+      const [obsTeamIndex] = getObserverTeam(lobby)
+      const [, , observerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      const controlledSlot = lobby.teams[0].slots[1]
+      expect(controlledSlot.type).toBe('controlledOpen')
+
+      // An observer is a person the team can be built around, exactly like the player they would be
+      // if they picked this slot themselves
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: observerSlot!.id,
+        toSlotId: controlledSlot.id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.teams[0].slots[1].type).toBe('human')
+      expect(updated.teams[0].slots[1].userId).toBe(JOINER_USER.id)
+      // The host is still the one controlling the team's remaining slots
+      expect(updated.teams[0].slots.slice(2).every(s => s.controlledBy === updated.host.id)).toBe(
+        true,
+      )
+      expect(updated.teams[obsTeamIndex!].slots.every(s => s.type !== 'observer')).toBe(true)
+    })
+
+    test('the host can swap an observer with a player of a controlled team', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        allowObservers: true,
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      let lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: joinerSlot!.id })
+
+      lobby = lobbyService.lobbies.get(id)!
+      const [obsTeamIndex] = getObserverTeam(lobby)
+      const [, , observerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: observerSlot!.id,
+        toSlotId: lobby.teams[0].slots[0].id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      const seated = updated.teams[0].slots[0]
+      expect(seated.type).toBe('human')
+      expect(seated.userId).toBe(JOINER_USER.id)
+      expect(updated.teams[obsTeamIndex!].slots[0].type).toBe('observer')
+      expect(updated.teams[obsTeamIndex!].slots[0].userId).toBe(HOST_USER.id)
+      // Control of the team's slots follows the swap to whoever is sitting in it now
+      expect(updated.teams[0].slots.slice(1).every(s => s.controlledBy === seated.id)).toBe(true)
+    })
+
+    test('swapping a computer with a player of a controlled team is rejected', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      let lobby = lobbyService.lobbies.get(id)!
+      // Filling the empty second team with computers, the only way computers exist in team melee
+      lobbyService.addComputer({ client: host.client, slotId: lobby.teams[1].slots[0].id })
+      lobby = lobbyService.lobbies.get(id)!
+
+      expect(() =>
+        lobbyService.moveSlot({
+          client: host.client,
+          lobbyId: id,
+          fromSlotId: lobby.teams[1].slots[0].id,
+          toSlotId: lobby.teams[0].slots[0].id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
     })
 
     test('only the host can move slots around', async () => {
