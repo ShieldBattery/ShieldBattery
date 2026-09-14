@@ -45,7 +45,7 @@ import LobbyComponent from './lobby'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
-import { navigateToLobby, useCorrectLobbySlug } from './lobby-url'
+import { useCorrectLobbySlug } from './lobby-url'
 import { useJoinLobbyAction } from './use-join-lobby-action'
 
 const LoadingArea = styled.div`
@@ -86,7 +86,6 @@ export function LobbyView(props: LobbyViewProps) {
   const prevIsActiveGame = usePrevious(isActiveGame)
   const gameClientGameId = useAppSelector(s => s.gameClient.gameId)
   const prevGameClientGameId = usePrevious(gameClientGameId)
-  const currentLobbyName = useAppSelector(s => s.lobby.info.name)
 
   useEffect(() => {
     // TODO(tec27): This check seems kind of bad because you could (theoretically) get kicked from
@@ -98,12 +97,10 @@ export function LobbyView(props: LobbyViewProps) {
     }
   }, [isLeavingLobby, isActiveGame])
   useEffect(() => {
-    if (!isActiveGame && prevIsActiveGame) {
-      if (inLobby) {
-        // The lobby survives its own game, so land back in it rather than the results screen --
-        // its regroup message links to the results for anyone who wants them.
-        navigateToLobby(lobbyId, currentLobbyName, replace)
-      } else if (prevGameClientGameId) {
+    if (!isActiveGame && prevIsActiveGame && !inLobby) {
+      // A member whose lobby survived its game is already looking at it (this view only mounts on
+      // the lobby's route), so only someone no longer in it moves on to the results.
+      if (prevGameClientGameId) {
         navigateToGameResults(
           prevGameClientGameId,
           true /* isPostGame */,
@@ -114,7 +111,7 @@ export function LobbyView(props: LobbyViewProps) {
         replace('/')
       }
     }
-  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame, inLobby, lobbyId, currentLobbyName])
+  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame, inLobby])
 
   const isConnected = useAppSelector(s => s.network.isConnected)
   useEffect(() => {
