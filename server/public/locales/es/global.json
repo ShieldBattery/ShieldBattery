@@ -17,8 +17,8 @@
         "updated": "Actualizado"
       },
       "confirmDelete": "¿Eliminar \"{{title}}\"? Esto no se puede deshacer.",
-      "created": "Noticia creada",
       "createTitle": "Crear noticia",
+      "created": "Noticia creada",
       "deleteError": "Error al eliminar la noticia:",
       "editPost": "Editar noticia",
       "editTitle": "Editar noticia",
@@ -86,8 +86,8 @@
       "publishNow": "Publicar ahora",
       "refresh": "Actualizar",
       "saveChanges": "Guardar cambios",
-      "saved": "Noticia guardada",
       "saveDraft": "Guardar borrador",
+      "saved": "Noticia guardada",
       "schedulePost": "Programar noticia",
       "settings": {
         "title": "Ajustes de la noticia"
@@ -270,8 +270,8 @@
       "moreActions": "Más acciones",
       "noDescription": "Este canal no tiene descripción.",
       "private": "Este canal es privado y necesitas una invitación para unirte.",
-      "userCount_one": "{{count}} miembro",
       "userCount_many": "{{count}} de miembros",
+      "userCount_one": "{{count}} miembro",
       "userCount_other": "{{count}} miembros"
     },
     "channelList": {
@@ -598,11 +598,11 @@
       "username": "Cargando el nombre de usuario…"
     },
     "validators": {
-      "maxLength_one": "Introduce como máximo {{count}} carácter",
       "maxLength_many": "Introduce como máximo {{count}} de caracteres",
+      "maxLength_one": "Introduce como máximo {{count}} carácter",
       "maxLength_other": "Introduce como máximo {{count}} caracteres",
-      "minLength_one": "Introduce al menos {{count}} carácter",
       "minLength_many": "Introduce al menos {{count}} de caracteres",
+      "minLength_one": "Introduce al menos {{count}} carácter",
       "minLength_other": "Introduce al menos {{count}} caracteres",
       "required": "Requerido",
       "validatorError": "Ocurrió un error desconocido al validar este campo"
@@ -784,6 +784,7 @@
       },
       "player": "Jugador",
       "replay": "Replay",
+      "reportTitle": "Informe de <1></1>:",
       "reportedAPM": "APM",
       "reportedAt": "Reportado el",
       "reportedPlayer": "Jugador",
@@ -791,7 +792,6 @@
       "reportedResult": "Resultado",
       "reportedResults": "Resumen de Informes Individuales",
       "reportedTime": "Duración informada",
-      "reportTitle": "Informe de <1></1>:",
       "title": "Información de Depuración"
     },
     "errorLoading": "Hubo un problema al cargar este juego.",
@@ -841,20 +841,6 @@
     "tabStats": "Estadísticas",
     "tabSummary": "Resumen"
   },
-  "gameplayActivity": {
-    "lobby": {
-      "slotCount": "{{takenSlots}} / {{totalSlots}}",
-      "slotsLabel": "Espacios:",
-      "viewLobby": "Ver lobby"
-    },
-    "matchmaking": {
-      "acceptedCount": "{{accepted}} / {{total}} listos",
-      "matchFound": "¡Partido encontrado!",
-      "reopenAcceptDialog": "Reabrir el diálogo del partido",
-      "searching": "Buscando un partido…",
-      "waitingForPlayers": "Esperando a los demás jugadores…"
-    }
-  },
   "gameReport": {
     "alreadyReported": "Ya reportaste a este jugador por esta partida.",
     "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",
@@ -881,6 +867,35 @@
     "title": "Reportar a un jugador",
     "unknownPlayer": "Jugador desconocido"
   },
+  "gameServerRegions": {
+    "name": {
+      "au": "Australia",
+      "ca-east": "Canadá Este",
+      "eu-central": "Europa Central",
+      "eu-north": "Europa del Norte",
+      "hk": "Hong Kong",
+      "kr": "Corea",
+      "mx": "México",
+      "sa-east": "Sudamérica Este",
+      "sg": "Singapur",
+      "us-east": "EE. UU. Este",
+      "us-west": "EE. UU. Oeste"
+    }
+  },
+  "gameplayActivity": {
+    "lobby": {
+      "slotCount": "{{takenSlots}} / {{totalSlots}}",
+      "slotsLabel": "Espacios:",
+      "viewLobby": "Ver lobby"
+    },
+    "matchmaking": {
+      "acceptedCount": "{{accepted}} / {{total}} listos",
+      "matchFound": "¡Partido encontrado!",
+      "reopenAcceptDialog": "Reabrir el diálogo del partido",
+      "searching": "Buscando un partido…",
+      "waitingForPlayers": "Esperando a los demás jugadores…"
+    }
+  },
   "games": {
     "activity": {
       "title": "Partidas"
@@ -903,21 +918,6 @@
     "sidePanel": {
       "empty": "Selecciona una partida para ver sus detalles",
       "viewFullResults": "Ver resultados completos"
-    }
-  },
-  "gameServerRegions": {
-    "name": {
-      "au": "Australia",
-      "ca-east": "Canadá Este",
-      "eu-central": "Europa Central",
-      "eu-north": "Europa del Norte",
-      "hk": "Hong Kong",
-      "kr": "Corea",
-      "mx": "México",
-      "sa-east": "Sudamérica Este",
-      "sg": "Singapur",
-      "us-east": "EE. UU. Este",
-      "us-west": "EE. UU. Oeste"
     }
   },
   "home": {
@@ -1006,17 +1006,15 @@
     "leagueDetails": {
       "about": "Acerca de",
       "adminActions": "Acciones de administrador",
-      "banned": "Baneado",
       "banUser": "Banear a {{name}}",
+      "banned": "Baneado",
       "copyLink": "Copiar enlace a la liga",
       "dateText": "{{startDate}} a {{endDate}}",
       "games": "Partidas",
       "goBack": "Volver a la lista",
       "info": "Información",
-      "joined": "Unido",
       "joinError": "No pude unirme a la liga: {{errorMessage}}",
-      "leaderboard": "Tabla de clasificación",
-      "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
+      "joined": "Unido",
       "leaderBoardHeader": {
         "lastPlayed": "Juego anterior",
         "player": "Jugador",
@@ -1024,6 +1022,8 @@
         "rank": "Rango",
         "winLoss": "Victorias/perdidas"
       },
+      "leaderboard": "Tabla de clasificación",
+      "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
       "leagueEndedError": "No pude unirme porque la liga ya terminó",
       "leagueJoined": "Se unió a la liga",
       "noPlayers": "No hay jugadores coincidentes.",
@@ -1072,8 +1072,8 @@
       "benchCaptionFull": "El lobby está lleno: esperarás en el banquillo hasta que se libere un sitio",
       "benchCaptionInGame": "La partida está en curso: esperarás en el banquillo hasta la siguiente",
       "benchCaptionObserverFallback": "Los espacios de jugador están llenos: al unirte entrarás como observador",
-      "benchWaiting_one": "{{count}} esperando un sitio",
       "benchWaiting_many": "{{count}} esperando un sitio",
+      "benchWaiting_one": "{{count}} esperando un sitio",
       "benchWaiting_other": "{{count}} esperando un sitio",
       "createDisabledWhileMatchmaking": "No puedes crear un lobby mientras una búsqueda de emparejamiento está activa.",
       "emptyAllFull": "Ahora mismo todos los lobbies están llenos",
@@ -1084,20 +1084,20 @@
       "filterGameType": "Tipo de juego",
       "filterGameTypeAll": "Todos los tipos de juego",
       "filterShowFull": "Mostrar llenos",
-      "friendsInside_one": "{{count}} amigo está en este lobby",
       "friendsInside_many": "{{count}} amigos están en este lobby",
+      "friendsInside_one": "{{count}} amigo está en este lobby",
       "friendsInside_other": "{{count}} amigos están en este lobby",
       "full": "Lleno",
       "inGame": "En partida",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
       "legacyLimits": "Límites clásicos",
+      "obsOpen": "Obs. libres",
+      "observerSlotsOpen_many": "{{count}} libres",
+      "observerSlotsOpen_one": "{{count}} libre",
+      "observerSlotsOpen_other": "{{count}} libres",
       "observers": "Observadores",
       "observersCount": "Observadores · {{taken}}/{{total}}",
-      "observerSlotsOpen_one": "{{count}} libre",
-      "observerSlotsOpen_many": "{{count}} libres",
-      "observerSlotsOpen_other": "{{count}} libres",
-      "obsOpen": "Obs. libres",
       "oneFriendInside": "Un amigo está en este lobby",
       "railPlaceholder": "Selecciona un lobby para verlo en detalle",
       "returnToLobby": "Volver al lobby",
@@ -1108,17 +1108,15 @@
       "sortMostPlayers": "Más jugadores",
       "sortNewest": "Más recientes",
       "sortOpenSlots": "Espacios libres",
-      "statLobbies_one": "{{count}} lobby",
       "statLobbies_many": "{{count}} lobbies",
+      "statLobbies_one": "{{count}} lobby",
       "statLobbies_other": "{{count}} lobbies",
-      "statPlayers_one": "{{count}} jugador",
       "statPlayers_many": "{{count}} jugadores",
+      "statPlayers_one": "{{count}} jugador",
       "statPlayers_other": "{{count}} jugadores",
       "title": "Lobbies"
     },
     "createLobby": {
-      "advancedSettings": "Ajustes avanzados",
-      "allowObservers": "Permitir observadores",
       "allowObserversWithMax": "Permitir observadores (hasta {{maxObservers}})",
       "errorDialogTitle": "Error al crear el lobby",
       "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
@@ -1127,8 +1125,8 @@
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
       "gameTypeHeader": "Tipo de juego",
       "lobbyName": "Nombre del lobby",
-      "mapPlayerCount_one": "{{count}} jugador",
       "mapPlayerCount_many": "{{count}} jugadores",
+      "mapPlayerCount_one": "{{count}} jugador",
       "mapPlayerCount_other": "{{count}} jugadores",
       "mapRequired": "Selecciona un mapa para jugar",
       "optionsHeader": "Opciones",
@@ -1136,15 +1134,15 @@
       "selectMap": "Seleccionar mapa",
       "slotsHeader": "Espacios",
       "slotsPreviewOneOnOne": "Cara a cara · 2 jugadores",
-      "slotsPreviewOpen_one": "{{count}} espacio libre en {{mapName}}",
       "slotsPreviewOpen_many": "{{count}} espacios libres en {{mapName}}",
+      "slotsPreviewOpen_one": "{{count}} espacio libre en {{mapName}}",
       "slotsPreviewOpen_other": "{{count}} espacios libres en {{mapName}}",
-      "slotsPreviewTeams_one": "{{numTeams}} equipos compartiendo {{count}} espacio",
       "slotsPreviewTeams_many": "{{numTeams}} equipos compartiendo {{count}} espacios",
+      "slotsPreviewTeams_one": "{{numTeams}} equipos compartiendo {{count}} espacio",
       "slotsPreviewTeams_other": "{{numTeams}} equipos compartiendo {{count}} espacios",
       "slotsPreviewTvb": "{{top}} contra {{bottom}} en {{mapName}}",
-      "slotsPreviewUms_one": "{{count}} espacio · distribución definida por el mapa",
       "slotsPreviewUms_many": "{{count}} espacios · distribución definida por el mapa",
+      "slotsPreviewUms_one": "{{count}} espacio · distribución definida por el mapa",
       "slotsPreviewUms_other": "{{count}} espacios · distribución definida por el mapa",
       "slotsPreviewVs": "VS",
       "teamSplitHeader": "División de equipos",
@@ -1162,6 +1160,9 @@
       "banned": "Has sido expulsado del lobby.",
       "kicked": "Te han echado del lobby."
     },
+    "gameSetup": {
+      "title": "Configuración de la partida"
+    },
     "hostGame": {
       "changeMap": "Cambiar mapa",
       "defaultLobbyName": "Lobby de {{name}}",
@@ -1169,8 +1170,8 @@
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
       "summaryObserversOff": "Sin observadores",
       "summaryObserversOn": "Con observadores",
-      "summarySlots_one": "{{count}} espacio",
       "summarySlots_many": "{{count}} espacios",
+      "summarySlots_one": "{{count}} espacio",
       "summarySlots_other": "{{count}} espacios",
       "visibilityListedDescription": "Cualquiera puede unirse desde la lista de lobbies. Las partidas y los replays son públicos.",
       "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Solo quienes estuvieron en la partida pueden descargar el replay."
@@ -1195,8 +1196,8 @@
       "joined": "Unido",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
       "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
-      "openSlotCount_one": "{{count}} espacio abierto",
       "openSlotCount_many": "{{count}} espacios abiertos",
+      "openSlotCount_one": "{{count}} espacio abierto",
       "openSlotCount_other": "{{count}} espacios abiertos"
     },
     "landing": {
@@ -1236,45 +1237,112 @@
       "memberBody": "Unirte a {{target}} te sacará de {{current}}."
     },
     "lobby": {
-      "copiedInviteLink": "¡Copiado!",
-      "copyInviteLink": "Copiar enlace de invitación",
-      "gameType": "Tipo de juego",
-      "inGame": "En partida",
-      "leaveLobby": "Salir del lobby",
-      "startGame": "Empezar juego",
-      "unitLimit": "Límite de unidad",
-      "unitLimitExtended": "Extendido",
-      "unitLimitLegacy": "Clásico",
-      "visibility": "Visibilidad",
-      "visibilityListed": "Público",
-      "visibilityUnlisted": "No listado"
+      "inGame": "En partida"
+    },
+    "lobbySettings": {
+      "errorDialogTitle": "Error al actualizar la configuración",
+      "errorGeneric": "No se pudo actualizar la configuración del lobby. Puede que los miembros actuales no quepan en la nueva disposición."
     },
     "messageLayout": {
-      "banPlayer": "<0><0></0></0> se prohibió del lobby",
-      "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada",
-      "countdownStarted": "La cuenta regresiva del juego ha comenzado",
-      "gameInitializationCanceled": "La inicialización del juego ha sido cancelada",
-      "gameInitializationCanceledMultiple": "La inicialización del juego ha sido cancelada porque los siguientes jugadores no pudieron cargar:<1></1>",
-      "gameInitializationCanceledSingle": "La inicialización del juego se ha cancelado porque <2><0></0></2> no pudo cargar.",
-      "hostChange": "<0><0></0></0> ahora es el anfitrión",
-      "joinLobby": "<0><0></0></0> se ha unido al lobby",
-      "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
-      "leaveLobby": "<0><0></0></0> ha salido del lobby",
-      "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
+      "gameStarted": "La partida ha empezado",
+      "settingsChangeGameSubType": "equipos",
+      "settingsChangeGameType": "tipo de partida",
+      "settingsChangeMap": "mapa",
+      "settingsChangeName": "nombre del lobby",
+      "settingsChangeObservers": "observadores",
+      "settingsChangeUnitLimit": "límite de unidades"
+    },
+    "moveSlot": {
+      "title": "Mover a…"
+    },
+    "room": {
+      "banner": {
+        "shuffle": "Mezclar",
+        "statMode": "Modo",
+        "statPeople": "Personas",
+        "statSize": "Tamaño",
+        "statTileset": "Tileset",
+        "swapTeams": "Intercambiar equipos"
+      },
+      "chat": {
+        "countdownCanceled": "Se canceló la cuenta regresiva",
+        "countdownStarted": "La partida está empezando",
+        "isNowHost": "<0></0> ahora es el anfitrión",
+        "joinedLobby": "<0></0> se unió al lobby",
+        "leftLobby": "<0></0> salió del lobby",
+        "loadFailedNoUsers": "La partida no pudo empezar",
+        "loadFailedPrefix": "La partida no pudo empezar: la carga de",
+        "loadFailedSuffix": "falló",
+        "memberBack": "<0></0> volvió al lobby",
+        "readyReset": "listos reiniciados",
+        "seatedOn": "ocupa {{seat}}",
+        "selfJoinLobby": "Te uniste a <2>{{lobby}}</2>. El anfitrión es <4></4>.",
+        "settingsChanged": "<0></0> cambió: {{settings}}",
+        "waitingForSeat": "<0></0> está esperando un asiento",
+        "wasBanned": "<0></0> fue baneado",
+        "wasKicked": "<0></0> fue expulsado",
+        "watching": "observando"
+      },
+      "header": {
+        "cancelReady": "No estoy listo",
+        "copiedInviteLink": "¡Copiado!",
+        "copyInviteLink": "Copiar enlace de invitación",
+        "leave": "Salir",
+        "readyUp": "Listo",
+        "visibilityPublic": "Público",
+        "visibilityUnlisted": "No listado"
+      },
+      "rail": {
+        "benchHeading": "Banquillo · {{benchCount}}",
+        "benchTooltip": "Se unieron con todo lleno — el primero de la fila ocupa el próximo asiento libre",
+        "holdToStartCaption": "Se activa cuando todos estén listos · mantén pulsado para empezar ya",
+        "readyCount": "{{readyCount}} de {{readyTotal}} listos",
+        "startGame": "Iniciar partida",
+        "startWhenReady": "Iniciar cuando estén listos",
+        "waitingForHost": "Esperando a que el anfitrión inicie"
+      },
+      "readyMark": {
+        "notReady": "Aún no está listo",
+        "ready": "Listo"
+      },
+      "scoreboard": {
+        "player": "Jugador",
+        "wins": "Victorias"
+      },
+      "series": {
+        "allGames": "Todas las partidas",
+        "earlierGames": "Partidas anteriores",
+        "fullSummary": "Resumen completo",
+        "gameNumber": "Partida {{number}}",
+        "gamesLabel": "Partidas",
+        "next": "Siguiente",
+        "noRecordedWinner": "Sin ganador registrado",
+        "standings": "Clasificación",
+        "starting": "Iniciando",
+        "tileNoWinner": "Sin ganador",
+        "tilePending": "Pendiente",
+        "unknownMap": "mapa desconocido",
+        "victoryTeam": "Victoria del Equipo {{number}}",
+        "waitingForResults": "Esperando resultados",
+        "watchReplay": "Ver replay"
+      },
+      "slotMenu": {
+        "ban": "Banear",
+        "kick": "Expulsar",
+        "makeObserver": "Hacer observador",
+        "moveIntoPlayerSlot": "Mover a un espacio de jugador",
+        "moveToAnotherSlot": "Mover a otro espacio",
+        "remove": "Quitar"
+      }
     },
     "slots": {
       "addComputer": "Agregar computadora",
       "banPlayer": "Banear {{user}}",
-      "banUnnamedPlayer": "Banear jugador",
       "closeSlot": "Cerrar espacio",
       "kickPlayer": "Expulsar {{user}}",
-      "kickUnnamedPlayer": "Expulsar jugador",
-      "makeObserver": "Hacer observador",
-      "makePlayer": "Hacer jugador",
       "name": "Cerrado",
       "open": "Abierto",
       "openSlot": "Abrir espacio",
-      "removeComputer": "Quitar computadora",
       "slotActions": "Acciones de tragamonedas"
     },
     "state": {
@@ -1287,8 +1355,8 @@
       "hostLabel": "Anfitrión",
       "mapLabel": "Mapa",
       "noLongerOpen": "Este lobby ya no está abierto.",
-      "openSlotCount_one": "{{count}} abierta",
       "openSlotCount_many": "{{count}} abiertas",
+      "openSlotCount_one": "{{count}} abierta",
       "openSlotCount_other": "{{count}} abiertas",
       "slotsLabel": "Espacios"
     }
@@ -1352,8 +1420,8 @@
       "noResults": "No hay resultados.",
       "noUploadedMaps": "No has subido ningún mapa. Puede cargar un mapa haciendo clic en el botón de exploración a continuación.",
       "noUploadedMapsWeb": "No has subido ningún mapa.",
-      "regenerated": "Imágenes regeneradas",
       "regenerateError": "Ocurrió un error al regenerar imágenes",
+      "regenerated": "Imágenes regeneradas",
       "removeError": "Ocurrió un error al eliminar el mapa",
       "sortMaps": {
         "option": {
@@ -1425,8 +1493,8 @@
       "readyUp": "Listo",
       "removedFromQueue": "No te preparaste a tiempo y te quitaron de la cola.",
       "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…",
-      "waitingForPlayers_one": "Esperando a {{count}} jugador más…",
       "waitingForPlayers_many": "Esperando a {{count}} jugadores más…",
+      "waitingForPlayers_one": "Esperando a {{count}} jugador más…",
       "waitingForPlayers_other": "Esperando a {{count}} jugadores más…"
     },
     "activity": {
@@ -1466,12 +1534,12 @@
       "chatMessageError": "No se pudo enviar el mensaje de chat",
       "lockInError": "No se pudo fijar la raza",
       "lockInRaceButton": "Fijar",
+      "pickSubtext": "Elige {{num}}",
       "pickerText": {
         "myTurn": "Estás eligiendo…",
         "opponentTurn": "{{name}} está eligiendo…",
         "teammateTurn": "<0></0> está eligiendo…"
-      },
-      "pickSubtext": "Elige {{num}}"
+      }
     },
     "findMatch": {
       "alternateRace": "Raza alternativa",
@@ -1525,11 +1593,11 @@
       "unratedText": "Sin clasificar",
       "updated": "Actualizado",
       "useAlternateRace": "Usa una raza alternativa para evitar enfrentamientos espejo",
-      "vetoDescriptionNoOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados nunca se seleccionarán para jugar.",
       "vetoDescriptionNoOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+      "vetoDescriptionNoOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados nunca se seleccionarán para jugar.",
       "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
-      "vetoDescriptionWithOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
       "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+      "vetoDescriptionWithOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
       "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
       "vetoedCount": "{{selected}} / {{limit}} vetados",
       "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>"
@@ -1694,10 +1762,10 @@
       },
       "moreActions": "Más acciones",
       "moveDown": "Bajar",
-      "movedToRecycleBin": "Replay movido a la Papelera de reciclaje",
       "moveToRecycleBin": "Mover a la Papelera de reciclaje",
       "moveToRecycleBinError": "Hubo un problema al eliminar el replay",
       "moveUp": "Subir",
+      "movedToRecycleBin": "Replay movido a la Papelera de reciclaje",
       "newPlaylistMenu": "Nueva playlist…",
       "noFolders": "No hay carpetas de replays",
       "noFoldersBody": "Añade una carpeta en Ajustes > Aplicación > Sistema para empezar a indexar replays.",
@@ -1799,8 +1867,8 @@
     "game": {
       "defaults": {
         "apply": {
-          "explanation_one": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajuste. ¿Qué hacemos con él?",
           "explanation_many": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajustes. ¿Qué hacemos con ellos?",
+          "explanation_one": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajuste. ¿Qué hacemos con él?",
           "explanation_other": "A partir de ahora, las funciones nuevas usarán los valores de {{preset}}. Este preajuste cubre {{count}} ajustes. ¿Qué hacemos con ellos?",
           "keepChoice": "Mantener mi configuración actual",
           "keepChoiceDescription": "Hoy no cambia nada. Solo las funciones nuevas usarán {{preset}}.",
@@ -1981,6 +2049,16 @@
           "title": "Preajuste",
           "warmVsCool": "Cálidos vs fríos"
         },
+        "teamColorUsage": {
+          "always": "En partidas de equipos y 1x1",
+          "alwaysDesc": "Tu oponente de 1x1 siempre recibe el primer color de enemigo.",
+          "alwaysShuffledDesc": "Tu oponente de 1x1 recibe un color aleatorio de tu grupo de enemigos.",
+          "exceptIn1v1": "Solo en partidas de equipos",
+          "exceptIn1v1Desc": "Las partidas de dos jugadores usan colores individuales.",
+          "never": "Nunca",
+          "neverDesc": "Cada uno mantiene su propio color, incluso cuando cambian las alianzas.",
+          "title": "Usar colores de equipo"
+        },
         "teamColors": {
           "addColor": "Añadir un color",
           "clear": "Limpiar",
@@ -2024,16 +2102,6 @@
           "title": "Reemplazo de colores de equipo",
           "yourColorScheme": "Tu esquema de colores",
           "yourTeam": "Tu equipo"
-        },
-        "teamColorUsage": {
-          "always": "En partidas de equipos y 1x1",
-          "alwaysDesc": "Tu oponente de 1x1 siempre recibe el primer color de enemigo.",
-          "alwaysShuffledDesc": "Tu oponente de 1x1 recibe un color aleatorio de tu grupo de enemigos.",
-          "exceptIn1v1": "Solo en partidas de equipos",
-          "exceptIn1v1Desc": "Las partidas de dos jugadores usan colores individuales.",
-          "never": "Nunca",
-          "neverDesc": "Cada uno mantiene su propio color, incluso cuando cambian las alianzas.",
-          "title": "Usar colores de equipo"
         },
         "title": "Gameplay",
         "unitPortraits": {
@@ -2097,8 +2165,8 @@
       "starcraft": {
         "browseManually": "Navegar manualmente",
         "currentPathLabel": "Ruta de juego actual:",
-        "detectionFailed": "Error al detectar la ruta de instalación. Asegúrate de tener instalado StarCraft: Remastered e inténtalo de nuevo, o configura la ruta manualmente.",
         "detectPath": "Detectar instalación",
+        "detectionFailed": "Error al detectar la ruta de instalación. Asegúrate de tener instalado StarCraft: Remastered e inténtalo de nuevo, o configura la ruta manualmente.",
         "devOnlySettings": "Configuración solo para desarrolladores",
         "disableHd": "No cargar gráficos HD (se bloquea si se cambia a HD en el juego)",
         "instructions": {
@@ -2176,8 +2244,8 @@
         "currentPassword": "Contraseña actual",
         "displayName": "Nombre para mostrar",
         "displayNameChangeInfo": "Los nombres para mostrar se pueden cambiar una vez cada 60 días. Los cambios de mayúsculas no cuentan para el límite de cambios de nombre.",
-        "displayNameCooldown_one": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} día.",
         "displayNameCooldown_many": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
+        "displayNameCooldown_one": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} día.",
         "displayNameCooldown_other": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
         "displayNameUnavailable": "El nombre para mostrar no está disponible",
         "email": "Correo electrónico",
@@ -2188,8 +2256,8 @@
         "label": "Cuenta",
         "loginName": "Nombre de inicio de sesión",
         "loginNameChangeInfo": "El nombre de inicio de sesión solo se puede cambiar cada 30 días.",
-        "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} día.",
         "loginNameCooldown_many": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
+        "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} día.",
         "loginNameCooldown_other": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
         "loginNameUnavailable": "El nombre de inicio de sesión no está disponible",
         "networkError": "Error de red: {{errorMessage}}",
@@ -2317,13 +2385,13 @@
       "pageTitle": "Transmisiones en vivo",
       "seeAll": "Ver todas las transmisiones",
       "title": "Transmisiones en vivo",
-      "viewers_one": "{{count}} espectador",
       "viewers_many": "{{count}} espectadores",
+      "viewers_one": "{{count}} espectador",
       "viewers_other": "{{count}} espectadores"
     },
     "moderation": {
-      "blocked": "Se quitó a {{name}} de las transmisiones en vivo",
       "blockError": "No se pudo quitar a {{name}} de las transmisiones en vivo",
+      "blocked": "Se quitó a {{name}} de las transmisiones en vivo",
       "menuTooltip": "Moderación de la transmisión",
       "removeConfirmAction": "Quitar transmisión",
       "removeDialogBody": "La transmisión de {{name}} se ocultará de las transmisiones en vivo hasta que la desbloquees.",
@@ -2418,8 +2486,8 @@
     "profile": {
       "achievements": "Logros",
       "admin": {
-        "avatarRemoved": "Avatar eliminado",
         "avatarRemoveError": "Algo salió mal al eliminar el avatar",
+        "avatarRemoved": "Avatar eliminado",
         "removeAvatarAction": "Eliminar avatar",
         "removeAvatarBody": "Esto eliminará permanentemente el avatar de {{user}}. No se puede deshacer.",
         "removeAvatarTitle": "¿Eliminar avatar?"
@@ -2434,8 +2502,8 @@
       "showFewerRanks": "Mostrar menos",
       "stats": {
         "allTime": "Todas las temporadas",
-        "downsampled_one": "Mostrando una vista reducida de {{count}} partida para que la gráfica sea legible.",
         "downsampled_many": "Mostrando una vista reducida de {{count}} partidas para que la gráfica sea legible.",
+        "downsampled_one": "Mostrando una vista reducida de {{count}} partida para que la gráfica sea legible.",
         "downsampled_other": "Mostrando una vista reducida de {{count}} partidas para que la gráfica sea legible.",
         "loadError": "Hubo un problema al cargar este historial.",
         "noGamesInRange": "No hay partidas en este periodo",

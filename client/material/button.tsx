@@ -652,6 +652,10 @@ export interface IconButtonProps {
   name?: string
   testName?: string
   ariaLabel?: string
+  /** What the button opens, for a button whose job is to open something. */
+  ariaHasPopup?: 'menu' | 'listbox' | 'dialog'
+  /** Whether what `ariaHasPopup` names is currently open. */
+  ariaExpanded?: boolean
   ref?: React.Ref<HTMLButtonElement>
   styledAs?: WebTarget
 }
@@ -672,6 +676,8 @@ export function IconButton({
   name,
   testName,
   ariaLabel,
+  ariaHasPopup,
+  ariaExpanded,
   ref,
   styledAs,
 }: IconButtonProps) {
@@ -695,6 +701,8 @@ export function IconButton({
       name={name}
       data-testid={testName}
       aria-label={ariaLabel}
+      aria-haspopup={ariaHasPopup}
+      aria-expanded={ariaExpanded}
       {...buttonProps}>
       {typeof icon === 'string' ? <MaterialIcon icon={icon} /> : icon}
       <Ripple ref={rippleRef} disabled={disabled} />

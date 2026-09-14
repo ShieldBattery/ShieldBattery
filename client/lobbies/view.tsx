@@ -9,25 +9,28 @@ import { LobbyState } from '../../common/lobbies'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
-import { openDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { navigateToGameResults } from '../games/action-creators'
+import { ThunkAction } from '../dispatch-registry'
+import { navigateToGameResults, viewGame } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
-import { openMapPreviewDialog } from '../maps/action-creators'
 import { FilledButton } from '../material/button'
 import { LobbyCommandContext } from '../messaging/commands/command-context'
 import { push, replace } from '../navigation/routing'
+import { RequestHandlingSpec } from '../network/abortable-thunk'
 import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
 import { usePrevious } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { watchReplayFromUrl } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
   addComputer,
   banPlayer,
+  cancelCountdown,
   changeSlot,
   closeSlot,
   deactivateLobby,
@@ -39,13 +42,19 @@ import {
   removeObserver,
   sendChat,
   setRace,
+  setReady,
+  shuffleSlots,
   startCountdown,
+  swapTeams,
 } from './action-creators'
-import LobbyComponent from './lobby'
+import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
+import { LobbyRoom } from './room/lobby-room'
+import { TeamArrangement } from './room/room-parts'
+import { SlotAction } from './room/room-rail'
 import { useJoinLobbyAction } from './use-join-lobby-action'
 
 const LoadingArea = styled.div`
@@ -155,60 +164,80 @@ function LobbyContent({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   }
 }
 
+/**
+ * Loads a lobby game's record — which is what carries the replay the viewer is allowed to download,
+ * if the game has one at all — and then plays that replay.
+ *
+ * A lobby's series names only game ids, so the record has to be fetched before there's anything to
+ * watch. A game with no replay on its record resolves as an error, since from the viewer's side
+ * asking to watch it and getting nothing back is a failure either way.
+ */
+function watchLobbyGameReplay(gameId: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return (dispatch, getState) => {
+    dispatch(
+      viewGame(gameId, {
+        signal: spec.signal,
+        onSuccess: () => {
+          const replayInfo = getState().games.replayInfoById.get(gameId)
+          if (!replayInfo) {
+            spec.onError(new Error(`no replay is available for game ${gameId}`))
+            return
+          }
+
+          dispatch(watchReplayFromUrl(replayInfo, gameId, spec))
+        },
+        onError: spec.onError,
+      }),
+    )
+  }
+}
+
 function ConnectedLobby() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
-  const lobby = useAppSelector(s => s.lobby.info)
-  const runState = useAppSelector(s => s.lobby.runState)
-  const loadingState = useAppSelector(s => s.lobby.loadingState)
-  const chat = useAppSelector(s => s.lobby.chat)
+  const snackbarController = useSnackbarController()
+  const selfUser = useSelfUser()!
+  const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(selfUser.id))
+
+  // Everything the room dispatches is a request the server can refuse (the lobby moved on, the
+  // layout won't take the change), and the viewer is watching for it to happen, so a refusal has to
+  // say so rather than leaving the room looking like it ignored the click.
+  const onActionError = (err: unknown) => {
+    logger.error(`Error performing a lobby action: ${getErrorStack(err)}`)
+    snackbarController.showSnackbar(lobbyActionErrorMessage(err, t))
+  }
+  const actionSpec: RequestHandlingSpec<void> = {
+    onSuccess: () => {},
+    onError: onActionError,
+  }
+
+  const onWatchReplay = (gameId: string) => {
+    dispatch(
+      watchLobbyGameReplay(gameId, {
+        onSuccess: () => {},
+        onError: err => {
+          logger.error(`Error watching replay: ${getErrorStack(err)}`)
+          dispatch(
+            openSimpleDialog(
+              t('replays.watch.errorTitle', 'Error loading replay'),
+              err?.message ??
+                t(
+                  'replays.watch.errorBody',
+                  'There was a problem downloading or loading the replay. Please try again later.',
+                ),
+            ),
+          )
+        },
+      }),
+    )
+  }
 
   const commandContext: LobbyCommandContext = { surface: 'lobby', selfUserId: selfUser!.id }
 
   return (
-    <LobbyComponent
-      lobby={lobby}
-      runState={runState}
-      loadingState={loadingState}
-      chat={chat}
-      user={selfUser!}
+    <LobbyRoom
+      viewerId={selfUser.id}
       commandContext={commandContext}
-      onLeaveLobbyClick={() => {
-        dispatch(leaveLobby())
-      }}
-      onAddComputer={slotId => {
-        dispatch(addComputer(slotId))
-      }}
-      onSetRace={(slotId, race) => {
-        dispatch(setRace(slotId, race))
-      }}
-      onSwitchSlot={slotId => {
-        dispatch(changeSlot(slotId))
-      }}
-      onOpenSlot={slotId => {
-        dispatch(openSlot(slotId))
-      }}
-      onCloseSlot={slotId => {
-        dispatch(closeSlot(slotId))
-      }}
-      onKickPlayer={slotId => {
-        dispatch(kickPlayer(slotId))
-      }}
-      onBanPlayer={slotId => {
-        dispatch(banPlayer(slotId))
-      }}
-      onMakeObserver={slotId => {
-        dispatch(makeObserver(slotId))
-      }}
-      onRemoveObserver={slotId => {
-        dispatch(removeObserver(slotId))
-      }}
-      onMoveSlot={slotId => {
-        dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
-      }}
-      onStartGame={() => {
-        dispatch(startCountdown())
-      }}
       onSendChatMessage={message => {
         dispatch(
           sendChat(message, {
@@ -219,11 +248,72 @@ function ConnectedLobby() {
           }),
         )
       }}
-      onMapPreview={() => {
-        dispatch(openMapPreviewDialog(lobby.map!.id))
+      onSetRace={(slotId, race) => {
+        dispatch(setRace(slotId, race, actionSpec))
       }}
-      onOpenLobbySettings={() => {
-        dispatch(openDialog({ type: DialogType.LobbySettings }))
+      onSitInSlot={slotId => {
+        dispatch(changeSlot(slotId, actionSpec))
+      }}
+      onLeaveLobby={() => {
+        dispatch(leaveLobby(actionSpec))
+      }}
+      onToggleReady={() => {
+        dispatch(setReady(!isViewerReady, actionSpec))
+      }}
+      onStartGame={() => {
+        dispatch(startCountdown(false, actionSpec))
+      }}
+      onForceStart={() => {
+        dispatch(startCountdown(true, actionSpec))
+      }}
+      onCancelCountdown={() => {
+        dispatch(cancelCountdown(actionSpec))
+      }}
+      onSlotAction={(action, slotId) => {
+        switch (action) {
+          case SlotAction.Close:
+            dispatch(closeSlot(slotId, actionSpec))
+            break
+          case SlotAction.Open:
+            dispatch(openSlot(slotId, actionSpec))
+            break
+          case SlotAction.AddComputer:
+            dispatch(addComputer(slotId, actionSpec))
+            break
+          case SlotAction.Kick:
+            dispatch(kickPlayer(slotId, actionSpec))
+            break
+          case SlotAction.Ban:
+            dispatch(banPlayer(slotId, actionSpec))
+            break
+          case SlotAction.MakeObserver:
+            dispatch(makeObserver(slotId, actionSpec))
+            break
+          case SlotAction.RemoveObserver:
+            dispatch(removeObserver(slotId, actionSpec))
+            break
+          case SlotAction.Move:
+            dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
+            break
+          default:
+            assertUnreachable(action)
+        }
+      }}
+      onArrangeTeams={arrangement => {
+        switch (arrangement) {
+          case TeamArrangement.Swap:
+            dispatch(swapTeams(actionSpec))
+            break
+          case TeamArrangement.Shuffle:
+            dispatch(shuffleSlots(actionSpec))
+            break
+          default:
+            assertUnreachable(arrangement)
+        }
+      }}
+      onWatchReplay={onWatchReplay}
+      onViewGameSummary={gameId => {
+        navigateToGameResults(gameId)
       }}
     />
   )

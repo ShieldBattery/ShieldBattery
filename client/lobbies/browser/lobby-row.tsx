@@ -8,7 +8,7 @@ import { MapThumbnail } from '../../maps/map-thumbnail'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
-import { HostCrown, LobbyChip } from './browser-parts'
+import { HostCrown, RoomChip } from '../room/room-parts'
 import { InGameChip } from './in-game-chip'
 import { LobbySummary } from './summary-utils'
 
@@ -225,9 +225,9 @@ function StatusBadge({ summary }: { summary: LobbySummary }) {
   // that instead — it covers both why the count is maxed and why the lobby is still listed.
   if (summary.playerSlots.open === 0) {
     return summary.observerSlots.open > 0 ? (
-      <LobbyChip>{t('lobbies.browser.obsOpen', 'Obs open')}</LobbyChip>
+      <RoomChip>{t('lobbies.browser.obsOpen', 'Obs open')}</RoomChip>
     ) : (
-      <LobbyChip>{t('lobbies.browser.full', 'Full')}</LobbyChip>
+      <RoomChip>{t('lobbies.browser.full', 'Full')}</RoomChip>
     )
   }
 

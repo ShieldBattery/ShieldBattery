@@ -80,6 +80,14 @@ export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {
 }
 
 /**
+ * Returns whether a game type's extra team slots are controlled by the team's player rather than
+ * being seats of their own.
+ */
+export function hasControlledOpens(gameType: GameType): boolean {
+  return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll
+}
+
+/**
  * Returns an array of all the slots in a lobby.
  *
  * Since we don't keep a separate list just for the slots, this function iterates over all of the

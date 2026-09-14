@@ -1,5 +1,7 @@
+import { getErrorStack } from '../../../../common/errors'
 import { leaveChannelWithConfirmation } from '../../../chat/action-creators'
 import { leaveLobby } from '../../../lobbies/action-creators'
+import logger from '../../../logging/logger'
 import { defineCommand } from '../command-schema'
 
 export const leaveCommand = defineCommand({
@@ -12,7 +14,14 @@ export const leaveCommand = defineCommand({
     if (context.surface === 'channel') {
       dispatch(leaveChannelWithConfirmation(context.channelId))
     } else if (context.surface === 'lobby') {
-      dispatch(leaveLobby())
+      dispatch(
+        leaveLobby({
+          onSuccess: () => {},
+          onError: err => {
+            logger.error(`Error while leaving a lobby: ${getErrorStack(err)}`)
+          },
+        }),
+      )
     }
   },
 })

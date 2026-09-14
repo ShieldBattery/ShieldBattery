@@ -1,6 +1,9 @@
 import type { SbPermissions } from '../typeshare'
 
-export { SbPermissions }
+// Re-exported as a type only: `SbPermissions` is an interface, and a value re-export would make
+// bundlers that transform files in isolation (e.g. esbuild/Vite) emit a runtime import of the
+// generated typeshare module, which has no runtime exports to provide.
+export type { SbPermissions }
 
 export type PermissionName = keyof SbPermissions
 
