@@ -13,6 +13,7 @@ import {
   GameClientResult,
   GameResultErrorCode,
   ReconciledPlayerResult,
+  SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSbMapId } from '../../../common/maps'
@@ -39,6 +40,8 @@ import {
   StoredResultReport,
   areAllHumansAccountedFor,
   getCurrentReportedResults,
+  getUserGameRecord,
+  setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
@@ -128,6 +131,8 @@ vi.mock('../models/games-users', async () => {
     ...actual,
     areAllHumansAccountedFor: vi.fn(),
     getCurrentReportedResults: vi.fn(),
+    getUserGameRecord: vi.fn(),
+    setReportedResults: vi.fn(),
     setUserReconciledResult: vi.fn(),
   }
 })
@@ -469,6 +474,7 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
 
   let clock: FakeClock
   let service: GameResultService
+  let gameLifecycleEvents: GameLifecycleEvents
   let maybeReconcileResults: ReturnType<typeof vi.spyOn>
   let publishReconciledGame: ReturnType<typeof vi.spyOn>
 
@@ -496,6 +502,7 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
     clock = new FakeClock()
     clock.setCurrentTime(1_000_000)
 
+    gameLifecycleEvents = new GameLifecycleEvents()
     service = new GameResultService(
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
@@ -504,7 +511,7 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
       {} as any,
       clock,
       {} as any,
-      new GameLifecycleEvents(),
+      gameLifecycleEvents,
     )
 
     maybeReconcileResults = vi.spyOn(service as any, 'maybeReconcileResults')
@@ -513,15 +520,19 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
       .mockResolvedValue(undefined)
   })
 
-  test('force-reconciles and publishes when reconciliation commits', async () => {
+  test('force-reconciles and publishes when reconciliation commits, emitting gameEnded once', async () => {
     const gameRecord = makeGameRecord()
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
     maybeReconcileResults.mockResolvedValue(true)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('gameEnded', listener)
 
     await service.forceReconcileGame(GAME_ID)
 
     expect(maybeReconcileResults).toHaveBeenCalledWith(gameRecord, true)
     expect(publishReconciledGame).toHaveBeenCalledWith(GAME_ID)
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith({ gameId: GAME_ID })
   })
 
   test('does not publish when reconciliation does not commit', async () => {
@@ -534,23 +545,30 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
     expect(publishReconciledGame).not.toHaveBeenCalled()
   })
 
-  test('no-ops for a results-exempt game (contains computer players)', async () => {
+  test('no-ops for a results-exempt game (contains computer players), still emitting gameEnded', async () => {
     const gameRecord = makeGameRecord({
       config: matchmakingConfig(DEFAULT_TEAMS, { resultsExempt: true }),
     })
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('gameEnded', listener)
 
     await service.forceReconcileGame(GAME_ID)
 
     expect(maybeReconcileResults).not.toHaveBeenCalled()
     expect(publishReconciledGame).not.toHaveBeenCalled()
+    expect(listener).toHaveBeenCalledWith({ gameId: GAME_ID })
   })
 
-  test('resolves quietly (never throws) when the game cannot be found', async () => {
+  test('resolves quietly (never throws) when the game cannot be found, still emitting gameEnded', async () => {
     asMockedFunction(getGameRecord).mockResolvedValue(undefined)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('gameEnded', listener)
 
     await expect(service.forceReconcileGame(GAME_ID)).resolves.toBeUndefined()
     expect(publishReconciledGame).not.toHaveBeenCalled()
+    // The emit happens before the game lookup, so a missing game still signals the end of it.
+    expect(listener).toHaveBeenCalledWith({ gameId: GAME_ID })
   })
 
   test('resolves quietly (never throws) when reconciliation fails unexpectedly', async () => {
@@ -560,6 +578,158 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
 
     await expect(service.forceReconcileGame(GAME_ID)).resolves.toBeUndefined()
     expect(publishReconciledGame).not.toHaveBeenCalled()
+  })
+})
+
+describe('games/game-result-service/GameResultService#submitGameResults', () => {
+  const GAME_ID = 'game-submit-1'
+
+  let clock: FakeClock
+  let service: GameResultService
+  let gameLifecycleEvents: GameLifecycleEvents
+  let loggerStub: { info: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> }
+
+  function makeGameRecord(overrides: Partial<GameRecord> = {}): GameRecord {
+    return {
+      id: GAME_ID,
+      startTime: new Date(0),
+      mapId: makeSbMapId('1'),
+      config: matchmakingConfig(DEFAULT_TEAMS),
+      disputable: false,
+      disputeRequested: false,
+      disputeReviewed: false,
+      gameLength: null,
+      results: null,
+      selectedMatchup: null,
+      assignedMatchup: null,
+      manuallyResolved: false,
+      ...overrides,
+    }
+  }
+
+  function makeReport(): SubmitGameResultsRequest {
+    return {
+      userId: p1,
+      resultCode: 'abc123abc123',
+      time: 60_000,
+      playerResults: [
+        [p1, { result: GameClientResult.Victory, race: 't', apm: 100 }],
+        [p2, { result: GameClientResult.Defeat, race: 'z', apm: 100 }],
+      ],
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    clock = new FakeClock()
+    clock.setCurrentTime(1_000_000)
+
+    gameLifecycleEvents = new GameLifecycleEvents()
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      {} as any,
+      clock,
+      {} as any,
+      gameLifecycleEvents,
+    )
+
+    // The reconcile/publish chain this kicks off fire-and-forget is exercised by
+    // `#maybeReconcileResults`'s own tests; here we only care that a stored report signals the
+    // reporter's own end, so stub the chain out to a no-op.
+    vi.spyOn(service as any, 'maybeReconcileResults').mockResolvedValue(false)
+    vi.spyOn(service as any, 'publishReconciledGame').mockResolvedValue(undefined)
+
+    loggerStub = { info: vi.fn(), error: vi.fn() }
+
+    asMockedFunction(getGameRecord).mockResolvedValue(makeGameRecord())
+  })
+
+  test('emits userGameEnded exactly once once the report is stored', async () => {
+    asMockedFunction(getUserGameRecord).mockResolvedValue({
+      userId: p1,
+      gameId: GAME_ID,
+      resultCode: 'abc123abc123',
+      reportedResults: null,
+    } as any)
+    asMockedFunction(setReportedResults).mockResolvedValue(true)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await service.submitGameResults({
+      gameId: GAME_ID,
+      report: makeReport(),
+      logger: loggerStub as any,
+    })
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith({ gameId: GAME_ID, userId: p1 })
+  })
+
+  test('throws AlreadyReported and emits nothing for a record that already has reported results', async () => {
+    asMockedFunction(getUserGameRecord).mockResolvedValue({
+      userId: p1,
+      gameId: GAME_ID,
+      resultCode: 'abc123abc123',
+      reportedResults: { userId: p1 },
+    } as any)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await expect(
+      service.submitGameResults({
+        gameId: GAME_ID,
+        report: makeReport(),
+        logger: loggerStub as any,
+      }),
+    ).rejects.toMatchObject({ code: GameResultErrorCode.AlreadyReported })
+    expect(setReportedResults).not.toHaveBeenCalled()
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  test('throws AlreadyReported and emits nothing when a concurrent duplicate report wins the write', async () => {
+    asMockedFunction(getUserGameRecord).mockResolvedValue({
+      userId: p1,
+      gameId: GAME_ID,
+      resultCode: 'abc123abc123',
+      reportedResults: null,
+    } as any)
+    asMockedFunction(setReportedResults).mockResolvedValue(false)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await expect(
+      service.submitGameResults({
+        gameId: GAME_ID,
+        report: makeReport(),
+        logger: loggerStub as any,
+      }),
+    ).rejects.toMatchObject({ code: GameResultErrorCode.AlreadyReported })
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  test('throws NotFound and emits nothing for a resultCode that does not match the stored record', async () => {
+    asMockedFunction(getUserGameRecord).mockResolvedValue({
+      userId: p1,
+      gameId: GAME_ID,
+      resultCode: 'a-different-code',
+      reportedResults: null,
+    } as any)
+    const listener = vi.fn()
+    gameLifecycleEvents.on('userGameEnded', listener)
+
+    await expect(
+      service.submitGameResults({
+        gameId: GAME_ID,
+        report: makeReport(),
+        logger: loggerStub as any,
+      }),
+    ).rejects.toMatchObject({ code: GameResultErrorCode.NotFound })
+    expect(setReportedResults).not.toHaveBeenCalled()
+    expect(listener).not.toHaveBeenCalled()
   })
 })
 
