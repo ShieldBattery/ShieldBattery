@@ -58,6 +58,7 @@ export interface PlayerSlotProps {
   onBanPlayer?: () => void
   onMakeObserver?: () => void
   onRemoveObserver?: () => void
+  onMoveSlot?: () => void
 }
 
 export function PlayerSlot({
@@ -76,6 +77,7 @@ export function PlayerSlot({
   onBanPlayer,
   onMakeObserver,
   onRemoveObserver,
+  onMoveSlot,
 }: PlayerSlotProps) {
   const { t } = useTranslation()
   const user = useAppSelector(s => userId && s.users.byId.get(userId))
@@ -125,6 +127,9 @@ export function PlayerSlot({
     }
     if (canRemoveObserver && onRemoveObserver) {
       slotActions.push([t('lobbies.slots.makePlayer', 'Make player'), onRemoveObserver])
+    }
+    if (onMoveSlot) {
+      slotActions.push([t('lobbies.slots.moveToSlot', 'Move to…'), onMoveSlot])
     }
   }
 

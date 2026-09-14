@@ -38,6 +38,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   gameType: GameType.Melee,
   gameSubType: 0,
   teams: [],
+  bench: [],
   host: EMPTY_SLOT,
   useLegacyLimits: false,
   visibility: 'listed',
@@ -189,6 +190,82 @@ const lobbyHandlers = {
 
     const { teamIndex, slotIndex, player } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex] = player
+  },
+
+  '@lobbies/updateSettingsChange'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    const previousBenchIds = new Set(draft.info.bench.map(benched => benched.userId))
+
+    draft.info = castDraft(action.payload.lobby)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbySettingsChange,
+      time: Date.now(),
+      changedSettings: action.payload.changedSettings,
+    })
+
+    // The server sends only the settings-change event for this transition, with no accompanying
+    // benchAdd diffs, so a layout shrink that displaces seated members onto the bench needs its
+    // own bench-join lines here or nobody in the lobby sees that those members are now waiting.
+    for (const benched of draft.info.bench) {
+      if (!previousBenchIds.has(benched.userId)) {
+        pushChat(draft, {
+          id: nanoid(),
+          type: LobbyMessageType.LobbyBenchJoin,
+          time: Date.now(),
+          userId: benched.userId,
+        })
+      }
+    }
+  },
+
+  '@lobbies/updateBenchAdd'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    draft.info.bench.push(action.payload.user)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyBenchJoin,
+      time: Date.now(),
+      userId: action.payload.user.userId,
+    })
+  },
+
+  '@lobbies/updateBenchRemove'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    const { userId, reason } = action.payload
+    draft.info.bench = draft.info.bench.filter(benched => benched.userId !== userId)
+
+    // A reason means they're out of the lobby, which nothing else reports for a bench member. An
+    // absent one means they were seated, which the accompanying slot events already describe.
+    if (reason === 'left') {
+      pushChat(draft, { id: nanoid(), type: LobbyMessageType.LeaveLobby, time: Date.now(), userId })
+    } else if (reason === 'kicked') {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.KickLobbyPlayer,
+        time: Date.now(),
+        userId,
+      })
+    } else if (reason === 'banned') {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.BanLobbyPlayer,
+        time: Date.now(),
+        userId,
+      })
+    }
   },
 
   '@lobbies/updateLeaveSelf'(draft) {
