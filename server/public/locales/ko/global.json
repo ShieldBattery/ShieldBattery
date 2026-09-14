@@ -1921,7 +1921,7 @@
           "title": "스킨"
         },
         "startingFog": {
-          "legacy": "오리지널",
+          "legacy": "클래식",
           "showResources": "자원 표시",
           "showTerrainAndResources": "지형 및 자원 표시",
           "title": "초기 안개 설정"

@@ -96,8 +96,8 @@ consistent. (Seed — extend over time.)
 - Old MT rendered slot as "ranura" in the lobby strings — fixed to **espacio** (Espacios,
   Abrir/Cerrar espacio). Watch for "ranura" resurfacing.
 - **Game defaults preset (first-run dialog / Settings › Game › Defaults):** Recommended→**Recomendado**,
-  Legacy→**Clásico** (matches "Diplomacia clásica"; the old startingFog "Legado" is MT and should not be
-  copied), preset→preajuste, Defaults page→**Predeterminados**, starting fog→**niebla inicial**, drag
+  Legacy→**Clásico** everywhere (starting fog option, unit limit, preset; the old MT "Legado" means a
+  bequest and was replaced), preset→preajuste, Defaults page→**Predeterminados**, starting fog→**niebla inicial**, drag
   pan→**arrastre de cámara** (in-file), Settings nav→**Ajustes** (never "Configuración" in paths).
 - **Chat commands:** whisper→susurro/susurrar, /me action line→acción, aliases→alias, channel/lobby/whisper
   surfaces→canales/lobbies/susurros; mute channel→**Silenciar canal**; "only you" gutter→**solo tú**.
@@ -171,8 +171,8 @@ consistent. (Seed — extend over time.)
   랭크 점수 in-file).
 - **join code → 참가 코드** (dialog title 참가 코드 입력; browser button just 코드 입력). **the
   app → 앱** (ShieldBattery 앱에서 열기).
-- **Game defaults preset:** Recommended→**권장**, Legacy→**클래식** (matches 클래식 외교; not the startingFog
-  option's 오리지널), preset→프리셋, Defaults page→**기본값**, starting fog→**초기 안개**, drag pan→**화면
+- **Game defaults preset:** Recommended→**권장**, Legacy→**클래식** (matches 클래식 외교; the starting fog
+  option was aligned to 클래식 too so the Defaults table reads consistently), preset→프리셋, Defaults page→**기본값**, starting fog→**초기 안개**, drag pan→**화면
   끌기** (in-file), Settings nav→**설정**. Particles with interpolated preset names use the (으)로 / 을(를)
   hedge since the value can be 권장 or 클래식.
 - **Chat commands:** whisper→귓속말, /me action line→행동 메시지, aliases→별칭, mute channel→**채널 음소거**,
@@ -206,7 +206,8 @@ consistent. (Seed — extend over time.)
   (matches 服务器地区), never 区域. Ladder points → 积分.
 - **join code → 房间码** (never plain 代码 — that reads as source code; matches lobby→房间).
   **the app (desktop client) → 客户端** (在 ShieldBattery 客户端中打开 / 下载客户端).
-- **Game defaults preset:** Recommended→**推荐**, Legacy→**经典** (matches 经典外交), preset→预设, Defaults
+- **Game defaults preset:** Recommended→**推荐**, Legacy→**经典** (matches 经典外交; the starting fog option
+  was aligned to 经典 too, while the lobby unit limit keeps 旧版), preset→预设, Defaults
   page→**默认值**, starting fog→**初始迷雾**, drag pan→**中键平移** (in-file), Settings nav→**设置**; nav
   paths are quoted: “设置 › 输入”.
 - **Chat commands:** whisper→私聊, /me action line→动作消息, aliases→别名, mute channel→**频道静音**, "only

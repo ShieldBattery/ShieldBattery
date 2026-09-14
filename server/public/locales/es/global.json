@@ -1083,7 +1083,7 @@
       "full": "Lleno",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
-      "legacyLimits": "Límite legado",
+      "legacyLimits": "Límites clásicos",
       "observers": "Observadores",
       "observersCount": "Observadores · {{taken}}/{{total}}",
       "observerSlotsOpen_one": "{{count}} libre",
@@ -1140,7 +1140,7 @@
       "teamSplitHeader": "División de equipos",
       "teamSplitOption": "{{top}}x{{bottom}}",
       "title": "Crear lobby",
-      "useLegacyLimits": "Usar límite de unidad heredado",
+      "useLegacyLimits": "Usar límite de unidades clásico",
       "visibility": "Visibilidad",
       "visibilityListed": "Público",
       "visibilityUnlisted": "No listado"
@@ -1233,7 +1233,7 @@
       "startGame": "Empezar juego",
       "unitLimit": "Límite de unidad",
       "unitLimitExtended": "Extendido",
-      "unitLimitLegacy": "Legado",
+      "unitLimitLegacy": "Clásico",
       "visibility": "Visibilidad",
       "visibilityListed": "Público",
       "visibilityUnlisted": "No listado"
@@ -1957,7 +1957,7 @@
           "title": "Máscaras"
         },
         "startingFog": {
-          "legacy": "Legado",
+          "legacy": "Clásico",
           "showResources": "Mostrar recursos",
           "showTerrainAndResources": "Mostrar terreno y recursos",
           "title": "Comienza la niebla de guerra"
