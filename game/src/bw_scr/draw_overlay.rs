@@ -342,7 +342,8 @@ impl OverlayState {
             },
         };
         let time = self.start_time.elapsed().as_secs_f64();
-        let events = mem::take(&mut self.events);
+        let mut events = mem::take(&mut self.events);
+        events.push(Event::ModifiersChanged(current_egui_modifiers()));
         let focused = true;
         let input = egui::RawInput {
             screen_rect: Some(screen_rect),
@@ -351,7 +352,6 @@ impl OverlayState {
             max_texture_side: Some(2048),
             time: Some(time),
             predicted_dt: 1.0 / 60.0,
-            modifiers: current_egui_modifiers(),
             events,
             hovered_files: Vec::new(),
             dropped_files: Vec::new(),

@@ -176,11 +176,11 @@ pub struct BwVars {
 pub unsafe fn add_overlays(
     state: &mut RenderState,
     bw: &BwVars,
-    overlay_out: draw_overlay::StepOutput,
+    mut overlay_out: draw_overlay::StepOutput,
     render_target: &RenderTarget,
 ) {
     unsafe {
-        update_textures(bw.renderer, state, &overlay_out.textures_delta);
+        update_textures(bw.renderer, state, &mut overlay_out.textures_delta);
         for (layer, primitives) in overlay_out.primitives.into_iter() {
             for primitive in primitives {
                 match primitive.primitive {
@@ -204,17 +204,17 @@ pub unsafe fn add_overlays(
                 }
             }
         }
-        queue_free_textures(state, &overlay_out.textures_delta);
+        queue_free_textures(state, &mut overlay_out.textures_delta);
     }
 }
 
 pub unsafe fn update_textures_without_adding_overlays(
     state: &mut RenderState,
     bw: &BwVars,
-    overlay_out: draw_overlay::StepOutput,
+    mut overlay_out: draw_overlay::StepOutput,
 ) {
-    update_textures(bw.renderer, state, &overlay_out.textures_delta);
-    queue_free_textures(state, &overlay_out.textures_delta);
+    update_textures(bw.renderer, state, &mut overlay_out.textures_delta);
+    queue_free_textures(state, &mut overlay_out.textures_delta);
 }
 
 trait IndexSize: Copy {
@@ -709,32 +709,34 @@ unsafe fn update_texture(
 unsafe fn update_textures(
     renderer: *mut scr::Renderer,
     state: &mut RenderState,
-    delta: &TexturesDelta,
+    delta: &mut TexturesDelta,
 ) {
     unsafe {
-        for &(id, ref delta) in &delta.set {
-            // Not really sure which is best way to handle this since BW will only
-            // accept one filtering mode instead of min/mag split.
-            let bilinear = delta.options.magnification == TextureFilter::Linear
-                || delta.options.minification == TextureFilter::Linear;
-            let size = delta.image.size();
-            let size = (size[0] as u32, size[1] as u32);
-            let rgba = egui_image_data_to_rgba(&delta.image);
-            if let Some(pos) = delta.pos {
-                if let Some(texture) = state.textures.get(&id) {
-                    texture.update(rgba, (pos[0] as u32, pos[1] as u32), size);
-                } else {
-                    warn_once!("Tried to update nonexistent texture {id:?}");
-                }
-            } else {
-                match OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) {
-                    Some(texture) => {
-                        if let Some(old) = state.textures.insert(id, texture) {
-                            state.queued_texture_frees.push(old);
-                        }
+        for (id, deltas) in delta.set.drain() {
+            for delta in deltas {
+                // Not really sure which is best way to handle this since BW will only
+                // accept one filtering mode instead of min/mag split.
+                let bilinear = delta.options.magnification == TextureFilter::Linear
+                    || delta.options.minification == TextureFilter::Linear;
+                let size = delta.image.size();
+                let size = (size[0] as u32, size[1] as u32);
+                let rgba = egui_image_data_to_rgba(&delta.image);
+                if let Some(pos) = delta.pos {
+                    if let Some(texture) = state.textures.get(&id) {
+                        texture.update(rgba, (pos[0] as u32, pos[1] as u32), size);
+                    } else {
+                        warn_once!("Tried to update nonexistent texture {id:?}");
                     }
-                    _ => {
-                        error!("Could not create texture of size {size:?}");
+                } else {
+                    match OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) {
+                        Some(texture) => {
+                            if let Some(old) = state.textures.insert(id, texture) {
+                                state.queued_texture_frees.push(old);
+                            }
+                        }
+                        _ => {
+                            error!("Could not create texture of size {size:?}");
+                        }
                     }
                 }
             }
@@ -753,8 +755,8 @@ fn egui_image_data_to_rgba(image: &epaint::ImageData) -> &[u8] {
 
 /// The textures cannot be freed until BW has issued a render call, so move them
 /// to a vec that will be freed afterwards.
-fn queue_free_textures(state: &mut RenderState, delta: &TexturesDelta) {
-    for &id in &delta.free {
+fn queue_free_textures(state: &mut RenderState, delta: &mut TexturesDelta) {
+    for id in delta.free.drain() {
         if let Some(texture) = state.textures.remove(&id) {
             state.queued_texture_frees.push(texture);
         }

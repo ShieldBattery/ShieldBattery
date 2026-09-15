@@ -117,8 +117,10 @@ fn run_smoke() {
             };
             ctx.begin_pass(raw);
             let _ = render_disconnect_view(view, &ctx);
-            let output = ctx.end_pass();
+            let mut output = ctx.end_pass();
             let _ = ctx.tessellate(output.shapes, ctx.pixels_per_point());
+            // Headless rendering has no GPU texture store to update.
+            output.textures_delta.clear();
         }
     }
 
@@ -206,8 +208,10 @@ fn run_smoke() {
             };
             ctx.begin_pass(raw);
             render_netstat_view(view, &ctx);
-            let output = ctx.end_pass();
+            let mut output = ctx.end_pass();
             let _ = ctx.tessellate(output.shapes, ctx.pixels_per_point());
+            // Headless rendering has no GPU texture store to update.
+            output.textures_delta.clear();
         }
     }
     println!("overlay-preview smoke: OK");

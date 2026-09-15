@@ -395,8 +395,10 @@ mod tests {
         };
         ctx.begin_pass(raw);
         let width = render_disconnect_view(view, ctx).response.rect.width();
-        let out = ctx.end_pass();
+        let mut out = ctx.end_pass();
         let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+        // Layout checks have no GPU texture store to update.
+        out.textures_delta.clear();
         width
     }
 

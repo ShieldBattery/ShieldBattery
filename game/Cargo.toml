@@ -29,8 +29,8 @@ bytes = "1.10"
 chrono = "0.4"
 directories = "6.0"
 egui = { workspace = true }
-egui_extras = { version = "0.35", features = ["file", "http", "image", "svg"] }
-egui_flex = "0.7"
+egui_extras = { version = "0.36", features = ["file", "http", "image", "svg"] }
+egui_flex = "0.8"
 fern = "0.7"
 futures = "0.3"
 flate2 = "1.1"
@@ -125,7 +125,7 @@ rev = "03a8b0db17c40913b845987e0fe6ed0cdd8e71eb"
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
 git = "https://github.com/neivv/aise.git"
-rev = "977f44aea5607e3544cb656c1e6e3bb4f04c4a1b"
+rev = "da4fed681dc09bda7a21c0051f60cdad98cc7226"
 features = ["scr-only"]
 
 # Netcode v2 client transport, pinned to an exact revision for reproducible releases.
@@ -134,7 +134,7 @@ features = ["scr-only"]
 # types so the game DLL shares the transport's dependency versions.
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "94b4383dc0538a16d0d59e4fc0888a54568773c6"
+rev = "3831e6376b2fa965f4c38a31f9b24825bd9d1347"
 
 [build-dependencies]
 anyhow = "1.0"
@@ -161,7 +161,7 @@ members = ["overlay-ui"]
 # declaration, so the two can never drift on version/features — they must tessellate identically for
 # the preview to match the game.
 [workspace.dependencies]
-egui = { version = "0.35", features = ["bytemuck"] }
+egui = { version = "0.36", features = ["bytemuck"] }
 
 # Host-renderable overlay presentation layer. The DLL uses its lib (view-model + egui render fns +
 # font/style setup); the crate's eframe preview bin is gated behind its `preview` feature so it never
