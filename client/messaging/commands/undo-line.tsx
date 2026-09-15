@@ -1,40 +1,11 @@
 import * as React from 'react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
 import { ThunkAction } from '../../dispatch-registry'
 import { RequestHandlingSpec } from '../../network/abortable-thunk'
 import { useAppDispatch } from '../../redux-hooks'
+import { LocalLineButton } from './local-button'
 import { LocalStrong } from './local-strong'
-
-/**
- * The Undo affordance itself, typeset as part of the sentence it ends rather than as a control of
- * its own: the browser's button chrome is stripped and the colour is inherited, so the `LocalStrong`
- * inside it takes whatever colour the surrounding line gives its strong parts.
- */
-const UndoButton = styled.button.attrs({ type: 'button' })`
-  background: none;
-  border: 0;
-  margin: 0;
-  padding: 0;
-  color: inherit;
-  text-align: inherit;
-  cursor: pointer;
-
-  &:hover,
-  &:focus-visible {
-    text-decoration: underline;
-  }
-
-  &:focus-visible {
-    outline: none;
-  }
-
-  &:disabled {
-    cursor: default;
-    opacity: 0.6;
-  }
-`
 
 export interface UndoLineProps {
   /** What the line says once the action has happened. */
@@ -64,7 +35,7 @@ export function UndoLine({ content, undoneContent, undo, onUndoError }: UndoLine
   return (
     <>
       {content}{' '}
-      <UndoButton
+      <LocalLineButton
         disabled={state === 'pending'}
         onClick={() => {
           setState('pending')
@@ -79,7 +50,7 @@ export function UndoLine({ content, undoneContent, undo, onUndoError }: UndoLine
           )
         }}>
         <LocalStrong>{t('common.actions.undo', 'Undo')}</LocalStrong>
-      </UndoButton>
+      </LocalLineButton>
     </>
   )
 }

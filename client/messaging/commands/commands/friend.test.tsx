@@ -308,16 +308,64 @@ describe('messaging/commands/commands/friend', () => {
 
     const card = emit.mock.calls[1][0]
     expect(card.kind).toBe('card')
-    expect((card.content as React.ReactElement<{ userIds: SbUserId[] }>).props.userIds).toEqual([
-      ALICE_ID,
-      BOB_ID,
-      CAROL_ID,
-    ])
-    // The rows carry the names in order; only the friend in a game says what they are doing.
-    const text = renderLine(card.content)
-    expect(text).toContain('Alice')
-    expect(text).toContain('In game')
-    expect(text).toContain('Carol')
+    const cardProps = (
+      card.content as React.ReactElement<{ onlineIds: SbUserId[]; offlineIds: SbUserId[] }>
+    ).props
+    expect(cardProps.onlineIds).toEqual([ALICE_ID, BOB_ID])
+    expect(cardProps.offlineIds).toEqual([CAROL_ID])
+
+    // The online rows carry the names in order and only the friend in a game says what they are
+    // doing; the offline friend is behind the toggle until it's clicked.
+    const { container } = render(<div>{card.content}</div>)
+    expect(container.textContent).toContain('Alice')
+    expect(container.textContent).toContain('bob')
+    expect(container.textContent).toContain('In game')
+    expect(container.textContent).toContain('Show 1 offline friend')
+    expect(container.textContent).not.toContain('Carol')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 offline friend' }))
+    expect(container.textContent).toContain('Carol')
+    expect(container.textContent).toContain('Hide offline friends')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide offline friends' }))
+    expect(container.textContent).not.toContain('Carol')
+  })
+
+  test('/f l with everyone offline is just the toggle', () => {
+    const { emit } = runInput(
+      '/f l',
+      makeState({
+        friends: [ALICE_ID, BOB_ID],
+        statuses: new Map([
+          [ALICE_ID, FriendActivityStatus.Offline],
+          [BOB_ID, FriendActivityStatus.Offline],
+        ]),
+      }),
+    )
+
+    asMockedFunction(getRelationshipsIfNeeded).mock.calls[0][0].onSuccess()
+
+    expect(renderLine(emit.mock.calls[0][0].content)).toBe('Friends (0 online, 2 offline):')
+    expect(renderLine(emit.mock.calls[1][0].content)).toBe('Show 2 offline friends')
+  })
+
+  test('/f l with everyone online has no toggle', () => {
+    const { emit } = runInput(
+      '/f l',
+      makeState({
+        friends: [ALICE_ID, BOB_ID],
+        statuses: new Map([
+          [ALICE_ID, FriendActivityStatus.Online],
+          [BOB_ID, FriendActivityStatus.Online],
+        ]),
+      }),
+    )
+
+    asMockedFunction(getRelationshipsIfNeeded).mock.calls[0][0].onSuccess()
+
+    const text = renderLine(emit.mock.calls[1][0].content)
+    expect(text).not.toContain('Show')
+    expect(text).not.toContain('Hide')
   })
 
   test('/f rejects an action it does not have', () => {

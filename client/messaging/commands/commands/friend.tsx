@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
+import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../../../common/assert-unreachable'
@@ -26,6 +27,7 @@ import {
   CommandInvocation,
   defineCommand,
 } from '../command-schema'
+import { LocalLineButton } from '../local-button'
 import { LocalStrong } from '../local-strong'
 import { notOnFriendsListLine, relationshipFailedLine, selfTargetLine } from '../relationship-lines'
 import { UndoLine } from '../undo-line'
@@ -290,17 +292,62 @@ function FriendListRow({ userId }: { userId: SbUserId }) {
   )
 }
 
+// Matches the height and line box of a `FriendRow` so the toggle doesn't change the block's line
+// spacing, and it's never faded the way an offline row is: it's an action, not a status.
+const ToggleRow = styled.div`
+  height: 20px;
+  line-height: 20px;
+  white-space: nowrap;
+`
+
+function offlineToggleLabel(shown: boolean, offlineCount: number, t: TFunction): string {
+  if (shown) {
+    return t('chat.commands.friends.hideOffline', 'Hide offline friends')
+  }
+
+  return t('chat.commands.friends.showOffline', {
+    defaultValue: 'Show {{count}} offline friends',
+    // eslint-disable-next-line camelcase -- i18next's plural-form key convention
+    defaultValue_one: 'Show {{count}} offline friend',
+    count: offlineCount,
+  })
+}
+
 /**
- * The friends a `/f list` answered with, one per row. Which friends are listed is fixed when the
- * answer is given, so a friendship made or ended afterwards doesn't rewrite a line that has already
- * been read; what each row says the friend is doing stays live.
+ * The friends a `/f list` answered with, split into who was online and who wasn't at that moment.
+ * That split is fixed when the answer is given, so a friendship made or ended afterwards, or a
+ * friend crossing between online and offline, doesn't move anyone between the two groups or rewrite
+ * a line that has already been read; what each row says the friend is doing stays live.
+ *
+ * The online rows always show. The offline rows start collapsed behind a toggle row and are
+ * inserted between the online rows and the toggle when it's clicked, so the toggle stays put at the
+ * bottom of the block in both states. The toggle only renders when there's an offline friend to show.
  */
-export function FriendListBlock({ userIds }: { userIds: ReadonlyArray<SbUserId> }) {
+export function FriendListBlock({
+  onlineIds,
+  offlineIds,
+}: {
+  onlineIds: ReadonlyArray<SbUserId>
+  offlineIds: ReadonlyArray<SbUserId>
+}) {
+  const { t } = useTranslation()
+  const [offlineShown, setOfflineShown] = useState(false)
+
   return (
     <FriendListRoot>
-      {userIds.map(userId => (
+      {onlineIds.map(userId => (
         <FriendListRow key={userId} userId={userId} />
       ))}
+      {offlineShown
+        ? offlineIds.map(userId => <FriendListRow key={userId} userId={userId} />)
+        : undefined}
+      {offlineIds.length > 0 ? (
+        <ToggleRow>
+          <LocalLineButton onClick={() => setOfflineShown(shown => !shown)}>
+            <LocalStrong>{offlineToggleLabel(offlineShown, offlineIds.length, t)}</LocalStrong>
+          </LocalLineButton>
+        </ToggleRow>
+      ) : undefined}
     </FriendListRoot>
   )
 }
@@ -329,14 +376,15 @@ function listFriends({ dispatch, t, emit }: FriendDeps): void {
             return
           }
 
-          const onlineCount = friends.filter(entry => entry.online).length
+          const onlineIds = friends.filter(entry => entry.online).map(entry => entry.id)
+          const offlineIds = friends.filter(entry => !entry.online).map(entry => entry.id)
           emit({
             kind: 'info',
-            content: friendsHeaderLine(onlineCount, friends.length - onlineCount, t),
+            content: friendsHeaderLine(onlineIds.length, offlineIds.length, t),
           })
           emit({
             kind: 'card',
-            content: <FriendListBlock userIds={friends.map(entry => entry.id)} />,
+            content: <FriendListBlock onlineIds={onlineIds} offlineIds={offlineIds} />,
           })
         }),
       onError: err =>
