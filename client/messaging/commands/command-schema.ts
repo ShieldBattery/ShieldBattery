@@ -14,6 +14,12 @@ export interface ArgSuggestion {
   /** What accepting the suggestion types into the input, e.g. a username or a channel name. */
   value: string
   /**
+   * Other spellings the argument accepts for this value, such as a subcommand option's short
+   * aliases. They are never shown; one typed in full counts as the value itself, so pressing Enter
+   * on it sends the command rather than rewriting it to the spelling the row shows.
+   */
+  aliases?: readonly string[]
+  /**
    * When the value names a user: whose avatar the row shows, faded along with the text while the
    * user is known to be offline. `online` is undefined when the client doesn't track that user's
    * presence.

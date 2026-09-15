@@ -13,7 +13,7 @@ export function useFriendActivityStatus(userId: SbUserId): FriendActivityStatus 
   return useAppSelector(s => s.relationships.friendActivityStatus.get(userId))
 }
 
-interface ActivityDescriptor {
+export interface ActivityDescriptor {
   icon: string
   color: string
   label: string
@@ -24,7 +24,7 @@ interface ActivityDescriptor {
  * render it in, and its label. Returns `undefined` for the states that shouldn't render anything
  * (online, offline, or not a friend at all).
  */
-function getActivityDescriptor(
+export function getActivityDescriptor(
   status: FriendActivityStatus | undefined,
   t: TFunction,
 ): ActivityDescriptor | undefined {

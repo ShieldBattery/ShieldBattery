@@ -28,7 +28,11 @@ const t = ((key: string, options?: string | { defaultValue?: string }) =>
 const selfUserId = makeSbUserId(1)
 const otherUserId = makeSbUserId(2)
 
-function channelContext(canKick: boolean, canBan: boolean): ChannelCommandContext {
+function channelContext(
+  canKick: boolean,
+  canBan: boolean,
+  canEditChannel = false,
+): ChannelCommandContext {
   return {
     surface: 'channel',
     channelId: makeSbChannelId(1),
@@ -39,6 +43,7 @@ function channelContext(canKick: boolean, canBan: boolean): ChannelCommandContex
     ],
     canKick,
     canBan,
+    canEditChannel,
   }
 }
 
@@ -59,11 +64,17 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
+      'f',
+      'block',
+      'unblock',
       'leave',
       'close',
       'kick',
       'ban',
+      'unban',
+      'topic',
       'me',
+      'cancel',
     ])
   })
 
@@ -78,10 +89,16 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
+      'f',
+      'block',
+      'unblock',
       'leave',
       'kick',
       'ban',
+      'unban',
+      'topic',
       'me',
+      'cancel',
     ])
     expect(getSurfaceCommands(ALL_COMMANDS, 'whisper').map(c => c.name)).toEqual([
       'help',
@@ -93,8 +110,12 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
+      'f',
+      'block',
+      'unblock',
       'close',
       'me',
+      'cancel',
     ])
     expect(getSurfaceCommands(ALL_COMMANDS, 'lobby').map(c => c.name)).toEqual([
       'help',
@@ -106,22 +127,36 @@ describe('messaging/commands/command-registry', () => {
       'whois',
       'who',
       'whoami',
+      'f',
+      'block',
+      'unblock',
       'leave',
       'me',
+      'cancel',
     ])
   })
 
   test('moderation is only runnable by those who can moderate', () => {
     const kick = findCommand('kick')!
     const ban = findCommand('ban')!
+    const unban = findCommand('unban')!
+    const topic = findCommand('topic')!
 
     expect(kick.getUnavailableReason?.(channelContext(true, true), t)).toBeUndefined()
     expect(ban.getUnavailableReason?.(channelContext(true, true), t)).toBeUndefined()
+    expect(unban.getUnavailableReason?.(channelContext(true, true), t)).toBeUndefined()
+    expect(topic.getUnavailableReason?.(channelContext(false, false, true), t)).toBeUndefined()
     expect(kick.getUnavailableReason?.(channelContext(false, false), t)).toBe(
       "You don't have permission to kick users from this channel.",
     )
     expect(ban.getUnavailableReason?.(channelContext(false, false), t)).toBe(
       "You don't have permission to ban users from this channel.",
+    )
+    expect(unban.getUnavailableReason?.(channelContext(true, false), t)).toBe(
+      "You don't have permission to unban users from this channel.",
+    )
+    expect(topic.getUnavailableReason?.(channelContext(true, true), t)).toBe(
+      'Only the channel owner and server moderators can change the topic.',
     )
   })
 
@@ -146,8 +181,17 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('whois')!)).toBe('/whois [user]')
     expect(getCommandUsage(findCommand('who')!)).toBe('/who <channel>')
     expect(getCommandUsage(findCommand('whoami')!)).toBe('/whoami')
+    expect(getCommandUsage(findCommand('f')!)).toBe('/f <add|remove|list>')
+    expect(getCommandUsage(findCommand('block')!)).toBe('/block <user>')
+    expect(getCommandUsage(findCommand('unblock')!)).toBe('/unblock <user>')
+    expect(getCommandUsage(findCommand('unban')!)).toBe('/unban <user>')
+    expect(getCommandUsage(findCommand('topic')!)).toBe('/topic <text>')
+    expect(getCommandUsage(findCommand('cancel')!)).toBe('/cancel')
     expect(formatAliases(findCommand('join')!)).toBe('/j, /channel')
     expect(formatAliases(findCommand('whois')!)).toBe('/where, /whereis')
+    expect(formatAliases(findCommand('f')!)).toBe('/friends')
+    expect(formatAliases(findCommand('block')!)).toBe('/ignore, /squelch')
+    expect(formatAliases(findCommand('unblock')!)).toBe('/unignore, /unsquelch')
     expect(formatAliases(findCommand('leave')!)).toBe('')
   })
 
@@ -227,6 +271,25 @@ describe('messaging/commands/command-registry', () => {
             description: 'Shows the name and user ID you are logged in as.',
           },
           {
+            name: 'f',
+            aliases: ['friends'],
+            args: [{ label: 'add|remove|list', optional: false }],
+            description:
+              'Manages your friends list: add, remove, or list them with their current activity.',
+          },
+          {
+            name: 'block',
+            aliases: ['ignore', 'squelch'],
+            args: [{ label: 'user', optional: false }],
+            description: 'Blocks a user: hides their messages here and in any game you launch.',
+          },
+          {
+            name: 'unblock',
+            aliases: ['unignore', 'unsquelch'],
+            args: [{ label: 'user', optional: false }],
+            description: 'Unblocks a user.',
+          },
+          {
             name: 'leave',
             aliases: [],
             args: [],
@@ -237,6 +300,12 @@ describe('messaging/commands/command-registry', () => {
             aliases: ['emote'],
             args: [{ label: 'action', optional: false }],
             description: 'Sends an action line, shown as "* YourName does something".',
+          },
+          {
+            name: 'cancel',
+            aliases: [],
+            args: [],
+            description: 'Cancels your current matchmaking search.',
           },
         ],
       },

@@ -33,6 +33,7 @@ function channelContext(canModerate = false): ChannelCommandContext {
     ],
     canKick: canModerate,
     canBan: canModerate,
+    canEditChannel: false,
   }
 }
 
@@ -160,10 +161,15 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       '/whois [user]',
       '/who <channel>',
       '/whoami',
+      '/f <add|remove|list>',
+      '/block <user>',
+      '/unblock <user>',
       '/leave',
       '/kick <user> [reason]',
       '/ban <user> [reason]',
+      '/unban <user>',
       '/me <action>',
+      '/cancel',
     ])
   })
 
@@ -274,6 +280,12 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
 
   test('a fully typed value is exact', () => {
     expect(rows(argMatch('/kick TEC27', true))[0]).toMatchObject({ text: 'tec27', exact: true })
+  })
+
+  test('a typed subcommand alias is exact, so Enter runs it rather than spelling it out', () => {
+    expect(rows(argMatch('/f l'))[0]).toMatchObject({ text: 'list', exact: true })
+    expect(rows(argMatch('/f LIST'))[0]).toMatchObject({ text: 'list', exact: true })
+    expect(rows(argMatch('/f li'))[0]).toMatchObject({ text: 'list', exact: false })
   })
 
   test('a command that cannot be run here has no arguments to complete', () => {
