@@ -128,8 +128,9 @@ function CommonMessageOrFallback({
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage: {
       // Several text message shapes share this type value, and only the ones that come from a
-      // surface with a `/me` command carry an action-line flag.
+      // surface with a `/me` command carry an action-line flag or a server-settled outcome.
       const emote = 'emote' in message && message.emote === true
+      const outcome = 'outcome' in message ? message.outcome : undefined
       // TODO(tec27): Would probably be nice to collect adjacent blocked messages into a single
       // item?
       return blockedUsers.has(message.from) ? (
@@ -141,6 +142,7 @@ function CommonMessageOrFallback({
           time={message.time}
           text={message.text}
           emote={emote}
+          outcome={outcome}
         />
       ) : (
         <TextMessage
@@ -151,6 +153,7 @@ function CommonMessageOrFallback({
           time={message.time}
           text={message.text}
           emote={emote}
+          outcome={outcome}
         />
       )
     }

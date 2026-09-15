@@ -48,11 +48,13 @@ import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { multipleRandomItems } from '../../../common/random'
+import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { urlPath } from '../../../common/urls'
 import { FriendActivityStatus } from '../../../common/users/relationships'
 import { RestrictionKind } from '../../../common/users/restrictions'
+import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
-import { toBasicChannelInfo } from '../chat/chat-models'
+import { FullChannelInfo, toBasicChannelInfo } from '../chat/chat-models'
 import { CodedError } from '../errors/coded-error'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLifecycleEvents } from '../games/game-lifecycle-events'
@@ -64,7 +66,9 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { outcomeField } from '../messaging/outcome-field'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { Clock, TimeoutId } from '../time/clock'
 import { IN_GAME_DISCONNECT_GRACE_MS } from '../users/activity-status-service'
@@ -967,8 +971,58 @@ export class LobbyService {
     text: string
     emote?: boolean
   }): Promise<void> {
+    const lobby = await this.ensureCanSendChat(client, lobbyId)
+
+    const filtered = filterChatMessage(text)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(filtered)
+
+    this.publishChat({
+      lobby,
+      userId: client.userId,
+      text: processedText,
+      userMentions,
+      channelMentions,
+      emote,
+    })
+  }
+
+  /**
+   * Settles an outcome (a roll, a coin flip, an 8-ball answer) for a client and announces it to
+   * their lobby's chat as an action line.
+   *
+   * The line's wording is the client's to compose from the outcome, so the message's text carries
+   * only the words the user typed themselves: the question put to the 8-ball, and nothing at all
+   * for a roll or a flip. Those words are never mention-processed, since an announcement the server
+   * wrote must not become a way to make it notify people.
+   */
+  async sendOutcome({
+    client,
+    lobbyId,
+    request,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    request: RolledOutcomeRequest
+  }): Promise<void> {
+    const lobby = await this.ensureCanSendChat(client, lobbyId)
+
+    this.publishChat({
+      lobby,
+      userId: client.userId,
+      text: request.kind === 'eightBall' ? filterChatMessage(request.question) : '',
+      userMentions: [],
+      channelMentions: [],
+      emote: true,
+      outcome: rollOutcome(request),
+    })
+  }
+
+  /**
+   * Throws unless the client is allowed to post to their lobby's chat right now, returning the
+   * lobby they are in.
+   */
+  private async ensureCanSendChat(client: ClientSocketsGroup, lobbyId?: SbLobbyId): Promise<Lobby> {
     const lobby = this.getLobbyForClient(client, lobbyId)
-    const time = Date.now()
 
     const isChatRestricted = await this.restrictionService.isRestricted(
       client.userId,
@@ -981,16 +1035,39 @@ export class LobbyService {
       )
     }
 
-    const filtered = filterChatMessage(text)
-    const [processedText, userMentions, channelMentions] = await processMessageContents(filtered)
+    return lobby
+  }
+
+  /**
+   * Hands a chat message to everyone in a lobby. Lobby chat is never stored, so this is all a
+   * message amounts to.
+   */
+  private publishChat({
+    lobby,
+    userId,
+    text,
+    userMentions,
+    channelMentions,
+    emote,
+    outcome,
+  }: {
+    lobby: Lobby
+    userId: SbUserId
+    text: string
+    userMentions: SbUser[]
+    channelMentions: FullChannelInfo[]
+    emote?: boolean
+    outcome?: RolledOutcome
+  }): void {
     this._publishTo(lobby, {
       type: 'chat',
       message: {
         lobbyName: lobby.name,
-        time,
-        from: client.userId,
-        text: processedText,
+        time: Date.now(),
+        from: userId,
+        text,
         ...emoteField(emote),
+        ...outcomeField(outcome),
       },
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),

@@ -1,12 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import i18next from 'i18next'
+import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { shortTimestamp } from '../i18n/date-formats'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { CommonMessageType, CommonWhisperEchoMessage } from './message-records'
 import { WhisperEchoMessage } from './whisper-echo-message'
+
+// The outcome line is built with `Trans`, which needs an i18next instance to render against.
+// `escapeValue` matches how the app initializes i18next: React escapes what it renders, so escaping
+// again would put entities on screen in place of the punctuation these lines are made of.
+beforeAll(async () => {
+  await i18next
+    .use(initReactI18next)
+    .init({ lng: 'en', resources: {}, interpolation: { escapeValue: false } })
+})
 
 // Only the navigation the line performs is stubbed; the rest of the module stays real, since the
 // component imports it for that one function.
@@ -104,6 +115,22 @@ describe('client/messaging/whisper-echo-message', () => {
       `[${shortTimestamp.format(SENT_TIME)}] ← * ${COUNTERPART_NAME} waves`,
     )
     expect(line.textContent).not.toContain(': ')
+  })
+
+  test('an echoed roll outcome reads as an action line with the settled value in a chip', () => {
+    const line = doRender(
+      makeEcho({
+        direction: 'incoming',
+        emote: true,
+        text: '',
+        outcome: { kind: 'roll', max: 100, value: 42 },
+      }),
+    )
+
+    expect(line.textContent).toBe(
+      `[${shortTimestamp.format(SENT_TIME)}] ← * ${COUNTERPART_NAME} rolls 42 (1-100)`,
+    )
+    expect(screen.getByTestId('outcome-chip').textContent).toBe('42')
   })
 
   test('clicking the line opens the conversation it came from', () => {

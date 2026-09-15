@@ -1,4 +1,5 @@
 import { TFunction } from 'i18next'
+import { CHAT_MESSAGE_MAXLENGTH } from '../../../common/constants'
 import { getErrorStack } from '../../../common/errors'
 import { ReduxAction } from '../../action-types'
 import { DispatchFunction } from '../../dispatch-registry'
@@ -7,6 +8,7 @@ import { CommandContext } from './command-context'
 import {
   argumentFailureLine,
   commandFailedLine,
+  transformTooLongLine,
   unknownCommandLine,
   wrongSurfaceLine,
 } from './command-lines'
@@ -29,7 +31,9 @@ export interface CommandRunDeps {
 }
 
 export type CommandRunResult =
-  /** The input is ordinary chat text (with any `//` escape already reduced) and should be sent. */
+  /**
+   * The text to send: either the input with the `//` escape reduced, or a command's rewrite of it.
+   */
   | { kind: 'text'; text: string }
   /** The input was a command: it ran, or it was rejected with a local error line. Nothing is sent. */
   | { kind: 'command' }
@@ -82,7 +86,7 @@ export function runChatCommandWith(
   }
 
   try {
-    command.run({
+    const transform = command.run({
       args: parsed.args,
       context,
       dispatch,
@@ -91,6 +95,14 @@ export function runChatCommandWith(
       commands,
       enterReplyMode,
     })
+
+    if (transform) {
+      if (transform.text.length > CHAT_MESSAGE_MAXLENGTH) {
+        emit({ kind: 'error', content: transformTooLongLine(transform.text.length, t) })
+        return { kind: 'command' }
+      }
+      return { kind: 'text', text: transform.text }
+    }
   } catch (err) {
     // A command that fell over has already cost the user their input, so it owes them an answer
     // rather than silence.

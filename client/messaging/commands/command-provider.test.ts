@@ -171,6 +171,13 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       '/unban <user>',
       '/me <action>',
       '/cancel',
+      '/shrug [text]',
+      '/tableflip',
+      '/unflip',
+      '/quote [unit]',
+      '/roll [max]',
+      '/flip',
+      '/8ball <question>',
     ])
   })
 

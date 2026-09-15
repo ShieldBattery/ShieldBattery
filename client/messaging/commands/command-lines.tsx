@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { CHAT_MESSAGE_MAXLENGTH } from '../../../common/constants'
 import { UserErrorCode } from '../../../common/users/user-network'
 import { TransInterpolation } from '../../i18n/i18next'
 import { isFetchError } from '../../network/fetch-errors'
@@ -96,6 +97,17 @@ export function argumentFailureLine(
     default:
       return assertUnreachable(failure)
   }
+}
+
+/** The line a command's text rewrite answers with when it would send a message over the limit. */
+export function transformTooLongLine(length: number, t: TFunction): React.ReactNode {
+  const maxLength = CHAT_MESSAGE_MAXLENGTH
+  return (
+    <Trans t={t} i18nKey='chat.commands.errors.transformTooLong'>
+      The message would be {{ length } as TransInterpolation} characters long, and messages can be
+      at most {{ maxLength } as TransInterpolation}.
+    </Trans>
+  )
 }
 
 /** The line a command that had to look a user up by name answers with when the lookup failed. */

@@ -8,7 +8,10 @@ import { joinCommand } from './commands/join'
 import { banCommand, kickCommand } from './commands/kick-ban'
 import { leaveCommand } from './commands/leave'
 import { meCommand } from './commands/me'
+import { quoteCommand } from './commands/quote'
 import { replyCommand } from './commands/reply'
+import { eightBallCommand, flipCommand, rollCommand } from './commands/rolls'
+import { shrugCommand, tableflipCommand, unflipCommand } from './commands/text-transforms'
 import { topicCommand } from './commands/topic'
 import { unbanCommand } from './commands/unban'
 import { profileCommand, rankCommand, statsCommand } from './commands/user-card'
@@ -40,6 +43,13 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   topicCommand,
   meCommand,
   cancelCommand,
+  shrugCommand,
+  tableflipCommand,
+  unflipCommand,
+  quoteCommand,
+  rollCommand,
+  flipCommand,
+  eightBallCommand,
 ]
 
 /**

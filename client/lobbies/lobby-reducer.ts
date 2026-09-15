@@ -477,6 +477,7 @@ const lobbyHandlers = {
       from: message.from,
       text: message.text,
       ...(message.emote ? { emote: true } : {}),
+      ...(message.outcome ? { outcome: message.outcome } : {}),
     })
   },
 

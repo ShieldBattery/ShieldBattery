@@ -126,6 +126,7 @@ function toTextMessages(messages: WhisperMessage[]): CommonTextMessage[] {
     from: msg.from,
     text: msg.text,
     ...(msg.emote ? { emote: true } : {}),
+    ...(msg.outcome ? { outcome: msg.outcome } : {}),
   }))
 }
 
@@ -484,7 +485,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state,
     {
       payload: {
-        message: { id, time, from, text, emote },
+        message: { id, time, from, text, emote, outcome },
       },
       meta: { target, isSelfMessage, windowFocused },
     },
@@ -496,6 +497,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       from,
       text,
       ...(emote ? { emote: true } : {}),
+      ...(outcome ? { outcome } : {}),
     }
 
     // Reorder the sessions to put the one that got the message on top of the list

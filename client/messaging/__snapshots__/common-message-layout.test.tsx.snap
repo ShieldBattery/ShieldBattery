@@ -32,7 +32,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -49,7 +49,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       This is test message
     </span>
@@ -89,7 +89,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -106,7 +106,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       nice game 
       <div
@@ -156,12 +156,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message sent as an
       </span>
     </div>
     <span
-      class="sc-dxdKQw cuWvaS"
+      class="sc-gVZcgN bbXxSi"
     >
       * 
     </span>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM sc-gVZcgN heJhVC ijAExg"
+      class="sc-edvVIM BgKKj sc-hFQsEd sc-hKlkwe Mofma TwjoD"
       tabindex="0"
     >
       <span
@@ -173,7 +173,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message sent as an
     </span>
      
     <span
-      class="sc-hFQsEd sc-hKlkwe hNjprR ipLGyN"
+      class="sc-iucATu sc-ljgBMv cLnsof jooSZT"
     >
       waves at everyone
     </span>
@@ -213,7 +213,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -230,7 +230,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       here is a link 
       <a
@@ -277,7 +277,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -294,7 +294,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       <a
         href="http://www.example.com"
@@ -306,7 +306,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
        go here
        
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -354,7 +354,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -371,12 +371,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       hey
        
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -398,7 +398,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
        go here
        
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -446,7 +446,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -463,12 +463,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       hey
        
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -516,7 +516,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -533,10 +533,10 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -592,7 +592,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -609,7 +609,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       <a
         href="http://www.example.com"
@@ -621,7 +621,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
        go here
        
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -677,7 +677,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -694,12 +694,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       Hey
        
       <span
-        class="sc-edvVIM BgKKj sc-iucATu fnZuOR"
+        class="sc-edvVIM BgKKj sc-DCiKP fQdDCH"
         tabindex="0"
       >
         @
@@ -747,7 +747,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -764,7 +764,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       <div
         class="sc-ikrMhg iRLQJB sc-hZoehQ gpXEYv"
@@ -834,7 +834,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
       </span>
     </div>
     <span
-      class="sc-edvVIM BgKKj sc-egVbnM heJhVC"
+      class="sc-edvVIM BgKKj sc-hFQsEd Mofma"
       tabindex="0"
     >
       <span
@@ -851,7 +851,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
       : 
     </i>
     <span
-      class="sc-hFQsEd hNjprR"
+      class="sc-iucATu cLnsof"
     >
       <div
         class="sc-ikrMhg iRLQJB sc-hZoehQ gpXEYv"

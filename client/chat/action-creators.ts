@@ -23,6 +23,7 @@ import {
   UpdateChannelUserPreferencesRequest,
 } from '../../common/chat'
 import { getErrorStack } from '../../common/errors'
+import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -400,6 +401,21 @@ export function sendMessage(
         message,
         emote: options.emote ? true : undefined,
       }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/** Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer) and announce it. */
+export function sendOutcome(
+  channelId: SbChannelId,
+  request: RolledOutcomeRequest,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/outcomes`, {
+      method: 'POST',
+      body: encodeBodyAsParams<RolledOutcomeRequest>(request),
       signal: spec.signal,
     })
   })

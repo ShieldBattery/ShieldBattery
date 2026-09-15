@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { makeSbChannelId } from '../../common/chat'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { RolledOutcome } from '../../common/rolled-outcomes'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
 import { countEmojisIn, matchUnicodeEmojis, splitEmojiRun } from '../../common/text/unicode-emojis'
@@ -31,6 +32,7 @@ import {
   TimestampMessageLayout,
 } from './message-layout'
 import { MessageLinkChip, messageLinkFromHref } from './message-link-chip'
+import { RolledOutcomeLine } from './rolled-outcome-line'
 
 const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -250,6 +252,12 @@ export interface TextMessageProps {
    * than `Name: text`.
    */
   emote?: boolean
+  /**
+   * Set for an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer). Implies `emote`-style rendering; the line's wording is composed from
+   * this instead of parsed out of `text`.
+   */
+  outcome?: RolledOutcome
   testId?: string
 }
 
@@ -260,6 +268,7 @@ export function TextMessage({
   time,
   text,
   emote,
+  outcome,
   testId,
 }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
@@ -272,19 +281,23 @@ export function TextMessage({
   const { onContextMenu, contextMenuPopoverProps, selectedText, linkHref } = useContextMenu()
   const textRef = useRef<HTMLSpanElement>(null)
 
-  const {
-    nodes: parsedText,
-    mentionsSelf: isHighlighted,
-    inviteLobbyId,
-  } = parseMessageText(text, {
-    selfUserId,
-    filterClick,
-    UserMenu,
-    interactive: !disallowMentionInteraction,
-  })
+  // An outcome line's wording is composed from the outcome, not parsed out of `text` (which holds
+  // only the words the user themselves typed), so there is no mention or lobby link to find in it.
+  const parsed = outcome
+    ? undefined
+    : parseMessageText(text, {
+        selfUserId,
+        filterClick,
+        UserMenu,
+        interactive: !disallowMentionInteraction,
+      })
+  const isHighlighted = parsed?.mentionsSelf ?? false
+  const inviteLobbyId = parsed?.inviteLobbyId
 
-  const UsernameComponent = emote ? EmoteUsername : Username
-  const TextComponent = emote ? EmoteText : Text
+  // An outcome is always announced as an action line, whatever flag the message carries.
+  const isActionLine = emote === true || outcome !== undefined
+  const UsernameComponent = isActionLine ? EmoteUsername : Username
+  const TextComponent = isActionLine ? EmoteText : Text
 
   return (
     <>
@@ -295,15 +308,17 @@ export function TextMessage({
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
         testId={testId}>
-        {emote ? <EmoteGlyph>{'* '}</EmoteGlyph> : undefined}
+        {isActionLine ? <EmoteGlyph>{'* '}</EmoteGlyph> : undefined}
         <UsernameComponent
           userId={userId}
           filterClick={filterClick}
           UserMenu={UserMenu}
           interactive={!disallowMentionInteraction}
         />
-        {emote ? ' ' : <Separator>{': '}</Separator>}
-        <TextComponent ref={textRef}>{parsedText}</TextComponent>
+        {isActionLine ? ' ' : <Separator>{': '}</Separator>}
+        <TextComponent ref={textRef}>
+          {outcome ? <RolledOutcomeLine outcome={outcome} text={text} /> : parsed?.nodes}
+        </TextComponent>
         {inviteLobbyId !== undefined &&
         !disallowMentionInteraction &&
         mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
@@ -358,6 +373,7 @@ export const BlockedMessage = React.memo<{
   time: number
   text: string
   emote?: boolean
+  outcome?: RolledOutcome
 }>(props => {
   const { t } = useTranslation()
   const [show, setShow] = useState(false)
@@ -380,6 +396,7 @@ export const BlockedMessage = React.memo<{
             time={props.time}
             text={props.text}
             emote={props.emote}
+            outcome={props.outcome}
           />
         </VisibleBlockedMessage>
       ) : undefined}

@@ -4,6 +4,7 @@ import { GameType } from '../games/game-type'
 import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
+import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
@@ -141,6 +142,12 @@ export interface SendLobbyChatRequest extends LobbyClientRequest {
    */
   emote?: boolean
 }
+
+/**
+ * The body of a request to have the server settle an outcome (a roll, a coin flip, an 8-ball
+ * answer) and announce it to the lobby's chat as an action line.
+ */
+export type SendLobbyOutcomeRequest = LobbyClientRequest & RolledOutcomeRequest
 
 /**
  * The body of a request to mark the acting client's user as ready for the lobby's next game (or to
@@ -521,6 +528,11 @@ export interface LobbyChatMessage {
    * `* Name action` instead of `Name: text`. Never carried as `false`.
    */
   emote?: boolean
+  /**
+   * Present on an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer). Only the server puts it there; the chat endpoint refuses it.
+   */
+  outcome?: RolledOutcome
 }
 
 export interface LobbyChatEvent {

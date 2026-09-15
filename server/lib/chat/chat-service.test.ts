@@ -21,12 +21,14 @@ import {
 } from '../../../common/chat'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
+import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import transact from '../db/transaction'
 import { ImageService } from '../images/image-service'
+import { rollOutcome } from '../messaging/roll-outcome'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
@@ -100,6 +102,7 @@ vi.mock('../db/transaction', () => ({
   }),
 }))
 
+vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
 vi.mock('../models/permissions')
 vi.mock('../users/user-identifiers')
 
@@ -197,6 +200,7 @@ function toTextMessageJson(dbMessage: FakeDbTextChannelMessage) {
     time: Number(dbMessage.sent),
     text: dbMessage.data.text,
     ...(dbMessage.data.emote ? { emote: true } : {}),
+    ...(dbMessage.data.outcome ? { outcome: dbMessage.data.outcome } : {}),
   }
 }
 
@@ -398,6 +402,7 @@ describe('chat/chat-service', () => {
     userMentions: SbUser[],
     channelMentions: FullChannelInfo[],
     emote?: boolean,
+    outcome?: RolledOutcome,
   ) {
     textMessage = {
       msgId: 'MESSAGE_ID',
@@ -410,6 +415,7 @@ describe('chat/chat-service', () => {
         mentions: userMentions.length > 0 ? userMentions.map(m => m.id) : undefined,
         channelMentions: channelMentions.length > 0 ? channelMentions.map(c => c.id) : undefined,
         ...(emote ? { emote: true } : {}),
+        ...(outcome ? { outcome } : {}),
       },
     }
     // NOTE(2Pac): The `joinUserToChannel` call already mocks the return value of this function,
@@ -1901,6 +1907,125 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.sendChatMessage(testChannel.id, user1.id, 'Hello World!'),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is chat restricted]`)
+    })
+  })
+
+  describe('sendOutcome', () => {
+    const ROLL: RolledOutcome = { kind: 'roll', max: 6, value: 4 }
+    const rollOutcomeMock = asMockedFunction(rollOutcome)
+
+    /** The message event published to the channel, if there was one. */
+    function publishedMessageEvent(): any {
+      return asMockedFunction(client2.publish).mock.calls.find(
+        ([path, data]) => path === getChannelPath(testChannel.id) && data?.action === 'message2',
+      )?.[1]
+    }
+
+    test('should throw if not in channel', async () => {
+      rollOutcomeMock.mockReturnValue(ROLL)
+
+      await expect(
+        chatService.sendOutcome(testChannel.id, user1.id, { kind: 'roll' }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Must be in a channel to send a message to it]`,
+      )
+      expect(addMessageToChannelMock).not.toHaveBeenCalled()
+    })
+
+    describe('when in channel', () => {
+      beforeEach(async () => {
+        await joinUserToChannel(
+          user1,
+          testChannel,
+          user1TestChannelEntry,
+          joinUser1TestChannelMessage,
+        )
+        await joinUserToChannel(
+          user2,
+          testChannel,
+          user2TestChannelEntry,
+          joinUser2TestChannelMessage,
+        )
+        rollOutcomeMock.mockReturnValue(ROLL)
+      })
+
+      test('stores and publishes an action line carrying the settled outcome', async () => {
+        mockTextMessage(user1, testChannel, '', [], [], true, ROLL)
+
+        await chatService.sendOutcome(testChannel.id, user1.id, { kind: 'roll', max: 6 })
+
+        expect(rollOutcomeMock).toHaveBeenCalledWith({ kind: 'roll', max: 6 })
+        expect(addMessageToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, {
+          type: ServerChatMessageType.TextMessage,
+          text: '',
+          mentions: undefined,
+          channelMentions: undefined,
+          emote: true,
+          outcome: ROLL,
+        })
+        expect(publishedMessageEvent()).toEqual({
+          action: 'message2',
+          message: {
+            id: textMessage.msgId,
+            type: ServerChatMessageType.TextMessage,
+            channelId: testChannel.id,
+            from: user1.id,
+            time: Number(textMessage.sent),
+            text: '',
+            emote: true,
+            outcome: ROLL,
+          },
+          user: user1,
+          mentions: [],
+          channelMentions: [],
+        })
+      })
+
+      test('leaves the text empty for a coin flip', async () => {
+        const flip: RolledOutcome = { kind: 'flip', result: 'heads' }
+        rollOutcomeMock.mockReturnValue(flip)
+        mockTextMessage(user1, testChannel, '', [], [], true, flip)
+
+        await chatService.sendOutcome(testChannel.id, user1.id, { kind: 'flip' })
+
+        expect(addMessageToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, {
+          type: ServerChatMessageType.TextMessage,
+          text: '',
+          mentions: undefined,
+          channelMentions: undefined,
+          emote: true,
+          outcome: flip,
+        })
+        expect(publishedMessageEvent().message).toMatchObject({ text: '', outcome: flip })
+      })
+
+      test("carries the 8-ball's question as the text, unprocessed for mentions", async () => {
+        const answer: RolledOutcome = { kind: 'eightBall', answer: 'itIsCertain' }
+        const question = `should @${user2.name} pick the map?`
+        rollOutcomeMock.mockReturnValue(answer)
+        mockTextMessage(user1, testChannel, question, [], [], true, answer)
+
+        await chatService.sendOutcome(testChannel.id, user1.id, { kind: 'eightBall', question })
+
+        expect(addMessageToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, {
+          type: ServerChatMessageType.TextMessage,
+          text: question,
+          mentions: undefined,
+          channelMentions: undefined,
+          emote: true,
+          outcome: answer,
+        })
+        expect(publishedMessageEvent()).toMatchObject({ mentions: [], channelMentions: [] })
+      })
+
+      test('should throw if user is chat restricted', async () => {
+        asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
+
+        await expect(
+          chatService.sendOutcome(testChannel.id, user1.id, { kind: 'roll' }),
+        ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is chat restricted]`)
+        expect(publishedMessageEvent()).toBeUndefined()
+      })
     })
   })
 

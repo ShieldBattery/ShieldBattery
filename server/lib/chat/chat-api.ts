@@ -38,6 +38,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { rolledOutcomeRequestBody } from '../messaging/rolled-outcome-request-schema'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -352,6 +353,17 @@ export class ChatApi {
     })
 
     await this.chatService.sendChatMessage(channelId, ctx.session!.user.id, message, { emote })
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/outcomes')
+  @httpBefore(throttleMiddleware(sendThrottle, throttleByUser))
+  async sendOutcome(ctx: RouterContext): Promise<void> {
+    const channelId = getValidatedChannelId(ctx)
+    const { body } = validateRequest(ctx, { body: rolledOutcomeRequestBody })
+
+    await this.chatService.sendOutcome(channelId, ctx.session!.user.id, body)
 
     ctx.status = 204
   }

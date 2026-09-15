@@ -41,6 +41,7 @@ import {
 import { subtract } from '../../../common/data-structures/sets'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
+import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -54,7 +55,9 @@ import { ImageService } from '../images/image-service'
 import logger from '../logging/logger'
 import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { outcomeField } from '../messaging/outcome-field'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { rollOutcome } from '../messaging/roll-outcome'
 import NotificationService from '../notifications/notification-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
@@ -797,6 +800,53 @@ export default class ChatService {
     message: string,
     options: { emote?: boolean } = {},
   ): Promise<void> {
+    await this.ensureCanSendToChannel(channelId, userId)
+
+    const text = filterChatMessage(message)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
+
+    await this.storeAndPublishTextMessage({
+      channelId,
+      userId,
+      text: processedText,
+      userMentions,
+      channelMentions,
+      emote: options.emote,
+    })
+  }
+
+  /**
+   * Settles an outcome (a roll, a coin flip, an 8-ball answer) for a user and announces it to a
+   * channel as an action line.
+   *
+   * The line's wording is the client's to compose from the outcome, so the message's text carries
+   * only the words the user typed themselves: the question put to the 8-ball, and nothing at all
+   * for a roll or a flip. Those words are never mention-processed, since an announcement the server
+   * wrote must not become a way to make it notify people.
+   */
+  async sendOutcome(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    request: RolledOutcomeRequest,
+  ): Promise<void> {
+    await this.ensureCanSendToChannel(channelId, userId)
+
+    await this.storeAndPublishTextMessage({
+      channelId,
+      userId,
+      text: request.kind === 'eightBall' ? filterChatMessage(request.question) : '',
+      userMentions: [],
+      channelMentions: [],
+      emote: true,
+      outcome: rollOutcome(request),
+    })
+  }
+
+  /**
+   * Throws unless the user is allowed to post to a channel right now: they have to be in it, and
+   * not be restricted from chatting.
+   */
+  private async ensureCanSendToChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     if (
       !this.state.users.has(userSockets.userId) ||
@@ -815,17 +865,35 @@ export default class ChatService {
     if (isChatRestricted) {
       throw new ChatServiceError(ChatServiceErrorCode.UserChatRestricted, 'User is chat restricted')
     }
+  }
 
-    const text = filterChatMessage(message)
-    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
+  /** Stores a text message in a channel and hands it to everyone subscribed to that channel. */
+  private async storeAndPublishTextMessage({
+    channelId,
+    userId,
+    text,
+    userMentions,
+    channelMentions,
+    emote,
+    outcome,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    text: string
+    userMentions: SbUser[]
+    channelMentions: FullChannelInfo[]
+    emote?: boolean
+    outcome?: RolledOutcome
+  }): Promise<void> {
     const mentionedUserIds = userMentions.map(u => u.id)
     const mentionedChannelIds = channelMentions.map(c => c.id)
-    const result = await addMessageToChannel(userSockets.userId, channelId, {
+    const result = await addMessageToChannel(userId, channelId, {
       type: ServerChatMessageType.TextMessage,
-      text: processedText,
+      text,
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
-      ...emoteField(options.emote),
+      ...emoteField(emote),
+      ...outcomeField(outcome),
     })
     // The sender just posted a message, so they're guaranteed to exist
     const user = (await findUserById(result.userId))!
@@ -840,6 +908,7 @@ export default class ChatService {
         time: Number(result.sent),
         text: result.data.text,
         ...emoteField(result.data.emote),
+        ...outcomeField(result.data.outcome),
       },
       user,
       mentions: userMentions,
@@ -1059,6 +1128,7 @@ export default class ChatService {
             time: Number(msg.sent),
             text: msg.data.text,
             ...emoteField(msg.data.emote),
+            ...outcomeField(msg.data.outcome),
           })
           userIds.add(msg.userId)
           for (const mentionId of msg.data.mentions ?? []) {

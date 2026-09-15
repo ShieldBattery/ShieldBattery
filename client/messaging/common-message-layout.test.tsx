@@ -1,11 +1,23 @@
 import { render, screen } from '@testing-library/react'
+import i18next from 'i18next'
+import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { encodePrettyId } from '../../common/pretty-id'
+import { RolledOutcome } from '../../common/rolled-outcomes'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
 import { TextMessage } from './common-message-layout'
+
+// The outcome line is built with `Trans`, which needs an i18next instance to render against.
+// `escapeValue` matches how the app initializes i18next: React escapes what it renders, so escaping
+// again would put entities on screen in place of the punctuation these lines are made of.
+beforeAll(async () => {
+  await i18next
+    .use(initReactI18next)
+    .init({ lng: 'en', resources: {}, interpolation: { escapeValue: false } })
+})
 
 vi.mock('../lobbies/lobby-invite-card', async importOriginal => {
   const actual = await importOriginal<typeof import('../lobbies/lobby-invite-card')>()
@@ -35,7 +47,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
   const store = createStore()
   const doRender = (
     text: string,
-    { time = 0, emote }: { time?: number; emote?: boolean } = {},
+    { time = 0, emote, outcome }: { time?: number; emote?: boolean; outcome?: RolledOutcome } = {},
   ): HTMLElement => {
     render(
       <ReduxProvider store={store}>
@@ -47,6 +59,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             time={time}
             text={text}
             emote={emote}
+            outcome={outcome}
           />
         </div>
       </ReduxProvider>,
@@ -65,6 +78,45 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     expect(container.textContent).toContain('* ')
     expect(container.textContent).not.toContain(': ')
     expect(container).toMatchSnapshot()
+  })
+
+  test('an emote message with no outcome renders no outcome chip', () => {
+    // Text that reads like a roll but was typed by hand (`/me rolls 100`) must never pick up the
+    // chip that a server-settled result gets: only `outcome` being set does that.
+    const container = doRender('rolls 100', { emote: true })
+
+    expect(screen.queryByTestId('outcome-chip')).toBeNull()
+    expect(container.textContent).toContain('* ')
+  })
+
+  test('a roll outcome reads as an action line with the settled value in a chip', () => {
+    const container = doRender('', { emote: true, outcome: { kind: 'roll', max: 100, value: 42 } })
+
+    expect(container.textContent).toContain('* ')
+    expect(container.textContent).toContain('rolls')
+    expect(container.textContent).toContain('(1-100)')
+    const chip = screen.getByTestId('outcome-chip')
+    expect(chip.textContent).toBe('42')
+  })
+
+  test('a flip outcome reads the settled side in a chip', () => {
+    const container = doRender('', { emote: true, outcome: { kind: 'flip', result: 'heads' } })
+
+    expect(container.textContent).toContain('flips a coin')
+    const chip = screen.getByTestId('outcome-chip')
+    expect(chip.textContent).toBe('heads')
+  })
+
+  test('an eight-ball outcome reads the question and the settled answer in a chip', () => {
+    const container = doRender('will it merge?', {
+      emote: true,
+      outcome: { kind: 'eightBall', answer: 'yesDefinitely' },
+    })
+
+    expect(container.textContent).toContain('asks the 8-ball')
+    expect(container.textContent).toContain('will it merge?')
+    const chip = screen.getByTestId('outcome-chip')
+    expect(chip.textContent).toBe('Yes, definitely')
   })
 
   test('message with a link', () => {

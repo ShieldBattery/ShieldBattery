@@ -1,6 +1,7 @@
 import { TFunction } from 'i18next'
 import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo, SbChannelId } from './chat'
+import { RolledOutcome } from './rolled-outcomes'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
 
@@ -30,6 +31,11 @@ export interface WhisperTextMessage extends BaseWhisperMessage {
    * `* Name action` instead of `Name: text`. Never carried as `false`.
    */
   emote?: boolean
+  /**
+   * Present on an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer). Only the server puts it there; the message endpoints refuse it.
+   */
+  outcome?: RolledOutcome
 }
 
 export type WhisperMessage = WhisperTextMessage
