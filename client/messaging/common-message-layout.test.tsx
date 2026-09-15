@@ -119,6 +119,25 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     expect(chip.textContent).toBe('Yes, definitely')
   })
 
+  // The question is user text: nothing typed there may become an element, and i18next's own
+  // `{{placeholder}}` and `$t()` syntax must come out as the characters the user typed.
+  test('markup and placeholders typed into an eight-ball question stay literal text', () => {
+    const question =
+      '<strong>will I win</strong>? <br> <p>x</p> <i>y</i> 1<2 {{answer}} $t(chat.outcomes.flip.heads)'
+    const container = doRender(question, {
+      emote: true,
+      outcome: { kind: 'eightBall', answer: 'yes' },
+    })
+
+    expect(container.querySelector('strong, p, br')).toBeNull()
+    expect(Array.from(container.querySelectorAll('i')).some(el => el.textContent === 'y')).toBe(
+      false,
+    )
+    expect(container.textContent).toContain(question)
+    const chip = screen.getByTestId('outcome-chip')
+    expect(chip.textContent).toBe('Yes')
+  })
+
   test('message with a link', () => {
     expect(doRender('here is a link http://www.example.com')).toMatchSnapshot()
   })

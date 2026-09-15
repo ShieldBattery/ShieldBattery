@@ -100,8 +100,10 @@ export function RolledOutcomeLine({ outcome, text }: RolledOutcomeLineProps) {
     }
     case 'eightBall': {
       // `text` is interpolated as a plain string rather than run through the message parser that
-      // handles mentions, links and emoji, so nothing the user typed as the question can turn into
-      // markup inside this sentence.
+      // handles mentions, links and emoji. It is passed as an interpolation child rather than via
+      // `values`, which makes `Trans` parse the sentence's own `<4>` markup first and only then
+      // splice the question into a text node, so nothing the user typed can become an element
+      // or be resolved as an i18next placeholder.
       const answer = EIGHT_BALL_ANSWER_TEXT[outcome.answer](t)
       return (
         <Trans t={t} i18nKey='chat.outcomes.eightBall.line'>
