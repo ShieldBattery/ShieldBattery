@@ -191,6 +191,7 @@ interface TimestampMessageLayoutProps {
   highlighted?: boolean
   className?: string
   children: React.ReactNode
+  onClick?: (event: React.MouseEvent) => void
   onContextMenu?: (event: React.MouseEvent) => void
   testId?: string
 }
@@ -205,6 +206,7 @@ export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
       $linked={props.msgId !== undefined && props.msgId === linkedMessageId}
       className={props.className}
       role='document'
+      onClick={props.onClick}
       onContextMenu={props.onContextMenu}
       data-message-id={props.msgId}
       data-testid={props.testId}>

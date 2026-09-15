@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest'
 import {
   BasicChannelInfo,
   ChannelTextMessage,
-  ChatMessage,
   ChatMessageEvent,
   ClientChatMessageType,
   DEFAULT_CHANNEL_PREFERENCES,
@@ -19,8 +18,15 @@ import {
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
+import { MessagingActions } from '../messaging/actions'
+import {
+  CommonMessageType,
+  CommonWhisperEchoMessage,
+  LocalMessage,
+} from '../messaging/message-records'
 import { ChatActions } from './actions'
 import chatReducerImport, {
+  ChannelMessage,
   ChatState,
   channelHasUnreadMention,
   channelNeedsAttention,
@@ -33,7 +39,7 @@ import chatReducerImport, {
 // can be written inline without tripping excess property checks.
 const chatReducer = chatReducerImport as unknown as (
   state: Immutable<ChatState>,
-  action: ChatActions,
+  action: ChatActions | MessagingActions,
 ) => Immutable<ChatState>
 
 const CHANNEL_ID: SbChannelId = makeSbChannelId(1)
@@ -70,10 +76,29 @@ function selfJoinMessage(time: number): SelfJoinChannelMessage {
   }
 }
 
+/** A message this client puts in the channel itself, which the server has no record of there. */
+function echoMessage(id: string, time: number): CommonWhisperEchoMessage {
+  return {
+    id,
+    type: CommonMessageType.WhisperEcho,
+    time,
+    direction: 'incoming',
+    counterpartId: USER_ID,
+    text: 'hello from elsewhere',
+  }
+}
+
+function appendLocalMessageAction(message: LocalMessage): MessagingActions {
+  return {
+    type: '@messaging/appendLocalMessage',
+    payload: { target: { surface: 'channel', channelId: CHANNEL_ID }, message },
+  }
+}
+
 function makeState(
   overrides: {
-    messages?: ChatMessage[]
-    carriedClientMessages?: ChatMessage[]
+    messages?: ChannelMessage[]
+    carriedClientMessages?: ChannelMessage[]
     activated?: boolean
     atBottom?: boolean
     unread?: boolean
@@ -1847,6 +1872,95 @@ describe('client/chat/chat-reducer', () => {
       expect(carried.length).toBe(50)
       expect(carried.map(m => m.id)).not.toContain(existingCarried[0].id)
       expect(carried.map(m => m.id)).toContain(newBanner.id)
+    })
+  })
+
+  describe('@messaging/appendLocalMessage', () => {
+    test('appends to an attached channel without touching unread state', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        lastReadTime: 100,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(state, appendLocalMessageAction(echoMessage('echo', 200)))
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'echo'])
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(100)
+    })
+
+    test('a detached channel carries the message instead of appending it', () => {
+      const state = makeState({ hasNewer: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(state, appendLocalMessageAction(echoMessage('echo', 200)))
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(windowOf(result).carriedClientMessages.map(m => m.id)).toEqual(['echo'])
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a message carried while detached comes back once the window reattaches', () => {
+      let result = chatReducer(
+        makeState({ hasNewer: true, messages: [textMessage(100)] }),
+        appendLocalMessageAction(echoMessage('echo', 200)),
+      )
+
+      result = chatReducer(
+        result,
+        loadNewerMessagesAction(historyResponse([textMessage(300)], { hasMoreAfter: false }), {
+          afterTime: 100,
+          knownNewestTime: 100,
+        }),
+      )
+
+      expect(windowOf(result).hasNewer).toBe(false)
+      expect(messageIdsOf(result)).toEqual(['text-100', 'echo', 'text-300'])
+      expect(windowOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('a message for a channel this client has no state for is dropped', () => {
+      const state = makeState({ messages: [textMessage(100)] })
+
+      const result = chatReducer(state, {
+        type: '@messaging/appendLocalMessage',
+        payload: {
+          target: { surface: 'channel', channelId: makeSbChannelId(99) },
+          message: echoMessage('echo', 200),
+        },
+      })
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(windowOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('a message for another kind of surface is left to that surface', () => {
+      const state = makeState({ messages: [textMessage(100)] })
+
+      const result = chatReducer(state, {
+        type: '@messaging/appendLocalMessage',
+        payload: { target: { surface: 'lobby' }, message: echoMessage('echo', 200) },
+      })
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(windowOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('the inactive-channel trim cuts it like any other message', () => {
+      const messages = Array.from({ length: 150 }, (_, i) => textMessage(i + 1))
+      let result = chatReducer(
+        makeState({ activated: true, messages }),
+        appendLocalMessageAction(echoMessage('echo', 200)),
+      )
+      expect(messageIdsOf(result)).toHaveLength(151)
+
+      result = chatReducer(result, deactivateChannelAction())
+
+      expect(messageIdsOf(result)).toHaveLength(150)
+      expect(messageIdsOf(result)).toContain('echo')
+      expect(messageIdsOf(result)).not.toContain('text-1')
+      expect(windowOf(result).carriedClientMessages).toEqual([])
     })
   })
 })

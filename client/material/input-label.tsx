@@ -5,13 +5,22 @@ export const Label = styled.label<{
   $disabled?: boolean
   $hasValue?: boolean
   $leadingIconsLength?: number
+  $leadingContentWidth?: number
 }>`
   position: absolute;
   left: ${props => {
-    if (!props.$leadingIconsLength) return '12px'
+    let leftOffset = 12
 
-    const iconWidth = props.$dense ? 32 : 48
-    const leftOffset = props.$leadingIconsLength * iconWidth + (props.$leadingIconsLength + 1) * 4
+    if (props.$leadingIconsLength) {
+      const iconWidth = props.$dense ? 32 : 48
+      leftOffset = props.$leadingIconsLength * iconWidth + (props.$leadingIconsLength + 1) * 4
+    }
+
+    if (props.$leadingContentWidth) {
+      // The label only shows while the field is empty, so it must clear the leading content
+      // instead of sitting underneath it.
+      leftOffset += props.$leadingContentWidth + 8
+    }
 
     return `${leftOffset}px`
   }};

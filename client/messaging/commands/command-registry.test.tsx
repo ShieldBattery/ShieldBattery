@@ -58,6 +58,7 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'reply',
       'profile',
       'stats',
       'rank',
@@ -83,6 +84,7 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'reply',
       'profile',
       'stats',
       'rank',
@@ -104,6 +106,7 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'reply',
       'profile',
       'stats',
       'rank',
@@ -121,6 +124,7 @@ describe('messaging/commands/command-registry', () => {
       'help',
       'join',
       'whisper',
+      'reply',
       'profile',
       'stats',
       'rank',
@@ -174,6 +178,7 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('help')!)).toBe('/help [command]')
     expect(getCommandUsage(findCommand('join')!)).toBe('/join <channel>')
     expect(getCommandUsage(findCommand('whisper')!)).toBe('/whisper <user> [message]')
+    expect(getCommandUsage(findCommand('reply')!)).toBe('/reply [message]')
     expect(getCommandUsage(findCommand('leave')!)).toBe('/leave')
     expect(getCommandUsage(findCommand('kick')!)).toBe('/kick <user> [reason]')
     expect(getCommandUsage(findCommand('profile')!)).toBe('/profile [user]')
@@ -188,6 +193,7 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('topic')!)).toBe('/topic <text>')
     expect(getCommandUsage(findCommand('cancel')!)).toBe('/cancel')
     expect(formatAliases(findCommand('join')!)).toBe('/j, /channel')
+    expect(formatAliases(findCommand('reply')!)).toBe('/r')
     expect(formatAliases(findCommand('whois')!)).toBe('/where, /whereis')
     expect(formatAliases(findCommand('f')!)).toBe('/friends')
     expect(formatAliases(findCommand('block')!)).toBe('/ignore, /squelch')
@@ -233,6 +239,12 @@ describe('messaging/commands/command-registry', () => {
               { label: 'message', optional: true },
             ],
             description: 'Sends a private message to a user.',
+          },
+          {
+            name: 'reply',
+            aliases: ['r'],
+            args: [{ label: 'message', optional: true }],
+            description: 'Whispers back to the last person who whispered you.',
           },
           {
             name: 'profile',

@@ -30,11 +30,19 @@ import { useAppDispatch, useAppSelector, useAppStore } from '../redux-hooks'
 import { CommandContext } from './commands/command-context'
 import { CommandMenuItem } from './commands/command-menu-item'
 import { createCommandArgProvider, createCommandNameProvider } from './commands/command-provider'
+import {
+  matchReplyCommand,
+  noReplyTargetLine,
+  ReplyTarget,
+  resolveReplyTarget,
+  sendReply,
+} from './commands/commands/reply'
 import { LocalLineEmitter } from './commands/local-output'
 import { runChatCommand } from './commands/run-chat-command'
 import { EmotePickerButton } from './emote-picker'
 import { emoteProvider } from './emote-provider'
 import { createMentionProvider, MentionableUser } from './mention-provider'
+import { ReplyChip } from './reply-chip'
 import {
   matchTypeahead,
   TypeaheadProvider,
@@ -145,31 +153,38 @@ function isSuggestionFaded(visual: TypeaheadVisual): boolean {
 /** A Map to store the message input contents for each chat instance. */
 const messageInputMap = new Map<string, string>()
 
-function useStorageSyncedState(
-  defaultInitialValue: string,
+/**
+ * A Map to store who each chat instance is composing a reply to, so that leaving a surface and
+ * coming back to it restores the chip along with the text it belongs to.
+ */
+const replyTargetMap = new Map<string, ReplyTarget | undefined>()
+
+function useStorageSyncedState<T>(
+  storage: Map<string, T>,
+  defaultInitialValue: T,
   key?: string,
-): [value: string, setValue: (value: SetStateAction<string>) => void] {
-  const [value, setValue] = useState<string>(() =>
-    key ? (messageInputMap.get(key) ?? defaultInitialValue) : defaultInitialValue,
+): [value: T, setValue: (value: SetStateAction<T>) => void] {
+  const [value, setValue] = useState<T>(() =>
+    key ? (storage.get(key) ?? defaultInitialValue) : defaultInitialValue,
   )
   const syncedSetValue = useCallback(
-    (value: SetStateAction<string>) => {
-      if (typeof value === 'string') {
-        setValue(value)
-        if (key) {
-          messageInputMap.set(key, value)
-        }
-      } else {
+    (value: SetStateAction<T>) => {
+      if (typeof value === 'function') {
         setValue(prev => {
-          const newValue = value(prev)
+          const newValue = (value as (prev: T) => T)(prev)
           if (key) {
-            messageInputMap.set(key, newValue)
+            storage.set(key, newValue)
           }
           return newValue
         })
+      } else {
+        setValue(value)
+        if (key) {
+          storage.set(key, value)
+        }
       }
     },
-    [key],
+    [key, storage],
   )
   return [value, syncedSetValue]
 }
@@ -237,6 +252,11 @@ export interface MessageInputProps {
 export interface MessageInputHandle {
   focus: () => void
   addMention: (username: string) => void
+  /**
+   * Puts the input into reply mode for `target`, keeping whatever is typed. Does nothing for an
+   * input without `commands`, since there is no surface to answer in.
+   */
+  startReply: (target: ReplyTarget) => void
 }
 
 // A plain function component rather than a forwardRef or a React.memo one: react-dom only
@@ -259,7 +279,16 @@ export function MessageInput({
   const user = useSelfUser()
   const chatRestriction = useAppSelector(s => s.auth.self?.restrictions.get(RestrictionKind.Chat))
   const combinedStorageKey = user && storageKey ? `${user.id}-${storageKey}` : undefined
-  const [message, setMessage] = useStorageSyncedState('', combinedStorageKey)
+  const [message, setMessage] = useStorageSyncedState<string>(
+    messageInputMap,
+    '',
+    combinedStorageKey,
+  )
+  const [replyTarget, setReplyTarget] = useStorageSyncedState<ReplyTarget | undefined>(
+    replyTargetMap,
+    undefined,
+    combinedStorageKey,
+  )
   const inputRef = useRef<HTMLInputElement>(null)
   const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
 
@@ -282,11 +311,69 @@ export function MessageInput({
     closePalette()
   }
 
+  // Clearing the input programmatically moves the caret without a `selectionchange` event, so
+  // what was derived from the old caret position has to be dropped by hand.
+  const clearInput = () => {
+    latestRequestRef.current += 1
+    setTypeahead(undefined)
+    resetPalette()
+    setMessage('')
+  }
+
+  /**
+   * Locks the input to whispering `target` back: from here on everything in it is the reply's
+   * text, with a chip naming them in front of it, until the reply is sent or the chip is cleared.
+   */
+  const enterReplyMode = (target: ReplyTarget) => {
+    // A palette open at this point was derived with commands on offer, and — when reply mode is
+    // entered from the reply command — for text that is about to be taken back out of the input;
+    // the next caret move derives one afresh.
+    latestRequestRef.current += 1
+    setTypeahead(undefined)
+    resetPalette()
+    setReplyTarget(target)
+    inputRef.current?.focus()
+  }
+
+  /** Drops back to composing an ordinary message, leaving whatever is typed where it is. */
+  const leaveReplyMode = () => {
+    setReplyTarget(undefined)
+    inputRef.current?.focus()
+  }
+
+  /**
+   * Takes text the user typed, or accepted from a palette row, into the input. An input that has
+   * come to read as the reply command turns into reply mode instead of holding the command: the
+   * target is snapshotted the moment that happens, so a whisper arriving while the message is
+   * being written can't redirect it.
+   */
+  const commitMessage = (next: string) => {
+    if (commands && !replyTarget) {
+      const replyMatch = matchReplyCommand(next)
+      if (replyMatch?.hasSeparator) {
+        const target = resolveReplyTarget(store.getState())
+        if (!target) {
+          commands.emit({ kind: 'info', content: noReplyTargetLine(t) })
+          clearInput()
+          return
+        }
+
+        enterReplyMode(target)
+        setMessage(replyMatch.rest)
+        return
+      }
+    }
+
+    setMessage(next)
+  }
+
   const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
 
   // The first provider to claim the caret owns the palette, so the more specific ones come first.
+  // Reply mode offers no commands, since everything typed there is the reply's text; mentions and
+  // emotes still complete.
   const providers: TypeaheadProvider[] = []
-  if (commands) {
+  if (commands && !replyTarget) {
     const deps = { context: commands.context, getState: store.getState, t }
     providers.push(createCommandNameProvider(deps), createCommandArgProvider(deps))
   }
@@ -315,6 +402,12 @@ export function MessageInput({
         }
       })
       inputRef.current?.focus()
+    },
+    startReply: target => {
+      if (!commands) {
+        return
+      }
+      enterReplyMode(target)
     },
   }))
 
@@ -390,8 +483,7 @@ export function MessageInput({
   }, [])
 
   const onChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const message = event.target.value
-    setMessage(message)
+    commitMessage(event.target.value)
   })
 
   const insertAtCaret = useStableCallback((text: string) => {
@@ -417,15 +509,6 @@ export function MessageInput({
   const activeSuggestion = suggestions[clampedActiveIndex]
   const paletteShowing = paletteOpen && suggestions.length > 0
 
-  // Clearing the input programmatically moves the caret without a `selectionchange` event, so
-  // what was derived from the old caret position has to be dropped by hand.
-  const clearInput = () => {
-    latestRequestRef.current += 1
-    setTypeahead(undefined)
-    resetPalette()
-    setMessage('')
-  }
-
   const acceptSuggestion = (suggestion: TypeaheadSuggestion) => {
     if (!typeahead) {
       return
@@ -434,7 +517,7 @@ export function MessageInput({
     const { provider, start, matchedText } = typeahead
     resetPalette()
     provider.onAccept?.(suggestion)
-    setMessage(
+    commitMessage(
       message.slice(0, start) + suggestion.insertText + message.slice(start + matchedText.length),
     )
 
@@ -493,6 +576,22 @@ export function MessageInput({
         return
       }
 
+      // Reply mode is only ever entered from a surface that runs commands, so its emitter is
+      // there to answer a failed send with. Nothing typed in reply mode is a command: the whole
+      // input is the whisper's text, a leading slash included.
+      if (replyTarget && commands) {
+        sendReply(replyTarget, toSend, {
+          context: commands.context,
+          dispatch,
+          t,
+          emit: commands.emit,
+        })
+        // One composition, one reply: the next reply command locks a target afresh.
+        clearInput()
+        leaveReplyMode()
+        return
+      }
+
       if (commands) {
         // A command is never also sent as chat text, and the input is cleared whether the command
         // ran or was refused: what it answered with is in the conversation, and a rejected command
@@ -502,6 +601,7 @@ export function MessageInput({
           dispatch,
           t,
           emit: commands.emit,
+          enterReplyMode,
         })
         if (result.kind === 'text') {
           onSendChatMessage(result.text)
@@ -571,6 +671,9 @@ export function MessageInput({
         maxLength={CHAT_MESSAGE_MAXLENGTH}
         showDivider={showDivider}
         disabled={!!chatRestriction}
+        leadingContent={
+          replyTarget ? <ReplyChip name={replyTarget.name} onClear={leaveReplyMode} /> : undefined
+        }
         trailingIcons={[
           <EmotePickerButton key='emotes' disabled={!!chatRestriction} onInsert={insertAtCaret} />,
         ]}
@@ -616,6 +719,23 @@ export function MessageInput({
             ) {
               event.preventDefault()
               acceptSuggestion(onlySuggestion)
+            }
+          } else if (event.key === 'Backspace') {
+            // The reply chip sits in front of the text, so the backspace that would delete nothing
+            // at all deletes the chip instead. An actual selection is content to delete, not a
+            // caret resting against the chip.
+            const input = inputRef.current
+            if (replyTarget && input?.selectionStart === 0 && input.selectionEnd === 0) {
+              event.preventDefault()
+              leaveReplyMode()
+            }
+          } else if (event.key === 'Escape') {
+            // An open palette owns Escape until it closes. The surrounding key listener boundary
+            // skips events whose default is prevented, so the surface doesn't also act on this
+            // one.
+            if (replyTarget && !paletteShowing) {
+              event.preventDefault()
+              leaveReplyMode()
             }
           }
         }}

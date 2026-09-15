@@ -12,7 +12,9 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, type ThunkAction } from '../dispatch-registry'
 import { maybeChangeLanguageLocally } from '../i18n/action-creators'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
+import { lastChatSurfaceAtom } from '../messaging/local-message-target'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import {
   CREDENTIAL_STORAGE,
@@ -21,6 +23,7 @@ import {
   fetchJson,
 } from '../network/fetch'
 import { loadCachedAccountSettings } from '../settings/action-creators'
+import { lastWhisperSenderAtom } from '../whispers/whisper-atoms'
 
 const typedIpc = new TypedIpcRenderer()
 
@@ -129,6 +132,11 @@ export function logOut(spec: RequestHandlingSpec): ThunkAction {
       method: 'delete',
     })
     dispatch({ type: '@auth/logOut' })
+    // Who `/reply` answers, and which conversation a whisper with no surface of its own is shown
+    // in, both belong to the account that was in them, so neither may survive into whichever account
+    // logs in next.
+    jotaiStore.set(lastWhisperSenderAtom, undefined)
+    jotaiStore.set(lastChatSurfaceAtom, undefined)
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()
   })

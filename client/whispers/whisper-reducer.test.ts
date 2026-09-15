@@ -6,20 +6,31 @@ import {
   WhisperMessage,
   WhisperMessageType,
 } from '../../common/whispers'
-import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
+import { MessagingActions } from '../messaging/actions'
+import {
+  CommonMessageType,
+  CommonTextMessage,
+  CommonWhisperEchoMessage,
+  LocalMessage,
+} from '../messaging/message-records'
 import { WhisperActions } from './actions'
-import whisperReducerImport, { WhisperSession, WhisperState } from './whisper-reducer'
+import whisperReducerImport, {
+  WhisperSession,
+  WhisperSessionMessage,
+  WhisperState,
+} from './whisper-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it
 // whisper actions, so narrow the parameter to those, both for the extra checking and so that action
 // objects can be written inline without tripping excess property checks.
 const whisperReducer = whisperReducerImport as unknown as (
   state: Immutable<WhisperState>,
-  action: WhisperActions,
+  action: WhisperActions | MessagingActions,
 ) => Immutable<WhisperState>
 
 const TARGET_ID = makeSbUserId(2)
 const SELF_ID = makeSbUserId(3)
+const OTHER_ID = makeSbUserId(4)
 
 // Every whisper message the client stores is a text message from the server, so (unlike chat
 // channels) there's no client-local whisper message type whose `time` isn't server-recorded.
@@ -33,9 +44,29 @@ function textMessage(time: number): CommonTextMessage {
   }
 }
 
+/** A message this client puts in the session itself, which the server has no record of here. */
+function echoMessage(id: string, time: number): CommonWhisperEchoMessage {
+  return {
+    id,
+    type: CommonMessageType.WhisperEcho,
+    time,
+    direction: 'incoming',
+    counterpartId: OTHER_ID,
+    text: 'hello from elsewhere',
+  }
+}
+
+function appendLocalMessageAction(message: LocalMessage): MessagingActions {
+  return {
+    type: '@messaging/appendLocalMessage',
+    payload: { target: { surface: 'whisper', userId: TARGET_ID }, message },
+  }
+}
+
 function makeState(
   overrides: {
-    messages?: CommonTextMessage[]
+    messages?: WhisperSessionMessage[]
+    carriedClientMessages?: LocalMessage[]
     activated?: boolean
     atBottom?: boolean
     unread?: boolean
@@ -58,6 +89,7 @@ function makeState(
     hasNewer: overrides.hasNewer ?? false,
     detachedNewestTime: overrides.detachedNewestTime,
     windowGen: overrides.windowGen ?? 0,
+    carriedClientMessages: overrides.carriedClientMessages ?? [],
     activated: overrides.activated ?? false,
     atBottom: overrides.atBottom ?? false,
     hasUnread: overrides.unread ?? false,
@@ -1368,6 +1400,158 @@ describe('client/whispers/whisper-reducer', () => {
 
       expect(sessionOf(result).loadingHistory).toBe(false)
       expect(sessionOf(result).loadingNewer).toBe(false)
+    })
+  })
+
+  describe('@messaging/appendLocalMessage', () => {
+    test('appends to an attached window without touching unread state', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        lastReadTime: 100,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(state, appendLocalMessageAction(echoMessage('echo', 200)))
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'echo'])
+      expect(sessionOf(result).hasUnread).toBe(false)
+      expect(sessionOf(result).lastReadTime).toBe(100)
+    })
+
+    test('a detached window carries the message instead of appending it', () => {
+      const state = makeState({ hasNewer: true, messages: [textMessage(100)] })
+
+      const result = whisperReducer(state, appendLocalMessageAction(echoMessage('echo', 200)))
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(sessionOf(result).carriedClientMessages.map(m => m.id)).toEqual(['echo'])
+      expect(sessionOf(result).hasUnread).toBe(false)
+    })
+
+    test('a message carried while detached comes back once the window reattaches', () => {
+      let result = whisperReducer(
+        makeState({ hasNewer: true, messages: [textMessage(100)] }),
+        appendLocalMessageAction(echoMessage('echo', 200)),
+      )
+
+      result = whisperReducer(
+        result,
+        loadNewerMessagesAction(historyResponse([serverMessage(300)], { hasMoreAfter: false }), {
+          afterTime: 100,
+          knownNewestTime: 100,
+        }),
+      )
+
+      expect(sessionOf(result).hasNewer).toBe(false)
+      expect(messageIdsOf(result)).toEqual(['text-100', 'echo', 'text-300'])
+      expect(sessionOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('a message for a session this client has no state for is dropped', () => {
+      const state = makeState({ messages: [textMessage(100)] })
+
+      const result = whisperReducer(state, {
+        type: '@messaging/appendLocalMessage',
+        payload: {
+          target: { surface: 'whisper', userId: OTHER_ID },
+          message: echoMessage('echo', 200),
+        },
+      })
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(sessionOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('a message for another kind of surface is left to that surface', () => {
+      const state = makeState({ messages: [textMessage(100)] })
+
+      const result = whisperReducer(state, {
+        type: '@messaging/appendLocalMessage',
+        payload: { target: { surface: 'lobby' }, message: echoMessage('echo', 200) },
+      })
+
+      expect(messageIdsOf(result)).toEqual(['text-100'])
+      expect(sessionOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('the inactive-session trim cuts it like any other message', () => {
+      const messages = Array.from({ length: 150 }, (_, i) => textMessage(i + 1))
+      let result = whisperReducer(
+        makeState({ activated: true, messages }),
+        appendLocalMessageAction(echoMessage('echo', 200)),
+      )
+      expect(messageIdsOf(result)).toHaveLength(151)
+
+      result = whisperReducer(result, deactivateSessionAction())
+
+      expect(messageIdsOf(result)).toHaveLength(150)
+      expect(messageIdsOf(result)).toContain('echo')
+      expect(messageIdsOf(result)).not.toContain('text-1')
+      expect(sessionOf(result).carriedClientMessages).toEqual([])
+    })
+  })
+
+  describe('carried client-only messages', () => {
+    test('a dropped window carries them, and a covering window gives them back', () => {
+      const echo = echoMessage('echo', 200)
+      let result = whisperReducer(
+        makeState({ messages: [textMessage(100), textMessage(300)] }),
+        appendLocalMessageAction(echo),
+      )
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-300', 'echo'])
+
+      result = whisperReducer(result, resetMessageWindowAction())
+      expect(messageIdsOf(result)).toEqual([])
+      expect(sessionOf(result).carriedClientMessages.map(m => m.id)).toEqual(['echo'])
+
+      result = whisperReducer(
+        result,
+        loadMessageHistoryAction(historyResponse([serverMessage(100), serverMessage(300)]), {
+          windowGen: 1,
+        }),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'echo', 'text-300'])
+      expect(sessionOf(result).carriedClientMessages).toEqual([])
+    })
+
+    test('a window that does not cover their time keeps them carried', () => {
+      let result = whisperReducer(
+        makeState({ messages: [textMessage(500)] }),
+        appendLocalMessageAction(echoMessage('echo', 500)),
+      )
+
+      result = whisperReducer(result, resetMessageWindowAction())
+      result = whisperReducer(
+        result,
+        loadMessagesAroundAction(
+          historyResponse([serverMessage(100), serverMessage(200)], {
+            hasMoreBefore: true,
+            hasMoreAfter: true,
+          }),
+          { windowGen: 1, aroundTime: 150 },
+        ),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200'])
+      expect(sessionOf(result).carriedClientMessages.map(m => m.id)).toEqual(['echo'])
+    })
+
+    test('evicts the oldest carried message once the cap is exceeded', () => {
+      const existingCarried = Array.from({ length: 50 }, (_, i) => echoMessage(`old-${i}`, i + 1))
+      const state = makeState({
+        carriedClientMessages: existingCarried,
+        hasNewer: true,
+        messages: [textMessage(500)],
+      })
+
+      const result = whisperReducer(state, appendLocalMessageAction(echoMessage('newest', 1000)))
+
+      const carried = sessionOf(result).carriedClientMessages
+      expect(carried.length).toBe(50)
+      expect(carried.map(m => m.id)).not.toContain('old-0')
+      expect(carried.map(m => m.id)).toContain('newest')
     })
   })
 })

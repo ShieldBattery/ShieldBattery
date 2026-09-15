@@ -66,6 +66,35 @@ export function UserNotificationSettings() {
           )}
         />
       </SectionContainer>
+      <SectionContainer>
+        <SettingsSectionHeader>
+          {t('settings.user.notifications.whispers.title', 'Whispers')}
+        </SettingsSectionHeader>
+        <SettingsSectionDescription>
+          {t(
+            'settings.user.notifications.whispers.description',
+            "Whispers you send and receive are shown as a line in whatever chat you're looking " +
+              'at, so you can read them and answer with /r without switching. Turn this off if ' +
+              'you stream your screen.',
+          )}
+        </SettingsSectionDescription>
+        <CheckBox
+          checked={settings.showWhispersEverywhere}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { showWhispersEverywhere: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='showWhispersEverywhere'
+          label={t(
+            'settings.user.notifications.showWhispersEverywhere',
+            'Show whispers in every chat',
+          )}
+        />
+      </SectionContainer>
     </FormContainer>
   )
 }

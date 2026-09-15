@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { WhisperEvent, WhisperUserEvent } from '../../common/whispers'
@@ -5,6 +6,10 @@ import { isInActiveGame } from '../active-game/game-client-reducer'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
+import { jotaiStore } from '../jotai-store'
+import { lastChatSurfaceAtom } from '../messaging/local-message-target'
+import { CommonMessageType, CommonWhisperEchoMessage } from '../messaging/message-records'
+import { lastWhisperSenderAtom } from './whisper-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -66,6 +71,38 @@ const eventToAction: EventToActionMap = {
         payload: event,
         meta: { target, isSelfMessage, windowFocused },
       })
+
+      // A blocked sender's whisper is silent everywhere: it's not echoed, and it doesn't become
+      // the `/reply` target. Quiet-while-in-game only holds back sound/attention above, so it
+      // plays no part in either decision here.
+      if (!isSelfMessage && !isBlocked) {
+        jotaiStore.set(lastWhisperSenderAtom, from)
+      }
+      if (!isBlocked && accountSettings.showWhispersEverywhere) {
+        const surface = jotaiStore.get(lastChatSurfaceAtom)
+        // With no surface seen yet there is nowhere to show the whisper, and the whisper's own
+        // conversation already shows it: echoing it there too would show it twice.
+        if (
+          surface !== undefined &&
+          !(surface.surface === 'whisper' && surface.userId === target)
+        ) {
+          dispatch({
+            type: '@messaging/appendLocalMessage',
+            payload: {
+              target: surface,
+              message: {
+                id: nanoid(),
+                type: CommonMessageType.WhisperEcho,
+                time: event.message.time,
+                direction: isSelfMessage ? 'outgoing' : 'incoming',
+                counterpartId: target,
+                text: event.message.text,
+                ...(event.message.emote ? { emote: true } : {}),
+              } satisfies CommonWhisperEchoMessage,
+            },
+          })
+        }
+      }
 
       const session = whispersById.get(target)
       if (!session) {

@@ -99,14 +99,23 @@ const CHAT_MESSAGE_LIMIT = 200
  * At most one entry is trimmed per call, even when the call pushes more than one message, so a
  * multi-message push can leave the log slightly over the cap until the next push.
  *
- * This is the only place that appends to the chat log, so it also owns unread tracking: a push
- * while the view isn't activated marks the log unread.
+ * Says nothing about unread state: only a message that is part of the lobby's own conversation
+ * marks it unread, which `pushChat` is for.
  */
-function pushChat(draft: LobbyDraft, ...messages: SbMessage[]): void {
+function appendChat(draft: LobbyDraft, ...messages: SbMessage[]): void {
   draft.chat.push(...castDraft(messages))
   if (draft.chat.length > CHAT_MESSAGE_LIMIT) {
     draft.chat.shift()
   }
+}
+
+/**
+ * Appends message(s) that belong to the lobby's own conversation, which is everything the lobby and
+ * its members say or do. Such a message arriving while the view isn't activated marks the log
+ * unread.
+ */
+function pushChat(draft: LobbyDraft, ...messages: SbMessage[]): void {
+  appendChat(draft, ...messages)
   draft.hasUnread ||= !draft.activated
 }
 
@@ -583,6 +592,17 @@ const lobbyHandlers = {
       time: Date.now(),
       usersAtFault: action.payload.usersAtFault,
     })
+  },
+
+  // A message this client puts in the lobby log itself: the answer to a command run there, or a
+  // whisper echoed into it. Neither is the lobby talking, so neither marks the log unread.
+  '@messaging/appendLocalMessage'(draft, action) {
+    const { target, message } = action.payload
+    if (target.surface !== 'lobby' || !draft.info.name) {
+      return
+    }
+
+    appendChat(draft, message)
   },
 
   '@lobbies/activate'(draft) {

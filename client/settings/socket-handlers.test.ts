@@ -27,7 +27,11 @@ describe('account settings updates', () => {
 
     const event: AccountSettingsUpdateEvent = {
       action: 'update',
-      settings: { quietChannelsWhileInGame: false, quietWhispersWhileInGame: true },
+      settings: {
+        quietChannelsWhileInGame: false,
+        quietWhispersWhileInGame: true,
+        showWhispersEverywhere: true,
+      },
     }
     receive({ params: { userId: String(USER_ID) } }, event)
 

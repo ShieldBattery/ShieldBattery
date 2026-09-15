@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiplexRef } from '../react/refs'
@@ -169,6 +169,36 @@ const TrailingIcon = styled.span<{ $dense?: boolean; $index: number; $multiline?
   }};
 `
 
+const LeadingContentSlot = styled.span<{
+  $dense?: boolean
+  $floatingLabel?: boolean
+  $multiline?: boolean
+}>`
+  position: absolute;
+  left: 12px;
+  top: ${props => {
+    if (props.$multiline) {
+      if (props.$floatingLabel) {
+        // The input itself has no top padding in this variant (it's added to the container
+        // instead, to keep the floating label above the scrollable area), so match that padding
+        // here rather than the input's own.
+        return props.$dense ? '17px' : '25px'
+      }
+
+      return props.$dense ? '11px' : '19px'
+    }
+
+    // Single-line fields render their content in a fixed 24px line box that starts after the
+    // input's own top padding; center the slot within it.
+    const paddingTop = props.$floatingLabel ? 17 : 12
+    return `${paddingTop + (24 - 20) / 2}px`
+  }};
+  height: 20px;
+
+  display: inline-flex;
+  align-items: center;
+`
+
 const ClearButton = styled(IconButton)`
   width: 32px;
   min-height: 32px;
@@ -207,6 +237,14 @@ export interface TextFieldProps {
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>
   label?: string
   leadingIcons?: React.ReactElement[]
+  /**
+   * Arbitrary-width content (e.g. a chip) rendered at the start of the field's first text line,
+   * inside the field's left padding area. Unlike `leadingIcons`, which reserve a fixed-width slot,
+   * this content is measured so it can be any width. The first line of text (and the label, while
+   * it's showing) is pushed to the right of it; later lines of a multiline field wrap back to the
+   * left edge and run underneath it, like a hanging indent.
+   */
+  leadingContent?: React.ReactNode
   /**
    * The maximum allowed length of the value. When set, a counter showing the number of remaining
    * characters overlays the bottom-right corner of the field once the value approaches the limit
@@ -254,6 +292,7 @@ export function TextField({
   inputProps,
   label,
   leadingIcons = [],
+  leadingContent,
   maxLength,
   maxRows,
   multiline,
@@ -274,8 +313,35 @@ export function TextField({
   const id = useId()
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+  const leadingContentSlotRef = useRef<HTMLSpanElement | null>(null)
+  const [leadingContentWidth, setLeadingContentWidth] = useState(0)
+  const hasLeadingContent = !!leadingContent
 
   const multiplexedRef = useMultiplexRef(inputRef, ref)
+
+  useLayoutEffect(() => {
+    if (!hasLeadingContent) {
+      return undefined
+    }
+
+    const slotElem = leadingContentSlotRef.current
+    if (!slotElem) {
+      return undefined
+    }
+
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0]
+      if (entry) {
+        setLeadingContentWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(slotElem)
+
+    return () => {
+      observer.disconnect()
+      setLeadingContentWidth(0)
+    }
+  }, [hasLeadingContent])
 
   const { onContextMenu: onInputContextMenu, contextMenu } = useTextInputContextMenu()
   const onContainerContextMenu = (event: React.MouseEvent) => {
@@ -395,7 +461,8 @@ export function TextField({
         $focused={isFocused}
         $disabled={disabled}
         $error={!!errorText}
-        $leadingIconsLength={leadingIcons.length}>
+        $leadingIconsLength={leadingIcons.length}
+        $leadingContentWidth={leadingContentWidth}>
         {label}
       </FloatingLabel>
     )
@@ -406,7 +473,8 @@ export function TextField({
         $hasValue={alwaysHasValue || !!value}
         $dense={dense}
         $disabled={disabled}
-        $leadingIconsLength={leadingIcons.length}>
+        $leadingIconsLength={leadingIcons.length}
+        $leadingContentWidth={leadingContentWidth}>
         {label}
       </Label>
     )
@@ -434,6 +502,15 @@ export function TextField({
         onContextMenu={IS_ELECTRON ? onContainerContextMenu : undefined}>
         {renderLabel}
         {leadingIconsElements.length > 0 ? leadingIconsElements : null}
+        {leadingContent ? (
+          <LeadingContentSlot
+            ref={leadingContentSlotRef}
+            $dense={dense}
+            $floatingLabel={floatingLabel}
+            $multiline={multiline}>
+            {leadingContent}
+          </LeadingContentSlot>
+        ) : null}
         <InputBase
           ref={multiplexedRef as any}
           as={multiline ? 'textarea' : 'input'}
@@ -444,6 +521,7 @@ export function TextField({
           $multiline={multiline}
           $leadingIconsLength={leadingIcons.length}
           $trailingIconsLength={trailingIconsElements.length}
+          $leadingContentWidth={leadingContentWidth}
           data-testid={testName}
           {...inputProps}
           {...internalInputProps}

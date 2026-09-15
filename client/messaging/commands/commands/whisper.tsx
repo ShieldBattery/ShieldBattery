@@ -4,6 +4,8 @@ import { Trans } from 'react-i18next'
 import { FriendActivityStatus } from '../../../../common/users/relationships'
 import { SbUserId } from '../../../../common/users/sb-user-id'
 import { WhisperServiceErrorCode } from '../../../../common/whispers'
+import { ReduxAction } from '../../../action-types'
+import { DispatchFunction } from '../../../dispatch-registry'
 import { TransInterpolation } from '../../../i18n/i18next'
 import { isFetchError } from '../../../network/fetch-errors'
 import {
@@ -11,12 +13,14 @@ import {
   sendMessage as sendWhisperMessage,
   startWhisperSessionByName,
 } from '../../../whispers/action-creators'
+import { CommandContext } from '../command-context'
 import {
   ALL_COMMAND_SURFACES,
   ArgSuggestDeps,
   ArgSuggestion,
   defineCommand,
 } from '../command-schema'
+import { LocalLineEmitter } from '../local-output'
 import { LocalStrong } from '../local-strong'
 
 function startFailedLine(target: string, err: Error, t: TFunction): React.ReactNode {
@@ -49,6 +53,54 @@ function sendFailedLine(target: string, err: Error, t: TFunction): React.ReactNo
       {{ errorMessage } as TransInterpolation}
     </Trans>
   )
+}
+
+/** The line that stands in for the outgoing echo where nothing else on the surface shows a send. */
+function whisperSentLine(target: string, t: TFunction): React.ReactNode {
+  return (
+    <Trans t={t} i18nKey='chat.commands.whisper.sent'>
+      Whisper sent to <LocalStrong>{{ target } as TransInterpolation}</LocalStrong>.
+    </Trans>
+  )
+}
+
+/** What sending a whisper from a surface other than its conversation needs from that surface. */
+export interface SendWhisperDeps {
+  context: CommandContext
+  dispatch: DispatchFunction<ReduxAction>
+  t: TFunction
+  emit: LocalLineEmitter
+}
+
+/**
+ * Whispers `text` to `target` without leaving the surface it was typed in. While whispers are
+ * echoed into every chat, the outgoing echo is what shows it went out. With the echo turned off
+ * nothing on the surface would show it, so a line saying it was sent stands in — except in the
+ * target's own conversation, where the whisper itself appears. A failed send answers with
+ * `failedLine` next to the input.
+ */
+export function sendWhisperInPlace(
+  target: { id: SbUserId; name: string },
+  text: string,
+  deps: SendWhisperDeps,
+  failedLine: (err: Error) => React.ReactNode,
+): void {
+  const { context, dispatch, t, emit } = deps
+
+  dispatch((dispatch, getState) => {
+    dispatch(
+      sendWhisperMessage(target.id, text, {
+        onSuccess: () => {
+          const { settings } = getState()
+          const inOwnConversation = context.surface === 'whisper' && context.targetId === target.id
+          if (!settings.account.showWhispersEverywhere && !inOwnConversation) {
+            emit({ kind: 'info', content: whisperSentLine(target.name, t) })
+          }
+        },
+        onError: err => emit({ kind: 'error', content: failedLine(err) }),
+      }),
+    )
+  })
 }
 
 /**
@@ -106,7 +158,7 @@ export const whisperCommand = defineCommand({
     { kind: 'rest', name: 'message', optional: true },
   ],
 
-  run({ args, dispatch, t, emit }) {
+  run({ args, context, dispatch, t, emit }) {
     const target = args.user
     const message = args.message
 
@@ -118,13 +170,14 @@ export const whisperCommand = defineCommand({
             return
           }
 
-          // The conversation only opens once the message has landed in it, so a send that fails
-          // leaves the user where they were, with the error next to the input they typed it in.
-          dispatch(
-            sendWhisperMessage(userId, message, {
-              onSuccess: () => navigateToWhisper(userId, target),
-              onError: err => emit({ kind: 'error', content: sendFailedLine(target, err, t) }),
-            }),
+          // A whisper sent with the message spelled out leaves the user where they were:
+          // sendWhisperInPlace shows it went out, and a send that fails puts the error next to
+          // the input they typed it in.
+          sendWhisperInPlace(
+            { id: userId, name: target },
+            message,
+            { context, dispatch, t, emit },
+            err => sendFailedLine(target, err, t),
           )
         },
         onError: err => emit({ kind: 'error', content: startFailedLine(target, err, t) }),

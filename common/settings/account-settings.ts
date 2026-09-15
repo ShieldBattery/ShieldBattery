@@ -23,11 +23,18 @@ export interface AccountSettings {
    * game.
    */
   quietWhispersWhileInGame: boolean
+  /**
+   * Whispers sent and received are echoed as a line into whatever chat is on screen, so they can
+   * be read and answered without switching to the conversation. Off is for people who stream
+   * their screen.
+   */
+  showWhispersEverywhere: boolean
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   quietChannelsWhileInGame: true,
   quietWhispersWhileInGame: true,
+  showWhispersEverywhere: true,
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(

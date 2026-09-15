@@ -4,7 +4,9 @@ import { BenchedUser, Lobby } from '../../common/lobbies'
 import { LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { SbMapId } from '../../common/maps'
-import { SbUserId } from '../../common/users/sb-user-id'
+import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
+import { MessagingActions } from '../messaging/actions'
+import { CommonMessageType, CommonWhisperEchoMessage } from '../messaging/message-records'
 import { LobbyActions } from './actions'
 import {
   BenchJoinMessage,
@@ -21,7 +23,7 @@ import lobbyReducerImport, { CurrentLobbyState, isInLobby } from './lobby-reduce
 // can be written inline without tripping excess property checks.
 const lobbyReducer: (
   state: CurrentLobbyState | undefined,
-  action: LobbyActions,
+  action: LobbyActions | MessagingActions,
 ) => CurrentLobbyState = lobbyReducerImport
 
 const HOST_SLOT: Slot = {
@@ -140,6 +142,25 @@ function chatAction(text: string, emote?: boolean): LobbyActions {
       mentions: [],
       channelMentions: [],
     },
+  }
+}
+
+/** A message this client puts in the lobby log itself, which is not the lobby talking. */
+function echoMessage(id: string): CommonWhisperEchoMessage {
+  return {
+    id,
+    type: CommonMessageType.WhisperEcho,
+    time: 27,
+    direction: 'incoming',
+    counterpartId: makeSbUserId(9),
+    text: 'hello from elsewhere',
+  }
+}
+
+function appendLocalMessageAction(id: string): MessagingActions {
+  return {
+    type: '@messaging/appendLocalMessage',
+    payload: { target: { surface: 'lobby' }, message: echoMessage(id) },
   }
 }
 
@@ -723,5 +744,49 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.readyUserIds).toEqual([])
     expect(state.series).toEqual([])
+  })
+
+  test('a local message lands in the log without marking an activated lobby unread', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+
+    state = lobbyReducer(state, appendLocalMessageAction('echo'))
+
+    expect(state.chat[state.chat.length - 1]).toMatchObject({ id: 'echo' })
+    expect(state.hasUnread).toBe(false)
+  })
+
+  test('a local message does not mark a deactivated lobby unread either', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    state = lobbyReducer(state, { type: '@lobbies/deactivate' })
+
+    state = lobbyReducer(state, appendLocalMessageAction('echo'))
+
+    expect(state.chat[state.chat.length - 1]).toMatchObject({ id: 'echo' })
+    expect(state.hasUnread).toBe(false)
+  })
+
+  test('a local message arriving while out of a lobby has nowhere to go', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+    state = lobbyReducer(state, appendLocalMessageAction('echo'))
+
+    expect(state.chat).toHaveLength(0)
+  })
+
+  test('a local message is subject to the chat cap like any other entry', () => {
+    let state = lobbyReducer(undefined, initAction())
+    // The init self-join message plus 199 chat messages fills the log to the 200-message cap
+    for (let i = 1; i < 200; i++) {
+      state = lobbyReducer(state, chatAction(`msg ${i}`))
+    }
+    expect(state.chat).toHaveLength(200)
+
+    state = lobbyReducer(state, appendLocalMessageAction('echo'))
+
+    expect(state.chat).toHaveLength(200)
+    expect(state.chat[state.chat.length - 1]).toMatchObject({ id: 'echo' })
   })
 })
