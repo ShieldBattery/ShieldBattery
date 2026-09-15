@@ -11,8 +11,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
  * by simply not remembering anything between publishes.
  */
 export interface WhisperEcho {
-  /** Id of the whisper message, as the server assigned it. */
-  messageId: string
   /** When the server recorded the whisper. */
   time: number
   direction: 'incoming' | 'outgoing'

@@ -185,7 +185,6 @@ describe('whisper message echoes', () => {
       ? [
           [
             {
-              messageId: 'message-1',
               time: 200,
               direction: options.fromSelf ? 'outgoing' : 'incoming',
               counterpartId: OTHER.id,

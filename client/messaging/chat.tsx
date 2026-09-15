@@ -1144,7 +1144,6 @@ export function Chat({
       <ChatContext.Provider
         value={{
           mentionUser,
-          replyToUser,
           UserMenu,
           MessageMenu,
           disallowMentionInteraction: disallowUserInteraction,

@@ -428,6 +428,46 @@ describe('client/messaging/message-input', () => {
     expect(chipText()).toBeUndefined()
   })
 
+  test('in reply mode a leading slash is text, not a command palette', () => {
+    // '/wh' is a real command-name query (it prefix-matches "whisper"), so this exercises the
+    // actual command providers rather than the fake one standing in for the emote provider: it is
+    // what a command palette would open on outside reply mode, and Enter would take the
+    // highlighted row rather than send it, if commands were still on offer here.
+    const { onSendChatMessage, listId, options, type, press } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r ')
+    type('/wh')
+
+    expect(listId()).toBeNull()
+    expect(options()).toHaveLength(0)
+
+    press('Enter')
+
+    expect(reply.sendReply).toHaveBeenCalledWith(
+      { id: makeSbUserId(2), name: 'tec27' },
+      '/wh',
+      expect.anything(),
+    )
+    expect(runChatCommand).not.toHaveBeenCalled()
+    expect(onSendChatMessage).not.toHaveBeenCalled()
+  })
+
+  test('entering reply mode from the handle closes an open palette', () => {
+    const { type, listId, handle, chipText } = renderInput()
+    claimLastWord(() => ({ suggestions: ROWS }))
+
+    type('al')
+    expect(listId()).not.toBeNull()
+
+    act(() => {
+      handle.current!.startReply({ id: makeSbUserId(2), name: 'tec27' })
+    })
+
+    expect(listId()).toBeNull()
+    expect(chipText()).toContain('tec27')
+  })
+
   test('Backspace at the very start of the text clears the chip and keeps the text', () => {
     const { textarea, type, press, caretAt, chipText } = renderInput()
     reply.target = { id: makeSbUserId(2), name: 'tec27' }

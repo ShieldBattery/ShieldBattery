@@ -486,6 +486,7 @@
         "description": "Sends a private message to a user.",
         "noSelfMessaging": "You can't whisper yourself.",
         "sendError": "Couldn't send the whisper to <1>{{target}}</1>: {{errorMessage}}",
+        "sent": "Whisper sent to <1>{{target}}</1>.",
         "startError": "Couldn't start a whisper with <1>{{target}}</1>: {{errorMessage}}",
         "userNotFound": "No user named <1>{{target}}</1>."
       },

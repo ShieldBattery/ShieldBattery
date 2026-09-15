@@ -8,8 +8,8 @@ import { TransInterpolation } from '../../../i18n/i18next'
 import { jotaiStore } from '../../../jotai-store'
 import { isFetchError } from '../../../network/fetch-errors'
 import { RootState } from '../../../root-reducer'
-import { sendMessage as sendWhisperMessage } from '../../../whispers/action-creators'
 import { lastWhisperSenderAtom } from '../../../whispers/whisper-atoms'
+import { CommandContext } from '../command-context'
 import {
   ALL_COMMAND_SURFACES,
   defineCommand,
@@ -18,6 +18,7 @@ import {
 } from '../command-schema'
 import { LocalLineEmitter } from '../local-output'
 import { LocalStrong } from '../local-strong'
+import { sendWhisperInPlace } from './whisper'
 
 export type { ReplyTarget }
 
@@ -84,6 +85,7 @@ function replyFailedLine(target: string, err: Error, t: TFunction): React.ReactN
 
 /** What sending a reply needs from the surface it was composed in. */
 export interface SendReplyDeps {
+  context: CommandContext
   dispatch: DispatchFunction<ReduxAction>
   t: TFunction
   emit: LocalLineEmitter
@@ -94,14 +96,7 @@ export interface SendReplyDeps {
  * surface showing that input is not the conversation the whisper was meant for.
  */
 export function sendReply(target: ReplyTarget, text: string, deps: SendReplyDeps): void {
-  const { dispatch, t, emit } = deps
-
-  dispatch(
-    sendWhisperMessage(target.id, text, {
-      onSuccess: () => {},
-      onError: err => emit({ kind: 'error', content: replyFailedLine(target.name, err, t) }),
-    }),
-  )
+  sendWhisperInPlace(target, text, deps, err => replyFailedLine(target.name, err, deps.t))
 }
 
 export const replyCommand = defineCommand({
@@ -112,7 +107,7 @@ export const replyCommand = defineCommand({
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'rest', name: 'message', optional: true }],
 
-  run({ args, dispatch, t, emit, enterReplyMode }) {
+  run({ args, context, dispatch, t, emit, enterReplyMode }) {
     dispatch((_, getState) => {
       const target = resolveReplyTarget(getState())
       if (!target) {
@@ -127,7 +122,7 @@ export const replyCommand = defineCommand({
         return
       }
 
-      sendReply(target, args.message, { dispatch, t, emit })
+      sendReply(target, args.message, { context, dispatch, t, emit })
     })
   },
 })

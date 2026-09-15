@@ -78,7 +78,6 @@ const eventToAction: EventToActionMap = {
       }
       if (!isBlocked && accountSettings.showWhispersEverywhere) {
         publishWhisperEcho({
-          messageId: event.message.id,
           time: event.message.time,
           direction: isSelfMessage ? 'outgoing' : 'incoming',
           counterpartId: target,

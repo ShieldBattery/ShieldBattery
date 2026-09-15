@@ -3,7 +3,6 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import { publishWhisperEcho, subscribeToWhisperEchoes, WhisperEcho } from './whisper-echo'
 
 const ECHO: WhisperEcho = {
-  messageId: 'message-1',
   time: 1000,
   direction: 'incoming',
   counterpartId: makeSbUserId(1),

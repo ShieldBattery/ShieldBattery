@@ -6,11 +6,6 @@ import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu
 export interface ChatContextValue {
   /** Callback called when the user requests to mention a particular user in chat. */
   mentionUser?: (userId: SbUserId) => void
-  /**
-   * Callback called when the user asks to whisper a particular user without leaving this surface.
-   * The input is put into a reply to them, so what they type next is sent as a whisper.
-   */
-  replyToUser?: (userId: SbUserId) => void
   /** Component that will display and customize context menu items for users. */
   UserMenu?: UserMenuComponent
   /** Component that will display and customize context menu items for messages. */

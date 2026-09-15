@@ -325,6 +325,12 @@ export function MessageInput({
    * text, with a chip naming them in front of it, until the reply is sent or the chip is cleared.
    */
   const enterReplyMode = (target: ReplyTarget) => {
+    // A palette open at this point was derived with commands on offer, and — when reply mode is
+    // entered from the reply command — for text that is about to be taken back out of the input;
+    // the next caret move derives one afresh.
+    latestRequestRef.current += 1
+    setTypeahead(undefined)
+    resetPalette()
     setReplyTarget(target)
     inputRef.current?.focus()
   }
@@ -353,11 +359,6 @@ export function MessageInput({
         }
 
         enterReplyMode(target)
-        // The command itself is taken back out of the input, which moves the caret without a
-        // `selectionchange` event; what the palette derived from the old position goes with it.
-        latestRequestRef.current += 1
-        setTypeahead(undefined)
-        resetPalette()
         setMessage(replyMatch.rest)
         return
       }
@@ -369,8 +370,10 @@ export function MessageInput({
   const [anchorX, anchorY] = useElemAnchorPosition(containerElem, 'left', 'top')
 
   // The first provider to claim the caret owns the palette, so the more specific ones come first.
+  // Reply mode offers no commands, since everything typed there is the reply's text; mentions and
+  // emotes still complete.
   const providers: TypeaheadProvider[] = []
-  if (commands) {
+  if (commands && !replyTarget) {
     const deps = { context: commands.context, getState: store.getState, t }
     providers.push(createCommandNameProvider(deps), createCommandArgProvider(deps))
   }
@@ -577,7 +580,12 @@ export function MessageInput({
       // there to answer a failed send with. Nothing typed in reply mode is a command: the whole
       // input is the whisper's text, a leading slash included.
       if (replyTarget && commands) {
-        sendReply(replyTarget, toSend, { dispatch, t, emit: commands.emit })
+        sendReply(replyTarget, toSend, {
+          context: commands.context,
+          dispatch,
+          t,
+          emit: commands.emit,
+        })
         // One composition, one reply: the next reply command locks a target afresh.
         clearInput()
         leaveReplyMode()
