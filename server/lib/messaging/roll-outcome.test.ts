@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { EIGHT_BALL_ANSWERS, ROLL_DEFAULT_MAX, ROLL_MAX_MAX } from '../../../common/rolled-outcomes'
+import { QUOTE_UNITS, UNIT_QUOTES } from '../../../common/unit-quotes'
 import { rollOutcome } from './roll-outcome'
 
 describe('messaging/roll-outcome', () => {
@@ -100,6 +101,49 @@ describe('messaging/roll-outcome', () => {
       expect(
         rollOutcome({ kind: 'eightBall', question: 'will it work?' }, fakeRandomInt(0)),
       ).not.toHaveProperty('question')
+    })
+  })
+
+  describe('quote', () => {
+    test('picks one of the named unit lines, leaving the unit alone', () => {
+      const randomInt = fakeRandomInt(2)
+
+      expect(rollOutcome({ kind: 'quote', unit: 'marine' }, randomInt)).toEqual({
+        kind: 'quote',
+        unit: 'marine',
+        line: UNIT_QUOTES.marine[2],
+      })
+      expect(randomInt).toHaveBeenCalledWith(0, UNIT_QUOTES.marine.length)
+      expect(randomInt).toHaveBeenCalledTimes(1)
+    })
+
+    test('picks the unit too when the request names none', () => {
+      const randomInt = fakeRandomInt(1)
+      const unit = QUOTE_UNITS[1]
+
+      expect(rollOutcome({ kind: 'quote' }, randomInt)).toEqual({
+        kind: 'quote',
+        unit,
+        line: UNIT_QUOTES[unit][1],
+      })
+      expect(randomInt).toHaveBeenCalledWith(0, QUOTE_UNITS.length)
+      expect(randomInt).toHaveBeenCalledWith(0, UNIT_QUOTES[unit].length)
+    })
+
+    test('can reach the last unit and its last line', () => {
+      const unit = QUOTE_UNITS[QUOTE_UNITS.length - 1]
+      const lines = UNIT_QUOTES[unit]
+
+      expect(
+        rollOutcome(
+          { kind: 'quote' },
+          vi.fn((_min: number, max: number) => max - 1),
+        ),
+      ).toEqual({
+        kind: 'quote',
+        unit,
+        line: lines[lines.length - 1],
+      })
     })
   })
 

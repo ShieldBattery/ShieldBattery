@@ -254,8 +254,8 @@ export interface TextMessageProps {
   emote?: boolean
   /**
    * Set for an action line announcing something the server settled for the user (a roll, a coin
-   * flip, an 8-ball answer). Implies `emote`-style rendering; the line's wording is composed from
-   * this instead of parsed out of `text`.
+   * flip, an 8-ball answer, a unit quote). Implies `emote`-style rendering; the line's wording is
+   * composed from this instead of parsed out of `text`.
    */
   outcome?: RolledOutcome
   testId?: string

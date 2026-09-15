@@ -30,8 +30,8 @@ export interface CommonTextMessage extends BaseMessage {
   readonly emote?: boolean
   /**
    * Present on an action line announcing something the server settled for the user (a roll, a coin
-   * flip, an 8-ball answer); the line's wording is composed from it, and `text` holds only the
-   * words the user typed.
+   * flip, an 8-ball answer, a unit quote); the line's wording is composed from it, and `text`
+   * holds only the words the user typed.
    */
   readonly outcome?: RolledOutcome
 }
@@ -65,8 +65,8 @@ export interface CommonWhisperEchoMessage extends BaseMessage {
   readonly emote?: boolean
   /**
    * Present on an action line announcing something the server settled for the user (a roll, a coin
-   * flip, an 8-ball answer); the line's wording is composed from it, and `text` holds only the
-   * words the user typed.
+   * flip, an 8-ball answer, a unit quote); the line's wording is composed from it, and `text`
+   * holds only the words the user typed.
    */
   readonly outcome?: RolledOutcome
 }

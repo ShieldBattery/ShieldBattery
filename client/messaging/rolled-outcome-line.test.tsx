@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { beforeAll, describe, expect, test } from 'vitest'
+import { QUOTE_UNITS, UNIT_QUOTES } from '../../common/unit-quotes'
+import { quoteLineText } from './quote-catalogue'
 import { RolledOutcomeLine } from './rolled-outcome-line'
 
 // The line is built with `Trans`, which needs an i18next instance to render against. `escapeValue`
@@ -40,5 +42,32 @@ describe('client/messaging/rolled-outcome-line', () => {
     expect(screen.getByText(/asks the 8-ball/)).toBeDefined()
     expect(screen.getByText(/am I done\?/)).toBeDefined()
     expect(screen.getByTestId('outcome-chip').textContent).toBe('My reply is no')
+  })
+
+  test('a quote reads the settled line, with the unit that says it in a chip', () => {
+    render(
+      <RolledOutcomeLine
+        outcome={{ kind: 'quote', unit: 'firebat', line: 'needALight' }}
+        text=''
+      />,
+    )
+
+    expect(screen.getByText(/quotes the/)).toBeDefined()
+    expect(screen.getByTestId('outcome-chip').textContent).toBe('Firebat')
+    expect(screen.getByText(/Need a light\?/)).toBeDefined()
+  })
+
+  test('every line the server can settle on has text to show for it', () => {
+    const t = i18next.t
+
+    for (const unit of QUOTE_UNITS) {
+      for (const line of UNIT_QUOTES[unit]) {
+        const text = quoteLineText(unit, line, t)
+
+        expect(text.length).toBeGreaterThan(0)
+        // A missing entry falls back to the key itself, which is what this catches.
+        expect(text).not.toBe(line)
+      }
+    }
   })
 })

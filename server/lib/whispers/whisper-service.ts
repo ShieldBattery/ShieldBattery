@@ -197,12 +197,12 @@ export default class WhisperService {
   }
 
   /**
-   * Settles an outcome (a roll, a coin flip, an 8-ball answer) for a user and announces it in their
-   * conversation with another user as an action line.
+   * Settles an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) for a user and
+   * announces it in their conversation with another user as an action line.
    *
    * The line's wording is the client's to compose from the outcome, so the message's text carries
    * only the words the user typed themselves: the question put to the 8-ball, and nothing at all
-   * for a roll or a flip. Those words are never mention-processed, since an announcement the server
+   * for any other kind. Those words are never mention-processed, since an announcement the server
    * wrote must not become a way to make it notify people.
    */
   async sendOutcome(userId: SbUserId, targetUser: SbUserId, request: RolledOutcomeRequest) {

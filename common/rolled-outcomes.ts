@@ -1,7 +1,10 @@
+import { QuoteLine, QuoteUnit } from './unit-quotes'
+
 /**
- * Outcomes that chat commands ask the server to settle (`/roll`, `/flip`, `/8ball`). The server
- * picks the result and announces it as an action line carrying a `RolledOutcome`, so the result
- * can't be typed by hand: an ordinary message (including one sent with `/me`) never carries one.
+ * Outcomes that chat commands ask the server to settle (`/roll`, `/flip`, `/8ball`, `/quote`). The
+ * server picks the result and announces it as an action line carrying a `RolledOutcome`, so the
+ * result can't be typed by hand: an ordinary message (including one sent with `/me`) never carries
+ * one.
  */
 
 /** The upper bound `/roll` uses when none is given: the roll is 1 to this, inclusive. */
@@ -56,6 +59,13 @@ export type RolledOutcome =
     }
   | { kind: 'flip'; result: CoinSide }
   | { kind: 'eightBall'; answer: EightBallAnswer }
+  | {
+      kind: 'quote'
+      /** The unit that says the line, as the key the client localizes its name by. */
+      unit: QuoteUnit
+      /** One of that unit's lines, as the key the client localizes it by. */
+      line: QuoteLine
+    }
 
 /** What a client asks the server to settle. The body of every `outcomes` endpoint. */
 export type RolledOutcomeRequest =
@@ -69,4 +79,9 @@ export type RolledOutcomeRequest =
       kind: 'eightBall'
       /** The question put to the 8-ball, which the announcing line repeats. */
       question: string
+    }
+  | {
+      kind: 'quote'
+      /** The unit to quote; the server picks one at random when left out. */
+      unit?: QuoteUnit
     }

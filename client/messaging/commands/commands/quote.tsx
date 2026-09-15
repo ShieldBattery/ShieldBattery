@@ -1,15 +1,15 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
-import { randomItem } from '../../../../common/random'
+import { QUOTE_UNITS, QuoteUnit } from '../../../../common/unit-quotes'
 import { TransInterpolation } from '../../../i18n/i18next'
-import { ALL_COMMAND_SURFACES, defineCommand, TextTransform } from '../command-schema'
+import { ALL_COMMAND_SURFACES, defineCommand } from '../command-schema'
 import { LocalStrong } from '../local-strong'
-import { QUOTE_CATALOGUE, QUOTE_UNIT_NAMES } from './quote-catalogue'
+import { sendOutcome } from './send-outcome'
 
 /** The line a unit name the catalogue doesn't know answers with, listing the ones it does. */
 function unknownUnitLine(name: string, t: TFunction): React.ReactNode {
-  const units = QUOTE_UNIT_NAMES.join(', ')
+  const units = QUOTE_UNITS.join(', ')
   return (
     <Trans t={t} i18nKey='chat.commands.quote.unknownUnit'>
       No unit named <LocalStrong>{{ name } as TransInterpolation}</LocalStrong>. Units:{' '}
@@ -23,7 +23,7 @@ export const quoteCommand = defineCommand({
   description: t =>
     t(
       'chat.commands.quote.description',
-      'Says a random Brood War unit line, from one unit if you name it.',
+      'Quotes a random Brood War unit line, from one unit if you name it.',
     ),
   surfaces: ALL_COMMAND_SURFACES,
   // A word rather than an enum of the units, so usage strings read `[unit]` instead of spelling
@@ -34,24 +34,26 @@ export const quoteCommand = defineCommand({
       name: 'unit',
       optional: true,
       exhaustive: true,
-      suggest: () => QUOTE_UNIT_NAMES.map(value => ({ value })),
+      suggest: () => QUOTE_UNITS.map(value => ({ value })),
     },
   ],
 
-  run({ args, t, emit }): TextTransform | void {
-    let unit
-    if (args.unit === undefined) {
-      unit = randomItem(QUOTE_CATALOGUE)
-    } else {
+  run({ args, context, dispatch, t, emit }) {
+    let unit: QuoteUnit | undefined
+    if (args.unit !== undefined) {
       const typed = args.unit.toLowerCase()
-      unit = QUOTE_CATALOGUE.find(candidate => candidate.name === typed)
+      unit = QUOTE_UNITS.find(candidate => candidate === typed)
       if (!unit) {
         emit({ kind: 'error', content: unknownUnitLine(args.unit, t) })
-        return undefined
+        return
       }
     }
 
-    // Client-side randomness is fine here: a quote settles nothing.
-    return { text: randomItem(unit.lines)(t) }
+    sendOutcome(unit === undefined ? { kind: 'quote' } : { kind: 'quote', unit }, {
+      context,
+      dispatch,
+      t,
+      emit,
+    })
   },
 })

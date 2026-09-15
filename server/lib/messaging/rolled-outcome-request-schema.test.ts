@@ -37,6 +37,12 @@ describe('messaging/rolled-outcome-request-schema', () => {
         rolledOutcomeRequestBody.validate({ kind: 'roll', question: 'sneaky' }).error,
       ).toBeDefined()
     })
+
+    test('refuses a unit, which only a quote names', () => {
+      expect(
+        rolledOutcomeRequestBody.validate({ kind: 'roll', unit: 'marine' }).error,
+      ).toBeDefined()
+    })
   })
 
   describe('flip', () => {
@@ -49,6 +55,12 @@ describe('messaging/rolled-outcome-request-schema', () => {
 
     test('refuses an upper bound, which only a roll has', () => {
       expect(rolledOutcomeRequestBody.validate({ kind: 'flip', max: '6' }).error).toBeDefined()
+    })
+
+    test('refuses a unit, which only a quote names', () => {
+      expect(
+        rolledOutcomeRequestBody.validate({ kind: 'flip', unit: 'marine' }).error,
+      ).toBeDefined()
     })
   })
 
@@ -70,6 +82,41 @@ describe('messaging/rolled-outcome-request-schema', () => {
     test('refuses an empty question', () => {
       expect(
         rolledOutcomeRequestBody.validate({ kind: 'eightBall', question: '' }).error,
+      ).toBeDefined()
+    })
+
+    test('refuses a unit, which only a quote names', () => {
+      expect(
+        rolledOutcomeRequestBody.validate({ kind: 'eightBall', question: 'q', unit: 'marine' })
+          .error,
+      ).toBeDefined()
+    })
+  })
+
+  describe('quote', () => {
+    test('accepts a request naming no unit, leaving the pick to the server', () => {
+      const { error, value } = rolledOutcomeRequestBody.validate({ kind: 'quote' })
+
+      expect(error).toBeUndefined()
+      expect(value).toEqual({ kind: 'quote' })
+    })
+
+    test('accepts a unit the catalogue knows', () => {
+      const { error, value } = rolledOutcomeRequestBody.validate({ kind: 'quote', unit: 'marine' })
+
+      expect(error).toBeUndefined()
+      expect(value).toEqual({ kind: 'quote', unit: 'marine' })
+    })
+
+    test('refuses a unit the catalogue does not know', () => {
+      expect(
+        rolledOutcomeRequestBody.validate({ kind: 'quote', unit: 'zergling' }).error,
+      ).toBeDefined()
+    })
+
+    test('refuses a question, which only the 8-ball is asked', () => {
+      expect(
+        rolledOutcomeRequestBody.validate({ kind: 'quote', question: 'sneaky' }).error,
       ).toBeDefined()
     })
   })

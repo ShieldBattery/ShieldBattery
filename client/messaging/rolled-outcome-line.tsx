@@ -5,11 +5,12 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { EightBallAnswer, RolledOutcome } from '../../common/rolled-outcomes'
 import { TransInterpolation } from '../i18n/i18next'
 import { labelSmall } from '../styles/typography'
+import { QUOTE_UNIT_NAME_TEXT, quoteLineText } from './quote-catalogue'
 
 /**
  * Marks the result inside an action line announcing something the server settled (a roll, a coin
- * flip, an 8-ball answer). Only such a result ever renders this chip, which is what tells a real
- * roll from someone hand-typing `/me rolls 100`.
+ * flip, an 8-ball answer, a unit quote). Only such a result ever renders this chip, which is what
+ * tells a real roll from someone hand-typing `/me rolls 100`.
  */
 export const OutcomeChip = styled.span.attrs<{ 'data-testid'?: string }>({
   'data-testid': 'outcome-chip',
@@ -68,7 +69,7 @@ const EIGHT_BALL_ANSWER_TEXT: Record<EightBallAnswer, (t: TFunction) => string> 
 
 export interface RolledOutcomeLineProps {
   outcome: RolledOutcome
-  /** The message's own text: the question asked of the 8-ball, empty for a roll or a flip. */
+  /** The message's own text: the question asked of the 8-ball, empty for every other kind. */
   text: string
 }
 
@@ -109,6 +110,16 @@ export function RolledOutcomeLine({ outcome, text }: RolledOutcomeLineProps) {
         <Trans t={t} i18nKey='chat.outcomes.eightBall.line'>
           asks the 8-ball "{{ question: text } as TransInterpolation}"{' '}
           <OutcomeChip>{{ answer } as TransInterpolation}</OutcomeChip>
+        </Trans>
+      )
+    }
+    case 'quote': {
+      const unit = QUOTE_UNIT_NAME_TEXT[outcome.unit](t)
+      const line = quoteLineText(outcome.unit, outcome.line, t)
+      return (
+        <Trans t={t} i18nKey='chat.outcomes.quote.line'>
+          quotes the <OutcomeChip>{{ unit } as TransInterpolation}</OutcomeChip> "
+          {{ line } as TransInterpolation}"
         </Trans>
       )
     }

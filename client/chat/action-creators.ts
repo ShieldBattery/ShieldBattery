@@ -406,7 +406,10 @@ export function sendMessage(
   })
 }
 
-/** Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer) and announce it. */
+/**
+ * Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) and
+ * announce it.
+ */
 export function sendOutcome(
   channelId: SbChannelId,
   request: RolledOutcomeRequest,

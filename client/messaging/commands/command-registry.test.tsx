@@ -369,7 +369,7 @@ describe('messaging/commands/command-registry', () => {
             name: 'quote',
             aliases: [],
             args: [{ label: 'unit', optional: true }],
-            description: 'Says a random Brood War unit line, from one unit if you name it.',
+            description: 'Quotes a random Brood War unit line, from one unit if you name it.',
           },
           {
             name: 'roll',

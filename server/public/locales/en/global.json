@@ -443,169 +443,7 @@
         "description": "Shows a user's profile card: their rank and win/loss record."
       },
       "quote": {
-        "description": "Says a random Brood War unit line, from one unit if you name it.",
-        "lines": {
-          "arbiter": {
-            "askOfUs": "What would you ask of us?",
-            "seekGuidance": "Do you seek guidance?",
-            "senseASoul": "We sense a soul in search of answers.",
-            "warpFieldStabilized": "Warp field stabilized."
-          },
-          "archon": {
-            "mergingComplete": "The merging is complete.",
-            "powerOverwhelming": "Power overwhelming!",
-            "shallBeDone": "It shall be done.",
-            "weBurn": "We burn!"
-          },
-          "battlecruiser": {
-            "battlecruiserOperational": "Battlecruiser operational.",
-            "engage": "Engage!",
-            "goodDayCommander": "Good day, commander.",
-            "makeItHappen": "Make it happen.",
-            "notEquippedWithShields": "Not equipped with shields? Well then buckle up!",
-            "setACourse": "Set a course.",
-            "shieldsUpWeaponsOnline": "Shields up! Weapons online!",
-            "wayBehindSchedule": "We are getting WAY behind schedule."
-          },
-          "carrier": {
-            "carrierHasArrived": "Carrier has arrived.",
-            "commander": "Commander.",
-            "instructions": "Instructions.",
-            "weAreHere": "We are here."
-          },
-          "corsair": {
-            "hello": "Hello?",
-            "interesting": "Interesting.",
-            "onStation": "Corsair on station."
-          },
-          "darktemplar": {
-            "adunToridas": "Adun Toridas.",
-            "ahAtLast": "Ah, at last.",
-            "imWaiting": "I'm waiting.",
-            "zerashkGulida": "Zerashk gulida!"
-          },
-          "dragoon": {
-            "awaitingInstructions": "Awaiting instructions.",
-            "forVengeance": "For vengeance!",
-            "iHaveReturned": "I have returned.",
-            "makeUseOfMe": "Make use of me."
-          },
-          "dropship": {
-            "buckleUp": "Buckle up!",
-            "inThePipe": "In the pipe, five by five.",
-            "keepArmsAndLegsInside": "Keep your arms and legs inside until this ride comes to a full and complete stop.",
-            "someChop": "Hang on, we're in for some chop.",
-            "takeYourOrder": "Can I take your order?",
-            "waterLanding": "In case of a water landing, you may be used as a flotation device."
-          },
-          "firebat": {
-            "fireItUp": "Fire it up!",
-            "goodSmoke": "Nothin' like a good smoke!",
-            "loveTheSmellOfNapalm": "I love the smell of napalm.",
-            "needALight": "Need a light?",
-            "propaneAccessories": "Got any questions about propane? Or propane accessories?",
-            "somethingBurning": "Is something burning?",
-            "thatsWhatIThought": "Haha, that's what I thought."
-          },
-          "ghost": {
-            "calledDownTheThunder": "You called down the thunder.",
-            "callTheShot": "Call the shot.",
-            "exterminator": "Somebody call for an exterminator?",
-            "ghostReporting": "Ghost reporting.",
-            "imGone": "I'm gone.",
-            "keepItUp": "Keep it up! I dare ya.",
-            "neverKnowWhatHitEm": "Never know what hit 'em.",
-            "reapTheWhirlwind": "Now reap the whirlwind."
-          },
-          "goliath": {
-            "checklistProtocol": "Checklist protocol initiated.",
-            "fdicApproved": "FDIC approved.",
-            "goAheadTacCom": "Go ahead, TacCom.",
-            "goliathOnline": "Goliath online.",
-            "milSpecEd209": "MilSpec ED-209 online.",
-            "navComLocked": "Nav-com locked.",
-            "targetDesignated": "Target designated."
-          },
-          "marine": {
-            "fragThisCommander": "I vote we frag this commander.",
-            "goGoGo": "Go go go!",
-            "gonnaGiveOrders": "Are you gonna give me orders?",
-            "jackedUp": "Jacked up and good to go.",
-            "outstanding": "Outstanding!",
-            "pieceOfMe": "You want a piece of me, boy?",
-            "rockAndRoll": "Rock and roll!",
-            "somethingToShoot": "Give me something to shoot."
-          },
-          "medic": {
-            "clear": "Clear!",
-            "getMeADefib": "Get me a defib, stat!",
-            "hesDeadJim": "He's dead, Jim.",
-            "needMedicalAttention": "Need medical attention?",
-            "preppedAndReady": "Prepped and ready!",
-            "stat": "Stat!",
-            "stateTheNature": "State the nature of your medical emergency.",
-            "turnYourHeadAndCough": "Turn your head and cough.",
-            "whereDoesItHurt": "Where does it hurt?"
-          },
-          "scv": {
-            "goodToGo": "SCV good to go, sir.",
-            "ordersCaptain": "Orders, captain?",
-            "reportingForDuty": "Reporting for duty.",
-            "somethingInTheWay": "I can't build it, something's in the way."
-          },
-          "shuttle": {
-            "awaitingCommand": "Awaiting command.",
-            "transportReady": "Transport ready.",
-            "transWarpEngaged": "Trans-warp drive engaged."
-          },
-          "tank": {
-            "delightedToSir": "Delighted to, sir!",
-            "dropTheHammer": "I'm about to drop the hammer!",
-            "identifyTarget": "Identify target!",
-            "indiscriminateJustice": "Dispensing indiscriminate justice!",
-            "majorMalfunction": "What is your major malfunction?",
-            "moveIt": "Move it!",
-            "readyToRollOut": "Ready to roll out!"
-          },
-          "templar": {
-            "appetiteForDestruction": "I see you have an appetite for destruction.",
-            "lackOfControlDisturbing": "But I find your lack of control disturbing.",
-            "thoughtsBetrayYou": "Your thoughts betray you.",
-            "useYourIllusion": "And you learn to use your illusion."
-          },
-          "valkyrie": {
-            "achtung": "Achtung!",
-            "itsShowtime": "It's showtime!",
-            "needSomethingDestroyed": "Need something destroyed?",
-            "valkyriePrepared": "Valkyrie prepared.",
-            "veryInterestingButStupid": "This is very interesting... but stupid.",
-            "veryNaughty": "You're being very naughty.",
-            "waysOfBlowingThingsUp": "I have ways of blowing things up."
-          },
-          "vulture": {
-            "bringItOn": "Alright, bring it on!",
-            "goingIn": "Hang on, I'm going in.",
-            "gottaRide": "I gotta ride!",
-            "imOnIt": "Yeah, I'm on it.",
-            "somethingOnYourMind": "Something on your mind?"
-          },
-          "wraith": {
-            "attackFormation": "Attack formation.",
-            "awaitingLaunchOrders": "Wraith awaiting launch orders.",
-            "gottaDieSometimeRed": "Everybody's gotta die sometime, Red.",
-            "gottaGetMeOneOfThese": "I gotta get me one of these.",
-            "imInvincible": "I am invincible, that's right!",
-            "vectorLockedIn": "Vector locked in.",
-            "whyAmISoGood": "I'm just curious, why am I so good?"
-          },
-          "zealot": {
-            "enTaroAdun": "En taro Adun!",
-            "forAiur": "For Aiur!",
-            "khassarDeTemplari": "Khassar de templari!",
-            "longForCombat": "I long for combat!",
-            "myLifeForAiur": "My life for Aiur!"
-          }
-        },
+        "description": "Quotes a random Brood War unit line, from one unit if you name it.",
         "unknownUnit": "No unit named <1>{{name}}</1>. Units: {{units}}"
       },
       "rank": {
@@ -819,6 +657,194 @@
         "heads": "heads",
         "line": "flips a coin: <1>{{result}}</1>",
         "tails": "tails"
+      },
+      "quote": {
+        "line": "quotes the <1>{{unit}}</1> \"{{line}}\"",
+        "lines": {
+          "arbiter": {
+            "askOfUs": "What would you ask of us?",
+            "seekGuidance": "Do you seek guidance?",
+            "senseASoul": "We sense a soul in search of answers.",
+            "warpFieldStabilized": "Warp field stabilized."
+          },
+          "archon": {
+            "mergingComplete": "The merging is complete.",
+            "powerOverwhelming": "Power overwhelming!",
+            "shallBeDone": "It shall be done.",
+            "weBurn": "We burn!"
+          },
+          "battlecruiser": {
+            "battlecruiserOperational": "Battlecruiser operational.",
+            "engage": "Engage!",
+            "goodDayCommander": "Good day, commander.",
+            "makeItHappen": "Make it happen.",
+            "notEquippedWithShields": "Not equipped with shields? Well then buckle up!",
+            "setACourse": "Set a course.",
+            "shieldsUpWeaponsOnline": "Shields up! Weapons online!",
+            "wayBehindSchedule": "We are getting WAY behind schedule."
+          },
+          "carrier": {
+            "carrierHasArrived": "Carrier has arrived.",
+            "commander": "Commander.",
+            "instructions": "Instructions.",
+            "weAreHere": "We are here."
+          },
+          "corsair": {
+            "hello": "Hello?",
+            "interesting": "Interesting.",
+            "onStation": "Corsair on station."
+          },
+          "darktemplar": {
+            "adunToridas": "Adun Toridas.",
+            "ahAtLast": "Ah, at last.",
+            "imWaiting": "I'm waiting.",
+            "zerashkGulida": "Zerashk gulida!"
+          },
+          "dragoon": {
+            "awaitingInstructions": "Awaiting instructions.",
+            "forVengeance": "For vengeance!",
+            "iHaveReturned": "I have returned.",
+            "makeUseOfMe": "Make use of me."
+          },
+          "dropship": {
+            "buckleUp": "Buckle up!",
+            "inThePipe": "In the pipe, five by five.",
+            "keepArmsAndLegsInside": "Keep your arms and legs inside until this ride comes to a full and complete stop.",
+            "someChop": "Hang on, we're in for some chop.",
+            "takeYourOrder": "Can I take your order?",
+            "waterLanding": "In case of a water landing, you may be used as a flotation device."
+          },
+          "firebat": {
+            "fireItUp": "Fire it up!",
+            "goodSmoke": "Nothin' like a good smoke!",
+            "loveTheSmellOfNapalm": "I love the smell of napalm.",
+            "needALight": "Need a light?",
+            "propaneAccessories": "Got any questions about propane? Or propane accessories?",
+            "somethingBurning": "Is something burning?",
+            "thatsWhatIThought": "Haha, that's what I thought."
+          },
+          "ghost": {
+            "calledDownTheThunder": "You called down the thunder.",
+            "callTheShot": "Call the shot.",
+            "exterminator": "Somebody call for an exterminator?",
+            "ghostReporting": "Ghost reporting.",
+            "imGone": "I'm gone.",
+            "keepItUp": "Keep it up! I dare ya.",
+            "neverKnowWhatHitEm": "Never know what hit 'em.",
+            "reapTheWhirlwind": "Now reap the whirlwind."
+          },
+          "goliath": {
+            "checklistProtocol": "Checklist protocol initiated.",
+            "fdicApproved": "FDIC approved.",
+            "goAheadTacCom": "Go ahead, TacCom.",
+            "goliathOnline": "Goliath online.",
+            "milSpecEd209": "MilSpec ED-209 online.",
+            "navComLocked": "Nav-com locked.",
+            "targetDesignated": "Target designated."
+          },
+          "marine": {
+            "fragThisCommander": "I vote we frag this commander.",
+            "goGoGo": "Go go go!",
+            "gonnaGiveOrders": "Are you gonna give me orders?",
+            "jackedUp": "Jacked up and good to go.",
+            "outstanding": "Outstanding!",
+            "pieceOfMe": "You want a piece of me, boy?",
+            "rockAndRoll": "Rock and roll!",
+            "somethingToShoot": "Give me something to shoot."
+          },
+          "medic": {
+            "clear": "Clear!",
+            "getMeADefib": "Get me a defib, stat!",
+            "hesDeadJim": "He's dead, Jim.",
+            "needMedicalAttention": "Need medical attention?",
+            "preppedAndReady": "Prepped and ready!",
+            "stat": "Stat!",
+            "stateTheNature": "State the nature of your medical emergency.",
+            "turnYourHeadAndCough": "Turn your head and cough.",
+            "whereDoesItHurt": "Where does it hurt?"
+          },
+          "scv": {
+            "goodToGo": "SCV good to go, sir.",
+            "ordersCaptain": "Orders, captain?",
+            "reportingForDuty": "Reporting for duty.",
+            "somethingInTheWay": "I can't build it, something's in the way."
+          },
+          "shuttle": {
+            "awaitingCommand": "Awaiting command.",
+            "transportReady": "Transport ready.",
+            "transWarpEngaged": "Trans-warp drive engaged."
+          },
+          "tank": {
+            "delightedToSir": "Delighted to, sir!",
+            "dropTheHammer": "I'm about to drop the hammer!",
+            "identifyTarget": "Identify target!",
+            "indiscriminateJustice": "Dispensing indiscriminate justice!",
+            "majorMalfunction": "What is your major malfunction?",
+            "moveIt": "Move it!",
+            "readyToRollOut": "Ready to roll out!"
+          },
+          "templar": {
+            "appetiteForDestruction": "I see you have an appetite for destruction.",
+            "lackOfControlDisturbing": "But I find your lack of control disturbing.",
+            "thoughtsBetrayYou": "Your thoughts betray you.",
+            "useYourIllusion": "And you learn to use your illusion."
+          },
+          "valkyrie": {
+            "achtung": "Achtung!",
+            "itsShowtime": "It's showtime!",
+            "needSomethingDestroyed": "Need something destroyed?",
+            "valkyriePrepared": "Valkyrie prepared.",
+            "veryInterestingButStupid": "This is very interesting... but stupid.",
+            "veryNaughty": "You're being very naughty.",
+            "waysOfBlowingThingsUp": "I have ways of blowing things up."
+          },
+          "vulture": {
+            "bringItOn": "Alright, bring it on!",
+            "goingIn": "Hang on, I'm going in.",
+            "gottaRide": "I gotta ride!",
+            "imOnIt": "Yeah, I'm on it.",
+            "somethingOnYourMind": "Something on your mind?"
+          },
+          "wraith": {
+            "attackFormation": "Attack formation.",
+            "awaitingLaunchOrders": "Wraith awaiting launch orders.",
+            "gottaDieSometimeRed": "Everybody's gotta die sometime, Red.",
+            "gottaGetMeOneOfThese": "I gotta get me one of these.",
+            "imInvincible": "I am invincible, that's right!",
+            "vectorLockedIn": "Vector locked in.",
+            "whyAmISoGood": "I'm just curious, why am I so good?"
+          },
+          "zealot": {
+            "enTaroAdun": "En taro Adun!",
+            "forAiur": "For Aiur!",
+            "khassarDeTemplari": "Khassar de templari!",
+            "longForCombat": "I long for combat!",
+            "myLifeForAiur": "My life for Aiur!"
+          }
+        },
+        "units": {
+          "arbiter": "Arbiter",
+          "archon": "Archon",
+          "battlecruiser": "Battlecruiser",
+          "carrier": "Carrier",
+          "corsair": "Corsair",
+          "darktemplar": "Dark Templar",
+          "dragoon": "Dragoon",
+          "dropship": "Dropship",
+          "firebat": "Firebat",
+          "ghost": "Ghost",
+          "goliath": "Goliath",
+          "marine": "Marine",
+          "medic": "Medic",
+          "scv": "SCV",
+          "shuttle": "Shuttle",
+          "tank": "Siege Tank",
+          "templar": "High Templar",
+          "valkyrie": "Valkyrie",
+          "vulture": "Vulture",
+          "wraith": "Wraith",
+          "zealot": "Zealot"
+        }
       },
       "roll": {
         "line": "rolls <1>{{value}}</1> (1-{{max}})"

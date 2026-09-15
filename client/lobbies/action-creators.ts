@@ -354,7 +354,10 @@ export function sendChat(
   })
 }
 
-/** Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer) and announce it. */
+/**
+ * Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) and
+ * announce it.
+ */
 export function sendOutcome(request: RolledOutcomeRequest, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async (_dispatch, getState) => {
     const { lobby } = getState()

@@ -530,7 +530,8 @@ export interface LobbyChatMessage {
   emote?: boolean
   /**
    * Present on an action line announcing something the server settled for the user (a roll, a coin
-   * flip, an 8-ball answer). Only the server puts it there; the chat endpoint refuses it.
+   * flip, an 8-ball answer, a unit quote). Only the server puts it there; the chat endpoint
+   * refuses it.
    */
   outcome?: RolledOutcome
 }

@@ -6,9 +6,10 @@ import {
   RolledOutcome,
   RolledOutcomeRequest,
 } from '../../../common/rolled-outcomes'
+import { QUOTE_UNITS, UNIT_QUOTES } from '../../../common/unit-quotes'
 
 /**
- * Settles what a client asked for: a roll, a coin flip, or an 8-ball answer.
+ * Settles what a client asked for: a roll, a coin flip, an 8-ball answer, or a unit quote.
  *
  * The server rolls these rather than the client so the outcome a message carries is one the
  * sender couldn't have picked. Plain `Math.random` is enough for that: nothing here guards
@@ -33,6 +34,11 @@ export function rollOutcome(
         kind: 'eightBall',
         answer: EIGHT_BALL_ANSWERS[randomInt(0, EIGHT_BALL_ANSWERS.length)],
       }
+    case 'quote': {
+      const unit = request.unit ?? QUOTE_UNITS[randomInt(0, QUOTE_UNITS.length)]
+      const lines = UNIT_QUOTES[unit]
+      return { kind: 'quote', unit, line: lines[randomInt(0, lines.length)] }
+    }
     default:
       return assertUnreachable(request)
   }
