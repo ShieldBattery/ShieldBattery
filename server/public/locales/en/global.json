@@ -451,6 +451,12 @@
         "unblockFailed": "Couldn't unblock <2><0></0></2>: {{errorMessage}}",
         "unfriendFailed": "Couldn't remove <2><0></0></2> from your friends: {{errorMessage}}"
       },
+      "reply": {
+        "chatRestricted": "You're currently restricted from sending chat messages.",
+        "description": "Whispers back to the last person who whispered you.",
+        "noTarget": "No one has whispered you yet, so there's no one to reply to.",
+        "sendError": "Couldn't send your reply to <1>{{target}}</1>: {{errorMessage}}"
+      },
       "stats": {
         "description": "Shows a user's win/loss record and ranks."
       },
@@ -1789,6 +1795,11 @@
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "newMessages": "New messages",
     "openLink": "Open link",
+    "reply": "Reply",
+    "replyChip": {
+      "replyingTo": "Replying to <1>{{name}}</1>",
+      "stopReplying": "Stop replying"
+    },
     "searchWithGoogle": "Search with Google",
     "sendMessage": "Send a message",
     "sendMessageChatRestricted": "Restricted from sending messages until {{date}}",
@@ -2421,7 +2432,12 @@
         },
         "quietChannelsWhileInGame": "Quiet channels while in a game",
         "quietWhispersWhileInGame": "Quiet whispers while in a game",
-        "title": "Notifications"
+        "showWhispersEverywhere": "Show whispers in every chat",
+        "title": "Notifications",
+        "whispers": {
+          "description": "Whispers you send and receive are shown as a line in whatever chat you're looking at, so you can read them and answer with /r without switching. Turn this off if you stream your screen.",
+          "title": "Whispers"
+        }
       },
       "social": {
         "blockedUsers": {

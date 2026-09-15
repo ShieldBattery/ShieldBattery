@@ -118,11 +118,12 @@ export const whisperCommand = defineCommand({
             return
           }
 
-          // The conversation only opens once the message has landed in it, so a send that fails
-          // leaves the user where they were, with the error next to the input they typed it in.
+          // A whisper sent with the message spelled out leaves the user where they were: the
+          // outgoing echo shows it went out, and a send that fails puts the error next to the
+          // input they typed it in.
           dispatch(
             sendWhisperMessage(userId, message, {
-              onSuccess: () => navigateToWhisper(userId, target),
+              onSuccess: () => {},
               onError: err => emit({ kind: 'error', content: sendFailedLine(target, err, t) }),
             }),
           )

@@ -227,6 +227,7 @@ describe('channel message echoes', () => {
         account: {
           quietChannelsWhileInGame: options.quietChannelsWhileInGame ?? true,
           quietWhispersWhileInGame: true,
+          showWhispersEverywhere: true,
         },
       },
       gameClient: {

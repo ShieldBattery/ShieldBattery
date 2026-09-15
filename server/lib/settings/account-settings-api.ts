@@ -31,6 +31,7 @@ export class AccountSettingsApi {
       body: Joi.object<UpdateAccountSettingsRequest>({
         quietChannelsWhileInGame: Joi.boolean(),
         quietWhispersWhileInGame: Joi.boolean(),
+        showWhispersEverywhere: Joi.boolean(),
       })
         .min(1)
         .required(),

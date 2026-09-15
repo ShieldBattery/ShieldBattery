@@ -12,7 +12,7 @@ import {
 } from './command-lines'
 import { parseArgs, splitCommandInput } from './command-parser'
 import { ALL_COMMANDS, findCommand } from './command-registry'
-import { ChatCommand, getCommandUsage } from './command-schema'
+import { ChatCommand, getCommandUsage, ReplyTarget } from './command-schema'
 import { LocalLineEmitter } from './local-output'
 
 /** What the command layer needs from the surface an input was submitted in. */
@@ -21,6 +21,11 @@ export interface CommandRunDeps {
   dispatch: DispatchFunction<ReduxAction>
   t: TFunction
   emit: LocalLineEmitter
+  /**
+   * Puts the input the command was submitted from into reply mode. Left out by a caller that has
+   * no input to put into it, which makes a command that would have used it do nothing instead.
+   */
+  enterReplyMode?: (target: ReplyTarget) => void
 }
 
 export type CommandRunResult =
@@ -46,7 +51,7 @@ export function runChatCommandWith(
   input: string,
   deps: CommandRunDeps,
 ): CommandRunResult {
-  const { context, dispatch, t, emit } = deps
+  const { context, dispatch, t, emit, enterReplyMode } = deps
 
   const split = splitCommandInput(input)
   if (split.kind === 'text') {
@@ -84,6 +89,7 @@ export function runChatCommandWith(
       t,
       emit,
       commands,
+      enterReplyMode,
     })
   } catch (err) {
     // A command that fell over has already cost the user their input, so it owes them an answer

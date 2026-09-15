@@ -26,6 +26,7 @@ import {
   isServerOriginMessage,
   SbMessage,
 } from './message-records'
+import { WhisperEchoMessage } from './whisper-echo-message'
 
 /**
  * Returns the index of the message the unread divider should be rendered in front of, or -1 if the
@@ -121,6 +122,8 @@ function CommonMessageOrFallback({
       return <NewDayMessage key={message.id} time={message.time} />
     case CommonMessageType.LocalLine:
       return <LocalLineMessage key={message.id} kind={message.kind} content={message.content} />
+    case CommonMessageType.WhisperEcho:
+      return <WhisperEchoMessage key={message.id} message={message} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage: {

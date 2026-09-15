@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { ReplyChip } from '../../messaging/reply-chip'
 import { IconButton } from '../button'
 import { Card } from '../card'
 import { CheckBox } from '../check-box'
@@ -51,6 +52,7 @@ export function TextFieldTest() {
   const [value22, setValue22] = useState('')
   const [value23, setValue23] = useState('')
   const [value24, setValue24] = useState('')
+  const [value25, setValue25] = useState('')
   const [changeError, setChangeError] = useState<string>()
   const [dense, setDense] = useState(false)
 
@@ -364,6 +366,17 @@ export function TextFieldTest() {
           maxLength={50}
           trailingIcons={[<MaterialIcon icon='sentiment_satisfied' key='emoji' />]}
           onChange={event => setValue24(event.target.value)}
+        />
+        <TextField
+          name='25'
+          value={value25}
+          floatingLabel={false}
+          dense={dense}
+          label='With leading content (reply chip)'
+          multiline={true}
+          maxRows={4}
+          leadingContent={<ReplyChip name='tec27' onClear={() => {}} />}
+          onChange={event => setValue25(event.target.value)}
         />
       </StyledCard>
     </Container>

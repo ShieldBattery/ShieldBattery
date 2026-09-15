@@ -8,6 +8,7 @@ export const InputBase = styled.div<{
   $multiline?: boolean
   $leadingIconsLength?: number
   $trailingIconsLength?: number
+  $leadingContentWidth?: number
 }>`
   ${inter};
   ${bodyLarge};
@@ -98,5 +99,13 @@ export const InputBase = styled.div<{
     const padding = props.$trailingIconsLength * (iconWidth + 4) + edgeInset
 
     return `padding-right: ${padding}px;`
+  }}
+  ${props => {
+    if (!props.$leadingContentWidth) return ''
+
+    // `text-indent` (rather than `padding-left`) only pushes in the first line, giving a hanging
+    // indent: later lines of a multiline field wrap back to the full-width left edge and run
+    // underneath the leading content, while the caret on the first line still starts past it.
+    return `text-indent: ${props.$leadingContentWidth + 8}px;`
   }}
 `

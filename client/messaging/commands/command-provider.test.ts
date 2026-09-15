@@ -155,6 +155,7 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       '/help [command]',
       '/join <channel>',
       '/whisper <user> [message]',
+      '/reply [message]',
       '/profile [user]',
       '/stats [user]',
       '/rank [user]',

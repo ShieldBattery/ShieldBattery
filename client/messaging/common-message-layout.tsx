@@ -19,6 +19,7 @@ import {
 import { ExternalLink } from '../navigation/external-link'
 import { labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { UserMenuComponent } from '../users/user-context-menu'
 import { ChatContext } from './chat-context'
 import { useMentionFilterClick } from './mention-hooks'
 import { MessageContextMenu } from './message-context-menu'
@@ -125,6 +126,119 @@ function* getAllMatches(text: string) {
   yield* matchUnicodeEmojis(text)
 }
 
+export interface ParseMessageTextOptions {
+  /**
+   * The current user, so a mention of them can be reported back to the caller. Left out where a
+   * self-mention carries no meaning for the line being built.
+   */
+  selfUserId?: SbUserId
+  /** Passed on to the mentioned usernames, see `ConnectedUsername`. */
+  filterClick?: (userId: SbUserId, e: React.MouseEvent | React.KeyboardEvent) => boolean
+  UserMenu?: UserMenuComponent
+  /** Whether mentioned users and channels can be clicked, focused, etc. */
+  interactive: boolean
+}
+
+export interface ParsedMessageText {
+  /** What the message's text renders as: its plain runs plus everything matched within it. */
+  nodes: React.ReactNode[]
+  /** Whether the text mentions `selfUserId`. */
+  mentionsSelf: boolean
+  /** The lobby the first lobby link in the text points at, if it holds one. */
+  inviteLobbyId: SbLobbyId | undefined
+}
+
+/**
+ * Turns a message's text into what it renders as: user and channel mentions, links (message links
+ * among them), and unicode emoji, with the plain text between them kept as-is. Emoji are sized up
+ * when the whole message is nothing but a short run of them.
+ */
+export function parseMessageText(
+  text: string,
+  { selfUserId, filterClick, UserMenu, interactive }: ParseMessageTextOptions,
+): ParsedMessageText {
+  const nodes: React.ReactNode[] = []
+  let mentionsSelf = false
+  let inviteLobbyId: SbLobbyId | undefined
+  const matches = getAllMatches(text)
+  const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
+  const jumboEmoji = isJumboEmojiMessage(text, sortedMatches)
+  let lastIndex = 0
+
+  for (const match of sortedMatches) {
+    // This probably can't happen at this moment, but to ensure we don't get tripped by it in the
+    // future, if this happens we skip the match entirely as it means it overlaps with a previous
+    // match.
+    if (match.index < lastIndex) {
+      continue
+    }
+
+    // Insert preceding text, if any
+    if (match.index > lastIndex) {
+      nodes.push(text.substring(lastIndex, match.index))
+    }
+
+    if (match.type === 'userMentionMarkup') {
+      const userId = makeSbUserId(Number(match.groups.userId))
+      if (userId === selfUserId) {
+        mentionsSelf = true
+      }
+
+      nodes.push(
+        match.groups.prefix,
+        <MentionedUsername
+          key={match.index}
+          userId={userId}
+          prefix={'@'}
+          filterClick={filterClick}
+          UserMenu={UserMenu}
+          interactive={interactive}
+        />,
+      )
+    } else if (match.type === 'channelMentionMarkup') {
+      const channelId = makeSbChannelId(Number(match.groups.channelId))
+
+      nodes.push(
+        match.groups.prefix,
+        <MentionedChannelName key={match.index} channelId={channelId} interactive={interactive} />,
+      )
+    } else if (match.type === 'link') {
+      if (inviteLobbyId === undefined) {
+        // Only the first lobby link in a message gets an invite card.
+        inviteLobbyId = lobbyIdFromMessageLink(match.text)
+      }
+
+      const messageLink = messageLinkFromHref(match.text)
+      if (messageLink) {
+        nodes.push(<MessageLinkChip key={match.index} href={match.text} target={messageLink} />)
+      } else {
+        nodes.push(
+          <ExternalLink key={match.index} href={match.text}>
+            {match.text}
+          </ExternalLink>,
+        )
+      }
+    } else if (match.type === 'unicodeEmoji') {
+      let emojiIndex = match.index
+      for (const emoji of splitEmojiRun(match.text)) {
+        nodes.push(<MessageEmoji key={emojiIndex} emoji={emoji} jumbo={jumboEmoji} />)
+        emojiIndex += emoji.length
+      }
+    } else {
+      match satisfies never
+    }
+
+    lastIndex = match.index + match.text.length
+  }
+
+  // Insert remaining text, if any
+  if (text.length > lastIndex) {
+    nodes.push(text.substring(lastIndex))
+  }
+
+  return { nodes, mentionsSelf, inviteLobbyId }
+}
+
 export interface TextMessageProps {
   msgId: string
   userId: SbUserId
@@ -158,90 +272,16 @@ export function TextMessage({
   const { onContextMenu, contextMenuPopoverProps, selectedText, linkHref } = useContextMenu()
   const textRef = useRef<HTMLSpanElement>(null)
 
-  const parsedText: React.ReactNode[] = []
-  let isHighlighted = false
-  let inviteLobbyId: SbLobbyId | undefined
-  const matches = getAllMatches(text)
-  const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
-  const jumboEmoji = isJumboEmojiMessage(text, sortedMatches)
-  let lastIndex = 0
-
-  for (const match of sortedMatches) {
-    // This probably can't happen at this moment, but to ensure we don't get tripped by it in the
-    // future, if this happens we skip the match entirely as it means it overlaps with a previous
-    // match.
-    if (match.index < lastIndex) {
-      continue
-    }
-
-    // Insert preceding text, if any
-    if (match.index > lastIndex) {
-      parsedText.push(text.substring(lastIndex, match.index))
-    }
-
-    if (match.type === 'userMentionMarkup') {
-      const userId = makeSbUserId(Number(match.groups.userId))
-      if (userId === selfUserId) {
-        isHighlighted = true
-      }
-
-      parsedText.push(
-        match.groups.prefix,
-        <MentionedUsername
-          key={match.index}
-          userId={userId}
-          prefix={'@'}
-          filterClick={filterClick}
-          UserMenu={UserMenu}
-          interactive={!disallowMentionInteraction}
-        />,
-      )
-    } else if (match.type === 'channelMentionMarkup') {
-      const channelId = makeSbChannelId(Number(match.groups.channelId))
-
-      parsedText.push(
-        match.groups.prefix,
-        <MentionedChannelName
-          key={match.index}
-          channelId={channelId}
-          interactive={!disallowMentionInteraction}
-        />,
-      )
-    } else if (match.type === 'link') {
-      if (inviteLobbyId === undefined) {
-        // Only the first lobby link in a message gets an invite card.
-        inviteLobbyId = lobbyIdFromMessageLink(match.text)
-      }
-
-      const messageLink = messageLinkFromHref(match.text)
-      if (messageLink) {
-        parsedText.push(
-          <MessageLinkChip key={match.index} href={match.text} target={messageLink} />,
-        )
-      } else {
-        parsedText.push(
-          <ExternalLink key={match.index} href={match.text}>
-            {match.text}
-          </ExternalLink>,
-        )
-      }
-    } else if (match.type === 'unicodeEmoji') {
-      let emojiIndex = match.index
-      for (const emoji of splitEmojiRun(match.text)) {
-        parsedText.push(<MessageEmoji key={emojiIndex} emoji={emoji} jumbo={jumboEmoji} />)
-        emojiIndex += emoji.length
-      }
-    } else {
-      match satisfies never
-    }
-
-    lastIndex = match.index + match.text.length
-  }
-
-  // Insert remaining text, if any
-  if (text.length > lastIndex) {
-    parsedText.push(text.substring(lastIndex))
-  }
+  const {
+    nodes: parsedText,
+    mentionsSelf: isHighlighted,
+    inviteLobbyId,
+  } = parseMessageText(text, {
+    selfUserId,
+    filterClick,
+    UserMenu,
+    interactive: !disallowMentionInteraction,
+  })
 
   const UsernameComponent = emote ? EmoteUsername : Username
   const TextComponent = emote ? EmoteText : Text

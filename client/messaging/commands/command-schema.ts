@@ -173,6 +173,12 @@ export type ParsedArgs<Args extends readonly CommandArg[]> = {
   [Name in Args[number]['name']]: MaybeMissing<Extract<Args[number], { name: Name }>>
 }
 
+/** Who a reply goes to, resolved to a confirmed id and the name shown while composing. */
+export interface ReplyTarget {
+  id: SbUserId
+  name: string
+}
+
 export interface CommandInvocation<Args = ParsedArgValues> {
   args: Args
   /**
@@ -190,6 +196,11 @@ export interface CommandInvocation<Args = ParsedArgValues> {
    * exists in a surface is `surfaces`; whether it can run is `getUnavailableReason`.
    */
   commands: ReadonlyArray<ChatCommand>
+  /**
+   * Puts the input the command was typed into in reply mode, with `target` locked for the rest of
+   * that composition. Absent where a command runs without an input, such as in tests.
+   */
+  enterReplyMode?: (target: ReplyTarget) => void
 }
 
 /** A command as the registry holds it and the runner runs it, with its argument schema erased. */

@@ -45,7 +45,11 @@ describe('settings/account-settings-service', () => {
 
       expect(client.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
-        settings: { quietChannelsWhileInGame: false, quietWhispersWhileInGame: true },
+        settings: {
+          quietChannelsWhileInGame: false,
+          quietWhispersWhileInGame: true,
+          showWhispersEverywhere: true,
+        },
       })
     })
 
@@ -85,10 +89,18 @@ describe('settings/account-settings-service', () => {
       expect(updateAccountSettings).toHaveBeenCalledWith(user1.id, {
         quietChannelsWhileInGame: false,
       })
-      expect(result).toEqual({ quietChannelsWhileInGame: false, quietWhispersWhileInGame: true })
+      expect(result).toEqual({
+        quietChannelsWhileInGame: false,
+        quietWhispersWhileInGame: true,
+        showWhispersEverywhere: true,
+      })
       expect(nydus.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
-        settings: { quietChannelsWhileInGame: false, quietWhispersWhileInGame: true },
+        settings: {
+          quietChannelsWhileInGame: false,
+          quietWhispersWhileInGame: true,
+          showWhispersEverywhere: true,
+        },
       })
     })
   })

@@ -1,11 +1,14 @@
 import { act, fireEvent, render } from '@testing-library/react'
+import i18next from 'i18next'
+import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { CommandContext } from './commands/command-context'
-import { MessageInput } from './message-input'
+import { ReplyTarget } from './commands/command-schema'
+import { MessageInput, MessageInputHandle } from './message-input'
 import { TypeaheadMatch, TypeaheadSuggestion } from './typeahead'
 
 // The emote provider is the last one the input asks, so standing in for it puts a palette under the
@@ -24,6 +27,28 @@ vi.mock('./emote-provider', () => ({
 const runChatCommand = vi.hoisted(() => vi.fn())
 
 vi.mock('./commands/run-chat-command', () => ({ runChatCommand }))
+
+// Who there is to reply to, and what sending a reply does, are the two pieces of the reply command
+// that reach outside the input. Standing in for them leaves the input's own parsing real.
+const reply = vi.hoisted(() => ({
+  target: undefined as ReplyTarget | undefined,
+  sendReply: vi.fn(),
+}))
+
+vi.mock('./commands/commands/reply', async importOriginal => ({
+  ...(await importOriginal<typeof import('./commands/commands/reply')>()),
+  resolveReplyTarget: () => reply.target,
+  sendReply: reply.sendReply,
+}))
+
+// The reply chip is built with `Trans`, which needs an i18next instance to render against.
+// `escapeValue` matches how the app initializes i18next: React escapes what it renders, so escaping
+// again would put entities on screen in place of the punctuation these lines are made of.
+beforeAll(async () => {
+  await i18next
+    .use(initReactI18next)
+    .init({ lng: 'en', resources: {}, interpolation: { escapeValue: false } })
+})
 
 /** What the fake provider answers with, minus where in the message the word being completed sits. */
 type Offer = Omit<TypeaheadMatch, 'start' | 'matchedText'>
@@ -53,12 +78,15 @@ const commandContext: CommandContext = { surface: 'lobby', selfUserId: makeSbUse
 
 function renderInput() {
   const onSendChatMessage = vi.fn()
+  const emit = vi.fn()
+  const handle: { current: MessageInputHandle | null } = { current: null }
   const { container } = render(
     <ReduxProvider store={createStore()}>
       <KeyListenerBoundary>
         <MessageInput
+          ref={handle}
           onSendChatMessage={onSendChatMessage}
-          commands={{ context: commandContext, emit: () => {} }}
+          commands={{ context: commandContext, emit }}
         />
       </KeyListenerBoundary>
     </ReduxProvider>,
@@ -91,7 +119,24 @@ function renderInput() {
     return list ? Array.from(list.querySelectorAll('[role="option"]')) : []
   }
 
-  return { textarea, onSendChatMessage, caretAt, type, press, listId, options }
+  /** What the reply chip reads, or undefined while the input is not in reply mode. */
+  const chipText = () => {
+    const clearButton = container.querySelector('[aria-label="Stop replying"]')
+    return clearButton?.parentElement?.textContent ?? undefined
+  }
+
+  return {
+    textarea,
+    onSendChatMessage,
+    emit,
+    handle,
+    caretAt,
+    type,
+    press,
+    listId,
+    options,
+    chipText,
+  }
 }
 
 describe('client/messaging/message-input', () => {
@@ -99,6 +144,8 @@ describe('client/messaging/message-input', () => {
     fakeProvider.match = undefined
     runChatCommand.mockReset()
     runChatCommand.mockImplementation((input: string) => ({ kind: 'text', text: input }))
+    reply.target = undefined
+    reply.sendReply.mockReset()
   })
 
   test('Enter takes the highlighted row when the rows are the only answers', () => {
@@ -288,5 +335,141 @@ describe('client/messaging/message-input', () => {
 
     expect(options()).toHaveLength(1)
     expect(options()[0].textContent).toContain('fast')
+  })
+
+  test('the reply command locks the target it names as soon as it is typed', () => {
+    const { textarea, type, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r ')
+
+    expect(chipText()).toContain('tec27')
+    expect(textarea.value).toBe('')
+  })
+
+  test('a reply typed with its message in one go keeps the message', () => {
+    const { textarea, type, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r hello')
+
+    expect(chipText()).toContain('tec27')
+    expect(textarea.value).toBe('hello')
+  })
+
+  test('a reply with nobody to reply to says so and locks nothing', () => {
+    const { textarea, emit, type, chipText } = renderInput()
+
+    type('/r ')
+
+    expect(emit).toHaveBeenCalledTimes(1)
+    expect(emit.mock.calls[0][0].kind).toBe('info')
+    expect(emit.mock.calls[0][0].content).toContain('No one has whispered you')
+    expect(chipText()).toBeUndefined()
+    expect(textarea.value).toBe('')
+  })
+
+  test('taking the command out of the palette locks the target too', () => {
+    const { textarea, type, press, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+    claimLastWord(() => ({
+      suggestions: [
+        {
+          key: 'row:/reply',
+          text: '/reply',
+          visual: { kind: 'plain' },
+          insertText: '/reply ',
+          exact: false,
+        },
+      ],
+    }))
+
+    type('/r')
+    press('Tab')
+
+    expect(chipText()).toContain('tec27')
+    expect(textarea.value).toBe('')
+  })
+
+  test('a whisper arriving mid-composition leaves the locked target alone', () => {
+    const { type, press, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r ')
+    reply.target = { id: makeSbUserId(3), name: 'Marko' }
+    type('hello')
+
+    expect(chipText()).toContain('tec27')
+
+    press('Enter')
+
+    expect(reply.sendReply).toHaveBeenCalledWith(
+      { id: makeSbUserId(2), name: 'tec27' },
+      'hello',
+      expect.anything(),
+    )
+  })
+
+  test('Enter in reply mode whispers the target and drops back out of it', () => {
+    const { textarea, onSendChatMessage, type, press, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r hello')
+    press('Enter')
+
+    expect(reply.sendReply).toHaveBeenCalledWith(
+      { id: makeSbUserId(2), name: 'tec27' },
+      'hello',
+      expect.anything(),
+    )
+    expect(onSendChatMessage).not.toHaveBeenCalled()
+    expect(runChatCommand).not.toHaveBeenCalled()
+    expect(textarea.value).toBe('')
+    expect(chipText()).toBeUndefined()
+  })
+
+  test('Backspace at the very start of the text clears the chip and keeps the text', () => {
+    const { textarea, type, press, caretAt, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r hello')
+    caretAt(0)
+
+    expect(press('Backspace')).toBe(false)
+    expect(chipText()).toBeUndefined()
+    expect(textarea.value).toBe('hello')
+  })
+
+  test('Backspace anywhere else is left to the browser', () => {
+    const { type, press, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r hello')
+
+    expect(press('Backspace')).toBe(true)
+    expect(chipText()).toContain('tec27')
+  })
+
+  test('Escape clears the chip', () => {
+    const { textarea, type, press, chipText } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r hello')
+
+    expect(press('Escape')).toBe(false)
+    expect(chipText()).toBeUndefined()
+    expect(textarea.value).toBe('hello')
+  })
+
+  test('the handle puts the input into reply mode, keeping what is typed', () => {
+    const { textarea, handle, type, chipText } = renderInput()
+
+    type('half a thought')
+    act(() => {
+      handle.current!.startReply({ id: makeSbUserId(2), name: 'tec27' })
+    })
+
+    expect(chipText()).toContain('tec27')
+    expect(textarea.value).toBe('half a thought')
   })
 })

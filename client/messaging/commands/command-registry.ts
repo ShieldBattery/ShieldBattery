@@ -8,6 +8,7 @@ import { joinCommand } from './commands/join'
 import { banCommand, kickCommand } from './commands/kick-ban'
 import { leaveCommand } from './commands/leave'
 import { meCommand } from './commands/me'
+import { replyCommand } from './commands/reply'
 import { topicCommand } from './commands/topic'
 import { unbanCommand } from './commands/unban'
 import { profileCommand, rankCommand, statsCommand } from './commands/user-card'
@@ -21,6 +22,7 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   helpCommand,
   joinCommand,
   whisperCommand,
+  replyCommand,
   profileCommand,
   statsCommand,
   rankCommand,

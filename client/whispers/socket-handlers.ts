@@ -5,6 +5,9 @@ import { isInActiveGame } from '../active-game/game-client-reducer'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
+import { jotaiStore } from '../jotai-store'
+import { lastWhisperSenderAtom } from './whisper-atoms'
+import { publishWhisperEcho } from './whisper-echo'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -66,6 +69,23 @@ const eventToAction: EventToActionMap = {
         payload: event,
         meta: { target, isSelfMessage, windowFocused },
       })
+
+      // A blocked sender's whisper is silent everywhere: it's not echoed, and it doesn't become
+      // the `/reply` target. Quiet-while-in-game only holds back sound/attention above, so it
+      // plays no part in either decision here.
+      if (!isSelfMessage && !isBlocked) {
+        jotaiStore.set(lastWhisperSenderAtom, from)
+      }
+      if (!isBlocked && accountSettings.showWhispersEverywhere) {
+        publishWhisperEcho({
+          messageId: event.message.id,
+          time: event.message.time,
+          direction: isSelfMessage ? 'outgoing' : 'incoming',
+          counterpartId: target,
+          text: event.message.text,
+          ...(event.message.emote ? { emote: true } : {}),
+        })
+      }
 
       const session = whispersById.get(target)
       if (!session) {

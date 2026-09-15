@@ -93,22 +93,27 @@ export function DefaultUserMenu({ items, MenuComponent, userId, onMenuClose }: U
 
 /** Context that provides user context menu items for every menu within an area. */
 const BaseUserMenuItemsContext = React.createContext<{
-  items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
-}>({ items: new Map() })
+  items: (userId: SbUserId) => ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+}>({ items: () => new Map() })
 
 /**
  * Provider for user context menu items for every menu within an area. Items in this provider will
  * be merged with any items from its ancestors.
+ *
+ * `items` is asked for the user each menu is being opened for, so an area can offer an item for
+ * some users and not others (an action that makes no sense on yourself, say) rather than having to
+ * render it disabled or, worse, as nothing at all: a menu counts the items it is handed, so an item
+ * that renders `null` still takes up a row's worth of keyboard navigation.
  */
 export function BaseUserMenuItemsProvider({
   items,
   children,
 }: {
-  items: ReadonlyMap<MenuItemCategory, React.ReactNode[]>
+  items: (userId: SbUserId) => ReadonlyMap<MenuItemCategory, React.ReactNode[]>
   children: React.ReactNode
 }) {
-  const baseItems = useBaseUserMenuItems()
-  const mergedItems = mergeMultimaps(baseItems, items)
+  const { items: baseItems } = useContext(BaseUserMenuItemsContext)
+  const mergedItems = (userId: SbUserId) => mergeMultimaps(baseItems(userId), items(userId))
 
   return (
     <BaseUserMenuItemsContext.Provider value={{ items: mergedItems }}>
@@ -118,10 +123,11 @@ export function BaseUserMenuItemsProvider({
 }
 
 /**
- * Hook that returns the base user context menu items for the current area.
+ * Hook that returns the base user context menu items for the current area, for a menu being opened
+ * for the given user.
  */
-export function useBaseUserMenuItems() {
-  return useContext(BaseUserMenuItemsContext).items
+export function useBaseUserMenuItems(userId: SbUserId) {
+  return useContext(BaseUserMenuItemsContext).items(userId)
 }
 
 export interface ConnectedUserContextMenuProps {
@@ -195,7 +201,7 @@ function ConnectedUserContextMenuContents({
     }
   })
 
-  const baseItems = useBaseUserMenuItems()
+  const baseItems = useBaseUserMenuItems(userId)
   const items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
   if (!user) {
     // TODO(tec27): Ideally this wouldn't have hover/focus state

@@ -33,8 +33,9 @@ import {
 import {
   CommonLocalLineMessage,
   CommonMessageType,
+  CommonWhisperEchoMessage,
   isServerOriginMessage,
-  SbMessage,
+  LocalMessage,
 } from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
@@ -44,7 +45,9 @@ import {
   UserMenuComponent,
   UserMenuContext,
 } from '../users/user-context-menu'
+import { subscribeToWhisperEchoes, WhisperEcho } from '../whispers/whisper-echo'
 import { ChatContext } from './chat-context'
+import { getLocalLineTime, mergeLocalLines } from './local-output-placement'
 import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu'
 
 /**
@@ -81,87 +84,21 @@ const LINKED_MESSAGE_VIEWPORT_FRACTION = 0.25
 const LINKED_MESSAGE_FLASH_MS = 2000
 
 /**
- * How many only-you lines a conversation keeps on screen at once. They're answers to what the user
- * just did rather than conversation history, so old ones are dropped instead of piling up.
+ * How many session-only messages a conversation keeps on screen at once. An only-you line answers
+ * what the user just did and an echoed whisper is a passing glimpse of another conversation, so
+ * neither is history worth piling up: the oldest are dropped as new ones arrive.
  */
 const MAX_LOCAL_LINES = 20
 
-/** The only-you lines produced in one conversation, kept for as long as the user stays in it. */
+/**
+ * The session-only messages produced in one conversation — the answers to the commands run in it
+ * and the whispers echoed into it — kept for as long as the user stays in it. They all share the
+ * cap above, and are all taken off screen by the same rule (see `visibleLines`).
+ */
 interface LocalOutput {
-  /** Which conversation the lines were produced in; lines from any other one are stale. */
+  /** Which conversation the messages were produced in; messages from any other one are stale. */
   conversation: unknown
-  lines: ReadonlyArray<CommonLocalLineMessage>
-}
-
-/**
- * Works out where among the loaded messages a line produced right now belongs.
- *
- * Message times come from the server while this runs on a local clock, so the two can't be compared
- * with any confidence. Taking the newest loaded message's time puts the line at the end of what the
- * user is looking at, whatever the clocks say. Every loaded message counts, including the
- * client-only banners (kicks, bans, leaves) stamped with the local clock: a banner is the last thing
- * on screen as often as a server message is, and a line stamped from an older server message would
- * sort above it. A window detached from the present is showing history, where the end of the window
- * isn't the end of the conversation, so the line takes the later of the two times and lands near
- * the present once the user is back there.
- */
-function getLocalLineTime(
-  messages: ReadonlyArray<SbMessage>,
-  hasNewerMessages: boolean | undefined,
-): number {
-  if (messages.length === 0) {
-    return Date.now()
-  }
-
-  // Local-clock banners sitting among server times mean the list isn't strictly time-ordered, so
-  // the latest time anywhere in it is what puts the line after everything loaded.
-  let newestTime = messages[0].time
-  for (const message of messages) {
-    if (message.time > newestTime) {
-      newestTime = message.time
-    }
-  }
-
-  return hasNewerMessages ? Math.max(newestTime, Date.now()) : newestTime
-}
-
-/**
- * Places only-you lines among the conversation's messages, in time order. A message wins a tie, so
- * a line stamped with the newest message's time sits after it. A line older than the oldest loaded
- * message belongs above the loaded window, where there's nothing for it to sit next to, so it's
- * left out until the window it belongs in is on screen again.
- */
-function mergeLocalLines(
-  messages: ReadonlyArray<SbMessage>,
-  lines: ReadonlyArray<CommonLocalLineMessage>,
-): ReadonlyArray<SbMessage> {
-  if (lines.length === 0) {
-    return messages
-  }
-
-  const oldestServerTime = messages.find(isServerOriginMessage)?.time
-  const placeable = lines
-    .filter(line => oldestServerTime === undefined || line.time >= oldestServerTime)
-    .sort((a, b) => a.time - b.time)
-  if (placeable.length === 0) {
-    return messages
-  }
-
-  const merged: SbMessage[] = []
-  let lineIndex = 0
-  for (const message of messages) {
-    while (lineIndex < placeable.length && placeable[lineIndex].time < message.time) {
-      merged.push(placeable[lineIndex])
-      lineIndex += 1
-    }
-    merged.push(message)
-  }
-  while (lineIndex < placeable.length) {
-    merged.push(placeable[lineIndex])
-    lineIndex += 1
-  }
-
-  return merged
+  lines: ReadonlyArray<LocalMessage>
 }
 
 /** How a move to a message named by a link came out. */
@@ -545,27 +482,17 @@ export function Chat({
     setLocalOutput({ conversation: refreshToken, lines: [] })
   }
 
-  /** Takes a line a command produced into this conversation, at the end of what's on screen. */
-  const emitLocalLine = (line: LocalLineContent) => {
+  /** Takes a message that exists only in this session into this conversation. */
+  const appendLocalMessage = (message: LocalMessage) => {
     const conversation = refreshToken
-    const time = getLocalLineTime(messages, hasNewerMessages)
 
     setLocalOutput(prev => {
       if (prev.conversation !== conversation) {
-        // The command finished after the user moved on, so the line has nowhere to go.
+        // The message was produced after the user moved on, so it has nowhere to go.
         return prev
       }
 
-      const lines = [
-        ...prev.lines,
-        {
-          id: nanoid(),
-          type: CommonMessageType.LocalLine,
-          time,
-          kind: line.kind,
-          content: line.content,
-        } satisfies CommonLocalLineMessage,
-      ]
+      const lines = [...prev.lines, message]
 
       return {
         conversation,
@@ -573,6 +500,50 @@ export function Chat({
       }
     })
   }
+
+  /** Takes a line a command produced into this conversation, at the end of what's on screen. */
+  const emitLocalLine = (line: LocalLineContent) => {
+    appendLocalMessage({
+      id: nanoid(),
+      type: CommonMessageType.LocalLine,
+      time: getLocalLineTime(messages, hasNewerMessages),
+      kind: line.kind,
+      content: line.content,
+    } satisfies CommonLocalLineMessage)
+  }
+
+  const takeWhisperEcho = useEffectEvent((echo: WhisperEcho) => {
+    // A whisper's own conversation already shows it; echoing it there too would show it twice.
+    if (commandContext?.surface === 'whisper' && commandContext.targetId === echo.counterpartId) {
+      return
+    }
+
+    appendLocalMessage({
+      id: nanoid(),
+      type: CommonMessageType.WhisperEcho,
+      // Placed by the same rule as an only-you line, so it sits after everything on screen, while
+      // the line itself shows the time the server recorded for the whisper.
+      time: getLocalLineTime(messages, hasNewerMessages),
+      direction: echo.direction,
+      counterpartId: echo.counterpartId,
+      text: echo.text,
+      ...(echo.emote ? { emote: true } : {}),
+      sentTime: echo.time,
+    } satisfies CommonWhisperEchoMessage)
+  })
+
+  // Echoes are one-shot display events with no memory behind them, so they're taken by whichever
+  // surface is mounted to see them — which is this one, whenever it's a surface at all. A `Chat`
+  // with no command context has no identity as a surface (no conversation of its own to skip, and
+  // no input to answer from), so it takes none.
+  const hasSurface = commandContext !== undefined
+  useEffect(() => {
+    if (!hasSurface) {
+      return undefined
+    }
+
+    return subscribeToWhisperEchoes(takeWhisperEcho)
+  }, [hasSurface])
 
   /**
    * Starts moving the list to the position the user left this conversation at, if they left one
@@ -1118,6 +1089,42 @@ export function Chat({
     onMenuClose()
   }
 
+  const replyToUser = (userId: SbUserId) => {
+    dispatch((_, getState) => {
+      const { users } = getState()
+      const user = users.byId.get(userId)
+      if (user) {
+        messageInputRef.current?.startReply({ id: user.id, name: user.name })
+      }
+    })
+  }
+
+  const onReplyMenuItemClick = (userId: SbUserId, onMenuClose: (event?: MouseEvent) => void) => {
+    replyToUser(userId)
+    onMenuClose()
+  }
+
+  /**
+   * The items every user menu in this surface carries. Replying is only offered where it would
+   * send the whisper somewhere the user can't already type: not to themselves, and not to the
+   * person whose conversation they're looking at.
+   */
+  const baseUserMenuItems = (menuUserId: SbUserId) => {
+    const generalItems: React.ReactNode[] = [
+      <MentionMenuItem key='mention' onClick={onMentionMenuItemClick} />,
+    ]
+
+    if (
+      commandContext !== undefined &&
+      menuUserId !== commandContext.selfUserId &&
+      !(commandContext.surface === 'whisper' && menuUserId === commandContext.targetId)
+    ) {
+      generalItems.push(<ReplyMenuItem key='reply' onClick={onReplyMenuItemClick} />)
+    }
+
+    return new Map<MenuItemCategory, React.ReactNode[]>([[MenuItemCategory.General, generalItems]])
+  }
+
   // A highlight is only ever shown in the conversation it was started in, so switching conversations
   // never carries one into a list the user is looking at fresh.
   const flashedMessageId =
@@ -1125,26 +1132,19 @@ export function Chat({
       ? linkFlash.messageId
       : undefined
 
-  // Only-you lines only make sense where the newest messages are: a window detached from the
-  // present isn't where they were emitted.
+  // Session-only messages only make sense where the newest messages are: a window detached from the
+  // present isn't where they were placed.
   const visibleLines = !hasNewerMessages && !hiddenByScroll ? localOutput.lines : []
   // Only the list sees the lines. Everything else in here (restoring a position, moving to a linked
   // message, reporting what's been read) is about the conversation itself.
   const messagesWithLocalLines = mergeLocalLines(messages, visibleLines)
 
   return (
-    <BaseUserMenuItemsProvider
-      items={
-        new Map<MenuItemCategory, React.ReactNode[]>([
-          [
-            MenuItemCategory.General,
-            [<MentionMenuItem key='mention' onClick={onMentionMenuItemClick} />],
-          ],
-        ])
-      }>
+    <BaseUserMenuItemsProvider items={baseUserMenuItems}>
       <ChatContext.Provider
         value={{
           mentionUser,
+          replyToUser,
           UserMenu,
           MessageMenu,
           disallowMentionInteraction: disallowUserInteraction,
@@ -1243,3 +1243,28 @@ function MentionMenuItem({
 }
 
 MentionMenuItem[MenuItemSymbol] = MenuItemType.Default
+
+function ReplyMenuItem({
+  onClick,
+  ...menuItemProps
+}: Simplify<
+  Merge<
+    Omit<MenuItemProps, 'text'>,
+    {
+      onClick: (userId: SbUserId, onMenuClose: (event?: MouseEvent) => void) => void
+    }
+  >
+>) {
+  const { t } = useTranslation()
+  const { userId, onMenuClose } = useContext(UserMenuContext)
+  return (
+    <MenuItem
+      {...menuItemProps}
+      key='reply'
+      text={t('messaging.reply', 'Reply')}
+      onClick={() => onClick(userId, onMenuClose)}
+    />
+  )
+}
+
+ReplyMenuItem[MenuItemSymbol] = MenuItemType.Default
