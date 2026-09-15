@@ -20,6 +20,7 @@ import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
+import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { FriendActivityStatus } from '../../../common/users/relationships'
 import { SbUser } from '../../../common/users/sb-user'
@@ -32,6 +33,7 @@ import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
+import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import {
@@ -162,6 +164,8 @@ const UMS_MAP: MapInfo = {
   },
 }
 
+vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
+
 vi.mock('../maps/map-models', async () => {
   const actual = await vi.importActual<typeof import('../maps/map-models')>('../maps/map-models')
   return { ...actual, getMapInfos: vi.fn() }
@@ -204,6 +208,8 @@ describe('lobbies/lobby-service', () => {
   let nydus: NydusServer
   let fakeNydus: FakeNydusServer
   let lobbyService: LobbyService
+  /** Whether the service's restriction check reports the acting user as chat restricted. */
+  let isChatRestricted: boolean
 
   let host: Sockets
   let joiner: Sockets
@@ -318,6 +324,11 @@ describe('lobbies/lobby-service', () => {
     await new Promise(resolve => setImmediate(resolve))
   }
 
+  /** Returns the chat events published to a lobby's occupants, in order. */
+  function chatPublishes(lobbyId: SbLobbyId): Array<{ message: any }> {
+    return lobbyPublishes(lobbyId).filter(data => data?.type === 'chat')
+  }
+
   /** Returns every diff event published on a lobby's channel, flattened into one list. */
   function diffEvents(id: SbLobbyId): any[] {
     return lobbyPublishes(id)
@@ -352,6 +363,8 @@ describe('lobbies/lobby-service', () => {
     const clientSockets = new ClientSocketsManager(nydus, sessionLookup)
     const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
 
+    isChatRestricted = false
+
     clock = new FakeClock()
     // Timeouts are driven by hand: run automatically, every one of them would fire as a microtask
     // as soon as it was scheduled, no matter how far off its deadline is.
@@ -378,7 +391,7 @@ describe('lobbies/lobby-service', () => {
         loadGame: loadGameMock,
       } as unknown as GameLoader,
       {
-        isRestricted: async () => false,
+        isRestricted: async () => isChatRestricted,
       } as unknown as RestrictionService,
       {
         getRegions: async () => [region('us-east')],
@@ -2188,13 +2201,6 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('sendChat', () => {
-    /** Returns the chat events published to a lobby's occupants, in order. */
-    function chatPublishes(lobbyId: SbLobbyId): Array<{ message: any }> {
-      return fakeNydus.publish.mock.calls
-        .filter(([path, data]) => path === `/lobbies/${lobbyId}` && data?.type === 'chat')
-        .map(([, data]) => data)
-    }
-
     test('publishes an action line with the emote flag', async () => {
       const { id } = await createLobby(host, 'Chatty lobby')
 
@@ -2209,6 +2215,85 @@ describe('lobbies/lobby-service', () => {
       await lobbyService.sendChat({ client: host.client, text: 'hello' })
 
       expect(chatPublishes(id)[0].message).not.toHaveProperty('emote')
+    })
+
+    test('throws when the user is chat restricted', async () => {
+      const { id } = await createLobby(host, 'Chatty lobby')
+      isChatRestricted = true
+
+      await expect(
+        lobbyService.sendChat({ client: host.client, text: 'hello' }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You are currently restricted from sending chat messages]`,
+      )
+      expect(chatPublishes(id)).toHaveLength(0)
+    })
+  })
+
+  describe('sendOutcome', () => {
+    const ROLL: RolledOutcome = { kind: 'roll', max: 6, value: 4 }
+    const rollOutcomeMock = asMockedFunction(rollOutcome)
+
+    beforeEach(() => {
+      rollOutcomeMock.mockReturnValue(ROLL)
+    })
+
+    test('publishes an action line carrying the settled outcome', async () => {
+      const { id } = await createLobby(host, 'Chatty lobby')
+
+      await lobbyService.sendOutcome({ client: host.client, request: { kind: 'roll', max: 6 } })
+
+      expect(rollOutcomeMock).toHaveBeenCalledWith({ kind: 'roll', max: 6 })
+      expect(chatPublishes(id)[0]).toMatchObject({
+        message: { from: HOST_USER.id, text: '', emote: true, outcome: ROLL },
+        mentions: [],
+        channelMentions: [],
+      })
+    })
+
+    test('leaves the text empty for a coin flip', async () => {
+      const flip: RolledOutcome = { kind: 'flip', result: 'heads' }
+      rollOutcomeMock.mockReturnValue(flip)
+      const { id } = await createLobby(host, 'Chatty lobby')
+
+      await lobbyService.sendOutcome({ client: host.client, request: { kind: 'flip' } })
+
+      expect(chatPublishes(id)[0].message).toMatchObject({ text: '', outcome: flip })
+    })
+
+    test("carries the 8-ball's question as the text, unprocessed for mentions", async () => {
+      const answer: RolledOutcome = { kind: 'eightBall', answer: 'itIsCertain' }
+      const question = `should @${JOINER_USER.name} pick the map?`
+      rollOutcomeMock.mockReturnValue(answer)
+      const { id } = await createLobby(host, 'Chatty lobby')
+
+      await lobbyService.sendOutcome({
+        client: host.client,
+        request: { kind: 'eightBall', question },
+      })
+
+      expect(chatPublishes(id)[0]).toMatchObject({
+        message: { text: question, emote: true, outcome: answer },
+        mentions: [],
+      })
+    })
+
+    test('throws when the client is in no lobby', async () => {
+      await expect(
+        lobbyService.sendOutcome({ client: host.client, request: { kind: 'roll' } }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: must be in a lobby]`)
+    })
+
+    test('throws when the user is chat restricted', async () => {
+      const { id } = await createLobby(host, 'Chatty lobby')
+      isChatRestricted = true
+
+      await expect(
+        lobbyService.sendOutcome({ client: host.client, request: { kind: 'roll' } }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You are currently restricted from sending chat messages]`,
+      )
+      expect(chatPublishes(id)).toHaveLength(0)
     })
   })
 

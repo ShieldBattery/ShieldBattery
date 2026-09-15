@@ -13,6 +13,7 @@ import { parseMessageText } from './common-message-layout'
 import { useMentionFilterClick } from './mention-hooks'
 import { Separator, TimestampMessageLayout } from './message-layout'
 import { CommonWhisperEchoMessage } from './message-records'
+import { RolledOutcomeLine } from './rolled-outcome-line'
 
 /** Which way the whisper went: towards the user for an incoming one, away for an outgoing one. */
 const INCOMING_ARROW = '← '
@@ -79,7 +80,7 @@ export interface WhisperEchoMessageProps {
  * right-clicking it offers the other user's menu.
  */
 export function WhisperEchoMessage({ message }: WhisperEchoMessageProps) {
-  const { direction, counterpartId, text, emote, time } = message
+  const { direction, counterpartId, text, emote, outcome, time } = message
   const filterClick = useMentionFilterClick()
   const { UserMenu, disallowMentionInteraction } = useContext(ChatContext)
   const { onNavigation } = useNavigationTracker()
@@ -87,12 +88,15 @@ export function WhisperEchoMessage({ message }: WhisperEchoMessageProps) {
   const counterpartName = useAppSelector(s => s.users.byId.get(counterpartId)?.name)
 
   // An echo is a view of a whisper rather than a message in this conversation, so neither a
-  // mention of the user nor a lobby link in it acts on the surface it's shown in.
-  const { nodes } = parseMessageText(text, {
-    filterClick,
-    UserMenu,
-    interactive: !disallowMentionInteraction,
-  })
+  // mention of the user nor a lobby link in it acts on the surface it's shown in. An outcome
+  // line's wording is composed from the outcome, not parsed out of `text`.
+  const parsed = outcome
+    ? undefined
+    : parseMessageText(text, {
+        filterClick,
+        UserMenu,
+        interactive: !disallowMentionInteraction,
+      })
 
   const onClick = (event: React.MouseEvent) => {
     // Everything within the line that can be acted on in its own right keeps its click: the name
@@ -118,8 +122,10 @@ export function WhisperEchoMessage({ message }: WhisperEchoMessageProps) {
     onNavigation()
   }
 
-  const UsernameComponent = emote ? EchoEmoteUsername : EchoUsername
-  const TextComponent = emote ? EchoEmoteText : EchoText
+  // An outcome is always announced as an action line, whatever flag the whisper carries.
+  const isActionLine = emote === true || outcome !== undefined
+  const UsernameComponent = isActionLine ? EchoEmoteUsername : EchoUsername
+  const TextComponent = isActionLine ? EchoEmoteText : EchoText
 
   return (
     <>
@@ -130,15 +136,17 @@ export function WhisperEchoMessage({ message }: WhisperEchoMessageProps) {
         onContextMenu={onContextMenu}
         testId='whisper-echo'>
         <EchoGlyph>{direction === 'incoming' ? INCOMING_ARROW : OUTGOING_ARROW}</EchoGlyph>
-        {emote ? <EchoEmoteGlyph>{'* '}</EchoEmoteGlyph> : undefined}
+        {isActionLine ? <EchoEmoteGlyph>{'* '}</EchoEmoteGlyph> : undefined}
         <UsernameComponent
           userId={counterpartId}
           filterClick={filterClick}
           UserMenu={UserMenu}
           interactive={!disallowMentionInteraction}
         />
-        {emote ? ' ' : <Separator>{': '}</Separator>}
-        <TextComponent>{nodes}</TextComponent>
+        {isActionLine ? ' ' : <Separator>{': '}</Separator>}
+        <TextComponent>
+          {outcome ? <RolledOutcomeLine outcome={outcome} text={text} /> : parsed?.nodes}
+        </TextComponent>
       </EchoLine>
 
       <ConnectedUserContextMenu

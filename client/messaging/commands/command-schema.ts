@@ -179,6 +179,15 @@ export interface ReplyTarget {
   name: string
 }
 
+/**
+ * What a command hands back when its whole effect is rewriting what was typed into ordinary chat
+ * text: the text goes out through the surface's normal send path, exactly as if the user had typed
+ * it, with no emote flag and nothing server-side.
+ */
+export interface TextTransform {
+  text: string
+}
+
 export interface CommandInvocation<Args = ParsedArgValues> {
   args: Args
   /**
@@ -225,7 +234,7 @@ export interface ChatCommand {
   args: readonly CommandArg[]
   // Declared as a method so that a command written against a precise argument schema is still one
   // of these, which is all the registry and the runner ever need it to be.
-  run(invocation: CommandInvocation): void
+  run(invocation: CommandInvocation): TextTransform | void
 }
 
 /** A command as it is written: each argument carries the type its schema entry describes. */
@@ -234,7 +243,7 @@ export interface TypedChatCommand<Args extends readonly CommandArg[]> extends Om
   'args' | 'run'
 > {
   args: Args
-  run(invocation: CommandInvocation<ParsedArgs<Args>>): void
+  run(invocation: CommandInvocation<ParsedArgs<Args>>): TextTransform | void
 }
 
 /**

@@ -685,6 +685,38 @@ describe('client/whispers/whisper-reducer', () => {
       expect(sessionOf(result).messages[0]).toMatchObject({ emote: true })
     })
 
+    test('an arriving action line keeps its outcome', () => {
+      const state = makeState({ activated: true, atBottom: true })
+
+      const result = whisperReducer(state, {
+        type: '@whispers/updateMessage',
+        payload: {
+          action: 'message',
+          message: {
+            ...serverMessage(500),
+            emote: true,
+            outcome: { kind: 'roll', max: 100, value: 42 },
+          },
+          users: [],
+          mentions: [],
+          channelMentions: [],
+        },
+        meta: { target: TARGET_ID, isSelfMessage: false, windowFocused: true },
+      })
+
+      expect(sessionOf(result).messages[0]).toMatchObject({
+        outcome: { kind: 'roll', max: 100, value: 42 },
+      })
+    })
+
+    test('an ordinary message carries no outcome', () => {
+      const state = makeState({ activated: true, atBottom: true })
+
+      const result = whisperReducer(state, updateMessageAction(500))
+
+      expect(sessionOf(result).messages[0]).not.toHaveProperty('outcome')
+    })
+
     test('a live message defers the trim of a pinned window while an older page is in flight', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({ activated: true, atBottom: true, loadingHistory: true, messages })

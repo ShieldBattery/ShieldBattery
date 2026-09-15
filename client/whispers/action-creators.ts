@@ -1,4 +1,5 @@
 import { getErrorStack } from '../../common/errors'
+import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
@@ -145,6 +146,24 @@ export function sendMessage(
         message,
         emote: options.emote ? true : undefined,
       }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/**
+ * Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) and
+ * announce it.
+ */
+export function sendOutcome(
+  target: SbUserId,
+  request: RolledOutcomeRequest,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return fetchJson<void>(apiUrl`whispers/${target}/outcomes`, {
+      method: 'POST',
+      body: encodeBodyAsParams<RolledOutcomeRequest>(request),
       signal: spec.signal,
     })
   })

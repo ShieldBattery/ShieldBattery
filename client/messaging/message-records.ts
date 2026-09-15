@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { ChatMessage, ServerChatMessageType } from '../../common/chat'
 import { DraftChatMessage } from '../../common/matchmaking'
+import { RolledOutcome } from '../../common/rolled-outcomes'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 import { BaseMessage } from './base-message-record'
@@ -27,6 +28,12 @@ export interface CommonTextMessage extends BaseMessage {
    * `* Name action` instead of `Name: text`. Never carried as `false`.
    */
   readonly emote?: boolean
+  /**
+   * Present on an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer, a unit quote); the line's wording is composed from it, and `text`
+   * holds only the words the user typed.
+   */
+  readonly outcome?: RolledOutcome
 }
 
 export interface CommonNewDayMessage extends BaseMessage {
@@ -56,6 +63,12 @@ export interface CommonWhisperEchoMessage extends BaseMessage {
   readonly counterpartId: SbUserId
   readonly text: string
   readonly emote?: boolean
+  /**
+   * Present on an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer, a unit quote); the line's wording is composed from it, and `text`
+   * holds only the words the user typed.
+   */
+  readonly outcome?: RolledOutcome
 }
 
 /**

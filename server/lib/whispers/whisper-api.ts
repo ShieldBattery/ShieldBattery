@@ -15,6 +15,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { rolledOutcomeRequestBody } from '../messaging/rolled-outcome-request-schema'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
@@ -165,6 +166,24 @@ export class WhisperApi {
     await this.whisperService.sendWhisperMessage(ctx.session!.user.id, targetId, message, {
       emote,
     })
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:targetId/outcomes')
+  @httpBefore(throttleMiddleware(sendThrottle, throttleByUser))
+  async sendOutcome(ctx: RouterContext): Promise<void> {
+    const {
+      params: { targetId },
+      body,
+    } = validateRequest(ctx, {
+      params: Joi.object<{ targetId: SbUserId }>({
+        targetId: joiUserId().required(),
+      }),
+      body: rolledOutcomeRequestBody,
+    })
+
+    await this.whisperService.sendOutcome(ctx.session!.user.id, targetId, body)
 
     ctx.status = 204
   }

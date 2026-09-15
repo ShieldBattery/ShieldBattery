@@ -1,5 +1,6 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
+import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { WhisperMessageType } from '../../../common/whispers'
 import { HistoryCursor } from '../chat/chat-models'
@@ -201,6 +202,12 @@ interface WhisperTextMessageData extends BaseWhisperMessageData {
    * `* Name action` instead of `Name: text`. Never stored as `false`.
    */
   emote?: boolean
+  /**
+   * Present on an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer, a unit quote). Only the server puts it there; the message endpoints
+   * refuse it.
+   */
+  outcome?: RolledOutcome
 }
 
 type WhisperMessageData = WhisperTextMessageData

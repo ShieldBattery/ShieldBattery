@@ -98,6 +98,7 @@ const eventToAction: EventToActionMap = {
                 counterpartId: target,
                 text: event.message.text,
                 ...(event.message.emote ? { emote: true } : {}),
+                ...(event.message.outcome ? { outcome: event.message.outcome } : {}),
               } satisfies CommonWhisperEchoMessage,
             },
           })

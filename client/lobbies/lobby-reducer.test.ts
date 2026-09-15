@@ -4,6 +4,7 @@ import { BenchedUser, Lobby } from '../../common/lobbies'
 import { LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { SbMapId } from '../../common/maps'
+import { RolledOutcome } from '../../common/rolled-outcomes'
 import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
 import { MessagingActions } from '../messaging/actions'
 import { CommonMessageType, CommonWhisperEchoMessage } from '../messaging/message-records'
@@ -127,7 +128,7 @@ function readyBoth(state: CurrentLobbyState): CurrentLobbyState {
   return next
 }
 
-function chatAction(text: string, emote?: boolean): LobbyActions {
+function chatAction(text: string, emote?: boolean, outcome?: RolledOutcome): LobbyActions {
   return {
     type: '@lobbies/updateChatMessage',
     payload: {
@@ -138,6 +139,7 @@ function chatAction(text: string, emote?: boolean): LobbyActions {
         from: HOST_SLOT.userId!,
         text,
         ...(emote ? { emote: true } : {}),
+        ...(outcome ? { outcome } : {}),
       },
       mentions: [],
       channelMentions: [],
@@ -272,6 +274,22 @@ describe('client/lobbies/lobby-reducer', () => {
     state = lobbyReducer(state, chatAction('waves', true))
 
     expect(state.chat[state.chat.length - 1]).toMatchObject({ emote: true })
+  })
+
+  test('an arriving action line keeps its outcome', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, chatAction('', true, { kind: 'roll', max: 100, value: 42 }))
+
+    expect(state.chat[state.chat.length - 1]).toMatchObject({
+      outcome: { kind: 'roll', max: 100, value: 42 },
+    })
+  })
+
+  test('an ordinary chat message carries no outcome', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, chatAction('hey'))
+
+    expect(state.chat[state.chat.length - 1]).not.toHaveProperty('outcome')
   })
 
   test('chat while deactivated marks unread; activating clears it', () => {

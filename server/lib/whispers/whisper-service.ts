@@ -3,6 +3,7 @@ import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
+import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
@@ -18,11 +19,18 @@ import {
   WhisperSessionInitEvent,
   WhisperUserEvent,
 } from '../../../common/whispers'
-import { getChannelInfos, HistoryCursor, toBasicChannelInfo } from '../chat/chat-models'
+import {
+  FullChannelInfo,
+  getChannelInfos,
+  HistoryCursor,
+  toBasicChannelInfo,
+} from '../chat/chat-models'
 import logger from '../logging/logger'
 import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { outcomeField } from '../messaging/outcome-field'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { rollOutcome } from '../messaging/roll-outcome'
 import { RestrictionService } from '../users/restriction-service'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
@@ -173,6 +181,52 @@ export default class WhisperService {
     message: string,
     options: { emote?: boolean } = {},
   ) {
+    const [user, target] = await this.ensureCanWhisper(userId, targetUser)
+
+    const text = filterChatMessage(message)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
+
+    await this.storeAndPublishTextMessage({
+      user,
+      target,
+      text: processedText,
+      userMentions,
+      channelMentions,
+      emote: options.emote,
+    })
+  }
+
+  /**
+   * Settles an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) for a user and
+   * announces it in their conversation with another user as an action line.
+   *
+   * The line's wording is the client's to compose from the outcome, so the message's text carries
+   * only the words the user typed themselves: the question put to the 8-ball, and nothing at all
+   * for any other kind. Those words are never mention-processed, since an announcement the server
+   * wrote must not become a way to make it notify people.
+   */
+  async sendOutcome(userId: SbUserId, targetUser: SbUserId, request: RolledOutcomeRequest) {
+    const [user, target] = await this.ensureCanWhisper(userId, targetUser)
+
+    await this.storeAndPublishTextMessage({
+      user,
+      target,
+      text: request.kind === 'eightBall' ? filterChatMessage(request.question) : '',
+      userMentions: [],
+      channelMentions: [],
+      emote: true,
+      outcome: rollOutcome(request),
+    })
+  }
+
+  /**
+   * Throws unless the user is allowed to whisper the target right now, returning both of their user
+   * infos. Nobody whispers themselves, and a chat-restricted user whispers no one.
+   */
+  private async ensureCanWhisper(
+    userId: SbUserId,
+    targetUser: SbUserId,
+  ): Promise<[user: SbUser, target: SbUser]> {
     if (userId === targetUser) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
@@ -191,13 +245,30 @@ export default class WhisperService {
       )
     }
 
-    const [user, target] = await Promise.all([
-      this.getUserById(userId),
-      this.getUserById(targetUser),
-    ])
+    return await Promise.all([this.getUserById(userId), this.getUserById(targetUser)])
+  }
 
-    const text = filterChatMessage(message)
-    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
+  /**
+   * Stores a text message in a whisper conversation and hands it to both participants, starting the
+   * conversation for either of them who was not in it yet.
+   */
+  private async storeAndPublishTextMessage({
+    user,
+    target,
+    text,
+    userMentions,
+    channelMentions,
+    emote,
+    outcome,
+  }: {
+    user: SbUser
+    target: SbUser
+    text: string
+    userMentions: SbUser[]
+    channelMentions: FullChannelInfo[]
+    emote?: boolean
+    outcome?: RolledOutcome
+  }): Promise<void> {
     const mentionedUserIds = userMentions.map(u => u.id)
     const mentionedChannelIds = channelMentions.map(c => c.id)
 
@@ -211,15 +282,16 @@ export default class WhisperService {
 
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
-      text: processedText,
+      text,
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
-      ...emoteField(options.emote),
+      ...emoteField(emote),
+      ...outcomeField(outcome),
     })
     this.applyWhisperSessionState(user, target)
     this.applyWhisperSessionState(target, user)
 
-    this.publisher.publish(getSessionPath(userId, targetUser), {
+    this.publisher.publish(getSessionPath(user.id, target.id), {
       action: 'message',
       message: {
         id: result.id,
@@ -229,6 +301,7 @@ export default class WhisperService {
         time: Number(result.sent),
         text: result.data.text,
         ...emoteField(result.data.emote),
+        ...outcomeField(result.data.outcome),
       },
       users: [user, target],
       mentions: userMentions,
@@ -297,6 +370,7 @@ export default class WhisperService {
             time: Number(msg.sent),
             text: msg.data.text,
             ...emoteField(msg.data.emote),
+            ...outcomeField(msg.data.outcome),
           })
           for (const mention of msg.data.mentions ?? []) {
             userMentionIds.add(mention)

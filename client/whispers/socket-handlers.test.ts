@@ -1,6 +1,7 @@
 ﻿import type { NydusClient } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbChannelId } from '../../common/chat'
+import { RolledOutcome } from '../../common/rolled-outcomes'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { type WhisperMessageEvent, WhisperMessageType } from '../../common/whispers'
 import { registerDispatch } from '../dispatch-registry'
@@ -59,6 +60,8 @@ interface WhisperCase {
   becomesReplyTarget: boolean
   /** Present and `true` to send the message as a `/me` action line. */
   emote?: boolean
+  /** Present to send the message as a server-settled outcome. */
+  outcome?: RolledOutcome
 }
 
 describe('whisper message echoes', () => {
@@ -134,6 +137,16 @@ describe('whisper message echoes', () => {
       emote: true,
     },
     {
+      name: 'a server-settled outcome carries the outcome into the echo',
+      fromSelf: false,
+      blocked: false,
+      alerts: true,
+      echoed: true,
+      becomesReplyTarget: true,
+      emote: true,
+      outcome: { kind: 'roll', max: 100, value: 42 },
+    },
+    {
       name: 'with no surface seen yet, a message has nowhere to be echoed',
       fromSelf: false,
       blocked: false,
@@ -204,6 +217,7 @@ describe('whisper message echoes', () => {
         time: 200,
         text: 'hello',
         ...(options.emote ? { emote: true } : {}),
+        ...(options.outcome ? { outcome: options.outcome } : {}),
       },
       users: [SELF, OTHER],
       mentions: [],
@@ -236,6 +250,7 @@ describe('whisper message echoes', () => {
           counterpartId: OTHER.id,
           text: 'hello',
           ...(options.emote ? { emote: true } : {}),
+          ...(options.outcome ? { outcome: options.outcome } : {}),
         },
       },
     }

@@ -14,6 +14,7 @@ import {
   UserChannelEntry,
 } from '../../../common/chat'
 import { Patch } from '../../../common/patch'
+import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
@@ -431,6 +432,12 @@ export interface TextMessageData extends BaseMessageData {
    * `* Name action` instead of `Name: text`. Never stored as `false`.
    */
   emote?: boolean
+  /**
+   * Present on an action line announcing something the server settled for the user (a roll, a coin
+   * flip, an 8-ball answer, a unit quote). Only the server puts it there; the message endpoints
+   * refuse it.
+   */
+  outcome?: RolledOutcome
 }
 
 export interface JoinChannelData extends BaseMessageData {

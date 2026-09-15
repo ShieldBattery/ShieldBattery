@@ -1,9 +1,11 @@
 import { NydusServer } from 'nydus'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { WhisperMessageType, WhisperServiceErrorCode } from '../../../common/whispers'
+import { rollOutcome } from '../messaging/roll-outcome'
 import { RestrictionService } from '../users/restriction-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
@@ -22,6 +24,7 @@ import {
   getWhisperMessageSentTime,
   getWhisperSessionsForUser,
   startWhisperSession,
+  startWhisperSessionsBothDirections,
   updateLastReadTime,
 } from './whisper-models'
 import WhisperService, { getSessionPath, getWhisperUserPath } from './whisper-service'
@@ -45,6 +48,8 @@ vi.mock('../users/user-model', () => {
     findUsersByName: vi.fn().mockResolvedValue([]),
   }
 })
+
+vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
 
 vi.mock('../chat/chat-models', async () => {
   const originalModule =
@@ -219,6 +224,111 @@ describe('whispers/whisper-service', () => {
 
       expect(addMessageToWhisperMock.mock.calls[0][2]).not.toHaveProperty('emote')
       expect(publishedMessageEvent().message).not.toHaveProperty('emote')
+    })
+  })
+
+  describe('sendOutcome', () => {
+    const ROLL: RolledOutcome = { kind: 'roll', max: 6, value: 4 }
+    const addMessageToWhisperMock = asMockedFunction(addMessageToWhisper)
+    const rollOutcomeMock = asMockedFunction(rollOutcome)
+
+    /** Makes the stored-message lookup answer with an action line carrying `outcome`. */
+    function mockStoredOutcome(text: string, outcome: RolledOutcome) {
+      addMessageToWhisperMock.mockResolvedValue({
+        id: 'MESSAGE_ID',
+        from: user1.id,
+        to: user2.id,
+        sent: new Date('2023-03-11T00:00:00.000Z'),
+        data: {
+          type: WhisperMessageType.TextMessage,
+          text,
+          mentions: undefined,
+          channelMentions: undefined,
+          emote: true,
+          outcome,
+        },
+      })
+    }
+
+    /** The data of the message event published to the conversation, if there was one. */
+    function publishedMessageEvent(): any {
+      const fakeNydus = nydus as unknown as FakeNydusServer
+      return fakeNydus.publish.mock.calls.find(
+        ([path, data]) => path === getSessionPath(user1.id, user2.id) && data?.action === 'message',
+      )?.[1]
+    }
+
+    beforeEach(() => {
+      rollOutcomeMock.mockReturnValue(ROLL)
+    })
+
+    test('stores and publishes an action line carrying the settled outcome', async () => {
+      mockStoredOutcome('', ROLL)
+
+      await whisperService.sendOutcome(user1.id, user2.id, { kind: 'roll', max: 6 })
+
+      expect(rollOutcomeMock).toHaveBeenCalledWith({ kind: 'roll', max: 6 })
+      expect(startWhisperSessionsBothDirections).toHaveBeenCalledWith(user1.id, user2.id)
+      expect(addMessageToWhisperMock).toHaveBeenCalledWith(user1.id, user2.id, {
+        type: WhisperMessageType.TextMessage,
+        text: '',
+        mentions: undefined,
+        channelMentions: undefined,
+        emote: true,
+        outcome: ROLL,
+      })
+      expect(publishedMessageEvent()).toMatchObject({
+        message: { text: '', emote: true, outcome: ROLL },
+        users: [user1, user2],
+        mentions: [],
+        channelMentions: [],
+      })
+    })
+
+    test('leaves the text empty for a coin flip', async () => {
+      const flip: RolledOutcome = { kind: 'flip', result: 'tails' }
+      rollOutcomeMock.mockReturnValue(flip)
+      mockStoredOutcome('', flip)
+
+      await whisperService.sendOutcome(user1.id, user2.id, { kind: 'flip' })
+
+      expect(addMessageToWhisperMock.mock.calls[0][2]).toMatchObject({ text: '' })
+      expect(publishedMessageEvent().message).toMatchObject({ text: '', outcome: flip })
+    })
+
+    test("carries the 8-ball's question as the text, unprocessed for mentions", async () => {
+      const answer: RolledOutcome = { kind: 'eightBall', answer: 'itIsCertain' }
+      const question = `should @${user3.name} pick the map?`
+      rollOutcomeMock.mockReturnValue(answer)
+      mockStoredOutcome(question, answer)
+
+      await whisperService.sendOutcome(user1.id, user2.id, { kind: 'eightBall', question })
+
+      expect(addMessageToWhisperMock).toHaveBeenCalledWith(user1.id, user2.id, {
+        type: WhisperMessageType.TextMessage,
+        text: question,
+        mentions: undefined,
+        channelMentions: undefined,
+        emote: true,
+        outcome: answer,
+      })
+      expect(publishedMessageEvent()).toMatchObject({ mentions: [], channelMentions: [] })
+    })
+
+    test('throws when whispering yourself', async () => {
+      await expect(
+        whisperService.sendOutcome(user1.id, user1.id, { kind: 'roll' }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't whisper with yourself]`)
+      expect(addMessageToWhisperMock).not.toHaveBeenCalled()
+    })
+
+    test('throws when the user is chat restricted', async () => {
+      asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
+
+      await expect(
+        whisperService.sendOutcome(user1.id, user2.id, { kind: 'roll' }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is chat restricted]`)
+      expect(addMessageToWhisperMock).not.toHaveBeenCalled()
     })
   })
 

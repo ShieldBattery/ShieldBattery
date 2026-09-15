@@ -4,6 +4,7 @@ import * as React from 'react'
 import { initReactI18next } from 'react-i18next'
 import { beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbChannelId } from '../../../common/chat'
+import { CHAT_MESSAGE_MAXLENGTH } from '../../../common/constants'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { ChannelCommandContext, CommandContext, WhisperCommandContext } from './command-context'
 import { ChatCommand, defineCommand } from './command-schema'
@@ -97,6 +98,20 @@ const testCommands: ReadonlyArray<ChatCommand> = [
     surfaces: ['channel'],
     args: [],
     run: listsRun,
+  }),
+  defineCommand({
+    name: 'transform',
+    description: () => 'Rewrites what was typed.',
+    surfaces: ['channel'],
+    args: [],
+    run: () => ({ text: 'rewritten' }),
+  }),
+  defineCommand({
+    name: 'hugetransform',
+    description: () => 'Rewrites what was typed into something too long to send.',
+    surfaces: ['channel'],
+    args: [],
+    run: () => ({ text: 'x'.repeat(CHAT_MESSAGE_MAXLENGTH + 1) }),
   }),
 ]
 
@@ -233,6 +248,8 @@ describe('messaging/commands/run-chat-command', () => {
       'blocked',
       'boom',
       'lists',
+      'transform',
+      'hugetransform',
     ])
   })
 
@@ -242,5 +259,30 @@ describe('messaging/commands/run-chat-command', () => {
     expect(result).toEqual({ kind: 'command' })
     expect(emit.mock.calls[0][0].kind).toBe('error')
     expect(renderLine(emit.mock.calls[0][0].content)).toContain('/boom')
+  })
+
+  test('a command that rewrites the input is sent as text', () => {
+    const { result, emit } = runInput('/transform')
+
+    expect(result).toEqual({ kind: 'text', text: 'rewritten' })
+    expect(emit).not.toHaveBeenCalled()
+  })
+
+  test('a rewrite over the message limit is refused rather than sent', () => {
+    const { result, emit } = runInput('/hugetransform')
+
+    expect(result).toEqual({ kind: 'command' })
+    expect(emit.mock.calls[0][0].kind).toBe('error')
+    const text = renderLine(emit.mock.calls[0][0].content)
+    expect(text).toContain(`${CHAT_MESSAGE_MAXLENGTH + 1}`)
+    expect(text).toContain(`${CHAT_MESSAGE_MAXLENGTH}`)
+  })
+
+  test('a command that runs without rewriting anything sends nothing', () => {
+    const { result, emit } = runInput('/leave')
+
+    expect(result).toEqual({ kind: 'command' })
+    expect(leaveRun).toHaveBeenCalledTimes(1)
+    expect(emit).not.toHaveBeenCalled()
   })
 })

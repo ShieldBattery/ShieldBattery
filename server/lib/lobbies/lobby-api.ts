@@ -15,6 +15,7 @@ import {
   LobbySlotRequest,
   MoveSlotRequest,
   SendLobbyChatRequest,
+  SendLobbyOutcomeRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
   StartLobbyCountdownRequest,
@@ -28,6 +29,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
+import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request-schema'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
@@ -106,6 +108,12 @@ const clientPubkeySchema = Joi.string()
 /** The body every operation on an existing lobby shares: just the acting client session. */
 const lobbyClientBody = Joi.object<LobbyClientRequest>({
   clientId: clientIdSchema,
+})
+
+/** The body of a request to have the server settle an outcome and announce it to a lobby's chat. */
+const lobbyOutcomeBody = Joi.object<SendLobbyOutcomeRequest>({
+  clientId: clientIdSchema,
+  ...ROLLED_OUTCOME_REQUEST_KEYS,
 })
 
 /** The body every operation on a single slot shares. */
@@ -341,6 +349,19 @@ export class LobbyApi {
       text: body.text,
       emote: body.emote,
     })
+  }
+
+  @httpPost('/:lobbyId/outcomes')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(lobbyChatThrottle, throttleByUser))
+  async sendOutcome(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyOutcomeBody,
+    })
+
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    await this.lobbyService.sendOutcome({ client, lobbyId: params.lobbyId, request: body })
   }
 
   @httpPost('/:lobbyId/settings')

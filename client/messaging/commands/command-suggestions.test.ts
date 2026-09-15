@@ -135,6 +135,13 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'unban',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
     expect(matchCommands(ALL_COMMANDS, whisperContext, '', t).map(c => c.name)).toEqual([
       'help',
@@ -153,6 +160,13 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'close',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
     expect(matchCommands(ALL_COMMANDS, lobbyContext, '', t).map(c => c.name)).toEqual([
       'help',
@@ -171,6 +185,13 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'leave',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
   })
 

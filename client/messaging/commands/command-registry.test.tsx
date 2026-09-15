@@ -76,6 +76,13 @@ describe('messaging/commands/command-registry', () => {
       'topic',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
   })
 
@@ -101,6 +108,13 @@ describe('messaging/commands/command-registry', () => {
       'topic',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
     expect(getSurfaceCommands(ALL_COMMANDS, 'whisper').map(c => c.name)).toEqual([
       'help',
@@ -119,6 +133,13 @@ describe('messaging/commands/command-registry', () => {
       'close',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
     expect(getSurfaceCommands(ALL_COMMANDS, 'lobby').map(c => c.name)).toEqual([
       'help',
@@ -137,6 +158,13 @@ describe('messaging/commands/command-registry', () => {
       'leave',
       'me',
       'cancel',
+      'shrug',
+      'tableflip',
+      'unflip',
+      'quote',
+      'roll',
+      'flip',
+      '8ball',
     ])
   })
 
@@ -318,6 +346,50 @@ describe('messaging/commands/command-registry', () => {
             aliases: [],
             args: [],
             description: 'Cancels your current matchmaking search.',
+          },
+          {
+            name: 'shrug',
+            aliases: [],
+            args: [{ label: 'text', optional: true }],
+            description: 'Appends ¯\\_(ツ)_/¯ to your message.',
+          },
+          {
+            name: 'tableflip',
+            aliases: [],
+            args: [],
+            description: 'Flips a table: (╯°□°)╯︵ ┻━┻',
+          },
+          {
+            name: 'unflip',
+            aliases: [],
+            args: [],
+            description: 'Puts the table back: ┬─┬ ノ( ゜-゜ノ)',
+          },
+          {
+            name: 'quote',
+            aliases: [],
+            args: [{ label: 'unit', optional: true }],
+            description: 'Quotes a random Brood War unit line, from one unit if you name it.',
+          },
+          {
+            name: 'roll',
+            aliases: [],
+            args: [{ label: 'max', optional: true }],
+            description:
+              'Rolls a number from 1 to {{max}}, or up to the number you give. The server ' +
+              "rolls it, so it can't be faked.",
+          },
+          {
+            name: 'flip',
+            aliases: [],
+            args: [],
+            description: 'Flips a coin, settled by the server.',
+          },
+          {
+            name: '8ball',
+            aliases: [],
+            args: [{ label: 'question', optional: false }],
+            description: 'Asks the magic 8-ball a question, answered by the server.',
           },
         ],
       },

@@ -14,6 +14,7 @@ import {
   LobbySlotRequest,
   MoveSlotRequest,
   SendLobbyChatRequest,
+  SendLobbyOutcomeRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
   StartLobbyCountdownRequest,
@@ -23,6 +24,7 @@ import {
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
+import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
@@ -347,6 +349,25 @@ export function sendChat(
         text,
         emote: options.emote ? true : undefined,
       }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/**
+ * Asks the server to settle an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) and
+ * announce it.
+ */
+export function sendOutcome(request: RolledOutcomeRequest, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) {
+      return
+    }
+
+    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/outcomes`, {
+      method: 'POST',
+      body: encodeBodyAsParams<SendLobbyOutcomeRequest>({ clientId, ...request }),
       signal: spec.signal,
     })
   })
