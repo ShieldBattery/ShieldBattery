@@ -75,12 +75,11 @@ export interface WhisperEchoMessageProps {
 
 /**
  * A whisper shown in a surface that isn't its own conversation, so it can be read (and answered)
- * without leaving what the user was doing. The gutter carries the time the server recorded for the
- * whisper, not the time this line was placed at; clicking the line opens the conversation, and
+ * without leaving what the user was doing. Clicking the line opens the conversation, and
  * right-clicking it offers the other user's menu.
  */
 export function WhisperEchoMessage({ message }: WhisperEchoMessageProps) {
-  const { direction, counterpartId, text, emote, sentTime } = message
+  const { direction, counterpartId, text, emote, time } = message
   const filterClick = useMentionFilterClick()
   const { UserMenu, disallowMentionInteraction } = useContext(ChatContext)
   const { onNavigation } = useNavigationTracker()
@@ -125,7 +124,7 @@ export function WhisperEchoMessage({ message }: WhisperEchoMessageProps) {
   return (
     <>
       <EchoLine
-        time={sentTime}
+        time={time}
         active={contextMenuPopoverProps.open}
         onClick={onClick}
         onContextMenu={onContextMenu}

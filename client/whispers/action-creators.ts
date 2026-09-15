@@ -20,7 +20,11 @@ import {
   ResetMessageWindow,
   UpdateSessionAtBottom,
 } from './actions'
-import { newestKnownWhisperTime, newestServerOriginTime } from './whisper-reducer'
+import {
+  newestKnownWhisperTime,
+  newestServerOriginTime,
+  oldestServerOriginTime,
+} from './whisper-reducer'
 import { urlForWhisper } from './whisper-url'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
@@ -160,9 +164,12 @@ export function getMessageHistory(
     }
 
     const sessionData = byId.get(target)!
-    // -1 is the "newest page" sentinel for when nothing is loaded. Every whisper message the client
-    // holds is a server-recorded text message, so the oldest one is always a usable cursor.
-    const earliestMessageTime = sessionData.messages.length ? sessionData.messages[0].time : -1
+    // The window's first entry can be a client-only message (a command's answer, or a carried
+    // message left behind by a drop that hasn't found a covering window yet), whose time the server
+    // has no record of in this conversation and which means nothing as a cursor. -1 is the "newest
+    // page" sentinel, used both when nothing is loaded and when nothing loaded carries a
+    // server-recorded time.
+    const earliestMessageTime = oldestServerOriginTime(sessionData.messages) ?? -1
     const params = {
       target,
       limit,

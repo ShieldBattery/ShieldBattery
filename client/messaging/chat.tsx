@@ -8,6 +8,7 @@ import styled, { css } from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { jotaiStore } from '../jotai-store'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ElevatedButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -33,9 +34,7 @@ import {
 import {
   CommonLocalLineMessage,
   CommonMessageType,
-  CommonWhisperEchoMessage,
   isServerOriginMessage,
-  LocalMessage,
 } from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
@@ -45,9 +44,13 @@ import {
   UserMenuComponent,
   UserMenuContext,
 } from '../users/user-context-menu'
-import { subscribeToWhisperEchoes, WhisperEcho } from '../whispers/whisper-echo'
 import { ChatContext } from './chat-context'
-import { getLocalLineTime, mergeLocalLines } from './local-output-placement'
+import {
+  lastChatSurfaceAtom,
+  localMessageTargetFor,
+  localMessageTargetKey,
+} from './local-message-target'
+import { getLocalLineTime } from './local-output-placement'
 import { DefaultMessageMenu, MessageMenuComponent } from './message-context-menu'
 
 /**
@@ -82,24 +85,6 @@ const LINKED_MESSAGE_VIEWPORT_FRACTION = 0.25
 
 /** How long a message the list was sent to by a link stays highlighted after the list arrives. */
 const LINKED_MESSAGE_FLASH_MS = 2000
-
-/**
- * How many session-only messages a conversation keeps on screen at once. An only-you line answers
- * what the user just did and an echoed whisper is a passing glimpse of another conversation, so
- * neither is history worth piling up: the oldest are dropped as new ones arrive.
- */
-const MAX_LOCAL_LINES = 20
-
-/**
- * The session-only messages produced in one conversation — the answers to the commands run in it
- * and the whispers echoed into it — kept for as long as the user stays in it. They all share the
- * cap above, and are all taken off screen by the same rule (see `visibleLines`).
- */
-interface LocalOutput {
-  /** Which conversation the messages were produced in; messages from any other one are stale. */
-  conversation: unknown
-  lines: ReadonlyArray<LocalMessage>
-}
 
 /** How a move to a message named by a link came out. */
 export type LinkedMessageOutcome =
@@ -423,13 +408,6 @@ export function Chat({
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
   const [showJumpToBottom, setShowJumpToBottom] = useState<boolean>(false)
   const [showUnreadBanner, setShowUnreadBanner] = useState<boolean>(false)
-  const [localOutput, setLocalOutput] = useState<LocalOutput>({
-    conversation: listProps.refreshToken,
-    lines: [],
-  })
-  // Whether the only-you lines are being kept off screen because the user has scrolled away from
-  // the newest messages.
-  const [hiddenByScroll, setHiddenByScroll] = useState<boolean>(false)
   // The last at-bottom state reported through `onAtBottomChange`, so only changes are reported.
   // Undefined while nothing has been reported for the current conversation, which makes the first
   // settled update report unconditionally: the owner has no other way to learn where the viewport
@@ -475,75 +453,48 @@ export function Chat({
     viewStateKey,
   } = listProps
 
-  // Only-you lines belong to the conversation they were produced in, so arriving at a different one
-  // starts with none. Adjusted here rather than in an effect so the lines never render against the
-  // wrong conversation, even for a frame.
-  if (localOutput.conversation !== refreshToken) {
-    setLocalOutput({ conversation: refreshToken, lines: [] })
-  }
-
-  /** Takes a message that exists only in this session into this conversation. */
-  const appendLocalMessage = (message: LocalMessage) => {
-    const conversation = refreshToken
-
-    setLocalOutput(prev => {
-      if (prev.conversation !== conversation) {
-        // The message was produced after the user moved on, so it has nowhere to go.
-        return prev
-      }
-
-      const lines = [...prev.lines, message]
-
-      return {
-        conversation,
-        lines: lines.length > MAX_LOCAL_LINES ? lines.slice(lines.length - MAX_LOCAL_LINES) : lines,
-      }
+  /**
+   * Builds the sink a command's answer goes into: a message in this conversation, at the end of
+   * what's on screen. Taking the context as an argument is what makes the line reachable only where
+   * commands are offered at all.
+   */
+  const makeLocalLineEmitter = (context: CommandContext) => (line: LocalLineContent) => {
+    dispatch({
+      type: '@messaging/appendLocalMessage',
+      payload: {
+        target: localMessageTargetFor(context),
+        message: {
+          id: nanoid(),
+          type: CommonMessageType.LocalLine,
+          time: getLocalLineTime(messages, hasNewerMessages),
+          kind: line.kind,
+          content: line.content,
+        } satisfies CommonLocalLineMessage,
+      },
     })
   }
 
-  /** Takes a line a command produced into this conversation, at the end of what's on screen. */
-  const emitLocalLine = (line: LocalLineContent) => {
-    appendLocalMessage({
-      id: nanoid(),
-      type: CommonMessageType.LocalLine,
-      time: getLocalLineTime(messages, hasNewerMessages),
-      kind: line.kind,
-      content: line.content,
-    } satisfies CommonLocalLineMessage)
-  }
+  // Which conversation this surface is, if it is one at all: a `Chat` with no command context is
+  // not a conversation the user can answer from. Surfaces build their command context anew on every
+  // render, so the conversation the target names, rather than the target object, is what tells one
+  // surface from another.
+  const localMessageTarget =
+    commandContext !== undefined ? localMessageTargetFor(commandContext) : undefined
+  const chatSurfaceKey = localMessageTarget ? localMessageTargetKey(localMessageTarget) : undefined
 
-  const takeWhisperEcho = useEffectEvent((echo: WhisperEcho) => {
-    // A whisper's own conversation already shows it; echoing it there too would show it twice.
-    if (commandContext?.surface === 'whisper' && commandContext.targetId === echo.counterpartId) {
-      return
+  const recordChatSurface = useEffectEvent(() => {
+    if (localMessageTarget !== undefined) {
+      jotaiStore.set(lastChatSurfaceAtom, localMessageTarget)
     }
-
-    appendLocalMessage({
-      id: nanoid(),
-      type: CommonMessageType.WhisperEcho,
-      // Placed by the same rule as an only-you line, so it sits after everything on screen, while
-      // the line itself shows the time the server recorded for the whisper.
-      time: getLocalLineTime(messages, hasNewerMessages),
-      direction: echo.direction,
-      counterpartId: echo.counterpartId,
-      text: echo.text,
-      ...(echo.emote ? { emote: true } : {}),
-      sentTime: echo.time,
-    } satisfies CommonWhisperEchoMessage)
   })
 
-  // Echoes are one-shot display events with no memory behind them, so they're taken by whichever
-  // surface is mounted to see them — which is this one, whenever it's a surface at all. A `Chat`
-  // with no command context has no identity as a surface (no conversation of its own to skip, and
-  // no input to answer from), so it takes none.
-  const hasSurface = commandContext !== undefined
+  // Records this surface as the one a message with no conversation of its own (a whisper echoed
+  // from elsewhere) should land in. Never cleared: once the user navigates away, the conversation
+  // they were last in is still the one they'll come back to, which is a better home for such a
+  // message than nowhere at all.
   useEffect(() => {
-    if (!hasSurface) {
-      return undefined
-    }
-
-    return subscribeToWhisperEchoes(takeWhisperEcho)
-  }, [hasSurface])
+    recordChatSurface()
+  }, [chatSurfaceKey])
 
   /**
    * Starts moving the list to the position the user left this conversation at, if they left one
@@ -898,16 +849,6 @@ export function Chat({
     const newShowJumpToBottom = distanceFromBottom > clientHeight * JUMP_TO_BOTTOM_THRESHOLD_SCREENS
     setShowJumpToBottom(newShowJumpToBottom)
 
-    // Only-you lines are taken away once the user has scrolled well clear of the newest messages,
-    // and come back when they return to them. The at-bottom band can't be the threshold: taking the
-    // lines away shortens the content, which clamps the scroll position back to the bottom and puts
-    // them right back, over and over. Waiting for the jump affordance keeps the change off screen.
-    if (newShowJumpToBottom) {
-      setHiddenByScroll(true)
-    } else if (newAtBottom) {
-      setHiddenByScroll(false)
-    }
-
     // Rects are read after the scrolling above, so the banner reflects where the divider ended up.
     const unreadLine = findUnreadLine(scroller)
     let newShowUnreadBanner = false
@@ -1132,13 +1073,6 @@ export function Chat({
       ? linkFlash.messageId
       : undefined
 
-  // Session-only messages only make sense where the newest messages are: a window detached from the
-  // present isn't where they were placed.
-  const visibleLines = !hasNewerMessages && !hiddenByScroll ? localOutput.lines : []
-  // Only the list sees the lines. Everything else in here (restoring a position, moving to a linked
-  // message, reporting what's been read) is about the conversation itself.
-  const messagesWithLocalLines = mergeLocalLines(messages, visibleLines)
-
   return (
     <BaseUserMenuItemsProvider items={baseUserMenuItems}>
       <ChatContext.Provider
@@ -1155,7 +1089,6 @@ export function Chat({
           <MessageListContainer>
             <StyledMessageList
               {...listProps}
-              messages={messagesWithLocalLines}
               onScrollUpdate={onScrollUpdate}
               isRestorePending={isRestorePending}
             />
@@ -1205,7 +1138,11 @@ export function Chat({
           </MessageListContainer>
           <MessageInput
             {...inputProps}
-            commands={commandContext ? { context: commandContext, emit: emitLocalLine } : undefined}
+            commands={
+              commandContext
+                ? { context: commandContext, emit: makeLocalLineEmitter(commandContext) }
+                : undefined
+            }
             onSendChatMessage={onSendMessage}
             ref={messageInputRef}
             showDivider={isScrolledUp}

@@ -1,19 +1,33 @@
-import { Immutable } from 'immer'
+import { castDraft, Immutable } from 'immer'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { WhisperMessage } from '../../common/whispers'
 import {
   CommonMessageType,
   CommonTextMessage,
   isServerOriginMessage,
+  LocalMessage,
 } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_SESSION_MAX_HISTORY = 150
 
+// How many client-only messages (command output, echoed whispers) a session keeps waiting for a
+// loaded window that covers their time, once the window they were loaded in has been dropped or
+// replaced. These messages exist nowhere but this session's memory, so this bounds how much of a
+// long session's history of detours it can carry rather than dropping any of it.
+const MAX_CARRIED_CLIENT_MESSAGES = 50
+
+/**
+ * Everything a whisper session's message list can hold: the whispers the server stores for the
+ * conversation, plus the ones this client puts there itself (the answers to the commands run in it,
+ * and whispers with someone else echoed into it).
+ */
+export type WhisperSessionMessage = CommonTextMessage | LocalMessage
+
 export interface WhisperSession {
   target: SbUserId
-  messages: CommonTextMessage[]
+  messages: WhisperSessionMessage[]
 
   loadingHistory: boolean
   hasHistory: boolean
@@ -37,6 +51,13 @@ export interface WhisperSession {
    * match, since a page has no boundary in common with a window it wasn't fetched for.
    */
   windowGen: number
+  /**
+   * Client-only messages that were in a window dropped or replaced wholesale, held here until a
+   * loaded window's covered time range reaches where they happened, at which point they're spliced
+   * back into `messages`. These messages are never persisted anywhere but this session's memory, so
+   * this is the only thing standing between a window drop and losing them for good.
+   */
+  carriedClientMessages: LocalMessage[]
 
   activated: boolean
   /** Whether this session's message list is scrolled to the bottom. */
@@ -77,6 +98,7 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     hasNewer: false,
     detachedNewestTime: undefined,
     windowGen: 0,
+    carriedClientMessages: [],
     activated: false,
     atBottom: false,
     hasUnread: false,
@@ -112,7 +134,9 @@ function toTextMessages(messages: WhisperMessage[]): CommonTextMessage[] {
  * timestamp, or `undefined` if there is none. Only such times can be compared against or handed
  * back to the server.
  */
-export function newestServerOriginTime(messages: readonly CommonTextMessage[]): number | undefined {
+export function newestServerOriginTime(
+  messages: readonly WhisperSessionMessage[],
+): number | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     if (isServerOriginMessage(messages[i])) {
       return messages[i].time
@@ -120,6 +144,33 @@ export function newestServerOriginTime(messages: readonly CommonTextMessage[]): 
   }
 
   return undefined
+}
+
+/**
+ * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
+ * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why client-only
+ * messages are excluded: a window can open with one at its head (all that's left after a drop
+ * leaves only carried messages behind), and such a message's time is meaningless as a server
+ * request cursor or a window boundary.
+ */
+export function oldestServerOriginTime(
+  messages: readonly WhisperSessionMessage[],
+): number | undefined {
+  for (const message of messages) {
+    if (isServerOriginMessage(message)) {
+      return message.time
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Returns whether a loaded message is one this client put in the session itself rather than one the
+ * server stored for the conversation, narrowing it to the types that can be carried.
+ */
+function isLocalMessage(message: WhisperSessionMessage): message is LocalMessage {
+  return !isServerOriginMessage(message)
 }
 
 /**
@@ -141,9 +192,9 @@ export function newestKnownWhisperTime(session: Immutable<WhisperSession>): numb
  * messages that share a timestamp can hand back messages the window already holds.
  */
 function dedupeAgainst(
-  incoming: CommonTextMessage[],
-  existing: readonly CommonTextMessage[],
-): CommonTextMessage[] {
+  incoming: WhisperSessionMessage[],
+  existing: readonly WhisperSessionMessage[],
+): WhisperSessionMessage[] {
   if (!existing.length) {
     return incoming
   }
@@ -232,11 +283,90 @@ function recordSelfMessage(session: WhisperSession, time: number) {
 }
 
 /**
+ * Puts one client-only message on a session's carry list, for a message that has no window to live
+ * in right now. Unlike a whisper the server stored it can never be re-fetched, so the carry list is
+ * the only thing standing between that and losing it for good; `mergeCarriedMessages` is what
+ * eventually gives it back a home. Idempotent against a message already carried (deduped by id),
+ * and caps the list at `MAX_CARRIED_CLIENT_MESSAGES`, evicting the oldest by time.
+ */
+function carryClientMessage(session: WhisperSession, message: LocalMessage) {
+  if (session.carriedClientMessages.some(m => m.id === message.id)) {
+    return
+  }
+
+  session.carriedClientMessages.push(message)
+
+  if (session.carriedClientMessages.length > MAX_CARRIED_CLIENT_MESSAGES) {
+    session.carriedClientMessages.sort((a, b) => a.time - b.time)
+    session.carriedClientMessages = session.carriedClientMessages.slice(
+      -MAX_CARRIED_CLIENT_MESSAGES,
+    )
+  }
+}
+
+/**
+ * Moves every client-only message out of `session.messages` and into its carry list, ahead of the
+ * window being dropped or replaced wholesale.
+ */
+function carryClientMessages(session: WhisperSession) {
+  for (const message of session.messages) {
+    if (isLocalMessage(message)) {
+      carryClientMessage(session, message)
+    }
+  }
+}
+
+/**
+ * Splices carried client-only messages (see `carryClientMessage`) back into the loaded window
+ * wherever the window now covers the moment they happened, removing them from the carry list so a
+ * later call can't merge the same message twice. Must run after anything that changes what time
+ * range the window covers — a fetched page or a reattach — since that's the only way a carried
+ * message's moment can come back into view.
+ *
+ * The covered range runs from the oldest server-origin message's time to the newest, extended to
+ * unbounded-older when `hasHistory` is false (nothing precedes what's loaded) and to
+ * unbounded-newer when `hasNewer` is false (the window is attached to the present, so it covers
+ * everything from here on, same as a live message keeps appending to it). A bound whose flag says
+ * it's *not* unbounded but which has no server-origin message to anchor to (an empty or
+ * all-client-only window) covers nothing on that side.
+ */
+function mergeCarriedMessages(session: WhisperSession) {
+  if (!session.carriedClientMessages.length) {
+    return
+  }
+
+  const lowerBound = session.hasHistory
+    ? (oldestServerOriginTime(session.messages) ?? Infinity)
+    : -Infinity
+  const upperBound = session.hasNewer
+    ? (newestServerOriginTime(session.messages) ?? -Infinity)
+    : Infinity
+
+  const stillCarried: LocalMessage[] = []
+  const reclaimed: LocalMessage[] = []
+  for (const message of session.carriedClientMessages) {
+    if (message.time >= lowerBound && message.time <= upperBound) {
+      reclaimed.push(message)
+    } else {
+      stillCarried.push(message)
+    }
+  }
+
+  if (!reclaimed.length) {
+    return
+  }
+
+  session.carriedClientMessages = stillCarried
+  session.messages = session.messages.concat(reclaimed).sort((a, b) => a.time - b.time)
+}
+
+/**
  * Discards everything loaded for a session, returning it to the shape a freshly-opened session has:
  * nothing loaded, older history assumed to exist, attached to the present. Advancing the generation
  * makes the reducer discard any page still in flight for the window that was just dropped.
  */
 function dropMessageWindow(session: WhisperSession) {
+  carryClientMessages(session)
   session.messages = []
   session.hasHistory = true
   session.hasNewer = false
@@ -273,7 +403,7 @@ function updateMessages(
   state: WhisperState,
   target: SbUserId,
   arrival: LiveArrival | undefined,
-  updateFn: (messages: CommonTextMessage[]) => CommonTextMessage[],
+  updateFn: (messages: WhisperSessionMessage[]) => WhisperSessionMessage[],
 ) {
   const session = state.byId.get(target)
   if (!session) {
@@ -401,6 +531,35 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  // A message this client puts in a session itself: the answer to a command run there, or a whisper
+  // with someone else echoed into it. It goes in with no arrival, so neither the read position nor
+  // the unread flag moves for it — nothing the server knows about has happened, and someone else's
+  // whisper shown here is not this conversation being read.
+  ['@messaging/appendLocalMessage'](state, action) {
+    const { target, message } = action.payload
+    if (target.surface !== 'whisper') {
+      return
+    }
+
+    const session = state.byId.get(target.userId)
+    if (!session) {
+      return
+    }
+
+    if (session.hasNewer) {
+      // The loaded window sits behind the present, and the message was produced now, so it belongs
+      // past the gap at the window's far end. Carrying it holds it until the window is back at the
+      // present, which is the only place it can be shown.
+      carryClientMessage(session, castDraft(message))
+      return
+    }
+
+    updateMessages(state, target.userId, undefined, m => {
+      m.push(castDraft(message))
+      return m
+    })
+  },
+
   ['@whispers/loadMessageHistoryBegin'](state, action) {
     const { target } = action.payload
 
@@ -433,6 +592,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateMessages(state, target, undefined, messages =>
       dedupeAgainst(newMessages, messages).concat(messages),
     )
+    // The older edge just moved (or, for a window left holding only carried messages by a prior
+    // drop, was established for the first time), so re-check whether it now reaches any of them.
+    mergeCarriedMessages(session)
   },
 
   ['@whispers/loadNewerMessagesBegin'](state, action) {
@@ -487,6 +649,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         session.detachedNewestTime = undefined
       }
     }
+
+    // The newer edge just moved, and reattaching extends coverage all the way to the present, so
+    // re-check whether the window now reaches any carried message.
+    mergeCarriedMessages(session)
   },
 
   ['@whispers/loadMessagesAroundBegin'](state, action) {
@@ -527,7 +693,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     )
 
     // The fetched range doesn't have to touch what was loaded, so there may be no seam to splice
-    // them together at and the window is replaced outright.
+    // them together at and the window is replaced outright. A client-only message can't be
+    // refetched at the new range even if it belongs there, so it's carried instead of discarded;
+    // `mergeCarriedMessages` below gives it back a home if the replacement window covers it.
+    carryClientMessages(session)
     session.messages = toTextMessages(action.payload.messages)
     session.hasHistory = action.payload.hasMoreBefore
     session.windowGen += 1
@@ -552,6 +721,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         session.detachedNewestTime = undefined
       }
     }
+
+    // The window's coverage was just established from scratch, so check it against everything
+    // still carried rather than just what changed.
+    mergeCarriedMessages(session)
   },
 
   ['@whispers/resetMessageWindow'](state, action) {

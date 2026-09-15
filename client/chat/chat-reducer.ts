@@ -1,4 +1,4 @@
-import { Immutable } from 'immer'
+import { castDraft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import {
   BasicChannelInfo,
@@ -14,17 +14,24 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { isServerOriginMessage } from '../messaging/message-records'
+import { isServerOriginMessage, LocalMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
-// How many client-only messages (join/leave banners and the like) a channel keeps waiting for a
-// loaded window that covers their time, once the window they were loaded in has been dropped or
-// replaced. These messages exist nowhere but this session's memory, so this bounds how much of a
-// long session's history of channel detours it can carry rather than dropping any of it.
+// How many client-only messages (join/leave banners, command output and the like) a channel keeps
+// waiting for a loaded window that covers their time, once the window they were loaded in has been
+// dropped or replaced. These messages exist nowhere but this session's memory, so this bounds how
+// much of a long session's history of channel detours it can carry rather than dropping any of it.
 const MAX_CARRIED_CLIENT_MESSAGES = 50
+
+/**
+ * Everything a channel's message list can hold: the messages the server stores for the channel,
+ * plus the ones this client puts there itself (the answers to the commands run in the channel, and
+ * whispers echoed into it).
+ */
+export type ChannelMessage = ChatMessage | LocalMessage
 
 export interface UsersState {
   active: Set<SbUserId>
@@ -36,7 +43,7 @@ export interface UsersState {
 }
 
 export interface MessagesState {
-  messages: ChatMessage[]
+  messages: ChannelMessage[]
 
   loadingHistory: boolean
   hasHistory: boolean
@@ -67,7 +74,7 @@ export interface MessagesState {
    * persisted anywhere but this session's memory, so this is the only thing standing between a
    * window drop and losing them for good.
    */
-  carriedClientMessages: ChatMessage[]
+  carriedClientMessages: ChannelMessage[]
 }
 
 export interface ChatState {
@@ -299,7 +306,7 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
  * like) are stamped with the local clock, so their times can't be compared against or handed back
  * to the server.
  */
-export function newestServerOriginTime(messages: readonly ChatMessage[]): number | undefined {
+export function newestServerOriginTime(messages: readonly ChannelMessage[]): number | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     if (isServerOriginMessage(messages[i])) {
       return messages[i].time
@@ -335,7 +342,7 @@ export function newestKnownChannelTime(
  * that's left after a drop leaves only carried messages behind), and such a message's local-clock
  * time is meaningless as a server request cursor or a window boundary.
  */
-export function oldestServerOriginTime(messages: readonly ChatMessage[]): number | undefined {
+export function oldestServerOriginTime(messages: readonly ChannelMessage[]): number | undefined {
   for (const message of messages) {
     if (isServerOriginMessage(message)) {
       return message.time
@@ -350,7 +357,10 @@ export function oldestServerOriginTime(messages: readonly ChatMessage[]): number
  * endpoints seek by millisecond-precision time, so a page boundary landing inside a group of
  * messages that share a timestamp can hand back messages the window already holds.
  */
-function dedupeAgainst(incoming: ChatMessage[], existing: readonly ChatMessage[]): ChatMessage[] {
+function dedupeAgainst(
+  incoming: ChannelMessage[],
+  existing: readonly ChannelMessage[],
+): ChannelMessage[] {
   if (!existing.length) {
     return incoming
   }
@@ -450,27 +460,36 @@ function recordSelfMessage(state: ChatState, channelId: SbChannelId, time: numbe
 }
 
 /**
- * Moves every client-only message out of `channelMessages.messages` and into its carry list, ahead
- * of the window being dropped or replaced wholesale. Unlike a server message, a client-only message
- * (a join/leave banner and the like) can never be re-fetched, so losing the window it was loaded in
- * would otherwise erase it for good; `mergeCarriedMessages` is what eventually gives it back a home.
- * Idempotent against a message already carried from an earlier drop (deduped by id), and caps the
+ * Puts one client-only message on a channel's carry list, for a message that has no window to live
+ * in right now. Unlike a server message it can never be re-fetched, so the carry list is the only
+ * thing standing between that and losing it for good; `mergeCarriedMessages` is what eventually
+ * gives it back a home. Idempotent against a message already carried (deduped by id), and caps the
  * list at `MAX_CARRIED_CLIENT_MESSAGES`, evicting the oldest by time.
  */
-function carryClientMessages(channelMessages: MessagesState) {
-  const carriedIds = new Set(channelMessages.carriedClientMessages.map(m => m.id))
-  for (const message of channelMessages.messages) {
-    if (!isServerOriginMessage(message) && !carriedIds.has(message.id)) {
-      channelMessages.carriedClientMessages.push(message)
-      carriedIds.add(message.id)
-    }
+function carryClientMessage(channelMessages: MessagesState, message: ChannelMessage) {
+  if (channelMessages.carriedClientMessages.some(m => m.id === message.id)) {
+    return
   }
+
+  channelMessages.carriedClientMessages.push(message)
 
   if (channelMessages.carriedClientMessages.length > MAX_CARRIED_CLIENT_MESSAGES) {
     channelMessages.carriedClientMessages.sort((a, b) => a.time - b.time)
     channelMessages.carriedClientMessages = channelMessages.carriedClientMessages.slice(
       -MAX_CARRIED_CLIENT_MESSAGES,
     )
+  }
+}
+
+/**
+ * Moves every client-only message out of `channelMessages.messages` and into its carry list, ahead
+ * of the window being dropped or replaced wholesale.
+ */
+function carryClientMessages(channelMessages: MessagesState) {
+  for (const message of channelMessages.messages) {
+    if (!isServerOriginMessage(message)) {
+      carryClientMessage(channelMessages, message)
+    }
   }
 }
 
@@ -500,8 +519,8 @@ function mergeCarriedMessages(channelMessages: MessagesState) {
     ? (newestServerOriginTime(channelMessages.messages) ?? -Infinity)
     : Infinity
 
-  const stillCarried: ChatMessage[] = []
-  const reclaimed: ChatMessage[] = []
+  const stillCarried: ChannelMessage[] = []
+  const reclaimed: ChannelMessage[] = []
   for (const message of channelMessages.carriedClientMessages) {
     if (message.time >= lowerBound && message.time <= upperBound) {
       reclaimed.push(message)
@@ -570,7 +589,7 @@ function updateMessages(
   state: ChatState,
   channelId: SbChannelId,
   arrival: LiveArrival | undefined,
-  updateFn: (messages: ChatMessage[]) => ChatMessage[],
+  updateFn: (messages: ChannelMessage[]) => ChannelMessage[],
 ) {
   const channelMessages = state.idToMessages.get(channelId)
   if (!channelMessages) {
@@ -852,6 +871,35 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         state.idToLatestMentionTime.set(channelId, newMessage.time)
       }
     }
+  },
+
+  // A message this client puts in a channel itself: the answer to a command run there, or a whisper
+  // echoed into it. It goes in with no arrival, so neither the read position nor the unread flag
+  // moves for it — nothing the server knows about has happened, and a whisper shown in a channel is
+  // not that channel being read.
+  ['@messaging/appendLocalMessage'](state, action) {
+    const { target, message } = action.payload
+    if (target.surface !== 'channel') {
+      return
+    }
+
+    const channelMessages = state.idToMessages.get(target.channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    if (channelMessages.hasNewer) {
+      // The loaded window sits behind the present, and the message was produced now, so it belongs
+      // past the gap at the window's far end. Carrying it holds it until the window is back at the
+      // present, which is the only place it can be shown.
+      carryClientMessage(channelMessages, castDraft(message))
+      return
+    }
+
+    updateMessages(state, target.channelId, undefined, m => {
+      m.push(castDraft(message))
+      return m
+    })
   },
 
   ['@chat/updateUserActive'](state, action) {

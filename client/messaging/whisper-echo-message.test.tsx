@@ -43,7 +43,6 @@ function makeEcho(
     time: SENT_TIME,
     counterpartId: COUNTERPART_ID,
     text: 'how goes it',
-    sentTime: SENT_TIME,
     ...fields,
   }
 }

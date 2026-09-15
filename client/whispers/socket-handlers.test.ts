@@ -1,9 +1,12 @@
 ﻿import type { NydusClient } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { makeSbChannelId } from '../../common/chat'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { type WhisperMessageEvent, WhisperMessageType } from '../../common/whispers'
 import { registerDispatch } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
+import { LocalMessageTarget, lastChatSurfaceAtom } from '../messaging/local-message-target'
+import { CommonMessageType } from '../messaging/message-records'
 import type { RootState } from '../root-reducer'
 import registerModule from './socket-handlers'
 import { lastWhisperSenderAtom } from './whisper-atoms'
@@ -11,7 +14,6 @@ import { lastWhisperSenderAtom } from './whisper-atoms'
 const mocks = vi.hoisted(() => ({
   send: vi.fn(),
   playSound: vi.fn(),
-  publishWhisperEcho: vi.fn(),
 }))
 vi.mock('../../common/ipc', () => ({
   TypedIpcRenderer: class {
@@ -23,14 +25,18 @@ vi.mock('../audio/audio-manager', () => ({
   audioManager: { playSound: mocks.playSound },
 }))
 vi.mock('../dom/window-focus', () => ({ default: { isFocused: () => false } }))
-vi.mock('./whisper-echo', () => ({ publishWhisperEcho: mocks.publishWhisperEcho }))
 
 const SELF = { id: makeSbUserId(1), name: 'self', created: 0 }
 const OTHER = { id: makeSbUserId(2), name: 'other', created: 0 }
+const CHANNEL_SURFACE: LocalMessageTarget = {
+  surface: 'channel',
+  channelId: makeSbChannelId(1),
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
   jotaiStore.set(lastWhisperSenderAtom, undefined)
+  jotaiStore.set(lastChatSurfaceAtom, CHANNEL_SURFACE)
 })
 
 interface WhisperCase {
@@ -45,7 +51,9 @@ interface WhisperCase {
   showWhispersEverywhere?: boolean
   /** Whether the message should alert: the attention IPC plus the alert sound. */
   alerts: boolean
-  /** Whether the message should publish a whisper echo. */
+  /** The surface last on screen, which is where an echo goes. Defaults to a chat channel. */
+  surface?: LocalMessageTarget
+  /** Whether the message should be echoed into `surface`. */
   echoed: boolean
   /** Whether the sender should become the `/reply` target (`lastWhisperSenderAtom`). */
   becomesReplyTarget: boolean
@@ -125,7 +133,37 @@ describe('whisper message echoes', () => {
       becomesReplyTarget: true,
       emote: true,
     },
+    {
+      name: 'with no surface seen yet, a message has nowhere to be echoed',
+      fromSelf: false,
+      blocked: false,
+      surface: undefined,
+      alerts: true,
+      echoed: false,
+      becomesReplyTarget: true,
+    },
+    {
+      name: "the counterpart's own conversation already shows the message, so it is not echoed",
+      fromSelf: false,
+      blocked: false,
+      surface: { surface: 'whisper', userId: OTHER.id },
+      alerts: true,
+      echoed: false,
+      becomesReplyTarget: true,
+    },
+    {
+      name: "another user's conversation is echoed into like any other surface",
+      fromSelf: false,
+      blocked: false,
+      surface: { surface: 'whisper', userId: makeSbUserId(7) },
+      alerts: true,
+      echoed: true,
+      becomesReplyTarget: true,
+    },
   ])('$name', options => {
+    const surface = Object.hasOwn(options, 'surface') ? options.surface : CHANNEL_SURFACE
+    jotaiStore.set(lastChatSurfaceAtom, surface)
+
     const sender = options.fromSelf ? SELF : OTHER
     const state = {
       auth: { self: { user: SELF } },
@@ -173,7 +211,7 @@ describe('whisper message echoes', () => {
     }
     receive({}, event)
 
-    expect(dispatched).toHaveBeenCalledExactlyOnceWith({
+    expect(dispatched).toHaveBeenNthCalledWith(1, {
       type: '@whispers/updateMessage',
       payload: event,
       meta: { target: OTHER.id, isSelfMessage: options.fromSelf, windowFocused: false },
@@ -181,20 +219,27 @@ describe('whisper message echoes', () => {
     expect(mocks.send).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
     expect(mocks.playSound).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
 
-    const expectedEchoCalls = options.echoed
-      ? [
-          [
-            {
-              time: 200,
-              direction: options.fromSelf ? 'outgoing' : 'incoming',
-              counterpartId: OTHER.id,
-              text: 'hello',
-              ...(options.emote ? { emote: true } : {}),
-            },
-          ],
-        ]
-      : []
-    expect(mocks.publishWhisperEcho.mock.calls).toEqual(expectedEchoCalls)
+    const echoDispatches = dispatched.mock.calls
+      .map(([action]) => action)
+      .filter(action => action.type === '@messaging/appendLocalMessage')
+    // The echoed line carries the server-recorded time of the whisper, so it sorts among the
+    // messages it lands beside and shows when the whisper was actually sent.
+    const expectedEcho = {
+      type: '@messaging/appendLocalMessage',
+      payload: {
+        target: surface,
+        message: {
+          id: expect.any(String),
+          type: CommonMessageType.WhisperEcho,
+          time: 200,
+          direction: options.fromSelf ? 'outgoing' : 'incoming',
+          counterpartId: OTHER.id,
+          text: 'hello',
+          ...(options.emote ? { emote: true } : {}),
+        },
+      },
+    }
+    expect(echoDispatches).toEqual(options.echoed ? [expectedEcho] : [])
 
     expect(jotaiStore.get(lastWhisperSenderAtom)).toBe(
       options.becomesReplyTarget ? sender.id : undefined,

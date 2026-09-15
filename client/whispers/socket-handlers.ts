@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { WhisperEvent, WhisperUserEvent } from '../../common/whispers'
@@ -6,8 +7,9 @@ import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import { jotaiStore } from '../jotai-store'
+import { lastChatSurfaceAtom } from '../messaging/local-message-target'
+import { CommonMessageType, CommonWhisperEchoMessage } from '../messaging/message-records'
 import { lastWhisperSenderAtom } from './whisper-atoms'
-import { publishWhisperEcho } from './whisper-echo'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -77,13 +79,29 @@ const eventToAction: EventToActionMap = {
         jotaiStore.set(lastWhisperSenderAtom, from)
       }
       if (!isBlocked && accountSettings.showWhispersEverywhere) {
-        publishWhisperEcho({
-          time: event.message.time,
-          direction: isSelfMessage ? 'outgoing' : 'incoming',
-          counterpartId: target,
-          text: event.message.text,
-          ...(event.message.emote ? { emote: true } : {}),
-        })
+        const surface = jotaiStore.get(lastChatSurfaceAtom)
+        // With no surface seen yet there is nowhere to show the whisper, and the whisper's own
+        // conversation already shows it: echoing it there too would show it twice.
+        if (
+          surface !== undefined &&
+          !(surface.surface === 'whisper' && surface.userId === target)
+        ) {
+          dispatch({
+            type: '@messaging/appendLocalMessage',
+            payload: {
+              target: surface,
+              message: {
+                id: nanoid(),
+                type: CommonMessageType.WhisperEcho,
+                time: event.message.time,
+                direction: isSelfMessage ? 'outgoing' : 'incoming',
+                counterpartId: target,
+                text: event.message.text,
+                ...(event.message.emote ? { emote: true } : {}),
+              } satisfies CommonWhisperEchoMessage,
+            },
+          })
+        }
       }
 
       const session = whispersById.get(target)

@@ -6,7 +6,6 @@ import {
   ClientChatMessageType,
   SbChannelId,
   ServerChatMessageType,
-  isServerChatMessage,
 } from '../../common/chat'
 import { getErrorStack } from '../../common/errors'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -21,6 +20,7 @@ import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/mention-provider'
 import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
 import { MessageComponentProps } from '../messaging/message-list'
+import { isServerOriginMessage } from '../messaging/message-records'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
@@ -436,13 +436,13 @@ export function ConnectedChatChannel({
     setLinkedMessageId('')
   }
 
-  // The newest server-recorded message time: client-only messages (e.g. the self-join banner) are
-  // stamped with the local clock, so they can't be reported as a read position.
+  // The newest server-recorded message time: only messages the server stored for this channel carry
+  // one, and a read position must never be reported from a locally-stamped time.
   let newestMessageTime: number | undefined
   if (channelMessages) {
     for (let i = channelMessages.messages.length - 1; i >= 0; i--) {
       const message = channelMessages.messages[i]
-      if (isServerChatMessage(message)) {
+      if (isServerOriginMessage(message)) {
         newestMessageTime = message.time
         break
       }
