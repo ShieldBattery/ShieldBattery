@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { graphql } from '../gql'
 import { BottomLinks } from '../home/bottom-links'
-import { Markdown } from '../markdown/markdown'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -13,6 +12,7 @@ import { useNow } from '../react/date-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, headlineLarge, headlineSmall, labelMedium } from '../styles/typography'
 import { newsDateFormatter, NewsImage } from './news-image'
+import { NewsMarkdown } from './news-markdown'
 import { fromRouteNewsPostId, RouteNewsPostId, urlForNewsPost } from './news-url'
 
 const NewsPostQuery = graphql(/* GraphQL */ `
@@ -136,7 +136,7 @@ const PostAuthor = styled.div`
   text-align: center;
 `
 
-const StyledMarkdown = styled(Markdown)`
+const StyledMarkdown = styled(NewsMarkdown)`
   width: 100%;
   max-width: 720px;
 `

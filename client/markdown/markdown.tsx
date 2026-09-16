@@ -31,7 +31,7 @@ const Root = styled.div`
   h2 {
     ${headlineMedium};
     margin-top: 16px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
   }
 
   h3 {
@@ -58,9 +58,18 @@ const Root = styled.div`
     margin-bottom: 8px;
   }
 
+  /* Each section heading past the first opens a ruled section: a hairline above it, generous space
+     above the rule, and a smaller gap between the rule and the heading text. */
+  & > h2:not(:first-child) {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-outline-variant);
+  }
+
   b,
   strong {
     font-weight: 700;
+    color: var(--theme-on-surface);
   }
 
   p {
@@ -79,6 +88,10 @@ const Root = styled.div`
     margin-top: 8px;
   }
 
+  li::marker {
+    color: var(--theme-amber);
+  }
+
   blockquote {
     margin-left: 0;
     margin-right: 16px;
@@ -95,6 +108,41 @@ const Root = styled.div`
     margin: 7px 0 8px 0;
 
     background-color: var(--theme-outline-variant);
+  }
+
+  /* Inline code is a chip so names like chat commands stand out from prose and never break across
+     lines. The monospace family comes from the global reset. */
+  code {
+    padding: 1px 6px;
+
+    background-color: var(--theme-container-low);
+    border: 1px solid var(--theme-outline-variant);
+    border-radius: 4px;
+    color: var(--theme-amber);
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+
+  pre {
+    padding: 12px 16px;
+
+    background-color: var(--theme-container-low);
+    border: 1px solid var(--theme-outline-variant);
+    border-radius: 4px;
+    font-size: 0.9em;
+    overflow-x: auto;
+  }
+
+  /* Fenced blocks take their framing from the pre, so the code inside must not also be a chip. */
+  pre code {
+    padding: 0;
+
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: inherit;
+    font-size: inherit;
+    white-space: pre;
   }
 
   & > *:first-child {
@@ -163,10 +211,12 @@ function isVideoUrl(src: string): boolean {
 
 const mediaStyle = css`
   display: block;
+  box-sizing: border-box;
   max-width: 100%;
   max-height: min(640px, 70vh);
-  margin: 16px auto 8px;
-  border-radius: 4px;
+  margin: 16px auto 20px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 6px;
 `
 
 const Video = styled.video`
@@ -180,7 +230,10 @@ const Image = styled.img`
 const Caption = styled.span`
   ${bodyMedium};
   display: block;
-  margin-bottom: 16px;
+  /* A caption always directly follows its media, so it pulls itself up to sit just under the
+     frame and then restores the media's normal gap below itself. */
+  margin-top: -12px;
+  margin-bottom: 20px;
   color: var(--theme-on-surface-variant);
   text-align: center;
 `
