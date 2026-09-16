@@ -129,12 +129,23 @@ describe('client/users/user-card getRankLine', () => {
       ladder[MatchmakingType.Match2v2],
       bonusPool,
     )
-    const expected2v2Label = matchmakingTypeToLabel(MatchmakingType.Match2v2, t)
-    const expected2v2DivisionLabel = matchmakingDivisionToLabel(expected2v2Division, t)
 
-    expect(result.tooltip).toBe(
-      `${expectedModeLabel} ${expectedDivisionLabel} · ${expected2v2Label} ${expected2v2DivisionLabel}`,
-    )
+    expect(result.modes).toEqual([
+      {
+        type: MatchmakingType.Match1v1,
+        division: expectedDivision,
+        points: 1840,
+        wins: 74,
+        losses: 52,
+      },
+      {
+        type: MatchmakingType.Match2v2,
+        division: expected2v2Division,
+        points: 940,
+        wins: 18,
+        losses: 21,
+      },
+    ])
   })
 
   test('no ranked mode: unranked with the Unrated division badge', () => {
@@ -146,7 +157,6 @@ describe('client/users/user-card getRankLine', () => {
       kind: 'unranked',
       badge: MatchmakingDivision.Unrated,
       text: 'Unranked',
-      tooltip: 'Unranked',
     })
   })
 
@@ -164,7 +174,6 @@ describe('client/users/user-card getRankLine', () => {
     expect(result).toEqual({
       kind: 'seasonUnknown',
       text: expectedText,
-      tooltip: expectedText,
     })
   })
 })

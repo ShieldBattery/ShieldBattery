@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -13,6 +13,7 @@ import {
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
+  MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -21,6 +22,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { PlayerResultChip } from '../games/result-chip'
 import { DivisionIcon } from '../matchmaking/rank-icon'
 import { FilledButton } from '../material/button'
+import { Tooltip, TooltipContent } from '../material/tooltip'
 import {
   getInlineCardHeight,
   INLINE_CARD_INFO_GAP,
@@ -84,6 +86,71 @@ const RankText = styled.span`
   ${singleLine};
   min-width: 0;
 `
+
+// The tooltip's trigger shrinks to the rank line's text rather than stretching across the info
+// column, so the tooltip pops up centered over what was hovered.
+const RankTooltip = styled(Tooltip)`
+  align-self: flex-start;
+  max-width: 100%;
+`
+
+// Six cells across is wider than a tooltip's usual text, so the base's max-width comes off; nothing
+// in a row wraps, so the grid sizes itself to its longest mode.
+const RankTooltipContent = styled(TooltipContent)`
+  max-width: none;
+  display: grid;
+  grid-template-columns: repeat(6, auto);
+  column-gap: 12px;
+  row-gap: 6px;
+  align-items: center;
+  justify-content: start;
+  padding: 8px 12px;
+  text-align: left;
+`
+
+const RankTooltipModeLabel = styled.span`
+  font-weight: 700;
+`
+
+const RankTooltipCell = styled.span`
+  white-space: nowrap;
+`
+
+/**
+ * The rank tooltip's body: one row per ranked mode the user has played, each laid out as six
+ * cells in the tooltip's grid (division icon, mode label, division label, points, record, and win
+ * rate).
+ */
+function RankTooltipRows({ modes, t }: { modes: RankTooltipMode[]; t: TFunction }) {
+  return (
+    <>
+      {modes.map(mode => {
+        const total = mode.wins + mode.losses
+        const winRate = total > 0 ? Math.round((mode.wins * 100 * 10) / total) / 10 : 0
+
+        return (
+          <Fragment key={mode.type}>
+            <RankBadge division={mode.division} size={RANK_BADGE_SIZE} />
+            <RankTooltipModeLabel>{matchmakingTypeToLabel(mode.type, t)}</RankTooltipModeLabel>
+            <RankTooltipCell>{matchmakingDivisionToLabel(mode.division, t)}</RankTooltipCell>
+            <RankTooltipCell>
+              {t('users.card.rankTooltip.points', '{{points}} pts', {
+                points: Math.round(mode.points).toLocaleString(),
+              })}
+            </RankTooltipCell>
+            <RankTooltipCell>
+              {mode.wins} {t('game.results.winShort', 'W')} &ndash; {mode.losses}{' '}
+              {t('game.results.lossShort', 'L')}
+            </RankTooltipCell>
+            <RankTooltipCell>
+              {t('users.card.rankTooltip.winRate', '{{winRate}}% win rate', { winRate })}
+            </RankTooltipCell>
+          </Fragment>
+        )
+      })}
+    </>
+  )
+}
 
 const RecordLine = styled.div`
   height: ${RECORD_LINE_HEIGHT}px;
@@ -158,29 +225,37 @@ export function UserCardContent({ userId, name, state, onProfileClick }: UserCar
       <CardAvatar userId={userId} />
       <InlineCardInfoColumn>
         <InlineCardTitle title={name}>{name ?? ''}</InlineCardTitle>
-        <RankLineRoot title={rankLine.tooltip}>
-          {rankLine.kind !== 'seasonUnknown' ? (
-            <RankBadge division={rankLine.badge} size={RANK_BADGE_SIZE} />
-          ) : null}
-          <RankText>{rankLine.text}</RankText>
-        </RankLineRoot>
+        {rankLine.kind === 'ranked' ? (
+          <RankTooltip
+            text={<RankTooltipRows modes={rankLine.modes} t={t} />}
+            position='top'
+            ContentComponent={RankTooltipContent}>
+            <RankLineRoot>
+              <RankBadge division={rankLine.badge} size={RANK_BADGE_SIZE} />
+              <RankText>{rankLine.text}</RankText>
+            </RankLineRoot>
+          </RankTooltip>
+        ) : (
+          <RankLineRoot>
+            {rankLine.kind === 'unranked' ? (
+              <RankBadge division={rankLine.badge} size={RANK_BADGE_SIZE} />
+            ) : null}
+            <RankText>{rankLine.text}</RankText>
+          </RankLineRoot>
+        )}
         {totalGames > 0 ? (
           <RecordLine>
-            <PlayerResultChip
-              $result='win'
-              role='img'
-              aria-label={getResultLabel('win', t)}
-              title={getResultLabel('win', t)}>
-              {getResultShortLabel('win', t)}
-            </PlayerResultChip>
+            <Tooltip text={getResultLabel('win', t)} position='top' tabIndex={-1}>
+              <PlayerResultChip $result='win' role='img' aria-label={getResultLabel('win', t)}>
+                {getResultShortLabel('win', t)}
+              </PlayerResultChip>
+            </Tooltip>
             <Count>{wins}</Count>
-            <PlayerResultChip
-              $result='loss'
-              role='img'
-              aria-label={getResultLabel('loss', t)}
-              title={getResultLabel('loss', t)}>
-              {getResultShortLabel('loss', t)}
-            </PlayerResultChip>
+            <Tooltip text={getResultLabel('loss', t)} position='top' tabIndex={-1}>
+              <PlayerResultChip $result='loss' role='img' aria-label={getResultLabel('loss', t)}>
+                {getResultShortLabel('loss', t)}
+              </PlayerResultChip>
+            </Tooltip>
             <Count>{losses}</Count>
             <Separator>·</Separator>
             {t('users.card.totalGames', {
@@ -204,20 +279,33 @@ export function UserCardContent({ userId, name, state, onProfileClick }: UserCar
 }
 
 /**
+ * One ranked mode's entry in a `RankLine`'s tooltip: everything the tooltip's per-mode row needs
+ * to render the division icon, mode and division labels, point total, and win/loss record.
+ */
+export interface RankTooltipMode {
+  type: MatchmakingType
+  division: MatchmakingDivision
+  /** The player's raw point total for this mode, not rounded. */
+  points: number
+  wins: number
+  losses: number
+}
+
+/**
  * The user card's rank line for the user's most-played ranked matchmaking mode, in one of three
  * states: they haven't played a ranked mode at all, they have but the season's bonus pool hasn't
- * loaded (so a division can't be computed), or a division and point total are both available.
+ * loaded (so a division can't be computed), or a division and point total are both available. The
+ * `ranked` state also carries every ranked mode the user has played, most-played first, so a
+ * tooltip can show the modes the compact text leaves out.
  */
 export type RankLine =
-  | { kind: 'unranked'; badge: MatchmakingDivision; text: string; tooltip: string }
-  | { kind: 'seasonUnknown'; text: string; tooltip: string }
-  | { kind: 'ranked'; badge: MatchmakingDivision; text: string; tooltip: string }
+  | { kind: 'unranked'; badge: MatchmakingDivision; text: string }
+  | { kind: 'seasonUnknown'; text: string }
+  | { kind: 'ranked'; badge: MatchmakingDivision; text: string; modes: RankTooltipMode[] }
 
 /**
  * Computes the user card's rank line for the user's most-played ranked mode
- * (`getRankedTypesByActivity` sorts by activity, so the first entry is the one to show). The
- * tooltip always covers every ranked mode the user has played, most-played first, so hovering the
- * line reveals the modes the compact text leaves out.
+ * (`getRankedTypesByActivity` sorts by activity, so the first entry is the one `text` describes).
  */
 export function getRankLine(
   profile: ReadonlyDeep<UserProfileJson>,
@@ -226,13 +314,16 @@ export function getRankLine(
 ): RankLine {
   const rankedTypes = getRankedTypesByActivity(profile.ladder)
   if (!rankedTypes.length) {
-    const text = t('users.card.unranked', 'Unranked')
-    return { kind: 'unranked', badge: MatchmakingDivision.Unrated, text, tooltip: text }
+    return {
+      kind: 'unranked',
+      badge: MatchmakingDivision.Unrated,
+      text: t('users.card.unranked', 'Unranked'),
+    }
   }
 
   if (!season) {
     const text = rankedTypes.map(type => matchmakingTypeToLabel(type, t)).join(' · ')
-    return { kind: 'seasonUnknown', text, tooltip: text }
+    return { kind: 'seasonUnknown', text }
   }
 
   const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
@@ -244,14 +335,18 @@ export function getRankLine(
     mode: matchmakingTypeToLabel(mostPlayedType, t),
     points: Math.round(player.points).toLocaleString(),
   })
-  const tooltip = rankedTypes
-    .map(type => {
-      const typeDivision = ladderPlayerToMatchmakingDivision(profile.ladder[type]!, bonusPool)
-      return `${matchmakingTypeToLabel(type, t)} ${matchmakingDivisionToLabel(typeDivision, t)}`
-    })
-    .join(' · ')
+  const modes = rankedTypes.map((type): RankTooltipMode => {
+    const typePlayer = profile.ladder[type]!
+    return {
+      type,
+      division: ladderPlayerToMatchmakingDivision(typePlayer, bonusPool),
+      points: typePlayer.points,
+      wins: typePlayer.wins,
+      losses: typePlayer.losses,
+    }
+  })
 
-  return { kind: 'ranked', badge: division, text, tooltip }
+  return { kind: 'ranked', badge: division, text, modes }
 }
 
 /**

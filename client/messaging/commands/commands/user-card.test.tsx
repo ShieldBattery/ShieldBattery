@@ -14,7 +14,7 @@ import { ChannelCommandContext } from '../command-context'
 import { matchesCommandName } from '../command-schema'
 import { LocalLineContent } from '../local-output'
 import { runChatCommandWith } from '../run-chat-command'
-import { profileCommand, rankCommand, statsCommand } from './user-card'
+import { statsCommand } from './user-card'
 
 vi.mock('../../../logging/logger', () => ({
   default: { verbose: vi.fn(), debug: vi.fn(), warning: vi.fn(), error: vi.fn() },
@@ -66,7 +66,7 @@ function runInput(input: string) {
       action(dispatch, () => state)
     }
   })
-  const result = runChatCommandWith([profileCommand, statsCommand, rankCommand], input, {
+  const result = runChatCommandWith([statsCommand], input, {
     context: channelContext,
     dispatch,
     t,
@@ -93,7 +93,7 @@ describe('messaging/commands/commands/user-card', () => {
   })
 
   test('naming nobody shows the card of whoever ran it', () => {
-    const { result, emit } = runInput('/profile')
+    const { result, emit } = runInput('/stats')
 
     expect(result).toEqual({ kind: 'command' })
     expect(findUserByName).not.toHaveBeenCalled()
@@ -106,7 +106,7 @@ describe('messaging/commands/commands/user-card', () => {
   })
 
   test('a named user is looked up and shown once they resolve', () => {
-    const { emit } = runInput('/profile tec27')
+    const { emit } = runInput('/stats tec27')
 
     expect(emit).not.toHaveBeenCalled()
     expect(findUserByName).toHaveBeenCalledWith('tec27', expect.anything())
@@ -120,7 +120,7 @@ describe('messaging/commands/commands/user-card', () => {
   })
 
   test('a name nobody goes by answers with an error line', () => {
-    const { emit } = runInput('/profile nobody')
+    const { emit } = runInput('/stats nobody')
 
     const spec = asMockedFunction(findUserByName).mock.calls[0][1]
     spec.onError(fetchErrorWithCode(UserErrorCode.NotFound))
@@ -130,7 +130,7 @@ describe('messaging/commands/commands/user-card', () => {
   })
 
   test('a lookup that failed some other way answers with the error it carried', () => {
-    const { emit } = runInput('/profile tec27')
+    const { emit } = runInput('/stats tec27')
 
     const spec = asMockedFunction(findUserByName).mock.calls[0][1]
     spec.onError(new Error('the server is on fire'))
@@ -151,12 +151,14 @@ describe('messaging/commands/commands/user-card', () => {
     expect(text).toContain('/stats [user]')
   })
 
-  test('the aliases reach the commands they belong to', () => {
-    expect(matchesCommandName(profileCommand, 'p')).toBe(true)
+  test('the aliases all reach /stats', () => {
     expect(matchesCommandName(statsCommand, 'astat')).toBe(true)
-    expect(matchesCommandName(rankCommand, 'mmr')).toBe(true)
+    expect(matchesCommandName(statsCommand, 'profile')).toBe(true)
+    expect(matchesCommandName(statsCommand, 'p')).toBe(true)
+    expect(matchesCommandName(statsCommand, 'rank')).toBe(true)
+    expect(matchesCommandName(statsCommand, 'mmr')).toBe(true)
 
-    for (const input of ['/p', '/astat', '/mmr']) {
+    for (const input of ['/p', '/astat', '/profile', '/rank', '/mmr']) {
       const { emit } = runInput(input)
       expect(emit.mock.calls[0][0].kind).toBe('card')
     }

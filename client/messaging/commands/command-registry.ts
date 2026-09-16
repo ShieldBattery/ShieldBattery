@@ -14,7 +14,7 @@ import { eightBallCommand, flipCommand, rollCommand } from './commands/rolls'
 import { shrugCommand, tableflipCommand, unflipCommand } from './commands/text-transforms'
 import { topicCommand } from './commands/topic'
 import { unbanCommand } from './commands/unban'
-import { profileCommand, rankCommand, statsCommand } from './commands/user-card'
+import { statsCommand } from './commands/user-card'
 import { whisperCommand } from './commands/whisper'
 import { whoCommand } from './commands/who'
 import { whoamiCommand } from './commands/whoami'
@@ -26,9 +26,7 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   joinCommand,
   whisperCommand,
   replyCommand,
-  profileCommand,
   statsCommand,
-  rankCommand,
   whoisCommand,
   whoCommand,
   whoamiCommand,

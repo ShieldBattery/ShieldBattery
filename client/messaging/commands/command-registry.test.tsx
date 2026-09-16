@@ -69,9 +69,7 @@ describe('messaging/commands/command-registry', () => {
       'join',
       'whisper',
       'reply',
-      'profile',
       'stats',
-      'rank',
       'whois',
       'who',
       'whoami',
@@ -102,9 +100,7 @@ describe('messaging/commands/command-registry', () => {
       ['join', 'chat'],
       ['whisper', 'chat'],
       ['reply', 'chat'],
-      ['profile', 'people'],
       ['stats', 'people'],
-      ['rank', 'people'],
       ['whois', 'people'],
       ['who', 'chat'],
       ['whoami', 'people'],
@@ -135,9 +131,7 @@ describe('messaging/commands/command-registry', () => {
       'join',
       'whisper',
       'reply',
-      'profile',
       'stats',
-      'rank',
       'whois',
       'who',
       'whoami',
@@ -164,9 +158,7 @@ describe('messaging/commands/command-registry', () => {
       'join',
       'whisper',
       'reply',
-      'profile',
       'stats',
-      'rank',
       'whois',
       'who',
       'whoami',
@@ -189,9 +181,7 @@ describe('messaging/commands/command-registry', () => {
       'join',
       'whisper',
       'reply',
-      'profile',
       'stats',
-      'rank',
       'whois',
       'who',
       'whoami',
@@ -252,7 +242,6 @@ describe('messaging/commands/command-registry', () => {
     expect(getCommandUsage(findCommand('reply')!)).toBe('/reply [message]')
     expect(getCommandUsage(findCommand('leave')!)).toBe('/leave')
     expect(getCommandUsage(findCommand('kick')!)).toBe('/kick <user> [reason]')
-    expect(getCommandUsage(findCommand('profile')!)).toBe('/profile [user]')
     expect(getCommandUsage(findCommand('stats')!)).toBe('/stats [user]')
     expect(getCommandUsage(findCommand('whois')!)).toBe('/whois [user]')
     expect(getCommandUsage(findCommand('who')!)).toBe('/who <channel>')
@@ -322,24 +311,10 @@ describe('messaging/commands/command-registry', () => {
             group: 'chat',
           },
           {
-            name: 'profile',
-            aliases: ['p'],
+            name: 'stats',
+            aliases: ['astat', 'profile', 'p', 'rank', 'mmr'],
             args: [{ label: 'user', optional: true }],
             description: "Shows a user's profile card: their rank and win/loss record.",
-            group: 'people',
-          },
-          {
-            name: 'stats',
-            aliases: ['astat'],
-            args: [{ label: 'user', optional: true }],
-            description: "Shows a user's win/loss record and ranks.",
-            group: 'people',
-          },
-          {
-            name: 'rank',
-            aliases: ['mmr'],
-            args: [{ label: 'user', optional: true }],
-            description: "Shows a user's current ranked divisions.",
             group: 'people',
           },
           {
@@ -483,7 +458,7 @@ describe('messaging/commands/command-registry', () => {
     const whisperGroups = groupCommands(getRunnableCommands(ALL_COMMANDS, whisperContext(), t))
     expect(whisperGroups.map(({ group, commands }) => [group, commands.map(c => c.name)])).toEqual([
       ['chat', ['help', 'join', 'whisper', 'reply', 'who', 'close', 'me']],
-      ['people', ['profile', 'stats', 'rank', 'whois', 'whoami', 'f', 'block', 'unblock']],
+      ['people', ['stats', 'whois', 'whoami', 'f', 'block', 'unblock']],
       ['matchmaking', ['cancel']],
       ['fun', ['shrug', 'tableflip', 'unflip', 'quote', 'roll', 'flip', '8ball']],
     ])
