@@ -105,6 +105,7 @@ features = [
   "sysinfoapi",
   "tlhelp32",
   "unknwnbase",
+  "winbase",
   "windef",
   "wingdi",
   "winnt",

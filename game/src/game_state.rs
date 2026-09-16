@@ -1563,6 +1563,7 @@ async unsafe fn try_join_lobby_once(
         let (send, recv) = oneshot::channel();
         let map_path = map_path.clone();
         std::thread::spawn(move || {
+            crate::crash_dump::reserve_exception_handler_stack();
             let address = Ipv4Addr::new(10, 27, 27, 0);
             let bw = get_bw();
             let result = bw.join_lobby(&mut game_info, is_eud, options, &map_path, address);

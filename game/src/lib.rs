@@ -204,6 +204,10 @@ pub extern "C" fn OnInject() {
     unsafe {
         crash_dump::init_crash_handler();
     }
+    let log_file = log_file();
+    // The crash path writes to the log through its own duplicate of the handle, since the logger
+    // itself can't be trusted from a crashing thread.
+    let breadcrumb_file = log_file.try_clone();
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
             let old = IS_LOGGING_TIME_CALL.replace(true);
@@ -226,8 +230,12 @@ pub extern "C" fn OnInject() {
         .level_for("noq", log::LevelFilter::Warn)
         .level_for("noq_proto", log::LevelFilter::Warn)
         .level_for("noq_udp", log::LevelFilter::Warn)
-        .chain(log_file())
+        .chain(log_file)
         .apply();
+    match breadcrumb_file {
+        Ok(file) => crash_dump::set_breadcrumb_file(file),
+        Err(e) => error!("Couldn't duplicate the log handle for crash breadcrumbs: {e}"),
+    }
 
     let args = parse_args();
     let process_id = unsafe { GetCurrentProcessId() };
@@ -243,6 +251,9 @@ pub extern "C" fn OnInject() {
         process_id,
         args.log_name,
     );
+    // This runs on the game's main thread, which executes most of our hooks.
+    crash_dump::reserve_exception_handler_stack();
+    crash_dump::start_dump_thread();
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);
@@ -426,6 +437,7 @@ async fn handle_messages_from_game_thread(
 
 fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     use futures::prelude::*;
+    crash_dump::reserve_exception_handler_stack();
     // Main async tasks are:
     //
     // 1) Client program websocket
@@ -458,7 +470,11 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     //  lead to all tasks in the cycle getting stuck, so that has to be avoided; in cases where two
     //  tasks want to send messages both ways, at least one of them spawns a child task every time
     //  it wants to send something.
-    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .on_thread_start(crash_dump::reserve_exception_handler_stack)
+        .build()
+        .unwrap();
     let handle = runtime.handle();
     *ASYNC_RUNTIME.lock() = Some(handle.clone());
     runtime.block_on(future::lazy(|_| ()).then(|()| {
