@@ -32,6 +32,7 @@ mod scr_hooks {
         !0 => MonitorFromPoint64(POINT, u32) -> HMONITOR;
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
+        !0 => SetCursorPos(i32, i32) -> i32;
         !0 => ShowWindow(HWND, i32) -> u32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
         !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
@@ -53,6 +54,13 @@ pub static TRACK_WINDOW_POS: AtomicBool = AtomicBool::new(false);
 /// Whether to fake the current primary monitor. Used during the window creation process to launch
 /// fullscreen modes on the correct screen.
 static FAKE_PRIMARY_MONITOR: AtomicBool = AtomicBool::new(false);
+/// While set, SC:R's own `SetCursorPos` calls are dropped (see [`set_cursor_pos`]). Covers the span
+/// from SB entering SC:R's game loop until the first game-logic step: SC:R warps the OS cursor to the
+/// renderer center as its game loop starts, and its window-resize path re-syncs the OS cursor to the
+/// game's internal mouse position. Both fire inside game-loop init, after the loading screen has
+/// already handed off to the game, so they would move a cursor the player is already using. SB
+/// places the cursor itself at the handoff instead ([`center_cursor_in_game_window`]).
+static SUPPRESS_SCR_CURSOR_MOVES: AtomicBool = AtomicBool::new(false);
 
 // Currently no nicer way to prevent us from hooking winapi calls we ourselves make
 // with remastered :/
@@ -448,6 +456,16 @@ struct Window {
 
 unsafe impl Send for Window {}
 
+/// Drops SC:R's cursor warps while [`SUPPRESS_SCR_CURSOR_MOVES`] is set. SB's own cursor moves run
+/// with the SC:R hooks disabled, so only the game's calls are affected.
+fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
+    if !scr_hooks_disabled() && SUPPRESS_SCR_CURSOR_MOVES.load(Ordering::Acquire) {
+        debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
+        return 1;
+    }
+    unsafe { orig(x, y) }
+}
+
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     unsafe {
         debug!("ShowWindow {window:p} {show}");
@@ -692,6 +710,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
+            "SetCursorPos", SetCursorPos, set_cursor_pos;
             "ShowWindow", ShowWindow, show_window;
         );
 
@@ -920,6 +939,12 @@ pub fn game_started() {
 
 /// Hackishly resets the state of the window in SC:R's internals so that it re-applies ClipCursor
 /// as needed.
+///
+/// SC:R's `WM_SIZE` handler ignores the size-type parameter and checks whether the window is
+/// actually iconic, so the faked minimize runs its full resize path: renderer resize, then every
+/// resize listener, including the mouse-confinement one that re-applies `ClipCursor` and finishes by
+/// warping the OS cursor onto the game's internal mouse position. That warp is dropped by the
+/// cursor gate while the game loop is starting (see [`suppress_scr_cursor_moves`]).
 pub fn fix_clip_cursor() {
     let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
@@ -927,6 +952,52 @@ pub fn fix_clip_cursor() {
             PostMessageW(handle, WM_FIX_CLIP_CURSOR, 0, 0);
         }
     }
+}
+
+/// Opens or closes the gate that drops SC:R's `SetCursorPos` calls. Open it right before entering
+/// SC:R's game loop and close it on the first game-logic step (which runs whether or not the
+/// network is stalled, and in replays), so the gate spans exactly SC:R's game-loop init.
+pub fn suppress_scr_cursor_moves(suppress: bool) {
+    SUPPRESS_SCR_CURSOR_MOVES.store(suppress, Ordering::Release);
+}
+
+/// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
+/// the window is minimized).
+pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
+    unsafe {
+        let mut rect: RECT = mem::zeroed();
+        if GetClientRect(hwnd, &mut rect) == 0 {
+            return None;
+        }
+        if rect.right <= 0 || rect.bottom <= 0 {
+            return None;
+        }
+        let mut point = POINT {
+            x: rect.right / 2,
+            y: rect.bottom / 2,
+        };
+        if ClientToScreen(hwnd, &mut point) == 0 {
+            return None;
+        }
+        Some((point.x, point.y))
+    }
+}
+
+/// Warps the OS cursor to the center of the game window's client area. Called when the loading
+/// screen hands off to the game, which is where the player expects the game-start centering to
+/// happen; SC:R's own centering (which would land later, inside game-loop init) is dropped by the
+/// cursor gate. Bypasses that gate.
+pub fn center_cursor_in_game_window() {
+    let Some(hwnd) = game_window_handle() else {
+        return;
+    };
+    let Some((x, y)) = window_client_center(hwnd) else {
+        return;
+    };
+    debug!("Centering cursor in game window at ({x}, {y})");
+    with_scr_hooks_disabled(|| unsafe {
+        SetCursorPos(x, y);
+    });
 }
 
 pub fn hide_window() {

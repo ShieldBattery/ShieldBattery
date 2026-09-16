@@ -38,6 +38,7 @@ use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
 use crate::bw_scr::draw_inject::warn_once;
 use crate::bw_scr::scr::SafeBwString;
+use crate::forge::window_client_center;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::netcode_v2;
@@ -572,30 +573,6 @@ struct GrabPanAnchor {
 /// event argument is unused: the cursor is read from the OS instead (see [`GrabPan`]).
 unsafe extern "C" fn grab_pan_update_hook(_event: *mut bw::ControlEvent) {
     crate::bw::get_bw().grab_pan_update()
-}
-
-/// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
-/// the window is minimized). Used as the point the grab-pan cursor is warped back to.
-unsafe fn window_client_center(hwnd: winapi::shared::windef::HWND) -> Option<(i32, i32)> {
-    use winapi::shared::windef::POINT;
-    use winapi::um::winuser::{ClientToScreen, GetClientRect};
-    unsafe {
-        let mut rect = mem::zeroed();
-        if GetClientRect(hwnd, &mut rect) == 0 {
-            return None;
-        }
-        if rect.right <= 0 || rect.bottom <= 0 {
-            return None;
-        }
-        let mut point = POINT {
-            x: rect.right / 2,
-            y: rect.bottom / 2,
-        };
-        if ClientToScreen(hwnd, &mut point) == 0 {
-            return None;
-        }
-        Some((point.x, point.y))
-    }
 }
 
 /// The per-player applied-skin table: 16 slots — the 12 storm player slots followed by 4
@@ -5555,7 +5532,14 @@ impl bw::Bw for BwScr {
             loop {
                 self.reset_state_for_game_init();
                 self.game_state.write(3); // Playing
+                // SC:R warps the cursor to the renderer center as its game loop starts and again
+                // (to the internal mouse position) when it processes the faked minimize from
+                // `fix_clip_cursor`; both land inside game-loop init, after the loading screen has
+                // handed off. Drop them until the first game-logic step (`step_game_logic_hook`
+                // closes the gate); SB already placed the cursor at the handoff.
+                crate::forge::suppress_scr_cursor_moves(true);
                 (self.game_loop)();
+                crate::forge::suppress_scr_cursor_moves(false);
                 // Replay seeking exits game loop and sets a bool for it to restart,
                 // we don't have access to that bool but we hook the replay seek
                 // command and set our own
@@ -6937,6 +6921,9 @@ unsafe fn step_game_logic_hook(
     if !bw.first_game_logic_frame_done.load(Ordering::Relaxed) {
         bw.first_game_logic_frame_done
             .store(true, Ordering::Relaxed);
+        // Game-loop init is over (this runs after the loop's first message pump, stalled network
+        // or not, and in replays), so SC:R's cursor moves are the player's again.
+        crate::forge::suppress_scr_cursor_moves(false);
         if game_thread::is_replay() {
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);

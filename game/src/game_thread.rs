@@ -224,6 +224,10 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 forge::game_started();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
+                // The loading screen has handed off to the game, so this is where the game-start
+                // cursor centering belongs. SC:R's own centering happens later, inside game-loop
+                // init, and is dropped (see `BwScr::run_game_loop`).
+                forge::center_cursor_in_game_window();
                 // Now that the turn hooks are live (game started), prime the netcode v2 pipe so the
                 // first in-game receive has turns to dispatch. No-op without a rally-point2 session.
                 bw.seed_netcode_v2_pipe();
