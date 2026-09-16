@@ -91,11 +91,15 @@ export const InlineCardGone = styled.div`
 
 export const InlineCardInfoColumn = styled.div`
   min-width: 0;
+  min-height: ${INLINE_CARD_THUMBNAIL_SIZE}px;
   flex-grow: 1;
 
   display: flex;
   flex-direction: column;
   gap: ${INLINE_CARD_INFO_GAP}px;
+  justify-content: center;
+  /* Export the title baseline while keeping short info stacks centered beside the thumbnail. */
+  align-self: baseline;
 `
 
 export const InlineCardTitle = styled.div`

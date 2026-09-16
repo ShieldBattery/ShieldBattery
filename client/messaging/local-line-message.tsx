@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { LocalLineKind } from './commands/local-output'
 import { LocalStrong } from './commands/local-strong'
+import { InlineCardLoading } from './inline-card'
 import { GutterLabel, Separator, SystemMessage, TimestampMessageLayout } from './message-layout'
 
 /** Carries the system lines' colours, since an answer to a command reads as the app speaking. */
@@ -17,17 +18,17 @@ const ErrorLine = styled(TimestampMessageLayout)`
   color: var(--theme-error);
 `
 
-/**
- * Holds the block of UI a card line carries. The slot sits on the line beside the gutter label the
- * way message text would, with its top aligned to the label. Being an inline-block makes it a block
- * container of its own, so the line's hanging-indent `text-indent` has to be reset here or the
- * card's own text would inherit it.
- */
+/** Forwards the card's first text baseline to the gutter and resets the message hanging indent. */
 const CardSlot = styled.span`
-  display: inline-block;
-  vertical-align: top;
+  display: inline-flex;
+  vertical-align: baseline;
   max-width: 100%;
   text-indent: 0;
+
+  /* Loading placeholders have no text baseline to align with. */
+  &:has(${InlineCardLoading}) {
+    vertical-align: top;
+  }
 `
 
 export interface LocalLineMessageProps {
