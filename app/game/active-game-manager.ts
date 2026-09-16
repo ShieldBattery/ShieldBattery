@@ -38,6 +38,7 @@ import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
+import { isCrashExitCode } from './crash-exit-code'
 import { MapStore } from './map-store'
 import { NetcodeV2KeyRing } from './netcode-v2-key-ring'
 import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
@@ -747,6 +748,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     log.verbose(`Game ${id} exited with code 0x${exitCode.toString(16)}`)
+    if (isCrashExitCode(exitCode)) {
+      logCrashDumpPresence().catch(err => {
+        log.warning(`Error checking for a crash dump: ${getErrorStack(err)}`)
+      })
+    }
 
     Promise.resolve()
       .then(() => this.scrSettings.syncWithGameSettingsFile())
@@ -932,5 +938,35 @@ async function doLaunch(
         log.warn(`Failed to restore compatibility settings to registry: ${getErrorStack(err)}`)
       }
     }
+  }
+}
+
+/**
+ * Records whether the game DLL managed to leave a crash dump for a crash that just ended the
+ * process, so bug reports without a dump say whether one was ever written.
+ */
+async function logCrashDumpPresence(): Promise<void> {
+  const dumpPath = path.join(app.getPath('userData'), 'logs', 'latest_crash.dmp')
+  let stats
+  try {
+    stats = await fsPromises.stat(dumpPath)
+  } catch (err) {
+    if ((err as any)?.code === 'ENOENT') {
+      log.warning('Game exited with a crash code but no crash dump was written')
+      return
+    }
+    throw err
+  }
+
+  const ageMs = Date.now() - stats.mtimeMs
+  if (ageMs > 2 * 60 * 1000) {
+    log.warning(
+      `Game exited with a crash code but the only crash dump is ${Math.round(ageMs / 1000)}s ` +
+        `old (${stats.size} bytes)`,
+    )
+  } else if (stats.size === 0) {
+    log.warning('Game exited with a crash code and the crash dump is empty')
+  } else {
+    log.verbose(`Crash dump written (${stats.size} bytes)`)
   }
 }
