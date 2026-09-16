@@ -11,6 +11,7 @@ import { CommonMessageType, CommonWhisperEchoMessage } from '../messaging/messag
 import { LobbyActions } from './actions'
 import {
   BenchJoinMessage,
+  JoinLobbyMessage,
   KickLobbyPlayerMessage,
   LobbyMemberGameEndedMessage,
   LobbyMessageType,
@@ -100,14 +101,41 @@ const SERIES_GAME: LobbySeriesGameJson = {
   ],
 }
 
+const OBSERVER_OPEN_SLOT: Slot = {
+  ...SLOT_B,
+  id: 'observer-open-slot',
+}
+
+const TEAM_LOBBY: Lobby = {
+  ...LOBBY,
+  gameType: GameType.TeamMelee,
+  teams: [
+    { ...LOBBY.teams[0], name: 'Alpha', teamId: 10 },
+    {
+      name: 'Observers',
+      teamId: 99,
+      isObserver: true,
+      slots: [OBSERVER_OPEN_SLOT],
+      hiddenSlots: [],
+    },
+  ],
+}
+
+function lastJoinMessage(state: CurrentLobbyState): JoinLobbyMessage {
+  const message = state.chat.findLast(message => message.type === LobbyMessageType.JoinLobby)
+  if (!message) throw new Error('Expected a join message')
+  return message
+}
+
 function initAction(
   extra: Partial<{ readyUsers: SbUserId[]; series: LobbySeriesGameJson[] }> = {},
+  lobby: Lobby = LOBBY,
 ): LobbyActions {
   return {
     type: '@lobbies/init',
     payload: {
       type: 'init',
-      lobby: LOBBY,
+      lobby,
       userInfos: [],
       readyUsers: extra.readyUsers ?? [],
       series: extra.series ?? [],
@@ -115,7 +143,7 @@ function initAction(
   }
 }
 
-/** Puts both of the lobby's seated humans on the ready list, the way a full ready check would. */
+/** Seeds explicit ready marks, including one the host can retain from before their promotion. */
 function readyBoth(state: CurrentLobbyState): CurrentLobbyState {
   let next = lobbyReducer(state, {
     type: '@lobbies/updateReadyChange',
@@ -172,6 +200,108 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.info).toBe(LOBBY)
   })
+
+  test('a Melee arrival keeps no subtext after moving into an observer slot', () => {
+    let state = lobbyReducer(undefined, initAction({}, { ...TEAM_LOBBY, gameType: GameType.Melee }))
+    const arrivingSlot: Slot = {
+      ...SLOT_B,
+      id: 'arriving-slot',
+      type: SlotType.Human,
+      userId: makeSbUserId(3),
+    }
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSlotCreate',
+      payload: { type: 'slotCreate', teamIndex: 0, slotIndex: 2, slot: arrivingSlot },
+    })
+    const arrival = lastJoinMessage(state)
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSlotChange',
+      payload: { type: 'slotChange', teamIndex: 0, slotIndex: 2, player: SLOT_B },
+    })
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSlotChange',
+      payload: {
+        type: 'slotChange',
+        teamIndex: 1,
+        slotIndex: 0,
+        player: { ...arrivingSlot, type: SlotType.Observer },
+      },
+    })
+
+    expect(lastJoinMessage(state)).toBe(arrival)
+    expect(lastJoinMessage(state).arrivalSeat).toBeUndefined()
+  })
+
+  test('an observer arrival keeps its observer subtext after becoming a player', () => {
+    let state = lobbyReducer(undefined, initAction({}, TEAM_LOBBY))
+    const arrivingSlot: Slot = {
+      ...OBSERVER_OPEN_SLOT,
+      id: 'arriving-slot',
+      type: SlotType.Observer,
+      userId: makeSbUserId(3),
+    }
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSlotCreate',
+      payload: { type: 'slotCreate', teamIndex: 1, slotIndex: 0, slot: arrivingSlot },
+    })
+    const arrival = lastJoinMessage(state)
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSlotChange',
+      payload: { type: 'slotChange', teamIndex: 1, slotIndex: 0, player: OBSERVER_OPEN_SLOT },
+    })
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSlotChange',
+      payload: {
+        type: 'slotChange',
+        teamIndex: 0,
+        slotIndex: 2,
+        player: { ...arrivingSlot, type: SlotType.Human },
+      },
+    })
+
+    expect(lastJoinMessage(state)).toBe(arrival)
+    expect(lastJoinMessage(state).arrivalSeat).toEqual({ kind: 'observer' })
+  })
+
+  test.each([GameType.TeamMelee, GameType.UseMapSettings])(
+    'a team arrival in %s keeps its team snapshot after lobby settings change',
+    gameType => {
+      let state = lobbyReducer(undefined, initAction({}, { ...TEAM_LOBBY, gameType }))
+      const arrivingSlot: Slot = {
+        ...SLOT_B,
+        id: 'arriving-slot',
+        type: SlotType.Human,
+        userId: makeSbUserId(3),
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSlotCreate',
+        payload: { type: 'slotCreate', teamIndex: 0, slotIndex: 2, slot: arrivingSlot },
+      })
+      const arrival = lastJoinMessage(state)
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSettingsChange',
+        payload: {
+          type: 'settingsChange',
+          changedSettings: ['gameType', 'gameSubType'],
+          lobby: {
+            ...state.info,
+            gameType: GameType.Melee,
+            teams: [{ ...state.info.teams[0], teamId: 20, name: 'Renamed' }, state.info.teams[1]],
+          },
+        },
+      })
+
+      expect(lastJoinMessage(state)).toBe(arrival)
+      expect(lastJoinMessage(state).arrivalSeat).toEqual({
+        kind: 'team',
+        teamId: 10,
+        name: 'Alpha',
+      })
+    },
+  )
 
   test('slotCreate replaces the targeted slot and leaves the others untouched', () => {
     let state = lobbyReducer(undefined, initAction())
@@ -628,6 +758,36 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.readyUserIds).toEqual([SLOT_A.userId])
     expect(state.series).toEqual([SERIES_GAME])
+  })
+
+  test('transferring host clears only the outgoing host ready mark', () => {
+    let state = lobbyReducer(
+      undefined,
+      initAction({ readyUsers: [HOST_SLOT.userId!, SLOT_A.userId!, BENCHED_USER.userId] }),
+    )
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateHostChange',
+      payload: SLOT_A,
+    })
+    expect(state.info.host.userId).toBe(SLOT_A.userId)
+    expect(state.readyUserIds).toEqual([SLOT_A.userId, BENCHED_USER.userId])
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateHostChange',
+      payload: HOST_SLOT,
+    })
+    expect(state.readyUserIds).toEqual([BENCHED_USER.userId])
+  })
+
+  test('changing slots without changing the host user preserves ready marks', () => {
+    let state = readyBoth(lobbyReducer(undefined, initAction()))
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateHostChange',
+      payload: { ...HOST_SLOT, id: 'observer-host-slot', type: SlotType.Observer },
+    })
+    expect(state.readyUserIds).toEqual([HOST_SLOT.userId, SLOT_A.userId])
   })
 
   test('readyChange adds and removes a single member, ignoring repeats', () => {

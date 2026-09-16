@@ -23,6 +23,10 @@ export enum LobbyMessageType {
 export interface JoinLobbyMessage extends BaseMessage {
   readonly type: LobbyMessageType.JoinLobby
   readonly userId: SbUserId
+  /** Seating at arrival, preserved independently of subsequent moves and lobby settings. */
+  readonly arrivalSeat?:
+    | { readonly kind: 'observer' }
+    | { readonly kind: 'team'; readonly teamId: number; readonly name: string }
 }
 
 export interface LeaveLobbyMessage extends BaseMessage {

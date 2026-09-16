@@ -1,7 +1,7 @@
 import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
-import { GameType } from '../../common/games/game-type'
-import { Lobby } from '../../common/lobbies'
+import { GameType, isTeamType } from '../../common/games/game-type'
+import { isUms, Lobby } from '../../common/lobbies'
 import { LobbyRunStateJson, LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
@@ -9,7 +9,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ReduxAction } from '../action-types'
 import { CommonMessageType, SbMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { LobbyMessageType } from './lobby-message-records'
+import { JoinLobbyMessage, LobbyMessageType } from './lobby-message-records'
 
 export interface LobbyLoadingState {
   isCountingDown: boolean
@@ -142,7 +142,7 @@ function clearReady(draft: LobbyDraft): void {
   draft.readyUserIds = []
 }
 
-/** Drops one member's ready mark, for the handlers that mean they're out of the lobby. */
+/** Drops one member's explicit ready mark. */
 function forgetReady(draft: LobbyDraft, userId: SbUserId): void {
   draft.readyUserIds = draft.readyUserIds.filter(id => id !== userId)
 }
@@ -241,12 +241,20 @@ const lobbyHandlers = {
 
     draft.info.teams[teamIndex].slots[slotIndex] = slot
 
-    if (slot.type === SlotType.Human) {
+    if (slot.type === SlotType.Human || slot.type === SlotType.Observer) {
+      const team = draft.info.teams[teamIndex]
+      let arrivalSeat: JoinLobbyMessage['arrivalSeat']
+      if (team.isObserver) {
+        arrivalSeat = { kind: 'observer' }
+      } else if (isTeamType(draft.info.gameType) || isUms(draft.info.gameType)) {
+        arrivalSeat = { kind: 'team', teamId: team.teamId, name: team.name }
+      }
       pushChat(draft, {
         id: nanoid(),
         type: LobbyMessageType.JoinLobby,
         time: Date.now(),
         userId: slot.userId!,
+        arrivalSeat,
       })
     }
   },
@@ -369,6 +377,9 @@ const lobbyHandlers = {
       return
     }
 
+    if (draft.info.host.userId !== action.payload.userId) {
+      forgetReady(draft, draft.info.host.userId!)
+    }
     draft.info.host = action.payload
     pushChat(draft, {
       id: nanoid(),

@@ -35,7 +35,6 @@ import { getBatchUserInfo } from '../../users/action-creators'
 import { LobbyScoreboard } from './lobby-scoreboard'
 import {
   lobbyTeamLabel,
-  memberCount,
   SectionLabel,
   TeamArrangement,
   useAnchoredMenu,
@@ -759,7 +758,10 @@ export function RoomMapBanner({
         ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
         : t('lobbies.lobby.unitLimitExtended', 'Extended'),
     ],
-    [t('lobbies.room.banner.statPeople', 'People'), memberCount(lobby)],
+    [
+      t('lobbies.summary.slotsLabel', 'Slots'),
+      isUms(lobby.gameType) ? map.mapData.umsSlots : map.mapData.slots,
+    ],
   )
 
   const recentStartIndex = Math.max(0, series.length - 3)

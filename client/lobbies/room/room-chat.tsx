@@ -3,9 +3,7 @@ import * as React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { isTeamType } from '../../../common/games/game-type'
 import { getGameDurationString } from '../../../common/games/games'
-import { findSlotByUserId, isUms, Lobby } from '../../../common/lobbies'
 import { LobbyChangedSetting, LobbySeriesPlayerJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -13,7 +11,8 @@ import { ConnectedAvatar } from '../../avatars/avatar'
 import { TransInterpolation } from '../../i18n/i18next'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
-import { TextButton } from '../../material/button'
+import { IconButton, OutlinedButton } from '../../material/button'
+import { buttonReset } from '../../material/button-reset'
 import { Chat } from '../../messaging/chat'
 import { LobbyCommandContext } from '../../messaging/commands/command-context'
 import { useMentionFilterClick } from '../../messaging/mention-hooks'
@@ -21,11 +20,11 @@ import { SystemImportant, SystemMessage } from '../../messaging/message-layout'
 import { MessageComponentProps } from '../../messaging/message-list'
 import { SbMessage } from '../../messaging/message-records'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyMedium, labelSmall, singleLine } from '../../styles/typography'
+import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
-import { LobbyMessageType } from '../lobby-message-records'
+import { JoinLobbyMessage, LobbyMessageType } from '../lobby-message-records'
 import { RaceIcon } from '../race-icon'
 import { lobbyTeamLabel, SectionLabel } from './room-parts'
 
@@ -39,32 +38,40 @@ function Username({ userId }: { userId: SbUserId }) {
 }
 
 /**
- * Cards render as block children of the message container, whose hanging-indent trick (see
- * MessageContainer in message-layout.tsx) only makes sense for message text.
+ * Cards stay inline with the timestamp but must not inherit the message container's hanging
+ * indent, which would shift the card's contents into the timestamp gutter.
  */
-const cardIndentReset = css`
+const inlineCardLayout = css`
+  display: inline-flex;
+  vertical-align: baseline;
   text-indent: 0;
 `
 
 const NoticeCard = styled.div`
   ${bodyMedium};
-  ${cardIndentReset};
+  ${inlineCardLayout};
   width: 100%;
   max-width: 420px;
   margin: 4px 0;
   padding: 8px 12px;
 
   border-radius: 8px;
-  background-color: color-mix(in srgb, var(--theme-amber) 8%, transparent);
+  background-color: var(--theme-container-low);
+  box-shadow:
+    inset 0 0 0 1px rgb(from var(--theme-primary) r g b / 0.5),
+    0 0 8px rgb(from var(--theme-primary) r g b / 0.12);
   color: var(--theme-on-surface);
 
-  display: flex;
   align-items: flex-start;
   gap: 8px;
 `
 
+const NoticeCardText = styled.div`
+  align-self: baseline;
+`
+
 const JoinCard = styled.div`
-  ${cardIndentReset};
+  ${inlineCardLayout};
   width: 100%;
   max-width: 420px;
   margin: 4px 0;
@@ -73,12 +80,12 @@ const JoinCard = styled.div`
   border-radius: 8px;
   background-color: var(--theme-container-low);
 
-  display: flex;
   align-items: center;
   gap: 10px;
 `
 
 const JoinCardText = styled.div`
+  align-self: baseline;
   display: flex;
   flex-direction: column;
 `
@@ -92,21 +99,22 @@ const JoinCardSeat = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const SummaryCardRoot = styled.div`
-  ${cardIndentReset};
+const SummaryCardRoot = styled.div<{ $largeRoster: boolean }>`
+  ${inlineCardLayout};
   width: 100%;
-  max-width: 600px;
+  max-width: ${props => (props.$largeRoster ? 600 : 480)}px;
   margin: 4px 0;
 
   border: 1px solid var(--theme-outline-variant);
   border-radius: 8px;
   background-color: var(--theme-container-low);
 
-  display: flex;
   flex-direction: column;
+  color: var(--theme-on-surface);
 `
 
 const SummaryToggle = styled.button`
+  ${buttonReset};
   ${bodyMedium};
   width: 100%;
   padding: 8px 12px;
@@ -134,27 +142,17 @@ const SummaryHeadline = styled.div`
 `
 
 const SummaryBody = styled.div`
-  padding: 0 16px 16px;
+  padding: 0 12px 12px;
 
   display: flex;
   flex-direction: column;
   gap: 12px;
 `
 
-const TrophyIcon = styled(MaterialIcon)`
-  flex-shrink: 0;
-  color: var(--theme-amber);
-`
-
-/** Stands in for the trophy on a game with no winner to celebrate. */
-const UnresolvedIcon = styled(MaterialIcon)`
-  flex-shrink: 0;
-  color: var(--theme-on-surface-variant);
-`
-
 const ResultRow = styled.div`
   display: flex;
-  gap: 16px;
+  align-items: flex-start;
+  gap: 12px;
 `
 
 /**
@@ -163,7 +161,7 @@ const ResultRow = styled.div`
  * collapse to zero against an auto-height ancestor.
  */
 const ResultMapFrame = styled.div<{ $aspectRatio: number }>`
-  width: 160px;
+  width: 80px;
   flex-shrink: 0;
   align-self: flex-start;
   aspect-ratio: ${props => props.$aspectRatio};
@@ -178,31 +176,41 @@ const ResultDetails = styled.div`
 
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+`
+
+const ResultMapName = styled.div`
+  ${labelMedium};
+  ${singleLine};
 `
 
 const TeamsRow = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 8px 16px;
   min-width: 0;
-  flex-grow: 1;
 `
 
 const TeamColumn = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
 `
 
 const TeamHeading = styled(SectionLabel)`
   padding: 0;
+  color: var(--theme-on-surface);
 
   display: flex;
   align-items: center;
   gap: 6px;
+
+  & > span:first-child {
+    ${singleLine};
+    min-width: 0;
+  }
 `
 
 const TeamHeadingTrophyIcon = styled(MaterialIcon)`
@@ -215,22 +223,32 @@ const PlayerRowTrophyIcon = styled(MaterialIcon)`
   color: var(--theme-amber);
 `
 
+const PlayersGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 4px 12px;
+`
+
 const PlayerRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 28px;
+  min-height: 24px;
 `
 
 const PlayerAvatar = styled(ConnectedAvatar)`
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+`
+
+const ComputerAvatar = styled(MaterialIcon)`
   flex-shrink: 0;
 `
 
 const PlayerRaceIcon = styled(RaceIcon)`
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 `
 
@@ -240,47 +258,37 @@ const PlayerName = styled.div`
   min-width: 0;
 `
 
-const ComputerName = styled(PlayerName)`
-  color: var(--theme-on-surface-variant);
-`
-
-const VictoryActions = styled.div`
-  margin-top: 4px;
+const SummaryActions = styled.div`
   display: flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 8px;
 `
 
-/**
- * Describes where in the lobby a member is sitting right now, e.g. `Team 2 · Bottom`, or nothing
- * when there is nothing to say: a Melee, FFA or 1v1 lobby seats everyone on one unnamed team, so
- * naming it would only tell the reader they are in the lobby they can already see.
- */
-function seatDescription(lobby: Lobby, userId: SbUserId, t: TFunction): string | undefined {
-  const found = findSlotByUserId(lobby, userId)
-  if (found.length !== 3) {
-    return undefined
-  }
+const ReplayButton = styled(OutlinedButton)`
+  min-height: 32px;
+  padding: 0 12px;
+  border-color: var(--theme-outline-variant);
+  color: var(--theme-on-surface);
+`
 
-  const [teamIndex] = found
-  const team = lobby.teams[teamIndex]
-  if (team.isObserver) {
-    return t('lobbies.room.chat.watching', 'watching')
-  }
-  if (!isTeamType(lobby.gameType) && !isUms(lobby.gameType)) {
-    return undefined
-  }
+const SummaryButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+  color: var(--theme-on-surface);
+`
 
-  return lobbyTeamLabel(team, t)
-}
-
-/** The card that lands in chat when someone new turns up, so arrivals read as social events. */
-function ArrivalCard({ userId }: { userId: SbUserId }) {
+/** The card that lands in chat when someone new turns up, preserving their seat at arrival. */
+function ArrivalCard({ userId, arrivalSeat }: Pick<JoinLobbyMessage, 'userId' | 'arrivalSeat'>) {
   const { t } = useTranslation()
-  // Selecting the description rather than the lobby it comes from: a chat log holds a card for
-  // every arrival, and a string compares by value, so none of them re-render when a slot, a race,
-  // or a setting changes elsewhere in the lobby.
-  const seat = useAppSelector(s => seatDescription(s.lobby.info, userId, t))
+  let seatDescription: string | undefined
+  if (arrivalSeat?.kind === 'observer') {
+    seatDescription = t('lobbies.room.chat.joinedAsObserver', 'Joined as an observer')
+  } else if (arrivalSeat?.kind === 'team') {
+    seatDescription = t('lobbies.room.chat.seatedOn', 'seated on {{seat}}', {
+      seat: lobbyTeamLabel(arrivalSeat, t),
+    })
+  }
 
   return (
     <JoinCard>
@@ -291,11 +299,7 @@ function ArrivalCard({ userId }: { userId: SbUserId }) {
             <Username userId={userId} /> joined the lobby
           </Trans>
         </JoinCardTitle>
-        {seat !== undefined ? (
-          <JoinCardSeat>
-            {t('lobbies.room.chat.seatedOn', 'seated on {{seat}}', { seat })}
-          </JoinCardSeat>
-        ) : null}
+        {seatDescription !== undefined ? <JoinCardSeat>{seatDescription}</JoinCardSeat> : null}
       </JoinCardText>
     </JoinCard>
   )
@@ -341,12 +345,12 @@ function SettingsNoticeCard({
   return (
     <NoticeCard>
       <MaterialIcon icon='tune' size={20} />
-      <div>
+      <NoticeCardText>
         <Trans t={t} i18nKey='lobbies.room.chat.settingsChanged'>
           <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation}
         </Trans>
         {resetsReady ? ` · ${t('lobbies.room.chat.readyReset', 'ready reset')}` : ''}
-      </div>
+      </NoticeCardText>
     </NoticeCard>
   )
 }
@@ -384,8 +388,9 @@ function ResultPlayerRow({
   if (player.type === 'computer') {
     return (
       <PlayerRow>
+        <ComputerAvatar icon='smart_toy' size={20} />
         <PlayerRaceIcon race={player.race} applyRaceColor />
-        <ComputerName>{t('game.playerName.computer', 'Computer')}</ComputerName>
+        <PlayerName>{t('game.playerName.computer', 'Computer')}</PlayerName>
       </PlayerRow>
     )
   }
@@ -469,23 +474,28 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
   }
 
   return (
-    <SummaryCardRoot>
+    <SummaryCardRoot
+      $largeRoster={game.teams.reduce((count, team) => count + team.players.length, 0) > 2}>
       <SummaryToggle type='button' aria-expanded={expanded} onClick={() => setOverride(!expanded)}>
-        {winner ? (
-          <TrophyIcon icon='trophy' size={20} />
-        ) : (
-          <UnresolvedIcon icon={result ? 'sports_esports' : 'hourglass_empty'} size={20} />
-        )}
-        <SummaryHeadline>{headline}</SummaryHeadline>
+        <SummaryHeadline title={headline}>{headline}</SummaryHeadline>
         <MaterialIcon icon={expanded ? 'expand_less' : 'expand_more'} size={20} />
       </SummaryToggle>
       {expanded ? (
         <SummaryBody>
           <ResultRow>
             <ResultMapFrame $aspectRatio={map ? map.mapData.width / map.mapData.height : 1}>
-              <ReduxMapThumbnail mapId={game.mapId} size={256} showInfoLayer={true} />
+              <ReduxMapThumbnail
+                mapId={game.mapId}
+                size={128}
+                showInfoLayer={false}
+                hasMapPreviewAction={false}
+                hasFavoriteAction={false}
+              />
             </ResultMapFrame>
             <ResultDetails>
+              <ResultMapName title={map?.name}>
+                {map?.name ?? t('game.mapName.unknown', 'Unknown map')}
+              </ResultMapName>
               <TeamsRow>
                 {game.teams.map(team => (
                   <TeamColumn key={team.teamId}>
@@ -495,39 +505,43 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
                     */}
                     {game.teams.length > 1 ? (
                       <TeamHeading>
-                        <span>{lobbyTeamLabel(team, t)}</span>
+                        <span title={lobbyTeamLabel(team, t)}>{lobbyTeamLabel(team, t)}</span>
                         {winner?.kind === 'team' && winner.teamId === team.teamId ? (
                           <TeamHeadingTrophyIcon icon='trophy' size={14} />
                         ) : null}
                       </TeamHeading>
                     ) : null}
-                    {team.players.map((player, playerIndex) => (
-                      <ResultPlayerRow
-                        key={playerIndex}
-                        player={player}
-                        isWinner={
-                          winnerUserId !== undefined &&
-                          player.type === 'human' &&
-                          player.userId === winnerUserId
-                        }
-                      />
-                    ))}
+                    <PlayersGrid>
+                      {team.players.map((player, playerIndex) => (
+                        <ResultPlayerRow
+                          key={playerIndex}
+                          player={player}
+                          isWinner={
+                            winnerUserId !== undefined &&
+                            player.type === 'human' &&
+                            player.userId === winnerUserId
+                          }
+                        />
+                      ))}
+                    </PlayersGrid>
                   </TeamColumn>
                 ))}
               </TeamsRow>
+              <SummaryActions>
+                <ReplayButton
+                  label={t('lobbies.room.series.watchReplay', 'Watch replay')}
+                  iconStart={<MaterialIcon icon='play_arrow' size={20} />}
+                  onClick={() => onWatchReplay(gameId)}
+                />
+                <SummaryButton
+                  icon={<MaterialIcon icon='summarize' size={20} />}
+                  title={t('lobbies.room.series.fullSummary', 'Full summary')}
+                  ariaLabel={t('lobbies.room.series.fullSummary', 'Full summary')}
+                  onClick={() => onViewGameSummary(gameId)}
+                />
+              </SummaryActions>
             </ResultDetails>
           </ResultRow>
-          <VictoryActions>
-            <TextButton
-              label={t('lobbies.room.series.watchReplay', 'Watch replay')}
-              iconStart={<MaterialIcon icon='play_arrow' />}
-              onClick={() => onWatchReplay(gameId)}
-            />
-            <TextButton
-              label={t('lobbies.room.series.fullSummary', 'Full summary')}
-              onClick={() => onViewGameSummary(gameId)}
-            />
-          </VictoryActions>
         </SummaryBody>
       ) : null}
     </SummaryCardRoot>
@@ -546,7 +560,7 @@ function RoomChatMessage({ message }: MessageComponentProps) {
     case LobbyMessageType.JoinLobby:
       return (
         <SystemMessage time={msg.time}>
-          <ArrivalCard userId={msg.userId} />
+          <ArrivalCard userId={msg.userId} arrivalSeat={msg.arrivalSeat} />
         </SystemMessage>
       )
     case LobbyMessageType.LobbySettingsChange:

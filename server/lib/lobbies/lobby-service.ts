@@ -1077,9 +1077,10 @@ export class LobbyService {
   /**
    * Marks a member as ready for the lobby's next game, or takes that back.
    *
-   * Everyone holding a slot can ready up, players and observers alike, the host included. Members
-   * waiting on the bench take no part in the next game, so they have nothing to be ready for.
-   * Setting the value a member already holds is accepted and announces nothing.
+   * Players and observers holding a slot can ready up. The host is always ready, so their requests
+   * are accepted as no-ops after the same membership and lifecycle validation. Members waiting on
+   * the bench take no part in the next game, so they have nothing to be ready for. Setting the
+   * value a member already holds is accepted and announces nothing.
    */
   setReady({
     client,
@@ -1102,6 +1103,10 @@ export class LobbyService {
         LobbyServiceErrorCode.NotSeated,
         'must hold a slot in the lobby to ready up',
       )
+    }
+
+    if (client.userId === lobby.host.userId) {
+      return
     }
 
     let ready = this.readyUsers.get(lobby.id)
@@ -2153,10 +2158,14 @@ export class LobbyService {
     this.ensureLobbyNotTransient(lobby)
 
     if (!force) {
-      // Everyone the game will contain gets a say in whether it starts, the host included, and
-      // nobody is exempt for being alone in the lobby.
+      // Everyone else the game will contain gets a say in whether it starts. The host can start
+      // the game without marking ready, while seated players and observers must still mark ready.
       const ready = this.readyUsers.get(lobby.id)
-      if (getHumanSlots(lobby).some(slot => !ready?.has(slot.userId!))) {
+      if (
+        getHumanSlots(lobby).some(
+          slot => slot.userId !== lobby.host.userId && !ready?.has(slot.userId!),
+        )
+      ) {
         throw new LobbyServiceError(
           LobbyServiceErrorCode.NotEveryoneReady,
           'not everyone in the lobby is ready',
@@ -2745,7 +2754,13 @@ export class LobbyService {
     if (oldLobby === newLobby) return
 
     const diffEvents = []
-    if (newLobby.host.id !== oldLobby.host.id) {
+    const hostUserChanged = newLobby.host.userId !== oldLobby.host.userId
+    if (hostUserChanged) {
+      // Ready marks belong to the person who chose them. A former host can remain seated after a
+      // host transfer and must mark ready explicitly before the next game can start.
+      this.readyUsers.get(oldLobby.id)?.delete(oldLobby.host.userId!)
+    }
+    if (newLobby.host.id !== oldLobby.host.id || hostUserChanged) {
       diffEvents.push({
         type: 'hostChange',
         host: newLobby.host,

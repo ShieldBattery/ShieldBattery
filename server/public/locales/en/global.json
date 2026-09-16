@@ -1622,15 +1622,11 @@
       "settingsChangeObservers": "observers",
       "settingsChangeUnitLimit": "unit limit"
     },
-    "moveSlot": {
-      "title": "Move to…"
-    },
     "room": {
       "banner": {
         "shuffle": "Shuffle",
         "shuffleBlockedByComputers": "Remove the computers to shuffle",
         "statMode": "Mode",
-        "statPeople": "People",
         "statSize": "Size",
         "statTileset": "Tileset",
         "swapTeams": "Swap teams"
@@ -1639,6 +1635,7 @@
         "countdownCanceled": "The countdown was canceled",
         "countdownStarted": "The game is starting",
         "isNowHost": "<0></0> is now the host",
+        "joinedAsObserver": "Joined as an observer",
         "joinedLobby": "<0></0> joined the lobby",
         "leftLobby": "<0></0> left the lobby",
         "loadFailedNoUsers": "The game couldn't start",
@@ -1651,8 +1648,14 @@
         "settingsChanged": "<0></0> changed the {{settings}}",
         "waitingForSeat": "<0></0> is waiting for a seat",
         "wasBanned": "<0></0> was banned",
-        "wasKicked": "<0></0> was kicked",
-        "watching": "watching"
+        "wasKicked": "<0></0> was kicked"
+      },
+      "drag": {
+        "chooseTarget": "Choose a destination with the arrow keys. Space drops, Escape cancels.",
+        "keyboardInstructions": "Press Space to pick up this player, use arrow keys to choose a slot, then Space to drop. Escape cancels.",
+        "move": "Move here",
+        "selectedTarget": "Slot {{number}} selected. Press Space to move or swap.",
+        "swap": "Swap places"
       },
       "header": {
         "cancelReady": "Cancel ready",
@@ -1669,15 +1672,13 @@
       "rail": {
         "benchHeading": "Bench · {{benchCount}}",
         "benchTooltip": "Joined while seats were full. The first in line takes the next opening.",
-        "enablesWhenReady": "Enables when everyone is ready",
-        "forceStartConfirm_one": "Start without waiting for {{count}} player?",
-        "forceStartConfirm_other": "Start without waiting for {{count}} players?",
-        "needsOpposingSides": "Needs players on at least two sides",
+        "everyoneReady": "Everyone is ready",
+        "holdToBypassReadiness": "Hold for {{seconds}} seconds to start without waiting",
+        "holdToStartAnyway": "Hold to start anyway",
+        "needsOpposingSides": "Needs at least two opposing players",
         "readyCount": "{{readyCount}} of {{readyTotal}} ready",
-        "startAnyway": "Start anyway",
         "startGame": "Start game",
         "startingGame": "Starting game",
-        "startNow": "Start now",
         "waitingForHost": "Waiting for the host to start"
       },
       "readyMark": {
@@ -1715,7 +1716,6 @@
         "kick": "Kick",
         "makeObserver": "Make an observer",
         "moveIntoPlayerSlot": "Move into a player slot",
-        "moveToAnotherSlot": "Move to another slot",
         "remove": "Remove"
       },
       "teamLabelNamed": "Team {{number}} · {{name}}"

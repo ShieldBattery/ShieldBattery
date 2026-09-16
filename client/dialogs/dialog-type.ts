@@ -43,7 +43,6 @@ export enum DialogType {
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
   NewsPostSettings = 'newsPostSettings',
-  MoveSlot = 'moveSlot',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -300,13 +299,6 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
     onApply: (settings: NewsPostSettingsValues) => void
   }
 >
-type MoveSlotDialogPayload = BaseDialogPayload<
-  typeof DialogType.MoveSlot,
-  {
-    /** The slot the host is moving an occupant out of; disabled as a destination in the list. */
-    fromSlotId: string
-  }
->
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -414,7 +406,6 @@ export type DialogPayload =
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload
   | NewsPostSettingsDialogPayload
-  | MoveSlotDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload

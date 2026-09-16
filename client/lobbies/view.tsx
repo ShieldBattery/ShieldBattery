@@ -9,8 +9,7 @@ import { LobbyState } from '../../common/lobbies'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
-import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
 import { navigateToGameResults, viewGame } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
@@ -38,6 +37,7 @@ import {
   kickPlayer,
   leaveLobby,
   makeObserver,
+  moveSlot,
   openSlot,
   removeObserver,
   sendChat,
@@ -254,6 +254,9 @@ function ConnectedLobby() {
       onSitInSlot={slotId => {
         dispatch(changeSlot(slotId, actionSpec))
       }}
+      onMoveSlot={(fromSlotId, toSlotId) => {
+        dispatch(moveSlot(fromSlotId, toSlotId, actionSpec))
+      }}
       onLeaveLobby={() => {
         dispatch(leaveLobby(actionSpec))
       }}
@@ -291,9 +294,6 @@ function ConnectedLobby() {
             break
           case SlotAction.RemoveObserver:
             dispatch(removeObserver(slotId, actionSpec))
-            break
-          case SlotAction.Move:
-            dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
             break
           default:
             assertUnreachable(action)

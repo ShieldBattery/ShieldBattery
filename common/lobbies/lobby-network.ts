@@ -152,6 +152,7 @@ export type SendLobbyOutcomeRequest = LobbyClientRequest & RolledOutcomeRequest
 /**
  * The body of a request to mark the acting client's user as ready for the lobby's next game (or to
  * take that back). Setting the value the user already holds is accepted and changes nothing.
+ * The host always counts as ready, so requests from them change nothing.
  */
 export interface SetLobbyReadyRequest extends LobbyClientRequest {
   isReady: boolean
@@ -448,6 +449,7 @@ export interface LobbyBanEvent {
   player: SlotJson
 }
 
+/** A change of host user also clears the outgoing host's explicit ready mark. */
 export interface LobbyHostChangeEvent {
   type: 'hostChange'
   host: SlotJson
@@ -505,7 +507,8 @@ export interface LobbySeriesGameUpdatedEvent {
 }
 
 /**
- * One member marked themselves ready for the lobby's next game, or took that back.
+ * One member marked themselves ready for the lobby's next game, or took that back. The host
+ * counts as ready independently of these marks; a host change clears the outgoing host's mark.
  *
  * The lobby also drops everyone's ready mark at once, without an event of its own: it happens
  * whenever the host changes a setting other than the lobby's name, and when a game starts (the

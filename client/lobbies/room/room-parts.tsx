@@ -62,6 +62,8 @@ const RaceOption = styled.button<{ $race: RaceChar; $active: boolean }>`
     position: absolute;
     inset-inline: 4px;
     bottom: 0;
+    /* Center beneath the marine's body rather than its outstretched rifle. */
+    transform: ${props => (props.$race === 't' ? 'translateX(-3px)' : 'none')};
 
     height: 2px;
     border-radius: 1px;
@@ -189,6 +191,8 @@ const HostCrownRoot = styled.span`
   color: var(--theme-amber);
   flex-shrink: 0;
   display: flex;
+  /* Optically center the crown glyph beside the roster's other indicators. */
+  transform: translateY(1px);
 `
 
 /** Marks the row of the lobby's host. */
@@ -204,18 +208,13 @@ export function HostCrown({ tabIndex }: { tabIndex?: number }) {
 }
 
 /**
- * Returns everyone the lobby waits on during a ready check: the people seated in it, players and
- * observers alike. Members on the bench have no part in the next game, so they aren't counted.
+ * Returns everyone counted in a ready check: the people seated in it, players and observers
+ * alike, including the automatically ready host. Members on the bench aren't counted.
  */
 export function getReadyEligibleUsers(lobby: Lobby): SbUserId[] {
   return getHumanSlots(lobby)
     .map(slot => slot.userId)
     .filter((userId): userId is SbUserId => userId !== undefined)
-}
-
-/** Counts everyone who is in the lobby, seated or waiting for a seat. */
-export function memberCount(lobby: Lobby): number {
-  return getReadyEligibleUsers(lobby).length + lobby.bench.length
 }
 
 /**

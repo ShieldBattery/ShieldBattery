@@ -2818,31 +2818,33 @@ describe('lobbies/lobby-service', () => {
       expect((await initPayload(otherHost, id)).readyUsers).toEqual([JOINER_USER.id])
     })
 
-    test('taking it back is announced too', async () => {
+    test('ready calls from the host are no-ops', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      setReady(host, id, true)
+      // A host can inherit this mark after another member transfers the host role to them. The
+      // host cannot change it through the ready endpoint.
+      lobbyService.readyUsers.set(id, new Set([HOST_USER.id]))
       fakeNydus.publish.mockClear()
 
+      setReady(host, id, true)
       setReady(host, id, false)
 
-      expect(lobbyPublishes(id)).toEqual([
-        { type: 'readyChange', userId: HOST_USER.id, isReady: false },
-      ])
-      expect(lobbyService.readyUsers.get(id)?.has(HOST_USER.id)).toBeFalsy()
+      expect(lobbyPublishes(id)).toEqual([])
+      expect(lobbyService.readyUsers.get(id)).toEqual(new Set([HOST_USER.id]))
     })
 
     test('setting the value a member already holds announces nothing', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      setReady(host, id, true)
+      await joinLobby(joiner, id)
+      setReady(joiner, id, true)
       fakeNydus.publish.mockClear()
 
-      setReady(host, id, true)
-      // Nobody was ready to begin with, so taking it back from someone else is just as much a no-op
-      setReady(host, id, false)
-      setReady(host, id, false)
+      setReady(joiner, id, true)
+      // Repeating either value is a no-op.
+      setReady(joiner, id, false)
+      setReady(joiner, id, false)
 
       expect(lobbyPublishes(id)).toEqual([
-        { type: 'readyChange', userId: HOST_USER.id, isReady: false },
+        { type: 'readyChange', userId: JOINER_USER.id, isReady: false },
       ])
     })
 
@@ -2882,7 +2884,6 @@ describe('lobbies/lobby-service', () => {
     test('a settings change that alters more than the name clears who is ready', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
-      setReady(host, id, true)
       setReady(joiner, id, true)
 
       await lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true })
@@ -2894,20 +2895,16 @@ describe('lobbies/lobby-service', () => {
     test('renaming the lobby leaves who is ready alone', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
-      setReady(host, id, true)
       setReady(joiner, id, true)
 
       await lobbyService.updateSettings({ client: host.client, lobbyId: id, name: 'Renamed lobby' })
 
-      expect([...lobbyService.readyUsers.get(id)!].sort()).toEqual(
-        [HOST_USER.id, JOINER_USER.id].sort(),
-      )
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
     })
 
     test('a started game consumes the ready marks', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
-      setReady(host, id, true)
       setReady(joiner, id, true)
 
       await runCountdown(host)
@@ -2920,20 +2917,55 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       await joinLobby(otherHost, id)
-      setReady(host, id, true)
       setReady(joiner, id, true)
       setReady(otherHost, id, true)
 
       lobbyService.leaveLobby({ client: joiner.client })
 
-      expect([...lobbyService.readyUsers.get(id)!].sort()).toEqual(
-        [HOST_USER.id, OTHER_HOST_USER.id].sort(),
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([OTHER_HOST_USER.id])
+    })
+
+    test('host transfers clear outgoing ready marks and retain incoming marks until they transfer away', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      const lobby = lobbyService.lobbies.get(id)!
+      const hostSlot = lobby.host
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+
+      // The incoming host chose to be ready before taking over, while the outgoing host carries a
+      // mark that must no longer count once they are another seated member.
+      lobbyService.readyUsers.set(id, new Set([HOST_USER.id, JOINER_USER.id]))
+      const transferred = { ...lobby, host: joinerSlot! }
+      fakeNydus.publish.mockClear()
+      lobbyService.lobbies.set(id, transferred)
+      lobbyService._publishLobbyDiff(lobby, transferred)
+
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(JOINER_USER.id)
+      expect(lobbyService.readyUsers.get(id)).toEqual(new Set([JOINER_USER.id]))
+      expect(diffEvents(id)).toContainEqual(
+        expect.objectContaining({
+          type: 'hostChange',
+          host: expect.objectContaining({ userId: JOINER_USER.id }),
+        }),
       )
+      expect(() => lobbyService.startCountdown({ client: joiner.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
+      )
+
+      // Once the former host marks ready, the new host can transfer back. That transfer consumes
+      // the ready mark the now-former host chose before their first promotion.
+      setReady(host, id, true)
+      const returned = { ...transferred, host: hostSlot }
+      lobbyService.lobbies.set(id, returned)
+      lobbyService._publishLobbyDiff(transferred, returned)
+
+      expect(lobbyService.lobbies.get(id)!.host.userId).toBe(HOST_USER.id)
+      expect(lobbyService.readyUsers.get(id)).toEqual(new Set([HOST_USER.id]))
     })
 
     test('a closed lobby takes its ready marks with it', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      setReady(host, id, true)
+      lobbyService.readyUsers.set(id, new Set([HOST_USER.id]))
 
       lobbyService.leaveLobby({ client: host.client })
 
@@ -2943,27 +2975,23 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('starting a game with a ready check', () => {
-    test('the host cannot start while someone seated is not ready', async () => {
+    test('the host can start when every other seated member is ready', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
 
-      expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
-        expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
-      )
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id })
+
+      expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
     })
 
-    test('the host counts too, even alone with a computer', async () => {
+    test('the host can start alone with a computer without a ready mark', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
       lobbyService.addComputer({ client: host.client, slotId: openSlot.id })
 
-      expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
-        expect.objectContaining({ code: LobbyServiceErrorCode.NotEveryoneReady }),
-      )
-
       vi.useFakeTimers()
-      lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
 
       expect(lobbyService.lobbyCountdowns.has(id)).toBe(true)
@@ -2975,7 +3003,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(lister, id)
       const [, , listerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, LISTER_USER.id)
       lobbyService.makeObserver({ client: host.client, slotId: listerSlot!.id })
-      lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
       lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
 
       expect(() => lobbyService.startCountdown({ client: host.client, lobbyId: id })).toThrow(
@@ -3005,7 +3032,6 @@ describe('lobbies/lobby-service', () => {
     test('the host can call off a countdown, leaving the ready marks as they were', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
-      lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
       lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
       vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, lobbyId: id })
@@ -3017,9 +3043,7 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyPublishes(id)).toEqual([{ type: 'cancelCountdown' }])
       // The lobby left the list when it started counting down, and belongs back on it now
       expect(listPublishes()).toEqual([{ action: 'add', payload: expect.objectContaining({ id }) }])
-      expect([...lobbyService.readyUsers.get(id)!].sort()).toEqual(
-        [HOST_USER.id, JOINER_USER.id].sort(),
-      )
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
 
       // The countdown must not go on to load a game after being called off
       await vi.advanceTimersByTimeAsync(5000)
@@ -3291,13 +3315,13 @@ describe('lobbies/lobby-service', () => {
       test('neither team tool touches who is ready or counts as a settings change', async () => {
         const { id } = await createTeamLobby()
         await joinLobby(joiner, id)
-        lobbyService.setReady({ client: host.client, lobbyId: id, isReady: true })
+        lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
         fakeNydus.publish.mockClear()
 
         lobbyService.swapTeams({ client: host.client, lobbyId: id })
         lobbyService.shuffleSlots({ client: host.client, lobbyId: id, shuffleFn: reversed })
 
-        expect([...lobbyService.readyUsers.get(id)!]).toEqual([HOST_USER.id])
+        expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
         expect(lobbyPublishes(id).some(data => data?.type === 'settingsChange')).toBe(false)
       })
     })

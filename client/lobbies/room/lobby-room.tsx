@@ -45,6 +45,7 @@ export interface LobbyRoomProps {
   onSendChatMessage: (msg: string) => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
+  onMoveSlot: (fromSlotId: string, toSlotId: string) => void
   onLeaveLobby: () => void
   onToggleReady: () => void
   onStartGame: () => void
@@ -69,6 +70,7 @@ export function LobbyRoom({
   onSendChatMessage,
   onSetRace,
   onSitInSlot,
+  onMoveSlot,
   onLeaveLobby,
   onToggleReady,
   onStartGame,
@@ -120,6 +122,7 @@ export function LobbyRoom({
               viewerId={viewerId}
               onSetRace={onSetRace}
               onSitInSlot={onSitInSlot}
+              onMoveSlot={onMoveSlot}
               onStartGame={onStartGame}
               onForceStart={onForceStart}
               onCancelCountdown={onCancelCountdown}

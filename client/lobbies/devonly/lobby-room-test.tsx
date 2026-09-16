@@ -16,6 +16,7 @@ import {
   createObserver,
   createOpen,
   Slot,
+  SlotType,
 } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
@@ -32,6 +33,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { titleMedium } from '../../styles/typography'
 import { LobbyRoom } from '../room/lobby-room'
+import { canMoveSlot } from '../room/slot-movement'
 import { IsolatedReduxProvider } from './isolated-redux'
 import { ScenarioPicker } from './scenario-picker'
 
@@ -395,8 +397,7 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       type: 'init',
       lobby,
       userInfos: MOCK_USERS,
-      // A settings change resets ready states, so that scenario re-readies only the host below.
-      readyUsers: [TEC27, PACHI, HEARTCUTTER, NERDRAGE],
+      readyUsers: [PACHI, HEARTCUTTER, NERDRAGE],
       series: [],
     },
   })
@@ -429,10 +430,6 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         changedSettings: ['useLegacyLimits'],
         lobby: { ...lobby, useLegacyLimits: true },
       },
-    })
-    dispatch({
-      type: '@lobbies/updateReadyChange',
-      payload: { type: 'readyChange', userId: TEC27, isReady: true },
     })
   }
 
@@ -565,6 +562,46 @@ function LobbyRoomTestInner() {
               }
             }}
             onSitInSlot={slotId => console.log('onSitInSlot', slotId)}
+            onMoveSlot={(fromSlotId, toSlotId) => {
+              const [fromTeam, fromIndex, from] = findSlotById(lobby, fromSlotId)
+              const [toTeam, toIndex, to] = findSlotById(lobby, toSlotId)
+              if (
+                !from ||
+                !to ||
+                fromTeam === undefined ||
+                fromIndex === undefined ||
+                toTeam === undefined ||
+                toIndex === undefined ||
+                !canMoveSlot(lobby.gameType, lobby.teams[fromTeam], from, lobby.teams[toTeam], to)
+              )
+                return
+              const intoTeam = (slot: Slot, team: Team): Slot =>
+                slot.userId
+                  ? { ...slot, type: team.isObserver ? SlotType.Observer : SlotType.Human }
+                  : slot
+              const occupied =
+                to.type === SlotType.Human ||
+                to.type === SlotType.Observer ||
+                to.type === SlotType.Computer
+              dispatch({
+                type: '@lobbies/updateSlotChange',
+                payload: {
+                  type: 'slotChange',
+                  teamIndex: fromTeam,
+                  slotIndex: fromIndex,
+                  player: occupied ? intoTeam(to, lobby.teams[fromTeam]) : createOpen(),
+                },
+              })
+              dispatch({
+                type: '@lobbies/updateSlotChange',
+                payload: {
+                  type: 'slotChange',
+                  teamIndex: toTeam,
+                  slotIndex: toIndex,
+                  player: intoTeam(from, lobby.teams[toTeam]),
+                },
+              })
+            }}
             onLeaveLobby={() => console.log('onLeaveLobby')}
             onToggleReady={() => {
               dispatch({

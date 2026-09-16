@@ -1,5 +1,4 @@
 import { TFunction } from 'i18next'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -18,7 +17,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ElapsedTime } from '../../matchmaking/elapsed-time'
-import { FilledButton, IconButton, OutlinedButton } from '../../material/button'
+import { IconButton, OutlinedButton } from '../../material/button'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
@@ -33,6 +32,7 @@ import {
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
+import { LobbyStartButton } from './lobby-start-button'
 import {
   getReadyEligibleUsers,
   HostCrown,
@@ -45,6 +45,7 @@ import {
   useAnchoredMenu,
   useLobbyLifecycle,
 } from './room-parts'
+import { DraggableSlot, SlotDragProvider } from './slot-drag-drop'
 
 /** A change the host can make to one slot from that slot's own menu. */
 export enum SlotAction {
@@ -55,7 +56,6 @@ export enum SlotAction {
   Ban = 'ban',
   MakeObserver = 'makeObserver',
   RemoveObserver = 'removeObserver',
-  Move = 'move',
 }
 
 /** One entry of a slot's menu: what it's called, and what picking it does. */
@@ -94,12 +94,6 @@ const Section = styled.div`
   gap: 4px;
 `
 
-/**
- * The row contents a menu takes over on hover/focus: everything but the crown. A row whose
- * trailing content is itself interactive (a race picker the viewer can use) keeps it, and the
- * menu button appears beside it instead — hiding it would make the picker unreachable by pointer
- * and drop keyboard focus out of the row.
- */
 const RowTrailing = styled.span`
   display: flex;
   align-items: center;
@@ -107,34 +101,37 @@ const RowTrailing = styled.span`
   flex-shrink: 0;
 `
 
-/**
- * Holds the slot menu button. The button keeps its place in the document (and so in the tab order)
- * whether or not it's visible: a closed seat or a computer row holds nothing else focusable, so a
- * button that only existed while the row was hovered couldn't be reached from a keyboard at all.
- * It shows itself on row hover, on focus anywhere in the row, and while its own menu is open — an
- * open menu needs its button laid out to anchor the popover, or the anchor collapses and the
- * popover jumps to the row's top-left corner.
- */
-const RowMenu = styled.span`
-  width: 0;
-  min-width: 0;
-  /* The row's gap would otherwise reserve space beside the hidden button. */
-  margin-inline-start: -8px;
-  overflow: hidden;
-  opacity: 0;
+/** Reserves one shared position for a readiness mark, host crown, or slot menu. */
+const RowActions = styled.span`
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
 
   display: flex;
   align-items: center;
-  flex-shrink: 0;
-
-  &[data-menu-open='true'] {
-    width: auto;
-    margin-inline-start: 0;
-    opacity: 1;
-  }
+  justify-content: center;
 `
 
-const rowBase = css<{ $hasMenu?: boolean; $keepsTrailing?: boolean }>`
+const RowStatus = styled.span`
+  display: flex;
+`
+
+/**
+ * The menu overlays the status without changing row geometry. Its button remains focusable while
+ * hidden so keyboard users can reveal it, and its anchor stays fixed while the popover is open.
+ */
+const RowMenu = styled.span`
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+
+  display: flex;
+  align-items: center;
+`
+
+const rowBase = css`
   position: relative;
   min-height: 40px;
   padding: 2px 8px;
@@ -145,31 +142,20 @@ const rowBase = css<{ $hasMenu?: boolean; $keepsTrailing?: boolean }>`
 
   border-radius: 8px;
 
-  ${props =>
-    props.$hasMenu
-      ? css`
-          &:is(:hover, :focus-within) ${RowMenu} {
-            width: auto;
-            margin-inline-start: 0;
-            opacity: 1;
-          }
-        `
-      : ''}
+  &:is(:hover, :focus-within, :has([data-menu-open='true'])) {
+    ${RowMenu} {
+      opacity: 1;
+      pointer-events: auto;
+    }
 
-  ${props =>
-    props.$hasMenu && !props.$keepsTrailing
-      ? css`
-          &:is(:hover, :focus-within, :has([data-menu-open='true'])) ${RowTrailing} {
-            display: none;
-          }
-        `
-      : ''}
+    ${RowActions}:has(${RowMenu}) ${RowStatus} {
+      visibility: hidden;
+    }
+  }
 `
 
 const OccupiedRow = styled.div<{
   $isViewer: boolean
-  $hasMenu?: boolean
-  $keepsTrailing?: boolean
   $inGame?: boolean
 }>`
   ${rowBase};
@@ -183,16 +169,12 @@ const OccupiedRow = styled.div<{
       : ''}
 `
 
-const EmptyRow = styled.div<{ $hasMenu?: boolean; $keepsTrailing?: boolean }>`
+const EmptyRow = styled.div`
   ${rowBase};
   color: var(--theme-on-surface-variant);
 `
 
-const DashedRow = styled.div<{
-  $hasMenu?: boolean
-  $keepsTrailing?: boolean
-  $sittable?: boolean
-}>`
+const DashedRow = styled.div<{ $sittable?: boolean }>`
   ${rowBase};
 
   border: 1px dashed var(--theme-outline);
@@ -208,9 +190,22 @@ const DashedRow = styled.div<{
       : ''}
 `
 
+const OpenSlotIcon = styled(MaterialIcon)``
+
+const MoveToSlotIcon = styled(MaterialIcon)`
+  display: none;
+`
+
+const OpenSlotLabel = styled.span``
+
+const MoveToSlotLabel = styled.span`
+  display: none;
+`
+
 const SitButton = styled.button`
   ${labelMedium};
   flex-grow: 1;
+  align-self: stretch;
   min-width: 0;
   padding: 0;
 
@@ -227,20 +222,45 @@ const SitButton = styled.button`
     cursor: pointer;
   }
 
-  &:enabled:hover {
+  &:enabled:is(:hover, :focus-visible) {
     color: var(--theme-on-surface);
+
+    ${OpenSlotIcon},
+    ${OpenSlotLabel} {
+      display: none;
+    }
+
+    ${MoveToSlotIcon},
+    ${MoveToSlotLabel} {
+      display: inline-block;
+    }
   }
 `
 
-const BenchRowRoot = styled.div<{ $hasMenu?: boolean }>`
+const BenchRowRoot = styled.div`
   ${rowBase};
   color: var(--theme-on-surface-variant);
+`
+
+const DragHandle = styled.span`
+  display: flex;
+  flex-shrink: 0;
 `
 
 const RowAvatar = styled(ConnectedAvatar)`
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+`
+
+const ComputerIcon = styled(MaterialIcon)`
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
 
 const RowName = styled.div`
@@ -272,6 +292,10 @@ const SectionHeading = styled(SectionLabel)`
   margin-top: 8px;
 `
 
+const ObserverHeading = styled(SectionHeading)`
+  user-select: none;
+`
+
 const BenchHeading = styled(SectionHeading)`
   display: flex;
   align-items: center;
@@ -296,6 +320,8 @@ const RailFoot = styled.div`
 `
 
 const ReadyProgress = styled.div`
+  margin-bottom: 8px;
+
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -317,12 +343,11 @@ const ProgressFill = styled.div<{ $fraction: number }>`
   height: 100%;
   border-radius: 2px;
   background-color: var(--theme-positive);
-`
+  transition: width 250ms ease-out;
 
-const StartCaption = styled.div`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
-  text-align: center;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 `
 
 const WaitingForHost = styled.div`
@@ -353,10 +378,6 @@ const StatusElapsedTime = styled(ElapsedTime)`
   ${bodyMedium};
   /* The readout leads with its separator, which a block would otherwise collapse away. */
   white-space: pre;
-`
-
-const FullWidthFilledButton = styled(FilledButton)`
-  width: 100%;
 `
 
 const FullWidthOutlinedButton = styled(OutlinedButton)`
@@ -423,10 +444,6 @@ function hostActionsFor(
         t('lobbies.room.slotMenu.ban', 'Ban'),
         () => onSlotAction(SlotAction.Ban, slot.id),
       ])
-      actions.push([
-        t('lobbies.room.slotMenu.moveToAnotherSlot', 'Move to another slot'),
-        () => onSlotAction(SlotAction.Move, slot.id),
-      ])
       if (isObserverTeam && limits.canRemoveObserver) {
         actions.push([
           t('lobbies.room.slotMenu.moveIntoPlayerSlot', 'Move into a player slot'),
@@ -491,8 +508,8 @@ function hostActionsFor(
 }
 
 /**
- * The host's per-slot menu: a compact button that takes over the row's trailing content on hover
- * or focus, opening onto whatever `hostActionsFor` built for that slot.
+ * The host's per-slot menu overlays the row's status on hover or focus, opening onto whatever
+ * `hostActionsFor` built for that slot.
  */
 function SlotMenu({ actions }: { actions: ReadonlyArray<SlotMenuAction> }) {
   const { t } = useTranslation()
@@ -586,17 +603,15 @@ function SlotRow({
         slot.type === SlotType.ControlledOpen && isGathering && slot.controlledBy === viewerSlotId
 
       return (
-        <DashedRow
-          $hasMenu={!!menu}
-          $keepsTrailing={canPickRace}
-          $sittable={isGathering}
-          data-testid='lobby-slot'>
+        <DashedRow $sittable={isGathering} data-testid='lobby-slot'>
           <SitButton disabled={!isGathering} onClick={() => onSitInSlot(slot.id)}>
-            <MaterialIcon icon='add' size={20} />
-            <span>{t('lobbies.slots.open', 'Open')}</span>
+            <OpenSlotIcon icon='add' size={20} />
+            <MoveToSlotIcon icon='arrow_forward' size={20} />
+            <OpenSlotLabel>{t('lobbies.slots.open', 'Open')}</OpenSlotLabel>
+            <MoveToSlotLabel>{t('lobbies.room.drag.move', 'Move here')}</MoveToSlotLabel>
           </SitButton>
           {slot.type === SlotType.ControlledOpen ? (
-            <RowTrailing>
+            <RowTrailing data-slot-controls>
               <RaceControl
                 race={slot.race}
                 canPick={canPickRace}
@@ -604,7 +619,7 @@ function SlotRow({
               />
             </RowTrailing>
           ) : null}
-          {menu}
+          <RowActions data-slot-controls>{menu}</RowActions>
         </DashedRow>
       )
     }
@@ -614,11 +629,11 @@ function SlotRow({
         slot.type === SlotType.ControlledClosed && isGathering && slot.controlledBy === viewerSlotId
 
       return (
-        <EmptyRow $hasMenu={!!menu} $keepsTrailing={canPickRace} data-testid='lobby-slot'>
+        <EmptyRow data-testid='lobby-slot'>
           <MaterialIcon icon='block' size={20} />
           <RowName>{t('lobbies.slots.name', 'Closed')}</RowName>
           {slot.type === SlotType.ControlledClosed ? (
-            <RowTrailing>
+            <RowTrailing data-slot-controls>
               <RaceControl
                 race={slot.race}
                 canPick={canPickRace}
@@ -626,7 +641,7 @@ function SlotRow({
               />
             </RowTrailing>
           ) : null}
-          {menu}
+          <RowActions data-slot-controls>{menu}</RowActions>
         </EmptyRow>
       )
     }
@@ -635,21 +650,19 @@ function SlotRow({
       const canPickRace = isHost && isGathering && !slot.hasForcedRace
 
       return (
-        <OccupiedRow
-          $isViewer={false}
-          $hasMenu={!!menu}
-          $keepsTrailing={canPickRace}
-          data-testid='lobby-slot'>
-          <MaterialIcon icon='smart_toy' size={20} />
+        <OccupiedRow $isViewer={false} data-testid='lobby-slot'>
+          <DragHandle data-slot-drag-handle>
+            <ComputerIcon icon='smart_toy' size={20} />
+          </DragHandle>
           <RowName>{t('game.playerName.computer', 'Computer')}</RowName>
-          <RowTrailing>
+          <RowTrailing data-slot-controls>
             <RaceControl
               race={slot.race}
               canPick={canPickRace}
               onSetRace={race => onSetRace(slot.id, race)}
             />
           </RowTrailing>
-          {menu}
+          <RowActions data-slot-controls>{menu}</RowActions>
         </OccupiedRow>
       )
     }
@@ -659,18 +672,14 @@ function SlotRow({
       const canPickRace = !isObserverTeam && isViewer && isGathering && !slot.hasForcedRace
 
       return (
-        <OccupiedRow
-          $isViewer={isViewer}
-          $hasMenu={!!menu}
-          $keepsTrailing={canPickRace}
-          $inGame={isInGame}
-          data-testid='lobby-slot'>
-          <RowAvatar userId={slot.userId!} />
+        <OccupiedRow $isViewer={isViewer} $inGame={isInGame} data-testid='lobby-slot'>
+          <DragHandle data-slot-drag-handle>
+            <RowAvatar userId={slot.userId!} />
+          </DragHandle>
           <RowName as='span'>
             <ConnectedUsername userId={slot.userId!} UserMenu={LobbyUserMenu} />
           </RowName>
-          {slot.id === hostSlotId ? <HostCrown tabIndex={-1} /> : null}
-          <RowTrailing>
+          <RowTrailing data-slot-controls>
             {isInGame ? <InGameTag>{t('lobbies.lobby.inGame', 'In game')}</InGameTag> : null}
             {!isObserverTeam ? (
               <RaceControl
@@ -679,9 +688,17 @@ function SlotRow({
                 onSetRace={race => onSetRace(slot.id, race)}
               />
             ) : null}
-            <ReadyMark ready={isReady} tabIndex={-1} />
           </RowTrailing>
-          {menu}
+          <RowActions data-slot-controls>
+            <RowStatus>
+              {slot.id === hostSlotId ? (
+                <HostCrown tabIndex={-1} />
+              ) : (
+                <ReadyMark ready={isReady} tabIndex={-1} />
+              )}
+            </RowStatus>
+            {menu}
+          </RowActions>
         </OccupiedRow>
       )
     }
@@ -715,12 +732,14 @@ function BenchRow({
     : []
 
   return (
-    <BenchRowRoot $hasMenu={actions.length > 0} data-testid='lobby-bench-row'>
+    <BenchRowRoot data-testid='lobby-bench-row'>
       <RowAvatar userId={userId} />
       <RowName as='span'>
         <ConnectedUsername userId={userId} UserMenu={LobbyUserMenu} />
       </RowName>
-      {actions.length ? <SlotMenu actions={actions} /> : null}
+      <RowActions data-slot-controls>
+        {actions.length ? <SlotMenu actions={actions} /> : null}
+      </RowActions>
     </BenchRowRoot>
   )
 }
@@ -729,6 +748,7 @@ export interface RoomRailProps {
   viewerId: SbUserId
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
+  onMoveSlot: (fromSlotId: string, toSlotId: string) => void
   onStartGame: () => void
   onForceStart: () => void
   onCancelCountdown: () => void
@@ -744,6 +764,7 @@ export function RoomRail({
   viewerId,
   onSetRace,
   onSitInSlot,
+  onMoveSlot,
   onStartGame,
   onForceStart,
   onCancelCountdown,
@@ -761,7 +782,10 @@ export function RoomRail({
   const inGameUsers = new Set(runState?.inGameUsers ?? [])
 
   const eligible = getReadyEligibleUsers(lobby)
-  const readyCount = eligible.filter(userId => readyUserIds.includes(userId)).length
+  // Hosting counts as ready without an explicit ready mark.
+  const readyUsers = new Set(readyUserIds)
+  readyUsers.add(lobby.host.userId!)
+  const readyCount = eligible.filter(userId => readyUsers.has(userId)).length
   const allReady = eligible.length > 0 && readyCount === eligible.length
   const hasTwoSides = hasOpposingSides(lobby)
 
@@ -796,73 +820,89 @@ export function RoomRail({
 
   return (
     <RailRoot>
-      <RailScroll>
-        {playerTeams.map(team => (
-          <Section key={team.teamId}>
-            {showTeamHeadings ? <SectionHeading>{lobbyTeamLabel(team, t)}</SectionHeading> : null}
-            {team.slots.map(slot => (
-              <SlotRow
-                {...slotRowProps}
-                key={slot.id}
-                slot={slot}
-                isObserverTeam={false}
-                isReady={!!slot.userId && readyUserIds.includes(slot.userId)}
-                isInGame={!!slot.userId && inGameUsers.has(slot.userId)}
-              />
-            ))}
-          </Section>
-        ))}
+      <RailScroll data-slot-scroll>
+        <SlotDragProvider
+          teams={lobby.teams}
+          gameType={lobby.gameType}
+          enabled={isHost && lifecycle === 'gathering'}
+          onMoveSlot={onMoveSlot}>
+          {playerTeams.map((team, teamIndex) => (
+            <Section key={teamIndex}>
+              {showTeamHeadings ? <SectionHeading>{lobbyTeamLabel(team, t)}</SectionHeading> : null}
+              {team.slots.map(slot => (
+                <DraggableSlot key={slot.id} slot={slot}>
+                  <SlotRow
+                    {...slotRowProps}
+                    slot={slot}
+                    isObserverTeam={false}
+                    isReady={!!slot.userId && readyUsers.has(slot.userId)}
+                    isInGame={!!slot.userId && inGameUsers.has(slot.userId)}
+                  />
+                </DraggableSlot>
+              ))}
+            </Section>
+          ))}
 
-        {observerTeam ? (
-          <Section>
-            <SectionHeading>
-              {t('lobbies.browser.observersCount', {
-                defaultValue: 'Observers · {{taken}}/{{total}}',
-                taken: observerCount,
-                total: observerTeam.slots.length,
-              })}
-            </SectionHeading>
-            {observerTeam.slots.map(slot => (
-              <SlotRow
-                {...slotRowProps}
-                key={slot.id}
-                slot={slot}
-                isObserverTeam={true}
-                isReady={!!slot.userId && readyUserIds.includes(slot.userId)}
-                isInGame={!!slot.userId && inGameUsers.has(slot.userId)}
-              />
-            ))}
-          </Section>
-        ) : null}
-
-        {lobby.bench.length ? (
-          <Section>
-            <BenchHeading>
-              <span>
-                {t('lobbies.room.rail.benchHeading', 'Bench · {{benchCount}}', {
-                  benchCount: lobby.bench.length,
+          {observerTeam ? (
+            <Section>
+              <ObserverHeading
+                onDoubleClick={() => {
+                  if (!isHost || lifecycle !== 'gathering') return
+                  for (const slot of observerTeam?.slots ?? []) {
+                    if (slot.type === SlotType.Closed || slot.type === SlotType.ControlledClosed) {
+                      onSlotAction(SlotAction.Open, slot.id)
+                    }
+                  }
+                }}>
+                {t('lobbies.browser.observersCount', {
+                  defaultValue: 'Observers · {{taken}}/{{total}}',
+                  taken: observerCount,
+                  total: observerTeam.slots.length,
                 })}
-              </span>
-              <Tooltip
-                text={t(
-                  'lobbies.room.rail.benchTooltip',
-                  'Joined while seats were full. The first in line takes the next opening.',
-                )}>
-                <BenchInfoIcon>
-                  <MaterialIcon icon='info' size={14} />
-                </BenchInfoIcon>
-              </Tooltip>
-            </BenchHeading>
-            {lobby.bench.map(benched => (
-              <BenchRow
-                key={benched.userId}
-                userId={benched.userId}
-                canManage={isHost && (lifecycle === 'gathering' || lifecycle === 'inGame')}
-                onSlotAction={onSlotAction}
-              />
-            ))}
-          </Section>
-        ) : null}
+              </ObserverHeading>
+              {observerTeam.slots.map(slot => (
+                <DraggableSlot key={slot.id} slot={slot}>
+                  <SlotRow
+                    {...slotRowProps}
+                    slot={slot}
+                    isObserverTeam={true}
+                    isReady={!!slot.userId && readyUsers.has(slot.userId)}
+                    isInGame={!!slot.userId && inGameUsers.has(slot.userId)}
+                  />
+                </DraggableSlot>
+              ))}
+            </Section>
+          ) : null}
+
+          {lobby.bench.length ? (
+            <Section>
+              <BenchHeading>
+                <span>
+                  {t('lobbies.room.rail.benchHeading', 'Bench · {{benchCount}}', {
+                    benchCount: lobby.bench.length,
+                  })}
+                </span>
+                <Tooltip
+                  text={t(
+                    'lobbies.room.rail.benchTooltip',
+                    'Joined while seats were full. The first in line takes the next opening.',
+                  )}>
+                  <BenchInfoIcon>
+                    <MaterialIcon icon='info' size={14} />
+                  </BenchInfoIcon>
+                </Tooltip>
+              </BenchHeading>
+              {lobby.bench.map(benched => (
+                <BenchRow
+                  key={benched.userId}
+                  userId={benched.userId}
+                  canManage={isHost && (lifecycle === 'gathering' || lifecycle === 'inGame')}
+                  onSlotAction={onSlotAction}
+                />
+              ))}
+            </Section>
+          ) : null}
+        </SlotDragProvider>
       </RailScroll>
 
       <RailFoot>
@@ -872,7 +912,6 @@ export function RoomRail({
           readyCount={readyCount}
           readyTotal={eligible.length}
           allReady={allReady}
-          canStart={allReady && hasTwoSides}
           hasTwoSides={hasTwoSides}
           countdownTimer={loadingState.countdownTimer}
           gameStartedAt={runState?.startedAt}
@@ -895,7 +934,6 @@ function RailFootContents({
   readyCount,
   readyTotal,
   allReady,
-  canStart,
   hasTwoSides,
   countdownTimer,
   gameStartedAt,
@@ -908,7 +946,6 @@ function RailFootContents({
   readyCount: number
   readyTotal: number
   allReady: boolean
-  canStart: boolean
   hasTwoSides: boolean
   countdownTimer: number
   gameStartedAt: number | undefined
@@ -951,7 +988,6 @@ function RailFootContents({
           readyCount={readyCount}
           readyTotal={readyTotal}
           allReady={allReady}
-          canStart={canStart}
           hasTwoSides={hasTwoSides}
           onStartGame={onStartGame}
           onForceStart={onForceStart}
@@ -962,18 +998,12 @@ function RailFootContents({
   }
 }
 
-/**
- * How close a gathering lobby is to its next game, and whatever the viewer can do about that. The
- * host's start button unlocks only once the lobby could actually play what it's set up for: two
- * sides seated, and everyone ready. Leaving stragglers behind is its own action, confirmed on its
- * own step, since it spends a ready check the lobby is still in the middle of.
- */
+/** Shows readiness and the host's click-or-hold action for starting the next game. */
 function StartControls({
   isHost,
   readyCount,
   readyTotal,
   allReady,
-  canStart,
   hasTwoSides,
   onStartGame,
   onForceStart,
@@ -982,42 +1012,11 @@ function StartControls({
   readyCount: number
   readyTotal: number
   allReady: boolean
-  canStart: boolean
   hasTwoSides: boolean
   onStartGame: () => void
   onForceStart: () => void
 }) {
   const { t } = useTranslation()
-  const [isConfirmingForceStart, setIsConfirmingForceStart] = useState(false)
-
-  const canForceStart = !allReady && hasTwoSides
-
-  if (isHost && isConfirmingForceStart && canForceStart) {
-    return (
-      <>
-        <StartCaption>
-          {t('lobbies.room.rail.forceStartConfirm', {
-            defaultValue: 'Start without waiting for {{count}} players?',
-            // eslint-disable-next-line camelcase -- i18next's plural-form key convention
-            defaultValue_one: 'Start without waiting for {{count}} player?',
-            count: readyTotal - readyCount,
-          })}
-        </StartCaption>
-        <FullWidthFilledButton
-          label={t('lobbies.room.rail.startNow', 'Start now')}
-          onClick={() => {
-            setIsConfirmingForceStart(false)
-            onForceStart()
-          }}
-        />
-        <FullWidthOutlinedButton
-          label={t('common.actions.cancel', 'Cancel')}
-          onClick={() => setIsConfirmingForceStart(false)}
-        />
-      </>
-    )
-  }
-
   return (
     <>
       <ReadyProgress>
@@ -1032,27 +1031,12 @@ function StartControls({
         </ProgressTrack>
       </ReadyProgress>
       {isHost ? (
-        <>
-          <FullWidthFilledButton
-            label={t('lobbies.room.rail.startGame', 'Start game')}
-            disabled={!canStart}
-            onClick={onStartGame}
-            testName='start-game-button'
-          />
-          {!canStart ? (
-            <StartCaption>
-              {!hasTwoSides
-                ? t('lobbies.room.rail.needsOpposingSides', 'Needs players on at least two sides')
-                : t('lobbies.room.rail.enablesWhenReady', 'Enables when everyone is ready')}
-            </StartCaption>
-          ) : null}
-          {canForceStart ? (
-            <FullWidthOutlinedButton
-              label={t('lobbies.room.rail.startAnyway', 'Start anyway')}
-              onClick={() => setIsConfirmingForceStart(true)}
-            />
-          ) : null}
-        </>
+        <LobbyStartButton
+          allReady={allReady}
+          disabled={!hasTwoSides}
+          onStartGame={onStartGame}
+          onForceStart={onForceStart}
+        />
       ) : (
         <WaitingForHost>
           {t('lobbies.room.rail.waitingForHost', 'Waiting for the host to start')}

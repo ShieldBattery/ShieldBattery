@@ -137,7 +137,7 @@ export function RoomHeader({
             testName='lobby-settings-button'
           />
         ) : null}
-        {!isBenched && isGathering ? (
+        {!isHost && !isBenched && isGathering ? (
           <ReadyButton isViewerReady={isViewerReady} onToggleReady={onToggleReady} />
         ) : null}
       </HeaderActions>
