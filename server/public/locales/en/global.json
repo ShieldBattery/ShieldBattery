@@ -417,6 +417,13 @@
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "Lists the commands you can use here.",
         "dialogTitle": "Chat commands",
+        "groups": {
+          "chat": "Chat",
+          "fun": "Fun",
+          "matchmaking": "Matchmaking",
+          "moderation": "Moderation",
+          "people": "People"
+        },
         "intro": "Type a command at the start of a message to run it. To send a message that begins with a slash, type <1>//</1> instead."
       },
       "join": {
@@ -2836,8 +2843,9 @@
     "card": {
       "loadError": "Couldn't load this user's profile.",
       "noGames": "No games played",
-      "record_one": "{{count}} game · {{wins}}–{{losses}}",
-      "record_other": "{{count}} games · {{wins}}–{{losses}}",
+      "rankLine": "{{division}} · {{mode}} · {{points}} pts",
+      "totalGames_one": "{{count}} game",
+      "totalGames_other": "{{count}} games",
       "unranked": "Unranked",
       "viewProfile": "Profile"
     },

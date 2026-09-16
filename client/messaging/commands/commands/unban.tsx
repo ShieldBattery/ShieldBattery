@@ -60,6 +60,7 @@ function unbanFailedLine(userId: SbUserId, err: Error, t: TFunction): React.Reac
 export const unbanCommand = defineCommand({
   name: 'unban',
   description: t => t('chat.commands.unban.description', "Lifts a user's ban from this channel."),
+  group: 'moderation',
   surfaces: ['channel'],
   getUnavailableReason: (context, t) =>
     context.surface === 'channel' && !context.canBan ? noPermission(t) : undefined,

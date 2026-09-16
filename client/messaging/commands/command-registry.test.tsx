@@ -5,9 +5,15 @@ import { initReactI18next } from 'react-i18next'
 import { beforeAll, describe, expect, test, vi } from 'vitest'
 import { makeSbChannelId } from '../../../common/chat'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { ChannelCommandContext } from './command-context'
+import { ChannelCommandContext, WhisperCommandContext } from './command-context'
 import { ALL_COMMANDS, findCommand } from './command-registry'
-import { formatAliases, getCommandUsage, getSurfaceCommands } from './command-schema'
+import {
+  formatAliases,
+  getCommandUsage,
+  getRunnableCommands,
+  getSurfaceCommands,
+  groupCommands,
+} from './command-schema'
 import { runChatCommand } from './run-chat-command'
 
 // The command layer builds its lines with `Trans`, which needs an i18next instance to render
@@ -47,6 +53,10 @@ function channelContext(
   }
 }
 
+function whisperContext(): WhisperCommandContext {
+  return { surface: 'whisper', selfUserId, targetId: otherUserId }
+}
+
 function renderLine(content: React.ReactNode): string {
   render(<div data-testid='line'>{content}</div>)
   return screen.getByTestId('line').textContent ?? ''
@@ -83,6 +93,39 @@ describe('messaging/commands/command-registry', () => {
       'roll',
       'flip',
       '8ball',
+    ])
+  })
+
+  test('every command is filed under its group', () => {
+    expect(ALL_COMMANDS.map(c => [c.name, c.group])).toEqual([
+      ['help', 'chat'],
+      ['join', 'chat'],
+      ['whisper', 'chat'],
+      ['reply', 'chat'],
+      ['profile', 'people'],
+      ['stats', 'people'],
+      ['rank', 'people'],
+      ['whois', 'people'],
+      ['who', 'chat'],
+      ['whoami', 'people'],
+      ['f', 'people'],
+      ['block', 'people'],
+      ['unblock', 'people'],
+      ['leave', 'chat'],
+      ['close', 'chat'],
+      ['kick', 'moderation'],
+      ['ban', 'moderation'],
+      ['unban', 'moderation'],
+      ['topic', 'chat'],
+      ['me', 'chat'],
+      ['cancel', 'matchmaking'],
+      ['shrug', 'fun'],
+      ['tableflip', 'fun'],
+      ['unflip', 'fun'],
+      ['quote', 'fun'],
+      ['roll', 'fun'],
+      ['flip', 'fun'],
+      ['8ball', 'fun'],
     ])
   })
 
@@ -252,12 +295,14 @@ describe('messaging/commands/command-registry', () => {
             aliases: ['?'],
             args: [{ label: 'command', optional: true }],
             description: 'Lists the commands you can use here.',
+            group: 'chat',
           },
           {
             name: 'join',
             aliases: ['j', 'channel'],
             args: [{ label: 'channel', optional: false }],
             description: 'Joins a chat channel, creating it if it does not exist.',
+            group: 'chat',
           },
           {
             name: 'whisper',
@@ -267,48 +312,56 @@ describe('messaging/commands/command-registry', () => {
               { label: 'message', optional: true },
             ],
             description: 'Sends a private message to a user.',
+            group: 'chat',
           },
           {
             name: 'reply',
             aliases: ['r'],
             args: [{ label: 'message', optional: true }],
             description: 'Whispers back to the last person who whispered you.',
+            group: 'chat',
           },
           {
             name: 'profile',
             aliases: ['p'],
             args: [{ label: 'user', optional: true }],
             description: "Shows a user's profile card: their rank and win/loss record.",
+            group: 'people',
           },
           {
             name: 'stats',
             aliases: ['astat'],
             args: [{ label: 'user', optional: true }],
             description: "Shows a user's win/loss record and ranks.",
+            group: 'people',
           },
           {
             name: 'rank',
             aliases: ['mmr'],
             args: [{ label: 'user', optional: true }],
             description: "Shows a user's current ranked divisions.",
+            group: 'people',
           },
           {
             name: 'whois',
             aliases: ['where', 'whereis'],
             args: [{ label: 'user', optional: true }],
             description: 'Shows what a user is doing, as far as you can see.',
+            group: 'people',
           },
           {
             name: 'who',
             aliases: [],
             args: [{ label: 'channel', optional: false }],
             description: 'Lists who is in a channel you have joined.',
+            group: 'chat',
           },
           {
             name: 'whoami',
             aliases: [],
             args: [],
             description: 'Shows the name and user ID you are logged in as.',
+            group: 'people',
           },
           {
             name: 'f',
@@ -316,60 +369,70 @@ describe('messaging/commands/command-registry', () => {
             args: [{ label: 'add|remove|list', optional: false }],
             description:
               'Manages your friends list: add, remove, or list them with their current activity.',
+            group: 'people',
           },
           {
             name: 'block',
             aliases: ['ignore', 'squelch'],
             args: [{ label: 'user', optional: false }],
             description: 'Blocks a user: hides their messages here and in any game you launch.',
+            group: 'people',
           },
           {
             name: 'unblock',
             aliases: ['unignore', 'unsquelch'],
             args: [{ label: 'user', optional: false }],
             description: 'Unblocks a user.',
+            group: 'people',
           },
           {
             name: 'leave',
             aliases: [],
             args: [],
             description: 'Leaves the channel or lobby you are in.',
+            group: 'chat',
           },
           {
             name: 'me',
             aliases: ['emote'],
             args: [{ label: 'action', optional: false }],
             description: 'Sends an action line, shown as "* YourName does something".',
+            group: 'chat',
           },
           {
             name: 'cancel',
             aliases: [],
             args: [],
             description: 'Cancels your current matchmaking search.',
+            group: 'matchmaking',
           },
           {
             name: 'shrug',
             aliases: [],
             args: [{ label: 'text', optional: true }],
             description: 'Appends ¯\\_(ツ)_/¯ to your message.',
+            group: 'fun',
           },
           {
             name: 'tableflip',
             aliases: [],
             args: [],
             description: 'Flips a table: (╯°□°)╯︵ ┻━┻',
+            group: 'fun',
           },
           {
             name: 'unflip',
             aliases: [],
             args: [],
             description: 'Puts the table back: ┬─┬ ノ( ゜-゜ノ)',
+            group: 'fun',
           },
           {
             name: 'quote',
             aliases: [],
             args: [{ label: 'unit', optional: true }],
             description: 'Quotes a random Brood War unit line, from one unit if you name it.',
+            group: 'fun',
           },
           {
             name: 'roll',
@@ -378,18 +441,21 @@ describe('messaging/commands/command-registry', () => {
             description:
               'Rolls a number from 1 to {{max}}, or up to the number you give. The server ' +
               "rolls it, so it can't be faked.",
+            group: 'fun',
           },
           {
             name: 'flip',
             aliases: [],
             args: [],
             description: 'Flips a coin, settled by the server.',
+            group: 'fun',
           },
           {
             name: '8ball',
             aliases: [],
             args: [{ label: 'question', optional: false }],
             description: 'Asks the magic 8-ball a question, answered by the server.',
+            group: 'fun',
           },
         ],
       },
@@ -411,6 +477,35 @@ describe('messaging/commands/command-registry', () => {
     names = dispatch.mock.calls[1][0].payload.initData.commands.map((c: { name: string }) => c.name)
     expect(names).toContain('kick')
     expect(names).toContain('ban')
+  })
+
+  test('help groups only what can be run here', () => {
+    const whisperGroups = groupCommands(getRunnableCommands(ALL_COMMANDS, whisperContext(), t))
+    expect(whisperGroups.map(({ group, commands }) => [group, commands.map(c => c.name)])).toEqual([
+      ['chat', ['help', 'join', 'whisper', 'reply', 'who', 'close', 'me']],
+      ['people', ['profile', 'stats', 'rank', 'whois', 'whoami', 'f', 'block', 'unblock']],
+      ['matchmaking', ['cancel']],
+      ['fun', ['shrug', 'tableflip', 'unflip', 'quote', 'roll', 'flip', '8ball']],
+    ])
+
+    const noModGroups = groupCommands(
+      getRunnableCommands(ALL_COMMANDS, channelContext(false, false), t),
+    )
+    expect(noModGroups.map(({ group }) => group)).not.toContain('moderation')
+
+    const modGroups = groupCommands(
+      getRunnableCommands(ALL_COMMANDS, channelContext(true, true), t),
+    )
+    expect(modGroups.map(({ group }) => group)).toEqual([
+      'chat',
+      'people',
+      'matchmaking',
+      'moderation',
+      'fun',
+    ])
+    expect(
+      modGroups.find(({ group }) => group === 'moderation')?.commands.map(c => c.name),
+    ).toEqual(['kick', 'ban', 'unban'])
   })
 
   test('/help names a command that only works somewhere else', () => {

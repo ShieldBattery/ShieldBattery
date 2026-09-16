@@ -9,6 +9,10 @@ import { LocalLineEmitter } from './local-output'
 /** Every surface a command can be declared for, in the order a sentence listing them reads. */
 export const ALL_COMMAND_SURFACES: ReadonlyArray<CommandSurface> = ['channel', 'whisper', 'lobby']
 
+/** The headings the help dialog files commands under, in the order it draws them. */
+export const COMMAND_GROUPS = ['chat', 'people', 'matchmaking', 'moderation', 'fun'] as const
+export type CommandGroup = (typeof COMMAND_GROUPS)[number]
+
 /** One value the argument palette can complete an argument with. */
 export interface ArgSuggestion {
   /** What accepting the suggestion types into the input, e.g. a username or a channel name. */
@@ -219,6 +223,8 @@ export interface ChatCommand {
   /** Other lower-case names that reach this command. Never localized. */
   aliases?: readonly string[]
   description: (t: TFunction) => string
+  /** The heading the help dialog lists this command under. */
+  group: CommandGroup
   /**
    * The surfaces the command can run in. Typed outside of them, it answers with where it can be
    * used instead.
@@ -282,6 +288,20 @@ export function getRunnableCommands(
   return getSurfaceCommands(commands, context.surface).filter(
     command => command.getUnavailableReason?.(context, t) === undefined,
   )
+}
+
+/**
+ * Files commands under their groups, in group order, keeping each group's commands in the order
+ * given. Groups with no command are left out, so a listing built from this shows exactly the
+ * commands it was handed and nothing else.
+ */
+export function groupCommands<T extends { group: CommandGroup }>(
+  commands: ReadonlyArray<T>,
+): Array<{ group: CommandGroup; commands: T[] }> {
+  return COMMAND_GROUPS.flatMap(group => {
+    const inGroup = commands.filter(command => command.group === group)
+    return inGroup.length ? [{ group, commands: inGroup }] : []
+  })
 }
 
 /** What usage strings and error messages call an argument. */

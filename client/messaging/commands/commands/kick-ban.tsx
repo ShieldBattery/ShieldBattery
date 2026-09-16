@@ -57,6 +57,7 @@ function ambiguousMemberLine(name: string, t: TFunction): React.ReactNode {
 export const kickCommand = defineCommand({
   name: 'kick',
   description: t => t('chat.commands.kick.description', 'Kicks a user out of this channel.'),
+  group: 'moderation',
   surfaces: ['channel'],
   getUnavailableReason: (context, t) =>
     context.surface === 'channel' && !context.canKick
@@ -109,6 +110,7 @@ export const kickCommand = defineCommand({
 export const banCommand = defineCommand({
   name: 'ban',
   description: t => t('chat.commands.ban.description', 'Bans a user from this channel.'),
+  group: 'moderation',
   surfaces: ['channel'],
   getUnavailableReason: (context, t) =>
     context.surface === 'channel' && !context.canBan

@@ -104,6 +104,7 @@ export const replyCommand = defineCommand({
   aliases: ['r'],
   description: t =>
     t('chat.commands.reply.description', 'Whispers back to the last person who whispered you.'),
+  group: 'chat',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'rest', name: 'message', optional: true }],
 

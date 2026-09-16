@@ -62,6 +62,7 @@ export const profileCommand = defineCommand({
       'chat.commands.profile.description',
       "Shows a user's profile card: their rank and win/loss record.",
     ),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [USER_ARG],
 
@@ -73,6 +74,7 @@ export const statsCommand = defineCommand({
   aliases: ['astat'],
   description: t =>
     t('chat.commands.stats.description', "Shows a user's win/loss record and ranks."),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [USER_ARG],
 
@@ -83,6 +85,7 @@ export const rankCommand = defineCommand({
   name: 'rank',
   aliases: ['mmr'],
   description: t => t('chat.commands.rank.description', "Shows a user's current ranked divisions."),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [USER_ARG],
 

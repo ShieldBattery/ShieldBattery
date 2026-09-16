@@ -151,6 +151,7 @@ export const whoisCommand = defineCommand({
   aliases: ['where', 'whereis'],
   description: t =>
     t('chat.commands.whois.description', 'Shows what a user is doing, as far as you can see.'),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'user', name: 'user', optional: true }],
 

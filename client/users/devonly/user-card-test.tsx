@@ -8,11 +8,12 @@ import { UserProfileJson } from '../../../common/users/user-network'
 import { ScenarioPicker } from '../../lobbies/devonly/scenario-picker'
 import { UserCardContent, UserCardState } from '../user-card'
 
-type Scenario = 'loading' | 'loaded' | 'unranked' | 'error'
+type Scenario = 'loading' | 'loaded' | 'noSeason' | 'unranked' | 'error'
 
 const SCENARIOS: Array<{ id: Scenario; label: string }> = [
   { id: 'loading', label: 'Loading' },
   { id: 'loaded', label: 'Loaded' },
+  { id: 'noSeason', label: 'Loaded, season unknown' },
   { id: 'unranked', label: 'No ranks, no games' },
   { id: 'error', label: 'Error' },
 ]
@@ -101,6 +102,8 @@ function scenarioToState(scenario: Scenario): UserCardState {
       return { status: 'loading' }
     case 'loaded':
       return { status: 'loaded', profile: RANKED_PROFILE, season: MOCK_SEASON }
+    case 'noSeason':
+      return { status: 'loaded', profile: RANKED_PROFILE, season: undefined }
     case 'unranked':
       return { status: 'loaded', profile: NEW_USER_PROFILE, season: MOCK_SEASON }
     case 'error':

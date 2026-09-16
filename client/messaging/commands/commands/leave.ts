@@ -7,6 +7,7 @@ import { defineCommand } from '../command-schema'
 export const leaveCommand = defineCommand({
   name: 'leave',
   description: t => t('chat.commands.leave.description', 'Leaves the channel or lobby you are in.'),
+  group: 'chat',
   surfaces: ['channel', 'lobby'],
   args: [],
 

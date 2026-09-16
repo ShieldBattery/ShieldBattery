@@ -25,6 +25,7 @@ export const quoteCommand = defineCommand({
       'chat.commands.quote.description',
       'Quotes a random Brood War unit line, from one unit if you name it.',
     ),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   // A word rather than an enum of the units, so usage strings read `[unit]` instead of spelling
   // out the whole catalogue; the palette still offers exactly the units there are.

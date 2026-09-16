@@ -92,6 +92,7 @@ export const blockCommand = defineCommand({
       'chat.commands.block.description',
       'Blocks a user: hides their messages here and in any game you launch.',
     ),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'user', name: 'user' }],
 
@@ -143,6 +144,7 @@ export const unblockCommand = defineCommand({
   name: 'unblock',
   aliases: ['unignore', 'unsquelch'],
   description: t => t('chat.commands.unblock.description', 'Unblocks a user.'),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'user', name: 'user', exhaustive: true, suggest: getBlockSuggestions }],
 

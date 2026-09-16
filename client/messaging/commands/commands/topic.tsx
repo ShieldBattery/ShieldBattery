@@ -17,6 +17,7 @@ function noPermission(t: TFunction): string {
 export const topicCommand = defineCommand({
   name: 'topic',
   description: t => t('chat.commands.topic.description', "Sets this channel's topic."),
+  group: 'chat',
   surfaces: ['channel'],
   getUnavailableReason: (context, t) =>
     context.surface === 'channel' && !context.canEditChannel ? noPermission(t) : undefined,

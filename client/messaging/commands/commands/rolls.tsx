@@ -15,6 +15,7 @@ export const rollCommand = defineCommand({
         "Rolls a number from 1 to {{max}}, or up to the number you give. The server rolls it, so it can't be faked.",
       max: ROLL_DEFAULT_MAX,
     }),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   args: [
     {
@@ -37,6 +38,7 @@ export const rollCommand = defineCommand({
 export const flipCommand = defineCommand({
   name: 'flip',
   description: t => t('chat.commands.flip.description', 'Flips a coin, settled by the server.'),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   args: [],
 
@@ -52,6 +54,7 @@ export const eightBallCommand = defineCommand({
       'chat.commands.eightBall.description',
       'Asks the magic 8-ball a question, answered by the server.',
     ),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'rest', name: 'question' }],
 

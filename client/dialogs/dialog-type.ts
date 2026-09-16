@@ -127,6 +127,12 @@ type ChatCommandHelpDialogPayload = BaseDialogPayload<
       args: Array<{ label: string; optional: boolean }>
       /** Already localized. */
       description: string
+      /**
+       * The heading the dialog lists the command under. Spelled out rather than imported: this
+       * file can't depend on the command modules without a dependency cycle through the reducers,
+       * and the dialog's props type checks it against the real union.
+       */
+      group: 'chat' | 'people' | 'matchmaking' | 'moderation' | 'fun'
     }>
   }
 >

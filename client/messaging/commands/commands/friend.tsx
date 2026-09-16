@@ -407,6 +407,7 @@ export const friendsCommand = defineCommand({
       'chat.commands.friends.description',
       'Manages your friends list: add, remove, or list them with their current activity.',
     ),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [
     {

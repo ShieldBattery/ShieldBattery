@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { getResultLabel, getResultShortLabel } from '../../common/games/results'
 import {
   getRankedTypesByActivity,
   ladderPlayerToMatchmakingDivision,
 } from '../../common/ladder/ladder'
 import {
   getTotalBonusPoolForSeason,
+  MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
   matchmakingTypeToLabel,
@@ -16,6 +18,8 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { PlayerResultChip } from '../games/result-chip'
+import { DivisionIcon } from '../matchmaking/rank-icon'
 import { FilledButton } from '../material/button'
 import {
   getInlineCardHeight,
@@ -25,19 +29,23 @@ import {
   InlineCardInfoColumn,
   InlineCardLoading,
   InlineCardRoot,
-  InlineCardSecondaryLine,
   InlineCardTitle,
 } from '../messaging/inline-card'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { bodySmall, singleLine } from '../styles/typography'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
 
-// The info column stacks 3 rows (name, ranks, win/loss record) separated by the shared info gap;
-// their combined height comes straight from the typography tokens those rows render with
-// (`titleSmall`/`bodySmall`'s `line-height`, see client/styles/typography.ts) rather than a guessed
-// number, so it stays correct if either token's line-height ever changes.
+// The info column stacks 3 rows: the display name, the most-played ranked mode's division badge
+// and label, and the all-time win/loss record. The name and record rows are plain text, so their
+// height comes from the typography token they render with (`titleSmall`/`bodySmall`'s
+// `line-height`, see client/styles/typography.ts); the rank row's height instead comes from its
+// division badge, which is drawn taller than the `bodySmall` text beside it.
 const NAME_LINE_HEIGHT = 20 // titleSmall
-const SECONDARY_LINE_HEIGHT = 16 // bodySmall
-const INFO_STACK_HEIGHT = NAME_LINE_HEIGHT + SECONDARY_LINE_HEIGHT * 2 + INLINE_CARD_INFO_GAP * 2
+const RANK_BADGE_SIZE = 20
+const RANK_LINE_HEIGHT = RANK_BADGE_SIZE
+const RECORD_LINE_HEIGHT = 16 // bodySmall
+const INFO_STACK_HEIGHT =
+  NAME_LINE_HEIGHT + RANK_LINE_HEIGHT + RECORD_LINE_HEIGHT + INLINE_CARD_INFO_GAP * 2
 
 const CARD_HEIGHT = getInlineCardHeight(INFO_STACK_HEIGHT)
 
@@ -52,6 +60,50 @@ const CardAvatar = styled(ConnectedAvatar)`
 // truncates instead.
 const ProfileButton = styled(FilledButton)`
   flex-shrink: 0;
+`
+
+const RankLineRoot = styled.div`
+  height: ${RANK_LINE_HEIGHT}px;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const RankBadge = styled(DivisionIcon)`
+  width: ${RANK_BADGE_SIZE}px;
+  height: ${RANK_BADGE_SIZE}px;
+  flex-shrink: 0;
+`
+
+const RankText = styled.span`
+  ${singleLine};
+  min-width: 0;
+`
+
+const RecordLine = styled.div`
+  height: ${RECORD_LINE_HEIGHT}px;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const Count = styled.span`
+  margin-right: 8px;
+`
+
+const Separator = styled.span`
+  margin-right: 4px;
 `
 
 export type UserCardState =
@@ -95,16 +147,52 @@ export function UserCardContent({ userId, name, state, onProfileClick }: UserCar
   }
 
   const { profile, season } = state
-  const rankText = rankLineText(profile, season, t)
-  const recordText = recordLineText(profile, t)
+  const rankLine = getRankLine(profile, season, t)
+  const { pWins, tWins, zWins, rWins, pLosses, tLosses, zLosses, rLosses } = profile.userStats
+  const wins = pWins + tWins + zWins + rWins
+  const losses = pLosses + tLosses + zLosses + rLosses
+  const totalGames = wins + losses
 
   return (
     <InlineCardRoot $height={CARD_HEIGHT}>
       <CardAvatar userId={userId} />
       <InlineCardInfoColumn>
         <InlineCardTitle title={name}>{name ?? ''}</InlineCardTitle>
-        <InlineCardSecondaryLine title={rankText}>{rankText}</InlineCardSecondaryLine>
-        <InlineCardSecondaryLine title={recordText}>{recordText}</InlineCardSecondaryLine>
+        <RankLineRoot title={rankLine.tooltip}>
+          {rankLine.kind !== 'seasonUnknown' ? (
+            <RankBadge division={rankLine.badge} size={RANK_BADGE_SIZE} />
+          ) : null}
+          <RankText>{rankLine.text}</RankText>
+        </RankLineRoot>
+        {totalGames > 0 ? (
+          <RecordLine>
+            <PlayerResultChip
+              $result='win'
+              role='img'
+              aria-label={getResultLabel('win', t)}
+              title={getResultLabel('win', t)}>
+              {getResultShortLabel('win', t)}
+            </PlayerResultChip>
+            <Count>{wins}</Count>
+            <PlayerResultChip
+              $result='loss'
+              role='img'
+              aria-label={getResultLabel('loss', t)}
+              title={getResultLabel('loss', t)}>
+              {getResultShortLabel('loss', t)}
+            </PlayerResultChip>
+            <Count>{losses}</Count>
+            <Separator>·</Separator>
+            {t('users.card.totalGames', {
+              defaultValue: '{{count}} games',
+              // eslint-disable-next-line camelcase -- i18next's plural-form key convention
+              defaultValue_one: '{{count}} game',
+              count: totalGames,
+            })}
+          </RecordLine>
+        ) : (
+          <RecordLine>{t('users.card.noGames', 'No games played')}</RecordLine>
+        )}
       </InlineCardInfoColumn>
       <ProfileButton
         label={t('users.card.viewProfile', 'Profile')}
@@ -116,51 +204,54 @@ export function UserCardContent({ userId, name, state, onProfileClick }: UserCar
 }
 
 /**
- * Formats the user's ranked modes, most active first, as "<mode> <division>" entries. Without the
- * season the division can't be computed (it depends on how large the bonus pool has grown), so the
- * mode names are shown on their own.
+ * The user card's rank line for the user's most-played ranked matchmaking mode, in one of three
+ * states: they haven't played a ranked mode at all, they have but the season's bonus pool hasn't
+ * loaded (so a division can't be computed), or a division and point total are both available.
  */
-function rankLineText(
+export type RankLine =
+  | { kind: 'unranked'; badge: MatchmakingDivision; text: string; tooltip: string }
+  | { kind: 'seasonUnknown'; text: string; tooltip: string }
+  | { kind: 'ranked'; badge: MatchmakingDivision; text: string; tooltip: string }
+
+/**
+ * Computes the user card's rank line for the user's most-played ranked mode
+ * (`getRankedTypesByActivity` sorts by activity, so the first entry is the one to show). The
+ * tooltip always covers every ranked mode the user has played, most-played first, so hovering the
+ * line reveals the modes the compact text leaves out.
+ */
+export function getRankLine(
   profile: ReadonlyDeep<UserProfileJson>,
   season: ReadonlyDeep<MatchmakingSeasonJson> | undefined,
   t: TFunction,
-): string {
+): RankLine {
   const rankedTypes = getRankedTypesByActivity(profile.ladder)
   if (!rankedTypes.length) {
-    return t('users.card.unranked', 'Unranked')
+    const text = t('users.card.unranked', 'Unranked')
+    return { kind: 'unranked', badge: MatchmakingDivision.Unrated, text, tooltip: text }
   }
 
   if (!season) {
-    return rankedTypes.map(type => matchmakingTypeToLabel(type, t)).join(' · ')
+    const text = rankedTypes.map(type => matchmakingTypeToLabel(type, t)).join(' · ')
+    return { kind: 'seasonUnknown', text, tooltip: text }
   }
 
   const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
-  return rankedTypes
+  const [mostPlayedType] = rankedTypes
+  const player = profile.ladder[mostPlayedType]!
+  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+  const text = t('users.card.rankLine', '{{division}} · {{mode}} · {{points}} pts', {
+    division: matchmakingDivisionToLabel(division, t),
+    mode: matchmakingTypeToLabel(mostPlayedType, t),
+    points: Math.round(player.points).toLocaleString(),
+  })
+  const tooltip = rankedTypes
     .map(type => {
-      const division = ladderPlayerToMatchmakingDivision(profile.ladder[type]!, bonusPool)
-      return `${matchmakingTypeToLabel(type, t)} ${matchmakingDivisionToLabel(division, t)}`
+      const typeDivision = ladderPlayerToMatchmakingDivision(profile.ladder[type]!, bonusPool)
+      return `${matchmakingTypeToLabel(type, t)} ${matchmakingDivisionToLabel(typeDivision, t)}`
     })
     .join(' · ')
-}
 
-function recordLineText(profile: ReadonlyDeep<UserProfileJson>, t: TFunction): string {
-  const { pWins, tWins, zWins, rWins, pLosses, tLosses, zLosses, rLosses } = profile.userStats
-  const wins = pWins + tWins + zWins + rWins
-  const losses = pLosses + tLosses + zLosses + rLosses
-  const total = wins + losses
-
-  if (!total) {
-    return t('users.card.noGames', 'No games played')
-  }
-
-  return t('users.card.record', {
-    defaultValue: '{{count}} games · {{wins}}–{{losses}}',
-    // eslint-disable-next-line camelcase -- i18next's plural-form key convention
-    defaultValue_one: '{{count}} game · {{wins}}–{{losses}}',
-    count: total,
-    wins,
-    losses,
-  })
+  return { kind: 'ranked', badge: division, text, tooltip }
 }
 
 /**
