@@ -101,6 +101,37 @@ consistent. (Seed — extend over time.)
   pan→**arrastre de cámara** (in-file), Settings nav→**Ajustes** (never "Configuración" in paths).
 - **Chat commands:** whisper→susurro/susurrar, /me action line→acción, aliases→alias, channel/lobby/whisper
   surfaces→canales/lobbies/susurros; mute channel→**Silenciar canal**; "only you" gutter→**solo tú**.
+- **Chat command lines:** `/help` descriptions are third-person present ("Bloquea a un usuario: …");
+  result lines addressed to the invoker use tú preterite ("Bloqueaste a X."); errors keep the
+  "No se pudo …: {{errorMessage}}" shape. online/offline→**conectado/desconectado** (never "en
+  línea"); presence words active/idle/offline→**activo/ausente/desconectado**. friend
+  request→solicitud de amistad, unfriend→quitar de tus amigos, unblock→desbloquear, unban→desbanear.
+- **Server-settled outcome lines** (`/flip`, `/roll`, `/8ball`, `/quote`) render right after a bare
+  username, so they are subject-less third-person verbs: "lanza una moneda: …", "saca {{value}}
+  (1-{{max}})", "le pregunta a la bola 8 \"…\"", "cita a <unidad>: \"…\"" (no article — units are
+  mixed gender). 8-ball→**bola 8**; heads/tails→**cara/cruz**; answers follow the classic Spanish
+  toy wordings and stay short (uppercase nowrap chip).
+- **Unit names come from the es term export** (`pnpm run i18n terms es <Unit>`): **VCE** for SCV,
+  Médica, Zelot, Dragún, Portanaves, Ánima, … — don't keep the English names.
+- **Key names in keyboard/screen-reader text:** Space→**la barra espaciadora** (never "Espacio",
+  which is the slot noun), Escape→Escape, arrow keys→las flechas.
+- **Lobby room:** unit limit→**Límite de unidades** (values Ampliado / Clásico); the "Teams" stat
+  label→**Equipos**; computer player→computadora; "once it regroups"→"cuando todos vuelvan al
+  lobby". Series: one game→**partida**, the tiny chip `G{{number}}`→**P{{number}}**, the in-progress
+  chip→**En curso** (siblings Pendiente / Iniciando). The arrival card's seat line is third person
+  and verb-initial like `seatedOn` "ocupa {{seat}}" → observer arrival = "ocupa un espacio de
+  observador". Hold buttons spell out the verb: "Mantén pulsado para empezar". "ready reset"→"se
+  reinició el estado de listo".
+- **reply (message) → responder** ("Respondiendo a X" / "Dejar de responder"); distinct from `/r`,
+  which answers a whisper.
+- **User card:** "{{count}} partidas · {{wins}}–{{losses}}"; Unranked/Unrated→**Sin clasificar**
+  everywhere (the old "Sin rango" was folded in); Profile button→**Perfil**; the profile stat label
+  Record→**Victorias/derrotas** (not "Registro").
+- **Plurals:** the `many` form takes **de** before the noun ("{{count}} de partidas"); when no noun
+  follows the count, `many` equals `other` ("y {{count}} más").
+- **Day divider (`messaging.newDayMessage`) is just the date** ("<2>{{day}}</2>"): it renders
+  between two rules, so "Día cambiado a" was redundant. The channel-join divider is "Te uniste a
+  <2><0></0></2>" (the old MT dropped the "a").
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -136,14 +167,45 @@ consistent. (Seed — extend over time.)
 - **Chat commands:** whisper (noun)→личное сообщение, the whisper chip label→**Личный чат**, /me action
   line→действие, aliases→псевдонимы, surfaces in prepositional case (в каналах / в лобби / в личных
   сообщениях); mute channel→**Отключить уведомления канала**, Muted→Уведомления отключены.
+- **Mentions never decline.** A `<0><0></0></0>` / `<2><0></0></2>` mention renders a raw username,
+  so keep it in the nominative or hang a governing noun in front that carries the case
+  («Не удалось заблокировать пользователя <2><0></0></2>», «отправлен пользователю …»). The same
+  trick fixes gender («Пользователь … Вас заблокировал» agrees with «пользователь»). Friend
+  request→**запрос в друзья**. Presence words active/idle/offline→**активен / бездействует /
+  офлайн**; list-header counts→**в сети / не в сети**.
+- **Outcome lines** (`/flip`, `/roll`, `/8ball`, `/quote`) render after a bare username: third
+  person singular **present** («бросает монету: …», «бросает кубик: …», «спрашивает у шара: «…»»,
+  «цитирует <unit>: «…»»), never gendered past tense. Quoted speech inside uses «». 8-ball→
+  **магический шар**; answers follow the established Russian set adjusted to Вы and shortened for
+  the nowrap chip.
+- **Unit names** use the SC:R export but **drop its guillemets** (Арбитр, Корсар, Голиаф, …) and
+  write ё (Тёмный тамплиер, Огнемётчик).
+- **Lobby room:** unit limit→**Лимит юнитов** (Расширенный / Классический); "Teams" stat→**Команды**;
+  the tiny series chip `G{{number}}`→**№{{number}}** («И» reads as "and"); series status labels are
+  nouns (Запуск / Ожидание / **В игре**), never a bare verb; game headlines put the winner in the
+  nominative with a present verb («Игра N: побеждает {{player}} (…)»); the arrival card's observer
+  seat line is «входит как зритель», parallel to «занимает {{seat}}». Key names: Пробел / стрелки /
+  Esc.
+- **reply (message):** Ответить / «Ответ пользователю <1>{{name}}</1>» / Отменить ответ.
+- **User card:** Unranked→**Без рейтинга** (now also `matchmaking.division.unrated`), Profile
+  button→**Профиль**, «{{count}} игра/игры/игр · {{wins}}–{{losses}}».
+- **Plural `other` is the fraction case (genitive singular), not a copy of `few`** — for animate
+  nouns they differ: `few` «{{count}} друзей» vs `other` «{{count}} друга».
+- **Day divider carries no verb** («<2>{{day}}</2>»): the date starts with a numeral, so any verb
+  would need an unguaranteeable gender agreement. Dialog titles avoid gendered participles about the
+  reader («Бан в матчмейкинге», not «Забанен …»).
+- **Tileset names** (`maps.tileset.*`) follow the export's `Map tileset` rows, capitalized as UI
+  labels and with ё: Пустошь / Космос (Space platform) / Станция / Вулкан / Джунгли (Jungle world) /
+  Пустыня / Лёд / Сумрак. They had been left in English.
+- **Known debt:** ~40 older keys (`auth.*`, `landing.*`, `users.errors.friendsList.*`, …) write
+  lowercase вы/ваш; sweep them to Вы as their own pass.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
   overwhelmingly 합니다체 (~191 vs 3), which is the conventional, non-stiff register for Korean
   software UIs — consistency with the file wins over the "casual 해요체" default above. Keep the
-  *casual/native feel* through community vocabulary, not through informal verb endings. (Note: parts
-  of the existing `leagues` section and a few stray keys like `cancel: "취소해줘"` are in casual 반말
-  from old MT and read as inconsistent — worth a cleanup pass.)
+  *casual/native feel* through community vocabulary, not through informal verb endings. (The old-MT
+  반말/해요체 stragglers were swept to 합니다체 on 2026-09-16; see the register-cleanup bullet below.)
 - Team sizes use the colon format: `1v1`→`1:1`, `2v2`→`2:2`, `3v3`→`3:3` (matches the in-game
   `1v1 Fastest`→`1:1 빨무`).
 - **Fastest / Fastest Map → 빨무 / 빨무 맵** (community slang for money/fast maps; in `terms` as 빨무).
@@ -177,6 +239,37 @@ consistent. (Seed — extend over time.)
   hedge since the value can be 권장 or 클래식.
 - **Chat commands:** whisper→귓속말, /me action line→행동 메시지, aliases→별칭, mute channel→**채널 음소거**,
   "only you" gutter→**나만 보임**, mention→멘션.
+- **Mentions take 님.** A `<0><0></0></0>` / `<2><0></0></2>` mention renders a bare username of
+  unknown final consonant, so attach **님** right after the tag and let the particle ride on it
+  (`<0><0></0></0>님은 이미 차단되어 있습니다.`). Plain styled slots (`<1>{{name}}</1>`) still need
+  the (이)라는 / (으)로 hedge.
+- **Action lines** (`chat.outcomes.*.line`) start with **님이** and finish the sentence: the renderer
+  composes `* ` + username + space + string (`님이 동전을 던졌습니다: <1>{{result}}</1>`). Where
+  English apposes a value (`rolls <1>42</1>`), restructure to `…했습니다: <chip>` rather than
+  putting a particle on a number. Magic 8-ball→**매직 8볼** (8볼 in the line).
+- **Presence words** active/idle/offline→**활동 중 / 자리 비움 / 오프라인**, identical on
+  `chat.userList.*` and `chat.commands.whois.presence.*` (the old 실행 / 개발 환경 were dev-tool MT).
+- **Chat command vocabulary:** block→차단 / unblock→차단 해제, friend request→친구 요청,
+  topic→**주제**, division→**디비전**, moderator→관리자, Brood War→**브루드 워**. "any game you
+  launch" (block scope)→**참가하는 모든 게임** — 직접 실행하는 게임 reads as "games you host" and is
+  wrong.
+- **Unit names** per the term export: 아비터 / 아콘 / 배틀크루저 / 캐리어 / 커세어 / 다크 템플러 /
+  드라군 / 드롭십 / 파이어뱃 / 고스트 / 골리앗 / 마린 / 메딕 / SCV / 셔틀 / 시즈 탱크 / 하이 템플러 /
+  발키리 / 벌쳐 / 레이스 / 질럿.
+- **Lobby room:** slot in the *room* is **자리** (자리 바꾸기, {{number}}번 자리) while the
+  browser/summary stat label stays 슬롯. Unit limit label **유닛 제한**, values **확장 / 옛 방식**
+  (matches 옛 유닛 제한; not the preset's 클래식). "Teams" stat→**팀 구성**. Series chip
+  `G{{number}}`→**{{number}}판**. Team headings `{{number}} 팀` (matches `game.teamName.number`).
+  Arrival-card seat lines are full 합니다 sentences (`{{seat}}에 앉았습니다` / 관전자로
+  참가했습니다) — move both together if one is ever shortened. Key names: 스페이스 / 방향키 / Esc.
+- **reply (message):** 답장 / `<1>{{name}}</1>님에게 답장` / 답장 취소 (distinct from the /r whisper).
+- **User card:** Unranked→**랭크 없음** (≠ 배치 전, which means "still in placements"),
+  `{{count}}전 · {{wins}}–{{losses}}`, Profile button→**프로필**.
+- **스타크래프트: 리마스터**, never 리마스터드.
+- **Register cleanup (2026-09-16):** the old-MT 반말 / 해요체 leftovers across `auth.*`,
+  `bugReport.*`, `leagues.*`, `ladder.*`, `settings.user.account.*` etc. were rewritten in 합니다체.
+  Treat any …어/…야/…거야 or …어요/…에요 ending as a bug. Drop the subject rather than write 너/당신
+  where a subject-less sentence works; "your machine"→사용자 컴퓨터; "ShieldBattery staff"→운영진.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -212,3 +305,27 @@ consistent. (Seed — extend over time.)
   paths are quoted: “设置 › 输入”.
 - **Chat commands:** whisper→私聊, /me action line→动作消息, aliases→别名, mute channel→**频道静音**, "only
   you" gutter→**仅您可见**, mention→提及 (level option 仅提及时通知).
+- **Chat command vocabulary:** block→**屏蔽** (ban→封禁, mute→静音), unblock→解除屏蔽,
+  friend/friends list→好友 / 好友列表, friend request→好友请求, topic→**主题** (not 话题),
+  division→**分级**, errors→"无法…：{{errorMessage}}", presence words active/idle/offline→**活跃 /
+  空闲 / 离线** (空闲 matches the 空闲用户 header). **mention→提及 everywhere**, including the
+  message menu item (the old 提到 was fixed).
+- **Outcome lines** (`/flip`, `/roll`, `/8ball`, `/quote`) render after a bare username, so each is
+  a subject-less verb phrase: 抛了一枚硬币：…, 掷出了 …, 问神奇8号球“…”, 引用了 <unit> 的台词“…”.
+  8-ball→**神奇8号球**; heads/tails→**正面 / 反面**; answers are the 20 classic ones in oracle voice
+  (no 您/你), 2–7 characters for the nowrap chip (e.g. 希望渺茫 for "Very doubtful", not 非常可疑).
+- **Unit names come from the SC:R export, not community slang:** Marine→**陆战队员** (not 机枪兵),
+  Wraith→**怨灵战机**, Valkyrie→**瓦格雷战机**, Dropship→**运输船**; SCV stays SCV. Brood War on its
+  own→**《母巢之战》**.
+- **Lobby room:** unit limit→**单位限制** (扩展 / 旧版); "Teams" stat→**队伍**; named team heading
+  `{{number}}队 · {{name}}` (matches `game.teamName.number`); hold (a button)→**长按** (长按强制开始);
+  the tiny series chip stays **G{{number}}** (fixed 24px column; 第N局 overflows — the long form
+  keeps 第 {{number}} 局); the arrival card's observer seat line is **入座观战位**, parallel to
+  入座 {{seat}}. Key names: 空格键 / 方向键 / Esc.
+- **"Slots" (`lobbies.summary.slotsLabel`) → 座位**, not 空位: the label is shared by the room banner
+  (total seats) and the lobby summary (open seats), so it stays neutral and the value carries any
+  "open" qualifier.
+- **Top vs Bottom team names → 上方队 / 下方队** (the old 主队 / 客队 read as home/away). They carry
+  队 themselves because `getTeamNames` returns finished labels alongside `1队`/`2队`.
+- **reply (message)→回复** (回复 / 正在回复 X / 取消回复), distinct from 私聊. **User card:** Profile
+  button→**资料**, Unranked→**未定级**, `{{count}} 场 · {{wins}}–{{losses}}`.

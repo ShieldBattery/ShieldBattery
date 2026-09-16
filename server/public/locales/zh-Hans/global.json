@@ -308,7 +308,7 @@
         "removeBadge": "移除徽章",
         "removeBanner": "移除横幅",
         "saveErrorMessage": "保存设置时出错了",
-        "topicLabel": "话题",
+        "topicLabel": "主题",
         "uploadBadge": "上传徽章",
         "uploadBanner": "上传横幅"
       },
@@ -351,9 +351,25 @@
         "noPermission": "您没有权限在此频道封禁用户。",
         "noSelfBan": "您不能封禁自己。"
       },
+      "block": {
+        "alreadyBlocked": "<0><0></0></0> 已被屏蔽。",
+        "blocked": "已屏蔽 <2><0></0></2>。从现在起，对方的消息会在这里以及您启动的任何游戏中被隐藏。",
+        "blockedAgain": "已再次屏蔽 <2><0></0></2>。",
+        "description": "屏蔽某个用户：在此处以及您启动的游戏中隐藏其消息。"
+      },
+      "cancel": {
+        "alreadyMatched": "已经匹配到对局，无法取消搜索。",
+        "cancelled": "已取消匹配搜索。",
+        "description": "取消您当前的匹配搜索。",
+        "error": "无法取消搜索：{{errorMessage}}",
+        "notSearching": "您当前没有在搜索对局。"
+      },
       "close": {
         "description": "关闭此私聊会话。",
         "error": "无法关闭会话：{{errorMessage}}"
+      },
+      "eightBall": {
+        "description": "向神奇8号球提问，由服务器给出答案。"
       },
       "errors": {
         "ambiguousMember": "有多名成员与 <1>{{name}}</1> 匹配。",
@@ -361,9 +377,37 @@
         "invalidArgument": "无效的 <1>{{arg}}</1>：{{value}}。用法：<7>{{usage}}</7>",
         "missingArgument": "缺少 <1>{{arg}}</1>。用法：<4>{{usage}}</4>",
         "noSuchMember": "此频道中没有名为 <1>{{name}}</1> 的成员。",
+        "noSuchUser": "没有名为 <1>{{name}}</1> 的用户。",
         "tooManyArguments": "参数过多。用法：<1>{{usage}}</1>",
+        "transformTooLong": "这条消息将有 {{length}} 个字符，而消息最多只能有 {{maxLength}} 个。",
         "unknownCommand": "未知命令 <1>{{command}}</1>。输入 <4>/help</4> 查看命令列表。",
+        "userLookupFailed": "无法查找 <1>{{name}}</1>：{{errorMessage}}",
         "wrongSurface": "<0>{{command}}</0> 只能在{{surfaces}}中使用。"
+      },
+      "flip": {
+        "description": "抛一枚硬币，由服务器决定结果。"
+      },
+      "friends": {
+        "add": {
+          "alreadyFriends": "您已经和 <2><0></0></2> 是好友了。",
+          "alreadyRequested": "您已经向 <2><0></0></2> 发送过好友请求。",
+          "description": "发送好友请求，或接受一条待处理的请求。",
+          "nowFriends": "您现在和 <2><0></0></2> 是好友了。",
+          "requestSent": "已向 <2><0></0></2> 发送好友请求。"
+        },
+        "description": "管理您的好友列表：添加、移除，或查看好友及其当前动态。",
+        "empty": "您的好友列表是空的。",
+        "header": "好友（{{online}} 人在线，{{offline}} 人离线）：",
+        "hideOffline": "隐藏离线好友",
+        "list": {
+          "description": "列出您的好友以及他们正在做什么。"
+        },
+        "loadError": "无法加载您的好友列表：{{errorMessage}}",
+        "remove": {
+          "description": "将某个用户从您的好友中移除。",
+          "removed": "已将 <2><0></0></2> 从您的好友中移除。"
+        },
+        "showOffline_other": "显示 {{count}} 位离线好友"
       },
       "help": {
         "aliasesLabel": "别名",
@@ -389,17 +433,115 @@
         "description": "发送一条动作消息，显示为“* 您的名字 做了某事”。",
         "sendError": "无法发送您的动作消息：{{errorMessage}}"
       },
+      "outcomes": {
+        "chatRestricted": "您目前被限制发送聊天消息。",
+        "sendError": "无法得出结果：{{errorMessage}}"
+      },
+      "profile": {
+        "description": "显示某个用户的资料卡：排名和胜负战绩。"
+      },
+      "quote": {
+        "description": "随机引用一句《母巢之战》的单位台词，也可以指定单位。",
+        "unknownUnit": "没有名为 <1>{{name}}</1> 的单位。可用单位：{{units}}"
+      },
+      "rank": {
+        "description": "显示某个用户当前的排位分级。"
+      },
+      "relationships": {
+        "acceptFailed": "无法接受 <2><0></0></2> 的好友请求：{{errorMessage}}",
+        "blockedByUser": "<0><0></0></0> 已屏蔽您。",
+        "blockFailed": "无法屏蔽 <2><0></0></2>：{{errorMessage}}",
+        "friendFailed": "无法向 <2><0></0></2> 发送好友请求：{{errorMessage}}",
+        "maxBlocks": "您已达到屏蔽用户数量上限（{{max}} 个）。",
+        "maxFriends": "您已达到好友数量上限（{{max}} 位）。",
+        "noFriendRequest": "<0><0></0></0> 没有向您发送过好友请求。",
+        "notBlocked": "<0><0></0></0> 未被屏蔽。",
+        "notOnFriendsList": "<0><0></0></0> 不在您的好友列表中。",
+        "selfBlock": "您不能屏蔽自己。",
+        "selfFriend": "您不能向自己发送好友请求。",
+        "selfUnblock": "您不能解除对自己的屏蔽。",
+        "selfUnfriend": "您不能将自己从好友中移除。",
+        "unblockFailed": "无法解除对 <2><0></0></2> 的屏蔽：{{errorMessage}}",
+        "unfriendFailed": "无法将 <2><0></0></2> 从您的好友中移除：{{errorMessage}}"
+      },
+      "reply": {
+        "chatRestricted": "您目前被限制发送聊天消息。",
+        "description": "私聊回复最近一个私聊您的人。",
+        "noTarget": "还没有人私聊过您，所以没有可回复的对象。",
+        "sendError": "无法向 <1>{{target}}</1> 发送回复：{{errorMessage}}"
+      },
+      "roll": {
+        "description": "掷出 1 到 {{max}} 之间的随机数，也可以自己指定上限。结果由服务器掷出，无法伪造。"
+      },
+      "shrug": {
+        "description": "在您的消息后附加 ¯\\_(ツ)_/¯。"
+      },
+      "stats": {
+        "description": "显示某个用户的胜负战绩和排名。"
+      },
       "surfaces": {
         "channel": "频道",
         "lobby": "房间",
         "whisper": "私聊"
       },
+      "tableflip": {
+        "description": "掀桌子：(╯°□°)╯︵ ┻━┻"
+      },
+      "topic": {
+        "description": "设置此频道的主题。",
+        "error": "无法设置主题：{{errorMessage}}",
+        "noPermission": "只有频道所有者和服务器管理员才能更改主题。",
+        "set": "主题已设置为：<1>{{topic}}</1>"
+      },
+      "unban": {
+        "description": "解除某个用户在此频道的封禁。",
+        "error": "无法解除对 <2><0></0></2> 的封禁：{{errorMessage}}",
+        "noPermission": "您没有权限解除此频道用户的封禁。",
+        "notBanned": "<0><0></0></0> 未被此频道封禁。",
+        "unbanned": "<0><0></0></0> 已解除在此频道的封禁。"
+      },
+      "unblock": {
+        "description": "解除对某个用户的屏蔽。",
+        "unblocked": "已解除对 <2><0></0></2> 的屏蔽。"
+      },
+      "unflip": {
+        "description": "把桌子摆回去：┬─┬ ノ( ゜-゜ノ)"
+      },
       "whisper": {
-        "description": "向某个用户发送私信。",
+        "description": "向某个用户发送私聊消息。",
         "noSelfMessaging": "您不能与自己私聊。",
         "sendError": "无法向 <1>{{target}}</1> 发送私聊：{{errorMessage}}",
+        "sent": "已向 <1>{{target}}</1> 发送私聊。",
         "startError": "无法与 <1>{{target}}</1> 开始私聊：{{errorMessage}}",
         "userNotFound": "没有名为 <1>{{target}}</1> 的用户。"
+      },
+      "who": {
+        "description": "列出您已加入的某个频道里都有谁。",
+        "line": "<2><0></0></2> 中的用户（{{onlineCount}} 人在线，{{offlineCount}} 人离线）：<10></10>",
+        "lineTruncated_other": "<2><0></0></2> 中的用户（{{onlineCount}} 人在线，{{offlineCount}} 人离线）：<10></10> 以及另外 {{count}} 人",
+        "loadError": "无法加载 <2><0></0></2> 中的用户：{{errorMessage}}",
+        "noneOnline": "<2><0></0></2> 中的用户（{{onlineCount}} 人在线，{{offlineCount}} 人离线）。",
+        "notInChannel": "您不在 <1>#{{channel}}</1> 中。"
+      },
+      "whoami": {
+        "description": "显示您当前登录的名称和用户 ID。",
+        "line": "您是 <2><0></0></2>（用户 ID {{id}}）。"
+      },
+      "whois": {
+        "channelsLabel": "频道：",
+        "description": "显示某个用户正在做什么，以您能看到的为准。",
+        "inGame": "<0><0></0></0> 正在游戏中。",
+        "inLobby": "<0><0></0></0> 正在某个房间中。",
+        "inQueue": "<0><0></0></0> 正在匹配队列中。",
+        "offline": "<0><0></0></0> 当前离线。",
+        "online": "<0><0></0></0> 当前在线。",
+        "presence": {
+          "active": "活跃",
+          "idle": "空闲",
+          "offline": "离线"
+        },
+        "self": "您是 <2><0></0></2>。",
+        "unknown": "无法得知 <2><0></0></2> 正在做什么：只有好友和您所在频道的成员才会共享状态。"
       }
     },
     "createChannel": {
@@ -481,6 +623,67 @@
       "muteChannel": "频道静音",
       "mutedTitle": "已静音",
       "unban": "您在 <1>#{{channelName}}</1> 的封禁已解除。"
+    },
+    "outcomes": {
+      "eightBall": {
+        "answers": {
+          "asISeeItYes": "依我看，是的",
+          "askAgainLater": "稍后再问",
+          "betterNotTellYouNow": "现在还是不说为好",
+          "cannotPredictNow": "目前无法预测",
+          "concentrateAndAskAgain": "集中精神，再问一次",
+          "dontCountOnIt": "别指望了",
+          "itIsCertain": "这是肯定的",
+          "itIsDecidedlySo": "确实如此",
+          "mostLikely": "很有可能",
+          "myReplyIsNo": "我的回答是：不",
+          "mySourcesSayNo": "我的消息来源说不行",
+          "outlookGood": "前景不错",
+          "outlookNotSoGood": "前景不太妙",
+          "replyHazyTryAgain": "答案模糊，再试一次",
+          "signsPointToYes": "迹象表明是的",
+          "veryDoubtful": "希望渺茫",
+          "withoutADoubt": "毫无疑问",
+          "yes": "是的",
+          "yesDefinitely": "是的，绝对是",
+          "youMayRelyOnIt": "尽管放心"
+        },
+        "line": "问神奇8号球“{{question}}” <4>{{answer}}</4>"
+      },
+      "flip": {
+        "heads": "正面",
+        "line": "抛了一枚硬币：<1>{{result}}</1>",
+        "tails": "反面"
+      },
+      "quote": {
+        "line": "引用了 <1>{{unit}}</1> 的台词“{{line}}”",
+        "units": {
+          "arbiter": "仲裁者",
+          "archon": "执政官",
+          "battlecruiser": "战列巡航舰",
+          "carrier": "航母",
+          "corsair": "海盗船",
+          "darktemplar": "黑暗圣堂武士",
+          "dragoon": "龙骑士",
+          "dropship": "运输船",
+          "firebat": "火蝠",
+          "ghost": "幽灵",
+          "goliath": "歌利亚",
+          "marine": "陆战队员",
+          "medic": "医疗兵",
+          "scv": "SCV",
+          "shuttle": "穿梭机",
+          "tank": "攻城坦克",
+          "templar": "高阶圣堂武士",
+          "valkyrie": "瓦格雷战机",
+          "vulture": "秃鹫",
+          "wraith": "怨灵战机",
+          "zealot": "狂热者"
+        }
+      },
+      "roll": {
+        "line": "掷出了 <1>{{value}}</1>（1-{{max}}）"
+      }
     },
     "transferOwnership": {
       "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
@@ -713,9 +916,9 @@
       "winShort": "胜"
     },
     "teamName": {
-      "bottom": "客队",
+      "bottom": "下方队",
       "number": "{{teamNumber}}队",
-      "top": "主队"
+      "top": "上方队"
     },
     "time": {
       "justNow": "刚刚"
@@ -1058,6 +1261,17 @@
     }
   },
   "lobbies": {
+    "actionErrors": {
+      "countingDown": "房间已经在倒计时了",
+      "gameInProgress": "房间正在进行游戏",
+      "generic": "出了点问题，请重试。",
+      "invalidSlotOperation": "该座位目前无法更改",
+      "invalidTeamLayout": "此布局下无法重新排列队伍",
+      "notEnoughSides": "游戏至少需要两方都有玩家",
+      "notEveryoneReady": "还有人没有准备好",
+      "notHost": "只有房主才能这么做",
+      "throttled": "请求过于频繁，请稍后再试"
+    },
     "activity": {
       "title": "房间 ({{lobbyCount}})"
     },
@@ -1209,11 +1423,17 @@
       "memberBody": "加入“{{target}}”后，您将离开“{{current}}”。"
     },
     "lobby": {
-      "inGame": "游戏中"
+      "gameSubType": "队伍",
+      "inGame": "游戏中",
+      "unitLimit": "单位限制",
+      "unitLimitExtended": "扩展",
+      "unitLimitLegacy": "旧版"
     },
     "lobbySettings": {
       "errorDialogTitle": "更新设置出错",
-      "errorGeneric": "无法更新房间设置。当前成员可能不适合新的配置。"
+      "errorGeneric": "无法更新房间设置。当前成员可能不适合新的配置。",
+      "errorRename": "无法重命名房间。请重试。",
+      "errorTransient": "房间正在开始或进行游戏。请等房间重新集合后再试。"
     },
     "messageLayout": {
       "gameStarted": "游戏已开始",
@@ -1224,14 +1444,11 @@
       "settingsChangeObservers": "观战者",
       "settingsChangeUnitLimit": "单位限制"
     },
-    "moveSlot": {
-      "title": "移动到…"
-    },
     "room": {
       "banner": {
         "shuffle": "打乱",
+        "shuffleBlockedByComputers": "移除电脑玩家后才能打乱",
         "statMode": "模式",
-        "statPeople": "人数",
         "statSize": "大小",
         "statTileset": "地形类型",
         "swapTeams": "交换队伍"
@@ -1240,6 +1457,7 @@
         "countdownCanceled": "倒计时已取消",
         "countdownStarted": "游戏即将开始",
         "isNowHost": "<0></0> 现在是房主",
+        "joinedAsObserver": "入座观战位",
         "joinedLobby": "<0></0> 加入了房间",
         "leftLobby": "<0></0> 离开了房间",
         "loadFailedNoUsers": "游戏无法开始",
@@ -1252,8 +1470,14 @@
         "settingsChanged": "<0></0> 更改了{{settings}}",
         "waitingForSeat": "<0></0> 正在等待座位",
         "wasBanned": "<0></0> 已被封禁",
-        "wasKicked": "<0></0> 已被踢出",
-        "watching": "观战中"
+        "wasKicked": "<0></0> 已被踢出"
+      },
+      "drag": {
+        "chooseTarget": "用方向键选择目标位置。空格键放下，Esc 取消。",
+        "keyboardInstructions": "按空格键拿起该玩家，用方向键选择位置，再按空格键放下。Esc 取消。",
+        "move": "移到这里",
+        "selectedTarget": "已选择位置 {{number}}。按空格键移动或交换。",
+        "swap": "交换位置"
       },
       "header": {
         "cancelReady": "取消准备",
@@ -1264,13 +1488,19 @@
         "visibilityPublic": "公开",
         "visibilityUnlisted": "不公开"
       },
+      "racePicker": {
+        "label": "种族"
+      },
       "rail": {
         "benchHeading": "替补席 · {{benchCount}}",
-        "benchTooltip": "在座位满时加入——有空位时由排在最前的人入座",
-        "holdToStartCaption": "所有人准备后可用 · 长按立即开始",
+        "benchTooltip": "在座位满时加入。有空位时由排在最前的人入座。",
+        "everyoneReady": "所有人已准备",
+        "holdToBypassReadiness": "长按 {{seconds}} 秒可不等待直接开始",
+        "holdToStartAnyway": "长按强制开始",
+        "needsOpposingSides": "至少需要两名互为对手的玩家",
         "readyCount": "{{readyCount}}/{{readyTotal}} 已准备",
         "startGame": "开始游戏",
-        "startWhenReady": "全员准备后开始",
+        "startingGame": "正在开始游戏",
         "waitingForHost": "等待房主开始"
       },
       "readyMark": {
@@ -1286,15 +1516,20 @@
         "earlierGames": "更早的对局",
         "fullSummary": "完整总结",
         "gameNumber": "第 {{number}} 局",
+        "gameNumberShort": "G{{number}}",
         "gamesLabel": "对局",
+        "headlineNoWinner": "第 {{number}} 局：未记录胜者（{{duration}}）",
+        "headlinePlayerWon": "第 {{number}} 局：{{player}} 获胜（{{duration}}）",
+        "headlineTeamWon": "第 {{number}} 局：{{team}} 获胜（{{duration}}）",
+        "headlineWaiting": "第 {{number}} 局，等待结果",
         "next": "下一局",
         "noRecordedWinner": "未记录胜者",
+        "playing": "进行中",
         "standings": "战绩",
         "starting": "启动中",
         "tileNoWinner": "无胜者",
         "tilePending": "等待中",
         "unknownMap": "未知地图",
-        "victoryTeam": "队伍 {{number}} 获胜",
         "waitingForResults": "等待结果",
         "watchReplay": "观看录像"
       },
@@ -1303,9 +1538,9 @@
         "kick": "踢出",
         "makeObserver": "设为观战者",
         "moveIntoPlayerSlot": "移至玩家位",
-        "moveToAnotherSlot": "移至其他位置",
         "remove": "移除"
-      }
+      },
+      "teamLabelNamed": "{{number}}队 · {{name}}"
     },
     "slots": {
       "addComputer": "添加电脑玩家",
@@ -1328,7 +1563,7 @@
       "mapLabel": "地图",
       "noLongerOpen": "该房间已不再开放。",
       "openSlotCount_other": "剩余{{count}}个",
-      "slotsLabel": "空位"
+      "slotsLabel": "座位"
     }
   },
   "map": {
@@ -1623,12 +1858,17 @@
     "localLine": {
       "onlyYou": "仅您可见"
     },
-    "mention": "提到",
+    "mention": "提及",
     "messageTooLongContent": "消息最多只能有 {{maxLength}} 个字符，这条有 {{length}} 个。请缩短后再发送。",
     "messageTooLongTitle": "消息过长",
     "newDayMessage": "日期已变为<2>{{day}}</2>",
     "newMessages": "新消息",
     "openLink": "打开链接",
+    "reply": "回复",
+    "replyChip": {
+      "replyingTo": "正在回复 <1>{{name}}</1>",
+      "stopReplying": "取消回复"
+    },
     "searchWithGoogle": "用谷歌搜索",
     "sendMessage": "发送消息",
     "sendMessageChatRestricted": "限制发送消息至 {{date}}",
@@ -2258,7 +2498,12 @@
         },
         "quietChannelsWhileInGame": "游戏中静音频道",
         "quietWhispersWhileInGame": "游戏中静音私聊",
-        "title": "通知"
+        "showWhispersEverywhere": "在所有聊天中显示私聊",
+        "title": "通知",
+        "whispers": {
+          "description": "您收发的私聊会以一行消息的形式显示在您当前查看的聊天里，这样无需切换就能阅读，并用 /r 直接回复。如果您会直播自己的屏幕，请关闭此项。",
+          "title": "私聊"
+        }
       },
       "social": {
         "blockedUsers": {
@@ -2401,6 +2646,13 @@
       "punishments": {
         "title": "惩罚"
       }
+    },
+    "card": {
+      "loadError": "无法加载该用户的资料。",
+      "noGames": "暂无对局",
+      "record_other": "{{count}} 场 · {{wins}}–{{losses}}",
+      "unranked": "未定级",
+      "viewProfile": "资料"
     },
     "contextMenu": {
       "addFriend": "添加好友",

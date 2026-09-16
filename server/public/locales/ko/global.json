@@ -115,14 +115,14 @@
       "resend": "이메일 재전송",
       "resendText": "이메일이 보이지 않나요?",
       "resent": "인증 이메일이 재전송되었습니다!",
-      "submitError": "이메일 인증에 문제가 발생했어요. 나중에 다시 시도해 주세요.",
+      "submitError": "이메일 인증 중 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
       "title": "이메일 확인",
       "verify": "인증하기"
     },
     "forgot": {
       "backToLogin": "로그인창으로 돌아가기",
       "password": {
-        "alreadyHaveCodeLink": "코드 이미 가지고 있어?",
+        "alreadyHaveCodeLink": "이미 코드가 있으신가요?",
         "emailAddress": "이메일 주소",
         "explanationText": "계정과 연결된 이메일 주소와 사용자 이름을 입력하세요. 새 비밀번호를 설정할 수 있는 재설정 코드가 포함된 이메일을 보내드릴게요.",
         "sendResetEmail": "재설정 이메일 보내기",
@@ -143,7 +143,7 @@
         "emailAddress": "이메일 주소",
         "enterEmail": "계정에 연결된 이메일 주소를 입력하세요. 해당 이메일 주소와 연결된 모든 사용자 이름이 포함된 이메일을 보내드릴게요(있다면).",
         "recoverUsername": "아이디 복구하기",
-        "successMessage": "잠시 후 그 이메일 주소와 관련된 모든 사용자 이름이 담긴 이메일을 받을 거야(있다면).",
+        "successMessage": "잠시 후 해당 이메일 주소와 연결된 모든 사용자 이름이 담긴 이메일을 받게 됩니다(있는 경우).",
         "title": "사용자 이름 복구하기"
       }
     },
@@ -191,7 +191,7 @@
     },
     "signup": {
       "ageConfirmation": "본인은 만13세 이상임을 확인합니다",
-      "alreadyHaveAccount": "이미 계정이 있어? <1>로그인</1>",
+      "alreadyHaveAccount": "이미 계정이 있으신가요? <1>로그인</1>",
       "confirmPassword": "비밀번호 확인",
       "createAccount": "계정 만들기",
       "emailAddress": "이메일 주소",
@@ -208,10 +208,10 @@
       "defaultError": "오류 발생: {{status}} {{statusText}}",
       "genericError": "오류 발생: {{errorMessage}}",
       "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다.",
-      "invalidCredentials": "잘못된 사용자 이름이나 비밀번호야",
+      "invalidCredentials": "사용자 이름이나 비밀번호가 올바르지 않습니다",
       "machineBanned": "이 기기에서는 새로운 계정을 만드는 것이 금지되어 있습니다.",
       "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.",
-      "sessionExpired": "세션이 만료됐어요",
+      "sessionExpired": "세션이 만료되었습니다",
       "tooManyAccounts": "이 기기는 생성 가능한 계정 수에 도달했습니다. 가입 코드가 있으시면 입력하여 제한을 우회할 수 있습니다.",
       "usernameTaken": "해당 사용자 이름은 사용할 수 없습니다."
     },
@@ -225,10 +225,10 @@
   },
   "bugReport": {
     "details": "상세 정보",
-    "detailsDescription": "버그를 설명해주고, 버그가 발생했을 때 어떤 상황이었는지 최대한 자세히 알려줘.",
-    "detailsRequired": "버그 리포트는 자세한 내용을 포함해야 해.",
+    "detailsDescription": "버그를 설명하고, 버그가 발생했을 때 어떤 상황이었는지 최대한 자세히 알려 주세요.",
+    "detailsRequired": "버그 리포트에는 자세한 내용이 있어야 합니다.",
     "error": "오류: {{errorMessage}}",
-    "logUploadDescription": "버그 리포트에는 문제 진단을 돕기 위해 너의 머신에서 ShieldBattery 로그가 포함될 거야. 로그는 최대 30일 동안 보관되며, ShieldBattery 직원만 볼 수 있어.",
+    "logUploadDescription": "버그 리포트에는 문제 진단을 돕기 위해 사용자 컴퓨터의 ShieldBattery 로그가 포함됩니다. 로그는 최대 30일 동안 보관되며, ShieldBattery 운영진만 볼 수 있습니다.",
     "reportSubmitted": "버그 보고서가 제출되었습니다.",
     "title": "버그 신고"
   },
@@ -255,7 +255,7 @@
         "openAdminView": "관리자 보기 열기"
       },
       "errors": {
-        "toggleBannerVisibility": "배너 가시성 전환 중 뭔가 잘못됐어"
+        "toggleBannerVisibility": "배너 표시를 전환하는 중 문제가 발생했습니다"
       },
       "moreActions": "추가 행동"
     },
@@ -307,7 +307,7 @@
         "inappropriateImageErrorMessage": "선택한 이미지는 부적절해요. 다른 이미지를 선택해 주세요.",
         "removeBadge": "배지 제거",
         "removeBanner": "배너 제거",
-        "saveErrorMessage": "설정 저장하는 중에 뭔가 잘못됐어",
+        "saveErrorMessage": "설정을 저장하는 중 문제가 발생했습니다",
         "topicLabel": "주제",
         "uploadBadge": "배지 업로드",
         "uploadBanner": "배너 업로드"
@@ -351,9 +351,25 @@
         "noPermission": "이 채널에서 사용자를 차단할 권한이 없습니다.",
         "noSelfBan": "자기 자신을 차단할 수 없습니다."
       },
+      "block": {
+        "alreadyBlocked": "<0><0></0></0>님은 이미 차단되어 있습니다.",
+        "blocked": "<2><0></0></2>님을 차단했습니다. 지금부터 이곳과 참가하는 모든 게임에서 이 사용자의 메시지가 숨겨집니다.",
+        "blockedAgain": "<2><0></0></2>님을 다시 차단했습니다.",
+        "description": "사용자를 차단합니다: 이곳과 앞으로 참가하는 모든 게임에서 해당 사용자의 메시지를 숨깁니다."
+      },
+      "cancel": {
+        "alreadyMatched": "이미 매치가 잡혀서 검색을 취소할 수 없습니다.",
+        "cancelled": "매치메이킹 검색을 취소했습니다.",
+        "description": "진행 중인 매치메이킹 검색을 취소합니다.",
+        "error": "검색을 취소하지 못했습니다: {{errorMessage}}",
+        "notSearching": "매치를 검색하고 있지 않습니다."
+      },
       "close": {
         "description": "이 귓속말 대화를 닫습니다.",
         "error": "대화를 닫지 못했습니다: {{errorMessage}}"
+      },
+      "eightBall": {
+        "description": "매직 8볼에게 질문합니다. 답은 서버가 정합니다."
       },
       "errors": {
         "ambiguousMember": "<1>{{name}}</1>에 해당하는 멤버가 두 명 이상입니다.",
@@ -361,9 +377,37 @@
         "invalidArgument": "잘못된 <1>{{arg}}</1>: {{value}}. 사용법: <7>{{usage}}</7>",
         "missingArgument": "<1>{{arg}}</1>이(가) 없습니다. 사용법: <4>{{usage}}</4>",
         "noSuchMember": "이 채널에 <1>{{name}}</1>(이)라는 멤버가 없습니다.",
+        "noSuchUser": "<1>{{name}}</1>(이)라는 사용자가 없습니다.",
         "tooManyArguments": "인수가 너무 많습니다. 사용법: <1>{{usage}}</1>",
+        "transformTooLong": "이 메시지는 {{length}}자가 되는데, 메시지는 최대 {{maxLength}}자까지 보낼 수 있습니다.",
         "unknownCommand": "알 수 없는 명령어 <1>{{command}}</1>. 명령어 목록을 보려면 <4>/help</4>를 입력하세요.",
+        "userLookupFailed": "<1>{{name}}</1>을(를) 조회하지 못했습니다: {{errorMessage}}",
         "wrongSurface": "<0>{{command}}</0>은(는) {{surfaces}}에서만 사용할 수 있습니다."
+      },
+      "flip": {
+        "description": "동전을 던집니다. 결과는 서버가 정합니다."
+      },
+      "friends": {
+        "add": {
+          "alreadyFriends": "<2><0></0></2>님과는 이미 친구입니다.",
+          "alreadyRequested": "<2><0></0></2>님에게 이미 친구 요청을 보냈습니다.",
+          "description": "친구 요청을 보내거나, 받은 요청을 수락합니다.",
+          "nowFriends": "이제 <2><0></0></2>님과 친구가 되었습니다.",
+          "requestSent": "<2><0></0></2>님에게 친구 요청을 보냈습니다."
+        },
+        "description": "친구 목록을 관리합니다: 추가, 삭제, 현재 활동과 함께 목록 보기.",
+        "empty": "친구 목록이 비어 있습니다.",
+        "header": "친구 ({{online}}명 온라인, {{offline}}명 오프라인):",
+        "hideOffline": "오프라인 친구 숨기기",
+        "list": {
+          "description": "친구 목록과 각자 무엇을 하고 있는지 보여줍니다."
+        },
+        "loadError": "친구 목록을 불러오지 못했습니다: {{errorMessage}}",
+        "remove": {
+          "description": "친구 목록에서 사용자를 삭제합니다.",
+          "removed": "친구 목록에서 <2><0></0></2>님을 삭제했습니다."
+        },
+        "showOffline_other": "오프라인 친구 {{count}}명 보기"
       },
       "help": {
         "aliasesLabel": "또는",
@@ -389,24 +433,122 @@
         "description": "\"* 내이름 님이 무언가를 합니다\" 형태의 행동 메시지를 보냅니다.",
         "sendError": "행동 메시지를 보내지 못했습니다: {{errorMessage}}"
       },
+      "outcomes": {
+        "chatRestricted": "현재 채팅 메시지 전송이 제한된 상태입니다.",
+        "sendError": "결과를 정하지 못했습니다: {{errorMessage}}"
+      },
+      "profile": {
+        "description": "사용자의 순위와 전적이 담긴 프로필 카드를 보여줍니다."
+      },
+      "quote": {
+        "description": "브루드 워 유닛 대사를 무작위로 인용합니다. 유닛을 지정하면 그 유닛의 대사만 인용합니다.",
+        "unknownUnit": "<1>{{name}}</1>(이)라는 유닛이 없습니다. 유닛 목록: {{units}}"
+      },
+      "rank": {
+        "description": "사용자의 현재 랭크 디비전을 보여줍니다."
+      },
+      "relationships": {
+        "acceptFailed": "<2><0></0></2>님의 친구 요청을 수락하지 못했습니다: {{errorMessage}}",
+        "blockedByUser": "<0><0></0></0>님이 당신을 차단했습니다.",
+        "blockFailed": "<2><0></0></2>님을 차단하지 못했습니다: {{errorMessage}}",
+        "friendFailed": "<2><0></0></2>님에게 친구 요청을 보내지 못했습니다: {{errorMessage}}",
+        "maxBlocks": "차단한 사용자가 최대 {{max}}명에 도달했습니다.",
+        "maxFriends": "친구가 최대 {{max}}명에 도달했습니다.",
+        "noFriendRequest": "<0><0></0></0>님은 친구 요청을 보낸 적이 없습니다.",
+        "notBlocked": "<0><0></0></0>님은 차단되어 있지 않습니다.",
+        "notOnFriendsList": "<0><0></0></0>님은 친구 목록에 없습니다.",
+        "selfBlock": "자기 자신을 차단할 수 없습니다.",
+        "selfFriend": "자기 자신에게는 친구 요청을 보낼 수 없습니다.",
+        "selfUnblock": "자기 자신의 차단을 해제할 수 없습니다.",
+        "selfUnfriend": "자기 자신을 친구 목록에서 삭제할 수 없습니다.",
+        "unblockFailed": "<2><0></0></2>님의 차단을 해제하지 못했습니다: {{errorMessage}}",
+        "unfriendFailed": "친구 목록에서 <2><0></0></2>님을 삭제하지 못했습니다: {{errorMessage}}"
+      },
+      "reply": {
+        "chatRestricted": "현재 채팅 메시지 전송이 제한된 상태입니다.",
+        "description": "마지막으로 귓속말을 보낸 사람에게 답장합니다.",
+        "noTarget": "아직 귓속말을 보낸 사람이 없어 답장할 상대가 없습니다.",
+        "sendError": "<1>{{target}}</1>에게 답장을 보내지 못했습니다: {{errorMessage}}"
+      },
+      "roll": {
+        "description": "1부터 {{max}}까지, 또는 지정한 숫자까지 중에서 무작위로 굴립니다. 서버가 굴리므로 조작할 수 없습니다."
+      },
+      "shrug": {
+        "description": "메시지 끝에 ¯\\_(ツ)_/¯를 붙입니다."
+      },
+      "stats": {
+        "description": "사용자의 전적과 순위를 보여줍니다."
+      },
       "surfaces": {
         "channel": "채널",
         "lobby": "로비",
         "whisper": "귓속말"
       },
+      "tableflip": {
+        "description": "테이블을 뒤집습니다: (╯°□°)╯︵ ┻━┻"
+      },
+      "topic": {
+        "description": "이 채널의 주제를 설정합니다.",
+        "error": "주제를 설정하지 못했습니다: {{errorMessage}}",
+        "noPermission": "채널 소유자와 서버 관리자만 주제를 변경할 수 있습니다.",
+        "set": "주제를 <1>{{topic}}</1>(으)로 설정했습니다."
+      },
+      "unban": {
+        "description": "이 채널에서 사용자의 차단을 해제합니다.",
+        "error": "<2><0></0></2>님의 차단을 해제하지 못했습니다: {{errorMessage}}",
+        "noPermission": "이 채널에서 사용자의 차단을 해제할 권한이 없습니다.",
+        "notBanned": "<0><0></0></0>님은 이 채널에서 차단되어 있지 않습니다.",
+        "unbanned": "<0><0></0></0>님의 이 채널 차단이 해제되었습니다."
+      },
+      "unblock": {
+        "description": "사용자의 차단을 해제합니다.",
+        "unblocked": "<2><0></0></2>님의 차단을 해제했습니다."
+      },
+      "unflip": {
+        "description": "테이블을 제자리에 돌려놓습니다: ┬─┬ ノ( ゜-゜ノ)"
+      },
       "whisper": {
-        "description": "사용자에게 개인 메시지를 보냅니다.",
+        "description": "사용자에게 귓속말을 보냅니다.",
         "noSelfMessaging": "자기 자신에게는 귓속말을 보낼 수 없습니다.",
         "sendError": "<1>{{target}}</1>에게 귓속말을 보내지 못했습니다: {{errorMessage}}",
+        "sent": "<1>{{target}}</1>에게 귓속말을 보냈습니다.",
         "startError": "<1>{{target}}</1>과(와) 귓속말을 시작하지 못했습니다: {{errorMessage}}",
         "userNotFound": "<1>{{target}}</1>(이)라는 사용자가 없습니다."
+      },
+      "who": {
+        "description": "참가한 채널에 누가 있는지 보여줍니다.",
+        "line": "<2><0></0></2> 채널의 사용자 ({{onlineCount}}명 온라인, {{offlineCount}}명 오프라인): <10></10>",
+        "lineTruncated_other": "<2><0></0></2> 채널의 사용자 ({{onlineCount}}명 온라인, {{offlineCount}}명 오프라인): <10></10> 외 {{count}}명",
+        "loadError": "<2><0></0></2> 채널에 누가 있는지 불러오지 못했습니다: {{errorMessage}}",
+        "noneOnline": "<2><0></0></2> 채널의 사용자 ({{onlineCount}}명 온라인, {{offlineCount}}명 오프라인).",
+        "notInChannel": "<1>#{{channel}}</1> 채널에 참가해 있지 않습니다."
+      },
+      "whoami": {
+        "description": "로그인한 계정의 이름과 사용자 ID를 보여줍니다.",
+        "line": "<2><0></0></2>님으로 로그인되어 있습니다 (사용자 ID {{id}})."
+      },
+      "whois": {
+        "channelsLabel": "채널:",
+        "description": "볼 수 있는 범위에서 사용자가 무엇을 하고 있는지 보여줍니다.",
+        "inGame": "<0><0></0></0>님은 게임 중입니다.",
+        "inLobby": "<0><0></0></0>님은 로비에 있습니다.",
+        "inQueue": "<0><0></0></0>님은 매치메이킹 대기열에 있습니다.",
+        "offline": "<0><0></0></0>님은 오프라인입니다.",
+        "online": "<0><0></0></0>님은 온라인입니다.",
+        "presence": {
+          "active": "활동 중",
+          "idle": "자리 비움",
+          "offline": "오프라인"
+        },
+        "self": "당신은 <2><0></0></2>님입니다.",
+        "unknown": "<2><0></0></2>님이 무엇을 하고 있는지 알 수 없습니다. 친구와 같은 채널의 멤버만 상태를 공유합니다."
       }
     },
     "createChannel": {
       "bannedError": "해당 채널에서 차단되었습니다.",
       "channelName": "채널 이름",
       "createAction": "채널 만들기",
-      "defaultError": "채널 생성 중 오류가 발생했어요.",
+      "defaultError": "채널을 만드는 중 오류가 발생했습니다.",
       "maximumOwnedError": "채널을 생성하는데 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
       "title": "채널 생성"
     },
@@ -482,6 +624,67 @@
       "mutedTitle": "음소거됨",
       "unban": "<1>#{{channelName}}</1> 차단이 해제되었습니다."
     },
+    "outcomes": {
+      "eightBall": {
+        "answers": {
+          "asISeeItYes": "제가 보기엔 그렇습니다",
+          "askAgainLater": "나중에 다시 물어보세요",
+          "betterNotTellYouNow": "지금은 말하지 않는 게 좋겠습니다",
+          "cannotPredictNow": "지금은 예측할 수 없습니다",
+          "concentrateAndAskAgain": "집중해서 다시 물어보세요",
+          "dontCountOnIt": "기대하지 마세요",
+          "itIsCertain": "확실합니다",
+          "itIsDecidedlySo": "틀림없습니다",
+          "mostLikely": "그럴 가능성이 높습니다",
+          "myReplyIsNo": "제 대답은 아니오입니다",
+          "mySourcesSayNo": "제 소식통은 아니라고 합니다",
+          "outlookGood": "전망이 좋습니다",
+          "outlookNotSoGood": "전망이 좋지 않습니다",
+          "replyHazyTryAgain": "답이 흐릿합니다, 다시 물어보세요",
+          "signsPointToYes": "그렇다는 징조가 보입니다",
+          "veryDoubtful": "매우 의심스럽습니다",
+          "withoutADoubt": "의심의 여지가 없습니다",
+          "yes": "네",
+          "yesDefinitely": "네, 분명합니다",
+          "youMayRelyOnIt": "믿어도 됩니다"
+        },
+        "line": "님이 8볼에게 \"{{question}}\"라고 물었습니다 <4>{{answer}}</4>"
+      },
+      "flip": {
+        "heads": "앞면",
+        "line": "님이 동전을 던졌습니다: <1>{{result}}</1>",
+        "tails": "뒷면"
+      },
+      "quote": {
+        "line": "님이 <1>{{unit}}</1> 대사를 인용했습니다: \"{{line}}\"",
+        "units": {
+          "arbiter": "아비터",
+          "archon": "아콘",
+          "battlecruiser": "배틀크루저",
+          "carrier": "캐리어",
+          "corsair": "커세어",
+          "darktemplar": "다크 템플러",
+          "dragoon": "드라군",
+          "dropship": "드롭십",
+          "firebat": "파이어뱃",
+          "ghost": "고스트",
+          "goliath": "골리앗",
+          "marine": "마린",
+          "medic": "메딕",
+          "scv": "SCV",
+          "shuttle": "셔틀",
+          "tank": "시즈 탱크",
+          "templar": "하이 템플러",
+          "valkyrie": "발키리",
+          "vulture": "벌쳐",
+          "wraith": "레이스",
+          "zealot": "질럿"
+        }
+      },
+      "roll": {
+        "line": "님이 주사위를 굴렸습니다: <1>{{value}}</1> (1-{{max}})"
+      }
+    },
     "transferOwnership": {
       "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",
       "body": "#{{channelName}} 채널의 소유권을 {{user}}에게 이전하시겠습니까? 이전하면 더 이상 채널 소유자가 아닙니다.",
@@ -498,8 +701,8 @@
       "title": "차단을 해제할까요?"
     },
     "userList": {
-      "active": "실행",
-      "idle": "개발 환경",
+      "active": "활동 중",
+      "idle": "자리 비움",
       "offline": "오프라인"
     },
     "whispers": {
@@ -521,7 +724,7 @@
     "onlyInAppReplaysTitle": "빠른 리플레이 실행",
     "onlyInAppTitle": "앱에서 만나보세요",
     "playGames": "게임하기",
-    "supportProjectText": "프로젝트를 지원하고 싶어?",
+    "supportProjectText": "프로젝트를 후원하고 싶으신가요?",
     "watchReplays": "다시보기",
     "windowsOnly": "앱은 Windows PC에서 실행됩니다."
   },
@@ -541,7 +744,7 @@
     }
   },
   "comingSoon": {
-    "headline": "이 기능이 곧 나올 거야!",
+    "headline": "이 기능은 곧 제공됩니다!",
     "subtitle": "ShieldBattery의 개발 자금 지원하기"
   },
   "common": {
@@ -788,7 +991,7 @@
       "reportTitle": "<1></1>의 보고:",
       "title": "디버그 정보"
     },
-    "errorLoading": "이 게임 로딩하는 데 문제가 발생했어.",
+    "errorLoading": "이 게임을 불러오는 중 문제가 발생했습니다.",
     "headlineDefault": "결과",
     "headlineDefeat": "패배!",
     "headlineDraw": "무승부!",
@@ -933,13 +1136,13 @@
       "silver": "실버",
       "unrated": "등급없음"
     },
-    "errorRetrievingRankings": "현재 랭킹을 가져오는 중 오류가 발생했어요.",
+    "errorRetrievingRankings": "현재 랭킹을 가져오는 중 오류가 발생했습니다.",
     "jumpToMyRank": "내 순위로 이동 · #{{rank}}",
     "lastPlayedHeader": "최근 플레이",
     "mmrHeader": "MMR",
     "mmrValue": "{{mmr}} MMR",
     "modeLabel": "모드",
-    "noMatchingPlayers": "매칭되는 플레이어가 없어요.",
+    "noMatchingPlayers": "일치하는 플레이어가 없습니다.",
     "pageHeadline": "래더",
     "playerCount": "{{total}}명",
     "playerHeader": "플레이어",
@@ -1010,7 +1213,7 @@
       "joined": "참가 중",
       "joinError": "리그에 가입할 수 없음: {{errorMessage}}",
       "leaderboard": "순위표",
-      "leaderboardError": "순위표를 불러오는 중 문제가 발생했어요: {{errorMessage}}",
+      "leaderboardError": "순위표를 불러오는 중 문제가 발생했습니다: {{errorMessage}}",
       "leaderBoardHeader": {
         "lastPlayed": "마지막 경기일",
         "player": "플레이어",
@@ -1058,6 +1261,17 @@
     }
   },
   "lobbies": {
+    "actionErrors": {
+      "countingDown": "로비가 이미 카운트다운 중입니다",
+      "gameInProgress": "로비가 지금 게임 중입니다",
+      "generic": "문제가 발생했습니다. 다시 시도해 주세요.",
+      "invalidSlotOperation": "지금은 그 자리를 변경할 수 없습니다",
+      "invalidTeamLayout": "이 구성에서는 팀을 재배치할 수 없습니다",
+      "notEnoughSides": "최소 두 편에 플레이어가 있어야 합니다",
+      "notEveryoneReady": "아직 전원이 준비되지 않았습니다",
+      "notHost": "호스트만 할 수 있습니다",
+      "throttled": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요"
+    },
     "activity": {
       "title": "로비 ({{lobbyCount}})"
     },
@@ -1209,11 +1423,17 @@
       "memberBody": "{{target}}에 참여하면 {{current}}에서 나가게 됩니다."
     },
     "lobby": {
-      "inGame": "게임 중"
+      "gameSubType": "팀 구성",
+      "inGame": "게임 중",
+      "unitLimit": "유닛 제한",
+      "unitLimitExtended": "확장",
+      "unitLimitLegacy": "옛 방식"
     },
     "lobbySettings": {
       "errorDialogTitle": "설정 업데이트 오류",
-      "errorGeneric": "로비 설정을 업데이트할 수 없습니다. 현재 멤버가 새 구성에 맞지 않을 수 있습니다."
+      "errorGeneric": "로비 설정을 업데이트할 수 없습니다. 현재 멤버가 새 구성에 맞지 않을 수 있습니다.",
+      "errorRename": "로비 이름을 변경할 수 없습니다. 다시 시도해 주세요.",
+      "errorTransient": "로비가 게임을 시작 중이거나 진행 중입니다. 로비로 돌아온 뒤 다시 시도하세요."
     },
     "messageLayout": {
       "gameStarted": "게임이 시작되었습니다",
@@ -1224,14 +1444,11 @@
       "settingsChangeObservers": "관전자",
       "settingsChangeUnitLimit": "유닛 제한"
     },
-    "moveSlot": {
-      "title": "자리 이동"
-    },
     "room": {
       "banner": {
         "shuffle": "섞기",
+        "shuffleBlockedByComputers": "컴퓨터를 제거해야 섞을 수 있습니다",
         "statMode": "모드",
-        "statPeople": "인원",
         "statSize": "크기",
         "statTileset": "타일셋",
         "swapTeams": "팀 교체"
@@ -1240,6 +1457,7 @@
         "countdownCanceled": "카운트다운이 취소되었습니다",
         "countdownStarted": "게임이 곧 시작됩니다",
         "isNowHost": "<0></0> 님이 호스트가 되었습니다",
+        "joinedAsObserver": "관전자로 참가했습니다",
         "joinedLobby": "<0></0> 님이 로비에 참가했습니다",
         "leftLobby": "<0></0> 님이 로비를 떠났습니다",
         "loadFailedNoUsers": "게임을 시작할 수 없습니다",
@@ -1252,8 +1470,14 @@
         "settingsChanged": "<0></0> 님이 설정을 변경했습니다: {{settings}}",
         "waitingForSeat": "<0></0> 님이 자리를 기다리고 있습니다",
         "wasBanned": "<0></0> 님이 차단되었습니다",
-        "wasKicked": "<0></0> 님이 강퇴되었습니다",
-        "watching": "관전 중"
+        "wasKicked": "<0></0> 님이 강퇴되었습니다"
+      },
+      "drag": {
+        "chooseTarget": "방향키로 옮길 자리를 고르세요. 스페이스로 놓고, Esc로 취소합니다.",
+        "keyboardInstructions": "스페이스를 눌러 이 플레이어를 집고, 방향키로 자리를 고른 뒤 스페이스로 놓습니다. Esc로 취소합니다.",
+        "move": "여기로 이동",
+        "selectedTarget": "{{number}}번 자리를 선택했습니다. 스페이스를 누르면 이동하거나 자리를 바꿉니다.",
+        "swap": "자리 바꾸기"
       },
       "header": {
         "cancelReady": "준비 취소",
@@ -1264,13 +1488,19 @@
         "visibilityPublic": "공개",
         "visibilityUnlisted": "일부 공개"
       },
+      "racePicker": {
+        "label": "종족"
+      },
       "rail": {
         "benchHeading": "벤치 · {{benchCount}}",
         "benchTooltip": "자리가 다 찼을 때 참가한 사람들입니다 — 자리가 나면 맨 앞 사람부터 앉습니다",
-        "holdToStartCaption": "전원이 준비되면 활성화됩니다 · 길게 눌러 바로 시작",
+        "everyoneReady": "전원 준비 완료",
+        "holdToBypassReadiness": "{{seconds}}초 동안 누르면 기다리지 않고 시작합니다",
+        "holdToStartAnyway": "길게 눌러 바로 시작",
+        "needsOpposingSides": "서로 다른 편에 플레이어가 최소 2명 필요합니다",
         "readyCount": "{{readyTotal}}명 중 {{readyCount}}명 준비",
         "startGame": "게임 시작",
-        "startWhenReady": "준비되면 시작",
+        "startingGame": "게임 시작 중",
         "waitingForHost": "호스트가 시작하기를 기다리는 중"
       },
       "readyMark": {
@@ -1286,15 +1516,20 @@
         "earlierGames": "이전 게임",
         "fullSummary": "전체 요약",
         "gameNumber": "게임 {{number}}",
+        "gameNumberShort": "{{number}}판",
         "gamesLabel": "게임",
+        "headlineNoWinner": "게임 {{number}}: 기록된 승자 없음 ({{duration}})",
+        "headlinePlayerWon": "게임 {{number}}: {{player}} 승리 ({{duration}})",
+        "headlineTeamWon": "게임 {{number}}: {{team}} 승리 ({{duration}})",
+        "headlineWaiting": "게임 {{number}}, 결과 기다리는 중",
         "next": "다음",
         "noRecordedWinner": "기록된 승자 없음",
+        "playing": "진행 중",
         "standings": "순위",
         "starting": "시작 중",
         "tileNoWinner": "승자 없음",
         "tilePending": "대기 중",
         "unknownMap": "알 수 없는 맵",
-        "victoryTeam": "팀 {{number}} 승리",
         "waitingForResults": "결과 기다리는 중",
         "watchReplay": "리플레이 보기"
       },
@@ -1303,9 +1538,9 @@
         "kick": "강퇴",
         "makeObserver": "관전자로 전환",
         "moveIntoPlayerSlot": "플레이어 자리로 이동",
-        "moveToAnotherSlot": "다른 자리로 이동",
         "remove": "제거"
-      }
+      },
+      "teamLabelNamed": "{{number}} 팀 · {{name}}"
     },
     "slots": {
       "addComputer": "컴퓨터 추가",
@@ -1629,6 +1864,11 @@
     "newDayMessage": "날짜가 <2>{{day}}</2>(으)로 바뀌었습니다",
     "newMessages": "새 메시지",
     "openLink": "링크 열기",
+    "reply": "답장",
+    "replyChip": {
+      "replyingTo": "<1>{{name}}</1>님에게 답장",
+      "stopReplying": "답장 취소"
+    },
     "searchWithGoogle": "Google에서 검색",
     "sendMessage": "메시지를 입력하세요",
     "sendMessageChatRestricted": "{{date}}까지 메시지 전송이 제한됩니다",
@@ -2088,8 +2328,8 @@
         "hardwareCursorTooltip": "최적의 성능과 입력 반응 속도를 위해 권장됩니다",
         "keyboardScrollSpeed": "키보드 스크롤 속도",
         "legacyCursorSizing": "이전 커서 크기 방식을 사용",
-        "legacyCursorSizingTooltip": "원래 스타크래프트: 리마스터드 커서 크기를 사용하며, 고해상도에서 크기 비율이 일관되지 않을 수 있습니다.",
-        "legacySettingsDescription": "이 설정들은 스타크래프트: 리마스터드 설정과 호환성을 위해 제공되지만, 성능 문제를 일으킬 수 있으므로 사용을 권장하지 않습니다.",
+        "legacyCursorSizingTooltip": "원래 스타크래프트: 리마스터 커서 크기를 사용하며, 고해상도에서 크기 비율이 일관되지 않을 수 있습니다.",
+        "legacySettingsDescription": "이 설정들은 스타크래프트: 리마스터 설정과의 호환성을 위해 제공되지만, 성능 문제를 일으킬 수 있으므로 사용을 권장하지 않습니다.",
         "legacySettingsHeader": "이전 설정",
         "lockCursor": "커서를 창에 고정",
         "mouseScaling": "마우스 스케일링 사용",
@@ -2215,7 +2455,7 @@
         "invalidCurrentPassword": "현재 비밀번호가 올바르지 않습니다",
         "label": "계정",
         "loginName": "로그인 이름",
-        "loginNameChangeInfo": "로그인 이름은 30일마다 한 번 변경할 수 있어요.",
+        "loginNameChangeInfo": "로그인 이름은 30일에 한 번 변경할 수 있습니다.",
         "loginNameCooldown_other": "이름을 너무 최근에 변경했습니다. 로그인 이름은 {{count}}일 후에 다시 변경할 수 있습니다.",
         "loginNameUnavailable": "로그인 이름을 사용할 수 없습니다.",
         "networkError": "네트워크 오류: {{errorMessage}}",
@@ -2225,7 +2465,7 @@
           "current": "현재 비밀번호를 입력하세요",
           "new": "새 비밀번호를 입력하세요"
         },
-        "rateLimited": "로그인 이름은 30일마다 한 번 변경할 수 있어요.",
+        "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다.",
         "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요."
       },
       "connections": {
@@ -2258,7 +2498,12 @@
         },
         "quietChannelsWhileInGame": "게임 중 채널 알림 끄기",
         "quietWhispersWhileInGame": "게임 중 귓속말 알림 끄기",
-        "title": "알림"
+        "showWhispersEverywhere": "모든 채팅에 귓속말 표시",
+        "title": "알림",
+        "whispers": {
+          "description": "주고받은 귓속말이 지금 보고 있는 채팅에 한 줄로 표시되므로, 다른 곳으로 옮기지 않고 바로 읽고 /r로 답장할 수 있습니다. 화면을 방송한다면 이 기능을 끄세요.",
+          "title": "귓속말"
+        }
       },
       "social": {
         "blockedUsers": {
@@ -2402,6 +2647,13 @@
         "title": "제재"
       }
     },
+    "card": {
+      "loadError": "이 사용자의 프로필을 불러오지 못했습니다.",
+      "noGames": "플레이한 게임 없음",
+      "record_other": "{{count}}전 · {{wins}}–{{losses}}",
+      "unranked": "랭크 없음",
+      "viewProfile": "프로필"
+    },
     "contextMenu": {
       "addFriend": "친구 추가",
       "copyUserId": "ID 복사",
@@ -2436,7 +2688,7 @@
       }
     },
     "friendsList": {
-      "friendStart": "이제 <2>{{user}}</2>와 친구가 되었습니다.",
+      "friendStart": "이제 <2>{{user}}</2>님과 친구가 되었습니다.",
       "receivedFriendRequest": "<0>{{user}}</0>님이 친구 요청을 보냈습니다."
     },
     "profile": {
@@ -2485,7 +2737,7 @@
       "info": "정보",
       "joined": "{{date}}에 가입함",
       "ranked": "랭크전",
-      "rightClick": "사용자를 우클릭하면 더 많은 동작을 볼 수 있어요",
+      "rightClick": "사용자를 우클릭하면 더 많은 동작을 볼 수 있습니다",
       "viewProfile": "프로필 보기"
     },
     "restrictions": {
