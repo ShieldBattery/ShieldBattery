@@ -1,12 +1,12 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../../../common/assert-unreachable'
 import { FriendActivityStatus } from '../../../../common/users/relationships'
 import { SbUserId } from '../../../../common/users/sb-user-id'
-import { TransInterpolation } from '../../../i18n/i18next'
+import { ConnectedAvatar } from '../../../avatars/avatar'
 import { MaterialIcon } from '../../../icons/material/material-icon'
 import {
   acceptFriendRequest,
@@ -18,8 +18,9 @@ import {
   getActivityDescriptor,
   useFriendActivityStatus,
 } from '../../../social/friend-activity-status'
-import { bodyMedium, labelMedium } from '../../../styles/typography'
+import { bodySmall, labelMedium, singleLine, titleSmall } from '../../../styles/typography'
 import { ConnectedUsername } from '../../../users/connected-username'
+import { INLINE_CARD_PADDING, inlineCardBase } from '../../inline-card'
 import {
   ALL_COMMAND_SURFACES,
   ArgSuggestDeps,
@@ -27,7 +28,6 @@ import {
   CommandInvocation,
   defineCommand,
 } from '../command-schema'
-import { LocalLineButton } from '../local-button'
 import { LocalStrong } from '../local-strong'
 import { notOnFriendsListLine, relationshipFailedLine, selfTargetLine } from '../relationship-lines'
 import { UndoLine } from '../undo-line'
@@ -238,92 +238,161 @@ export function removeFriend(target: { id: SbUserId }, deps: FriendDeps): void {
   })
 }
 
-const FriendListRoot = styled.div`
-  ${bodyMedium};
-  color: var(--color-blue90);
+// The roster card's own shell: the shared inline-card surface at its natural height (unlike the
+// fixed-height cards in `inline-card.ts`, this one's height is just whatever its rows add up to).
+const CardRoot = styled.div`
+  ${inlineCardBase};
+  padding: ${INLINE_CARD_PADDING}px;
 `
 
-// Every row is one line tall whatever it holds (a name too long for the line is clipped rather than
-// wrapped), so the block's height is what the number of friends says it is and nothing in a row can
-// push the conversation around as it updates.
-const FriendRow = styled.div<{ $offline: boolean }>`
-  height: 20px;
-  line-height: 20px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: ${props => (props.$offline ? 0.5 : 1)};
+// The count trails the tracked-out overline label in a lighter, untracked tone so it doesn't read
+// as part of the all-caps heading.
+const Count = styled.span`
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.5);
+  letter-spacing: 0.4px;
 `
 
-const FriendName = styled(LocalStrong)`
-  color: var(--color-blue95);
-`
-
-const ActivityLabel = styled.span<{ $color: string }>`
+const OnlineOverline = styled.div`
   ${labelMedium};
-  display: inline-flex;
+  height: 20px;
+  padding: 0 4px;
+
+  display: flex;
   align-items: center;
   gap: 4px;
-  vertical-align: top;
-  line-height: 20px;
+
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.72);
+  text-transform: uppercase;
+  letter-spacing: 1.6px;
+`
+
+const NoneOnlineRow = styled.div`
+  ${bodySmall};
+  height: 28px;
+  padding: 0 4px;
+
+  display: flex;
+  align-items: center;
+
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.6);
+`
+
+// Styled like the overline above it, but as a real button: hover/focus give it a background so it
+// reads as interactive, and expanding swaps its chevron for a down-arrow to say what it now does.
+const DisclosureButton = styled.button.attrs({ type: 'button' })`
+  ${labelMedium};
+  height: 20px;
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 0 4px;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: rgb(from var(--theme-on-surface-variant) r g b / 0.72);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 1.6px;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--theme-on-surface-variant);
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
+  }
+`
+
+const DisclosureIcon = styled(MaterialIcon)`
+  margin-left: -4px;
+`
+
+// One line tall whatever it holds, so the card's height is exactly its row count times a row's
+// height and nothing in a row (an overlong name, say) can push the rest of the card around.
+const FriendRowRoot = styled.div`
+  height: 28px;
+  padding: 0 4px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  border-radius: 4px;
+
+  &:hover {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+  }
+`
+
+const RowAvatar = styled(ConnectedAvatar)<{ $offline: boolean }>`
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  opacity: ${props => (props.$offline ? 'var(--theme-disabled-opacity)' : '1')};
+`
+
+const RowName = styled.span<{ $offline: boolean }>`
+  ${titleSmall};
+  ${singleLine};
+  flex: 1;
+  min-width: 0;
+  color: ${props => (props.$offline ? 'var(--theme-on-surface-variant)' : 'var(--theme-on-surface)')};
+`
+
+const RowActivity = styled.span<{ $color: string }>`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+
+  ${labelMedium};
   color: ${props => props.$color};
 `
 
-function FriendListRow({ userId }: { userId: SbUserId }) {
+function FriendRow({ userId, offline }: { userId: SbUserId; offline: boolean }) {
   const { t } = useTranslation()
   const status = useFriendActivityStatus(userId)
-  const descriptor = getActivityDescriptor(status, t)
+  // An offline friend never has an activity to report, but the row still gates on `offline`
+  // directly rather than leaning on that to stay true.
+  const descriptor = offline ? undefined : getActivityDescriptor(status, t)
 
   return (
-    <FriendRow $offline={(status ?? FriendActivityStatus.Offline) === FriendActivityStatus.Offline}>
-      <FriendName>
+    <FriendRowRoot>
+      <RowAvatar userId={userId} $offline={offline} />
+      <RowName $offline={offline}>
         <ConnectedUsername userId={userId} />
-      </FriendName>
+      </RowName>
       {descriptor ? (
-        <>
-          {' '}
-          <ActivityLabel $color={descriptor.color}>
-            <MaterialIcon icon={descriptor.icon} size={14} />
-            {descriptor.label}
-          </ActivityLabel>
-        </>
-      ) : undefined}
-    </FriendRow>
+        <RowActivity $color={descriptor.color}>
+          <MaterialIcon icon={descriptor.icon} size={16} />
+          {descriptor.label}
+        </RowActivity>
+      ) : null}
+    </FriendRowRoot>
   )
-}
-
-// Matches the height and line box of a `FriendRow` so the toggle doesn't change the block's line
-// spacing, and it's never faded the way an offline row is: it's an action, not a status.
-const ToggleRow = styled.div`
-  height: 20px;
-  line-height: 20px;
-  white-space: nowrap;
-`
-
-function offlineToggleLabel(shown: boolean, offlineCount: number, t: TFunction): string {
-  if (shown) {
-    return t('chat.commands.friends.hideOffline', 'Hide offline friends')
-  }
-
-  return t('chat.commands.friends.showOffline', {
-    defaultValue: 'Show {{count}} offline friends',
-    // eslint-disable-next-line camelcase -- i18next's plural-form key convention
-    defaultValue_one: 'Show {{count}} offline friend',
-    count: offlineCount,
-  })
 }
 
 /**
  * The friends a `/f list` answered with, split into who was online and who wasn't at that moment.
  * That split is fixed when the answer is given, so a friendship made or ended afterwards, or a
  * friend crossing between online and offline, doesn't move anyone between the two groups or rewrite
- * a line that has already been read; what each row says the friend is doing stays live.
+ * a row that has already been read; what each row says the friend is doing stays live.
  *
- * The online rows always show. The offline rows start collapsed behind a toggle row and are
- * inserted between the online rows and the toggle when it's clicked, so the toggle stays put at the
- * bottom of the block in both states. The toggle only renders when there's an offline friend to show.
+ * The online rows always show, with a quiet placeholder row when there aren't any. The offline
+ * rows start collapsed behind a disclosure row and are inserted below it once it's opened, so the
+ * disclosure stays put between the two groups in both states; it only renders when there's an
+ * offline friend to show.
  */
-export function FriendListBlock({
+export function FriendListCard({
   onlineIds,
   offlineIds,
 }: {
@@ -332,32 +401,42 @@ export function FriendListBlock({
 }) {
   const { t } = useTranslation()
   const [offlineShown, setOfflineShown] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const wasOfflineShown = useRef(offlineShown)
+
+  useLayoutEffect(() => {
+    // The card usually sits at the bottom of the chat, so rows the disclosure adds land below the
+    // fold; nothing else re-scrolls the view for content that grows after it's already been read.
+    if (offlineShown && !wasOfflineShown.current) {
+      rootRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+    wasOfflineShown.current = offlineShown
+  }, [offlineShown])
 
   return (
-    <FriendListRoot>
-      {onlineIds.map(userId => (
-        <FriendListRow key={userId} userId={userId} />
-      ))}
-      {offlineShown
-        ? offlineIds.map(userId => <FriendListRow key={userId} userId={userId} />)
-        : undefined}
+    <CardRoot ref={rootRef}>
+      <OnlineOverline>
+        {t('social.friendsList.header.online', 'Online')} <Count>({onlineIds.length})</Count>
+      </OnlineOverline>
+      {onlineIds.length > 0 ? (
+        onlineIds.map(userId => <FriendRow key={userId} userId={userId} offline={false} />)
+      ) : (
+        <NoneOnlineRow>
+          {t('chat.commands.friends.list.noneOnline', 'No friends online')}
+        </NoneOnlineRow>
+      )}
       {offlineIds.length > 0 ? (
-        <ToggleRow>
-          <LocalLineButton onClick={() => setOfflineShown(shown => !shown)}>
-            <LocalStrong>{offlineToggleLabel(offlineShown, offlineIds.length, t)}</LocalStrong>
-          </LocalLineButton>
-        </ToggleRow>
-      ) : undefined}
-    </FriendListRoot>
-  )
-}
-
-function friendsHeaderLine(online: number, offline: number, t: TFunction): React.ReactNode {
-  return (
-    <Trans t={t} i18nKey='chat.commands.friends.header'>
-      Friends ({{ online } as TransInterpolation} online, {{ offline } as TransInterpolation}{' '}
-      offline):
-    </Trans>
+        <DisclosureButton
+          aria-expanded={offlineShown}
+          onClick={() => setOfflineShown(shown => !shown)}>
+          <DisclosureIcon icon={offlineShown ? 'expand_more' : 'chevron_right'} size={18} />
+          {t('social.friendsList.header.offline', 'Offline')} <Count>({offlineIds.length})</Count>
+        </DisclosureButton>
+      ) : null}
+      {offlineShown
+        ? offlineIds.map(userId => <FriendRow key={userId} userId={userId} offline={true} />)
+        : null}
+    </CardRoot>
   )
 }
 
@@ -379,12 +458,8 @@ function listFriends({ dispatch, t, emit }: FriendDeps): void {
           const onlineIds = friends.filter(entry => entry.online).map(entry => entry.id)
           const offlineIds = friends.filter(entry => !entry.online).map(entry => entry.id)
           emit({
-            kind: 'info',
-            content: friendsHeaderLine(onlineIds.length, offlineIds.length, t),
-          })
-          emit({
             kind: 'card',
-            content: <FriendListBlock onlineIds={onlineIds} offlineIds={offlineIds} />,
+            content: <FriendListCard onlineIds={onlineIds} offlineIds={offlineIds} />,
           })
         }),
       onError: err =>

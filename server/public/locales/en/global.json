@@ -398,18 +398,15 @@
         },
         "description": "Manages your friends list: add, remove, or list them with their current activity.",
         "empty": "Your friends list is empty.",
-        "header": "Friends ({{online}} online, {{offline}} offline):",
-        "hideOffline": "Hide offline friends",
         "list": {
-          "description": "Lists your friends and what they are doing."
+          "description": "Lists your friends and what they are doing.",
+          "noneOnline": "No friends online"
         },
         "loadError": "Couldn't load your friends list: {{errorMessage}}",
         "remove": {
           "description": "Removes a user from your friends.",
           "removed": "Removed <2><0></0></2> from your friends."
-        },
-        "showOffline_one": "Show {{count}} offline friend",
-        "showOffline_other": "Show {{count}} offline friends"
+        }
       },
       "help": {
         "aliasesLabel": "Also",
