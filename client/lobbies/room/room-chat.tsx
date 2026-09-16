@@ -13,6 +13,7 @@ import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, OutlinedButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
+import { Tooltip } from '../../material/tooltip'
 import { Chat } from '../../messaging/chat'
 import { LobbyCommandContext } from '../../messaging/commands/command-context'
 import { useMentionFilterClick } from '../../messaging/mention-hooks'
@@ -533,12 +534,13 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
                   iconStart={<MaterialIcon icon='play_arrow' size={20} />}
                   onClick={() => onWatchReplay(gameId)}
                 />
-                <SummaryButton
-                  icon={<MaterialIcon icon='summarize' size={20} />}
-                  title={t('lobbies.room.series.fullSummary', 'Full summary')}
-                  ariaLabel={t('lobbies.room.series.fullSummary', 'Full summary')}
-                  onClick={() => onViewGameSummary(gameId)}
-                />
+                <Tooltip text={t('lobbies.room.series.fullSummary', 'Full summary')} tabIndex={-1}>
+                  <SummaryButton
+                    icon={<MaterialIcon icon='summarize' size={20} />}
+                    ariaLabel={t('lobbies.room.series.fullSummary', 'Full summary')}
+                    onClick={() => onViewGameSummary(gameId)}
+                  />
+                </Tooltip>
               </SummaryActions>
             </ResultDetails>
           </ResultRow>

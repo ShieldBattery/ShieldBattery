@@ -541,16 +541,20 @@ function SeriesGameRow({
           ) : null}
         </SeriesFactRow>
       </SeriesMain>
-      <SeriesAction
-        icon={<MaterialIcon icon='play_arrow' />}
-        title={t('lobbies.room.series.watchReplay', 'Watch replay')}
-        onClick={() => onWatchReplay(game.gameId)}
-      />
-      <SeriesAction
-        icon={<MaterialIcon icon='summarize' />}
-        title={t('lobbies.room.series.fullSummary', 'Full summary')}
-        onClick={() => onViewGameSummary(game.gameId)}
-      />
+      <Tooltip text={t('lobbies.room.series.watchReplay', 'Watch replay')} tabIndex={-1}>
+        <SeriesAction
+          icon={<MaterialIcon icon='play_arrow' />}
+          ariaLabel={t('lobbies.room.series.watchReplay', 'Watch replay')}
+          onClick={() => onWatchReplay(game.gameId)}
+        />
+      </Tooltip>
+      <Tooltip text={t('lobbies.room.series.fullSummary', 'Full summary')} tabIndex={-1}>
+        <SeriesAction
+          icon={<MaterialIcon icon='summarize' />}
+          ariaLabel={t('lobbies.room.series.fullSummary', 'Full summary')}
+          onClick={() => onViewGameSummary(game.gameId)}
+        />
+      </Tooltip>
     </SeriesRow>
   )
 }
