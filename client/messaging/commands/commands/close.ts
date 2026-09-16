@@ -4,6 +4,7 @@ import { defineCommand } from '../command-schema'
 export const closeCommand = defineCommand({
   name: 'close',
   description: t => t('chat.commands.close.description', 'Closes this whisper conversation.'),
+  group: 'chat',
   surfaces: ['whisper'],
   args: [],
 

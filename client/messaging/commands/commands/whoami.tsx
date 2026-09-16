@@ -8,6 +8,7 @@ export const whoamiCommand = defineCommand({
   name: 'whoami',
   description: t =>
     t('chat.commands.whoami.description', 'Shows the name and user ID you are logged in as.'),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [],
 

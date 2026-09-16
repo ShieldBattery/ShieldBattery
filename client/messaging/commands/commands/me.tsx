@@ -44,6 +44,7 @@ export const meCommand = defineCommand({
       'chat.commands.me.description',
       'Sends an action line, shown as "* YourName does something".',
     ),
+  group: 'chat',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'rest', name: 'action' }],
 

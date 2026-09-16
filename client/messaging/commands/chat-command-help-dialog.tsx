@@ -1,9 +1,12 @@
+import { TFunction } from 'i18next'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { TextButton } from '../../material/button'
 import { Dialog } from '../../material/dialog'
-import { bodyMedium, titleSmall } from '../../styles/typography'
+import { bodyMedium, labelMedium, titleSmall } from '../../styles/typography'
+import { CommandGroup, groupCommands } from './command-schema'
 import { CommandAliases, CommandUsage } from './command-usage'
 
 const Intro = styled.div`
@@ -26,6 +29,28 @@ const CommandTable = styled.div`
   column-gap: 24px;
 `
 
+const CommandGroupSection = styled.div`
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+`
+
+// Section labels: quiet and tracked out, so they read as structure and never compete with the
+// amber command names below them.
+const GroupHeading = styled.div`
+  ${labelMedium};
+  grid-column: 1 / -1;
+  padding: 20px 0 4px;
+
+  color: var(--theme-on-surface-variant);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+
+  ${CommandGroupSection}:first-child > & {
+    padding-top: 8px;
+  }
+`
+
 const CommandRow = styled.div`
   grid-column: 1 / -1;
   display: grid;
@@ -35,8 +60,11 @@ const CommandRow = styled.div`
   border-bottom: 1px solid var(--theme-outline-variant);
 
   &:last-child {
-    padding-bottom: 0;
     border-bottom: none;
+  }
+
+  ${CommandGroupSection}:last-child > &:last-child {
+    padding-bottom: 0;
   }
 `
 
@@ -62,12 +90,32 @@ export interface ChatCommandHelpDialogProps extends CommonDialogProps {
     args: ReadonlyArray<{ label: string; optional: boolean }>
     /** Already localized. */
     description: string
+    /** The heading the dialog lists the command under. */
+    group: CommandGroup
   }>
 }
 
+function commandGroupLabel(group: CommandGroup, t: TFunction): string {
+  switch (group) {
+    case 'chat':
+      return t('chat.commands.help.groups.chat', 'Chat')
+    case 'people':
+      return t('chat.commands.help.groups.people', 'People')
+    case 'matchmaking':
+      return t('chat.commands.help.groups.matchmaking', 'Matchmaking')
+    case 'moderation':
+      return t('chat.commands.help.groups.moderation', 'Moderation')
+    case 'fun':
+      return t('chat.commands.help.groups.fun', 'Fun')
+    default:
+      return assertUnreachable(group)
+  }
+}
+
 /**
- * A two-column reference sheet for the commands that can be run where the dialog was opened from:
- * each row's usage (name, arguments, and aliases) on the left and what it does on the right.
+ * A two-column reference sheet for the commands that can be run where the dialog was opened from,
+ * filed under group headings: each row's usage (name, arguments, and aliases) on the left and what
+ * it does on the right.
  */
 export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommandHelpDialogProps) {
   const { t } = useTranslation()
@@ -88,14 +136,19 @@ export function ChatCommandHelpDialog({ onCancel, close, commands }: ChatCommand
         </Trans>
       </Intro>
       <CommandTable>
-        {commands.map(command => (
-          <CommandRow key={command.name}>
-            <UsageCell>
-              <CommandUsage name={command.name} args={command.args} />
-              <CommandAliases aliases={command.aliases} />
-            </UsageCell>
-            <Description>{command.description}</Description>
-          </CommandRow>
+        {groupCommands(commands).map(({ group, commands }) => (
+          <CommandGroupSection key={group}>
+            <GroupHeading>{commandGroupLabel(group, t)}</GroupHeading>
+            {commands.map(command => (
+              <CommandRow key={command.name}>
+                <UsageCell>
+                  <CommandUsage name={command.name} args={command.args} />
+                  <CommandAliases aliases={command.aliases} />
+                </UsageCell>
+                <Description>{command.description}</Description>
+              </CommandRow>
+            ))}
+          </CommandGroupSection>
         ))}
       </CommandTable>
     </Dialog>

@@ -57,6 +57,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
     name: 'join',
     aliases: ['j', 'channel'],
     description: () => 'Joins a channel.',
+    group: 'chat',
     surfaces: ['channel', 'whisper', 'lobby'],
     args: [{ kind: 'channel', name: 'channel' }],
     run: joinRun,
@@ -64,6 +65,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'kick',
     description: () => 'Kicks a user.',
+    group: 'chat',
     surfaces: ['channel'],
     args: [{ kind: 'user', name: 'user' }],
     run: kickRun,
@@ -71,6 +73,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'leave',
     description: () => 'Leaves where you are.',
+    group: 'chat',
     surfaces: ['channel', 'lobby'],
     args: [],
     run: leaveRun,
@@ -78,6 +81,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'blocked',
     description: () => 'Never runnable anywhere.',
+    group: 'chat',
     surfaces: ['channel'],
     getUnavailableReason: () => 'Nope.',
     args: [],
@@ -86,6 +90,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'boom',
     description: () => 'Falls over.',
+    group: 'chat',
     surfaces: ['channel'],
     args: [],
     run: () => {
@@ -95,6 +100,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'lists',
     description: () => 'Reports what else there is.',
+    group: 'chat',
     surfaces: ['channel'],
     args: [],
     run: listsRun,
@@ -102,6 +108,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'transform',
     description: () => 'Rewrites what was typed.',
+    group: 'chat',
     surfaces: ['channel'],
     args: [],
     run: () => ({ text: 'rewritten' }),
@@ -109,6 +116,7 @@ const testCommands: ReadonlyArray<ChatCommand> = [
   defineCommand({
     name: 'hugetransform',
     description: () => 'Rewrites what was typed into something too long to send.',
+    group: 'chat',
     surfaces: ['channel'],
     args: [],
     run: () => ({ text: 'x'.repeat(CHAT_MESSAGE_MAXLENGTH + 1) }),

@@ -7,6 +7,7 @@ function commandWithArgs<const Args extends readonly CommandArg[]>(args: Args): 
   return defineCommand({
     name: 'test',
     description: () => 'test',
+    group: 'chat',
     surfaces: ['channel'],
     args,
     run: () => {},

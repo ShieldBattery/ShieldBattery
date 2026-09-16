@@ -131,6 +131,7 @@ export const whoCommand = defineCommand({
   name: 'who',
   description: t =>
     t('chat.commands.who.description', 'Lists who is in a channel you have joined.'),
+  group: 'chat',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'channel', name: 'channel', exhaustive: true, suggest: getJoinedChannels }],
 

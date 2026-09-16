@@ -42,47 +42,28 @@ export function resolveTarget(
 }
 
 /**
- * Whose card to show. Any user on the server can be named, not just someone in the surface the
- * command was typed in, so the rows the palette offers are a shortcut rather than the whole set.
+ * Whose card to show for {@link statsCommand}. Any user on the server can be named, not just
+ * someone in the surface the command was typed in, so the rows the palette offers are a shortcut
+ * rather than the whole set.
  */
 const USER_ARG = { kind: 'user', name: 'user', optional: true } as const satisfies CommandArg
 
-/** Answers with the card of the user the command named, or of whoever ran it. */
+/** Answers with the card of the user {@link statsCommand} named, or of whoever ran it. */
 function showUserCard(invocation: CommandInvocation<{ user: string | undefined }>): void {
   resolveTarget(invocation.args.user, invocation, user => {
     invocation.emit({ kind: 'card', content: <UserCard userId={user.id} /> })
   })
 }
 
-export const profileCommand = defineCommand({
-  name: 'profile',
-  aliases: ['p'],
-  description: t =>
-    t(
-      'chat.commands.profile.description',
-      "Shows a user's profile card: their rank and win/loss record.",
-    ),
-  surfaces: ALL_COMMAND_SURFACES,
-  args: [USER_ARG],
-
-  run: showUserCard,
-})
-
 export const statsCommand = defineCommand({
   name: 'stats',
-  aliases: ['astat'],
+  aliases: ['astat', 'profile', 'p', 'rank', 'mmr'],
   description: t =>
-    t('chat.commands.stats.description', "Shows a user's win/loss record and ranks."),
-  surfaces: ALL_COMMAND_SURFACES,
-  args: [USER_ARG],
-
-  run: showUserCard,
-})
-
-export const rankCommand = defineCommand({
-  name: 'rank',
-  aliases: ['mmr'],
-  description: t => t('chat.commands.rank.description', "Shows a user's current ranked divisions."),
+    t(
+      'chat.commands.stats.description',
+      "Shows a user's profile card: their rank and win/loss record.",
+    ),
+  group: 'people',
   surfaces: ALL_COMMAND_SURFACES,
   args: [USER_ARG],
 

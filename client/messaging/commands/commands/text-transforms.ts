@@ -3,6 +3,7 @@ import { ALL_COMMAND_SURFACES, defineCommand, TextTransform } from '../command-s
 export const shrugCommand = defineCommand({
   name: 'shrug',
   description: t => t('chat.commands.shrug.description', 'Appends ¯\\_(ツ)_/¯ to your message.'),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'rest', name: 'text', optional: true }],
 
@@ -14,6 +15,7 @@ export const shrugCommand = defineCommand({
 export const tableflipCommand = defineCommand({
   name: 'tableflip',
   description: t => t('chat.commands.tableflip.description', 'Flips a table: (╯°□°)╯︵ ┻━┻'),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   args: [],
 
@@ -25,6 +27,7 @@ export const tableflipCommand = defineCommand({
 export const unflipCommand = defineCommand({
   name: 'unflip',
   description: t => t('chat.commands.unflip.description', 'Puts the table back: ┬─┬ ノ( ゜-゜ノ)'),
+  group: 'fun',
   surfaces: ALL_COMMAND_SURFACES,
   args: [],
 

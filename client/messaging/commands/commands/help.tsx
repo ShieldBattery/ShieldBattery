@@ -18,6 +18,7 @@ export const helpCommand = defineCommand({
   name: 'help',
   aliases: ['?'],
   description: t => t('chat.commands.help.description', 'Lists the commands you can use here.'),
+  group: 'chat',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'word', name: 'command', optional: true }],
 
@@ -32,6 +33,7 @@ export const helpCommand = defineCommand({
               aliases: [...(command.aliases ?? [])],
               args: getCommandArgUsages(command),
               description: command.description(t),
+              group: command.group,
             })),
           },
         }),

@@ -152,6 +152,7 @@ export const whisperCommand = defineCommand({
   name: 'whisper',
   aliases: ['w', 'm', 'msg', 'tell', 't'],
   description: t => t('chat.commands.whisper.description', 'Sends a private message to a user.'),
+  group: 'chat',
   surfaces: ALL_COMMAND_SURFACES,
   args: [
     { kind: 'user', name: 'user', suggest: getWhisperTargets },

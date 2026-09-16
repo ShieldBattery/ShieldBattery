@@ -14,6 +14,7 @@ export const cancelCommand = defineCommand({
   name: 'cancel',
   description: t =>
     t('chat.commands.cancel.description', 'Cancels your current matchmaking search.'),
+  group: 'matchmaking',
   surfaces: ALL_COMMAND_SURFACES,
   args: [],
 

@@ -398,18 +398,15 @@
         },
         "description": "Manages your friends list: add, remove, or list them with their current activity.",
         "empty": "Your friends list is empty.",
-        "header": "Friends ({{online}} online, {{offline}} offline):",
-        "hideOffline": "Hide offline friends",
         "list": {
-          "description": "Lists your friends and what they are doing."
+          "description": "Lists your friends and what they are doing.",
+          "noneOnline": "No friends online"
         },
         "loadError": "Couldn't load your friends list: {{errorMessage}}",
         "remove": {
           "description": "Removes a user from your friends.",
           "removed": "Removed <2><0></0></2> from your friends."
-        },
-        "showOffline_one": "Show {{count}} offline friend",
-        "showOffline_other": "Show {{count}} offline friends"
+        }
       },
       "help": {
         "aliasesLabel": "Also",
@@ -417,6 +414,13 @@
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "Lists the commands you can use here.",
         "dialogTitle": "Chat commands",
+        "groups": {
+          "chat": "Chat",
+          "fun": "Fun",
+          "matchmaking": "Matchmaking",
+          "moderation": "Moderation",
+          "people": "People"
+        },
         "intro": "Type a command at the start of a message to run it. To send a message that begins with a slash, type <1>//</1> instead."
       },
       "join": {
@@ -439,15 +443,9 @@
         "chatRestricted": "You're currently restricted from sending chat messages.",
         "sendError": "Couldn't settle that: {{errorMessage}}"
       },
-      "profile": {
-        "description": "Shows a user's profile card: their rank and win/loss record."
-      },
       "quote": {
         "description": "Quotes a random Brood War unit line, from one unit if you name it.",
         "unknownUnit": "No unit named <1>{{name}}</1>. Units: {{units}}"
-      },
-      "rank": {
-        "description": "Shows a user's current ranked divisions."
       },
       "relationships": {
         "acceptFailed": "Couldn't accept <2><0></0></2>'s friend request: {{errorMessage}}",
@@ -479,7 +477,7 @@
         "description": "Appends ¯\\_(ツ)_/¯ to your message."
       },
       "stats": {
-        "description": "Shows a user's win/loss record and ranks."
+        "description": "Shows a user's profile card: their rank and win/loss record."
       },
       "surfaces": {
         "channel": "channels",
@@ -2836,8 +2834,13 @@
     "card": {
       "loadError": "Couldn't load this user's profile.",
       "noGames": "No games played",
-      "record_one": "{{count}} game · {{wins}}–{{losses}}",
-      "record_other": "{{count}} games · {{wins}}–{{losses}}",
+      "rankLine": "{{division}} · {{mode}} · {{points}} pts",
+      "rankTooltip": {
+        "points": "{{points}} pts",
+        "winRate": "{{winRate}}% win rate"
+      },
+      "totalGames_one": "{{count}} game",
+      "totalGames_other": "{{count}} games",
       "unranked": "Unranked",
       "viewProfile": "Profile"
     },

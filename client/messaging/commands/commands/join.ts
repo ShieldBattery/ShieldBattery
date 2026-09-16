@@ -12,6 +12,7 @@ export const joinCommand = defineCommand({
   aliases: ['j', 'channel'],
   description: t =>
     t('chat.commands.join.description', 'Joins a chat channel, creating it if it does not exist.'),
+  group: 'chat',
   surfaces: ALL_COMMAND_SURFACES,
   args: [{ kind: 'channel', name: 'channel' }],
 
