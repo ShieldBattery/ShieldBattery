@@ -119,6 +119,13 @@ interface IpcInvokeables {
    */
   activeGameForceDesync: (gameId: string) => void
   /**
+   * Tells the active game process to crash itself with the given fault (debug game builds only), to
+   * exercise the DLL's crash handler. Only registered in development (`isDev`). Fire-and-forget:
+   * the process dies; verify via the game log's `[CRASH]` lines, a fresh non-empty
+   * `latest_crash.dmp`, and the crash exit code the app logs.
+   */
+  activeGameDebugCrash: (gameId: string, kind: 'accessViolation' | 'stackOverflow') => void
+  /**
    * Tells the active game process to send an in-game chat message over its netcode v2 session, as
    * this client (debug game builds only). Only registered in development (`isDev`). Sends to
    * everyone (`ChatTarget::All`) — there's currently no way to pick a narrower scope from here.

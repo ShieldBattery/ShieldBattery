@@ -981,6 +981,11 @@ impl GameState {
                         // Fire-and-forget, the same toggle the `/netstat` chat command makes. No
                         // reply — verify via queryState's `netStats.visible`.
                     }
+                    DebugControlCommand::Crash { kind } => {
+                        // Faults right here on the async runtime thread; the process won't
+                        // survive to reply.
+                        crate::debug_control::crash(kind);
+                    }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
                         return async move {

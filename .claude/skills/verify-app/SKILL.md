@@ -30,6 +30,13 @@ prove a component *looks* right, nothing more. To verify that something *works*,
    the app injects by default) stale, so the launched game silently runs the *old* code. If a
    game-launch result contradicts your change, suspect a stale `dist/` DLL. (See AGENTS.md → Game
    DLL.)
+5. **If you changed `app/` (Electron main-process) code, run `pnpm run build-app-main` before
+   launching.** The launch below runs `electron.exe app`, which loads the *bundled* main process
+   from `app/dist/index.js` — only the renderer is served live by the :5566 dev server. A stale
+   bundle is silent until something you added is missing at runtime (e.g. a new IPC handler fails
+   with `No handler registered for '…'`). `common/` changes used by the main process need the
+   rebuild too. Rebuilding requires relaunching the app instances (which also ends any game they
+   have running).
 
 ## Launch the app with a debugging port
 
@@ -194,7 +201,14 @@ playwright-cli -s=c2 click "getByTestId('nav-play-button')"
 playwright-cli -s=c2 eval "[...document.querySelectorAll('button')].find(e=>/^Lobbies/.test(e.textContent||''))?.click(), 'x'"
 playwright-cli -s=c2 eval "[...document.querySelectorAll('[data-testid=lobby-list-entry]')].find(e=>e.textContent.includes('my-test-lobby'))?.click(), 'joined'"
 
-# c1 starts once c2 is in a slot
+# Clicking a lobby-list entry only selects it; the join is a separate button
+playwright-cli -s=c2 click "getByRole('button', { name: 'Join lobby' })"
+
+# Everyone readies up (the host too) — `start-game-button` is DISABLED until "N of N ready"; a
+# click on it while disabled silently does nothing and the game state stays null forever. Then
+# c1 starts. (The host also has a "Start anyway" button that skips the ready check.)
+playwright-cli -s=c1 click "getByRole('button', { name: 'Ready up' })"
+playwright-cli -s=c2 click "getByRole('button', { name: 'Ready up' })"
 playwright-cli -s=c1 click "getByTestId('start-game-button')"
 ```
 
@@ -241,9 +255,13 @@ Poll both instances in the same loop for a two-client game. If the session does 
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
   `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
   `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
-  `forceQuit(gameId)`, and `screenshot(gameId)` for driving/inspecting a running game over CDP
-  (a release DLL doesn't implement these, so query calls time out). The three game-enders differ
-  in ways that matter — pick deliberately:
+  `forceQuit(gameId)`, `crash(gameId, kind)` and `screenshot(gameId)` for driving/inspecting a
+  running game over CDP (a release DLL doesn't implement these, so query calls time out).
+  `crash(gameId, 'accessViolation' | 'stackOverflow')` kills the game process with that fault to
+  exercise the DLL's crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty
+  `latest_crash.dmp` in the logs dir, a "Shieldbattery crash :(" message box (close it, or kill
+  `StarCraft.exe`), and a crash-code exit + "Crash dump written" line in the app log. The three
+  game-enders differ in ways that matter — pick deliberately:
   - **`forceDesync(gameId)` is THE desync trigger.** It perturbs the calling client's own sim
     state (local player's minerals), so **both clients keep playing** while their sync checksums
     diverge — the relay comparator fires within seconds (verified live on staging: `hasResult`

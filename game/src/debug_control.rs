@@ -68,6 +68,50 @@ pub enum DebugControlCommand {
     /// Fire-and-forget: no reply — verify via `queryState` (`turnState.netStats.visible`, and the
     /// per-slot stats under `turnState.netStats.rows`).
     ToggleNetStats,
+    /// Deliberately crash THIS client's game process on the async thread with the given fault, to
+    /// exercise the crash handler end to end. No reply, the process dies: verify via the
+    /// `[CRASH]` lines in the game log, a fresh non-empty `latest_crash.dmp`, and the crash exit
+    /// code the app records.
+    Crash { kind: DebugCrashKind },
+}
+
+/// The fault [`DebugControlCommand::Crash`] raises.
+#[derive(Debug, Deserialize, Clone, Copy, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum DebugCrashKind {
+    /// Write through an invalid pointer: the ordinary crash the handler has always been able to
+    /// dump.
+    AccessViolation,
+    /// Recurse until the thread's stack is exhausted: the crash whose dump has to be written from
+    /// another thread, since the faulting one has no stack left to write it with.
+    StackOverflow,
+}
+
+/// Raises the requested fault on the calling thread. Never returns normally.
+pub fn crash(kind: DebugCrashKind) {
+    warn!("debugControl: crashing with {kind:?}");
+    match kind {
+        DebugCrashKind::AccessViolation => unsafe {
+            let target = std::hint::black_box(0x10usize) as *mut u32;
+            std::ptr::write_volatile(target, 0xdead_beef);
+        },
+        DebugCrashKind::StackOverflow => {
+            let depth = exhaust_stack(0);
+            warn!("debugControl: stack overflow recursion returned at depth {depth}");
+        }
+    }
+}
+
+fn exhaust_stack(depth: usize) -> usize {
+    // A page-sized frame the optimizer can't drop, and a recursion it can't prove unconditional.
+    let mut frame = [0u8; 4096];
+    frame[depth % frame.len()] = depth as u8;
+    std::hint::black_box(&frame);
+    if std::hint::black_box(true) {
+        1 + exhaust_stack(depth + 1)
+    } else {
+        depth
+    }
 }
 
 /// The chat scope for [`DebugControlCommand::SendChat`], a serde-friendly mirror of

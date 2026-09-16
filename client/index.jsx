@@ -115,6 +115,8 @@ rootElemPromise
         forceUnsyncedLeave: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameForceUnsyncedLeave', gameId, slot),
         forceDesync: gameId => new TypedIpcRenderer().invoke('activeGameForceDesync', gameId),
+        crash: (gameId, kind) =>
+          new TypedIpcRenderer().invoke('activeGameDebugCrash', gameId, kind),
         sendChat: (gameId, text) =>
           new TypedIpcRenderer().invoke('activeGameSendChat', gameId, text),
         requestDrop: (gameId, slot) =>

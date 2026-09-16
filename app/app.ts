@@ -831,6 +831,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameForceDesync', (event, gameId) =>
       activeGameManager.forceGameDesync(gameId),
     )
+    ipcMain.handle('activeGameDebugCrash', (event, gameId, kind) =>
+      activeGameManager.debugCrashGame(gameId, kind),
+    )
     ipcMain.handle('activeGameSendChat', (event, gameId, text) =>
       activeGameManager.sendGameChat(gameId, text),
     )

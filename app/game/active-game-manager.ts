@@ -504,6 +504,20 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Tells the active game process to crash itself with the given fault (debug game builds only), so
+   * the DLL's crash handling can be exercised end to end. Fire-and-forget: the process dies, and
+   * the usual exit handling (including the crash dump check) runs.
+   */
+  debugCrashGame(gameId: string, kind: 'accessViolation' | 'stackOverflow'): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got debugCrashGame for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'crash', kind })
+  }
+
+  /**
    * Tells the active game process to send an in-game chat message over its netcode v2 session, as
    * this client (debug game builds only), through the same send path the in-game chat box's own
    * Enter-key send uses. Fire-and-forget: there's no reply; verify via a peer's rendered chat, or
