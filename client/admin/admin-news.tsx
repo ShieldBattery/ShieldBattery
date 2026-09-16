@@ -23,7 +23,6 @@ import { NewsPostCreation, NewsPostUpdates } from '../gql/graphql'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
-import { Markdown } from '../markdown/markdown'
 import {
   applyMarkdownFormat,
   markdownFormatForKeyEvent,
@@ -38,6 +37,7 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
+import { NewsMarkdown } from '../news/news-markdown'
 import { urlForNewsPost } from '../news/news-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
@@ -800,7 +800,7 @@ const PreviewContainer = styled.div`
   position: relative;
 `
 
-const MarkdownPreview = styled(Markdown)`
+const MarkdownPreview = styled(NewsMarkdown)`
   position: absolute;
   inset: 0;
   padding: 16px 24px;
