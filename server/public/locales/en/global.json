@@ -2087,6 +2087,7 @@
     "notConnectedText": "Not connected"
   },
   "news": {
+    "adminActions": "Admin actions",
     "archive": {
       "error": "News is unavailable right now.",
       "loadMore": "Load more",
@@ -2094,8 +2095,11 @@
     },
     "byAuthor": "by {{name}}",
     "copyLink": "Copy link to news post",
+    "deleteDialogBody": "This news post will be permanently removed. This cannot be undone.",
+    "deleteDialogTitle": "Delete \"{{title}}\"?",
     "draft": "Draft",
     "manageNews": "Manage news",
+    "postDeleted": "News post deleted",
     "seeAll": "See all news",
     "unavailable": "News is unavailable right now."
   },

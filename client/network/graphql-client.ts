@@ -1,4 +1,4 @@
-import { cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
+import { Cache, cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchange-graphcache'
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -40,6 +40,17 @@ export function createGraphqlClient(
   })
 }
 
+// Publishing, unpublishing or deleting a post changes which lists it belongs to (home feed,
+// archive, admin list). Those lists are cached under every argument combination they were
+// queried with, so each variant is invalidated explicitly.
+function invalidateNewsPostLists(cache: Cache) {
+  for (const field of cache.inspectFields('Query')) {
+    if (field.fieldName === 'newsPosts') {
+      cache.invalidate('Query', field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
 // TODO(tec27): Devise a way to split this between the different feature areas
 const cacheUpdates: UpdatesConfig = {
   Mutation: {
@@ -61,6 +72,13 @@ const cacheUpdates: UpdatesConfig = {
     unblockStream: (_result, _args, cache) => {
       cache.invalidate('Query', 'liveStreams')
       cache.invalidate('Query', 'blockedStreams')
+    },
+    newsUpdatePost: (_result, _args, cache) => invalidateNewsPostLists(cache),
+    newsDeletePost: (result, args, cache) => {
+      if (result.newsDeletePost) {
+        cache.invalidate({ __typename: 'NewsPost', id: args.id as string })
+        invalidateNewsPostLists(cache)
+      }
     },
   },
 }

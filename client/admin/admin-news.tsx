@@ -35,10 +35,13 @@ import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { TextField } from '../material/text-field'
+import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import { NewsMarkdown } from '../news/news-markdown'
-import { urlForNewsPost } from '../news/news-url'
+import { NewsDeletePostMutation, NewsUpdatePostMutation } from '../news/news-post-mutations'
+import { getPostStatus, PostStatus } from '../news/news-post-status'
+import { EDITOR_RETURN_TO_PARAM, EDITOR_RETURN_TO_POST, urlForNewsPost } from '../news/news-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
 import { useAppDispatch } from '../redux-hooks'
@@ -56,7 +59,6 @@ import {
 import { ConnectedUsername } from '../users/connected-username'
 import {
   NewsPostSettings,
-  PostStatus,
   PUBLISH_MODE_DRAFT,
   PUBLISH_MODE_NOW,
   PUBLISH_MODE_PUBLISHED,
@@ -135,38 +137,7 @@ const NewsCreatePostMutation = graphql(/* GraphQL */ `
   }
 `)
 
-const NewsUpdatePostMutation = graphql(/* GraphQL */ `
-  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {
-    newsUpdatePost(id: $id, updates: $updates) {
-      id
-      title
-      summary
-      content
-      publishedAt
-      updatedAt
-      coverImagePath
-      coverImageUrl
-      coverImageSmallUrl
-    }
-  }
-`)
-
-const NewsDeletePostMutation = graphql(/* GraphQL */ `
-  mutation NewsDeletePost($id: UUID!) {
-    newsDeletePost(id: $id)
-  }
-`)
-
 const PAGE_SIZE = 20
-
-/** Classifies a post's publish state given the current time (`now`, in millis). */
-export function getPostStatus(publishedAt: string | null | undefined, now: number): PostStatus {
-  if (!publishedAt) {
-    return { kind: 'draft' }
-  }
-  const date = new Date(publishedAt)
-  return date.getTime() > now ? { kind: 'scheduled', date } : { kind: 'published', date }
-}
 
 /** Formats a `Date` for a `datetime-local` input value (`YYYY-MM-DDTHH:mm`, local time). */
 export function toDateTimeLocalString(date: Date): string {
@@ -934,6 +905,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
+  const [returnTo] = useLocationSearchParam(EDITOR_RETURN_TO_PARAM)
   const snackbarController = useSnackbarController()
   const [{ fetching: creating, error: createError }, createPost] =
     useMutation(NewsCreatePostMutation)
@@ -1163,8 +1135,13 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           updates.coverImagePath = coverImagePath
         }
 
+        // The editor opened from a post's own page returns there on save, so the editor doesn't
+        // have to go back through the list.
+        const savedUrl =
+          returnTo === EDITOR_RETURN_TO_POST ? urlForNewsPost(post.id, title) : '/admin/news'
+
         if (Object.keys(updates).length === 0) {
-          push('/admin/news')
+          push(savedUrl)
           return
         }
 
@@ -1172,7 +1149,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           .then(result => {
             if (!result.error) {
               snackbarController.showSnackbar(t('admin.news.saved', 'News post saved'))
-              push('/admin/news')
+              push(savedUrl)
             }
           })
           .catch(swallowNonBuiltins)

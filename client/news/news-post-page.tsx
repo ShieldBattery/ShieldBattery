@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import slug from 'slug'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
+import { useSelfPermissions } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { BottomLinks } from '../home/bottom-links'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -13,6 +14,8 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, headlineLarge, headlineSmall, labelMedium } from '../styles/typography'
 import { newsDateFormatter, NewsImage } from './news-image'
 import { NewsMarkdown } from './news-markdown'
+import { NewsPostAdminMenu } from './news-post-admin-menu'
+import { getPostStatus } from './news-post-status'
 import { fromRouteNewsPostId, RouteNewsPostId, urlForNewsPost } from './news-url'
 
 const NewsPostQuery = graphql(/* GraphQL */ `
@@ -82,7 +85,7 @@ const Content = styled.div`
 const TitleRow = styled.div`
   margin-top: round(var(--_header-height) * 0.45, 1px);
   /* Without this cap the intrinsic size of a long title propagates up through this (also
-     intrinsically-sized) box, letting TitleAndCopyLink's own max-width resolve against an
+     intrinsically-sized) box, letting TitleAndActions's own max-width resolve against an
      already-overflowing parent instead of the real content width. */
   max-width: 100%;
 
@@ -92,13 +95,17 @@ const TitleRow = styled.div`
   gap: 8px;
 `
 
-const TitleAndCopyLink = styled.div`
+const TitleAndActions = styled.div<{ $hasAdminMenu: boolean }>`
   position: relative;
-  /* Reserve symmetric space for the copy-link button so the title text stays visually centered
-     and the button can't extend past the content edge (and get clipped) when a long title makes
-     this box span the full content width. The max-width keeps a long unbreakable word from
-     inflating this box past the container (which would push the button offscreen again). */
-  padding-inline: 56px;
+  /* Reserve symmetric space for the title-row icon buttons so the title text stays visually
+     centered and the buttons can't extend past the content edge (and get clipped) when a long
+     title makes this box span the full content width. Each button is 48px wide with an 8px gap
+     between buttons and 8px clearance from the title, so one button reserves 56px and two reserve
+     112px; the padding is symmetric so the title stays centered either way, and only as much
+     space is claimed as is actually needed, so non-editors' layout is unchanged. The max-width
+     keeps a long unbreakable word from inflating this box past the container (which would push
+     the buttons offscreen again). */
+  padding-inline: ${p => (p.$hasAdminMenu ? 112 : 56)}px;
   max-width: 100%;
 `
 
@@ -108,11 +115,15 @@ const Title = styled.div`
   overflow-wrap: break-word;
 `
 
-const PositionedCopyLinkButton = styled(CopyLinkButton)`
+const TitleActions = styled.div`
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `
 
 const DraftLabel = styled.div`
@@ -154,6 +165,11 @@ const ROUTE_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
 
 export function NewsPostPage({ params }: { params: { id: string; '*'?: string } }) {
   const { t } = useTranslation()
+  const perms = useSelfPermissions()
+  // After a publish mutation the server-assigned `publishedAt` can be later than the last
+  // `useNow` tick, which would show a just-published post as a draft until the next tick, so a
+  // successful publish/unpublish bumps the floor to the current time.
+  const [minNow, setMinNow] = useState(0)
 
   const id = useMemo(() => {
     if (!ROUTE_ID_PATTERN.test(params.id)) {
@@ -173,7 +189,7 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
   })
 
   const post = data?.newsPost
-  const now = useNow(60_000)
+  const now = Math.max(useNow(60_000), minNow)
 
   useEffect(() => {
     // An invalid route id, or a missing/(for non-admins) unpublished post (which resolves to null
@@ -199,7 +215,7 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
     return <LoadingDotsArea />
   }
 
-  const isDraft = !post.publishedAt || new Date(post.publishedAt).getTime() > now
+  const status = getPostStatus(post.publishedAt, now)
 
   return (
     <Root>
@@ -212,14 +228,24 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
       </HeaderImageContainer>
       <Content>
         <TitleRow>
-          {isDraft ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
-          <TitleAndCopyLink>
+          {status.kind !== 'published' ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
+          <TitleAndActions $hasAdminMenu={!!perms?.manageNews}>
             <Title data-testid='news-post-title'>{post.title}</Title>
-            <PositionedCopyLinkButton
-              tooltipPosition='right'
-              startingText={t('news.copyLink', 'Copy link to news post')}
-            />
-          </TitleAndCopyLink>
+            <TitleActions>
+              {perms?.manageNews ? (
+                <NewsPostAdminMenu
+                  postId={post.id}
+                  postTitle={post.title}
+                  status={status}
+                  onPublishStateChanged={() => setMinNow(Date.now())}
+                />
+              ) : null}
+              <CopyLinkButton
+                tooltipPosition='right'
+                startingText={t('news.copyLink', 'Copy link to news post')}
+              />
+            </TitleActions>
+          </TitleAndActions>
         </TitleRow>
         {post.publishedAt ? (
           <PostDate>{newsDateFormatter.format(new Date(post.publishedAt))}</PostDate>
