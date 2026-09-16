@@ -204,13 +204,20 @@ playwright-cli -s=c2 eval "[...document.querySelectorAll('[data-testid=lobby-lis
 # Clicking a lobby-list entry only selects it; the join is a separate button
 playwright-cli -s=c2 click "getByRole('button', { name: 'Join lobby' })"
 
-# Everyone readies up (the host too) — `start-game-button` is DISABLED until "N of N ready"; a
-# click on it while disabled silently does nothing and the game state stays null forever. Then
-# c1 starts. (The host also has a "Start anyway" button that skips the ready check.)
-playwright-cli -s=c1 click "getByRole('button', { name: 'Ready up' })"
+# Joiners ready up; the host counts as ready automatically (there is no "Ready up" button on
+# c1). Once the rail reads "N of N ready", a plain click on `start-game-button` starts the game.
 playwright-cli -s=c2 click "getByRole('button', { name: 'Ready up' })"
 playwright-cli -s=c1 click "getByTestId('start-game-button')"
 ```
+
+> **Not everyone ready?** A plain click on `start-game-button` does nothing (the game state stays
+> null forever). The host can bypass readiness by **pressing and holding the button for 2 s**
+> (`START_GAME_HOLD_MS` in `client/lobbies/room/use-start-game-hold.ts`; the hint reads "Hold to
+> start anyway"). Over CDP that's a mouse-down / wait / mouse-up, not a click:
+> ```bash
+> playwright-cli -s=c1 run-code "async page => { const b = page.getByTestId('start-game-button'); await b.hover(); await page.mouse.down(); await page.waitForTimeout(2500); await page.mouse.up(); }"
+> ```
+> (Recipe derived from the hold implementation; the plain-click path above is the live-verified one.)
 
 > **3+ players / a bigger map:** the map's slot count caps the lobby (an 8-slot map gives 8
 > `lobby-slot`s); open slots just aren't participants, so a 3-human melee on a big map starts fine.
