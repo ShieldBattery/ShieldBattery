@@ -12,6 +12,7 @@ import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies
 import { SlotType } from '../../../common/lobbies/slot'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { useObservedDimensions } from '../../dom/dimension-hooks'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { batchGetMapInfo } from '../../maps/action-creators'
 import { MapInfoImage } from '../../maps/map-image'
@@ -231,6 +232,7 @@ const OverflowChip = styled.button`
   ${buttonReset};
   ${labelMedium};
   align-self: center;
+  flex-shrink: 0;
   padding: 6px 10px;
 
   border-radius: 999px;
@@ -245,6 +247,7 @@ const OverflowChip = styled.button`
 
 const GameTileButton = styled.button`
   ${buttonReset};
+  flex: 1 1 0;
   min-width: 96px;
   padding: 8px 12px;
 
@@ -314,6 +317,7 @@ const breathe = keyframes`
 `
 
 const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'playing' }>`
+  flex: 0 0 96px;
   min-width: 96px;
   padding: 8px 12px;
 
@@ -379,9 +383,24 @@ const SeriesList = styled.div`
 `
 
 const SeriesSection = styled.div`
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
+`
+
+const SeriesGames = styled.div`
+  /* Five 44px game rows and the four gaps between them. */
+  max-height: 236px;
+  padding-inline-end: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 `
 
 /** `SectionLabel` carries a 4px horizontal padding meant for the roster rail; the popover's
@@ -768,7 +787,10 @@ export function RoomMapBanner({
     ],
   )
 
-  const recentStartIndex = Math.max(0, series.length - 3)
+  const [timelineRef, timelineSize] = useObservedDimensions<HTMLDivElement>()
+  // Reserve room for readable winner names alongside the earlier-games chip and next game.
+  const recentGameLimit = (timelineSize?.width ?? 0) >= 480 ? 2 : 1
+  const recentStartIndex = Math.max(0, series.length - recentGameLimit)
   const recentGames = series
     .slice(recentStartIndex)
     .map((game, i) => ({ game, gameNumber: recentStartIndex + i + 1 }))
@@ -857,15 +879,15 @@ export function RoomMapBanner({
                 </AllGamesButton>
               ) : null}
             </TimelineLabelRow>
-            <TimelineStrip>
-              {series.length > 3 ? (
+            <TimelineStrip ref={timelineRef}>
+              {recentStartIndex > 0 ? (
                 <OverflowChip
                   type='button'
                   title={t('lobbies.room.series.earlierGames', 'Earlier games')}
                   aria-haspopup='dialog'
                   aria-expanded={allGamesOpen}
                   onClick={openAllGames}>
-                  +{series.length - 3}
+                  +{recentStartIndex}
                 </OverflowChip>
               ) : null}
               {recentGames.map(({ game, gameNumber }) => (
@@ -897,15 +919,20 @@ export function RoomMapBanner({
                   <PopoverSectionLabel>
                     {t('lobbies.room.series.gamesLabel', 'Games')}
                   </PopoverSectionLabel>
-                  {series.map((game, index) => (
-                    <SeriesGameRow
-                      key={game.gameId}
-                      game={game}
-                      gameNumber={index + 1}
-                      onWatchReplay={onWatchReplay}
-                      onViewGameSummary={onViewGameSummary}
-                    />
-                  ))}
+                  <SeriesGames
+                    role='region'
+                    aria-label={t('lobbies.room.series.gamesLabel', 'Games')}
+                    tabIndex={0}>
+                    {series.map((game, index) => (
+                      <SeriesGameRow
+                        key={game.gameId}
+                        game={game}
+                        gameNumber={index + 1}
+                        onWatchReplay={onWatchReplay}
+                        onViewGameSummary={onViewGameSummary}
+                      />
+                    ))}
+                  </SeriesGames>
                 </SeriesSection>
               </SeriesList>
             </Popover>

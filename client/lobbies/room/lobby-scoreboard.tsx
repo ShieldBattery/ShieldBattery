@@ -12,12 +12,21 @@ import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
 
 const ScoreboardRoot = styled.div`
+  /* Column labels plus three 32px player rows and their gaps. */
+  max-height: 123px;
+  padding-inline-end: 8px;
+
   display: flex;
   flex-direction: column;
   gap: 2px;
+
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 `
 
 const ScoreboardHeader = styled.div`
+  flex-shrink: 0;
   padding-bottom: 4px;
 
   display: flex;
@@ -33,6 +42,7 @@ const ScoreboardHeaderLabel = styled.div`
 `
 
 const ScoreboardRow = styled.div`
+  flex-shrink: 0;
   min-height: 32px;
 
   display: flex;
@@ -115,7 +125,10 @@ export function LobbyScoreboard() {
   }
 
   return (
-    <ScoreboardRoot>
+    <ScoreboardRoot
+      role='region'
+      aria-label={t('lobbies.room.series.standings', 'Standings')}
+      tabIndex={0}>
       <ScoreboardHeader>
         <ScoreboardHeaderLabel>
           {t('lobbies.room.scoreboard.player', 'Player')}
