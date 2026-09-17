@@ -346,6 +346,12 @@ export interface ChatProps {
    */
   onAtBottomChange?: (atBottom: boolean) => void
   /**
+   * Called the first time the unread divider is inside the viewport, once for each divider the list
+   * is given. Owners are expected to record it, so that a later return to the bottom can retire a
+   * divider the user has actually laid eyes on.
+   */
+  onUnreadLineSeen?: (unreadLineTime: number) => void
+  /**
    * Called when the user asks to go back to the newest messages while the list is showing a window
    * of history detached from the present. Owners are expected to load that newest page. Only
    * meaningful for surfaces that keep history on the server; without it the jump button can only
@@ -398,6 +404,7 @@ export function Chat({
   linkedMessageId,
   onLinkedMessageSettled,
   onAtBottomChange,
+  onUnreadLineSeen,
   onJumpToPresent,
   onSeekToUnread,
   onMarkRead,
@@ -858,7 +865,15 @@ export function Chat({
         const scrollerRect = scroller.getBoundingClientRect()
         const lineRect = unreadLine.getBoundingClientRect()
         if (lineRect.bottom > scrollerRect.top && lineRect.top < scrollerRect.bottom) {
-          seenLineRef.current = { refreshToken, unreadLineTime }
+          const alreadySeen = seenLineRef.current
+          if (
+            alreadySeen === undefined ||
+            alreadySeen.refreshToken !== refreshToken ||
+            alreadySeen.unreadLineTime !== unreadLineTime
+          ) {
+            seenLineRef.current = { refreshToken, unreadLineTime }
+            onUnreadLineSeen?.(unreadLineTime)
+          }
         }
         newShowUnreadBanner = lineRect.bottom - scrollerRect.top < 0
       } else {

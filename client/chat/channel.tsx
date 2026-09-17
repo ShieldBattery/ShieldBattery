@@ -46,6 +46,7 @@ import {
   leaveChannelWithConfirmation,
   markChannelRead,
   markChannelReadNow,
+  markUnreadLineSeen,
   resetMessageWindow,
   retrieveUserList,
   sendMessage,
@@ -182,7 +183,7 @@ export function ConnectedChatChannel({
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
   const isActivated = useAppSelector(s => s.chat.activatedChannels.has(channelId))
   const isAtBottom = useAppSelector(s => s.chat.atBottomChannels.has(channelId))
-  const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLineTime.get(channelId))
+  const unreadLineTime = useAppSelector(s => s.chat.idToUnreadLine.get(channelId)?.time)
   const isWindowFocused = useWindowFocus()
   const snackbarController = useSnackbarController()
   const { t } = useTranslation()
@@ -540,6 +541,10 @@ export function ConnectedChatChannel({
     dispatch(updateChannelAtBottom(channelId, atBottom))
   }
 
+  const onUnreadLineSeen = (time: number) => {
+    dispatch(markUnreadLineSeen(channelId, time))
+  }
+
   const onSendChatMessage = useStableCallback((msg: string) =>
     dispatch(
       sendMessage(channelId, msg, {
@@ -593,6 +598,7 @@ export function ConnectedChatChannel({
             linkedMessageId={linkedMessageId || undefined}
             onLinkedMessageSettled={onLinkedMessageSettled}
             onAtBottomChange={onAtBottomChange}
+            onUnreadLineSeen={onUnreadLineSeen}
             onJumpToPresent={onJumpToPresent}
             onSeekToUnread={onSeekToUnread}
             onMarkRead={onMarkRead}

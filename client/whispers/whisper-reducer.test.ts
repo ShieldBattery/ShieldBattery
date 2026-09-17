@@ -73,6 +73,8 @@ function makeState(
     unread?: boolean
     lastReadTime?: number
     unreadLineTime?: number
+    unreadLineSeen?: boolean
+    unreadLineLeftBottom?: boolean
     hasHistory?: boolean
     loadingHistory?: boolean
     loadingNewer?: boolean
@@ -99,7 +101,14 @@ function makeState(
     atBottom: overrides.atBottom ?? false,
     hasUnread: overrides.unread ?? false,
     lastReadTime: overrides.lastReadTime,
-    unreadLineTime: overrides.unreadLineTime,
+    unreadLine:
+      overrides.unreadLineTime !== undefined
+        ? {
+            time: overrides.unreadLineTime,
+            seen: overrides.unreadLineSeen ?? false,
+            leftBottom: overrides.unreadLineLeftBottom ?? false,
+          }
+        : undefined,
   }
 
   const state: WhisperState = {
@@ -264,6 +273,20 @@ function deactivateSessionAction(): WhisperActions {
   }
 }
 
+function updateSessionAtBottomAction(atBottom: boolean): WhisperActions {
+  return {
+    type: '@whispers/updateSessionAtBottom',
+    payload: { target: TARGET_ID, atBottom },
+  }
+}
+
+function unreadLineSeenAction(time: number, target = TARGET_ID): WhisperActions {
+  return {
+    type: '@whispers/unreadLineSeen',
+    payload: { target, time },
+  }
+}
+
 /** Rewrites a request action into the rejected form the promise middleware dispatches. */
 function asFailure(action: WhisperActions): WhisperActions {
   return {
@@ -338,7 +361,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateLastReadTimeAction(200))
 
-      expect(result.byId.get(TARGET_ID)!.unreadLineTime).toBeUndefined()
+      expect(result.byId.get(TARGET_ID)!.unreadLine).toBeUndefined()
     })
 
     test('keeps the frozen divider when it is at or ahead of the incoming time', () => {
@@ -346,7 +369,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateLastReadTimeAction(200))
 
-      expect(result.byId.get(TARGET_ID)!.unreadLineTime).toBe(250)
+      expect(result.byId.get(TARGET_ID)!.unreadLine?.time).toBe(250)
     })
 
     test('leaves the divider untouched for an activated session', () => {
@@ -360,7 +383,7 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateLastReadTimeAction(200))
 
       const session = result.byId.get(TARGET_ID)!
-      expect(session.unreadLineTime).toBe(150)
+      expect(session.unreadLine?.time).toBe(150)
       // The read position itself still advances even while activated, since this is also the path
       // this session's own optimistic mark-read reports take.
       expect(session.lastReadTime).toBe(200)
@@ -377,8 +400,59 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateLastReadTimeAction(200, true))
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.hasUnread).toBe(false)
+    })
+
+    test('drops a seen divider once the read report following a return to the bottom lands', () => {
+      // Messages arrive while the user is reading scrollback, so the divider is frozen where they
+      // left off; going back to the bottom is what retires it, but only once the read report from
+      // there has moved the position past it.
+      let result = whisperReducer(
+        makeState({ activated: true, atBottom: true, lastReadTime: 100 }),
+        updateSessionAtBottomAction(false),
+      )
+      result = whisperReducer(result, updateMessageAction(200))
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+
+      result = whisperReducer(result, unreadLineSeenAction(100))
+      result = whisperReducer(result, updateSessionAtBottomAction(true))
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+
+      result = whisperReducer(result, updateLastReadTimeAction(200))
+
+      expect(sessionOf(result).unreadLine).toBeUndefined()
+    })
+
+    test('keeps a divider the user never looked at for a session at the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        unreadLineLeftBottom: true,
+        lastReadTime: 100,
+        messages: [textMessage(200)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(200))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+
+    test('keeps a seen divider while the view is away from the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        unreadLineLeftBottom: true,
+        lastReadTime: 100,
+        messages: [textMessage(200)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(200))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('clears an activated session flag once the position covers the newest message', () => {
@@ -394,7 +468,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(false)
-      expect(session.unreadLineTime).toBe(50)
+      expect(session.unreadLine?.time).toBe(50)
     })
 
     test('keeps an activated session flag while the position is behind the newest message', () => {
@@ -688,7 +762,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(true)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.unreadLine?.time).toBe(100)
       expect(session.lastReadTime).toBe(100)
     })
 
@@ -704,7 +778,7 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateMessageAction(500))
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBe(200)
+      expect(session.unreadLine?.time).toBe(200)
       expect(session.hasUnread).toBe(true)
       expect(session.detachedNewestTime).toBe(500)
     })
@@ -714,7 +788,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateMessageAction(500))
 
-      expect(sessionOf(result).unreadLineTime).toBeUndefined()
+      expect(sessionOf(result).unreadLine).toBeUndefined()
     })
 
     test('is never trimmed while it grows, even when the view is at the bottom of it', () => {
@@ -821,7 +895,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(true)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.unreadLine?.time).toBe(100)
       expect(session.lastReadTime).toBe(100)
     })
 
@@ -832,7 +906,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(false)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.lastReadTime).toBe(200)
     })
 
@@ -851,7 +925,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(true)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.unreadLine?.time).toBe(100)
     })
 
     test('a message arriving while scrolled up in a focused window raises both', () => {
@@ -861,7 +935,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(true)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.unreadLine?.time).toBe(100)
       expect(session.lastReadTime).toBe(100)
     })
 
@@ -886,7 +960,7 @@ describe('client/whispers/whisper-reducer', () => {
       const session = sessionOf(result)
       expect(messageIdsOf(result)).toEqual(['text-200'])
       expect(session.hasUnread).toBe(false)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
     })
 
     test('an own echo drops the divider and reads the session through the echoed message', () => {
@@ -897,7 +971,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.hasUnread).toBe(false)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.lastReadTime).toBe(200)
     })
 
@@ -909,7 +983,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const session = sessionOf(result)
       expect(session.lastReadTime).toBe(300)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.hasUnread).toBe(false)
     })
 
@@ -927,7 +1001,7 @@ describe('client/whispers/whisper-reducer', () => {
       )
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.hasUnread).toBe(false)
       expect(session.lastReadTime).toBe(200)
     })
@@ -939,7 +1013,7 @@ describe('client/whispers/whisper-reducer', () => {
       )
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.hasUnread).toBe(false)
       expect(session.lastReadTime).toBe(200)
     })
@@ -954,7 +1028,7 @@ describe('client/whispers/whisper-reducer', () => {
       expect(messageIdsOf(result)).toEqual([])
       expect(session.detachedNewestTime).toBe(200)
       expect(session.hasUnread).toBe(false)
-      expect(session.unreadLineTime).toBeUndefined()
+      expect(session.unreadLine).toBeUndefined()
       expect(session.lastReadTime).toBe(200)
     })
 
@@ -970,7 +1044,7 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateMessageAction(300, false))
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBe(200)
+      expect(session.unreadLine?.time).toBe(200)
       expect(session.hasUnread).toBe(true)
       expect(session.lastReadTime).toBe(200)
     })
@@ -986,7 +1060,23 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateMessageAction(300, true))
 
-      expect(sessionOf(result).unreadLineTime).toBe(200)
+      expect(sessionOf(result).unreadLine?.time).toBe(200)
+    })
+
+    test('a re-frozen divider is a new divider the user has not looked at yet', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        unreadLineLeftBottom: true,
+        lastReadTime: 200,
+        messages: [textMessage(150), textMessage(200)],
+      })
+
+      const result = whisperReducer(state, updateMessageAction(300, true))
+
+      expect(sessionOf(result).unreadLine).toEqual({ time: 200, seen: false, leftBottom: true })
     })
 
     test('a message arriving while scrolled up keeps a divider the read position has not passed', () => {
@@ -999,7 +1089,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateMessageAction(300, true))
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('a message arriving while unfocused keeps a divider the read position has not passed', () => {
@@ -1012,7 +1102,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, updateMessageAction(300, false))
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('a message arriving in a session that is not being viewed does not re-freeze a passed divider', () => {
@@ -1021,7 +1111,7 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, updateMessageAction(300, true))
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.unreadLine?.time).toBe(100)
       expect(session.hasUnread).toBe(true)
     })
   })
@@ -1213,7 +1303,7 @@ describe('client/whispers/whisper-reducer', () => {
       const result = whisperReducer(state, activateSessionAction())
 
       const session = sessionOf(result)
-      expect(session.unreadLineTime).toBe(100)
+      expect(session.unreadLine?.time).toBe(100)
       expect(session.activated).toBe(true)
     })
 
@@ -1258,7 +1348,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, activateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBeUndefined()
+      expect(sessionOf(result).unreadLine).toBeUndefined()
     })
 
     test('keeps a divider the read position has passed when opening away from the bottom', () => {
@@ -1266,7 +1356,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, activateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('keeps a divider the read position has not passed', () => {
@@ -1274,7 +1364,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, activateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('keeps a divider frozen by this activation', () => {
@@ -1282,7 +1372,23 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, activateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+
+    test('a divider frozen at the bottom has no trip away from it behind it', () => {
+      const state = makeState({ unread: true, lastReadTime: 100, atBottom: true })
+
+      const result = whisperReducer(state, activateSessionAction())
+
+      expect(sessionOf(result).unreadLine).toEqual({ time: 100, seen: false, leftBottom: false })
+    })
+
+    test('a divider frozen away from the bottom counts as one the view has left', () => {
+      const state = makeState({ unread: true, lastReadTime: 100, atBottom: false })
+
+      const result = whisperReducer(state, activateSessionAction())
+
+      expect(sessionOf(result).unreadLine).toEqual({ time: 100, seen: false, leftBottom: true })
     })
   })
 
@@ -1311,7 +1417,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, deactivateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBeUndefined()
+      expect(sessionOf(result).unreadLine).toBeUndefined()
     })
 
     test('keeps a divider the read position has passed when left away from the bottom', () => {
@@ -1324,7 +1430,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, deactivateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('keeps a divider the read position has not passed', () => {
@@ -1337,7 +1443,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, deactivateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('drops a detached window entirely', () => {
@@ -1370,7 +1476,7 @@ describe('client/whispers/whisper-reducer', () => {
 
       const result = whisperReducer(state, deactivateSessionAction())
 
-      expect(sessionOf(result).unreadLineTime).toBe(100)
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
     })
 
     test('trims an attached window down to the history cap', () => {
@@ -1448,10 +1554,7 @@ describe('client/whispers/whisper-reducer', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({ activated: true, messages })
 
-      const result = whisperReducer(state, {
-        type: '@whispers/updateSessionAtBottom',
-        payload: { target: TARGET_ID, atBottom: true },
-      })
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
 
       expect(sessionOf(result).messages.length).toBe(150)
     })
@@ -1460,10 +1563,7 @@ describe('client/whispers/whisper-reducer', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
       const state = makeState({ activated: true, loadingHistory: true, messages })
 
-      const result = whisperReducer(state, {
-        type: '@whispers/updateSessionAtBottom',
-        payload: { target: TARGET_ID, atBottom: true },
-      })
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
 
       expect(sessionOf(result).messages.length).toBe(200)
       expect(sessionOf(result).windowGen).toBe(0)
@@ -1471,22 +1571,173 @@ describe('client/whispers/whisper-reducer', () => {
 
     test('a page in flight lands contiguously on the window it was fetched for', () => {
       const messages = Array.from({ length: 200 }, (_, i) => textMessage(i + 1))
-      let result = whisperReducer(makeState({ activated: true, loadingHistory: true, messages }), {
-        type: '@whispers/updateSessionAtBottom',
-        payload: { target: TARGET_ID, atBottom: true },
-      })
+      let result = whisperReducer(
+        makeState({ activated: true, loadingHistory: true, messages }),
+        updateSessionAtBottomAction(true),
+      )
       // Scrolling away again before the page lands leaves nothing to trim the seam afterwards, so
       // a window trimmed past the page's boundary would keep the gap for as long as it's loaded.
-      result = whisperReducer(result, {
-        type: '@whispers/updateSessionAtBottom',
-        payload: { target: TARGET_ID, atBottom: false },
-      })
+      result = whisperReducer(result, updateSessionAtBottomAction(false))
       result = whisperReducer(
         result,
         loadMessageHistoryAction(historyResponse([serverMessage(0)]), { beforeTime: 1 }),
       )
 
       expect(messageIdsOf(result)).toEqual(['text-0', ...messages.map(m => m.id)])
+    })
+
+    test('a report from away from the bottom records that the view left it', () => {
+      const state = makeState({ activated: true, atBottom: true, unreadLineTime: 100 })
+
+      const result = whisperReducer(state, updateSessionAtBottomAction(false))
+
+      expect(sessionOf(result).unreadLine?.leftBottom).toBe(true)
+    })
+
+    test('drops a divider the user looked at when the view returns to the bottom past it', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        unreadLineLeftBottom: true,
+        lastReadTime: 200,
+      })
+
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
+
+      expect(sessionOf(result).unreadLine).toBeUndefined()
+    })
+
+    test('keeps a divider the user never looked at when the view returns to the bottom', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineLeftBottom: true,
+        lastReadTime: 200,
+      })
+
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+
+    test('keeps a divider the read position has not passed', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        unreadLineLeftBottom: true,
+        lastReadTime: 100,
+      })
+
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+
+    test('keeps a divider on a view that arrives at the bottom without having left it', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        lastReadTime: 200,
+      })
+
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+
+    test('keeps a divider at the loaded bottom of a window detached from the present', () => {
+      const state = makeState({
+        activated: true,
+        atBottom: false,
+        hasNewer: true,
+        unreadLineTime: 100,
+        unreadLineSeen: true,
+        unreadLineLeftBottom: true,
+        lastReadTime: 200,
+      })
+
+      const result = whisperReducer(state, updateSessionAtBottomAction(true))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+
+    test('a mount/cleanup/remount cycle at the bottom leaves the divider where it is', () => {
+      // The cycle React's StrictMode runs in development, where the list arrives at the bottom with
+      // the divider on screen every time and the read report follows it there. The user never
+      // scrolled away from where they left off, so the divider still marks it.
+      let result = whisperReducer(
+        makeState({
+          unread: true,
+          atBottom: true,
+          lastReadTime: 100,
+          messages: [textMessage(200)],
+        }),
+        activateSessionAction(),
+      )
+      result = whisperReducer(result, unreadLineSeenAction(100))
+      result = whisperReducer(result, deactivateSessionAction())
+      result = whisperReducer(result, updateSessionAtBottomAction(true))
+      result = whisperReducer(result, activateSessionAction())
+      result = whisperReducer(result, updateLastReadTimeAction(200))
+
+      expect(sessionOf(result).unreadLine?.time).toBe(100)
+    })
+  })
+
+  describe('@whispers/unreadLineSeen', () => {
+    test('records that the divider has been in view', () => {
+      const state = makeState({ activated: true, atBottom: false, unreadLineTime: 100 })
+
+      const result = whisperReducer(state, unreadLineSeenAction(100))
+
+      expect(sessionOf(result).unreadLine?.seen).toBe(true)
+    })
+
+    test('ignores a report for a time the divider no longer sits at', () => {
+      const state = makeState({ activated: true, atBottom: false, unreadLineTime: 200 })
+
+      const result = whisperReducer(state, unreadLineSeenAction(100))
+
+      expect(sessionOf(result).unreadLine?.seen).toBe(false)
+    })
+
+    test('drops a divider the view is already back at the bottom of', () => {
+      // A jump straight to the bottom from above the divider lands with it still on screen, and the
+      // view reports where it ended up before it reports what's in the viewport.
+      const state = makeState({
+        activated: true,
+        atBottom: true,
+        unreadLineTime: 100,
+        unreadLineLeftBottom: true,
+        lastReadTime: 200,
+      })
+
+      const result = whisperReducer(state, unreadLineSeenAction(100))
+
+      expect(sessionOf(result).unreadLine).toBeUndefined()
+    })
+
+    test('does nothing for a session with no divider', () => {
+      const state = makeState({ activated: true, atBottom: true, lastReadTime: 200 })
+
+      const result = whisperReducer(state, unreadLineSeenAction(100))
+
+      expect(sessionOf(result).unreadLine).toBeUndefined()
+    })
+
+    test('does nothing for a session that is not open', () => {
+      const state = makeState({ activated: true, atBottom: true, unreadLineTime: 100 })
+
+      const result = whisperReducer(state, unreadLineSeenAction(100, OTHER_ID))
+
+      expect(sessionOf(result).unreadLine?.seen).toBe(false)
     })
   })
 

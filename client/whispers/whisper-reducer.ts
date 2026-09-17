@@ -8,6 +8,7 @@ import {
   isServerOriginMessage,
   LocalMessage,
 } from '../messaging/message-records'
+import { isUnreadLineSpent, placeUnreadLine, UnreadLine } from '../messaging/unread-line'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -91,15 +92,16 @@ export interface WhisperSession {
    */
   lastReadTime?: number
   /**
-   * The frozen position of the unread divider for the current activation. Captured when an unread
-   * session activates, or when a message goes unseen in an activated session (its view scrolled up,
-   * its window detached from the present, or the app window unfocused) that either has no divider or
+   * The unread divider for the session's current activation. Captured when an unread session
+   * activates, or when a message goes unseen in an activated session (its view scrolled up, its
+   * window detached from the present, or the app window unfocused) that either has no divider or
    * has one the read position has already moved past. It then holds still while the user reads
    * through it, so it doesn't chase `lastReadTime` as that keeps advancing underneath it, and is
-   * dropped when the user sends a message, explicitly marks the session read, or leaves it from the
-   * bottom having read past the divider.
+   * dropped when the user sends a message, explicitly marks the session read, leaves it from the
+   * bottom having read past the divider, or has looked at the divider, gone away from the bottom
+   * and come back to it with the read position past the divider.
    */
-  unreadLineTime?: number
+  unreadLine?: UnreadLine
 }
 
 function defaultWhisperSession(target: SbUserId): WhisperSession {
@@ -119,7 +121,7 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     atBottom: false,
     hasUnread: false,
     lastReadTime: undefined,
-    unreadLineTime: undefined,
+    unreadLine: undefined,
   }
 }
 
@@ -221,6 +223,15 @@ function dedupeAgainst(
 }
 
 /**
+ * Whether a session's view sits at the newest message: at the bottom of a window attached to the
+ * present. The bottom of a detached window is only the end of what's loaded rather than the newest
+ * message, so a view there is still mid-backlog no matter what the at-bottom flag says.
+ */
+function isAtPresentBottom(session: WhisperSession): boolean {
+  return session.atBottom && !session.hasNewer
+}
+
+/**
  * Records that a live message reached a whisper session. It either counts as read on arrival — the
  * session is being viewed at the bottom of a window attached to the present with the app window
  * focused, the one combination that puts the message in front of the user's eyes — in which case
@@ -234,8 +245,7 @@ function dedupeAgainst(
  * detached from the present isn't added to the window at all, yet counts as unread exactly the same.
  */
 function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
-  const readOnArrival =
-    session.activated && session.atBottom && !session.hasNewer && arrival.windowFocused
+  const readOnArrival = session.activated && isAtPresentBottom(session) && arrival.windowFocused
 
   if (readOnArrival) {
     if (arrival.time !== undefined) {
@@ -252,12 +262,12 @@ function recordLiveArrival(session: WhisperSession, arrival: LiveArrival) {
     // looked away, scrolled up, or paged into history, so it no longer marks anything they haven't
     // seen and this message is where what they haven't seen begins. A divider the read position has
     // not passed marks a run that is still growing, and stays where it is.
-    const { lastReadTime, unreadLineTime } = session
+    const { lastReadTime, unreadLine } = session
     if (
       lastReadTime !== undefined &&
-      (unreadLineTime === undefined || lastReadTime > unreadLineTime)
+      (unreadLine === undefined || lastReadTime > unreadLine.time)
     ) {
-      session.unreadLineTime = lastReadTime
+      session.unreadLine = placeUnreadLine(lastReadTime, isAtPresentBottom(session))
     }
   }
 }
@@ -296,7 +306,7 @@ function advanceReadPosition(session: WhisperSession, time: number): number {
  */
 function recordSelfMessage(session: WhisperSession, time: number) {
   advanceReadPosition(session, time)
-  session.unreadLineTime = undefined
+  session.unreadLine = undefined
 }
 
 /**
@@ -800,10 +810,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // message.
     if (
       session.hasUnread &&
-      session.unreadLineTime === undefined &&
+      session.unreadLine === undefined &&
       session.lastReadTime !== undefined
     ) {
-      session.unreadLineTime = session.lastReadTime
+      session.unreadLine = placeUnreadLine(session.lastReadTime, atBottom)
     }
 
     // A divider the read position has already moved past outlives that only for as long as the
@@ -811,11 +821,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // they're caught up and the divider has served its purpose.
     if (
       atBottom &&
-      session.unreadLineTime !== undefined &&
+      session.unreadLine !== undefined &&
       session.lastReadTime !== undefined &&
-      session.lastReadTime > session.unreadLineTime
+      session.lastReadTime > session.unreadLine.time
     ) {
-      session.unreadLineTime = undefined
+      session.unreadLine = undefined
     }
 
     session.activated = true
@@ -840,11 +850,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     if (
       session.atBottom &&
       !session.hasNewer &&
-      session.unreadLineTime !== undefined &&
+      session.unreadLine !== undefined &&
       session.lastReadTime !== undefined &&
-      session.lastReadTime > session.unreadLineTime
+      session.lastReadTime > session.unreadLine.time
     ) {
-      session.unreadLineTime = undefined
+      session.unreadLine = undefined
     }
 
     session.activated = false
@@ -888,18 +898,58 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const wasAtBottom = session.atBottom
     session.atBottom = atBottom
 
-    if (atBottom && !wasAtBottom && !session.hasNewer && !session.loadingHistory) {
-      // The user returned to the bottom after reading scrollback that accumulated past the cap;
-      // drop it now, where the removal is invisible. For a detached window the bottom is only the
-      // end of what's loaded rather than the newest message, and the user is still paging through
-      // it, so nothing is dropped there. An older page in flight was fetched against the window's
-      // current oldest message, so trimming past it would leave that page splicing in ahead of a
-      // gap; the trim waits for the page instead, since the list is on screen and discarding the
-      // page by advancing the generation would read as the window being replaced under the user.
-      const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
+    if (!atBottom && session.unreadLine !== undefined) {
+      session.unreadLine.leftBottom = true
+    }
 
-      session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
-      session.hasHistory = session.hasHistory || hasHistory
+    if (atBottom && !wasAtBottom) {
+      // Coming back to the bottom is what retires a divider the user has already laid eyes on: they
+      // went and looked at where they left off, and have now caught up. A view that arrives at the
+      // bottom without ever having reported leaving it — a session opened there, or the
+      // mount/cleanup/remount cycle React's StrictMode runs in development — has no such trip
+      // behind it, so its divider stays put even though the read report on arrival immediately
+      // moves the position past it.
+      if (
+        session.unreadLine !== undefined &&
+        isUnreadLineSpent(session.unreadLine, isAtPresentBottom(session), session.lastReadTime)
+      ) {
+        session.unreadLine = undefined
+      }
+
+      if (!session.hasNewer && !session.loadingHistory) {
+        // The user returned to the bottom after reading scrollback that accumulated past the cap;
+        // drop it now, where the removal is invisible. For a detached window the bottom is only the
+        // end of what's loaded rather than the newest message, and the user is still paging through
+        // it, so nothing is dropped there. An older page in flight was fetched against the window's
+        // current oldest message, so trimming past it would leave that page splicing in ahead of a
+        // gap; the trim waits for the page instead, since the list is on screen and discarding the
+        // page by advancing the generation would read as the window being replaced under the user.
+        const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
+
+        session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
+        session.hasHistory = session.hasHistory || hasHistory
+      }
+    }
+  },
+
+  ['@whispers/unreadLineSeen'](state, action) {
+    const { target, time } = action.payload
+
+    const session = state.byId.get(target)
+    const unreadLine = session?.unreadLine
+    // A divider that has since been re-placed at another time is a different divider, and the view
+    // hasn't reported laying eyes on that one.
+    if (!session || unreadLine === undefined || unreadLine.time !== time) {
+      return
+    }
+
+    unreadLine.seen = true
+
+    // A move straight to the bottom from above the divider can land with the divider still on
+    // screen, and the view reports where it ended up before it reports what's in the viewport, so
+    // the return that retires the divider can already be behind it by the time this arrives.
+    if (isUnreadLineSpent(unreadLine, isAtPresentBottom(session), session.lastReadTime)) {
+      session.unreadLine = undefined
     }
   },
 
@@ -909,11 +959,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   // The unread flag is re-evaluated either way: an activated session carries the flag whenever a
   // message arrived that wasn't read on arrival — the view scrolled up, its window detached from
   // the present, or the app window unfocused — and this is what lowers it once the read position
-  // covers every message known to exist. The frozen divider is only re-evaluated for a session that
-  // isn't activated: while one is being viewed the divider has to hold still where it is, and
-  // `deactivateWhisperSession` is what re-evaluates it. An explicit mark-read carries
-  // `dismissUnreadLine`, which drops the divider whether or not the session is activated, because
-  // the user asked for the unread state to go rather than merely scrolling past it.
+  // covers every message known to exist. The frozen divider goes as soon as the position passes it
+  // for a session that isn't activated, since nobody is reading through it there. For an activated
+  // one it goes only once the user has looked at the divider, been away from the bottom, and come
+  // back to the bottom with the position past it, so it holds still in front of them while they
+  // read through it. Re-evaluating that here, and not only where the view reports its position, is
+  // what retires a divider whose consuming return to the bottom happened before the read report
+  // that finally moves the position past it. An explicit mark-read carries `dismissUnreadLine`,
+  // which drops the divider whether or not the session is activated, because the user asked for the
+  // unread state to go rather than merely scrolling past it.
   ['@whispers/updateLastReadTime'](state, action) {
     const { targetId, lastReadTime, dismissUnreadLine } = action.payload
 
@@ -925,13 +979,21 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const effective = advanceReadPosition(session, lastReadTime)
 
     if (dismissUnreadLine) {
-      session.unreadLineTime = undefined
-    } else if (
-      !session.activated &&
-      session.unreadLineTime !== undefined &&
-      effective > session.unreadLineTime
-    ) {
-      session.unreadLineTime = undefined
+      session.unreadLine = undefined
+      return
+    }
+
+    const unreadLine = session.unreadLine
+    if (unreadLine === undefined) {
+      return
+    }
+
+    if (!session.activated) {
+      if (effective > unreadLine.time) {
+        session.unreadLine = undefined
+      }
+    } else if (isUnreadLineSpent(unreadLine, isAtPresentBottom(session), effective)) {
+      session.unreadLine = undefined
     }
   },
 

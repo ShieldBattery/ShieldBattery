@@ -46,6 +46,7 @@ import {
   ActivateChannel,
   DeactivateChannel,
   ResetMessageWindow,
+  UnreadLineSeen,
   UpdateChannelAtBottom,
 } from './actions'
 import { urlForChannel } from './channel-url'
@@ -908,6 +909,13 @@ export function updateChannelAtBottom(
   return {
     type: '@chat/updateChannelAtBottom',
     payload: { channelId, atBottom },
+  }
+}
+
+export function markUnreadLineSeen(channelId: SbChannelId, time: number): UnreadLineSeen {
+  return {
+    type: '@chat/unreadLineSeen',
+    payload: { channelId, time },
   }
 }
 

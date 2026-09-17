@@ -21,6 +21,7 @@ export type WhisperActions =
   | ActivateWhisperSession
   | DeactivateWhisperSession
   | UpdateSessionAtBottom
+  | UnreadLineSeen
   | WhisperSessionInit
   | WhisperSessionClose
   | WhisperMessageUpdate
@@ -252,6 +253,20 @@ export interface UpdateSessionAtBottom {
   payload: {
     target: SbUserId
     atBottom: boolean
+  }
+}
+
+/**
+ * The unread divider frozen at `time` has been inside a viewed whisper session's viewport. This is
+ * a purely client-side action; the reducer records it so that a later return to the bottom can
+ * retire a divider the user has actually looked at, and ignores a report for a time the session's
+ * divider no longer sits at.
+ */
+export interface UnreadLineSeen {
+  type: '@whispers/unreadLineSeen'
+  payload: {
+    target: SbUserId
+    time: number
   }
 }
 
