@@ -414,8 +414,14 @@ unsafe fn game_results() -> GameThreadResults {
             })
             .collect::<HashMap<_, _>>();
 
-        // Save the replay to a temporary path for uploading
-        let replay_path = save_replay_for_upload(bw);
+        // The replay is only ever uploaded (by us, or by the app's retry) for a game the server
+        // issued a result code for. Replay playback and untracked games have nothing to upload, so
+        // don't ask BW to write a file nobody will read.
+        let replay_path = if will_upload_replay() {
+            save_replay_for_upload(bw)
+        } else {
+            None
+        };
 
         GameThreadResults {
             game_type: (*bw.game_data()).game_type(),
@@ -427,6 +433,14 @@ unsafe fn game_results() -> GameThreadResults {
             replay_path,
         }
     }
+}
+
+/// Whether the replay of this game gets uploaded once it ends: only games the server tracks
+/// (ones it issued a result code for) do, and replay playback never does.
+fn will_upload_replay() -> bool {
+    SETUP_INFO
+        .get()
+        .is_some_and(|info| !info.is_replay() && info.result_code.is_some())
 }
 
 /// Saves a replay to a temporary location for upload purposes.
