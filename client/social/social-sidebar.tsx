@@ -543,7 +543,7 @@ function ChannelEntry({
   const basicInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
   const hasUnreadMention = useAppSelector(s => channelHasUnreadMention(s.chat, channelId))
-  const hasUnreadLine = useAppSelector(s => s.chat.idToUnreadLineTime.has(channelId))
+  const hasUnreadLine = useAppSelector(s => s.chat.idToUnreadLine.has(channelId))
   const needsAttention = useAppSelector(s => channelNeedsAttention(s.chat, channelId))
   const isMuted = useAppSelector(s => isChannelMuted(s.chat, channelId))
   const canMarkRead = hasUnread || hasUnreadMention || hasUnreadLine
@@ -710,7 +710,7 @@ function WhisperEntryUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
   const dispatch = useAppDispatch()
   const canMarkRead = useAppSelector(s => {
     const session = s.whispers.byId.get(userId)
-    return session !== undefined && (session.hasUnread || session.unreadLineTime !== undefined)
+    return session !== undefined && (session.hasUnread || session.unreadLine !== undefined)
   })
 
   const menuItems = cloneMultimap(items)

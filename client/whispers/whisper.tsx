@@ -33,6 +33,7 @@ import {
   getNewerMessages,
   getWhisperLastReadKey,
   jumpToPresent,
+  markUnreadLineSeen,
   markWhisperRead,
   markWhisperReadNow,
   resetMessageWindow,
@@ -310,7 +311,7 @@ export function ConnectedWhisper({
 
   useEffect(() => () => flushLastRead(getWhisperLastReadKey(targetId)), [targetId])
 
-  const unreadLineTime = whisperSession?.unreadLineTime
+  const unreadLineTime = whisperSession?.unreadLine?.time
 
   const onLoadMoreMessages = useStableCallback(() => {
     dispatch(
@@ -392,6 +393,10 @@ export function ConnectedWhisper({
     dispatch(updateSessionAtBottom(targetId, atBottom))
   }
 
+  const onUnreadLineSeen = (time: number) => {
+    dispatch(markUnreadLineSeen(targetId, time))
+  }
+
   const onSendChatMessage = useStableCallback((msg: string) => {
     dispatch(
       sendMessage(targetId, msg, {
@@ -456,6 +461,7 @@ export function ConnectedWhisper({
         linkedMessageId={linkedMessageId || undefined}
         onLinkedMessageSettled={onLinkedMessageSettled}
         onAtBottomChange={onAtBottomChange}
+        onUnreadLineSeen={onUnreadLineSeen}
         onJumpToPresent={onJumpToPresent}
         onSeekToUnread={onSeekToUnread}
         onMarkRead={onMarkRead}

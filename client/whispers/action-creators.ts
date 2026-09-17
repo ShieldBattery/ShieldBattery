@@ -19,6 +19,7 @@ import {
   ActivateWhisperSession,
   DeactivateWhisperSession,
   ResetMessageWindow,
+  UnreadLineSeen,
   UpdateSessionAtBottom,
 } from './actions'
 import {
@@ -350,6 +351,13 @@ export function updateSessionAtBottom(target: SbUserId, atBottom: boolean): Upda
   return {
     type: '@whispers/updateSessionAtBottom',
     payload: { target, atBottom },
+  }
+}
+
+export function markUnreadLineSeen(target: SbUserId, time: number): UnreadLineSeen {
+  return {
+    type: '@whispers/unreadLineSeen',
+    payload: { target, time },
   }
 }
 

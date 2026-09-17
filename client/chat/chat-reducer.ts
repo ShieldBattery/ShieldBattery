@@ -16,6 +16,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import type { HistoryLoadError } from '../messaging/message-load-error'
 import { isServerOriginMessage, LocalMessage } from '../messaging/message-records'
+import { isUnreadLineSpent, placeUnreadLine, UnreadLine } from '../messaging/unread-line'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -151,15 +152,16 @@ export interface ChatState {
    */
   idToLatestMentionTime: Map<SbChannelId, number>
   /**
-   * A map of channel ID -> the frozen position of the unread divider for the current activation.
-   * Captured when an unread channel activates, or when a message goes unseen in an activated
-   * channel (its view scrolled up, its window detached from the present, or the app window
-   * unfocused) that either has no divider or has one the read position has already moved past. It
-   * then holds still while the user reads through it, so it doesn't chase `idToLastReadTime` as
-   * that keeps advancing underneath it, and is dropped when the user sends a message, explicitly
-   * marks the channel read, or leaves it from the bottom having read past the divider.
+   * A map of channel ID -> the unread divider for the channel's current activation. Captured when
+   * an unread channel activates, or when a message goes unseen in an activated channel (its view
+   * scrolled up, its window detached from the present, or the app window unfocused) that either has
+   * no divider or has one the read position has already moved past. It then holds still while the
+   * user reads through it, so it doesn't chase `idToLastReadTime` as that keeps advancing
+   * underneath it, and is dropped when the user sends a message, explicitly marks the channel read,
+   * leaves it from the bottom having read past the divider, or has looked at the divider, gone away
+   * from the bottom and come back to it with the read position past the divider.
    */
-  idToUnreadLineTime: Map<SbChannelId, number>
+  idToUnreadLine: Map<SbChannelId, UnreadLine>
 }
 
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
@@ -179,7 +181,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   privateChannels: new Set(),
   idToLastReadTime: new Map(),
   idToLatestMentionTime: new Map(),
-  idToUnreadLineTime: new Map(),
+  idToUnreadLine: new Map(),
 }
 
 /**
@@ -317,7 +319,7 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.unreadChannels.delete(channelId)
   state.idToLastReadTime.delete(channelId)
   state.idToLatestMentionTime.delete(channelId)
-  state.idToUnreadLineTime.delete(channelId)
+  state.idToUnreadLine.delete(channelId)
 }
 
 /**
@@ -390,6 +392,17 @@ function dedupeAgainst(
 }
 
 /**
+ * Whether a channel's view sits at the newest message: at the bottom of a window attached to the
+ * present. The bottom of a detached window is only the end of what's loaded rather than the newest
+ * message, so a view there is still mid-backlog no matter what the at-bottom flag says.
+ */
+function isAtPresentBottom(state: ChatState, channelId: SbChannelId): boolean {
+  return (
+    state.atBottomChannels.has(channelId) && !(state.idToMessages.get(channelId)?.hasNewer ?? false)
+  )
+}
+
+/**
  * Records that a live message or event reached a channel. It either counts as read on arrival —
  * the channel is being viewed at the bottom of a window attached to the present with the app window
  * focused, the one combination that puts the message in front of the user's eyes — in which case
@@ -404,12 +417,8 @@ function dedupeAgainst(
  */
 function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: LiveArrival) {
   const isChannelActivated = state.activatedChannels.has(channelId)
-  const isDetached = state.idToMessages.get(channelId)?.hasNewer ?? false
   const readOnArrival =
-    isChannelActivated &&
-    state.atBottomChannels.has(channelId) &&
-    !isDetached &&
-    arrival.windowFocused
+    isChannelActivated && isAtPresentBottom(state, channelId) && arrival.windowFocused
 
   if (readOnArrival) {
     if (arrival.time !== undefined) {
@@ -430,12 +439,12 @@ function recordLiveArrival(state: ChatState, channelId: SbChannelId, arrival: Li
     // seen and this message is where what they haven't seen begins. A divider the read position has
     // not passed marks a run that is still growing, and stays where it is.
     const lastReadTime = state.idToLastReadTime.get(channelId)
-    const unreadLineTime = state.idToUnreadLineTime.get(channelId)
-    if (
-      lastReadTime !== undefined &&
-      (unreadLineTime === undefined || lastReadTime > unreadLineTime)
-    ) {
-      state.idToUnreadLineTime.set(channelId, lastReadTime)
+    const line = state.idToUnreadLine.get(channelId)
+    if (lastReadTime !== undefined && (line === undefined || lastReadTime > line.time)) {
+      state.idToUnreadLine.set(
+        channelId,
+        placeUnreadLine(lastReadTime, isAtPresentBottom(state, channelId)),
+      )
     }
   }
 }
@@ -476,7 +485,7 @@ function advanceReadPosition(state: ChatState, channelId: SbChannelId, time: num
  */
 function recordSelfMessage(state: ChatState, channelId: SbChannelId, time: number) {
   advanceReadPosition(state, channelId, time)
-  state.idToUnreadLineTime.delete(channelId)
+  state.idToUnreadLine.delete(channelId)
 }
 
 /**
@@ -1293,24 +1302,23 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // message.
     if (
       state.unreadChannels.has(channelId) &&
-      !state.idToUnreadLineTime.has(channelId) &&
+      !state.idToUnreadLine.has(channelId) &&
       state.idToLastReadTime.has(channelId)
     ) {
-      state.idToUnreadLineTime.set(channelId, state.idToLastReadTime.get(channelId)!)
+      state.idToUnreadLine.set(
+        channelId,
+        placeUnreadLine(state.idToLastReadTime.get(channelId)!, atBottom),
+      )
     }
 
     // A divider the read position has already moved past outlives that only for as long as the
     // view keeps returning to where the user stopped reading; opening at the newest messages means
     // they're caught up and the divider has served its purpose.
     if (atBottom) {
-      const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+      const line = state.idToUnreadLine.get(channelId)
       const lastReadTime = state.idToLastReadTime.get(channelId)
-      if (
-        unreadLineTime !== undefined &&
-        lastReadTime !== undefined &&
-        lastReadTime > unreadLineTime
-      ) {
-        state.idToUnreadLineTime.delete(channelId)
+      if (line !== undefined && lastReadTime !== undefined && lastReadTime > line.time) {
+        state.idToUnreadLine.delete(channelId)
       }
     }
 
@@ -1330,16 +1338,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // the way in rather than of having caught up. The bottom of a detached window is only the end
     // of what's loaded rather than the newest message, so leaving from there is such a
     // mid-backlog leave no matter what the at-bottom flag says.
-    const unreadLineTime = state.idToUnreadLineTime.get(channelId)
+    const line = state.idToUnreadLine.get(channelId)
     const lastReadTime = state.idToLastReadTime.get(channelId)
     if (
       state.atBottomChannels.has(channelId) &&
       !channelMessages?.hasNewer &&
-      unreadLineTime !== undefined &&
+      line !== undefined &&
       lastReadTime !== undefined &&
-      lastReadTime > unreadLineTime
+      lastReadTime > line.time
     ) {
-      state.idToUnreadLineTime.delete(channelId)
+      state.idToUnreadLine.delete(channelId)
     }
 
     state.activatedChannels.delete(channelId)
@@ -1383,9 +1391,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   // The unread flag is re-evaluated either way: an activated channel carries the flag whenever a
   // message arrived that wasn't read on arrival — the view scrolled up, its window detached from
   // the present, or the app window unfocused — and this is what lowers it once the read position
-  // covers every message known to exist. The frozen divider is only re-evaluated for a channel that
-  // isn't activated: while one is being viewed the divider has to hold still where it is, and
-  // `deactivateChannel` is what re-evaluates it. An explicit mark-read carries `dismissUnreadLine`,
+  // covers every message known to exist. The frozen divider goes as soon as the position passes it
+  // for a channel that isn't activated, since nobody is reading through it there. For an activated
+  // one it goes only once the user has looked at the divider, been away from the bottom, and come
+  // back to the bottom with the position past it, so it holds still in front of them while they
+  // read through it. Re-evaluating that here, and not only where the view reports its position, is
+  // what retires a divider whose consuming return to the bottom happened before the read report
+  // that finally moves the position past it. An explicit mark-read carries `dismissUnreadLine`,
   // which drops the divider whether or not the channel is activated, because the user asked for the
   // unread state to go rather than merely scrolling past it.
   ['@chat/updateLastReadTime'](state, action) {
@@ -1394,12 +1406,21 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const effective = advanceReadPosition(state, channelId, lastReadTime)
 
     if (dismissUnreadLine) {
-      state.idToUnreadLineTime.delete(channelId)
-    } else if (!state.activatedChannels.has(channelId)) {
-      const unreadLineTime = state.idToUnreadLineTime.get(channelId)
-      if (unreadLineTime !== undefined && effective > unreadLineTime) {
-        state.idToUnreadLineTime.delete(channelId)
+      state.idToUnreadLine.delete(channelId)
+      return
+    }
+
+    const line = state.idToUnreadLine.get(channelId)
+    if (line === undefined) {
+      return
+    }
+
+    if (!state.activatedChannels.has(channelId)) {
+      if (effective > line.time) {
+        state.idToUnreadLine.delete(channelId)
       }
+    } else if (isUnreadLineSpent(line, isAtPresentBottom(state, channelId), effective)) {
+      state.idToUnreadLine.delete(channelId)
     }
   },
 
@@ -1411,6 +1432,30 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       state.atBottomChannels.add(channelId)
     } else {
       state.atBottomChannels.delete(channelId)
+    }
+
+    const line = state.idToUnreadLine.get(channelId)
+
+    if (!atBottom && line !== undefined) {
+      line.leftBottom = true
+    }
+
+    if (atBottom && !wasAtBottom && line !== undefined) {
+      // Coming back to the bottom is what retires a divider the user has already laid eyes on: they
+      // went and looked at where they left off, and have now caught up. A view that arrives at the
+      // bottom without ever having reported leaving it — a channel opened there, or the
+      // mount/cleanup/remount cycle React's StrictMode runs in development — has no such trip
+      // behind it, so its divider stays put even though the read report on arrival immediately
+      // moves the position past it.
+      if (
+        isUnreadLineSpent(
+          line,
+          isAtPresentBottom(state, channelId),
+          state.idToLastReadTime.get(channelId),
+        )
+      ) {
+        state.idToUnreadLine.delete(channelId)
+      }
     }
 
     if (atBottom && !wasAtBottom) {
@@ -1428,6 +1473,32 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
         channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
       }
+    }
+  },
+
+  ['@chat/unreadLineSeen'](state, action) {
+    const { channelId, time } = action.payload
+
+    const line = state.idToUnreadLine.get(channelId)
+    // A divider that has since been re-placed at another time is a different divider, and the view
+    // hasn't reported laying eyes on that one.
+    if (line === undefined || line.time !== time) {
+      return
+    }
+
+    line.seen = true
+
+    // A move straight to the bottom from above the divider can land with the divider still on
+    // screen, and the view reports where it ended up before it reports what's in the viewport, so
+    // the return that retires the divider can already be behind it by the time this arrives.
+    if (
+      isUnreadLineSpent(
+        line,
+        isAtPresentBottom(state, channelId),
+        state.idToLastReadTime.get(channelId),
+      )
+    ) {
+      state.idToUnreadLine.delete(channelId)
     }
   },
 

@@ -54,6 +54,7 @@ export type ChatActions =
   | ActivateChannel
   | DeactivateChannel
   | UpdateChannelAtBottom
+  | UnreadLineSeen
   | UpdateLastReadTime
   | InitChannel
   | InitActiveUsers
@@ -403,6 +404,20 @@ export interface UpdateChannelAtBottom {
   payload: {
     channelId: SbChannelId
     atBottom: boolean
+  }
+}
+
+/**
+ * The unread divider frozen at `time` has been inside a viewed chat channel's viewport. This is a
+ * purely client-side action; the reducer records it so that a later return to the bottom can retire
+ * a divider the user has actually looked at, and ignores a report for a time the channel's divider
+ * no longer sits at.
+ */
+export interface UnreadLineSeen {
+  type: '@chat/unreadLineSeen'
+  payload: {
+    channelId: SbChannelId
+    time: number
   }
 }
 
