@@ -19,6 +19,7 @@ import { flushLastRead } from '../messaging/last-read'
 import { MAX_MENTIONED_USERS } from '../messaging/mention-provider'
 import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
 import { MessageComponentProps } from '../messaging/message-list'
+import { MessageLoadErrorRow } from '../messaging/message-load-error-row'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
@@ -189,18 +190,20 @@ export function ConnectedChatChannel({
   // has acted on it the param goes away, so reloading the page afterwards is an ordinary visit.
   const [linkedMessageId, setLinkedMessageId] = useLocationSearchParam(MESSAGE_LINK_PARAM)
 
-  const showMessageLoadError = (err: Error) => {
+  // The message list shows the failure itself, at the edge the request was for; the details only
+  // the developers can act on go to the log.
+  const onMessageLoadError = (err: Error) => {
     logger.error(
       `Error loading message history for channel ${channelId}: ${describeFetchError(err)}`,
     )
-    snackbarController.showSnackbar(
-      t('chat.errors.loadingHistory', {
-        defaultValue: 'Error loading message history: {{errorMessage}}',
-        errorMessage: err.message,
-      }),
-      DURATION_LONG,
-      { dedupe: true },
-    )
+  }
+
+  const onUserListLoadError = (err: Error) => {
+    logger.error(`Error loading user list for channel ${channelId}: ${describeFetchError(err)}`)
+  }
+
+  const onRetryUserList = () => {
+    dispatch(retrieveUserList(channelId, { onSuccess: () => {}, onError: onUserListLoadError }))
   }
 
   // NOTE(2Pac): When user types the single @ character in chat, we show the ten most recent
@@ -309,24 +312,7 @@ export function ConnectedChatChannel({
   const viewStateKey = `chat.${channelId}`
 
   const onActivate = useEffectEvent(() => {
-    dispatch(
-      retrieveUserList(channelId, {
-        onSuccess: () => {},
-        onError: err => {
-          logger.error(
-            `Error loading user list for channel ${channelId}: ${describeFetchError(err)}`,
-          )
-          snackbarController.showSnackbar(
-            t('chat.errors.loadingUserList', {
-              defaultValue: 'Error loading user list: {{errorMessage}}',
-              errorMessage: err.message,
-            }),
-            DURATION_LONG,
-            { dedupe: true },
-          )
-        },
-      }),
-    )
+    dispatch(retrieveUserList(channelId, { onSuccess: () => {}, onError: onUserListLoadError }))
 
     const anchor = chatViewAnchorStore.get(viewStateKey)
     dispatch(activateChannel(channelId))
@@ -348,7 +334,7 @@ export function ConnectedChatChannel({
       dispatch(
         getMessagesAround(channelId, MESSAGES_LIMIT, anchor.sentTime, {
           onSuccess: () => {},
-          onError: showMessageLoadError,
+          onError: onMessageLoadError,
         }),
       )
     }
@@ -383,7 +369,7 @@ export function ConnectedChatChannel({
               DURATION_LONG,
             )
           } else {
-            showMessageLoadError(err)
+            onMessageLoadError(err)
           }
 
           // The window was dropped to make room for one that can't be had, so the channel goes back
@@ -392,7 +378,7 @@ export function ConnectedChatChannel({
           dispatch(
             jumpToPresent(channelId, MESSAGES_LIMIT, {
               onSuccess: () => {},
-              onError: showMessageLoadError,
+              onError: onMessageLoadError,
             }),
           )
         },
@@ -480,7 +466,7 @@ export function ConnectedChatChannel({
     dispatch(
       getMessageHistory(channelId, MESSAGES_LIMIT, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     ),
   )
@@ -489,16 +475,48 @@ export function ConnectedChatChannel({
     dispatch(
       getNewerMessages(channelId, MESSAGES_LIMIT, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     )
   })
+
+  // Asks again for whatever the older edge failed at, which is what takes the error off it and lets
+  // the list resume requesting that edge on its own.
+  const onRetryHistory = () => {
+    const historyError = channelMessages?.historyError
+    if (historyError?.kind === 'around') {
+      if (historyError.aroundTime !== undefined) {
+        dispatch(
+          getMessagesAround(channelId, MESSAGES_LIMIT, historyError.aroundTime, {
+            onSuccess: () => {},
+            onError: onMessageLoadError,
+          }),
+        )
+      } else {
+        // A replacement window with no time to ask for again can only be re-established from the
+        // present.
+        dispatch(
+          jumpToPresent(channelId, MESSAGES_LIMIT, {
+            onSuccess: () => {},
+            onError: onMessageLoadError,
+          }),
+        )
+      }
+    } else {
+      dispatch(
+        getMessageHistory(channelId, MESSAGES_LIMIT, {
+          onSuccess: () => {},
+          onError: onMessageLoadError,
+        }),
+      )
+    }
+  }
 
   const onJumpToPresent = () => {
     dispatch(
       jumpToPresent(channelId, MESSAGES_LIMIT, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     )
   }
@@ -508,7 +526,7 @@ export function ConnectedChatChannel({
       dispatch(
         getMessagesAround(channelId, MESSAGES_LIMIT, unreadLineTime, {
           onSuccess: () => {},
-          onError: showMessageLoadError,
+          onError: onMessageLoadError,
         }),
       )
     }
@@ -548,6 +566,15 @@ export function ConnectedChatChannel({
               hasMoreHistory: channelMessages?.hasHistory,
               loadingNewer: channelMessages?.loadingNewer,
               hasNewerMessages: channelMessages?.hasNewer,
+              historyError: channelMessages?.historyError ? (
+                <MessageLoadErrorRow
+                  kind={channelMessages.historyError.kind}
+                  onRetry={onRetryHistory}
+                />
+              ) : undefined,
+              newerError: channelMessages?.newerError ? (
+                <MessageLoadErrorRow kind='newer' onRetry={onLoadNewerMessages} />
+              ) : undefined,
               windowGeneration: channelMessages?.windowGen,
               refreshToken: channelId,
               viewStateKey,
@@ -595,6 +622,8 @@ export function ConnectedChatChannel({
                 active={sortedActiveUserIds}
                 idle={sortedIdleUserIds}
                 offline={sortedOfflineUserIds}
+                loadError={channelUsers?.userListError ?? false}
+                onRetryLoad={onRetryUserList}
               />
             }
             UserMenu={ChannelUserMenu}

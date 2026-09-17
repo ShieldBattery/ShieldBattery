@@ -9,11 +9,14 @@ import LoadingIndicator from '../progress/dots'
  *
  * Restarting the observer (which happens whenever a loading flag changes) reports an edge as
  * intersecting again if nothing has moved it out of view, so a load that leaves the layout exactly
- * as it was — a page that failed, or one that came back empty — would otherwise be requested again
- * in the same frame, indefinitely. Spacing repeat loads of an unchanged edge bounds that to one
- * attempt per interval while still retrying. A load that did add content is requested as soon as
- * the edge comes into view, so paging through a list is only limited by how fast pages arrive, and
- * a page that leaves the sentinel in view chains straight into the next one.
+ * as it was — a page that came back empty, say — would otherwise be requested again in the same
+ * frame, indefinitely. Spacing repeat loads of an unchanged edge bounds that to one attempt per
+ * interval while still retrying. A load that did add content is requested as soon as the edge comes
+ * into view, so paging through a list is only limited by how fast pages arrive, and a page that
+ * leaves the sentinel in view chains straight into the next one.
+ *
+ * This only bounds the loads that are still made: an edge whose caller reports an error for it
+ * isn't requested automatically at all until that error is cleared.
  */
 const MIN_LOAD_INTERVAL_MS = 1000
 
@@ -61,6 +64,20 @@ export interface InfiniteListProps {
   hasPrevData?: boolean
   /** Whether this list has data that could be loaded at the ending of the list. */
   hasNextData?: boolean
+  /**
+   * Content rendered in the beginning edge's loading area, in place of the loading indicator, while
+   * that edge isn't loading. While this is set the edge is never requested automatically; a new
+   * request for it takes the caller clearing this, which whatever retry affordance this renders does
+   * by starting a load.
+   */
+  prevError?: React.ReactNode
+  /**
+   * Content rendered in the ending edge's loading area, in place of the loading indicator, while
+   * that edge isn't loading. While this is set the edge is never requested automatically; a new
+   * request for it takes the caller clearing this, which whatever retry affordance this renders does
+   * by starting a load.
+   */
+  nextError?: React.ReactNode
   /**
    * A value which will restart the intersection observer when it changes, i.e. disconnect and start
    * observing again, when it changes. This is useful when the same instance of this component is
@@ -114,6 +131,8 @@ export default function InfiniteList({
   isLoadingNext,
   hasPrevData,
   hasNextData,
+  prevError,
+  nextError,
   refreshToken,
   root,
   rootMargin,
@@ -201,12 +220,12 @@ export default function InfiniteList({
         }
 
         if (prevLoadingEnabled && entry.target === prevTargetRef.current) {
-          if (!isLoadingPrev && hasPrevData && onLoadPrevData) {
+          if (!isLoadingPrev && hasPrevData && !prevError && onLoadPrevData) {
             requestLoad('prev', prevTargetRef, onLoadPrevData)
           }
         }
         if (nextLoadingEnabled && entry.target === nextTargetRef.current) {
-          if (!isLoadingNext && hasNextData && onLoadNextData) {
+          if (!isLoadingNext && hasNextData && !nextError && onLoadNextData) {
             requestLoad('next', nextTargetRef, onLoadNextData)
           }
         }
@@ -237,9 +256,11 @@ export default function InfiniteList({
     nextLoadingEnabled,
     isLoadingPrev,
     hasPrevData,
+    prevError,
     onLoadPrevData,
     isLoadingNext,
     hasNextData,
+    nextError,
     onLoadNextData,
     refreshToken,
   ])
@@ -247,13 +268,17 @@ export default function InfiniteList({
   return (
     <>
       {prevLoadingEnabled && hasPrevData ? (
-        <LoadingArea ref={prevTargetRef}>{isLoadingPrev ? <LoadingIndicator /> : null}</LoadingArea>
+        <LoadingArea ref={prevTargetRef}>
+          {isLoadingPrev ? <LoadingIndicator /> : (prevError ?? null)}
+        </LoadingArea>
       ) : null}
 
       {children}
 
       {nextLoadingEnabled && hasNextData ? (
-        <LoadingArea ref={nextTargetRef}>{isLoadingNext ? <LoadingIndicator /> : null}</LoadingArea>
+        <LoadingArea ref={nextTargetRef}>
+          {isLoadingNext ? <LoadingIndicator /> : (nextError ?? null)}
+        </LoadingArea>
       ) : null}
     </>
   )

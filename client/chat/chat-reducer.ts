@@ -14,6 +14,7 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
+import type { HistoryLoadError } from '../messaging/message-load-error'
 import { isServerOriginMessage, LocalMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -40,6 +41,12 @@ export interface UsersState {
 
   hasLoadedUserList: boolean
   loadingUserList: boolean
+  /**
+   * Whether the last user list request for this channel failed. While it's set, the panel shows an
+   * error row with a retry in place of quietly listing whichever members the join events happened to
+   * cover.
+   */
+  userListError: boolean
 }
 
 export interface MessagesState {
@@ -75,6 +82,19 @@ export interface MessagesState {
    * window drop and losing them for good.
    */
   carriedClientMessages: ChannelMessage[]
+  /**
+   * The failed request the older edge of the window is showing an error for, if any. While it's
+   * set, the older edge shows an error row instead of a loading indicator and isn't requested
+   * automatically; it's cleared when a request for that edge starts or succeeds, when the window is
+   * replaced or dropped, and when the channel is deactivated, so a fresh visit makes a fresh
+   * attempt.
+   */
+  historyError?: HistoryLoadError
+  /**
+   * Whether the newer edge of the window is showing an error for a failed request. Cleared under
+   * exactly the same conditions as `historyError`.
+   */
+  newerError: boolean
 }
 
 export interface ChatState {
@@ -554,6 +574,9 @@ function dropMessageWindow(channelMessages: MessagesState) {
   // land, so their loading flags have to be lowered here or they'd stay raised forever.
   channelMessages.loadingHistory = false
   channelMessages.loadingNewer = false
+  // Nothing of the window an error was recorded against survives this, so neither does the error.
+  channelMessages.historyError = undefined
+  channelMessages.newerError = false
   channelMessages.windowGen += 1
 }
 
@@ -668,6 +691,7 @@ function initChannelUsers(state: ChatState, channelId: SbChannelId, activeUserId
       offline: new Set(),
       hasLoadedUserList: false,
       loadingUserList: false,
+      userListError: false,
     })
   }
 }
@@ -693,6 +717,8 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     detachedNewestTime: undefined,
     windowGen: 0,
     carriedClientMessages: [],
+    historyError: undefined,
+    newerError: false,
   }
   state.joinedChannels.add(channelId)
   updateChannelInfos(state, [channelInfo], [detailedChannelInfo], [joinedChannelInfo])
@@ -953,6 +979,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
 
     channelMessages.loadingHistory = true
+    channelMessages.historyError = undefined
   },
 
   ['@chat/loadMessageHistory'](state, action) {
@@ -966,8 +993,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.loadingHistory = false
 
     if (action.error) {
+      channelMessages.historyError = { kind: 'history' }
       return
     }
+
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    channelMessages.historyError = undefined
 
     // Even though the payload here is `ServerChatMessage`, we expand its type so it can be
     // concatenated with the existing messages which could also contain client chat messages.
@@ -994,6 +1026,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
 
     channelMessages.loadingNewer = true
+    channelMessages.newerError = false
   },
 
   ['@chat/loadNewerMessages'](state, action) {
@@ -1007,8 +1040,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.loadingNewer = false
 
     if (action.error) {
+      channelMessages.newerError = true
       return
     }
+
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    channelMessages.newerError = false
 
     const newMessages = action.payload.messages as ChatMessage[]
 
@@ -1056,6 +1094,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // The whole window is about to be replaced, so there's no one edge the wait belongs to; the
     // older edge's affordance stands in for both.
     channelMessages.loadingHistory = true
+    channelMessages.historyError = undefined
   },
 
   ['@chat/loadMessagesAround'](state, action) {
@@ -1070,8 +1109,15 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.loadingNewer = false
 
     if (action.error) {
+      channelMessages.historyError = { kind: 'around', aroundTime: action.meta.aroundTime }
       return
     }
+
+    // The window below is replaced wholesale, so the newer edge's error belongs to messages that
+    // are no longer loaded, and an older-edge error recorded by an earlier replacement request
+    // that failed after this one began is stale too.
+    channelMessages.newerError = false
+    channelMessages.historyError = undefined
 
     // Everything this client knows the present ran at least as far as: the newest message it had
     // loaded (live messages keep appending to an attached window while the request is in flight)
@@ -1150,6 +1196,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     channelUsers.hasLoadedUserList = true
     channelUsers.loadingUserList = true
+    channelUsers.userListError = false
   },
 
   ['@chat/retrieveUserList'](state, action) {
@@ -1161,6 +1208,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       if (channelUsers) {
         channelUsers.loadingUserList = false
         channelUsers.hasLoadedUserList = false
+        channelUsers.userListError = true
       }
       return
     }
@@ -1319,6 +1367,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       }
       channelMessages.loadingHistory = false
       channelMessages.loadingNewer = false
+      // An error row is only worth showing to someone looking at the channel, and the next visit
+      // deserves a fresh attempt rather than the last visit's failure.
+      channelMessages.historyError = undefined
+      channelMessages.newerError = false
 
       channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
       channelMessages.hasHistory = channelMessages.hasHistory || hasHistory

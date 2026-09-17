@@ -1,6 +1,7 @@
 import { castDraft, Immutable } from 'immer'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { WhisperMessage } from '../../common/whispers'
+import type { HistoryLoadError } from '../messaging/message-load-error'
 import {
   CommonMessageType,
   CommonTextMessage,
@@ -58,6 +59,19 @@ export interface WhisperSession {
    * this is the only thing standing between a window drop and losing them for good.
    */
   carriedClientMessages: LocalMessage[]
+  /**
+   * The failed request the older edge of the window is showing an error for, if any. While it's
+   * set, the older edge shows an error row instead of a loading indicator and isn't requested
+   * automatically; it's cleared when a request for that edge starts or succeeds, when the window is
+   * replaced or dropped, and when the session is deactivated, so a fresh visit makes a fresh
+   * attempt.
+   */
+  historyError?: HistoryLoadError
+  /**
+   * Whether the newer edge of the window is showing an error for a failed request. Cleared under
+   * exactly the same conditions as `historyError`.
+   */
+  newerError: boolean
 
   activated: boolean
   /** Whether this session's message list is scrolled to the bottom. */
@@ -99,6 +113,8 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     detachedNewestTime: undefined,
     windowGen: 0,
     carriedClientMessages: [],
+    historyError: undefined,
+    newerError: false,
     activated: false,
     atBottom: false,
     hasUnread: false,
@@ -376,6 +392,9 @@ function dropMessageWindow(session: WhisperSession) {
   // land, so their loading flags have to be lowered here or they'd stay raised forever.
   session.loadingHistory = false
   session.loadingNewer = false
+  // Nothing of the window an error was recorded against survives this, so neither does the error.
+  session.historyError = undefined
+  session.newerError = false
   session.windowGen += 1
 }
 
@@ -571,6 +590,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     session.loadingHistory = true
+    session.historyError = undefined
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
@@ -584,8 +604,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.loadingHistory = false
 
     if (action.error) {
+      session.historyError = { kind: 'history' }
       return
     }
+
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    session.historyError = undefined
 
     const newMessages = toTextMessages(action.payload.messages)
 
@@ -608,6 +633,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     session.loadingNewer = true
+    session.newerError = false
   },
 
   ['@whispers/loadNewerMessages'](state, action) {
@@ -621,8 +647,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.loadingNewer = false
 
     if (action.error) {
+      session.newerError = true
       return
     }
+
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    session.newerError = false
 
     const newMessages = toTextMessages(action.payload.messages)
 
@@ -668,6 +699,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // The whole window is about to be replaced, so there's no one edge the wait belongs to; the
     // older edge's affordance stands in for both.
     session.loadingHistory = true
+    session.historyError = undefined
   },
 
   ['@whispers/loadMessagesAround'](state, action) {
@@ -682,8 +714,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.loadingNewer = false
 
     if (action.error) {
+      session.historyError = { kind: 'around', aroundTime: action.meta.aroundTime }
       return
     }
+
+    // The window below is replaced wholesale, so the newer edge's error belongs to messages that
+    // are no longer loaded, and an older-edge error recorded by an earlier replacement request
+    // that failed after this one began is stale too.
+    session.newerError = false
+    session.historyError = undefined
 
     // Everything this client knows the present ran at least as far as: the newest message it had
     // loaded (live messages keep appending to an attached window while the request is in flight)
@@ -829,6 +868,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       }
       session.loadingHistory = false
       session.loadingNewer = false
+      // An error row is only worth showing to someone looking at the conversation, and the next
+      // visit deserves a fresh attempt rather than the last visit's failure.
+      session.historyError = undefined
+      session.newerError = false
 
       session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
       session.hasHistory = session.hasHistory || hasHistory
