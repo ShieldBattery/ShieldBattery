@@ -7,7 +7,6 @@ import {
   SbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
-import { getErrorStack } from '../../common/errors'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
@@ -23,7 +22,7 @@ import { MessageComponentProps } from '../messaging/message-list'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
-import { isFetchError } from '../network/fetch-errors'
+import { describeFetchError, isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -191,6 +190,9 @@ export function ConnectedChatChannel({
   const [linkedMessageId, setLinkedMessageId] = useLocationSearchParam(MESSAGE_LINK_PARAM)
 
   const showMessageLoadError = (err: Error) => {
+    logger.error(
+      `Error loading message history for channel ${channelId}: ${describeFetchError(err)}`,
+    )
     snackbarController.showSnackbar(
       t('chat.errors.loadingHistory', {
         defaultValue: 'Error loading message history: {{errorMessage}}',
@@ -310,7 +312,10 @@ export function ConnectedChatChannel({
     dispatch(
       retrieveUserList(channelId, {
         onSuccess: () => {},
-        onError: err =>
+        onError: err => {
+          logger.error(
+            `Error loading user list for channel ${channelId}: ${describeFetchError(err)}`,
+          )
           snackbarController.showSnackbar(
             t('chat.errors.loadingUserList', {
               defaultValue: 'Error loading user list: {{errorMessage}}',
@@ -318,7 +323,8 @@ export function ConnectedChatChannel({
             }),
             DURATION_LONG,
             { dedupe: true },
-          ),
+          )
+        },
       }),
     )
 
@@ -521,7 +527,7 @@ export function ConnectedChatChannel({
       sendMessage(channelId, msg, {
         onSuccess: () => {},
         onError: err => {
-          logger.error(`Error sending a chat message: ${getErrorStack(err)}`)
+          logger.error(`Error sending a chat message: ${describeFetchError(err)}`)
         },
       }),
     ),

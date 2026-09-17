@@ -5,6 +5,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { WhisperServiceErrorCode } from '../../common/whispers'
 import { useSelfUser } from '../auth/auth-utils'
 import { useWindowFocus } from '../dom/window-focus'
+import logger from '../logging/logger'
 import { Chat } from '../messaging/chat'
 import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-anchor'
 import { WhisperCommandContext } from '../messaging/commands/command-context'
@@ -13,7 +14,7 @@ import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push, replace } from '../navigation/routing'
-import { isFetchError } from '../network/fetch-errors'
+import { describeFetchError, isFetchError } from '../network/fetch-errors'
 import LoadingIndicator from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -119,6 +120,9 @@ export function ConnectedWhisper({
   const showMessageLoadError = (err: Error) => {
     // TODO(tec27): This would probably be better to show at the position the message loading
     // failed in the message list (and offer a button to retry)
+    logger.error(
+      `Error loading message history for whisper with ${targetId}: ${describeFetchError(err)}`,
+    )
     snackbarController.showSnackbar(
       t('whispers.errors.loadingHistory', {
         defaultValue: 'Error loading message history: {{errorMessage}}',
@@ -169,6 +173,7 @@ export function ConnectedWhisper({
       startWhisperSessionById(targetId, {
         onSuccess: () => {},
         onError: err => {
+          logger.error(`Error opening whisper with ${targetId}: ${describeFetchError(err)}`)
           snackbarController.showSnackbar(
             t('whispers.errors.openSession', {
               defaultValue: 'Error opening whisper to user: {{errorMessage}}',
@@ -369,6 +374,7 @@ export function ConnectedWhisper({
         onError: err => {
           // TODO(tec27): Offer a retry for the same message content? Display it in the message list
           // ala Discord?
+          logger.error(`Error sending a whisper to ${targetId}: ${describeFetchError(err)}`)
           snackbarController.showSnackbar(
             t('whispers.errors.sendingMessage', {
               defaultValue: 'Error sending message: {{errorMessage}}',

@@ -1,3 +1,5 @@
+import { getErrorStack } from '../../common/errors'
+
 export class FetchError extends Error {
   readonly status: number
   readonly statusText: string
@@ -74,6 +76,24 @@ export class FetchNetworkError extends Error {
 
 export function isFetchNetworkError(err: unknown): err is FetchNetworkError {
   return err instanceof FetchNetworkError
+}
+
+/**
+ * Describes a failed request for a log line: the URL and status for a response the server sent,
+ * the underlying cause for a request that never completed, and the stack for anything else. A
+ * `FetchError`'s own stack only names its status text, which says nothing about which request
+ * failed or why.
+ */
+export function describeFetchError(err: unknown): string {
+  if (isFetchError(err)) {
+    const code = err.code
+    return `${err.toString()}${code ? ` (code: ${code})` : ''}`
+  } else if (isFetchNetworkError(err)) {
+    const cause = err.cause instanceof Error ? err.cause.message : String(err.cause)
+    return `${err.message}: ${cause}`
+  } else {
+    return getErrorStack(err) ?? String(err)
+  }
 }
 
 /**
