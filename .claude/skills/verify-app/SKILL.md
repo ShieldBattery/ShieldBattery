@@ -223,6 +223,19 @@ playwright-cli -s=c1 click "getByTestId('start-game-button')"
 > `lobby-slot`s); open slots just aren't participants, so a 3-human melee on a big map starts fine.
 > Confirm who's in via `eval "[...document.querySelectorAll('[data-testid=lobby-slot]')].map(e=>e.textContent).filter(t=>/claude/.test(t))"`.
 
+> **Lobbies are persistent.** A lobby lives at `/lobbies/<id>/<name>` and survives the game: when
+> the game ends, every client lands back in the *same* lobby, and the host can change the map, game
+> type and other settings from inside it without leaving. For repeated games in one session, reuse
+> the lobby instead of leaving and recreating it (and don't click `leave-lobby-button` on a lobby
+> the user set up for you).
+
+> **Picking a map.** The create form remembers the last map. To use another one, click a tile in
+> its "Recent maps" strip (take a `snapshot`, click the `generic "<map name>"` ref) or use "Change
+> map", then confirm the summary line above the Create button reads e.g.
+> `Public · Melee · 4 slots · 투혼 1.3` before submitting — a click that didn't take leaves the old
+> map in place silently. Note that UMS / EUD maps change end-of-game behaviour (SC:R skips its own
+> `LastReplay.rep` autosave on EUD maps), so use a plain melee map unless the test needs otherwise.
+
 Then poll for the game to reach `playing` (next section). A launched game needs a **fresh debug DLL
 in `game/dist`** (`game\build.bat`) — a stale one crashes at start (see verify-pr T4).
 
@@ -276,8 +289,10 @@ Poll both instances in the same loop for a two-client game. If the session does 
     diverged minority. Use it to exercise desync policy / desync-flagged paths (e.g. the
     flight-recorder pin).
   - **`forceUnsyncedLeave(gameId, slot)` does NOT reliably desync.** It injects a local,
-    non-consensus leave of `slot` on the calling client. Targeting the caller's **own** slot
-    (or omitting `slot`) just ends the caller: it stops emitting checksums before any diverged
+    non-consensus leave of `slot` on the calling client. `slot` is **required** (the DLL rejects
+    the command with `missing field 'slot'` if omitted); pass the caller's own storm slot (the
+    host is `0`) to end the caller. Targeting the caller's **own** slot
+    just ends the caller: it stops emitting checksums before any diverged
     one crosses the wire, so the opponent sees an ordinary drop and the game **scores normally**
     (win/loss, no void — verified live). Its legit use is ending a game unattended via the
     allied-victory path (see verify-pr T4), not triggering desyncs.
