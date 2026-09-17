@@ -42,6 +42,7 @@ export enum DialogType {
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
+  NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
@@ -282,6 +283,15 @@ type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.Matchm
 // the dialog's use of form/state hooks that ultimately import the dialog reducer.
 type NewsPostStatus =
   { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
+type NewsPostDeleteConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.NewsPostDeleteConfirmation,
+  {
+    /** The post's title, shown in the dialog so the editor can see what they are deleting. */
+    title: string
+    /** Performs the deletion once the user confirms. */
+    onConfirm: () => void
+  }
+>
 type NewsPostSettingsValues = {
   summary: string
   publishMode: 'draft' | 'now' | 'schedule' | 'published'
@@ -411,6 +421,7 @@ export type DialogPayload =
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload
+  | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload

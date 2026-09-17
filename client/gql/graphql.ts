@@ -217,31 +217,6 @@ export type NewsCreatePostMutationVariables = Exact<{
 
 export type NewsCreatePostMutation = { newsCreatePost: { id: string } }
 
-export type NewsUpdatePostMutationVariables = Exact<{
-  id: string
-  updates: NewsPostUpdates
-}>
-
-export type NewsUpdatePostMutation = {
-  newsUpdatePost: {
-    id: string
-    title: string
-    summary: string
-    content: string
-    publishedAt: string | null
-    updatedAt: string
-    coverImagePath: string | null
-    coverImageUrl: string | null
-    coverImageSmallUrl: string | null
-  }
-}
-
-export type NewsDeletePostMutationVariables = Exact<{
-  id: string
-}>
-
-export type NewsDeletePostMutation = { newsDeletePost: boolean }
-
 export type AdminBlockedStreamsQueryVariables = Exact<{ [key: string]: never }>
 
 export type AdminBlockedStreamsQuery = {
@@ -710,6 +685,31 @@ export type News_HomeFeedFragmentFragment = {
     }>
   }
 } & { ' $fragmentName'?: 'News_HomeFeedFragmentFragment' }
+
+export type NewsUpdatePostMutationVariables = Exact<{
+  id: string
+  updates: NewsPostUpdates
+}>
+
+export type NewsUpdatePostMutation = {
+  newsUpdatePost: {
+    id: string
+    title: string
+    summary: string
+    content: string
+    publishedAt: string | null
+    updatedAt: string
+    coverImagePath: string | null
+    coverImageUrl: string | null
+    coverImageSmallUrl: string | null
+  }
+}
+
+export type NewsDeletePostMutationVariables = Exact<{
+  id: string
+}>
+
+export type NewsDeletePostMutation = { newsDeletePost: boolean }
 
 export type NewsPostQueryVariables = Exact<{
   id: string
@@ -2162,105 +2162,6 @@ export const NewsCreatePostDocument = {
     },
   ],
 } as unknown as DocumentNode<NewsCreatePostMutation, NewsCreatePostMutationVariables>
-export const NewsUpdatePostDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'NewsUpdatePost' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'updates' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'NewsPostUpdates' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'newsUpdatePost' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'id' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
-              },
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'updates' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'updates' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'content' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<NewsUpdatePostMutation, NewsUpdatePostMutationVariables>
-export const NewsDeletePostDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'mutation',
-      name: { kind: 'Name', value: 'NewsDeletePost' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'newsDeletePost' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'id' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
-              },
-            ],
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<NewsDeletePostMutation, NewsDeletePostMutationVariables>
 export const AdminBlockedStreamsDocument = {
   kind: 'Document',
   definitions: [
@@ -4140,6 +4041,105 @@ export const NewsArchiveDocument = {
     },
   ],
 } as unknown as DocumentNode<NewsArchiveQuery, NewsArchiveQueryVariables>
+export const NewsUpdatePostDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'NewsUpdatePost' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'updates' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'NewsPostUpdates' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsUpdatePost' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'updates' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'updates' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<NewsUpdatePostMutation, NewsUpdatePostMutationVariables>
+export const NewsDeletePostDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'NewsDeletePost' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsDeletePost' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<NewsDeletePostMutation, NewsDeletePostMutationVariables>
 export const NewsPostDocument = {
   kind: 'Document',
   definitions: [

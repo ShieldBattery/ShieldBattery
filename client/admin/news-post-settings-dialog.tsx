@@ -16,6 +16,7 @@ import { Dialog } from '../material/dialog'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { fetchJson } from '../network/fetch'
+import { PostStatus } from '../news/news-post-status'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyLarge, bodyMedium, labelMedium } from '../styles/typography'
 
@@ -28,9 +29,6 @@ export type PublishMode =
   | typeof PUBLISH_MODE_NOW
   | typeof PUBLISH_MODE_SCHEDULE
   | typeof PUBLISH_MODE_PUBLISHED
-
-export type PostStatus =
-  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
 
 /** The subset of a news post's editable fields that live in the post settings dialog. */
 export interface NewsPostSettings {

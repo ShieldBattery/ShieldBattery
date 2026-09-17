@@ -24,3 +24,17 @@ export function fromRouteNewsPostId(routeId: RouteNewsPostId): string {
 export function urlForNewsPost(id: string, title?: string) {
   return urlPath`/news/${toRouteNewsPostId(id)}/${title ? slug(title) : '_'}`
 }
+
+/** Search param on the news editor route naming where a successful save should navigate. */
+export const EDITOR_RETURN_TO_PARAM = 'returnTo'
+/** `EDITOR_RETURN_TO_PARAM` value that sends a successful save back to the post's public page. */
+export const EDITOR_RETURN_TO_POST = 'post'
+
+/**
+ * Returns the URL of the admin editor for a news post. With `returnToPost`, a successful save
+ * navigates back to the post's public page instead of the admin list.
+ */
+export function urlForNewsPostEditor(id: string, { returnToPost = false } = {}): string {
+  const path = urlPath`/admin/news/${id}`
+  return returnToPost ? `${path}?${EDITOR_RETURN_TO_PARAM}=${EDITOR_RETURN_TO_POST}` : path
+}

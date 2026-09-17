@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { fromRouteNewsPostId, RouteNewsPostId, toRouteNewsPostId, urlForNewsPost } from './news-url'
+import {
+  fromRouteNewsPostId,
+  RouteNewsPostId,
+  toRouteNewsPostId,
+  urlForNewsPost,
+  urlForNewsPostEditor,
+} from './news-url'
 
 const UUID = '5eed0000-0000-0000-0000-000000000023'
 
@@ -32,6 +38,18 @@ describe('news/news-url', () => {
       const url = urlForNewsPost(UUID, 'Some Title')
       const [, , routeIdSegment] = url.split('/')
       expect(fromRouteNewsPostId(routeIdSegment as RouteNewsPostId)).toBe(UUID)
+    })
+  })
+
+  describe('urlForNewsPostEditor', () => {
+    test('uses the raw id with no return param by default', () => {
+      expect(urlForNewsPostEditor(UUID)).toBe(`/admin/news/${UUID}`)
+    })
+
+    test('appends the return-to-post param when requested', () => {
+      expect(urlForNewsPostEditor(UUID, { returnToPost: true })).toBe(
+        `/admin/news/${UUID}?returnTo=post`,
+      )
     })
   })
 })
