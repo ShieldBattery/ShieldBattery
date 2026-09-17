@@ -255,8 +255,8 @@ export function GameListView({
     }
 
     // Cleanup-time write, matching `useScrollMemory`'s timing: a selection is never un-made (a
-    // restored id absent from the current list just falls back to `games[0]` below), so unlike the
-    // game-id window there's nothing to delete here.
+    // restored id absent from the current list just falls back to the default selection below), so
+    // unlike the game-id window there's nothing to delete here.
     return () => {
       if (selectedId !== undefined) {
         selectedIdCache.set(entryKey, selectedId)
@@ -264,7 +264,11 @@ export function GameListView({
     }
   }, [entryKey, selectedId])
 
-  const selectedGame = games.find(g => g.id === selectedId) ?? games[0]
+  const explicitlySelectedGame = games.find(g => g.id === selectedId)
+  // The side panel needs something to show, so at full width an unselected list defaults to its
+  // first game. At compact widths there is no panel and rows navigate on click, so only an explicit
+  // selection (keyboard, context menu) counts; nothing is highlighted until one is made.
+  const selectedGame = compactLayout ? explicitlySelectedGame : (explicitlySelectedGame ?? games[0])
   const selectedIndex = selectedGame ? games.findIndex(g => g.id === selectedGame.id) : -1
   const selectedReplayInfo = useAppSelector(s =>
     selectedGame ? s.games.replayInfoById.get(selectedGame.id) : undefined,
@@ -279,8 +283,13 @@ export function GameListView({
   }
   const moveSelection = (delta: number) => {
     if (games.length === 0) return
-    const base = selectedIndex < 0 ? 0 : selectedIndex
-    const next = Math.min(Math.max(base + delta, 0), games.length - 1)
+    if (selectedIndex < 0) {
+      // Nothing is selected yet, so the first movement key lands on the first row rather than
+      // stepping past it.
+      selectIndex(0)
+      return
+    }
+    const next = Math.min(Math.max(selectedIndex + delta, 0), games.length - 1)
     selectIndex(next)
   }
 
@@ -329,7 +338,10 @@ export function GameListView({
           ) {
             return false
           }
-          if (selectedGame) navigateToGameResults(selectedGame.id)
+          if (!selectedGame) {
+            return false
+          }
+          navigateToGameResults(selectedGame.id)
           return true
         }
       }
@@ -434,9 +446,7 @@ export function GameListView({
         showResult={showResult}
         forUserId={forUserId}
         spoilerFree={spoilerFree}
-        // Without a panel there's no reason to highlight the default `games[0]` fallback, so only
-        // an explicit selection (context menu, keyboard) is shown at compact widths.
-        selected={compactLayout ? game.id === selectedId : game.id === selectedGame?.id}
+        selected={game.id === selectedGame?.id}
         onClick={compactLayout ? gameId => navigateToGameResults(gameId) : setSelectedId}
         onDoubleClick={compactLayout ? undefined : gameId => navigateToGameResults(gameId)}
         onContextMenu={(gameId, event) => {
