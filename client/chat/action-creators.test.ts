@@ -228,9 +228,18 @@ const NOW = 5_000_000
 function makeReadPositionState({
   messages = [],
   latestMentionTime,
+  unread = false,
+  lastReadTime,
+  hasUnreadLine = false,
 }: {
   messages?: ChannelTextMessage[]
   latestMentionTime?: number
+  /** Whether `channelId` should be flagged unread. */
+  unread?: boolean
+  /** The read position to seed for `channelId`, if any. */
+  lastReadTime?: number
+  /** Whether `channelId` should have a frozen unread divider standing in it. */
+  hasUnreadLine?: boolean
 } = {}): RootState {
   const chat = {
     idToMessages: new Map([
@@ -250,6 +259,11 @@ function makeReadPositionState({
     ]),
     idToLatestMentionTime: new Map(
       latestMentionTime !== undefined ? [[CHANNEL_ID, latestMentionTime]] : [],
+    ),
+    unreadChannels: new Set(unread ? [CHANNEL_ID] : []),
+    idToLastReadTime: new Map(lastReadTime !== undefined ? [[CHANNEL_ID, lastReadTime]] : []),
+    idToUnreadLine: new Map(
+      hasUnreadLine ? [[CHANNEL_ID, { time: NOW - 1000, seen: false, leftBottom: false }]] : [],
     ),
   }
   return { chat } as unknown as RootState
@@ -349,5 +363,64 @@ describe('chat/action-creators/markChannelReadNow', () => {
       newerTime,
       expect.any(Function),
     )
+  })
+
+  test('does nothing when the surface is already caught up', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState({ messages: [textMessage(NOW - 100)], lastReadTime: NOW - 100 }),
+    )
+
+    expect(dispatched).toEqual([])
+    expect(reportLastReadMock).not.toHaveBeenCalled()
+  })
+
+  test('still marks read when the unread flag is up', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState({
+        messages: [textMessage(NOW - 100)],
+        lastReadTime: NOW - 100,
+        unread: true,
+      }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@chat/updateLastReadTime',
+        payload: { channelId: CHANNEL_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
+  })
+
+  test('still marks read when an unread divider is present', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState({
+        messages: [textMessage(NOW - 100)],
+        lastReadTime: NOW - 100,
+        hasUnreadLine: true,
+      }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@chat/updateLastReadTime',
+        payload: { channelId: CHANNEL_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
+  })
+
+  test('still marks read when the read position is behind the newest known message', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState({ messages: [textMessage(NOW - 100)], lastReadTime: NOW - 200 }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@chat/updateLastReadTime',
+        payload: { channelId: CHANNEL_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
   })
 })

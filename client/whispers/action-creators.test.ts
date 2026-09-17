@@ -105,7 +105,21 @@ function textMessage(time: number): CommonTextMessage {
 }
 
 /** A `RootState` carrying just the whisper slice `markWhisperReadNow` reads. */
-function makeReadPositionState(messages: CommonTextMessage[]): RootState {
+function makeReadPositionState(
+  messages: CommonTextMessage[],
+  {
+    hasUnread = false,
+    lastReadTime,
+    hasUnreadLine = false,
+  }: {
+    /** Whether the session should be flagged unread. */
+    hasUnread?: boolean
+    /** The read position to seed for the session, if any. */
+    lastReadTime?: number
+    /** Whether the session should have a frozen unread divider standing in it. */
+    hasUnreadLine?: boolean
+  } = {},
+): RootState {
   const session = {
     target: TARGET_ID,
     messages,
@@ -117,7 +131,9 @@ function makeReadPositionState(messages: CommonTextMessage[]): RootState {
     windowGen: 0,
     activated: false,
     atBottom: false,
-    hasUnread: false,
+    hasUnread,
+    lastReadTime,
+    unreadLine: hasUnreadLine ? { time: NOW - 1000, seen: false, leftBottom: false } : undefined,
   }
   const whispers = { sessions: new Set([TARGET_ID]), byId: new Map([[TARGET_ID, session]]) }
   return { whispers } as unknown as RootState
@@ -174,5 +190,62 @@ describe('client/whispers/action-creators/markWhisperReadNow', () => {
       newerTime,
       expect.any(Function),
     )
+  })
+
+  test('does nothing when the surface is already caught up', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState([textMessage(NOW - 100)], { lastReadTime: NOW - 100 }),
+    )
+
+    expect(dispatched).toEqual([])
+    expect(reportLastReadMock).not.toHaveBeenCalled()
+  })
+
+  test('still marks read when the unread flag is up', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState([textMessage(NOW - 100)], {
+        lastReadTime: NOW - 100,
+        hasUnread: true,
+      }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@whispers/updateLastReadTime',
+        payload: { targetId: TARGET_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
+  })
+
+  test('still marks read when an unread divider is present', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState([textMessage(NOW - 100)], {
+        lastReadTime: NOW - 100,
+        hasUnreadLine: true,
+      }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@whispers/updateLastReadTime',
+        payload: { targetId: TARGET_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
+  })
+
+  test('still marks read when the read position is behind the newest known message', () => {
+    const { dispatched } = runMarkReadNow(
+      makeReadPositionState([textMessage(NOW - 100)], { lastReadTime: NOW - 200 }),
+    )
+
+    expect(dispatched).toEqual([
+      {
+        type: '@whispers/updateLastReadTime',
+        payload: { targetId: TARGET_ID, lastReadTime: NOW, dismissUnreadLine: true },
+      },
+    ])
+    expect(reportLastReadMock).toHaveBeenCalledWith(expect.any(String), NOW, expect.any(Function))
   })
 })
