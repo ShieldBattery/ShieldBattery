@@ -62,8 +62,9 @@ export interface WhisperSession {
   /**
    * The failed request the older edge of the window is showing an error for, if any. While it's
    * set, the older edge shows an error row instead of a loading indicator and isn't requested
-   * automatically; it's cleared when a request for that edge starts, when the window is replaced or
-   * dropped, and when the session is deactivated, so a fresh visit makes a fresh attempt.
+   * automatically; it's cleared when a request for that edge starts or succeeds, when the window is
+   * replaced or dropped, and when the session is deactivated, so a fresh visit makes a fresh
+   * attempt.
    */
   historyError?: HistoryLoadError
   /**
@@ -607,6 +608,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    session.historyError = undefined
+
     const newMessages = toTextMessages(action.payload.messages)
 
     session.hasHistory = action.payload.hasMoreBefore
@@ -645,6 +650,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       session.newerError = true
       return
     }
+
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    session.newerError = false
 
     const newMessages = toTextMessages(action.payload.messages)
 
@@ -709,9 +718,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    // The window below is replaced wholesale, so whatever its newer edge failed at belongs to
-    // messages that are no longer loaded.
+    // The window below is replaced wholesale, so the newer edge's error belongs to messages that
+    // are no longer loaded, and an older-edge error recorded by an earlier replacement request
+    // that failed after this one began is stale too.
     session.newerError = false
+    session.historyError = undefined
 
     // Everything this client knows the present ran at least as far as: the newest message it had
     // loaded (live messages keep appending to an attached window while the request is in flight)

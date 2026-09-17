@@ -85,8 +85,9 @@ export interface MessagesState {
   /**
    * The failed request the older edge of the window is showing an error for, if any. While it's
    * set, the older edge shows an error row instead of a loading indicator and isn't requested
-   * automatically; it's cleared when a request for that edge starts, when the window is replaced or
-   * dropped, and when the channel is deactivated, so a fresh visit makes a fresh attempt.
+   * automatically; it's cleared when a request for that edge starts or succeeds, when the window is
+   * replaced or dropped, and when the channel is deactivated, so a fresh visit makes a fresh
+   * attempt.
    */
   historyError?: HistoryLoadError
   /**
@@ -996,6 +997,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    channelMessages.historyError = undefined
+
     // Even though the payload here is `ServerChatMessage`, we expand its type so it can be
     // concatenated with the existing messages which could also contain client chat messages.
     const newMessages = action.payload.messages as ChatMessage[]
@@ -1038,6 +1043,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       channelMessages.newerError = true
       return
     }
+
+    // The edge just settled successfully, so any error a request that failed in the meantime
+    // recorded against it (one issued before this one, landing after it began) is stale.
+    channelMessages.newerError = false
 
     const newMessages = action.payload.messages as ChatMessage[]
 
@@ -1104,9 +1113,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    // The window below is replaced wholesale, so whatever its newer edge failed at belongs to
-    // messages that are no longer loaded.
+    // The window below is replaced wholesale, so the newer edge's error belongs to messages that
+    // are no longer loaded, and an older-edge error recorded by an earlier replacement request
+    // that failed after this one began is stale too.
     channelMessages.newerError = false
+    channelMessages.historyError = undefined
 
     // Everything this client knows the present ran at least as far as: the newest message it had
     // loaded (live messages keep appending to an attached window while the request is in flight)

@@ -499,6 +499,17 @@ describe('client/whispers/whisper-reducer', () => {
 
       expect(sessionOf(result).historyError).toBeUndefined()
     })
+
+    test('a page that lands clears an older edge error an earlier request left behind', () => {
+      const state = makeState({ historyError: { kind: 'history' }, loadingHistory: true })
+
+      const result = whisperReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([serverMessage(100)])),
+      )
+
+      expect(sessionOf(result).historyError).toBeUndefined()
+    })
   })
 
   describe('@whispers/loadMessagesAround', () => {
@@ -609,6 +620,20 @@ describe('client/whispers/whisper-reducer', () => {
       const state = makeState({ historyError: { kind: 'history' } })
 
       const result = whisperReducer(state, loadMessagesAroundBeginAction({ aroundTime: 150 }))
+
+      expect(sessionOf(result).historyError).toBeUndefined()
+    })
+
+    test('a replacement that lands clears an older edge error an earlier request left behind', () => {
+      const state = makeState({
+        historyError: { kind: 'around', aroundTime: 150 },
+        loadingHistory: true,
+      })
+
+      const result = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)]), { aroundTime: 150 }),
+      )
 
       expect(sessionOf(result).historyError).toBeUndefined()
     })
@@ -1126,6 +1151,22 @@ describe('client/whispers/whisper-reducer', () => {
       const state = makeState({ hasNewer: true, newerError: true, messages: [textMessage(100)] })
 
       const result = whisperReducer(state, loadNewerMessagesBeginAction({ afterTime: 100 }))
+
+      expect(sessionOf(result).newerError).toBe(false)
+    })
+
+    test('a page that lands clears a newer edge error an earlier request left behind', () => {
+      const state = makeState({
+        hasNewer: true,
+        newerError: true,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = whisperReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([serverMessage(200)]), { afterTime: 100 }),
+      )
 
       expect(sessionOf(result).newerError).toBe(false)
     })

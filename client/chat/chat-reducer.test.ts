@@ -1166,6 +1166,17 @@ describe('client/chat/chat-reducer', () => {
 
       expect(windowOf(result).historyError).toBeUndefined()
     })
+
+    test('a page that lands clears an older edge error an earlier request left behind', () => {
+      const state = makeState({ historyError: { kind: 'history' }, loadingHistory: true })
+
+      const result = chatReducer(
+        state,
+        loadMessageHistoryAction(historyResponse([textMessage(100)])),
+      )
+
+      expect(windowOf(result).historyError).toBeUndefined()
+    })
   })
 
   describe('@chat/loadMessagesAround', () => {
@@ -1285,6 +1296,20 @@ describe('client/chat/chat-reducer', () => {
       const state = makeState({ historyError: { kind: 'history' } })
 
       const result = chatReducer(state, loadMessagesAroundBeginAction({ aroundTime: 150 }))
+
+      expect(windowOf(result).historyError).toBeUndefined()
+    })
+
+    test('a replacement that lands clears an older edge error an earlier request left behind', () => {
+      const state = makeState({
+        historyError: { kind: 'around', aroundTime: 150 },
+        loadingHistory: true,
+      })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([textMessage(100)]), { aroundTime: 150 }),
+      )
 
       expect(windowOf(result).historyError).toBeUndefined()
     })
@@ -1545,6 +1570,22 @@ describe('client/chat/chat-reducer', () => {
       const state = makeState({ hasNewer: true, newerError: true, messages: [textMessage(100)] })
 
       const result = chatReducer(state, loadNewerMessagesBeginAction({ afterTime: 100 }))
+
+      expect(windowOf(result).newerError).toBe(false)
+    })
+
+    test('a page that lands clears a newer edge error an earlier request left behind', () => {
+      const state = makeState({
+        hasNewer: true,
+        newerError: true,
+        loadingNewer: true,
+        messages: [textMessage(100)],
+      })
+
+      const result = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([textMessage(200)]), { afterTime: 100 }),
+      )
 
       expect(windowOf(result).newerError).toBe(false)
     })
