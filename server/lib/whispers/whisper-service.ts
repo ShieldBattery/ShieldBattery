@@ -90,11 +90,7 @@ export default class WhisperService {
           logger.error({ err }, 'Error handling new user in whisper service'),
         )
       })
-      .on('userQuit', userId => {
-        this.handleUserQuit(userId).catch(err =>
-          logger.error({ err }, 'Error handling user disconnect in whisper service'),
-        )
-      })
+      .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
   async getWhisperSessions(userId: SbUserId): Promise<GetWhisperSessionsResponse> {
@@ -505,21 +501,25 @@ export default class WhisperService {
     }
   }
 
-  private async handleUserQuit(userId: SbUserId) {
-    const user = await this.getUserById(userId)
-
-    if (!this.userSessions.has(user.id)) {
+  /**
+   * Drops the in-memory session bookkeeping for a user whose last socket closed. This runs
+   * synchronously in the quit event: the user can reconnect right after quitting, and
+   * `handleNewUser` for that connection repopulates the same entries, so a deferred delete here
+   * would land after them and leave a connected user with no sessions until their next reconnect.
+   */
+  private handleUserQuit(userId: SbUserId) {
+    if (!this.userSessions.has(userId)) {
       // This can happen if a user disconnects before we get their whisper sessions back from the DB
       return
     }
 
     // Delete the user that quit from all of the sessions they had opened, if any
-    for (const target of this.userSessions.get(user.id)!.values()) {
-      const updated = this.sessionUsers.get(target)?.delete(user.id)
+    for (const target of this.userSessions.get(userId)!.values()) {
+      const updated = this.sessionUsers.get(target)?.delete(userId)
       this.sessionUsers = updated?.size
         ? this.sessionUsers.set(target, updated)
         : this.sessionUsers.delete(target)
     }
-    this.userSessions = this.userSessions.delete(user.id)
+    this.userSessions = this.userSessions.delete(userId)
   }
 }

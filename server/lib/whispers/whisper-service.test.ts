@@ -7,6 +7,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { WhisperMessageType, WhisperServiceErrorCode } from '../../../common/whispers'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { RestrictionService } from '../users/restriction-service'
+import { findUserById } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import {
@@ -477,6 +478,35 @@ describe('whispers/whisper-service', () => {
       await expect(whisperService.getMessageLinkTarget(user1.id, messageId)).rejects.toMatchObject({
         code: WhisperServiceErrorCode.MessageNotFound,
       })
+    })
+  })
+
+  describe('socket lifecycle', () => {
+    test('keeps the sessions of a user who reconnects right after quitting', async () => {
+      // A user lookup slower than the session load: anything the quit handler awaited before
+      // dropping the user's sessions would then land after the reconnect has repopulated them.
+      const findUser = asMockedFunction(findUserById)
+      const originalFindUser = findUser.getMockImplementation()
+      findUser.mockImplementation(async id => {
+        await new Promise(resolve => setTimeout(resolve, 10))
+        return [user1, user2, user3].find(u => u.id === id)
+      })
+      asMockedFunction(getWhisperSessionsForUser).mockResolvedValue([
+        { targetId: user1.id, lastReadTime: undefined, startDate: new Date(0) },
+      ])
+
+      try {
+        const client = connector.connectClient(user2, 'USER2_CLIENT_ID')
+        await new Promise(resolve => setTimeout(resolve, 20))
+
+        client.disconnect()
+        connector.connectClient(user2, 'USER2_CLIENT_ID')
+        await new Promise(resolve => setTimeout(resolve, 40))
+
+        await expect(whisperService.getSessionHistory(user2.id, user1.id)).resolves.toBeDefined()
+      } finally {
+        findUser.mockImplementation(originalFindUser!)
+      }
     })
   })
 })
