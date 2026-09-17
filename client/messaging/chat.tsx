@@ -297,7 +297,7 @@ const ESCAPE = 'Escape'
 export interface ChatProps {
   className?: string
   listProps: Omit<MessageListProps, 'onScrollUpdate' | 'isRestorePending'>
-  inputProps: Omit<MessageInputProps, 'showDivider' | 'commands' | 'ref'>
+  inputProps: Omit<MessageInputProps, 'showDivider' | 'commands' | 'onSubmitted' | 'ref'>
   /**
    * What this surface is, for the commands the user can run in it. Without it the input has no
    * commands at all and everything submitted is sent as an ordinary message.
