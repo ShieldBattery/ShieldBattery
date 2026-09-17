@@ -222,6 +222,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 
                 forge::fix_clip_cursor();
                 forge::game_started();
+                bw.fix_zoom_ignoring_effect_sounds();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
                 // The loading screen has handed off to the game, so this is where the game-start

@@ -150,6 +150,9 @@ pub struct BwScr {
     /// The native create path derives the local player's raw skin blob from this; used to locate
     /// that blob so a bypassed-join client can populate its own slot. `None` if unlocated.
     skins: Option<Value<*mut u8>>,
+    /// Base of SC:R's loaded `rez/sfx.json` entry array (indexed by sound id). `None` if
+    /// unlocated.
+    sfx_data: Option<Value<*mut scr::SfxDataEntry>>,
     /// Shift+Tab minimap player-color cycle (0 = normal). Saved/restored across game launches.
     minimap_color_mode: Option<Value<u8>>,
     /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
@@ -943,6 +946,24 @@ impl<T: BwValue> Value<T> {
 unsafe impl<T> Send for Value<T> {}
 unsafe impl<T> Sync for Value<T> {}
 
+/// (sfx.json ID, file name) of every iscript-played effect whose `rez/sfx.json` entry has
+/// `unitSpeech` set: the zealot, queen and critter deaths and the yamato cannon. Every other unit
+/// death is unflagged. See [`BwScr::fix_zoom_ignoring_effect_sounds`].
+const ZOOM_IGNORING_EFFECT_SOUNDS: &[(&str, &str)] = &[
+    ("SND_ZEALOT_DEAD", "PZeDth00.WAV"),
+    ("SND_FIRST_QUEEN_DEAD", "ZQuDth00.WAV"),
+    ("SND_QUEEN_DEAD_1", "ZQuDth01.WAV"),
+    ("SND_LAST_QUEEN_DEAD", "ZQuDth02.WAV"),
+    ("SND_JUNGLE_CRITTER_DEATH", "JCrDth00.wav"),
+    ("SND_LAVA_CRITTER_DEATH", "LCrDth00.wav"),
+    ("SND_BADLANDS_CRITTER_DEATH", "BCrDth00.wav"),
+    ("SND_ICE_CRITTER_DEATH", "PBDeath01.wav"),
+    ("SND_DESERT_CRITTER_DEATH", "ScDeath01.wav"),
+    ("SND_TWILIGHT_CRITTER_DEATH", "TerDeath01.wav"),
+    ("SND_YAMATO_CHARGE", "tBaYam01.wav"),
+    ("SND_YAMATO_BLAST", "tBaYam02.wav"),
+];
+
 unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
     unsafe {
         use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
@@ -1436,6 +1457,11 @@ impl BwScr {
         let main_palette = analysis.main_palette().ok_or("main_palette")?;
         let rgb_colors = analysis.rgb_colors().ok_or("rgb_colors")?;
         let use_rgb_colors = analysis.use_rgb_colors().ok_or("use_rgb_colors")?;
+        // Non-fatal: without it the zoom-ignoring effect sounds just keep their native behavior.
+        let sfx_data = analysis.sfx_data();
+        if sfx_data.is_none() {
+            warn!("Could not find sfx_data global");
+        }
         // These two are non-fatal: if the analysis can't locate them we just lose the
         // save/restore of the minimap color/terrain toggles rather than failing game launch.
         let minimap_color_mode = analysis.minimap_color_mode();
@@ -1652,6 +1678,7 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             first_active_unit: Value::new(ctx, first_active_unit),
+            sfx_data: sfx_data.map(|x| Value::new(ctx, x)),
             first_player_unit: Value::new(ctx, first_player_unit),
             client_selection: Value::new(ctx, client_selection),
             sprites_by_y_tile: Value::new(ctx, sprites_by_y_tile),
@@ -5400,6 +5427,65 @@ impl BwScr {
         // possible sounds that it doesn't really seem worth it to me.
         cache.insert(id, result);
         result
+    }
+
+    /// Clears the `unitSpeech` flag on the ordinary positional effects that carry it in
+    /// `rez/sfx.json` (see [`ZOOM_IGNORING_EFFECT_SOUNDS`]).
+    ///
+    /// SC:R's positional volume calculation scales by the camera zoom factor unless the sound is
+    /// flagged as unit speech, so selection/acknowledgement lines stay at full volume however far
+    /// out an observer or replay viewer zooms. The effects in that list are flagged the same way,
+    /// so they play at full volume while every other effect fades with the zoom. They are only
+    /// ever played from iscripts, without a unit context, so the flag's other role (one speech
+    /// line per unit type at a time) never applies to them and clearing it changes nothing else.
+    ///
+    /// Every entry is checked against its expected file name before being written, so a layout
+    /// change in a future game patch leaves the table untouched instead of corrupting it.
+    pub fn fix_zoom_ignoring_effect_sounds(&self) {
+        let Some(sfx_data) = self.sfx_data else {
+            return;
+        };
+        let base = unsafe { sfx_data.resolve() };
+        if base.is_null() {
+            warn!("sfx_data is null, not fixing zoom-ignoring effect sounds");
+            return;
+        }
+        for &(id, file_name) in ZOOM_IGNORING_EFFECT_SOUNDS {
+            let index = self.lookup_sound(id) as usize;
+            if index >= 0x1000 {
+                warn!("Sound {id} has implausible index {index:#x}, skipping");
+                continue;
+            }
+            unsafe {
+                let entry = &mut *base.add(index);
+                if !entry.file_path.is_plausible() {
+                    warn!("Sound {id} (index {index}) has an implausible file path, skipping");
+                    continue;
+                }
+                let path = entry.file_path.as_bytes();
+                let actual_name = path
+                    .rsplit(|&b| b == b'/' || b == b'\\')
+                    .next()
+                    .unwrap_or(&[]);
+                if !actual_name.eq_ignore_ascii_case(file_name.as_bytes()) {
+                    warn!(
+                        "Sound {id} (index {index}) has file path {:?}, expected {file_name}, skipping",
+                        String::from_utf8_lossy(path),
+                    );
+                    continue;
+                }
+                match entry.unit_speech {
+                    0 => {}
+                    1 => {
+                        entry.unit_speech = 0;
+                        debug!("Cleared unitSpeech on {id} (index {index})");
+                    }
+                    other => {
+                        warn!("Sound {id} (index {index}) has unitSpeech = {other}, skipping");
+                    }
+                }
+            }
+        }
     }
 
     /// Plays the specified sound. These IDs can be found in rez/sfx.json in the game files.

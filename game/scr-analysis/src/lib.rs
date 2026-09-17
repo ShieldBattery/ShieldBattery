@@ -897,6 +897,11 @@ impl<'e> Analysis<'e> {
         self.0.play_sound()
     }
 
+    /// Pointer to the array of loaded `rez/sfx.json` entries, indexed by sound id.
+    pub fn sfx_data(&mut self) -> Option<Operand<'e>> {
+        self.0.sfx_data()
+    }
+
     pub fn print_text(&mut self) -> Option<VirtualAddress> {
         self.0.print_text()
     }

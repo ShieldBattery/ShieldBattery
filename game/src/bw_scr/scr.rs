@@ -89,6 +89,30 @@ impl BwString {
         self.capacity & !(usize::MAX >> 1) != 0
     }
 
+    /// Whether the header's fields agree with each other well enough that reading the contents is
+    /// safe: the inline buffer is in use and pointed to, or the heap buffer's length fits its
+    /// (bounded) capacity. A struct read from memory that doesn't actually hold a `BwString` fails
+    /// this check in practice, which callers reading game data at guessed layouts rely on.
+    pub fn is_plausible(&self) -> bool {
+        if self.is_using_inline_buffer() {
+            std::ptr::eq(self.pointer, self.inline_buffer.as_ptr())
+                && self.length < self.inline_buffer.len()
+        } else {
+            !self.pointer.is_null()
+                && self.length <= self.get_capacity()
+                && self.get_capacity() < 0x1000
+        }
+    }
+
+    /// The string's current contents, without the null terminator.
+    ///
+    /// # Safety
+    /// `pointer` must point to at least `length` readable bytes (true for any string the game
+    /// built; check `is_plausible` first when the struct itself was read at a guessed layout).
+    pub unsafe fn as_bytes(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.pointer, self.length) }
+    }
+
     /// Replaces the entire contents of the string, allocating new memory if necessary.
     pub fn replace_all(&mut self, replace_with: &str) {
         if replace_with.len() > self.get_capacity() {
@@ -500,6 +524,55 @@ pub struct StormSessionPlayer {
 const _: () = assert!(std::mem::size_of::<StormSessionPlayer>() == 0x21c);
 #[cfg(target_arch = "x86_64")]
 const _: () = assert!(std::mem::size_of::<StormSessionPlayer>() == 0x2c0);
+
+/// A loaded `rez/sfx.json` entry, as SC:R keeps them in the heap array its `sfx_data` global points
+/// to (indexed by sound id). The bool fields hold the json flags of the same name. Fields from
+/// `metadata_name` on are runtime state that only exists here so the struct's size matches the
+/// array stride on both architectures.
+#[repr(C)]
+pub struct SfxDataEntry {
+    pub name: BwString,
+    pub alt_name: BwString,
+    pub file_path: BwString,
+    pub priority: u8,
+    pub preload: u8,
+    /// Besides marking speech for the one-line-per-unit-type dedup, the positional volume
+    /// calculation reads this as "ignore camera zoom" (see
+    /// `BwScr::fix_zoom_ignoring_effect_sounds`).
+    pub unit_speech: u8,
+    pub streaming: u8,
+    /// Set once the game has tried to load the audio asset.
+    pub load_attempted: u8,
+    pub unk7d: u8,
+    pub one_at_a_time: u8,
+    pub never_preempt: u8,
+    pub length_adjust: u16,
+    /// Percent; the floor for positional attenuation.
+    pub min_volume: u8,
+    pub unk83: u8,
+    pub raffle_tickets: u32,
+    pub metadata_name: BwString,
+    pub reload_requested: u8,
+    pub audio_asset: SfxAudioAsset,
+    pub src_data: BwString,
+}
+
+#[repr(C)]
+pub struct SfxAudioAsset {
+    pub sound: *mut c_void,
+    pub duration_ms: u32,
+    pub last_play_tick: u32,
+    pub group: u32,
+}
+
+#[cfg(target_arch = "x86")]
+const _: () = assert!(std::mem::size_of::<SfxDataEntry>() == 0xb0);
+#[cfg(target_arch = "x86")]
+const _: () = assert!(std::mem::offset_of!(SfxDataEntry, unit_speech) == 0x56);
+#[cfg(target_arch = "x86_64")]
+const _: () = assert!(std::mem::size_of::<SfxDataEntry>() == 0xf8);
+#[cfg(target_arch = "x86_64")]
+const _: () = assert!(std::mem::offset_of!(SfxDataEntry, unit_speech) == 0x7a);
 
 #[repr(C)]
 #[derive(Copy, Clone)]
