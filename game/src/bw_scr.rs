@@ -60,6 +60,7 @@ mod draw_overlay;
 mod file_hook;
 mod game;
 mod pe_image;
+mod replay_save;
 mod sdf_cache;
 mod shader_replaces;
 mod thiscall;
@@ -157,6 +158,13 @@ pub struct BwScr {
     /// together (all-or-nothing). `Some` = all three were located and hooked, so that mode drives
     /// the dots from `rgb_colors`; `None` (any missing) keeps it on BW's own diplomacy dots.
     minimap_draw_hooks: Option<MinimapDrawHooks>,
+    /// SC:R's nearest-palette-color lookup and the tileset cycling table it reads, resolved together
+    /// (all-or-nothing): guarding the lookup needs both the function to hook and the pointer to
+    /// test. `None` (either missing) leaves the lookup unguarded.
+    palette_color_lookup: Option<PaletteColorLookup>,
+    /// SC:R's replay autosave and the path builder it uses. `None` (either missing) leaves the
+    /// autosave as SC:R implements it.
+    replay_autosave: Option<replay_save::ReplayAutosave>,
     /// BW's in-game chat send-scope byte (`chat_box_mode`): 0 = box closed, 1 = single-player local,
     /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
     /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
@@ -614,6 +622,15 @@ const SKIN_TABLE_SLOTS: usize = 16;
 const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x14);
 #[cfg(target_arch = "x86_64")]
 const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x28);
+
+struct PaletteColorLookup {
+    /// `u32 find_nearest_palette_color(const u8 (*palette)[4], u32 rgb_color)`, the hook target.
+    find_nearest_palette_color: VirtualAddress,
+    /// Pointer to the 256-byte table marking which palette indices the loaded tileset color-cycles.
+    /// Allocated with the terrain and nulled when the terrain is freed, so it is null outside a
+    /// loaded map.
+    is_cycling_color_table: Value<*mut u8>,
+}
 
 struct MinimapDrawHooks {
     /// Dispatcher: draws the local player's units and lone sprites inline and calls the two
@@ -1467,6 +1484,46 @@ impl BwScr {
                 None
             }
         };
+        // Non-fatal, all-or-nothing: the nearest-palette-color guard needs the function to hook and
+        // the cycling table pointer whose null state it checks for.
+        let palette_color_lookup = match (
+            analysis.find_nearest_palette_color(),
+            analysis.is_cycling_color_table(),
+        ) {
+            (Some(find_nearest_palette_color), Some(is_cycling_color_table)) => {
+                Some(PaletteColorLookup {
+                    find_nearest_palette_color,
+                    is_cycling_color_table: Value::new(ctx, is_cycling_color_table),
+                })
+            }
+            _ => {
+                warn!(
+                    "Could not find find_nearest_palette_color/is_cycling_color_table; palette \
+                    lookups without a loaded tileset will stay unguarded"
+                );
+                None
+            }
+        };
+        // Non-fatal, all-or-nothing: replacing the replay file safely needs the path that the save
+        // is going to write to, which only the path builder can produce.
+        let replay_autosave = match (
+            analysis.save_replay_by_name(),
+            analysis.build_replay_file_path(),
+        ) {
+            (Some(save_replay_by_name), Some(build_replay_file_path)) => {
+                Some(replay_save::ReplayAutosave {
+                    save_replay_by_name,
+                    build_replay_file_path: unsafe { mem::transmute(build_replay_file_path.0) },
+                })
+            }
+            _ => {
+                warn!(
+                    "Could not find save_replay_by_name/build_replay_file_path; SC:R will handle \
+                    its own replay autosave"
+                );
+                None
+            }
+        };
         // Non-fatal: without it, in-game chat can't read its send-scope and every message goes to
         // everyone rather than failing game launch.
         let chat_box_mode = analysis.chat_box_mode();
@@ -1628,6 +1685,8 @@ impl BwScr {
             }),
             skins: skins.map(|op| Value::new(ctx, op)),
             minimap_draw_hooks,
+            palette_color_lookup,
+            replay_autosave,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
@@ -2864,6 +2923,46 @@ impl BwScr {
                     address,
                 );
             }
+            // SC:R's own lookup asserts that the tileset color-cycling table is non-null and then
+            // reads through the pointer regardless, so any UI built while no terrain is loaded —
+            // between the terrain being freed and the next menu or map load — faults on the null
+            // table. Return a palette index without consulting the table in that window instead.
+            if let Some(lookup) = self.palette_color_lookup.as_ref() {
+                let address = lookup.find_nearest_palette_color.0 as usize - base;
+                exe.hook_closure_address(
+                    FindNearestPaletteColor,
+                    move |palette, color, orig| {
+                        if lookup.is_cycling_color_table.resolve().is_null() {
+                            warn_once!(
+                                "Nearest palette color was looked up without a loaded tileset"
+                            );
+                            return 0;
+                        }
+                        orig(palette, color)
+                    },
+                    address,
+                );
+            }
+
+            // SC:R autosaves the replay from inside the multiplayer game teardown and replaces the
+            // existing file without clearing a read-only attribute, then reports a failed replace
+            // with a modal dialog. Clear the file out of the way here and log a failure instead.
+            if let Some(autosave) = self.replay_autosave.as_ref() {
+                let address = autosave.save_replay_by_name.0 as usize - base;
+                exe.hook_closure_address(
+                    SaveReplayByName,
+                    move |name, replace_existing, orig| {
+                        replay_save::save_replay_by_name_hook(
+                            autosave,
+                            name,
+                            replace_existing,
+                            orig,
+                        )
+                    },
+                    address,
+                );
+            }
+
             // Render hook
             let relative = draw.cast_usize() - base;
             exe.hook_closure_address(
@@ -6791,6 +6890,13 @@ mod hooks {
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);
         !0 => NetPlayerCount() -> u32;
+        // Picks the palette index closest to an RGB color; the first argument is the
+        // `[[u8; 4]; 256]` palette. Hooked to keep it from reading the tileset color-cycling table
+        // while no terrain is loaded.
+        !0 => FindNearestPaletteColor(*const u8, u32) -> u32;
+        // `save_replay_by_name(name, replace_existing)`. `replace_existing` is a C bool, so it is a
+        // single byte in the register/stack slot rather than a full word.
+        !0 => SaveReplayByName(*const i8, u8) -> i32;
     );
 
     system_hooks!(

@@ -913,6 +913,35 @@ impl<'e> Analysis<'e> {
         self.0.save_replay()
     }
 
+    /// `int save_replay_by_name(const char *name, bool replace_existing)`. Builds the replay path
+    /// for `name` with [`build_replay_file_path`](Self::build_replay_file_path), optionally deletes
+    /// an existing file at that path, and saves the current game's replay there. Returns -1 when
+    /// replacing the existing file failed.
+    pub fn save_replay_by_name(&mut self) -> Option<VirtualAddress> {
+        self.0.save_replay_by_name()
+    }
+
+    /// `bool build_replay_file_path(const char *name, char *out, u32 out_size)`. Writes the UTF-8
+    /// path `<Documents>\StarCraft\Maps\Replays\<name>.rep` into `out` (`out_size` is 0x104 at every
+    /// call site), creating the directory if needed. Returns false if the path couldn't be built.
+    pub fn build_replay_file_path(&mut self) -> Option<VirtualAddress> {
+        self.0.build_replay_file_path()
+    }
+
+    /// `u32 find_nearest_palette_color(const u8 (*palette)[4], u32 rgb_color)`. Returns the index of
+    /// the palette entry closest to `rgb_color`, skipping indices that
+    /// [`is_cycling_color_table`](Self::is_cycling_color_table) marks as tileset-cycled.
+    pub fn find_nearest_palette_color(&mut self) -> Option<VirtualAddress> {
+        self.0.find_nearest_palette_color()
+    }
+
+    /// The pointer variable holding the 256-byte "palette index is used by tileset color cycling"
+    /// table. Null while no terrain is loaded: the table is allocated with the terrain and freed
+    /// (and the pointer nulled) when the terrain is shut down.
+    pub fn is_cycling_color_table(&mut self) -> Option<Operand<'e>> {
+        self.0.is_cycling_color_table()
+    }
+
     /// Single byte global holding the in-game chat send-scope while the chat box is open: 0 = box
     /// closed, 1 = single-player local, 2 = everyone, 3 = allies, 4 = a specific player,
     /// 5 = observers.
