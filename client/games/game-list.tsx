@@ -31,11 +31,31 @@ const Title = styled.div`
   ${singleLine};
 `
 
+/**
+ * Widths of the live-games strip below which its grid drops a column. Each step keeps a card from
+ * falling under roughly 290px, the point where a card's map thumbnail, gaps and two team columns
+ * no longer leave room for a race icon and a readable name per player.
+ */
+const LIVE_GAMES_TWO_COLUMNS_BELOW_PX = 900
+const LIVE_GAMES_ONE_COLUMN_BELOW_PX = 600
+
+const LiveGamesRoot = styled.div`
+  container: live-games / inline-size;
+`
+
 const GameEntriesRoot = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   padding-top: 8px;
+
+  @container live-games (width < ${LIVE_GAMES_TWO_COLUMNS_BELOW_PX}px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @container live-games (width < ${LIVE_GAMES_ONE_COLUMN_BELOW_PX}px) {
+    grid-template-columns: 1fr;
+  }
 `
 
 const StyledLiveGameEntry = styled(LiveGameEntry)`
@@ -55,14 +75,14 @@ function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFr
   const { liveGames } = useFragment(LiveGames_FeedFragment, query) ?? { liveGames: [] }
 
   return liveGames.length > 0 ? (
-    <div>
+    <LiveGamesRoot>
       <Title>{t('games.liveGames.title', 'Live games')}</Title>
       <GameEntriesRoot>
         {liveGames.map(liveGame => (
           <StyledLiveGameEntry key={liveGame.id} query={liveGame} />
         ))}
       </GameEntriesRoot>
-    </div>
+    </LiveGamesRoot>
   ) : null
 }
 

@@ -10,6 +10,7 @@ import {
 } from '../../common/games/game-filters'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
+import { useMediaQuery } from '../dom/use-media-query'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { Popover, usePopoverController } from '../material/popover'
@@ -65,6 +66,17 @@ const ListColumn = styled.div`
   */
   container: game-list-rows / inline-size;
 `
+
+/**
+ * Viewport width below which the list goes compact: the detail side panel isn't rendered, and a
+ * single click on a row navigates to the game instead of selecting it into the panel. Derived from
+ * what the list column needs beside the panel: the result, players (328px basis) and duration cells
+ * plus gaps and row padding come to 584px; with the 340px panel and the 24px column gap that's
+ * 948px, plus the page's 48px of horizontal padding. Sits below the desktop app's 1024px minimum
+ * window width, so the app itself never loses the panel.
+ */
+const COMPACT_LAYOUT_BELOW_PX = 1000
+const COMPACT_LAYOUT_QUERY = `(width < ${COMPACT_LAYOUT_BELOW_PX}px)`
 
 const SELECTION_MEMORY_MAX_AGE_MS = 30 * 60 * 1000
 
@@ -135,6 +147,9 @@ export interface GameListViewProps {
  * surface across visits), the list selection, and the keyboard navigation; callers differ only in
  * where they fetch from and a few presentation flags. Renders as a fragment (filter bar, then the
  * list/panel row) so each surface controls its own container and spacing.
+ *
+ * At compact (phone) viewport widths the side panel is dropped and a row click navigates straight
+ * to the game.
  */
 export function GameListView({
   loadPage,
@@ -147,6 +162,7 @@ export function GameListView({
   errorText,
 }: GameListViewProps) {
   const { t } = useTranslation()
+  const compactLayout = useMediaQuery(COMPACT_LAYOUT_QUERY)
 
   const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
   const [customParam, setCustomParam] = useLocationSearchParam('custom')
@@ -418,9 +434,11 @@ export function GameListView({
         showResult={showResult}
         forUserId={forUserId}
         spoilerFree={spoilerFree}
-        selected={game.id === selectedGame?.id}
-        onClick={setSelectedId}
-        onDoubleClick={gameId => navigateToGameResults(gameId)}
+        // Without a panel there's no reason to highlight the default `games[0]` fallback, so only
+        // an explicit selection (context menu, keyboard) is shown at compact widths.
+        selected={compactLayout ? game.id === selectedId : game.id === selectedGame?.id}
+        onClick={compactLayout ? gameId => navigateToGameResults(gameId) : setSelectedId}
+        onDoubleClick={compactLayout ? undefined : gameId => navigateToGameResults(gameId)}
         onContextMenu={(gameId, event) => {
           setSelectedId(gameId)
           onContextMenu(event)
@@ -449,7 +467,9 @@ export function GameListView({
 
   // Mirrors the replay library's inspector: dropped entirely once there are confirmed to be no
   // results, rather than showing an empty "select a game" placeholder beside the empty-state message.
-  const showPanel = !confirmedEmpty && !searchError
+  // Also dropped at compact widths, where rows navigate on click instead of selecting — there's
+  // nothing for a selection to show.
+  const showPanel = !compactLayout && !confirmedEmpty && !searchError
 
   return (
     <>

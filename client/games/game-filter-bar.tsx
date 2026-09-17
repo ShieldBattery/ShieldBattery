@@ -39,9 +39,9 @@ import { MatchupFilter } from './matchup-filter'
 
 const FilterBarContainer = styled.div`
   display: flex;
-  /* Reversed line stacking so that when the bar can't fit on one line, the trailing view
-     controls break upward into a row of their own instead of dangling below the filters. */
-  flex-wrap: wrap-reverse;
+  /* Wraps in source order: a bar too wide for one line keeps the filters on top and moves the
+     trailing view controls down below them. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -49,16 +49,16 @@ const FilterBarContainer = styled.div`
 `
 
 /**
- * Kept in the layout (just invisible) when there's nothing to clear: it's the tallest item in the
- * bar, so mounting it on demand would make its row grow and shift the neighboring chips.
+ * Sized to the chips' 32px height so mounting it only when there's something to clear doesn't grow
+ * its line and shift the neighboring chips.
  */
-const ClearButton = styled(TextButton)<{ $visible: boolean }>`
-  visibility: ${props => (props.$visible ? 'visible' : 'hidden')};
+const ClearButton = styled(TextButton)`
+  min-height: 32px;
 `
 
 /**
- * Groups the view controls (spoiler-free, sort) so they wrap as a unit and stay right-aligned
- * even when pushed onto their own line, rather than orphaning left-aligned one chip at a time.
+ * Groups the view controls (spoiler-free, sort) so they wrap as a unit and stay right-aligned when
+ * they land on a line of their own, rather than orphaning one chip at a time.
  */
 const ViewControls = styled.div`
   display: flex;
@@ -393,25 +393,26 @@ export function GameFilterBar({
         onClick={e => (opened ? closePopover() : openPopover(e))}
       />
 
-      <ClearButton
-        $visible={hasActiveFilters}
-        label={t('common.actions.clear', 'Clear')}
-        iconStart={<MaterialIcon icon='close' />}
-        onClick={() => {
-          setRanked?.(false)
-          setCustom?.(false)
-          setSource?.(GameSourceFilter.All)
-          setDuration(GameDurationFilter.All)
-          setMapName('')
-          setPlayerName('')
-          setFormat(undefined)
-          setMatchup(undefined)
-          setIncludeShort(false)
-          setGameType?.(undefined)
-          setStartDate?.('')
-          setEndDate?.('')
-        }}
-      />
+      {hasActiveFilters ? (
+        <ClearButton
+          label={t('common.actions.clear', 'Clear')}
+          iconStart={<MaterialIcon icon='close' />}
+          onClick={() => {
+            setRanked?.(false)
+            setCustom?.(false)
+            setSource?.(GameSourceFilter.All)
+            setDuration(GameDurationFilter.All)
+            setMapName('')
+            setPlayerName('')
+            setFormat(undefined)
+            setMatchup(undefined)
+            setIncludeShort(false)
+            setGameType?.(undefined)
+            setStartDate?.('')
+            setEndDate?.('')
+          }}
+        />
+      ) : null}
 
       <ViewControls>
         {setSpoilerFree && (
