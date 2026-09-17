@@ -37,28 +37,62 @@ import { labelLarge, labelMedium } from '../styles/typography'
 import { resolveDateRangeMs } from './day-header'
 import { MatchupFilter } from './matchup-filter'
 
+/**
+ * Bar widths below which the chips switch from a wrapping line to an aligned grid of equal-width
+ * cells: three columns first, then two. The full flex line is kept while the filter chips (label,
+ * source, duration, date, advanced) still fit on one line, which for the widest surface (the games
+ * page) takes about 565px, plus slack for a date-range label. The three-column floor is set by the
+ * widest chip (the sort chip, ~146px) fitting a column with 8px gaps: 3 × 146 + 2 × 8 ≈ 460px.
+ */
+const GRID_LAYOUT_BELOW_PX = 600
+const TWO_COLUMNS_BELOW_PX = 460
+
 const FilterBarContainer = styled.div`
+  container: game-filter-bar / inline-size;
+  width: 100%;
+`
+
+const FilterBarLayout = styled.div`
   display: flex;
-  /* Reversed line stacking so that when the bar can't fit on one line, the trailing view
-     controls break upward into a row of their own instead of dangling below the filters. */
-  flex-wrap: wrap-reverse;
+  /* Wraps in source order: a bar too wide for one line keeps the filters on top and moves the
+     trailing view controls down below them. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
-  width: 100%;
   min-height: 56px;
+
+  /* Narrow bars trade the wrapping line for a grid of equal-width cells, so every row lines up
+     instead of leaving ragged, differently-aligned lines. */
+  @container game-filter-bar (width < ${GRID_LAYOUT_BELOW_PX}px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  @container game-filter-bar (width < ${TWO_COLUMNS_BELOW_PX}px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
 `
 
 /**
- * Kept in the layout (just invisible) when there's nothing to clear: it's the tallest item in the
- * bar, so mounting it on demand would make its row grow and shift the neighboring chips.
+ * Sized to the chips' 32px height so mounting it only when there's something to clear doesn't grow
+ * its line and shift the neighboring chips.
  */
-const ClearButton = styled(TextButton)<{ $visible: boolean }>`
-  visibility: ${props => (props.$visible ? 'visible' : 'hidden')};
+const ClearButton = styled(TextButton)`
+  min-height: 32px;
+
+  /* In the grid layout it becomes a footer row under all the chips (view controls included) so the
+     chip cells stay packed; it keeps its place in the focus order. */
+  @container game-filter-bar (width < ${GRID_LAYOUT_BELOW_PX}px) {
+    grid-column: 1 / -1;
+    justify-self: start;
+    order: 1;
+  }
 `
 
 /**
- * Groups the view controls (spoiler-free, sort) so they wrap as a unit and stay right-aligned
- * even when pushed onto their own line, rather than orphaning left-aligned one chip at a time.
+ * Groups the view controls (spoiler-free, sort) so they wrap as a unit and stay right-aligned when
+ * they land on a line of their own, rather than orphaning one chip at a time.
  */
 const ViewControls = styled.div`
   display: flex;
@@ -67,6 +101,11 @@ const ViewControls = styled.div`
   justify-content: flex-end;
   gap: 16px;
   margin-left: auto;
+
+  /* In the grid layout its chips take cells of their own. */
+  @container game-filter-bar (width < ${GRID_LAYOUT_BELOW_PX}px) {
+    display: contents;
+  }
 `
 
 const FiltersLabel = styled.div`
@@ -75,6 +114,11 @@ const FiltersLabel = styled.div`
   align-items: center;
   gap: 4px;
   color: var(--theme-on-surface-variant);
+
+  /* The grid layout is all chips; the caption would take a cell for nothing. */
+  @container game-filter-bar (width < ${GRID_LAYOUT_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const popoverVariants: Variants = {
@@ -304,190 +348,193 @@ export function GameFilterBar({
 
   return (
     <FilterBarContainer className={className}>
-      <FiltersLabel>
-        <MaterialIcon icon='filter_list' size={20} />
-        {t('game.filters.label', 'Filters')}
-      </FiltersLabel>
+      <FilterBarLayout>
+        <FiltersLabel>
+          <MaterialIcon icon='filter_list' size={20} />
+          {t('game.filters.label', 'Filters')}
+        </FiltersLabel>
 
-      {showRankedCustom && (
-        <>
-          <FilterChip
-            label={t('game.filters.ranked', 'Ranked')}
-            selected={ranked}
-            onClick={() => setRanked?.(!ranked)}
-          />
-          <FilterChip
-            label={t('game.filters.custom', 'Custom')}
-            selected={custom}
-            onClick={() => setCustom?.(!custom)}
-          />
-        </>
-      )}
+        {showRankedCustom && (
+          <>
+            <FilterChip
+              label={t('game.filters.ranked', 'Ranked')}
+              selected={ranked}
+              onClick={() => setRanked?.(!ranked)}
+            />
+            <FilterChip
+              label={t('game.filters.custom', 'Custom')}
+              selected={custom}
+              onClick={() => setCustom?.(!custom)}
+            />
+          </>
+        )}
 
-      {showSourceFilter && (
-        <FilterChip
-          label={getSourceLabel(source, t)}
-          icon={<MaterialIcon icon='strategy' filled={false} size={18} />}>
-          {SOURCE_OPTIONS.map(s => (
+        {showSourceFilter && (
+          <FilterChip
+            label={getSourceLabel(source, t)}
+            icon={<MaterialIcon icon='strategy' filled={false} size={18} />}>
+            {SOURCE_OPTIONS.map(s => (
+              <SelectableMenuItem
+                key={s}
+                text={getSourceLabel(s, t)}
+                selected={source === s}
+                onClick={() => setSource?.(s)}
+              />
+            ))}
+          </FilterChip>
+        )}
+
+        {showGameType && (
+          <FilterChip label={gameTypeLabel} selected={gameType !== undefined}>
             <SelectableMenuItem
-              key={s}
-              text={getSourceLabel(s, t)}
-              selected={source === s}
-              onClick={() => setSource?.(s)}
+              text={t('game.filters.modeAny', 'Any mode')}
+              selected={gameType === undefined}
+              onClick={() => setGameType?.(undefined)}
+            />
+            {FEATURED_REPLAY_GAME_TYPES.map(gt => (
+              <SelectableMenuItem
+                key={gt}
+                text={replayGameTypeToLabel(gt, t)}
+                selected={gameType === gt}
+                onClick={() => setGameType?.(gt)}
+              />
+            ))}
+            <SelectableMenuItem
+              text={t('game.filters.modeOthers', 'Others')}
+              selected={gameType === 'others'}
+              onClick={() => setGameType?.('others')}
+            />
+          </FilterChip>
+        )}
+
+        <FilterChip
+          label={getDurationLabel(duration, t)}
+          icon={<MaterialIcon icon='timer' filled={false} size={18} />}>
+          {DURATION_OPTIONS.map(d => (
+            <SelectableMenuItem
+              key={d}
+              text={getDurationLabel(d, t)}
+              selected={duration === d}
+              onClick={() => setDuration(d)}
             />
           ))}
         </FilterChip>
-      )}
 
-      {showGameType && (
-        <FilterChip label={gameTypeLabel} selected={gameType !== undefined}>
-          <SelectableMenuItem
-            text={t('game.filters.modeAny', 'Any mode')}
-            selected={gameType === undefined}
-            onClick={() => setGameType?.(undefined)}
-          />
-          {FEATURED_REPLAY_GAME_TYPES.map(gt => (
-            <SelectableMenuItem
-              key={gt}
-              text={replayGameTypeToLabel(gt, t)}
-              selected={gameType === gt}
-              onClick={() => setGameType?.(gt)}
-            />
-          ))}
-          <SelectableMenuItem
-            text={t('game.filters.modeOthers', 'Others')}
-            selected={gameType === 'others'}
-            onClick={() => setGameType?.('others')}
-          />
-        </FilterChip>
-      )}
-
-      <FilterChip
-        label={getDurationLabel(duration, t)}
-        icon={<MaterialIcon icon='timer' filled={false} size={18} />}>
-        {DURATION_OPTIONS.map(d => (
-          <SelectableMenuItem
-            key={d}
-            text={getDurationLabel(d, t)}
-            selected={duration === d}
-            onClick={() => setDuration(d)}
-          />
-        ))}
-      </FilterChip>
-
-      {setStartDate && (
-        <FilterChip
-          ref={dateAnchorRef}
-          label={getDateFilterChipLabel(startDate, endDate, t)}
-          icon={<MaterialIcon icon='calendar_month' size={18} />}
-          selected={hasDateRange || dateOpened}
-          onClick={e => (dateOpened ? closeDatePopover() : openDatePopover(e))}
-        />
-      )}
-
-      <FilterChip
-        ref={anchorRef}
-        label={t('game.filters.advanced', 'Advanced')}
-        icon={<MaterialIcon icon='instant_mix' size={18} />}
-        selected={!!hasAdvancedFilters || opened}
-        onClick={e => (opened ? closePopover() : openPopover(e))}
-      />
-
-      <ClearButton
-        $visible={hasActiveFilters}
-        label={t('common.actions.clear', 'Clear')}
-        iconStart={<MaterialIcon icon='close' />}
-        onClick={() => {
-          setRanked?.(false)
-          setCustom?.(false)
-          setSource?.(GameSourceFilter.All)
-          setDuration(GameDurationFilter.All)
-          setMapName('')
-          setPlayerName('')
-          setFormat(undefined)
-          setMatchup(undefined)
-          setIncludeShort(false)
-          setGameType?.(undefined)
-          setStartDate?.('')
-          setEndDate?.('')
-        }}
-      />
-
-      <ViewControls>
-        {setSpoilerFree && (
+        {setStartDate && (
           <FilterChip
-            label={t('game.filters.spoilerFree', 'Spoiler-free')}
-            icon={<MaterialIcon icon='visibility_off' size={18} />}
-            selected={spoilerFree}
-            onClick={() => setSpoilerFree(!spoilerFree)}
+            ref={dateAnchorRef}
+            label={getDateFilterChipLabel(startDate, endDate, t)}
+            icon={<MaterialIcon icon='calendar_month' size={18} />}
+            selected={hasDateRange || dateOpened}
+            onClick={e => (dateOpened ? closeDatePopover() : openDatePopover(e))}
           />
         )}
 
-        <FilterChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
-          {SORT_OPTIONS.map(s => (
-            <SelectableMenuItem
-              key={s}
-              text={getSortLabel(s, t)}
-              selected={sort === s}
-              onClick={() => setSort(s)}
-            />
-          ))}
-        </FilterChip>
-      </ViewControls>
-
-      <Popover
-        open={opened}
-        onDismiss={closePopover}
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}
-        originX='left'
-        originY='top'
-        motionVariants={popoverVariants}
-        motionInitial='entering'
-        motionAnimate='visible'
-        motionExit='exiting'>
-        <AdvancedFiltersPanel
-          mapName={mapName}
-          playerName={playerName}
-          format={format}
-          matchup={matchup}
-          includeShort={includeShort}
-          showIncludeShort={showIncludeShort}
-          onApply={advancedValues => {
-            setMapName(advancedValues.mapName)
-            setPlayerName(advancedValues.playerName)
-            setFormat(advancedValues.format)
-            setMatchup(advancedValues.matchup)
-            setIncludeShort(advancedValues.includeShort)
-            closePopover()
-          }}
-          onClose={closePopover}
+        <FilterChip
+          ref={anchorRef}
+          label={t('game.filters.advanced', 'Advanced')}
+          icon={<MaterialIcon icon='instant_mix' size={18} />}
+          selected={!!hasAdvancedFilters || opened}
+          onClick={e => (opened ? closePopover() : openPopover(e))}
         />
-      </Popover>
 
-      {setStartDate && (
+        {hasActiveFilters ? (
+          <ClearButton
+            label={t('common.actions.clear', 'Clear')}
+            iconStart={<MaterialIcon icon='close' />}
+            onClick={() => {
+              setRanked?.(false)
+              setCustom?.(false)
+              setSource?.(GameSourceFilter.All)
+              setDuration(GameDurationFilter.All)
+              setMapName('')
+              setPlayerName('')
+              setFormat(undefined)
+              setMatchup(undefined)
+              setIncludeShort(false)
+              setGameType?.(undefined)
+              setStartDate?.('')
+              setEndDate?.('')
+            }}
+          />
+        ) : null}
+
+        <ViewControls>
+          {setSpoilerFree && (
+            <FilterChip
+              label={t('game.filters.spoilerFree', 'Spoiler-free')}
+              icon={<MaterialIcon icon='visibility_off' size={18} />}
+              selected={spoilerFree}
+              onClick={() => setSpoilerFree(!spoilerFree)}
+            />
+          )}
+
+          <FilterChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
+            {SORT_OPTIONS.map(s => (
+              <SelectableMenuItem
+                key={s}
+                text={getSortLabel(s, t)}
+                selected={sort === s}
+                onClick={() => setSort(s)}
+              />
+            ))}
+          </FilterChip>
+        </ViewControls>
+
         <Popover
-          open={dateOpened}
-          onDismiss={closeDatePopover}
-          anchorX={dateAnchorX ?? 0}
-          anchorY={dateAnchorY ?? 0}
+          open={opened}
+          onDismiss={closePopover}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
           originX='left'
           originY='top'
           motionVariants={popoverVariants}
           motionInitial='entering'
           motionAnimate='visible'
           motionExit='exiting'>
-          <DateFiltersPanel
-            startDate={startDate}
-            endDate={endDate}
-            onApply={dateValues => {
-              setStartDate(dateValues.startDate)
-              setEndDate?.(dateValues.endDate)
-              closeDatePopover()
+          <AdvancedFiltersPanel
+            mapName={mapName}
+            playerName={playerName}
+            format={format}
+            matchup={matchup}
+            includeShort={includeShort}
+            showIncludeShort={showIncludeShort}
+            onApply={advancedValues => {
+              setMapName(advancedValues.mapName)
+              setPlayerName(advancedValues.playerName)
+              setFormat(advancedValues.format)
+              setMatchup(advancedValues.matchup)
+              setIncludeShort(advancedValues.includeShort)
+              closePopover()
             }}
+            onClose={closePopover}
           />
         </Popover>
-      )}
+
+        {setStartDate && (
+          <Popover
+            open={dateOpened}
+            onDismiss={closeDatePopover}
+            anchorX={dateAnchorX ?? 0}
+            anchorY={dateAnchorY ?? 0}
+            originX='left'
+            originY='top'
+            motionVariants={popoverVariants}
+            motionInitial='entering'
+            motionAnimate='visible'
+            motionExit='exiting'>
+            <DateFiltersPanel
+              startDate={startDate}
+              endDate={endDate}
+              onApply={dateValues => {
+                setStartDate(dateValues.startDate)
+                setEndDate?.(dateValues.endDate)
+                closeDatePopover()
+              }}
+            />
+          </Popover>
+        )}
+      </FilterBarLayout>
     </FilterBarContainer>
   )
 }

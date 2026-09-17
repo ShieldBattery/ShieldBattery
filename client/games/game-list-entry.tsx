@@ -18,11 +18,19 @@ import { GamePlayersDisplay } from './game-players-display'
 // in `GameListView` and the replay library (its inline size tracks the actual row width, unlike
 // the page width, which also has to fit the side detail panel). Thresholds come from the cells'
 // widths (players' 328px basis, duration's fixed 96px, map's 196px, this file's own 100px time
-// column, the 96px leading cell when present, gaps, and row padding).
+// column, the 96px leading cell when present, gaps, and row padding). Below that, a phone-width
+// compact step drops the bookmark column and lets the leading and duration cells shrink to content.
 /** Row width below which the relative-time cell is dropped first. */
 const HIDE_RELATIVE_TIME_BELOW_PX = 880
 /** Row width below which the map + game type cell is also dropped, to stop clipping. */
 const HIDE_MAP_AND_GAME_TYPE_BELOW_PX = 640
+/**
+ * Row width below which the row goes compact for phone-width layouts: the bookmark column is
+ * dropped, the leading (result) and duration cells shrink to their content instead of reserving
+ * their desktop widths, and the row's own padding and gaps tighten, leaving the players cell as
+ * much of the row as possible.
+ */
+const COMPACT_ROW_BELOW_PX = 480
 
 const GameListEntryRoot = styled.div<{ $hasLeadingAction?: boolean }>`
   width: 100%;
@@ -42,6 +50,12 @@ const GameListEntryRoot = styled.div<{ $hasLeadingAction?: boolean }>`
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+
+  @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
+    /* The bookmark column is hidden at this width, so there's no leading action to align to. */
+    padding: 8px 12px;
+    gap: 12px;
+  }
 `
 
 const BaseCell = styled.div`
@@ -63,6 +77,10 @@ const BookmarkCell = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+
+  @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const LeadingCell = styled(BaseCell)`
@@ -71,6 +89,10 @@ const LeadingCell = styled(BaseCell)`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+
+  @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
+    width: auto;
+  }
 `
 
 const PlayersCell = styled(BaseCell)`
@@ -85,6 +107,14 @@ const PlayersCell = styled(BaseCell)`
      * gives the second column a stable position to scan down the list.
      */
     max-width: 480px;
+  }
+
+  @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
+    /*
+      Lets the cell shrink below its longest name so the team columns truncate instead of pushing
+      the duration cell out of the row.
+    */
+    min-width: 0;
   }
 `
 
@@ -118,6 +148,10 @@ const GameLengthCell = styled(BaseCell)`
 
   display: flex;
   justify-content: flex-end;
+
+  @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
+    width: auto;
+  }
 `
 
 const MapAndGameTypeCell = styled(BaseCell)`
