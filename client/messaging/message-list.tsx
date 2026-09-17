@@ -177,6 +177,8 @@ interface PureMessageListProps {
   hasMoreHistory?: boolean
   /** Whether more history is currently being requested for this list. */
   loading?: boolean
+  /** Whether the older edge is showing an error for a history request that failed. */
+  hasHistoryError: boolean
 }
 
 function PureMessageList({
@@ -186,6 +188,7 @@ function PureMessageList({
   unreadLineTime,
   hasMoreHistory,
   loading,
+  hasHistoryError,
 }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
@@ -199,10 +202,10 @@ function PureMessageList({
   const selfUserId = selfUser.id
 
   if (messages.length < 1) {
-    if (loading) {
-      // A loader (rendered by the surrounding infinite scroll list) is already telling the user
-      // messages are on their way; showing empty state text at the same time would read as a
-      // contradiction.
+    if (loading || hasHistoryError) {
+      // The surrounding infinite scroll list is already accounting for the empty window at its
+      // edge — a loader saying messages are on their way, or an error row saying they couldn't be
+      // had. Empty state text alongside either would read as a contradiction.
       return undefined
     }
     return showEmptyState ? (
@@ -315,6 +318,18 @@ export interface MessageListProps {
   windowGeneration?: number
   /** Whether we are currently requesting newer messages for this message list. */
   loadingNewer?: boolean
+  /**
+   * Content rendered at the older edge in place of the loading indicator when that edge's last
+   * request failed. While it's set, the edge isn't requested automatically, so whatever retry it
+   * offers is the only thing that asks for that page again.
+   */
+  historyError?: React.ReactNode
+  /**
+   * Content rendered at the newer edge in place of the loading indicator when that edge's last
+   * request failed. While it's set, the edge isn't requested automatically, so whatever retry it
+   * offers is the only thing that asks for that page again.
+   */
+  newerError?: React.ReactNode
   /**
    * A value that changes when the values the list is displaying change, e.g. if the list is now
    * displaying a different chat channel.
@@ -520,6 +535,8 @@ export class MessageList extends React.Component<MessageListProps> {
       hasMoreHistory,
       hasNewerMessages,
       loadingNewer,
+      historyError,
+      newerError,
       refreshToken,
       MessageComponent,
       onLoadMoreMessages,
@@ -540,6 +557,8 @@ export class MessageList extends React.Component<MessageListProps> {
           isLoadingNext={loadingNewer}
           hasPrevData={hasMoreHistory}
           hasNextData={hasNewerMessages}
+          prevError={historyError}
+          nextError={newerError}
           refreshToken={refreshToken}
           onLoadPrevData={onLoadMoreMessages}
           onLoadNextData={onLoadNewerMessages}>
@@ -550,6 +569,7 @@ export class MessageList extends React.Component<MessageListProps> {
             unreadLineTime={unreadLineTime}
             hasMoreHistory={hasMoreHistory}
             loading={loading}
+            hasHistoryError={!!historyError}
           />
         </InfiniteScrollList>
       </Scrollable>

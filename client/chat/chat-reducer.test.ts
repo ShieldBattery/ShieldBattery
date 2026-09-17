@@ -19,6 +19,7 @@ import {
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
 import { MessagingActions } from '../messaging/actions'
+import type { HistoryLoadError } from '../messaging/message-load-error'
 import {
   CommonMessageType,
   CommonWhisperEchoMessage,
@@ -112,6 +113,9 @@ function makeState(
     hasNewer?: boolean
     detachedNewestTime?: number
     windowGen?: number
+    historyError?: HistoryLoadError
+    newerError?: boolean
+    userListError?: boolean
   } = {},
 ): Immutable<ChatState> {
   const state: ChatState = {
@@ -128,6 +132,7 @@ function makeState(
           offline: new Set<SbUserId>(),
           hasLoadedUserList: false,
           loadingUserList: false,
+          userListError: overrides.userListError ?? false,
         },
       ],
     ]),
@@ -143,6 +148,8 @@ function makeState(
           hasNewer: overrides.hasNewer ?? false,
           detachedNewestTime: overrides.detachedNewestTime,
           windowGen: overrides.windowGen ?? 0,
+          historyError: overrides.historyError,
+          newerError: overrides.newerError ?? false,
         },
       ],
     ]),
@@ -272,6 +279,44 @@ function historyResponse(
     deletedChannels: [],
     hasMoreBefore,
     hasMoreAfter,
+  }
+}
+
+function loadMessageHistoryBeginAction({
+  windowGen = 0,
+  beforeTime = -1,
+}: { windowGen?: number; beforeTime?: number } = {}): ChatActions {
+  return {
+    type: '@chat/loadMessageHistoryBegin',
+    payload: { channelId: CHANNEL_ID, limit: HISTORY_LIMIT, beforeTime, windowGen },
+  }
+}
+
+function loadNewerMessagesBeginAction({
+  windowGen = 0,
+  afterTime = 0,
+  knownNewestTime = afterTime,
+}: { windowGen?: number; afterTime?: number; knownNewestTime?: number } = {}): ChatActions {
+  return {
+    type: '@chat/loadNewerMessagesBegin',
+    payload: { channelId: CHANNEL_ID, limit: HISTORY_LIMIT, afterTime, windowGen, knownNewestTime },
+  }
+}
+
+function loadMessagesAroundBeginAction({
+  windowGen = 0,
+  aroundTime = 0,
+  knownNewestTime,
+}: { windowGen?: number; aroundTime?: number; knownNewestTime?: number } = {}): ChatActions {
+  return {
+    type: '@chat/loadMessagesAroundBegin',
+    payload: {
+      channelId: CHANNEL_ID,
+      limit: HISTORY_LIMIT,
+      aroundTime,
+      windowGen,
+      knownNewestTime,
+    },
   }
 }
 
@@ -1105,6 +1150,22 @@ describe('client/chat/chat-reducer', () => {
       expect(messageIdsOf(result)).toEqual(['text-200'])
       expect(windowOf(result).hasHistory).toBe(true)
     })
+
+    test('a failed page records an error for the older edge', () => {
+      const state = makeState({ messages: [textMessage(200)], loadingHistory: true })
+
+      const result = chatReducer(state, asFailure(loadMessageHistoryAction(historyResponse([]))))
+
+      expect(windowOf(result).historyError).toEqual({ kind: 'history' })
+    })
+
+    test('requesting the older edge again clears its error', () => {
+      const state = makeState({ historyError: { kind: 'history' } })
+
+      const result = chatReducer(state, loadMessageHistoryBeginAction())
+
+      expect(windowOf(result).historyError).toBeUndefined()
+    })
   })
 
   describe('@chat/loadMessagesAround', () => {
@@ -1207,6 +1268,36 @@ describe('client/chat/chat-reducer', () => {
 
       expect(messageIdsOf(result)).toEqual(['text-900'])
       expect(windowOf(result).windowGen).toBe(2)
+    })
+
+    test('a failed replacement records the time it was asked for, so a retry can ask again', () => {
+      const state = makeState({ loadingHistory: true })
+
+      const result = chatReducer(
+        state,
+        asFailure(loadMessagesAroundAction(historyResponse([]), { aroundTime: 150 })),
+      )
+
+      expect(windowOf(result).historyError).toEqual({ kind: 'around', aroundTime: 150 })
+    })
+
+    test('requesting a replacement window clears the older edge error', () => {
+      const state = makeState({ historyError: { kind: 'history' } })
+
+      const result = chatReducer(state, loadMessagesAroundBeginAction({ aroundTime: 150 }))
+
+      expect(windowOf(result).historyError).toBeUndefined()
+    })
+
+    test('a replacement window clears the newer edge error along with the messages it belonged to', () => {
+      const state = makeState({ messages: [textMessage(900)], newerError: true })
+
+      const result = chatReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([textMessage(100)]), { aroundTime: 150 }),
+      )
+
+      expect(windowOf(result).newerError).toBe(false)
     })
   })
 
@@ -1441,6 +1532,22 @@ describe('client/chat/chat-reducer', () => {
       expect(windowOf(result).hasNewer).toBe(true)
       expect(messageIdsOf(result)).toEqual(['text-100'])
     })
+
+    test('a failed page records an error for the newer edge', () => {
+      const state = makeState({ hasNewer: true, loadingNewer: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(state, asFailure(loadNewerMessagesAction(historyResponse([]))))
+
+      expect(windowOf(result).newerError).toBe(true)
+    })
+
+    test('requesting the newer edge again clears its error', () => {
+      const state = makeState({ hasNewer: true, newerError: true, messages: [textMessage(100)] })
+
+      const result = chatReducer(state, loadNewerMessagesBeginAction({ afterTime: 100 }))
+
+      expect(windowOf(result).newerError).toBe(false)
+    })
   })
 
   describe('@chat/resetMessageWindow', () => {
@@ -1463,6 +1570,19 @@ describe('client/chat/chat-reducer', () => {
       expect(window.detachedNewestTime).toBeUndefined()
       expect(window.loadingNewer).toBe(false)
       expect(window.windowGen).toBe(3)
+    })
+
+    test('clears both edge errors along with the window they belonged to', () => {
+      const state = makeState({
+        messages: [textMessage(100)],
+        historyError: { kind: 'history' },
+        newerError: true,
+      })
+
+      const result = chatReducer(state, resetMessageWindowAction())
+
+      expect(windowOf(result).historyError).toBeUndefined()
+      expect(windowOf(result).newerError).toBe(false)
     })
   })
 
@@ -1550,6 +1670,20 @@ describe('client/chat/chat-reducer', () => {
   })
 
   describe('@chat/deactivateChannel', () => {
+    test('clears both edge errors so the next visit makes a fresh attempt', () => {
+      const state = makeState({
+        activated: true,
+        messages: [textMessage(100)],
+        historyError: { kind: 'history' },
+        newerError: true,
+      })
+
+      const result = chatReducer(state, deactivateChannelAction())
+
+      expect(windowOf(result).historyError).toBeUndefined()
+      expect(windowOf(result).newerError).toBe(false)
+    })
+
     test('consumes a divider the read position has passed when left at the bottom', () => {
       const state = makeState({
         activated: true,
@@ -1774,6 +1908,22 @@ describe('client/chat/chat-reducer', () => {
 
       expect(result.idToUsers.get(CHANNEL_ID)?.loadingUserList).toBe(false)
       expect(result.idToUsers.get(CHANNEL_ID)?.hasLoadedUserList).toBe(false)
+    })
+
+    test('a failure records an error for the panel to show', () => {
+      const loading = chatReducer(makeState(), retrieveUserListBeginAction())
+
+      const result = chatReducer(loading, asFailure(retrieveUserListAction()))
+
+      expect(result.idToUsers.get(CHANNEL_ID)?.userListError).toBe(true)
+    })
+
+    test('requesting the list again clears its error', () => {
+      const state = makeState({ userListError: true })
+
+      const result = chatReducer(state, retrieveUserListBeginAction())
+
+      expect(result.idToUsers.get(CHANNEL_ID)?.userListError).toBe(false)
     })
   })
 

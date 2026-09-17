@@ -11,6 +11,7 @@ import { anchorNeedsFetch, chatViewAnchorStore } from '../messaging/chat-view-an
 import { WhisperCommandContext } from '../messaging/commands/command-context'
 import { flushLastRead } from '../messaging/last-read'
 import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
+import { MessageLoadErrorRow } from '../messaging/message-load-error-row'
 import { isServerOriginMessage } from '../messaging/message-records'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push, replace } from '../navigation/routing'
@@ -117,19 +118,11 @@ export function ConnectedWhisper({
     }
   }, [isClosingWhisper])
 
-  const showMessageLoadError = (err: Error) => {
-    // TODO(tec27): This would probably be better to show at the position the message loading
-    // failed in the message list (and offer a button to retry)
+  // The message list shows the failure itself, at the edge the request was for; the details only
+  // the developers can act on go to the log.
+  const onMessageLoadError = (err: Error) => {
     logger.error(
       `Error loading message history for whisper with ${targetId}: ${describeFetchError(err)}`,
-    )
-    snackbarController.showSnackbar(
-      t('whispers.errors.loadingHistory', {
-        defaultValue: 'Error loading message history: {{errorMessage}}',
-        errorMessage: err.message,
-      }),
-      DURATION_LONG,
-      { dedupe: true },
     )
   }
 
@@ -156,7 +149,7 @@ export function ConnectedWhisper({
       dispatch(
         getMessagesAround(targetId, MESSAGES_LIMIT, anchor.sentTime, {
           onSuccess: () => {},
-          onError: showMessageLoadError,
+          onError: onMessageLoadError,
         }),
       )
     }
@@ -218,7 +211,7 @@ export function ConnectedWhisper({
               DURATION_LONG,
             )
           } else {
-            showMessageLoadError(err)
+            onMessageLoadError(err)
           }
 
           // The window was dropped to make room for one that can't be had, so the conversation goes
@@ -227,7 +220,7 @@ export function ConnectedWhisper({
           dispatch(
             jumpToPresent(targetId, MESSAGES_LIMIT, {
               onSuccess: () => {},
-              onError: showMessageLoadError,
+              onError: onMessageLoadError,
             }),
           )
         },
@@ -323,7 +316,7 @@ export function ConnectedWhisper({
     dispatch(
       getMessageHistory(targetId, MESSAGES_LIMIT, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     )
   })
@@ -332,16 +325,48 @@ export function ConnectedWhisper({
     dispatch(
       getNewerMessages(targetId, MESSAGES_LIMIT, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     )
   })
+
+  // Asks again for whatever the older edge failed at, which is what takes the error off it and lets
+  // the list resume requesting that edge on its own.
+  const onRetryHistory = () => {
+    const historyError = whisperSession?.historyError
+    if (historyError?.kind === 'around') {
+      if (historyError.aroundTime !== undefined) {
+        dispatch(
+          getMessagesAround(targetId, MESSAGES_LIMIT, historyError.aroundTime, {
+            onSuccess: () => {},
+            onError: onMessageLoadError,
+          }),
+        )
+      } else {
+        // A replacement window with no time to ask for again can only be re-established from the
+        // present.
+        dispatch(
+          jumpToPresent(targetId, MESSAGES_LIMIT, {
+            onSuccess: () => {},
+            onError: onMessageLoadError,
+          }),
+        )
+      }
+    } else {
+      dispatch(
+        getMessageHistory(targetId, MESSAGES_LIMIT, {
+          onSuccess: () => {},
+          onError: onMessageLoadError,
+        }),
+      )
+    }
+  }
 
   const onJumpToPresent = () => {
     dispatch(
       jumpToPresent(targetId, MESSAGES_LIMIT, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     )
   }
@@ -354,7 +379,7 @@ export function ConnectedWhisper({
     dispatch(
       getMessagesAround(targetId, MESSAGES_LIMIT, unreadLineTime, {
         onSuccess: () => {},
-        onError: showMessageLoadError,
+        onError: onMessageLoadError,
       }),
     )
   }
@@ -410,6 +435,12 @@ export function ConnectedWhisper({
           hasMoreHistory: whisperSession.hasHistory,
           loadingNewer: whisperSession.loadingNewer,
           hasNewerMessages: whisperSession.hasNewer,
+          historyError: whisperSession.historyError ? (
+            <MessageLoadErrorRow kind={whisperSession.historyError.kind} onRetry={onRetryHistory} />
+          ) : undefined,
+          newerError: whisperSession.newerError ? (
+            <MessageLoadErrorRow kind='newer' onRetry={onLoadNewerMessages} />
+          ) : undefined,
           windowGeneration: whisperSession.windowGen,
           refreshToken: targetId,
           viewStateKey,

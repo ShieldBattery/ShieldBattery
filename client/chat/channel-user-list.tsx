@@ -5,6 +5,7 @@ import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
+import { LoadErrorRow } from '../lists/load-error-row'
 import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
@@ -22,10 +23,23 @@ const UserListContainer = styled.div`
   flex-grow: 0;
   flex-shrink: 0;
 
+  display: flex;
+  flex-direction: column;
   contain: content;
 
   background-color: var(--theme-container-low);
   border-radius: 8px;
+`
+
+const ErrorContainer = styled.div`
+  flex-shrink: 0;
+  padding: 16px 8px 8px;
+`
+
+/** Gives the virtualized roster a definite height to fill inside the column above. */
+const RosterContainer = styled.div`
+  flex: 1 1 0;
+  min-height: 0;
 `
 
 const PaddingHeader = eatVirtuosoContext(/* */ styled.div<{ context?: unknown }>`
@@ -203,10 +217,19 @@ interface UserListProps {
   active: SbUserId[]
   idle: SbUserId[]
   offline: SbUserId[]
+  /**
+   * Whether the last request for the channel's members failed. What the roster below the error row
+   * lists is then only whoever this client already knew about rather than everyone in the channel,
+   * which is why the failure is said out loud instead of passing for a quiet channel.
+   */
+  loadError?: boolean
+  /** Asks for the member list again. */
+  onRetryLoad?: () => void
   className?: string
 }
 
-export const UserList = React.memo(({ active, idle, offline, className }: UserListProps) => {
+export const UserList = React.memo((props: UserListProps) => {
+  const { active, idle, offline, loadError, onRetryLoad, className } = props
   const { t } = useTranslation()
   const liveUserIds = useLiveUserIds()
 
@@ -283,11 +306,21 @@ export const UserList = React.memo(({ active, idle, offline, className }: UserLi
 
   return (
     <UserListContainer className={className}>
-      <Virtuoso
-        components={{ Header: PaddingHeader, Footer: PaddingFooter }}
-        data={rowData}
-        itemContent={renderRow}
-      />
+      {loadError ? (
+        <ErrorContainer>
+          <LoadErrorRow
+            message={t('chat.userList.loadFailed', "Couldn't load the user list")}
+            onRetry={onRetryLoad ?? (() => {})}
+          />
+        </ErrorContainer>
+      ) : null}
+      <RosterContainer>
+        <Virtuoso
+          components={{ Header: PaddingHeader, Footer: PaddingFooter }}
+          data={rowData}
+          itemContent={renderRow}
+        />
+      </RosterContainer>
     </UserListContainer>
   )
 })

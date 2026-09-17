@@ -156,6 +156,42 @@ describe('client/lists/infinite-scroll-list', () => {
     expect(onLoadPrevData).toHaveBeenCalledTimes(2)
   })
 
+  test('an edge with an error is not re-requested while its sentinel stays in view', () => {
+    const onLoadPrevData = vi.fn()
+    const { rerender } = doRender({ onLoadPrevData })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    rerender({ onLoadPrevData, isLoadingPrev: false, prevError: <div>failed</div> })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    // Time passing is what would let an unchanged edge be asked for again; an edge holding an error
+    // isn't asked for at all until someone clears it.
+    advanceTime(MIN_LOAD_INTERVAL_MS * 3)
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+  })
+
+  test('clearing the error lets the edge load again', () => {
+    const onLoadPrevData = vi.fn()
+    const { rerender, setContentHeight } = doRender({ onLoadPrevData })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    rerender({ onLoadPrevData, isLoadingPrev: true })
+    rerender({ onLoadPrevData, isLoadingPrev: false, prevError: <div>failed</div> })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    // A retry is the caller's own dispatch rather than something the list asks for, so it shows up
+    // here as the error clearing and the edge going back to loading.
+    rerender({ onLoadPrevData, isLoadingPrev: true, prevError: undefined })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(1)
+
+    // That retry brought a page in, and the sentinel it left in view chains straight into the next
+    // one now that nothing is suppressing the edge.
+    setContentHeight(500)
+    rerender({ onLoadPrevData, isLoadingPrev: false, prevError: undefined })
+    expect(onLoadPrevData).toHaveBeenCalledTimes(2)
+  })
+
   test('a deferred load is dropped when the list is torn down first', () => {
     const onLoadPrevData = vi.fn()
     const { rerender, unmount } = doRender({ onLoadPrevData })

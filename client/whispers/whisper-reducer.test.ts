@@ -7,6 +7,7 @@ import {
   WhisperMessageType,
 } from '../../common/whispers'
 import { MessagingActions } from '../messaging/actions'
+import type { HistoryLoadError } from '../messaging/message-load-error'
 import {
   CommonMessageType,
   CommonTextMessage,
@@ -78,6 +79,8 @@ function makeState(
     hasNewer?: boolean
     detachedNewestTime?: number
     windowGen?: number
+    historyError?: HistoryLoadError
+    newerError?: boolean
   } = {},
 ): Immutable<WhisperState> {
   const session: WhisperSession = {
@@ -90,6 +93,8 @@ function makeState(
     detachedNewestTime: overrides.detachedNewestTime,
     windowGen: overrides.windowGen ?? 0,
     carriedClientMessages: overrides.carriedClientMessages ?? [],
+    historyError: overrides.historyError,
+    newerError: overrides.newerError ?? false,
     activated: overrides.activated ?? false,
     atBottom: overrides.atBottom ?? false,
     hasUnread: overrides.unread ?? false,
@@ -478,6 +483,22 @@ describe('client/whispers/whisper-reducer', () => {
       expect(messageIdsOf(result)).toEqual(['text-200'])
       expect(sessionOf(result).hasHistory).toBe(true)
     })
+
+    test('a failed page records an error for the older edge', () => {
+      const state = makeState({ messages: [textMessage(200)], loadingHistory: true })
+
+      const result = whisperReducer(state, asFailure(loadMessageHistoryAction(historyResponse([]))))
+
+      expect(sessionOf(result).historyError).toEqual({ kind: 'history' })
+    })
+
+    test('requesting the older edge again clears its error', () => {
+      const state = makeState({ historyError: { kind: 'history' } })
+
+      const result = whisperReducer(state, loadMessageHistoryBeginAction())
+
+      expect(sessionOf(result).historyError).toBeUndefined()
+    })
   })
 
   describe('@whispers/loadMessagesAround', () => {
@@ -571,6 +592,36 @@ describe('client/whispers/whisper-reducer', () => {
 
       expect(messageIdsOf(result)).toEqual(['text-900'])
       expect(sessionOf(result).windowGen).toBe(2)
+    })
+
+    test('a failed replacement records the time it was asked for, so a retry can ask again', () => {
+      const state = makeState({ loadingHistory: true })
+
+      const result = whisperReducer(
+        state,
+        asFailure(loadMessagesAroundAction(historyResponse([]), { aroundTime: 150 })),
+      )
+
+      expect(sessionOf(result).historyError).toEqual({ kind: 'around', aroundTime: 150 })
+    })
+
+    test('requesting a replacement window clears the older edge error', () => {
+      const state = makeState({ historyError: { kind: 'history' } })
+
+      const result = whisperReducer(state, loadMessagesAroundBeginAction({ aroundTime: 150 }))
+
+      expect(sessionOf(result).historyError).toBeUndefined()
+    })
+
+    test('a replacement window clears the newer edge error along with the messages it belonged to', () => {
+      const state = makeState({ messages: [textMessage(900)], newerError: true })
+
+      const result = whisperReducer(
+        state,
+        loadMessagesAroundAction(historyResponse([serverMessage(100)]), { aroundTime: 150 }),
+      )
+
+      expect(sessionOf(result).newerError).toBe(false)
     })
   })
 
@@ -1062,6 +1113,22 @@ describe('client/whispers/whisper-reducer', () => {
       expect(sessionOf(result).hasNewer).toBe(true)
       expect(messageIdsOf(result)).toEqual(['text-100'])
     })
+
+    test('a failed page records an error for the newer edge', () => {
+      const state = makeState({ hasNewer: true, loadingNewer: true, messages: [textMessage(100)] })
+
+      const result = whisperReducer(state, asFailure(loadNewerMessagesAction(historyResponse([]))))
+
+      expect(sessionOf(result).newerError).toBe(true)
+    })
+
+    test('requesting the newer edge again clears its error', () => {
+      const state = makeState({ hasNewer: true, newerError: true, messages: [textMessage(100)] })
+
+      const result = whisperReducer(state, loadNewerMessagesBeginAction({ afterTime: 100 }))
+
+      expect(sessionOf(result).newerError).toBe(false)
+    })
   })
 
   describe('@whispers/resetMessageWindow', () => {
@@ -1082,6 +1149,19 @@ describe('client/whispers/whisper-reducer', () => {
       expect(session.hasNewer).toBe(false)
       expect(session.detachedNewestTime).toBeUndefined()
       expect(session.windowGen).toBe(3)
+    })
+
+    test('clears both edge errors along with the window they belonged to', () => {
+      const state = makeState({
+        messages: [textMessage(100)],
+        historyError: { kind: 'history' },
+        newerError: true,
+      })
+
+      const result = whisperReducer(state, resetMessageWindowAction())
+
+      expect(sessionOf(result).historyError).toBeUndefined()
+      expect(sessionOf(result).newerError).toBe(false)
     })
   })
 
@@ -1166,6 +1246,20 @@ describe('client/whispers/whisper-reducer', () => {
   })
 
   describe('@whispers/deactivateWhisperSession', () => {
+    test('clears both edge errors so the next visit makes a fresh attempt', () => {
+      const state = makeState({
+        activated: true,
+        messages: [textMessage(100)],
+        historyError: { kind: 'history' },
+        newerError: true,
+      })
+
+      const result = whisperReducer(state, deactivateSessionAction())
+
+      expect(sessionOf(result).historyError).toBeUndefined()
+      expect(sessionOf(result).newerError).toBe(false)
+    })
+
     test('consumes a divider the read position has passed when left at the bottom', () => {
       const state = makeState({
         activated: true,

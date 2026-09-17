@@ -24,6 +24,7 @@ import {
 import { CommandContext } from '../messaging/commands/command-context'
 import { LocalLineContent } from '../messaging/commands/local-output'
 import { UNREAD_LINE_SELECTOR } from '../messaging/common-message-layout'
+import { JUMP_TO_BOTTOM_OFFSET_PX } from '../messaging/jump-to-bottom-layout'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import {
   isScrolledToBottom,
@@ -194,7 +195,7 @@ const JumpToBottomButtonContainer = styled(m.div)`
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 12px;
+  bottom: ${JUMP_TO_BOTTOM_OFFSET_PX}px;
   display: flex;
   justify-content: center;
   pointer-events: none;
