@@ -78,6 +78,7 @@ const commandContext: CommandContext = { surface: 'lobby', selfUserId: makeSbUse
 
 function renderInput() {
   const onSendChatMessage = vi.fn()
+  const onSubmitted = vi.fn()
   const emit = vi.fn()
   const handle: { current: MessageInputHandle | null } = { current: null }
   const { container } = render(
@@ -86,6 +87,7 @@ function renderInput() {
         <MessageInput
           ref={handle}
           onSendChatMessage={onSendChatMessage}
+          onSubmitted={onSubmitted}
           commands={{ context: commandContext, emit }}
         />
       </KeyListenerBoundary>
@@ -128,6 +130,7 @@ function renderInput() {
   return {
     textarea,
     onSendChatMessage,
+    onSubmitted,
     emit,
     handle,
     caretAt,
@@ -426,6 +429,40 @@ describe('client/messaging/message-input', () => {
     expect(runChatCommand).not.toHaveBeenCalled()
     expect(textarea.value).toBe('')
     expect(chipText()).toBeUndefined()
+  })
+
+  test('sending a message reports the submission', () => {
+    const { onSendChatMessage, onSubmitted, type, press } = renderInput()
+
+    type('hello')
+    press('Enter')
+
+    expect(onSendChatMessage).toHaveBeenCalledWith('hello')
+    expect(onSubmitted).toHaveBeenCalledTimes(1)
+  })
+
+  test('a command that only answers locally still reports the submission', () => {
+    // A command whose whole effect is a local answer (e.g. /help) sends no chat text, but the
+    // submission still counts: the owner treats it as reading the surface just like a sent message.
+    runChatCommand.mockReturnValue({ kind: 'command' })
+    const { onSendChatMessage, onSubmitted, type, press } = renderInput()
+
+    type('/help')
+    press('Enter')
+
+    expect(onSendChatMessage).not.toHaveBeenCalled()
+    expect(onSubmitted).toHaveBeenCalledTimes(1)
+  })
+
+  test('sending a whisper reply reports the submission', () => {
+    const { onSubmitted, type, press } = renderInput()
+    reply.target = { id: makeSbUserId(2), name: 'tec27' }
+
+    type('/r hello')
+    press('Enter')
+
+    expect(reply.sendReply).toHaveBeenCalled()
+    expect(onSubmitted).toHaveBeenCalledTimes(1)
   })
 
   test('in reply mode a leading slash is text, not a command palette', () => {

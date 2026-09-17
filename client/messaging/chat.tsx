@@ -971,12 +971,17 @@ export function Chat({
     jumpToBottom()
   }
 
-  const onSendMessage = (msg: string) => {
-    onSendChatMessage(msg)
-
+  // Any submission the input acts on — a sent message, a run command, or a whisper reply — counts
+  // as reading the surface: the user typed at the bottom of the conversation, and whatever they
+  // submitted (and whatever it answers with) lands there. So every submit moves the view to the
+  // newest message and marks the surface read, dropping the unread divider, rather than only a
+  // plain send doing so. `onMarkRead` carries the mark-read-now semantics (advance the read
+  // position and dismiss the divider); surfaces without a read position leave it unset.
+  const onSubmitted = () => {
     if (jumpToBottomOnSend) {
       jumpToBottom()
     }
+    onMarkRead?.()
   }
 
   useKeyListener({
@@ -1159,7 +1164,8 @@ export function Chat({
                 ? { context: commandContext, emit: makeLocalLineEmitter(commandContext) }
                 : undefined
             }
-            onSendChatMessage={onSendMessage}
+            onSendChatMessage={onSendChatMessage}
+            onSubmitted={onSubmitted}
             ref={messageInputRef}
             showDivider={isScrolledUp}
             key={inputProps.storageKey}
