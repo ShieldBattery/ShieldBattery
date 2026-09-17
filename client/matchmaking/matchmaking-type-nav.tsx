@@ -29,12 +29,12 @@ const DIGIT_CODES = [
 ]
 
 /**
- * Every matchmaking type, grouped by format in the canonical order they should appear in the rail.
- * This is static, so we compute it once rather than per render.
+ * Every matchmaking type, grouped by format in the canonical order they should appear in, shared by
+ * the mode rail and the ladder's compact mode picker. This is static, so we compute it once rather
+ * than per render.
  */
-const ORDERED_TYPES: ReadonlyArray<MatchmakingType> = MATCHMAKING_FORMATS.flatMap(
-  getMatchmakingTypesForFormat,
-)
+export const ORDERED_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> =
+  MATCHMAKING_FORMATS.flatMap(getMatchmakingTypesForFormat)
 
 const Root = styled.div`
   display: flex;
@@ -120,21 +120,18 @@ export interface MatchmakingTypeNavProps {
 }
 
 /**
- * A vertical "mode rail" for selecting a matchmaking type. It lists every type as its own row, which
- * stays readable as the number of modes grows (unlike a horizontal tab bar, which overflows). It's
- * shared by the ladder and the matchmaking admin pages.
- *
- * Quick switching mirrors the old `Tabs`: `Ctrl+1..9` jump to a mode by position and
- * `Ctrl+PageUp/PageDown` cycle through them. Because the rail is a single list (rather than the two
- * stacked `Tabs` it replaced), there's only one set of these handlers, so none of them shadow each
- * other.
+ * Registers the keyboard shortcuts for switching matchmaking modes without touching the mode picker:
+ * `Ctrl+1..9` jump to a mode by its position in `ORDERED_MATCHMAKING_TYPES`, and
+ * `Ctrl+PageUp`/`Ctrl+PageDown` cycle through them. Every mode lives in that one ordered list, so
+ * there's a single set of handlers and none of them shadow each other.
  */
-export function MatchmakingTypeNav({
+export function useMatchmakingTypeShortcuts({
   activeType,
   onChange,
-  className,
-  label,
-}: MatchmakingTypeNavProps) {
+}: {
+  activeType: MatchmakingType
+  onChange: (type: MatchmakingType) => void
+}) {
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (!event.ctrlKey || event.altKey || event.shiftKey) {
@@ -142,33 +139,51 @@ export function MatchmakingTypeNav({
       }
 
       if (event.code === PAGEUP || event.code === PAGEDOWN) {
-        const activeIndex = ORDERED_TYPES.indexOf(activeType)
-        if (activeIndex === -1 || ORDERED_TYPES.length < 2) {
+        const activeIndex = ORDERED_MATCHMAKING_TYPES.indexOf(activeType)
+        if (activeIndex === -1 || ORDERED_MATCHMAKING_TYPES.length < 2) {
           return false
         }
 
         const nextIndex =
           event.code === PAGEUP
-            ? (activeIndex - 1 + ORDERED_TYPES.length) % ORDERED_TYPES.length
-            : (activeIndex + 1) % ORDERED_TYPES.length
-        onChange(ORDERED_TYPES[nextIndex])
+            ? (activeIndex - 1 + ORDERED_MATCHMAKING_TYPES.length) %
+              ORDERED_MATCHMAKING_TYPES.length
+            : (activeIndex + 1) % ORDERED_MATCHMAKING_TYPES.length
+        onChange(ORDERED_MATCHMAKING_TYPES[nextIndex])
         return true
       }
 
       const digitIndex = DIGIT_CODES.indexOf(event.code)
-      if (digitIndex >= 0 && digitIndex < ORDERED_TYPES.length) {
-        onChange(ORDERED_TYPES[digitIndex])
+      if (digitIndex >= 0 && digitIndex < ORDERED_MATCHMAKING_TYPES.length) {
+        onChange(ORDERED_MATCHMAKING_TYPES[digitIndex])
         return true
       }
 
       return false
     },
   })
+}
+
+/**
+ * A vertical "mode rail" for selecting a matchmaking type. It lists every type as its own row, which
+ * stays readable as the number of modes grows (unlike a horizontal tab bar, which overflows). It's
+ * shared by the ladder and the matchmaking admin pages.
+ *
+ * Quick switching comes from `useMatchmakingTypeShortcuts`: `Ctrl+1..9` jump to a mode by position
+ * and `Ctrl+PageUp/PageDown` cycle through them.
+ */
+export function MatchmakingTypeNav({
+  activeType,
+  onChange,
+  className,
+  label,
+}: MatchmakingTypeNavProps) {
+  useMatchmakingTypeShortcuts({ activeType, onChange })
 
   return (
     <Root className={className} role='tablist' aria-orientation='vertical'>
       {label !== undefined ? <Eyebrow>{label}</Eyebrow> : null}
-      {ORDERED_TYPES.map(type => (
+      {ORDERED_MATCHMAKING_TYPES.map(type => (
         <MatchmakingTypeNavItem
           key={type}
           type={type}

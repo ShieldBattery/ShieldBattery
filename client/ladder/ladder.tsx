@@ -32,12 +32,17 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
+import { useMediaQuery } from '../dom/use-media-query'
 import { useTargetVisibleInScrollParent } from '../dom/visibility-hooks'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { getMatchmakingSeasons } from '../matchmaking/action-creators'
-import { MatchmakingTypeNav } from '../matchmaking/matchmaking-type-nav'
+import {
+  MatchmakingTypeNav,
+  ORDERED_MATCHMAKING_TYPES,
+  useMatchmakingTypeShortcuts,
+} from '../matchmaking/matchmaking-type-nav'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -78,6 +83,31 @@ import {
   searchPreviousSeasonRankings,
 } from './action-creators'
 
+/**
+ * Viewport width below which the 224px mode rail is dropped in favor of a strip of Mode/Season
+ * selects above the content. With the rail beside it, a viewport this narrow leaves the content
+ * column under ~576px, which is only enough room for four of the rankings table's columns. The
+ * Electron window can't be resized below 1024px wide, so the desktop app never goes compact.
+ */
+const COMPACT_NAV_BELOW_PX = 800
+const COMPACT_NAV_QUERY = `(width < ${COMPACT_NAV_BELOW_PX}px)`
+
+/**
+ * Widths of the content column (the `ladder-content` container) below which the layout above each
+ * one no longer fits. They come from the fixed widths of the pieces inside it: the header's search
+ * input and division select, the podium cards, and the table's cells (rank 112 + player 176 +
+ * points 56 + MMR 56 + win/loss 112 + last played 140 = 652) plus the table container's 32px of
+ * horizontal padding and its 16px scrollbar gutter.
+ *
+ * Below `STACKED_LAYOUT_BELOW_PX` the header controls wrap under the heading, the subtitle
+ * truncates, the runners-up stack and the Last played column is hidden. Below `HIDE_MMR_BELOW_PX`
+ * the MMR column is hidden too. Below `NARROW_LAYOUT_BELOW_PX` the win/loss column is hidden, the
+ * #1 card switches to a two-row grid, and the side paddings drop to 16px.
+ */
+const STACKED_LAYOUT_BELOW_PX = 720
+const HIDE_MMR_BELOW_PX = 560
+const NARROW_LAYOUT_BELOW_PX = 504
+
 const LadderPage = styled.div`
   width: 100%;
   height: 100%;
@@ -86,6 +116,10 @@ const LadderPage = styled.div`
   flex-direction: row;
 
   overflow: hidden;
+
+  @media ${COMPACT_NAV_QUERY} {
+    flex-direction: column;
+  }
 `
 
 const Rail = styled.div`
@@ -128,7 +162,28 @@ const SeasonSelect = styled(Select)`
   width: 100%;
 `
 
-const MainColumn = styled.div`
+const CompactNav = styled.div`
+  flex-shrink: 0;
+  padding: 12px 16px;
+
+  display: flex;
+  gap: 12px;
+
+  background-color: var(--theme-container-lowest);
+  border-bottom: 1px solid rgb(from var(--color-blue80) r g b / 0.07);
+`
+
+const CompactSelect = styled(Select)`
+  flex: 1 1 0;
+  min-width: 0;
+`
+
+/**
+ * The column holding the ladder's header, podium and rankings table. It's a named container so that
+ * everything inside it can size itself to the room the column actually has, which depends on the
+ * window width, whether the mode rail is showing, and whether the social sidebar is pinned.
+ */
+export const LadderContentColumn = styled.div`
   position: relative;
   flex-grow: 1;
   min-width: 0;
@@ -136,6 +191,18 @@ const MainColumn = styled.div`
 
   display: flex;
   flex-direction: column;
+
+  container: ladder-content / inline-size;
+
+  /*
+    Stacked under the compact nav it shares the page's height rather than filling it on its own; a
+    full-height column would overflow the page and have its bottom clipped.
+  */
+  @media ${COMPACT_NAV_QUERY} {
+    height: auto;
+    flex: 1 1 0;
+    min-height: 0;
+  }
 `
 
 const ContentHeader = styled.div`
@@ -146,10 +213,24 @@ const ContentHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 16px;
+
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    padding: 12px 16px;
+  }
 `
 
 const ModeHeading = styled.div`
   min-width: 0;
+
+  /* Claiming the whole line pushes the search input and division select onto a row of their own. */
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    flex: 1 1 100%;
+  }
 `
 
 const ModeTitle = styled.div`
@@ -162,10 +243,29 @@ const ModeSubtitle = styled.div`
   margin-top: 2px;
 
   color: var(--theme-on-surface-variant);
+
+  /* Wrapping in a column this narrow puts a word or two on each line; an ellipsis reads better. */
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    ${singleLine};
+  }
+`
+
+/* Only earns its keep while the heading shares a line with the controls it pushes apart. */
+const HeaderSpacer = styled(FlexSpacer)`
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const HeaderSearchInput = styled(SearchInput)`
   width: 220px;
+
+  /* On a row of its own it takes whatever width the division select beside it leaves. */
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+  }
 `
 
 const DivisionSelect = styled(Select)`
@@ -211,6 +311,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     (savedType && ALL_MATCHMAKING_TYPES.includes(savedType) ? savedType : MatchmakingType.Match1v1)
   useTrackPageView(urlPath`/ladder/${matchmakingType}`)
   const { t } = useTranslation()
+  const compactNav = useMediaQuery(COMPACT_NAV_QUERY)
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const seasons = useAppSelector(s => s.matchmakingSeasons.byId)
@@ -420,30 +521,42 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     .filter(Boolean)
     .join(' · ')
 
+  const seasonOptions = Array.from(seasons.values()).map(s => (
+    <SelectOption key={s.id} value={s.id} text={s.name} />
+  ))
+
   return (
     <LadderPage>
-      <Rail>
-        <RailTitle>{t('ladder.pageHeadline', 'Ladder')}</RailTitle>
-        <MatchmakingTypeNav
-          label={t('ladder.modeLabel', 'Mode')}
+      {compactNav ? (
+        <CompactModeControls
           activeType={matchmakingType}
-          onChange={onTabChange}
+          onTypeChange={onTabChange}
+          seasonId={season?.id}
+          onSeasonChange={onSeasonChange}
+          seasonOptions={seasonOptions}
         />
-        <FlexSpacer />
-        <SeasonSection>
-          <RailEyebrow>{t('ladder.season', 'Season')}</RailEyebrow>
-          <SeasonSelect
-            dense={true}
-            value={season?.id}
-            onChange={onSeasonChange}
-            allowErrors={false}>
-            {Array.from(seasons.values()).map(s => (
-              <SelectOption key={s.id} value={s.id} text={s.name} />
-            ))}
-          </SeasonSelect>
-        </SeasonSection>
-      </Rail>
-      <MainColumn>
+      ) : (
+        <Rail>
+          <RailTitle>{t('ladder.pageHeadline', 'Ladder')}</RailTitle>
+          <MatchmakingTypeNav
+            label={t('ladder.modeLabel', 'Mode')}
+            activeType={matchmakingType}
+            onChange={onTabChange}
+          />
+          <FlexSpacer />
+          <SeasonSection>
+            <RailEyebrow>{t('ladder.season', 'Season')}</RailEyebrow>
+            <SeasonSelect
+              dense={true}
+              value={season?.id}
+              onChange={onSeasonChange}
+              allowErrors={false}>
+              {seasonOptions}
+            </SeasonSelect>
+          </SeasonSection>
+        </Rail>
+      )}
+      <LadderContentColumn>
         <ContentHeader>
           <ModeHeading>
             <ModeTitle>{matchmakingTypeToLabel(matchmakingType, t)}</ModeTitle>
@@ -456,7 +569,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
               {subtitle}
             </ModeSubtitle>
           </ModeHeading>
-          <FlexSpacer />
+          <HeaderSpacer />
           <HeaderSearchInput
             ref={searchInputRef}
             searchQuery={searchQuery}
@@ -517,8 +630,53 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
             <LoadingDotsArea />
           )}
         </ContentBody>
-      </MainColumn>
+      </LadderContentColumn>
     </LadderPage>
+  )
+}
+
+/**
+ * The ladder's mode and season pickers for layouts too narrow to fit the mode rail beside the
+ * content, laid out as a strip above it. The rail's keyboard shortcuts stay available even though
+ * the rail itself isn't rendered.
+ */
+function CompactModeControls({
+  activeType,
+  onTypeChange,
+  seasonId,
+  onSeasonChange,
+  seasonOptions,
+}: {
+  activeType: MatchmakingType
+  onTypeChange: (type: MatchmakingType) => void
+  seasonId: SeasonId | undefined
+  onSeasonChange: (seasonId: SeasonId) => void
+  seasonOptions: React.ReactNode
+}) {
+  const { t } = useTranslation()
+  useMatchmakingTypeShortcuts({ activeType, onChange: onTypeChange })
+
+  return (
+    <CompactNav>
+      <CompactSelect
+        dense={true}
+        label={t('ladder.modeLabel', 'Mode')}
+        value={activeType}
+        onChange={onTypeChange}
+        allowErrors={false}>
+        {ORDERED_MATCHMAKING_TYPES.map(type => (
+          <SelectOption key={type} value={type} text={matchmakingTypeToLabel(type, t)} />
+        ))}
+      </CompactSelect>
+      <CompactSelect
+        dense={true}
+        label={t('ladder.season', 'Season')}
+        value={seasonId}
+        onChange={onSeasonChange}
+        allowErrors={false}>
+        {seasonOptions}
+      </CompactSelect>
+    </CompactNav>
   )
 }
 
@@ -536,6 +694,10 @@ const TableContainer = styled.div`
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    padding: 0 0 16px 16px;
+  }
 `
 
 const Podium = styled.div`
@@ -552,8 +714,17 @@ const RunnersUp = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    grid-template-columns: 1fr;
+  }
 `
 
+/**
+ * The #1 player's card. It has two layouts: a single row of rank, icon, name and point total at
+ * normal widths, and at narrow widths a grid that moves the points onto a second row underneath the
+ * name, so the name keeps the card's width instead of being squeezed by the points beside it.
+ */
 const SpotlightCard = styled.button`
   ${buttonReset};
   ${elevationPlus1};
@@ -574,26 +745,54 @@ const SpotlightCard = styled.button`
     var(--color-blue20) 55%,
     var(--color-purple30)
   );
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'rank icon info'
+      '. . points';
+    gap: 8px 12px;
+    padding: 14px 16px;
+  }
 `
 
 const SpotlightRank = styled.div`
   ${sofiaSansCondensed};
   flex-shrink: 0;
+  grid-area: rank;
 
   color: var(--theme-amber);
   font-size: 54px;
   line-height: 1;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    font-size: 40px;
+  }
 `
 
 const SpotlightIcon = styled(LadderPlayerIcon)`
   width: 64px;
   height: 64px;
   flex-shrink: 0;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    width: 48px;
+    height: 48px;
+  }
 `
 
 const SpotlightInfo = styled.div`
   min-width: 0;
   flex-grow: 1;
+  grid-area: info;
+`
+
+/* Every child of the grid layout is placed by area, so an auto-placed spacer would claim a cell. */
+const SpotlightSpacer = styled(FlexSpacer)`
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const SpotlightName = styled.div`
@@ -615,7 +814,15 @@ const SpotlightMeta = styled.div`
 
 const SpotlightPoints = styled.div`
   flex-shrink: 0;
+  grid-area: points;
   text-align: right;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    text-align: left;
+  }
 `
 
 const SpotlightPointsValue = styled.div`
@@ -624,6 +831,10 @@ const SpotlightPointsValue = styled.div`
   color: var(--theme-amber);
   font-size: 38px;
   line-height: 1;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    font-size: 28px;
+  }
 `
 
 const SpotlightPointsLabel = styled.span`
@@ -636,6 +847,10 @@ const SpotlightMmr = styled.div`
   margin-top: 6px;
 
   color: var(--theme-on-surface-variant);
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    margin-top: 0;
+  }
 `
 
 const RunnerUpCard = styled.button<{ $medalColor: string }>`
@@ -839,6 +1054,11 @@ function HeaderRowContainer(props: { context?: unknown }) {
   return <HeaderRowContainerElem {...rest} />
 }
 
+/**
+ * A cell in the rankings table, shared by the header row and the body rows so the two stay aligned.
+ * As the content column narrows, cells drop out in priority order - last played first, then MMR,
+ * then win/loss - leaving rank, player and points readable at every width.
+ */
 const BaseCell = styled.div`
   height: 100%;
   flex: 1 1 auto;
@@ -854,6 +1074,14 @@ const RankCell = styled(BaseCell)`
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+
+  /* With only rank, player and points left, any spare width is better spent on the name. */
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    width: 100px;
+    padding-left: 12px;
+    flex-grow: 0;
+    gap: 12px;
+  }
 `
 
 const PlayerCell = styled(BaseCell)`
@@ -866,11 +1094,19 @@ const PlayerCell = styled(BaseCell)`
 const PointsCell = styled(BaseCell)`
   width: 56px;
   text-align: right;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    flex-grow: 0;
+  }
 `
 
 const RatingCell = styled(BaseCell)`
   width: 56px;
   text-align: right;
+
+  @container ladder-content (width < ${HIDE_MMR_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const WinLossCell = styled(BaseCell)`
@@ -885,6 +1121,10 @@ const WinLossCell = styled(BaseCell)`
   // records to split across lines if needed
   line-height: 1.5;
   text-align: right;
+
+  @container ladder-content (width < ${NARROW_LAYOUT_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const LastPlayedCell = styled(BaseCell)`
@@ -892,6 +1132,10 @@ const LastPlayedCell = styled(BaseCell)`
   padding: 0 16px 0 32px;
   color: var(--theme-on-surface-variant);
   text-align: right;
+
+  @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
+    display: none;
+  }
 `
 
 const StyledAvatar = styled(Avatar)`
@@ -1193,6 +1437,10 @@ const PodiumIconTooltip = styled(Tooltip)`
   flex-shrink: 0;
 `
 
+const SpotlightIconTooltip = styled(PodiumIconTooltip)`
+  grid-area: icon;
+`
+
 function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlayerProps) {
   const { t } = useTranslation()
   const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
@@ -1203,9 +1451,9 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
   return (
     <SpotlightCard onClick={() => onSelected(player.userId, username)}>
       <SpotlightRank>#1</SpotlightRank>
-      <PodiumIconTooltip text={divisionLabel} position='bottom'>
+      <SpotlightIconTooltip text={divisionLabel} position='bottom'>
         <SpotlightIcon player={player} bonusPool={bonusPool} size={64} />
-      </PodiumIconTooltip>
+      </SpotlightIconTooltip>
       <SpotlightInfo>
         <SpotlightName>{username}</SpotlightName>
         <SpotlightMeta>
@@ -1218,7 +1466,7 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
           </span>
         </SpotlightMeta>
       </SpotlightInfo>
-      <FlexSpacer />
+      <SpotlightSpacer />
       <SpotlightPoints>
         <SpotlightPointsValue>
           {Math.round(player.points).toLocaleString()}{' '}
