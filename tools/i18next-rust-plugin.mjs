@@ -13,6 +13,11 @@
 // isn't a plain literal (concatenation, a variable, a `format!`) is an error, so a key that the
 // extractor can't see never silently ships untranslated.
 //
+// i18next-cli treats a default that equals the key's last segment (`tr!("x.teammate",
+// "teammate")`) as "derived from the key" and writes it as an empty string unless `extract` runs
+// with `--trust-derived`; the `gen-translations:app` script passes that flag so such keys keep
+// their text.
+//
 // String literals are read the way Rust reads them: `"..."` with `\"`, `\\`, `\n`, `\t`, `\r`,
 // `\0`, `\'`, `\xNN`, `\u{XXXX}` and line-continuation (`\` + newline + leading whitespace)
 // escapes, and raw strings `r"..."` / `r#"..."#` (byte-string prefixes too). Macros inside
