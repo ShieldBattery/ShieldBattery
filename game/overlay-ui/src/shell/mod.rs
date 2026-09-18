@@ -28,7 +28,7 @@ use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::kit::widgets::{self, ButtonVariant};
 use crate::kit::{theme, tiers};
 use crate::netstat::{NetStatsView, render_netstat_view};
-use crate::observer::{self, ObserverView};
+use crate::observer::{self, GraphSeries, ObserverView};
 use crate::tr;
 use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
@@ -80,6 +80,16 @@ impl Mode {
 pub enum Panel {
     /// The matchup bar: who is playing, and what they are sitting on.
     Matchup,
+    /// The map-control bar.
+    MapControl,
+    /// The economy panel.
+    Economy,
+    /// The military panel.
+    Military,
+    /// The graphs panel.
+    Graphs,
+    /// The timeline feed.
+    Timeline,
     /// The production panel.
     Production,
     /// BW's own bottom console.
@@ -93,8 +103,15 @@ pub enum Panel {
 }
 
 impl Panel {
-    pub const ALL: [Panel; 6] = [
+    /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
+    /// the top of the screen down, then the game's own surfaces, then the controls.
+    pub const ALL: [Panel; 11] = [
         Panel::Matchup,
+        Panel::MapControl,
+        Panel::Economy,
+        Panel::Military,
+        Panel::Graphs,
+        Panel::Timeline,
         Panel::Production,
         Panel::Console,
         Panel::Minimap,
@@ -106,6 +123,11 @@ impl Panel {
     pub fn action(self) -> Action {
         match self {
             Panel::Matchup => Action::ToggleSidePanel,
+            Panel::MapControl => Action::ToggleMapControl,
+            Panel::Economy => Action::ToggleEconomy,
+            Panel::Military => Action::ToggleMilitary,
+            Panel::Graphs => Action::ToggleGraphs,
+            Panel::Timeline => Action::ToggleTimeline,
             Panel::Production => Action::ToggleProduction,
             Panel::Console => Action::ToggleConsole,
             Panel::Minimap => Action::ToggleMinimap,
@@ -117,6 +139,11 @@ impl Panel {
     pub fn label(self) -> &'static str {
         match self {
             Panel::Matchup => "matchup",
+            Panel::MapControl => "map control",
+            Panel::Economy => "economy",
+            Panel::Military => "military",
+            Panel::Graphs => "graphs",
+            Panel::Timeline => "timeline",
             Panel::Production => "production",
             Panel::Console => "console",
             Panel::Minimap => "minimap",
@@ -164,6 +191,11 @@ impl PanelPreset {
         prefs.matchup = true;
         prefs.minimap = true;
         prefs.transport = true;
+        prefs.map_control = analysis;
+        prefs.economy = analysis;
+        prefs.military = analysis;
+        prefs.graphs = analysis;
+        prefs.timeline = analysis;
         prefs.production = analysis;
         // The game's own console is what the analyst preset gives up instead: our panels want the
         // bottom of the screen, and a watcher reading them is not selecting units.
@@ -181,6 +213,11 @@ impl PanelPreset {
 #[serde(default)]
 pub struct PanelPrefs {
     pub matchup: bool,
+    pub map_control: bool,
+    pub economy: bool,
+    pub military: bool,
+    pub graphs: bool,
+    pub timeline: bool,
     pub production: bool,
     pub console: bool,
     pub minimap: bool,
@@ -194,12 +231,20 @@ pub struct PanelPrefs {
     /// through it playback is. Not a panel, so hiding every panel does not quietly switch it off:
     /// a viewer who asked not to be told how long a game runs has not asked for a tidier screen.
     pub spoiler_free: bool,
+    /// Which measurement the graphs panel is plotting. Not a panel either: it is what the one
+    /// panel is currently about, and a watcher who left it on income expects income back.
+    pub graph_series: GraphSeries,
 }
 
 impl Default for PanelPrefs {
     fn default() -> PanelPrefs {
         PanelPrefs {
             matchup: true,
+            map_control: true,
+            economy: true,
+            military: true,
+            graphs: true,
+            timeline: true,
             production: true,
             console: true,
             minimap: true,
@@ -207,6 +252,7 @@ impl Default for PanelPrefs {
             dock: true,
             dock_expanded: false,
             spoiler_free: false,
+            graph_series: GraphSeries::ArmyValue,
         }
     }
 }
@@ -215,6 +261,11 @@ impl PanelPrefs {
     pub fn shown(&self, panel: Panel) -> bool {
         match panel {
             Panel::Matchup => self.matchup,
+            Panel::MapControl => self.map_control,
+            Panel::Economy => self.economy,
+            Panel::Military => self.military,
+            Panel::Graphs => self.graphs,
+            Panel::Timeline => self.timeline,
             Panel::Production => self.production,
             Panel::Console => self.console,
             Panel::Minimap => self.minimap,
@@ -226,6 +277,11 @@ impl PanelPrefs {
     pub fn set(&mut self, panel: Panel, shown: bool) {
         match panel {
             Panel::Matchup => self.matchup = shown,
+            Panel::MapControl => self.map_control = shown,
+            Panel::Economy => self.economy = shown,
+            Panel::Military => self.military = shown,
+            Panel::Graphs => self.graphs = shown,
+            Panel::Timeline => self.timeline = shown,
             Panel::Production => self.production = shown,
             Panel::Console => self.console = shown,
             Panel::Minimap => self.minimap = shown,
@@ -555,6 +611,10 @@ pub struct Shell {
     /// is relative — one rung up, ten seconds back — so the state it is relative to has to be here
     /// rather than in the frame that drew it.
     transport: Option<TransportView>,
+    /// Whether the last observer frame carried a map-control measurement. The bar's key is only the
+    /// shell's while there is something behind it, and a keypress arrives between frames, so what
+    /// the last frame was told has to be kept here.
+    map_control_available: bool,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
     pending_seek: Option<u32>,
@@ -578,6 +638,7 @@ impl Shell {
             live_native_dialogs: [false; NativeDialog::ALL.len()],
             host: HostFrame::default(),
             transport: None,
+            map_control_available: false,
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
             intents: Vec::new(),
@@ -735,12 +796,36 @@ impl Shell {
     /// Draws the observer panels the watcher has left on screen, turning what they did with them
     /// into intents for the host and into preferences of its own.
     fn frame_observer(&mut self, ctx: &Context, view: &ObserverView, hit_rects: &mut Vec<HitRect>) {
+        self.map_control_available = view.map_control.is_some();
         if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, self.prefs.matchup)
         {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(player_id) = outcome.toggled_vision {
                 self.intents.push(Intent::ToggleVision { player_id });
             }
+        }
+        // The reporting panels take no clicks of their own, but every one of them is an opaque
+        // surface: a click that landed on a number and went on to select whatever unit was behind
+        // it would make the panels unusable exactly where they are most worth reading.
+        if let Some(map_control) = &view.map_control
+            && let Some(rect) =
+                observer::render_map_control_view(map_control, ctx, self.prefs.map_control)
+        {
+            hit_rects.push(HitRect::new(rect));
+        }
+        if let Some(rect) = observer::render_economy_view(&view.economy, ctx, self.prefs.economy) {
+            hit_rects.push(HitRect::new(rect));
+        }
+        if let Some(rect) = observer::render_military_view(&view.military, ctx, self.prefs.military)
+        {
+            hit_rects.push(HitRect::new(rect));
+        }
+        if let Some(rect) = observer::render_graphs_view(&view.graphs, ctx, self.prefs.graphs) {
+            hit_rects.push(HitRect::new(rect));
+        }
+        if let Some(rect) = observer::render_timeline_view(&view.timeline, ctx, self.prefs.timeline)
+        {
+            hit_rects.push(HitRect::new(rect));
         }
         if let Some(outcome) =
             observer::render_production_view(&view.production, ctx, self.prefs.production)
@@ -753,7 +838,13 @@ impl Shell {
                 });
             }
         }
-        let dock = observer::render_obs_dock(&self.prefs, &self.hotkeys, self.host.mode, ctx);
+        let dock = observer::render_obs_dock(
+            &self.prefs,
+            &self.hotkeys,
+            self.host.mode,
+            self.map_control_available,
+            ctx,
+        );
         if let Some(outcome) = dock {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(panel) = outcome.toggled {
@@ -910,6 +1001,10 @@ impl Shell {
             | Action::SpeedDown
             | Action::SeekBackward
             | Action::SeekForward => self.apply_transport_action(action, modifiers),
+            Action::ToggleGraphs => self.apply_graphs_action(modifiers),
+            // The bar reports a measurement the game does not keep, so a game whose host has none
+            // leaves the key alone rather than moving a preference nothing can act on.
+            Action::ToggleMapControl if !self.map_control_available => false,
             _ => match action_panel(action) {
                 Some(panel) => {
                     self.prefs.toggle(panel);
@@ -918,6 +1013,34 @@ impl Shell {
                 None => false,
             },
         }
+    }
+
+    /// Carries out the graphs key, which opens the panel, then walks it through the measurements it
+    /// can plot, then closes it again.
+    ///
+    /// One key rather than two, because the panel plots one series at a time: the watcher's question
+    /// is "show me the next one", and a second key for the panel itself would leave them choosing
+    /// between two keys that both look like the way in.
+    fn apply_graphs_action(&mut self, modifiers: Modifiers) -> bool {
+        // `Shift` asks for the per-player form of a team game's graphs, which is a distinction a
+        // game with one player per team does not have. Until the team panels exist there is nothing
+        // for it to switch between, so the chord stays the game's.
+        if modifiers.shift {
+            return false;
+        }
+        if !self.prefs.graphs {
+            self.prefs.graphs = true;
+            self.prefs.graph_series = GraphSeries::default();
+            return true;
+        }
+        match self.prefs.graph_series.next() {
+            Some(series) => self.prefs.graph_series = series,
+            None => {
+                self.prefs.graphs = false;
+                self.prefs.graph_series = GraphSeries::default();
+            }
+        }
+        true
     }
 
     fn dismiss_top_modal(&mut self) {
@@ -957,15 +1080,9 @@ impl Shell {
 
 /// Which panel an action toggles, for the actions whose panel exists.
 fn action_panel(action: Action) -> Option<Panel> {
-    match action {
-        Action::ToggleSidePanel => Some(Panel::Matchup),
-        Action::ToggleProduction => Some(Panel::Production),
-        Action::ToggleConsole => Some(Panel::Console),
-        Action::ToggleMinimap => Some(Panel::Minimap),
-        Action::ToggleTransport => Some(Panel::Transport),
-        Action::ToggleDock => Some(Panel::Dock),
-        _ => None,
-    }
+    Panel::ALL
+        .into_iter()
+        .find(|panel| panel.action() == action)
 }
 
 /// What drawing a modal reported back.
@@ -1318,11 +1435,75 @@ mod tests {
     #[test]
     fn an_action_with_no_surface_leaves_its_key_to_the_game() {
         let mut shell = spectating_shell();
-        for key in [Key::P, Key::U, Key::E, Key::G, Key::V] {
+        // The transport keys have no replay fed to them here, the vision cycle has no surface at
+        // all, and the map-control bar has been told of no measurement to draw.
+        for key in [Key::P, Key::U, Key::V, Key::N] {
             assert!(
                 !shell.key_pressed(key, Modifiers::NONE),
                 "{key:?} was consumed with nothing to consume it for"
             );
+        }
+    }
+
+    #[test]
+    fn the_map_control_key_waits_for_a_measurement_to_draw() {
+        let mut shell = spectating_shell();
+        assert!(!shell.key_pressed(Key::N, Modifiers::NONE));
+        shell.map_control_available = true;
+        assert!(shell.key_pressed(Key::N, Modifiers::NONE));
+        assert!(!shell.panel_prefs().map_control);
+    }
+
+    #[test]
+    fn the_graphs_key_walks_the_series_and_then_closes_the_panel() {
+        let mut shell = spectating_shell();
+        shell.set_panel_prefs(PanelPrefs {
+            graphs: false,
+            graph_series: GraphSeries::Kills,
+            ..PanelPrefs::default()
+        });
+
+        // Opening the panel starts the walk over rather than resuming where it was left: the key
+        // that opens it is the key that moves it, so a watcher pressing it twice expects the second
+        // measurement rather than the last one they happened to stop on.
+        assert!(shell.key_pressed(Key::G, Modifiers::NONE));
+        assert!(shell.panel_prefs().graphs);
+        assert_eq!(shell.panel_prefs().graph_series, GraphSeries::default());
+
+        for expected in GraphSeries::ALL.into_iter().skip(1) {
+            assert!(shell.key_pressed(Key::G, Modifiers::NONE));
+            assert_eq!(shell.panel_prefs().graph_series, expected);
+            assert!(shell.panel_prefs().graphs);
+        }
+        assert!(shell.key_pressed(Key::G, Modifiers::NONE));
+        assert!(!shell.panel_prefs().graphs);
+    }
+
+    #[test]
+    fn the_per_player_graphs_chord_waits_for_the_team_panels() {
+        let mut shell = spectating_shell();
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::NONE
+        };
+        let before = *shell.panel_prefs();
+        assert!(!shell.key_pressed(Key::G, shift));
+        assert_eq!(*shell.panel_prefs(), before);
+    }
+
+    #[test]
+    fn the_stats_wings_answer_their_own_keys() {
+        let mut shell = spectating_shell();
+        type IsShown = fn(&PanelPrefs) -> bool;
+        let wings: [(Key, IsShown); 3] = [
+            (Key::E, |prefs| prefs.economy),
+            (Key::M, |prefs| prefs.military),
+            (Key::T, |prefs| prefs.timeline),
+        ];
+        for (key, is_shown) in wings {
+            assert!(is_shown(shell.panel_prefs()));
+            assert!(shell.key_pressed(key, Modifiers::NONE));
+            assert!(!is_shown(shell.panel_prefs()), "{key:?} moved nothing");
         }
     }
 

@@ -7,6 +7,7 @@
 //! so the policy the shell derives from them can be walked through without a game.
 
 use egui::Ui;
+use overlay_ui::observer::GraphSeries;
 use overlay_ui::shell::{HostFrame, Mode, NativeDialog, Panel, PanelPrefs, Shell};
 use serde::{Deserialize, Serialize};
 
@@ -181,6 +182,17 @@ pub fn knobs_ui(knobs: &mut Knobs, shell: &mut Shell, ui: &mut Ui) -> bool {
     {
         prefs_changed = true;
     }
+    ui.horizontal(|ui| {
+        ui.label("graph series:");
+        for series in GraphSeries::ALL {
+            if ui
+                .selectable_value(&mut prefs.graph_series, series, series.label())
+                .changed()
+            {
+                prefs_changed = true;
+            }
+        }
+    });
     if prefs_changed {
         shell.set_panel_prefs(prefs);
         changed = true;

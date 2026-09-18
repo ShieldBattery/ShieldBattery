@@ -37,6 +37,7 @@ use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
 use crate::bw_scr::draw_inject::warn_once;
+use crate::bw_scr::game_stats::GameStats;
 use crate::bw_scr::scr::SafeBwString;
 use crate::forge::window_client_center;
 use crate::game_state::JoinedPlayer;
@@ -60,6 +61,7 @@ mod draw_inject;
 mod draw_overlay;
 mod file_hook;
 mod game;
+mod game_stats;
 mod pe_image;
 mod replay_save;
 mod replay_transport;
@@ -375,6 +377,9 @@ pub struct BwScr {
     detection_status_copy: Mutex<Vec<u32>>,
     render_state: RecurseCheckedMutex<RenderState>,
     apm_state: RecurseCheckedMutex<ApmStats>,
+    /// The per-second history the observer panels' rates, graphs and timeline are built from.
+    /// Sampled from the simulation step so a replay seeking backwards rebuilds it exactly.
+    game_stats: RecurseCheckedMutex<GameStats>,
     /// Keeps track of what game_screen_height_ratio was originally.
     /// (It depends a bit on what console the player uses)
     original_game_screen_height_ratio: AtomicU32,
@@ -1872,6 +1877,7 @@ impl BwScr {
                 debug_statbtn_dialog_offset: (0, 0),
             }),
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
+            game_stats: RecurseCheckedMutex::new(GameStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
             minimap_hidden_state: AtomicBool::new(false),
@@ -2151,6 +2157,7 @@ impl BwScr {
                         apm.new_frame();
                     }
                     orig();
+                    self.sample_game_stats();
                     game_thread::after_step_game();
                     self.update_team_colors_from_alliances();
                 },
@@ -2846,6 +2853,11 @@ impl BwScr {
                         let countdown_start = *self.countdown_start.lock();
                         let apm_guard = self.apm_state.lock();
                         let apm = apm_guard.as_deref();
+                        // The simulation step that fills this has returned by the time a frame is
+                        // drawn, so the lock is never contended; `None` here is a re-entrant draw,
+                        // which reports the game as it was before its first second.
+                        let game_stats_guard = self.game_stats.lock();
+                        let game_stats = game_stats_guard.as_deref();
                         let size = ((*render_target.bw).width, (*render_target.bw).height);
                         // A snapshot of who has lost connection, for the survivor overlay. `None`
                         // (a replay, or a re-entrant lock) renders as an all-healthy status.
@@ -2886,6 +2898,7 @@ impl BwScr {
                                     replay,
                                 },
                                 apm,
+                                game_stats,
                                 size,
                                 game_thread::setup_info(),
                                 &disconnect_status,
@@ -5112,6 +5125,33 @@ impl BwScr {
             .store(false, Ordering::Relaxed);
         if let Some(mut apm) = self.apm_state.lock() {
             *apm = ApmStats::new();
+        }
+        // A replay seeking backwards re-simulates from frame 0, so the history is rebuilt from
+        // there; one kept across the seek would hold every second of the game twice.
+        if let Some(mut stats) = self.game_stats.lock() {
+            stats.clear();
+        }
+    }
+
+    /// Advances the observer panels' history by whatever the simulation step just did.
+    ///
+    /// Sampled after the step rather than before it, so a sample is what the frame ended as. Only
+    /// while the local client is watching rather than playing: nothing else reads the history, and
+    /// a player's own game should not pay for it.
+    fn sample_game_stats(&self) {
+        if !self.game_started.load(Ordering::Acquire) || !self.is_replay_or_obs() {
+            return;
+        }
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return;
+            }
+            let game = bw_dat::Game::from_ptr(game);
+            let active_units = self.active_units();
+            if let Some(mut stats) = self.game_stats.lock() {
+                stats.step(game, active_units);
+            }
         }
     }
 

@@ -21,6 +21,7 @@ use winapi::shared::windef::{HWND, POINT};
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
+use crate::bw_scr::game_stats::GameStats;
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::{BwCursorType, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, NetStatsStatus};
@@ -37,6 +38,7 @@ mod disconnect;
 mod loading_screen;
 mod netstat;
 mod production;
+mod stats;
 
 pub struct OverlayState {
     ctx: egui::Context,
@@ -272,6 +274,7 @@ impl OverlayState {
         &mut self,
         bw: &BwVars,
         apm: Option<&ApmStats>,
+        game_stats: Option<&GameStats>,
         screen_size: (u32, u32),
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
@@ -425,9 +428,20 @@ impl OverlayState {
         // Built for every frame the client is watching rather than playing, whether or not any
         // panel is on screen: the keys that show them arrive between frames, and only the shell
         // knows which of them the watcher has hidden.
-        let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| ObserverView {
-            matchup: self.build_matchup_view(bw, apm),
-            production: self.build_production_view(bw),
+        let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
+            let players = stats::stats_players(bw);
+            let series = self.shell.panel_prefs().graph_series;
+            ObserverView {
+                matchup: self.build_matchup_view(bw, apm),
+                economy: stats::build_economy_view(&players, game_stats),
+                military: stats::build_military_view(&players, game_stats),
+                graphs: stats::build_graphs_view(bw, &players, game_stats, series),
+                timeline: stats::build_timeline_view(bw, &players, game_stats),
+                production: self.build_production_view(bw),
+                // The game keeps no measurement of who holds the map, and one invented here would
+                // be a claim rather than a reading. The bar is simply not drawn until there is one.
+                map_control: None,
+            }
         });
         // Built for every frame of a replay whether or not the plate is on screen: the transport
         // keys keep working with it hidden, and only the shell knows whether the player hid it.
@@ -1130,7 +1144,7 @@ fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
 
 /// The game speed a live game is played at, which is what turns its frame count into the clock the
 /// matchup bar shows. A replay carries its own recorded speed instead.
-const FASTEST_GAME_SPEED: u8 = 6;
+pub const FASTEST_GAME_SPEED: u8 = 6;
 
 /// Reads one player's half of the matchup bar off the game.
 unsafe fn matchup_player_view(

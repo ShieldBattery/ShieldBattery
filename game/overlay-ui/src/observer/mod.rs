@@ -10,22 +10,36 @@
 //! shell decides which of them are on screen and what a click on one asks of the game.
 
 mod dock;
+mod economy;
+mod graphs;
+mod map_control;
 mod matchup;
+mod military;
 mod production;
+mod timeline;
 
 pub use dock::{DockOutcome, render_obs_dock};
+pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
+pub use graphs::{GraphLineView, GraphSeries, GraphsView, render_graphs_view};
+pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view};
+pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     render_production_view,
 };
+pub use timeline::{TimelineEventKind, TimelineEventView, TimelineView, render_timeline_view};
 
-use egui::{Align, Color32, Rect, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{
+    Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
+    pos2, vec2,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::colors::{PROTOSS, RANDOM, TERRAN, ZERG};
 use crate::kit::text::TextSpec;
-use crate::kit::theme;
+use crate::kit::widgets::{self, ResourceGlyph};
+use crate::kit::{motion, text, theme, tiers};
 use crate::tr;
 
 /// Everything the observer panels draw from this frame.
@@ -35,7 +49,15 @@ use crate::tr;
 /// them the watcher has hidden.
 pub struct ObserverView {
     pub matchup: MatchupView,
+    pub economy: EconomyView,
+    pub military: MilitaryView,
+    pub graphs: GraphsView,
+    pub timeline: TimelineView,
     pub production: ProductionView,
+    /// How much of the map each side holds, or `None` while the game has no such measurement to
+    /// report. The bar is not drawn at all without one: a share bar with nothing behind it would
+    /// read as a game where neither side holds anything.
+    pub map_control: Option<MapControlView>,
 }
 
 /// The race a player is playing, which decides the color and the letter of their chip.
@@ -259,6 +281,152 @@ impl EdgeCursor {
 /// The same rect, inset vertically to `height` about its own middle.
 pub(crate) fn centred(rect: Rect, height: f32) -> Rect {
     Rect::from_center_size(rect.center(), vec2(rect.width(), height))
+}
+
+/// Which edge of the screen a stats wing hangs off.
+///
+/// The wings are placed against the screen's own edges rather than at the absolute coordinates the
+/// design card draws them at, so a 4:3 screen and an ultrawide one both keep them out of the middle
+/// where the game is being played.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(crate) enum Wing {
+    Left,
+    Right,
+}
+
+/// How far a wing sits from the edge it hangs off.
+pub(crate) const WING_MARGIN: f32 = 16.0;
+
+/// How much of the right edge the obs dock owns, which the wings on that side stop short of.
+///
+/// Reserved at the dock's collapsed width, which is the form a watcher leaves it in all game: a
+/// panel running under that column would have its last values covered by a control rather than by
+/// a surface. The rail the dock expands into is allowed to sit over the panels, because it is
+/// something the watcher has just opened and is reading rather than something in their way.
+pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
+
+/// Height of one player's row in a stats wing.
+pub(crate) const STAT_ROW_HEIGHT: f32 = 24.0;
+
+/// Gap between two players' rows.
+pub(crate) const STAT_ROW_GAP: f32 = 4.0;
+
+/// Height of the row of column headings over the players' rows.
+pub(crate) const STAT_HEADING_HEIGHT: f32 = 14.0;
+
+/// Width of the bar of the player's own color that leads their row.
+pub(crate) const STAT_COLOR_BAR: f32 = 4.0;
+
+/// Size of a resource glyph in a stats wing, and the gap between it and the number it names.
+pub(crate) const STAT_GLYPH: f32 = 12.0;
+pub(crate) const STAT_GLYPH_GAP: f32 = 5.0;
+
+/// Text size of a number in a stats wing. Smaller than the matchup bar's, which is read at a glance
+/// from across a room; these are read by someone who went looking for them.
+pub(crate) const STAT_VALUE_SIZE: f32 = 17.0;
+
+/// Text size of a player's name in a stats wing.
+pub(crate) const STAT_NAME_SIZE: f32 = 14.0;
+
+/// Draws one of the stats wings: an ambient panel of a fixed width, hung off one edge of the screen
+/// at a fixed height, fading and sliding in and out. Returns nothing at all once it is gone.
+///
+/// The wings are sized from the outside in, because the design places their outer edges on a grid;
+/// egui sizes a panel from its contents out, so the width given here is the panel's and the width
+/// its contents get is what is left of it inside the chrome.
+pub(crate) fn wing_panel<R>(
+    ctx: &Context,
+    id: Id,
+    wing: Wing,
+    top: f32,
+    width: f32,
+    shown: bool,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> Option<InnerResponse<R>> {
+    let (align, offset_x) = match wing {
+        Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
+        Wing::Right => (Align2::RIGHT_TOP, -(WING_MARGIN + DOCK_RESERVE)),
+    };
+    let area = Area::new(id)
+        .anchor(align, vec2(offset_x, top))
+        .order(Order::Foreground);
+    motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
+        tiers::tier0_panel(ui, |ui| {
+            // The rows are stacked by the gaps each panel writes and by nothing else: these are
+            // fixed layouts, and egui's own item spacing would add to every one of them.
+            ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+            ui.set_width(tiers::panel_content_width(width));
+            add(ui)
+        })
+        .inner
+    })
+}
+
+/// Paints one heading over a column of values, aligned the way the column's values are.
+pub(crate) fn paint_column_heading(ui: &Ui, rect: Rect, label: &str, align: Align) {
+    paint_text(ui, rect, &text::column_label(), label, align);
+}
+
+/// Paints one resource cell of a stats wing: the glyph that says which resource, then the number.
+pub(crate) fn paint_resource_value(
+    ui: &Ui,
+    rect: Rect,
+    glyph: ResourceGlyph,
+    value: &str,
+    alpha: f32,
+) {
+    let glyph_rect = centred(
+        Rect::from_min_max(
+            rect.left_top(),
+            pos2(rect.left() + STAT_GLYPH, rect.bottom()),
+        ),
+        STAT_GLYPH,
+    );
+    widgets::paint_resource_glyph(ui.painter(), glyph_rect, glyph, alpha);
+    let value_rect = Rect::from_min_max(
+        pos2(glyph_rect.right() + STAT_GLYPH_GAP, rect.top()),
+        rect.right_bottom(),
+    );
+    paint_text(
+        ui,
+        value_rect,
+        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+        value,
+        Align::RIGHT,
+    );
+}
+
+/// Paints what leads a player's row in a stats wing: the bar of their own color, then their name.
+///
+/// Both cells are taken from `cursor`, so a wing's columns are placed by one walk across the row and
+/// the identity block cannot drift from the values beside it.
+pub(crate) fn paint_stat_identity(
+    ui: &Ui,
+    cursor: &mut EdgeCursor,
+    gap: f32,
+    name_width: f32,
+    name: &str,
+    color: Color32,
+    alpha: f32,
+) {
+    let bar = cursor.take(STAT_COLOR_BAR);
+    paint_player_bar(
+        ui,
+        centred(bar, bar.height() - theme::SPACE_XS),
+        color,
+        // The color bar keeps more of itself than the rest of a vision-less row: it is what says
+        // whose row this is, and two rows dimmed alike are hard to tell apart at a glance.
+        if alpha < 1.0 { 0.5 } else { 1.0 },
+    );
+    cursor.skip(gap);
+    let name_rect = cursor.take(name_width);
+    paint_text(
+        ui,
+        name_rect,
+        &text::player_name(STAT_NAME_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+        name,
+        Align::LEFT,
+    );
 }
 
 #[cfg(test)]

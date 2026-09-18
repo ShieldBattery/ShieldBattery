@@ -8,6 +8,7 @@ use overlay_ui::observer::{
 };
 
 use crate::bw;
+use crate::bw_scr::game_stats::TimelineSubject;
 
 use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
 
@@ -369,6 +370,19 @@ fn research_completion(unit: Unit, time: u32) -> Progress {
         pos: time.saturating_sub(remaining),
         end: time,
     }
+}
+
+/// Which frame of the game's own command-icon atlas stands for something the timeline is about.
+///
+/// The timeline names a unit, an upgrade or a technology by the same icon the production panel draws
+/// for it, so the two surfaces never show the same thing two different ways.
+pub fn timeline_icon(subject: TimelineSubject, is_hd: bool) -> ProductionIcon {
+    let production = match subject {
+        TimelineSubject::Unit(id) => Production::Unit(id),
+        TimelineSubject::Upgrade(id) => Production::Upgrade(id),
+        TimelineSubject::Tech(id) => Production::Tech(id),
+    };
+    production_icon(production, is_hd)
 }
 
 /// Which frame of the game's own command-icon atlas stands for a production, and the texture id the
