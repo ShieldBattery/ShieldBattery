@@ -4,6 +4,7 @@
 //! and stacking two of them would hide whichever anchors to the same corner.
 
 pub mod disconnect;
+pub mod kitchen_sink;
 pub mod netstat;
 
 use egui::Context;
@@ -17,15 +18,21 @@ pub enum ScenarioKind {
     #[default]
     Disconnect,
     NetStat,
+    KitchenSink,
 }
 
 impl ScenarioKind {
-    pub const ALL: [ScenarioKind; 2] = [ScenarioKind::Disconnect, ScenarioKind::NetStat];
+    pub const ALL: [ScenarioKind; 3] = [
+        ScenarioKind::Disconnect,
+        ScenarioKind::NetStat,
+        ScenarioKind::KitchenSink,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             ScenarioKind::Disconnect => "Disconnect",
             ScenarioKind::NetStat => "Network stats",
+            ScenarioKind::KitchenSink => "Kitchen sink",
         }
     }
 
@@ -34,6 +41,7 @@ impl ScenarioKind {
         match self {
             ScenarioKind::Disconnect => "disconnect",
             ScenarioKind::NetStat => "netstat",
+            ScenarioKind::KitchenSink => "kitchen-sink",
         }
     }
 }
@@ -43,6 +51,7 @@ impl ScenarioKind {
 pub enum Preset {
     Disconnect(disconnect::Preset),
     NetStat(netstat::Preset),
+    KitchenSink(kitchen_sink::Preset),
 }
 
 impl Preset {
@@ -50,6 +59,7 @@ impl Preset {
         match self {
             Preset::Disconnect(_) => ScenarioKind::Disconnect,
             Preset::NetStat(_) => ScenarioKind::NetStat,
+            Preset::KitchenSink(_) => ScenarioKind::KitchenSink,
         }
     }
 
@@ -57,6 +67,7 @@ impl Preset {
         match self {
             Preset::Disconnect(preset) => preset.label(),
             Preset::NetStat(preset) => preset.label(),
+            Preset::KitchenSink(preset) => preset.label(),
         }
     }
 
@@ -66,6 +77,7 @@ impl Preset {
         match self {
             Preset::Disconnect(preset) => preset.apply(&mut knobs.disconnect),
             Preset::NetStat(preset) => preset.apply(&mut knobs.netstat),
+            Preset::KitchenSink(preset) => preset.apply(&mut knobs.kitchen_sink),
         }
     }
 }
@@ -76,6 +88,11 @@ pub fn all_presets() -> Vec<Preset> {
         .into_iter()
         .map(Preset::Disconnect)
         .chain(netstat::Preset::ALL.into_iter().map(Preset::NetStat))
+        .chain(
+            kitchen_sink::Preset::ALL
+                .into_iter()
+                .map(Preset::KitchenSink),
+        )
         .collect()
 }
 
@@ -102,6 +119,10 @@ pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context) -> Outcome {
         },
         ScenarioKind::NetStat => {
             netstat::render(&knobs.netstat, ctx);
+            Outcome::default()
+        }
+        ScenarioKind::KitchenSink => {
+            kitchen_sink::render(&knobs.kitchen_sink, ctx);
             Outcome::default()
         }
     }
@@ -131,6 +152,9 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
             disconnect::knobs_ui(&mut knobs.disconnect, &mut state.disconnect, ui)
         }
         ScenarioKind::NetStat => netstat::knobs_ui(&mut knobs.netstat, ui),
+        ScenarioKind::KitchenSink => {
+            kitchen_sink::knobs_ui(&mut knobs.kitchen_sink, &mut knobs.screen.compact_ramp, ui)
+        }
     };
     changed
 }

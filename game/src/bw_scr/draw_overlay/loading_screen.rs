@@ -5,7 +5,7 @@ use egui_flex::{Flex, FlexAlign, FlexInstance};
 use crate::{
     app_messages::{GameSetupInfo, GameType, MapInfo, PlayerInfo, SbSlotType, SbUser},
     bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
-    bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
+    bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display},
 };
 
 const MAP_IMAGE_SIZE: Vec2 = Vec2::new(640.0, 640.0);
@@ -166,7 +166,7 @@ impl OverlayState {
                                                     RichText::new(map_name.unwrap_or(""))
                                                         .size(28.0)
                                                         .color(colors::GREY99)
-                                                        .family(display_family()),
+                                                        .family(display()),
                                                 ),
                                             );
                                         });
@@ -219,7 +219,7 @@ impl OverlayState {
                                             RichText::new(text)
                                                 .size(56.0)
                                                 .color(colors::GREY99)
-                                                .family(display_family()),
+                                                .family(display()),
                                         ),
                                     );
                                 },
@@ -302,7 +302,7 @@ impl OverlayState {
                                     RichText::new(username)
                                         .size(28.0)
                                         .color(colors::GREY99)
-                                        .family(display_family()),
+                                        .family(display()),
                                 );
                             });
                         };
