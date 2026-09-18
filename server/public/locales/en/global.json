@@ -234,6 +234,7 @@
   },
   "chat": {
     "activity": {
+      "playingFor": "Playing for {{duration}}",
       "showLess": "Show less",
       "showMore_one": "Show {{count}} more",
       "showMore_other": "Show {{count}} more",

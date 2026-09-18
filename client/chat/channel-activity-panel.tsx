@@ -195,10 +195,11 @@ const PanelTitle = styled.div`
 `
 
 // An entry is laid out like a chat message: the avatar in a gutter, the member's name on the first
-// line with a status marker at the far right, and the activity's details on their own lines under
-// the name, so a stream title or map name gets a full line instead of sharing one with a number.
-// The gutter (8px padding + 32px avatar + 16px gap) is the roster row's, so names here line up
-// with the names in the list beneath the panel.
+// line with a status marker (LIVE, IN GAME) at the far right, then one muted line for what they're
+// doing and one small line for how it's going (viewers, time played). The name and the marker are
+// the only emphasized things, so a glance answers "who" and "what kind of activity" first. The
+// gutter (8px padding + 32px avatar + 16px gap) is the roster row's, so names here line up with
+// the names in the list beneath the panel.
 const activityEntry = css`
   flex-shrink: 0;
   padding: 8px;
@@ -262,19 +263,14 @@ const EntryName = styled.div`
   line-height: 20px;
 `
 
-// What the member is doing (a stream's title, a game's map), in the body size and color so it
-// reads as content rather than as a caption. Stream titles get two lines before truncating.
+// What the member is doing (a stream's title, a game's mode and map): one muted line, truncated,
+// so it supports the name rather than competing with it.
 const EntryDetail = styled.div`
   ${inter};
   ${bodyMedium};
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
+  ${singleLine};
 
-  color: var(--theme-on-surface);
+  color: var(--theme-on-surface-variant);
 `
 
 const MetaLine = styled.div`
@@ -291,9 +287,8 @@ const MetaLine = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const MetaIcon = styled(MaterialIcon)<{ $color?: string }>`
+const MetaIcon = styled(MaterialIcon)`
   flex-shrink: 0;
-  color: ${props => props.$color ?? 'inherit'};
 `
 
 // `singleLine`'s ellipsis only applies to a block's own inline content, so the text needs its own
@@ -307,13 +302,20 @@ const EntryLiveLabel = styled(LiveLabel)`
   flex-shrink: 0;
 `
 
-const Elapsed = styled.span`
-  ${inter};
-  ${bodySmall};
+// The game counterpart of the LIVE label: the friends list's "In game" glyph, color and wording,
+// set like `LiveLabel` so the two markers read as the same kind of thing.
+const InGameLabel = styled.div<{ $color: string }>`
+  ${labelMedium};
   flex-shrink: 0;
 
-  color: var(--theme-on-surface-variant);
-  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  color: ${props => props.$color};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
 `
 
 function StreamEntry({ entry }: { entry: StreamActivityEntry }) {
@@ -356,12 +358,21 @@ function GameEntry({ entry }: { entry: GameActivityEntry }) {
       <EntryBody>
         <EntryHeader>
           <EntryName>{entry.members.map(m => m.name).join(', ')}</EntryName>
-          <Elapsed>{elapsed}</Elapsed>
+          {inGame ? (
+            <InGameLabel $color={inGame.color}>
+              <MaterialIcon icon={inGame.icon} size={14} />
+              {inGame.label}
+            </InGameLabel>
+          ) : null}
         </EntryHeader>
-        <EntryDetail>{entry.mapName}</EntryDetail>
+        <EntryDetail>
+          {matchmakingTypeToLabel(entry.matchmakingType, t)} · {entry.mapName}
+        </EntryDetail>
         <MetaLine>
-          {inGame ? <MetaIcon icon={inGame.icon} size={14} $color={inGame.color} /> : null}
-          <MetaText>{matchmakingTypeToLabel(entry.matchmakingType, t)}</MetaText>
+          <MetaIcon icon='schedule' size={14} />
+          <MetaText>
+            {t('chat.activity.playingFor', 'Playing for {{duration}}', { duration: elapsed })}
+          </MetaText>
         </MetaLine>
       </EntryBody>
     </GameEntryRoot>
