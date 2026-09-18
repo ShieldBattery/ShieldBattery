@@ -141,6 +141,10 @@ consistent. (Seed — extend over time.)
   unclean netstat departure→Caído vs a deliberate one→Salió, relay→relay, buffer→buffer, a network
   turn→turno. Race chips: **T / Z / P / A** (Aleatoria). Dock preset names must differ in their
   *first* letter — the collapsed dock shows only that letter (Mínimo / Estándar / Analista).
+- **Observer team cards / graphs:** minerals column→**Min.** (mirrors the in-file "Efic."
+  abbreviation), gas→Gas, supply→**Suministros** (~82 px in the 96 px column), control
+  groups→**Grupos de control**, the grouped graph titles are "{{series}} por equipo" /
+  "{{series}} por jugador", team name→**Equipo {{number}}** (matches `game.teamName.number`).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -217,6 +221,11 @@ consistent. (Seed — extend over time.)
   a network turn→**ход**, stall→Ст60 / Всего. The disconnect row's peer state is
   **Подключается** (the noun Переподключение is 25 % too wide for the column); our own status line
   keeps Переподключение. The chat-scope chip is **Своим** (72 px; Союзники elides).
+- **Observer team cards / graphs:** minerals column→**Мин**, gas→**Газ** (what players say; the
+  export's «веспен» is the flavour name and the column is the generic one), supply→Припасы
+  (matches `seriesSupply`), control groups→**Группы юнитов** — «Контрольные группы» lays out at
+  ~135 px and the dock's label slot is 132 px, so it would elide. Grouped graph titles
+  "{{series}} по командам" / "{{series}} по игрокам"; team name→**Команда {{number}}**.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -296,6 +305,11 @@ consistent. (Seed — extend over time.)
   one→나감, relay→릴레이, a network turn→턴. Race chips are single syllables from the SC:R export:
   **테 / 저 / 프 / 무**. Dock preset names must differ in their *first* syllable — the collapsed
   dock shows only that character (최소 / 표준 / 분석).
+- **Observer team cards / graphs:** minerals→미네랄, gas→가스, supply→**보급품** (matches
+  `seriesSupply`; the community's 인구 was passed over to keep the file consistent), control
+  groups→**부대 지정** (Blizzard's Korean name for the feature). Grouped graph titles are
+  modifier-first: **팀별 {{series}} / 플레이어별 {{series}}** (player→플레이어, matching
+  `netstat.columnPlayer`). Team name→**{{number}} 팀** (matches `game.teamName.number`).
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -364,3 +378,7 @@ consistent. (Seed — extend over time.)
   one→已离开, relay→中继, a network turn→回合. Race chips are one character from the SC:R
   export: **人 / 虫 / 星 / 随**. Dock preset names must differ in their *first* character — the
   collapsed dock shows only that one (精简 / 标准 / 分析).
+- **Observer team cards / graphs:** the resource columns are a parallel two-character set
+  **晶矿 / 瓦斯 / 补给** (补给 matches `seriesSupply`), control groups→**编队**, grouped graph
+  titles→**各队{{series}} / 各玩家{{series}}**, team name→**{{number}}队** (matches
+  `game.teamName.number`).
