@@ -5,6 +5,9 @@ minimumReleaseAge: 10080
 # first-party packages we publish ourselves don't need the quarantine
 minimumReleaseAgeExclude:
   - '@shieldbattery/broodrep'
+  # dev-only translation extractor, exact-pinned; its releases are frequent and never reach
+  # production
+  - 'i18next-cli'
 
 overrides:
   '@types/node': 24.13.3

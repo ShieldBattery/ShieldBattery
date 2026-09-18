@@ -6,7 +6,7 @@
  *   - finding orphan keys present in a target language but no longer in `en`
  *   - validating that translations preserve `{{interpolations}}` and `<0>` Trans tags
  *   - merging translated values back in, then re-sorting/re-formatting to match the
- *     output `i18next-parser` produces for `en` (2-space indent, LF, alphabetical sort)
+ *     output `i18next-cli` produces for `en` (2-space indent, LF, alphabetical sort)
  *
  * The agent's only job is to produce translation *values*; everything else is here so it's
  * reproducible and can't silently corrupt a file.
@@ -61,7 +61,8 @@ function readLocale(lang: string): LocaleObject {
 }
 
 /**
- * Reproduces `i18next-parser`'s default key sort (see `makeDefaultSort` in its helpers) so our
+ * Reproduces the extractor's default key sort (i18next-parser's `makeDefaultSort`, which
+ * `i18next-cli` with `sort: true` matches byte for byte) so our
  * output ordering matches what `pnpm gen-translations` produces. Keys are compared by their
  * singular form via `localeCompare(_, 'en')`; plural variants that share a singular form are ordered
  * by canonical plural-suffix position (zero < one < two < few < many < other).
@@ -87,8 +88,8 @@ export function compareKeys(a: string, b: string): number {
 }
 
 /**
- * Recursively sorts object keys (matching i18next-parser) and serializes with 2-space indent + a
- * trailing newline. This reproduces what `i18next-parser` (sort: true, lineEnding: lf) writes for
+ * Recursively sorts object keys (matching i18next-cli) and serializes with 2-space indent + a
+ * trailing newline. This reproduces what `i18next-cli` (sort: true) writes for
  * `en`, so applying changes never reformats the whole file.
  */
 export function serializeLocale(obj: LocaleObject): string {

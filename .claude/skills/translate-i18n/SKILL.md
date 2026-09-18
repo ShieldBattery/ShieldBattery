@@ -31,7 +31,7 @@ The script:
 - resolves the correct **plural forms per language** from `Intl.PluralRules` (the same CLDR data
   i18next uses at runtime)
 - validates that your translations preserve every `{{interpolation}}` and `<0>` Trans tag
-- merges your translations back in and re-sorts/re-formats to exactly match the parser's output
+- merges your translations back in and re-sorts/re-formats to exactly match the extractor's output
 
 Your job is only to produce good translation **values**.
 
@@ -60,7 +60,7 @@ Do one language at a time, start to finish.
 
 The non-`en` files were last written by Weblate using a different indent (4-space) and sort order.
 The first time you touch a language, its diff will be huge because the script re-formats it to match
-the parser. To keep translation diffs reviewable, do the reformat as its own commit first:
+the extractor. To keep translation diffs reviewable, do the reformat as its own commit first:
 
 ```bash
 pnpm run i18n normalize es   # (and ko, ru, zh-Hans)

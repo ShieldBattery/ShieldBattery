@@ -21,7 +21,7 @@ import {
   tokensEqual,
 } from './i18n-translate'
 
-describe('compareKeys (i18next-parser-compatible sort)', () => {
+describe('compareKeys (i18next-cli-compatible sort)', () => {
   test('sorts case-insensitively, not by code unit', () => {
     // Real case from en/global.json: "reportedAPM" must come before "reportTitle".
     expect(compareKeys('reportedAPM', 'reportTitle')).toBeLessThan(0)

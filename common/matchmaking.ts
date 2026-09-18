@@ -58,7 +58,7 @@ export interface MatchmakingModeInfo {
   supportsAlternateRace: boolean
   /**
    * Returns the mode's localized display label. Written as an inline `t()` call with a string-literal
-   * key so i18next-parser can statically extract it — a dynamic `t(key)` is invisible to the
+   * key so the translation extractor (i18next-cli) can statically extract it — a dynamic `t(key)` is invisible to the
    * extractor, which (with `keepRemoved: false`) would drop the key from the catalog.
    */
   label: (t: TFunction) => string

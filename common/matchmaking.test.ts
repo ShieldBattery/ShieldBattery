@@ -198,7 +198,7 @@ describe('common/matchmaking', () => {
       )
     })
 
-    it('looks up labels by the expected i18n keys (kept extractable for i18next-parser)', () => {
+    it('looks up labels by the expected i18n keys (kept extractable for i18next-cli)', () => {
       // A `t` that echoes its key so we assert the exact key each mode resolves to.
       const echoKey = ((key: string) => key) as any
       expect(matchmakingTypeToLabel(MatchmakingType.Match1v1, echoKey)).toBe('matchmaking.type.1v1')

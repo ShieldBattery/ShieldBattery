@@ -44,7 +44,7 @@ jobs:
 
       - name: Check translation files
         id: check-translation-files
-        run: pnpm gen-translations:app --fail-on-update && pnpm gen-translations:email --fail-on-update
+        run: pnpm gen-translations:app --ci && pnpm gen-translations:email --ci
 
       - name: Display translation error
         if: ${{ failure() && steps.check-translation-files.conclusion == 'failure' }}

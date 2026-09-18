@@ -6,7 +6,7 @@ import { GameServerRegion } from '../../common/game-server-regions'
  * region id. Region ids are opaque server-provided strings, so this list can't be exhaustive by
  * construction — a region with no entry here falls back to its coordinator-served `displayName`
  * (English) until an entry is added. Written as inline `t()` calls with string-literal keys so
- * i18next-parser can statically extract them — a dynamic `t(key)` is invisible to the extractor,
+ * the translation extractor (i18next-cli) can statically extract them — a dynamic `t(key)` is invisible to the extractor,
  * which (with `keepRemoved: false`) would drop the keys from the catalog.
  */
 const LOCALIZED_REGION_NAMES: ReadonlyMap<string, (t: TFunction) => string> = new Map([

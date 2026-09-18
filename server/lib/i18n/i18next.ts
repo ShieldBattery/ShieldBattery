@@ -14,7 +14,7 @@ import {
 import logger from '../logging/logger'
 import { validateRequest } from '../validation/joi-validator'
 
-// NOTE(tec27): This sorting code matches what's in i18next-parser, it'd be nice if they exported it
+// NOTE(tec27): This sorting code matches what's in i18next-cli (and i18next-parser before it), it'd be nice if they exported it
 // but alas...
 const PLURAL_SEPARATOR = '_'
 const pluralSuffixes = ['zero', 'one', 'two', 'few', 'many', 'other']
@@ -41,7 +41,7 @@ function defaultSort(key1: string, key2: string): number {
     return getPluralSuffixPosition(key1) - getPluralSuffixPosition(key2)
   }
 
-  // NOTE(tec27): localeCompare is bad to use here but this is what i18next-parser does so match
+  // NOTE(tec27): localeCompare is bad to use here but this is what i18next-cli does so match
   // it. Hopefully they will fix this one day
   return singularKey1.localeCompare(singularKey2)
 }

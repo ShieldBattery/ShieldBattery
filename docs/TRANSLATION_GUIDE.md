@@ -20,7 +20,7 @@ for itself (see [Reviewing & contributing](#reviewing--contributing) below).
   ([tools/i18n-translate.ts](../tools/i18n-translate.ts)) owns all the mechanical JSON work so a
   translation can never silently corrupt a file: it finds missing/stale/orphaned keys, enforces
   plural correctness and placeholder/tag preservation, looks up glossary terms, and re-formats output
-  to match the parser exactly.
+  to match the extractor exactly.
 
 ## Quick start
 
@@ -71,7 +71,7 @@ Run from the repo root.
 | `pnpm run i18n terms <lang> <query>` | Look up Blizzard-matched glossary terms |
 | `pnpm run i18n stale [lang] [outFile]` | Find translations whose English source changed (`--since <ref>`) |
 | `pnpm run i18n prune <lang>` | Delete orphaned keys no longer present in `en` |
-| `pnpm run i18n normalize <lang>` | Reformat a file (indent/sort) to match the parser, no content change |
+| `pnpm run i18n normalize <lang>` | Reformat a file (indent/sort) to match the extractor, no content change |
 | `pnpm run i18n check <lang>` | Read-only audit: remaining work, orphans, plurals, placeholder drift, format |
 
 The deeper step-by-step workflow lives in the skill itself:
