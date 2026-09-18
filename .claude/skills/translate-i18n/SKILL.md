@@ -49,6 +49,13 @@ pnpm run i18n normalize <lang>             # reformat (indent/sort) only, no con
 pnpm run i18n check <lang>                 # read-only audit: remaining work, orphans, token drift, format
 ```
 
+Namespaces: every command works on one namespace file per language, `global.json` by default
+(the app). Pass `--ns game` (anywhere on the command line) to work on `game.json` instead: the
+in-game UI's strings, which live in the Rust game DLL (`tr!` / `tr_plural!` calls extracted by
+`tools/i18next-rust-plugin.mjs`) and are embedded into the DLL at build time. Do one namespace
+at a time, and treat game strings as in-game HUD/dialog text: short, read at a glance mid-match,
+often in caps labels (which are not uppercased for ko/zh-Hans).
+
 Languages: `es`, `ko`, `ru`, `zh-Hans`. `en` is the source and is never a target. (`en-XA`
 pseudolocale was removed — it's not in `supportedLngs`.)
 
@@ -88,7 +95,7 @@ or, for plurals (note `required` lists exactly the forms this language needs):
   "key": "chat.channelInfoCard.userCount",
   "type": "plural",
   "en": { "one": "{{count}} member", "other": "{{count}} members" },
-  "required": ["one", "few", "many", "other"]   // ru example
+  "required": ["one", "few", "many", "other"], // ru example
 }
 ```
 
@@ -167,9 +174,9 @@ Write a result file mapping each key to its translation:
       "one": "{{count}} участник",
       "few": "{{count}} участника",
       "many": "{{count}} участников",
-      "other": "{{count}} участника"
-    }
-  }
+      "other": "{{count}} участника",
+    },
+  },
 }
 ```
 
@@ -241,7 +248,7 @@ Structural validation (tokens, plurals) says nothing about fit or sense, and thi
 catches things nothing else does: overflow in tight spots, awkward CJK line breaks, spacing at
 digit/hanzi boundaries, convention mismatches against neighboring UI, and **wrong-sense pre-existing
 translations** sitting right next to your new strings (e.g. es rendered the Input settings page as
-"Aporte" — "input" in the *contribution* sense — visible instantly, invisible in the JSON).
+"Aporte" — "input" in the _contribution_ sense — visible instantly, invisible in the JSON).
 
 How to do it cheaply:
 
@@ -253,7 +260,7 @@ How to do it cheaply:
   persists across navigation and exercises the language screen itself. Automation gotchas, learned
   the hard way: at the default 1280-wide viewport the pinned social sidebar overlays the app-bar
   icon buttons, so the gear click is intercepted — `resize 1920 1080` (or close the sidebar) first.
-  And don't pipe `click` output to `/dev/null`: Playwright *tells you* when something "intercepts
+  And don't pipe `click` output to `/dev/null`: Playwright _tells you_ when something "intercepts
   pointer events", and a swallowed error looks exactly like a broken app. For the web client
   there's also a navigation-proof alternative: the initial language comes from
   `navigator.languages` (`client/i18n/language-detector.ts`), so a browser launched with the
@@ -310,7 +317,7 @@ of failing.)
 - Commit suggestion: one commit per language (`"Translate es strings"`), or a normalize commit + a
   translations commit, so review stays manageable.
 - The rendered-UI pass (step 8) is part of the workflow, not optional polish — translations don't
-  affect types or tests, so looking at the screens is the *only* verification they get.
+  affect types or tests, so looking at the screens is the _only_ verification they get.
 - If you're translating a large backlog and want speed, this workflow parallelizes cleanly across
   languages with the Workflow tool (one agent per language, or per batch of keys), but that's an
   explicit opt-in — only do it if the user asks for an orchestrated run.
