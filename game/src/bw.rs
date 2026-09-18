@@ -611,6 +611,45 @@ impl Iterator for FowSpriteIterator {
     }
 }
 
+/// Where the running total of everything a player has ever gathered begins inside `Game`.
+///
+/// `bw_dat` models this pair of arrays as one unnamed filler, so the two accessors below are the
+/// only place their layout is written down. Gas comes first, then minerals, each one word per
+/// player, and neither array holds a pointer, so the offsets are the same on both architectures.
+/// The player's *current* balance is a different pair of arrays entirely, at the very start of the
+/// struct, which `bw_dat` does name.
+const GATHERED_GAS_OFFSET: usize = 0;
+const GATHERED_MINERALS_OFFSET: usize = 0x30;
+
+// The offsets above are relative to the filler, so they are only right as long as the filler is
+// where it was when they were read off the game.
+const _: () = assert!(std::mem::offset_of!(Game, dc60) == 0x60);
+const _: () = assert!(std::mem::offset_of!(Game, dc60) + GATHERED_GAS_OFFSET == 0x60);
+const _: () = assert!(std::mem::offset_of!(Game, dc60) + GATHERED_MINERALS_OFFSET == 0x90);
+
+/// Every mineral this player has ever mined, which only ever climbs.
+///
+/// The number a rate is a derivative of: a bank says what is left after spending, which is not what
+/// an economy produced.
+pub fn gathered_minerals(game: bw_dat::Game, player: u8) -> u32 {
+    gathered(game, GATHERED_MINERALS_OFFSET, player)
+}
+
+/// Every unit of gas this player has ever collected.
+pub fn gathered_gas(game: bw_dat::Game, player: u8) -> u32 {
+    gathered(game, GATHERED_GAS_OFFSET, player)
+}
+
+/// One word of one of the running totals, or zero for a player the arrays have no room for.
+fn gathered(game: bw_dat::Game, offset: usize, player: u8) -> u32 {
+    let start = offset + player as usize * 4;
+    let word = unsafe { (**game).dc60.get(start..start + 4) };
+    match word.and_then(|word| <[u8; 4]>::try_from(word).ok()) {
+        Some(word) => u32::from_ne_bytes(word),
+        None => 0,
+    }
+}
+
 pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
     unsafe {
         let name = &(*player).name;

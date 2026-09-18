@@ -73,12 +73,12 @@ conspicuously plain. Offline renders include one pseudolocale pass per translate
 
 ## The kit
 
-| Module         | What lives there                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kit::theme`   | Every token: colors per tier, text colors, player colors, spacing, radii, hit targets, motion durations, interaction overlays. One unit of the design is one egui point, so these are plain point values — never scale them again.                                                                                                                                                                                                                                                                       |
-| `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                |
-| `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, glowing title), plus the `gradient_round_rect` and chrome shapes they are built from.                                                                                                                                                                                                                                                                   |
-| `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                               |
+| Module         | What lives there                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kit::theme`   | Every token: colors per tier, text colors, player colors, spacing, radii, hit targets, motion durations, interaction overlays. One unit of the design is one egui point, so these are plain point values — never scale them again.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                                                                                                                                                           |
+| `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, glowing title), plus the `gradient_round_rect` and chrome shapes they are built from.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, `paint_resource_glyph` (the mineral / gas / supply glyphs, drawn from paths so they render in a host that cannot reach BW's icon atlases), and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
 
 ## The shell
@@ -115,16 +115,44 @@ hanging off the top edge: two mirrored halves about a middle block holding the c
 a half is `Intent::ToggleVision`, which is how a watcher takes a player's vision; a player whose
 vision is off is dimmed rather than dropped. A game the bar has no halves for — anything but two
 players, until the team cards exist — keeps the middle block alone rather than showing two of four
-players as though they were the game. The **production panel** is the tier-0 strip above the console
-band: a row per player of the things they are making, with a count and a progress bar per tile, and a
-click on a tile is `Intent::SelectProduction`, which the host turns into a selection of whatever is
-making it (asking again walks to the next one). A tile is the one place these panels draw one of the
-game's own icons, so the view carries both the texture id the host mapped and the atlas frame it is;
-a host with no atlas draws the number instead. The **obs dock** is the tier-0 strip on the right
-edge, in two forms of one list: collapsed, a column of keycaps lit for the surfaces that are on;
+players as though they were the game.
+
+Under it hang four **stats wings**, tier-0 panels placed against the screen's own edges rather than
+at absolute coordinates, so other aspect ratios keep them out of the middle. **Economy** (left) and
+**military** (right) are tables of fixed-width columns, one row per player: income per minute in each
+resource, worker count with how many are idle, and resources gathered per worker per minute; army
+value in each resource, and the unit and worker kill-and-loss pairs. **Graphs** (right, under
+military) plots one measurement of the whole game for every player through the kit's `line_plot`, and
+its title is that measurement's name rather than the word "graphs", because the key that opens the
+panel is the key that walks it. **Timeline** (left, under economy) is a fixed six rows of `m:ss` plus
+what happened, newest at the top, naming the thing it is about with the game's own icon rather than
+with a word — the game hands out no readable names for two hundred units, upgrades and technologies.
+The wings on the right stop short of the dock's collapsed column, so a control never covers a number;
+the rail the dock expands into is allowed to sit over them, because that is a surface the watcher has
+just opened. The **map-control bar** is the strip under the matchup bar, and is the one surface drawn
+from a measurement the game does not keep: a host with none reports `None`, and then the bar is not
+drawn, its dock row is not offered and its key is not consumed. It is also not drawn where the wings
+leave no room for it, which is every screen narrower than the design's.
+
+The **production panel** is the tier-0 strip above the console band: a row per player of the things
+they are making, with a count and a progress bar per tile, and a click on a tile is
+`Intent::SelectProduction`, which the host turns into a selection of whatever is making it (asking
+again walks to the next one). A tile is the one place these panels draw one of the game's own icons,
+so the view carries both the texture id the host mapped and the atlas frame it is;
+a host with no atlas draws the number instead — the timeline's icons follow the same rule. The
+**obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
+keycaps lit for the surfaces that are on;
 expanded, the control rail, with the names spelled out and the `Minimal` / `Standard` / `Analyst`
 presets under them. Its list is `Panel::ALL` rather than a list of its own, so a panel built later
 appears there the day its toggle does.
+
+The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
+once per second of game time and keeps two hours of per-player history plus a timeline of what
+changed between two samples. It lives there rather than in the draw path because a replay seeking
+backwards re-runs every frame at full speed with nothing drawn: a sampler that only saw drawn frames
+would come back to a game it had missed most of. The preview has no game, so its wings come from the
+fake game's own measurements evaluated backwards over the clock, which keeps an offline render of the
+same second the same image every time.
 
 **The replay transport** (`transport`) is the one screen that acts on the game rather than reporting
 on it. A host builds its view-model for every frame of a replay, whether or not the plate is on
@@ -173,10 +201,13 @@ built leaves the game's own behavior alone.
 | Side panel (matchup bar)             | `R`       | Spoiler-free               | `L`     |
 | Minimap                              | `Q`       | Edge dock                  | `` ` `` |
 
-Of these, `A`, `R`, `F`, `W`, `Q`, `Y` and `` ` `` move panels, and `P`, `U`, `D`, `,`, `.` and `L`
-drive a replay; the rest are bindings waiting for their surfaces. The transport keys are consumed
-only while a replay's view-model is being fed, and `L` only in a replay, so anywhere else they stay
-the game's.
+Of these, `A`, `R`, `E`, `M`, `T`, `F`, `W`, `Q`, `Y` and `` ` `` move panels, `G` walks the graphs
+panel through its measurements and then closes it, `N` moves the map-control bar but only while a
+host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. The rest are bindings
+waiting for their surfaces, `Shift+G` among them: it asks for the per-player form of a team game's
+graphs, which is a distinction a game with one player per team does not have. The transport keys are
+consumed only while a replay's view-model is being fed, and `L` only in a replay, so anywhere else
+they stay the game's.
 
 Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
 per profile. The console and the minimap are independent booleans there, because they are separate
@@ -184,8 +215,9 @@ surfaces in the game and observers routinely keep the minimap while hiding the c
 why the DLL's `console.rs` moves them with separate calls, `set_console_visible`,
 `set_minimap_visible` and `set_command_panel_visible`, rather than one. `PanelPrefs` also carries
 `spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
-for a clear screen, not for a replay's length to be given away, and whether the dock is spelled out
-as the control rail, which is one surface in two forms rather than two panels. A `PanelPreset`
+for a clear screen, not for a replay's length to be given away; whether the dock is spelled out
+as the control rail, which is one surface in two forms rather than two panels; and `graph_series`,
+which is what the one graphs panel is currently about rather than a panel of its own. A `PanelPreset`
 (`Minimal`, `Standard`, `Analyst`) is a whole set of those panels at once; `PanelPrefs::preset` says
 which one a set of panels is by applying each preset to a copy, so a preset and the set it is
 recognised by cannot drift apart. A preset never touches the dock: one that hid the control it was
@@ -307,10 +339,11 @@ production rows fill and restart, all as a pure function of game time, so an off
 same second is the same image every time. In a replay it shares the transport's clock, since a bar
 and a plate that disagreed about how far into the game it is would be reporting on two different
 games. Its knobs are where the clock starts, each player's race, whether the left player is over
-their supply cap, whether both carry the longest names the game allows, and how many entries each
-production row holds; its presets are the panel presets, and the panels answer a vision toggle and a
-production click the way the game would. Production tiles draw their atlas frame's number, since only
-the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop
+their supply cap, whether both carry the longest names the game allows, how many entries each
+production row holds, and whether the game reports map control at all — the real one does not yet, so
+that switch is how the bar's absence is judged. Its presets are the panel presets, and the panels
+answer a vision toggle and a production click the way the game would. Production tiles draw their
+atlas frame's number, since only the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop
 buttons, the production selection) are logged under the knobs.
 
 The **kitchen sink** is not a screen the game shows. It lays the whole kit out at once — a tier-0
