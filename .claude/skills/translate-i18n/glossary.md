@@ -176,6 +176,15 @@ consistent. (Seed — extend over time.)
   glossed once, placement games→**partidas de posicionamiento** (in-file), bonus pool→**bono
   acumulado**, catch-up bonus→**bono de recuperación**, grinding→**farmear**. The example players
   (Arbiter, Reaver, …) stay in English: they're names in an English image.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→observador,
+  replay→replay / the matchup-bar tag Replay vs live→**En vivo**, spoiler-free→Sin spoilers,
+  matchup→**Enfrentamiento**, expansion (a new base)→Expansión, workers→trabajadores,
+  idle workers→**{{count}} inac.** (the chip is 46 px; "inact." already elides),
+  kills→eliminaciones (e/p in the cramped k/l columns), drop (removing a stuck peer)→**expulsar**
+  (matches kick; the countdown is "Expulsar: {{time}}" so the name column keeps its width), an
+  unclean netstat departure→Caído vs a deliberate one→Salió, relay→relay, buffer→buffer, a network
+  turn→turno. Race chips: **T / Z / P / A** (Aleatoria). Dock preset names must differ in their
+  *first* letter — the collapsed dock shows only that letter (Mínimo / Estándar / Analista).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -278,6 +287,15 @@ consistent. (Seed — extend over time.)
   ladder article explains both). placement games→**калибровочные матчи** (in-file), bonus
   pool→**бонусный пул**, catch-up bonus→**догоняющий бонус**, uncertainty→**неопределённость**.
   The example players (Arbiter, Reaver, …) stay in English: they're names in an English image.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→зритель,
+  replay→реплей / the matchup-bar tag Реплей vs live→**В эфире**, spoiler-free→Без спойлеров,
+  matchup→**Матчап**, expansion (a new base)→**Экспанд** (community term), idle workers→**спит/спят**
+  (46 px chip; «без дела» elides), drop (the manual removal of a stuck peer)→**кик** family
+  (Кикнуть / Кик через {{time}} / Кик запрошен), an unclean departure in the netstat
+  table→**Обрыв** vs a deliberate one→Вышел, link up/down→Есть / Нет, relay→релей, buffer→буфер,
+  a network turn→**ход**, stall→Ст60 / Всего. The disconnect row's peer state is
+  **Подключается** (the noun Переподключение is 25 % too wide for the column); our own status line
+  keeps Переподключение. The chat-scope chip is **Своим** (72 px; Союзники elides).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -378,6 +396,14 @@ consistent. (Seed — extend over time.)
   questions use plain 해라체 (…됐다. 왜?) so they don't break the 합니다체 rule. Bold must not end in
   punctuation right before a Korean letter (`**레이팅(MMR)**과` doesn't parse): bold the word, put
   the parenthetical after it. The example players (Arbiter, Reaver, …) stay in English.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→관전자,
+  replay→리플레이 / live→**라이브**, spoiler-free→스포일러 방지, matchup→종족전,
+  expansion (a new base)→**멀티** (the community word), workers→일꾼, idle→**유휴**,
+  army value→병력 가치, kills→처치 (킬 in the cramped k/l columns), map control→맵 장악,
+  drop (removing a stuck peer)→**강퇴**, an unclean netstat departure→접속 끊김 vs a deliberate
+  one→나감, relay→릴레이, a network turn→턴. Race chips are single syllables from the SC:R export:
+  **테 / 저 / 프 / 무**. Dock preset names must differ in their *first* syllable — the collapsed
+  dock shows only that character (최소 / 표준 / 분석).
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -463,3 +489,12 @@ consistent. (Seed — extend over time.)
   catch-up bonus→**追分奖励**, uncertainty→**不确定度**, a matchmade match→**对局**. Put full-width
   punctuation **outside** bold (`**…玩家**。`): `**…。**` only parses when a space follows, which
   shows as a gap. The example players (Arbiter, Reaver, …) stay in English.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→观战者
+  (the chat chip 观战), replay→录像 / live→**直播**, spoiler-free→无剧透, matchup→对阵,
+  expansion (a new base)→**分矿** (the community word), workers→**农民**, idle→空闲,
+  army→兵力 (the Military panel itself 军事), kills→消灭 (杀/损 in the cramped k/l columns),
+  production→**生产** (the SC:R export's 产量 is the score category, not a build queue),
+  drop (removing a stuck peer)→**踢出**, an unclean netstat departure→掉线 vs a deliberate
+  one→已离开, relay→中继, a network turn→回合. Race chips are one character from the SC:R
+  export: **人 / 虫 / 星 / 随**. Dock preset names must differ in their *first* character — the
+  collapsed dock shows only that one (精简 / 标准 / 分析).
