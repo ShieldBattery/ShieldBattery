@@ -4,6 +4,7 @@
 //! and stacking two of them would hide whichever anchors to the same corner.
 
 pub mod disconnect;
+pub mod kitchen_sink;
 pub mod net_quality;
 pub mod netstat;
 
@@ -20,13 +21,15 @@ pub enum ScenarioKind {
     Disconnect,
     NetQuality,
     NetStat,
+    KitchenSink,
 }
 
 impl ScenarioKind {
-    pub const ALL: [ScenarioKind; 3] = [
+    pub const ALL: [ScenarioKind; 4] = [
         ScenarioKind::Disconnect,
         ScenarioKind::NetQuality,
         ScenarioKind::NetStat,
+        ScenarioKind::KitchenSink,
     ];
 
     pub fn label(self) -> &'static str {
@@ -34,6 +37,7 @@ impl ScenarioKind {
             ScenarioKind::Disconnect => "Disconnect",
             ScenarioKind::NetQuality => "Network quality",
             ScenarioKind::NetStat => "Network stats",
+            ScenarioKind::KitchenSink => "Kitchen sink",
         }
     }
 
@@ -43,6 +47,7 @@ impl ScenarioKind {
             ScenarioKind::Disconnect => "disconnect",
             ScenarioKind::NetQuality => "net-quality",
             ScenarioKind::NetStat => "netstat",
+            ScenarioKind::KitchenSink => "kitchen-sink",
         }
     }
 }
@@ -53,6 +58,7 @@ pub enum Preset {
     Disconnect(disconnect::Preset),
     NetQuality(net_quality::Preset),
     NetStat(netstat::Preset),
+    KitchenSink(kitchen_sink::Preset),
 }
 
 impl Preset {
@@ -61,6 +67,7 @@ impl Preset {
             Preset::Disconnect(_) => ScenarioKind::Disconnect,
             Preset::NetQuality(_) => ScenarioKind::NetQuality,
             Preset::NetStat(_) => ScenarioKind::NetStat,
+            Preset::KitchenSink(_) => ScenarioKind::KitchenSink,
         }
     }
 
@@ -69,6 +76,7 @@ impl Preset {
             Preset::Disconnect(preset) => preset.label(),
             Preset::NetQuality(preset) => preset.label(),
             Preset::NetStat(preset) => preset.label(),
+            Preset::KitchenSink(preset) => preset.label(),
         }
     }
 
@@ -79,6 +87,7 @@ impl Preset {
             Preset::Disconnect(preset) => preset.apply(&mut knobs.disconnect),
             Preset::NetQuality(preset) => preset.apply(&mut knobs.net_quality),
             Preset::NetStat(preset) => preset.apply(&mut knobs.netstat),
+            Preset::KitchenSink(preset) => preset.apply(&mut knobs.kitchen_sink),
         }
     }
 }
@@ -90,6 +99,11 @@ pub fn all_presets() -> Vec<Preset> {
         .map(Preset::Disconnect)
         .chain(net_quality::Preset::ALL.into_iter().map(Preset::NetQuality))
         .chain(netstat::Preset::ALL.into_iter().map(Preset::NetStat))
+        .chain(
+            kitchen_sink::Preset::ALL
+                .into_iter()
+                .map(Preset::KitchenSink),
+        )
         .collect()
 }
 
@@ -124,6 +138,10 @@ pub fn render(knobs: &Knobs, state: &mut UiState, elapsed: f64, ctx: &Context) -
             netstat::render(&knobs.netstat, ctx);
             Outcome::default()
         }
+        ScenarioKind::KitchenSink => {
+            kitchen_sink::render(&knobs.kitchen_sink, ctx);
+            Outcome::default()
+        }
     }
 }
 
@@ -133,7 +151,7 @@ pub fn is_live(knobs: &Knobs) -> bool {
     match knobs.scenario {
         ScenarioKind::Disconnect => knobs.disconnect.auto_tick,
         ScenarioKind::NetQuality => knobs.net_quality.simulate,
-        ScenarioKind::NetStat => false,
+        ScenarioKind::NetStat | ScenarioKind::KitchenSink => false,
     }
 }
 
@@ -164,6 +182,9 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
             net_quality::knobs_ui(&mut knobs.net_quality, &state.net_quality, ui)
         }
         ScenarioKind::NetStat => netstat::knobs_ui(&mut knobs.netstat, ui),
+        ScenarioKind::KitchenSink => {
+            kitchen_sink::knobs_ui(&mut knobs.kitchen_sink, &mut knobs.screen.compact_ramp, ui)
+        }
     };
     changed
 }

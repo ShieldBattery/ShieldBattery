@@ -10,7 +10,7 @@ use crate::{
         SbSlotType, SbUser,
     },
     bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
-    bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
+    bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display},
     game_thread,
     netcode_v2::{LoadingConnectivity, LoadingPresence, loading_presence},
 };
@@ -207,7 +207,7 @@ impl OverlayState {
                                                             RichText::new(map_name.unwrap_or(""))
                                                                 .size(28.0)
                                                                 .color(colors::GREY99)
-                                                                .family(display_family()),
+                                                                .family(display()),
                                                         ),
                                                     );
                                                 });
@@ -269,7 +269,7 @@ impl OverlayState {
                                             RichText::new(text)
                                                 .size(56.0)
                                                 .color(colors::GREY99)
-                                                .family(display_family()),
+                                                .family(display()),
                                         ),
                                     );
                                 },
@@ -360,7 +360,7 @@ impl OverlayState {
                                         RichText::new(username)
                                             .size(28.0)
                                             .color(colors::GREY99)
-                                            .family(display_family()),
+                                            .family(display()),
                                     );
                                     if let Some(rank) = rank {
                                         add_rank(ui, rank);
@@ -447,7 +447,7 @@ fn add_observer_row(
                                         RichText::new(name)
                                             .size(18.0)
                                             .color(colors::GREY99)
-                                            .family(display_family()),
+                                            .family(display()),
                                     )
                                     .truncate(),
                                 );

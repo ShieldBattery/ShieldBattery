@@ -16,7 +16,7 @@ use egui::{
 };
 
 use crate::colors;
-use crate::fonts::display_family;
+use crate::fonts::display;
 
 /// Near-white high-emphasis colour for primary text (header title, player names).
 const PRIMARY: Color32 = Color32::from_rgb(0xE8, 0xEA, 0xED);
@@ -200,7 +200,7 @@ fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
             .size(TITLE_SIZE)
             .color(PRIMARY)
             .strong()
-            .family(display_family()),
+            .family(display()),
     );
     ui.add_space(6.0);
 
