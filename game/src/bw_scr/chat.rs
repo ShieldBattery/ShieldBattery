@@ -92,10 +92,19 @@ impl ChatManager {
 
     /// Returns true if the message was handled (e.g. the original function should not be called).
     pub fn handle_message(&mut self, _message: &str, player_id: u32) -> bool {
+        self.is_sender_filtered(player_id)
+    }
+
+    /// Whether a message from this game player id is one the local player has chosen not to see:
+    /// its sender is blocked on ShieldBattery or muted for this game.
+    ///
+    /// Asked by the print hook, which suppresses the line, and again by anything that records what
+    /// the screen showed, so the two can never disagree about which messages the player saw.
+    pub fn is_sender_filtered(&self, player_id: u32) -> bool {
         // Chat senders arrive as game player ids: 0-11 for players, 0x80-0x83 for observers.
         // The roster below keys players by their `players[]` index (observers at 12-15), so
         // observer ids are mapped back to indexes before the lookup. Anything else (system
-        // messages etc.) isn't ours to handle.
+        // messages etc.) has no sender to filter on.
         let player_index = match player_id {
             0..=11 => player_id,
             128..=131 => player_id - 128 + 12,
@@ -106,14 +115,10 @@ impl ChatManager {
             .players
             .iter()
             .find(|p| p.player_id.is_some_and(|id| id.0 as u32 == player_index));
-        if let Some(player) = player
-            && (self.blocked_players.contains(&player.sb_user_id)
-                || self.muted_players.contains(&player.sb_user_id))
-        {
-            return true;
-        }
-
-        false
+        player.is_some_and(|player| {
+            self.blocked_players.contains(&player.sb_user_id)
+                || self.muted_players.contains(&player.sb_user_id)
+        })
     }
 
     pub fn handle_send_chat(&mut self, text: &str) -> bool {

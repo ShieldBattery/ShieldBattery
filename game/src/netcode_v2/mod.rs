@@ -142,6 +142,12 @@ impl SlotMask {
     pub fn is_empty(self) -> bool {
         self.0 == 0
     }
+
+    /// The one slot this mask names, or `None` when it names none or several. What separates a
+    /// message sent to a single player from one sent to a whole team.
+    pub fn single_member(self) -> Option<SlotId> {
+        (self.0.count_ones() == 1).then(|| SlotId(self.0.trailing_zeros() as u8))
+    }
 }
 
 /// The receiver scope a chat message names, decoded from (or encoded to) the wire's
@@ -3329,6 +3335,19 @@ mod tests {
         let empty = SlotMask(0);
         assert!(empty.is_empty());
         assert!(!empty.contains(SlotId(0)));
+    }
+
+    #[test]
+    fn only_a_one_slot_mask_names_a_single_member() {
+        assert_eq!(SlotMask::single(SlotId(0)).single_member(), Some(SlotId(0)));
+        assert_eq!(SlotMask::single(SlotId(5)).single_member(), Some(SlotId(5)));
+
+        // A whole team addressed at once names nobody in particular, and neither does an empty
+        // mask: both must be told apart from the lone recipient a whisper carries.
+        let mut team = SlotMask::single(SlotId(1));
+        team.insert(SlotId(4));
+        assert_eq!(team.single_member(), None);
+        assert_eq!(SlotMask(0).single_member(), None);
     }
 
     /// Minimal chat-only harness: builds a `TurnState` with live `chat_out`/`chat_in` channels and

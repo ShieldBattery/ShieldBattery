@@ -23,6 +23,7 @@ pub mod native_dialogs;
 use egui::{Context, Id, Key, Modifiers, Rect};
 use serde::{Deserialize, Serialize};
 
+use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::kit::widgets::{self, ButtonVariant};
 use crate::kit::{theme, tiers};
@@ -347,6 +348,40 @@ pub struct DisconnectSurface<'a> {
 pub struct Views<'a> {
     pub disconnect: Option<DisconnectSurface<'a>>,
     pub net_stats: Option<&'a NetStatsView>,
+    /// The chat log, which a host only builds while [`ModalId::ChatHistory`] is on the stack — it
+    /// is a copy of every line said this game, and nothing but that modal reads it.
+    pub chat_history: Option<&'a ChatHistoryView>,
+}
+
+/// One screen rect the overlay owns this frame.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct HitRect {
+    pub rect: Rect,
+    /// Whether this rect wants the mouse wheel as well as the pointer.
+    ///
+    /// Asked for per rect rather than taken with the pointer, because the wheel is the game's by
+    /// default — SC:R zooms the map with it — and only a surface that actually scrolls has anything
+    /// to do with it. A scrolling list whose host keeps the wheel can be moved only by dragging its
+    /// scrollbar.
+    pub captures_scroll: bool,
+}
+
+impl HitRect {
+    /// A rect that takes the pointer and leaves the wheel to the game.
+    pub fn new(rect: Rect) -> HitRect {
+        HitRect {
+            rect,
+            captures_scroll: false,
+        }
+    }
+
+    /// A rect that takes the wheel too, because something inside it scrolls.
+    pub fn scrolling(rect: Rect) -> HitRect {
+        HitRect {
+            rect,
+            captures_scroll: true,
+        }
+    }
 }
 
 /// What a frame produced.
@@ -356,7 +391,7 @@ pub struct FrameOutput {
     pub intents: Vec<Intent>,
     /// The screen rects the overlay owns this frame. A click outside all of them is the game's,
     /// unless the capture says otherwise.
-    pub hit_rects: Vec<Rect>,
+    pub hit_rects: Vec<HitRect>,
     pub capture: InputCapture,
 }
 
@@ -457,6 +492,23 @@ impl Shell {
                 captures_input: true,
             });
         }
+    }
+
+    /// Raises a dismissible modal the player asked for directly, rather than through the native
+    /// dialog it stands in for.
+    ///
+    /// The dismissal path is the same either way: a modal raised here has no live native dialog
+    /// behind it, so closing it asks the host for nothing. A modal the game's own state owns
+    /// ([`ModalId::is_dismissible`] is false for those) cannot be raised this way, since the next
+    /// frame's status sync would only take it straight back down.
+    pub fn open_modal(&mut self, id: ModalId) {
+        if !id.is_dismissible() || self.modals.iter().any(|modal| modal.id == id) {
+            return;
+        }
+        self.modals.push(Modal {
+            id,
+            captures_input: true,
+        });
     }
 
     /// Records that a replaced native dialog is gone, so its replacement goes with it. Asks for no
@@ -613,7 +665,7 @@ fn draw_modal(
     ctx: &Context,
     id: ModalId,
     views: &mut Views<'_>,
-    hit_rects: &mut Vec<Rect>,
+    hit_rects: &mut Vec<HitRect>,
 ) -> ModalOutcome {
     match id {
         ModalId::WaitingForPlayers | ModalId::ConnectionInterrupted => {
@@ -624,7 +676,7 @@ fn draw_modal(
             // The surface only takes clicks once it has a Drop button to take them for: a passive
             // notice must not cost the game a click.
             if surface.view.has_button() {
-                hit_rects.push(dialog.response.rect);
+                hit_rects.push(HitRect::new(dialog.response.rect));
             }
             ModalOutcome {
                 dismissed: false,
@@ -650,28 +702,20 @@ fn draw_modal(
                     .inner
                 },
             );
-            hit_rects.push(dialog.response.rect);
+            hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner || dialog.scrim_clicked,
                 drop_requests: Vec::new(),
             }
         }
         ModalId::ChatHistory => {
-            let dialog = tiers::tier2_dialog(
-                ctx,
-                Id::new("sb_chat_history"),
-                &tr!("chatHistory.title", "Chat history"),
-                MODAL_WIDTH,
-                |ui| {
-                    ui.add_space(theme::SPACE_SM);
-                    ui.vertical_centered(|ui| {
-                        widgets::button(ui, &tr!("common.close", "Close"), ButtonVariant::Tier2)
-                            .clicked()
-                    })
-                    .inner
-                },
-            );
-            hit_rects.push(dialog.response.rect);
+            // A host that has not built the log yet still gets a dialog it can close: an empty one
+            // says "no messages", which is the truth as far as this frame knows, and leaving the
+            // screen blank would strand the player behind a scrim with nothing to click.
+            let empty = ChatHistoryView::default();
+            let view = views.chat_history.unwrap_or(&empty);
+            let dialog = render_chat_history_view(view, ctx);
+            hit_rects.push(HitRect::scrolling(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner || dialog.scrim_clicked,
                 drop_requests: Vec::new(),
@@ -811,6 +855,30 @@ mod tests {
             shell.pending_intents(),
             [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
         );
+    }
+
+    #[test]
+    fn a_modal_opened_directly_captures_input_and_closes_without_touching_the_game() {
+        let mut shell = spectating_shell();
+        shell.open_modal(ModalId::ChatHistory);
+        assert_eq!(shell.top_modal(), Some(ModalId::ChatHistory));
+        assert!(shell.capture().blocks_game_pointer());
+        // Opening the same modal twice must not stack two of it, or one Escape would leave the
+        // other behind.
+        shell.open_modal(ModalId::ChatHistory);
+        assert_eq!(shell.open_modals().count(), 1);
+
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+        // No native dialog was ever spawned behind it, so there is nothing to ask the host to close.
+        assert!(shell.pending_intents().is_empty());
+    }
+
+    #[test]
+    fn a_modal_the_game_state_owns_cannot_be_opened_by_hand() {
+        let mut shell = spectating_shell();
+        shell.open_modal(ModalId::WaitingForPlayers);
+        assert_eq!(shell.top_modal(), None);
     }
 
     #[test]

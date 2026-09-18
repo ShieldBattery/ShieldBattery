@@ -14,7 +14,7 @@ pub use charts::{Series, line_plot, progress_bar, share_bar, sparkline, sparklin
 pub use controls::{segmented, slider, switch};
 pub use panels::{
     TagStyle, divider, panel_header, panel_header_with_close, pulsing_dots, stat_row, tag,
-    text_cell,
+    tag_sized, text_cell,
 };
 
 use egui::{Color32, CornerRadius, Rect, Response, Shape, Stroke, StrokeKind, Ui};

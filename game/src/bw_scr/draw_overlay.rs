@@ -13,9 +13,10 @@ use egui::{
     Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
 };
 use overlay_ui::shell::{
-    DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, Mode, NativeDialog, Shell,
-    Views,
+    DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
+    Shell, Views,
 };
+use parking_lot::Mutex;
 use rally_point_client::proto::ids::SlotId;
 use winapi::shared::windef::{HWND, POINT};
 
@@ -25,12 +26,14 @@ use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::{BwCursorType, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, NetStatsStatus};
 
+use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
 
 // The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
 // crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
 pub use overlay_ui::{colors, fonts};
 
+mod chat_history;
 mod disconnect;
 mod loading_screen;
 mod netstat;
@@ -55,6 +58,8 @@ pub struct OverlayState {
     /// Which replaced native dialogs were live as of the last [`step`](Self::step), so the shell
     /// hears about a spawn or a delete exactly once.
     native_dialogs_live: [bool; NativeDialog::ALL.len()],
+    /// The chat log the last frame handed the shell, kept only while its modal is on screen.
+    chat_history: Option<ChatHistoryCache>,
     out_state: OutState,
     window_size: (u32, u32),
     /// If (and only if) a mouse button down event was captured,
@@ -291,6 +296,7 @@ impl OverlayState {
             draw_layer: get_normal_draw_layer(),
             dialog_debug_inspect_children: false,
             was_loading: false,
+            chat_history: None,
         }
     }
 
@@ -302,6 +308,7 @@ impl OverlayState {
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
         net_stats: Option<&NetStatsStatus>,
+        chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -424,6 +431,23 @@ impl OverlayState {
         let disconnect_view =
             disconnect::build_disconnect_view(disconnect_status, users, Instant::now());
         let net_stats_view = net_stats.map(|status| netstat::build_netstat_view(status, users));
+        // The log is built only while its modal is up, and lives beside the shell for the frame
+        // rather than inside `self`: the render closure below takes `self` mutably, so a view it
+        // reads cannot be borrowed out of a field.
+        let chat_history_view = if self
+            .shell
+            .open_modals()
+            .any(|modal| modal == ModalId::ChatHistory)
+        {
+            Some(ChatHistoryCache::build(
+                self.chat_history.take(),
+                chat_history,
+                bw,
+            ))
+        } else {
+            self.chat_history = None;
+            None
+        };
         let mut views = Views {
             disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
                 view: &disconnect_view,
@@ -433,6 +457,7 @@ impl OverlayState {
                 blocks_input: disconnect_status.is_blocking(),
             }),
             net_stats: net_stats_view.as_ref(),
+            chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
         };
         // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
         // of the player's input and asks nothing of the game.
@@ -459,10 +484,10 @@ impl OverlayState {
                 // the stack (the hidden `TimeOut` among them) must never be able to steal a click
                 // from a modal of ours.
                 frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
-                for rect in &frame_output.hit_rects {
+                for hit in &frame_output.hit_rects {
                     self.ui_rects.push(UiRect {
-                        area: *rect,
-                        capture_mouse_scroll: false,
+                        area: hit.rect,
+                        capture_mouse_scroll: hit.captures_scroll,
                     });
                 }
                 let debug = cfg!(debug_assertions);
@@ -476,6 +501,7 @@ impl OverlayState {
                 self.add_loading_screen_ui(bw, setup_info, ui);
             }
         });
+        self.chat_history = chat_history_view;
         self.capture = frame_output.capture;
         for intent in frame_output.intents {
             execute_intent(bw, intent);
@@ -626,6 +652,13 @@ impl OverlayState {
         ui.collapsing("BW Dialogs", |ui| {
             self.dialog_debug_ui(bw, ui);
         });
+        // The chat log normally opens because SC:R's own chat history dialog spawned and was
+        // replaced, which needs that dialog's runtime name (see
+        // `overlay_ui::shell::native_dialogs`). Until it is captured, this is the only way to put
+        // the screen in front of a real game's chat.
+        if ui.button("Open chat history").clicked() {
+            self.shell.open_modal(ModalId::ChatHistory);
+        }
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {

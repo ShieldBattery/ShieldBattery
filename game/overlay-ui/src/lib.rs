@@ -19,6 +19,7 @@
 //! overlay replaces. Both hosts drive it once per frame, so neither owns a policy the other can
 //! drift from.
 
+pub mod chat_history;
 pub mod colors;
 pub mod disconnect;
 pub mod fonts;
