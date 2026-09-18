@@ -12,23 +12,35 @@
     "close": "Cerrar"
   },
   "disconnect": {
+    "abandonAction": "Mantén pulsado: abandonar",
+    "abandonNote": "Mantén pulsado {{seconds}} segundos. Si sueltas antes, se cancela. Abandonar suele contar como derrota, salvo que tu equipo gane sin ti.",
     "dropAction": "Expulsar",
     "dropCountdown": "Expulsar: {{time}}",
-    "elapsedLabel": "Transcurrido",
-    "interruptedBody": "Se perdió la conexión con el servidor. La partida sigue en cuanto vuelva.",
+    "dropRule": "Expulsar se desbloquea {{seconds}} segundos después de que un jugador se desconecte, por separado para cada uno. Los jugadores expulsados pierden la partida.",
+    "interruptedBody": "Seguiremos intentándolo. La partida está en pausa y tus rivales te ven reconectando, así que todavía no se ha perdido nada.",
+    "interruptedSubtitle": "Se perdió tu conexión con el servidor de ShieldBattery.",
     "interruptedTitle": "Conexión interrumpida",
     "reconnecting": "Reconectando",
-    "stateDropRequested": "Expulsión pedida",
-    "stateNotResponding": "No responde",
-    "stateReconnecting": "Reconectando",
+    "stateConnected": "conectado",
+    "stateDropRequested": "expulsión pedida",
+    "stateNotResponding": "no responde",
+    "stateReconnectingFor": "reconectando… {{time}}",
+    "teammateTag": "compañero",
     "waitingBody_one": "La partida está en pausa hasta que este jugador se reconecte.",
     "waitingBody_many": "La partida está en pausa hasta que estos jugadores se reconecten.",
     "waitingBody_other": "La partida está en pausa hasta que estos jugadores se reconecten.",
+    "waitingCost": "Puedes esperar todo lo que quieras. Esperar no cuesta más que tiempo.",
     "waitingTitle": "Esperando a jugadores"
   },
   "gameMenu": {
+    "alliancesAndChat": "Alianzas y chat",
+    "escHint": "Esc vuelve a la partida",
+    "gameTime": "Tiempo de partida",
+    "keepsRunning": "La partida sigue mientras este menú está abierto",
+    "leaveGame": "Salir de la partida",
+    "options": "Opciones",
     "returnToGame": "Volver a la partida",
-    "title": "Menú del juego"
+    "surrender": "Rendirse"
   },
   "netstat": {
     "buffer": "Buffer",

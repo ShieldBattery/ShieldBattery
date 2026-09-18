@@ -12,21 +12,33 @@
     "close": "关闭"
   },
   "disconnect": {
+    "abandonAction": "长按放弃游戏",
+    "abandonNote": "长按 {{seconds}} 秒。提前松开则取消。放弃通常记为失败，除非队伍在您缺席时获胜。",
     "dropAction": "踢出",
     "dropCountdown": "{{time}} 后踢出",
-    "elapsedLabel": "已用时",
-    "interruptedBody": "与服务器的连接已中断。连接恢复后游戏会立即继续。",
+    "dropRule": "玩家掉线 {{seconds}} 秒后才能将其踢出，每名玩家单独计时。被踢出的玩家判负。",
+    "interruptedBody": "我们会继续尝试。游戏已暂停，对手看到的是您正在重连，所以目前还没有任何损失。",
+    "interruptedSubtitle": "与 ShieldBattery 服务器的连接已中断。",
     "interruptedTitle": "连接中断",
     "reconnecting": "正在重连",
+    "stateConnected": "已连接",
     "stateDropRequested": "已请求踢出",
     "stateNotResponding": "无响应",
-    "stateReconnecting": "正在重连",
+    "stateReconnectingFor": "正在重连… {{time}}",
+    "teammateTag": "队友",
     "waitingBody_other": "游戏已暂停，等待玩家重新连接。",
+    "waitingCost": "您可以一直等下去。等待除了时间之外不会有任何代价。",
     "waitingTitle": "等待玩家"
   },
   "gameMenu": {
+    "alliancesAndChat": "同盟与聊天",
+    "escHint": "按 Esc 返回游戏",
+    "gameTime": "游戏时间",
+    "keepsRunning": "此菜单打开时游戏仍在继续",
+    "leaveGame": "离开游戏",
+    "options": "设置",
     "returnToGame": "返回游戏",
-    "title": "游戏菜单"
+    "surrender": "投降"
   },
   "netstat": {
     "buffer": "缓冲",
