@@ -62,6 +62,7 @@ mod file_hook;
 mod game;
 mod pe_image;
 mod replay_save;
+mod replay_transport;
 mod sdf_cache;
 mod shader_replaces;
 mod thiscall;
@@ -382,6 +383,9 @@ pub struct BwScr {
     /// If the minimap was hidden in replay / obs ui. Separate from the console's state: the minimap
     /// is its own surface and observers keep it while hiding the rest of the console.
     minimap_hidden_state: AtomicBool,
+    /// If the console's command panel was hidden because the overlay's replay transport is standing
+    /// in for the replay controls it carries.
+    command_panel_hidden_state: AtomicBool,
     /// Whether the game has been started (e.g. we're done loading in)
     game_started: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
@@ -399,6 +403,9 @@ pub struct BwScr {
     /// Filled where the chat renders rather than where it arrives, so it holds exactly what the
     /// player saw.
     chat_history: Mutex<chat_history::ChatHistory>,
+    /// How replay playback is running, tracked off the command stream rather than read out of the
+    /// game's own globals.
+    replay_transport: Mutex<replay_transport::ReplayTransport>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -1882,6 +1889,7 @@ impl BwScr {
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
             minimap_hidden_state: AtomicBool::new(false),
+            command_panel_hidden_state: AtomicBool::new(false),
             game_started: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
@@ -1890,6 +1898,7 @@ impl BwScr {
             print_text_hooks_disabled: AtomicI32::new(0),
             chat_manager: Mutex::new(chat::ChatManager::new()),
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
+            replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -1966,6 +1975,13 @@ impl BwScr {
                                 && (!is_replay || are_recorded_replay_commands != 0) {
                                     apm.action(unique_command_user as u8, command);
                                 }
+                            // Live commands of a replay only. A game being played carries no
+                            // transport commands at all, and a replay's own recorded stream
+                            // carries none either — treating a re-fed one as news would report a
+                            // playback state nobody asked for.
+                            if is_replay && are_recorded_replay_commands == 0 {
+                                self.note_replay_transport_command(command);
+                            }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4
                                     && are_recorded_replay_commands == 0 => {
@@ -2821,6 +2837,15 @@ impl BwScr {
                     let statres_icons = self.statres_icons.resolve();
                     let cmdicons = self.cmdicons.resolve();
                     let replay_visions = self.replay_visions.resolve();
+                    // The header is only a replay's, and it is only populated once one is running.
+                    let replay = is_replay
+                        .then(|| self.replay_header())
+                        .filter(|header| !header.is_null())
+                        .map(|header| draw_overlay::ReplayVars {
+                            end_frame: (*header).replay_end_frame,
+                            game_speed: (*header).game_info.game_speed,
+                            transport: self.replay_transport_state(),
+                        });
                     let active_units = self.active_units();
                     let first_player_unit = self.first_player_unit.resolve();
                     let first_dialog = self.resolve_first_dialog();
@@ -2894,6 +2919,7 @@ impl BwScr {
                                     has_init_bw,
                                     countdown_start,
                                     game_started,
+                                    replay,
                                 },
                                 apm,
                                 size,
@@ -2925,6 +2951,17 @@ impl BwScr {
                             let minimap_shown = !self.minimap_hidden();
                             if overlay_out.minimap_visible != minimap_shown {
                                 self.set_minimap_visible(first_dialog, overlay_out.minimap_visible);
+                            }
+                            // After the console, whose own visibility this one is bounded by.
+                            let command_panel_shown = !self.command_panel_hidden();
+                            if overlay_out.command_panel_visible != command_panel_shown {
+                                self.set_command_panel_visible(
+                                    first_dialog,
+                                    overlay_out.command_panel_visible,
+                                );
+                            }
+                            for command in &overlay_out.replay_commands {
+                                self.send_replay_command(*command);
                             }
                             let bw = &draw_inject::BwVars {
                                 renderer,

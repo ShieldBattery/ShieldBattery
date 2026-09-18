@@ -213,6 +213,7 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
             );
 
             let mut host = GameHost::new();
+            let mut state = scenarios::UiState::new(&knobs);
             let mut shell = Shell::new();
             shell.set_panel_prefs(knobs.host.panels);
             let mut textures = TextureStore::new();
@@ -228,7 +229,13 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
                         predicted_dt: 1.0 / 60.0,
                     },
                     |ctx| {
-                        scenarios::render(&knobs, 0.0, ctx, &mut shell);
+                        scenarios::render(
+                            &knobs,
+                            &mut state,
+                            pass as f64 * SETTLE_STEP_SECS,
+                            ctx,
+                            &mut shell,
+                        );
                     },
                 );
                 textures.apply(&mut output.textures_delta);
@@ -377,6 +384,7 @@ impl PreviewApp {
         apply_language(&self.knobs);
         let elapsed = self.start.elapsed().as_secs_f64();
         let knobs = &self.knobs;
+        let scenario_state = &mut self.scenario_ui;
         let shell = &mut self.shell;
         let mut outcome = scenarios::Outcome::default();
         let mut output = self.host.run_pass(
@@ -389,7 +397,7 @@ impl PreviewApp {
                 predicted_dt,
             },
             |ctx| {
-                outcome = scenarios::render(knobs, elapsed, ctx, shell);
+                outcome = scenarios::render(knobs, scenario_state, elapsed, ctx, shell);
             },
         );
         self.scenario_ui

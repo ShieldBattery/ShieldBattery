@@ -13,10 +13,11 @@ pub mod disconnect;
 pub mod kitchen_sink;
 pub mod netstat;
 pub mod shell;
+pub mod transport;
 
 use egui::Context;
 use overlay_ui::shell::{
-    DisconnectSurface, HitRect, InputCapture, Intent, ModalId, NativeDialog, Shell, Views,
+    DisconnectSurface, HitRect, InputCapture, Intent, ModalId, Mode, NativeDialog, Shell, Views,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,15 +31,17 @@ pub enum ScenarioKind {
     Disconnect,
     NetStat,
     ChatHistory,
+    Transport,
     Shell,
     KitchenSink,
 }
 
 impl ScenarioKind {
-    pub const ALL: [ScenarioKind; 5] = [
+    pub const ALL: [ScenarioKind; 6] = [
         ScenarioKind::Disconnect,
         ScenarioKind::NetStat,
         ScenarioKind::ChatHistory,
+        ScenarioKind::Transport,
         ScenarioKind::Shell,
         ScenarioKind::KitchenSink,
     ];
@@ -48,8 +51,18 @@ impl ScenarioKind {
             ScenarioKind::Disconnect => "Disconnect",
             ScenarioKind::NetStat => "Network stats",
             ScenarioKind::ChatHistory => "Chat history",
+            ScenarioKind::Transport => "Replay transport",
             ScenarioKind::Shell => "Shell",
             ScenarioKind::KitchenSink => "Kitchen sink",
+        }
+    }
+
+    /// The vantage point this scenario only exists in, which selecting it moves the emulated host
+    /// to: a screen the game draws for one mode would otherwise be selected and never appear.
+    pub fn required_mode(self) -> Option<Mode> {
+        match self {
+            ScenarioKind::Transport => Some(Mode::Replay),
+            _ => None,
         }
     }
 
@@ -59,6 +72,7 @@ impl ScenarioKind {
             ScenarioKind::Disconnect => "disconnect",
             ScenarioKind::NetStat => "netstat",
             ScenarioKind::ChatHistory => "chat-history",
+            ScenarioKind::Transport => "transport",
             ScenarioKind::Shell => "shell",
             ScenarioKind::KitchenSink => "kitchen-sink",
         }
@@ -71,6 +85,7 @@ pub enum Preset {
     Disconnect(disconnect::Preset),
     NetStat(netstat::Preset),
     ChatHistory(chat_history::Preset),
+    Transport(transport::Preset),
     Shell(shell::Preset),
     KitchenSink(kitchen_sink::Preset),
 }
@@ -81,6 +96,7 @@ impl Preset {
             Preset::Disconnect(_) => ScenarioKind::Disconnect,
             Preset::NetStat(_) => ScenarioKind::NetStat,
             Preset::ChatHistory(_) => ScenarioKind::ChatHistory,
+            Preset::Transport(_) => ScenarioKind::Transport,
             Preset::Shell(_) => ScenarioKind::Shell,
             Preset::KitchenSink(_) => ScenarioKind::KitchenSink,
         }
@@ -91,6 +107,7 @@ impl Preset {
             Preset::Disconnect(preset) => preset.label(),
             Preset::NetStat(preset) => preset.label(),
             Preset::ChatHistory(preset) => preset.label(),
+            Preset::Transport(preset) => preset.label(),
             Preset::Shell(preset) => preset.label(),
             Preset::KitchenSink(preset) => preset.label(),
         }
@@ -103,6 +120,7 @@ impl Preset {
             Preset::Disconnect(preset) => preset.apply(&mut knobs.disconnect),
             Preset::NetStat(preset) => preset.apply(&mut knobs.netstat),
             Preset::ChatHistory(preset) => preset.apply(knobs),
+            Preset::Transport(preset) => preset.apply(knobs),
             Preset::Shell(preset) => preset.apply(knobs),
             Preset::KitchenSink(preset) => preset.apply(&mut knobs.kitchen_sink),
         }
@@ -113,10 +131,11 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 4] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 5] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
+    Preset::Transport(transport::Preset::SpoilerFree),
     Preset::Shell(shell::Preset::GameMenu),
 ];
 
@@ -131,6 +150,7 @@ pub fn all_presets() -> Vec<Preset> {
                 .into_iter()
                 .map(Preset::ChatHistory),
         )
+        .chain(transport::Preset::ALL.into_iter().map(Preset::Transport))
         .chain(shell::Preset::ALL.into_iter().map(Preset::Shell))
         .chain(
             kitchen_sink::Preset::ALL
@@ -143,12 +163,15 @@ pub fn all_presets() -> Vec<Preset> {
 /// Knob-panel state that outlives a frame but isn't worth persisting.
 pub struct UiState {
     pub disconnect: disconnect::UiState,
+    /// The fake replay the transport drives, which is state the game would own rather than a knob.
+    pub transport: transport::Clock,
 }
 
 impl UiState {
     pub fn new(knobs: &Knobs) -> UiState {
         UiState {
             disconnect: disconnect::UiState::new(&knobs.disconnect),
+            transport: transport::Clock::new(&knobs.transport),
         }
     }
 }
@@ -156,7 +179,13 @@ impl UiState {
 /// Draws the active scenario on the game context, through the shell.
 ///
 /// `elapsed` is the host's running time in seconds, which scenarios with live counters tick from.
-pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context, shell: &mut Shell) -> Outcome {
+pub fn render(
+    knobs: &Knobs,
+    state: &mut UiState,
+    elapsed: f64,
+    ctx: &Context,
+    shell: &mut Shell,
+) -> Outcome {
     host_knobs::sync_native_dialogs(&knobs.host, shell);
 
     // The kitchen sink is not a shell surface: it is the kit laid out at once, drawn straight onto
@@ -178,6 +207,17 @@ pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context, shell: &mut Shell) -> 
         .open_modals()
         .any(|modal| modal == ModalId::ChatHistory)
         .then(|| chat_history::build_view(&knobs.chat_history));
+    // Built for every frame of the emulated replay whether or not the plate is on screen, the way
+    // the game DLL builds it: the transport keys keep working with the plate hidden.
+    let transport_view =
+        (knobs.scenario == ScenarioKind::Transport && knobs.host.mode == Mode::Replay).then(|| {
+            state.transport.advance(&knobs.transport, elapsed);
+            transport::build_view(
+                &knobs.transport,
+                &state.transport,
+                shell.panel_prefs().spoiler_free,
+            )
+        });
     let mut views = Views {
         disconnect: disconnect_view.as_ref().map(|view| DisconnectSurface {
             view,
@@ -185,6 +225,7 @@ pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context, shell: &mut Shell) -> 
         }),
         net_stats: net_stats_view.as_ref(),
         chat_history: chat_history_view.as_ref(),
+        transport: transport_view.as_ref(),
     };
 
     let output = shell.frame(ctx, &knobs.host.host_frame(), &mut views);
@@ -198,6 +239,13 @@ pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context, shell: &mut Shell) -> 
         match intent {
             Intent::DropPlayer { slot } => outcome.disconnect_clicks.push(slot),
             Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
+            // The fake replay answers these, the way the game answers them by moving its own clock.
+            Intent::Seek(frame) => state.transport.seek_to(frame),
+            Intent::SetSpeed {
+                speed_index,
+                multiplier,
+                paused,
+            } => state.transport.set_speed(speed_index, multiplier, paused),
         }
     }
     outcome
@@ -224,9 +272,15 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
     let mut changed = false;
     ui.horizontal_wrapped(|ui| {
         for kind in ScenarioKind::ALL {
-            changed |= ui
+            if ui
                 .selectable_value(&mut knobs.scenario, kind, kind.label())
-                .changed();
+                .changed()
+            {
+                changed = true;
+                if let Some(mode) = kind.required_mode() {
+                    knobs.host.mode = mode;
+                }
+            }
         }
     });
     ui.separator();
@@ -236,6 +290,7 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
         }
         ScenarioKind::NetStat => netstat::knobs_ui(&mut knobs.netstat, ui),
         ScenarioKind::ChatHistory => chat_history::knobs_ui(&mut knobs.chat_history, ui),
+        ScenarioKind::Transport => transport::knobs_ui(&mut knobs.transport, ui),
         ScenarioKind::Shell => shell::knobs_ui(&mut knobs.shell, ui),
         ScenarioKind::KitchenSink => {
             kitchen_sink::knobs_ui(&mut knobs.kitchen_sink, &mut knobs.screen.compact_ramp, ui)

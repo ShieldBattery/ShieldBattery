@@ -6,7 +6,9 @@ use overlay_ui::i18n::Locale;
 use serde::{Deserialize, Serialize};
 
 use crate::host_knobs;
-use crate::scenarios::{self, ScenarioKind, chat_history, disconnect, kitchen_sink, netstat};
+use crate::scenarios::{
+    self, ScenarioKind, chat_history, disconnect, kitchen_sink, netstat, transport,
+};
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
 /// How the emulated screen is set up.
@@ -69,6 +71,7 @@ pub struct Knobs {
     pub kitchen_sink: kitchen_sink::Knobs,
     pub netstat: netstat::Knobs,
     pub shell: scenarios::shell::Knobs,
+    pub transport: transport::Knobs,
 }
 
 /// Where the persisted knobs live: next to the built binary, so a checkout's `target/` carries them.

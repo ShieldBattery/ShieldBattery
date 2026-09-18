@@ -172,6 +172,15 @@ pub fn knobs_ui(knobs: &mut Knobs, shell: &mut Shell, ui: &mut Ui) -> bool {
             }
         }
     });
+    if ui
+        .checkbox(&mut prefs.spoiler_free, "spoiler-free")
+        .on_hover_text(
+            "Withholds the replay's length and how far through it playback is. L moves it too.",
+        )
+        .changed()
+    {
+        prefs_changed = true;
+    }
     if prefs_changed {
         shell.set_panel_prefs(prefs);
         changed = true;

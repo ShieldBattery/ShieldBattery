@@ -516,7 +516,9 @@ unsafe extern "C" fn console_dialog_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() && !allow_event_on_hidden_dialog(event) {
+        if bw.console_dialog_hidden(Control::new(ctrl).string())
+            && !allow_event_on_hidden_dialog(event)
+        {
             return 0;
         }
         orig(ctrl, event)

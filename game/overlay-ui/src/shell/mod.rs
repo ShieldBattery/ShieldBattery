@@ -29,12 +29,21 @@ use crate::kit::widgets::{self, ButtonVariant};
 use crate::kit::{theme, tiers};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::tr;
+use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
 pub use hotkeys::{Action, Chord, Hotkeys};
 pub use native_dialogs::{NativeDialog, RETURN_CONTROL_ID, replacement_for};
 
 /// How wide the shell's own modals are, in overlay points.
 const MODAL_WIDTH: f32 = 420.0;
+
+/// The shortest time between two seeks reaching the game.
+///
+/// A dragged playhead asks for a new frame every frame it moves, and every backward one of those
+/// restarts the simulation from frame zero. Coalescing to the latest target keeps a drag to a few
+/// restarts instead of dozens, and costs nothing: the intermediate frames were never going to be
+/// watched.
+const SEEK_INTERVAL_SECS: f64 = 0.25;
 
 /// Which vantage point the local client watches the game from.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
@@ -76,14 +85,17 @@ pub enum Panel {
     Console,
     /// BW's own minimap.
     Minimap,
+    /// The replay transport plate.
+    Transport,
 }
 
 impl Panel {
-    pub const ALL: [Panel; 4] = [
+    pub const ALL: [Panel; 5] = [
         Panel::Statistics,
         Panel::Production,
         Panel::Console,
         Panel::Minimap,
+        Panel::Transport,
     ];
 
     pub fn label(self) -> &'static str {
@@ -92,11 +104,13 @@ impl Panel {
             Panel::Production => "production",
             Panel::Console => "console",
             Panel::Minimap => "minimap",
+            Panel::Transport => "transport",
         }
     }
 }
 
-/// Which ambient panels the player wants on screen.
+/// What the player wants of the overlay: which ambient panels are on screen, and whether it keeps
+/// a replay's outcome to itself.
 ///
 /// Independent booleans rather than a preset: the console and the minimap in particular are separate
 /// surfaces in the game, and observers routinely keep one without the other. Serializable so a host
@@ -108,6 +122,11 @@ pub struct PanelPrefs {
     pub production: bool,
     pub console: bool,
     pub minimap: bool,
+    pub transport: bool,
+    /// Whether every surface withholds what gives a replay's outcome away — its length, and how far
+    /// through it playback is. Not a panel, so hiding every panel does not quietly switch it off:
+    /// a viewer who asked not to be told how long a game runs has not asked for a tidier screen.
+    pub spoiler_free: bool,
 }
 
 impl Default for PanelPrefs {
@@ -117,6 +136,8 @@ impl Default for PanelPrefs {
             production: true,
             console: true,
             minimap: true,
+            transport: true,
+            spoiler_free: false,
         }
     }
 }
@@ -128,6 +149,7 @@ impl PanelPrefs {
             Panel::Production => self.production,
             Panel::Console => self.console,
             Panel::Minimap => self.minimap,
+            Panel::Transport => self.transport,
         }
     }
 
@@ -137,6 +159,7 @@ impl PanelPrefs {
             Panel::Production => self.production = shown,
             Panel::Console => self.console = shown,
             Panel::Minimap => self.minimap = shown,
+            Panel::Transport => self.transport = shown,
         }
     }
 
@@ -234,6 +257,16 @@ pub enum Intent {
     CloseNativeDialog(NativeDialog),
     /// Request that the player in this rally-point2 slot be dropped from the session.
     DropPlayer { slot: u8 },
+    /// Move replay playback to this frame.
+    Seek(u32),
+    /// Set how replay playback runs: where on the classic speed ladder, scaled by what, and whether
+    /// it runs at all. One intent rather than three, because the game carries all three in one
+    /// command and sending a partial one would reset the other two.
+    SetSpeed {
+        speed_index: u32,
+        multiplier: u32,
+        paused: bool,
+    },
 }
 
 /// How much of the pointer the overlay is taking this frame.
@@ -351,6 +384,10 @@ pub struct Views<'a> {
     /// The chat log, which a host only builds while [`ModalId::ChatHistory`] is on the stack — it
     /// is a copy of every line said this game, and nothing but that modal reads it.
     pub chat_history: Option<&'a ChatHistoryView>,
+    /// Replay playback, which a host builds for every frame of a replay whether or not the plate is
+    /// on screen: the transport keys keep working with it hidden, and only the shell knows whether
+    /// the player has hidden it.
+    pub transport: Option<&'a TransportView>,
 }
 
 /// One screen rect the overlay owns this frame.
@@ -393,6 +430,9 @@ pub struct FrameOutput {
     /// unless the capture says otherwise.
     pub hit_rects: Vec<HitRect>,
     pub capture: InputCapture,
+    /// Whether the overlay's replay transport is on screen, which is exactly when the game's own
+    /// replay plate must not be. Stays true through the plate's exit, so the two never overlap.
+    pub transport_shown: bool,
 }
 
 /// One entry on the modal stack.
@@ -417,6 +457,15 @@ pub struct Shell {
     /// The game state the last frame reported, which is what keypresses arriving between frames are
     /// decided against.
     host: HostFrame,
+    /// Replay playback as of the last frame. Keypresses arrive between frames and a transport key
+    /// is relative — one rung up, ten seconds back — so the state it is relative to has to be here
+    /// rather than in the frame that drew it.
+    transport: Option<TransportView>,
+    /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
+    /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
+    pending_seek: Option<u32>,
+    /// When the last seek went out, on the context's own clock.
+    last_seek_secs: f64,
     intents: Vec<Intent>,
 }
 
@@ -434,6 +483,9 @@ impl Shell {
             modals: Vec::new(),
             live_native_dialogs: [false; NativeDialog::ALL.len()],
             host: HostFrame::default(),
+            transport: None,
+            pending_seek: None,
+            last_seek_secs: f64::NEG_INFINITY,
             intents: Vec::new(),
         }
     }
@@ -537,7 +589,7 @@ impl Shell {
             return false;
         }
         match self.hotkeys.action_for(key, modifiers) {
-            Some(action) => self.apply_action(action),
+            Some(action) => self.apply_action(action, modifiers),
             None => false,
         }
     }
@@ -547,6 +599,8 @@ impl Shell {
         self.set_host(host);
         self.sync_status_modals(views.disconnect.as_ref());
 
+        self.transport = views.transport.copied();
+
         let mut hit_rects = Vec::new();
         // The ambient layer is drawn before the modal layer so the scrim covers it. The diagnostic
         // network-stats panel is not gated on the mode: nothing puts it on screen but the chat
@@ -554,6 +608,10 @@ impl Shell {
         if let Some(net_stats) = views.net_stats {
             render_netstat_view(net_stats, ctx);
         }
+        let transport_shown = match views.transport {
+            Some(view) => self.frame_transport(ctx, view, &mut hit_rects),
+            None => false,
+        };
 
         if let Some(modal) = self.modals.last().copied() {
             let outcome = draw_modal(ctx, modal.id, views, &mut hit_rects);
@@ -569,7 +627,109 @@ impl Shell {
             intents: std::mem::take(&mut self.intents),
             hit_rects,
             capture: self.capture(),
+            transport_shown,
         }
+    }
+
+    /// Draws the replay transport and turns what the player did with it into intents, returning
+    /// whether the plate is on screen.
+    fn frame_transport(
+        &mut self,
+        ctx: &Context,
+        view: &TransportView,
+        hit_rects: &mut Vec<HitRect>,
+    ) -> bool {
+        let outcome = render_transport_view(view, ctx, self.prefs.shown(Panel::Transport));
+        if let Some(outcome) = &outcome {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let Some(frame) = outcome.seek_to {
+                self.queue_seek(frame);
+            }
+            if outcome.speed.is_some() || outcome.paused.is_some() {
+                self.request_speed(outcome.speed, outcome.paused);
+            }
+            if let Some(spoiler_free) = outcome.spoiler_free {
+                self.prefs.spoiler_free = spoiler_free;
+            }
+        }
+        self.send_queued_seek(ctx, view);
+        outcome.is_some()
+    }
+
+    /// Queues a jump to `frame`, replacing whatever was queued before it.
+    fn queue_seek(&mut self, frame: u32) {
+        self.pending_seek = Some(frame);
+    }
+
+    /// Lets the queued seek out once the game is ready for one.
+    ///
+    /// Held back while the game is still working through the last one: a second seek sent then is
+    /// refused outright, and a refusal that swallowed the player's final drag position would leave
+    /// the playhead somewhere they never asked for.
+    fn send_queued_seek(&mut self, ctx: &Context, view: &TransportView) {
+        let Some(frame) = self.pending_seek else {
+            return;
+        };
+        let now = ctx.input(|input| input.time);
+        if view.seek_pending || now - self.last_seek_secs < SEEK_INTERVAL_SECS {
+            // Nothing else is asking for the frame that would let this out, so it asks itself.
+            ctx.request_repaint();
+            return;
+        }
+        self.pending_seek = None;
+        self.last_seek_secs = now;
+        self.intents.push(Intent::Seek(frame));
+    }
+
+    /// Asks for a change to how playback runs, filling in whichever half of it the player did not
+    /// touch from where playback is now.
+    fn request_speed(&mut self, speed: Option<SpeedStep>, paused: Option<bool>) {
+        let Some(view) = self.transport else {
+            return;
+        };
+        let step = speed.unwrap_or_else(|| view.step());
+        self.intents.push(Intent::SetSpeed {
+            speed_index: step.speed_index,
+            multiplier: step.multiplier,
+            paused: paused.unwrap_or(view.paused),
+        });
+    }
+
+    /// Carries out a transport key, or reports that there was no replay for it to act on.
+    fn apply_transport_action(&mut self, action: Action, modifiers: Modifiers) -> bool {
+        let Some(view) = self.transport else {
+            return false;
+        };
+        match action {
+            Action::PauseResume => self.request_speed(None, Some(!view.paused)),
+            Action::SpeedUp => self.request_speed(
+                Some(transport::step_speed(view.speed_index, view.multiplier, 1)),
+                None,
+            ),
+            Action::SpeedDown => self.request_speed(
+                Some(transport::step_speed(view.speed_index, view.multiplier, -1)),
+                None,
+            ),
+            Action::SeekBackward | Action::SeekForward => {
+                let step = if modifiers.shift {
+                    transport::SEEK_STEP_LONG_SECS
+                } else {
+                    transport::SEEK_STEP_SECS
+                };
+                let step = match action {
+                    Action::SeekBackward => -step,
+                    _ => step,
+                };
+                // Counted from where the queued seek would put playback rather than from where it
+                // is now, so two presses in a row add up instead of one eating the other.
+                let from = self.pending_seek.unwrap_or(view.elapsed_frames);
+                let delta = transport::seconds_to_frames(i64::from(step), view.game_speed);
+                let frame = view.frame_at(i64::from(from) + delta);
+                self.queue_seek(frame);
+            }
+            _ => return false,
+        }
+        true
     }
 
     /// Whether the panel hotkeys are the shell's to consume right now.
@@ -589,13 +749,27 @@ impl Shell {
         self.modals.iter().any(|modal| modal.captures_input)
     }
 
-    fn apply_action(&mut self, action: Action) -> bool {
+    fn apply_action(&mut self, action: Action, modifiers: Modifiers) -> bool {
         match action {
             Action::ToggleAllPanels => {
                 let show = !self.prefs.all_shown();
                 self.prefs.set_all(show);
                 true
             }
+            // A viewing preference rather than a surface, and only a replay has an outcome worth
+            // keeping quiet, so anywhere else the key stays the game's.
+            Action::ToggleSpoilerFree => {
+                if self.host.mode != Mode::Replay {
+                    return false;
+                }
+                self.prefs.spoiler_free = !self.prefs.spoiler_free;
+                true
+            }
+            Action::PauseResume
+            | Action::SpeedUp
+            | Action::SpeedDown
+            | Action::SeekBackward
+            | Action::SeekForward => self.apply_transport_action(action, modifiers),
             _ => match action_panel(action) {
                 Some(panel) => {
                     self.prefs.toggle(panel);
@@ -648,6 +822,7 @@ fn action_panel(action: Action) -> Option<Panel> {
         Action::ToggleProduction => Some(Panel::Production),
         Action::ToggleConsole => Some(Panel::Console),
         Action::ToggleMinimap => Some(Panel::Minimap),
+        Action::ToggleTransport => Some(Panel::Transport),
         _ => None,
     }
 }
@@ -737,6 +912,70 @@ mod tests {
             native_dialog_open: false,
         });
         shell
+    }
+
+    /// A replay a few minutes in, running at the speed it was recorded at.
+    fn replay() -> TransportView {
+        TransportView {
+            elapsed_frames: 20_000,
+            end_frames: 60_000,
+            game_speed: 6,
+            paused: false,
+            speed_index: 6,
+            multiplier: 1,
+            spoiler_free: false,
+            seek_pending: false,
+        }
+    }
+
+    /// A context with the overlay's own fonts, which is what a screen lays its text out with.
+    fn fresh_ctx() -> Context {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        ctx
+    }
+
+    /// Runs one shell frame the way a host does, at `time` on the context's clock.
+    fn run_frame_at(
+        shell: &mut Shell,
+        ctx: &Context,
+        transport: Option<&TransportView>,
+        time: f64,
+    ) -> FrameOutput {
+        let host = HostFrame {
+            mode: Mode::Replay,
+            game_started: true,
+            native_textbox_open: false,
+            native_dialog_open: false,
+        };
+        let raw = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(
+                egui::pos2(0.0, 0.0),
+                egui::vec2(1280.0, 720.0),
+            )),
+            time: Some(time),
+            ..Default::default()
+        };
+        ctx.begin_pass(raw);
+        let mut views = Views {
+            transport,
+            ..Views::default()
+        };
+        let output = shell.frame(ctx, &host, &mut views);
+        let mut out = ctx.end_pass();
+        let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+        out.textures_delta.clear();
+        output
+    }
+
+    /// One frame at a time far enough apart that the seek rate limit never decides a test.
+    fn run_frame(
+        shell: &mut Shell,
+        ctx: &Context,
+        transport: Option<&TransportView>,
+    ) -> Vec<Intent> {
+        let time = ctx.input(|input| input.time) + 1.0;
+        run_frame_at(shell, ctx, transport, time).intents
     }
 
     /// A disconnect view with something on it: an empty one draws nothing and raises no modal.
@@ -998,6 +1237,145 @@ mod tests {
         }));
         assert!(shell.key_pressed(Key::W, Modifiers::NONE));
         assert!(!shell.panel_prefs().console);
+    }
+
+    #[test]
+    fn the_pause_key_flips_only_the_pause_of_the_speed_command() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        run_frame(&mut shell, &ctx, Some(&view));
+        assert!(shell.key_pressed(Key::P, Modifiers::NONE));
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&view)),
+            [Intent::SetSpeed {
+                speed_index: view.speed_index,
+                multiplier: view.multiplier,
+                paused: true,
+            }]
+        );
+    }
+
+    #[test]
+    fn the_speed_keys_walk_the_ladder_and_leave_playback_stopped_if_it_was() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = TransportView {
+            paused: true,
+            ..replay()
+        };
+        run_frame(&mut shell, &ctx, Some(&view));
+        assert!(shell.key_pressed(Key::U, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::D, Modifiers::NONE));
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&view)),
+            [
+                Intent::SetSpeed {
+                    speed_index: 6,
+                    multiplier: 2,
+                    paused: true,
+                },
+                // Half speed is the classic "fast" rung (83 ms frames against the fastest 42 ms),
+                // not a fractional multiplier.
+                Intent::SetSpeed {
+                    speed_index: 2,
+                    multiplier: 1,
+                    paused: true,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn seek_keys_add_up_into_one_jump_and_shift_lengthens_the_step() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        run_frame(&mut shell, &ctx, Some(&view));
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::NONE
+        };
+        assert!(shell.key_pressed(Key::Period, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::Period, shift));
+        // Ten seconds and then a minute, counted from where playback is: one seek, not two.
+        let expected = view
+            .seek_target(crate::transport::SEEK_STEP_SECS + crate::transport::SEEK_STEP_LONG_SECS);
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&view)),
+            [Intent::Seek(expected)]
+        );
+    }
+
+    #[test]
+    fn a_seek_waits_while_the_game_is_still_working_through_the_last_one() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let pending = TransportView {
+            seek_pending: true,
+            ..replay()
+        };
+        run_frame(&mut shell, &ctx, Some(&pending));
+        assert!(shell.key_pressed(Key::Comma, Modifiers::NONE));
+        assert!(run_frame(&mut shell, &ctx, Some(&pending)).is_empty());
+        // Still queued, so it goes out as soon as the game is ready rather than being lost.
+        let ready = replay();
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&ready)),
+            [Intent::Seek(
+                ready.seek_target(-crate::transport::SEEK_STEP_SECS)
+            )]
+        );
+    }
+
+    #[test]
+    fn transport_keys_are_the_games_until_a_replay_is_being_watched() {
+        let mut shell = spectating_shell();
+        for key in [Key::P, Key::U, Key::D, Key::Comma, Key::Period] {
+            assert!(
+                !shell.key_pressed(key, Modifiers::NONE),
+                "{key:?} was consumed with no replay to act on"
+            );
+        }
+    }
+
+    #[test]
+    fn spoiler_free_belongs_to_replays_and_survives_hiding_every_panel() {
+        let mut shell = spectating_shell();
+        assert!(shell.key_pressed(Key::L, Modifiers::NONE));
+        assert!(shell.panel_prefs().spoiler_free);
+        // Hiding every panel is a request for a clear screen, not for the outcome to be given away.
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.panel_prefs().spoiler_free);
+        assert!(!shell.panel_prefs().transport);
+
+        let mut observing = Shell::new();
+        observing.set_host(&HostFrame {
+            mode: Mode::Observing,
+            game_started: true,
+            native_textbox_open: false,
+            native_dialog_open: false,
+        });
+        assert!(!observing.key_pressed(Key::L, Modifiers::NONE));
+        assert!(!observing.panel_prefs().spoiler_free);
+    }
+
+    #[test]
+    fn the_games_own_plate_is_left_alone_until_ours_is_actually_on_screen() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 0.0).transport_shown);
+
+        // A plate the player has hidden keeps the corner until its exit has finished playing.
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 0.05).transport_shown);
+        assert!(!run_frame_at(&mut shell, &ctx, Some(&view), 0.5).transport_shown);
+
+        // And there is nothing to stand in for outside a replay.
+        let mut elsewhere = spectating_shell();
+        let ctx = fresh_ctx();
+        assert!(!run_frame_at(&mut elsewhere, &ctx, None, 0.0).transport_shown);
     }
 
     #[test]
