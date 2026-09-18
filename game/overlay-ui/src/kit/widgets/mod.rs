@@ -7,6 +7,7 @@
 mod buttons;
 mod charts;
 mod controls;
+mod icons;
 mod panels;
 
 pub use buttons::{
@@ -14,6 +15,7 @@ pub use buttons::{
 };
 pub use charts::{Series, line_plot, progress_bar, share_bar, sparkline, sparkline_to};
 pub use controls::{ScrubTrack, scrub_track, segmented, slider, switch};
+pub use icons::{ResourceGlyph, paint_resource_glyph};
 pub use panels::{
     TagStyle, divider, panel_header, panel_header_with_close, pulsing_dots, stat_row, tag,
     tag_exact, tag_sized, text_cell,
