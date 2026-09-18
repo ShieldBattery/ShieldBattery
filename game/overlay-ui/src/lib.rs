@@ -29,6 +29,7 @@ pub mod net_quality;
 pub mod netstat;
 pub mod shell;
 mod style;
+pub mod transport;
 
 pub use fonts::{DynamicFonts, load_dynamic_fonts};
 pub use style::install_fonts_and_style;

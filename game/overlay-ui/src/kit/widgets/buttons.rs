@@ -1,6 +1,8 @@
 //! Buttons, the keycap chip, and the hold-to-confirm gesture destructive actions go through.
 
-use egui::{Color32, CornerRadius, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, vec2};
+use egui::{
+    Color32, CornerRadius, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, vec2,
+};
 
 use crate::colors::{AMBER95, BLUE10, BLUE70};
 use crate::kit::text;
@@ -82,6 +84,41 @@ pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width:
 
     let text_pos = rect.center() - galley.size() * 0.5;
     ui.painter().galley(text_pos, galley, label_color);
+    response
+}
+
+/// A compact chip that acts when it is clicked.
+///
+/// The chip is given its size rather than taking it from its label, because chips come in rows —
+/// jump steps, quick actions — and a row whose cells resized with their contents would move under
+/// the pointer. The caller brings the type style too, since a chip carrying a value is set in
+/// numerals where one carrying a word is set in the button style; only its color is the chip's own,
+/// so every chip lights the same way under the pointer.
+pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) -> Response {
+    let job = spec.job_truncated(label, (size.x - theme::SPACE_SM).max(0.0));
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    let painter = ui.painter();
+    painter.rect_filled(rect, corner_radius, theme::alpha(BLUE10, 0.80));
+    painter.add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
+        StrokeKind::Inside,
+    ));
+    state_overlay(ui, &response, rect, corner_radius);
+    focus_ring(ui, &response, rect, corner_radius);
+    let color = if response.hovered() {
+        theme::TEXT_PRIMARY
+    } else {
+        theme::TEXT_DIM
+    };
+    ui.painter()
+        .galley(rect.center() - galley.size() * 0.5, galley, color);
     response
 }
 

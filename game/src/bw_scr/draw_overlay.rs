@@ -17,6 +17,7 @@ use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     Shell, Views,
 };
+use overlay_ui::transport::TransportView;
 use parking_lot::Mutex;
 use rally_point_client::proto::ids::SlotId;
 use winapi::shared::windef::{HWND, POINT};
@@ -24,6 +25,7 @@ use winapi::shared::windef::{HWND, POINT};
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
+use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::{BwCursorType, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
@@ -131,6 +133,11 @@ pub struct StepOutput {
     /// states rather than one: an observer routinely keeps the minimap while hiding the console.
     pub console_visible: bool,
     pub minimap_visible: bool,
+    /// Whether BW's own replay controls should be on screen, which is exactly when the overlay's
+    /// transport plate is not: the two stand in the same corner and do the same job.
+    pub command_panel_visible: bool,
+    /// What the overlay wants done to replay playback this frame, in the order it asked.
+    pub replay_commands: Vec<ReplayCommand>,
     // true to run second draw to avoid ugly flickering due to screen size changing.
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
@@ -156,6 +163,18 @@ pub struct BwVars {
     pub has_init_bw: bool,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,
+    /// The replay's own header numbers, and how playback is running, for the transport plate.
+    /// `None` outside a replay, which is every mode the plate is not drawn in.
+    pub replay: Option<ReplayVars>,
+}
+
+/// What the replay transport needs of the game: the replay's length and recorded speed, from its
+/// header, and the playback state the command-stream hook has tracked.
+#[derive(Copy, Clone)]
+pub struct ReplayVars {
+    pub end_frame: u32,
+    pub game_speed: u8,
+    pub transport: TransportState,
 }
 
 #[derive(Copy, Clone)]
@@ -471,6 +490,18 @@ impl OverlayState {
             self.chat_history = None;
             None
         };
+        // Built for every frame of a replay whether or not the plate is on screen: the transport
+        // keys keep working with it hidden, and only the shell knows whether the player hid it.
+        let transport_view = bw.replay.map(|replay| TransportView {
+            elapsed_frames: bw.game.frame_count(),
+            end_frames: replay.end_frame,
+            game_speed: replay.game_speed,
+            paused: replay.transport.paused,
+            speed_index: replay.transport.speed_index,
+            multiplier: replay.transport.multiplier,
+            spoiler_free: self.shell.panel_prefs().spoiler_free,
+            seek_pending: replay.transport.seek_pending,
+        });
         let mut views = Views {
             disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
                 view: &disconnect_view,
@@ -479,6 +510,7 @@ impl OverlayState {
             net_quality,
             net_stats: net_stats_view.as_ref(),
             chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
+            transport: transport_view.as_ref(),
         };
         // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
         // of the player's input and asks nothing of the game.
@@ -524,8 +556,9 @@ impl OverlayState {
         });
         self.chat_history = chat_history_view;
         self.capture = frame_output.capture;
+        let mut replay_commands = Vec::new();
         for intent in frame_output.intents {
-            execute_intent(bw, &mut self.out_state, intent);
+            execute_intent(bw, &mut self.out_state, intent, &mut replay_commands);
         }
         let prefs = *self.shell.panel_prefs();
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -544,6 +577,8 @@ impl OverlayState {
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
             console_visible: prefs.console,
             minimap_visible: prefs.minimap,
+            command_panel_visible: !frame_output.transport_shown,
+            replay_commands,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,
@@ -1230,8 +1265,17 @@ impl OverlayState {
     }
 }
 
-/// Carries out one thing the shell asked of the game.
-fn execute_intent(bw: &BwVars, out_state: &mut OutState, intent: Intent) {
+/// Carries out one thing the shell asked of the game, or hands on the ones only the caller can do.
+///
+/// The transport's commands go into `replay_commands` rather than being sent here: submitting a
+/// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
+/// knows nothing about.
+fn execute_intent(
+    bw: &BwVars,
+    out_state: &mut OutState,
+    intent: Intent,
+    replay_commands: &mut Vec<ReplayCommand>,
+) {
     match intent {
         // Safe to reach the turn state here: the draw path holds no turn-state lock across `step`.
         Intent::DropPlayer { slot } => {
@@ -1241,6 +1285,16 @@ fn execute_intent(bw: &BwVars, out_state: &mut OutState, intent: Intent) {
             dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
         }
         Intent::LeaveGame => out_state.leave_game = true,
+        Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
+        Intent::SetSpeed {
+            speed_index,
+            multiplier,
+            paused,
+        } => replay_commands.push(ReplayCommand::Speed {
+            speed_index,
+            multiplier,
+            paused,
+        }),
     }
 }
 

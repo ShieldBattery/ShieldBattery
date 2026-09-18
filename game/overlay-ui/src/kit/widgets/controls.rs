@@ -19,6 +19,12 @@ const SWITCH_TRAVEL_SECS: f32 = 0.12;
 
 /// Height of a slider's track.
 const SLIDER_TRACK: f32 = 4.0;
+/// Height a scrub track takes, its playhead included.
+const SCRUB_HEIGHT: f32 = 20.0;
+/// Thickness of the bar a scrub track's playhead rides.
+const SCRUB_BAR: f32 = 6.0;
+/// Radius of a scrub track's playhead.
+const SCRUB_HEAD: f32 = 6.0;
 /// Radius of a slider's knob.
 const SLIDER_KNOB: f32 = 7.0;
 /// Room kept to the right of a slider for its value.
@@ -157,6 +163,57 @@ pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
     state_overlay(ui, &response, track, corner_radius);
     focus_ring(ui, &response, track, corner_radius);
     response
+}
+
+/// What a scrub track reported back.
+pub struct ScrubTrack {
+    pub response: Response,
+    /// Where the pointer is asking to move to, from 0 to 1, while it is pressing the track.
+    /// `None` on every frame the player is not moving it.
+    pub target: Option<f32>,
+}
+
+/// A track carrying a playhead: the part already behind it is filled, and a click or a drag
+/// anywhere along it asks to move there.
+///
+/// While the pointer is down the head is drawn where the pointer is rather than where `fraction`
+/// says, because whatever is being scrubbed takes time to follow: a head that snapped back to the
+/// old position every frame could not be dragged at all.
+pub fn scrub_track(ui: &mut Ui, fraction: f32) -> ScrubTrack {
+    let (rect, response) = ui.allocate_exact_size(
+        vec2(ui.available_width(), SCRUB_HEIGHT),
+        Sense::click_and_drag(),
+    );
+    let bar = Rect::from_min_max(
+        pos2(rect.left() + SCRUB_HEAD, rect.center().y - SCRUB_BAR * 0.5),
+        pos2(rect.right() - SCRUB_HEAD, rect.center().y + SCRUB_BAR * 0.5),
+    );
+    let target = response.interact_pointer_pos().map(|pointer| {
+        ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
+    });
+    let drawn = target.unwrap_or(fraction).clamp(0.0, 1.0);
+    if !ui.is_rect_visible(rect) {
+        return ScrubTrack { response, target };
+    }
+
+    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    let painter = ui.painter();
+    painter.rect_filled(bar, corner_radius, theme::alpha(GREY_BLUE40, 0.55));
+    let mut played = bar;
+    played.set_right(bar.left() + bar.width() * drawn);
+    if played.width() > 0.0 {
+        painter.rect_filled(played, corner_radius, theme::ACCENT);
+    }
+
+    let head = pos2(played.right(), bar.center().y);
+    if response.hovered() || response.is_pointer_button_down_on() {
+        for (step, alpha) in [(2.0f32, 0.35f32), (4.0, 0.16), (6.0, 0.07)] {
+            painter.circle_filled(head, SCRUB_HEAD + step, theme::ACCENT.gamma_multiply(alpha));
+        }
+    }
+    painter.circle_filled(head, SCRUB_HEAD, BLUE95);
+    focus_ring(ui, &response, rect, corner_radius);
+    ScrubTrack { response, target }
 }
 
 /// A value between two bounds, with the value itself shown in condensed numerals beside it.

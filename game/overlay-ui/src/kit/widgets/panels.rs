@@ -189,6 +189,35 @@ pub fn tag_sized(ui: &mut Ui, label: &str, style: TagStyle, max_width: f32) -> R
     response
 }
 
+/// A chip of exactly `size`, for a tag standing in a fixed layout.
+///
+/// [`tag_sized`] grows with its label, which moves everything beside it every time the label
+/// changes width — unacceptable for a value that changes while the player is reading it. The caller
+/// brings the type style as well, because a tag carrying a value is set in numerals where one
+/// carrying a word is set in the label style; the tag's own color wins over the style's.
+pub fn tag_exact(
+    ui: &mut Ui,
+    spec: &text::TextSpec,
+    label: &str,
+    style: TagStyle,
+    size: Vec2,
+) -> Response {
+    let (fill, text_color) = style.colors();
+    let job = spec
+        .clone()
+        .with_color(text_color)
+        .job_truncated(label, (size.x - theme::SPACE_SM).max(0.0));
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    if ui.is_rect_visible(rect) {
+        ui.painter()
+            .rect_filled(rect, theme::radius(theme::RADIUS_TIGHT), fill);
+        ui.painter()
+            .galley(rect.center() - galley.size() * 0.5, galley, text_color);
+    }
+    response
+}
+
 /// Three dots breathing in turn, for "this is still happening".
 pub fn pulsing_dots(ui: &mut Ui) -> Response {
     let width = DOT_RADIUS * 2.0 * 3.0 + DOT_GAP * 2.0;
