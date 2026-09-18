@@ -177,10 +177,13 @@ pub fn tier2_dialog<R>(
     }
 }
 
-/// Draws a dialog's title with an amber halo around it.
+/// Draws a dialog's title with a faint amber glow behind it.
 ///
-/// The halo is the same text stamped around itself at low alpha, because the game's renderer has no
-/// blur to hand: a ring of offsets at two radii reads as a glow once the alphas are low enough.
+/// The glow stands in for a blurred shadow (10 units wide, a third of the text's alpha in total),
+/// which the game's renderer cannot blur for us: the same text is stamped around itself at three
+/// radii, each ring so faint that no single copy reads as a second outline. The rings start well
+/// outside the glyph strokes and thin out with distance, so the sum is a soft field behind the
+/// letters rather than a fat edge on them, and the letters themselves stay sharp.
 pub fn dialog_title(ui: &mut Ui, title: &str) {
     let spec = text::dialog_title();
     let galley = spec.galley(ui, title);
@@ -192,10 +195,11 @@ pub fn dialog_title(ui: &mut Ui, title: &str) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), size.y), Sense::hover());
     let origin = pos2(rect.center().x - size.x * 0.5, rect.top());
     let painter = ui.painter();
-    for (radius, alpha) in [(4.0f32, 0.07f32), (2.0, 0.13)] {
+    const STAMPS_PER_RING: usize = 16;
+    for (radius, alpha) in [(12.0f32, 0.006f32), (9.0, 0.01), (6.0, 0.014), (3.0, 0.018)] {
         let color = theme::ACCENT.gamma_multiply(alpha);
-        for step in 0..8 {
-            let angle = std::f32::consts::TAU * step as f32 / 8.0;
+        for step in 0..STAMPS_PER_RING {
+            let angle = std::f32::consts::TAU * step as f32 / STAMPS_PER_RING as f32;
             let offset = vec2(angle.cos(), angle.sin()) * radius;
             painter.galley(origin + offset, halo.clone(), color);
         }
