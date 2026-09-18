@@ -8,14 +8,22 @@ use super::BwScr;
 
 /// The dialogs that make up BW's bottom console, including the minimap.
 ///
-/// Hiding is split in two: [`BwScr::set_console_visible`] moves everything here except the minimap,
-/// and [`BwScr::set_minimap_visible`] moves the minimap alone. The whole list still matters for
-/// event handling, since every one of these dialogs has to stop responding while it is hidden.
+/// Hiding is split three ways: [`BwScr::set_console_visible`] moves everything here except the
+/// minimap and the command panel, and those two have a visibility each of their own. The whole list
+/// still matters for event handling, since every one of these dialogs has to stop responding while
+/// it is hidden.
 pub const CONSOLE_DIALOGS: &[&str] = &["StatPort", "Minimap", "Stat_F10", "StatBtn", "StatData"];
 
 /// The minimap's dialog, which has a visibility of its own: observers routinely keep the minimap
 /// while the rest of the console is hidden, which is what SC:R's own observer view renders.
 pub const MINIMAP_DIALOG: &str = "Minimap";
+
+/// The command-button panel, which in a replay carries SC:R's own playback controls.
+///
+/// A visibility of its own as well, for the other direction: the overlay's replay transport stands
+/// in for those controls, so this panel goes while the console stays. A player who hides our
+/// transport gets SC:R's back rather than no controls at all.
+pub const COMMAND_PANEL_DIALOG: &str = "StatBtn";
 
 /// The console's menu button. Not the menu it opens, which is a dialog of its own built from
 /// `rez/gamemenu.ui.json`.
@@ -30,6 +38,16 @@ impl BwScr {
         self.minimap_hidden_state.load(Ordering::Relaxed)
     }
 
+    pub fn command_panel_hidden(&self) -> bool {
+        self.command_panel_hidden_state.load(Ordering::Relaxed)
+    }
+
+    /// Whether a console dialog of this name should be drawing and responding right now, which is
+    /// what the hidden ones' event handler drops events on.
+    pub fn console_dialog_hidden(&self, name: &str) -> bool {
+        self.console_hidden() || (name == COMMAND_PANEL_DIALOG && self.command_panel_hidden())
+    }
+
     /// Shows or hides the console, leaving the minimap wherever
     /// [`set_minimap_visible`](Self::set_minimap_visible) last put it.
     ///
@@ -40,6 +58,13 @@ impl BwScr {
     pub unsafe fn set_console_visible(&self, first_dialog: Option<Dialog>, visible: bool) {
         unsafe {
             for dialog in bw::iter_dialogs(first_dialog) {
+                // The command panel goes with the console band like the rest of it, but the
+                // transport has a veto: showing the console again must not put SC:R's replay plate
+                // back underneath ours.
+                if is_command_panel_dialog(dialog) {
+                    set_dialog_visible(dialog, visible && !self.command_panel_hidden());
+                    continue;
+                }
                 if is_console_dialog(dialog) && !is_minimap_dialog(dialog) {
                     set_dialog_visible(dialog, visible);
                 }
@@ -67,6 +92,24 @@ impl BwScr {
                 }
             }
             self.minimap_hidden_state.store(!visible, Ordering::Relaxed);
+        }
+    }
+
+    /// Shows or hides SC:R's own replay controls, which live in the console's command panel.
+    ///
+    /// Part of the console band, so it can only be on screen while the console is: asking for it
+    /// while the console is hidden records the wish and leaves the screen alone, and showing the
+    /// console again is what carries it out.
+    pub unsafe fn set_command_panel_visible(&self, first_dialog: Option<Dialog>, visible: bool) {
+        unsafe {
+            self.command_panel_hidden_state
+                .store(!visible, Ordering::Relaxed);
+            let visible = visible && !self.console_hidden();
+            for dialog in bw::iter_dialogs(first_dialog) {
+                if is_command_panel_dialog(dialog) {
+                    set_dialog_visible(dialog, visible);
+                }
+            }
         }
     }
 
@@ -106,4 +149,8 @@ fn is_console_dialog(dialog: Dialog) -> bool {
 
 fn is_minimap_dialog(dialog: Dialog) -> bool {
     dialog.as_control().string() == MINIMAP_DIALOG
+}
+
+fn is_command_panel_dialog(dialog: Dialog) -> bool {
+    dialog.as_control().string() == COMMAND_PANEL_DIALOG
 }

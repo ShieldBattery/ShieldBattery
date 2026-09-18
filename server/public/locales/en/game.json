@@ -61,5 +61,13 @@
     "session": "Session",
     "title": "Network stats",
     "worstGap": "Worst gap"
+  },
+  "transport": {
+    "jumpMinutes": "{{step}}m",
+    "jumpSeconds": "{{step}}s",
+    "lengthHidden": "Length hidden",
+    "paused": "Paused",
+    "reveal": "Reveal",
+    "speed": "×{{rate}}"
   }
 }

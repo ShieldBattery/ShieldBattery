@@ -4,7 +4,8 @@ The presentation layer for ShieldBattery's in-game overlays, plus a native host 
 without launching StarCraft.
 
 The **library** is what the injected game DLL links against: view-model types and pure egui render
-functions over plain data (`disconnect`, `netstat`, `chat_history`), the color ramps (`colors`), the
+functions over plain data (`disconnect`, `netstat`, `chat_history`, `transport`), the color ramps
+(`colors`), the
 font families (`fonts`), `install_fonts_and_style`, which installs the overlay's faces and base style
 on an `egui::Context`, the UI kit (`kit`) every screen is drawn from, the translations (`i18n`) every
 string goes through, and the `shell` that decides which of those screens is up and what the frame
@@ -71,13 +72,13 @@ conspicuously plain. Offline renders include one pseudolocale pass per translate
 
 ## The kit
 
-| Module         | What lives there                                                                                                                                                                                                                                                                                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kit::theme`   | Every token: colors per tier, text colors, player colors, spacing, radii, hit targets, motion durations, interaction overlays. One unit of the design is one egui point, so these are plain point values — never scale them again.                                                                                                                                                                                        |
-| `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it. |
-| `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, glowing title), plus the `gradient_round_rect` and chrome shapes they are built from.                                                                                                                                                                                    |
-| `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                |
-| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `hold_to_confirm`, `segmented`, `switch`, `slider`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme.                                                                             |
+| Module         | What lives there                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kit::theme`   | Every token: colors per tier, text colors, player colors, spacing, radii, hit targets, motion durations, interaction overlays. One unit of the design is one egui point, so these are plain point values — never scale them again.                                                                                                                                                                                                                                                                       |
+| `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                |
+| `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, glowing title), plus the `gradient_round_rect` and chrome shapes they are built from.                                                                                                                                                                                                                                                                   |
+| `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                               |
+| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
 
 ## The shell
 
@@ -102,8 +103,19 @@ move.
 A frame has three layers, drawn so each covers the one before it. **Ambient** (tier 0/1) panels sit
 over live gameplay; the observer panel set belongs to `Observing`/`Replay`, while the `/netstat`
 diagnostic panel is deliberately available in every mode, since only an explicit chat command puts it
-on screen. **Hero** (tier 1) carries the match's identity. **Modal** (tier 2) is a stack, of which
-only the top is drawn.
+on screen. **Hero** (tier 1) carries the match's identity — the replay transport plate lives here.
+**Modal** (tier 2) is a stack, of which only the top is drawn.
+
+**The replay transport** (`transport`) is the one screen that acts on the game rather than reporting
+on it. A host builds its view-model for every frame of a replay, whether or not the plate is on
+screen, so the transport keys keep working with it hidden; the shell decides what is drawn and turns
+both the plate's controls and those keys into `Intent::Seek` and `Intent::SetSpeed`, which a host
+sends as the game's own replay commands. Two rules live in the shell rather than in either host: at
+most one seek is in flight (a second sent while the first is pending is refused outright by the
+game), and a dragged playhead is coalesced to its latest target a few times a second, since every
+backward seek restarts the simulation from frame zero. `FrameOutput::transport_shown` is how a host
+knows to hide SC:R's own plate, which does the same job in the same corner; it stays true through the
+plate's exit, so the two never overlap.
 
 **Input capture.** With no modal up, the pointer is decided by hit rects alone — a click that misses
 every rect the frame reported is the game's — and the keyboard by whether an egui widget has focus or
@@ -141,12 +153,17 @@ built leaves the game's own behavior alone.
 | Side panel                           | `R`       | Spoiler-free               | `L`     |
 | Minimap                              | `Q`       | Edge dock                  | `` ` `` |
 
-Of these, only `A`, `E`, `F`, `W` and `Q` do anything today; the rest are bindings waiting for their
-surfaces. Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can
-persist it per profile. The console and the minimap are independent booleans there, because they are
-separate surfaces in the game and observers routinely keep the minimap while hiding the console —
-which is why the DLL's `console.rs` moves them with two calls, `set_console_visible` and
-`set_minimap_visible`, rather than one.
+Of these, `A`, `E`, `F`, `W`, `Q` and `Y` move panels, and `P`, `U`, `D`, `,`, `.` and `L` drive a
+replay; the rest are bindings waiting for their surfaces. The transport keys are consumed only while
+a replay's view-model is being fed, and `L` only in a replay, so anywhere else they stay the game's.
+
+Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
+per profile. The console and the minimap are independent booleans there, because they are separate
+surfaces in the game and observers routinely keep the minimap while hiding the console — which is
+why the DLL's `console.rs` moves them with separate calls, `set_console_visible`,
+`set_minimap_visible` and `set_command_panel_visible`, rather than one. `PanelPrefs` also carries
+`spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
+for a clear screen, not for a replay's length to be given away.
 
 **Native dialog replacements** (`shell::native_dialogs`) are the list of SC:R dialogs the overlay
 stands in for: `TimeOut`, `ChatHistory` and `GameMenu`. A host matches a spawning dialog with
@@ -252,8 +269,13 @@ lines out by position (how many, whether the scopes are mixed, whether any are t
 own, system notices, a line long enough to wrap, a line carrying BW's color codes), and its _burst
 new lines_ button appends five at the bottom, which is how the pinned scroll is judged — the list
 follows them only if the reader had left it at the bottom. Selecting the scenario spawns the native
-dialog it replaces, since that is what raises the modal. Clicks the
-overlay reports back (the disconnect Drop buttons) are logged under the knobs.
+dialog it replaces, since that is what raises the modal. The **replay transport** scenario keeps a
+fake replay behind the plate — a clock that runs at whatever speed the plate last asked for, that a
+seek moves and a pause stops — because a seek that went nowhere would prove nothing about whether the
+playhead follows the pointer; its knobs are the replay's length, where playback starts, the speed it
+was recorded at, the rung it starts on, and whether the game reports a seek still in flight.
+Selecting it moves the emulated host to replay mode, which is the only mode the plate exists in.
+Clicks the overlay reports back (the disconnect Drop buttons) are logged under the knobs.
 
 The **kitchen sink** is not a screen the game shows. It lays the whole kit out at once — a tier-0
 panel, a tier-1 panel, a tier-2 dialog, every type style with Korean, Simplified Chinese and Russian
