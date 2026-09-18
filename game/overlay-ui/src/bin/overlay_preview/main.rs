@@ -29,13 +29,31 @@ use crate::knobs::{Backdrop, Knobs};
 use crate::raster::TextureStore;
 use crate::virtual_screen::{Blit, ResolutionPreset, ScaleMode, VirtualScreen};
 
-/// A frame of real gameplay, so an overlay is previewed over the scene it has to stay readable
-/// over: a 16:9 screenshot dropped into the crate's `backdrops/` directory (see the README there),
-/// stretched to whatever the emulated screen is. Read from disk at startup rather than embedded so
-/// the capture, a multi-megabyte image, never has to live in the repository; a missing file simply
-/// falls back to the solid fill.
-const GAMEPLAY_BACKDROP_PATH: &str =
-    concat!(env!("CARGO_MANIFEST_DIR"), "/backdrops/gameplay-1080.png");
+/// Where frames of real gameplay live, so an overlay is previewed over the scene it has to stay
+/// readable on: any 16:9 screenshot in the crate's `backdrops/` directory (see the README there),
+/// stretched to whatever the emulated screen is. Read from disk at startup rather than embedded,
+/// so a capture can be swapped without a rebuild; an empty directory simply falls back to the
+/// solid fill.
+const BACKDROP_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/backdrops");
+
+/// The gameplay capture in use: the first `.png` in the backdrop directory by name, so a capture
+/// is picked without the code naming it and a second one can take over by sorting earlier.
+fn gameplay_backdrop_path() -> std::io::Result<PathBuf> {
+    let mut pngs: Vec<PathBuf> = std::fs::read_dir(BACKDROP_DIR)?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("png"))
+        })
+        .collect();
+    pngs.sort();
+    pngs.into_iter().next().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("no .png in {BACKDROP_DIR}"),
+        )
+    })
+}
 
 /// What an emulated screen shows where no backdrop covers it, so a transparent-edged image or no
 /// image at all still reads as a game scene rather than as the window's own fill.
@@ -158,7 +176,7 @@ fn load_backdrop(backdrop: &Backdrop) -> Option<RgbaImage> {
 fn decode_backdrop(backdrop: &Backdrop) -> Result<Option<RgbaImage>, image::ImageError> {
     match backdrop {
         Backdrop::SolidDark => Ok(None),
-        Backdrop::Gameplay => Ok(Some(image::open(GAMEPLAY_BACKDROP_PATH)?.to_rgba8())),
+        Backdrop::Gameplay => Ok(Some(image::open(gameplay_backdrop_path()?)?.to_rgba8())),
         Backdrop::File(path) => Ok(Some(image::open(path)?.to_rgba8())),
     }
 }
