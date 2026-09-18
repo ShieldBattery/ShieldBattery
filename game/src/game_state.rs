@@ -95,7 +95,9 @@ impl IncompleteInit {
 
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
-    SetSettings(Settings),
+    /// Boxed for the same reason [`SetNetcodeV2Setup`](Self::SetNetcodeV2Setup) is: it dwarfs every
+    /// other variant and arrives once per game, so the enum every message travels in stays small.
+    SetSettings(Box<Settings>),
     /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app.
     /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
     SetNetcodeV2Setup(Box<NetcodeV2Setup>),

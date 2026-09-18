@@ -20,6 +20,7 @@ use std::time::{Duration, Instant};
 
 use egui::{Align2, Color32, FontId, Rect, Vec2, pos2};
 use image::RgbaImage;
+use overlay_ui::i18n::{self, Locale};
 
 use crate::game_host::{GameHost, PassInput};
 use crate::knobs::{Backdrop, Knobs};
@@ -160,14 +161,47 @@ fn decode_backdrop(backdrop: &Backdrop) -> Result<Option<RgbaImage>, image::Imag
     }
 }
 
+/// One offline render: a scenario preset, and whether it is rendered in the pseudolocale.
+struct RenderCase {
+    preset: scenarios::Preset,
+    pseudolocale: bool,
+}
+
+/// Every offline render, in file order: each preset in English, then one pseudolocale pass per
+/// screen that is drawn from translated strings. The second pass is what proves a layout survives
+/// text a third longer than the English it was designed against.
+fn render_cases() -> Vec<RenderCase> {
+    let mut cases: Vec<RenderCase> = scenarios::all_presets()
+        .into_iter()
+        .map(|preset| RenderCase {
+            preset,
+            pseudolocale: false,
+        })
+        .collect();
+    cases.extend(scenarios::PSEUDOLOCALE_PRESETS.map(|preset| RenderCase {
+        preset,
+        pseudolocale: true,
+    }));
+    cases
+}
+
+/// Points the overlay's translations at what the knobs ask for. Applied before every pass, since
+/// both settings are process-wide state the render fns read as they lay their strings out.
+fn apply_language(knobs: &Knobs) {
+    i18n::set_locale(knobs.language);
+    i18n::set_pseudolocale(knobs.pseudolocale);
+}
+
 /// Renders every scenario preset at every offline resolution into `dir`, returning what it wrote.
 fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
     let mut written = Vec::new();
-    for preset in scenarios::all_presets() {
+    for case in render_cases() {
         for resolution in RENDER_SIZES {
             let mut knobs = Knobs::default();
-            preset.apply(&mut knobs);
+            case.preset.apply(&mut knobs);
+            knobs.pseudolocale = case.pseudolocale;
+            apply_language(&knobs);
             // Offline there is no window to match, so the preset's own pixels set the scale.
             let screen = VirtualScreen::resolve(
                 resolution,
@@ -207,9 +241,10 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
                 backdrop,
             );
             let path = dir.join(format!(
-                "{}-{}-{}x{}.png",
-                preset.kind().slug(),
-                preset.label(),
+                "{}-{}{}-{}x{}.png",
+                case.preset.kind().slug(),
+                case.preset.label(),
+                if case.pseudolocale { "-pseudo" } else { "" },
                 width,
                 height
             ));
@@ -326,6 +361,7 @@ impl PreviewApp {
             )
         });
         let events = self.host.translate_events(&host_events, modifiers, &blit);
+        apply_language(&self.knobs);
         let elapsed = self.start.elapsed().as_secs_f64();
         let knobs = &self.knobs;
         let mut outcome = scenarios::Outcome::default();
@@ -494,6 +530,27 @@ impl PreviewApp {
                 format!("backdrop: {err}"),
             );
         }
+
+        ui.add_space(8.0);
+        ui.separator();
+        ui.strong("Language");
+        let mut changed = false;
+        egui::ComboBox::from_label("language")
+            .selected_text(self.knobs.language.tag())
+            .show_ui(ui, |ui| {
+                for locale in Locale::ALL {
+                    changed |= ui
+                        .selectable_value(&mut self.knobs.language, locale, locale.tag())
+                        .changed();
+                }
+            });
+        changed |= ui
+            .checkbox(&mut self.knobs.pseudolocale, "pseudolocale")
+            .on_hover_text(
+                "Accents, brackets and pads every string to ~135% of its English length, so a                  layout is judged against long text before translators see it.",
+            )
+            .changed();
+        self.dirty |= changed;
 
         ui.add_space(8.0);
         ui.separator();

@@ -82,6 +82,15 @@ impl Preset {
     }
 }
 
+/// The presets that are also rendered offline in the pseudolocale: one per screen that draws
+/// translated strings, picked as the busiest state each one has, since that is where long text runs
+/// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
+/// whose copy is translated.
+pub const PSEUDOLOCALE_PRESETS: [Preset; 2] = [
+    Preset::Disconnect(disconnect::Preset::Droppable),
+    Preset::NetStat(netstat::Preset::Degraded),
+];
+
 /// Every scenario preset, in selector order.
 pub fn all_presets() -> Vec<Preset> {
     disconnect::Preset::ALL

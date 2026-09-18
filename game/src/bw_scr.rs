@@ -5738,6 +5738,20 @@ impl bw::Bw for BwScr {
         *self.team_color_config.lock() =
             settings.team_colors.as_ref().and_then(|tc| tc.to_config());
 
+        // The overlay reads its language from a process-wide locale, set here because settings
+        // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which
+        // every string falls back to anyway.
+        let locale = settings
+            .language
+            .as_deref()
+            .and_then(overlay_ui::i18n::Locale::from_tag);
+        if let Some(language) = &settings.language
+            && locale.is_none()
+        {
+            warn!("No in-game UI translations for language '{language}', using English");
+        }
+        overlay_ui::i18n::set_locale(locale.unwrap_or(overlay_ui::i18n::Locale::En));
+
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Release);
         self.disable_hd.store(disable_hd, Ordering::Release);

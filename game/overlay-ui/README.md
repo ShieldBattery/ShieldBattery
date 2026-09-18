@@ -6,10 +6,10 @@ without launching StarCraft.
 The **library** is what the injected game DLL links against: view-model types and pure egui render
 functions over plain data (`disconnect`, `netstat`), the color ramps (`colors`), the font families
 (`fonts`), `install_fonts_and_style`, which installs the overlay's faces and base style on an
-`egui::Context`, and the UI kit (`kit`) every screen is drawn from. It has no BW, samase or Windows
-dependency, which is what makes it host-compilable. Nothing here may depend on the preview host, and
-the host's dependencies (eframe, image, serde) are optional and gated behind the `preview` feature,
-so the DLL never pulls them in.
+`egui::Context`, the UI kit (`kit`) every screen is drawn from, and the translations (`i18n`) every
+string goes through. It has no BW, samase or Windows dependency, which is what makes it
+host-compilable. Nothing here may depend on the preview host, and the host's dependencies (eframe,
+image, serde) are optional and gated behind the `preview` feature, so the DLL never pulls them in.
 
 ## Fonts
 
@@ -37,6 +37,36 @@ is simply a face that is not registered. Both hosts follow the same rule for whe
 is: **the `fonts` directory beside the binary**. The game DLL resolves its own module path and looks
 in `<dll directory>/fonts`, which `game/build.bat` populates from `game/files/fonts/dynamic`; the
 preview reads `game/files/fonts/dynamic` straight out of the checkout.
+
+## Translations
+
+Every string a screen shows goes through a macro, never a literal:
+
+```rust
+tr!("disconnect.waitingTitle", "Waiting for players")
+tr!("disconnect.dropCountdown", "Drop in {{time}}", time = mmss(remaining))
+tr_plural!("netstat.bufferTurns", turns, one = "{{count}} turn", other = "{{count}} turns")
+```
+
+The key and the default text must be literals, and further `name = expr` arguments fill the
+`{{name}}` placeholders (`{{count}}` is always available to `tr_plural!`). That is the exact shape
+`tools/i18next-rust-plugin.mjs` parses: `pnpm gen-translations` scans `game/**/*.rs` for these calls
+and writes the defaults into `server/public/locales/en/game.json`, the `game` namespace beside the
+app's own `global` one. The other four languages are filled in by `pnpm run i18n --ns game` and land
+beside it. Keys are relative to the namespace, so they carry no `game.` prefix, and the nesting in
+the JSON is the key's dotted path.
+
+`build.rs` embeds whichever of the five catalogs exist at build time; a language nobody has
+translated yet is simply not embedded. A lookup tries the active language, then English, then the
+default written at the call site, so a missing key always renders a sentence. Plural forms are the
+`_one` / `_few` / `_many` / `_other` sibling keys i18next writes, picked by the CLDR cardinal rules
+for our five languages (hand-written in `i18n.rs`, tested there).
+
+`i18n::set_locale` picks the language. The game DLL calls it from its settings handler with the tag
+the app sends; the preview has a _Language_ knob. The preview also has a **pseudolocale** toggle,
+which draws every string accented, bracketed and padded to roughly 135% of its English length: a
+layout that survives it survives the translations, and anything not yet wrapped in `tr!` stays
+conspicuously plain. Offline renders include one pseudolocale pass per translated screen.
 
 ## The kit
 
@@ -80,7 +110,8 @@ Pass arguments through the watcher after a `--`, e.g.
 | `--smoke`          | The same renders into a temp directory, printing one summary line. Exits 0 on success and non-zero on any failure, so CI can prove the pipeline runs. |
 
 `--render` and `--smoke` go through a small CPU rasterizer over the tessellated meshes, so they need
-neither a GPU nor a window. File names are `<scenario>-<preset>-<width>x<height>.png`.
+neither a GPU nor a window. File names are `<scenario>-<preset>-<width>x<height>.png`, plus a
+`-pseudo` pass per translated screen.
 
 ## Knobs
 
@@ -101,6 +132,13 @@ defaults independently, so a file written by an older build still loads.
 - _Backdrop_ — what is drawn behind the overlay, stretched to the emulated screen: the bundled
   gameplay frame (the default, so an overlay is always judged over a real scene), a solid dark fill,
   or a PNG from disk.
+
+**Language**
+
+- _Language_ — which of the five catalogs the overlay resolves its strings against, applied before
+  every pass.
+- _Pseudolocale_ — draws every string accented and expanded (see Translations above), whatever the
+  language is set to.
 
 **Scenario** — exactly one overlay is up at a time, matching the game. Each scenario has one-click
 presets and then per-field knobs: the disconnect overlay's rows (add/remove, name, tier, elapsed

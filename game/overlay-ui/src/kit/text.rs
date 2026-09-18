@@ -94,6 +94,22 @@ impl TextSpec {
         job
     }
 
+    /// The text as a single-line job that elides with an ellipsis rather than growing past
+    /// `max_width`.
+    ///
+    /// What a translated or player-chosen string may not do is push a layout wider than the space
+    /// it was given: a name column that grows with its longest name moves every column beside it.
+    pub fn job_truncated(&self, text: &str, max_width: f32) -> LayoutJob {
+        let mut job = self.job(text);
+        job.wrap = TextWrapping {
+            max_width,
+            max_rows: 1,
+            break_anywhere: true,
+            overflow_character: Some('\u{2026}'),
+        };
+        job
+    }
+
     /// Lays the text out now, for widgets that paint their own label and need its size first.
     pub fn galley(&self, ui: &Ui, text: &str) -> Arc<Galley> {
         let job = self.job(text);
