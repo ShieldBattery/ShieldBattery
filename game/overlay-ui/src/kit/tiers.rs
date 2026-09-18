@@ -195,8 +195,8 @@ pub fn dialog_title(ui: &mut Ui, title: &str) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), size.y), Sense::hover());
     let origin = pos2(rect.center().x - size.x * 0.5, rect.top());
     let painter = ui.painter();
-    const STAMPS_PER_RING: usize = 16;
-    for (radius, alpha) in [(12.0f32, 0.006f32), (9.0, 0.01), (6.0, 0.014), (3.0, 0.018)] {
+    const STAMPS_PER_RING: usize = 8;
+    for (radius, alpha) in [(10.0f32, 0.005f32), (6.0, 0.008), (3.0, 0.011)] {
         let color = theme::ACCENT.gamma_multiply(alpha);
         for step in 0..STAMPS_PER_RING {
             let angle = std::f32::consts::TAU * step as f32 / STAMPS_PER_RING as f32;
