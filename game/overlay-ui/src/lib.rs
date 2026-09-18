@@ -13,6 +13,11 @@
 //! the design tokens, type styles, surfaces and controls every screen is drawn from. Every string a
 //! screen shows goes through [`tr!`] / [`tr_plural!`], which resolve against the app's own
 //! translation catalogs (see [`i18n`]).
+//!
+//! The [`shell`] module is the state machine above those screens: which surfaces are up, which of
+//! them is modal, what the frame does with the player's input, and which of SC:R's own dialogs the
+//! overlay replaces. Both hosts drive it once per frame, so neither owns a policy the other can
+//! drift from.
 
 pub mod colors;
 pub mod disconnect;
@@ -20,6 +25,7 @@ pub mod fonts;
 pub mod i18n;
 pub mod kit;
 pub mod netstat;
+pub mod shell;
 mod style;
 
 pub use fonts::{DynamicFonts, load_dynamic_fonts};

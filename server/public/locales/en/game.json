@@ -1,4 +1,10 @@
 {
+  "chatHistory": {
+    "title": "Chat history"
+  },
+  "common": {
+    "close": "Close"
+  },
   "disconnect": {
     "dropAction": "Drop",
     "dropCountdown": "Drop in {{time}}",
@@ -12,6 +18,10 @@
     "waitingBody_one": "The game is paused until this player reconnects.",
     "waitingBody_other": "The game is paused until these players reconnect.",
     "waitingTitle": "Waiting for players"
+  },
+  "gameMenu": {
+    "returnToGame": "Return to game",
+    "title": "Game menu"
   },
   "netstat": {
     "buffer": "Buffer",

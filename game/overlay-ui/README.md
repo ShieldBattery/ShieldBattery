@@ -6,10 +6,11 @@ without launching StarCraft.
 The **library** is what the injected game DLL links against: view-model types and pure egui render
 functions over plain data (`disconnect`, `netstat`), the color ramps (`colors`), the font families
 (`fonts`), `install_fonts_and_style`, which installs the overlay's faces and base style on an
-`egui::Context`, the UI kit (`kit`) every screen is drawn from, and the translations (`i18n`) every
-string goes through. It has no BW, samase or Windows dependency, which is what makes it
-host-compilable. Nothing here may depend on the preview host, and the host's dependencies (eframe,
-image, serde) are optional and gated behind the `preview` feature, so the DLL never pulls them in.
+`egui::Context`, the UI kit (`kit`) every screen is drawn from, the translations (`i18n`) every
+string goes through, and the `shell` that decides which of those screens is up and what the frame
+does with the player's input. It has no BW, samase or Windows dependency, which is what makes it
+host-compilable. Nothing here may depend on the preview host, and the host's own dependencies
+(eframe, image) are optional and gated behind the `preview` feature, so the DLL never pulls them in.
 
 ## Fonts
 
@@ -78,6 +79,82 @@ conspicuously plain. Offline renders include one pseudolocale pass per translate
 | `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                      |
 | `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `hold_to_confirm`, `segmented`, `switch`, `slider`, `kbd`, `panel_header`, `stat_row`, `tag`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. |
 
+## The shell
+
+`shell::Shell` is the state machine above the screens, and both hosts drive it once per frame:
+`shell.frame(ctx, &HostFrame, &mut Views) -> FrameOutput`. `HostFrame` is what the host knows about
+the game (the `Mode` the client is watching from, whether the game has started, whether BW's chat box
+is open, whether one of BW's own dialogs is on top); `Views` holds the view-models the host built
+this frame; `FrameOutput` carries the intents the shell wants carried out, the screen rects it owns
+and the input capture it has taken. Every policy lives here rather than in a host, so the game DLL
+and the preview can't drift and the rules are testable without a game or a window.
+
+A frame has three layers, drawn so each covers the one before it. **Ambient** (tier 0/1) panels sit
+over live gameplay; the observer panel set belongs to `Observing`/`Replay`, while the `/netstat`
+diagnostic panel is deliberately available in every mode, since only an explicit chat command puts it
+on screen. **Hero** (tier 1) carries the match's identity. **Modal** (tier 2) is a stack, of which
+only the top is drawn.
+
+**Input capture.** With no modal up, the pointer is decided by hit rects alone — a click that misses
+every rect the frame reported is the game's — and the keyboard by whether an egui widget has focus or
+a hotkey is bound. A capturing modal takes both outright: unit selection, drag-select and
+move/attack commands all ride the same messages, so taking them all is what makes a modal behave like
+a pause. Two carve-outs survive a full capture. While BW's chat box is open the player is typing, so
+every key belongs to that box (backspace, the arrows, Escape to close it) and the keyboard passes
+straight through however modal the screen is. And typed _characters_ are never part of the capture at
+all: SC:R opens and submits its chat box from the Enter character rather than from a virtual key, so
+swallowing characters while the box is closed would swallow the keystroke that opens it and the box
+could never be reported open again. `Key::Enter` is let through for the same reason.
+
+A modal the game's own state raises (the disconnect surface) is not dismissible — it is up exactly
+while its condition holds — and takes input only once the connection problem is real: a passing stall
+must never lock a player out of their own game. `Esc` and a click on the scrim close a dismissible
+modal.
+
+**Hotkeys** (`shell::hotkeys`) are one action-to-chord table, so making them user-customizable later
+is settings plumbing rather than a shell change. They are consumed only while observing or watching a
+replay, never while a modal of ours, one of BW's dialogs or the chat box owns the keyboard, and never
+with Ctrl or Alt held (SC:R binds nearly every modified chord in game: `Alt+M` is its menu, `Ctrl+M`
+its music). Shift is allowed through, since it scales an action rather than selecting a different
+one. **A binding the shell cannot act on yet is not consumed**, so a key whose surface has not been
+built leaves the game's own behavior alone.
+
+| Action                               | Key       | Action                     | Key     |
+| ------------------------------------ | --------- | -------------------------- | ------- |
+| Pause / resume                       | `P`       | Transport plate            | `Y`     |
+| Speed up / down                      | `U` / `D` | Military                   | `M`     |
+| Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift: per-player) | `G`     |
+| All panels                           | `A`       | Timeline                   | `T`     |
+| Economy (statistics panel for now)   | `E`       | Control groups             | `H`     |
+| Production                           | `F`       | Map control                | `N`     |
+| Console                              | `W`       | Cycle vision               | `V`     |
+| Side panel                           | `R`       | Spoiler-free               | `L`     |
+| Minimap                              | `Q`       | Edge dock                  | `` ` `` |
+
+Of these, only `A`, `E`, `F`, `W` and `Q` do anything today; the rest are bindings waiting for their
+surfaces. Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can
+persist it per profile. The console and the minimap are independent booleans there, because they are
+separate surfaces in the game and observers routinely keep the minimap while hiding the console —
+which is why the DLL's `console.rs` moves them with two calls, `set_console_visible` and
+`set_minimap_visible`, rather than one.
+
+**Native dialog replacements** (`shell::native_dialogs`) are the list of SC:R dialogs the overlay
+stands in for: `TimeOut`, `ChatHistory` and `GameMenu`. A host matches a spawning dialog with
+`replacement_for(runtime_name)` (case-insensitive), hides it, swallows its events, and tells the shell
+with `native_dialog_spawned` / `native_dialog_closed`. Matching is on the name SC:R gives a dialog at
+runtime, which is not its template's file name: only `TimeOut` has been captured, so
+`CHAT_HISTORY_DIALOG_NAME` and `GAME_MENU_DIALOG_NAME` are `None` and the registry never matches
+those two. Filling them in means opening the dialog in a live game and reading the name off that
+session's `spawn_dialog:` log line.
+
+Dismissing a replacement is not just a matter of leaving the native dialog hidden. SC:R's in-game
+menus put the game into a modal state — single-player pause, suspended cursor updates, a restricted
+hotkey context — before the dialog spawns, and leave it only when the dialog closes through its own
+path. So the shell answers a dismissal with `Intent::CloseNativeDialog`, and the host drives the
+dialog's return control (`RETURN_CONTROL_ID`, id -3) the way a click on it would. `TimeOut` is the
+exception that raises no modal of its own: the surface standing in for it is the disconnect modal,
+which the disconnect status raises and lowers on its own schedule.
+
 The **`overlay-preview` binary** (feature `preview`) is that host. It emulates the way the DLL hosts
 egui rather than rendering the overlays into eframe's own context: the overlay gets its own
 `egui::Context` at the game's scale, fed hand-built `RawInput`, tessellated, its texture deltas
@@ -140,10 +217,24 @@ defaults independently, so a file written by an older build still loads.
 - _Pseudolocale_ — draws every string accented and expanded (see Translations above), whatever the
   language is set to.
 
-**Scenario** — exactly one overlay is up at a time, matching the game. Each scenario has one-click
-presets and then per-field knobs: the disconnect overlay's rows (add/remove, name, tier, elapsed
-seconds, drop unlocked/requested), its self-reconnecting notice and a live counter tick; the network
-stats overlay's identity header, per-slot rows, history strip shapes and event ticker. Clicks the
+**Emulated host** — everything the shell reads off the game, as switches: the mode (playing /
+observing / replay), whether the game has started, whether BW's chat box is open, whether one of BW's
+own dialogs is on top. Under them, one row per registry entry with **spawn** and **close** buttons,
+which is exactly what the DLL's dialog hook reports after hiding a dialog — so the modal a
+replacement raises, the `Esc` that dismisses it and the close it asks for in return can all be walked
+through here. The panel checkboxes and the hotkey listing show what `PanelPrefs` currently holds;
+hotkeys typed over the emulated screen move the same state, and where they leave it is persisted.
+_Show hit rects_ outlines the rects the shell claims this frame over the blit, so where a click stops
+being the game's is visible.
+
+**Scenario** — exactly one overlay is up at a time, matching the game. Each scenario builds the
+view-models and the shell draws them, so what is on screen here is composed the way the game composes
+it. Each has one-click presets and then per-field knobs: the disconnect overlay's rows (add/remove,
+name, tier, elapsed seconds, drop unlocked/requested), its self-reconnecting notice, whether the
+problem is real enough to take the player's input, and a live counter tick; the network stats
+overlay's identity header, per-slot rows, history strip shapes and event ticker. The **shell**
+scenario has no screen of its own: it is a frame for walking the modal stack and the capture policy,
+with an ambient panel standing in for the observer panel set that does not exist yet. Clicks the
 overlay reports back (the disconnect Drop buttons) are logged under the knobs.
 
 The **kitchen sink** is not a screen the game shows. It lays the whole kit out at once — a tier-0
@@ -154,8 +245,8 @@ everything it touches, at the resolutions the game runs at. Its knobs are the di
 state, the animated panel, and the emulated screen's compact ramp passed through for comparison.
 
 A status line under the viewport reads out the preset, the resolved `pixels_per_point`, the logical
-screen size in points, the blit scale, and whether the overlay's context wants pointer or keyboard
-input this frame.
+screen size in points, the blit scale, whether the overlay's context wants pointer or keyboard input
+this frame, the shell's pointer and keyboard capture, and which modal owns the screen.
 
 ## Scale modes
 
@@ -184,4 +275,7 @@ screen's coordinates:
 - Keyboard, text and wheel events go through only while the emulated screen has focus, which it
   takes when a primary press lands inside it and loses when one lands outside. That keeps typing in
   a knob field out of the overlay.
+- A keypress nothing focused wants is offered to the shell before the overlay's context sees it,
+  the way the DLL's window proc offers it, and what the shell consumes never reaches the emulated
+  game.
 - Clipboard and IME events are never forwarded, matching the DLL, which translates neither.

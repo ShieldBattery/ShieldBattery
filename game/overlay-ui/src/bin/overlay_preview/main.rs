@@ -10,6 +10,7 @@
 //! Knobs persist to a JSON file next to the binary across restarts.
 
 mod game_host;
+mod host_knobs;
 mod knobs;
 mod raster;
 mod scenarios;
@@ -18,9 +19,10 @@ mod virtual_screen;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use egui::{Align2, Color32, FontId, Rect, Vec2, pos2};
+use egui::{Align2, Color32, Event, FontId, Rect, Vec2, pos2};
 use image::RgbaImage;
 use overlay_ui::i18n::{self, Locale};
+use overlay_ui::shell::{InputCapture, KeyboardCapture, ModalId, PointerCapture, Shell};
 
 use crate::game_host::{GameHost, PassInput};
 use crate::knobs::{Backdrop, Knobs};
@@ -211,6 +213,8 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
             );
 
             let mut host = GameHost::new();
+            let mut shell = Shell::new();
+            shell.set_panel_prefs(knobs.host.panels);
             let mut textures = TextureStore::new();
             let mut primitives = Vec::new();
             for pass in 0..SETTLE_PASSES {
@@ -224,7 +228,7 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
                         predicted_dt: 1.0 / 60.0,
                     },
                     |ctx| {
-                        scenarios::render(&knobs, 0.0, ctx);
+                        scenarios::render(&knobs, 0.0, ctx, &mut shell);
                     },
                 );
                 textures.apply(&mut output.textures_delta);
@@ -264,12 +268,17 @@ struct Status {
     blit_scale: f32,
     wants_pointer: bool,
     wants_keyboard: bool,
+    capture: InputCapture,
+    top_modal: Option<ModalId>,
 }
 
 struct PreviewApp {
     knobs: Knobs,
     scenario_ui: scenarios::UiState,
     host: GameHost,
+    /// The same state machine the game DLL drives, fed the emulated host's state and the window's
+    /// own keypresses.
+    shell: Shell,
     start: Instant,
     /// Whether a knob changed this frame and the file should be rewritten at frame end.
     dirty: bool,
@@ -287,6 +296,8 @@ impl PreviewApp {
             knobs.backdrop = Backdrop::File(path);
         }
         let scenario_ui = scenarios::UiState::new(&knobs);
+        let mut shell = Shell::new();
+        shell.set_panel_prefs(knobs.host.panels);
         // The host's own widgets are ordinary desktop chrome, so they keep egui's default look; only
         // the game context gets the overlay's fonts and style.
         ctx.all_styles_mut(|style| style.interaction.selectable_labels = false);
@@ -294,6 +305,7 @@ impl PreviewApp {
             knobs,
             scenario_ui,
             host: GameHost::new(),
+            shell,
             start: Instant::now(),
             dirty: false,
             backdrop: None,
@@ -361,9 +373,11 @@ impl PreviewApp {
             )
         });
         let events = self.host.translate_events(&host_events, modifiers, &blit);
+        let events = self.offer_keys_to_shell(events);
         apply_language(&self.knobs);
         let elapsed = self.start.elapsed().as_secs_f64();
         let knobs = &self.knobs;
+        let shell = &mut self.shell;
         let mut outcome = scenarios::Outcome::default();
         let mut output = self.host.run_pass(
             PassInput {
@@ -375,17 +389,34 @@ impl PreviewApp {
                 predicted_dt,
             },
             |ctx| {
-                outcome = scenarios::render(knobs, elapsed, ctx);
+                outcome = scenarios::render(knobs, elapsed, ctx, shell);
             },
         );
         self.scenario_ui
             .disconnect
             .note_clicks(outcome.disconnect_clicks);
+        // Closing a replacement closes the dialog it stands in for. The game DLL drives the real
+        // dialog's return control; here the switch that stands in for it is what gets flipped.
+        for dialog in &outcome.close_native_dialogs {
+            self.knobs.host.set_spawned(*dialog, false);
+            self.dirty = true;
+        }
+        // Hotkeys move the panel prefs, and where they leave them is what persists.
+        let prefs = *self.shell.panel_prefs();
+        if prefs != self.knobs.host.panels {
+            self.knobs.host.panels = prefs;
+            self.dirty = true;
+        }
 
         self.paint_backdrop(ui, viewport);
         self.host.present(ui, &blit, &mut output);
         if self.knobs.show_guides {
             virtual_screen::paint_reserve_guides(ui.painter(), viewport);
+        }
+        if self.knobs.host.show_hit_rects {
+            // Drawn by the window rather than by the overlay, the way the guides are: these are what
+            // the shell reported, not something it put on screen.
+            virtual_screen::paint_hit_rects(ui.painter(), &blit, &outcome.hit_rects);
         }
         // An edge on the emulated screen, so where it ends and the letterbox begins is readable even
         // when the overlay is anchored nowhere near a corner.
@@ -418,6 +449,8 @@ impl PreviewApp {
             blit_scale: blit.scale,
             wants_pointer: output.wants_pointer,
             wants_keyboard: output.wants_keyboard,
+            capture: outcome.capture,
+            top_modal: outcome.top_modal,
         });
         self.paint_status(ui, full, status_height);
     }
@@ -440,7 +473,8 @@ impl PreviewApp {
             return;
         };
         let text = format!(
-            "{} {} | ppp {:.3} | {:.0}x{:.0} pt | blit x{:.3} | wants pointer {} | wants keyboard {}",
+            "{} {} | ppp {:.3} | {:.0}x{:.0} pt | blit x{:.3} | wants pointer {} | wants keyboard \
+             {} | capture {}/{} | modal {}",
             self.knobs.screen.preset.label(),
             self.knobs.screen.scale_mode.label(),
             status.pixels_per_point,
@@ -449,6 +483,15 @@ impl PreviewApp {
             status.blit_scale,
             status.wants_pointer,
             status.wants_keyboard,
+            match status.capture.pointer {
+                PointerCapture::HitRects => "hit rects",
+                PointerCapture::All => "all",
+            },
+            match status.capture.keyboard {
+                KeyboardCapture::Selective => "selective",
+                KeyboardCapture::All => "all",
+            },
+            status.top_modal.map_or("none", ModalId::label),
         );
         ui.painter().text(
             pos2(full.left() + 10.0, full.bottom() - status_height * 0.5),
@@ -554,8 +597,39 @@ impl PreviewApp {
 
         ui.add_space(8.0);
         ui.separator();
+        ui.strong("Emulated host");
+        self.dirty |= host_knobs::knobs_ui(&mut self.knobs.host, &mut self.shell, ui);
+
+        ui.add_space(8.0);
+        ui.separator();
         ui.strong("Scenario");
         self.dirty |= scenarios::knobs_ui(&mut self.knobs, &mut self.scenario_ui, ui);
+    }
+
+    /// Gives the shell its turn at a keypress before the overlay's context sees it, the way the game
+    /// DLL's window proc does: a key a focused widget wants goes through untouched, and otherwise
+    /// the shell takes whatever it can act on and the rest reaches the emulated game.
+    fn offer_keys_to_shell(&mut self, events: Vec<Event>) -> Vec<Event> {
+        if self
+            .status
+            .as_ref()
+            .is_some_and(|status| status.wants_keyboard)
+        {
+            return events;
+        }
+        let shell = &mut self.shell;
+        events
+            .into_iter()
+            .filter(|event| match event {
+                Event::Key {
+                    key,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } => !shell.key_pressed(*key, *modifiers),
+                _ => true,
+            })
+            .collect()
     }
 }
 

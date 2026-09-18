@@ -1,9 +1,7 @@
 //! The network-stats diagnostic overlay scenario.
 
-use egui::{Context, vec2};
-use overlay_ui::netstat::{
-    NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
-};
+use egui::vec2;
+use overlay_ui::netstat::{NetEventView, NetStatRowView, NetStatsView, RowDeparture};
 use serde::{Deserialize, Serialize};
 
 /// One of the buffer-directive series shapes the history strips can be emulated with, so their
@@ -347,11 +345,6 @@ pub fn build_view(k: &Knobs) -> NetStatsView {
         phase_target_us: 0,
         rows,
     }
-}
-
-/// Draws the scenario on the game context.
-pub fn render(knobs: &Knobs, ctx: &Context) {
-    render_netstat_view(&build_view(knobs), ctx);
 }
 
 /// The scenario's knob section. Returns whether anything changed.

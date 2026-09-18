@@ -16,6 +16,11 @@ egui = { workspace = true }
 # optional: the game DLL renders translated strings too, and it already carries serde_json.
 serde_json = { version = "1.0" }
 
+# The shell's panel preferences are serializable so a host can persist them per profile (see
+# `shell::PanelPrefs`), and the preview persists its whole knob set. Not optional: the game DLL is one
+# of the hosts that persists prefs, and it already carries serde.
+serde = { version = "1.0", features = ["derive"] }
+
 # Preview-host-only dependencies. All optional and gated behind the `preview` feature, which only the
 # `overlay-preview` binary requires, so the game DLL — which depends on this crate for its lib alone —
 # never pulls eframe/winit/image into its build graph.
@@ -23,12 +28,11 @@ eframe = { version = "0.36", optional = true }
 image = { version = "0.25", default-features = false, features = [
   "png",
 ], optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
 # Enables the eframe preview host (the `overlay-preview` bin). Off by default, so the DLL build never
 # sees eframe.
-preview = ["dep:eframe", "dep:image", "dep:serde"]
+preview = ["dep:eframe", "dep:image"]
 
 [[bin]]
 name = "overlay-preview"

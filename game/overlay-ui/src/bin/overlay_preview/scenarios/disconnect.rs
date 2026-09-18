@@ -1,9 +1,7 @@
 //! The disconnect overlay scenario: waiting-on-players rows and the self-reconnecting notice.
 
-use egui::{Color32, Context, vec2};
-use overlay_ui::disconnect::{
-    DisconnectRowView, DisconnectTier, DisconnectView, SelfState, render_disconnect_view,
-};
+use egui::{Color32, vec2};
+use overlay_ui::disconnect::{DisconnectRowView, DisconnectTier, DisconnectView, SelfState};
 use serde::{Deserialize, Serialize};
 
 /// One emulated disconnect row's adjustable state.
@@ -52,6 +50,9 @@ pub struct Knobs {
     pub rows: Vec<RowKnob>,
     /// `true` => the prominent self-reconnecting notice replaces the peers panel.
     pub self_reconnecting: bool,
+    /// Whether this is a real connection problem rather than a passing stall, which is what decides
+    /// whether the surface takes the player's input or only sits over the game.
+    pub blocks_input: bool,
     /// While set, every row's elapsed counter advances in real time from its base value.
     pub auto_tick: bool,
 }
@@ -78,6 +79,7 @@ impl Default for Knobs {
                 },
             ],
             self_reconnecting: false,
+            blocks_input: true,
             auto_tick: false,
         }
     }
@@ -113,6 +115,9 @@ impl Preset {
 
     pub fn apply(self, knobs: &mut Knobs) {
         knobs.self_reconnecting = matches!(self, Preset::SelfReconnecting);
+        // Only a relay-confirmed problem stops the simulation; the stall tier is a notice over a
+        // game that is still the player's.
+        knobs.blocks_input = !matches!(self, Preset::Stall);
         knobs.rows = match self {
             Preset::Stall => vec![RowKnob {
                 slot: 0,
@@ -214,11 +219,6 @@ pub fn build_view(knobs: &Knobs, elapsed: f64) -> DisconnectView {
     }
 }
 
-/// Draws the scenario on the game context, returning the slots whose Drop button was clicked.
-pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context) -> Vec<u8> {
-    render_disconnect_view(&build_view(knobs, elapsed), ctx).inner
-}
-
 /// The scenario's knob section. Returns whether anything changed.
 pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bool {
     let mut changed = false;
@@ -242,6 +242,16 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
             ui.label("Self reconnecting");
             changed |= ui
                 .checkbox(&mut knobs.self_reconnecting, "show self notice")
+                .changed();
+            ui.end_row();
+
+            ui.label("Blocks input");
+            changed |= ui
+                .checkbox(&mut knobs.blocks_input, "a real connection problem")
+                .on_hover_text(
+                    "A confirmed problem stops the simulation and takes every input; a passing \
+                     stall must not lock the player out of their own game.",
+                )
                 .changed();
             ui.end_row();
 
