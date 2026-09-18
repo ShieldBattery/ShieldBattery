@@ -146,6 +146,14 @@ consistent. (Seed — extend over time.)
   groups→**Grupos de control**, the grouped graph titles are "{{series}} por equipo" /
   "{{series}} por jugador", team name→**Equipo {{number}}** (matches `game.teamName.number`).
 
+- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are Volver a la partida /
+  Opciones / Alianzas y chat / Rendirse / Salir de la partida, all inside a 344 px plate in tracked
+  caps. Abandoning from the disconnect notice is **abandonar**; its 300 px hold plate draws its
+  label uncropped, so the usual "Mantén pulsado para abandonar" overruns it and the button is
+  **"Mantén pulsado: abandonar"**. The roster's state column is 150 px and set lowercase like its
+  siblings: conectado / no responde / reconectando… {{time}} / expulsión pedida.
+  teammate→**compañero** (84 px tag).
+
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
 - **Plurals need all four CLDR forms — one/few/many/other.** The file historically had only
@@ -226,6 +234,13 @@ consistent. (Seed — extend over time.)
   (matches `seriesSupply`), control groups→**Группы юнитов** — «Контрольные группы» lays out at
   ~135 px and the dock's label slot is 132 px, so it would elide. Grouped graph titles
   "{{series}} по командам" / "{{series}} по игрокам"; team name→**Команда {{number}}**.
+
+- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are Вернуться в игру /
+  Настройки (Options) / Союзы и чат / Сдаться / Покинуть игру, all inside a 344 px plate in tracked
+  caps. Abandoning from the disconnect notice is **бросить игру**, kept apart from the menu's
+  Покинуть игру; its 300 px hold plate draws its label uncropped, so it is «Удерживайте: бросить
+  игру». The roster's state column is 150 px and set lowercase like its siblings: на связи /
+  не отвечает / подключается… {{time}} / кик запрошен. teammate→**союзник** (84 px tag).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -311,6 +326,13 @@ consistent. (Seed — extend over time.)
   modifier-first: **팀별 {{series}} / 플레이어별 {{series}}** (player→플레이어, matching
   `netstat.columnPlayer`). Team name→**{{number}} 팀** (matches `game.teamName.number`).
 
+- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are 게임으로 돌아가기 /
+  설정 (Options) / 동맹 및 채팅 / 항복 / 게임 나가기. Abandoning from the disconnect notice is
+  **게임 포기**, kept apart from the menu's 게임 나가기, and the hold plate follows the in-file
+  길게 눌러 … pattern: 길게 눌러 게임 포기. Roster state column: 연결됨 / 응답 없음 /
+  재연결 중… {{time}} / 강퇴 요청됨 — English set these lowercase, which Korean does not mirror.
+  teammate→**팀원**.
+
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
   register, not stiff).
@@ -382,3 +404,8 @@ consistent. (Seed — extend over time.)
   **晶矿 / 瓦斯 / 补给** (补给 matches `seriesSupply`), control groups→**编队**, grouped graph
   titles→**各队{{series}} / 各玩家{{series}}**, team name→**{{number}}队** (matches
   `game.teamName.number`).
+- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are 返回游戏 / 设置
+  (Options) / 同盟与聊天 / 投降 / 离开游戏. Abandoning from the disconnect notice is **放弃游戏**,
+  kept apart from the menu's 离开游戏, and the hold plate uses the in-file 长按: 长按放弃游戏.
+  Roster state column: 已连接 / 无响应 / 正在重连… {{time}} / 已请求踢出 — English set these
+  lowercase, which Chinese does not mirror. teammate→**队友**.

@@ -12,21 +12,33 @@
     "close": "닫기"
   },
   "disconnect": {
+    "abandonAction": "길게 눌러 게임 포기",
+    "abandonNote": "{{seconds}}초 동안 누르고 있어야 합니다. 중간에 떼면 취소됩니다. 게임을 포기하면 보통 패배로 기록되지만, 팀이 대신 승리하면 예외입니다.",
     "dropAction": "강퇴",
     "dropCountdown": "{{time}} 후 강퇴",
-    "elapsedLabel": "경과 시간",
-    "interruptedBody": "서버와의 연결이 끊어졌습니다. 연결이 돌아오면 게임이 바로 이어집니다.",
+    "dropRule": "강퇴는 플레이어의 접속이 끊긴 지 {{seconds}}초가 지나야 각자 사용할 수 있습니다. 강퇴된 플레이어는 게임에서 패배합니다.",
+    "interruptedBody": "계속 다시 연결을 시도합니다. 게임은 일시 정지 상태이고 상대에게는 재연결 중으로 보이므로 아직 잃은 것은 없습니다.",
+    "interruptedSubtitle": "ShieldBattery 서버와의 연결이 끊어졌습니다.",
     "interruptedTitle": "연결 끊김",
     "reconnecting": "재연결 중",
+    "stateConnected": "연결됨",
     "stateDropRequested": "강퇴 요청됨",
     "stateNotResponding": "응답 없음",
-    "stateReconnecting": "재연결 중",
+    "stateReconnectingFor": "재연결 중… {{time}}",
+    "teammateTag": "팀원",
     "waitingBody_other": "해당 플레이어가 다시 연결될 때까지 게임이 일시 정지됩니다.",
+    "waitingCost": "원하는 만큼 기다려도 됩니다. 기다리는 데 드는 것은 시간뿐입니다.",
     "waitingTitle": "플레이어 대기 중"
   },
   "gameMenu": {
+    "alliancesAndChat": "동맹 및 채팅",
+    "escHint": "Esc를 누르면 게임으로 돌아갑니다",
+    "gameTime": "게임 시간",
+    "keepsRunning": "이 메뉴가 열려 있어도 게임은 계속 진행됩니다",
+    "leaveGame": "게임 나가기",
+    "options": "설정",
     "returnToGame": "게임으로 돌아가기",
-    "title": "게임 메뉴"
+    "surrender": "항복"
   },
   "netstat": {
     "buffer": "버퍼",
