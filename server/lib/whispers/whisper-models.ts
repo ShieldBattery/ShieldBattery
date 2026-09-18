@@ -126,9 +126,10 @@ export async function updateLastReadTime(
  * when no read position has been recorded yet — sent at or after the session started. A session
  * row is created no later than the first message of a conversation (see `sendWhisperMessage`), so
  * a conversation the user has never opened counts as unread from its very first message;
- * `markRead` records a read position the first time a client reports one. Closing a session
- * deletes its row (and read position), so a conversation re-opened by a later message only counts
- * messages from the new `start_date` on — older history isn't resurrected as unread.
+ * `markRead` records a read position the first time a client reports one or the user sends a
+ * message in it. Closing a session deletes its row (and read position), so a conversation
+ * re-opened by a later message only counts messages from the new `start_date` on — older history
+ * isn't resurrected as unread.
  * Every whisper message is a text message (`WhisperMessageData` has a single variant), so every
  * message from the target counts. A single set-based query over all of the user's sessions, rather
  * than one query per session. `sent` and `start_date` columns store naive UTC wall time (see the

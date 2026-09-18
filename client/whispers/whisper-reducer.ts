@@ -300,9 +300,9 @@ function advanceReadPosition(session: WhisperSession, time: number): number {
  * everything known, and the unread divider is dropped, since nothing that came before their own
  * message is news to them. This holds whether the message was sent from this client or from another
  * of the user's, since the read position is per user, and regardless of whether the whisper session
- * is activated or where its view sits. The view moves to the bottom on send separately, and
- * the read report from there is what persists the position taken optimistically here; the server
- * does not advance the read position on send.
+ * is activated or where its view sits. The server records the same position when it stores the
+ * message and publishes it back to the user's sessions, so the advance taken here is persisted
+ * whether or not any view reports it; the view still moves to the bottom on send separately.
  */
 function recordSelfMessage(session: WhisperSession, time: number) {
   advanceReadPosition(session, time)

@@ -226,6 +226,37 @@ describe('whispers/whisper-service', () => {
       expect(addMessageToWhisperMock.mock.calls[0][2]).not.toHaveProperty('emote')
       expect(publishedMessageEvent().message).not.toHaveProperty('emote')
     })
+
+    test("advances the sender's read position to the stored message and publishes it on the sender's own path", async () => {
+      // Distinct from the message's `sent` time, to prove the published value comes back from the
+      // DB result rather than being echoed from the stored message.
+      const storedTime = new Date('2023-03-13T00:00:00.000Z')
+      asMockedFunction(updateLastReadTime).mockResolvedValue(storedTime)
+      mockStoredMessage('hello')
+
+      await whisperService.sendWhisperMessage(user1.id, user2.id, 'hello')
+
+      expect(updateLastReadTime).toHaveBeenCalledWith(
+        user1.id,
+        user2.id,
+        new Date('2023-03-11T00:00:00.000Z'),
+      )
+      expect(nydus.publish).toHaveBeenCalledWith(getWhisperUserPath(user1.id), {
+        action: 'lastReadTimeChanged',
+        target: user2.id,
+        lastReadTime: storedTime.getTime(),
+      })
+      // The recipient's own read position must not move, and a read position must never reach the
+      // shared conversation path (it's subscribed to by both participants).
+      expect(nydus.publish).not.toHaveBeenCalledWith(
+        getWhisperUserPath(user2.id),
+        expect.anything(),
+      )
+      expect(nydus.publish).not.toHaveBeenCalledWith(
+        getSessionPath(user1.id, user2.id),
+        expect.objectContaining({ action: 'lastReadTimeChanged' }),
+      )
+    })
   })
 
   describe('sendOutcome', () => {
@@ -295,6 +326,20 @@ describe('whispers/whisper-service', () => {
 
       expect(addMessageToWhisperMock.mock.calls[0][2]).toMatchObject({ text: '' })
       expect(publishedMessageEvent().message).toMatchObject({ text: '', outcome: flip })
+    })
+
+    test("advances the sender's read position like a text message does", async () => {
+      const flip: RolledOutcome = { kind: 'flip', result: 'tails' }
+      rollOutcomeMock.mockReturnValue(flip)
+      mockStoredOutcome('', flip)
+
+      await whisperService.sendOutcome(user1.id, user2.id, { kind: 'flip' })
+
+      expect(updateLastReadTime).toHaveBeenCalledWith(
+        user1.id,
+        user2.id,
+        new Date('2023-03-11T00:00:00.000Z'),
+      )
     })
 
     test("carries the 8-ball's question as the text, unprocessed for mentions", async () => {
