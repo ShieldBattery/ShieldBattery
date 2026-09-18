@@ -74,7 +74,10 @@
     "apm": "APM",
     "columnArmy": "Войска",
     "columnEfficiency": "Эфф",
+    "columnGas": "Газ",
     "columnIncome": "Доход",
+    "columnMinerals": "Мин",
+    "columnSupply": "Припасы",
     "columnUnitsKillsLosses": "Юниты у/п",
     "columnWorkers": "Рабочие",
     "columnWorkersKillsLosses": "Раб. у/п",
@@ -84,6 +87,8 @@
     "eventTechStarted": "Начато исследование",
     "eventUpgradeDone": "Улучшение готово",
     "eventUpgradeStarted": "Начато улучшение",
+    "graphsByPlayer": "{{series}} по игрокам",
+    "graphsByTeam": "{{series}} по командам",
     "idleWorkers_one": "{{count}} спит",
     "idleWorkers_few": "{{count}} спят",
     "idleWorkers_many": "{{count}} спят",
@@ -91,6 +96,7 @@
     "liveTag": "В эфире",
     "mapControl": "Контроль карты",
     "panelConsole": "Консоль",
+    "panelControlGroups": "Группы юнитов",
     "panelDock": "Док",
     "panelEconomy": "Экономика",
     "panelGraphs": "Графики",
@@ -113,7 +119,8 @@
     "seriesKills": "Убийства",
     "seriesSupply": "Припасы",
     "seriesWorkers": "Рабочие",
-    "spoilerFree": "Без спойлеров"
+    "spoilerFree": "Без спойлеров",
+    "teamName": "Команда {{number}}"
   },
   "transport": {
     "jumpMinutes": "{{step}}м",
