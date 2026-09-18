@@ -337,6 +337,11 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
                 if let Some(mode) = kind.required_mode() {
                     knobs.host.mode = mode;
                 }
+                // The log's modal is raised by the native dialog it replaces, so picking the
+                // scenario spawns that dialog; the host knobs can close it again.
+                if kind == ScenarioKind::ChatHistory {
+                    knobs.host.chat_history_spawned = true;
+                }
             }
         }
     });
