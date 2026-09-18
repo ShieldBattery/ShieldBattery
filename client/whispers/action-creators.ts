@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import { getErrorStack } from '../../common/errors'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
@@ -13,7 +14,7 @@ import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import {
   ActivateWhisperSession,
@@ -26,6 +27,7 @@ import {
   newestKnownWhisperTime,
   newestServerOriginTime,
   oldestServerOriginTime,
+  WhisperSession,
 } from './whisper-reducer'
 import { urlForWhisper } from './whisper-url'
 
@@ -67,16 +69,42 @@ export function markWhisperRead(targetId: SbUserId, lastReadTime: number): Thunk
 }
 
 /**
+ * Returns whether a whisper session has nothing left for `markWhisperReadNow` to do: it isn't
+ * flagged unread, it has no unread divider standing in it, and its read position already covers
+ * the newest thing the client knows about in it (or there's nothing known to cover).
+ */
+function isWhisperCaughtUp(session: Immutable<WhisperSession>): boolean {
+  if (session.hasUnread || session.unreadLine !== undefined) {
+    return false
+  }
+
+  const newestKnownTime = newestKnownWhisperTime(session)
+  if (newestKnownTime === undefined) {
+    return true
+  }
+
+  return session.lastReadTime !== undefined && session.lastReadTime >= newestKnownTime
+}
+
+/**
  * Marks a whisper conversation read as of now on the user's explicit request, whether or not it is
  * open or has any messages loaded. The reported position is the later of the local clock and the
  * newest time the client knows about in the conversation: server-stamped message times can run
  * ahead of a client clock that lags the server's, and a position behind the newest message would
  * leave it unread. (The server clamps whatever is reported to its own clock.) Unlike a position the
  * open view reports, this also drops the frozen unread divider of an activated conversation.
+ *
+ * A conversation that's already caught up — nothing unread, no divider, read position at or past
+ * the newest known message — is left untouched: the open view's own read report already covers
+ * it, and an extra request here would change nothing.
  */
 export function markWhisperReadNow(targetId: SbUserId): ThunkAction {
   return (dispatch, getState) => {
     const session = getState().whispers.byId.get(targetId)
+    if (session && isWhisperCaughtUp(session)) {
+      return
+    }
+
     const newestKnownTime = session ? newestKnownWhisperTime(session) : undefined
     const lastReadTime = Math.max(Date.now(), newestKnownTime ?? -Infinity)
 

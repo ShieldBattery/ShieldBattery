@@ -222,6 +222,13 @@ export interface MessageInputProps {
   maxRows?: number
   onSendChatMessage: (msg: string) => void
   /**
+   * Called after any submission the input acts on — a sent message, a run command, or a whisper
+   * reply — whatever branch handled it. Owners use it to treat submitting as reading the surface:
+   * typing an answer at the bottom of a conversation counts as being caught up with it, so the view
+   * moves to the newest message and the surface is marked read no matter what was submitted.
+   */
+  onSubmitted?: () => void
+  /**
    * A key to store the current message input contents under (in a global Map). If provided, the
    * previous message input contents will be restored when the component is mounted (so the key
    * should uniquely identify the type + instance of the chat container). The key is prefixed with
@@ -271,6 +278,7 @@ export function MessageInput({
   baseMentionableUsers,
   commands,
   onSendChatMessage,
+  onSubmitted,
   ref,
 }: MessageInputProps) {
   const { t } = useTranslation()
@@ -589,6 +597,7 @@ export function MessageInput({
         // One composition, one reply: the next reply command locks a target afresh.
         clearInput()
         leaveReplyMode()
+        onSubmitted?.()
         return
       }
 
@@ -607,11 +616,13 @@ export function MessageInput({
           onSendChatMessage(result.text)
         }
         clearInput()
+        onSubmitted?.()
         return
       }
 
       onSendChatMessage(toSend)
       clearInput()
+      onSubmitted?.()
     }
   })
 

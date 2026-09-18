@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import {
   ChannelModerationAction,
   ChannelPermissions,
@@ -51,6 +52,7 @@ import {
 } from './actions'
 import { urlForChannel } from './channel-url'
 import {
+  ChatState,
   newestKnownChannelTime,
   newestServerOriginTime,
   oldestServerOriginTime,
@@ -94,16 +96,44 @@ export function markChannelRead(channelId: SbChannelId, lastReadTime: number): T
 }
 
 /**
+ * Returns whether a channel has nothing left for `markChannelReadNow` to do: it isn't flagged
+ * unread, it has no unread divider standing in it, and its read position already covers the
+ * newest thing the client knows about in it (or there's nothing known to cover).
+ */
+function isChannelCaughtUp(chat: Immutable<ChatState>, channelId: SbChannelId): boolean {
+  if (chat.unreadChannels.has(channelId) || chat.idToUnreadLine.has(channelId)) {
+    return false
+  }
+
+  const newestKnownTime = newestKnownChannelTime(chat, channelId)
+  if (newestKnownTime === undefined) {
+    return true
+  }
+
+  const lastReadTime = chat.idToLastReadTime.get(channelId)
+  return lastReadTime !== undefined && lastReadTime >= newestKnownTime
+}
+
+/**
  * Marks a channel read as of now on the user's explicit request, whether or not the channel is open
  * or has any messages loaded. The reported position is the later of the local clock and the newest
  * time the client knows about in the channel: server-stamped message times can run ahead of a
  * client clock that lags the server's, and a position behind the newest message would leave it
  * unread. (The server clamps whatever is reported to its own clock.) Unlike a position the open
  * view reports, this also drops the frozen unread divider of an activated channel.
+ *
+ * A channel that's already caught up — nothing unread, no divider, read position at or past the
+ * newest known message — is left untouched: the open view's own read report already covers it,
+ * and an extra request here would change nothing.
  */
 export function markChannelReadNow(channelId: SbChannelId): ThunkAction {
   return (dispatch, getState) => {
-    const newestKnownTime = newestKnownChannelTime(getState().chat, channelId)
+    const chat = getState().chat
+    if (isChannelCaughtUp(chat, channelId)) {
+      return
+    }
+
+    const newestKnownTime = newestKnownChannelTime(chat, channelId)
     const lastReadTime = Math.max(Date.now(), newestKnownTime ?? -Infinity)
 
     dispatch({
