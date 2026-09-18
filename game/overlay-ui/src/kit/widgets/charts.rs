@@ -133,14 +133,24 @@ pub fn line_plot(ui: &mut Ui, series: &[Series<'_>], size: Vec2, span_secs: u32)
     response
 }
 
-/// A bare line over its own baseline, for a value that only needs its shape read.
+/// A bare line over its own baseline, for a value that only needs its shape read. Scaled to a round
+/// number at or above the series' own peak.
 pub fn sparkline(ui: &mut Ui, values: &[f32], size: Vec2, color: Color32) -> Response {
+    let peak = nice_ceiling(values.iter().copied().fold(0.0f32, f32::max));
+    sparkline_to(ui, values, peak, size, color)
+}
+
+/// The same line plotted against a `top` the caller decides.
+///
+/// A series whose own peak is not its scale needs this: a measurement with a floor under which
+/// jitter must not be amplified to full height, or one the caller has already normalized and does
+/// not want normalized again.
+pub fn sparkline_to(ui: &mut Ui, values: &[f32], top: f32, size: Vec2, color: Color32) -> Response {
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if !ui.is_rect_visible(rect) {
         return response;
     }
-    let peak = nice_ceiling(values.iter().copied().fold(0.0f32, f32::max));
-    let points = plot_points(rect, values, peak);
+    let points = plot_points(rect, values, top);
     ui.painter().add(Shape::line_segment(
         [
             pos2(rect.left(), rect.bottom()),

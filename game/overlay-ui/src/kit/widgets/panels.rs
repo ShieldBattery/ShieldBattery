@@ -1,6 +1,6 @@
 //! The pieces panels are assembled from: headers, stat rows, tags and the waiting indicator.
 
-use egui::{Align, Layout, Response, Sense, Shape, Stroke, Ui, pos2, vec2};
+use egui::{Align, Layout, Response, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
 
 use crate::colors::{AMBER60, GREY_BLUE80};
 use crate::kit::motion;
@@ -103,6 +103,37 @@ pub fn stat_row(ui: &mut Ui, label: &str, value: &str) -> Response {
         ),
         value_galley,
         theme::TEXT_PRIMARY,
+    );
+    response
+}
+
+/// One cell of a table: text elided into a slot of exactly `size`, vertically centred in it.
+///
+/// A table whose columns are sized by their contents shifts every time a value changes width, and
+/// over gameplay that reads as flicker. Columns are given their width by the panel instead, and
+/// anything too long for one loses its tail.
+pub fn text_cell(
+    ui: &mut Ui,
+    spec: &text::TextSpec,
+    value: &str,
+    size: Vec2,
+    align: Align,
+) -> Response {
+    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    if value.is_empty() || !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let job = spec.job_truncated(value, size.x);
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let x = match align {
+        Align::RIGHT => rect.right() - galley.size().x,
+        Align::Center => rect.center().x - galley.size().x * 0.5,
+        Align::LEFT => rect.left(),
+    };
+    ui.painter().galley(
+        pos2(x, rect.center().y - galley.size().y * 0.5),
+        galley,
+        spec.color,
     );
     response
 }

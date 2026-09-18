@@ -30,6 +30,11 @@ pub struct Settings {
     /// `None` to use the default.
     #[serde(default)]
     pub replay_name_template: Option<String>,
+    /// The language the in-game UI speaks, as an i18next tag (`en`, `ko`, `zh-Hans`). `None` from a
+    /// client that doesn't send it, or a language the overlay has no catalog for, leaves the
+    /// overlay in English.
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 /// Fully-resolved custom team-color scheme, as sent by the app. Colors are `#RRGGBB` strings; the
