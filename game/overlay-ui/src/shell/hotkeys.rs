@@ -26,8 +26,7 @@ pub enum Action {
     SeekForward,
     /// Show every panel, or hide every panel when they are all already shown.
     ToggleAllPanels,
-    /// The economy panel. Until that panel exists this toggles the per-player statistics panel,
-    /// which carries the same numbers.
+    /// The economy panel.
     ToggleEconomy,
     /// The production panel.
     ToggleProduction,

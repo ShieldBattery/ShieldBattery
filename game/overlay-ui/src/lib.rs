@@ -27,6 +27,7 @@ pub mod i18n;
 pub mod kit;
 pub mod net_quality;
 pub mod netstat;
+pub mod observer;
 pub mod shell;
 mod style;
 pub mod transport;

@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::host_knobs;
 use crate::scenarios::{
-    self, ScenarioKind, chat_history, disconnect, kitchen_sink, net_quality, netstat, transport,
+    self, ScenarioKind, chat_history, disconnect, kitchen_sink, net_quality, netstat, observer,
+    transport,
 };
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
@@ -71,6 +72,7 @@ pub struct Knobs {
     pub net_quality: net_quality::Knobs,
     pub kitchen_sink: kitchen_sink::Knobs,
     pub netstat: netstat::Knobs,
+    pub observer: observer::Knobs,
     pub shell: scenarios::shell::Knobs,
     pub transport: transport::Knobs,
 }

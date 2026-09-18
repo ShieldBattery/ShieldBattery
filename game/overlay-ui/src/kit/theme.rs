@@ -84,6 +84,13 @@ pub fn player_color(slot: usize) -> Color32 {
     PLAYER_COLORS[slot % PLAYER_COLORS.len()]
 }
 
+// What each resource is drawn in, wherever a panel names one. The hues are the game's own — light
+// blue minerals, green vespene — lifted to values that read on the overlay's dark surfaces, so a
+// number and the glyph beside it are recognised as the same resource the game's own counters show.
+pub const RESOURCE_MINERALS: Color32 = Color32::from_rgb(0x6C, 0xC6, 0xFF);
+pub const RESOURCE_GAS: Color32 = Color32::from_rgb(0x5A, 0xD6, 0x8A);
+pub const RESOURCE_SUPPLY: Color32 = GREY_BLUE80;
+
 // Interaction states. Both are drawn over whatever the control already painted, so one overlay
 // works for every fill the kit uses.
 pub const HOVER_OVERLAY: Color32 = Color32::from_rgba_unmultiplied_const(255, 255, 255, 15);
