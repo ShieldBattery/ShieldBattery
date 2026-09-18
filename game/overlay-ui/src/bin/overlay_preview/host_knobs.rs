@@ -25,6 +25,10 @@ pub struct Knobs {
     pub native_dialog_open: bool,
     /// Whether the player has BW's game menu up, which is when every input is the menu's.
     pub native_menu_open: bool,
+    /// How far into the game the emulated simulation has got, in whole seconds. The in-game menu
+    /// reads it, and it is a knob rather than a clock so an offline render of it is the same image
+    /// every time.
+    pub game_seconds: u64,
     /// Whether the emulated game has spawned its waiting-for-players dialog.
     pub time_out_spawned: bool,
     /// Whether the emulated game has spawned its chat log.
@@ -47,6 +51,7 @@ impl Default for Knobs {
             native_textbox_open: false,
             native_dialog_open: false,
             native_menu_open: false,
+            game_seconds: 1068,
             time_out_spawned: false,
             chat_history_spawned: false,
             game_menu_spawned: false,
@@ -64,6 +69,7 @@ impl Knobs {
             native_textbox_open: self.native_textbox_open,
             native_dialog_open: self.native_dialog_open,
             native_menu_open: self.native_menu_open,
+            game_seconds: self.game_seconds,
         }
     }
 
@@ -127,6 +133,15 @@ pub fn knobs_ui(knobs: &mut Knobs, shell: &mut Shell, ui: &mut Ui) -> bool {
         .checkbox(&mut knobs.native_dialog_open, "game dialog on top")
         .on_hover_text("One of BW's own menus is up, so the shell claims no hotkeys.")
         .changed();
+    ui.horizontal(|ui| {
+        ui.label("Game time");
+        changed |= ui
+            .add(egui::DragValue::new(&mut knobs.game_seconds).range(0..=36_000))
+            .on_hover_text(
+                "How far into the game the emulated simulation is, which the in-game menu reads.",
+            )
+            .changed();
+    });
     changed |= ui
         .checkbox(&mut knobs.native_menu_open, "game menu open")
         .on_hover_text(

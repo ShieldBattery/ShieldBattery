@@ -158,11 +158,13 @@ pub fn render(knobs: &Knobs, ctx: &Context) {
     );
 
     if knobs.show_dialog {
-        let dialog =
-            tiers::tier2_dialog(ctx, Id::new("kitchen-dialog"), "Game menu", 380.0, |ui| {
+        let dialog = tiers::tier2_dialog(ctx, Id::new("kitchen-dialog"), 380.0, |ui| {
+            tiers::dialog_header(ui, |ui| tiers::dialog_title(ui, "Game menu"));
+            tiers::dialog_body(ui, |ui| {
                 set_disabled(ui, knobs.disable_all);
                 dialog_contents(ui);
             });
+        });
         // A real screen would close here; the knob owns this one, so the click only has to be
         // visible in the preview's own log to prove the scrim reports it.
         if dialog.scrim_clicked {
@@ -277,7 +279,7 @@ fn hero_panel(ui: &mut Ui) {
     });
 
     ui.add_space(theme::SPACE_SM);
-    let hold = hold_to_confirm(ui, "Hold to drop");
+    let hold = hold_to_confirm(ui, "Hold to drop", vec2(220.0, 46.0));
     ui.add_space(theme::SPACE_XS);
     ui.label(
         text::numeral(13.0)
@@ -431,7 +433,7 @@ fn dialog_contents(ui: &mut Ui) {
         button(ui, "Options", ButtonVariant::Tier2);
     });
     ui.add_space(theme::SPACE_SM);
-    let hold = hold_to_confirm(ui, "Hold to leave game");
+    let hold = hold_to_confirm(ui, "Hold to leave game", vec2(ui.available_width(), 46.0));
     ui.add_space(theme::SPACE_XS);
     ui.label(
         text::numeral(13.0)

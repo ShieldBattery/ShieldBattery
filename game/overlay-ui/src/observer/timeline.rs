@@ -17,7 +17,7 @@ use crate::kit::theme;
 use crate::kit::widgets;
 use crate::observer::{
     EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, game_clock,
-    paint_player_bar, paint_text, paint_tile_chrome, wing_panel,
+    paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
 };
 use crate::tr;
 
@@ -31,7 +31,7 @@ const CONTENT_WIDTH: f32 = 450.0;
 const ROWS: usize = 6;
 
 /// Height of one row.
-const ROW_HEIGHT: f32 = 22.0;
+const ROW_HEIGHT: f32 = 24.0;
 
 /// Width the clock at the head of a row is laid out in.
 const TIME_WIDTH: f32 = 46.0;
@@ -55,8 +55,13 @@ const TEXT_WIDTH: f32 =
 // A row whose cells took more than the panel holds would leave its text nowhere to go.
 const _: () = assert!(TEXT_WIDTH > 0.0);
 
-/// Text size of the clock and of the line beside it.
-const TEXT_SIZE: f32 = 12.0;
+/// Text size of the clock at the head of a row, and of the line beside it.
+const TIME_SIZE: f32 = 13.0;
+const TEXT_SIZE: f32 = 13.5;
+
+/// Diameter of the dot saying whose event a row is. A dot rather than a bar: the rows are a feed
+/// rather than a table, and a column of bars would read as a table's first column.
+const DOT: f32 = 8.0;
 
 /// Text size of the icon's number, for a host with no atlas to draw it from.
 const ICON_TEXT_SIZE: f32 = 10.0;
@@ -159,20 +164,19 @@ fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
     paint_text(
         ui,
         cursor.take(TIME_WIDTH),
-        &text::numeral(TEXT_SIZE).with_color(theme::TEXT_LABEL),
+        &text::body(TIME_SIZE, BodyWeight::Medium).with_color(theme::TEXT_DIM),
         &game_clock(event.secs),
         Align::RIGHT,
     );
     cursor.skip(TIME_GAP);
-    let bar = cursor.take(STAT_COLOR_BAR);
-    paint_player_bar(ui, centred(bar, ROW_HEIGHT - 4.0), event.color, 1.0);
+    paint_player_dot(ui, cursor.take(STAT_COLOR_BAR), event.color, DOT);
     cursor.skip(BAR_GAP);
     draw_icon(ui, centred(cursor.take(ICON), ICON), event.icon);
     cursor.skip(ICON_GAP);
     paint_text(
         ui,
         cursor.take(TEXT_WIDTH),
-        &text::body(TEXT_SIZE, BodyWeight::Medium).with_color(theme::TEXT_PRIMARY),
+        &text::body(TEXT_SIZE, BodyWeight::Regular).with_color(crate::colors::GREY_BLUE95),
         &event.kind.label(),
         Align::LEFT,
     );

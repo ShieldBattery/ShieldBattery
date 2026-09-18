@@ -400,9 +400,11 @@ impl PreviewApp {
                 outcome = scenarios::render(knobs, scenario_state, elapsed, ctx, shell);
             },
         );
-        self.scenario_ui
-            .disconnect
-            .note_clicks(outcome.disconnect_clicks);
+        self.scenario_ui.disconnect.note_clicks(
+            outcome.disconnect_clicks,
+            outcome.abandoned,
+            outcome.left,
+        );
         // Closing a replacement closes the dialog it stands in for. The game DLL drives the real
         // dialog's return control; here the switch that stands in for it is what gets flipped.
         for dialog in &outcome.close_native_dialogs {

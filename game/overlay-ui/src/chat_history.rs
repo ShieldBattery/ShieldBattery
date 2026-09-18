@@ -128,15 +128,19 @@ pub fn render_chat_history_view(
     tiers::tier2_dialog(
         ctx,
         Id::new("sb_chat_history"),
-        &tr!("chatHistory.title", "Chat history"),
-        DIALOG_WIDTH,
+        tiers::dialog_outer_width(DIALOG_WIDTH),
         |ui| {
-            draw_lines(ui, view);
-            ui.add_space(theme::SPACE_MD);
-            ui.vertical_centered(|ui| {
-                widgets::button(ui, &tr!("common.close", "Close"), ButtonVariant::Tier2).clicked()
+            tiers::dialog_header(ui, |ui| {
+                tiers::dialog_title(ui, &tr!("chatHistory.title", "Chat history"));
+            });
+            tiers::dialog_body(ui, |ui| draw_lines(ui, view));
+            tiers::dialog_footer(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    widgets::button(ui, &tr!("common.close", "Close"), ButtonVariant::Tier2)
+                        .clicked()
+                })
+                .inner
             })
-            .inner
         },
     )
 }

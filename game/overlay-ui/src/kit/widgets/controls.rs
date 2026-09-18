@@ -2,9 +2,9 @@
 
 use std::ops::RangeInclusive;
 
-use egui::{Color32, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{Color32, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
-use crate::colors::{BLUE60, BLUE95, GREY_BLUE40, GREY_BLUE60};
+use crate::colors::{BLUE60, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60};
 use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::tiers::gradient_round_rect;
@@ -19,12 +19,12 @@ const SWITCH_TRAVEL_SECS: f32 = 0.12;
 
 /// Height of a slider's track.
 const SLIDER_TRACK: f32 = 4.0;
-/// Height a scrub track takes, its playhead included.
-const SCRUB_HEIGHT: f32 = 20.0;
 /// Thickness of the bar a scrub track's playhead rides.
-const SCRUB_BAR: f32 = 6.0;
+const SCRUB_BAR: f32 = 5.0;
 /// Radius of a scrub track's playhead.
-const SCRUB_HEAD: f32 = 6.0;
+const SCRUB_HEAD: f32 = 5.5;
+/// Corner radius of the bar, which is round enough at this thickness to read as a capsule.
+const SCRUB_RADIUS: u8 = 2;
 /// Radius of a slider's knob.
 const SLIDER_KNOB: f32 = 7.0;
 /// Room kept to the right of a slider for its value.
@@ -179,11 +179,8 @@ pub struct ScrubTrack {
 /// While the pointer is down the head is drawn where the pointer is rather than where `fraction`
 /// says, because whatever is being scrubbed takes time to follow: a head that snapped back to the
 /// old position every frame could not be dragged at all.
-pub fn scrub_track(ui: &mut Ui, fraction: f32) -> ScrubTrack {
-    let (rect, response) = ui.allocate_exact_size(
-        vec2(ui.available_width(), SCRUB_HEIGHT),
-        Sense::click_and_drag(),
-    );
+pub fn scrub_track(ui: &mut Ui, fraction: f32, size: Vec2) -> ScrubTrack {
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
     let bar = Rect::from_min_max(
         pos2(rect.left() + SCRUB_HEAD, rect.center().y - SCRUB_BAR * 0.5),
         pos2(rect.right() - SCRUB_HEAD, rect.center().y + SCRUB_BAR * 0.5),
@@ -196,22 +193,22 @@ pub fn scrub_track(ui: &mut Ui, fraction: f32) -> ScrubTrack {
         return ScrubTrack { response, target };
     }
 
-    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    let corner_radius = theme::radius(SCRUB_RADIUS);
     let painter = ui.painter();
-    painter.rect_filled(bar, corner_radius, theme::alpha(GREY_BLUE40, 0.55));
+    painter.rect_filled(bar, corner_radius, theme::alpha(GREY_BLUE60, 0.30));
     let mut played = bar;
     played.set_right(bar.left() + bar.width() * drawn);
     if played.width() > 0.0 {
-        painter.rect_filled(played, corner_radius, theme::ACCENT);
+        painter.rect_filled(played, corner_radius, BLUE60);
     }
 
     let head = pos2(played.right(), bar.center().y);
     if response.hovered() || response.is_pointer_button_down_on() {
         for (step, alpha) in [(2.0f32, 0.35f32), (4.0, 0.16), (6.0, 0.07)] {
-            painter.circle_filled(head, SCRUB_HEAD + step, theme::ACCENT.gamma_multiply(alpha));
+            painter.circle_filled(head, SCRUB_HEAD + step, BLUE60.gamma_multiply(alpha));
         }
     }
-    painter.circle_filled(head, SCRUB_HEAD, BLUE95);
+    painter.circle_filled(head, SCRUB_HEAD, BLUE99);
     focus_ring(ui, &response, rect, corner_radius);
     ScrubTrack { response, target }
 }

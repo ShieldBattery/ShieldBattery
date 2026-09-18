@@ -32,14 +32,14 @@ pub(crate) const BOTTOM_MARGIN: f32 = 388.0;
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 
 /// Width of the bar of the player's own color that leads their row.
-const COLOR_BAR: f32 = 6.0;
+const COLOR_BAR: f32 = 4.0;
 
 /// Gap between that bar and the player's name.
-const BAR_GAP: f32 = 8.0;
+const BAR_GAP: f32 = 9.0;
 
 /// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
 /// its slot would otherwise push every tile beside it out of the design's grid.
-const NAME_WIDTH: f32 = 126.0;
+const NAME_WIDTH: f32 = 127.0;
 
 /// Gap between the name and the first slot.
 const NAME_GAP: f32 = 12.0;
@@ -88,11 +88,15 @@ const CELL_GAP: f32 = 3.0;
 // slot beside it.
 const _: () = assert!(KEY_WIDTH + CELL_GAP + ICON + CELL_GAP + COUNT_WIDTH == TILE_WIDTH);
 
-/// Text size of the digit and of the count.
-const TILE_TEXT_SIZE: f32 = 12.0;
+/// Text size of a slot's three cells: the digit it answers to, the icon's own number where the
+/// host has no atlas to draw the icon from, and how many units are on it. They are read in that
+/// order and sized in it too.
+const KEY_TEXT_SIZE: f32 = 11.0;
+const ICON_TEXT_SIZE: f32 = 11.0;
+const COUNT_TEXT_SIZE: f32 = 12.5;
 
 /// Text size of a player's name, matching the stats wings' so the panels read as one set.
-const NAME_SIZE: f32 = 14.0;
+const NAME_SIZE: f32 = 15.0;
 
 /// How much of itself a group that has not been used in a while is drawn at.
 ///
@@ -218,7 +222,8 @@ fn draw_slot(ui: &Ui, rect: Rect, key: u8, group: Option<&ControlGroupView>, alp
     paint_text(
         ui,
         cursor.take(KEY_WIDTH),
-        &text::numeral(TILE_TEXT_SIZE).with_color(theme::TEXT_LABEL.gamma_multiply(alpha)),
+        &text::body(KEY_TEXT_SIZE, text::BodyWeight::Medium)
+            .with_color(theme::TEXT_LABEL.gamma_multiply(alpha)),
         &key.to_string(),
         Align::Center,
     );
@@ -241,7 +246,8 @@ fn draw_slot(ui: &Ui, rect: Rect, key: u8, group: Option<&ControlGroupView>, alp
         None => paint_text(
             ui,
             icon_rect,
-            &text::numeral(TILE_TEXT_SIZE).with_color(theme::TEXT_DIM.gamma_multiply(alpha)),
+            &text::body(ICON_TEXT_SIZE, text::BodyWeight::Semibold)
+                .with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha)),
             &group.icon.index.to_string(),
             Align::Center,
         ),
@@ -249,7 +255,8 @@ fn draw_slot(ui: &Ui, rect: Rect, key: u8, group: Option<&ControlGroupView>, alp
     paint_text(
         ui,
         count_rect,
-        &text::numeral(TILE_TEXT_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+        &text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold)
+            .with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
         &group.count.to_string(),
         Align::RIGHT,
     );

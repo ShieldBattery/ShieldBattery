@@ -70,6 +70,12 @@ impl TextSpec {
         self
     }
 
+    /// The same style tracked differently, for a label set tighter or looser than its style's own.
+    pub fn with_letter_spacing(mut self, letter_spacing: f32) -> TextSpec {
+        self.letter_spacing = letter_spacing;
+        self
+    }
+
     pub fn format(&self) -> TextFormat {
         TextFormat {
             font_id: self.font.clone(),
@@ -91,6 +97,16 @@ impl TextSpec {
     pub fn job_wrapped(&self, text: &str, wrap_width: f32) -> LayoutJob {
         let mut job = self.job(text);
         job.wrap.max_width = wrap_width;
+        job
+    }
+
+    /// The text as a job that wraps at `wrap_width` with its lines centred on each other.
+    ///
+    /// The job's origin is then the middle of the block rather than its left edge, which is what a
+    /// caller painting the galley has to place it by.
+    pub fn job_centered(&self, text: &str, wrap_width: f32) -> LayoutJob {
+        let mut job = self.job_wrapped(text, wrap_width);
+        job.halign = Align::Center;
         job
     }
 

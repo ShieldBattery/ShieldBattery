@@ -331,7 +331,7 @@ fn elapsed_secs(bw: &BwVars) -> u64 {
 }
 
 /// The color this player is on the map.
-fn player_color(bw: &BwVars, player_id: u8) -> Color32 {
+pub(super) fn player_color(bw: &BwVars, player_id: u8) -> Color32 {
     let color = unsafe {
         bw::player_color(
             bw.game,
@@ -345,7 +345,7 @@ fn player_color(bw: &BwVars, player_id: u8) -> Color32 {
 }
 
 /// What this player is called, falling back to their slot for a slot that carries no name.
-fn player_name(bw: &BwVars, player_id: u8) -> String {
+pub(super) fn player_name(bw: &BwVars, player_id: u8) -> String {
     let name = unsafe { bw::player_name(bw.players.add(player_id as usize)) };
     if name.is_empty() {
         format!("Player {}", player_id + 1)

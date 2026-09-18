@@ -1,10 +1,8 @@
-//! The disconnect overlay scenario: waiting-on-players rows and the self notices (reconnecting,
-//! disconnected, desynced).
+//! The disconnect overlay scenario: waiting-on-players rows and the self-reconnecting notice.
 
 use egui::{Color32, vec2};
-use overlay_ui::disconnect::{
-    DisconnectClicks, DisconnectRowView, DisconnectTier, DisconnectView, SelfState,
-};
+use overlay_ui::disconnect::{DisconnectRowView, DisconnectView, PeerState, SelfState};
+use overlay_ui::kit::theme;
 use serde::{Deserialize, Serialize};
 
 /// One emulated disconnect row's adjustable state.
@@ -15,12 +13,48 @@ pub struct RowKnob {
     /// traceable to a row.
     pub slot: u8,
     pub name: String,
-    /// `false` => [`DisconnectTier::Stall`], `true` => [`DisconnectTier::Confirmed`].
-    pub confirmed: bool,
+    /// Which of the three states the row reports.
+    pub state: RowState,
+    /// Which of the design's player colors the row's bar is drawn in.
+    pub color_slot: usize,
+    /// Whether the row's player is on the local player's side.
+    pub teammate: bool,
     /// Base elapsed seconds; the auto-tick offset is added on top for the live view.
     pub seconds: u64,
     pub drop_unlocked: bool,
     pub drop_requested: bool,
+}
+
+/// What a knob row reports its player's connection as.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RowState {
+    Connected,
+    Stalled,
+    Reconnecting,
+}
+
+impl RowState {
+    const ALL: [RowState; 3] = [
+        RowState::Connected,
+        RowState::Stalled,
+        RowState::Reconnecting,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            RowState::Connected => "connected",
+            RowState::Stalled => "stalled",
+            RowState::Reconnecting => "reconnecting",
+        }
+    }
+
+    fn view(self) -> PeerState {
+        match self {
+            RowState::Connected => PeerState::Connected,
+            RowState::Stalled => PeerState::Stalled,
+            RowState::Reconnecting => PeerState::Reconnecting,
+        }
+    }
 }
 
 impl Default for RowKnob {
@@ -28,7 +62,9 @@ impl Default for RowKnob {
         RowKnob {
             slot: 0,
             name: "Player 1".to_string(),
-            confirmed: true,
+            state: RowState::Reconnecting,
+            color_slot: 0,
+            teammate: false,
             seconds: 10,
             drop_unlocked: false,
             drop_requested: false,
@@ -41,6 +77,7 @@ impl RowKnob {
         RowKnob {
             slot,
             name: format!("Player {}", slot + 1),
+            color_slot: slot as usize,
             ..RowKnob::default()
         }
     }
@@ -51,12 +88,14 @@ impl RowKnob {
 #[serde(default)]
 pub struct Knobs {
     pub rows: Vec<RowKnob>,
-    /// `true` => the prominent self-reconnecting notice replaces the peers panel.
+    /// `true` => the prominent self-reconnecting notice replaces the roster.
     pub self_reconnecting: bool,
     /// `true` => the disconnected self notice and its Leave button replace everything else.
     pub self_disconnected: bool,
     /// `true` => the desynced self notice and its Leave button replace everything else.
     pub self_desynced: bool,
+    /// How long this client's own link has been down, which is what that notice's clock reads.
+    pub self_seconds: u64,
     /// Whether the surface takes the player's input or only sits over the game. The game blocks
     /// input whenever the surface is up, since a stall short enough not to block never draws it.
     pub blocks_input: bool,
@@ -67,27 +106,11 @@ pub struct Knobs {
 impl Default for Knobs {
     fn default() -> Knobs {
         Knobs {
-            rows: vec![
-                RowKnob {
-                    slot: 0,
-                    name: "Rhynso".to_string(),
-                    confirmed: true,
-                    seconds: 12,
-                    drop_unlocked: false,
-                    drop_requested: false,
-                },
-                RowKnob {
-                    slot: 1,
-                    name: "tec27".to_string(),
-                    confirmed: false,
-                    seconds: 4,
-                    drop_unlocked: false,
-                    drop_requested: false,
-                },
-            ],
+            rows: Preset::Confirmed.rows(),
             self_reconnecting: false,
             self_disconnected: false,
             self_desynced: false,
+            self_seconds: 14,
             blocks_input: true,
             auto_tick: false,
         }
@@ -128,58 +151,67 @@ impl Preset {
         }
     }
 
+    /// The roster this preset deals out. Every preset carries the whole roster, connected players
+    /// and all, because that is what the dialog draws.
+    fn rows(self) -> Vec<RowKnob> {
+        let mango = RowKnob {
+            slot: 0,
+            name: "Mango".to_string(),
+            state: RowState::Connected,
+            color_slot: 2,
+            teammate: true,
+            seconds: 0,
+            drop_unlocked: false,
+            drop_requested: false,
+        };
+        let aurora = |state: RowState, seconds: u64, unlocked: bool| RowKnob {
+            slot: 1,
+            name: "Aurora".to_string(),
+            state,
+            color_slot: 1,
+            teammate: false,
+            seconds,
+            drop_unlocked: unlocked,
+            drop_requested: false,
+        };
+        let sharkfin = |state: RowState, seconds: u64, unlocked: bool, requested: bool| RowKnob {
+            slot: 2,
+            name: "Sharkfin".to_string(),
+            state,
+            color_slot: 5,
+            teammate: false,
+            seconds,
+            drop_unlocked: unlocked,
+            drop_requested: requested,
+        };
+        match self {
+            Preset::Stall => vec![
+                mango,
+                aurora(RowState::Stalled, 3, false),
+                sharkfin(RowState::Connected, 0, false, false),
+            ],
+            Preset::Confirmed
+            | Preset::SelfReconnecting
+            | Preset::SelfDisconnected
+            | Preset::SelfDesynced => vec![
+                mango,
+                aurora(RowState::Reconnecting, 31, false),
+                sharkfin(RowState::Reconnecting, 18, false, false),
+            ],
+            Preset::Droppable => vec![
+                mango,
+                aurora(RowState::Reconnecting, 31, false),
+                sharkfin(RowState::Reconnecting, 52, true, false),
+            ],
+        }
+    }
+
     pub fn apply(self, knobs: &mut Knobs) {
         knobs.self_reconnecting = matches!(self, Preset::SelfReconnecting);
         knobs.self_disconnected = matches!(self, Preset::SelfDisconnected);
         knobs.self_desynced = matches!(self, Preset::SelfDesynced);
         knobs.blocks_input = true;
-        knobs.rows = match self {
-            Preset::Stall => vec![RowKnob {
-                slot: 0,
-                name: "Rhynso".to_string(),
-                confirmed: false,
-                seconds: 3,
-                drop_unlocked: false,
-                drop_requested: false,
-            }],
-            Preset::SelfDisconnected | Preset::SelfDesynced => Vec::new(),
-            Preset::Confirmed | Preset::SelfReconnecting => vec![
-                RowKnob {
-                    slot: 0,
-                    name: "Rhynso".to_string(),
-                    confirmed: true,
-                    seconds: 18,
-                    drop_unlocked: false,
-                    drop_requested: false,
-                },
-                RowKnob {
-                    slot: 1,
-                    name: "tec27".to_string(),
-                    confirmed: false,
-                    seconds: 4,
-                    drop_unlocked: false,
-                    drop_requested: false,
-                },
-            ],
-            Preset::Droppable => vec![
-                RowKnob {
-                    slot: 0,
-                    name: "Rhynso".to_string(),
-                    confirmed: true,
-                    seconds: 52,
-                    drop_unlocked: true,
-                    drop_requested: false,
-                },
-                RowKnob {
-                    slot: 1,
-                    name: "tec27".to_string(),
-                    confirmed: true,
-                    seconds: 47,
-                    drop_unlocked: true,
-                    drop_requested: true,
-                },
-            ],
-        };
+        knobs.rows = self.rows();
     }
 }
 
@@ -190,6 +222,8 @@ pub struct UiState {
     next_slot: u8,
     /// The slots clicked in the most recent frame that had any, for feedback.
     last_clicked: Vec<u8>,
+    /// Whether the abandon hold has ever been held to the end this session.
+    abandoned: bool,
     /// How many times the Leave button has been clicked.
     leave_clicks: u32,
 }
@@ -199,15 +233,17 @@ impl UiState {
         UiState {
             next_slot: knobs.rows.iter().map(|r| r.slot).max().map_or(0, |m| m + 1),
             last_clicked: Vec::new(),
+            abandoned: false,
             leave_clicks: 0,
         }
     }
 
-    pub fn note_clicks(&mut self, clicked: DisconnectClicks) {
-        if !clicked.drops.is_empty() {
-            self.last_clicked = clicked.drops;
+    pub fn note_clicks(&mut self, clicked: Vec<u8>, abandoned: bool, left: bool) {
+        if !clicked.is_empty() {
+            self.last_clicked = clicked;
         }
-        if clicked.leave {
+        self.abandoned |= abandoned;
+        if left {
             self.leave_clicks += 1;
         }
     }
@@ -223,12 +259,13 @@ pub fn build_view(knobs: &Knobs, elapsed: f64) -> DisconnectView {
             .map(|row| DisconnectRowView {
                 slot: row.slot,
                 name: row.name.clone(),
-                seconds: row.seconds + tick,
-                tier: if row.confirmed {
-                    DisconnectTier::Confirmed
-                } else {
-                    DisconnectTier::Stall
+                color: theme::player_color(row.color_slot),
+                teammate: row.teammate,
+                seconds: match row.state {
+                    RowState::Connected => 0,
+                    _ => row.seconds + tick,
                 },
+                state: row.state.view(),
                 drop_unlocked: row.drop_unlocked,
                 drop_requested: row.drop_requested,
             })
@@ -242,6 +279,7 @@ pub fn build_view(knobs: &Knobs, elapsed: f64) -> DisconnectView {
         } else {
             SelfState::Healthy
         },
+        self_seconds: knobs.self_seconds + tick,
     }
 }
 
@@ -293,6 +331,12 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
                 .changed();
             ui.end_row();
 
+            ui.label("Self elapsed");
+            changed |= ui
+                .add(egui::DragValue::new(&mut knobs.self_seconds).range(0..=6000))
+                .changed();
+            ui.end_row();
+
             ui.label("Auto-tick counters");
             changed |= ui
                 .checkbox(&mut knobs.auto_tick, "advance seconds live")
@@ -328,11 +372,22 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
                     }
                 });
                 ui.horizontal(|ui| {
-                    changed |= ui.checkbox(&mut row.confirmed, "confirmed").changed();
+                    for state in RowState::ALL {
+                        changed |= ui
+                            .selectable_value(&mut row.state, state, state.label())
+                            .changed();
+                    }
+                });
+                ui.horizontal(|ui| {
                     ui.label("seconds");
                     changed |= ui
                         .add(egui::DragValue::new(&mut row.seconds).range(0..=6000))
                         .changed();
+                    ui.label("color");
+                    changed |= ui
+                        .add(egui::DragValue::new(&mut row.color_slot).range(0..=5))
+                        .changed();
+                    changed |= ui.checkbox(&mut row.teammate, "teammate").changed();
                 });
                 ui.horizontal(|ui| {
                     changed |= ui
@@ -360,6 +415,12 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
         );
     }
     ui.label(format!("Leave clicks: {}", state.leave_clicks));
+    if state.abandoned {
+        ui.colored_label(
+            Color32::from_rgb(0xff, 0x8a, 0x8a),
+            "Abandon hold completed at least once",
+        );
+    }
 
     changed
 }

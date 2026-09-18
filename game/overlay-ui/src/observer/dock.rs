@@ -297,7 +297,7 @@ fn draw_row(
     let (rect, response) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT), Sense::click());
     let on = entry.is_on(prefs);
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
-    if on {
+    if on && expanded {
         ui.painter()
             .rect_filled(rect, corner_radius, theme::alpha(theme::ACCENT, 0.10));
     }
@@ -306,7 +306,9 @@ fn draw_row(
     // Collapsed, the keycap is the whole row: there is no room for a name, and a watcher reading a
     // strip of keys is reading the same table the rail spells out.
     if !expanded {
-        paint_key_chip(ui, centred(rect, KEY_HEIGHT), key, on);
+        // Square, and as wide as the dock lets it be: collapsed there is nothing else in the row,
+        // so the keycap is the row.
+        paint_key_chip(ui, centred(rect, rect.width().min(rect.height())), key, on);
         return response.clicked();
     }
 
@@ -361,16 +363,26 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, on: bool) {
         return;
     };
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    let (fill, color) = if on {
-        (theme::alpha(theme::ACCENT, 0.18), theme::ACCENT)
+    // A lit keycap is filled in the overlay's own blue rather than tinted: the dock is read at a
+    // glance from the edge of the screen, and a tint is not a state anyone reads from there.
+    let (fill, edge, color) = if on {
+        (
+            theme::alpha(crate::colors::BLUE60, 0.40),
+            theme::alpha(crate::colors::BLUE80, 0.45),
+            theme::TEXT_PRIMARY,
+        )
     } else {
-        (theme::alpha(crate::colors::BLUE10, 0.80), theme::TEXT_DIM)
+        (
+            theme::alpha(crate::colors::GREY_BLUE10, 0.60),
+            theme::CHIP_STROKE,
+            theme::TEXT_DIM,
+        )
     };
     ui.painter().rect_filled(rect, corner_radius, fill);
     ui.painter().add(Shape::rect_stroke(
         rect,
         corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
+        Stroke::new(theme::HAIRLINE, edge),
         StrokeKind::Inside,
     ));
     paint_text(

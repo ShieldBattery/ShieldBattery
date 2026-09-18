@@ -15,7 +15,7 @@
 //! A game split into more sides than that is left with the clock alone rather than with a stack of
 //! cards over the panels underneath.
 
-use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, vec2};
+use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, pos2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph};
@@ -41,6 +41,14 @@ const CARD_RADIUS: u8 = 6;
 
 /// Height of the card's own title row.
 const HEADER_HEIGHT: f32 = 22.0;
+
+/// The bar of the side's own color at the head of the card, which stands taller than the bars in
+/// the rows under it: it names the side rather than one of its players.
+const HEADER_BAR: f32 = 5.0;
+const HEADER_BAR_HEIGHT: f32 = 17.0;
+
+/// How much of a supply count's size its cap is set at.
+const SUPPLY_CAP_RATIO: f32 = 0.75;
 
 /// Width of the bar of the player's own color that leads their row.
 const COLOR_BAR: f32 = 4.0;
@@ -254,9 +262,24 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView) {
 /// Draws the card's title row: whose side it is, and what the side is sitting on between them.
 fn draw_header(ui: &mut Ui, team: &TeamCardView) {
     let (rect, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADER_HEIGHT), Sense::hover());
+    let mut cursor = EdgeCursor::from_left(rect);
+    // A side's own bar, which is what ties the card in the corner to the units on the map before
+    // its title has been read. The colour is the first player's: a side is named after where it
+    // sits, and where it sits is where its first slot is.
+    if let Some(player) = team.players.first() {
+        paint_player_bar(
+            ui,
+            centred(cursor.take(HEADER_BAR), HEADER_BAR_HEIGHT),
+            player.color,
+            1.0,
+        );
+    } else {
+        cursor.skip(HEADER_BAR);
+    }
+    cursor.skip(BAR_GAP);
     paint_text(
         ui,
-        rect,
+        cursor.take(CONTENT_WIDTH),
         &text::hero_title(),
         &team_name(team.team),
         Align::LEFT,
@@ -264,12 +287,24 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView) {
     let (used, max) = team.supply();
     let mut cursor = EdgeCursor::from_right(rect);
     let value = cursor.take(SUPPLY_WIDTH - STAT_GLYPH - STAT_GLYPH_GAP);
-    paint_text(
-        ui,
-        value,
-        &text::numeral(VALUE_SIZE),
-        &format!("{used}/{max}"),
-        Align::RIGHT,
+    // The cap is what the count is read against rather than a number of its own, so it is set
+    // smaller and quieter, the way the matchup bar sets it.
+    let mut job = text::numeral(VALUE_SIZE).job(&used.to_string());
+    job.append(
+        &format!("/{max}"),
+        0.0,
+        text::numeral(VALUE_SIZE * SUPPLY_CAP_RATIO)
+            .with_color(theme::TEXT_DIM)
+            .format(),
+    );
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    ui.painter().galley(
+        pos2(
+            value.right() - galley.size().x,
+            value.center().y - galley.size().y * 0.5,
+        ),
+        galley,
+        theme::TEXT_PRIMARY,
     );
     cursor.skip(STAT_GLYPH_GAP);
     widgets::paint_resource_glyph(
