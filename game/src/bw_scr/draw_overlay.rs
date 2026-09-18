@@ -8,7 +8,9 @@ use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
 use egui::epaint;
 use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
-use overlay_ui::observer::{MatchupPlayerView, MatchupView, ObserverView, RaceView};
+use overlay_ui::observer::{
+    GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView, RaceView,
+};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     Shell, Views,
@@ -430,17 +432,32 @@ impl OverlayState {
         // knows which of them the watcher has hidden.
         let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
             let players = stats::stats_players(bw);
-            let series = self.shell.panel_prefs().graph_series;
+            let prefs = self.shell.panel_prefs();
+            let series = prefs.graph_series;
+            let matchup = self.build_matchup_view(bw, apm);
+            // A game with one player per side plots the same lines either way, so it is told there
+            // is no grouping to name rather than titled with a distinction it does not have.
+            let grouping = matchup.has_teams().then_some(if prefs.graph_per_player {
+                GraphGrouping::Players
+            } else {
+                GraphGrouping::Teams
+            });
             ObserverView {
-                matchup: self.build_matchup_view(bw, apm),
+                // The corner cards are what a game the bar has no halves for is read from instead.
+                // A game split into more sides than the two corners hold draws none of them, which
+                // the view itself decides from the sides it was handed.
+                team_cards: (matchup.form() == MatchupForm::ClockOnly)
+                    .then(|| stats::build_team_cards_view(&matchup, &players, game_stats)),
                 economy: stats::build_economy_view(&players, game_stats),
                 military: stats::build_military_view(&players, game_stats),
-                graphs: stats::build_graphs_view(bw, &players, game_stats, series),
+                graphs: stats::build_graphs_view(bw, &players, game_stats, series, grouping),
                 timeline: stats::build_timeline_view(bw, &players, game_stats),
                 production: self.build_production_view(bw),
+                control_groups: stats::build_control_groups_view(bw, &players, game_stats),
                 // The game keeps no measurement of who holds the map, and one invented here would
                 // be a claim rather than a reading. The bar is simply not drawn until there is one.
                 map_control: None,
+                matchup,
             }
         });
         // Built for every frame of a replay whether or not the plate is on screen: the transport
@@ -857,9 +874,9 @@ impl OverlayState {
                     || bw.is_team_game
                     || has_player_vision(bw, player_id)
             })
-            .map(|(_team, player_id)| unsafe {
+            .map(|(team, player_id)| unsafe {
                 let player = bw.players.add(player_id as usize);
-                matchup_player_view(bw, player, player_id, apm)
+                matchup_player_view(bw, player, player_id, team, apm)
             })
             .collect();
         MatchupView {
@@ -1109,26 +1126,81 @@ impl OverlayState {
     }
 }
 
-/// Yields active players `(team, player_id)`, ordered by team.
+/// Yields active players `(team, player_id)`, ordered by team and then by slot.
+///
+/// Every observer surface reads its players from here, which is what keeps a row in one panel
+/// lined up with the row for the same player in the next and lets the ones that group by side do
+/// it by walking a list rather than by grouping it again.
 fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
-    // Teams are 1-based, but team 0 is used on games without teams.
-    let players = bw.players;
-    (0u8..5).flat_map(move |team| {
-        (0..8).filter_map(move |player_id| {
-            unsafe {
-                let player = players.add(player_id as usize);
-                if (*player).team != team {
-                    return None;
-                }
-                // Show only human / computer player types
-                let is_active = matches!((*player).player_type, 1 | 2);
-                if !is_active {
-                    return None;
-                }
-                Some((team, player_id))
+    let teams = player_teams(bw);
+    let mut ordered: Vec<(u8, u8)> = (0u8..8)
+        .filter(|&player_id| is_active_player(bw, player_id as usize))
+        .map(|player_id| (teams[player_id as usize], player_id))
+        .collect();
+    ordered.sort_unstable();
+    ordered.into_iter()
+}
+
+/// Whether this slot is one the game is being played from, as opposed to an empty one or an
+/// observer.
+fn is_active_player(bw: &BwVars, player_id: usize) -> bool {
+    unsafe { matches!((*bw.players.add(player_id)).player_type, 1 | 2) }
+}
+
+/// Which side each of the game's eight slots is on.
+///
+/// The game's own team numbers when the game type has them. A melee map has none — every slot's
+/// team stays zero however the players lined up — so those games are grouped by who has allied
+/// whom instead, which is the only record of a two-versus-two played on a melee map that the
+/// simulation actually keeps.
+fn player_teams(bw: &BwVars) -> [u8; 8] {
+    let mut teams = [0u8; 8];
+    let mut any_team = false;
+    for (player_id, team) in teams.iter_mut().enumerate() {
+        if !is_active_player(bw, player_id) {
+            continue;
+        }
+        *team = unsafe { (*bw.players.add(player_id)).team };
+        any_team |= *team != 0;
+    }
+    if any_team {
+        return teams;
+    }
+    alliance_teams(bw)
+}
+
+/// Groups the active slots by who they are mutually allied with, numbering the groups in slot
+/// order so a side is called after where it sits rather than after an empty slot beside it.
+///
+/// A one-way alliance is not a side: a player who has allied someone who has not allied them back
+/// is fighting alone, whatever they have declared.
+fn alliance_teams(bw: &BwVars) -> [u8; 8] {
+    let mut teams = [0u8; 8];
+    let mut next = 1u8;
+    for player_id in 0..8 {
+        if teams[player_id] != 0 || !is_active_player(bw, player_id) {
+            continue;
+        }
+        let group = next;
+        next += 1;
+        for (other, team) in teams.iter_mut().enumerate().skip(player_id) {
+            if *team != 0 || !is_active_player(bw, other) {
+                continue;
             }
-        })
-    })
+            if other == player_id || mutually_allied(bw, player_id, other) {
+                *team = group;
+            }
+        }
+    }
+    teams
+}
+
+/// Whether two slots have each declared the other an ally.
+fn mutually_allied(bw: &BwVars, a: usize, b: usize) -> bool {
+    unsafe {
+        let alliances = &(**bw.game).alliances;
+        alliances[a][b] != 0 && alliances[b][a] != 0
+    }
 }
 
 fn player_has_units(bw: &BwVars, player_id: u8) -> bool {
@@ -1151,6 +1223,7 @@ unsafe fn matchup_player_view(
     bw: &BwVars,
     player: *mut bw::Player,
     player_id: u8,
+    team: u8,
     apm: Option<&ApmStats>,
 ) -> MatchupPlayerView {
     unsafe {
@@ -1183,6 +1256,7 @@ unsafe fn matchup_player_view(
         }
         MatchupPlayerView {
             player_id,
+            team,
             name: name.into_owned(),
             color: Color32::from_rgb(color[0], color[1], color[2]),
             race: race.1,

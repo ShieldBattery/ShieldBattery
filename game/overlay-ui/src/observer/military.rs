@@ -20,15 +20,12 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
     STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
-    paint_text, vision_alpha, wing_panel,
+    paint_team_divider, paint_text, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::tr;
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 486.0;
-
-/// How far its top edge sits below the screen's, level with the economy panel opposite it.
-const PANEL_TOP: f32 = 78.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 462.0;
@@ -79,6 +76,8 @@ const SLASH_WIDTH: f32 = 10.0;
 /// One player's row.
 pub struct MilitaryPlayerView {
     pub name: String,
+    /// Which side of the game they are on, which is where the table's dividers fall.
+    pub team: u8,
     /// The color this player is on the map, which is what ties the row to what the watcher sees.
     pub color: Color32,
     /// Whether the watcher currently sees the game through this player's eyes.
@@ -105,15 +104,20 @@ impl MilitaryView {
     }
 }
 
-/// Draws the military panel against the right edge of the screen, fading and sliding it in and out.
-/// Returns nothing at all once it is gone, or while there is nobody to report on.
-pub fn render_military_view(view: &MilitaryView, ctx: &Context, shown: bool) -> Option<Rect> {
+/// Draws the military panel against the right edge of the screen at `top`, fading and sliding it in
+/// and out. Returns nothing at all once it is gone, or while there is nobody to report on.
+pub fn render_military_view(
+    view: &MilitaryView,
+    ctx: &Context,
+    shown: bool,
+    top: f32,
+) -> Option<Rect> {
     let id = Id::new("sb_military_panel");
     let inner = wing_panel(
         ctx,
         id,
         Wing::Right,
-        PANEL_TOP,
+        top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
         |ui| draw_panel(ui, view),
@@ -124,7 +128,16 @@ pub fn render_military_view(view: &MilitaryView, ctx: &Context, shown: bool) -> 
 fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
     widgets::panel_header(ui, &tr!("observer.panelMilitary", "Military"), Some("M"));
     draw_headings(ui);
+    let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
+        if divided && side != Some(player.team) {
+            side = Some(player.team);
+            ui.add_space(STAT_ROW_GAP);
+            let (row, _) =
+                ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
+            paint_team_divider(ui, row, player.team);
+        }
         ui.add_space(STAT_ROW_GAP);
         draw_row(ui, player);
     }

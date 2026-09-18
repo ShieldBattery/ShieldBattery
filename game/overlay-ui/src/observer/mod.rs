@@ -9,6 +9,7 @@
 //! glancing at production is reading it against the supply and the bank on the matchup bar. The
 //! shell decides which of them are on screen and what a click on one asks of the game.
 
+mod control_groups;
 mod dock;
 mod economy;
 mod graphs;
@@ -16,17 +17,27 @@ mod map_control;
 mod matchup;
 mod military;
 mod production;
+mod team_cards;
 mod timeline;
 
+pub(crate) use control_groups::BOTTOM_MARGIN as CONTROL_GROUPS_BOTTOM;
+pub use control_groups::{
+    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
+};
 pub use dock::{DockOutcome, render_obs_dock};
 pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
-pub use graphs::{GraphLineView, GraphSeries, GraphsView, render_graphs_view};
+pub use graphs::{GraphGrouping, GraphLineView, GraphSeries, GraphsView, render_graphs_view};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
-pub use matchup::{MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view};
+pub use matchup::{
+    MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
+};
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     render_production_view,
+};
+pub use team_cards::{
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
 pub use timeline::{TimelineEventKind, TimelineEventView, TimelineView, render_timeline_view};
 
@@ -49,15 +60,31 @@ use crate::tr;
 /// them the watcher has hidden.
 pub struct ObserverView {
     pub matchup: MatchupView,
+    /// The corner cards a game too big for the matchup bar is read from, or `None` for one the bar
+    /// still has room for. Two cards at most, because the design gives them the screen's two top
+    /// corners and nothing else: a game split into more sides than that keeps the clock alone.
+    pub team_cards: Option<TeamCardsView>,
     pub economy: EconomyView,
     pub military: MilitaryView,
     pub graphs: GraphsView,
     pub timeline: TimelineView,
     pub production: ProductionView,
+    pub control_groups: ControlGroupsView,
     /// How much of the map each side holds, or `None` while the game has no such measurement to
     /// report. The bar is not drawn at all without one: a share bar with nothing behind it would
     /// read as a game where neither side holds anything.
     pub map_control: Option<MapControlView>,
+}
+
+impl ObserverView {
+    /// Whether this game has teams worth telling apart from the players in them.
+    ///
+    /// What decides whether the graphs panel has two forms to switch between: a game with one
+    /// player per side has exactly one set of lines, and a chord offering to switch to the other
+    /// would be offering the same plot twice.
+    pub fn has_teams(&self) -> bool {
+        self.matchup.has_teams()
+    }
 }
 
 /// The race a player is playing, which decides the color and the letter of their chip.
@@ -297,6 +324,24 @@ pub(crate) enum Wing {
 /// How far a wing sits from the edge it hangs off.
 pub(crate) const WING_MARGIN: f32 = 16.0;
 
+/// Gap between the matchup bar and the topmost stats wing under it. With the bar in the form a
+/// duel gives it, this is the design's own 78 points from the screen's top edge.
+pub(crate) const WING_TOP_GAP: f32 = 14.0;
+
+/// How far the lower wing on a side sits below the top of the upper one when the upper one is
+/// short enough that the design's own grid still holds.
+///
+/// A wing is as tall as the players it has rows for, so the lower one is placed under whatever the
+/// upper one actually came out as; this is the floor that keeps a two-player game on the grid the
+/// design drew rather than letting the panels drift up to meet each other.
+pub(crate) const WING_ROW_PITCH: f32 = 146.0;
+
+/// Gap between a panel and whatever the next one down is placed under.
+pub(crate) const WING_GAP: f32 = 12.0;
+
+/// Gap between the matchup bar and the map-control strip hanging under it.
+pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
+
 /// How much of the right edge the obs dock owns, which the wings on that side stop short of.
 ///
 /// Reserved at the dock's collapsed width, which is the form a watcher leaves it in all game: a
@@ -328,8 +373,87 @@ pub(crate) const STAT_VALUE_SIZE: f32 = 17.0;
 /// Text size of a player's name in a stats wing.
 pub(crate) const STAT_NAME_SIZE: f32 = 14.0;
 
+/// Where each of the observer's stacked surfaces puts its top edge this frame.
+///
+/// The wings are stacked rather than placed at the absolute heights the design card draws them at,
+/// because a panel here is as tall as the players it reports on: a 4v4's economy table is four
+/// times a duel's, and a timeline pinned under a duel's would be drawn straight through it. Each
+/// height is measured off the panel above rather than computed from its contents, so the stack
+/// follows what egui actually laid out instead of a second guess at it.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct WingTops {
+    /// The upper wing on the left of the screen, and on the right.
+    pub(crate) left: f32,
+    pub(crate) right: f32,
+}
+
+impl WingTops {
+    /// Both wings hung under the matchup bar, which is what a game with no team cards over them
+    /// gets.
+    pub(crate) fn under_bar(bar_height: f32) -> WingTops {
+        let top = bar_height + WING_TOP_GAP;
+        WingTops {
+            left: top,
+            right: top,
+        }
+    }
+
+    /// Where the wing under one of these goes, given what the one above it came out as.
+    pub(crate) fn below(top: f32, upper: Option<Rect>, screen_top: f32) -> f32 {
+        let stacked = upper.map(|rect| rect.bottom() - screen_top + WING_GAP);
+        (top + WING_ROW_PITCH).max(stacked.unwrap_or(f32::NEG_INFINITY))
+    }
+}
+
+/// Whether a table of rows in team order is worth splitting into the sides they belong to.
+///
+/// A game with one player per side is already one row per side, so a rule between every pair of
+/// them would be a rule for nothing: what the dividers exist for is a block of rows that add up to
+/// one side's game.
+pub(crate) fn teams_worth_dividing(teams: impl IntoIterator<Item = u8>) -> bool {
+    let mut sides = 0usize;
+    let mut longest = 0usize;
+    let mut run = 0usize;
+    let mut current: Option<u8> = None;
+    for team in teams {
+        if current != Some(team) {
+            current = Some(team);
+            sides += 1;
+            run = 0;
+        }
+        run += 1;
+        longest = longest.max(run);
+    }
+    sides > 1 && longest > 1
+}
+
+/// Paints the rule that separates one team's rows from the next one's, naming the team it opens.
+pub(crate) fn paint_team_divider(ui: &Ui, rect: Rect, team: u8) {
+    let label = team_name(team);
+    let spec = text::column_label();
+    let galley = spec.galley(ui, &label);
+    let width = galley.size().x;
+    paint_text(ui, rect, &spec, &label, Align::LEFT);
+    let line_left = rect.left() + width + theme::SPACE_SM;
+    if line_left < rect.right() {
+        ui.painter().add(egui::Shape::line_segment(
+            [
+                pos2(line_left, rect.center().y),
+                pos2(rect.right(), rect.center().y),
+            ],
+            Stroke::new(theme::HAIRLINE, theme::TIER0_DIVIDER),
+        ));
+    }
+}
+
+/// What a team is called wherever one is named: on a divider, on a corner card, in a legend.
+pub fn team_name(team: u8) -> String {
+    tr!("observer.teamName", "Team {{number}}", number = team)
+}
+
 /// Draws one of the stats wings: an ambient panel of a fixed width, hung off one edge of the screen
-/// at a fixed height, fading and sliding in and out. Returns nothing at all once it is gone.
+/// with its top edge at `top`, fading and sliding in and out. Returns nothing at all once it is
+/// gone.
 ///
 /// The wings are sized from the outside in, because the design places their outer edges on a grid;
 /// egui sizes a panel from its contents out, so the width given here is the panel's and the width
@@ -440,6 +564,17 @@ mod tests {
         assert_eq!(game_clock(3599), "59:59");
         assert_eq!(game_clock(3600), "1:00:00");
         assert_eq!(game_clock(3725), "1:02:05");
+    }
+
+    #[test]
+    fn a_table_is_split_only_where_a_side_holds_more_than_one_row() {
+        assert!(!teams_worth_dividing([1, 2]));
+        assert!(!teams_worth_dividing([1, 2, 3, 4]));
+        assert!(!teams_worth_dividing([1]));
+        assert!(!teams_worth_dividing([1, 1]));
+        assert!(teams_worth_dividing([1, 1, 2, 2]));
+        assert!(teams_worth_dividing([1, 1, 1, 2, 2, 2]));
+        assert!(teams_worth_dividing([1, 2, 2]));
     }
 
     #[test]

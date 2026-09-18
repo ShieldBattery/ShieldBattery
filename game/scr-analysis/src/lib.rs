@@ -457,6 +457,13 @@ impl<'e> Analysis<'e> {
         self.0.replay_visions()
     }
 
+    /// Byte offset into `game` of `u16[player][18]`, the frame each selection-hotkey group was
+    /// last written on. Resolved as a constant, since the array is a field of `game` rather than a
+    /// global of its own.
+    pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {
+        self.0.selection_hotkey_last_used_frames()
+    }
+
     pub fn local_visions(&mut self) -> Option<Operand<'e>> {
         self.0.local_visions()
     }

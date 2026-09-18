@@ -24,9 +24,6 @@ use crate::tr;
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 474.0;
 
-/// How far its top edge sits below the screen's, which is under the economy panel above it.
-const PANEL_TOP: f32 = 224.0;
-
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 450.0;
 
@@ -122,15 +119,20 @@ impl TimelineView {
     }
 }
 
-/// Draws the timeline against the left edge of the screen, fading and sliding it in and out.
-/// Returns nothing at all once it is gone, or before anything has happened.
-pub fn render_timeline_view(view: &TimelineView, ctx: &Context, shown: bool) -> Option<Rect> {
+/// Draws the timeline against the left edge of the screen at `top`, fading and sliding it in and
+/// out. Returns nothing at all once it is gone, or before anything has happened.
+pub fn render_timeline_view(
+    view: &TimelineView,
+    ctx: &Context,
+    shown: bool,
+    top: f32,
+) -> Option<Rect> {
     let id = Id::new("sb_timeline_panel");
     let inner = wing_panel(
         ctx,
         id,
         Wing::Left,
-        PANEL_TOP,
+        top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
         |ui| draw_panel(ui, view),
