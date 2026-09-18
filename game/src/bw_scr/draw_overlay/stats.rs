@@ -6,8 +6,10 @@
 
 use egui::Color32;
 use overlay_ui::observer::{
-    EconomyPlayerView, EconomyView, GraphLineView, GraphSeries, GraphsView, MilitaryPlayerView,
-    MilitaryView, TimelineEventView, TimelineView,
+    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
+    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MatchupView, MilitaryPlayerView,
+    MilitaryView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
+    TimelineEventView, TimelineView,
 };
 use overlay_ui::transport;
 
@@ -32,6 +34,9 @@ const TIMELINE_DEPTH: usize = 24;
 /// One player as every stats wing names them.
 pub struct StatsPlayer {
     pub player_id: u8,
+    /// Which side of the game they are on, which is where the tables' dividers fall and which side
+    /// of the game their numbers are summed into.
+    pub team: u8,
     pub name: String,
     pub color: Color32,
     pub vision: bool,
@@ -48,8 +53,9 @@ pub fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
         .filter(|&(_team, player_id)| {
             player_has_units(bw, player_id) || bw.is_team_game || has_player_vision(bw, player_id)
         })
-        .map(|(_team, player_id)| StatsPlayer {
+        .map(|(team, player_id)| StatsPlayer {
             player_id,
+            team,
             name: player_name(bw, player_id),
             color: player_color(bw, player_id),
             vision: has_player_vision(bw, player_id),
@@ -69,6 +75,7 @@ pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&GameStats>) ->
                     .unwrap_or((0, 0));
                 EconomyPlayerView {
                     name: player.name.clone(),
+                    team: player.team,
                     color: player.color,
                     vision: player.vision,
                     minerals_per_minute,
@@ -90,6 +97,7 @@ pub fn build_military_view(players: &[StatsPlayer], stats: Option<&GameStats>) -
                 let sample = latest(stats, player.player_id);
                 MilitaryPlayerView {
                     name: player.name.clone(),
+                    team: player.team,
                     color: player.color,
                     vision: player.vision,
                     army_minerals: sample.army_minerals,
@@ -104,7 +112,8 @@ pub fn build_military_view(players: &[StatsPlayer], stats: Option<&GameStats>) -
     }
 }
 
-/// Builds the graphs panel's view for whichever series the watcher is on.
+/// Builds the graphs panel's view for whichever series the watcher is on, plotted for whichever of
+/// the game's sides or players they asked for.
 ///
 /// Only that one series is thinned out of the history. The panel plots one at a time, and the other
 /// four would be four times the work for lines nobody is looking at.
@@ -113,18 +122,157 @@ pub fn build_graphs_view(
     players: &[StatsPlayer],
     stats: Option<&GameStats>,
     series: GraphSeries,
+    grouping: Option<GraphGrouping>,
 ) -> GraphsView {
-    GraphsView {
-        series,
-        span_secs: elapsed_secs(bw) as u32,
-        lines: players
+    let of_player = |player: &StatsPlayer| {
+        stats
+            .map(|stats| stats.series(player.player_id, series, GRAPH_POINTS))
+            .unwrap_or_default()
+    };
+    let lines = if grouping == Some(GraphGrouping::Teams) {
+        sides(players)
+            .into_iter()
+            .map(|(team, members)| GraphLineView {
+                label: overlay_ui::observer::team_name(team),
+                // A side's line takes the color of the player at the top of its block in every
+                // other panel, which is the only color on screen that already stands for it.
+                color: members
+                    .first()
+                    .map(|player| player.color)
+                    .unwrap_or(Color32::WHITE),
+                values: members
+                    .into_iter()
+                    .map(of_player)
+                    .fold(Vec::new(), |total, values| add_series(total, &values)),
+            })
+            .collect()
+    } else {
+        players
             .iter()
             .map(|player| GraphLineView {
                 label: player.name.clone(),
                 color: player.color,
-                values: stats
-                    .map(|stats| stats.series(player.player_id, series, GRAPH_POINTS))
-                    .unwrap_or_default(),
+                values: of_player(player),
+            })
+            .collect()
+    };
+    GraphsView {
+        series,
+        span_secs: elapsed_secs(bw) as u32,
+        lines,
+        grouping,
+    }
+}
+
+/// Adds one player's samples into a side's running total, keeping whichever of the two is shorter.
+///
+/// Two players sampled over the same game have the same number of samples, so the trim only ever
+/// matters for a slot that joined late or was cleared by a seek — and a side's line is more honest
+/// stopping where its shortest member's history does than running on as a partial sum.
+fn add_series(total: Vec<f32>, values: &[f32]) -> Vec<f32> {
+    if total.is_empty() {
+        return values.to_vec();
+    }
+    total
+        .into_iter()
+        .zip(values)
+        .map(|(sum, value)| sum + value)
+        .collect()
+}
+
+/// The players grouped into the sides they are on, in the order the sides are listed.
+fn sides(players: &[StatsPlayer]) -> Vec<(u8, Vec<&StatsPlayer>)> {
+    let mut sides: Vec<(u8, Vec<&StatsPlayer>)> = Vec::new();
+    for player in players {
+        match sides.last_mut() {
+            Some((team, members)) if *team == player.team => members.push(player),
+            _ => sides.push((player.team, vec![player])),
+        }
+    }
+    sides
+}
+
+/// Builds the corner team cards, for a game whose players the matchup bar has no halves for.
+///
+/// Read off the bar's own players rather than off the game a second time: the cards carry exactly
+/// the numbers the bar's halves would have, and a second reading of them could only disagree.
+pub fn build_team_cards_view(
+    matchup: &MatchupView,
+    players: &[StatsPlayer],
+    stats: Option<&GameStats>,
+) -> TeamCardsView {
+    TeamCardsView {
+        teams: matchup
+            .sides()
+            .into_iter()
+            .map(|(team, members)| TeamCardView {
+                team,
+                players: members
+                    .iter()
+                    .map(|player| TeamCardPlayerView {
+                        name: player.name.clone(),
+                        color: player.color,
+                        race: player.race,
+                        vision: player.vision,
+                        minerals: player.minerals,
+                        gas: player.gas,
+                        supply_used: player.supply_used,
+                        supply_max: player.supply_max,
+                        apm: player.apm,
+                    })
+                    .collect(),
+                totals: team_totals(stats, players.iter().filter(|player| player.team == team)),
+            })
+            .collect(),
+    }
+}
+
+/// What one side has between them, summed over the players on it.
+fn team_totals<'a>(
+    stats: Option<&GameStats>,
+    members: impl Iterator<Item = &'a StatsPlayer>,
+) -> TeamCardTotalsView {
+    let mut totals = TeamCardTotalsView::default();
+    for player in members {
+        let sample = latest(stats, player.player_id);
+        let (minerals, gas) = stats
+            .map(|stats| stats.income_per_minute(player.player_id))
+            .unwrap_or((0, 0));
+        totals.minerals_per_minute = totals.minerals_per_minute.saturating_add(minerals);
+        totals.gas_per_minute = totals.gas_per_minute.saturating_add(gas);
+        totals.army_minerals = totals.army_minerals.saturating_add(sample.army_minerals);
+        totals.army_gas = totals.army_gas.saturating_add(sample.army_gas);
+        totals.workers = totals.workers.saturating_add(sample.workers);
+        totals.units_killed = totals.units_killed.saturating_add(sample.units_killed);
+        totals.units_lost = totals.units_lost.saturating_add(sample.units_lost);
+    }
+    totals
+}
+
+/// Builds the control groups panel's view: what each player has on their number keys.
+pub fn build_control_groups_view(
+    bw: &BwVars,
+    players: &[StatsPlayer],
+    stats: Option<&GameStats>,
+) -> ControlGroupsView {
+    ControlGroupsView {
+        players: players
+            .iter()
+            .map(|player| ControlGroupsPlayerView {
+                name: player.name.clone(),
+                color: player.color,
+                vision: player.vision,
+                groups: stats
+                    .map(|stats| stats.control_groups(player.player_id))
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|group| ControlGroupView {
+                        key: group.key,
+                        icon: production::unit_icon(group.unit_id, bw.is_hd),
+                        count: group.count,
+                        stale: group.stale,
+                    })
+                    .collect(),
             })
             .collect(),
     }
@@ -203,5 +351,54 @@ fn player_name(bw: &BwVars, player_id: u8) -> String {
         format!("Player {}", player_id + 1)
     } else {
         name.into_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn player(player_id: u8, team: u8) -> StatsPlayer {
+        StatsPlayer {
+            player_id,
+            team,
+            name: String::new(),
+            color: Color32::WHITE,
+            vision: true,
+        }
+    }
+
+    #[test]
+    fn a_sides_line_is_the_sum_of_its_members_lines() {
+        let total = add_series(Vec::new(), &[1.0, 2.0, 3.0]);
+        assert_eq!(
+            add_series(total, &[10.0, 20.0, 30.0]),
+            vec![11.0, 22.0, 33.0]
+        );
+    }
+
+    #[test]
+    fn a_side_stops_where_its_shortest_members_history_does() {
+        let total = add_series(Vec::new(), &[1.0, 2.0, 3.0]);
+        assert_eq!(add_series(total, &[10.0]), vec![11.0]);
+        let total = add_series(Vec::new(), &[1.0]);
+        assert_eq!(add_series(total, &[10.0, 20.0]), vec![11.0]);
+    }
+
+    #[test]
+    fn the_sides_keep_the_order_the_players_are_listed_in() {
+        let players = [player(3, 1), player(0, 1), player(5, 2)];
+        let sides = sides(&players);
+        assert_eq!(sides.len(), 2);
+        assert_eq!(sides[0].0, 1);
+        assert_eq!(
+            sides[0].1.iter().map(|p| p.player_id).collect::<Vec<_>>(),
+            vec![3, 0]
+        );
+        assert_eq!(sides[1].0, 2);
+        assert_eq!(
+            sides[1].1.iter().map(|p| p.player_id).collect::<Vec<_>>(),
+            vec![5]
+        );
     }
 }

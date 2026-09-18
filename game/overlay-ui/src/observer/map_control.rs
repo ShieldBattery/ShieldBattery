@@ -30,9 +30,6 @@ const WING_GAP: f32 = 8.0;
 /// own chrome instead of sitting in one: an ambient panel's own padding is taller than this.
 pub const BAR_HEIGHT: f32 = 26.0;
 
-/// How far its top edge sits below the screen's, which is just under the matchup bar.
-const BAR_TOP: f32 = 72.0;
-
 /// Padding between the bar's chrome and its contents.
 const PADDING: f32 = 10.0;
 
@@ -101,13 +98,18 @@ fn width_for(screen_width: f32) -> Option<f32> {
     (width >= MIN_WIDTH).then_some(width)
 }
 
-/// Draws the map-control bar under the matchup bar, fading and sliding it in and out. Returns
-/// nothing at all once it is gone, or on a screen too narrow to hold it beside the stats wings.
-pub fn render_map_control_view(view: &MapControlView, ctx: &Context, shown: bool) -> Option<Rect> {
+/// Draws the map-control bar at `top`, fading and sliding it in and out. Returns nothing at all
+/// once it is gone, or on a screen too narrow to hold it beside the stats wings.
+pub fn render_map_control_view(
+    view: &MapControlView,
+    ctx: &Context,
+    shown: bool,
+    top: f32,
+) -> Option<Rect> {
     let width = width_for(ctx.viewport_rect().width())?;
     let id = Id::new("sb_map_control_bar");
     let area = Area::new(id)
-        .anchor(Align2::CENTER_TOP, vec2(0.0, BAR_TOP))
+        .anchor(Align2::CENTER_TOP, vec2(0.0, top))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         draw_bar(ui, view, width)

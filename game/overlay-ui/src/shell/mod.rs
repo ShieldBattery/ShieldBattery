@@ -92,6 +92,8 @@ pub enum Panel {
     Timeline,
     /// The production panel.
     Production,
+    /// The control groups panel.
+    ControlGroups,
     /// BW's own bottom console.
     Console,
     /// BW's own minimap.
@@ -105,7 +107,7 @@ pub enum Panel {
 impl Panel {
     /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
     /// the top of the screen down, then the game's own surfaces, then the controls.
-    pub const ALL: [Panel; 11] = [
+    pub const ALL: [Panel; 12] = [
         Panel::Matchup,
         Panel::MapControl,
         Panel::Economy,
@@ -113,6 +115,7 @@ impl Panel {
         Panel::Graphs,
         Panel::Timeline,
         Panel::Production,
+        Panel::ControlGroups,
         Panel::Console,
         Panel::Minimap,
         Panel::Transport,
@@ -129,6 +132,7 @@ impl Panel {
             Panel::Graphs => Action::ToggleGraphs,
             Panel::Timeline => Action::ToggleTimeline,
             Panel::Production => Action::ToggleProduction,
+            Panel::ControlGroups => Action::ToggleControlGroups,
             Panel::Console => Action::ToggleConsole,
             Panel::Minimap => Action::ToggleMinimap,
             Panel::Transport => Action::ToggleTransport,
@@ -145,6 +149,7 @@ impl Panel {
             Panel::Graphs => "graphs",
             Panel::Timeline => "timeline",
             Panel::Production => "production",
+            Panel::ControlGroups => "control groups",
             Panel::Console => "console",
             Panel::Minimap => "minimap",
             Panel::Transport => "transport",
@@ -197,6 +202,7 @@ impl PanelPreset {
         prefs.graphs = analysis;
         prefs.timeline = analysis;
         prefs.production = analysis;
+        prefs.control_groups = analysis;
         // The game's own console is what the analyst preset gives up instead: our panels want the
         // bottom of the screen, and a watcher reading them is not selecting units.
         prefs.console = matches!(self, PanelPreset::Standard);
@@ -219,6 +225,7 @@ pub struct PanelPrefs {
     pub graphs: bool,
     pub timeline: bool,
     pub production: bool,
+    pub control_groups: bool,
     pub console: bool,
     pub minimap: bool,
     pub transport: bool,
@@ -234,6 +241,10 @@ pub struct PanelPrefs {
     /// Which measurement the graphs panel is plotting. Not a panel either: it is what the one
     /// panel is currently about, and a watcher who left it on income expects income back.
     pub graph_series: GraphSeries,
+    /// Whether the graphs panel plots a team game's players rather than the sides they are on.
+    /// Sides by default: in a team game the question is which side is ahead, and four lines answer
+    /// that only once the watcher has added them up themselves.
+    pub graph_per_player: bool,
 }
 
 impl Default for PanelPrefs {
@@ -246,6 +257,7 @@ impl Default for PanelPrefs {
             graphs: true,
             timeline: true,
             production: true,
+            control_groups: true,
             console: true,
             minimap: true,
             transport: true,
@@ -253,6 +265,7 @@ impl Default for PanelPrefs {
             dock_expanded: false,
             spoiler_free: false,
             graph_series: GraphSeries::ArmyValue,
+            graph_per_player: false,
         }
     }
 }
@@ -267,6 +280,7 @@ impl PanelPrefs {
             Panel::Graphs => self.graphs,
             Panel::Timeline => self.timeline,
             Panel::Production => self.production,
+            Panel::ControlGroups => self.control_groups,
             Panel::Console => self.console,
             Panel::Minimap => self.minimap,
             Panel::Transport => self.transport,
@@ -283,6 +297,7 @@ impl PanelPrefs {
             Panel::Graphs => self.graphs = shown,
             Panel::Timeline => self.timeline = shown,
             Panel::Production => self.production = shown,
+            Panel::ControlGroups => self.control_groups = shown,
             Panel::Console => self.console = shown,
             Panel::Minimap => self.minimap = shown,
             Panel::Transport => self.transport = shown,
@@ -615,6 +630,10 @@ pub struct Shell {
     /// shell's while there is something behind it, and a keypress arrives between frames, so what
     /// the last frame was told has to be kept here.
     map_control_available: bool,
+    /// Whether the last observer frame was of a game with sides worth telling apart from the
+    /// players on them, which is the only kind of game the per-player graphs chord has two plots to
+    /// switch between. Kept here for the same reason the line above it is.
+    team_graphs_available: bool,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
     pending_seek: Option<u32>,
@@ -639,6 +658,7 @@ impl Shell {
             host: HostFrame::default(),
             transport: None,
             map_control_available: false,
+            team_graphs_available: false,
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
             intents: Vec::new(),
@@ -797,6 +817,7 @@ impl Shell {
     /// into intents for the host and into preferences of its own.
     fn frame_observer(&mut self, ctx: &Context, view: &ObserverView, hit_rects: &mut Vec<HitRect>) {
         self.map_control_available = view.map_control.is_some();
+        self.team_graphs_available = view.has_teams();
         if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, self.prefs.matchup)
         {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -804,32 +825,68 @@ impl Shell {
                 self.intents.push(Intent::ToggleVision { player_id });
             }
         }
+        // The corner cards and the wings under them are one stack: a card is as tall as the side it
+        // carries, so where the wings start is measured off what the cards actually came out as
+        // rather than guessed at from a player count.
+        let screen_top = ctx.viewport_rect().top();
+        let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
+        if let Some(cards) = &view.team_cards {
+            let outcome = observer::render_team_cards_view(cards, ctx, self.prefs.matchup);
+            for rect in outcome.rects {
+                hit_rects.push(HitRect::new(rect));
+            }
+            if let Some(bottom) = outcome.left_bottom {
+                tops.left = tops.left.max(bottom + observer::WING_GAP);
+            }
+            if let Some(bottom) = outcome.right_bottom {
+                tops.right = tops.right.max(bottom + observer::WING_GAP);
+            }
+        }
         // The reporting panels take no clicks of their own, but every one of them is an opaque
         // surface: a click that landed on a number and went on to select whatever unit was behind
         // it would make the panels unusable exactly where they are most worth reading.
         if let Some(map_control) = &view.map_control
-            && let Some(rect) =
-                observer::render_map_control_view(map_control, ctx, self.prefs.map_control)
+            && let Some(rect) = observer::render_map_control_view(
+                map_control,
+                ctx,
+                self.prefs.map_control,
+                view.matchup.form().height() + observer::MAP_CONTROL_GAP,
+            )
         {
             hit_rects.push(HitRect::new(rect));
         }
-        if let Some(rect) = observer::render_economy_view(&view.economy, ctx, self.prefs.economy) {
+        let economy =
+            observer::render_economy_view(&view.economy, ctx, self.prefs.economy, tops.left);
+        if let Some(rect) = economy {
             hit_rects.push(HitRect::new(rect));
         }
-        if let Some(rect) = observer::render_military_view(&view.military, ctx, self.prefs.military)
-        {
+        let military =
+            observer::render_military_view(&view.military, ctx, self.prefs.military, tops.right);
+        if let Some(rect) = military {
             hit_rects.push(HitRect::new(rect));
         }
-        if let Some(rect) = observer::render_graphs_view(&view.graphs, ctx, self.prefs.graphs) {
+        if let Some(rect) = observer::render_graphs_view(
+            &view.graphs,
+            ctx,
+            self.prefs.graphs,
+            observer::WingTops::below(tops.right, military, screen_top),
+        ) {
             hit_rects.push(HitRect::new(rect));
         }
-        if let Some(rect) = observer::render_timeline_view(&view.timeline, ctx, self.prefs.timeline)
-        {
+        if let Some(rect) = observer::render_timeline_view(
+            &view.timeline,
+            ctx,
+            self.prefs.timeline,
+            observer::WingTops::below(tops.left, economy, screen_top),
+        ) {
             hit_rects.push(HitRect::new(rect));
         }
-        if let Some(outcome) =
-            observer::render_production_view(&view.production, ctx, self.prefs.production)
-        {
+        // The two centred strips are one stack too, drawn bottom first: a production panel with a
+        // row per player of an eight-player game is three times the height the design drew it at,
+        // and a control-groups panel pinned to the design's band would be drawn through it.
+        let production =
+            observer::render_production_view(&view.production, ctx, self.prefs.production);
+        if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some((player_id, item)) = outcome.clicked {
                 self.intents.push(Intent::SelectProduction {
@@ -837,6 +894,19 @@ impl Shell {
                     item: item as u32,
                 });
             }
+        }
+        let screen_bottom = ctx.viewport_rect().bottom();
+        let above_production = production
+            .as_ref()
+            .map(|outcome| screen_bottom - outcome.rect.top() + observer::WING_GAP)
+            .unwrap_or(f32::NEG_INFINITY);
+        if let Some(rect) = observer::render_control_groups_view(
+            &view.control_groups,
+            ctx,
+            self.prefs.control_groups,
+            above_production.max(observer::CONTROL_GROUPS_BOTTOM),
+        ) {
+            hit_rects.push(HitRect::new(rect));
         }
         let dock = observer::render_obs_dock(
             &self.prefs,
@@ -1023,10 +1093,17 @@ impl Shell {
     /// between two keys that both look like the way in.
     fn apply_graphs_action(&mut self, modifiers: Modifiers) -> bool {
         // `Shift` asks for the per-player form of a team game's graphs, which is a distinction a
-        // game with one player per team does not have. Until the team panels exist there is nothing
-        // for it to switch between, so the chord stays the game's.
+        // game with one player per side does not have: there the two plots would be the same plot,
+        // so the chord stays the game's.
         if modifiers.shift {
-            return false;
+            if !self.team_graphs_available {
+                return false;
+            }
+            // Shown as well as switched: the watcher asked for a plot, and answering with a
+            // changed preference behind a hidden panel would read as a key that did nothing.
+            self.prefs.graphs = true;
+            self.prefs.graph_per_player = !self.prefs.graph_per_player;
+            return true;
         }
         if !self.prefs.graphs {
             self.prefs.graphs = true;
@@ -1480,15 +1557,28 @@ mod tests {
     }
 
     #[test]
-    fn the_per_player_graphs_chord_waits_for_the_team_panels() {
+    fn the_per_player_graphs_chord_belongs_to_the_game_only_where_it_has_two_plots() {
         let mut shell = spectating_shell();
         let shift = Modifiers {
             shift: true,
             ..Modifiers::NONE
         };
+        // A duel plots the same lines either way, so the chord stays the game's.
         let before = *shell.panel_prefs();
         assert!(!shell.key_pressed(Key::G, shift));
         assert_eq!(*shell.panel_prefs(), before);
+
+        shell.team_graphs_available = true;
+        shell.set_panel_prefs(PanelPrefs {
+            graphs: false,
+            ..PanelPrefs::default()
+        });
+        assert!(shell.key_pressed(Key::G, shift));
+        assert!(shell.panel_prefs().graph_per_player);
+        // Switching a plot is asking to see it, so the panel comes with it.
+        assert!(shell.panel_prefs().graphs);
+        assert!(shell.key_pressed(Key::G, shift));
+        assert!(!shell.panel_prefs().graph_per_player);
     }
 
     #[test]

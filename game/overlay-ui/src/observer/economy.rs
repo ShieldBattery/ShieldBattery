@@ -22,15 +22,13 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, STAT_COLOR_BAR, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
     STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value,
-    paint_stat_identity, paint_text, vision_alpha, wing_panel,
+    paint_stat_identity, paint_team_divider, paint_text, teams_worth_dividing, vision_alpha,
+    wing_panel,
 };
 use crate::{tr, tr_plural};
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 474.0;
-
-/// How far its top edge sits below the screen's, which is clear of the matchup bar above it.
-const PANEL_TOP: f32 = 78.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 450.0;
@@ -90,6 +88,8 @@ const IDLE_WIDTH: f32 = 46.0;
 /// One player's row.
 pub struct EconomyPlayerView {
     pub name: String,
+    /// Which side of the game they are on, which is where the table's dividers fall.
+    pub team: u8,
     /// The color this player is on the map, which is what ties the row to what the watcher sees.
     pub color: Color32,
     /// Whether the watcher currently sees the game through this player's eyes.
@@ -128,15 +128,20 @@ impl EconomyView {
     }
 }
 
-/// Draws the economy panel against the left edge of the screen, fading and sliding it in and out.
-/// Returns nothing at all once it is gone, or while there is nobody to report on.
-pub fn render_economy_view(view: &EconomyView, ctx: &Context, shown: bool) -> Option<Rect> {
+/// Draws the economy panel against the left edge of the screen at `top`, fading and sliding it in
+/// and out. Returns nothing at all once it is gone, or while there is nobody to report on.
+pub fn render_economy_view(
+    view: &EconomyView,
+    ctx: &Context,
+    shown: bool,
+    top: f32,
+) -> Option<Rect> {
     let id = Id::new("sb_economy_panel");
     let inner = wing_panel(
         ctx,
         id,
         Wing::Left,
-        PANEL_TOP,
+        top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
         |ui| draw_panel(ui, view),
@@ -147,7 +152,16 @@ pub fn render_economy_view(view: &EconomyView, ctx: &Context, shown: bool) -> Op
 fn draw_panel(ui: &mut Ui, view: &EconomyView) {
     widgets::panel_header(ui, &tr!("observer.panelEconomy", "Economy"), Some("E"));
     draw_headings(ui);
+    let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
+        if divided && side != Some(player.team) {
+            side = Some(player.team);
+            ui.add_space(STAT_ROW_GAP);
+            let (row, _) =
+                ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
+            paint_team_divider(ui, row, player.team);
+        }
         ui.add_space(STAT_ROW_GAP);
         draw_row(ui, player);
     }
@@ -276,6 +290,7 @@ mod tests {
     fn efficiency_is_what_each_worker_earns() {
         let player = |workers, minerals, gas| EconomyPlayerView {
             name: String::new(),
+            team: 1,
             color: Color32::WHITE,
             vision: true,
             minerals_per_minute: minerals,

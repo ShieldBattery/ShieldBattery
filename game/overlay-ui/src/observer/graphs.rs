@@ -18,9 +18,6 @@ use crate::tr;
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 486.0;
 
-/// How far its top edge sits below the screen's, which is under the military panel above it.
-const PANEL_TOP: f32 = 224.0;
-
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 462.0;
 
@@ -88,7 +85,36 @@ impl GraphSeries {
     }
 }
 
-/// One player's line on the plot.
+/// Whether the plot's lines are the game's sides or the players on them.
+///
+/// Only a game that has both is asked: one player per side gives the same plot either way, and a
+/// panel that offered to switch between two identical plots would be advertising a distinction the
+/// game does not have.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum GraphGrouping {
+    Teams,
+    Players,
+}
+
+impl GraphGrouping {
+    /// What the panel is titled while it is plotting `series` this way.
+    fn title(self, series: GraphSeries) -> String {
+        match self {
+            GraphGrouping::Teams => tr!(
+                "observer.graphsByTeam",
+                "{{series}} by team",
+                series = series.title()
+            ),
+            GraphGrouping::Players => tr!(
+                "observer.graphsByPlayer",
+                "{{series}} by player",
+                series = series.title()
+            ),
+        }
+    }
+}
+
+/// One line on the plot: a player's, or a whole side's.
 pub struct GraphLineView {
     /// Who the line belongs to, which is what the legend names it by.
     pub label: String,
@@ -108,6 +134,9 @@ pub struct GraphsView {
     /// from: a plot of the first two minutes and a plot of an hour look identical without it.
     pub span_secs: u32,
     pub lines: Vec<GraphLineView>,
+    /// What the lines are of, for a game that has both forms, or `None` for one that does not.
+    /// What the title says, so a watcher who pressed the chord can see it landed.
+    pub grouping: Option<GraphGrouping>,
 }
 
 impl GraphsView {
@@ -117,15 +146,16 @@ impl GraphsView {
     }
 }
 
-/// Draws the graphs panel against the right edge of the screen, fading and sliding it in and out.
-/// Returns nothing at all once it is gone, or before there are two samples to draw a line between.
-pub fn render_graphs_view(view: &GraphsView, ctx: &Context, shown: bool) -> Option<Rect> {
+/// Draws the graphs panel against the right edge of the screen at `top`, fading and sliding it in
+/// and out. Returns nothing at all once it is gone, or before there are two samples to draw a line
+/// between.
+pub fn render_graphs_view(view: &GraphsView, ctx: &Context, shown: bool, top: f32) -> Option<Rect> {
     let id = Id::new("sb_graphs_panel");
     let inner = wing_panel(
         ctx,
         id,
         Wing::Right,
-        PANEL_TOP,
+        top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
         |ui| draw_panel(ui, view),
@@ -134,7 +164,11 @@ pub fn render_graphs_view(view: &GraphsView, ctx: &Context, shown: bool) -> Opti
 }
 
 fn draw_panel(ui: &mut Ui, view: &GraphsView) {
-    widgets::panel_header(ui, &view.series.title(), Some("G"));
+    let title = match view.grouping {
+        Some(grouping) => grouping.title(view.series),
+        None => view.series.title(),
+    };
+    widgets::panel_header(ui, &title, Some("G"));
     let series: Vec<Series<'_>> = view
         .lines
         .iter()

@@ -148,6 +148,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 6] = [
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Transport(transport::Preset::SpoilerFree),
     Preset::Observer(observer::Preset {
+        players: 6,
         panels: overlay_ui::shell::PanelPreset::Analyst,
     }),
     Preset::Shell(shell::Preset::GameMenu),
@@ -250,12 +251,16 @@ pub fn render(
             }
             None => u64::from(knobs.observer.start_secs) + elapsed as u64,
         };
+        let prefs = shell.panel_prefs();
         observer::build_view(
             &knobs.observer,
             &state.observer,
             knobs.host.mode == Mode::Replay,
             game_secs,
-            shell.panel_prefs().graph_series,
+            observer::GraphRequest {
+                series: prefs.graph_series,
+                per_player: prefs.graph_per_player,
+            },
         )
     });
     let mut views = Views {

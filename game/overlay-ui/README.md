@@ -113,18 +113,41 @@ replay — again whether or not any of them is on screen. The **matchup bar** is
 hanging off the top edge: two mirrored halves about a middle block holding the clock and a
 `REPLAY`/`LIVE` tag, each half carrying a player's race chip, name, bank, supply and APM. A click on
 a half is `Intent::ToggleVision`, which is how a watcher takes a player's vision; a player whose
-vision is off is dimmed rather than dropped. A game the bar has no halves for — anything but two
-players, until the team cards exist — keeps the middle block alone rather than showing two of four
-players as though they were the game.
+vision is off is dimmed rather than dropped.
+
+The bar has three forms, and `MatchupView::form()` picks the one a game's own shape calls for from
+the `team` every player carries — which the game DLL takes from BW's own team numbers where the
+game type has them, and otherwise derives from who has mutually allied whom, since a melee map
+leaves every one of those numbers at zero however the players lined up. One player a side is the design's duel. Two a side stacks them,
+one over the other, in a bar that is wider and half again as tall; the row is the same row in both
+forms, and the wider bar's slack is spread across its cells rather than dropped into the name. Any
+other shape gives the halves up entirely: the bar keeps its middle block alone and the game is read
+from the **team cards** instead, a tier-1 card in each top corner carrying its side's supply, a row
+per player with bank, supply and APM, and the side's own income, army, workers and unit trade along
+the bottom — which is the number a team game is actually about, and one four columns of per-player
+values answer only after the watcher has added them up themselves. Two cards at most, because the
+design gives them the screen's two top corners and nothing else, so a free-for-all of three or more
+sides keeps the clock alone.
+
+Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
+the side they carry and every stats wing is as tall as the players it has rows for, so the shell
+stacks them: each surface is placed under the bottom edge the one above it actually came out at,
+never above the design's own grid. That is what keeps a 4v4's economy table from being drawn through
+its timeline, and the same rule puts the control groups above whatever height the production panel
+reached.
 
 Under it hang four **stats wings**, tier-0 panels placed against the screen's own edges rather than
 at absolute coordinates, so other aspect ratios keep them out of the middle. **Economy** (left) and
 **military** (right) are tables of fixed-width columns, one row per player: income per minute in each
 resource, worker count with how many are idle, and resources gathered per worker per minute; army
 value in each resource, and the unit and worker kill-and-loss pairs. **Graphs** (right, under
-military) plots one measurement of the whole game for every player through the kit's `line_plot`, and
-its title is that measurement's name rather than the word "graphs", because the key that opens the
-panel is the key that walks it. **Timeline** (left, under economy) is a fixed six rows of `m:ss` plus
+military) plots one measurement of the whole game through the kit's `line_plot`, and its title is
+that measurement's name rather than the word "graphs", because the key that opens the panel is the
+key that walks it. In a game with sides worth telling apart from the players on them it plots the
+sides by default and says so in its title, since the question a team game poses is which side is
+ahead; `Shift+G` switches it to one line per player and back. Both tables split their rows the same
+way, with a rule naming each side under the first, and a game with one player a side gets no rules
+at all — a divider between every pair of rows would be a divider for nothing. **Timeline** (left, under economy) is a fixed six rows of `m:ss` plus
 what happened, newest at the top, naming the thing it is about with the game's own icon rather than
 with a word — the game hands out no readable names for two hundred units, upgrades and technologies.
 The wings on the right stop short of the dock's collapsed column, so a control never covers a number;
@@ -139,7 +162,13 @@ they are making, with a count and a progress bar per tile, and a click on a tile
 `Intent::SelectProduction`, which the host turns into a selection of whatever is making it (asking
 again walks to the next one). A tile is the one place these panels draw one of the game's own icons,
 so the view carries both the texture id the host mapped and the atlas frame it is;
-a host with no atlas draws the number instead — the timeline's icons follow the same rule. The
+a host with no atlas draws the number instead — the timeline's and the control groups' icons follow
+the same rule. The **control groups panel** is the strip above production: a row per player of the
+ten number keys, in the order a keyboard reads them, each slot carrying its digit, the icon of
+whatever the group is mostly made of and how many units are in it. All ten are drawn whether or not
+there is anything on them, because a row that only showed the groups a player happens to have would
+move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
+minute are both drawn dim, which is what the panel is read for. The
 **obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
 keycaps lit for the surfaces that are on;
 expanded, the control rail, with the names spelled out and the `Minimal` / `Standard` / `Analyst`
@@ -147,8 +176,10 @@ presets under them. Its list is `Panel::ALL` rather than a list of its own, so a
 appears there the day its toggle does.
 
 The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
-once per second of game time and keeps two hours of per-player history plus a timeline of what
-changed between two samples. It lives there rather than in the draw path because a replay seeking
+once per second of game time and keeps two hours of per-player history, a timeline of what changed
+between two samples, and what each player has on their number keys — read out of the game's own
+table of unique unit ids, so a group's count is what recalling it would actually select, and stamped
+stale from the frame the game last wrote the group on. It lives there rather than in the draw path because a replay seeking
 backwards re-runs every frame at full speed with nothing drawn: a sampler that only saw drawn frames
 would come back to a game it had missed most of. The preview has no game, so its wings come from the
 fake game's own measurements evaluated backwards over the clock, which keeps an offline render of the
@@ -201,13 +232,12 @@ built leaves the game's own behavior alone.
 | Side panel (matchup bar)             | `R`       | Spoiler-free               | `L`     |
 | Minimap                              | `Q`       | Edge dock                  | `` ` `` |
 
-Of these, `A`, `R`, `E`, `M`, `T`, `F`, `W`, `Q`, `Y` and `` ` `` move panels, `G` walks the graphs
-panel through its measurements and then closes it, `N` moves the map-control bar but only while a
-host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. The rest are bindings
-waiting for their surfaces, `Shift+G` among them: it asks for the per-player form of a team game's
-graphs, which is a distinction a game with one player per team does not have. The transport keys are
-consumed only while a replay's view-model is being fed, and `L` only in a replay, so anywhere else
-they stay the game's.
+Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q`, `Y` and `` ` `` move panels, `G` walks the
+graphs panel through its measurements and then closes it, `Shift+G` switches that panel between its
+sides and its players but only in a game that has both, `N` moves the map-control bar but only while
+a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
+waiting for its surface. The transport keys are consumed only while a replay's view-model is being
+fed, and `L` only in a replay, so anywhere else they stay the game's.
 
 Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
 per profile. The console and the minimap are independent booleans there, because they are separate
@@ -216,8 +246,9 @@ why the DLL's `console.rs` moves them with separate calls, `set_console_visible`
 `set_minimap_visible` and `set_command_panel_visible`, rather than one. `PanelPrefs` also carries
 `spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
 for a clear screen, not for a replay's length to be given away; whether the dock is spelled out
-as the control rail, which is one surface in two forms rather than two panels; and `graph_series`,
-which is what the one graphs panel is currently about rather than a panel of its own. A `PanelPreset`
+as the control rail, which is one surface in two forms rather than two panels; and `graph_series`
+and `graph_per_player`, which are what the one graphs panel is currently about rather than panels of
+their own. A `PanelPreset`
 (`Minimal`, `Standard`, `Analyst`) is a whole set of those panels at once; `PanelPrefs::preset` says
 which one a set of panels is by applying each preset to a copy, so a preset and the set it is
 recognised by cannot drift apart. A preset never touches the dock: one that hid the control it was
@@ -338,11 +369,14 @@ a game cannot be judged against numbers that never move: banks rise and fall, su
 production rows fill and restart, all as a pure function of game time, so an offline render of the
 same second is the same image every time. In a replay it shares the transport's clock, since a bar
 and a plate that disagreed about how far into the game it is would be reporting on two different
-games. Its knobs are where the clock starts, each player's race, whether the left player is over
-their supply cap, whether both carry the longest names the game allows, how many entries each
-production row holds, and whether the game reports map control at all — the real one does not yet, so
-that switch is how the bar's absence is judged. Its presets are the panel presets, and the panels
-answer a vision toggle and a production click the way the game would. Production tiles draw their
+games. Its knobs are where the clock starts, how many players the game has (split down the middle
+into two sides, which is what walks the matchup bar through its three forms), each player's race,
+whether the left player is over their supply cap, whether they all carry the longest names the game
+allows, how many entries each production row holds, how many of the ten number keys each player has
+a group on, and whether the game reports map control at all — the real one does not yet, so that
+switch is how the bar's absence is judged. Its presets are each panel preset at each of `1v1`,
+`2v2`, `3v3` and `4v4`, and the panels answer a vision toggle and a production click the way the
+game would. Production tiles draw their
 atlas frame's number, since only the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop
 buttons, the production selection) are logged under the knobs.
 
