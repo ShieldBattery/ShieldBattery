@@ -121,6 +121,7 @@ function LobbyInviteCardBody({
   const statusText = display.inGame
     ? t('lobbies.lobby.inGame', 'In game')
     : t('lobbies.joinLobby.openSlotCount', {
+        defaultValue_one: '{{count}} slot open',
         defaultValue: '{{count}} slots open',
         count: display.openSlotCount,
       })

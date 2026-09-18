@@ -434,14 +434,12 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
           <StatLine>
             {t('lobbies.browser.statLobbies', {
               defaultValue: '{{count}} lobbies',
-              // eslint-disable-next-line camelcase -- i18next's plural-form key convention
               defaultValue_one: '{{count}} lobby',
               count: stats.lobbies,
             })}
             {' · '}
             {t('lobbies.browser.statPlayers', {
               defaultValue: '{{count}} players',
-              // eslint-disable-next-line camelcase -- i18next's plural-form key convention
               defaultValue_one: '{{count}} player',
               count: stats.players,
             })}

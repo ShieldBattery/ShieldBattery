@@ -451,7 +451,6 @@ export function GameSetupForm({
     ? [
         t('lobbies.createLobby.mapPlayerCount', {
           defaultValue: '{{count}} players',
-          // eslint-disable-next-line camelcase -- i18next's plural-form key convention
           defaultValue_one: '{{count}} player',
           count: selectedMapInfo.mapData.slots,
         }),

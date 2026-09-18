@@ -145,7 +145,6 @@ export function GameDefaultsApplyDialog({
         {t('settings.game.defaults.apply.explanation', {
           defaultValue:
             'New features will use {{preset}} defaults from now on. What about the {{count}} settings this preset covers?',
-          // eslint-disable-next-line camelcase -- i18next's plural-form key convention
           defaultValue_one:
             'New features will use {{preset}} defaults from now on. What about the {{count}} setting this preset covers?',
           count: mismatchCount,

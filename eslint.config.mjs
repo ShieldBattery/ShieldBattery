@@ -202,7 +202,9 @@ export default [
       camelcase: [
         'error',
         {
-          allow: ['.+_.+Fragment$'],
+          // i18next's per-plural-form default values (`defaultValue_one`, …) use its suffix
+          // convention rather than camelCase.
+          allow: ['.+_.+Fragment$', '^defaultValue_(zero|one|two|few|many|other)$'],
         },
       ],
       'consistent-return': 'error',

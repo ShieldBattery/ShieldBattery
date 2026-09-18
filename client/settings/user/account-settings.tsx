@@ -879,12 +879,13 @@ export function ChangeDisplayNameDialog({
                 } else if (error.extensions?.code === 'RATE_LIMITED') {
                   setErrorMessage(error.message)
                   setErrorMessage(
-                    t(
-                      'settings.user.account.displayNameCooldown',
-                      'You have changed your display name too recently. You can change your ' +
-                        'display name again in {{count}} days.',
-                      { count: daysRemaining },
-                    ),
+                    t('settings.user.account.displayNameCooldown', {
+                      defaultValue_one:
+                        'You have changed your display name too recently. You can change your display name again in {{count}} day.',
+                      defaultValue:
+                        'You have changed your display name too recently. You can change your display name again in {{count}} days.',
+                      count: daysRemaining,
+                    }),
                   )
 
                   return
@@ -961,12 +962,13 @@ export function ChangeDisplayNameDialog({
       {!fetching && !errorMessage && !canChangeDisplayName && daysRemaining ? (
         <>
           <ErrorMessage>
-            {t(
-              'settings.user.account.displayNameCooldown',
-              'You have changed your display name too recently. You can change your display name ' +
-                'again in {{count}} days.',
-              { count: daysRemaining },
-            )}
+            {t('settings.user.account.displayNameCooldown', {
+              defaultValue_one:
+                'You have changed your display name too recently. You can change your display name again in {{count}} day.',
+              defaultValue:
+                'You have changed your display name too recently. You can change your display name again in {{count}} days.',
+              count: daysRemaining,
+            })}
           </ErrorMessage>
           <FormSpacer />
         </>
@@ -1154,12 +1156,13 @@ export function ChangeLoginNameDialog(props: ChangeLoginNameDialogProps) {
       {!errorMessage && !isChangeAllowed && daysRemaining ? (
         <>
           <ErrorMessage>
-            {t(
-              'settings.user.account.loginNameCooldown',
-              'You have changed your name too recently. You can change your login name again in ' +
-                '{{count}} days.',
-              { count: daysRemaining },
-            )}
+            {t('settings.user.account.loginNameCooldown', {
+              defaultValue_one:
+                'You have changed your name too recently. You can change your login name again in {{count}} day.',
+              defaultValue:
+                'You have changed your name too recently. You can change your login name again in {{count}} days.',
+              count: daysRemaining,
+            })}
           </ErrorMessage>
           <FormSpacer />
         </>

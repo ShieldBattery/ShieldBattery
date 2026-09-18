@@ -260,7 +260,6 @@ export function UserCardContent({ userId, name, state, onProfileClick }: UserCar
             <Separator>·</Separator>
             {t('users.card.totalGames', {
               defaultValue: '{{count}} games',
-              // eslint-disable-next-line camelcase -- i18next's plural-form key convention
               defaultValue_one: '{{count}} game',
               count: totalGames,
             })}

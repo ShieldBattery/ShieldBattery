@@ -587,7 +587,6 @@ export function LobbyDetailRail({
                 ? t('lobbies.browser.oneFriendInside', 'A friend is in this lobby')
                 : t('lobbies.browser.friendsInside', {
                     defaultValue: '{{count}} friends are in this lobby',
-                    // eslint-disable-next-line camelcase -- i18next's plural-form key convention
                     defaultValue_one: '{{count}} friend is in this lobby',
                     count: friendIds.length,
                   })}
