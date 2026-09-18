@@ -233,6 +233,12 @@
     "title": "Reporta un bug"
   },
   "chat": {
+    "activity": {
+      "inGame_one": "En partida ({{count}})",
+      "inGame_many": "En partida ({{count}})",
+      "inGame_other": "En partida ({{count}})",
+      "title": "Actividad"
+    },
     "banUser": {
       "banAction": "Prohíbe {{user}}",
       "banReason": "Razón de baneo (opcional)",

@@ -15,9 +15,24 @@ const members = {
 function stream(userId: number, viewerCount: number) {
   return {
     twitchLogin: `login${userId}`,
+    twitchDisplayName: `user${userId}`,
     title: `title${userId}`,
     viewerCount,
+    startedAt: new Date().toISOString(),
+    thumbnailUrl: '',
     user: { id: makeSbUserId(userId), name: `user${userId}` },
+  }
+}
+
+function mapFile(id: string) {
+  return {
+    id,
+    image256Url: '',
+    image512Url: '',
+    image1024Url: '',
+    image2048Url: '',
+    width: 256,
+    height: 256,
   }
 }
 
@@ -25,20 +40,18 @@ function game(id: string, minutesAgo: number, teams: number[][], type = Matchmak
   return {
     id,
     startTime: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
-    map: { id: makeSbMapId(`map-${id}`), name: `map${id}` },
+    map: { id: makeSbMapId(`map-${id}`), name: `map${id}`, mapFile: mapFile(`file-${id}`) },
     config: {
       __typename: 'GameConfigDataMatchmaking' as const,
       gameSourceExtra: { matchmakingType: type },
-      teams: teams.map(team =>
-        team.map(userId => ({ user: { id: makeSbUserId(userId), name: `user${userId}` } })),
-      ),
+      teams: teams.map(team => team.map(userId => ({ user: { id: makeSbUserId(userId) } }))),
     },
   }
 }
 
 describe('client/chat/channel-activity-panel', () => {
   test('keeps only members streams, most watched first, and never the viewer own', () => {
-    const entries = deriveActivityEntries(
+    const { streams, games } = deriveActivityEntries(
       {
         liveStreams: [
           stream(bisu, 200),
@@ -53,11 +66,12 @@ describe('client/chat/channel-activity-panel', () => {
       self,
     )
 
-    expect(entries.map(e => (e.kind === 'stream' ? e.userId : undefined))).toEqual([flash, bisu])
+    expect(streams.map(s => s.user?.id)).toEqual([flash, bisu])
+    expect(games).toEqual([])
   })
 
   test('keeps games with at least one member, newest first, listing only the members', () => {
-    const entries = deriveActivityEntries(
+    const { streams, games } = deriveActivityEntries(
       {
         liveStreams: [],
         liveGames: [
@@ -83,20 +97,17 @@ describe('client/chat/channel-activity-panel', () => {
       self,
     )
 
-    expect(entries.map(e => (e.kind === 'game' ? e.gameId : undefined))).toEqual(['team', 'old'])
-    expect(entries[0]).toMatchObject({
-      kind: 'game',
-      members: [
-        { id: bisu, name: `user${bisu}` },
-        { id: jaedong, name: `user${jaedong}` },
-      ],
+    expect(streams).toEqual([])
+    expect(games.map(g => g.gameId)).toEqual(['team', 'old'])
+    expect(games[0]).toMatchObject({
+      members: [bisu, jaedong],
       matchmakingType: MatchmakingType.Match2v2,
-      mapName: 'mapteam',
+      map: { name: 'mapteam' },
     })
   })
 
-  test('lists streams ahead of games', () => {
-    const entries = deriveActivityEntries(
+  test('lists streams and games as separate groups', () => {
+    const { streams, games } = deriveActivityEntries(
       {
         liveStreams: [stream(bisu, 1)],
         liveGames: [game('g', 5, [[flash], [outsider]])],
@@ -105,6 +116,7 @@ describe('client/chat/channel-activity-panel', () => {
       undefined,
     )
 
-    expect(entries.map(e => e.kind)).toEqual(['stream', 'game'])
+    expect(streams).toHaveLength(1)
+    expect(games).toHaveLength(1)
   })
 })

@@ -125,7 +125,7 @@ const compactNumber = new Intl.NumberFormat(navigator.language, {
 })
 
 /** Formats a viewer count compactly for tight spaces (e.g. 1240 -> "1.2K"). */
-export function formatViewerCount(count: number): string {
+function formatViewerCount(count: number): string {
   return compactNumber.format(count)
 }
 

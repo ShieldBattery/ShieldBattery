@@ -1,51 +1,39 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useQuery } from 'urql'
 import { SbChannelId } from '../../common/chat'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
-import { FriendActivityStatus } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
-import { useOverflowingElement } from '../dom/overflowing-element'
+import { AvatarStack } from '../avatars/avatar-stack'
 import { getGameResultsUrl } from '../games/action-creators'
 import { graphql } from '../gql'
-import { MaterialIcon } from '../icons/material/material-icon'
-import { TextButton } from '../material/button'
+import { UploadedMapImage } from '../maps/map-image'
 import { LinkButton } from '../material/link-button'
-import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
-import { getActivityDescriptor } from '../social/friend-activity-status'
-import {
-  bodyMedium,
-  bodySmall,
-  inter,
-  labelMedium,
-  singleLine,
-  titleSmall,
-} from '../styles/typography'
-import { formatViewerCount, LiveLabel, useStreamUptime } from '../twitch/live-indicators'
+import { bodySmall, inter, labelMedium, singleLine } from '../styles/typography'
+import { useStreamUptime } from '../twitch/live-indicators'
 import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
-import { StaffBadgedAvatar } from '../users/staff-badge'
+import { FeaturedLiveStreamEntry, LiveStreamEntry } from '../twitch/live-stream-entry'
 import { UsersState } from './chat-reducer'
 
 /**
- * Both public "happening now" feeds in one operation. The channel's entries are whatever in these
- * feeds involves a channel member, worked out on the client, so a channel costs the same two
- * feed queries the home page already makes and never a per-member lookup.
+ * Both public "happening now" feeds in one operation. Streams reuse the home page's feed fragment
+ * so the same cards can render here. The channel's entries are whatever in these feeds involves a
+ * channel member, worked out on the client, so a channel costs the same two feed queries the home
+ * page already makes and never a per-member lookup.
  */
 const ChannelActivityQuery = graphql(/* GraphQL */ `
   query ChannelActivity {
     liveStreams {
       twitchLogin
-      title
       viewerCount
       user {
         id
-        name
       }
+      ...LiveStreams_FeedEntryFragment
     }
     liveGames {
       id
@@ -53,6 +41,15 @@ const ChannelActivityQuery = graphql(/* GraphQL */ `
       map {
         id
         name
+        mapFile {
+          id
+          image256Url
+          image512Url
+          image1024Url
+          image2048Url
+          width
+          height
+        }
       }
       config {
         __typename
@@ -63,7 +60,6 @@ const ChannelActivityQuery = graphql(/* GraphQL */ `
           teams {
             user {
               id
-              name
             }
           }
         }
@@ -73,28 +69,17 @@ const ChannelActivityQuery = graphql(/* GraphQL */ `
 `)
 
 type ChannelActivityData = ResultOf<typeof ChannelActivityQuery>
-
-export interface StreamActivityEntry {
-  kind: 'stream'
-  userId: SbUserId
-  name: string
-  twitchLogin: string
-  title: string
-  viewerCount: number
-}
+type LiveStreamItem = ChannelActivityData['liveStreams'][number]
 
 export interface GameActivityEntry {
-  kind: 'game'
   gameId: string
   /** The channel members playing in this game, in team order. Never empty. */
-  members: ReadonlyArray<{ id: SbUserId; name: string }>
+  members: ReadonlyArray<SbUserId>
   matchmakingType: MatchmakingType
-  mapName: string
   /** When the game started, in unix ms. */
   startTime: number
+  map: ChannelActivityData['liveGames'][number]['map']
 }
-
-export type ActivityEntry = StreamActivityEntry | GameActivityEntry
 
 /** The channel's members: anyone in its active, idle or offline set counts. */
 type ChannelMembers = ReadonlyDeep<Pick<UsersState, 'active' | 'idle' | 'offline'>>
@@ -103,29 +88,27 @@ function isMember(users: ChannelMembers, userId: SbUserId): boolean {
   return users.active.has(userId) || users.idle.has(userId) || users.offline.has(userId)
 }
 
+interface DerivedActivity {
+  streams: LiveStreamItem[]
+  games: GameActivityEntry[]
+}
+
 /**
- * Narrows the public feeds to what involves this channel: members' streams first (most watched
- * first), then live games with at least one member in them (newest first). The viewer's own stream
- * and game are left out; they know what they're doing.
+ * Narrows the public feeds to what involves this channel: members' streams (most watched first),
+ * then live games with at least one member in them (newest first). The viewer's own stream and
+ * game are left out; they know what they're doing.
  */
 export function deriveActivityEntries(
   data: ChannelActivityData,
   users: ChannelMembers,
   selfUserId: SbUserId | undefined,
-): ActivityEntry[] {
-  const streams: StreamActivityEntry[] = []
+): DerivedActivity {
+  const streams: LiveStreamItem[] = []
   for (const stream of data.liveStreams) {
     if (!stream.user || stream.user.id === selfUserId || !isMember(users, stream.user.id)) {
       continue
     }
-    streams.push({
-      kind: 'stream',
-      userId: stream.user.id,
-      name: stream.user.name,
-      twitchLogin: stream.twitchLogin,
-      title: stream.title,
-      viewerCount: stream.viewerCount,
-    })
+    streams.push(stream)
   }
   streams.sort((a, b) => b.viewerCount - a.viewerCount)
 
@@ -138,32 +121,29 @@ export function deriveActivityEntries(
     if (players.some(u => u.id === selfUserId)) {
       continue
     }
-    const members = players.filter(u => isMember(users, u.id))
+    const members = players.filter(u => isMember(users, u.id)).map(u => u.id)
     if (!members.length) {
       continue
     }
     games.push({
-      kind: 'game',
       gameId: game.id,
       members,
       matchmakingType: game.config.gameSourceExtra.matchmakingType,
-      mapName: game.map.name,
       startTime: new Date(game.startTime).getTime(),
+      map: game.map,
     })
   }
   games.sort((a, b) => b.startTime - a.startTime)
 
-  return [...streams, ...games]
+  return { streams, games }
 }
 
 // The roster below is the column's main content, so it always keeps at least 40% of the column:
-// past that the panel's entries scroll, between a fixed title and a fixed toggle. That only comes
-// into play when the panel is expanded or the window is short; the default three entries fit
-// under the cap in a normally sized window.
+// past that the panel's entries scroll. Featured stream cards are tall, so the height cap is the
+// limit instead of a numeric entry count.
 const PanelRoot = styled.section`
   flex-shrink: 0;
   max-height: 60%;
-  padding: 8px;
 
   display: flex;
   flex-direction: column;
@@ -176,44 +156,59 @@ const PanelRoot = styled.section`
 const EntryList = styled.div`
   flex: 1 1 auto;
   min-height: 0;
+  padding-bottom: 8px;
 
   display: flex;
   flex-direction: column;
-  gap: 2px;
 
   overflow-y: auto;
 `
 
-// Sized like the roster's first group header so the two columns share a rhythm.
-const PanelTitle = styled.div`
+// Same inset as the roster's group headers: 8px margin + 8px padding, so the label lines up with
+// "Active" / "Idle" below and the panel's scrollbar sits on the same edge as the roster's.
+const panelHeader = css`
   ${labelMedium};
   ${singleLine};
   flex-shrink: 0;
-  height: 36px;
+  margin: 0 8px;
   padding: 0 8px;
 
   color: var(--theme-on-surface-variant);
   line-height: 36px;
 `
 
-// An entry is laid out like a chat message: the avatar in a gutter, the member's name on the first
-// line with a status marker (LIVE, IN GAME) at the far right, then one muted line for what they're
-// doing and one small line for how it's going (viewers, time played). The name and the marker are
-// the only emphasized things, so a glance answers "who" and "what kind of activity" first. The
-// gutter (8px padding + 32px avatar + 16px gap) is the roster row's, so names here line up with
-// the names in the list beneath the panel.
-const activityEntry = css`
+const SectionHeader = styled.div`
+  ${panelHeader};
+  height: 44px;
+  padding-top: 8px;
+`
+
+// Home stream cards bring their own padding (10/12px) for the home column. Pull them onto the
+// roster's 8px grid so a featured card, a compact row, a match row, and a user-list row share one
+// gutter — and so the hover wells line up.
+const StreamSlot = styled.div`
+  margin: 0 8px;
+
+  a {
+    padding: 8px;
+    gap: 8px;
+  }
+`
+
+const MatchRoot = styled(LinkButton)`
   flex-shrink: 0;
+  margin: 0 8px;
   padding: 8px;
 
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
 
   border-radius: 4px;
   color: inherit;
   text-decoration: none;
-  contain: content;
+  /* The stack's overlap ring has to be opaque and match whatever it sits on. */
+  --sb-avatar-stack-ring: var(--theme-container-low);
 
   &:link,
   &:visited {
@@ -228,248 +223,119 @@ const activityEntry = css`
   }
 `
 
-const StreamEntryRoot = styled.a`
-  ${activityEntry};
-`
-
-const GameEntryRoot = styled(LinkButton)`
-  ${activityEntry};
-`
-
-// The roster's avatar, at the roster's size: it carries the same live ring and "LIVE" tag for a
-// streaming member (drawn by `ConnectedAvatar` from the app-wide live set), so a member looks the
-// same here as in the list beneath. The 8px entry padding leaves room for the ring's 4px reach.
-const EntryAvatar = styled(StaffBadgedAvatar)`
+const MatchMap = styled(UploadedMapImage)`
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--theme-container-highest);
+
+  & > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 `
 
-const EntryBody = styled.div`
-  flex-grow: 1;
+const MatchMapFallback = styled.div`
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+
+  border-radius: 4px;
+  background-color: var(--theme-container-highest);
+`
+
+const MatchBody = styled.div`
+  flex: 1;
   min-width: 0;
 
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 `
 
-// The name sits in a tooltip wrapper that is content-sized, so the marker is pushed to the far
-// right here rather than by the name growing.
-const EntryHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-`
-
-const NameText = styled.div`
-  ${titleSmall};
-  ${singleLine};
-  min-width: 0;
-  line-height: 20px;
-`
-
-// What the member is doing (a stream's title, a game's mode and map): one muted line, truncated,
-// so it supports the name rather than competing with it.
-const DetailText = styled.div`
-  ${inter};
-  ${bodyMedium};
-  ${singleLine};
-
-  color: var(--theme-on-surface-variant);
-`
-
-/**
- * A single truncating line of an entry that offers its full text in a tooltip, but only once the
- * text is actually cut off; a line that fits has nothing to add. The wrapper isn't a tab stop: the
- * entry as a whole is the focusable thing.
- */
-function TruncatingLine({
-  as: Text,
-  children,
-}: {
-  as: React.ComponentType<{ ref: React.Ref<HTMLDivElement>; children: string }>
-  children: string
-}) {
-  const [ref, isOverflowing] = useOverflowingElement<HTMLDivElement>()
-
-  return (
-    <Tooltip text={children} position='top' tabIndex={-1} disabled={!isOverflowing}>
-      <Text ref={ref}>{children}</Text>
-    </Tooltip>
-  )
-}
-
-function EntryName({ children }: { children: string }) {
-  return <TruncatingLine as={NameText}>{children}</TruncatingLine>
-}
-
-function EntryDetail({ children }: { children: string }) {
-  return <TruncatingLine as={DetailText}>{children}</TruncatingLine>
-}
-
-const MetaLine = styled.div`
+const MatchMeta = styled.div`
   ${inter};
   ${bodySmall};
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  line-height: 16px;
-  white-space: nowrap;
-  overflow: hidden;
-
+  ${singleLine};
   color: var(--theme-on-surface-variant);
 `
 
-const MetaIcon = styled(MaterialIcon)`
-  flex-shrink: 0;
-`
-
-// `singleLine`'s ellipsis only applies to a block's own inline content, so the text needs its own
-// element to truncate within the flex row.
-const MetaText = styled.span`
-  ${singleLine};
-  min-width: 0;
-`
-
-const EntryLiveLabel = styled(LiveLabel)`
-  flex-shrink: 0;
-`
-
-// The game counterpart of the LIVE label: the friends list's "In game" glyph, color and wording,
-// set like `LiveLabel` so the two markers read as the same kind of thing.
-const InGameLabel = styled.div<{ $color: string }>`
-  ${labelMedium};
-  flex-shrink: 0;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-
-  color: ${props => props.$color};
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-`
-
-function StreamEntry({ entry }: { entry: StreamActivityEntry }) {
+/**
+ * A match, not a broadcast: map thumbnail + the members as an avatar stack (names in a tooltip,
+ * +N if they don't all fit), then mode and elapsed time. No written map name — the thumbnail is
+ * the map.
+ */
+function GameMatchRow({ entry }: { entry: GameActivityEntry }) {
   const { t } = useTranslation()
-
-  return (
-    <StreamEntryRoot href={`https://twitch.tv/${entry.twitchLogin}`} target='_blank' rel='noopener'>
-      <EntryAvatar userId={entry.userId} />
-      <EntryBody>
-        <EntryHeader>
-          <EntryName>{entry.name}</EntryName>
-          <EntryLiveLabel />
-        </EntryHeader>
-        <EntryDetail>{entry.title}</EntryDetail>
-        <MetaLine>
-          <MetaIcon icon='visibility' size={14} />
-          <MetaText>
-            {t('chat.activity.watching', '{{viewers}} watching', {
-              count: entry.viewerCount,
-              viewers: formatViewerCount(entry.viewerCount),
-            })}
-          </MetaText>
-        </MetaLine>
-      </EntryBody>
-    </StreamEntryRoot>
-  )
-}
-
-function GameEntry({ entry }: { entry: GameActivityEntry }) {
-  const { t } = useTranslation()
-  // The stream uptime format ("1h 34m") is a plain elapsed-time format and fits a running game too.
   const elapsed = useStreamUptime(entry.startTime)
-  // Borrows the friends list's "In game" glyph and color, so a game here and an "In game" line in
-  // the roster below read as the same thing.
-  const inGame = getActivityDescriptor(FriendActivityStatus.InGame, t)
 
   return (
-    <GameEntryRoot href={getGameResultsUrl(entry.gameId)}>
-      <EntryAvatar userId={entry.members[0].id} />
-      <EntryBody>
-        <EntryHeader>
-          <EntryName>{entry.members.map(m => m.name).join(', ')}</EntryName>
-          {inGame ? (
-            <InGameLabel $color={inGame.color}>
-              <MaterialIcon icon={inGame.icon} size={14} />
-              {inGame.label}
-            </InGameLabel>
-          ) : null}
-        </EntryHeader>
-        <EntryDetail>{`${matchmakingTypeToLabel(entry.matchmakingType, t)} · ${entry.mapName}`}</EntryDetail>
-        <MetaLine>
-          <MetaIcon icon='schedule' size={14} />
-          <MetaText>
-            {t('chat.activity.playingFor', 'Playing for {{duration}}', { duration: elapsed })}
-          </MetaText>
-        </MetaLine>
-      </EntryBody>
-    </GameEntryRoot>
+    <MatchRoot href={getGameResultsUrl(entry.gameId)}>
+      <MatchMap map={entry.map} size={48} forceAspectRatio={1} noImageElem={<MatchMapFallback />} />
+      <MatchBody>
+        <AvatarStack userIds={entry.members} size={24} max={4} showNamesTooltip />
+        <MatchMeta>
+          {matchmakingTypeToLabel(entry.matchmakingType, t)} · {elapsed}
+        </MatchMeta>
+      </MatchBody>
+    </MatchRoot>
   )
 }
-
-const ToggleButton = styled(TextButton)`
-  flex-shrink: 0;
-  min-height: 36px;
-  margin-top: 4px;
-  align-self: stretch;
-`
-
-/** How many entries the panel shows before the rest sit behind a "Show n more" control. */
-export const ACTIVITY_PANEL_DEFAULT_VISIBLE = 3
 
 /**
- * The presentational Activity panel: members' live streams and games as entries, capped at
- * {@link ACTIVITY_PANEL_DEFAULT_VISIBLE} with an in-place expand/collapse for the rest. Renders
- * nothing with no entries. Expansion is component state, so remount (e.g. via `key`) to reset it.
+ * The presentational Activity panel: one featured stream (most watched) with the rest as compact
+ * rows — the home page's live-streams feed — then a separate in-game group. Renders nothing with
+ * no entries. The panel's 60% height cap is the only limit; entries scroll inside it.
  */
 export function ActivityPanel({
-  entries,
+  streams,
+  games,
   className,
 }: {
-  entries: ReadonlyArray<ActivityEntry>
+  streams: ReadonlyArray<LiveStreamItem>
+  games: ReadonlyArray<GameActivityEntry>
   className?: string
 }) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
+  const count = streams.length + games.length
 
-  if (!entries.length) {
+  if (!count) {
     return null
   }
 
-  const hiddenCount = entries.length - ACTIVITY_PANEL_DEFAULT_VISIBLE
-  const visible = expanded ? entries : entries.slice(0, ACTIVITY_PANEL_DEFAULT_VISIBLE)
+  const [featured, ...rest] = streams
 
   return (
     <PanelRoot className={className} aria-label={t('chat.activity.title', 'Activity')}>
-      <PanelTitle>
-        {t('chat.activity.title', 'Activity')} ({entries.length})
-      </PanelTitle>
+      <SectionHeader>
+        {t('chat.activity.title', 'Activity')} ({count})
+      </SectionHeader>
       <EntryList>
-        {visible.map(entry =>
-          entry.kind === 'stream' ? (
-            <StreamEntry key={`stream-${entry.userId}`} entry={entry} />
-          ) : (
-            <GameEntry key={`game-${entry.gameId}`} entry={entry} />
-          ),
-        )}
+        {featured ? (
+          <StreamSlot>
+            <FeaturedLiveStreamEntry query={featured} />
+          </StreamSlot>
+        ) : null}
+        {rest.map(stream => (
+          <StreamSlot key={stream.twitchLogin}>
+            <LiveStreamEntry query={stream} />
+          </StreamSlot>
+        ))}
+        {games.length ? (
+          <>
+            <SectionHeader>
+              {t('chat.activity.inGame', 'In game ({{count}})', { count: games.length })}
+            </SectionHeader>
+            {games.map(game => (
+              <GameMatchRow key={game.gameId} entry={game} />
+            ))}
+          </>
+        ) : null}
       </EntryList>
-      {hiddenCount > 0 ? (
-        <ToggleButton
-          label={
-            expanded
-              ? t('chat.activity.showLess', 'Show less')
-              : t('chat.activity.showMore', 'Show {{count}} more', { count: hiddenCount })
-          }
-          iconStart={<MaterialIcon icon={expanded ? 'expand_less' : 'expand_more'} size={20} />}
-          onClick={() => setExpanded(!expanded)}
-        />
-      ) : null}
     </PanelRoot>
   )
 }
@@ -496,8 +362,10 @@ export function ChannelActivityPanel({
   })
   useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
 
-  const entries = data && channelUsers ? deriveActivityEntries(data, channelUsers, selfUserId) : []
+  const { streams, games } =
+    data && channelUsers
+      ? deriveActivityEntries(data, channelUsers, selfUserId)
+      : { streams: [], games: [] }
 
-  // Keyed by channel so the expanded state doesn't follow the viewer from one channel to the next.
-  return <ActivityPanel key={channelId} entries={entries} className={className} />
+  return <ActivityPanel streams={streams} games={games} className={className} />
 }

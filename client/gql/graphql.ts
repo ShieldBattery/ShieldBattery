@@ -385,16 +385,29 @@ export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean }
 export type ChannelActivityQueryVariables = Exact<{ [key: string]: never }>
 
 export type ChannelActivityQuery = {
-  liveStreams: Array<{
-    twitchLogin: string
-    title: string
-    viewerCount: number
-    user: { id: Types.SbUserId; name: string } | null
-  }>
+  liveStreams: Array<
+    { twitchLogin: string; viewerCount: number; user: { id: Types.SbUserId } | null } & {
+      ' $fragmentRefs'?: {
+        LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
+      }
+    }
+  >
   liveGames: Array<{
     id: string
     startTime: string
-    map: { id: Types.SbMapId; name: string }
+    map: {
+      id: Types.SbMapId
+      name: string
+      mapFile: {
+        id: string
+        image256Url: string
+        image512Url: string
+        image1024Url: string
+        image2048Url: string
+        width: number
+        height: number
+      }
+    }
     config:
       | { __typename: 'GameConfigDataLobby' }
       | {
@@ -409,7 +422,7 @@ export type ChannelActivityQuery = {
             | { matchmakingType: Types.MatchmakingType }
             | { matchmakingType: Types.MatchmakingType }
             | { matchmakingType: Types.MatchmakingType }
-          teams: Array<Array<{ user: { id: Types.SbUserId; name: string } | null }>>
+          teams: Array<Array<{ user: { id: Types.SbUserId } | null }>>
         }
   }>
 }
@@ -2802,18 +2815,18 @@ export const ChannelActivityDocument = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'user' },
                   selectionSet: {
                     kind: 'SelectionSet',
-                    selections: [
-                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                    ],
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
                   },
+                },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
                 },
               ],
             },
@@ -2834,6 +2847,22 @@ export const ChannelActivityDocument = {
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'mapFile' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                          ],
+                        },
+                      },
                     ],
                   },
                 },
@@ -2879,7 +2908,6 @@ export const ChannelActivityDocument = {
                                       kind: 'SelectionSet',
                                       selections: [
                                         { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                                        { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                                       ],
                                     },
                                   },
@@ -2892,6 +2920,33 @@ export const ChannelActivityDocument = {
                     ],
                   },
                 },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'LiveStream' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
               ],
             },
           },

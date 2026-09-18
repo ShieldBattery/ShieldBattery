@@ -233,6 +233,13 @@
     "title": "Сообщить об ошибке"
   },
   "chat": {
+    "activity": {
+      "inGame_one": "В игре ({{count}})",
+      "inGame_few": "В игре ({{count}})",
+      "inGame_many": "В игре ({{count}})",
+      "inGame_other": "В игре ({{count}})",
+      "title": "Активность"
+    },
     "banUser": {
       "banAction": "Забаньте {{user}}",
       "banReason": "Причина бана (по желанию)",
