@@ -2,16 +2,26 @@
 //!
 //! Exactly one scenario is active at a time, matching the game: a screen is either up or it isn't,
 //! and stacking two of them would hide whichever anchors to the same corner.
+//!
+//! A scenario's job is to build the view-models the shell draws from, not to draw them: the shell
+//! decides which of them is modal, what the frame takes of the player's input and which rects it
+//! owns, exactly as it does in the game. The kitchen sink is the exception, being a specimen sheet
+//! of the kit rather than a screen the game ever shows.
 
 pub mod disconnect;
 pub mod kitchen_sink;
 pub mod net_quality;
 pub mod netstat;
+pub mod shell;
 
-use egui::Context;
+use egui::{Context, Rect};
 use overlay_ui::disconnect::DisconnectClicks;
+use overlay_ui::shell::{
+    DisconnectSurface, InputCapture, Intent, ModalId, NativeDialog, Shell, Views,
+};
 use serde::{Deserialize, Serialize};
 
+use crate::host_knobs;
 use crate::knobs::Knobs;
 
 /// Which overlay the emulated screen is showing.
@@ -21,14 +31,16 @@ pub enum ScenarioKind {
     Disconnect,
     NetQuality,
     NetStat,
+    Shell,
     KitchenSink,
 }
 
 impl ScenarioKind {
-    pub const ALL: [ScenarioKind; 4] = [
+    pub const ALL: [ScenarioKind; 5] = [
         ScenarioKind::Disconnect,
         ScenarioKind::NetQuality,
         ScenarioKind::NetStat,
+        ScenarioKind::Shell,
         ScenarioKind::KitchenSink,
     ];
 
@@ -37,6 +49,7 @@ impl ScenarioKind {
             ScenarioKind::Disconnect => "Disconnect",
             ScenarioKind::NetQuality => "Network quality",
             ScenarioKind::NetStat => "Network stats",
+            ScenarioKind::Shell => "Shell",
             ScenarioKind::KitchenSink => "Kitchen sink",
         }
     }
@@ -47,6 +60,7 @@ impl ScenarioKind {
             ScenarioKind::Disconnect => "disconnect",
             ScenarioKind::NetQuality => "net-quality",
             ScenarioKind::NetStat => "netstat",
+            ScenarioKind::Shell => "shell",
             ScenarioKind::KitchenSink => "kitchen-sink",
         }
     }
@@ -58,6 +72,7 @@ pub enum Preset {
     Disconnect(disconnect::Preset),
     NetQuality(net_quality::Preset),
     NetStat(netstat::Preset),
+    Shell(shell::Preset),
     KitchenSink(kitchen_sink::Preset),
 }
 
@@ -67,6 +82,7 @@ impl Preset {
             Preset::Disconnect(_) => ScenarioKind::Disconnect,
             Preset::NetQuality(_) => ScenarioKind::NetQuality,
             Preset::NetStat(_) => ScenarioKind::NetStat,
+            Preset::Shell(_) => ScenarioKind::Shell,
             Preset::KitchenSink(_) => ScenarioKind::KitchenSink,
         }
     }
@@ -76,6 +92,7 @@ impl Preset {
             Preset::Disconnect(preset) => preset.label(),
             Preset::NetQuality(preset) => preset.label(),
             Preset::NetStat(preset) => preset.label(),
+            Preset::Shell(preset) => preset.label(),
             Preset::KitchenSink(preset) => preset.label(),
         }
     }
@@ -87,6 +104,7 @@ impl Preset {
             Preset::Disconnect(preset) => preset.apply(&mut knobs.disconnect),
             Preset::NetQuality(preset) => preset.apply(&mut knobs.net_quality),
             Preset::NetStat(preset) => preset.apply(&mut knobs.netstat),
+            Preset::Shell(preset) => preset.apply(knobs),
             Preset::KitchenSink(preset) => preset.apply(&mut knobs.kitchen_sink),
         }
     }
@@ -96,9 +114,10 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 2] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 3] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
+    Preset::Shell(shell::Preset::GameMenu),
 ];
 
 /// Every scenario preset, in selector order.
@@ -108,6 +127,7 @@ pub fn all_presets() -> Vec<Preset> {
         .map(Preset::Disconnect)
         .chain(net_quality::Preset::ALL.into_iter().map(Preset::NetQuality))
         .chain(netstat::Preset::ALL.into_iter().map(Preset::NetStat))
+        .chain(shell::Preset::ALL.into_iter().map(Preset::Shell))
         .chain(
             kitchen_sink::Preset::ALL
                 .into_iter()
@@ -131,27 +151,60 @@ impl UiState {
     }
 }
 
-/// Draws the active scenario on the game context.
+/// Draws the active scenario on the game context, through the shell.
 ///
 /// `elapsed` is the host's running time in seconds, which scenarios with live counters tick from.
-pub fn render(knobs: &Knobs, state: &mut UiState, elapsed: f64, ctx: &Context) -> Outcome {
-    match knobs.scenario {
-        ScenarioKind::Disconnect => Outcome {
-            disconnect_clicks: disconnect::render(&knobs.disconnect, elapsed, ctx),
-        },
-        ScenarioKind::NetQuality => {
-            net_quality::render(&knobs.net_quality, &mut state.net_quality, ctx);
-            Outcome::default()
-        }
-        ScenarioKind::NetStat => {
-            netstat::render(&knobs.netstat, ctx);
-            Outcome::default()
-        }
-        ScenarioKind::KitchenSink => {
-            kitchen_sink::render(&knobs.kitchen_sink, ctx);
-            Outcome::default()
+pub fn render(
+    knobs: &Knobs,
+    state: &mut UiState,
+    elapsed: f64,
+    ctx: &Context,
+    shell: &mut Shell,
+) -> Outcome {
+    host_knobs::sync_native_dialogs(&knobs.host, shell);
+
+    // The kitchen sink is not a shell surface: it is the kit laid out at once, drawn straight onto
+    // the context under whatever the shell puts on top of it.
+    if knobs.scenario == ScenarioKind::KitchenSink {
+        kitchen_sink::render(&knobs.kitchen_sink, ctx);
+    }
+
+    let disconnect_view = (knobs.scenario == ScenarioKind::Disconnect)
+        .then(|| disconnect::build_view(&knobs.disconnect, elapsed));
+    let net_quality_view = (knobs.scenario == ScenarioKind::NetQuality)
+        .then(|| net_quality::build_view(&knobs.net_quality, &mut state.net_quality));
+    let net_stats_view = match knobs.scenario {
+        ScenarioKind::NetStat => Some(netstat::build_view(&knobs.netstat)),
+        ScenarioKind::Shell => shell::ambient_view(&knobs.shell, &knobs.netstat),
+        _ => None,
+    };
+    let mut views = Views {
+        disconnect: disconnect_view.as_ref().map(|view| DisconnectSurface {
+            view,
+            blocks_input: knobs.disconnect.blocks_input,
+        }),
+        net_quality: net_quality_view.as_ref(),
+        net_stats: net_stats_view.as_ref(),
+    };
+
+    let output = shell.frame(ctx, &knobs.host.host_frame(), &mut views);
+    if knobs.scenario == ScenarioKind::NetQuality {
+        net_quality::paint_stand_ins(&knobs.net_quality, ctx);
+    }
+    let mut outcome = Outcome {
+        hit_rects: output.hit_rects,
+        capture: output.capture,
+        top_modal: shell.top_modal(),
+        ..Outcome::default()
+    };
+    for intent in output.intents {
+        match intent {
+            Intent::DropPlayer { slot } => outcome.disconnect_clicks.drops.push(slot),
+            Intent::LeaveGame => outcome.disconnect_clicks.leave = true,
+            Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
         }
     }
+    outcome
 }
 
 /// Whether the active scenario changes from frame to frame on its own, so the host has to keep
@@ -160,7 +213,7 @@ pub fn is_live(knobs: &Knobs) -> bool {
     match knobs.scenario {
         ScenarioKind::Disconnect => knobs.disconnect.auto_tick,
         ScenarioKind::NetQuality => knobs.net_quality.simulate,
-        ScenarioKind::NetStat | ScenarioKind::KitchenSink => false,
+        ScenarioKind::NetStat | ScenarioKind::Shell | ScenarioKind::KitchenSink => false,
     }
 }
 
@@ -170,6 +223,14 @@ pub fn is_live(knobs: &Knobs) -> bool {
 pub struct Outcome {
     /// What was clicked in the disconnect overlay.
     pub disconnect_clicks: DisconnectClicks,
+    /// Native dialogs the shell wants dismissed, because the surface standing in for one was closed.
+    /// The game DLL drives the real dialog's return control; the preview closes the switch that
+    /// stands in for it.
+    pub close_native_dialogs: Vec<NativeDialog>,
+    /// The rects the shell reports as its own this frame, in the emulated screen's points.
+    pub hit_rects: Vec<Rect>,
+    pub capture: InputCapture,
+    pub top_modal: Option<ModalId>,
 }
 
 /// The selector plus the active scenario's knob section. Returns whether anything changed.
@@ -191,6 +252,7 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
             net_quality::knobs_ui(&mut knobs.net_quality, &state.net_quality, ui)
         }
         ScenarioKind::NetStat => netstat::knobs_ui(&mut knobs.netstat, ui),
+        ScenarioKind::Shell => shell::knobs_ui(&mut knobs.shell, ui),
         ScenarioKind::KitchenSink => {
             kitchen_sink::knobs_ui(&mut knobs.kitchen_sink, &mut knobs.screen.compact_ramp, ui)
         }

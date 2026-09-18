@@ -12,14 +12,19 @@ use egui::{
     Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
     Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
 };
-use overlay_ui::net_quality::{NetQualityView, render_net_quality};
+use overlay_ui::net_quality::NetQualityView;
+use overlay_ui::shell::{
+    DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, Mode, NativeDialog, Shell,
+    Views,
+};
+use rally_point_client::proto::ids::SlotId;
 use winapi::shared::windef::{HWND, POINT};
 
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
-use crate::bw_scr::BwCursorType;
-use crate::netcode_v2::{DisconnectStatus, LoadingConnectivity, NetStatsStatus};
+use crate::bw_scr::{BwCursorType, dialog_hook};
+use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
 use self::production::ProductionState;
 
@@ -41,7 +46,16 @@ pub struct OverlayState {
     ui_rects: Vec<UiRect>,
     events: Vec<Event>,
     production: ProductionState,
-    replay_panels: ReplayPanelState,
+    /// The host-agnostic policy layer: which surfaces are up, which of them is modal, and what the
+    /// game is allowed to see of the player's input.
+    shell: Shell,
+    /// What the last [`step`](Self::step) decided the game may see of the input arriving now.
+    /// [`window_proc`](Self::window_proc) runs between frames, so it reads this rather than deciding
+    /// for itself.
+    capture: InputCapture,
+    /// Which replaced native dialogs were live as of the last [`step`](Self::step), so the shell
+    /// hears about a spawn or a delete exactly once.
+    native_dialogs_live: [bool; NativeDialog::ALL.len()],
     out_state: OutState,
     window_size: (u32, u32),
     /// If (and only if) a mouse button down event was captured,
@@ -67,25 +81,6 @@ pub struct OverlayState {
     draw_layer: u16,
     dialog_debug_inspect_children: bool,
     was_loading: bool,
-    /// Whether BW's chat entry box is currently open for text input, refreshed each
-    /// [`step`](Self::step). [`window_proc`](Self::window_proc) reads this to keep chat usable while
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) is otherwise swallowing game input.
-    chat_textbox_open: bool,
-    /// Whether the disconnect overlay is showing a condition that pauses unit commands (our own link
-    /// down, a relay-confirmed peer drop, or a sustained sim stall — see
-    /// [`DisconnectStatus::is_blocking`]). Refreshed each [`step`](Self::step) from the same
-    /// [`DisconnectStatus`] the overlay renders; read by [`window_proc`](Self::window_proc) to gate
-    /// game-destined input.
-    disconnect_blocks_input: bool,
-    /// Whether a BW dialog the player operates (the F10 game menu, its sub-menus, the quit
-    /// confirmation, options) is at the top of BW's dialog stack, refreshed each
-    /// [`step`](Self::step). Derived by exclusion: the only dialogs that top the stack without the
-    /// player having opened one are the always-present in-game "Minimap" and the hidden
-    /// "TimeOut" that BW spawns during a stall. While a menu is open,
-    /// [`window_proc`](Self::window_proc) lets every key and click through regardless of
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input), so the player can always reach
-    /// Quit — a blocked player with no way out has only the task manager left.
-    bw_menu_open: bool,
 }
 
 struct UiRect {
@@ -106,13 +101,6 @@ struct ReplayUiValues {
     statbtn_dialog_offset: (i32, i32),
 }
 
-struct ReplayPanelState {
-    hotkeys_active: bool,
-    show_statistics: bool,
-    show_production: bool,
-    show_console: bool,
-}
-
 /// State that will be in StepOutput; mutated through &mut self
 /// during child functions of step()
 struct OutState {
@@ -121,7 +109,6 @@ struct OutState {
     // true => show, false => hide
     show_hide_control: Option<(Control, bool)>,
     show_hide_graphic_layer: Option<(u8, bool)>,
-    show_console: bool,
     leave_game: bool,
 }
 
@@ -135,7 +122,10 @@ pub struct StepOutput {
     pub show_hide_control: Option<(Control, bool)>,
     pub show_hide_graphic_layer: Option<(u8, bool)>,
     pub statbtn_dialog_offset: (i32, i32),
-    pub show_console: bool,
+    /// Whether BW's bottom console should be on screen, and whether its minimap should be. Two
+    /// states rather than one: an observer routinely keeps the minimap while hiding the console.
+    pub console_visible: bool,
+    pub minimap_visible: bool,
     // true to run second draw to avoid ugly flickering due to screen size changing.
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
@@ -281,18 +271,14 @@ impl OverlayState {
             ui_rects: Vec::new(),
             events: Vec::new(),
             production: ProductionState::new(),
-            replay_panels: ReplayPanelState {
-                hotkeys_active: false, // Will be set true if replay / obs at step()
-                show_statistics: true,
-                show_production: true,
-                show_console: true,
-            },
+            shell: Shell::new(),
+            capture: InputCapture::PASS_THROUGH,
+            native_dialogs_live: [false; NativeDialog::ALL.len()],
             out_state: OutState {
                 replay_visions: 0,
                 select_unit: None,
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
-                show_console: true,
                 leave_game: false,
             },
             captured_mouse_down: [false; 2],
@@ -317,9 +303,6 @@ impl OverlayState {
             draw_layer: get_normal_draw_layer(),
             dialog_debug_inspect_children: false,
             was_loading: false,
-            chat_textbox_open: false,
-            disconnect_blocks_input: false,
-            bw_menu_open: false,
         }
     }
 
@@ -427,7 +410,6 @@ impl OverlayState {
             select_unit: None,
             show_hide_control: None,
             show_hide_graphic_layer: None,
-            show_console: self.replay_panels.show_console,
             leave_game: false,
         };
         let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
@@ -435,19 +417,47 @@ impl OverlayState {
             .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
-        self.chat_textbox_open = chat_textbox_open;
-        // Unit commands are swallowed whenever the disconnect panel shows a paused sim (a stall the
-        // panel is reporting, a confirmed peer drop, or our own link down): commands issued into a
-        // frozen sim all land in the same turn and burst out together when turns resume. The game
-        // menu is exempt (see `bw_menu_open`), so a player can still quit out of a stuck game.
-        self.disconnect_blocks_input = disconnect_status.is_blocking(Instant::now());
-        self.bw_menu_open = bw.first_dialog.is_some_and(|dialog| {
-            let control = dialog.as_control();
-            let name = control.string();
-            name != "Minimap" && name != "TimeOut"
-        });
-        self.replay_panels.hotkeys_active =
-            bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
+        let host_frame = HostFrame {
+            mode: if bw.is_replay {
+                Mode::Replay
+            } else if bw.is_replay_or_obs {
+                Mode::Observing
+            } else {
+                Mode::Playing
+            },
+            game_started: bw.game_started,
+            native_textbox_open: chat_textbox_open,
+            // `ui_active` is exactly "no BW menu is sitting on top of the game", which is when the
+            // keyboard is BW's rather than ours.
+            native_dialog_open: !self.ui_active,
+            // Derived by exclusion: the only dialogs that top BW's stack without the player having
+            // opened one are the always-present in-game "Minimap" and the hidden "TimeOut" BW
+            // spawns during a stall.
+            native_menu_open: bw.first_dialog.is_some_and(|dialog| {
+                let control = dialog.as_control();
+                let name = control.string();
+                name != "Minimap" && name != "TimeOut"
+            }),
+        };
+        // Keypresses arrive between frames and are decided against this, so it is refreshed even on
+        // the frames the shell draws nothing on.
+        self.shell.set_host(&host_frame);
+        self.sync_native_dialogs();
+        let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
+        let disconnect_view =
+            disconnect::build_disconnect_view(disconnect_status, users, Instant::now());
+        let net_stats_view = net_stats.map(|status| netstat::build_netstat_view(status, users));
+        let mut views = Views {
+            disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
+                view: &disconnect_view,
+                blocks_input: disconnect_status.is_blocking(Instant::now()),
+            }),
+            net_quality,
+            net_stats: net_stats_view.as_ref(),
+        };
+        // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
+        // of the player's input and asks nothing of the game.
+        let mut frame_output = FrameOutput::default();
         // `run_ui` replaced `Context::run` in egui 0.34: it hands the callback a root `Ui` covering
         // the whole screen (no margin/background) instead of the bare `&Context`. Floating Windows
         // and Areas still attach to the context (`&ctx`); only the loading screen's `CentralPanel`
@@ -464,13 +474,17 @@ impl OverlayState {
                 if bw.is_replay_or_obs {
                     self.add_replay_ui(bw, apm, &ctx);
                 }
-                // Product UX, drawn in every build: a stall-aware notice naming the players the sim
-                // is waiting on, upgrading to relay-confirmed disconnects with a manual drop.
-                self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
-                // The `/netstat` diagnostic overlay, drawn only while toggled on (a `Some` snapshot).
-                self.add_netstat_overlay(net_stats, setup_info, &ctx);
-                if let Some(net_quality) = net_quality {
-                    render_net_quality(net_quality, &ctx);
+                // The shell draws everything above the host's own panels: the disconnect surface,
+                // the `/netstat` diagnostic panel, and whatever modal owns the screen. Its rects are
+                // registered unconditionally, unlike the host panels above: a BW dialog sitting on
+                // the stack (the hidden `TimeOut` among them) must never be able to steal a click
+                // from a modal of ours.
+                frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
+                for rect in &frame_output.hit_rects {
+                    self.ui_rects.push(UiRect {
+                        area: *rect,
+                        capture_mouse_scroll: false,
+                    });
                 }
                 let debug = cfg!(debug_assertions);
                 if debug {
@@ -483,9 +497,14 @@ impl OverlayState {
                 self.add_loading_screen_ui(bw, setup_info, loading_connectivity, ui);
             }
         });
+        self.capture = frame_output.capture;
+        for intent in frame_output.intents {
+            execute_intent(bw, &mut self.out_state, intent);
+        }
+        let prefs = *self.shell.panel_prefs();
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
         let mut primitives = Vec::with_capacity(8);
-        if bw.is_replay && self.replay_panels.show_console {
+        if bw.is_replay && prefs.console {
             let rect = self.make_button_panel_rect(bw, pixels_per_point);
             primitives.push((21, rect));
         }
@@ -497,10 +516,30 @@ impl OverlayState {
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
-            show_console: self.out_state.show_console,
+            console_visible: prefs.console,
+            minimap_visible: prefs.minimap,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,
+        }
+    }
+
+    /// Tells the shell about every replaced native dialog that has spawned or been deleted since
+    /// the last frame. The spawn hook records the dialogs as they come and go; the transitions are
+    /// what the shell's modal stack is built from.
+    fn sync_native_dialogs(&mut self) {
+        let live = dialog_hook::live_replaced_dialogs();
+        for dialog in NativeDialog::ALL {
+            let index = dialog.index();
+            if live[index] == self.native_dialogs_live[index] {
+                continue;
+            }
+            self.native_dialogs_live[index] = live[index];
+            if live[index] {
+                self.shell.native_dialog_spawned(dialog);
+            } else {
+                self.shell.native_dialog_closed(dialog);
+            }
         }
     }
 
@@ -732,10 +771,10 @@ impl OverlayState {
                 }
             }
         }
-        if self.replay_panels.show_statistics {
+        if self.shell.panel_prefs().statistics {
             self.add_replay_statistics(bw, apm, ctx);
         }
-        if self.replay_panels.show_production {
+        if self.shell.panel_prefs().production {
             self.update_replay_production(bw);
             self.add_production_ui(bw, ctx);
         }
@@ -929,11 +968,11 @@ impl OverlayState {
     /// Specifically prevents the cursor from changing due to units being behind the overlay.
     /// Only thing we do return for now is 0 for regular mouse pointer.
     pub fn decide_cursor_type(&self) -> Option<BwCursorType> {
-        // While the disconnect overlay is swallowing game input the sim is frozen, and with it BW's
+        // While a modal of ours is taking the pointer the sim is usually frozen, and with it BW's
         // per-frame cursor selection, so the cursor would otherwise stay whatever shape it had when
-        // the stall began (a hover or drag cursor over nothing). Pin the plain pointer instead,
-        // unless the player is operating a BW menu, whose own cursor handling still runs.
-        if self.disconnect_blocks_input && !self.bw_menu_open {
+        // the modal came up (a hover or drag cursor over nothing). Pin the plain pointer instead.
+        // A BW menu the player is operating lifts the capture, so its own cursor handling runs.
+        if self.capture.blocks_game_pointer() {
             return Some(BwCursorType::Arrow);
         }
         if self.mouse_down != [false, false] && self.captured_mouse_down == [false, false] {
@@ -1001,12 +1040,12 @@ impl OverlayState {
                     };
                     self.mouse_down[button_idx] = pressed;
                     if !handle {
-                        // BW gets a press only while the disconnect block is off, and gets a
-                        // release exactly when it got the press: a swallowed release would leave
+                        // BW gets a press only while the overlay isn't taking the pointer, and gets
+                        // a release exactly when it got the press: a swallowed release would leave
                         // it mid-drag-select with no way to finish, and an orphan release (press
                         // swallowed, release delivered) is an input sequence BW never expects.
                         let deliver = if pressed {
-                            !self.should_block_game_pointer_input()
+                            !self.capture.blocks_game_pointer()
                         } else {
                             self.bw_mouse_down[button_idx]
                         };
@@ -1043,7 +1082,7 @@ impl OverlayState {
                         .iter()
                         .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
                     if !handle {
-                        return if self.should_block_game_pointer_input() {
+                        return if self.capture.blocks_game_pointer() {
                             Some(0)
                         } else {
                             None
@@ -1068,7 +1107,8 @@ impl OverlayState {
                     let pressed = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN);
                     modifiers.alt |= is_syskey;
                     let vkey = wparam as i32;
-                    if let Some(key) = vkey_to_egui_key(vkey) {
+                    let key = vkey_to_egui_key(vkey);
+                    if let Some(key) = key {
                         if !is_syskey && self.ctx.egui_wants_keyboard_input() {
                             self.events.push(Event::Key {
                                 key,
@@ -1084,25 +1124,21 @@ impl OverlayState {
                             });
                             return Some(0);
                         }
-                        if pressed && self.check_replay_hotkey(&modifiers, key) {
+                        // Nothing focused wanted the key, so the shell gets its turn at it before
+                        // the game does. It takes only what it can act on.
+                        if pressed && self.shell.key_pressed(key, modifiers) {
                             return Some(0);
                         }
                     }
-                    if self.should_block_game_keyboard_input(vkey) {
+                    if self.capture.blocks_game_key(key) {
                         return Some(0);
                     }
                     None
                 }
                 WM_CHAR => {
                     if !self.ctx.egui_wants_keyboard_input() {
-                        // Never swallowed for the disconnect block: SC:R opens and submits the chat
-                        // box from the Enter *character* here (0x0D/0x0A), not from WM_KEYDOWN's
-                        // VK_RETURN — swallowing WM_CHAR while the box is closed would swallow the
-                        // very keypress that opens it, so `chat_textbox_open` could never flip true
-                        // and every following WM_CHAR would stay swallowed forever. A WM_CHAR never
-                        // carries a unit command or hotkey (those are WM_KEYDOWN virtual keys, and
-                        // still blocked by `should_block_game_keyboard_input` below), so passing all
-                        // of them through can't let a blocked player command units.
+                        // Characters are never swallowed by the shell's input capture; see
+                        // `InputCapture`'s doc comment for why the chat box depends on that.
                         return None;
                     }
                     if wparam >= 0x80 {
@@ -1120,73 +1156,6 @@ impl OverlayState {
                 _ => None,
             }
         }
-    }
-
-    /// Whether a mouse press aimed at the game world (it missed every registered ui rect) should be
-    /// swallowed instead of reaching BW, so the disconnect overlay behaves like a pause: unit
-    /// selection, drag-select, and move/attack commands all start from these presses (a release
-    /// follows its press to wherever the press went, see the caller). Gated on
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input), and lifted while a BW menu is
-    /// open ([`bw_menu_open`](Self::bw_menu_open)) so its buttons stay clickable — a menu dialog
-    /// on top of the stack takes the clicks itself, so none of them can reach the game world.
-    /// Chat needs no mouse carve-out here: opening, typing, and sending are all keyboard-driven.
-    fn should_block_game_pointer_input(&self) -> bool {
-        self.disconnect_blocks_input && !self.bw_menu_open
-    }
-
-    /// Whether a keyboard event aimed at the game (a hotkey or unit command, since anything egui or
-    /// the replay-hotkey check wanted has already returned above) should be swallowed instead of
-    /// reaching BW. Mirrors [`should_block_game_pointer_input`](Self::should_block_game_pointer_input)'s
-    /// gate, with three carve-outs. The chat surface: with the chat textbox open every key passes
-    /// through (backspace, arrow keys, Escape to close — actual typed characters and
-    /// Enter-to-open/submit ride WM_CHAR, which this doesn't gate at all, see the WM_CHAR arm
-    /// above); the `VK_RETURN` carve-out is harmless but not what opens the chat box (SC:R opens
-    /// it from the Enter *character* on WM_CHAR, not this virtual-key WM_KEYDOWN) — kept so a bare
-    /// Return keydown doesn't get eaten as a stray hotkey while the box is closed. `VK_F10` always
-    /// passes so the game menu can be opened, and with a menu open every key passes so it can be
-    /// navigated and closed. Escape stays blocked while no menu is open: it carries no unit
-    /// command, but BW's stack-top dialog during a stall is the hidden "TimeOut", and Escape's
-    /// effect on it is not something the overlay wants to find out. Alt combinations (BW's menu
-    /// accelerators) stay blocked too: BW ignores them under that dialog anyway, and a lone Alt
-    /// reaching the window can leave it in Windows' menu-key mode, eating every key after it.
-    fn should_block_game_keyboard_input(&self, vkey: i32) -> bool {
-        use winapi::um::winuser::{VK_F10, VK_RETURN};
-        self.disconnect_blocks_input
-            && !self.chat_textbox_open
-            && !self.bw_menu_open
-            && vkey != VK_RETURN
-            && vkey != VK_F10
-    }
-
-    fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
-        let panels = &mut self.replay_panels;
-        if panels.hotkeys_active {
-            match key {
-                Key::A => {
-                    // Show if any were hidden, else hide
-                    let show =
-                        !panels.show_statistics || !panels.show_production || !panels.show_console;
-                    panels.show_statistics = show;
-                    panels.show_production = show;
-                    panels.show_console = show;
-                    return true;
-                }
-                Key::F => {
-                    panels.show_production = !panels.show_production;
-                    return true;
-                }
-                Key::W => {
-                    panels.show_console = !panels.show_console;
-                    return true;
-                }
-                Key::E => {
-                    panels.show_statistics = !panels.show_statistics;
-                    return true;
-                }
-                _ => (),
-            }
-        }
-        false
     }
 
     fn window_pos_to_egui(&self, x: i32, y: i32) -> Pos2 {
@@ -1225,6 +1194,20 @@ impl OverlayState {
                 y: (y as f32 - y_offset) / y_div * screen_h,
             }
         }
+    }
+}
+
+/// Carries out one thing the shell asked of the game.
+fn execute_intent(bw: &BwVars, out_state: &mut OutState, intent: Intent) {
+    match intent {
+        // Safe to reach the turn state here: the draw path holds no turn-state lock across `step`.
+        Intent::DropPlayer { slot } => {
+            netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
+        }
+        Intent::CloseNativeDialog(dialog) => {
+            dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
+        }
+        Intent::LeaveGame => out_state.leave_game = true,
     }
 }
 

@@ -4,9 +4,7 @@
 use std::time::{Duration, Instant};
 
 use egui::{Color32, Context, pos2, vec2};
-use overlay_ui::net_quality::{
-    DESIGN_HEIGHT, NetQualityView, RecentRollback, fps_line_top, render_net_quality,
-};
+use overlay_ui::net_quality::{DESIGN_HEIGHT, NetQualityView, RecentRollback, fps_line_top};
 use serde::{Deserialize, Serialize};
 
 /// The network quality chip's knobs.
@@ -109,7 +107,7 @@ impl SimState {
 
 /// The chip's view: the knobs as is, or the simulated rollback through the chip's smoothing,
 /// advanced one sample per game tick of real time since the last frame.
-fn build_view(knobs: &Knobs, sim: &mut SimState) -> NetQualityView {
+pub fn build_view(knobs: &Knobs, sim: &mut SimState) -> NetQualityView {
     let fps_font_height = knobs.fps_line.then_some(knobs.fps_font_height);
     if !knobs.simulate {
         return NetQualityView {
@@ -176,10 +174,8 @@ fn paint_fps_line_stand_in(ctx: &Context, font_height: u8) {
     );
 }
 
-/// Draws the scenario on the game context. The chip sits in the top-left corner, exactly as it
-/// does in-game.
-pub fn render(knobs: &Knobs, sim: &mut SimState, ctx: &Context) {
-    render_net_quality(&build_view(knobs, sim), ctx);
+/// Draws what the game itself would draw around the chip, which the shell does not.
+pub fn paint_stand_ins(knobs: &Knobs, ctx: &Context) {
     if knobs.show_fps_line {
         paint_fps_line_stand_in(ctx, knobs.fps_font_height);
     }

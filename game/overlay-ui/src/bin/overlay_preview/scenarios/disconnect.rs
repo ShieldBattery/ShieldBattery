@@ -1,10 +1,9 @@
 //! The disconnect overlay scenario: waiting-on-players rows and the self notices (reconnecting,
 //! disconnected, desynced).
 
-use egui::{Color32, Context, vec2};
+use egui::{Color32, vec2};
 use overlay_ui::disconnect::{
     DisconnectClicks, DisconnectRowView, DisconnectTier, DisconnectView, SelfState,
-    render_disconnect_view,
 };
 use serde::{Deserialize, Serialize};
 
@@ -58,6 +57,9 @@ pub struct Knobs {
     pub self_disconnected: bool,
     /// `true` => the desynced self notice and its Leave button replace everything else.
     pub self_desynced: bool,
+    /// Whether the surface takes the player's input or only sits over the game. The game blocks
+    /// input whenever the surface is up, since a stall short enough not to block never draws it.
+    pub blocks_input: bool,
     /// While set, every row's elapsed counter advances in real time from its base value.
     pub auto_tick: bool,
 }
@@ -86,6 +88,7 @@ impl Default for Knobs {
             self_reconnecting: false,
             self_disconnected: false,
             self_desynced: false,
+            blocks_input: true,
             auto_tick: false,
         }
     }
@@ -129,6 +132,7 @@ impl Preset {
         knobs.self_reconnecting = matches!(self, Preset::SelfReconnecting);
         knobs.self_disconnected = matches!(self, Preset::SelfDisconnected);
         knobs.self_desynced = matches!(self, Preset::SelfDesynced);
+        knobs.blocks_input = true;
         knobs.rows = match self {
             Preset::Stall => vec![RowKnob {
                 slot: 0,
@@ -241,11 +245,6 @@ pub fn build_view(knobs: &Knobs, elapsed: f64) -> DisconnectView {
     }
 }
 
-/// Draws the scenario on the game context, returning what was clicked.
-pub fn render(knobs: &Knobs, elapsed: f64, ctx: &Context) -> DisconnectClicks {
-    render_disconnect_view(&build_view(knobs, elapsed), ctx).inner
-}
-
 /// The scenario's knob section. Returns whether anything changed.
 pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bool {
     let mut changed = false;
@@ -281,6 +280,16 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
             ui.label("Self desynced");
             changed |= ui
                 .checkbox(&mut knobs.self_desynced, "show desync notice")
+                .changed();
+            ui.end_row();
+
+            ui.label("Blocks input");
+            changed |= ui
+                .checkbox(&mut knobs.blocks_input, "the simulation is paused")
+                .on_hover_text(
+                    "A paused simulation takes every input, so commands don't pile up into one \
+                     turn that bursts out when the game resumes.",
+                )
                 .changed();
             ui.end_row();
 
