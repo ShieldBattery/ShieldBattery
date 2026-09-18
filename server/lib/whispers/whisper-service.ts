@@ -115,10 +115,11 @@ export default class WhisperService {
   }
 
   /**
-   * Records the newest message time a user has seen in a whisper conversation, and publishes the
-   * resulting read position to all of that user's connected sessions (so a mark-read made in one
-   * session updates the unread badges and read positions of their others). A no-op if the session
-   * doesn't exist (e.g. it was closed, or never opened).
+   * Records the newest message time a user has seen in a whisper conversation, whether that time
+   * was reported by a client or is implied by the user sending a message themselves, and publishes
+   * the resulting read position to all of that user's connected sessions (so a mark-read made in
+   * one session updates the unread badges and read positions of their others). A no-op if the
+   * session doesn't exist (e.g. it was closed, or never opened).
    */
   async markRead(userId: SbUserId, targetId: SbUserId, lastReadTime: Date): Promise<void> {
     const stored = await updateLastReadTime(userId, targetId, lastReadTime)
@@ -247,6 +248,11 @@ export default class WhisperService {
   /**
    * Stores a text message in a whisper conversation and hands it to both participants, starting the
    * conversation for either of them who was not in it yet.
+   *
+   * Before the message is handed out, the sender's read position is advanced to it: having just
+   * spoken, the sender is caught up with everything up to and including their own message. This is
+   * what keeps a whisper answered from outside its conversation (e.g. a reply typed into a channel)
+   * from counting as unread the next time the sender loads their session list.
    */
   private async storeAndPublishTextMessage({
     user,
@@ -286,6 +292,8 @@ export default class WhisperService {
     })
     this.applyWhisperSessionState(user, target)
     this.applyWhisperSessionState(target, user)
+
+    await this.markRead(user.id, target.id, result.sent)
 
     this.publisher.publish(getSessionPath(user.id, target.id), {
       action: 'message',
