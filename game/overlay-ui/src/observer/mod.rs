@@ -179,20 +179,29 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
     );
 }
 
-/// Paints a player's race chip: a ring in the race's color with the race's letter inside it.
+/// Paints a player's race chip: a disc in the race's color with the race's letter cut out of it.
+///
+/// Filled rather than outlined, because the race is the first thing read off a name: a disc of
+/// color carries across a room where a ring of it reads as one more piece of chrome.
 pub(crate) fn paint_race_chip(ui: &Ui, rect: Rect, race: RaceView, alpha: f32) {
     let diameter = rect.width().min(rect.height());
-    let color = race.color().gamma_multiply(alpha);
-    let centre = rect.center();
-    ui.painter()
-        .circle_filled(centre, diameter * 0.5, color.gamma_multiply(0.16));
-    ui.painter().circle_stroke(
-        centre,
-        diameter * 0.5 - theme::HAIRLINE * 0.5,
-        Stroke::new(theme::HAIRLINE, color),
+    ui.painter().circle_filled(
+        rect.center(),
+        diameter * 0.5,
+        race.color().gamma_multiply(alpha),
     );
-    let spec = crate::kit::text::player_name(diameter * 0.54).with_color(color);
+    let spec = crate::kit::text::player_name(diameter * RACE_LETTER_RATIO)
+        .with_color(Color32::BLACK.gamma_multiply(alpha));
     paint_text(ui, rect, &spec, &race.letter(), Align::Center);
+}
+
+/// How much of a race chip's diameter its letter is set at.
+const RACE_LETTER_RATIO: f32 = 0.46;
+
+/// Paints the dot that marks whose a row is, where the row is too short for a bar of their color.
+pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f32) {
+    ui.painter()
+        .circle_filled(rect.center(), diameter * 0.5, color);
 }
 
 /// Paints the bar of a player's own color that marks which side of a panel is theirs.
@@ -206,11 +215,11 @@ pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) 
 
 /// Outlines a tile the pointer is over, for the tiles that act when they are clicked.
 pub(crate) fn paint_tile_chrome(ui: &Ui, rect: Rect, hovered: bool) {
-    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
     ui.painter().rect_filled(
         rect,
         corner_radius,
-        theme::alpha(crate::colors::BLUE10, 0.7),
+        theme::alpha(crate::colors::GREY_BLUE10, 0.85),
     );
     ui.painter().add(egui::Shape::rect_stroke(
         rect,
@@ -220,7 +229,7 @@ pub(crate) fn paint_tile_chrome(ui: &Ui, rect: Rect, hovered: bool) {
             if hovered {
                 theme::ACCENT
             } else {
-                theme::TIER0_STROKE
+                theme::alpha(crate::colors::BLUE80, 0.18)
             },
         ),
         StrokeKind::Inside,
@@ -351,7 +360,7 @@ pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
 pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
 
 /// Height of one player's row in a stats wing.
-pub(crate) const STAT_ROW_HEIGHT: f32 = 24.0;
+pub(crate) const STAT_ROW_HEIGHT: f32 = 30.0;
 
 /// Gap between two players' rows.
 pub(crate) const STAT_ROW_GAP: f32 = 4.0;
@@ -368,10 +377,10 @@ pub(crate) const STAT_GLYPH_GAP: f32 = 5.0;
 
 /// Text size of a number in a stats wing. Smaller than the matchup bar's, which is read at a glance
 /// from across a room; these are read by someone who went looking for them.
-pub(crate) const STAT_VALUE_SIZE: f32 = 17.0;
+pub(crate) const STAT_VALUE_SIZE: f32 = 19.0;
 
 /// Text size of a player's name in a stats wing.
-pub(crate) const STAT_NAME_SIZE: f32 = 14.0;
+pub(crate) const STAT_NAME_SIZE: f32 = 16.0;
 
 /// Where each of the observer's stacked surfaces puts its top edge this frame.
 ///

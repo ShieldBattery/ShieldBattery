@@ -7,8 +7,8 @@
 use egui::{Color32, CornerRadius, Stroke};
 
 use crate::colors::{
-    AMBER60, BLUE10, BLUE60, BLUE70, BLUE80, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80, GREY99,
-    PROTOSS, RANDOM, TERRAN, ZERG,
+    AMBER60, AMBER70, BLUE10, BLUE60, BLUE70, BLUE80, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80,
+    GREY99, PROTOSS, RANDOM, TERRAN, ZERG,
 };
 
 /// A token color at a fraction of full opacity, premultiplied the way egui wants it.
@@ -57,10 +57,18 @@ pub const MOTION_HOLD_RELEASE_SECS: f32 = 0.15;
 
 // Text colors.
 pub const TEXT_PRIMARY: Color32 = GREY99;
+/// Running text beside a primary value: a dialog's subtitle, a row's state, an explanation.
+pub const TEXT_SECONDARY: Color32 = GREY_BLUE80;
 pub const TEXT_DIM: Color32 = GREY_BLUE70;
 pub const TEXT_LABEL: Color32 = GREY_BLUE60;
 pub const TEXT_POSITIVE: Color32 = Color32::from_rgb(0x69, 0xF0, 0xAE);
 pub const TEXT_NEGATIVE: Color32 = Color32::from_rgb(0xE6, 0x60, 0x60);
+/// Text that says something is still going wrong. Lighter than [`ACCENT`], which is loud enough to
+/// carry a title but too saturated to read as a sentence.
+pub const TEXT_WARNING: Color32 = AMBER70;
+/// The label of a destructive control, which is lifted off [`TEXT_NEGATIVE`] so it reads against
+/// the dark fill that control is drawn on.
+pub const TEXT_DANGER: Color32 = Color32::from_rgb(0xFF, 0x8A, 0x8A);
 pub const ACCENT: Color32 = AMBER60;
 
 /// The ring drawn around whatever holds keyboard focus.
@@ -91,6 +99,9 @@ pub const RESOURCE_MINERALS: Color32 = Color32::from_rgb(0x6C, 0xC6, 0xFF);
 pub const RESOURCE_GAS: Color32 = Color32::from_rgb(0x5A, 0xD6, 0x8A);
 pub const RESOURCE_SUPPLY: Color32 = GREY_BLUE80;
 
+/// The edge of a small outlined control over gameplay: a jump chip, a stepper end, a keycap.
+pub const CHIP_STROKE: Color32 = alpha(BLUE80, 0.25);
+
 // Interaction states. Both are drawn over whatever the control already painted, so one overlay
 // works for every fill the kit uses.
 pub const HOVER_OVERLAY: Color32 = Color32::from_rgba_unmultiplied_const(255, 255, 255, 15);
@@ -114,17 +125,39 @@ pub const TIER1_HEADER: Color32 = AMBER60;
 
 // Tier 2: modal chrome. It owns the screen, so it is allowed to glow.
 pub const TIER2_FILL_TOP: Color32 = alpha(Color32::from_rgb(18, 34, 74), 0.96);
-pub const TIER2_FILL_BOTTOM: Color32 = alpha(Color32::from_rgb(13, 22, 44), 0.96);
+pub const TIER2_FILL_BOTTOM: Color32 = alpha(Color32::from_rgb(13, 22, 44), 0.97);
 pub const TIER2_STROKE_INNER: Color32 = BLUE70;
 pub const TIER2_STROKE_OUTER: Color32 = alpha(BLUE60, 0.75);
 /// Distance between the inner and outer strokes of tier-2 chrome.
 pub const TIER2_STROKE_GAP: f32 = 3.0;
-/// Successive strokes outside the outer one, one point apart, standing in for a blur.
-pub const TIER2_GLOW: [Color32; 3] = [
-    alpha(BLUE60, 0.18),
-    alpha(BLUE60, 0.10),
-    alpha(BLUE60, 0.05),
+/// Successive strokes outside the outer one, one point apart, standing in for a blur. The design's
+/// glow spreads far enough that three rings read as a second edge rather than as a halo, so the
+/// falloff is spread over enough of them that no single ring is visible on its own.
+pub const TIER2_GLOW: [Color32; 8] = [
+    alpha(BLUE60, 0.16),
+    alpha(BLUE60, 0.13),
+    alpha(BLUE60, 0.105),
+    alpha(BLUE60, 0.08),
+    alpha(BLUE60, 0.058),
+    alpha(BLUE60, 0.040),
+    alpha(BLUE60, 0.025),
+    alpha(BLUE60, 0.013),
 ];
+/// Successive strokes just inside the chrome, standing in for the inset shadow that settles a
+/// dialog's fill away from its lit edge.
+pub const TIER2_INNER_SHADOW: [Color32; 6] = [
+    alpha(BLUE10, 0.22),
+    alpha(BLUE10, 0.18),
+    alpha(BLUE10, 0.14),
+    alpha(BLUE10, 0.10),
+    alpha(BLUE10, 0.06),
+    alpha(BLUE10, 0.03),
+];
+/// The fill of a boxed row inside a dialog: the dialog's own bottom shade, let through enough that
+/// the row reads as a well in the surface rather than as a card on top of it.
+pub const TIER2_ROW_FILL: Color32 = alpha(Color32::from_rgb(13, 22, 44), 0.70);
+/// The rule between a dialog's header, its body and its footer.
+pub const TIER2_DIVIDER: Color32 = alpha(BLUE70, 0.50);
 /// The halo a tier-2 control wears while it is the active one.
 pub const TIER2_ACTIVE_HALO: Color32 = alpha(BLUE60, 0.50);
 /// What a modal lays over the rest of the screen.

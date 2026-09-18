@@ -4,7 +4,8 @@ use egui::{
     Color32, CornerRadius, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, vec2,
 };
 
-use crate::colors::{AMBER95, BLUE10, BLUE70};
+use crate::colors::{AMBER95, BLUE10, BLUE20, BLUE70, BLUE80, GREY_BLUE60, GREY_BLUE95};
+
 use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::tiers::gradient_round_rect;
@@ -102,12 +103,12 @@ pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) 
         return response;
     }
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    let painter = ui.painter();
-    painter.rect_filled(rect, corner_radius, theme::alpha(BLUE10, 0.80));
-    painter.add(Shape::rect_stroke(
+    // An outline and nothing behind it: a row of these sits over live gameplay, and a row of filled
+    // boxes would be a band across the screen rather than a set of controls.
+    ui.painter().add(Shape::rect_stroke(
         rect,
         corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
+        Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
         StrokeKind::Inside,
     ));
     state_overlay(ui, &response, rect, corner_radius);
@@ -115,7 +116,7 @@ pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) 
     let color = if response.hovered() {
         theme::TEXT_PRIMARY
     } else {
-        theme::TEXT_DIM
+        spec.color
     };
     ui.painter()
         .galley(rect.center() - galley.size() * 0.5, galley, color);
@@ -184,6 +185,172 @@ fn paint_button_body(ui: &Ui, rect: Rect, variant: ButtonVariant, hovered: bool)
     }
 }
 
+/// How far inside a plate button's outer edge its inner one sits: one point of edge and two of
+/// gutter, which is what makes the pair read as a frame rather than as a doubled border.
+const PLATE_GUTTER: f32 = 3.0;
+
+/// The chrome of a button drawn as one rectangle just inside another.
+///
+/// The kit's other buttons take their colors from their tier; these take them from what the button
+/// does, because a screen of them is a list of choices of different weights: the one to take, the
+/// ones that are merely available, and the one that ends the game.
+#[derive(Clone, Copy)]
+pub struct ButtonPlate {
+    /// The stroke around the whole control.
+    pub outer: Color32,
+    /// The stroke just inside it, or `None` for a control drawn with a single edge.
+    pub inner: Option<Color32>,
+    pub fill: Color32,
+    pub label: Color32,
+    /// Rings outside the control standing in for a colored glow, which is how the one action a
+    /// screen wants taken is told apart from the ones beside it.
+    pub glow: Option<Color32>,
+}
+
+impl ButtonPlate {
+    /// The one action the screen wants taken.
+    pub fn primary() -> ButtonPlate {
+        ButtonPlate {
+            outer: BLUE80,
+            inner: Some(theme::alpha(BLUE80, 0.70)),
+            fill: theme::alpha(Color32::from_rgb(24, 44, 90), 0.60),
+            label: theme::ACCENT,
+            glow: Some(theme::alpha(crate::colors::BLUE60, 0.35)),
+        }
+    }
+
+    /// An action that is simply available.
+    pub fn standard() -> ButtonPlate {
+        ButtonPlate {
+            outer: theme::alpha(BLUE70, 0.70),
+            inner: Some(theme::alpha(BLUE70, 0.45)),
+            fill: theme::alpha(BLUE20, 0.50),
+            label: AMBER95,
+            glow: None,
+        }
+    }
+
+    /// An action that belongs to the game rather than to the overlay, and must not pull the eye
+    /// past the ones that do.
+    pub fn quiet() -> ButtonPlate {
+        ButtonPlate {
+            outer: theme::alpha(GREY_BLUE60, 0.55),
+            inner: Some(theme::alpha(GREY_BLUE60, 0.35)),
+            fill: theme::alpha(BLUE10, 0.45),
+            label: GREY_BLUE95,
+            glow: None,
+        }
+    }
+
+    /// An action that cannot be taken back.
+    pub fn destructive() -> ButtonPlate {
+        ButtonPlate {
+            outer: theme::alpha(theme::TEXT_NEGATIVE, 0.60),
+            inner: Some(theme::alpha(theme::TEXT_NEGATIVE, 0.35)),
+            fill: theme::alpha(BLUE10, 0.45),
+            label: theme::TEXT_DANGER,
+            glow: None,
+        }
+    }
+
+    /// A destructive action that has just become available, which has to be noticed on a screen the
+    /// player has already been reading for a while.
+    pub fn destructive_lit() -> ButtonPlate {
+        ButtonPlate {
+            outer: theme::alpha(theme::TEXT_NEGATIVE, 0.70),
+            inner: Some(theme::alpha(theme::TEXT_NEGATIVE, 0.40)),
+            glow: Some(theme::alpha(theme::TEXT_NEGATIVE, 0.25)),
+            ..ButtonPlate::destructive()
+        }
+    }
+
+    /// An action that is not available yet, drawn as the outline of the button it will become so
+    /// that nothing moves when it does.
+    pub fn locked() -> ButtonPlate {
+        ButtonPlate {
+            outer: theme::alpha(GREY_BLUE60, 0.40),
+            inner: None,
+            fill: Color32::TRANSPARENT,
+            label: theme::TEXT_LABEL,
+            glow: None,
+        }
+    }
+}
+
+/// A button of exactly `size` wearing `plate`'s chrome.
+///
+/// Sized by the caller rather than by its label: these come in stacks and rows where every button
+/// is the same width, and one that grew with a translated label would take the column apart. The
+/// caller brings the type style, since the size and tracking differ between a menu's stack and a
+/// single control in a row; the plate's own label color wins over the style's.
+pub fn plate_button(
+    ui: &mut Ui,
+    spec: &text::TextSpec,
+    label: &str,
+    size: Vec2,
+    plate: ButtonPlate,
+) -> Response {
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    paint_plate(ui, rect, plate, None);
+    state_overlay(ui, &response, rect, corner_radius);
+    focus_ring(ui, &response, rect, corner_radius);
+    let job = spec
+        .clone()
+        .with_color(plate.label)
+        .job_truncated(label, (size.x - PLATE_GUTTER * 2.0).max(0.0));
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    ui.painter()
+        .galley(rect.center() - galley.size() * 0.5, galley, plate.label);
+    response
+}
+
+/// Paints a plate's glow, fill and edges, filling `sweep` of its inner rect from the left where one
+/// is asked for.
+fn paint_plate(ui: &Ui, rect: Rect, plate: ButtonPlate, sweep: Option<(f32, Color32)>) {
+    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    let painter = ui.painter();
+    if let Some(glow) = plate.glow {
+        for (step, alpha) in [(1.0f32, 1.0f32), (2.0, 0.6), (3.0, 0.32), (4.0, 0.15)] {
+            painter.add(Shape::rect_stroke(
+                rect.expand(step),
+                corner_radius,
+                Stroke::new(theme::HAIRLINE, glow.gamma_multiply(alpha)),
+                StrokeKind::Outside,
+            ));
+        }
+    }
+    painter.rect_filled(rect, corner_radius, plate.fill);
+    let inner_rect = rect.shrink(PLATE_GUTTER);
+    let inner_radius = theme::radius(theme::RADIUS_TIGHT - 1);
+    if let Some((progress, color)) = sweep
+        && progress > 0.0
+    {
+        let mut swept = inner_rect;
+        swept.set_right(inner_rect.left() + inner_rect.width() * progress);
+        painter
+            .with_clip_rect(swept)
+            .rect_filled(inner_rect, inner_radius, color);
+    }
+    painter.add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, plate.outer),
+        StrokeKind::Inside,
+    ));
+    if let Some(inner) = plate.inner {
+        painter.add(Shape::rect_stroke(
+            inner_rect,
+            inner_radius,
+            Stroke::new(theme::HAIRLINE, inner),
+            StrokeKind::Inside,
+        ));
+    }
+}
+
 /// Where a hold-to-confirm button is in its gesture.
 #[derive(Clone, Copy, PartialEq)]
 pub enum HoldState {
@@ -200,12 +367,10 @@ pub enum HoldState {
 /// button, and letting go before it arrives unwinds it. That is the only way the kit offers a
 /// destructive action, because an overlay drawn over a live game cannot afford a misclick that
 /// drops a player.
-pub fn hold_to_confirm(ui: &mut Ui, label: &str) -> HoldState {
-    let spec = text::button_label(14.0).with_color(Color32::PLACEHOLDER);
+pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
+    let spec = text::button_label(14.0).with_color(theme::TEXT_DANGER);
     let galley = spec.galley(ui, label);
-    let width = (galley.size().x + theme::SPACE_XL * 2.0).max(140.0);
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(width, theme::HIT_DIALOG), Sense::click_and_drag());
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
 
     let held = response.is_pointer_button_down_on();
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
@@ -232,37 +397,17 @@ pub fn hold_to_confirm(ui: &mut Ui, label: &str) -> HoldState {
     }
 
     if ui.is_rect_visible(rect) {
-        let painter = ui.painter();
-        painter.add(gradient_round_rect(
+        let sweep = theme::TEXT_NEGATIVE.gamma_multiply(0.30);
+        paint_plate(
+            ui,
             rect,
-            corner_radius,
-            [theme::TIER2_FILL_TOP, theme::TIER2_FILL_BOTTOM],
-        ));
-        if progress > 0.0 {
-            let mut swept = rect;
-            swept.set_right(rect.left() + rect.width() * progress);
-            painter.with_clip_rect(swept).rect_filled(
-                rect,
-                corner_radius,
-                theme::TEXT_NEGATIVE.gamma_multiply(0.55),
-            );
-        }
-        painter.add(Shape::rect_stroke(
-            rect,
-            corner_radius,
-            Stroke::new(theme::HAIRLINE, theme::TEXT_NEGATIVE.gamma_multiply(0.85)),
-            StrokeKind::Inside,
-        ));
-        painter.add(Shape::rect_stroke(
-            rect.shrink(theme::TIER2_STROKE_GAP),
-            corner_radius,
-            Stroke::new(theme::HAIRLINE, theme::TEXT_NEGATIVE.gamma_multiply(0.35)),
-            StrokeKind::Inside,
-        ));
+            ButtonPlate::destructive(),
+            Some((progress, sweep)),
+        );
         state_overlay(ui, &response, rect, corner_radius);
         focus_ring(ui, &response, rect, corner_radius);
         let text_pos = rect.center() - galley.size() * 0.5;
-        ui.painter().galley(text_pos, galley, theme::TEXT_PRIMARY);
+        ui.painter().galley(text_pos, galley, spec.color);
     }
 
     // Neither the sweep nor its unwind has anything else asking for frames.
@@ -284,18 +429,17 @@ pub fn kbd(ui: &mut Ui, key: &str) -> Response {
     let spec = text::body(11.0, text::BodyWeight::Medium).with_color(theme::TEXT_DIM);
     let galley = spec.galley(ui, key);
     let size = vec2(
-        (galley.size().x + theme::SPACE_SM).max(20.0),
+        (galley.size().x + theme::SPACE_MD).max(20.0),
         galley.size().y + theme::SPACE_XS + 2.0,
     );
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
         let corner_radius = theme::radius(theme::RADIUS_CHIP);
         let painter = ui.painter();
-        painter.rect_filled(rect, corner_radius, theme::alpha(BLUE10, 0.80));
         painter.add(Shape::rect_stroke(
             rect,
             corner_radius,
-            Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
+            Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
             StrokeKind::Inside,
         ));
         painter.galley(rect.center() - galley.size() * 0.5, galley, theme::TEXT_DIM);

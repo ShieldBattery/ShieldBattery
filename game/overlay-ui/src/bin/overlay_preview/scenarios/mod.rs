@@ -284,6 +284,9 @@ pub fn render(
     for intent in output.intents {
         match intent {
             Intent::DropPlayer { slot } => outcome.disconnect_clicks.push(slot),
+            // Leaving a game is the host's to carry out; the preview has no game to leave, so it
+            // only reports that the hold completed.
+            Intent::AbandonGame => outcome.abandoned = true,
             Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
             // The fake replay answers these, the way the game answers them by moving its own clock.
             Intent::Seek(frame) => state.transport.seek_to(frame),
@@ -309,6 +312,8 @@ pub fn render(
 pub struct Outcome {
     /// Slots whose Drop button was clicked.
     pub disconnect_clicks: Vec<u8>,
+    /// Whether the player held the abandon control on the self-reconnecting notice down to the end.
+    pub abandoned: bool,
     /// Native dialogs the shell wants dismissed, because the surface standing in for one was closed.
     /// The game DLL drives the real dialog's return control; the preview closes the switch that
     /// stands in for it.

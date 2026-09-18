@@ -82,6 +82,10 @@ pub struct OverlayState {
     draw_layer: u16,
     dialog_debug_inspect_children: bool,
     was_loading: bool,
+    /// When this client's own relay link was first reported down, so the self-notice can say how
+    /// long it has been. The turn state reports only that the link is down, and a clock started
+    /// from the first frame that says so is the same clock either way.
+    self_link_lost_since: Option<Instant>,
 }
 
 struct UiRect {
@@ -148,6 +152,9 @@ pub struct BwVars {
     pub has_init_bw: bool,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,
+    /// The `players[]` index the local client is playing from, which is what decides whose side a
+    /// player is on and whose row the disconnect surface leaves out.
+    pub local_player_id: u8,
     /// The replay's own header numbers, and how playback is running, for the transport plate.
     /// `None` outside a replay, which is every mode the plate is not drawn in.
     pub replay: Option<ReplayVars>,
@@ -268,6 +275,7 @@ impl OverlayState {
             draw_layer: get_normal_draw_layer(),
             dialog_debug_inspect_children: false,
             was_loading: false,
+            self_link_lost_since: None,
             chat_history: None,
         }
     }
@@ -395,14 +403,32 @@ impl OverlayState {
             // `ui_active` is exactly "no BW menu is sitting on top of the game", which is when the
             // keyboard is BW's rather than ours.
             native_dialog_open: !self.ui_active,
+            game_seconds: transport::frames_to_seconds(
+                bw.game.frame_count(),
+                bw.replay
+                    .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
+            ),
         };
         // Keypresses arrive between frames and are decided against this, so it is refreshed even on
         // the frames the shell draws nothing on.
         self.shell.set_host(&host_frame);
         self.sync_native_dialogs();
         let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
-        let disconnect_view =
-            disconnect::build_disconnect_view(disconnect_status, users, Instant::now());
+        let now = Instant::now();
+        let self_lost = disconnect_status.self_state(now) != netcode_v2::SelfState::Healthy;
+        let self_since = match (self_lost, self.self_link_lost_since) {
+            (true, Some(since)) => Some(since),
+            (true, None) => Some(now),
+            (false, _) => None,
+        };
+        self.self_link_lost_since = self_since;
+        let disconnect_view = disconnect::build_disconnect_view(
+            disconnect_status,
+            users,
+            &self.disconnect_roster(bw, disconnect_status, now),
+            self_since.map_or(0, |since| now.saturating_duration_since(since).as_secs()),
+            now,
+        );
         let net_stats_view = net_stats.map(|status| netstat::build_netstat_view(status, users));
         // The log is built only while its modal is up, and lives beside the shell for the frame
         // rather than inside `self`: the render closure below takes `self` mutably, so a view it
@@ -833,7 +859,43 @@ impl OverlayState {
             Intent::SelectProduction { player_id, item } => {
                 self.select_production(player_id, item as usize)
             }
+            // Leaving the game is not something the overlay can ask of BW yet, so the request is
+            // recorded and nothing else happens: the player stays in a game they asked to leave,
+            // which is the honest behaviour until the host side of it exists.
+            Intent::AbandonGame => info!("Overlay: abandon requested"),
         }
+    }
+
+    /// The players of this game as the disconnect surface names them: everyone in a playing slot,
+    /// with the color they are on the map and whether they are on the local player's side.
+    ///
+    /// Built only for the frames the surface is actually up, because it reads eight slots out of
+    /// BW's own tables and clones a name for each of them.
+    fn disconnect_roster(
+        &self,
+        bw: &BwVars,
+        status: &DisconnectStatus,
+        now: Instant,
+    ) -> Vec<disconnect::RosterPlayer> {
+        if status.rows(now).is_empty() && status.self_state(now) == netcode_v2::SelfState::Healthy {
+            return Vec::new();
+        }
+        let teams = player_teams(bw);
+        let local = bw.local_player_id;
+        (0..8u8)
+            .filter(|&player_id| is_human_player(bw, player_id as usize))
+            .map(|player_id| disconnect::RosterPlayer {
+                name: stats::player_name(bw, player_id),
+                color: stats::player_color(bw, player_id),
+                // A side rather than a declared alliance: `player_teams` is the game's own team
+                // numbers where the game type has them and who has mutually allied whom where it
+                // does not, which is the only record a melee two-versus-two keeps of itself.
+                teammate: player_id != local
+                    && usize::from(local) < teams.len()
+                    && teams[usize::from(player_id)] == teams[usize::from(local)],
+                is_local: player_id == local,
+            })
+            .collect()
     }
 
     /// Shows or stops showing the game through a player's eyes.
@@ -1145,6 +1207,13 @@ fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<>
 /// observer.
 fn is_active_player(bw: &BwVars, player_id: usize) -> bool {
     unsafe { matches!((*bw.players.add(player_id)).player_type, 1 | 2) }
+}
+
+/// Whether this slot is a person rather than a computer or an empty one. The narrower of the two
+/// tests: a computer never loses a connection, so it is never one of the players a game is waiting
+/// on.
+fn is_human_player(bw: &BwVars, player_id: usize) -> bool {
+    unsafe { (*bw.players.add(player_id)).player_type == 2 }
 }
 
 /// Which side each of the game's eight slots is on.

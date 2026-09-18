@@ -78,6 +78,10 @@ const _: () = assert!(
 /// Text size of the idle-worker count, which is a footnote to the worker count beside it.
 const IDLE_SIZE: f32 = 12.0;
 
+/// Text size of the efficiency column, which carries a verdict rather than a quantity and so is set
+/// in the body face the rest of the overlay's judgements are.
+const EFFICIENCY_SIZE: f32 = 12.5;
+
 /// Gap between the worker count and the idle count.
 const IDLE_GAP: f32 = 6.0;
 
@@ -230,10 +234,14 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
     draw_workers(ui, cursor.take(WORKERS_WIDTH), player, alpha);
 
     cursor.skip(COLUMN_GAP);
+    // Efficiency is the one column that is a verdict rather than a count, so it is the one drawn
+    // in a color: a watcher scanning the panel reads whether a base is working before they read by
+    // how much.
     paint_text(
         ui,
         cursor.take(EFFICIENCY_WIDTH),
-        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+        &text::body(EFFICIENCY_SIZE, text::BodyWeight::Medium)
+            .with_color(theme::TEXT_POSITIVE.gamma_multiply(alpha)),
         &player.efficiency().to_string(),
         Align::RIGHT,
     );
@@ -262,8 +270,10 @@ fn draw_workers(ui: &Ui, rect: Rect, player: &EconomyPlayerView, alpha: f32) {
     paint_text(
         ui,
         cursor.take(IDLE_WIDTH),
+        // Amber rather than red: idle workers are a thing to fix, not a thing that has gone
+        // wrong, and the panel has a red of its own for numbers that have.
         &text::body(IDLE_SIZE, text::BodyWeight::Medium)
-            .with_color(theme::TEXT_NEGATIVE.gamma_multiply(alpha)),
+            .with_color(theme::TEXT_WARNING.gamma_multiply(alpha)),
         &tr_plural!(
             "observer.idleWorkers",
             player.idle_workers,

@@ -2862,6 +2862,7 @@ impl BwScr {
                     let statres_icons = self.statres_icons.resolve();
                     let cmdicons = self.cmdicons.resolve();
                     let replay_visions = self.replay_visions.resolve();
+                    let local_player_id = self.local_unique_player_id.resolve() as u8;
                     // The header is only a replay's, and it is only populated once one is running.
                     let replay = is_replay
                         .then(|| self.replay_header())
@@ -2949,6 +2950,7 @@ impl BwScr {
                                     has_init_bw,
                                     countdown_start,
                                     game_started,
+                                    local_player_id,
                                     replay,
                                 },
                                 apm,

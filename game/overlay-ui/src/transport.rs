@@ -4,8 +4,9 @@
 //! and in the host preview.
 //!
 //! The plate stands in for SC:R's own replay controls, so it sits where those sit — the right end
-//! of the console band — and is drawn at the kit's hero tier: it is the one surface in a replay the
-//! viewer reaches for on purpose, and it has to be findable without hunting.
+//! of the console band — in the kit's ambient chrome, with the play control the one filled thing
+//! on it: it is the surface a viewer reaches for on purpose, and the control they reach for most
+//! has to be findable without hunting.
 //!
 //! It has two forms of the same footprint. The **standard** one shows where the replay is and how
 //! long it runs, with a track to scrub along. The **spoiler-free** one withholds both, because the
@@ -21,7 +22,7 @@ use egui::{
     StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::BLUE10;
+use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle};
 use crate::kit::{motion, theme, tiers};
@@ -32,7 +33,7 @@ pub const PANEL_WIDTH: f32 = 324.0;
 
 /// How tall the plate is. Fixed rather than grown from its contents: both forms take the same
 /// footprint, so switching between them moves nothing on screen.
-pub const PANEL_HEIGHT: f32 = 122.0;
+pub const PANEL_HEIGHT: f32 = 114.0;
 
 /// How far the plate sits from the screen's right and bottom edges.
 const EDGE_MARGIN: f32 = 16.0;
@@ -41,14 +42,14 @@ const EDGE_MARGIN: f32 = 16.0;
 /// against the space left over, so no value or translation can move a control.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 
-/// Height of the row carrying the clocks and the speed stepper.
-const INFO_ROW: f32 = 34.0;
+/// Height of the row carrying the elapsed clock and the speed stepper.
+const INFO_ROW: f32 = 24.0;
 /// Height of the row carrying the scrub track, or what stands in for it.
-const TRACK_ROW: f32 = 20.0;
-/// Height of the row of jump chips.
-const CHIP_ROW: f32 = 34.0;
+const TRACK_ROW: f32 = 24.0;
+/// Height of the row carrying the jumps and the play control, which is the tallest thing on it.
+const CHIP_ROW: f32 = 30.0;
 /// Gap between two rows.
-const ROW_GAP: f32 = 7.0;
+const ROW_GAP: f32 = 8.0;
 
 /// The room inside the plate's chrome, vertically.
 const CONTENT_HEIGHT: f32 = INFO_ROW + ROW_GAP + TRACK_ROW + ROW_GAP + CHIP_ROW;
@@ -57,68 +58,68 @@ const CONTENT_HEIGHT: f32 = INFO_ROW + ROW_GAP + TRACK_ROW + ROW_GAP + CHIP_ROW;
 /// off the footprint both forms share. Checked where the heights are written.
 const _: () = assert!(CONTENT_HEIGHT + 20.0 == PANEL_HEIGHT);
 
-/// Width of the play/pause button.
-const PLAY_WIDTH: f32 = 30.0;
-/// Width of one clock. Wide enough for `1:05:30`, so an hour-long replay does not widen the row.
-const CLOCK_WIDTH: f32 = 52.0;
-/// Text size of a clock.
-const CLOCK_SIZE: f32 = 19.0;
-/// Width of one speed stepper button.
-const STEP_WIDTH: f32 = 26.0;
-/// Width of the tag holding the current speed step.
-const SPEED_TAG_WIDTH: f32 = 44.0;
-/// Width of the button that hides the length.
-const EYE_WIDTH: f32 = 26.0;
+/// The play/pause control, which is the one filled thing on the plate and the only one a viewer
+/// reaches for without aiming.
+const PLAY_SIZE: Vec2 = Vec2::new(42.0, 30.0);
+/// Width of the elapsed clock's column. Wide enough for `1:05:30`, so an hour-long replay does not
+/// widen the row.
+const CLOCK_WIDTH: f32 = 62.0;
+/// Text size of the elapsed clock, which is read all the way through a replay.
+const CLOCK_SIZE: f32 = 20.0;
+/// Width of the column holding the replay's length, and the size that number is set at: it is read
+/// once, where the elapsed clock is read continuously.
+const LENGTH_WIDTH: f32 = 46.0;
+const LENGTH_SIZE: f32 = 13.0;
+/// Side of one square control: an end of the speed stepper, or the eye.
+const BOX_SIZE: f32 = 24.0;
+/// Width of the column holding the rung playback is on, and the size it is set at.
+const SPEED_WIDTH: f32 = 28.0;
+const SPEED_SIZE: f32 = 17.0;
 /// Width of the tag that says playback is stopped.
-const PAUSED_TAG_WIDTH: f32 = 76.0;
-/// Height of a status tag, which sits centred in its row rather than filling it: a chip the height
-/// of the controls beside it would read as another control.
-const TAG_HEIGHT: f32 = 22.0;
+const PAUSED_TAG_WIDTH: f32 = 56.0;
 /// Width of the button that puts the length back on screen.
-const REVEAL_WIDTH: f32 = 76.0;
-/// Gap between a stepper button and the step it moves.
-const STEP_GAP: f32 = 4.0;
-/// Gap between two controls that belong to each other.
-const TIGHT_GAP: f32 = 6.0;
-/// Gap between two groups in a row.
-const GROUP_GAP: f32 = 10.0;
+const REVEAL_WIDTH: f32 = 62.0;
+/// Height of a status tag or of an inline button on the track row, which sit centred in their row
+/// rather than filling it: either the height of the controls beside them would read as another
+/// control.
+const TAG_HEIGHT: f32 = 20.0;
+/// Gap between two things sharing a row.
+const ITEM_GAP: f32 = 8.0;
 
-/// Width of the whole speed stepper: one step down, the current step, one step up.
-const STEPPER_WIDTH: f32 = STEP_WIDTH * 2.0 + SPEED_TAG_WIDTH + STEP_GAP * 2.0;
+/// Width of the whole speed stepper: one step down, the rung it is on, one step up.
+const STEPPER_WIDTH: f32 = BOX_SIZE * 2.0 + SPEED_WIDTH + ITEM_GAP * 2.0;
 
-/// What the standard form's info row spends: the play control, the elapsed clock, the stepper, the
-/// length and the eye, with a gap between each. Checked where the widths are written, because a row
-/// that overran would widen the plate and take the two forms apart.
-const _: () = assert!(
-    PLAY_WIDTH
-        + TIGHT_GAP
-        + CLOCK_WIDTH
-        + GROUP_GAP
-        + STEPPER_WIDTH
-        + GROUP_GAP
-        + CLOCK_WIDTH
-        + GROUP_GAP
-        + EYE_WIDTH
-        == CONTENT_WIDTH
-);
+/// What the standard form's info row spends on the two ends it pins its contents to, the rest being
+/// the slack between them. Checked where the widths are written, because a row that overran would
+/// widen the plate and take the two forms apart.
+const _: () = assert!(CLOCK_WIDTH + STEPPER_WIDTH < CONTENT_WIDTH);
 
-/// What the spoiler-free form puts between the stepper and its paused tag, being the room the
-/// standard form spends on the length and the eye.
-const SPOILER_GAP: f32 = CONTENT_WIDTH
-    - (PLAY_WIDTH + TIGHT_GAP + CLOCK_WIDTH + GROUP_GAP + STEPPER_WIDTH + PAUSED_TAG_WIDTH);
+/// What the spoiler-free form adds to that row: the tag saying playback is stopped.
+const _: () = assert!(CLOCK_WIDTH + ITEM_GAP + PAUSED_TAG_WIDTH + STEPPER_WIDTH < CONTENT_WIDTH);
 
-/// Gap between two jump chips.
-const CHIP_GAP: f32 = 4.0;
-/// Width of one jump chip, the row being exactly as wide as the plate's contents.
-const CHIP_WIDTH: f32 = (CONTENT_WIDTH - CHIP_GAP * 5.0) / 6.0;
+/// How wide the scrub track is, being the track row less the length and the eye beside it.
+const TRACK_WIDTH: f32 = CONTENT_WIDTH - LENGTH_WIDTH - BOX_SIZE - ITEM_GAP * 2.0;
 
-/// Text size of a jump chip's label.
-const CHIP_SIZE: f32 = 13.0;
+/// How wide the spoiler-free form's own label runs before the button that undoes it.
+const HIDDEN_LABEL_WIDTH: f32 = CONTENT_WIDTH - REVEAL_WIDTH - ITEM_GAP;
+
+/// Gap between two jump chips, and between the innermost of them and the play control.
+const CHIP_GAP: f32 = 5.0;
+/// Height of a jump chip, which sits centred in the taller row the play control sets.
+const CHIP_HEIGHT: f32 = 28.0;
 
 /// How far each jump chip moves the playhead, in seconds, left to right.
 pub const JUMP_STEPS: [i32; 6] = [-300, -60, -10, 10, 60, 300];
 
-/// The jump row is six chips wide, and the chips are sized from that. Checked where either changes.
+/// Width of one jump chip, the row being exactly as wide as the plate's contents: six of them and
+/// the play control they sit around, with a gap between each.
+const CHIP_WIDTH: f32 = (CONTENT_WIDTH - PLAY_SIZE.x - CHIP_GAP * 6.0) / 6.0;
+
+/// Text size of a jump chip's label.
+const CHIP_SIZE: f32 = 10.5;
+
+/// The jump row is six chips around one play control, and the chips are sized from that. Checked
+/// where either changes.
 const _: () = assert!(JUMP_STEPS.len() == 6);
 
 /// How far the seek keys move the playhead, in seconds.
@@ -376,7 +377,7 @@ pub fn render_transport_view(
         .anchor(Align2::RIGHT_BOTTOM, vec2(-EDGE_MARGIN, -EDGE_MARGIN))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        tiers::tier1_panel(ui, theme::radius(theme::RADIUS_PANEL), |ui| {
+        tiers::tier0_panel(ui, |ui| {
             ui.set_width(CONTENT_WIDTH);
             draw_plate(ui, view)
         })
@@ -398,11 +399,11 @@ fn draw_plate(ui: &mut Ui, view: &TransportView) -> TransportOutcome {
         if view.spoiler_free {
             draw_hidden_length(ui, &mut outcome);
         } else {
-            draw_track(ui, view, &mut outcome);
+            draw_track_row(ui, view, &mut outcome);
         }
     });
     ui.add_space(ROW_GAP);
-    row(ui, CHIP_ROW, |ui| draw_jump_chips(ui, view, &mut outcome));
+    row(ui, CHIP_ROW, |ui| draw_jump_row(ui, view, &mut outcome));
     outcome
 }
 
@@ -419,43 +420,40 @@ fn row(ui: &mut Ui, height: f32, add: impl FnOnce(&mut Ui)) {
     );
 }
 
-/// The row that says where playback is and how fast it is running: the play control, the elapsed
-/// clock, the speed stepper, and then either the replay's length or the fact that it is withheld.
+/// The row that says where playback is and how fast it is running: the elapsed clock at one end and
+/// the speed stepper at the other, with the spoiler-free form's stopped tag beside the clock.
 fn draw_info_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
-    if play_pause_button(ui, view.paused).clicked() {
-        outcome.paused = Some(!view.paused);
-    }
-    ui.add_space(TIGHT_GAP);
     clock(
         ui,
         view.elapsed_frames,
         view.game_speed,
+        CLOCK_SIZE,
+        CLOCK_WIDTH,
         theme::TEXT_PRIMARY,
     );
-    ui.add_space(GROUP_GAP);
-    draw_speed_stepper(ui, view, outcome);
+    let mut slack = CONTENT_WIDTH - CLOCK_WIDTH - STEPPER_WIDTH;
     if view.spoiler_free {
-        ui.add_space(SPOILER_GAP);
+        ui.add_space(ITEM_GAP);
+        // The slot is spent whether or not playback is stopped, so starting and stopping it does
+        // not slide the stepper along the row.
         if view.paused {
             widgets::tag_exact(
                 ui,
-                &text::column_label(),
+                &small_label(),
                 &tr!("transport.paused", "Paused"),
                 TagStyle::Amber,
                 vec2(PAUSED_TAG_WIDTH, TAG_HEIGHT),
             );
+        } else {
+            ui.allocate_exact_size(vec2(PAUSED_TAG_WIDTH, TAG_HEIGHT), Sense::hover());
         }
-        return;
+        slack -= ITEM_GAP + PAUSED_TAG_WIDTH;
     }
-    ui.add_space(GROUP_GAP);
-    clock(ui, view.end_frames, view.game_speed, theme::TEXT_DIM);
-    ui.add_space(GROUP_GAP);
-    if eye_button(ui).clicked() {
-        outcome.spoiler_free = Some(true);
-    }
+    ui.add_space(slack);
+    draw_speed_stepper(ui, view, outcome);
 }
 
-/// The speed stepper: one step down, the step playback is on, one step up.
+/// The speed stepper: one step down, the rung playback is on, one step up.
 fn draw_speed_stepper(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
     let step = view.step();
     // Arithmetic signs rather than words: every language writes them the same way, and a stepper
@@ -463,25 +461,39 @@ fn draw_speed_stepper(ui: &mut Ui, view: &TransportView, outcome: &mut Transport
     if stepper_button(ui, "\u{2212}").clicked() {
         outcome.speed = Some(step_speed(view.speed_index, view.multiplier, -1));
     }
-    ui.add_space(STEP_GAP);
-    widgets::tag_exact(
+    ui.add_space(ITEM_GAP);
+    widgets::text_cell(
         ui,
-        &text::numeral(14.0),
+        &text::numeral(SPEED_SIZE),
         &tr!("transport.speed", "\u{d7}{{rate}}", rate = step.label),
-        TagStyle::Amber,
-        vec2(SPEED_TAG_WIDTH, INFO_ROW),
+        vec2(SPEED_WIDTH, INFO_ROW),
+        Align::Center,
     );
-    ui.add_space(STEP_GAP);
+    ui.add_space(ITEM_GAP);
     if stepper_button(ui, "+").clicked() {
         outcome.speed = Some(step_speed(view.speed_index, view.multiplier, 1));
     }
 }
 
-/// The scrub track, which a click or a drag anywhere along asks to move to.
-fn draw_track(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
-    let track = widgets::scrub_track(ui, view.progress());
+/// The track row of the standard form: where the replay is, how long it runs, and the one click
+/// that stops saying so.
+fn draw_track_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
+    let track = widgets::scrub_track(ui, view.progress(), vec2(TRACK_WIDTH, TRACK_ROW));
     if let Some(target) = track.target {
         outcome.seek_to = Some(view.seek_fraction(target));
+    }
+    ui.add_space(ITEM_GAP);
+    clock(
+        ui,
+        view.end_frames,
+        view.game_speed,
+        LENGTH_SIZE,
+        LENGTH_WIDTH,
+        theme::TEXT_DIM,
+    );
+    ui.add_space(ITEM_GAP);
+    if eye_button(ui).clicked() {
+        outcome.spoiler_free = Some(true);
     }
 }
 
@@ -489,37 +501,45 @@ fn draw_track(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome)
 /// click that brings it back. A click and never a hover, because a pointer crossing the plate on
 /// its way somewhere else must not spoil the game the viewer asked not to be told about.
 fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome) {
-    let label_width = CONTENT_WIDTH - REVEAL_WIDTH - GROUP_GAP;
     widgets::text_cell(
         ui,
-        &text::column_label(),
+        &small_label().with_color(theme::TEXT_DIM),
         &tr!("transport.lengthHidden", "Length hidden"),
-        vec2(label_width, TRACK_ROW),
+        vec2(HIDDEN_LABEL_WIDTH, TRACK_ROW),
         Align::LEFT,
     );
-    ui.add_space(GROUP_GAP);
+    ui.add_space(ITEM_GAP);
     let reveal = widgets::chip_button(
         ui,
-        &text::button_label(11.0),
+        &small_label(),
         &tr!("transport.reveal", "Reveal"),
-        vec2(REVEAL_WIDTH, TRACK_ROW),
+        vec2(REVEAL_WIDTH, TAG_HEIGHT + 4.0),
     );
     if reveal.clicked() {
         outcome.spoiler_free = Some(false);
     }
 }
 
-/// The row of fixed jumps, which is how a viewer moves through a replay without aiming at a track.
-fn draw_jump_chips(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
+/// The row of fixed jumps around the play control, which is how a viewer moves through a replay
+/// without aiming at a track.
+fn draw_jump_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
     // Set in the body face rather than the numeral one, which every other number here uses: a jump
     // step is a signed label, and the condensed face draws its plus small and high above its minus,
     // which would leave the six chips reading as two different rows.
-    let spec = text::body(CHIP_SIZE, BodyWeight::Medium).with_color(theme::TEXT_DIM);
+    let spec = text::body(CHIP_SIZE, BodyWeight::Semibold).with_color(theme::TEXT_SECONDARY);
+    let half = JUMP_STEPS.len() / 2;
     for (index, delta) in JUMP_STEPS.into_iter().enumerate() {
         if index > 0 {
             ui.add_space(CHIP_GAP);
         }
-        let chip = widgets::chip_button(ui, &spec, &jump_label(delta), vec2(CHIP_WIDTH, CHIP_ROW));
+        if index == half {
+            if play_pause_button(ui, view.paused).clicked() {
+                outcome.paused = Some(!view.paused);
+            }
+            ui.add_space(CHIP_GAP);
+        }
+        let chip =
+            widgets::chip_button(ui, &spec, &jump_label(delta), vec2(CHIP_WIDTH, CHIP_HEIGHT));
         if chip.clicked() {
             outcome.seek_to = Some(view.seek_target(delta));
         }
@@ -546,14 +566,20 @@ fn jump_label(delta_secs: i32) -> String {
 }
 
 /// One clock, in its own fixed column so a replay crossing an hour moves nothing beside it.
-fn clock(ui: &mut Ui, frames: u32, game_speed: u8, color: Color32) {
+fn clock(ui: &mut Ui, frames: u32, game_speed: u8, size: f32, width: f32, color: Color32) {
     widgets::text_cell(
         ui,
-        &text::numeral(CLOCK_SIZE).with_color(color),
+        &text::numeral(size).with_color(color),
         &clock_text(frames_to_seconds(frames, game_speed)),
-        vec2(CLOCK_WIDTH, INFO_ROW),
+        vec2(width, TRACK_ROW),
         Align::LEFT,
     );
+}
+
+/// The small capitals the plate's own words are set in, which is every word on it: it is a plate of
+/// numbers, and a label here is telling the viewer what a number means.
+fn small_label() -> text::TextSpec {
+    text::column_label().with_color(theme::TEXT_SECONDARY)
 }
 
 /// Seconds as a game clock reads them, growing an hours field only once there is one.
@@ -571,32 +597,36 @@ fn clock_text(seconds: u64) -> String {
 fn stepper_button(ui: &mut Ui, sign: &str) -> Response {
     widgets::chip_button(
         ui,
-        &text::body(15.0, BodyWeight::Medium).with_color(theme::TEXT_DIM),
+        &text::body(15.0, BodyWeight::Regular).with_color(theme::TEXT_SECONDARY),
         sign,
-        vec2(STEP_WIDTH, INFO_ROW),
+        vec2(BOX_SIZE, BOX_SIZE),
     )
 }
 
 /// The control that stops and starts playback, drawn rather than typed so no font has to carry the
 /// glyphs. It shows what a click would do: a triangle while playback is stopped, two bars while it
-/// is running.
+/// is running. Filled rather than outlined, because it is the one control on the plate a viewer
+/// reaches for without looking.
 fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(PLAY_WIDTH, INFO_ROW), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(PLAY_SIZE, Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
     }
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter()
-        .rect_filled(rect, corner_radius, theme::alpha(BLUE10, 0.80));
-    ui.painter().add(Shape::rect_stroke(
-        rect,
-        corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::TIER0_STROKE),
-        StrokeKind::Inside,
+    ui.painter().rect_filled(rect, corner_radius, BLUE60);
+    // A light line just inside the top edge, which is what keeps a filled control from reading as a
+    // flat patch of color.
+    ui.painter().add(Shape::line_segment(
+        [
+            pos2(rect.left() + 2.0, rect.top() + theme::HAIRLINE * 0.5),
+            pos2(rect.right() - 2.0, rect.top() + theme::HAIRLINE * 0.5),
+        ],
+        Stroke::new(theme::HAIRLINE, theme::alpha(BLUE80, 0.35)),
     ));
     widgets::state_overlay(ui, &response, rect, corner_radius);
     widgets::focus_ring(ui, &response, rect, corner_radius);
     let centre = rect.center();
+    let glyph = theme::TEXT_PRIMARY;
     if paused {
         // Optically centred rather than geometrically: a triangle's mass sits behind its point, so
         // a centred bounding box reads as pushed to the right.
@@ -608,7 +638,7 @@ fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
                 pos2(left + half * 1.8, centre.y),
                 pos2(left, centre.y + half),
             ],
-            theme::ACCENT,
+            glyph,
             Stroke::NONE,
         ));
     } else {
@@ -616,7 +646,7 @@ fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
             ui.painter().rect_filled(
                 Rect::from_center_size(pos2(centre.x + offset, centre.y), vec2(3.0, 12.0)),
                 theme::radius(1),
-                theme::ACCENT,
+                glyph,
             );
         }
     }
@@ -625,16 +655,23 @@ fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
 
 /// The control that hides the length, drawn as the eye it switches off.
 fn eye_button(ui: &mut Ui) -> Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(EYE_WIDTH, INFO_ROW), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(BOX_SIZE, BOX_SIZE), Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
     }
-    widgets::state_overlay(ui, &response, rect, theme::radius(theme::RADIUS_CHIP));
-    widgets::focus_ring(ui, &response, rect, theme::radius(theme::RADIUS_CHIP));
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter().add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::alpha(BLUE80, 0.25)),
+        StrokeKind::Inside,
+    ));
+    widgets::state_overlay(ui, &response, rect, corner_radius);
+    widgets::focus_ring(ui, &response, rect, corner_radius);
     let color = if response.hovered() {
         theme::TEXT_PRIMARY
     } else {
-        theme::TEXT_DIM
+        theme::TEXT_SECONDARY
     };
     let centre = rect.center();
     let (half_width, half_height) = (9.0f32, 5.0f32);

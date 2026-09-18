@@ -31,25 +31,26 @@ const WING_GAP: f32 = 8.0;
 pub const BAR_HEIGHT: f32 = 26.0;
 
 /// Padding between the bar's chrome and its contents.
-const PADDING: f32 = 10.0;
+const PADDING: f32 = 14.0;
 
 /// Width the bar's own label is laid out in.
 const LABEL_WIDTH: f32 = 92.0;
 
 /// Gap between the label and the first percentage.
-const LABEL_GAP: f32 = 10.0;
+const LABEL_GAP: f32 = 12.0;
 
 /// Width one side's percentage is laid out in.
 const PERCENT_WIDTH: f32 = 40.0;
 
 /// Gap between a percentage and the bar it belongs to.
-const PERCENT_GAP: f32 = 8.0;
+const PERCENT_GAP: f32 = 12.0;
 
 /// Height of the share bar itself, which the kit draws.
-const SHARE_HEIGHT: f32 = 10.0;
+const SHARE_HEIGHT: f32 = 7.0;
 
-/// Text size of the percentages.
-const PERCENT_SIZE: f32 = 14.0;
+/// Text size of the percentages, which are set in the body face rather than the numeral one: a
+/// percentage is a verdict about the map rather than a quantity counted off it.
+const PERCENT_SIZE: f32 = 13.0;
 
 /// What everything but the share itself takes of the bar.
 const CHROME_WIDTH: f32 =
@@ -163,7 +164,7 @@ fn paint_share(ui: &Ui, rect: Rect, side: MapControlSideView, align: Align) {
     paint_text(
         ui,
         rect,
-        &text::numeral(PERCENT_SIZE).with_color(side.color),
+        &text::body(PERCENT_SIZE, text::BodyWeight::Semibold).with_color(side.color),
         &side.percent(),
         align,
     );

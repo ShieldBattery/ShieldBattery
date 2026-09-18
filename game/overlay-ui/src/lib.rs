@@ -23,6 +23,7 @@ pub mod chat_history;
 pub mod colors;
 pub mod disconnect;
 pub mod fonts;
+pub mod game_menu;
 pub mod i18n;
 pub mod kit;
 pub mod netstat;

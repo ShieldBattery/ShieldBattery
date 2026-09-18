@@ -4,7 +4,8 @@ The presentation layer for ShieldBattery's in-game overlays, plus a native host 
 without launching StarCraft.
 
 The **library** is what the injected game DLL links against: view-model types and pure egui render
-functions over plain data (`disconnect`, `netstat`, `chat_history`, `transport`, `observer`), the
+functions over plain data (`disconnect`, `game_menu`, `netstat`, `chat_history`, `transport`,
+`observer`), the
 color ramps
 (`colors`), the
 font families (`fonts`), `install_fonts_and_style`, which installs the overlay's faces and base style
@@ -73,20 +74,20 @@ conspicuously plain. Offline renders include one pseudolocale pass per translate
 
 ## The kit
 
-| Module         | What lives there                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kit::theme`   | Every token: colors per tier, text colors, player colors, spacing, radii, hit targets, motion durations, interaction overlays. One unit of the design is one egui point, so these are plain point values — never scale them again.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                                                                                                                                                           |
-| `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, glowing title), plus the `gradient_round_rect` and chrome shapes they are built from.                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, `paint_resource_glyph` (the mineral / gas / supply glyphs, drawn from paths so they render in a host that cannot reach BW's icon atlases), and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
+| Module         | What lives there                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kit::theme`   | Every token: colors per tier, text colors, player colors, spacing, radii, hit targets, motion durations, interaction overlays. One unit of the design is one egui point, so these are plain point values — never scale them again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, inset shadow), plus the `gradient_round_rect` and chrome shapes they are built from. A dialog is a stack of bands rather than one padded box — `dialog_header` (ruled off below it), `dialog_body` and `dialog_footer` — so every dialog wears the same padding, and `dialog_content_width` / `dialog_outer_width` convert between the chrome and the room inside it. `dialog_title` paints the glowing title wherever the caller's layout puts it.                                                                                                                                                                                                                                                             |
+| `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `plate_button` with its `ButtonPlate` (the double-rect button a modal's stack of choices is built from: primary, standard, quiet, destructive, destructive-lit, locked), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `status_dot`, `pulsing_dots`, `centered_paragraph`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, `paint_resource_glyph` (the mineral / gas / supply glyphs, drawn from paths so they render in a host that cannot reach BW's icon atlases), and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
 
 ## The shell
 
 `shell::Shell` is the state machine above the screens, and both hosts drive it once per frame:
 `shell.frame(ctx, &HostFrame, &mut Views) -> FrameOutput`. `HostFrame` is what the host knows about
 the game (the `Mode` the client is watching from, whether the game has started, whether BW's chat box
-is open, whether one of BW's own dialogs is on top); `Views` holds the view-models the host built
+is open, whether one of BW's own dialogs is on top, how far into the game the simulation has got); `Views` holds the view-models the host built
 this frame; `FrameOutput` carries the intents the shell wants carried out, the screen rects it owns
 and the input capture it has taken. A rect is a `HitRect` rather than a bare one, because a surface
 that scrolls has to ask for the mouse wheel as well as the pointer: the wheel is the game's by
@@ -104,7 +105,8 @@ move.
 A frame has three layers, drawn so each covers the one before it. **Ambient** (tier 0/1) panels sit
 over live gameplay; the observer panel set belongs to `Observing`/`Replay`, while the `/netstat`
 diagnostic panel is deliberately available in every mode, since only an explicit chat command puts it
-on screen. **Hero** (tier 1) carries the match's identity — the replay transport plate lives here.
+on screen. **Hero** carries the match's identity, and the replay transport plate is drawn in it — at the
+ambient tier's own chrome, since the plate sits in the corner of a live game rather than over it.
 **Modal** (tier 2) is a stack, of which only the top is drawn.
 
 **The observer panels** (`observer`) are what a watcher is told about a game they are not playing,
@@ -206,6 +208,20 @@ straight through however modal the screen is. And typed _characters_ are never p
 all: SC:R opens and submits its chat box from the Enter character rather than from a virtual key, so
 swallowing characters while the box is closed would swallow the keystroke that opens it and the box
 could never be reported open again. `Key::Enter` is let through for the same reason.
+
+**The disconnect surface** (`disconnect`) has two forms of one view-model. While this client's own
+link is fine it is the game's whole roster, one boxed row per other player: a dot and the player's
+own color, their name, whether they are a teammate, what their connection is doing, and — for a
+player the simulation is waiting on — the manual drop, outlined and inert until the relay would
+honor it and lit red after. Everyone is listed, not only the players in trouble, because a list of
+two names says nothing about how much of the game is still there. When our own link is the one that
+is down there is nothing to report about anyone else, and the dialog becomes a single notice: how
+long the attempt has been running, and the hold that gives up on it (`Intent::AbandonGame`, which no
+host carries out yet).
+
+**The in-game menu** (`game_menu`) stands in for SC:R's own: the wordmark and the game's clock over
+the stack of things that can be done from here. Only _return to game_ reports itself today; the rest
+are drawn because a menu missing half its entries is not the menu it replaces.
 
 A modal the game's own state raises (the disconnect surface) is not dismissible — it is up exactly
 while its condition holds — and takes input only once the connection problem is real: a passing stall
@@ -337,7 +353,8 @@ defaults independently, so a file written by an older build still loads.
 
 **Emulated host** — everything the shell reads off the game, as switches: the mode (playing /
 observing / replay), whether the game has started, whether BW's chat box is open, whether one of BW's
-own dialogs is on top. Under them, one row per registry entry with **spawn** and **close** buttons,
+own dialogs is on top, and how far into the game the simulation is (a knob rather than a clock, so an
+offline render of the menu is the same image every time). Under them, one row per registry entry with **spawn** and **close** buttons,
 which is exactly what the DLL's dialog hook reports after hiding a dialog — so the modal a
 replacement raises, the `Esc` that dismisses it and the close it asks for in return can all be walked
 through here. The panel checkboxes and the hotkey listing show what `PanelPrefs` currently holds;
@@ -348,7 +365,8 @@ being the game's is visible.
 **Scenario** — exactly one overlay is up at a time, matching the game. Each scenario builds the
 view-models and the shell draws them, so what is on screen here is composed the way the game composes
 it. Each has one-click presets and then per-field knobs: the disconnect overlay's rows (add/remove,
-name, tier, elapsed seconds, drop unlocked/requested), its self-reconnecting notice, whether the
+name, state, player color, teammate, elapsed seconds, drop unlocked/requested), its
+self-reconnecting notice and how long that link has been down, whether the
 problem is real enough to take the player's input, and a live counter tick; the network stats
 overlay's identity header, per-slot rows, history strip shapes and event ticker. The **shell**
 scenario has no screen of its own: it is a frame for walking the modal stack and the capture policy,
