@@ -30,7 +30,7 @@ In Claude Code, from the repo root:
 /translate-i18n ko
 ```
 
-…or just ask: *"translate the missing Korean strings"* / *"check if any translations are stale"*. The
+…or just ask: _"translate the missing Korean strings"_ / _"check if any translations are stale"_. The
 agent will find what's missing, gather context (including web research for community terminology when
 needed), translate with the glossary and the right plural forms, validate, apply, prune dead keys, and
 verify the file is clean. One language at a time.
@@ -62,17 +62,18 @@ are useful on their own (e.g. in CI).
 
 Run from the repo root.
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm run i18n status` | Per-language counts of strings still to translate / prune |
-| `pnpm run i18n plan <lang> [outFile]` | Write the list of missing strings to translate |
-| `pnpm run i18n apply <lang> <resultFile>` | Validate + merge translations for **missing** keys |
-| `pnpm run i18n fix <lang> <resultFile>` | Validate + overwrite **existing** translations (quality/register fixes) |
-| `pnpm run i18n terms <lang> <query>` | Look up Blizzard-matched glossary terms |
-| `pnpm run i18n stale [lang] [outFile]` | Find translations whose English source changed (`--since <ref>`) |
-| `pnpm run i18n prune <lang>` | Delete orphaned keys no longer present in `en` |
-| `pnpm run i18n normalize <lang>` | Reformat a file (indent/sort) to match the extractor, no content change |
-| `pnpm run i18n check <lang>` | Read-only audit: remaining work, orphans, plurals, placeholder drift, format |
+| Command                                   | Purpose                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `pnpm run i18n --ns game <command>`       | Run any command on the in-game UI's `game.json` namespace instead of the app's `global.json` |
+| `pnpm run i18n status`                    | Per-language counts of strings still to translate / prune                                    |
+| `pnpm run i18n plan <lang> [outFile]`     | Write the list of missing strings to translate                                               |
+| `pnpm run i18n apply <lang> <resultFile>` | Validate + merge translations for **missing** keys                                           |
+| `pnpm run i18n fix <lang> <resultFile>`   | Validate + overwrite **existing** translations (quality/register fixes)                      |
+| `pnpm run i18n terms <lang> <query>`      | Look up Blizzard-matched glossary terms                                                      |
+| `pnpm run i18n stale [lang] [outFile]`    | Find translations whose English source changed (`--since <ref>`)                             |
+| `pnpm run i18n prune <lang>`              | Delete orphaned keys no longer present in `en`                                               |
+| `pnpm run i18n normalize <lang>`          | Reformat a file (indent/sort) to match the extractor, no content change                      |
+| `pnpm run i18n check <lang>`              | Read-only audit: remaining work, orphans, plurals, placeholder drift, format                 |
 
 The deeper step-by-step workflow lives in the skill itself:
 [SKILL.md](../.claude/skills/translate-i18n/SKILL.md).
@@ -111,8 +112,8 @@ it's good to understand):
 
 ## Reviewing & contributing
 
-The tooling guarantees translations are *structurally* correct (placeholders, plurals, completeness)
-and *consistent*, but it can't judge whether a phrase reads naturally to a native speaker — that's
+The tooling guarantees translations are _structurally_ correct (placeholders, plurals, completeness)
+and _consistent_, but it can't judge whether a phrase reads naturally to a native speaker — that's
 where you come in.
 
 - Spotted a translation that's wrong, stiff, or just not what your community says? Tell us on

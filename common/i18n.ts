@@ -16,11 +16,13 @@ export const ALL_TRANSLATION_LANGUAGES: ReadonlyArray<TranslationLanguage> =
   Object.values(TranslationLanguage)
 
 /**
- * A string representation of all the namespaces we're using for our translation files. Currently
- * we're not using different namespaces so we just define a default one.
+ * A string representation of all the namespaces we're using for our translation files. `global`
+ * holds the app's strings; `game` holds the in-game UI's strings, which live in the Rust game DLL
+ * and are embedded into it at build time rather than loaded by the client.
  */
 export enum TranslationNamespace {
   Global = 'global',
+  Game = 'game',
 }
 
 export const ALL_TRANSLATION_NAMESPACES: ReadonlyArray<TranslationNamespace> =
