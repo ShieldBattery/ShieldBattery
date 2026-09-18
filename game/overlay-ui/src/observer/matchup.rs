@@ -138,6 +138,9 @@ const NAME_SIZE: f32 = 19.0;
 /// Text size of every number on the bar.
 const VALUE_SIZE: f32 = 24.0;
 
+/// How much of a supply count's size its cap is set at.
+const SUPPLY_CAP_RATIO: f32 = 0.71;
+
 /// Type sizes on a stacked row, which has to fit two of itself in not much more than one row's
 /// height.
 const STACKED_NAME_SIZE: f32 = 16.0;
@@ -433,7 +436,21 @@ fn rows_of(half: Rect, count: usize) -> Vec<Rect> {
 }
 
 /// Draws the middle block: the clock, and the tag saying whether this game is happening now.
+///
+/// The block is walled off from the halves on either side of it and sits a shade darker than they
+/// do, so the one number that belongs to the game rather than to a player reads as its own thing.
 fn draw_centre(ui: &mut Ui, rect: Rect, view: &MatchupView) {
+    ui.painter()
+        .rect_filled(rect, 0, theme::alpha(crate::colors::BLUE10, 0.50));
+    for x in [rect.left(), rect.right()] {
+        ui.painter().add(egui::Shape::line_segment(
+            [
+                pos2(x, rect.top()),
+                pos2(x, rect.bottom() - f32::from(BAR_RADIUS)),
+            ],
+            egui::Stroke::new(theme::HAIRLINE, theme::alpha(crate::colors::BLUE60, 0.30)),
+        ));
+    }
     let tag = if view.is_replay {
         tr!("observer.replayTag", "Replay")
     } else {
@@ -532,17 +549,62 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
     } else {
         theme::TEXT_PRIMARY
     };
-    draw_stat(
+    draw_supply(
         ui,
         &mut cursor,
-        metrics.supply,
-        &format!("{}/{}", player.supply_used, player.supply_max),
+        metrics,
+        player,
         supply_color.gamma_multiply(alpha),
         alpha,
-        metrics.value_size,
     );
     cursor.skip(STAT_GAP);
     draw_apm(ui, &mut cursor, player.apm, alpha, metrics);
+}
+
+/// Draws the supply cell, whose two halves are not read alike: what a player is on is a number they
+/// are watching, and what they are capped at is the thing it is being read against, so the cap is
+/// set smaller and quieter than the count.
+fn draw_supply(
+    ui: &Ui,
+    cursor: &mut EdgeCursor,
+    metrics: RowMetrics,
+    player: &MatchupPlayerView,
+    color: Color32,
+    alpha: f32,
+) {
+    let cell = metrics.supply;
+    let mut inner = EdgeCursor::from_left(cursor.take(cell.width()));
+    widgets::paint_resource_glyph(
+        ui.painter(),
+        centred(inner.take(GLYPH), GLYPH),
+        cell.glyph,
+        alpha,
+    );
+    inner.skip(GLYPH_GAP);
+    let value_rect = inner.take(cell.value_width);
+    let cap_size = metrics.value_size * SUPPLY_CAP_RATIO;
+    let job = {
+        let mut job = text::numeral(metrics.value_size)
+            .with_color(color)
+            .job(&player.supply_used.to_string());
+        job.append(
+            &format!("/{}", player.supply_max),
+            0.0,
+            text::numeral(cap_size)
+                .with_color(theme::TEXT_DIM.gamma_multiply(alpha))
+                .format(),
+        );
+        job
+    };
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    ui.painter().galley(
+        pos2(
+            value_rect.left(),
+            value_rect.center().y - galley.size().y * 0.5,
+        ),
+        galley,
+        color,
+    );
 }
 
 /// Draws one resource cell: the glyph against the half's outer edge, the number beside it.
@@ -555,12 +617,11 @@ fn draw_stat(
     alpha: f32,
     value_size: f32,
 ) {
-    let rect = cursor.take(cell.width());
-    let mut inner = if cursor.mirrored() {
-        EdgeCursor::from_right(rect)
-    } else {
-        EdgeCursor::from_left(rect)
-    };
+    // A cell reads the same way in both halves: the glyph names the resource and the number
+    // follows it. Only the order of the cells across a half is mirrored, because a half is read
+    // from the screen's edge inwards, while what is inside a cell is read the way every language
+    // the overlay speaks reads a label and its value.
+    let mut inner = EdgeCursor::from_left(cursor.take(cell.width()));
     let glyph_rect = centred(inner.take(GLYPH), GLYPH);
     widgets::paint_resource_glyph(ui.painter(), glyph_rect, cell.glyph, alpha);
     inner.skip(GLYPH_GAP);
@@ -570,26 +631,21 @@ fn draw_stat(
         value_rect,
         &text::numeral(value_size).with_color(color),
         value,
-        inner.outer_align(),
+        Align::LEFT,
     );
 }
 
 /// Draws the rate cell, which is labelled rather than given a glyph: it counts no resource, and the
 /// three letters are what every caster already calls it.
 fn draw_apm(ui: &Ui, cursor: &mut EdgeCursor, apm: u32, alpha: f32, metrics: RowMetrics) {
-    let cell = cursor.take(APM_LABEL + GLYPH_GAP + metrics.apm_value);
-    let mut inner = if cursor.mirrored() {
-        EdgeCursor::from_right(cell)
-    } else {
-        EdgeCursor::from_left(cell)
-    };
+    let mut inner = EdgeCursor::from_left(cursor.take(APM_LABEL + GLYPH_GAP + metrics.apm_value));
     let label = inner.take(APM_LABEL);
     paint_text(
         ui,
         label,
         &text::body(11.0, BodyWeight::Medium).with_color(theme::TEXT_LABEL.gamma_multiply(alpha)),
         &tr!("observer.apm", "APM"),
-        inner.outer_align(),
+        Align::LEFT,
     );
     inner.skip(GLYPH_GAP);
     let value = inner.take(metrics.apm_value);
@@ -598,7 +654,7 @@ fn draw_apm(ui: &Ui, cursor: &mut EdgeCursor, apm: u32, alpha: f32, metrics: Row
         value,
         &text::numeral(metrics.value_size).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
         &apm.to_string(),
-        inner.outer_align(),
+        Align::LEFT,
     );
 }
 

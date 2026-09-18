@@ -12,22 +12,34 @@
     "close": "Close"
   },
   "disconnect": {
+    "abandonAction": "Hold to abandon",
+    "abandonNote": "Hold for {{seconds}} seconds. Releasing early cancels. Abandoning usually counts as a loss, unless your team wins without you.",
     "dropAction": "Drop",
     "dropCountdown": "Drop in {{time}}",
-    "elapsedLabel": "Elapsed",
-    "interruptedBody": "The connection to the server was lost. The game continues as soon as it is back.",
+    "dropRule": "Drop unlocks {{seconds}} seconds after a player disconnects, per player. Dropped players lose the game.",
+    "interruptedBody": "We'll keep trying. The game is paused, and your opponents see you as reconnecting, so nothing is lost yet.",
+    "interruptedSubtitle": "Your connection to the ShieldBattery server was lost.",
     "interruptedTitle": "Connection interrupted",
     "reconnecting": "Reconnecting",
-    "stateDropRequested": "Drop requested",
-    "stateNotResponding": "Not responding",
-    "stateReconnecting": "Reconnecting",
+    "stateConnected": "connected",
+    "stateDropRequested": "drop requested",
+    "stateNotResponding": "not responding",
+    "stateReconnectingFor": "reconnecting… {{time}}",
+    "teammateTag": "teammate",
     "waitingBody_one": "The game is paused until this player reconnects.",
     "waitingBody_other": "The game is paused until these players reconnect.",
+    "waitingCost": "You can wait as long as you like. Waiting costs you nothing but time.",
     "waitingTitle": "Waiting for players"
   },
   "gameMenu": {
+    "alliancesAndChat": "Alliances & chat",
+    "escHint": "Esc returns to the game",
+    "gameTime": "Game time",
+    "keepsRunning": "Game keeps running while this menu is open",
+    "leaveGame": "Leave game",
+    "options": "Options",
     "returnToGame": "Return to game",
-    "title": "Game menu"
+    "surrender": "Surrender"
   },
   "netstat": {
     "buffer": "Buffer",

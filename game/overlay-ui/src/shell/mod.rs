@@ -20,23 +20,18 @@
 pub mod hotkeys;
 pub mod native_dialogs;
 
-use egui::{Context, Id, Key, Modifiers, Rect};
+use egui::{Context, Key, Modifiers, Rect};
 use serde::{Deserialize, Serialize};
 
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
-use crate::kit::widgets::{self, ButtonVariant};
-use crate::kit::{theme, tiers};
+use crate::game_menu::render_game_menu;
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, GraphSeries, ObserverView};
-use crate::tr;
 use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
 pub use hotkeys::{Action, Chord, Hotkeys};
 pub use native_dialogs::{NativeDialog, RETURN_CONTROL_ID, replacement_for};
-
-/// How wide the shell's own modals are, in overlay points.
-const MODAL_WIDTH: f32 = 420.0;
 
 /// The shortest time between two seeks reaching the game.
 ///
@@ -411,6 +406,8 @@ pub enum Intent {
     CloseNativeDialog(NativeDialog),
     /// Request that the player in this rally-point2 slot be dropped from the session.
     DropPlayer { slot: u8 },
+    /// Give up on a connection that will not come back and leave the game.
+    AbandonGame,
     /// Show or stop showing the game through this player's eyes. What that means for their allies
     /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
     /// watcher looking at a map neither player sees.
@@ -526,6 +523,10 @@ pub struct HostFrame {
     /// Whether one of BW's own dialogs — a menu, a popup — is on top of the game. While one is, the
     /// keyboard is its, so the shell claims no hotkeys.
     pub native_dialog_open: bool,
+    /// How far into the game the simulation has got, in whole seconds. Read by the surfaces that
+    /// report on the game as a whole rather than on one player, which is the menu and nothing else
+    /// while a client is playing its own game.
+    pub game_seconds: u64,
 }
 
 /// The disconnect surface the host wants drawn.
@@ -796,9 +797,12 @@ impl Shell {
         };
 
         if let Some(modal) = self.modals.last().copied() {
-            let outcome = draw_modal(ctx, modal.id, views, &mut hit_rects);
+            let outcome = draw_modal(ctx, modal.id, views, self.host.game_seconds, &mut hit_rects);
             for slot in outcome.drop_requests {
                 self.intents.push(Intent::DropPlayer { slot });
+            }
+            if outcome.abandoned {
+                self.intents.push(Intent::AbandonGame);
             }
             if outcome.dismissed && modal.id.is_dismissible() {
                 self.dismiss_top_modal();
@@ -1169,12 +1173,15 @@ struct ModalOutcome {
     dismissed: bool,
     /// Slots whose Drop button was clicked.
     drop_requests: Vec<u8>,
+    /// Whether the player gave up on their own connection.
+    abandoned: bool,
 }
 
 fn draw_modal(
     ctx: &Context,
     id: ModalId,
     views: &mut Views<'_>,
+    game_seconds: u64,
     hit_rects: &mut Vec<HitRect>,
 ) -> ModalOutcome {
     match id {
@@ -1183,39 +1190,24 @@ fn draw_modal(
                 return ModalOutcome::default();
             };
             let dialog = render_disconnect_view(surface.view, ctx);
-            // The surface only takes clicks once it has a Drop button to take them for: a passive
+            // The surface only takes clicks once it has a control to take them for: a passive
             // notice must not cost the game a click.
-            if surface.view.has_button() {
+            if surface.view.has_button() || id == ModalId::ConnectionInterrupted {
                 hit_rects.push(HitRect::new(dialog.response.rect));
             }
             ModalOutcome {
                 dismissed: false,
-                drop_requests: dialog.inner,
+                drop_requests: dialog.inner.drop_requests,
+                abandoned: dialog.inner.abandoned,
             }
         }
         ModalId::GameMenu => {
-            let dialog = tiers::tier2_dialog(
-                ctx,
-                Id::new("sb_game_menu"),
-                &tr!("gameMenu.title", "Game menu"),
-                MODAL_WIDTH,
-                |ui| {
-                    ui.add_space(theme::SPACE_SM);
-                    ui.vertical_centered(|ui| {
-                        widgets::button(
-                            ui,
-                            &tr!("gameMenu.returnToGame", "Return to game"),
-                            ButtonVariant::Tier2Primary,
-                        )
-                        .clicked()
-                    })
-                    .inner
-                },
-            );
+            let dialog = render_game_menu(ctx, game_seconds);
             hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
-                dismissed: dialog.inner || dialog.scrim_clicked,
+                dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 drop_requests: Vec::new(),
+                abandoned: false,
             }
         }
         ModalId::ChatHistory => {
@@ -1229,6 +1221,7 @@ fn draw_modal(
             ModalOutcome {
                 dismissed: dialog.inner || dialog.scrim_clicked,
                 drop_requests: Vec::new(),
+                abandoned: false,
             }
         }
     }
@@ -1245,6 +1238,7 @@ mod tests {
             game_started: true,
             native_textbox_open: false,
             native_dialog_open: false,
+            game_seconds: 0,
         });
         shell
     }
@@ -1282,6 +1276,7 @@ mod tests {
             game_started: true,
             native_textbox_open: false,
             native_dialog_open: false,
+            game_seconds: 0,
         };
         let raw = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(
@@ -1315,17 +1310,20 @@ mod tests {
 
     /// A disconnect view with something on it: an empty one draws nothing and raises no modal.
     fn view(self_state: SelfState) -> DisconnectView {
-        use crate::disconnect::{DisconnectRowView, DisconnectTier};
+        use crate::disconnect::{DisconnectRowView, PeerState};
         DisconnectView {
             rows: vec![DisconnectRowView {
                 slot: 3,
                 name: "Rhynso".to_string(),
+                color: crate::kit::theme::player_color(0),
+                teammate: false,
                 seconds: 12,
-                tier: DisconnectTier::Confirmed,
+                state: PeerState::Reconnecting,
                 drop_unlocked: false,
                 drop_requested: false,
             }],
             self_state,
+            self_seconds: 12,
         }
     }
 
@@ -1661,6 +1659,7 @@ mod tests {
             game_started: true,
             native_textbox_open: false,
             native_dialog_open: false,
+            game_seconds: 0,
         });
         assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
         assert!(shell.panel_prefs().all_shown());
@@ -1674,18 +1673,21 @@ mod tests {
                 game_started: true,
                 native_textbox_open: true,
                 native_dialog_open: false,
+                game_seconds: 0,
             },
             HostFrame {
                 mode: Mode::Replay,
                 game_started: true,
                 native_textbox_open: false,
                 native_dialog_open: true,
+                game_seconds: 0,
             },
             HostFrame {
                 mode: Mode::Replay,
                 game_started: false,
                 native_textbox_open: false,
                 native_dialog_open: false,
+                game_seconds: 0,
             },
         ] {
             let mut shell = Shell::new();
@@ -1823,6 +1825,7 @@ mod tests {
             game_started: true,
             native_textbox_open: false,
             native_dialog_open: false,
+            game_seconds: 0,
         });
         assert!(!observing.key_pressed(Key::L, Modifiers::NONE));
         assert!(!observing.panel_prefs().spoiler_free);
