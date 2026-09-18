@@ -161,10 +161,22 @@ impl TagStyle {
 
 /// A small chip of status text.
 pub fn tag(ui: &mut Ui, label: &str, style: TagStyle) -> Response {
+    tag_sized(ui, label, style, f32::INFINITY)
+}
+
+/// A chip that elides its label rather than growing past `max_width`.
+///
+/// A tag sitting in a column of a table or a list is part of that layout's grid: one carrying a
+/// player-chosen name would otherwise push everything beside it out of place.
+pub fn tag_sized(ui: &mut Ui, label: &str, style: TagStyle, max_width: f32) -> Response {
     let (fill, text_color) = style.colors();
-    let galley = text::column_label().galley(ui, label);
+    let job = text::column_label().job_truncated(label, (max_width - theme::SPACE_SM).max(0.0));
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    // An elided galley can still come back a hair over the width it was given (the ellipsis is
+    // added after the fit), so the chip is clamped rather than trusted: this width is a column in
+    // someone's layout.
     let size = vec2(
-        galley.size().x + theme::SPACE_SM,
+        (galley.size().x + theme::SPACE_SM).min(max_width),
         galley.size().y + theme::SPACE_XS + 2.0,
     );
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());

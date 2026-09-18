@@ -183,6 +183,81 @@ pub fn button_label(size: f32) -> TextSpec {
     }
 }
 
+/// How many control characters BW's text encoding reserves. A byte below this is a directive to
+/// the renderer rather than a character to draw.
+pub const BW_CONTROL_CODE_COUNT: usize = 0x20;
+
+/// The text color each of BW's inline control characters selects, indexed by the control character's
+/// own value. `None` marks a code that selects no color — an alignment or visibility directive, or
+/// a value the renderer ignores — and such a code is dropped from the text rather than drawn.
+///
+/// The hues are BW's; the lightness is not. BW draws chat over the game's own console band, and
+/// several of its codes (player 6's brown, player 9's green, player 2's blue) are dark enough that a
+/// literal copy would be unreadable on the overlay's surfaces. Each is lifted to a value that reads
+/// at body size while staying the color the sender picked.
+pub fn bw_chat_colors() -> [Option<Color32>; BW_CONTROL_CODE_COUNT] {
+    BW_CHAT_COLORS
+}
+
+const BW_CHAT_COLORS: [Option<Color32>; BW_CONTROL_CODE_COUNT] = {
+    let mut colors = [None; BW_CONTROL_CODE_COUNT];
+    colors[0x02] = Some(Color32::from_rgb(0x9A, 0xB2, 0xFF)); // pale blue
+    colors[0x03] = Some(Color32::from_rgb(0xFC, 0xFC, 0x5C)); // yellow
+    colors[0x04] = Some(Color32::from_rgb(0xED, 0xF7, 0xFE)); // white
+    colors[0x05] = Some(Color32::from_rgb(0x91, 0x98, 0xA1)); // grey
+    colors[0x06] = Some(Color32::from_rgb(0xFF, 0x5E, 0x5E)); // red
+    colors[0x07] = Some(Color32::from_rgb(0x6A, 0xE3, 0x7E)); // green
+    colors[0x08] = Some(Color32::from_rgb(0xF4, 0x4A, 0x4A)); // player 1, red
+    colors[0x0E] = Some(Color32::from_rgb(0x58, 0x8C, 0xFF)); // player 2, blue
+    colors[0x0F] = Some(Color32::from_rgb(0x3C, 0xD0, 0xAC)); // player 3, teal
+    colors[0x10] = Some(Color32::from_rgb(0xB0, 0x74, 0xC8)); // player 4, purple
+    colors[0x11] = Some(Color32::from_rgb(0xF8, 0x96, 0x28)); // player 5, orange
+    colors[0x15] = Some(Color32::from_rgb(0xBA, 0x7A, 0x54)); // player 6, brown
+    colors[0x16] = Some(Color32::from_rgb(0xCC, 0xE0, 0xD0)); // player 7, white
+    colors[0x17] = Some(Color32::from_rgb(0xFC, 0xFC, 0x5C)); // player 8, yellow
+    colors[0x18] = Some(Color32::from_rgb(0x4C, 0xC4, 0x4C)); // player 9, green
+    colors[0x19] = Some(Color32::from_rgb(0xFC, 0xFC, 0x94)); // player 10, pale yellow
+    colors[0x1B] = Some(Color32::from_rgb(0x8C, 0xEC, 0x98)); // pale green
+    colors[0x1C] = Some(Color32::from_rgb(0x96, 0xA0, 0xC8)); // blue-grey
+    colors[0x1D] = Some(Color32::from_rgb(0x3C, 0xDC, 0xF4)); // cyan
+    colors[0x1E] = Some(Color32::from_rgb(0x48, 0xD4, 0xC4)); // turquoise
+    colors[0x1F] = Some(Color32::from_rgb(0xA0, 0xE8, 0xE0)); // pale turquoise
+    colors
+};
+
+/// Lays `text` out in `spec`, reading BW's inline color codes the way the game does: a control
+/// character colors everything after it, and the control characters themselves never draw. Wraps at
+/// `wrap_width`.
+///
+/// A run before any code takes the spec's own color, so text that selects none reads as the style
+/// meant it to. The spec's capitalization is deliberately not applied: this is text a player typed,
+/// and shouting it back at them is not the overlay's to do.
+pub fn bw_colored_job(spec: &TextSpec, text: &str, wrap_width: f32) -> LayoutJob {
+    let colors = bw_chat_colors();
+    let mut job = LayoutJob::default();
+    job.wrap.max_width = wrap_width;
+    let mut format = spec.format();
+    let mut run = String::new();
+    for c in text.chars() {
+        let code = c as usize;
+        if code >= BW_CONTROL_CODE_COUNT {
+            run.push(c);
+            continue;
+        }
+        if let Some(color) = colors[code] {
+            if !run.is_empty() {
+                job.append(&run, 0.0, format.clone());
+                run.clear();
+            }
+            format.color = color;
+        }
+    }
+    if !run.is_empty() {
+        job.append(&run, 0.0, format);
+    }
+    job
+}
+
 /// Uppercases `text` unless it contains CJK.
 ///
 /// Hangul, Han and Kana have no case, and a string containing them was written the way it is meant
@@ -226,6 +301,63 @@ mod tests {
         assert_eq!(caps("简体中文"), "简体中文");
         // A mixed string is left as written rather than half-shouted.
         assert_eq!(caps("save 설정"), "save 설정");
+    }
+
+    /// The text of every section of `job`, paired with the color it is drawn in.
+    fn sections(job: &LayoutJob) -> Vec<(String, Color32)> {
+        job.sections
+            .iter()
+            .map(|section| {
+                (
+                    job.text[section.byte_range.start.0..section.byte_range.end.0].to_string(),
+                    section.format.color,
+                )
+            })
+            .collect()
+    }
+
+    fn body_spec() -> TextSpec {
+        body(13.0, BodyWeight::Regular)
+    }
+
+    #[test]
+    fn text_without_codes_stays_one_run_in_the_specs_own_color() {
+        let spec = body_spec();
+        let job = bw_colored_job(&spec, "gl hf", f32::INFINITY);
+        assert_eq!(sections(&job), vec![("gl hf".to_string(), spec.color)]);
+    }
+
+    #[test]
+    fn a_color_code_colors_everything_after_it_and_never_draws() {
+        let spec = body_spec();
+        let job = bw_colored_job(&spec, "gg \x06wp \x07nice", f32::INFINITY);
+        let red = bw_chat_colors()[0x06].unwrap();
+        let green = bw_chat_colors()[0x07].unwrap();
+        assert_eq!(
+            sections(&job),
+            vec![
+                ("gg ".to_string(), spec.color),
+                ("wp ".to_string(), red),
+                ("nice".to_string(), green),
+            ]
+        );
+        assert!(!job.text.contains('\x06'));
+    }
+
+    #[test]
+    fn codes_that_select_no_color_are_dropped_without_splitting_the_run() {
+        let spec = body_spec();
+        // 0x0b/0x0c are BW's invisible codes and 0x12/0x13 its alignment marks: none of them is a
+        // color, and none of them is text.
+        let job = bw_colored_job(&spec, "\x13cen\x0btred\x12", f32::INFINITY);
+        assert_eq!(sections(&job), vec![("centred".to_string(), spec.color)]);
+    }
+
+    #[test]
+    fn a_line_of_nothing_but_codes_lays_out_empty() {
+        let job = bw_colored_job(&body_spec(), "\x06\x07\x04", f32::INFINITY);
+        assert!(job.sections.is_empty());
+        assert!(job.text.is_empty());
     }
 
     #[test]

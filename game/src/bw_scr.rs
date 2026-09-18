@@ -57,6 +57,7 @@ pub mod scr;
 mod bw_hash_table;
 mod bw_vector;
 mod chat;
+mod chat_history;
 mod console;
 mod dialog_hook;
 mod draw_inject;
@@ -474,8 +475,12 @@ pub struct BwScr {
     chat_injection: AtomicU8,
     /// Chat a game that predicts inputs showed while stalled, which goes into the replay once the
     /// stalled step runs (see [`netcode_v2_receive_predicted`](Self::netcode_v2_receive_predicted)).
-    chat_shown_while_stalled: Mutex<Vec<(StormPlayerId, String)>>,
+    chat_shown_while_stalled: Mutex<Vec<netcode_v2::InjectedChat>>,
     chat_manager: Mutex<chat::ChatManager>,
+    /// Every line the chat put on screen this game, which the overlay's chat log reads back.
+    /// Filled where the chat renders rather than where it arrives, so it holds exactly what the
+    /// player saw.
+    chat_history: Mutex<chat_history::ChatHistory>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -2693,6 +2698,7 @@ impl BwScr {
             chat_injection: AtomicU8::new(ChatInjection::Live as u8),
             chat_shown_while_stalled: Mutex::new(Vec::new()),
             chat_manager: Mutex::new(chat::ChatManager::new()),
+            chat_history: Mutex::new(chat_history::ChatHistory::new()),
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -3840,6 +3846,7 @@ impl BwScr {
                         if handled {
                             return;
                         }
+                        self.record_chat_history_system_line(text, player);
                     }
 
                     orig(text, player, unused);
@@ -4147,6 +4154,7 @@ impl BwScr {
                                 net_stats.as_ref(),
                                 net_quality.as_ref(),
                                 loading_connectivity.as_ref(),
+                                &self.chat_history,
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -4750,8 +4758,8 @@ impl BwScr {
         unsafe {
             self.apply_due_leaves(nc, step);
             let chat = netcode_v2::with_turn_state(|s| s.redispatch(step)).unwrap_or_default();
-            for (storm, text) in &chat {
-                self.inject_chat_message(*storm, text);
+            for (storm, target, text) in &chat {
+                self.inject_chat_message(*storm, *target, text);
             }
             netcode_v2::with_turn_state(|s| {
                 Self::fill_turn_dispatch(
@@ -5267,7 +5275,7 @@ impl BwScr {
             let deferred = netcode_v2::with_turn_state(|s| {
                 let deferred = s.predicts_inputs();
                 if deferred {
-                    s.queue_local_chat_echo(text.to_string());
+                    s.queue_local_chat_echo(target, text.to_string());
                 }
                 deferred
             })
@@ -5276,7 +5284,7 @@ impl BwScr {
                 return true;
             }
             let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
-            if !self.inject_chat_message(local_storm, text) {
+            if !self.inject_chat_message(local_storm, target, text) {
                 debug!("netcode v2: local chat echo dropped; local storm id unresolved");
             }
             true
@@ -5291,8 +5299,8 @@ impl BwScr {
                 return;
             };
             let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
-            for text in texts {
-                if !self.inject_chat_message(local_storm, &text) {
+            for (target, text) in texts {
+                if !self.inject_chat_message(local_storm, target, &text) {
                     debug!("netcode v2: local chat echo dropped; local storm id unresolved");
                 }
             }
@@ -5307,12 +5315,12 @@ impl BwScr {
             let echoes = netcode_v2::with_turn_state(|s| s.take_local_chat_echoes())
                 .unwrap_or_default()
                 .into_iter()
-                .map(|text| (local_storm, text));
+                .map(|(target, text)| (local_storm, target, text));
             let inbound = self.visible_chat_inbound();
             let mut shown = self.chat_shown_while_stalled.lock();
-            for (storm, text) in echoes.chain(inbound) {
-                if self.inject_chat(storm, &text, ChatInjection::ShowWhileStalled) {
-                    shown.push((storm, text));
+            for (storm, target, text) in echoes.chain(inbound) {
+                if self.inject_chat(storm, target, &text, ChatInjection::ShowWhileStalled) {
+                    shown.push((storm, target, text));
                 }
             }
         }
@@ -5323,8 +5331,8 @@ impl BwScr {
     unsafe fn record_chat_shown_while_stalled(&self) {
         unsafe {
             let shown = std::mem::take(&mut *self.chat_shown_while_stalled.lock());
-            for (storm, text) in shown {
-                if !self.inject_chat(storm, &text, ChatInjection::RecordShown) {
+            for (storm, target, text) in shown {
+                if !self.inject_chat(storm, target, &text, ChatInjection::RecordShown) {
                     debug!("netcode v2: chat shown while stalled not recorded; its sender left");
                 }
             }
@@ -5337,17 +5345,27 @@ impl BwScr {
     /// own local echo (`send_chat_message`, with `storm_player` set to this client's own storm id)
     /// — one path renders both, so the two can never diverge in formatting or attribution.
     ///
+    /// `target` is the scope the message was sent with, which only the sender knows: it is carried
+    /// here so the line recorded in the chat history says who it was addressed to, the way the
+    /// scope tag over it reads.
+    ///
     /// Returns `false` (injecting nothing) when `storm_player` can't be resolved to a `players[]`
     /// slot right now — see [`unique_player_for_storm`](Self::unique_player_for_storm) — e.g. it
     /// already left.
-    unsafe fn inject_chat_message(&self, storm_player: StormPlayerId, text: &str) -> bool {
-        unsafe { self.inject_chat(storm_player, text, ChatInjection::Live) }
+    unsafe fn inject_chat_message(
+        &self,
+        storm_player: StormPlayerId,
+        target: netcode_v2::ChatTarget,
+        text: &str,
+    ) -> bool {
+        unsafe { self.inject_chat(storm_player, target, text, ChatInjection::Live) }
     }
 
     /// [`inject_chat_message`](Self::inject_chat_message), shown and recorded as `injection` says.
     unsafe fn inject_chat(
         &self,
         storm_player: StormPlayerId,
+        target: netcode_v2::ChatTarget,
         text: &str,
         injection: ChatInjection,
     ) -> bool {
@@ -5359,6 +5377,16 @@ impl BwScr {
             // native renderer's name/format path only recognizes observers by their id range
             // (0x80..0x84); an index in 12..16 falls through to its nameless bare-text path.
             let sender_id = game_player_id_for_slot(unique_player);
+            // Asked before the injection, because the injection is what prints the line and the
+            // print hook takes this same lock to decide whether to suppress it. The answer is what
+            // keeps a muted or blocked player's message out of the history as well as off screen.
+            let suppressed = self
+                .chat_manager
+                .lock()
+                .is_sender_filtered(sender_id as u32);
+            // The record's text field is fixed-size, so a long message reaches the screen (and the
+            // replay) truncated; the history holds that same truncation rather than the original.
+            let text = commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY);
             let record = build_chat_record(sender_id, text);
             // `0`: a live command not yet on the replay's command log, so the native command
             // processor appends it (`add_to_replay_data`) the same as any other in-game command —
@@ -5378,19 +5406,27 @@ impl BwScr {
                 && let Some((_, false)) = rollback_step()
             {
                 let step = self.netcode_v2.game_frame_count.resolve();
-                netcode_v2::with_turn_state(|s| s.note_injected_chat(step, storm_player, text));
+                netcode_v2::with_turn_state(|s| {
+                    s.note_injected_chat(step, storm_player, target, text)
+                });
             }
+            // The player sees a line once: a step simulated again injects it again, and chat shown
+            // while stalled is injected a second time to record it, but neither shows anything new.
+            let first_shown =
+                injected && !rollback_resimulating() && injection != ChatInjection::RecordShown;
+            let own = storm_player.0 as u32 == self.local_storm_id.resolve();
             #[cfg(debug_assertions)]
-            if injected && !rollback_resimulating() && injection != ChatInjection::RecordShown {
-                let own = storm_player.0 as u32 == self.local_storm_id.resolve();
+            if first_shown {
                 netcode_v2::with_turn_state(|s| {
                     s.record_chat(crate::debug_control::DebugChatLogEntry {
                         sender_game_id: sender_id,
-                        text: commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY)
-                            .to_string(),
+                        text: text.to_string(),
                         own,
                     })
                 });
+            }
+            if first_shown && !suppressed {
+                self.record_chat_history_line(sender_id, unique_player, own, target, text);
             }
             injected
         }
@@ -5444,6 +5480,105 @@ impl BwScr {
             }
             self.chat_injection
                 .store(ChatInjection::Live as u8, Ordering::Relaxed);
+        }
+    }
+
+    /// Adds one player's message to the chat history, with the sender and the scope the screen
+    /// showed it under. Called only for a message that was both injected and not suppressed, so the
+    /// history and the screen can never disagree about what the game said.
+    unsafe fn record_chat_history_line(
+        &self,
+        sender_id: u8,
+        unique_player: u8,
+        own: bool,
+        target: netcode_v2::ChatTarget,
+        text: &str,
+    ) {
+        unsafe {
+            let line = chat_history::ChatLine {
+                game_frame: self.current_game_frame(),
+                kind: chat_history::ChatLineKind::Player {
+                    sender_game_id: sender_id,
+                    sender_name: self.player_display_name(unique_player),
+                    own,
+                    scope: self.chat_scope_for(target, own),
+                },
+                text: text.to_string(),
+            };
+            self.chat_history.lock().push(line);
+        }
+    }
+
+    /// Records a line the game printed that carries no chat sender — a player leaving, an alliance
+    /// changing — which is what SC:R's own log holds beside the chat. A player's own message is
+    /// recorded by [`inject_chat_message`](Self::inject_chat_message) instead, which knows who it
+    /// was addressed to; the id ranges skipped here are exactly the ones
+    /// [`chat::ChatManager`] treats as chat senders.
+    unsafe fn record_chat_history_system_line(&self, text: &str, player: u32) {
+        unsafe {
+            if matches!(player, 0..=11 | 128..=131) {
+                return;
+            }
+            let line = chat_history::ChatLine {
+                game_frame: self.current_game_frame(),
+                kind: chat_history::ChatLineKind::System,
+                text: text.to_string(),
+            };
+            self.chat_history.lock().push(line);
+        }
+    }
+
+    /// The scope a chat history line records for a message sent with `target`.
+    ///
+    /// A single-recipient message names its recipient only when the local player sent it: an
+    /// inbound one reached this client because this client was addressed, so the only name its mask
+    /// could yield is the reader's own.
+    unsafe fn chat_scope_for(
+        &self,
+        target: netcode_v2::ChatTarget,
+        own: bool,
+    ) -> chat_history::ChatScope {
+        unsafe {
+            match target {
+                netcode_v2::ChatTarget::All => chat_history::ChatScope::All,
+                netcode_v2::ChatTarget::Allies => chat_history::ChatScope::Allies,
+                netcode_v2::ChatTarget::Observers => chat_history::ChatScope::Observers,
+                netcode_v2::ChatTarget::Players(mask) => chat_history::ChatScope::Players {
+                    recipient: own
+                        .then(|| mask.single_member())
+                        .flatten()
+                        .and_then(|slot| {
+                            netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten()
+                        })
+                        .and_then(|storm| self.unique_player_for_storm(storm))
+                        .map(|unique_player| self.player_display_name(unique_player)),
+                },
+            }
+        }
+    }
+
+    /// A `players[]` slot's name as the overlay should show it, with a placeholder for the slots
+    /// the game left nameless.
+    unsafe fn player_display_name(&self, unique_player: u8) -> String {
+        unsafe {
+            let name = bw::player_name(self.players().add(unique_player as usize));
+            if name.is_empty() {
+                format!("Player {}", unique_player + 1)
+            } else {
+                name.into_owned()
+            }
+        }
+    }
+
+    /// The frame the game is on, or 0 before there is a game to ask.
+    unsafe fn current_game_frame(&self) -> u32 {
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                0
+            } else {
+                (*game).frame_count
+            }
         }
     }
 
@@ -5617,8 +5752,8 @@ impl BwScr {
     /// per receive on the game thread, alongside the debug forced-leave/desync application.
     unsafe fn apply_chat_inbound(&self) {
         unsafe {
-            for (sender_storm, text) in self.visible_chat_inbound() {
-                if !self.inject_chat_message(sender_storm, &text) {
+            for (sender_storm, target, text) in self.visible_chat_inbound() {
+                if !self.inject_chat_message(sender_storm, target, &text) {
                     debug!(
                         "netcode v2: chat from storm {sender_storm:?} could not be attributed to \
                          a players[] slot; dropping"
@@ -5629,8 +5764,8 @@ impl BwScr {
     }
 
     /// Drains the chat that has arrived from peers, keeping each message the local player should
-    /// see, with its sender's storm id.
-    unsafe fn visible_chat_inbound(&self) -> Vec<(StormPlayerId, String)> {
+    /// see, with its sender's storm id and the scope it was sent to.
+    unsafe fn visible_chat_inbound(&self) -> Vec<netcode_v2::InjectedChat> {
         unsafe {
             let Some(messages) = netcode_v2::with_turn_state(|s| s.drain_chat_inbound(true)) else {
                 return Vec::new(); // no live session
@@ -5645,7 +5780,7 @@ impl BwScr {
                 };
                 let target = netcode_v2::ChatTarget::from_wire(chat.target_kind, chat.target_slot);
                 if self.chat_target_visible(sender_storm, target) {
-                    visible.push((sender_storm, chat.text));
+                    visible.push((sender_storm, target, chat.text));
                 }
             }
             visible
@@ -6623,6 +6758,9 @@ impl BwScr {
         crate::frame_timing::reset();
         crate::frame_pacing::reset();
         self.detection_status_copy.lock().clear();
+        // A replay seeking backwards re-simulates from frame 0, re-injecting every chat message it
+        // passes, so a history kept across the seek would hold each of them twice.
+        self.chat_history.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
         if let Some(mut apm) = self.apm_state.lock() {
