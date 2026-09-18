@@ -6,7 +6,7 @@ use overlay_ui::i18n::Locale;
 use serde::{Deserialize, Serialize};
 
 use crate::host_knobs;
-use crate::scenarios::{self, ScenarioKind, disconnect, kitchen_sink, netstat};
+use crate::scenarios::{self, ScenarioKind, chat_history, disconnect, kitchen_sink, netstat};
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
 /// How the emulated screen is set up.
@@ -64,6 +64,7 @@ pub struct Knobs {
     /// Draws every string accented, bracketed and padded out to roughly 135% of its English length,
     /// which is what a layout has to survive before any translator has written a word of it.
     pub pseudolocale: bool,
+    pub chat_history: chat_history::Knobs,
     pub disconnect: disconnect::Knobs,
     pub kitchen_sink: kitchen_sink::Knobs,
     pub netstat: netstat::Knobs,

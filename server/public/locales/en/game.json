@@ -1,5 +1,11 @@
 {
   "chatHistory": {
+    "empty": "No messages yet",
+    "scopeAll": "All",
+    "scopeAllies": "Allies",
+    "scopeObservers": "Obs",
+    "scopeTo": "To {{name}}",
+    "scopeToPlayers": "To",
     "title": "Chat history"
   },
   "common": {

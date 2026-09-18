@@ -6,6 +6,7 @@
 //! resolution and hands the host the logical size and the scale it needs to blit the result.
 
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Shape, Stroke, Vec2, pos2, vec2};
+use overlay_ui::shell::HitRect;
 use serde::{Deserialize, Serialize};
 
 /// The baseline the scale ramp is anchored to: at this pixel height one point is one pixel.
@@ -233,12 +234,18 @@ pub fn paint_reserve_guides(painter: &Painter, viewport: Rect) {
 /// has taken the pointer outright — so where these edges fall is what decides whether an ambient
 /// panel is costing the game clicks. Drawn by the window over the blit rather than into the overlay,
 /// since these are what the shell reported and not something it put on screen.
-pub fn paint_hit_rects(painter: &Painter, blit: &Blit, rects: &[Rect]) {
+pub fn paint_hit_rects(painter: &Painter, blit: &Blit, rects: &[HitRect]) {
     let stroke = Stroke::new(1.0, HIT_RECT_COLOR);
-    for rect in rects {
-        let rect = blit.rect_to_host(*rect);
-        if rect.is_positive() {
-            painter.rect_stroke(rect, 0.0, stroke, egui::StrokeKind::Outside);
+    for hit in rects {
+        let rect = blit.rect_to_host(hit.rect);
+        if !rect.is_positive() {
+            continue;
+        }
+        painter.rect_stroke(rect, 0.0, stroke, egui::StrokeKind::Outside);
+        if hit.captures_scroll {
+            // A doubled edge marks the rects that take the mouse wheel too, which a host whose game
+            // uses the wheel itself has to route separately from the pointer.
+            painter.rect_stroke(rect.shrink(2.0), 0.0, stroke, egui::StrokeKind::Inside);
         }
     }
 }
