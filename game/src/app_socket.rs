@@ -218,7 +218,9 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
     match &*message.command {
         "settings" => {
             let settings = parse_payload(payload, "Invalid settings", err_input, sensitive)?;
-            Ok(MessageResult::Game(GameStateMessage::SetSettings(settings)))
+            Ok(MessageResult::Game(GameStateMessage::SetSettings(
+                Box::new(settings),
+            )))
         }
         "localUser" => {
             let user = parse_payload(payload, "Invalid local user", err_input, sensitive)?;

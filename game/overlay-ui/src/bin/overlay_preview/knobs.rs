@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use overlay_ui::i18n::Locale;
 use serde::{Deserialize, Serialize};
 
 use crate::scenarios::{ScenarioKind, disconnect, kitchen_sink, netstat};
@@ -54,6 +55,12 @@ pub struct Knobs {
     pub show_guides: bool,
     /// What is drawn behind the overlay.
     pub backdrop: Backdrop,
+    /// The language the overlay speaks. Applied before every pass, so switching it re-lays out the
+    /// live screen the way a player with that language set would see it.
+    pub language: Locale,
+    /// Draws every string accented, bracketed and padded out to roughly 135% of its English length,
+    /// which is what a layout has to survive before any translator has written a word of it.
+    pub pseudolocale: bool,
     pub disconnect: disconnect::Knobs,
     pub kitchen_sink: kitchen_sink::Knobs,
     pub netstat: netstat::Knobs,

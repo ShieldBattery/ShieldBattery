@@ -12,6 +12,10 @@ name = "overlay_ui"
 # the game).
 egui = { workspace = true }
 
+# The translation catalogs are the app's i18next JSON, parsed at first use (see `i18n`). Not
+# optional: the game DLL renders translated strings too, and it already carries serde_json.
+serde_json = { version = "1.0" }
+
 # Preview-host-only dependencies. All optional and gated behind the `preview` feature, which only the
 # `overlay-preview` binary requires, so the game DLL — which depends on this crate for its lib alone —
 # never pulls eframe/winit/image into its build graph.
@@ -20,12 +24,11 @@ image = { version = "0.25", default-features = false, features = [
   "png",
 ], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
 
 [features]
 # Enables the eframe preview host (the `overlay-preview` bin). Off by default, so the DLL build never
 # sees eframe.
-preview = ["dep:eframe", "dep:image", "dep:serde", "dep:serde_json"]
+preview = ["dep:eframe", "dep:image", "dep:serde"]
 
 [[bin]]
 name = "overlay-preview"

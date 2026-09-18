@@ -10,11 +10,14 @@
 //!
 //! This crate carries its own font and base-style setup ([`install_fonts_and_style`]) so a host
 //! preview renders text with the same faces and sizes the game does, and the [`kit`] module holds
-//! the design tokens, type styles, surfaces and controls every screen is drawn from.
+//! the design tokens, type styles, surfaces and controls every screen is drawn from. Every string a
+//! screen shows goes through [`tr!`] / [`tr_plural!`], which resolve against the app's own
+//! translation catalogs (see [`i18n`]).
 
 pub mod colors;
 pub mod disconnect;
 pub mod fonts;
+pub mod i18n;
 pub mod kit;
 pub mod netstat;
 mod style;
