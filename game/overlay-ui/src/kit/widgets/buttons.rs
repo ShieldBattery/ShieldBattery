@@ -374,15 +374,35 @@ pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
 
     let held = response.is_pointer_button_down_on();
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
-    let progress = ui.ctx().animate_value_with_time(
-        response.id.with("sweep"),
-        if held { 1.0 } else { 0.0 },
-        if held {
-            theme::MOTION_HOLD_SECS
-        } else {
-            theme::MOTION_HOLD_RELEASE_SECS
-        },
-    );
+    // The sweep always moves at the same speed: a full hold takes the whole hold time and a full
+    // unwind the whole release time, so a press that lands on a half-unwound sweep finishes in
+    // half the time rather than crawling the remaining distance over the full three seconds. The
+    // animation only knows how long its current leg should take, and it measures elapsed time
+    // against whatever duration it is handed each frame, so a leg's duration is fixed from how far
+    // the sweep had to travel when the leg began and reused until the direction changes.
+    let target: f32 = if held { 1.0 } else { 0.0 };
+    let leg_id = response.id.with("sweep-leg");
+    let last_id = response.id.with("sweep-last");
+    let leg = ui.data_mut(|data| {
+        let last = data.get_temp::<f32>(last_id).unwrap_or(0.0);
+        match data.get_temp::<(f32, f32)>(leg_id) {
+            Some((leg_target, duration)) if leg_target == target => duration,
+            _ => {
+                let full = if held {
+                    theme::MOTION_HOLD_SECS
+                } else {
+                    theme::MOTION_HOLD_RELEASE_SECS
+                };
+                let duration = full * (target - last).abs();
+                data.insert_temp(leg_id, (target, duration));
+                duration
+            }
+        }
+    });
+    let progress = ui
+        .ctx()
+        .animate_value_with_time(response.id.with("sweep"), target, leg);
+    ui.data_mut(|data| data.insert_temp(last_id, progress));
     // A completed hold fires once and then waits for the pointer to come up, so keeping the button
     // pressed cannot confirm the same action over and over.
     let latch_id = response.id.with("fired");
@@ -410,8 +430,10 @@ pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
         ui.painter().galley(text_pos, galley, spec.color);
     }
 
-    // Neither the sweep nor its unwind has anything else asking for frames.
-    if held || (progress > 0.0 && progress < 1.0) {
+    // Neither the sweep nor its unwind has anything else asking for frames, and the unwind's first
+    // frame is the one where the sweep still sits at full: without a repaint there it would wait
+    // for the next mouse move to begin.
+    if held || progress > 0.0 {
         ui.ctx().request_repaint();
     }
 
