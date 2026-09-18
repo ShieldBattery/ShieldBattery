@@ -29,5 +29,5 @@ preview = ["dep:eframe", "dep:image", "dep:serde", "dep:serde_json"]
 
 [[bin]]
 name = "overlay-preview"
-path = "src/bin/overlay_preview.rs"
+path = "src/bin/overlay_preview/main.rs"
 required-features = ["preview"]
