@@ -21,7 +21,8 @@ const entries: ActivityEntry[] = [
     userId: makeSbUserId(2),
     name: 'Bisu',
     twitchLogin: 'bisu_official',
-    title: 'fastest money games with viewers',
+    title:
+      'fastest money games with viewers all night, !discord for the lobby password and !bracket for the cup',
     viewerCount: 870,
   },
   {

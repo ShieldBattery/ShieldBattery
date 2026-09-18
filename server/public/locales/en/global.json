@@ -237,7 +237,9 @@
       "showLess": "Show less",
       "showMore_one": "Show {{count}} more",
       "showMore_other": "Show {{count}} more",
-      "title": "Activity"
+      "title": "Activity",
+      "watching_one": "{{viewers}} watching",
+      "watching_other": "{{viewers}} watching"
     },
     "banUser": {
       "banAction": "Ban {{user}}",

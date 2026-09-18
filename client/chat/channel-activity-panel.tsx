@@ -15,8 +15,15 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { useAppSelector } from '../redux-hooks'
-import { getActivityDescriptor, NameBlock, NameLine } from '../social/friend-activity-status'
-import { bodySmall, inter, labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { getActivityDescriptor } from '../social/friend-activity-status'
+import {
+  bodyMedium,
+  bodySmall,
+  inter,
+  labelMedium,
+  singleLine,
+  titleSmall,
+} from '../styles/typography'
 import { formatViewerCount, LiveLabel, useStreamUptime } from '../twitch/live-indicators'
 import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
 import { StaffBadgedAvatar } from '../users/staff-badge'
@@ -147,8 +154,13 @@ export function deriveActivityEntries(
   return [...streams, ...games]
 }
 
+// The roster below is the column's main content, so it always keeps at least 40% of the column:
+// past that the panel's entries scroll, between a fixed title and a fixed toggle. That only comes
+// into play when the panel is expanded or the window is short; the default three entries fit
+// under the cap in a normally sized window.
 const PanelRoot = styled.section`
   flex-shrink: 0;
+  max-height: 60%;
   padding: 8px;
 
   display: flex;
@@ -159,10 +171,22 @@ const PanelRoot = styled.section`
   contain: content;
 `
 
+const EntryList = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  overflow-y: auto;
+`
+
 // Sized like the roster's first group header so the two columns share a rhythm.
 const PanelTitle = styled.div`
   ${labelMedium};
   ${singleLine};
+  flex-shrink: 0;
   height: 36px;
   padding: 0 8px;
 
@@ -170,15 +194,18 @@ const PanelTitle = styled.div`
   line-height: 36px;
 `
 
-// The same box as a roster row (avatar, 44px height, 8px side padding), so the panel reads as one
-// more section of the member column and its names line up with the names beneath it.
-const activityRow = css`
-  ${titleSmall};
-  height: 44px;
-  padding: 4px 8px;
+// An entry is laid out like a chat message: the avatar in a gutter, the member's name on the first
+// line with a status marker at the far right, and the activity's details on their own lines under
+// the name, so a stream title or map name gets a full line instead of sharing one with a number.
+// The gutter (8px padding + 32px avatar + 16px gap) is the roster row's, so names here line up
+// with the names in the list beneath the panel.
+const activityEntry = css`
+  flex-shrink: 0;
+  padding: 8px;
 
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
 
   border-radius: 4px;
   color: inherit;
@@ -198,19 +225,56 @@ const activityRow = css`
   }
 `
 
-const StreamRowRoot = styled.a`
-  ${activityRow};
+const StreamEntryRoot = styled.a`
+  ${activityEntry};
 `
 
-const GameRowRoot = styled(LinkButton)`
-  ${activityRow};
+const GameEntryRoot = styled(LinkButton)`
+  ${activityEntry};
 `
 
-const RowAvatar = styled(StaffBadgedAvatar)`
+const EntryAvatar = styled(StaffBadgedAvatar)`
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  margin: 2px 16px 2px 0;
+`
+
+const EntryBody = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
+const EntryHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const EntryName = styled.div`
+  ${titleSmall};
+  ${singleLine};
+  flex-grow: 1;
+  min-width: 0;
+  line-height: 20px;
+`
+
+// What the member is doing (a stream's title, a game's map), in the body size and color so it
+// reads as content rather than as a caption. Stream titles get two lines before truncating.
+const EntryDetail = styled.div`
+  ${inter};
+  ${bodyMedium};
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+
+  color: var(--theme-on-surface);
 `
 
 const MetaLine = styled.div`
@@ -239,40 +303,46 @@ const MetaText = styled.span`
   min-width: 0;
 `
 
-const RowLiveLabel = styled(LiveLabel)`
+const EntryLiveLabel = styled(LiveLabel)`
   flex-shrink: 0;
-  margin-left: 8px;
 `
 
 const Elapsed = styled.span`
   ${inter};
   ${bodySmall};
   flex-shrink: 0;
-  margin-left: 8px;
 
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
 `
 
-function StreamRow({ entry }: { entry: StreamActivityEntry }) {
+function StreamEntry({ entry }: { entry: StreamActivityEntry }) {
+  const { t } = useTranslation()
+
   return (
-    <StreamRowRoot href={`https://twitch.tv/${entry.twitchLogin}`} target='_blank' rel='noopener'>
-      <RowAvatar userId={entry.userId} />
-      <NameBlock>
-        <NameLine>{entry.name}</NameLine>
+    <StreamEntryRoot href={`https://twitch.tv/${entry.twitchLogin}`} target='_blank' rel='noopener'>
+      <EntryAvatar userId={entry.userId} />
+      <EntryBody>
+        <EntryHeader>
+          <EntryName>{entry.name}</EntryName>
+          <EntryLiveLabel />
+        </EntryHeader>
+        <EntryDetail>{entry.title}</EntryDetail>
         <MetaLine>
           <MetaIcon icon='visibility' size={14} />
           <MetaText>
-            {formatViewerCount(entry.viewerCount)} · {entry.title}
+            {t('chat.activity.watching', '{{viewers}} watching', {
+              count: entry.viewerCount,
+              viewers: formatViewerCount(entry.viewerCount),
+            })}
           </MetaText>
         </MetaLine>
-      </NameBlock>
-      <RowLiveLabel />
-    </StreamRowRoot>
+      </EntryBody>
+    </StreamEntryRoot>
   )
 }
 
-function GameRow({ entry }: { entry: GameActivityEntry }) {
+function GameEntry({ entry }: { entry: GameActivityEntry }) {
   const { t } = useTranslation()
   // The stream uptime format ("1h 34m") is a plain elapsed-time format and fits a running game too.
   const elapsed = useStreamUptime(entry.startTime)
@@ -281,23 +351,25 @@ function GameRow({ entry }: { entry: GameActivityEntry }) {
   const inGame = getActivityDescriptor(FriendActivityStatus.InGame, t)
 
   return (
-    <GameRowRoot href={getGameResultsUrl(entry.gameId)}>
-      <RowAvatar userId={entry.members[0].id} />
-      <NameBlock>
-        <NameLine>{entry.members.map(m => m.name).join(', ')}</NameLine>
+    <GameEntryRoot href={getGameResultsUrl(entry.gameId)}>
+      <EntryAvatar userId={entry.members[0].id} />
+      <EntryBody>
+        <EntryHeader>
+          <EntryName>{entry.members.map(m => m.name).join(', ')}</EntryName>
+          <Elapsed>{elapsed}</Elapsed>
+        </EntryHeader>
+        <EntryDetail>{entry.mapName}</EntryDetail>
         <MetaLine>
           {inGame ? <MetaIcon icon={inGame.icon} size={14} $color={inGame.color} /> : null}
-          <MetaText>
-            {matchmakingTypeToLabel(entry.matchmakingType, t)} · {entry.mapName}
-          </MetaText>
+          <MetaText>{matchmakingTypeToLabel(entry.matchmakingType, t)}</MetaText>
         </MetaLine>
-      </NameBlock>
-      <Elapsed>{elapsed}</Elapsed>
-    </GameRowRoot>
+      </EntryBody>
+    </GameEntryRoot>
   )
 }
 
 const ToggleButton = styled(TextButton)`
+  flex-shrink: 0;
   min-height: 36px;
   margin-top: 4px;
   align-self: stretch;
@@ -307,7 +379,7 @@ const ToggleButton = styled(TextButton)`
 export const ACTIVITY_PANEL_DEFAULT_VISIBLE = 3
 
 /**
- * The presentational Activity panel: members' live streams and games as compact rows, capped at
+ * The presentational Activity panel: members' live streams and games as entries, capped at
  * {@link ACTIVITY_PANEL_DEFAULT_VISIBLE} with an in-place expand/collapse for the rest. Renders
  * nothing with no entries. Expansion is component state, so remount (e.g. via `key`) to reset it.
  */
@@ -333,13 +405,15 @@ export function ActivityPanel({
       <PanelTitle>
         {t('chat.activity.title', 'Activity')} ({entries.length})
       </PanelTitle>
-      {visible.map(entry =>
-        entry.kind === 'stream' ? (
-          <StreamRow key={`stream-${entry.userId}`} entry={entry} />
-        ) : (
-          <GameRow key={`game-${entry.gameId}`} entry={entry} />
-        ),
-      )}
+      <EntryList>
+        {visible.map(entry =>
+          entry.kind === 'stream' ? (
+            <StreamEntry key={`stream-${entry.userId}`} entry={entry} />
+          ) : (
+            <GameEntry key={`game-${entry.gameId}`} entry={entry} />
+          ),
+        )}
+      </EntryList>
       {hiddenCount > 0 ? (
         <ToggleButton
           label={
