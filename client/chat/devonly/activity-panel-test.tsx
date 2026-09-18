@@ -1,7 +1,8 @@
 import styled from 'styled-components'
 import { MatchmakingType } from '../../../common/matchmaking'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { bodyMedium, titleLarge } from '../../styles/typography'
+import { LiveUsersContext } from '../../twitch/live-state'
 import { ActivityEntry, ActivityPanel } from '../channel-activity-panel'
 import { UserList } from '../channel-user-list'
 
@@ -60,6 +61,12 @@ const roster = {
   offline: [6, 7, 8, 9, 10, 11, 12].map(makeSbUserId),
 }
 
+// In the app the streaming members are also in the app-wide live set, which is what puts the live
+// ring on their avatars (in the panel and in the roster alike), so the mock stands in for it.
+const liveUsers: ReadonlySet<SbUserId> = new Set(
+  entries.flatMap(e => (e.kind === 'stream' ? [e.userId] : [])),
+)
+
 const Root = styled.div`
   padding: 24px;
   display: flex;
@@ -111,35 +118,37 @@ function Column({ height, entries }: { height: number; entries: ReadonlyArray<Ac
 
 export function ActivityPanelTest() {
   return (
-    <Root>
-      <Note>
-        Each column is the channel page's 256px member column at a given height. Avatars and roster
-        names resolve through the store, so they show as loading unless those user ids exist on the
-        dev server.
-      </Note>
+    <LiveUsersContext.Provider value={liveUsers}>
+      <Root>
+        <Note>
+          Each column is the channel page's 256px member column at a given height. Avatars and
+          roster names resolve through the store, so they show as loading unless those user ids
+          exist on the dev server. Hover a cut-off name or detail line for its tooltip.
+        </Note>
 
-      <SectionTitle>No entries (panel hidden), tall and short</SectionTitle>
-      <Columns>
-        <Column height={640} entries={[]} />
-        <Column height={400} entries={[]} />
-      </Columns>
+        <SectionTitle>No entries (panel hidden), tall and short</SectionTitle>
+        <Columns>
+          <Column height={640} entries={[]} />
+          <Column height={400} entries={[]} />
+        </Columns>
 
-      <SectionTitle>Two entries (one stream, one game), tall and short</SectionTitle>
-      <Columns>
-        <Column height={640} entries={[entries[0], entries[2]]} />
-        <Column height={400} entries={[entries[0], entries[2]]} />
-      </Columns>
+        <SectionTitle>Two entries (one stream, one game), tall and short</SectionTitle>
+        <Columns>
+          <Column height={640} entries={[entries[0], entries[2]]} />
+          <Column height={400} entries={[entries[0], entries[2]]} />
+        </Columns>
 
-      <SectionTitle>Three entries (at the cap, no control)</SectionTitle>
-      <Columns>
-        <Column height={640} entries={entries.slice(0, 3)} />
-      </Columns>
+        <SectionTitle>Three entries (at the cap, no control)</SectionTitle>
+        <Columns>
+          <Column height={640} entries={entries.slice(0, 3)} />
+        </Columns>
 
-      <SectionTitle>Five entries (capped with "Show 2 more"), tall and short</SectionTitle>
-      <Columns>
-        <Column height={640} entries={entries} />
-        <Column height={400} entries={entries} />
-      </Columns>
-    </Root>
+        <SectionTitle>Five entries (capped with "Show 2 more"), tall and short</SectionTitle>
+        <Columns>
+          <Column height={640} entries={entries} />
+          <Column height={400} entries={entries} />
+        </Columns>
+      </Root>
+    </LiveUsersContext.Provider>
   )
 }

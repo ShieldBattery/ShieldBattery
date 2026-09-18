@@ -9,11 +9,13 @@ import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmakin
 import { FriendActivityStatus } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
+import { useOverflowingElement } from '../dom/overflowing-element'
 import { getGameResultsUrl } from '../games/action-creators'
 import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
+import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 import { getActivityDescriptor } from '../social/friend-activity-status'
 import {
@@ -234,6 +236,9 @@ const GameEntryRoot = styled(LinkButton)`
   ${activityEntry};
 `
 
+// The roster's avatar, at the roster's size: it carries the same live ring and "LIVE" tag for a
+// streaming member (drawn by `ConnectedAvatar` from the app-wide live set), so a member looks the
+// same here as in the list beneath. The 8px entry padding leaves room for the ring's 4px reach.
 const EntryAvatar = styled(StaffBadgedAvatar)`
   flex-shrink: 0;
   width: 32px;
@@ -249,29 +254,60 @@ const EntryBody = styled.div`
   gap: 2px;
 `
 
+// The name sits in a tooltip wrapper that is content-sized, so the marker is pushed to the far
+// right here rather than by the name growing.
 const EntryHeader = styled.div`
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 `
 
-const EntryName = styled.div`
+const NameText = styled.div`
   ${titleSmall};
   ${singleLine};
-  flex-grow: 1;
   min-width: 0;
   line-height: 20px;
 `
 
 // What the member is doing (a stream's title, a game's mode and map): one muted line, truncated,
 // so it supports the name rather than competing with it.
-const EntryDetail = styled.div`
+const DetailText = styled.div`
   ${inter};
   ${bodyMedium};
   ${singleLine};
 
   color: var(--theme-on-surface-variant);
 `
+
+/**
+ * A single truncating line of an entry that offers its full text in a tooltip, but only once the
+ * text is actually cut off; a line that fits has nothing to add. The wrapper isn't a tab stop: the
+ * entry as a whole is the focusable thing.
+ */
+function TruncatingLine({
+  as: Text,
+  children,
+}: {
+  as: React.ComponentType<{ ref: React.Ref<HTMLDivElement>; children: string }>
+  children: string
+}) {
+  const [ref, isOverflowing] = useOverflowingElement<HTMLDivElement>()
+
+  return (
+    <Tooltip text={children} position='top' tabIndex={-1} disabled={!isOverflowing}>
+      <Text ref={ref}>{children}</Text>
+    </Tooltip>
+  )
+}
+
+function EntryName({ children }: { children: string }) {
+  return <TruncatingLine as={NameText}>{children}</TruncatingLine>
+}
+
+function EntryDetail({ children }: { children: string }) {
+  return <TruncatingLine as={DetailText}>{children}</TruncatingLine>
+}
 
 const MetaLine = styled.div`
   ${inter};
@@ -365,9 +401,7 @@ function GameEntry({ entry }: { entry: GameActivityEntry }) {
             </InGameLabel>
           ) : null}
         </EntryHeader>
-        <EntryDetail>
-          {matchmakingTypeToLabel(entry.matchmakingType, t)} · {entry.mapName}
-        </EntryDetail>
+        <EntryDetail>{`${matchmakingTypeToLabel(entry.matchmakingType, t)} · ${entry.mapName}`}</EntryDetail>
         <MetaLine>
           <MetaIcon icon='schedule' size={14} />
           <MetaText>
