@@ -17,7 +17,7 @@
 
 use std::collections::VecDeque;
 
-use bw_dat::{Game, TechId, UnitId, UpgradeId, order, unit};
+use bw_dat::{Game, TechId, UnitArray, UnitId, UpgradeId, order, unit};
 use overlay_ui::observer::{GraphSeries, TimelineEventKind};
 
 use crate::bw;
@@ -66,6 +66,21 @@ const SAME_DEPOT_DISTANCE: i32 = 64;
 /// forgotten, which can only cost a duplicate timeline entry for a base rebuilt where an ancient one
 /// stood.
 const MAX_KNOWN_DEPOTS: usize = 32;
+
+/// How many selection groups the game keeps per player.
+const HOTKEY_GROUPS: usize = 0x12;
+
+/// How many of those groups are the number keys.
+///
+/// The rest are the selection history SC:R keeps behind the same table; nothing recalls them with a
+/// key, so nothing here reports on them.
+const NUMBER_KEY_GROUPS: usize = 10;
+
+/// How long a group has to go without being recalled before it is worth pointing out, in frames.
+///
+/// A minute of game time. Long enough that a group a player is cycling through stays lit, short
+/// enough that an army parked at home while its owner macros is called out while it still matters.
+const STALE_FRAMES: u16 = 60 * SAMPLE_INTERVAL_FRAMES as u16;
 
 /// One second of one player's game.
 ///
@@ -123,12 +138,28 @@ pub struct TimelineEvent {
     pub subject: TimelineSubject,
 }
 
+/// One of a player's number-key selection groups, as the last sample found it.
+#[derive(Copy, Clone)]
+pub struct ControlGroup {
+    /// The digit the group answers to.
+    pub key: u8,
+    /// What the group is mostly made of, which is the icon it is named by.
+    pub unit_id: UnitId,
+    /// How many living units are in it.
+    pub count: u32,
+    /// Whether it has gone long enough without being recalled to be worth pointing out.
+    pub stale: bool,
+}
+
 /// One player's history.
 struct PlayerStats {
     samples: VecDeque<Sample>,
     /// Where this player's finished resource depots stand, so a depot that was already there is not
     /// reported as a new one every second.
     known_depots: Vec<(i16, i16)>,
+    /// What they have on their number keys, replaced whole every sample: a group is what it is
+    /// right now, and nothing here is read against what it was.
+    control_groups: Vec<ControlGroup>,
 }
 
 impl PlayerStats {
@@ -136,12 +167,14 @@ impl PlayerStats {
         PlayerStats {
             samples: VecDeque::new(),
             known_depots: Vec::new(),
+            control_groups: Vec::new(),
         }
     }
 
     fn clear(&mut self) {
         self.samples.clear();
         self.known_depots.clear();
+        self.control_groups.clear();
     }
 
     fn push(&mut self, sample: Sample) {
@@ -294,11 +327,25 @@ impl GameStats {
         self.events.iter().rev()
     }
 
+    /// What a player has on their number keys, as of the last sample.
+    pub fn control_groups(&self, player: u8) -> &[ControlGroup] {
+        match self.players.get(player as usize) {
+            Some(player) => &player.control_groups,
+            None => &[],
+        }
+    }
+
     /// Takes a sample if one is due, and records everything that changed since the last one.
     ///
     /// `active_units` is the game's own list, which is walked once: a second walk per measurement
     /// would cost as much again for numbers that all come from the same units.
-    pub fn step(&mut self, game: Game, active_units: UnitIterator) {
+    pub fn step(
+        &mut self,
+        game: Game,
+        active_units: UnitIterator,
+        units: &UnitArray,
+        hotkey_frames_offset: Option<usize>,
+    ) {
         let frame = game.frame_count();
         if frame < self.next_sample_frame {
             return;
@@ -350,7 +397,45 @@ impl GameStats {
         self.record_depots(game, frame, &depots);
         self.record_buildings(game, frame);
         self.record_research(game, frame);
+        self.record_control_groups(game, frame, units, hotkey_frames_offset);
         self.seeded = true;
+    }
+
+    /// Replaces every player's number-key groups with what the game has on them right now.
+    ///
+    /// The game stores unique unit ids rather than pointers, so an id that no longer resolves is a
+    /// unit that has died and is simply not counted: a group's count here is what recalling it
+    /// would select.
+    fn record_control_groups(
+        &mut self,
+        game: Game,
+        frame: u32,
+        units: &UnitArray,
+        hotkey_frames_offset: Option<usize>,
+    ) {
+        // Truncated to the width the game stores a group's stamp at, so the two are subtracted in
+        // the same arithmetic: a group untouched for longer than that width wraps and reads as
+        // freshly used, which costs a dimmed tile rather than a wrong number.
+        let now = frame as u16;
+        for player in 0..MAX_PLAYERS {
+            let groups = &mut self.players[player].control_groups;
+            groups.clear();
+            for group in 0..NUMBER_KEY_GROUPS {
+                let Some((unit_id, count)) = read_control_group(game, units, player, group) else {
+                    continue;
+                };
+                let stale = hotkey_frames_offset
+                    .and_then(|offset| unsafe { last_used_frame(game, offset, player, group) })
+                    .is_some_and(|used| now.wrapping_sub(used) > STALE_FRAMES);
+                groups.push(ControlGroup {
+                    // The game indexes a group by the digit it is bound with.
+                    key: group as u8,
+                    unit_id,
+                    count,
+                    stale,
+                });
+            }
+        }
     }
 
     /// Notes a timeline entry, dropping the oldest once the feed is full.
@@ -497,6 +582,60 @@ impl GameStats {
                 }
             }
         }
+    }
+}
+
+/// Reads one of a player's selection groups: what it is mostly made of, and how many living units
+/// are in it, or `None` for a group with nothing on it.
+///
+/// The icon is the commonest unit rather than the first, because the first entry of a group is
+/// whatever happened to be selected when it was bound, while what a caster wants named is the army
+/// the group is.
+fn read_control_group(
+    game: Game,
+    units: &UnitArray,
+    player: usize,
+    group: usize,
+) -> Option<(UnitId, u32)> {
+    let ids = unsafe { *(**game).selection_hotkeys.get(player)?.get(group)? };
+    let mut tally: Vec<(UnitId, u32)> = Vec::new();
+    let mut count = 0;
+    for id in ids {
+        // Zero is the game's own end of the group rather than a unit it failed to find.
+        if id == 0 {
+            break;
+        }
+        let Some(unit) = units.get_by_unique_id(id) else {
+            continue;
+        };
+        count += 1;
+        let unit_id = unit.id();
+        match tally
+            .iter_mut()
+            .find(|(candidate, _)| *candidate == unit_id)
+        {
+            Some(entry) => entry.1 += 1,
+            None => tally.push((unit_id, 1)),
+        }
+    }
+    let dominant = tally.into_iter().max_by_key(|&(_, held)| held)?.0;
+    Some((dominant, count))
+}
+
+/// The frame a group was last written on, read out of the table `game` keeps it in.
+///
+/// # Safety
+///
+/// `offset` must be the byte offset of the game's own `u16[player][group]` stamp table, which is
+/// what the binary analysis resolves it as.
+unsafe fn last_used_frame(game: Game, offset: usize, player: usize, group: usize) -> Option<u16> {
+    if player >= MAX_PLAYERS || group >= HOTKEY_GROUPS {
+        return None;
+    }
+    unsafe {
+        let base = (*game) as *const u8;
+        let stamps = base.add(offset) as *const u16;
+        Some(stamps.add(player * HOTKEY_GROUPS + group).read_unaligned())
     }
 }
 

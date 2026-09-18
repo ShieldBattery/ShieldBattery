@@ -372,6 +372,14 @@ fn research_completion(unit: Unit, time: u32) -> Progress {
     }
 }
 
+/// Which frame of the game's own command-icon atlas stands for a unit.
+///
+/// Every panel that names a unit names it with this same icon, so no two surfaces show the same
+/// thing two different ways.
+pub fn unit_icon(id: UnitId, is_hd: bool) -> ProductionIcon {
+    production_icon(Production::Unit(id), is_hd)
+}
+
 /// Which frame of the game's own command-icon atlas stands for something the timeline is about.
 ///
 /// The timeline names a unit, an upgrade or a technology by the same icon the production panel draws
