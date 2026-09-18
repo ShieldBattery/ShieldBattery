@@ -233,6 +233,12 @@
     "title": "Report a bug"
   },
   "chat": {
+    "activity": {
+      "showLess": "Show less",
+      "showMore_one": "Show {{count}} more",
+      "showMore_other": "Show {{count}} more",
+      "title": "Activity"
+    },
     "banUser": {
       "banAction": "Ban {{user}}",
       "banReason": "Ban reason (optional)",

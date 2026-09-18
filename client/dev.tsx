@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import { Link } from 'wouter'
+import { DevChat } from './chat/devonly/dev-chat'
 import { DevSection } from './debug/dev-section'
 import { DevDownload } from './download/devonly/routes'
 import { DevHome } from './home/devonly/dev-home'
@@ -45,6 +46,7 @@ export default function Dev() {
         <DevSection
           baseUrl='/dev'
           routes={[
+            ['Chat components', 'chat', DevChat],
             ['Download components', 'download', DevDownload],
             ['Home components', 'home', DevHome],
             ['Ladder components', 'ladder', DevLadder],
