@@ -42,7 +42,7 @@
     "gen-minimap-previews": "node -r @swc-node/register tools/gen-minimap-previews.ts",
     "gen-schema": "cd ./server-rs && cargo run --bin gen-schema",
     "gen-translations": "pnpm gen-translations:app && pnpm gen-translations:email",
-    "gen-translations:app": "i18next-cli extract --sync-primary",
+    "gen-translations:app": "i18next-cli extract --sync-primary --trust-derived",
     "gen-translations:email": "i18next-cli extract --sync-primary -c email/i18next.config.mjs",
     "gen-typeshare": "typeshare ./server-rs --lang=typescript --output-file=common/typeshare.ts && prettier --write common/typeshare.ts",
     "i18n": "node -r @swc-node/register tools/i18n-translate.ts",
