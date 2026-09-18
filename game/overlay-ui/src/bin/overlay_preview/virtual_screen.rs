@@ -20,6 +20,10 @@ const MINIMAP_RESERVE_UNITS: f32 = 348.0;
 /// The height of the bottom console band (the unit panel and command card), in units.
 const CONSOLE_BAND_UNITS: f32 = 200.0;
 
+/// The outline the shell's hit rects are drawn in: bright enough to find over a gameplay frame,
+/// and nothing the design uses, so it never reads as part of the overlay.
+const HIT_RECT_COLOR: Color32 = Color32::from_rgb(0x3f, 0xf5, 0xa6);
+
 /// A resolution the overlay can be previewed at.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ResolutionPreset {
@@ -221,6 +225,22 @@ pub fn paint_reserve_guides(painter: &Painter, viewport: Rect) {
         overlay_ui::colors::AMBER60,
     );
     paint_guide_rect(painter, console, "console band", overlay_ui::colors::BLUE70);
+}
+
+/// Outlines the rects the shell claims as its own this frame.
+///
+/// A click inside one of these is the overlay's and a click outside it is the game's, unless a modal
+/// has taken the pointer outright — so where these edges fall is what decides whether an ambient
+/// panel is costing the game clicks. Drawn by the window over the blit rather than into the overlay,
+/// since these are what the shell reported and not something it put on screen.
+pub fn paint_hit_rects(painter: &Painter, blit: &Blit, rects: &[Rect]) {
+    let stroke = Stroke::new(1.0, HIT_RECT_COLOR);
+    for rect in rects {
+        let rect = blit.rect_to_host(*rect);
+        if rect.is_positive() {
+            painter.rect_stroke(rect, 0.0, stroke, egui::StrokeKind::Outside);
+        }
+    }
 }
 
 fn paint_guide_rect(painter: &Painter, rect: Rect, label: &str, color: Color32) {

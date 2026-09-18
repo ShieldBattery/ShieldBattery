@@ -1,9 +1,6 @@
-use overlay_ui::netstat::{
-    NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
-};
+use overlay_ui::netstat::{NetEventView, NetStatRowView, NetStatsView, RowDeparture};
 
-use crate::app_messages::{GameSetupInfo, SbUser, SbUserId};
-use crate::bw_scr::draw_overlay::OverlayState;
+use crate::app_messages::{SbUser, SbUserId};
 use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
 
 /// Builds the display view from the network-stats snapshot and the session's user list, resolving
@@ -11,7 +8,12 @@ use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
 /// data and game-setup data meet — the net-stats analogue of `disconnect::build_disconnect_view`.
 /// Durations are flattened to whole milliseconds/seconds here so the presentation layer carries only
 /// plain numbers.
-fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView {
+///
+/// The shell draws the resulting panel as an ambient surface, in whatever mode the client is in: the
+/// `/netstat` chat command is the only thing that puts it on screen, and a player triaging lag needs
+/// it mid-game. It is purely informational and registers no hit rect, so it never costs the game a
+/// click.
+pub(super) fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView {
     let resolve = |user_id: SbUserId| -> String {
         users
             .iter()
@@ -87,28 +89,5 @@ fn format_event(event: &NetEvent) -> String {
             format!("link back ({:.1}s)", outage.as_secs_f64())
         }
         NetEvent::Rehomed { from, to } => format!("re-homed relay {from} → {to}"),
-    }
-}
-
-impl OverlayState {
-    /// Draws the `/netstat` network-stats overlay: a compact, translucent panel anchored top-right
-    /// (clear of the top-center disconnect overlay), shown only while the overlay is toggled on — a
-    /// `Some` snapshot. `None` (toggled off, or no session) draws nothing. Player names resolve the
-    /// same way the disconnect overlay resolves them, from the session's user list.
-    ///
-    /// Purely informational: it registers no ui rect, so it never captures input and never interferes
-    /// with play while it's up.
-    pub(super) fn add_netstat_overlay(
-        &mut self,
-        status: Option<&NetStatsStatus>,
-        setup_info: Option<&GameSetupInfo>,
-        ctx: &egui::Context,
-    ) {
-        let Some(status) = status else {
-            return;
-        };
-        let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
-        let view = build_netstat_view(status, users);
-        render_netstat_view(&view, ctx);
     }
 }

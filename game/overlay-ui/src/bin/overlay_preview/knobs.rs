@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use overlay_ui::i18n::Locale;
 use serde::{Deserialize, Serialize};
 
-use crate::scenarios::{ScenarioKind, disconnect, kitchen_sink, netstat};
+use crate::host_knobs;
+use crate::scenarios::{self, ScenarioKind, disconnect, kitchen_sink, netstat};
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
 /// How the emulated screen is set up.
@@ -51,6 +52,8 @@ impl Backdrop {
 pub struct Knobs {
     pub scenario: ScenarioKind,
     pub screen: ScreenKnobs,
+    /// The game state the shell reads, and the native dialogs it replaces.
+    pub host: host_knobs::Knobs,
     /// Whether the minimap and console reserves are outlined over the emulated screen.
     pub show_guides: bool,
     /// What is drawn behind the overlay.
@@ -64,6 +67,7 @@ pub struct Knobs {
     pub disconnect: disconnect::Knobs,
     pub kitchen_sink: kitchen_sink::Knobs,
     pub netstat: netstat::Knobs,
+    pub shell: scenarios::shell::Knobs,
 }
 
 /// Where the persisted knobs live: next to the built binary, so a checkout's `target/` carries them.

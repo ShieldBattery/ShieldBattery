@@ -378,6 +378,9 @@ pub struct BwScr {
     original_game_screen_height_ratio: AtomicU32,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
+    /// If the minimap was hidden in replay / obs ui. Separate from the console's state: the minimap
+    /// is its own surface and observers keep it while hiding the rest of the console.
+    minimap_hidden_state: AtomicBool,
     /// Whether the game has been started (e.g. we're done loading in)
     game_started: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
@@ -1873,6 +1876,7 @@ impl BwScr {
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
+            minimap_hidden_state: AtomicBool::new(false),
             game_started: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
@@ -2907,12 +2911,12 @@ impl BwScr {
                                 self.center_screen(&unit.position());
                             }
                             let console_shown = !self.console_hidden();
-                            if overlay_out.show_console != console_shown {
-                                if overlay_out.show_console {
-                                    self.show_console(first_dialog);
-                                } else {
-                                    self.hide_console(first_dialog);
-                                }
+                            if overlay_out.console_visible != console_shown {
+                                self.set_console_visible(first_dialog, overlay_out.console_visible);
+                            }
+                            let minimap_shown = !self.minimap_hidden();
+                            if overlay_out.minimap_visible != minimap_shown {
+                                self.set_minimap_visible(first_dialog, overlay_out.minimap_visible);
                             }
                             let bw = &draw_inject::BwVars {
                                 renderer,

@@ -1,6 +1,7 @@
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
+use overlay_ui::shell::native_dialogs::{self, NativeDialog, RETURN_CONTROL_ID};
 
 use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw, get_bw};
@@ -11,17 +12,106 @@ use super::{BwScr, console};
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
-static TIMEOUT_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
 static CONSOLE_DIALOG_EVENT_HANDLERS: [EventHandler; console::CONSOLE_DIALOGS.len()] =
     [NEW_EVENT_HANDLER; console::CONSOLE_DIALOGS.len()];
+static REPLACED_DIALOG_EVENT_HANDLERS: [EventHandler; NativeDialog::ALL.len()] =
+    [NEW_EVENT_HANDLER; NativeDialog::ALL.len()];
 static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
+
+/// Whether each replaced native dialog is currently spawned, indexed by [`NativeDialog::index`].
+/// Written by the spawn hook and by the swallowing event handler's delete event, read by the draw
+/// path, which turns the transitions into the shell's own record.
+static REPLACED_DIALOG_LIVE: [AtomicBool; NativeDialog::ALL.len()] =
+    [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
+
+/// Whether the console's menu button is handed to the shell as the game menu's replacement.
+///
+/// `Stat_F10` is the button, not the menu it opens, and the menu's own runtime name has not been
+/// captured yet (see [`native_dialogs::GAME_MENU_DIALOG_NAME`]), so this is the only route to the
+/// shell's game menu that exists at all. It stays off until that menu is a screen worth putting in
+/// SC:R's place; while it is off, `Stat_F10` is an ordinary console dialog.
+const GAME_MENU_REPLACEMENT_ENABLED: bool = false;
+
+/// The dialog-system event a click on a control dispatches.
+const CLICK_EXT_EVENT: u32 = 0x4;
 
 // Helper needed for initializing array of event handlers
 #[allow(clippy::declare_interior_mutable_const)]
 const NEW_EVENT_HANDLER: EventHandler = EventHandler::new();
+
+/// Which replacement stands in for a dialog of this name at all, regardless of whether the session
+/// it spawned in is one where the replacement runs. A dialog already hidden at spawn is identified
+/// through this, so it is still recognized once whatever gated its replacement has gone away.
+fn replaced_dialog_for(name: &str) -> Option<NativeDialog> {
+    native_dialogs::replacement_for(name).or_else(|| {
+        (GAME_MENU_REPLACEMENT_ENABLED && name.eq_ignore_ascii_case(console::MENU_BUTTON_DIALOG))
+            .then_some(NativeDialog::GameMenu)
+    })
+}
+
+/// Which replacement a dialog spawning under this name gets, or `None` when BW's own dialog should
+/// run untouched.
+fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
+    let dialog = replaced_dialog_for(name)?;
+    match dialog {
+        // BW's native waiting-for-players dialog is replaced only where the egui disconnect surface
+        // that stands in for it is actually driven. Outside a netcode v2 session nothing feeds that
+        // surface, so hiding the native dialog there would leave a stalled player with nothing.
+        NativeDialog::TimeOut => netcode_v2::with_turn_state(|_| ())
+            .is_some()
+            .then_some(dialog),
+        NativeDialog::ChatHistory | NativeDialog::GameMenu => Some(dialog),
+    }
+}
+
+/// The name the dialog this replacement stands in for carries at runtime.
+fn replaced_dialog_name(dialog: NativeDialog) -> Option<&'static str> {
+    dialog.runtime_name().or(match dialog {
+        NativeDialog::GameMenu if GAME_MENU_REPLACEMENT_ENABLED => {
+            Some(console::MENU_BUTTON_DIALOG)
+        }
+        _ => None,
+    })
+}
+
+/// Which replaced native dialogs are spawned right now, indexed by [`NativeDialog::index`].
+pub fn live_replaced_dialogs() -> [bool; NativeDialog::ALL.len()] {
+    std::array::from_fn(|index| REPLACED_DIALOG_LIVE[index].load(Ordering::Relaxed))
+}
+
+/// Dismisses a replaced native dialog through its own return control.
+///
+/// SC:R's in-game menus put the game into a modal state — single-player pause, suspended cursor
+/// updates, a restricted hotkey context — before their dialog spawns, and leave it only when the
+/// dialog closes through its own path. Hiding the dialog never undoes that, so closing a replacement
+/// means driving the hidden dialog's return button the way a click on it would.
+pub fn close_replaced_dialog(first_dialog: Option<Dialog>, dialog: NativeDialog) {
+    let label = dialog.label();
+    let Some(name) = replaced_dialog_name(dialog) else {
+        warn!("No runtime name known for the {label} dialog, cannot close it");
+        return;
+    };
+    let Some(live) = bw::iter_dialogs(first_dialog)
+        .find(|candidate| candidate.as_control().string().eq_ignore_ascii_case(name))
+    else {
+        debug!("The {label} dialog is already gone");
+        return;
+    };
+    let Some(return_control) = live.child_by_id(RETURN_CONTROL_ID) else {
+        warn!("The {label} dialog has no return control, cannot close it");
+        return;
+    };
+    // The dialog's own mouse dispatch addresses a control in coordinates relative to the dialog,
+    // which is what a control's area is already in.
+    let area = return_control.dialog_coords();
+    let x = area.left + (area.right - area.left) / 2;
+    let y = area.top + (area.bottom - area.top) / 2;
+    debug!("Closing the {label} dialog through its return control");
+    return_control.send_ext_event_mouse(CLICK_EXT_EVENT, x, y);
+}
 
 pub unsafe fn spawn_dialog_hook(
     raw: *mut bw::Dialog,
@@ -65,17 +155,16 @@ pub unsafe fn spawn_dialog_hook(
         } else if name == "LMission" {
             send_game_results();
             event_handler
-        } else if name.eq_ignore_ascii_case("timeout")
-            && netcode_v2::with_turn_state(|_| ()).is_some()
-        {
-            // Under a netcode-v2 session the egui disconnect overlay is the sole disconnect surface;
-            // BW's native waiting-for-players dialog (empty name list, unwired Drop button, its own
-            // countdown) must never show. Hide it at spawn and swap in an event handler that swallows
-            // everything but its own init/delete, so it neither draws nor responds. The native spawn
-            // still runs below — only the dialog's visibility and interactivity are stripped, never
-            // its creation.
+        } else if let Some(replaced) = replacement_at_spawn(name) {
+            // The overlay draws this dialog's replacement, so BW's own must never show: hide it at
+            // spawn and swap in an event handler that swallows everything but its own init/delete,
+            // and it neither draws nor responds. The native spawn still runs below — only the
+            // dialog's visibility and interactivity are stripped, never its creation, because
+            // dismissing the replacement has to close the real dialog through its own path.
             (*(raw as *mut bw::scr::Control)).flags &= !0x2;
-            let inited = TIMEOUT_EVENT_HANDLER.init(timeout_event_handler);
+            REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
+            let inited = REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()]
+                .init(replaced_dialog_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
         } else {
@@ -342,7 +431,7 @@ unsafe extern "C" fn minimap_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() && !allow_event_on_hidden_console(event) {
+        if bw.minimap_hidden() && !allow_event_on_hidden_dialog(event) {
             return 0;
         }
         let ret = orig(ctrl, event);
@@ -381,13 +470,12 @@ unsafe extern "C" fn minimap_event_handler(
     }
 }
 
-unsafe fn allow_event_on_hidden_console(event: *mut bw::ControlEvent) -> bool {
+/// Whether a hidden dialog must still see this event: the init and delete events, without which the
+/// dialog would explode on unfinished initialization or undone cleanup.
+unsafe fn allow_event_on_hidden_dialog(event: *mut bw::ControlEvent) -> bool {
     if (*event).ty == 0xe {
         match (*event).ext_type {
-            // 0xa and 0x0 are init events, 0x1 is delete event, so those have to
-            // be allowed in order for the dialog not exploding due to unfinished
-            // initialization / undone cleanup.
-            // (We probably don't have these dialogs ever be deleted though)
+            // 0xa and 0x0 are init events, 0x1 is the delete event.
             0xa | 0x0 | 0x1 => true,
             _ => false,
         }
@@ -396,16 +484,25 @@ unsafe fn allow_event_on_hidden_console(event: *mut bw::ControlEvent) -> bool {
     }
 }
 
-unsafe extern "C" fn timeout_event_handler(
+/// The event handler a replaced dialog runs under.
+///
+/// Hiding a dialog stops it drawing but not responding, so this swallows every event but the
+/// init/delete it needs to construct and tear down cleanly. Everything the dialog would have done on
+/// its own goes with them: `TimeOut`'s countdown and its unwired Drop button, a menu's buttons.
+unsafe extern "C" fn replaced_dialog_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        // Hiding the dialog stops it drawing but not responding, so swallow every event but the
-        // init/delete it needs to construct and tear down cleanly. This kills its own
-        // waiting-for-players countdown and its unwired Drop button along with the rest.
-        if !allow_event_on_hidden_console(event) {
+        // Delete: the dialog is going away, so its replacement must not outlive it.
+        if (*event).ty == 0xe
+            && (*event).ext_type == 0x1
+            && let Some(replaced) = replaced_dialog_for(Control::new(ctrl).string())
+        {
+            REPLACED_DIALOG_LIVE[replaced.index()].store(false, Ordering::Relaxed);
+        }
+        if !allow_event_on_hidden_dialog(event) {
             return 0;
         }
         orig(ctrl, event)
@@ -419,7 +516,7 @@ unsafe extern "C" fn console_dialog_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() && !allow_event_on_hidden_console(event) {
+        if bw.console_hidden() && !allow_event_on_hidden_dialog(event) {
             return 0;
         }
         orig(ctrl, event)
