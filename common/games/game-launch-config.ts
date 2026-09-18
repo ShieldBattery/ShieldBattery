@@ -117,4 +117,9 @@ export interface GameLaunchConfig {
   }
   /** Setup configuration for the game, such as the map, game type, etc. */
   setup: GameSetup
+  /**
+   * The language the app's UI is currently displayed in (an i18next language tag such as `ko` or
+   * `zh-Hans`), so the game client renders its own UI in the same language.
+   */
+  language: string
 }

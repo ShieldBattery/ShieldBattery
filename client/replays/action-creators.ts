@@ -58,6 +58,7 @@ async function setGameConfig(
       users: [localUser],
       seed: header?.startTime ?? 0,
     },
+    language: i18n.language,
   })
 }
 

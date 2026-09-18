@@ -397,6 +397,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       scr: await this.scrSettings.get(),
       settingsFilePath: this.scrSettings.gameFilepath,
       monitorBounds,
+      language: config.language,
       // `local` only stores the active preset *names* plus the custom pools; the DLL has no
       // preset tables of its own, so the active preset is mapped to concrete colors here and the
       // DLL only ever receives resolved hex pools.
