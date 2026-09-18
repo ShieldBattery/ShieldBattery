@@ -7,6 +7,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { addRecentReplayPathAtom, gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
+import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
@@ -65,6 +66,7 @@ export default function ({
               serverUrl: makeServerUrl(''),
             },
             setup,
+            language: i18n.language,
           }
           ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
         }
