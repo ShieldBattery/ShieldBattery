@@ -28,6 +28,7 @@ use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::kit::widgets::{self, ButtonVariant};
 use crate::kit::{theme, tiers};
 use crate::netstat::{NetStatsView, render_netstat_view};
+use crate::observer::{self, ObserverView};
 use crate::tr;
 use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
@@ -77,8 +78,8 @@ impl Mode {
 /// One ambient panel, as a hotkey names it.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Panel {
-    /// The per-player statistics panel.
-    Statistics,
+    /// The matchup bar: who is playing, and what they are sitting on.
+    Matchup,
     /// The production panel.
     Production,
     /// BW's own bottom console.
@@ -87,25 +88,86 @@ pub enum Panel {
     Minimap,
     /// The replay transport plate.
     Transport,
+    /// The observer dock, from which every other panel here is reached without a key.
+    Dock,
 }
 
 impl Panel {
-    pub const ALL: [Panel; 5] = [
-        Panel::Statistics,
+    pub const ALL: [Panel; 6] = [
+        Panel::Matchup,
         Panel::Production,
         Panel::Console,
         Panel::Minimap,
         Panel::Transport,
+        Panel::Dock,
     ];
+
+    /// The action that toggles this panel, which is also where its keycap comes from.
+    pub fn action(self) -> Action {
+        match self {
+            Panel::Matchup => Action::ToggleSidePanel,
+            Panel::Production => Action::ToggleProduction,
+            Panel::Console => Action::ToggleConsole,
+            Panel::Minimap => Action::ToggleMinimap,
+            Panel::Transport => Action::ToggleTransport,
+            Panel::Dock => Action::ToggleDock,
+        }
+    }
 
     pub fn label(self) -> &'static str {
         match self {
-            Panel::Statistics => "statistics",
+            Panel::Matchup => "matchup",
             Panel::Production => "production",
             Panel::Console => "console",
             Panel::Minimap => "minimap",
             Panel::Transport => "transport",
+            Panel::Dock => "dock",
         }
+    }
+}
+
+/// A whole set of panels at once, for a watcher who wants a screen rather than a list of switches.
+///
+/// A preset decides the surfaces that carry information and leaves the dock where it is: a preset
+/// that hid the control it was picked from would take the watcher's way back with it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum PanelPreset {
+    /// The game and as little else as possible: the matchup bar and the minimap.
+    Minimal,
+    /// What a watcher gets before they ask for anything: every panel, over the game's own console.
+    Standard,
+    /// Everything the overlay knows, with the game's console hidden to make room for it.
+    Analyst,
+}
+
+impl PanelPreset {
+    pub const ALL: [PanelPreset; 3] = [
+        PanelPreset::Minimal,
+        PanelPreset::Standard,
+        PanelPreset::Analyst,
+    ];
+
+    /// A short name for this preset in a knob panel or a log line.
+    pub fn label(self) -> &'static str {
+        match self {
+            PanelPreset::Minimal => "minimal",
+            PanelPreset::Standard => "standard",
+            PanelPreset::Analyst => "analyst",
+        }
+    }
+
+    /// Moves `prefs` to this preset's set of surfaces.
+    pub fn apply(self, prefs: &mut PanelPrefs) {
+        // Everything a minimal screen gives up. A panel built later joins this line, which is what
+        // keeps the analyst preset meaning "everything the overlay knows".
+        let analysis = !matches!(self, PanelPreset::Minimal);
+        prefs.matchup = true;
+        prefs.minimap = true;
+        prefs.transport = true;
+        prefs.production = analysis;
+        // The game's own console is what the analyst preset gives up instead: our panels want the
+        // bottom of the screen, and a watcher reading them is not selecting units.
+        prefs.console = matches!(self, PanelPreset::Standard);
     }
 }
 
@@ -118,11 +180,16 @@ impl Panel {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
-    pub statistics: bool,
+    pub matchup: bool,
     pub production: bool,
     pub console: bool,
     pub minimap: bool,
     pub transport: bool,
+    /// Whether the observer dock is on screen.
+    pub dock: bool,
+    /// Whether the dock spells its rows out as the control rail. Not a panel of its own: it is one
+    /// surface in two forms, and which of them a watcher left it in is worth remembering.
+    pub dock_expanded: bool,
     /// Whether every surface withholds what gives a replay's outcome away — its length, and how far
     /// through it playback is. Not a panel, so hiding every panel does not quietly switch it off:
     /// a viewer who asked not to be told how long a game runs has not asked for a tidier screen.
@@ -132,11 +199,13 @@ pub struct PanelPrefs {
 impl Default for PanelPrefs {
     fn default() -> PanelPrefs {
         PanelPrefs {
-            statistics: true,
+            matchup: true,
             production: true,
             console: true,
             minimap: true,
             transport: true,
+            dock: true,
+            dock_expanded: false,
             spoiler_free: false,
         }
     }
@@ -145,21 +214,23 @@ impl Default for PanelPrefs {
 impl PanelPrefs {
     pub fn shown(&self, panel: Panel) -> bool {
         match panel {
-            Panel::Statistics => self.statistics,
+            Panel::Matchup => self.matchup,
             Panel::Production => self.production,
             Panel::Console => self.console,
             Panel::Minimap => self.minimap,
             Panel::Transport => self.transport,
+            Panel::Dock => self.dock,
         }
     }
 
     pub fn set(&mut self, panel: Panel, shown: bool) {
         match panel {
-            Panel::Statistics => self.statistics = shown,
+            Panel::Matchup => self.matchup = shown,
             Panel::Production => self.production = shown,
             Panel::Console => self.console = shown,
             Panel::Minimap => self.minimap = shown,
             Panel::Transport => self.transport = shown,
+            Panel::Dock => self.dock = shown,
         }
     }
 
@@ -176,6 +247,18 @@ impl PanelPrefs {
         for panel in Panel::ALL {
             self.set(panel, shown);
         }
+    }
+
+    /// Which preset this set of panels is, if it is one of them.
+    ///
+    /// Derived by applying each preset to a copy rather than by listing its fields a second time,
+    /// so a preset and the set it is recognised by can never drift apart.
+    pub fn preset(&self) -> Option<PanelPreset> {
+        PanelPreset::ALL.into_iter().find(|preset| {
+            let mut candidate = *self;
+            preset.apply(&mut candidate);
+            candidate == *self
+        })
     }
 }
 
@@ -257,6 +340,13 @@ pub enum Intent {
     CloseNativeDialog(NativeDialog),
     /// Request that the player in this rally-point2 slot be dropped from the session.
     DropPlayer { slot: u8 },
+    /// Show or stop showing the game through this player's eyes. What that means for their allies
+    /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
+    /// watcher looking at a map neither player sees.
+    ToggleVision { player_id: u8 },
+    /// Select whatever is making this entry of a player's production row, and on a repeated ask,
+    /// move on to the next one of them.
+    SelectProduction { player_id: u8, item: u32 },
     /// Move replay playback to this frame.
     Seek(u32),
     /// Set how replay playback runs: where on the classic speed ladder, scaled by what, and whether
@@ -388,6 +478,10 @@ pub struct Views<'a> {
     /// on screen: the transport keys keep working with it hidden, and only the shell knows whether
     /// the player has hidden it.
     pub transport: Option<&'a TransportView>,
+    /// The observer panels, which a host builds for every frame it is watching a game rather than
+    /// playing one — again whether or not any of them is on screen, since the keys that show them
+    /// arrive between frames.
+    pub observer: Option<&'a ObserverView>,
 }
 
 /// One screen rect the overlay owns this frame.
@@ -608,6 +702,13 @@ impl Shell {
         if let Some(net_stats) = views.net_stats {
             render_netstat_view(net_stats, ctx);
         }
+        // The observer panels belong to the modes they report on: a host that kept feeding them
+        // after the client stopped watching must not be able to put them over someone's own game.
+        if self.host.mode.is_spectating()
+            && let Some(view) = views.observer
+        {
+            self.frame_observer(ctx, view, &mut hit_rects);
+        }
         let transport_shown = match views.transport {
             Some(view) => self.frame_transport(ctx, view, &mut hit_rects),
             None => false,
@@ -628,6 +729,45 @@ impl Shell {
             hit_rects,
             capture: self.capture(),
             transport_shown,
+        }
+    }
+
+    /// Draws the observer panels the watcher has left on screen, turning what they did with them
+    /// into intents for the host and into preferences of its own.
+    fn frame_observer(&mut self, ctx: &Context, view: &ObserverView, hit_rects: &mut Vec<HitRect>) {
+        if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, self.prefs.matchup)
+        {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let Some(player_id) = outcome.toggled_vision {
+                self.intents.push(Intent::ToggleVision { player_id });
+            }
+        }
+        if let Some(outcome) =
+            observer::render_production_view(&view.production, ctx, self.prefs.production)
+        {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let Some((player_id, item)) = outcome.clicked {
+                self.intents.push(Intent::SelectProduction {
+                    player_id,
+                    item: item as u32,
+                });
+            }
+        }
+        let dock = observer::render_obs_dock(&self.prefs, &self.hotkeys, self.host.mode, ctx);
+        if let Some(outcome) = dock {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let Some(panel) = outcome.toggled {
+                self.prefs.toggle(panel);
+            }
+            if let Some(spoiler_free) = outcome.spoiler_free {
+                self.prefs.spoiler_free = spoiler_free;
+            }
+            if let Some(preset) = outcome.preset {
+                preset.apply(&mut self.prefs);
+            }
+            if let Some(expanded) = outcome.expanded {
+                self.prefs.dock_expanded = expanded;
+            }
         }
     }
 
@@ -818,11 +958,12 @@ impl Shell {
 /// Which panel an action toggles, for the actions whose panel exists.
 fn action_panel(action: Action) -> Option<Panel> {
     match action {
-        Action::ToggleEconomy => Some(Panel::Statistics),
+        Action::ToggleSidePanel => Some(Panel::Matchup),
         Action::ToggleProduction => Some(Panel::Production),
         Action::ToggleConsole => Some(Panel::Console),
         Action::ToggleMinimap => Some(Panel::Minimap),
         Action::ToggleTransport => Some(Panel::Transport),
+        Action::ToggleDock => Some(Panel::Dock),
         _ => None,
     }
 }
@@ -1145,8 +1286,8 @@ mod tests {
         assert!(!shell.panel_prefs().console);
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
         assert!(!shell.panel_prefs().minimap);
-        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
-        assert!(!shell.panel_prefs().statistics);
+        assert!(shell.key_pressed(Key::R, Modifiers::NONE));
+        assert!(!shell.panel_prefs().matchup);
         assert!(shell.key_pressed(Key::F, Modifiers::NONE));
         assert!(!shell.panel_prefs().production);
     }
@@ -1177,12 +1318,68 @@ mod tests {
     #[test]
     fn an_action_with_no_surface_leaves_its_key_to_the_game() {
         let mut shell = spectating_shell();
-        for key in [Key::P, Key::U, Key::G, Key::V, Key::Backtick] {
+        for key in [Key::P, Key::U, Key::E, Key::G, Key::V] {
             assert!(
                 !shell.key_pressed(key, Modifiers::NONE),
                 "{key:?} was consumed with nothing to consume it for"
             );
         }
+    }
+
+    #[test]
+    fn every_panel_is_reached_by_the_action_that_names_it() {
+        for panel in Panel::ALL {
+            assert_eq!(
+                action_panel(panel.action()),
+                Some(panel),
+                "{panel:?} and its action disagree"
+            );
+        }
+    }
+
+    #[test]
+    fn the_dock_key_moves_the_dock_and_nothing_else() {
+        let mut shell = spectating_shell();
+        assert!(shell.key_pressed(Key::Backtick, Modifiers::NONE));
+        assert!(!shell.panel_prefs().dock);
+        assert!(shell.panel_prefs().matchup);
+        assert!(shell.key_pressed(Key::Backtick, Modifiers::NONE));
+        assert!(shell.panel_prefs().dock);
+    }
+
+    #[test]
+    fn a_preset_is_recognised_in_the_panels_it_leaves_behind() {
+        for preset in PanelPreset::ALL {
+            let mut prefs = PanelPrefs::default();
+            preset.apply(&mut prefs);
+            assert_eq!(
+                prefs.preset(),
+                Some(preset),
+                "{preset:?} is not its own set"
+            );
+        }
+    }
+
+    #[test]
+    fn presets_leave_the_dock_where_the_watcher_put_it() {
+        let mut prefs = PanelPrefs {
+            dock: false,
+            dock_expanded: true,
+            ..PanelPrefs::default()
+        };
+        for preset in PanelPreset::ALL {
+            preset.apply(&mut prefs);
+            assert!(!prefs.dock, "{preset:?} put the dock back on screen");
+            assert!(prefs.dock_expanded, "{preset:?} folded the rail away");
+        }
+    }
+
+    #[test]
+    fn a_set_of_panels_that_is_no_preset_is_named_as_none() {
+        let mut prefs = PanelPrefs::default();
+        PanelPreset::Standard.apply(&mut prefs);
+        prefs.minimap = false;
+        assert_eq!(prefs.preset(), None);
     }
 
     #[test]

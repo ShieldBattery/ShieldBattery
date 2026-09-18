@@ -62,6 +62,25 @@
     "title": "Network stats",
     "worstGap": "Worst gap"
   },
+  "observer": {
+    "apm": "APM",
+    "liveTag": "Live",
+    "panelConsole": "Console",
+    "panelDock": "Dock",
+    "panelMatchup": "Matchup",
+    "panelMinimap": "Minimap",
+    "panelProduction": "Production",
+    "panelTransport": "Transport",
+    "presetAnalyst": "Analyst",
+    "presetMinimal": "Minimal",
+    "presetStandard": "Standard",
+    "raceProtoss": "P",
+    "raceRandom": "R",
+    "raceTerran": "T",
+    "raceZerg": "Z",
+    "replayTag": "Replay",
+    "spoilerFree": "Spoiler-free"
+  },
   "transport": {
     "jumpMinutes": "{{step}}m",
     "jumpSeconds": "{{step}}s",

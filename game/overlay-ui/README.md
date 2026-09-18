@@ -4,7 +4,8 @@ The presentation layer for ShieldBattery's in-game overlays, plus a native host 
 without launching StarCraft.
 
 The **library** is what the injected game DLL links against: view-model types and pure egui render
-functions over plain data (`disconnect`, `netstat`, `chat_history`, `transport`), the color ramps
+functions over plain data (`disconnect`, `netstat`, `chat_history`, `transport`, `observer`), the
+color ramps
 (`colors`), the
 font families (`fonts`), `install_fonts_and_style`, which installs the overlay's faces and base style
 on an `egui::Context`, the UI kit (`kit`) every screen is drawn from, the translations (`i18n`) every
@@ -78,7 +79,7 @@ conspicuously plain. Offline renders include one pseudolocale pass per translate
 | `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                |
 | `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, glowing title), plus the `gradient_round_rect` and chrome shapes they are built from.                                                                                                                                                                                                                                                                   |
 | `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                               |
-| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
+| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `pulsing_dots`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, `paint_resource_glyph` (the mineral / gas / supply glyphs, drawn from paths so they render in a host that cannot reach BW's icon atlases), and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
 
 ## The shell
 
@@ -105,6 +106,25 @@ over live gameplay; the observer panel set belongs to `Observing`/`Replay`, whil
 diagnostic panel is deliberately available in every mode, since only an explicit chat command puts it
 on screen. **Hero** (tier 1) carries the match's identity — the replay transport plate lives here.
 **Modal** (tier 2) is a stack, of which only the top is drawn.
+
+**The observer panels** (`observer`) are what a watcher is told about a game they are not playing,
+and a host builds all of them into one `ObserverView` for every frame it is observing or watching a
+replay — again whether or not any of them is on screen. The **matchup bar** is the tier-1 surface
+hanging off the top edge: two mirrored halves about a middle block holding the clock and a
+`REPLAY`/`LIVE` tag, each half carrying a player's race chip, name, bank, supply and APM. A click on
+a half is `Intent::ToggleVision`, which is how a watcher takes a player's vision; a player whose
+vision is off is dimmed rather than dropped. A game the bar has no halves for — anything but two
+players, until the team cards exist — keeps the middle block alone rather than showing two of four
+players as though they were the game. The **production panel** is the tier-0 strip above the console
+band: a row per player of the things they are making, with a count and a progress bar per tile, and a
+click on a tile is `Intent::SelectProduction`, which the host turns into a selection of whatever is
+making it (asking again walks to the next one). A tile is the one place these panels draw one of the
+game's own icons, so the view carries both the texture id the host mapped and the atlas frame it is;
+a host with no atlas draws the number instead. The **obs dock** is the tier-0 strip on the right
+edge, in two forms of one list: collapsed, a column of keycaps lit for the surfaces that are on;
+expanded, the control rail, with the names spelled out and the `Minimal` / `Standard` / `Analyst`
+presets under them. Its list is `Panel::ALL` rather than a list of its own, so a panel built later
+appears there the day its toggle does.
 
 **The replay transport** (`transport`) is the one screen that acts on the game rather than reporting
 on it. A host builds its view-model for every frame of a replay, whether or not the plate is on
@@ -147,15 +167,16 @@ built leaves the game's own behavior alone.
 | Speed up / down                      | `U` / `D` | Military                   | `M`     |
 | Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift: per-player) | `G`     |
 | All panels                           | `A`       | Timeline                   | `T`     |
-| Economy (statistics panel for now)   | `E`       | Control groups             | `H`     |
+| Economy                              | `E`       | Control groups             | `H`     |
 | Production                           | `F`       | Map control                | `N`     |
 | Console                              | `W`       | Cycle vision               | `V`     |
-| Side panel                           | `R`       | Spoiler-free               | `L`     |
+| Side panel (matchup bar)             | `R`       | Spoiler-free               | `L`     |
 | Minimap                              | `Q`       | Edge dock                  | `` ` `` |
 
-Of these, `A`, `E`, `F`, `W`, `Q` and `Y` move panels, and `P`, `U`, `D`, `,`, `.` and `L` drive a
-replay; the rest are bindings waiting for their surfaces. The transport keys are consumed only while
-a replay's view-model is being fed, and `L` only in a replay, so anywhere else they stay the game's.
+Of these, `A`, `R`, `F`, `W`, `Q`, `Y` and `` ` `` move panels, and `P`, `U`, `D`, `,`, `.` and `L`
+drive a replay; the rest are bindings waiting for their surfaces. The transport keys are consumed
+only while a replay's view-model is being fed, and `L` only in a replay, so anywhere else they stay
+the game's.
 
 Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
 per profile. The console and the minimap are independent booleans there, because they are separate
@@ -163,7 +184,12 @@ surfaces in the game and observers routinely keep the minimap while hiding the c
 why the DLL's `console.rs` moves them with separate calls, `set_console_visible`,
 `set_minimap_visible` and `set_command_panel_visible`, rather than one. `PanelPrefs` also carries
 `spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
-for a clear screen, not for a replay's length to be given away.
+for a clear screen, not for a replay's length to be given away, and whether the dock is spelled out
+as the control rail, which is one surface in two forms rather than two panels. A `PanelPreset`
+(`Minimal`, `Standard`, `Analyst`) is a whole set of those panels at once; `PanelPrefs::preset` says
+which one a set of panels is by applying each preset to a copy, so a preset and the set it is
+recognised by cannot drift apart. A preset never touches the dock: one that hid the control it was
+picked from would take the watcher's way back with it.
 
 **Native dialog replacements** (`shell::native_dialogs`) are the list of SC:R dialogs the overlay
 stands in for: `TimeOut`, `ChatHistory` and `GameMenu`. A host matches a spawning dialog with
@@ -263,7 +289,7 @@ name, tier, elapsed seconds, drop unlocked/requested), its self-reconnecting not
 problem is real enough to take the player's input, and a live counter tick; the network stats
 overlay's identity header, per-slot rows, history strip shapes and event ticker. The **shell**
 scenario has no screen of its own: it is a frame for walking the modal stack and the capture policy,
-with an ambient panel standing in for the observer panel set that does not exist yet. The **chat
+with the network-stats panel standing in as an ambient surface under it. The **chat
 history** scenario is the log SC:R's own `=` dialog is replaced by: its knobs deal a synthetic game's
 lines out by position (how many, whether the scopes are mixed, whether any are the local player's
 own, system notices, a line long enough to wrap, a line carrying BW's color codes), and its _burst
@@ -275,7 +301,17 @@ seek moves and a pause stops — because a seek that went nowhere would prove no
 playhead follows the pointer; its knobs are the replay's length, where playback starts, the speed it
 was recorded at, the rung it starts on, and whether the game reports a seek still in flight.
 Selecting it moves the emulated host to replay mode, which is the only mode the plate exists in.
-Clicks the overlay reports back (the disconnect Drop buttons) are logged under the knobs.
+The **observer panels** scenario runs a fake game behind the panel set, because panels that report on
+a game cannot be judged against numbers that never move: banks rise and fall, supply climbs and
+production rows fill and restart, all as a pure function of game time, so an offline render of the
+same second is the same image every time. In a replay it shares the transport's clock, since a bar
+and a plate that disagreed about how far into the game it is would be reporting on two different
+games. Its knobs are where the clock starts, each player's race, whether the left player is over
+their supply cap, whether both carry the longest names the game allows, and how many entries each
+production row holds; its presets are the panel presets, and the panels answer a vision toggle and a
+production click the way the game would. Production tiles draw their atlas frame's number, since only
+the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop
+buttons, the production selection) are logged under the knobs.
 
 The **kitchen sink** is not a screen the game shows. It lays the whole kit out at once — a tier-0
 panel, a tier-1 panel, a tier-2 dialog, every type style with Korean, Simplified Chinese and Russian

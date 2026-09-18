@@ -7,16 +7,13 @@ use std::time::Instant;
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
 use egui::epaint;
-use egui::load::SizedTexture;
-use egui::{
-    Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
-    Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
-};
+use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
+use overlay_ui::observer::{MatchupPlayerView, MatchupView, ObserverView, RaceView};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     Shell, Views,
 };
-use overlay_ui::transport::TransportView;
+use overlay_ui::transport::{self, TransportView};
 use parking_lot::Mutex;
 use rally_point_client::proto::ids::SlotId;
 use winapi::shared::windef::{HWND, POINT};
@@ -89,15 +86,9 @@ struct UiRect {
     capture_mouse_scroll: bool,
 }
 
+/// Where the game's own replay controls plate is nudged to, which is the one piece of BW's
+/// interface the overlay places rather than replaces. Tuned from the debug window.
 struct ReplayUiValues {
-    name_width: f32,
-    resource_width: f32,
-    supply_width: f32,
-    workers_width: f32,
-    apm_width: f32,
-    production_pos: (f32, f32),
-    production_image_size: f32,
-    production_max: u32,
     statbtn_dialog_offset: (i32, i32),
 }
 
@@ -201,40 +192,6 @@ impl Texture {
     }
 }
 
-trait UiExt {
-    fn add_fixed_width<W: Widget>(&mut self, widget: W, width: f32);
-    fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F);
-}
-
-impl UiExt for egui::Ui {
-    fn add_fixed_width<W: Widget>(&mut self, widget: W, width: f32) {
-        self.with_fixed_width(width, |ui| {
-            ui.add(widget);
-        })
-    }
-
-    fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F) {
-        // egui doesn't like infinite sizes for ui rects (has a debug assertion),
-        // so just replace infinite sides with very large end..
-        // Not really sure what this should use anyway.
-        let child_rect = self.cursor().intersect(Rect::from_center_size(
-            pos2(0.0, 0.0),
-            vec2(10000.0, 10000.0),
-        ));
-        let mut child_ui =
-            self.new_child(UiBuilder::new().max_rect(child_rect).layout(*self.layout()));
-
-        let mut clip_rect = child_ui.cursor();
-        clip_rect.set_width(width);
-        child_ui.set_clip_rect(clip_rect);
-
-        add_widgets(&mut child_ui);
-        let mut final_child_rect = child_ui.min_rect();
-        final_child_rect.set_width(width);
-        self.allocate_rect(final_child_rect, Sense::hover());
-    }
-}
-
 /// Reads the font files that ship beside this DLL rather than inside it.
 ///
 /// The Korean and Simplified Chinese faces are megabytes each, so they are installed next to the
@@ -300,14 +257,6 @@ impl OverlayState {
             screen_size: (100, 100),
             last_mouse_pos: ((0, 0), Pos2 { x: 0.0, y: 0.0 }),
             replay_ui_values: ReplayUiValues {
-                name_width: 140.0,
-                resource_width: 80.0,
-                supply_width: 80.0,
-                workers_width: 40.0,
-                apm_width: 40.0,
-                production_pos: (10.0, 100.0),
-                production_image_size: 40.0,
-                production_max: 16,
                 statbtn_dialog_offset: (0, 0),
             },
             player_vision_was_auto_disabled: [false; 8],
@@ -467,6 +416,19 @@ impl OverlayState {
             self.chat_history = None;
             None
         };
+        // Read before the views are built rather than while they are drawn: the panels report on
+        // the frame that is being drawn, and a production list sampled after it would be one frame
+        // behind everything beside it.
+        if bw.game_started && bw.is_replay_or_obs {
+            self.update_replay_state(bw);
+        }
+        // Built for every frame the client is watching rather than playing, whether or not any
+        // panel is on screen: the keys that show them arrive between frames, and only the shell
+        // knows which of them the watcher has hidden.
+        let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| ObserverView {
+            matchup: self.build_matchup_view(bw, apm),
+            production: self.build_production_view(bw),
+        });
         // Built for every frame of a replay whether or not the plate is on screen: the transport
         // keys keep working with it hidden, and only the shell knows whether the player hid it.
         let transport_view = bw.replay.map(|replay| TransportView {
@@ -490,6 +452,7 @@ impl OverlayState {
             net_stats: net_stats_view.as_ref(),
             chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
             transport: transport_view.as_ref(),
+            observer: observer_view.as_ref(),
         };
         // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
         // of the player's input and asks nothing of the game.
@@ -507,14 +470,11 @@ impl OverlayState {
                     ctx.forget_all_images();
                 }
 
-                if bw.is_replay_or_obs {
-                    self.add_replay_ui(bw, apm, &ctx);
-                }
-                // The shell draws everything above the host's own panels: the disconnect surface,
-                // the `/netstat` diagnostic panel, and whatever modal owns the screen. Its rects are
-                // registered unconditionally, unlike the host panels above: a BW dialog sitting on
-                // the stack (the hidden `TimeOut` among them) must never be able to steal a click
-                // from a modal of ours.
+                // Every surface of ours is the shell's: the observer panels, the replay
+                // transport, the disconnect surface, the `/netstat` diagnostic panel and whatever
+                // modal owns the screen. Its rects are registered unconditionally: a BW dialog
+                // sitting on the stack (the hidden `TimeOut` among them) must never be able to
+                // steal a click from a modal of ours.
                 frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
                 for hit in &frame_output.hit_rects {
                     self.ui_rects.push(UiRect {
@@ -537,7 +497,7 @@ impl OverlayState {
         self.capture = frame_output.capture;
         let mut replay_commands = Vec::new();
         for intent in frame_output.intents {
-            execute_intent(bw, intent, &mut replay_commands);
+            self.execute_intent(bw, intent, &mut replay_commands);
         }
         let prefs = *self.shell.panel_prefs();
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -663,25 +623,10 @@ impl OverlayState {
         ui.collapsing("Replay UI", |ui| {
             let v = &mut self.replay_ui_values;
             for (var, text) in [
-                (&mut v.name_width, "Name"),
-                (&mut v.resource_width, "Resources"),
-                (&mut v.supply_width, "Supply"),
-                (&mut v.workers_width, "Workers"),
-                (&mut v.apm_width, "APM"),
-                (&mut v.production_pos.0, "Production X"),
-                (&mut v.production_pos.1, "Production Y"),
-                (&mut v.production_image_size, "Production size"),
-            ] {
-                ui.add(Slider::new(var, 0.0..=200.0).text(text));
-            }
-            for (var, text) in [
                 (&mut v.statbtn_dialog_offset.0, "Statbtn dialog X"),
                 (&mut v.statbtn_dialog_offset.1, "Statbtn dialog Y"),
             ] {
                 ui.add(Slider::new(var, -100i32..=100).text(text));
-            }
-            for (var, text) in [(&mut v.production_max, "Production max")] {
-                ui.add(Slider::new(var, 0u32..=50).text(text));
             }
         });
         ui.collapsing("BW Dialogs", |ui| {
@@ -787,7 +732,9 @@ impl OverlayState {
         }
     }
 
-    fn add_replay_ui(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
+    /// Keeps what the observer panels report in step with the game: whose vision the watcher has,
+    /// and what every player is making. The panels themselves are drawn by the shell.
+    fn update_replay_state(&mut self, bw: &BwVars) {
         let frame = bw.game.frame_count();
         if frame == 0 {
             // Explicit init at start of the game to handle replay restarts /
@@ -817,186 +764,105 @@ impl OverlayState {
                 }
             }
         }
-        if self.shell.panel_prefs().statistics {
-            self.add_replay_statistics(bw, apm, ctx);
-        }
-        if self.shell.panel_prefs().production {
-            self.update_replay_production(bw);
-            self.add_production_ui(bw, ctx);
-        }
+        self.update_replay_production(bw);
     }
 
-    fn add_replay_statistics(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
-        let res = egui::Window::new("Replay_Resources")
-            .anchor(Align2::RIGHT_TOP, Vec2 { x: -10.0, y: 10.0 })
-            .movable(false)
-            .resizable(false)
-            .title_bar(false)
-            .show(ctx, |ui| {
-                // Add separators between teams
-                // So before first player of team but not before first player of all.
-                let mut players_shown = 0;
-                let mut team_players_shown = 0;
-                let mut prev_team = 0;
-                #[allow(clippy::explicit_counter_loop)]
-                for (team, player_id) in replay_players_by_team(bw) {
-                    // Skip players with no units -- assuming they're UMS map observers.
-                    // UMS map with triggers can have players sometimes be
-                    // without units until triggers let them play, but probably this
-                    // won't be too relevant.
-                    // But show all players in team games even though units are owned by one
-                    // of them.
-                    if !player_has_units(bw, player_id) && !bw.is_team_game {
-                        // But if we have player's vision enabled (Can be done through
-                        // vision button above minimap / player having had units before),
-                        // show player's name so that the user (hopefully) realizes that
-                        // they provide vision.
-                        if !has_player_vision(bw, player_id) {
-                            continue;
-                        }
-                    }
-                    if team != prev_team {
-                        prev_team = team;
-                        team_players_shown = 0;
-                    }
-                    let info = unsafe {
-                        let player = bw.players.add(player_id as usize);
-                        player_resources_info(bw, player, player_id, apm)
-                    };
-                    if players_shown != 0 && team_players_shown == 0 {
-                        ui.scope(|ui| {
-                            // Separators seem hard to see with 1.0 default
-                            // stroke width.
-                            let stroke =
-                                &mut ui.style_mut().visuals.widgets.noninteractive.bg_stroke;
-                            stroke.width = 2.0;
-                            ui.separator();
-                        });
-                    }
-                    let id = Id::new(("ReplayPlayerInfo", player_id));
-                    let response = self.add_player_info(ui, id, &info);
-                    if response.clicked() && player_id < 8 {
-                        let bit = 1u8 << player_id;
-                        let mask = unsafe { team_vision_mask(bw, player_id) };
-                        // This seems to be enough.
-                        // BW itself also writes non-replay player visions and exploration
-                        // but they seem to be ignored anyway / wouldn't work as
-                        // expected if they were read.
-                        if bw.replay_visions & bit != 0 {
-                            self.out_state.replay_visions &= !mask;
-                        } else {
-                            self.out_state.replay_visions |= mask;
-                        }
-                        if let Some(val) = self
-                            .player_vision_was_auto_disabled
-                            .get_mut(player_id as usize)
-                        {
-                            *val = false;
-                        }
-                    }
-                    players_shown += 1;
-                    team_players_shown += 1;
-                }
-            });
-        self.add_ui_rect(&res);
-    }
-
-    fn add_player_info(&self, ui: &mut egui::Ui, id: Id, info: &PlayerInfo) -> Response {
-        let size = Vec2 { x: 300.0, y: 24.0 };
-        ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Center), |ui| {
-            let ReplayUiValues {
-                name_width,
-                resource_width,
-                supply_width,
-                workers_width,
-                apm_width,
-                ..
-            } = self.replay_ui_values;
-
-            ui.with_fixed_width(name_width, |ui| {
-                if !info.vision {
-                    let x = egui::RichText::new("❌").color(Color32::RED);
-                    ui.add(Label::new(x));
-                }
-                let text = egui::RichText::new(&*info.name).color(info.color);
-                ui.add(Label::new(text));
-            });
-
-            let mineral_icon = Texture::StatRes(0);
-            info.add_icon_text(ui, mineral_icon, &info.minerals.to_string(), resource_width);
-            let gas_icon = Texture::StatRes(1 + info.race.min(2u8) as u16);
-            info.add_icon_text(ui, gas_icon, &info.gas.to_string(), resource_width);
-
-            let worker_icon = Texture::CmdIcon(match info.race {
-                0 => bw_dat::unit::DRONE.0,
-                1 => bw_dat::unit::SCV.0,
-                _ => bw_dat::unit::PROBE.0,
-            });
-            info.add_colored_icon_text(
-                ui,
-                worker_icon,
-                &info.workers.to_string(),
-                workers_width,
-                Color32::YELLOW,
-            );
-
-            // TODO Could add other races if player has supply for them?
-            // But then each PlayerInfo render should agree on how many race supplies are drawn
-            // to keep things on a grid.
-            let (current, max) = info
-                .supplies
-                .get(info.race as usize)
-                .copied()
-                .unwrap_or((0, 0));
-            // Supply text is slightly more complex as part of it is colored red when
-            // supply blocked.
-            let part1 = format!("{current}");
-            let part2 = format!(" / {max}");
-            // Didn't see any nice function to apply all style font overrides,
-            // but as long as those don't exist this should match other text.
-            let font_id = egui::style::FontSelection::Default.resolve(ui.style());
-            let strong_color = ui.visuals().strong_text_color();
-            let color = if current > max {
-                Color32::RED
-            } else {
-                strong_color
-            };
-            let mut text = egui::text::LayoutJob::simple_singleline(part1, font_id.clone(), color);
-            text.append(
-                &part2,
-                0.0,
-                egui::TextFormat {
-                    font_id,
-                    color: strong_color,
-                    ..Default::default()
-                },
-            );
-            let supply_icon = Texture::StatRes(4 + info.race.min(2u8) as u16);
-            info.add_colored_icon_complex_text(
-                ui,
-                supply_icon,
-                text.into(),
-                supply_width,
-                Color32::WHITE,
-            );
-
-            let label = Label::new(egui::RichText::new("APM "));
-            ui.add(label);
-            let label = Label::new(egui::RichText::new(info.apm.to_string()).strong());
-            ui.add_fixed_width(label, apm_width);
-            ui.interact(ui.min_rect(), id, Sense::click())
-        })
-        .inner
-    }
-
-    /// Adds UI rect (Making the area interactable by user) if it was decided that
-    /// no higher-priority BW menus are active.
-    fn add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
-        if self.ui_active {
-            self.force_add_ui_rect(response, false);
+    /// Carries out one thing the shell asked of the game, or hands on the ones only the caller can
+    /// do.
+    ///
+    /// The transport's commands go into `replay_commands` rather than being sent here: submitting a
+    /// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
+    /// knows nothing about.
+    fn execute_intent(
+        &mut self,
+        bw: &BwVars,
+        intent: Intent,
+        replay_commands: &mut Vec<ReplayCommand>,
+    ) {
+        match intent {
+            // Safe to reach the turn state here: the draw path holds no turn-state lock across
+            // `step`.
+            Intent::DropPlayer { slot } => {
+                netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
+            }
+            Intent::CloseNativeDialog(dialog) => {
+                dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
+            }
+            Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
+            Intent::SetSpeed {
+                speed_index,
+                multiplier,
+                paused,
+            } => replay_commands.push(ReplayCommand::Speed {
+                speed_index,
+                multiplier,
+                paused,
+            }),
+            Intent::ToggleVision { player_id } => self.toggle_player_vision(bw, player_id),
+            Intent::SelectProduction { player_id, item } => {
+                self.select_production(player_id, item as usize)
+            }
         }
     }
 
+    /// Shows or stops showing the game through a player's eyes.
+    ///
+    /// The whole group that shares vision with them moves together: half of a shared pair would be a
+    /// map neither player sees. Writing the replay visions is enough — BW keeps per-player vision
+    /// and exploration of its own, but a replay ignores both.
+    fn toggle_player_vision(&mut self, bw: &BwVars, player_id: u8) {
+        if player_id >= 8 {
+            return;
+        }
+        let bit = 1u8 << player_id;
+        let mask = unsafe { team_vision_mask(bw, player_id) };
+        if bw.replay_visions & bit != 0 {
+            self.out_state.replay_visions &= !mask;
+        } else {
+            self.out_state.replay_visions |= mask;
+        }
+        // Asking for a player's vision by hand outranks the guess made at the replay's start that
+        // they were an observer, so the guess is not made about them again.
+        if let Some(auto_disabled) = self
+            .player_vision_was_auto_disabled
+            .get_mut(player_id as usize)
+        {
+            *auto_disabled = false;
+        }
+    }
+
+    /// Builds the matchup bar's view: every player the replay is worth showing, in team order.
+    fn build_matchup_view(&self, bw: &BwVars, apm: Option<&ApmStats>) -> MatchupView {
+        let players = replay_players_by_team(bw)
+            .filter(|&(_team, player_id)| {
+                // Players with no units are taken for observers on a UMS map, which have no numbers
+                // worth a half of the bar. A team game's players are all shown, since one of them
+                // owns the team's units. And a player whose vision the watcher has taken is shown
+                // whatever they own, so it is clear where the vision on screen is coming from.
+                player_has_units(bw, player_id)
+                    || bw.is_team_game
+                    || has_player_vision(bw, player_id)
+            })
+            .map(|(_team, player_id)| unsafe {
+                let player = bw.players.add(player_id as usize);
+                matchup_player_view(bw, player, player_id, apm)
+            })
+            .collect();
+        MatchupView {
+            players,
+            elapsed_secs: transport::frames_to_seconds(
+                bw.game.frame_count(),
+                bw.replay
+                    .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
+            ),
+            is_replay: bw.is_replay,
+        }
+    }
+
+    /// Makes an area the overlay drew interactable by the player, whether or not one of BW's own
+    /// menus is on top: the only caller left is the debug window, which is a developer's and not a
+    /// surface the game is allowed to take clicks from. Every other rect the frame owns comes from
+    /// the shell.
     fn force_add_ui_rect<T>(
         &mut self,
         response: &Option<egui::InnerResponse<T>>,
@@ -1229,33 +1095,6 @@ impl OverlayState {
     }
 }
 
-/// Carries out one thing the shell asked of the game, or hands on the ones only the caller can do.
-///
-/// The transport's commands go into `replay_commands` rather than being sent here: submitting a
-/// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
-/// knows nothing about.
-fn execute_intent(bw: &BwVars, intent: Intent, replay_commands: &mut Vec<ReplayCommand>) {
-    match intent {
-        // Safe to reach the turn state here: the draw path holds no turn-state lock across `step`.
-        Intent::DropPlayer { slot } => {
-            netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
-        }
-        Intent::CloseNativeDialog(dialog) => {
-            dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
-        }
-        Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
-        Intent::SetSpeed {
-            speed_index,
-            multiplier,
-            paused,
-        } => replay_commands.push(ReplayCommand::Speed {
-            speed_index,
-            multiplier,
-            paused,
-        }),
-    }
-}
-
 /// Yields active players `(team, player_id)`, ordered by team.
 fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
     // Teams are 1-based, but team 0 is used on games without teams.
@@ -1289,72 +1128,34 @@ fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
     }
 }
 
-struct PlayerInfo {
-    name: Cow<'static, str>,
-    color: Color32,
-    race: u8,
-    minerals: u32,
-    gas: u32,
-    supplies: [(u32, u32); 3],
-    workers: u32,
-    apm: u32,
-    vision: bool,
-}
+/// The game speed a live game is played at, which is what turns its frame count into the clock the
+/// matchup bar shows. A replay carries its own recorded speed instead.
+const FASTEST_GAME_SPEED: u8 = 6;
 
-impl PlayerInfo {
-    fn add_icon_text(&self, ui: &mut egui::Ui, icon: Texture, text: &str, width: f32) {
-        self.add_colored_icon_text(ui, icon, text, width, Color32::WHITE)
-    }
-
-    fn add_colored_icon_text(
-        &self,
-        ui: &mut egui::Ui,
-        icon: Texture,
-        text: &str,
-        width: f32,
-        color: Color32,
-    ) {
-        let text = egui::RichText::new(text).strong();
-        self.add_colored_icon_complex_text(ui, icon, text.into(), width, color)
-    }
-
-    fn add_colored_icon_complex_text(
-        &self,
-        ui: &mut egui::Ui,
-        icon: Texture,
-        text: WidgetText,
-        width: f32,
-        color: Color32,
-    ) {
-        let image = egui::Image::new(SizedTexture::new(
-            TextureId::User(icon.to_egui_id()),
-            (24.0, 24.0),
-        ))
-        .tint(color);
-        ui.add(image);
-        let label = Label::new(text);
-        ui.add_fixed_width(label, width);
-    }
-}
-
-unsafe fn player_resources_info(
+/// Reads one player's half of the matchup bar off the game.
+unsafe fn matchup_player_view(
     bw: &BwVars,
     player: *mut bw::Player,
     player_id: u8,
     apm: Option<&ApmStats>,
-) -> PlayerInfo {
+) -> MatchupPlayerView {
     unsafe {
         let game = bw.game;
-        let get_supplies = |race| {
-            let used = game.supply_used(player_id, race);
-            let available = game
-                .supply_provided(player_id, race)
-                .min(game.supply_max(player_id, race));
-            // Supply is internally twice the shown value (as zergling / scourge
-            // takes 0.5 supply per unit), used supply has to be rounded up
-            // when displayed.
-            (used.wrapping_add(1) / 2, available / 2)
+        let race = match (*player).race {
+            0 => (Race::Zerg, RaceView::Zerg),
+            1 => (Race::Terran, RaceView::Terran),
+            2 => (Race::Protoss, RaceView::Protoss),
+            // A random player's race is resolved before the game starts, so anything else here is a
+            // slot whose race the game itself does not know.
+            _ => (Race::Zerg, RaceView::Random),
         };
+        // Supply is counted internally at twice what the game shows, because a zergling costs half
+        // of one, so what is used rounds up and what is available divides evenly.
+        let supply_used = game.supply_used(player_id, race.0).wrapping_add(1) / 2;
+        let supply_max = game
+            .supply_provided(player_id, race.0)
+            .min(game.supply_max(player_id, race.0))
+            / 2;
         let color = bw::player_color(
             game,
             bw.main_palette,
@@ -1362,34 +1163,23 @@ unsafe fn player_resources_info(
             bw.rgb_colors,
             player_id,
         );
-        let supplies = [
-            get_supplies(Race::Zerg),
-            get_supplies(Race::Terran),
-            get_supplies(Race::Protoss),
-        ];
-        let workers = [bw_dat::unit::SCV, bw_dat::unit::PROBE, bw_dat::unit::DRONE]
-            .iter()
-            .map(|&unit| game.completed_count(player_id, unit))
-            .sum::<u32>();
         let mut name = bw::player_name(player);
         if name.is_empty() {
             name = format!("Player {}", player_id + 1).into();
         }
-        let mut race = (*player).race;
-        if race > 2 {
-            race = 0;
-        }
-        let vision = has_player_vision(bw, player_id);
-        PlayerInfo {
-            name,
+        MatchupPlayerView {
+            player_id,
+            name: name.into_owned(),
             color: Color32::from_rgb(color[0], color[1], color[2]),
-            race,
+            race: race.1,
+            vision: has_player_vision(bw, player_id),
             minerals: game.minerals(player_id),
             gas: game.gas(player_id),
-            supplies,
-            workers,
-            apm: apm.map(|x| x.player_recent_apm(player_id)).unwrap_or(0),
-            vision,
+            supply_used,
+            supply_max,
+            apm: apm
+                .map(|stats| stats.player_recent_apm(player_id))
+                .unwrap_or(0),
         }
     }
 }
