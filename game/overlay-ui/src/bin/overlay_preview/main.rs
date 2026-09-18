@@ -22,9 +22,17 @@ use egui::{Align2, Color32, FontId, Rect, Vec2, pos2};
 use image::RgbaImage;
 
 use crate::game_host::{GameHost, PassInput};
-use crate::knobs::Knobs;
+use crate::knobs::{Backdrop, Knobs};
 use crate::raster::TextureStore;
 use crate::virtual_screen::{Blit, ResolutionPreset, ScaleMode, VirtualScreen};
+
+/// A frame of real gameplay, so an overlay is previewed over the scene it has to stay readable
+/// over: a 16:9 screenshot dropped into the crate's `backdrops/` directory (see the README there),
+/// stretched to whatever the emulated screen is. Read from disk at startup rather than embedded so
+/// the capture, a multi-megabyte image, never has to live in the repository; a missing file simply
+/// falls back to the solid fill.
+const GAMEPLAY_BACKDROP_PATH: &str =
+    concat!(env!("CARGO_MANIFEST_DIR"), "/backdrops/gameplay-1080.png");
 
 /// What an emulated screen shows where no backdrop covers it, so a transparent-edged image or no
 /// image at all still reads as a game scene rather than as the window's own fill.
@@ -75,7 +83,14 @@ fn parse_args() -> Args {
 
 fn main() -> eframe::Result<()> {
     let args = parse_args();
-    let backdrop = args.backdrop.as_deref().and_then(load_backdrop_image);
+    // Offline there are no persisted knobs, so the command line alone decides what is behind the
+    // overlay, and the shipped gameplay frame is what it decides by default.
+    let backdrop = load_backdrop(
+        &args
+            .backdrop
+            .clone()
+            .map_or(Backdrop::default(), Backdrop::File),
+    );
 
     if let Some(dir) = &args.render_dir {
         match render_all(dir, backdrop.as_ref()) {
@@ -123,13 +138,25 @@ fn main() -> eframe::Result<()> {
     )
 }
 
-fn load_backdrop_image(path: &str) -> Option<RgbaImage> {
-    match image::open(path) {
-        Ok(image) => Some(image.to_rgba8()),
+/// Decodes what a backdrop knob asks for, or nothing at all when it asks for a plain fill.
+fn load_backdrop(backdrop: &Backdrop) -> Option<RgbaImage> {
+    match decode_backdrop(backdrop) {
+        Ok(image) => image,
         Err(err) => {
-            eprintln!("overlay-preview: could not read backdrop `{path}` ({err})");
+            eprintln!(
+                "overlay-preview: could not read {} ({err}); falling back to a solid fill",
+                backdrop.describe()
+            );
             None
         }
+    }
+}
+
+fn decode_backdrop(backdrop: &Backdrop) -> Result<Option<RgbaImage>, image::ImageError> {
+    match backdrop {
+        Backdrop::SolidDark => Ok(None),
+        Backdrop::Gameplay => Ok(Some(image::open(GAMEPLAY_BACKDROP_PATH)?.to_rgba8())),
+        Backdrop::File(path) => Ok(Some(image::open(path)?.to_rgba8())),
     }
 }
 
@@ -211,8 +238,8 @@ struct PreviewApp {
     start: Instant,
     /// Whether a knob changed this frame and the file should be rewritten at frame end.
     dirty: bool,
-    /// Cached backdrop texture, keyed by the path it was decoded from.
-    backdrop: Option<(String, egui::TextureHandle)>,
+    /// Cached backdrop texture, keyed by the knob it was decoded from.
+    backdrop: Option<(Backdrop, egui::TextureHandle)>,
     /// Last backdrop-load error, shown in the panel.
     backdrop_error: Option<String>,
     status: Option<Status>,
@@ -221,8 +248,8 @@ struct PreviewApp {
 impl PreviewApp {
     fn new(ctx: &egui::Context, args: Args) -> PreviewApp {
         let mut knobs = knobs::load();
-        if let Some(backdrop) = args.backdrop {
-            knobs.backdrop_path = Some(backdrop);
+        if let Some(path) = args.backdrop {
+            knobs.backdrop = Backdrop::File(path);
         }
         let scenario_ui = scenarios::UiState::new(&knobs);
         // The host's own widgets are ordinary desktop chrome, so they keep egui's default look; only
@@ -241,22 +268,21 @@ impl PreviewApp {
     }
 
     fn ensure_backdrop(&mut self, ctx: &egui::Context) {
-        let Some(path) = self.knobs.backdrop_path.clone() else {
-            self.backdrop = None;
-            self.backdrop_error = None;
-            return;
-        };
-        if self.backdrop.as_ref().map(|(p, _)| p.as_str()) == Some(path.as_str()) {
+        let wanted = self.knobs.backdrop.clone();
+        if self.backdrop.as_ref().map(|(knob, _)| knob) == Some(&wanted) {
             return;
         }
-        match image::open(&path) {
-            Ok(img) => {
-                let rgba = img.to_rgba8();
+        match decode_backdrop(&wanted) {
+            Ok(None) => {
+                self.backdrop = None;
+                self.backdrop_error = None;
+            }
+            Ok(Some(rgba)) => {
                 let (w, h) = rgba.dimensions();
                 let color =
                     egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &rgba);
                 let texture = ctx.load_texture("backdrop", color, egui::TextureOptions::LINEAR);
-                self.backdrop = Some((path, texture));
+                self.backdrop = Some((wanted, texture));
                 self.backdrop_error = None;
             }
             Err(err) => {
@@ -430,14 +456,36 @@ impl PreviewApp {
         self.dirty |= changed;
 
         ui.add_space(8.0);
-        ui.label("Backdrop (PNG path, blank for solid dark):");
-        let mut path = self.knobs.backdrop_path.clone().unwrap_or_default();
-        if ui.text_edit_singleline(&mut path).changed() {
-            self.knobs.backdrop_path = if path.trim().is_empty() {
-                None
-            } else {
-                Some(path)
-            };
+        ui.label("Backdrop:");
+        let mut file_path = match &self.knobs.backdrop {
+            Backdrop::File(path) => path.clone(),
+            _ => String::new(),
+        };
+        ui.horizontal_wrapped(|ui| {
+            for (backdrop, label) in [
+                (Backdrop::Gameplay, "gameplay"),
+                (Backdrop::SolidDark, "solid dark"),
+            ] {
+                if ui
+                    .selectable_label(self.knobs.backdrop == backdrop, label)
+                    .clicked()
+                {
+                    self.knobs.backdrop = backdrop;
+                    self.dirty = true;
+                }
+            }
+            if ui
+                .selectable_label(matches!(self.knobs.backdrop, Backdrop::File(_)), "PNG file")
+                .clicked()
+            {
+                self.knobs.backdrop = Backdrop::File(file_path.clone());
+                self.dirty = true;
+            }
+        });
+        if matches!(self.knobs.backdrop, Backdrop::File(_))
+            && ui.text_edit_singleline(&mut file_path).changed()
+        {
+            self.knobs.backdrop = Backdrop::File(file_path);
             self.dirty = true;
         }
         if let Some(err) = &self.backdrop_error {

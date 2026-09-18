@@ -10,7 +10,7 @@ use egui::{
 };
 
 use crate::colors;
-use crate::fonts::display_family;
+use crate::fonts::display;
 
 /// A relay-confirmed disconnect must last at least this long before the overlay offers its manual
 /// drop; the Drop button's countdown label counts down toward it. Mirrors the turn-state constant of
@@ -183,7 +183,7 @@ fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
             RichText::new(text)
                 .size(SELF_SIZE)
                 .color(WARNING)
-                .family(display_family()),
+                .family(display()),
         );
     });
 }
@@ -209,7 +209,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
         .size(HEADER_SIZE)
         .color(PRIMARY)
         .strong()
-        .family(display_family());
+        .family(display());
     let header_galley = WidgetText::from(header).into_galley(
         ui,
         Some(egui::TextWrapMode::Extend),
@@ -230,7 +230,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
                     RichText::new(&row.name)
                         .size(ROW_SIZE)
                         .color(PRIMARY)
-                        .family(display_family()),
+                        .family(display()),
                 );
                 // Only a relay-confirmed row shows its elapsed time: the stall tier runs on a
                 // different clock (sustained-stall duration), and showing it would make the
@@ -248,7 +248,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
                     RichText::new(elapsed_text)
                         .size(ROW_SIZE)
                         .color(SECONDARY)
-                        .family(display_family()),
+                        .family(display()),
                 );
                 draw_action_cell(ui, row, clicked);
                 ui.end_row();
@@ -286,7 +286,7 @@ fn draw_action_cell(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
                 RichText::new("drop requested…")
                     .size(ROW_SIZE)
                     .color(SECONDARY)
-                    .family(display_family()),
+                    .family(display()),
             );
         }
     });
@@ -319,7 +319,7 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
             .size(ROW_SIZE)
             .color(text_color)
             .strong()
-            .family(display_family()),
+            .family(display()),
     )
     .fill(fill)
     .stroke(Stroke::new(1.5, border))
@@ -404,7 +404,7 @@ mod tests {
 
     fn fresh_ctx() -> egui::Context {
         let ctx = egui::Context::default();
-        crate::install_fonts_and_style(&ctx);
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
         ctx.set_pixels_per_point(1.5);
         ctx
     }

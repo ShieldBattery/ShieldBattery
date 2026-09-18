@@ -7,6 +7,8 @@
 //! exercises the real input translation, texture lifetime and clip handling rather than eframe's.
 
 use std::collections::HashMap;
+use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use egui::TexturesDelta;
@@ -43,6 +45,25 @@ pub struct PassOutput {
     pub wants_keyboard: bool,
 }
 
+/// The faces the game installs beside its DLL, read here out of the checkout instead.
+///
+/// They are read once per process: every host wants the same megabytes, and an offline render
+/// builds a fresh host for every image.
+fn dynamic_fonts() -> &'static overlay_ui::DynamicFonts {
+    static FONTS: OnceLock<overlay_ui::DynamicFonts> = OnceLock::new();
+    FONTS.get_or_init(|| {
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("../files/fonts/dynamic");
+        let fonts = overlay_ui::load_dynamic_fonts(&directory);
+        if fonts.is_empty() {
+            eprintln!(
+                "overlay-preview: no dynamic fonts under {}; Korean falls back to the embedded                  face and Chinese will not render",
+                directory.display()
+            );
+        }
+        fonts
+    })
+}
+
 /// An emulated game-side egui host: one context, its texture store, and its input state.
 pub struct GameHost {
     ctx: Context,
@@ -63,7 +84,7 @@ pub struct GameHost {
 impl GameHost {
     pub fn new() -> GameHost {
         let ctx = Context::default();
-        overlay_ui::install_fonts_and_style(&ctx);
+        overlay_ui::install_fonts_and_style(&ctx, dynamic_fonts());
         GameHost {
             ctx,
             host_textures: HashMap::new(),

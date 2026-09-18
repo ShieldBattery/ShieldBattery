@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::mem;
+use std::path::Path;
 use std::ptr::NonNull;
 use std::time::Instant;
 
@@ -211,6 +212,23 @@ impl UiExt for egui::Ui {
     }
 }
 
+/// Reads the font files that ship beside this DLL rather than inside it.
+///
+/// The Korean and Simplified Chinese faces are megabytes each, so they are installed next to the
+/// DLL instead of embedded. Anything missing there is simply not loaded: the embedded faces still
+/// cover Latin, Cyrillic and common Hangul, and an overlay with a few missing glyphs beats no
+/// overlay at all.
+fn load_dynamic_fonts() -> overlay_ui::DynamicFonts {
+    let Some((module_path, _)) = crate::windows::module_from_address(load_dynamic_fonts as *mut _)
+    else {
+        return overlay_ui::DynamicFonts::default();
+    };
+    let Some(directory) = Path::new(&module_path).parent() else {
+        return overlay_ui::DynamicFonts::default();
+    };
+    overlay_ui::load_dynamic_fonts(&directory.join(overlay_ui::fonts::DYNAMIC_FONT_DIR))
+}
+
 const fn get_normal_draw_layer() -> u16 {
     // - 26 is the first layer that is drawn above minimap
     // (Or maybe a tie with later draw taking prioriry)
@@ -235,7 +253,7 @@ impl OverlayState {
 
         // Fonts and base style come from the overlay-ui crate, so the host preview renders text
         // identically to the game.
-        overlay_ui::install_fonts_and_style(&ctx);
+        overlay_ui::install_fonts_and_style(&ctx, &load_dynamic_fonts());
 
         OverlayState {
             ctx,

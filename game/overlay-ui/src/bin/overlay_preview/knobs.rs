@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::scenarios::{ScenarioKind, disconnect, netstat};
+use crate::scenarios::{ScenarioKind, disconnect, kitchen_sink, netstat};
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
 /// How the emulated screen is set up.
@@ -18,6 +18,31 @@ pub struct ScreenKnobs {
     pub compact_ramp: bool,
 }
 
+/// What is drawn behind the overlay on the emulated screen.
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum Backdrop {
+    /// A frame of real gameplay from the crate's `backdrops/` directory, so an overlay is judged
+    /// over what it actually covers rather than over a flat fill. Falls back to the solid fill when
+    /// no capture has been dropped there.
+    #[default]
+    Gameplay,
+    /// A plain dark fill, for reading a color or an edge without a scene under it.
+    SolidDark,
+    /// A PNG from disk, stretched to the emulated screen.
+    File(String),
+}
+
+impl Backdrop {
+    /// How this backdrop names itself in a message about it.
+    pub fn describe(&self) -> String {
+        match self {
+            Backdrop::Gameplay => "the gameplay frame in `backdrops/`".to_string(),
+            Backdrop::SolidDark => "a solid fill".to_string(),
+            Backdrop::File(path) => format!("`{path}`"),
+        }
+    }
+}
+
 /// Every persisted knob. Each field defaults independently, so a knobs file written by an older
 /// build still loads and only the fields it knows about are restored.
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -27,9 +52,10 @@ pub struct Knobs {
     pub screen: ScreenKnobs,
     /// Whether the minimap and console reserves are outlined over the emulated screen.
     pub show_guides: bool,
-    /// Optional PNG backdrop behind the overlay; solid dark when absent.
-    pub backdrop_path: Option<String>,
+    /// What is drawn behind the overlay.
+    pub backdrop: Backdrop,
     pub disconnect: disconnect::Knobs,
+    pub kitchen_sink: kitchen_sink::Knobs,
     pub netstat: netstat::Knobs,
 }
 

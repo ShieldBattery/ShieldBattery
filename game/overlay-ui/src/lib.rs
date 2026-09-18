@@ -9,12 +9,15 @@
 //! StarCraft.
 //!
 //! This crate carries its own font and base-style setup ([`install_fonts_and_style`]) so a host
-//! preview renders text with the same faces and sizes the game does.
+//! preview renders text with the same faces and sizes the game does, and the [`kit`] module holds
+//! the design tokens, type styles, surfaces and controls every screen is drawn from.
 
 pub mod colors;
 pub mod disconnect;
 pub mod fonts;
+pub mod kit;
 pub mod netstat;
 mod style;
 
+pub use fonts::{DynamicFonts, load_dynamic_fonts};
 pub use style::install_fonts_and_style;
