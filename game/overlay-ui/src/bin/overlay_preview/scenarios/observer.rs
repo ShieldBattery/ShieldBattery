@@ -15,8 +15,10 @@
 //! of it.
 
 use overlay_ui::observer::{
-    MatchupPlayerView, MatchupView, ObserverView, ProductionIcon, ProductionItemView,
-    ProductionPlayerView, ProductionView, RaceView,
+    EconomyPlayerView, EconomyView, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
+    MapControlView, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
+    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionView, RaceView,
+    TimelineEventKind, TimelineEventView, TimelineView,
 };
 use overlay_ui::shell::PanelPreset;
 use serde::{Deserialize, Serialize};
@@ -31,6 +33,28 @@ const LONG_NAME: &str = "MaximumLengthName_24ch";
 
 /// The names the fake game's players are given, in side order.
 const NAMES: [&str; PLAYERS] = ["Rhynso", "tec27"];
+
+/// How many points a graph line is drawn from. The panel is a few hundred points wide, so more
+/// samples than this would be more line segments than there are pixels to draw them in.
+const GRAPH_POINTS: usize = 120;
+
+/// How often the fake game puts something on the timeline, in seconds of game time.
+const EVENT_INTERVAL_SECS: u64 = 37;
+
+/// How many events the fake game keeps. More than the panel draws, so a host that grew the feed
+/// would have something to grow it with.
+const TIMELINE_DEPTH: usize = 12;
+
+/// What the fake game's timeline events are about, walked in turn: something is built, an upgrade
+/// runs its course, an expansion goes up, a technology runs its course.
+const EVENT_KINDS: [TimelineEventKind; 6] = [
+    TimelineEventKind::BuildingCompleted,
+    TimelineEventKind::UpgradeStarted,
+    TimelineEventKind::UpgradeCompleted,
+    TimelineEventKind::ExpansionTaken,
+    TimelineEventKind::TechStarted,
+    TimelineEventKind::TechCompleted,
+];
 
 /// What each race's production row is filled from: the units a player of that race is most often
 /// making, by the id the game's own icon atlas is indexed with.
@@ -55,6 +79,10 @@ pub struct Knobs {
     pub long_names: bool,
     /// How many entries each player's production row carries.
     pub production_depth: usize,
+    /// Whether the game reports how much of the map each side holds. The real game has no such
+    /// measurement yet, so this is the switch that proves the bar disappears without one rather
+    /// than drawing an empty share.
+    pub map_control: bool,
 }
 
 impl Default for Knobs {
@@ -65,6 +93,7 @@ impl Default for Knobs {
             supply_blocked: false,
             long_names: false,
             production_depth: 6,
+            map_control: true,
         }
     }
 }
@@ -100,7 +129,13 @@ impl State {
 }
 
 /// Builds the view the game would hand the overlay at `game_secs` into the game.
-pub fn build_view(knobs: &Knobs, state: &State, is_replay: bool, game_secs: u64) -> ObserverView {
+pub fn build_view(
+    knobs: &Knobs,
+    state: &State,
+    is_replay: bool,
+    game_secs: u64,
+    series: GraphSeries,
+) -> ObserverView {
     let t = game_secs as f64;
     ObserverView {
         matchup: MatchupView {
@@ -110,11 +145,188 @@ pub fn build_view(knobs: &Knobs, state: &State, is_replay: bool, game_secs: u64)
             elapsed_secs: game_secs,
             is_replay,
         },
+        economy: EconomyView {
+            players: (0..PLAYERS)
+                .map(|index| economy_player(knobs, state, index, t))
+                .collect(),
+        },
+        military: MilitaryView {
+            players: (0..PLAYERS)
+                .map(|index| military_player(knobs, state, index, t))
+                .collect(),
+        },
+        graphs: GraphsView {
+            series,
+            span_secs: game_secs as u32,
+            lines: (0..PLAYERS)
+                .map(|index| graph_line(knobs, index, series, game_secs))
+                .collect(),
+        },
+        timeline: TimelineView {
+            events: timeline_events(knobs, game_secs),
+        },
         production: ProductionView {
             players: (0..PLAYERS)
                 .map(|index| production_player(knobs, index, t))
                 .collect(),
         },
+        map_control: knobs.map_control.then(|| map_control(t)),
+    }
+}
+
+/// The name a panel other than the matchup bar puts on a player.
+fn player_name(knobs: &Knobs, index: usize) -> String {
+    if knobs.long_names {
+        LONG_NAME.to_string()
+    } else {
+        NAMES[index].to_string()
+    }
+}
+
+/// Minerals and gas gathered per minute.
+fn income(index: usize, t: f64) -> (u32, u32) {
+    let ramp = (t / 240.0).min(1.0);
+    (
+        (320.0 + 620.0 * ramp) as u32 + wave(index as f64 * 1.7, t, 0.021, 140.0),
+        (60.0 + 260.0 * ramp) as u32 + wave(index as f64 * 2.3 + 1.0, t, 0.019, 90.0),
+    )
+}
+
+/// How many workers a player owns, and how many of them are standing still.
+fn workers(index: usize, t: f64) -> (u32, u32) {
+    let count = (8.0 + t / 9.0).min(62.0) as u32 + index as u32;
+    // Idle workers come and go, so the panel is judged both with the count on screen and without
+    // it: a footnote that is always there is one nobody reads.
+    let idle = wave(index as f64 * 3.1, t, 0.06, 7.0).saturating_sub(2);
+    (count, idle)
+}
+
+/// What a player's standing army cost to build, in each resource.
+fn army(index: usize, t: f64) -> (u32, u32) {
+    let ramp = (t / 420.0).min(1.4);
+    (
+        (900.0 * ramp) as u32 + wave(index as f64 * 1.1, t, 0.014, 900.0),
+        (420.0 * ramp) as u32 + wave(index as f64 * 2.7, t, 0.012, 520.0),
+    )
+}
+
+/// Units killed and lost, which only ever climb.
+fn unit_trade(index: usize, t: f64) -> (u32, u32) {
+    let killed = (t / 11.0) as u32 + index as u32 * 4;
+    let lost = (t / 13.0) as u32 + (PLAYERS - 1 - index) as u32 * 3;
+    (killed, lost)
+}
+
+/// Workers killed and lost, which climb far more slowly than the army does.
+fn worker_trade(index: usize, t: f64) -> (u32, u32) {
+    ((t / 95.0) as u32 + index as u32, (t / 140.0) as u32)
+}
+
+fn economy_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> EconomyPlayerView {
+    let (minerals_per_minute, gas_per_minute) = income(index, t);
+    let (workers, idle_workers) = workers(index, t);
+    EconomyPlayerView {
+        name: player_name(knobs, index),
+        color: overlay_ui::kit::theme::player_color(index),
+        vision: state.vision[index],
+        minerals_per_minute,
+        gas_per_minute,
+        workers,
+        idle_workers,
+    }
+}
+
+fn military_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> MilitaryPlayerView {
+    let (army_minerals, army_gas) = army(index, t);
+    let (units_killed, units_lost) = unit_trade(index, t);
+    let (worker_kills, worker_losses) = worker_trade(index, t);
+    MilitaryPlayerView {
+        name: player_name(knobs, index),
+        color: overlay_ui::kit::theme::player_color(index),
+        vision: state.vision[index],
+        army_minerals,
+        army_gas,
+        units_killed,
+        units_lost,
+        worker_kills,
+        worker_losses,
+    }
+}
+
+/// One player's line on the graphs panel, sampled evenly over the whole game so far.
+///
+/// The fake game keeps no history: every measurement is a function of game time, so its history is
+/// that function evaluated backwards, which is what keeps an offline render of the same second the
+/// same image every time.
+fn graph_line(knobs: &Knobs, index: usize, series: GraphSeries, game_secs: u64) -> GraphLineView {
+    let points = GRAPH_POINTS.min(game_secs as usize + 1).max(2);
+    let values = (0..points)
+        .map(|point| {
+            let t = game_secs as f64 * point as f64 / (points - 1) as f64;
+            match series {
+                GraphSeries::ArmyValue => {
+                    let (minerals, gas) = army(index, t);
+                    (minerals + gas) as f32
+                }
+                GraphSeries::Income => {
+                    let (minerals, gas) = income(index, t);
+                    (minerals + gas) as f32
+                }
+                GraphSeries::Supply => supply(knobs, index, t).0 as f32,
+                GraphSeries::Workers => workers(index, t).0 as f32,
+                GraphSeries::Kills => unit_trade(index, t).0 as f32,
+            }
+        })
+        .collect();
+    GraphLineView {
+        label: player_name(knobs, index),
+        color: overlay_ui::kit::theme::player_color(index),
+        values,
+    }
+}
+
+/// What the fake game has put on the timeline by `game_secs`, newest first.
+fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
+    let count = game_secs / EVENT_INTERVAL_SECS;
+    (0..count)
+        .rev()
+        .take(TIMELINE_DEPTH)
+        .map(|index| {
+            let player = (index % PLAYERS as u64) as usize;
+            let units = race_units(knobs.races[player]);
+            TimelineEventView {
+                secs: (index + 1) * EVENT_INTERVAL_SECS,
+                color: overlay_ui::kit::theme::player_color(player),
+                kind: EVENT_KINDS[(index as usize / PLAYERS) % EVENT_KINDS.len()],
+                icon: Some(ProductionIcon {
+                    texture: None,
+                    index: units[index as usize % units.len()],
+                }),
+            }
+        })
+        .collect()
+}
+
+/// How much of the map each side holds, which swings back and forth as the fake game is fought.
+fn map_control(t: f64) -> MapControlView {
+    MapControlView {
+        left: MapControlSideView {
+            color: overlay_ui::kit::theme::player_color(0),
+            share: (0.28 + 0.24 * ((t * 0.008).sin() * 0.5 + 0.5)) as f32,
+        },
+        right: MapControlSideView {
+            color: overlay_ui::kit::theme::player_color(1),
+            share: (0.26 + 0.26 * ((t * 0.011 + 1.4).sin() * 0.5 + 0.5)) as f32,
+        },
+    }
+}
+
+/// The icons a player of this race's rows are filled from.
+fn race_units(race: RaceView) -> [u16; 5] {
+    match race {
+        RaceView::Zerg => ZERG_UNITS,
+        RaceView::Terran => TERRAN_UNITS,
+        RaceView::Protoss | RaceView::Random => PROTOSS_UNITS,
     }
 }
 
@@ -122,11 +334,7 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
     let (supply_used, supply_max) = supply(knobs, index, t);
     MatchupPlayerView {
         player_id: index as u8,
-        name: if knobs.long_names {
-            LONG_NAME.to_string()
-        } else {
-            NAMES[index].to_string()
-        },
+        name: player_name(knobs, index),
         color: overlay_ui::kit::theme::player_color(index),
         race: knobs.races[index],
         vision: state.vision[index],
@@ -151,11 +359,7 @@ fn supply(knobs: &Knobs, index: usize, t: f64) -> (u32, u32) {
 }
 
 fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerView {
-    let units = match knobs.races[index] {
-        RaceView::Zerg => ZERG_UNITS,
-        RaceView::Terran => TERRAN_UNITS,
-        RaceView::Protoss | RaceView::Random => PROTOSS_UNITS,
-    };
+    let units = race_units(knobs.races[index]);
     let items = (0..knobs.production_depth)
         .map(|slot| {
             let unit = units[(slot + index) % units.len()];
@@ -264,6 +468,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .changed();
     changed |= ui
         .add(egui::Slider::new(&mut k.production_depth, 0..=16).text("production entries"))
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.map_control, "reports map control")
+        .on_hover_text(
+            "The real game has no map-control measurement yet. With this off the bar is not drawn \
+             and its dock row is not offered, which is what a game without one looks like.",
+        )
         .changed();
 
     ui.add_space(4.0);

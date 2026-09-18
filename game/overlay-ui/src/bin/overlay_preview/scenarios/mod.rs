@@ -270,6 +270,7 @@ pub fn render(
             &state.observer,
             knobs.host.mode == Mode::Replay,
             game_secs,
+            shell.panel_prefs().graph_series,
         )
     });
     let mut views = Views {

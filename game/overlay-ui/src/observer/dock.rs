@@ -27,7 +27,7 @@ use crate::shell::{Action, Hotkeys, Mode, Panel, PanelPrefs, PanelPreset};
 use crate::tr;
 
 /// How wide the dock is collapsed, in overlay points.
-const COLLAPSED_WIDTH: f32 = 52.0;
+pub(crate) const COLLAPSED_WIDTH: f32 = 52.0;
 
 /// How wide it is as the control rail.
 const EXPANDED_WIDTH: f32 = 208.0;
@@ -80,6 +80,11 @@ impl Entry {
     fn label(self) -> String {
         match self {
             Entry::Panel(Panel::Matchup) => tr!("observer.panelMatchup", "Matchup"),
+            Entry::Panel(Panel::MapControl) => tr!("observer.mapControl", "Map control"),
+            Entry::Panel(Panel::Economy) => tr!("observer.panelEconomy", "Economy"),
+            Entry::Panel(Panel::Military) => tr!("observer.panelMilitary", "Military"),
+            Entry::Panel(Panel::Graphs) => tr!("observer.panelGraphs", "Graphs"),
+            Entry::Panel(Panel::Timeline) => tr!("observer.panelTimeline", "Timeline"),
             Entry::Panel(Panel::Production) => tr!("observer.panelProduction", "Production"),
             Entry::Panel(Panel::Console) => tr!("observer.panelConsole", "Console"),
             Entry::Panel(Panel::Minimap) => tr!("observer.panelMinimap", "Minimap"),
@@ -102,13 +107,16 @@ impl Entry {
 ///
 /// The dock itself is not on the list: a row that hid the surface it sits on could not be clicked
 /// again, so the dock is reached by its key alone.
-fn entries(mode: Mode) -> Vec<Entry> {
+fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
     let mut entries: Vec<Entry> = Panel::ALL
         .into_iter()
         .filter(|panel| *panel != Panel::Dock)
         // The transport plate only exists in a replay, so offering it while observing a live game
         // would be offering a switch with nothing behind it.
         .filter(|panel| *panel != Panel::Transport || mode == Mode::Replay)
+        // The map-control bar reports a measurement the game does not keep, so a host with none
+        // gets no row: a switch that turns nothing on is worse than no switch.
+        .filter(|panel| *panel != Panel::MapControl || map_control_available)
         .map(Entry::Panel)
         .collect();
     if mode == Mode::Replay {
@@ -150,6 +158,7 @@ pub fn render_obs_dock(
     prefs: &PanelPrefs,
     hotkeys: &Hotkeys,
     mode: Mode,
+    map_control_available: bool,
     ctx: &Context,
 ) -> Option<DockOutcome> {
     let id = Id::new("sb_obs_dock");
@@ -164,7 +173,7 @@ pub fn render_obs_dock(
                 COLLAPSED_WIDTH
             };
             ui.set_width(tiers::panel_content_width(width));
-            draw_dock(ui, prefs, hotkeys, mode)
+            draw_dock(ui, prefs, hotkeys, mode, map_control_available)
         })
         .inner
     })?;
@@ -173,7 +182,13 @@ pub fn render_obs_dock(
     Some(outcome)
 }
 
-fn draw_dock(ui: &mut Ui, prefs: &PanelPrefs, hotkeys: &Hotkeys, mode: Mode) -> DockOutcome {
+fn draw_dock(
+    ui: &mut Ui,
+    prefs: &PanelPrefs,
+    hotkeys: &Hotkeys,
+    mode: Mode,
+    map_control_available: bool,
+) -> DockOutcome {
     // The rows are stacked by the gaps written here and by nothing else: this is a fixed layout, and
     // egui's own spacing between items would add to every one of them.
     ui.spacing_mut().item_spacing = vec2(0.0, ROW_GAP);
@@ -186,7 +201,7 @@ fn draw_dock(ui: &mut Ui, prefs: &PanelPrefs, hotkeys: &Hotkeys, mode: Mode) -> 
     if draw_header(ui, content_width, prefs.dock_expanded, dock_key) {
         outcome.expanded = Some(!prefs.dock_expanded);
     }
-    for entry in entries(mode) {
+    for entry in entries(mode, map_control_available) {
         let key = hotkeys
             .chord_for(entry.action())
             .map(|chord| chord.key.symbol_or_name());
