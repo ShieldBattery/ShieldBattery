@@ -142,10 +142,12 @@ impl GameHost {
     /// a drag off the edge neither breaks nor leaves a button stuck down. Leaving without a held
     /// button sends a single `PointerGone`, which clears hover state.
     ///
-    /// Keyboard, text and wheel events reach the game only while the emulated screen has focus,
-    /// which it takes when a primary press lands inside it and loses when one lands outside. That
-    /// is what keeps typing into a knob field out of the overlay. Clipboard and IME events are
-    /// never forwarded, matching the DLL, which translates neither.
+    /// Keyboard and text events reach the game only while the emulated screen has focus, which it
+    /// takes when a primary press lands inside it and loses when one lands outside. That is what
+    /// keeps typing into a knob field out of the overlay. Wheel events follow the pointer instead,
+    /// as the DLL routes them by where the pointer is, so a list scrolls under the wheel without
+    /// first being clicked. Clipboard and IME events are never forwarded, matching the DLL, which
+    /// translates neither.
     pub fn translate_events(
         &mut self,
         host_events: &[Event],
@@ -200,7 +202,10 @@ impl GameHost {
                         });
                     }
                 }
-                Event::Key { .. } | Event::Text(_) | Event::MouseWheel { .. } if self.focused => {
+                Event::Key { .. } | Event::Text(_) if self.focused => {
+                    events.push(event.clone());
+                }
+                Event::MouseWheel { .. } if self.pointer_inside => {
                     events.push(event.clone());
                 }
                 _ => {}
