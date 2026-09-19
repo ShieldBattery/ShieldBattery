@@ -652,6 +652,7 @@ fn control_groups_player(
         })
         .collect();
     ControlGroupsPlayerView {
+        player_id: index as u8,
         name: player_name(knobs, index),
         color: overlay_ui::kit::theme::player_color(index),
         vision: state.vision[index],
@@ -705,6 +706,7 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                     },
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
+                    owner: Some(owner as u8),
                     hit_points: (
                         wave(index as f64 * 1.3, t, 0.05, full_health as f64).max(1),
                         full_health,
@@ -734,6 +736,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         icon: unit_icon(race_buildings(race)[0]),
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
         hit_points: (full_health - wave(0.0, t, 0.05, 300.0), full_health),
         shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 450.0), 450)),
         energy: None,
@@ -763,6 +766,7 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         icon: unit_icon(race_transport(race)),
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
         hit_points: (full_health - wave(0.0, t, 0.06, 60.0), full_health),
         shields: has_shields(race).then(|| (wave(2.0, t, 0.05, 80.0), 80)),
         energy: None,
@@ -778,6 +782,7 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     icon: unit_icon(units[slot % units.len()]),
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
+                    owner: Some(owner as u8),
                     hit_points: ((full_health as f32 * left) as u32, full_health),
                     shields: None,
                     energy: None,

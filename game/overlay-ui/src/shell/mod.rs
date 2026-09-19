@@ -577,6 +577,9 @@ pub struct Shell {
     /// shell's while there is something behind it, and a keypress arrives between frames, so what
     /// the last frame was told has to be kept here.
     map_control_available: bool,
+    /// The player whose control groups are shown: the owner of the last unit the watcher selected.
+    /// Kept across frames because it outlives the selection that set it.
+    focused_player: Option<u8>,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
     pending_seek: Option<u32>,
@@ -601,6 +604,7 @@ impl Shell {
             host: HostFrame::default(),
             transport: None,
             map_control_available: false,
+            focused_player: None,
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
             intents: Vec::new(),
@@ -772,7 +776,6 @@ impl Shell {
         // The corner cards and the wings under them are one stack: a card is as tall as the side it
         // carries, so where the wings start is measured off what the cards actually came out as
         // rather than guessed at from a player count.
-        let screen_top = ctx.viewport_rect().top();
         let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
         if let Some(cards) = &view.team_cards {
             let outcome = observer::render_team_cards_view(cards, ctx, self.prefs.matchup);
@@ -813,7 +816,12 @@ impl Shell {
             &view.graphs,
             ctx,
             self.prefs.graphs,
-            observer::WingTops::below(tops.right, military, screen_top),
+            observer::WingTops::below(
+                ctx,
+                egui::Id::new("sb_stack_military"),
+                tops.right,
+                military,
+            ),
         ) {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(series) = outcome.series {
@@ -827,7 +835,8 @@ impl Shell {
             &view.timeline,
             ctx,
             self.prefs.timeline,
-            observer::WingTops::below(tops.left, economy, screen_top),
+            observer::WingTops::below(ctx, egui::Id::new("sb_stack_economy"), tops.left, economy),
+            observer::minimap_reserve_top(ctx.viewport_rect()) - observer::WING_GAP,
         ) {
             hit_rects.push(HitRect::new(rect));
         }
@@ -843,18 +852,19 @@ impl Shell {
         // 565, well clear of the 348-point square BW's minimap owns in that corner. A 4:3 screen is
         // 1440 points wide and that edge falls at 325, which is inside the minimap's column: on
         // those screens the bottom of the stack overlaps the minimap's top-right corner.
-        let screen_bottom = ctx.viewport_rect().bottom();
         let base = observer::WING_MARGIN;
         let selection =
             observer::render_selection_view(&view.selection, ctx, self.prefs.selection, base);
         if let Some(rect) = selection {
             hit_rects.push(HitRect::new(rect));
         }
+        let over_selection =
+            base + observer::eased_stack_share(ctx, egui::Id::new("sb_stack_selection"), selection);
         let production = observer::render_production_view(
             &view.production,
             ctx,
             self.prefs.production,
-            observer::stacked_bottom(base, screen_bottom, selection),
+            over_selection,
         );
         if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -865,15 +875,22 @@ impl Shell {
                 });
             }
         }
+        // The row shown is the selected unit's owner, and stays theirs after the selection is
+        // cleared: a watcher who clicks the ground has not asked to see somebody else's keys.
+        if let Some(owner) = view.selection.units.first().and_then(|unit| unit.owner) {
+            self.focused_player = Some(owner);
+        }
         if let Some(rect) = observer::render_control_groups_view(
             &view.control_groups,
             ctx,
             self.prefs.control_groups,
-            observer::stacked_bottom(
-                base,
-                screen_bottom,
-                production.as_ref().map(|outcome| outcome.rect),
-            ),
+            over_selection
+                + observer::eased_stack_share(
+                    ctx,
+                    egui::Id::new("sb_stack_production"),
+                    production.as_ref().map(|outcome| outcome.rect),
+                ),
+            self.focused_player,
         ) {
             hit_rects.push(HitRect::new(rect));
         }

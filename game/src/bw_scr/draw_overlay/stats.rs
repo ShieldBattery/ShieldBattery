@@ -261,6 +261,7 @@ pub fn build_control_groups_view(
         players: players
             .iter()
             .map(|player| ControlGroupsPlayerView {
+                player_id: player.player_id,
                 name: player.name.clone(),
                 color: player.color,
                 vision: player.vision,
@@ -349,6 +350,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         icon: production::unit_icon(unit_id, bw.is_hd),
         owner_color: owner.map_or(theme::TEXT_DIM, |player| player.color),
         owner_name: owner.map(|player| player.name.clone()).unwrap_or_default(),
+        owner: owner.map(|player| player.player_id),
         hit_points: (
             whole_points(unit.hitpoints()),
             // Already the game's "never zero" maximum: the unit's own hit points stand in for a

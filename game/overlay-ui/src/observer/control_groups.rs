@@ -1,7 +1,10 @@
 //! The control groups panel: what every player has bound to their number keys.
 //!
-//! One row per player, led by the bar of their own color and their name, then ten slots in the
-//! order a keyboard reads them. A slot carries the digit it answers to, what the group is, and how
+//! One row, for one player: the owner of whatever the watcher has selected, or whoever it showed
+//! last while nothing is. A row per player was ten slots times eight in a big game, which is a wall
+//! of tiles nobody reads, and what a watcher wants to know about groups is what the player they are
+//! looking at has on their keys. The row is led by the bar of the player's color and their name,
+//! then ten slots in the order a keyboard reads them. A slot carries the digit it answers to, what the group is, and how
 //! many units are in it — which is what a caster reads a push against: a group of twelve that has
 //! not been touched in four minutes is an army sitting at home.
 //!
@@ -28,8 +31,7 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, stacked_offset, unit_codes,
-    vision_alpha,
+    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -156,6 +158,8 @@ pub struct ControlGroupView {
 
 /// One player's row.
 pub struct ControlGroupsPlayerView {
+    /// The game's own slot for this player, which is what a selection names its owner by.
+    pub player_id: u8,
     pub name: String,
     /// The color this player is on the map, which is what ties the row to what the watcher sees.
     pub color: Color32,
@@ -168,8 +172,7 @@ pub struct ControlGroupsPlayerView {
 /// Everything the control groups panel draws from.
 #[derive(Default)]
 pub struct ControlGroupsView {
-    /// The players with at least one group. A player with none has no row, and a game where nobody
-    /// has bound anything has no panel.
+    /// Every player and what they have bound. A game where nobody has bound anything has no panel.
     pub players: Vec<ControlGroupsPlayerView>,
 }
 
@@ -178,18 +181,30 @@ impl ControlGroupsView {
     pub fn is_empty(&self) -> bool {
         self.players.iter().all(|player| player.groups.is_empty())
     }
+
+    /// The player whose row is drawn: `focus` while they have a group to show, and otherwise the
+    /// first player who has, so the panel always has a row while anybody has bound anything.
+    fn shown(&self, focus: Option<u8>) -> Option<&ControlGroupsPlayerView> {
+        let bound = |player: &&ControlGroupsPlayerView| !player.groups.is_empty();
+        self.players
+            .iter()
+            .filter(bound)
+            .find(|player| Some(player.player_id) == focus)
+            .or_else(|| self.players.iter().find(bound))
+    }
 }
 
 /// Draws the control groups panel `bottom` points above the screen's own bottom edge, fading and
-/// sliding it in and out. Returns nothing at all once it is gone, or while nobody has a group.
+/// sliding it in and out, with the row of the player `focus` names. Returns nothing at all once it
+/// is gone, or while nobody has a group.
 pub fn render_control_groups_view(
     view: &ControlGroupsView,
     ctx: &Context,
     shown: bool,
     bottom: f32,
+    focus: Option<u8>,
 ) -> Option<Rect> {
     let id = Id::new("sb_control_groups_panel");
-    let bottom = stacked_offset(ctx, id.with("bottom"), bottom);
     let area = Area::new(id)
         .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
         .order(Order::Foreground);
@@ -204,7 +219,7 @@ pub fn render_control_groups_view(
                 // exactly as tall as the players who have bound anything.
                 ui.spacing_mut().item_spacing = vec2(0.0, ROW_GAP);
                 ui.set_width(CONTENT_WIDTH);
-                draw_rows(ui, view);
+                draw_rows(ui, view, focus);
             })
             .inner
         },
@@ -212,9 +227,9 @@ pub fn render_control_groups_view(
     Some(inner.response.rect)
 }
 
-/// Draws one row per player with a group to show.
-fn draw_rows(ui: &mut Ui, view: &ControlGroupsView) {
-    for player in view.players.iter().filter(|p| !p.groups.is_empty()) {
+/// Draws the one row the panel shows.
+fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>) {
+    if let Some(player) = view.shown(focus) {
         let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, TILE_HEIGHT), Sense::hover());
         let alpha = vision_alpha(player.vision);
         let mut cursor = EdgeCursor::from_left(row);
