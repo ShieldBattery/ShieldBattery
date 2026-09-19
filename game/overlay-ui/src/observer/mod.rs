@@ -17,11 +17,11 @@ mod map_control;
 mod matchup;
 mod military;
 mod production;
+mod selection;
 mod team_cards;
 mod timeline;
 mod unit_codes;
 
-pub(crate) use control_groups::BOTTOM_MARGIN as CONTROL_GROUPS_BOTTOM;
 pub use control_groups::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
 };
@@ -39,6 +39,7 @@ pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     render_production_view,
 };
+pub use selection::{SelectedUnitView, SelectionView, render_selection_view};
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
@@ -74,6 +75,8 @@ pub struct ObserverView {
     pub timeline: TimelineView,
     pub production: ProductionView,
     pub control_groups: ControlGroupsView,
+    /// What the watcher has selected, for the panel that stands in for the console's own.
+    pub selection: SelectionView,
     /// How much of the map each side holds, or `None` while the game has no such measurement to
     /// report. The bar is not drawn at all without one: a share bar with nothing behind it would
     /// read as a game where neither side holds anything.
@@ -341,16 +344,13 @@ pub(crate) const WING_MARGIN: f32 = 16.0;
 /// duel gives it, this is the design's own 78 points from the screen's top edge.
 pub(crate) const WING_TOP_GAP: f32 = 14.0;
 
-/// How far the lower wing on a side sits below the top of the upper one when the upper one is
-/// short enough that the design's own grid still holds.
-///
-/// A wing is as tall as the players it has rows for, so the lower one is placed under whatever the
-/// upper one actually came out as; this is the floor that keeps a two-player game on the grid the
-/// design drew rather than letting the panels drift up to meet each other.
-pub(crate) const WING_ROW_PITCH: f32 = 146.0;
-
 /// Gap between a panel and whatever the next one down is placed under.
 pub(crate) const WING_GAP: f32 = 12.0;
+
+/// How far the bottom-centre stack sits above the screen's own bottom edge while the game's console
+/// is on screen: the console band the game's interface owns, plus the gap the design leaves over
+/// it.
+pub(crate) const CONSOLE_BAND: f32 = 232.0;
 
 /// Gap between the matchup bar and the map-control strip hanging under it.
 pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
@@ -393,6 +393,9 @@ pub(crate) const STAT_NAME_SIZE: f32 = 16.0;
 /// times a duel's, and a timeline pinned under a duel's would be drawn straight through it. Each
 /// height is measured off the panel above rather than computed from its contents, so the stack
 /// follows what egui actually laid out instead of a second guess at it.
+///
+/// A panel the watcher has hidden leaves its place to the one under it rather than holding it
+/// empty: what the watcher asked for by hiding a panel is the screen it was taking.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct WingTops {
     /// The upper wing on the left of the screen, and on the right.
@@ -411,11 +414,34 @@ impl WingTops {
         }
     }
 
-    /// Where the wing under one of these goes, given what the one above it came out as.
+    /// Where the wing under one of these goes, given what the one above it came out as: under its
+    /// bottom edge, or in its place when there is nothing above to sit under.
     pub(crate) fn below(top: f32, upper: Option<Rect>, screen_top: f32) -> f32 {
-        let stacked = upper.map(|rect| rect.bottom() - screen_top + WING_GAP);
-        (top + WING_ROW_PITCH).max(stacked.unwrap_or(f32::NEG_INFINITY))
+        match upper {
+            Some(rect) => rect.bottom() - screen_top + WING_GAP,
+            None => top,
+        }
     }
+}
+
+/// Where the next panel up in the bottom-centre stack puts its own bottom edge, given what the one
+/// under it came out as and the `base` the stack stands on.
+pub(crate) fn stacked_bottom(base: f32, screen_bottom: f32, below: Option<Rect>) -> f32 {
+    match below {
+        Some(rect) => base.max(screen_bottom - rect.top() + WING_GAP),
+        None => base,
+    }
+}
+
+/// The offset a stacked surface is drawn at, eased from wherever it was drawn last frame.
+///
+/// Where a panel in a stack sits is decided by the panels around it, and those come and go: a
+/// surface whose neighbour was just hidden would otherwise cross the neighbour's whole height in
+/// one frame, and one whose neighbour is still fading out would cross it twice. egui starts an
+/// animated value at its first target, so a surface being drawn for the first time is placed rather
+/// than slid into place.
+pub(crate) fn stacked_offset(ctx: &Context, id: Id, offset: f32) -> f32 {
+    ctx.animate_value_with_time(id, offset, theme::MOTION_PANEL_SECS)
 }
 
 /// Whether a table of rows in team order is worth splitting into the sides they belong to.
@@ -468,6 +494,10 @@ pub fn team_name(team: u8) -> String {
 /// with its top edge at `top`, fading and sliding in and out. Returns nothing at all once it is
 /// gone.
 ///
+/// The panel slides to `top` rather than being placed at it, because `top` is where the panels
+/// around this one leave it: a wing whose neighbour was just hidden moves up the neighbour's whole
+/// height, and a jump that far reads as a panel that was redrawn somewhere else.
+///
 /// The wings are sized from the outside in, because the design places their outer edges on a grid;
 /// egui sizes a panel from its contents out, so the width given here is the panel's and the width
 /// its contents get is what is left of it inside the chrome.
@@ -484,6 +514,7 @@ pub(crate) fn wing_panel<R>(
         Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
         Wing::Right => (Align2::RIGHT_TOP, -(WING_MARGIN + DOCK_RESERVE)),
     };
+    let top = stacked_offset(ctx, id.with("top"), top);
     let area = Area::new(id)
         .anchor(align, vec2(offset_x, top))
         .order(Order::Foreground);
@@ -590,6 +621,38 @@ mod tests {
         assert!(teams_worth_dividing([1, 1, 2, 2]));
         assert!(teams_worth_dividing([1, 1, 1, 2, 2, 2]));
         assert!(teams_worth_dividing([1, 2, 2]));
+    }
+
+    #[test]
+    fn a_wing_takes_the_place_of_the_one_above_it_when_there_is_none() {
+        let screen_top = 0.0;
+        let upper = Rect::from_min_max(pos2(0.0, 92.0), pos2(400.0, 250.0));
+        assert_eq!(
+            WingTops::below(92.0, Some(upper), screen_top),
+            250.0 + WING_GAP
+        );
+        assert_eq!(WingTops::below(92.0, None, screen_top), 92.0);
+    }
+
+    #[test]
+    fn the_bottom_stack_sits_on_whatever_is_under_it() {
+        let screen_bottom = 1080.0;
+        let panel = Rect::from_min_max(pos2(0.0, 900.0), pos2(600.0, 1064.0));
+        assert_eq!(
+            stacked_bottom(WING_MARGIN, screen_bottom, Some(panel)),
+            180.0 + WING_GAP
+        );
+        // A panel hidden or empty leaves the one above it standing on the base itself.
+        assert_eq!(
+            stacked_bottom(WING_MARGIN, screen_bottom, None),
+            WING_MARGIN
+        );
+        // The base is a floor: a panel shorter than the band under the stack never drops into it.
+        let short = Rect::from_min_max(pos2(0.0, 1040.0), pos2(600.0, 1064.0));
+        assert_eq!(
+            stacked_bottom(CONSOLE_BAND, screen_bottom, Some(short)),
+            CONSOLE_BAND
+        );
     }
 
     #[test]

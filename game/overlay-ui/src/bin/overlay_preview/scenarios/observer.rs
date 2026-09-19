@@ -19,9 +19,9 @@ use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
     MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionItemView, ProductionPlayerView, ProductionView, RaceView, TeamCardPlayerView,
-    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
-    TimelineView, team_name,
+    ProductionItemView, ProductionPlayerView, ProductionView, RaceView, SelectedUnitView,
+    SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
+    TimelineEventKind, TimelineEventView, TimelineView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -105,6 +105,10 @@ pub struct Knobs {
     /// How many of the ten number keys each player has a group on. The empty slots are the point:
     /// the panel draws all ten whether or not there is anything on them.
     pub control_groups: usize,
+    /// How many units the watcher has selected. One of them is the panel's own case: a selection of
+    /// one is the only one the game's console reads numbers out of, and a selection of none is what
+    /// the panel spends most of a game showing.
+    pub selection: usize,
     /// Whether the game reports how much of the map each side holds. The real game has no such
     /// measurement yet, so this is the switch that proves the bar disappears without one rather
     /// than drawing an empty share.
@@ -130,6 +134,7 @@ impl Default for Knobs {
             long_names: false,
             production_depth: 6,
             control_groups: 6,
+            selection: 1,
             map_control: true,
         }
     }
@@ -260,6 +265,7 @@ pub fn build_view(
                 .map(|index| control_groups_player(knobs, state, index, t))
                 .collect(),
         },
+        selection: selection(knobs, t),
         map_control: knobs.map_control.then(|| map_control(t)),
     }
 }
@@ -633,6 +639,54 @@ fn control_groups_player(
     }
 }
 
+/// What the watcher has selected: units of the first player's own army, with health, shields and
+/// energy that move the way a fight moves them.
+///
+/// The first unit is the one the detail column reads its numbers out of, so it is dealt both a
+/// shield and an energy pool: the rows only some units have are the ones a layout gets wrong.
+fn selection(knobs: &Knobs, t: f64) -> SelectionView {
+    let owner = 0;
+    let units = race_units(knobs.race(owner));
+    let buildings = race_buildings(knobs.race(owner));
+    let count = knobs.selection.min(SelectionView::MAX_UNITS);
+    SelectionView {
+        units: (0..count)
+            .map(|index| {
+                // A selection large enough to be an army has the building a player drags a box over
+                // their own base to pick up, which has neither shields nor energy of its own.
+                let building = index == BUILDING_SLOT && count > BUILDING_SLOT;
+                let full_health = if building {
+                    750
+                } else {
+                    80 + 40 * index as u32
+                };
+                SelectedUnitView {
+                    icon: ProductionIcon {
+                        texture: None,
+                        index: if building {
+                            buildings[0]
+                        } else {
+                            units[index % units.len()]
+                        },
+                    },
+                    owner_color: overlay_ui::kit::theme::player_color(owner),
+                    owner_name: player_name(knobs, owner),
+                    hit_points: (
+                        wave(index as f64 * 1.3, t, 0.05, full_health as f64).max(1),
+                        full_health,
+                    ),
+                    shields: (!building && index % 3 == 0)
+                        .then(|| (wave(index as f64 * 2.2 + 1.0, t, 0.04, 80.0), 80)),
+                    energy: (!building && index % 2 == 0)
+                        .then(|| (wave(index as f64 * 1.7 + 2.0, t, 0.03, 200.0), 200)),
+                    kills: (t / 31.0) as u32 + index as u32 * 2,
+                    building,
+                }
+            })
+            .collect(),
+    }
+}
+
 /// A number that rises and falls over `scale`, so a panel is judged against values that move the
 /// way a game's do rather than against one frozen sample.
 fn wave(phase: f64, t: f64, rate: f64, scale: f64) -> u32 {
@@ -655,6 +709,12 @@ pub enum Screen {
     /// Every panel with the game's console hidden, which is where our own bottom panels have the
     /// room the design draws them in.
     Analyst,
+    /// The analyst's screen with the upper stats wings hidden, so the panels under them are drawn
+    /// where the wings would have been.
+    ReflowWings,
+    /// The analyst's screen with the lower half of the centred stack hidden, so the panels over it
+    /// are drawn against the screen's own bottom edge.
+    ReflowStack,
 }
 
 impl Screen {
@@ -672,7 +732,21 @@ impl Screen {
         prefs.timeline = analysis;
         prefs.production = analysis;
         prefs.control_groups = analysis;
+        prefs.selection = analysis;
         prefs.console = self == Screen::Standard;
+        // Each reflow screen is the analyst's with a hole in it, which is what the panels around
+        // the hole are meant to close up into.
+        match self {
+            Screen::ReflowWings => {
+                prefs.economy = false;
+                prefs.military = false;
+            }
+            Screen::ReflowStack => {
+                prefs.production = false;
+                prefs.selection = false;
+            }
+            _ => {}
+        }
     }
 }
 
@@ -686,7 +760,7 @@ pub struct Preset {
 }
 
 impl Preset {
-    pub const ALL: [Preset; 12] = [
+    pub const ALL: [Preset; 14] = [
         Preset {
             players: 2,
             panels: Screen::Minimal,
@@ -698,6 +772,14 @@ impl Preset {
         Preset {
             players: 2,
             panels: Screen::Analyst,
+        },
+        Preset {
+            players: 2,
+            panels: Screen::ReflowWings,
+        },
+        Preset {
+            players: 2,
+            panels: Screen::ReflowStack,
         },
         Preset {
             players: 4,
@@ -742,6 +824,10 @@ impl Preset {
             (2, Screen::Minimal) => "1v1-minimal",
             (2, Screen::Standard) => "1v1-standard",
             (2, Screen::Analyst) => "1v1-analyst",
+            // The reflow screens are dealt to the duel alone, which is the shape with the room to
+            // read the move each of them is about off.
+            (_, Screen::ReflowWings) => "1v1-reflow-a",
+            (_, Screen::ReflowStack) => "1v1-reflow-b",
             (4, Screen::Minimal) => "2v2-minimal",
             (4, Screen::Standard) => "2v2-standard",
             (4, Screen::Analyst) => "2v2-analyst",
@@ -817,6 +903,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .add(egui::Slider::new(&mut k.control_groups, 0..=10).text("control groups"))
         .on_hover_text("How many of the ten number keys each player has something on.")
+        .changed();
+    changed |= ui
+        .add(egui::Slider::new(&mut k.selection, 0..=SelectionView::MAX_UNITS).text("selection"))
+        .on_hover_text(
+            "How many units the watcher has selected. One is read out as numbers, several as what \
+             the selection is made of, and none leaves the panel on screen with an empty grid.",
+        )
         .changed();
     changed |= ui
         .checkbox(&mut k.map_control, "reports map control")

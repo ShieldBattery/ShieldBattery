@@ -46,6 +46,8 @@ pub enum Action {
     ToggleTimeline,
     /// The control groups panel.
     ToggleControlGroups,
+    /// The selection panel, which stands in for the game console's own.
+    ToggleSelection,
     /// The map control bar.
     ToggleMapControl,
     /// Step the observer vision selection.
@@ -58,7 +60,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, for a caller walking the table.
-    pub const ALL: [Action; 20] = [
+    pub const ALL: [Action; 21] = [
         Action::PauseResume,
         Action::SpeedUp,
         Action::SpeedDown,
@@ -75,6 +77,7 @@ impl Action {
         Action::ToggleGraphs,
         Action::ToggleTimeline,
         Action::ToggleControlGroups,
+        Action::ToggleSelection,
         Action::ToggleMapControl,
         Action::CycleVision,
         Action::ToggleSpoilerFree,
@@ -100,6 +103,7 @@ impl Action {
             Action::ToggleGraphs => "graphs",
             Action::ToggleTimeline => "timeline",
             Action::ToggleControlGroups => "control groups",
+            Action::ToggleSelection => "selection",
             Action::ToggleMapControl => "map control",
             Action::CycleVision => "cycle vision",
             Action::ToggleSpoilerFree => "spoiler-free",
@@ -162,6 +166,7 @@ impl Hotkeys {
             (Action::ToggleGraphs, Chord::new(Key::G)),
             (Action::ToggleTimeline, Chord::new(Key::T)),
             (Action::ToggleControlGroups, Chord::new(Key::H)),
+            (Action::ToggleSelection, Chord::new(Key::S)),
             (Action::ToggleMapControl, Chord::new(Key::N)),
             (Action::CycleVision, Chord::new(Key::V)),
             (Action::ToggleSpoilerFree, Chord::new(Key::L)),
@@ -236,6 +241,7 @@ mod tests {
             (Key::W, Action::ToggleConsole),
             (Key::Q, Action::ToggleMinimap),
             (Key::M, Action::ToggleMilitary),
+            (Key::S, Action::ToggleSelection),
             (Key::Backtick, Action::ToggleDock),
         ] {
             assert_eq!(hotkeys.action_for(key, plain()), Some(action));

@@ -58,6 +58,14 @@ const CHROME_WIDTH: f32 =
 
 const _: () = assert!(CHROME_WIDTH < MIN_WIDTH);
 
+/// How far left of the screen's centre line the strip is hung.
+///
+/// What the eye centres is the share and the two percentages around it, which sit symmetrically in
+/// the strip except for the label on their left. A strip centred on its own chrome puts the share
+/// half a label to the right of the matchup bar above it, so the strip is shifted by that half
+/// instead and the share lands on the centre line.
+const LABEL_OFFSET: f32 = (LABEL_WIDTH + LABEL_GAP) * 0.5;
+
 /// One side of the game as the bar reads it.
 #[derive(Copy, Clone)]
 pub struct MapControlSideView {
@@ -94,7 +102,9 @@ fn width_for(screen_width: f32) -> Option<f32> {
     let side = WING_MARGIN
         + super::economy::PANEL_WIDTH.max(DOCK_RESERVE + super::military::PANEL_WIDTH)
         + WING_GAP;
-    let available = screen_width - side * 2.0;
+    // The strip hangs left of centre by the label's half, so the left wing is what it runs into
+    // first: the room is what is left after both wings and that shift.
+    let available = screen_width - side * 2.0 - LABEL_OFFSET * 2.0;
     let width = available.min(BAR_WIDTH);
     (width >= MIN_WIDTH).then_some(width)
 }
@@ -110,7 +120,7 @@ pub fn render_map_control_view(
     let width = width_for(ctx.viewport_rect().width())?;
     let id = Id::new("sb_map_control_bar");
     let area = Area::new(id)
-        .anchor(Align2::CENTER_TOP, vec2(0.0, top))
+        .anchor(Align2::CENTER_TOP, vec2(-LABEL_OFFSET, top))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         draw_bar(ui, view, width)
