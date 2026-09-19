@@ -19,7 +19,7 @@
 use egui::{Align, Context, Id, Layout, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
 use serde::{Deserialize, Serialize};
 
-use crate::colors::{AMBER70, BLUE70, GREY_BLUE70, GREY_BLUE95};
+use crate::colors::{BLUE70, GREY_BLUE70, GREY_BLUE95};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ButtonPlate};
 use crate::kit::{theme, tiers};
@@ -33,6 +33,9 @@ const NAV_WIDTH: f32 = 220.0;
 
 /// Height of one nav row.
 const NAV_ROW_HEIGHT: f32 = 42.0;
+
+/// How far a nav row's label stands in from the row's left edge, lit or not.
+const NAV_LABEL_INSET: f32 = theme::SPACE_LG;
 
 /// Padding between the content column's edge and its rows.
 const CONTENT_PAD_X: f32 = 24.0;
@@ -470,7 +473,7 @@ fn stepped(list: &[NamedChoice], index: usize, delta: i32) -> usize {
 /// Everything the options screen shows, as the game currently holds it.
 ///
 /// [`OptionsView::default`] is what a fresh ShieldBattery install plays on, which is what the
-/// screen falls back to before a host has said otherwise and what "reset to defaults" returns to.
+/// screen falls back to before a host has said otherwise.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OptionsView {
@@ -738,8 +741,6 @@ pub struct OptionsOutcome {
     pub section: Option<OptionsSection>,
     /// Every setting they moved, in the order they moved it.
     pub changes: Vec<SettingChange>,
-    /// Whether they asked for every setting to go back to its default.
-    pub reset: bool,
     /// Whether they asked for the screen to close.
     pub done: bool,
 }
@@ -784,7 +785,7 @@ fn draw_header(ui: &mut Ui) {
                     .job_truncated(
                         &tr!(
                             "options.subtitle",
-                            "Changes apply immediately and are saved to your ShieldBattery profile"
+                            "Changes apply immediately and are saved with your ShieldBattery settings"
                         ),
                         room,
                     ),
@@ -817,13 +818,17 @@ fn draw_nav(ui: &mut Ui, section: OptionsSection, height: f32) -> Option<Options
 fn draw_nav_row(ui: &mut Ui, section: OptionsSection, active: bool) -> bool {
     let size = vec2(NAV_WIDTH - theme::SPACE_MD, NAV_ROW_HEIGHT);
     let label = section.label();
+    // The lit row keeps its label where the plain rows keep theirs: a label that slid to the
+    // middle of the plate as it lit would read as the nav rearranging itself with every click.
     let clicked = if active {
-        widgets::plate_button(
+        widgets::plate_button_aligned(
             ui,
             &text::button_label(14.0).with_letter_spacing(1.0),
             &label,
             size,
             ButtonPlate::selected(),
+            Align::LEFT,
+            NAV_LABEL_INSET,
         )
         .clicked()
     } else {
@@ -832,11 +837,11 @@ fn draw_nav_row(ui: &mut Ui, section: OptionsSection, active: bool) -> bool {
             let corner_radius = theme::radius(theme::RADIUS_TIGHT);
             widgets::state_overlay(ui, &response, rect, corner_radius);
             let spec = text::body(15.0, BodyWeight::Regular).with_color(theme::TEXT_SECONDARY);
-            let job = spec.job_truncated(&label, size.x - theme::SPACE_LG * 2.0);
+            let job = spec.job_truncated(&label, size.x - NAV_LABEL_INSET * 2.0);
             let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
             ui.painter().galley(
                 pos2(
-                    rect.left() + theme::SPACE_LG,
+                    rect.left() + NAV_LABEL_INSET,
                     rect.center().y - galley.size().y * 0.5,
                 ),
                 galley,
@@ -919,20 +924,6 @@ fn draw_footer(ui: &mut Ui, outcome: &mut OptionsOutcome) {
             .clicked()
             {
                 outcome.done = true;
-            }
-            ui.add_space(theme::SPACE_LG);
-            let spec = text::body(13.5, BodyWeight::Semibold)
-                .with_color(AMBER70)
-                .with_letter_spacing(1.2);
-            if widgets::text_button(
-                ui,
-                &spec,
-                &tr!("options.resetDefaults", "Reset to defaults"),
-                0.0,
-            )
-            .clicked()
-            {
-                outcome.reset = true;
             }
         },
     );
@@ -1048,6 +1039,12 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         false,
         outcome,
         SettingChange::LegacyCursorSizing,
+    );
+    // The sizing is a patch the DLL applies while it installs its hooks, before the game has drawn
+    // a cursor, so a change here is only seen by the next game the app launches.
+    hint(
+        ui,
+        &tr!("options.legacyCursorSizingHint", "Takes effect next game"),
     );
     switch_row(
         ui,
@@ -1372,10 +1369,6 @@ fn draw_gameplay(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) 
     ) {
         outcome.changes.push(SettingChange::StartingFog(fog));
     }
-    hint(
-        ui,
-        &tr!("options.startingFogHint", "Takes effect next game"),
-    );
 
     group_header(ui, &tr!("options.groupApm", "APM"), true);
     switch_row(
@@ -1443,6 +1436,7 @@ fn draw_gameplay(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) 
             .changes
             .push(SettingChange::UnitSkin(UNIT_SKINS[index].id));
     }
+    hint(ui, &tr!("options.skinsHint", "Skins take effect next game"));
     switch_row(
         ui,
         &tr!("options.showBonusSkins", "Show bonus skins"),

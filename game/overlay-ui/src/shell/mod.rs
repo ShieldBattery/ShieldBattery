@@ -365,8 +365,6 @@ pub enum Intent {
     /// Put one setting on the value the player moved it to, in the game and wherever the host
     /// persists it.
     ChangeSetting(SettingChange),
-    /// Put every setting back on the value a fresh install plays on.
-    ResetSettings,
     /// Show or stop showing the game through this player's eyes. What that means for their allies
     /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
     /// watcher looking at a map neither player sees.
@@ -841,10 +839,6 @@ impl Shell {
                 self.options.apply(change);
                 self.intents.push(Intent::ChangeSetting(change));
             }
-            if outcome.options_reset {
-                self.options = OptionsView::default();
-                self.intents.push(Intent::ResetSettings);
-            }
             // Dismissed first: the modal that reported it is the one on top, and opening another
             // one here would make the dismissal close the wrong screen.
             if outcome.dismissed && modal.id.is_dismissible() {
@@ -1283,8 +1277,6 @@ struct ModalOutcome {
     options_section: Option<OptionsSection>,
     /// Settings they moved, in the order they moved them.
     options_changes: Vec<SettingChange>,
-    /// Whether they asked for every setting to go back to its default.
-    options_reset: bool,
 }
 
 /// The shell's own state a modal is drawn from, as against the view-models its host built.
@@ -1346,14 +1338,12 @@ fn draw_modal(
             let OptionsOutcome {
                 section,
                 changes,
-                reset,
                 done,
             } = dialog.inner;
             ModalOutcome {
                 dismissed: done || dialog.scrim_clicked,
                 options_section: section,
                 options_changes: changes,
-                options_reset: reset,
                 ..ModalOutcome::default()
             }
         }

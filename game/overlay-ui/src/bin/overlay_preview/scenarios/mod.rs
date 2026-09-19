@@ -295,7 +295,6 @@ pub fn render(
             // The emulated game has no settings to write, so a change is only reported: the shell
             // is already showing it, which is what the screen is being looked at for.
             Intent::ChangeSetting(change) => outcome.setting_changes.push(change),
-            Intent::ResetSettings => outcome.settings_reset = true,
             Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
             // The fake replay answers these, the way the game answers them by moving its own clock.
             Intent::Seek(frame) => state.transport.seek_to(frame),
@@ -325,8 +324,6 @@ pub struct Outcome {
     pub abandoned: bool,
     /// Settings the options screen reported moved, which a game would write through to SC:R.
     pub setting_changes: Vec<overlay_ui::options::SettingChange>,
-    /// Whether the options screen asked for every setting to go back to its default.
-    pub settings_reset: bool,
     /// Native dialogs the shell wants dismissed, because the surface standing in for one was closed.
     /// The game DLL drives the real dialog's return control; the preview closes the switch that
     /// stands in for it.
