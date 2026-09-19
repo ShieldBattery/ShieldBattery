@@ -29,6 +29,7 @@ pub mod kit;
 pub mod net_quality;
 pub mod netstat;
 pub mod observer;
+pub mod options;
 pub mod shell;
 mod style;
 pub mod transport;

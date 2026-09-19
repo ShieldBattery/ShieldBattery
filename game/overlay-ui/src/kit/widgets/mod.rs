@@ -13,11 +13,12 @@ mod tooltip;
 
 pub use buttons::{
     ButtonPlate, ButtonVariant, HoldState, button, button_sized, chip_button, hold_to_confirm, kbd,
-    plate_button,
+    plate_button, text_button,
 };
 pub use charts::{Series, line_plot, progress_bar, share_bar, sparkline, sparkline_to};
 pub use controls::{
-    ScrubTrack, scrub_track, segmented, slider, switch, tab_strip, tab_strip_width,
+    ScrubTrack, scrub_track, segmented, segmented_sized, segmented_width, slider, slider_sized,
+    stepper, switch, tab_strip, tab_strip_width,
 };
 pub use icons::{ResourceGlyph, paint_resource_glyph};
 pub use panels::{

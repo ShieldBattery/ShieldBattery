@@ -219,6 +219,18 @@ impl ButtonPlate {
         }
     }
 
+    /// The one of a set of choices that is currently taken, drawn as a lit plate so a column of
+    /// them says where the reader is without a second marker.
+    pub fn selected() -> ButtonPlate {
+        ButtonPlate {
+            outer: theme::alpha(BLUE80, 0.70),
+            inner: Some(theme::alpha(BLUE80, 0.40)),
+            fill: theme::alpha(Color32::from_rgb(24, 44, 90), 0.60),
+            label: AMBER95,
+            glow: None,
+        }
+    }
+
     /// An action that is simply available.
     pub fn standard() -> ButtonPlate {
         ButtonPlate {
@@ -472,6 +484,41 @@ pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
     } else {
         HoldState::Idle
     }
+}
+
+/// A button that is nothing but its label, for the secondary action beside a real one.
+///
+/// The caller brings the type style, which is also the label's resting color; under the pointer it
+/// brightens rather than growing chrome, so a row of controls keeps one silhouette whatever the
+/// pointer is over. `min_width` lets a caller line one up in a column of buttons.
+pub fn text_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, min_width: f32) -> Response {
+    let galley = spec.galley(ui, label);
+    let size = vec2(
+        (galley.size().x + theme::SPACE_MD * 2.0).max(min_width),
+        theme::HIT_DIALOG,
+    );
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    state_overlay(ui, &response, rect, corner_radius);
+    focus_ring(ui, &response, rect, corner_radius);
+    let color = if response.hovered() {
+        lightened(spec.color)
+    } else {
+        spec.color
+    };
+    ui.painter()
+        .galley(rect.center() - galley.size() * 0.5, galley, color);
+    response
+}
+
+/// `color` a third of the way to white, which is how a label says it is under the pointer without
+/// leaving the hue it was given.
+fn lightened(color: Color32) -> Color32 {
+    let step = |channel: u8| channel.saturating_add((255 - channel) / 3);
+    Color32::from_rgba_premultiplied(step(color.r()), step(color.g()), step(color.b()), color.a())
 }
 
 /// A keycap chip, for telling the player which key opens or closes something.

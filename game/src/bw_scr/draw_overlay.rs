@@ -12,6 +12,7 @@ use overlay_ui::net_quality::NetQualityView;
 use overlay_ui::observer::{
     GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView, RaceView,
 };
+use overlay_ui::options::OptionsView;
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     Shell, Views,
@@ -40,6 +41,7 @@ mod chat_history;
 mod disconnect;
 mod loading_screen;
 mod netstat;
+pub mod options;
 mod production;
 mod stats;
 
@@ -312,6 +314,7 @@ impl OverlayState {
         net_quality: Option<&NetQualityView>,
         loading_connectivity: Option<&LoadingConnectivity>,
         chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
+        options: &Mutex<OptionsView>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -530,6 +533,9 @@ impl OverlayState {
             spoiler_free: self.shell.panel_prefs().spoiler_free,
             seek_pending: replay.transport.seek_pending,
         });
+        // A copy for the frame rather than a lock held across the draw: the intents the frame
+        // reports back take the lock again to record what the player moved.
+        let options_view = *options.lock();
         let mut views = Views {
             disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
                 view: &disconnect_view,
@@ -540,6 +546,7 @@ impl OverlayState {
             chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
             transport: transport_view.as_ref(),
             observer: observer_view.as_ref(),
+            options: Some(&options_view),
         };
         // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
         // of the player's input and asks nothing of the game.
@@ -584,7 +591,7 @@ impl OverlayState {
         self.capture = frame_output.capture;
         let mut replay_commands = Vec::new();
         for intent in frame_output.intents {
-            self.execute_intent(bw, intent, &mut replay_commands);
+            self.execute_intent(bw, intent, &mut replay_commands, options);
         }
         let prefs = *self.shell.panel_prefs();
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -866,6 +873,7 @@ impl OverlayState {
         bw: &BwVars,
         intent: Intent,
         replay_commands: &mut Vec<ReplayCommand>,
+        options: &Mutex<OptionsView>,
     ) {
         match intent {
             // Safe to reach the turn state here: the draw path holds no turn-state lock across
@@ -895,6 +903,17 @@ impl OverlayState {
             // recorded and nothing else happens: the player stays in a game they asked to leave,
             // which is the honest behaviour until the host side of it exists.
             Intent::AbandonGame => info!("Overlay: abandon requested"),
+            // The overlay holds what the player moved, so the screen keeps showing it for the rest
+            // of the game. Writing a setting through the game's own settings registry is not built
+            // yet, so SC:R keeps playing on what it was launched with either way.
+            Intent::ChangeSetting(change) => {
+                options.lock().apply(change);
+                info!("Overlay: setting change requested: {change:?}");
+            }
+            Intent::ResetSettings => {
+                *options.lock() = OptionsView::default();
+                info!("Overlay: settings reset requested");
+            }
         }
     }
 
