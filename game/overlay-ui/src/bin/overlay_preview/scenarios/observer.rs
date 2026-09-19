@@ -653,7 +653,6 @@ fn control_groups_player(
         .collect();
     ControlGroupsPlayerView {
         player_id: index as u8,
-        name: player_name(knobs, index),
         color: overlay_ui::kit::theme::player_color(index),
         vision: state.vision[index],
         groups,
