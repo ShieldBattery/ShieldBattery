@@ -7,12 +7,19 @@
 //! in a modal state by the time the dialog it replaces spawns, and a player reading back over a
 //! game's chat is not doing anything else.
 //!
-//! A line is a row of fixed columns — when it was said, who said it, who they said it to, and the
-//! words — so a log scans down its left edge rather than being re-read line by line. The words sit
-//! in their own column, which is what gives a wrapped message its hanging indent. System notices
-//! have no sender and no scope, so they take that whole width and render dim.
+//! A line reads left to right the way it is asked about: who it went to, when, then who said it and
+//! what. The scope tag and the time stamp stand in fixed slots at the left edge, each set flush
+//! right against the words, so a log scans down two straight seams before the eye ever lands on a
+//! sentence; the words follow the sender's name directly, as chat does, so a line is read straight
+//! across without a jump over a column of empty space. System notices have no sender and no scope,
+//! so they take the whole width of the words and render dim.
 
-use egui::{Align, Color32, Id, Layout, Ui, vec2};
+use std::sync::Arc;
+
+use egui::text::LayoutJob;
+use egui::{
+    Align, Color32, Frame, Galley, Id, Layout, Margin, Shape, Stroke, StrokeKind, Ui, vec2,
+};
 
 use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::widgets::{self, ButtonVariant, TagStyle};
@@ -29,43 +36,51 @@ pub const DIALOG_WIDTH: f32 = 600.0;
 /// the dialog's chrome and its button are never pushed off the top or bottom.
 const LIST_MAX_HEIGHT: f32 = 432.0;
 
-/// Width of the column holding a line's game-time stamp.
-const TIME_WIDTH: f32 = 38.0;
+/// Padding between the list's edge and its lines. The list is drawn as a sunken box inside the
+/// dialog so that a line cut off by scrolling is cut at the box's edge, which the eye reads as a
+/// window onto more text rather than as a layout that ran out of room.
+const LIST_PAD: i8 = 8;
 
-/// Width of the sender column.
-const NAME_WIDTH: f32 = 112.0;
-
-/// Width of the scope-tag column. The tag elides inside it, so a long recipient name moves nothing.
+/// Width of the slot holding a line's scope tag. The tag elides inside it, so a long recipient name
+/// moves nothing.
 const TAG_WIDTH: f32 = 72.0;
 
-/// Gap between two columns.
+/// Width of the slot holding a line's game-time stamp.
+const TIME_WIDTH: f32 = 38.0;
+
+/// Gap between two of a line's slots.
 const COLUMN_GAP: f32 = theme::SPACE_SM;
 
-/// Width the vertical scrollbar and its margin take out of the dialog. Reserved whether or not the
+/// Width the vertical scrollbar and its margin take out of the list. Reserved whether or not the
 /// list is long enough to scroll, so a message arriving does not re-wrap every line above it.
 const SCROLLBAR_WIDTH: f32 = 14.0;
 
-/// Width the message column is laid out against.
-const MESSAGE_WIDTH: f32 =
-    DIALOG_WIDTH - TIME_WIDTH - NAME_WIDTH - TAG_WIDTH - COLUMN_GAP * 3.0 - SCROLLBAR_WIDTH;
+/// Width the words of a line are laid out against.
+const MESSAGE_WIDTH: f32 = DIALOG_WIDTH
+    - LIST_PAD as f32 * 2.0
+    - TAG_WIDTH
+    - TIME_WIDTH
+    - COLUMN_GAP * 2.0
+    - SCROLLBAR_WIDTH;
 
-/// Width a system notice takes, being the sender, scope and message columns together.
-const SYSTEM_WIDTH: f32 = NAME_WIDTH + TAG_WIDTH + MESSAGE_WIDTH + COLUMN_GAP * 2.0;
-
-/// The columns are the dialog, so widening one of them narrows the message column. Checked where
-/// the widths are written: past the point where nothing is left for the words, every line would lay
-/// out one character per row.
+/// The slots are the dialog, so widening one of them narrows the words. Checked where the widths
+/// are written: past the point where nothing is left for the words, every line would lay out one
+/// character per row.
 const _: () = assert!(MESSAGE_WIDTH > 0.0);
 
-/// Text size of a message and of the name over it.
+/// Text size of a message and of the name in front of it.
 const LINE_SIZE: f32 = 13.5;
 
 /// Text size of a line's game-time stamp, a step down because it is a coordinate rather than
 /// content.
 const TIME_SIZE: f32 = 12.0;
 
-/// Vertical gap between two lines.
-const LINE_GAP: f32 = theme::SPACE_XS;
+/// Gap between a sender's name and their words.
+const NAME_GAP: f32 = theme::SPACE_SM;
+
+/// Vertical gap between two lines. Wider than the rows inside a wrapped message, which is what
+/// keeps a wrapped message reading as one line and its neighbours as others.
+const LINE_GAP: f32 = theme::SPACE_SM;
 
 /// Who a message was addressed to, as the tag over it reads.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -91,8 +106,8 @@ pub enum ChatLineKindView {
         name: String,
         /// The sender's in-game color, which is what makes a log scannable by who is talking.
         color: Color32,
-        /// Whether the local player sent it. Their own lines wear the accent tag, so their half of
-        /// a conversation is findable at a glance.
+        /// Whether the local player sent it. Their own lines wear a filled scope tag where every
+        /// other line's is an outline, so their half of a conversation is findable at a glance.
         own: bool,
         /// Who the message was addressed to.
         scope: ChatScopeView,
@@ -108,8 +123,8 @@ pub struct ChatLineView {
     pub game_seconds: u64,
     pub kind: ChatLineKindView,
     /// The line's text, BW's inline color codes and all: they are read at layout
-    /// ([`text::bw_colored_job`]) rather than stripped, because a player who colored their message
-    /// meant it to be read that way.
+    /// ([`text::append_bw_colored`]) rather than stripped, because a player who colored their
+    /// message meant it to be read that way.
     pub text: String,
 }
 
@@ -133,7 +148,7 @@ pub fn render_chat_history_view(
             tiers::dialog_header(ui, |ui| {
                 tiers::dialog_title(ui, &tr!("chatHistory.title", "Chat history"));
             });
-            tiers::dialog_body(ui, |ui| draw_lines(ui, view));
+            tiers::dialog_body(ui, |ui| draw_list(ui, view));
             tiers::dialog_footer(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     widgets::button(ui, &tr!("common.close", "Close"), ButtonVariant::Tier2)
@@ -145,24 +160,54 @@ pub fn render_chat_history_view(
     )
 }
 
-/// Draws the scrolling list, or what stands in for it while the game has said nothing.
+/// Draws the sunken box the lines sit in, and the lines, or what stands in for them while the game
+/// has said nothing.
+fn draw_list(ui: &mut Ui, view: &ChatHistoryView) {
+    let background = ui.painter().add(Shape::Noop);
+    let inner = Frame::NONE
+        .inner_margin(Margin::same(LIST_PAD))
+        .show(ui, |ui| {
+            ui.set_width(DIALOG_WIDTH - f32::from(LIST_PAD) * 2.0);
+            if view.lines.is_empty() {
+                draw_empty(ui);
+            } else {
+                draw_lines(ui, view);
+            }
+        });
+    let rect = inner.response.rect;
+    let radius = theme::radius(theme::RADIUS_TIGHT);
+    ui.painter().set(
+        background,
+        Shape::Vec(vec![
+            Shape::rect_filled(rect, radius, theme::TIER2_ROW_FILL),
+            Shape::rect_stroke(
+                rect,
+                radius,
+                Stroke::new(theme::HAIRLINE, theme::TIER2_DIVIDER),
+                StrokeKind::Inside,
+            ),
+        ]),
+    );
+}
+
+fn draw_empty(ui: &mut Ui) {
+    ui.add_space(theme::SPACE_LG);
+    ui.vertical_centered(|ui| {
+        ui.label(
+            text::body(LINE_SIZE, BodyWeight::Regular)
+                .with_color(theme::TEXT_LABEL)
+                .job(&tr!("chatHistory.empty", "No messages yet")),
+        );
+    });
+    ui.add_space(theme::SPACE_LG);
+}
+
+/// Draws the scrolling list.
 ///
 /// The list stays pinned to its newest line only for as long as the reader leaves it there: once
 /// they have scrolled up, a message arriving must not pull the text out from under them, which is
 /// exactly what SC:R's own log does and the complaint this screen exists to answer.
 fn draw_lines(ui: &mut Ui, view: &ChatHistoryView) {
-    if view.lines.is_empty() {
-        ui.add_space(theme::SPACE_LG);
-        ui.vertical_centered(|ui| {
-            ui.label(
-                text::body(LINE_SIZE, BodyWeight::Regular)
-                    .with_color(theme::TEXT_LABEL)
-                    .job(&tr!("chatHistory.empty", "No messages yet")),
-            );
-        });
-        ui.add_space(theme::SPACE_LG);
-        return;
-    }
     egui::ScrollArea::vertical()
         .id_salt("sb_chat_history_lines")
         .max_height(LIST_MAX_HEIGHT)
@@ -170,75 +215,80 @@ fn draw_lines(ui: &mut Ui, view: &ChatHistoryView) {
         .stick_to_bottom(true)
         .show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = LINE_GAP;
+            let tag_height = widgets::tag_height(ui);
             for line in &view.lines {
-                draw_line(ui, line);
+                draw_line(ui, line, tag_height);
             }
         });
 }
 
-/// Draws one line: when, who, to whom, and what.
-fn draw_line(ui: &mut Ui, line: &ChatLineView) {
+/// Draws one line: to whom, when, then who and what.
+///
+/// The tag and the stamp are centred on the first row of the words, whichever of the three is
+/// tallest, so the three read as one line even though each is set in its own face and size.
+fn draw_line(ui: &mut Ui, line: &ChatLineView, tag_height: f32) {
+    let words = words_galley(ui, line);
+    let first_row = words.rows.first().map_or(0.0, |row| row.height());
+    let row_height = first_row.max(tag_height);
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = COLUMN_GAP;
-        column(ui, TIME_WIDTH, Align::RIGHT, |ui| {
+        slot(ui, TAG_WIDTH, row_height, |ui| {
+            if let ChatLineKindView::Player { own, scope, .. } = &line.kind {
+                widgets::tag_sized(ui, &scope_label(scope), scope_style(scope, *own), TAG_WIDTH);
+            }
+        });
+        slot(ui, TIME_WIDTH, row_height, |ui| {
             ui.label(
                 text::numeral(TIME_SIZE)
                     .with_color(theme::TEXT_LABEL)
                     .job(&mmss(line.game_seconds)),
             );
         });
-        match &line.kind {
-            ChatLineKindView::Player {
-                name,
-                color,
-                own,
-                scope,
-            } => {
-                column(ui, NAME_WIDTH, Align::LEFT, |ui| {
-                    ui.label(
-                        text::player_name(LINE_SIZE)
-                            .with_color(*color)
-                            .job_truncated(name, NAME_WIDTH),
-                    );
-                });
-                column(ui, TAG_WIDTH, Align::LEFT, |ui| {
-                    let style = if *own {
-                        TagStyle::Amber
-                    } else {
-                        TagStyle::Neutral
-                    };
-                    widgets::tag_sized(ui, &scope_label(scope), style, TAG_WIDTH);
-                });
-                column(ui, MESSAGE_WIDTH, Align::LEFT, |ui| {
-                    ui.label(text::bw_colored_job(
-                        &message_spec(),
-                        &line.text,
-                        MESSAGE_WIDTH,
-                    ));
-                });
-            }
-            ChatLineKindView::System => {
-                column(ui, SYSTEM_WIDTH, Align::LEFT, |ui| {
-                    ui.label(text::bw_colored_job(
-                        &system_spec(),
-                        &line.text,
-                        SYSTEM_WIDTH,
-                    ));
-                });
-            }
-        }
+        ui.allocate_ui_with_layout(
+            vec2(MESSAGE_WIDTH, 0.0),
+            Layout::top_down(Align::LEFT),
+            |ui| {
+                ui.set_width(MESSAGE_WIDTH);
+                ui.add_space((row_height - first_row) * 0.5);
+                ui.label(words);
+            },
+        );
     });
 }
 
-/// One column of a line, at a width the dialog decides rather than one read back from the layout.
+/// One fixed slot of a line, its contents flush right and centred on the line's first row.
 ///
-/// A list this long sits in an auto-sized area, so sizing a column from the space available would
-/// let one wide line widen the area and the next pass hand that extra width straight back.
-fn column(ui: &mut Ui, width: f32, align: Align, add: impl FnOnce(&mut Ui)) {
-    ui.allocate_ui_with_layout(vec2(width, 0.0), Layout::top_down(align), |ui| {
-        ui.set_width(width);
-        add(ui);
-    });
+/// The width is the dialog's rather than one read back from the layout: a list this long sits in an
+/// auto-sized area, so sizing a slot from the space available would let one wide line widen the
+/// area and the next pass hand that extra width straight back.
+fn slot(ui: &mut Ui, width: f32, height: f32, add: impl FnOnce(&mut Ui)) {
+    ui.allocate_ui_with_layout(
+        vec2(width, height),
+        Layout::right_to_left(Align::Center),
+        |ui| {
+            ui.set_width(width);
+            ui.set_min_height(height);
+            add(ui);
+        },
+    );
+}
+
+/// Lays out the words of a line: the sender's name in their color, then what they said, wrapped
+/// as one paragraph so a wrapped message continues under its name.
+fn words_galley(ui: &Ui, line: &ChatLineView) -> Arc<Galley> {
+    let mut job = LayoutJob::default();
+    job.wrap.max_width = MESSAGE_WIDTH;
+    match &line.kind {
+        ChatLineKindView::Player { name, color, .. } => {
+            let name_spec = text::player_name(LINE_SIZE).with_color(*color);
+            job.append(name, 0.0, name_spec.format());
+            text::append_bw_colored(&mut job, &message_spec(), &line.text, NAME_GAP);
+        }
+        ChatLineKindView::System => {
+            text::append_bw_colored(&mut job, &system_spec(), &line.text, 0.0);
+        }
+    }
+    ui.ctx().fonts_mut(|fonts| fonts.layout_job(job))
 }
 
 /// What the scope tag over a message reads.
@@ -252,6 +302,17 @@ fn scope_label(scope: &ChatScopeView) -> String {
         } => tr!("chatHistory.scopeTo", "To {{name}}", name = name),
         ChatScopeView::Players { recipient: None } => tr!("chatHistory.scopeToPlayers", "To"),
     }
+}
+
+/// How the scope tag is drawn: the scope's own hue, filled in on the local player's lines.
+fn scope_style(scope: &ChatScopeView, own: bool) -> TagStyle {
+    let color = match scope {
+        ChatScopeView::All => theme::CHAT_SCOPE_ALL,
+        ChatScopeView::Allies => theme::CHAT_SCOPE_ALLIES,
+        ChatScopeView::Observers => theme::CHAT_SCOPE_OBSERVERS,
+        ChatScopeView::Players { .. } => theme::CHAT_SCOPE_PLAYERS,
+    };
+    TagStyle::Hue { color, filled: own }
 }
 
 fn message_spec() -> TextSpec {

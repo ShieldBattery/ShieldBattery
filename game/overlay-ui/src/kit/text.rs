@@ -249,11 +249,20 @@ const BW_CHAT_COLORS: [Option<Color32>; BW_CONTROL_CODE_COUNT] = {
 /// meant it to. The spec's capitalization is deliberately not applied: this is text a player typed,
 /// and shouting it back at them is not the overlay's to do.
 pub fn bw_colored_job(spec: &TextSpec, text: &str, wrap_width: f32) -> LayoutJob {
-    let colors = bw_chat_colors();
     let mut job = LayoutJob::default();
     job.wrap.max_width = wrap_width;
+    append_bw_colored(&mut job, spec, text, 0.0);
+    job
+}
+
+/// Appends `text` to `job` the way [`bw_colored_job`] lays it out, for a line that carries
+/// something in front of the player's words. `leading_space` is the gap before the first run,
+/// and only the first: a color code changes nothing about where the words sit.
+pub fn append_bw_colored(job: &mut LayoutJob, spec: &TextSpec, text: &str, leading_space: f32) {
+    let colors = bw_chat_colors();
     let mut format = spec.format();
     let mut run = String::new();
+    let mut leading_space = leading_space;
     for c in text.chars() {
         let code = c as usize;
         if code >= BW_CONTROL_CODE_COUNT {
@@ -262,16 +271,16 @@ pub fn bw_colored_job(spec: &TextSpec, text: &str, wrap_width: f32) -> LayoutJob
         }
         if let Some(color) = colors[code] {
             if !run.is_empty() {
-                job.append(&run, 0.0, format.clone());
+                job.append(&run, leading_space, format.clone());
+                leading_space = 0.0;
                 run.clear();
             }
             format.color = color;
         }
     }
     if !run.is_empty() {
-        job.append(&run, 0.0, format);
+        job.append(&run, leading_space, format);
     }
-    job
 }
 
 /// Uppercases `text` unless it contains CJK.

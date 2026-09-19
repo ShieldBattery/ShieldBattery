@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::knobs::Knobs as AllKnobs;
 
 /// The senders lines are dealt out to, with the slot each takes its color from. The local player is
-/// first, so a peer's line is never dealt their name and the accent tag stays a reliable read of
+/// first, so a peer's line is never dealt their name and the filled tag stays a reliable read of
 /// whose line it is.
 const SENDERS: [&str; 4] = ["tec27", "Zerglot", "a-very-long-player-name", "pachi"];
 

@@ -102,6 +102,15 @@ pub const RESOURCE_SUPPLY: Color32 = GREY_BLUE80;
 /// The edge of a small outlined control over gameplay: a jump chip, a stepper end, a keycap.
 pub const CHIP_STROKE: Color32 = alpha(BLUE80, 0.25);
 
+// Who a chat line went to, as the hue of the tag beside it. The one everyone hears is the quiet
+// grey of the kit's plain tags, since most lines of most games go there and a log full of loud
+// tags says nothing; the narrower scopes are each a hue apart, so a reader picks out the allied
+// planning, the observer chatter and the whispers without reading a word of them.
+pub const CHAT_SCOPE_ALL: Color32 = GREY_BLUE80;
+pub const CHAT_SCOPE_ALLIES: Color32 = TEXT_POSITIVE;
+pub const CHAT_SCOPE_OBSERVERS: Color32 = RESOURCE_MINERALS;
+pub const CHAT_SCOPE_PLAYERS: Color32 = AMBER60;
+
 // Interaction states. Both are drawn over whatever the control already painted, so one overlay
 // works for every fill the kit uses.
 pub const HOVER_OVERLAY: Color32 = Color32::from_rgba_unmultiplied_const(255, 255, 255, 15);

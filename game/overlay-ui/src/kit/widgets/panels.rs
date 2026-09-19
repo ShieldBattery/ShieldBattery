@@ -156,6 +156,11 @@ pub enum TagStyle {
     Neutral,
     /// A fact that is only worth reading if you went looking for it.
     Muted,
+    /// A tag whose hue is the fact: one of a set that is told apart by color, like which scope a
+    /// chat line went to. The edge is drawn stronger than the kit's plain tags so the hue reads
+    /// from a glance down a column, and `filled` tints the chip's inside as well, for the one
+    /// member of a list that deserves the extra weight.
+    Hue { color: egui::Color32, filled: bool },
 }
 
 impl TagStyle {
@@ -166,18 +171,43 @@ impl TagStyle {
             TagStyle::Amber => (theme::alpha(AMBER60, 0.40), AMBER60),
             TagStyle::Neutral => (theme::alpha(GREY_BLUE80, 0.28), GREY_BLUE80),
             TagStyle::Muted => (theme::alpha(GREY_BLUE80, 0.16), theme::TEXT_LABEL),
+            TagStyle::Hue { color, .. } => (theme::alpha(color, 0.60), color),
+        }
+    }
+
+    /// What the inside of the tag is tinted with, for the styles that tint it at all.
+    fn fill(self) -> Option<egui::Color32> {
+        match self {
+            TagStyle::Hue {
+                color,
+                filled: true,
+            } => Some(theme::alpha(color, 0.22)),
+            _ => None,
         }
     }
 }
 
-/// Paints a tag's outline, which every one of them wears whatever brought its size.
-fn paint_tag_chrome(ui: &Ui, rect: egui::Rect, edge: egui::Color32) {
+/// Paints a tag's chrome, which every one of them wears whatever brought its size.
+fn paint_tag_chrome(ui: &Ui, rect: egui::Rect, style: TagStyle) {
+    let (edge, _) = style.colors();
+    if let Some(fill) = style.fill() {
+        ui.painter()
+            .rect_filled(rect, theme::radius(theme::RADIUS_CHIP), fill);
+    }
     ui.painter().add(Shape::rect_stroke(
         rect,
         theme::radius(theme::RADIUS_CHIP),
         Stroke::new(theme::HAIRLINE, edge),
         egui::StrokeKind::Inside,
     ));
+}
+
+/// Vertical padding a tag adds around its label.
+const TAG_PAD_Y: f32 = theme::SPACE_XS + 2.0;
+
+/// How tall a tag set in the label style is, for a row that centres other things on it.
+pub fn tag_height(ui: &Ui) -> f32 {
+    text::column_label().row_height(ui) + TAG_PAD_Y
 }
 
 /// A small chip of status text.
@@ -190,7 +220,7 @@ pub fn tag(ui: &mut Ui, label: &str, style: TagStyle) -> Response {
 /// A tag sitting in a column of a table or a list is part of that layout's grid: one carrying a
 /// player-chosen name would otherwise push everything beside it out of place.
 pub fn tag_sized(ui: &mut Ui, label: &str, style: TagStyle, max_width: f32) -> Response {
-    let (edge, text_color) = style.colors();
+    let (_, text_color) = style.colors();
     let job = text::column_label().job_truncated(label, (max_width - theme::SPACE_SM).max(0.0));
     let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
     // An elided galley can still come back a hair over the width it was given (the ellipsis is
@@ -198,11 +228,11 @@ pub fn tag_sized(ui: &mut Ui, label: &str, style: TagStyle, max_width: f32) -> R
     // someone's layout.
     let size = vec2(
         (galley.size().x + theme::SPACE_MD).min(max_width),
-        galley.size().y + theme::SPACE_XS + 2.0,
+        galley.size().y + TAG_PAD_Y,
     );
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
-        paint_tag_chrome(ui, rect, edge);
+        paint_tag_chrome(ui, rect, style);
         ui.painter()
             .galley(rect.center() - galley.size() * 0.5, galley, text_color);
     }
@@ -222,7 +252,7 @@ pub fn tag_exact(
     style: TagStyle,
     size: Vec2,
 ) -> Response {
-    let (edge, text_color) = style.colors();
+    let (_, text_color) = style.colors();
     let job = spec
         .clone()
         .with_color(text_color)
@@ -230,7 +260,7 @@ pub fn tag_exact(
     let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
-        paint_tag_chrome(ui, rect, edge);
+        paint_tag_chrome(ui, rect, style);
         ui.painter()
             .galley(rect.center() - galley.size() * 0.5, galley, text_color);
     }
