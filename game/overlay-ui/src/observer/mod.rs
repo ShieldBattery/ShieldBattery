@@ -411,34 +411,44 @@ impl WingTops {
         }
     }
 
-    /// Where the wing under one of these goes, given what the one above it came out as: under its
-    /// bottom edge, or in its place when there is nothing above to sit under.
-    pub(crate) fn below(top: f32, upper: Option<Rect>, screen_top: f32) -> f32 {
-        match upper {
-            Some(rect) => rect.bottom() - screen_top + WING_GAP,
-            None => top,
-        }
+    /// Where the wing under one of these goes: under the one above it while that one is drawn, and
+    /// in its place once it is gone, crossing the difference at the stack's own pace.
+    pub(crate) fn below(ctx: &Context, id: Id, top: f32, upper: Option<Rect>) -> f32 {
+        top + eased_stack_share(ctx, id, upper)
     }
 }
 
-/// Where the next panel up in the bottom-centre stack puts its own bottom edge, given what the one
-/// under it came out as and the `base` the stack stands on.
-pub(crate) fn stacked_bottom(base: f32, screen_bottom: f32, below: Option<Rect>) -> f32 {
-    match below {
-        Some(rect) => base.max(screen_bottom - rect.top() + WING_GAP),
-        None => base,
-    }
+/// What one surface of a stack adds under the surfaces above it: its own height and the gap over it
+/// while it is drawn, and nothing once it is gone.
+pub(crate) fn stack_share(rect: Option<Rect>) -> f32 {
+    rect.map_or(0.0, |rect| rect.height() + WING_GAP)
 }
 
-/// The offset a stacked surface is drawn at, eased from wherever it was drawn last frame.
+/// [`stack_share`], eased as the surface comes and goes.
 ///
-/// Where a panel in a stack sits is decided by the panels around it, and those come and go: a
-/// surface whose neighbour was just hidden would otherwise cross the neighbour's whole height in
-/// one frame, and one whose neighbour is still fading out would cross it twice. egui starts an
-/// animated value at its first target, so a surface being drawn for the first time is placed rather
-/// than slid into place.
-pub(crate) fn stacked_offset(ctx: &Context, id: Id, offset: f32) -> f32 {
-    ctx.animate_value_with_time(id, offset, theme::MOTION_PANEL_SECS)
+/// A stack is placed from what each surface adds rather than from where each one was drawn, so that
+/// everything above a surface crosses it as one: two panels each easing toward the one under them
+/// would set off at different times and run through each other on the way. egui starts an animated
+/// value at its first target, so a surface drawn for the first time is placed rather than slid into
+/// place.
+pub(crate) fn eased_stack_share(ctx: &Context, id: Id, rect: Option<Rect>) -> f32 {
+    ctx.animate_value_with_time(id, stack_share(rect), theme::MOTION_PANEL_SECS)
+}
+
+/// The side of the square BW's minimap owns in the screen's bottom-left corner, in design units.
+///
+/// The game scales its console with the screen's height, so in points the square is that many
+/// 1080ths of the screen's own height: the full 348 on any screen at least 1080 tall, and less on a
+/// shorter one, where a point is a pixel and the console shrinks with the screen.
+pub(crate) const MINIMAP_RESERVE_UNITS: f32 = 348.0;
+
+/// The height the design's units are drawn at one to one.
+const DESIGN_HEIGHT: f32 = 1080.0;
+
+/// How far down from the screen's top edge the minimap's square begins, which is as far as anything
+/// hung on the left edge may reach.
+pub(crate) fn minimap_reserve_top(screen: Rect) -> f32 {
+    screen.height() - MINIMAP_RESERVE_UNITS * screen.height() / DESIGN_HEIGHT
 }
 
 /// Whether a table of rows in team order is worth splitting into the sides they belong to.
@@ -511,7 +521,6 @@ pub(crate) fn wing_panel<R>(
         Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
         Wing::Right => (Align2::RIGHT_TOP, -(WING_MARGIN + DOCK_RESERVE)),
     };
-    let top = stacked_offset(ctx, id.with("top"), top);
     let area = Area::new(id)
         .anchor(align, vec2(offset_x, top))
         .order(Order::Foreground);
@@ -621,33 +630,18 @@ mod tests {
     }
 
     #[test]
-    fn a_wing_takes_the_place_of_the_one_above_it_when_there_is_none() {
-        let screen_top = 0.0;
+    fn a_surface_adds_its_height_and_the_gap_over_it_to_the_stack() {
         let upper = Rect::from_min_max(pos2(0.0, 92.0), pos2(400.0, 250.0));
-        assert_eq!(
-            WingTops::below(92.0, Some(upper), screen_top),
-            250.0 + WING_GAP
-        );
-        assert_eq!(WingTops::below(92.0, None, screen_top), 92.0);
+        assert_eq!(stack_share(Some(upper)), 158.0 + WING_GAP);
+        // A surface hidden or empty adds nothing, so the next one stands where it stood.
+        assert_eq!(stack_share(None), 0.0);
     }
 
     #[test]
-    fn the_bottom_stack_sits_on_whatever_is_under_it() {
-        let screen_bottom = 1080.0;
-        let panel = Rect::from_min_max(pos2(0.0, 900.0), pos2(600.0, 1064.0));
-        assert_eq!(
-            stacked_bottom(WING_MARGIN, screen_bottom, Some(panel)),
-            180.0 + WING_GAP
-        );
-        // A panel hidden or empty leaves the one above it standing on the base itself.
-        assert_eq!(
-            stacked_bottom(WING_MARGIN, screen_bottom, None),
-            WING_MARGIN
-        );
-        // The base is a floor: a panel whose top is above it never pulls the next one down.
-        let base = 200.0;
-        let short = Rect::from_min_max(pos2(0.0, 1040.0), pos2(600.0, 1064.0));
-        assert_eq!(stacked_bottom(base, screen_bottom, Some(short)), base);
+    fn the_minimap_square_scales_with_the_screens_height() {
+        let screen = |height| Rect::from_min_max(pos2(0.0, 0.0), pos2(1920.0, height));
+        assert_eq!(minimap_reserve_top(screen(1080.0)), 1080.0 - 348.0);
+        assert_eq!(minimap_reserve_top(screen(720.0)), 720.0 - 232.0);
     }
 
     #[test]

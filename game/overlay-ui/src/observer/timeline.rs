@@ -14,7 +14,7 @@ use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, pos2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
-use crate::kit::widgets;
+use crate::kit::{tiers, widgets};
 use crate::observer::{
     EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, game_clock,
     paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
@@ -124,30 +124,50 @@ impl TimelineView {
     }
 }
 
+/// What the panel's chrome takes from top to bottom around its rows.
+const CHROME_HEIGHT: f32 = tiers::PANEL_MARGIN_HEIGHT + widgets::PANEL_HEADER_HEIGHT;
+
+/// How many rows fit in a panel whose top is at `top` and which must end above `floor`, at most
+/// [`ROWS`]. Zero when not even the first fits, which is a panel not worth drawing.
+fn rows_that_fit(top: f32, floor: f32) -> usize {
+    let room = floor - top - CHROME_HEIGHT;
+    if room < ROW_HEIGHT {
+        return 0;
+    }
+    let further = ((room - ROW_HEIGHT) / (ROW_HEIGHT + STAT_ROW_GAP)).floor() as usize;
+    (1 + further).min(ROWS)
+}
+
 /// Draws the timeline against the left edge of the screen at `top`, fading and sliding it in and
 /// out. Returns nothing at all once it is gone, or before anything has happened.
+///
+/// The panel ends above `floor`, dropping its oldest rows to do so: it is the lowest thing hung on
+/// the left edge, and under it is the corner the game's minimap owns. A feed short a few rows is
+/// still the feed; a feed drawn over the minimap is neither.
 pub fn render_timeline_view(
     view: &TimelineView,
     ctx: &Context,
     shown: bool,
     top: f32,
+    floor: f32,
 ) -> Option<Rect> {
     let id = Id::new("sb_timeline_panel");
+    let rows = rows_that_fit(top, floor);
     let inner = wing_panel(
         ctx,
         id,
         Wing::Left,
         top,
         PANEL_WIDTH,
-        shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        shown && !view.is_empty() && rows > 0,
+        |ui| draw_panel(ui, view, rows),
     )?;
     Some(inner.response.rect)
 }
 
-fn draw_panel(ui: &mut Ui, view: &TimelineView) {
+fn draw_panel(ui: &mut Ui, view: &TimelineView, rows: usize) {
     widgets::panel_header(ui, &tr!("observer.panelTimeline", "Timeline"), Some("T"));
-    for index in 0..ROWS {
+    for index in 0..rows {
         if index > 0 {
             ui.add_space(STAT_ROW_GAP);
         }
@@ -210,6 +230,58 @@ fn draw_icon(ui: &Ui, rect: Rect, icon: Option<ProductionIcon>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn events(count: usize) -> TimelineView {
+        TimelineView {
+            events: (0..count)
+                .map(|index| TimelineEventView {
+                    secs: 600 - index as u64 * 30,
+                    color: Color32::WHITE,
+                    kind: TimelineEventKind::BuildingCompleted,
+                    icon: None,
+                })
+                .collect(),
+        }
+    }
+
+    /// Renders `view` a few times at `top` and returns the height the panel settled on.
+    fn settled_height(view: &TimelineView, top: f32, floor: f32) -> Option<f32> {
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut height = None;
+        for _ in 0..4 {
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
+                ..Default::default()
+            };
+            ctx.begin_pass(raw);
+            height = render_timeline_view(view, &ctx, true, top, floor).map(|rect| rect.height());
+            let mut out = ctx.end_pass();
+            let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+            out.textures_delta.clear();
+        }
+        height
+    }
+
+    /// The chrome the row count is measured against must be what the panel actually draws, or a
+    /// panel told it fits would still be drawn over the minimap.
+    #[test]
+    fn the_panel_is_its_chrome_plus_its_rows() {
+        let view = events(ROWS);
+        let full = settled_height(&view, 100.0, 1080.0).expect("the panel draws");
+        assert_eq!(
+            full,
+            CHROME_HEIGHT + ROW_HEIGHT * ROWS as f32 + STAT_ROW_GAP * (ROWS as f32 - 1.0)
+        );
+        // A floor that leaves room for three rows and a bit gets three.
+        let floor = 100.0 + CHROME_HEIGHT + ROW_HEIGHT * 3.0 + STAT_ROW_GAP * 2.0 + 5.0;
+        assert_eq!(rows_that_fit(100.0, floor), 3);
+        let three = settled_height(&view, 100.0, floor).expect("the panel draws");
+        assert_eq!(three, CHROME_HEIGHT + ROW_HEIGHT * 3.0 + STAT_ROW_GAP * 2.0);
+        // A floor with no room for even the first row is a panel not drawn at all.
+        assert_eq!(rows_that_fit(100.0, 100.0 + CHROME_HEIGHT), 0);
+        assert_eq!(settled_height(&view, 100.0, 100.0 + CHROME_HEIGHT), None);
+    }
 
     #[test]
     fn the_rows_fill_the_panels_own_width() {
