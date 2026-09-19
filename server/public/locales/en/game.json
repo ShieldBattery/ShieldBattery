@@ -86,6 +86,8 @@
     "columnUnitsKillsLosses": "Units k/l",
     "columnWorkers": "Workers",
     "columnWorkersKillsLosses": "Wkr k/l",
+    "dockCollapse": "Collapse dock",
+    "dockExpand": "Expand dock",
     "eventBuilt": "Built",
     "eventExpansion": "Expansion",
     "eventTechDone": "Research complete",

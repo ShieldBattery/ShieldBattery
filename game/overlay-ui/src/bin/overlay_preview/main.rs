@@ -212,6 +212,19 @@ fn apply_language(knobs: &Knobs) {
     i18n::set_pseudolocale(knobs.pseudolocale);
 }
 
+/// The move that puts the pinned pointer where the knob asks for it, or nothing while none is
+/// pinned.
+///
+/// egui learns where the pointer is from events alone, so this is fed to every pass rather than to
+/// the first: a context told once and then left alone still knows, but one pass is all an offline
+/// render would have to lose to a settle that starts from scratch.
+fn pinned_pointer_event(knobs: &Knobs) -> Option<Event> {
+    knobs
+        .host
+        .pointer
+        .map(|(x, y)| Event::PointerMoved(pos2(x, y)))
+}
+
 /// Renders every scenario preset at every offline resolution into `dir`, returning what it wrote.
 fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
@@ -242,7 +255,7 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
                         points: screen.points,
                         pixels_per_point: screen.pixels_per_point,
                         time: pass as f64 * SETTLE_STEP_SECS,
-                        events: Vec::new(),
+                        events: pinned_pointer_event(&knobs).into_iter().collect(),
                         focused: false,
                         predicted_dt: 1.0 / 60.0,
                     },
@@ -398,7 +411,11 @@ impl PreviewApp {
             )
         });
         let events = self.host.translate_events(&host_events, modifiers, &blit);
-        let events = self.offer_keys_to_shell(events);
+        let mut events = self.offer_keys_to_shell(events);
+        // Last move of the pass wins, so a pinned pointer appended here overrides the window's own
+        // wherever it happens to be, including the `PointerGone` it sends on its way off the
+        // emulated screen.
+        events.extend(pinned_pointer_event(&self.knobs));
         apply_language(&self.knobs);
         let elapsed = self.start.elapsed().as_secs_f64();
         let knobs = &self.knobs;

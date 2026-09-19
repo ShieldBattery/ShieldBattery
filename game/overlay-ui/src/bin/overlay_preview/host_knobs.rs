@@ -39,6 +39,14 @@ pub struct Knobs {
     /// The panel visibility the shell starts a session with. The hotkeys move it from there, and
     /// what they leave behind is persisted, the way a host would persist it per profile.
     pub panels: PanelPrefs,
+    /// Where the pointer is pinned, in the emulated screen's own points, or `None` to leave it to
+    /// whatever the window's pointer is doing.
+    ///
+    /// The game tells the overlay where the pointer is through events and nothing else, so an
+    /// offline render — which has no pointer at all — shows nothing as hovered. Pinning one is what
+    /// puts a tooltip or a crosshair into a rendered image, and it overrides the live pointer while
+    /// it is set so the same point can be walked up to interactively.
+    pub pointer: Option<(f32, f32)>,
 }
 
 impl Default for Knobs {
@@ -54,6 +62,7 @@ impl Default for Knobs {
             game_menu_spawned: false,
             show_hit_rects: false,
             panels: PanelPrefs::default(),
+            pointer: None,
         }
     }
 }
@@ -85,6 +94,35 @@ impl Knobs {
         }
     }
 }
+
+/// The pinned-pointer row: whether one is pinned, and where. Returns whether anything changed.
+fn pointer_ui(knobs: &mut Knobs, ui: &mut Ui) -> bool {
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        let mut pinned = knobs.pointer.is_some();
+        if ui
+            .checkbox(&mut pinned, "pin pointer")
+            .on_hover_text(
+                "Feeds the overlay a pointer at this point every pass, whatever the window's own \
+                 pointer is doing. An offline render has no pointer at all, so this is what puts \
+                 a hover into one.",
+            )
+            .changed()
+        {
+            knobs.pointer = pinned.then_some(DEFAULT_PINNED_POINTER);
+            changed = true;
+        }
+        if let Some((x, y)) = &mut knobs.pointer {
+            changed |= ui.add(egui::DragValue::new(x).prefix("x ")).changed();
+            changed |= ui.add(egui::DragValue::new(y).prefix("y ")).changed();
+        }
+    });
+    changed
+}
+
+/// Where a freshly pinned pointer starts: the middle of a 1080p screen, which is somewhere the
+/// overlay never draws, so pinning one changes nothing until it is dragged onto something.
+const DEFAULT_PINNED_POINTER: (f32, f32) = (960.0, 540.0);
 
 /// Brings the shell's record of the replaced native dialogs in line with the knobs, the way the
 /// DLL's draw path brings it in line with what its spawn hook saw.
@@ -141,6 +179,7 @@ pub fn knobs_ui(knobs: &mut Knobs, shell: &mut Shell, ui: &mut Ui) -> bool {
     changed |= ui
         .checkbox(&mut knobs.show_hit_rects, "show hit rects")
         .changed();
+    changed |= pointer_ui(knobs, ui);
 
     ui.add_space(8.0);
     ui.strong("Native dialogs");
