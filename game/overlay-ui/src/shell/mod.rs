@@ -30,7 +30,7 @@ use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, GraphSeries, ObserverView};
 use crate::options::{
-    OptionsOutcome, OptionsSection, OptionsView, SettingChange, render_options_view,
+    OptionsLists, OptionsOutcome, OptionsSection, OptionsView, SettingChange, render_options_view,
 };
 use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
@@ -548,6 +548,10 @@ pub struct Views<'a> {
     /// it — at startup, and after anything but the options screen itself has moved one — and the
     /// shell keeps showing what it was last told until it is told something else.
     pub options: Option<&'a OptionsView>,
+    /// The lists on the options screen that are read off the machine rather than out of a setting.
+    /// A host that hands over none of them leaves those rows dimmed and empty, which is what they
+    /// honestly are.
+    pub option_lists: Option<&'a OptionsLists>,
 }
 
 /// One screen rect the overlay owns this frame.
@@ -853,6 +857,10 @@ impl Shell {
         };
 
         if let Some(modal) = self.modals.last().copied() {
+            // Stands in for a host that hands over no lists at all, so the rows built from them
+            // draw as empty rather than the screen having to know whether it has any.
+            let no_lists = OptionsLists::default();
+            let option_lists = views.option_lists.unwrap_or(&no_lists);
             let outcome = draw_modal(
                 ctx,
                 modal.id,
@@ -860,6 +868,7 @@ impl Shell {
                 self.host.game_seconds,
                 &ModalContext {
                     options: &self.options,
+                    option_lists,
                     options_section: self.options_section,
                 },
                 &mut hit_rects,
@@ -1328,6 +1337,7 @@ struct ModalOutcome {
 /// The shell's own state a modal is drawn from, as against the view-models its host built.
 struct ModalContext<'a> {
     options: &'a OptionsView,
+    option_lists: &'a OptionsLists,
     options_section: OptionsSection,
 }
 
@@ -1380,7 +1390,12 @@ fn draw_modal(
             }
         }
         ModalId::Options => {
-            let dialog = render_options_view(shell.options, ctx, shell.options_section);
+            let dialog = render_options_view(
+                shell.options,
+                shell.option_lists,
+                ctx,
+                shell.options_section,
+            );
             hit_rects.push(HitRect::scrolling(dialog.response.rect));
             let OptionsOutcome {
                 section,

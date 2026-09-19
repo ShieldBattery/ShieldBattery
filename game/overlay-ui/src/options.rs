@@ -460,14 +460,61 @@ fn index_of(list: &[NamedChoice], id: &str) -> usize {
     list.iter().position(|entry| entry.id == id).unwrap_or(0)
 }
 
-/// One step through `list` from `index`, wrapping at both ends: these lists are short and cyclic,
-/// and a stepper that stopped dead would leave the player walking back the way they came.
-fn stepped(list: &[NamedChoice], index: usize, delta: i32) -> usize {
-    let len = list.len() as i32;
+/// One step through a list of `len` entries from `index`, wrapping at both ends: these lists are
+/// short and cyclic, and a stepper that stopped dead would leave the player walking back the way
+/// they came.
+fn stepped(len: usize, index: usize, delta: i32) -> usize {
+    let len = len as i32;
     if len == 0 {
         return 0;
     }
     (index as i32 + delta).rem_euclid(len) as usize
+}
+
+/// One display the game can be put on, as the machine it is running on names it.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct MonitorView {
+    /// What the display is called: the name its own hardware reports where there is one, and the
+    /// system's name for the output where there is not.
+    pub name: String,
+    /// Whether this is the display the desktop treats as the main one.
+    pub primary: bool,
+}
+
+/// The lists on the options screen that only a host can fill, because they are read off the
+/// machine the game is running on rather than out of a setting.
+///
+/// Kept beside [`OptionsView`] rather than in it: the view is copied every frame and compared
+/// against the last one a host handed over, which a list of names cannot be.
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
+pub struct OptionsLists {
+    /// Every display the game can be put on, in the order the host enumerated them.
+    pub monitors: Vec<MonitorView>,
+}
+
+/// What a stepper shows in place of a value while its list is empty.
+const EMPTY_CHOICE: &str = "\u{2014}";
+
+/// What the monitor row calls one display: the place it takes in the list, counted from one the way
+/// the game's own video options count it, then the name the system gives it. The display the
+/// desktop treats as the main one says so, because that is the one a player who has never touched
+/// this setting is playing on.
+fn monitor_label(index: usize, monitor: &MonitorView) -> String {
+    let numbered = tr!(
+        "options.monitorItem",
+        "{{index}}. {{name}}",
+        index = index + 1,
+        name = monitor.name,
+    );
+    if monitor.primary {
+        tr!(
+            "options.monitorPrimary",
+            "{{monitor}} (primary monitor)",
+            monitor = numbered,
+        )
+    } else {
+        numbered
+    }
 }
 
 /// Everything the options screen shows, as the game currently holds it.
@@ -510,6 +557,10 @@ pub struct OptionsView {
 
     // Video.
     pub display_mode: DisplayMode,
+    /// Which of the host's [`OptionsLists::monitors`] the game is to be put on while it is not in
+    /// a window. The first entry where nothing has been chosen, which is the display the host
+    /// enumerated first.
+    pub monitor: usize,
     pub brightness: u32,
     pub fps_limit_on: bool,
     pub fps_limit: u32,
@@ -573,6 +624,7 @@ impl Default for OptionsView {
             announcer: 0,
 
             display_mode: DisplayMode::Windowed,
+            monitor: 0,
             brightness: 50,
             fps_limit_on: false,
             fps_limit: FPS_LIMIT.min,
@@ -637,6 +689,7 @@ impl OptionsView {
             SettingChange::Announcer(id) => self.announcer = index_of(ANNOUNCERS, id),
 
             SettingChange::DisplayMode(value) => self.display_mode = value,
+            SettingChange::Monitor(index) => self.monitor = index,
             SettingChange::Brightness(value) => self.brightness = value,
             SettingChange::FpsLimitOn(value) => self.fps_limit_on = value,
             SettingChange::FpsLimit(value) => self.fps_limit = value,
@@ -705,6 +758,8 @@ pub enum SettingChange {
     Announcer(&'static str),
 
     DisplayMode(DisplayMode),
+    /// Which of the host's [`OptionsLists::monitors`] to put the game on.
+    Monitor(usize),
     Brightness(u32),
     FpsLimitOn(bool),
     FpsLimit(u32),
@@ -748,6 +803,7 @@ pub struct OptionsOutcome {
 /// Renders the options screen.
 pub fn render_options_view(
     view: &OptionsView,
+    lists: &OptionsLists,
     ctx: &Context,
     section: OptionsSection,
 ) -> tiers::DialogResponse<OptionsOutcome> {
@@ -761,10 +817,10 @@ pub fn render_options_view(
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
                 outcome.section = draw_nav(ui, section, body_height);
                 draw_nav_rule(ui, body_height);
-                draw_content(ui, view, section, body_height, &mut outcome);
+                draw_content(ui, view, lists, section, body_height, &mut outcome);
             });
         });
-        tiers::dialog_footer(ui, |ui| draw_footer(ui, &mut outcome));
+        tiers::dialog_footer_ruled(ui, |ui| draw_footer(ui, &mut outcome));
         outcome
     })
 }
@@ -870,6 +926,7 @@ fn draw_nav_rule(ui: &mut Ui, height: f32) {
 fn draw_content(
     ui: &mut Ui,
     view: &OptionsView,
+    lists: &OptionsLists,
     section: OptionsSection,
     height: f32,
     outcome: &mut OptionsOutcome,
@@ -897,7 +954,7 @@ fn draw_content(
                             match section {
                                 OptionsSection::Input => draw_input(ui, view, outcome),
                                 OptionsSection::Sound => draw_sound(ui, view, outcome),
-                                OptionsSection::Video => draw_video(ui, view, outcome),
+                                OptionsSection::Video => draw_video(ui, view, lists, outcome),
                                 OptionsSection::Gameplay => draw_gameplay(ui, view, outcome),
                             }
                         },
@@ -1185,7 +1242,7 @@ fn draw_sound(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
     hint(ui, &tr!("options.announcerHint", "Takes effect next game"));
 }
 
-fn draw_video(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
+fn draw_video(ui: &mut Ui, view: &OptionsView, lists: &OptionsLists, outcome: &mut OptionsOutcome) {
     group_header(ui, &tr!("options.groupDisplay", "Display"), false);
     if let Some(mode) = segmented_row(
         ui,
@@ -1197,6 +1254,21 @@ fn draw_video(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
     ) {
         outcome.changes.push(SettingChange::DisplayMode(mode));
     }
+    // A windowed game is played wherever its window is dragged, so the display it was launched on
+    // decides nothing and the row says as much by standing dim.
+    let monitors = &lists.monitors;
+    if let Some(index) = stepper_row_with(
+        ui,
+        &tr!("options.monitor", "Monitor"),
+        monitors.len(),
+        view.monitor,
+        view.display_mode == DisplayMode::Windowed,
+        |index| monitor_label(index, &monitors[index]),
+    ) {
+        outcome.changes.push(SettingChange::Monitor(index));
+    }
+    // The display is chosen as the game's window is created, long before the overlay exists.
+    hint(ui, &tr!("options.monitorHint", "Takes effect next game"));
     slider_row(
         ui,
         &tr!("options.brightness", "Brightness"),
@@ -1586,13 +1658,36 @@ fn stepper_row(
     index: usize,
     disabled: bool,
 ) -> Option<usize> {
+    stepper_row_with(ui, label, list.len(), index, disabled, |index| {
+        list[index].label()
+    })
+}
+
+/// The same, for a list of `len` entries the host built rather than one the overlay knows by name.
+/// `entry_label` is asked what to show for an entry, and is only ever passed an index the list has.
+///
+/// A list with nothing in it still draws its row, dimmed and showing a dash: the setting exists
+/// either way, and a row that came and went with the list would read as the screen rearranging
+/// itself.
+fn stepper_row_with(
+    ui: &mut Ui,
+    label: &str,
+    len: usize,
+    index: usize,
+    disabled: bool,
+    entry_label: impl Fn(usize) -> String,
+) -> Option<usize> {
     let mut picked = None;
-    row(ui, label, disabled, |ui| {
-        let index = index.min(list.len().saturating_sub(1));
-        let current = list.get(index).map(NamedChoice::label).unwrap_or_default();
+    row(ui, label, disabled || len == 0, |ui| {
+        let index = index.min(len.saturating_sub(1));
+        let current = if len == 0 {
+            EMPTY_CHOICE.to_string()
+        } else {
+            entry_label(index)
+        };
         let delta = widgets::stepper(ui, &current, vec2(CONTROL_WIDTH, ROW_HEIGHT));
-        if delta != 0 {
-            picked = Some(stepped(list, index, delta));
+        if delta != 0 && len != 0 {
+            picked = Some(stepped(len, index, delta));
         }
     });
     picked
@@ -1634,6 +1729,7 @@ mod tests {
             SettingChange::OriginalVoiceOversOn(true),
             SettingChange::Announcer(ANNOUNCERS[3].id),
             SettingChange::DisplayMode(DisplayMode::Fullscreen),
+            SettingChange::Monitor(1),
             SettingChange::Brightness(75),
             SettingChange::FpsLimitOn(true),
             SettingChange::FpsLimit(240),
@@ -1752,9 +1848,31 @@ mod tests {
     /// A stepper walks its list both ways and wraps at both ends.
     #[test]
     fn stepping_wraps_at_both_ends() {
-        assert_eq!(stepped(UNIT_SKINS, 0, 1), 1);
-        assert_eq!(stepped(UNIT_SKINS, 0, -1), UNIT_SKINS.len() - 1);
-        assert_eq!(stepped(UNIT_SKINS, UNIT_SKINS.len() - 1, 1), 0);
+        assert_eq!(stepped(UNIT_SKINS.len(), 0, 1), 1);
+        assert_eq!(stepped(UNIT_SKINS.len(), 0, -1), UNIT_SKINS.len() - 1);
+        assert_eq!(stepped(UNIT_SKINS.len(), UNIT_SKINS.len() - 1, 1), 0);
+        // An empty list has one place to be, whichever way it is stepped.
+        assert_eq!(stepped(0, 0, 1), 0);
+        assert_eq!(stepped(0, 0, -1), 0);
+    }
+
+    /// The monitor row counts displays the way the game's own video options do, from one, and says
+    /// which of them the desktop treats as the main one.
+    #[test]
+    fn monitors_are_numbered_from_one_and_the_primary_is_marked() {
+        let primary = MonitorView {
+            name: "AORUS FO27Q2".to_string(),
+            primary: true,
+        };
+        let second = MonitorView {
+            name: "DELL U2415".to_string(),
+            primary: false,
+        };
+        assert_eq!(
+            monitor_label(0, &primary),
+            "1. AORUS FO27Q2 (primary monitor)"
+        );
+        assert_eq!(monitor_label(1, &second), "2. DELL U2415");
     }
 
     /// A list choice a host hands over is found by the id the game's own settings file holds, and
