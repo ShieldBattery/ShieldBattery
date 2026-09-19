@@ -1,8 +1,10 @@
 //! The map-control bar: how much of the map each side of the game holds.
 //!
-//! A single ambient strip under the matchup bar, narrow enough to read in one glance: the label,
-//! each side's share as a percentage, and a bar growing in from each edge with whatever neither side
-//! holds left in the middle.
+//! A single ambient strip under the matchup bar, narrow enough to read in one glance: the label
+//! over the middle, and under it each side's share as a percentage with a bar growing in from
+//! each edge and whatever neither side holds left in the middle. The label sits over the bar
+//! rather than beside it so the strip is symmetrical: a label at one end would put the share
+//! itself off the centre line the matchup bar above it is built on.
 //!
 //! It is the one surface here drawn from a measurement the game does not keep, so a host that has
 //! none reports `None` and the bar is not drawn at all. A share bar with nothing behind it would
@@ -26,18 +28,19 @@ const MIN_WIDTH: f32 = 320.0;
 /// Gap kept between the bar and the stats wings on either side of it.
 const WING_GAP: f32 = 8.0;
 
-/// How tall it is. Short enough that it is a strip rather than a panel, which is why it paints its
-/// own chrome instead of sitting in one: an ambient panel's own padding is taller than this.
-pub const BAR_HEIGHT: f32 = 26.0;
-
-/// Padding between the bar's chrome and its contents.
+/// Padding between the bar's chrome and its contents, across and down.
 const PADDING: f32 = 14.0;
+const PADDING_Y: f32 = 6.0;
 
-/// Width the bar's own label is laid out in.
-const LABEL_WIDTH: f32 = 92.0;
+/// Height of the label's row and of the share's row, and the gap between them.
+const LABEL_ROW: f32 = 12.0;
+const SHARE_ROW: f32 = 14.0;
+const ROW_GAP: f32 = 2.0;
 
-/// Gap between the label and the first percentage.
-const LABEL_GAP: f32 = 12.0;
+/// How tall the strip is: its two rows and the padding around them. Short enough that it is a strip
+/// rather than a panel, which is why it paints its own chrome instead of sitting in one: an ambient
+/// panel's own padding is taller than a row of this.
+pub const BAR_HEIGHT: f32 = PADDING_Y * 2.0 + LABEL_ROW + ROW_GAP + SHARE_ROW;
 
 /// Width one side's percentage is laid out in.
 const PERCENT_WIDTH: f32 = 40.0;
@@ -52,19 +55,10 @@ const SHARE_HEIGHT: f32 = 7.0;
 /// percentage is a verdict about the map rather than a quantity counted off it.
 const PERCENT_SIZE: f32 = 13.0;
 
-/// What everything but the share itself takes of the bar.
-const CHROME_WIDTH: f32 =
-    PADDING * 2.0 + LABEL_WIDTH + LABEL_GAP + PERCENT_WIDTH * 2.0 + PERCENT_GAP * 2.0;
+/// What everything but the share itself takes of the share's row.
+const CHROME_WIDTH: f32 = PADDING * 2.0 + PERCENT_WIDTH * 2.0 + PERCENT_GAP * 2.0;
 
 const _: () = assert!(CHROME_WIDTH < MIN_WIDTH);
-
-/// How far left of the screen's centre line the strip is hung.
-///
-/// What the eye centres is the share and the two percentages around it, which sit symmetrically in
-/// the strip except for the label on their left. A strip centred on its own chrome puts the share
-/// half a label to the right of the matchup bar above it, so the strip is shifted by that half
-/// instead and the share lands on the centre line.
-const LABEL_OFFSET: f32 = (LABEL_WIDTH + LABEL_GAP) * 0.5;
 
 /// One side of the game as the bar reads it.
 #[derive(Copy, Clone)]
@@ -102,9 +96,7 @@ fn width_for(screen_width: f32) -> Option<f32> {
     let side = WING_MARGIN
         + super::economy::PANEL_WIDTH.max(DOCK_RESERVE + super::military::PANEL_WIDTH)
         + WING_GAP;
-    // The strip hangs left of centre by the label's half, so the left wing is what it runs into
-    // first: the room is what is left after both wings and that shift.
-    let available = screen_width - side * 2.0 - LABEL_OFFSET * 2.0;
+    let available = screen_width - side * 2.0;
     let width = available.min(BAR_WIDTH);
     (width >= MIN_WIDTH).then_some(width)
 }
@@ -120,7 +112,7 @@ pub fn render_map_control_view(
     let width = width_for(ctx.viewport_rect().width())?;
     let id = Id::new("sb_map_control_bar");
     let area = Area::new(id)
-        .anchor(Align2::CENTER_TOP, vec2(-LABEL_OFFSET, top))
+        .anchor(Align2::CENTER_TOP, vec2(0.0, top))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         draw_bar(ui, view, width)
@@ -140,16 +132,22 @@ fn draw_bar(ui: &mut Ui, view: &MapControlView, width: f32) {
         egui::StrokeKind::Inside,
     ));
 
-    let mut cursor = EdgeCursor::from_left(rect);
-    cursor.skip(PADDING);
+    let label_row = Rect::from_min_size(
+        rect.left_top() + vec2(PADDING, PADDING_Y),
+        vec2(rect.width() - PADDING * 2.0, LABEL_ROW),
+    );
     paint_text(
         ui,
-        cursor.take(LABEL_WIDTH),
+        label_row,
         &text::column_label(),
         &tr!("observer.mapControl", "Map control"),
-        Align::LEFT,
+        Align::Center,
     );
-    cursor.skip(LABEL_GAP);
+    let share_row = Rect::from_min_size(
+        label_row.left_bottom() + vec2(0.0, ROW_GAP),
+        vec2(label_row.width(), SHARE_ROW),
+    );
+    let mut cursor = EdgeCursor::from_left(share_row);
     paint_share(ui, cursor.take(PERCENT_WIDTH), view.left, Align::RIGHT);
     cursor.skip(PERCENT_GAP);
     let share = centred(cursor.take(width - CHROME_WIDTH), SHARE_HEIGHT);

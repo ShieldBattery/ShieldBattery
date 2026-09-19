@@ -4,7 +4,7 @@
 //! once and the four builders share it. That is also what keeps a row in one wing lined up with the
 //! row for the same player in the other.
 
-use bw_dat::{Unit, UnitId};
+use bw_dat::{Game, Unit, UnitId};
 use egui::Color32;
 use overlay_ui::kit::theme;
 use overlay_ui::observer::{
@@ -300,8 +300,45 @@ pub fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionVi
     }
 }
 
-/// One selected unit, named and measured the way the game's own console measures it.
+/// One selected unit, named and measured the way the game's own console measures it, with what it
+/// is making and what it is carrying.
 fn selected_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> SelectedUnitView {
+    let mut view = carried_unit_view(bw, players, unit);
+    view.production = production::selected_production(unit, bw.is_hd);
+    view.cargo = cargo_views(bw, players, unit);
+    view
+}
+
+/// The units inside a transport or a bunker, in the order the game holds them, and nothing at all
+/// for anything else.
+fn cargo_views(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Vec<SelectedUnitView> {
+    let Some(units) = bw.units.as_ref() else {
+        return Vec::new();
+    };
+    if !carries_units(bw.game, unit) {
+        return Vec::new();
+    }
+    unit.loaded_units(units)
+        .map(|loaded| carried_unit_view(bw, players, loaded))
+        .collect()
+}
+
+/// Whether this unit is one that holds other units inside it.
+///
+/// A bunker is named on its own rather than left to `is_transport`, which answers what may be
+/// loaded into a unit rather than what is in it: it refuses a hallucination, and it refuses an
+/// overlord until ventral sacs are researched. Those are rules about loading, and a bunker's cargo
+/// is read whatever they say.
+fn carries_units(game: Game, unit: Unit) -> bool {
+    unit.id() == bw_dat::unit::BUNKER || unit.is_transport(game)
+}
+
+/// One unit as a slot of the panel reports it, with nothing of what it is making or carrying.
+///
+/// What a carried unit is doing is not a reading the panel has room for, and a unit inside a unit
+/// inside a unit is not a thing the game has: everything a transport or a bunker can hold is
+/// ground infantry, which carries nothing of its own.
+fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> SelectedUnitView {
     let unit_id = unit.id();
     // A unit can belong to a slot no stats wing has a row for — anything neutral, and any slot the
     // wings dropped — and then no color or name on screen stands for its owner.
@@ -332,6 +369,8 @@ fn selected_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Selec
         }),
         kills: unit.kills(),
         building: unit_id.is_building(),
+        production: None,
+        cargo: Vec::new(),
     }
 }
 

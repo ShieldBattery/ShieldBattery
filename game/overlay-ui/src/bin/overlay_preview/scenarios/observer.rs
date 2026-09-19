@@ -19,9 +19,9 @@ use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
     MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionItemView, ProductionPlayerView, ProductionView, RaceView, SelectedUnitView,
-    SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
-    TimelineEventKind, TimelineEventView, TimelineView, team_name,
+    ProductionItemView, ProductionPlayerView, ProductionProgressView, ProductionView, RaceView,
+    SelectedUnitView, SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
+    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -77,6 +77,18 @@ const ZERG_BUILDINGS: [u16; 2] = [0x8e, 0x83];
 const TERRAN_BUILDINGS: [u16; 2] = [0x71, 0x6a];
 const PROTOSS_BUILDINGS: [u16; 2] = [0xa0, 0x9a];
 
+/// What each race carries its army around in, for the selection that is a loaded transport.
+const ZERG_TRANSPORT: u16 = 0x2a;
+const TERRAN_TRANSPORT: u16 = 0x0b;
+const PROTOSS_TRANSPORT: u16 = 0x45;
+
+/// How many units the loaded transport is carrying, which is short of the eight one holds: a row
+/// drawn to its last slot would not say whether the panel draws the room or only what is in it.
+const CARGO_UNITS: usize = 4;
+
+/// How many more units the producing building has waiting behind the one on the way.
+const QUEUED_UNITS: u32 = 2;
+
 /// Which slot of a player's control groups the two building groups start at, which is where a
 /// player who binds their buildings at all puts them: after the armies they made with them.
 const BUILDING_SLOT: usize = 4;
@@ -109,6 +121,12 @@ pub struct Knobs {
     /// one is the only one the game's console reads numbers out of, and a selection of none is what
     /// the panel spends most of a game showing.
     pub selection: usize,
+    /// Whether what is selected is a building part way through making something, which is the
+    /// reading a queue and a progress bar are drawn for. Takes the selection over from the count.
+    pub selection_building: bool,
+    /// Whether what is selected is a transport with an army inside it, which is the reading the
+    /// carried units are drawn for. Takes the selection over from the count.
+    pub selection_cargo: bool,
     /// Whether the game reports how much of the map each side holds. The real game has no such
     /// measurement yet, so this is the switch that proves the bar disappears without one rather
     /// than drawing an empty share.
@@ -135,6 +153,8 @@ impl Default for Knobs {
             production_depth: 6,
             control_groups: 6,
             selection: 1,
+            selection_building: false,
+            selection_cargo: false,
             map_control: true,
         }
     }
@@ -642,10 +662,24 @@ fn control_groups_player(
 /// What the watcher has selected: units of the first player's own army, with health, shields and
 /// energy that move the way a fight moves them.
 ///
-/// The first unit is the one the detail column reads its numbers out of, so it is dealt both a
-/// shield and an energy pool: the rows only some units have are the ones a layout gets wrong.
+/// Every reading the panel has is reachable from here, because each of them is a different layout:
+/// no units at all, an army the panel draws as wireframes alone, one unit read out as numbers, a
+/// building part way through something, and a transport with an army inside it.
+///
+/// A selection of one is the only one whose numbers are read out, so it is dealt both a shield and
+/// an energy pool: the rows only some units have are the ones a layout gets wrong.
 fn selection(knobs: &Knobs, t: f64) -> SelectionView {
     let owner = 0;
+    if knobs.selection_building {
+        return SelectionView {
+            units: vec![producing_building(knobs, owner, t)],
+        };
+    }
+    if knobs.selection_cargo {
+        return SelectionView {
+            units: vec![loaded_transport(knobs, owner, t)],
+        };
+    }
     let units = race_units(knobs.race(owner));
     let buildings = race_buildings(knobs.race(owner));
     let count = knobs.selection.min(SelectionView::MAX_UNITS);
@@ -681,9 +715,104 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                         .then(|| (wave(index as f64 * 1.7 + 2.0, t, 0.03, 200.0), 200)),
                     kills: (t / 31.0) as u32 + index as u32 * 2,
                     building,
+                    production: None,
+                    cargo: Vec::new(),
                 }
             })
             .collect(),
+    }
+}
+
+/// A building of the first player's, part way through a unit with more of them queued behind it.
+///
+/// Shields only where the race has any, which is what proves the panel packs the rows a thing
+/// actually has rather than leaving a gap where every other one's would be.
+fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let race = knobs.race(owner);
+    let full_health = 1250;
+    SelectedUnitView {
+        icon: unit_icon(race_buildings(race)[0]),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        hit_points: (full_health - wave(0.0, t, 0.05, 300.0), full_health),
+        shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 450.0), 450)),
+        energy: None,
+        kills: 0,
+        building: true,
+        production: Some(ProductionProgressView {
+            icon: unit_icon(race_units(race)[0]),
+            progress: fraction(t * 0.09),
+            queued: QUEUED_UNITS,
+        }),
+        cargo: Vec::new(),
+    }
+}
+
+/// A transport of the first player's with an army inside it.
+///
+/// The carried units are dealt fixed fractions of their health rather than the moving ones the rest
+/// of the fake game runs on, because what the row is here to prove is the tints: one of them is
+/// whole, one is hurt, one is nearly dead, and the panel has to draw three different colors.
+fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    const CARGO_HEALTH: [f32; CARGO_UNITS] = [1.0, 0.6, 0.25, 0.85];
+
+    let race = knobs.race(owner);
+    let units = race_units(race);
+    let full_health = 150;
+    SelectedUnitView {
+        icon: unit_icon(race_transport(race)),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        hit_points: (full_health - wave(0.0, t, 0.06, 60.0), full_health),
+        shields: has_shields(race).then(|| (wave(2.0, t, 0.05, 80.0), 80)),
+        energy: None,
+        kills: 0,
+        building: false,
+        production: None,
+        cargo: CARGO_HEALTH
+            .iter()
+            .enumerate()
+            .map(|(slot, left)| {
+                let full_health = 80 + 20 * slot as u32;
+                SelectedUnitView {
+                    icon: unit_icon(units[slot % units.len()]),
+                    owner_color: overlay_ui::kit::theme::player_color(owner),
+                    owner_name: player_name(knobs, owner),
+                    hit_points: ((full_health as f32 * left) as u32, full_health),
+                    shields: None,
+                    energy: None,
+                    kills: 0,
+                    building: false,
+                    production: None,
+                    cargo: Vec::new(),
+                }
+            })
+            .collect(),
+    }
+}
+
+/// What a player of this race carries their army around in.
+fn race_transport(race: RaceView) -> u16 {
+    match race {
+        RaceView::Zerg => ZERG_TRANSPORT,
+        RaceView::Terran => TERRAN_TRANSPORT,
+        RaceView::Protoss | RaceView::Random => PROTOSS_TRANSPORT,
+    }
+}
+
+/// Whether this race's units and buildings carry shields, which is the row only one of the three
+/// races has.
+fn has_shields(race: RaceView) -> bool {
+    matches!(race, RaceView::Protoss | RaceView::Random)
+}
+
+/// A tile's icon. Nothing here has the game's own icon atlas, so every tile draws its number: these
+/// panels are being judged on their layout, and a tile that pretended to an icon it does not have
+/// would be judging the wrong thing.
+fn unit_icon(index: u16) -> ProductionIcon {
+    ProductionIcon {
+        texture: None,
+        index,
     }
 }
 
@@ -750,6 +879,20 @@ impl Screen {
     }
 }
 
+/// Which of the selection panel's own readings a preset puts the fake game into.
+///
+/// The panel draws a different layout for each of them, and the readings a game only reaches by
+/// clicking the right thing are the ones an offline render would otherwise never cover.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Showcase {
+    /// Whatever the scenario's knobs already ask for, which is the single unit they default to.
+    Knobs,
+    /// A building part way through making a unit, with more of them queued behind it.
+    Producing,
+    /// A transport with an army inside it.
+    Loaded,
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
@@ -757,69 +900,53 @@ pub struct Preset {
     /// halves, its stacked ones, or the corner cards.
     pub players: usize,
     pub panels: Screen,
+    pub showcase: Showcase,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 14] = [
+    /// One shape of game on one set of surfaces, with the selection the knobs' own.
+    pub const fn game(players: usize, panels: Screen) -> Preset {
         Preset {
-            players: 2,
-            panels: Screen::Minimal,
-        },
-        Preset {
-            players: 2,
-            panels: Screen::Standard,
-        },
+            players,
+            panels,
+            showcase: Showcase::Knobs,
+        }
+    }
+
+    /// A duel on the analyst's screen, there to put the selection panel into one of its readings.
+    const fn selection_showcase(showcase: Showcase) -> Preset {
         Preset {
             players: 2,
             panels: Screen::Analyst,
-        },
-        Preset {
-            players: 2,
-            panels: Screen::ReflowWings,
-        },
-        Preset {
-            players: 2,
-            panels: Screen::ReflowStack,
-        },
-        Preset {
-            players: 4,
-            panels: Screen::Minimal,
-        },
-        Preset {
-            players: 4,
-            panels: Screen::Standard,
-        },
-        Preset {
-            players: 4,
-            panels: Screen::Analyst,
-        },
-        Preset {
-            players: 6,
-            panels: Screen::Minimal,
-        },
-        Preset {
-            players: 6,
-            panels: Screen::Standard,
-        },
-        Preset {
-            players: 6,
-            panels: Screen::Analyst,
-        },
-        Preset {
-            players: 8,
-            panels: Screen::Minimal,
-        },
-        Preset {
-            players: 8,
-            panels: Screen::Standard,
-        },
-        Preset {
-            players: 8,
-            panels: Screen::Analyst,
-        },
+            showcase,
+        }
+    }
+
+    pub const ALL: [Preset; 16] = [
+        Preset::game(2, Screen::Minimal),
+        Preset::game(2, Screen::Standard),
+        Preset::game(2, Screen::Analyst),
+        Preset::game(2, Screen::ReflowWings),
+        Preset::game(2, Screen::ReflowStack),
+        Preset::game(4, Screen::Minimal),
+        Preset::game(4, Screen::Standard),
+        Preset::game(4, Screen::Analyst),
+        Preset::game(6, Screen::Minimal),
+        Preset::game(6, Screen::Standard),
+        Preset::game(6, Screen::Analyst),
+        Preset::game(8, Screen::Minimal),
+        Preset::game(8, Screen::Standard),
+        Preset::game(8, Screen::Analyst),
+        Preset::selection_showcase(Showcase::Producing),
+        Preset::selection_showcase(Showcase::Loaded),
     ];
 
     pub fn label(self) -> &'static str {
+        match self.showcase {
+            Showcase::Producing => return "1v1-selection-building",
+            Showcase::Loaded => return "1v1-selection-cargo",
+            Showcase::Knobs => {}
+        }
         match (self.players, self.panels) {
             (2, Screen::Minimal) => "1v1-minimal",
             (2, Screen::Standard) => "1v1-standard",
@@ -849,6 +976,8 @@ impl Preset {
         knobs.host.panels.dock_expanded = self.panels == Screen::Analyst;
         knobs.observer = Knobs {
             players: self.players,
+            selection_building: self.showcase == Showcase::Producing,
+            selection_cargo: self.showcase == Showcase::Loaded,
             ..Knobs::default()
         };
     }
@@ -907,8 +1036,22 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .add(egui::Slider::new(&mut k.selection, 0..=SelectionView::MAX_UNITS).text("selection"))
         .on_hover_text(
-            "How many units the watcher has selected. One is read out as numbers, several as what \
-             the selection is made of, and none leaves the panel on screen with an empty grid.",
+            "How many units the watcher has selected. One is read out as numbers, several are the \
+             wireframe grid alone, and none leaves the panel on screen saying so.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_building, "selection is producing")
+        .on_hover_text(
+            "Selects a building part way through a unit with two more queued, which is the reading \
+             an egg mid-morph gets as well.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_cargo, "selection is loaded")
+        .on_hover_text(
+            "Selects a transport with four units inside it at mixed health, which is what the row \
+             of carried units is drawn for.",
         )
         .changed();
     changed |= ui
