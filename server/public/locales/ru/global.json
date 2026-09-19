@@ -1618,7 +1618,8 @@
       "openSlotCount_few": "{{count}} открыто",
       "openSlotCount_many": "{{count}} открыто",
       "openSlotCount_other": "{{count}} открыто",
-      "slotsLabel": "Слоты"
+      "slotsLabel": "Слоты",
+      "startingGame": "Запуск игры"
     }
   },
   "map": {

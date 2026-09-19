@@ -1601,7 +1601,8 @@
       "openSlotCount_one": "{{count}} abierta",
       "openSlotCount_many": "{{count}} abiertas",
       "openSlotCount_other": "{{count}} abiertas",
-      "slotsLabel": "Espacios"
+      "slotsLabel": "Espacios",
+      "startingGame": "Iniciando partida"
     }
   },
   "map": {

@@ -1567,7 +1567,8 @@
       "mapLabel": "맵",
       "noLongerOpen": "이 로비는 더 이상 열려 있지 않습니다.",
       "openSlotCount_other": "{{count}}개 열림",
-      "slotsLabel": "슬롯"
+      "slotsLabel": "슬롯",
+      "startingGame": "게임 시작 중"
     }
   },
   "map": {

@@ -495,7 +495,13 @@ export class LobbyService {
       : undefined
   }
 
-  /** Returns a summary of every lobby that belongs on the public lobby list. */
+  /**
+   * Returns a summary of every lobby that belongs on the public lobby list.
+   *
+   * The list answers "what can I browse and join right now", so a lobby on its way into a game
+   * drops off it until it settles -- deliberately a different question from the one
+   * `setLobbySummaryGetter` answers, which is only whether the lobby exists.
+   */
   getListedSummaries(): LobbySummaryJson[] {
     return [...this.lobbies.values()]
       .filter(l => l.visibility === 'listed')

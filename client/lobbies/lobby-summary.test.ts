@@ -154,21 +154,6 @@ describe('client/lobbies/lobby-summary/fetchLobbySummary', () => {
 
     expect(fetchJsonMock).toHaveBeenCalledTimes(2)
   })
-
-  test('caches a launching lobby for a shorter window than a settled one', async () => {
-    fetchJsonMock.mockResolvedValue(summaryFor('countingDown'))
-    const id = makeSbLobbyId('lobby-a')
-
-    await fetchLobbySummary(id, { cached: true })
-    vi.advanceTimersByTime(5 * 1000)
-    await fetchLobbySummary(id, { cached: true })
-    expect(fetchJsonMock).toHaveBeenCalledTimes(1)
-
-    // Well short of the window a settled lobby gets, which would still be serving the first result
-    vi.advanceTimersByTime(6 * 1000)
-    await fetchLobbySummary(id, { cached: true })
-    expect(fetchJsonMock).toHaveBeenCalledTimes(2)
-  })
 })
 
 describe('client/lobbies/lobby-summary/useLobbySummary', () => {
@@ -183,60 +168,37 @@ describe('client/lobbies/lobby-summary/useLobbySummary', () => {
     vi.useRealTimers()
   })
 
-  test('re-reads a launching lobby until it settles, without remounting', async () => {
+  test('keeps a rendered summary when a cached refresh fails', async () => {
     const id = makeSbLobbyId('lobby-a')
     fetchJsonMock
-      .mockResolvedValueOnce(summaryFor('countingDown'))
-      .mockResolvedValue(summaryFor('inGame'))
-
-    const { result } = renderHook(() => useLobbySummary(id))
-    await advance(0)
-    expect(result.current[0]).toEqual({ status: 'loaded', data: summaryFor('countingDown') })
-
-    await advance(15 * 1000)
-
-    expect(fetchJsonMock).toHaveBeenCalledTimes(2)
-    expect(result.current[0]).toEqual({ status: 'loaded', data: summaryFor('inGame') })
-
-    // Having settled, it stops re-reading
-    await advance(5 * 60 * 1000)
-    expect(fetchJsonMock).toHaveBeenCalledTimes(2)
-  })
-
-  test('does not re-read a lobby that is simply open', async () => {
-    fetchJsonMock.mockResolvedValue(summaryFor('gathering'))
-
-    renderHook(() => useLobbySummary(makeSbLobbyId('lobby-a')))
-    await advance(0)
-    await advance(5 * 60 * 1000)
-
-    expect(fetchJsonMock).toHaveBeenCalledTimes(1)
-  })
-
-  test('a lobby that is gone stays gone, and is never re-read', async () => {
-    fetchJsonMock.mockRejectedValue(notFoundError())
-
-    const { result } = renderHook(() => useLobbySummary(makeSbLobbyId('lobby-a')))
-    await advance(0)
-    expect(result.current[0]).toEqual({ status: 'notFound' })
-
-    await advance(5 * 60 * 1000)
-    expect(fetchJsonMock).toHaveBeenCalledTimes(1)
-  })
-
-  test('keeps a rendered summary when a cached re-read fails', async () => {
-    const id = makeSbLobbyId('lobby-a')
-    fetchJsonMock
-      .mockResolvedValueOnce(summaryFor('countingDown'))
+      .mockResolvedValueOnce(summaryFor('gathering'))
       .mockRejectedValue(new Error('network down'))
 
     const { result } = renderHook(() => useLobbySummary(id, { cached: true }))
     await advance(0)
-    await advance(15 * 1000)
 
-    // The re-read reached the network (a launching lobby's cache window is shorter than the
-    // re-read interval), failed, and left the card showing the lobby it already had
+    // Past the shared cache window, so the refresh actually reaches the network
+    await advance(31 * 1000)
+    await act(async () => {
+      result.current[1]()
+    })
+    await advance(0)
+
     expect(fetchJsonMock).toHaveBeenCalledTimes(2)
-    expect(result.current[0]).toEqual({ status: 'loaded', data: summaryFor('countingDown') })
+    expect(result.current[0]).toEqual({ status: 'loaded', data: summaryFor('gathering') })
+  })
+
+  test('replaces a rendered summary when a refresh finds the lobby gone', async () => {
+    const id = makeSbLobbyId('lobby-a')
+    fetchJsonMock.mockResolvedValueOnce(summaryFor('gathering')).mockRejectedValue(notFoundError())
+
+    const { result } = renderHook(() => useLobbySummary(id))
+    await advance(0)
+    await act(async () => {
+      result.current[1]()
+    })
+    await advance(0)
+
+    expect(result.current[0]).toEqual({ status: 'notFound' })
   })
 })

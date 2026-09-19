@@ -1567,7 +1567,8 @@
       "mapLabel": "地图",
       "noLongerOpen": "该房间已不再开放。",
       "openSlotCount_other": "剩余{{count}}个",
-      "slotsLabel": "座位"
+      "slotsLabel": "座位",
+      "startingGame": "正在开始游戏"
     }
   },
   "map": {
