@@ -146,6 +146,10 @@ export const GameSidePanelSection = styled.div`
 export const GameSidePanelActions = styled.div`
   display: flex;
   align-items: center;
+  /* Matches an icon button's height, so the row keeps the same height whether or not a panel has
+     secondary actions to show. Without it the panel's bottom edge jumps by the difference between
+     a filled button and an icon button as the selection moves between entries. */
+  min-height: 48px;
   gap: 8px;
 `
 
