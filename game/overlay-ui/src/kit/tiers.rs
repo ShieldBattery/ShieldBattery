@@ -284,6 +284,16 @@ pub fn dialog_body<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
     band(ui, DIALOG_BODY_MARGIN, add).inner
 }
 
+/// A dialog's middle band with no padding of its own, for a body that scrolls.
+///
+/// The body's contents are cut at the band's edge, and a band padded like [`dialog_body`] would
+/// put that cut a few points inside the rules above and below it, where a half-drawn row reads as
+/// a mistake rather than as a window onto more of the list. The caller pads its columns itself,
+/// inside the scrolling region.
+pub fn dialog_body_flush<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
+    band(ui, Margin::ZERO, add).inner
+}
+
 /// A dialog's bottom band: the rules and asides that belong under everything else.
 pub fn dialog_footer<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
     band(ui, DIALOG_FOOTER_MARGIN, add).inner
