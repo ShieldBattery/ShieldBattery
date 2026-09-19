@@ -94,6 +94,8 @@
     "columnUnitsKillsLosses": "Юниты у/п",
     "columnWorkers": "Рабочие",
     "columnWorkersKillsLosses": "Раб. у/п",
+    "dockCollapse": "Свернуть док",
+    "dockExpand": "Развернуть док",
     "eventBuilt": "Построено",
     "eventExpansion": "Экспанд",
     "eventTechDone": "Исследование готово",

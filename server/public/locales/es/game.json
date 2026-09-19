@@ -90,6 +90,8 @@
     "columnUnitsKillsLosses": "Unid. e/p",
     "columnWorkers": "Trabajadores",
     "columnWorkersKillsLosses": "Trab. e/p",
+    "dockCollapse": "Contraer dock",
+    "dockExpand": "Expandir dock",
     "eventBuilt": "Construido",
     "eventExpansion": "Expansión",
     "eventTechDone": "Investigación completa",
