@@ -382,6 +382,51 @@ export type SetUrgentMessageMutationVariables = Exact<{
 
 export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean }
 
+export type ChannelActivityQueryVariables = Exact<{ [key: string]: never }>
+
+export type ChannelActivityQuery = {
+  liveStreams: Array<
+    { twitchLogin: string; viewerCount: number; user: { id: Types.SbUserId } | null } & {
+      ' $fragmentRefs'?: {
+        LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
+      }
+    }
+  >
+  liveGames: Array<{
+    id: string
+    startTime: string
+    map: {
+      id: Types.SbMapId
+      name: string
+      mapFile: {
+        id: string
+        image256Url: string
+        image512Url: string
+        image1024Url: string
+        image2048Url: string
+        width: number
+        height: number
+      }
+    }
+    config:
+      | { __typename: 'GameConfigDataLobby' }
+      | {
+          __typename: 'GameConfigDataMatchmaking'
+          gameSourceExtra:
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+            | { matchmakingType: Types.MatchmakingType }
+          teams: Array<Array<{ user: { id: Types.SbUserId } | null }>>
+        }
+  }>
+}
+
 export type AdminGameReportsListQueryVariables = Exact<{
   filter?: GameReportFilter | null | undefined
   first?: number | null | undefined
@@ -2753,6 +2798,163 @@ export const SetUrgentMessageDocument = {
     },
   ],
 } as unknown as DocumentNode<SetUrgentMessageMutation, SetUrgentMessageMutationVariables>
+export const ChannelActivityDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'ChannelActivity' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveStreams' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'user' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveGames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'map' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'mapFile' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'config' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                      {
+                        kind: 'InlineFragment',
+                        typeCondition: {
+                          kind: 'NamedType',
+                          name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                        },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'gameSourceExtra' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'matchmakingType' },
+                                  },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'teams' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'user' },
+                                    selectionSet: {
+                                      kind: 'SelectionSet',
+                                      selections: [
+                                        { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'LiveStream' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<ChannelActivityQuery, ChannelActivityQueryVariables>
 export const AdminGameReportsListDocument = {
   kind: 'Document',
   definitions: [

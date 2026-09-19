@@ -233,6 +233,11 @@
     "title": "Report a bug"
   },
   "chat": {
+    "activity": {
+      "inGame_one": "In game ({{count}})",
+      "inGame_other": "In game ({{count}})",
+      "title": "Activity"
+    },
     "banUser": {
       "banAction": "Ban {{user}}",
       "banReason": "Ban reason (optional)",

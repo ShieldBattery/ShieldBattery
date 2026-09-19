@@ -124,12 +124,17 @@ const compactNumber = new Intl.NumberFormat(navigator.language, {
   maximumFractionDigits: 1,
 })
 
+/** Formats a viewer count compactly for tight spaces (e.g. 1240 -> "1.2K"). */
+function formatViewerCount(count: number): string {
+  return compactNumber.format(count)
+}
+
 /** A viewer-count pill (e.g. "1.2K"), designed to overlay a stream thumbnail. */
 export function ViewerCountPill({ count, className }: { count: number; className?: string }) {
   return (
     <OverlayPill className={className}>
       <LiveDot $size={6} $pulse={false} />
-      {compactNumber.format(count)}
+      {formatViewerCount(count)}
     </OverlayPill>
   )
 }

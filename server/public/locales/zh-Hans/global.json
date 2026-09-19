@@ -233,6 +233,10 @@
     "title": "反馈 bug"
   },
   "chat": {
+    "activity": {
+      "inGame_other": "游戏中 ({{count}})",
+      "title": "活动"
+    },
     "banUser": {
       "banAction": "封禁 {{user}}",
       "banReason": "封禁原因（非必填）",

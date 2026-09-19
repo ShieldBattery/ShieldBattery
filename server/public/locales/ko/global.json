@@ -233,6 +233,10 @@
     "title": "버그 신고"
   },
   "chat": {
+    "activity": {
+      "inGame_other": "게임 중 ({{count}})",
+      "title": "활동"
+    },
     "banUser": {
       "banAction": "차단 {{user}}",
       "banReason": "밴 사유 (선택 사항)",
