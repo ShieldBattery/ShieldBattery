@@ -407,20 +407,15 @@
         },
         "description": "Управляет списком друзей: добавляет, удаляет и показывает, кто чем занят.",
         "empty": "Ваш список друзей пуст.",
-        "header": "Друзья ({{online}} в сети, {{offline}} не в сети):",
-        "hideOffline": "Скрыть друзей не в сети",
         "list": {
-          "description": "Показывает Ваших друзей и чем они заняты."
+          "description": "Показывает Ваших друзей и чем они заняты.",
+          "noneOnline": "Нет друзей онлайн"
         },
         "loadError": "Не удалось загрузить список друзей: {{errorMessage}}",
         "remove": {
           "description": "Удаляет пользователя из друзей.",
           "removed": "Пользователь <2><0></0></2> удалён из друзей."
-        },
-        "showOffline_one": "Показать {{count}} друга не в сети",
-        "showOffline_few": "Показать {{count}} друзей не в сети",
-        "showOffline_many": "Показать {{count}} друзей не в сети",
-        "showOffline_other": "Показать {{count}} друга не в сети"
+        }
       },
       "help": {
         "aliasesLabel": "Также",
@@ -428,6 +423,13 @@
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "Показывает команды, доступные здесь.",
         "dialogTitle": "Команды чата",
+        "groups": {
+          "chat": "Чат",
+          "fun": "Развлечения",
+          "matchmaking": "Матчмейкинг",
+          "moderation": "Модерация",
+          "people": "Пользователи"
+        },
         "intro": "Введите команду в начале сообщения, чтобы выполнить её. Чтобы отправить сообщение, начинающееся со слэша, введите <1>//</1>."
       },
       "join": {
@@ -450,15 +452,9 @@
         "chatRestricted": "Сейчас Вам запрещено отправлять сообщения в чат.",
         "sendError": "Не удалось получить результат: {{errorMessage}}"
       },
-      "profile": {
-        "description": "Показывает карточку профиля пользователя: его ранг и счёт побед и поражений."
-      },
       "quote": {
         "description": "Цитирует случайную реплику юнита Brood War или конкретного юнита, если его указать.",
         "unknownUnit": "Юнит с именем <1>{{name}}</1> не найден. Юниты: {{units}}"
-      },
-      "rank": {
-        "description": "Показывает текущие дивизионы пользователя в рейтинге."
       },
       "relationships": {
         "acceptFailed": "Не удалось принять запрос в друзья от пользователя <2><0></0></2>: {{errorMessage}}",
@@ -580,8 +576,6 @@
       "successMessage": "Сообщение удалено"
     },
     "errors": {
-      "loadingHistory": "Ошибка загрузки истории сообщений: {{errorMessage}}",
-      "loadingUserList": "Ошибка загрузки списка пользователей: {{errorMessage}}",
       "messageNotFound": "Сообщение не найдено. Возможно, оно было удалено."
     },
     "joinChannel": {
@@ -719,6 +713,7 @@
     "userList": {
       "active": "Активен",
       "idle": "Бездействие",
+      "loadFailed": "Не удалось загрузить список пользователей",
       "offline": "Офлайн"
     },
     "whispers": {
@@ -792,6 +787,7 @@
       "remove": "Убрать",
       "rename": "Переименовать",
       "reset": "Сбросить",
+      "retry": "Повторить",
       "reveal": "Открыть",
       "save": "Сохранить",
       "search": "Поиск",
@@ -1121,6 +1117,7 @@
     },
     "sidePanel": {
       "empty": "Выберите игру, чтобы увидеть подробности",
+      "moreActions": "Больше действий",
       "viewFullResults": "Показать полные результаты"
     }
   },
@@ -1920,6 +1917,11 @@
       "previewHint": "Наведите курсор на эмодзи, чтобы увидеть его код",
       "searchPlaceholder": "Поиск эмодзи"
     },
+    "errors": {
+      "loadFailed": "Не удалось загрузить сообщения",
+      "loadNewerFailed": "Не удалось загрузить новые сообщения",
+      "loadOlderFailed": "Не удалось загрузить старые сообщения"
+    },
     "jumpToBottom": "Перейти в конец",
     "jumpToPresent": "Перейти к последним",
     "localLine": {
@@ -1974,6 +1976,7 @@
     "notConnectedText": "Не подключен"
   },
   "news": {
+    "adminActions": "Действия администратора",
     "archive": {
       "error": "Новости сейчас недоступны.",
       "loadMore": "Загрузить ещё",
@@ -1981,8 +1984,11 @@
     },
     "byAuthor": "автор: {{name}}",
     "copyLink": "Копировать ссылку на новость",
+    "deleteDialogBody": "Эта новость будет удалена навсегда. Это действие нельзя отменить.",
+    "deleteDialogTitle": "Удалить «{{title}}»?",
     "draft": "Черновик",
     "manageNews": "Управление новостями",
+    "postDeleted": "Новость удалена",
     "seeAll": "Все новости",
     "unavailable": "Новости сейчас недоступны."
   },
@@ -2031,7 +2037,6 @@
         "inPlaylists": "В плейлистах",
         "parseError": "Не удалось прочитать этот реплей."
       },
-      "moreActions": "Другие действия",
       "moveDown": "Переместить вниз",
       "movedToRecycleBin": "Реплей перемещён в корзину",
       "moveToRecycleBin": "Переместить в корзину",
@@ -2686,8 +2691,6 @@
       "retrievingError": "Не удалось получить историю матчей."
     },
     "miniMatchHistory": {
-      "noGameSelected": "Игра не выбрана",
-      "viewDetails": "Посмотреть детали",
       "viewFullHistory": "Посмотреть полную историю матчей"
     },
     "seasons": {
@@ -2729,10 +2732,15 @@
     "card": {
       "loadError": "Не удалось загрузить профиль этого пользователя.",
       "noGames": "Нет сыгранных игр",
-      "record_one": "{{count}} игра · {{wins}}–{{losses}}",
-      "record_few": "{{count}} игры · {{wins}}–{{losses}}",
-      "record_many": "{{count}} игр · {{wins}}–{{losses}}",
-      "record_other": "{{count}} игры · {{wins}}–{{losses}}",
+      "rankLine": "{{division}} · {{mode}} · {{points}} очк.",
+      "rankTooltip": {
+        "points": "{{points}} очк.",
+        "winRate": "{{winRate}}% побед"
+      },
+      "totalGames_one": "{{count}} игра",
+      "totalGames_few": "{{count}} игры",
+      "totalGames_many": "{{count}} игр",
+      "totalGames_other": "{{count}} игры",
       "unranked": "Без рейтинга",
       "viewProfile": "Профиль"
     },
@@ -2857,7 +2865,6 @@
     "errors": {
       "cantWhisperYourself": "Вы не можете отправить личное сообщение самому себе.",
       "invalidAction": "Для получения истории сообщений необходимо активное личное сообщение с пользователем",
-      "loadingHistory": "Ошибка при загрузке истории сообщений: {{errorMessage}}",
       "messageLinkNotFound": "Не удалось открыть сообщение. Его нет в Ваших личных сообщениях.",
       "messageNotFound": "Сообщение не найдено в этом диалоге.",
       "noSelfMessaging": "Нельзя отправлять сообщения самому себе",
