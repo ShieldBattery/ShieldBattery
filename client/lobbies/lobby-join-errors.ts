@@ -28,8 +28,6 @@ export function lobbyJoinErrorMessage(err: unknown, t: TFunction): string {
       )
     case LobbyJoinErrorCode.Banned:
       return t('lobbies.joinLobby.errorBanned', "You've been banned from this lobby.")
-    case LobbyJoinErrorCode.AlreadyStarted:
-      return t('lobbies.state.started', 'This lobby has already started and cannot be joined.')
     case LobbyJoinErrorCode.AlreadyInActivity:
       return t(
         'lobbies.joinLobby.errorAlreadyInActivity',

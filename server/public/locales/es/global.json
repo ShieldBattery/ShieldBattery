@@ -1590,8 +1590,7 @@
     },
     "state": {
       "exists": "Actualmente no estás en este lobby. ¿Únete?",
-      "nonexistent": "No se encontró el lobby. ¿Quieres crear uno nuevo?",
-      "started": "Este lobby ya ha comenzado y no se puede unir."
+      "nonexistent": "No se encontró el lobby. ¿Quieres crear uno nuevo?"
     },
     "summary": {
       "gameTypeLabel": "Tipo de juego",

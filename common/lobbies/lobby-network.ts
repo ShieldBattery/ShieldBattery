@@ -20,7 +20,6 @@ export enum LobbyJoinErrorCode {
   Full = 'full',
   ObserversFull = 'observersFull',
   Banned = 'banned',
-  AlreadyStarted = 'alreadyStarted',
   AlreadyInActivity = 'alreadyInActivity',
 }
 
@@ -30,7 +29,7 @@ export enum LobbyJoinErrorCode {
  * carried alongside them are the only human-readable part.
  *
  * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `ObserversFull`, `Banned`,
- * `JoinAlreadyStarted`, `JoinAlreadyInActivity`): joining is the one operation whose failures the
+ * `JoinAlreadyInActivity`): joining is the one operation whose failures the
  * client renders individually, so its outcomes are distinguished from the otherwise-identical
  * failures of the host-only operations.
  */
@@ -52,7 +51,6 @@ export enum LobbyServiceErrorCode {
   InvalidSlotType = 'InvalidSlotType',
   InvalidTeamLayout = 'InvalidTeamLayout',
   JoinAlreadyInActivity = 'JoinAlreadyInActivity',
-  JoinAlreadyStarted = 'JoinAlreadyStarted',
   LobbyFull = 'LobbyFull',
   NoActiveClient = 'NoActiveClient',
   NoLobby = 'NoLobby',

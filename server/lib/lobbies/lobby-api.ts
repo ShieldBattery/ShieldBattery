@@ -200,8 +200,6 @@ export function convertLobbyServiceError(err: unknown): void {
 
     case LobbyServiceErrorCode.NoLobby:
       throw new HttpErrorWithPayload(404, err.message, { code: LobbyJoinErrorCode.NoLongerOpen })
-    case LobbyServiceErrorCode.JoinAlreadyStarted:
-      throw new HttpErrorWithPayload(409, err.message, { code: LobbyJoinErrorCode.AlreadyStarted })
     case LobbyServiceErrorCode.Banned:
       throw new HttpErrorWithPayload(409, err.message, { code: LobbyJoinErrorCode.Banned })
     case LobbyServiceErrorCode.LobbyFull:

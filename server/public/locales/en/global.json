@@ -1736,8 +1736,7 @@
     },
     "state": {
       "exists": "You're not currently in this lobby. Would you like to join it?",
-      "nonexistent": "Lobby not found. Would you like to create a new one?",
-      "started": "This lobby has already started and cannot be joined."
+      "nonexistent": "Lobby not found. Would you like to create a new one?"
     },
     "summary": {
       "gameTypeLabel": "Game type",

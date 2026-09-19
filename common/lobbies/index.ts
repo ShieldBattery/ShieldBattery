@@ -17,8 +17,13 @@ export const MAX_OBSERVERS = 4
 /** The most recent maps kept in a user's lobby preferences, newest first. */
 export const NUM_RECENT_MAPS = 5
 
-/** States that a lobby can be in. These are the possible return values of `getLobbyState`. */
-export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted'
+/**
+ * States that a lobby can be in. These are the possible return values of `getLobbyState`.
+ *
+ * Whether a lobby is gathering, starting a game or running one makes no difference to somebody
+ * outside it: every live lobby takes joins, so existence is the only question this answers.
+ */
+export type LobbyState = 'nonexistent' | 'exists'
 
 /**
  * The most players a lobby can hold beyond its seats. The bench absorbs joins to a full lobby and

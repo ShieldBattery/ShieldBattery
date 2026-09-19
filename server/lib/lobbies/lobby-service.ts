@@ -676,21 +676,6 @@ export class LobbyService {
     }
 
     const lifecycle = this._lifecycleOf(id)
-    // A lobby on its way into a game is briefly closed to joins: its roster is being handed to the
-    // game loader, so there is nothing a joiner could be added to yet. A lobby with a game already
-    // running still takes joins, onto its bench.
-    if (lifecycle === 'countingDown') {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.JoinAlreadyStarted,
-        'lobby is counting down',
-      )
-    }
-    if (lifecycle === 'loading') {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.JoinAlreadyStarted,
-        'lobby has already started',
-      )
-    }
 
     if (this.lobbyBannedUsers.get(lobby.id)?.has(client.userId)) {
       throw new LobbyServiceError(
@@ -700,10 +685,11 @@ export class LobbyService {
     }
 
     let updated: Lobby
-    if (lifecycle === 'inGame') {
-      // The lobby's seats, including its observer slots, are the running game's roster; an
-      // observer request is no more seatable than a player request while that's true, so it
-      // gets the same bench treatment as any other join here.
+    if (lifecycle !== 'gathering') {
+      // The lobby's seats, including its observer slots, belong to the game it is starting or
+      // already running, so there is nothing a joiner can be seated into until it gathers again.
+      // An observer request is no more seatable than a player request while that's true, so every
+      // join waits on the bench here.
       updated = this._benchJoiner(lobby, client.userId, joinRegion)
     } else if (asObserver) {
       // An explicit observer request takes an open observer slot or fails outright: unlike an
@@ -2010,12 +1996,13 @@ export class LobbyService {
    * whatever slot is free, an observer slot included. That is the one case where waiting for a seat
    * lands someone in the observer team, and it jumps nobody's queue — there is nobody to jump.
    *
-   * While a game is running the lobby's seats are that game's roster, so nobody is seated into one
-   * that opens up; the bench is drained instead when the lobby regroups. A new host is still picked,
-   * since a lobby whose host walks out mid-game needs one regardless.
+   * A lobby that is starting a game or running one has given its seats to that game, so nobody is
+   * seated into one that opens up; the bench is drained instead once the lobby gathers again (when
+   * it regroups, or when a launch is called off). A new host is still picked, since a lobby whose
+   * host walks out mid-game needs one regardless.
    */
   private _seatBenchOverflow(lobby: Lobby): Lobby {
-    if (this.runStates.has(lobby.id)) {
+    if (this._lifecycleOf(lobby.id) !== 'gathering') {
       return Lobbies.reassignHost(lobby)
     }
 
@@ -2117,6 +2104,7 @@ export class LobbyService {
     if (player) {
       this._maybeCancelCountdown(lobby, lobbyIsEmpty)
       this._maybeCancelLoading(lobby, lobbyIsEmpty)
+      this._releaseLaunchBench(lobby.id)
     }
     if (!lobbyIsEmpty && wasInGame) {
       this._maybeRegroup(lobby.id)
@@ -2292,6 +2280,7 @@ export class LobbyService {
       if (current) {
         this._maybeCancelCountdown(current, false)
         this._maybeCancelLoading(current, false, usersAtFault)
+        this._releaseLaunchBench(lobbyId)
       }
     }
   }
@@ -2553,6 +2542,7 @@ export class LobbyService {
     }
 
     this._maybeCancelCountdown(lobby)
+    this._releaseLaunchBench(lobby.id)
   }
 
   /** Drops a lobby's running game, cancelling the stuck-game deadline that came with it. */
@@ -2564,6 +2554,28 @@ export class LobbyService {
 
     this.clock.clearTimeout(runState.deadlineTimer)
     this.runStates.delete(lobbyId)
+  }
+
+  /**
+   * Seats whoever started waiting while the lobby was busy starting a game, now that it is
+   * gathering again and its seats are its own once more. Reads the lobby back out of the registry
+   * rather than taking it as an argument, since a caller that cancelled a countdown and a load in
+   * turn holds a lobby from before either of them.
+   */
+  private _releaseLaunchBench(lobbyId: SbLobbyId): void {
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby || lobby.bench.length === 0 || this._lifecycleOf(lobbyId) !== 'gathering') {
+      return
+    }
+
+    const updated = this._seatBenchOverflow(lobby)
+    if (updated === lobby) {
+      return
+    }
+
+    this.lobbies.set(lobbyId, updated)
+    this._publishLobbyDiff(lobby, updated)
+    this._publishListChange('update', updated)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
@@ -2587,18 +2599,7 @@ export class LobbyService {
     lobbyId: SbLobbyId
     lobbyState: LobbyState
   } {
-    let lobbyState: LobbyState
-    if (!this.lobbies.has(lobbyId)) {
-      lobbyState = 'nonexistent'
-    } else {
-      lobbyState = 'exists'
-      if (this.lobbyCountdowns.has(lobbyId)) {
-        lobbyState = 'countingDown'
-      } else if (this.loadingLobbies.has(lobbyId)) {
-        lobbyState = 'hasStarted'
-      }
-    }
-
+    const lobbyState: LobbyState = this.lobbies.has(lobbyId) ? 'exists' : 'nonexistent'
     return { lobbyId, lobbyState }
   }
 

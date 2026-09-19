@@ -1558,8 +1558,7 @@
     },
     "state": {
       "exists": "你现在不在这个房间。想加入吗？",
-      "nonexistent": "未找到房间。要新建一个吗？",
-      "started": "这个房间已经开始，无法加入。"
+      "nonexistent": "未找到房间。要新建一个吗？"
     },
     "summary": {
       "gameTypeLabel": "游戏类型",
