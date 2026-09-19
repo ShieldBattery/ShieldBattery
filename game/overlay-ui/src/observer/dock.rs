@@ -15,7 +15,8 @@
 //! later push its last rows into the console band the game's own interface owns.
 
 use egui::{
-    Align, Align2, Area, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind, Ui, pos2, vec2,
+    Align, Align2, Area, Context, Id, Order, Pos2, Rect, Response, Sense, Shape, Stroke,
+    StrokeKind, Ui, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight};
@@ -188,6 +189,27 @@ pub fn render_obs_dock(
     Some(outcome)
 }
 
+/// What the dock has to say about whatever the pointer is resting on.
+struct Hint {
+    /// Where the pointer is, which is what the card hangs off.
+    anchor: Pos2,
+    /// What the row is, in the same words the rail spells out.
+    title: String,
+    /// The key that does the same thing without the pointer, for a row that has one.
+    key: Option<String>,
+}
+
+impl Hint {
+    /// The hint `response` asks for, or nothing while the pointer is elsewhere.
+    fn hovered(response: &Response, title: String, key: Option<&str>) -> Option<Hint> {
+        Some(Hint {
+            anchor: response.hover_pos()?,
+            title,
+            key: key.map(str::to_string),
+        })
+    }
+}
+
 fn draw_dock(
     ui: &mut Ui,
     prefs: &PanelPrefs,
@@ -204,14 +226,29 @@ fn draw_dock(
     let dock_key = hotkeys
         .chord_for(Panel::Dock.action())
         .map(|chord| chord.key.symbol_or_name());
-    if draw_header(ui, content_width, prefs.dock_expanded, dock_key) {
+    let header = draw_header(ui, content_width, prefs.dock_expanded, dock_key);
+    if header.clicked() {
         outcome.expanded = Some(!prefs.dock_expanded);
     }
+    // The chevron is named in both forms, unlike the rows: what it does is the one thing the rail
+    // spells out nothing about, and the arrow alone says which way without saying what.
+    let chevron_title = match prefs.dock_expanded {
+        true => tr!("observer.dockCollapse", "Collapse dock"),
+        false => tr!("observer.dockExpand", "Expand dock"),
+    };
+    let mut hint = Hint::hovered(&header, chevron_title, None);
+
     for entry in entries(mode, map_control_available) {
         let key = hotkeys
             .chord_for(entry.action())
             .map(|chord| chord.key.symbol_or_name());
-        if !draw_row(ui, content_width, prefs.dock_expanded, entry, key, prefs) {
+        let response = draw_row(ui, content_width, prefs.dock_expanded, entry, key, prefs);
+        // Collapsed a row is a keycap and nothing else, so the card is what names it; expanded the
+        // rail has already said everything the card would.
+        if !prefs.dock_expanded {
+            hint = hint.or_else(|| Hint::hovered(&response, entry.label(), key));
+        }
+        if !response.clicked() {
             continue;
         }
         match entry {
@@ -219,7 +256,27 @@ fn draw_dock(
             Entry::SpoilerFree => outcome.spoiler_free = Some(!prefs.spoiler_free),
         }
     }
+
+    if let Some(hint) = hint {
+        draw_hint(ui, &hint);
+    }
     outcome
+}
+
+/// Names what the pointer is resting on, and the key that reaches it without the pointer.
+fn draw_hint(ui: &Ui, hint: &Hint) {
+    widgets::tooltip(
+        ui.ctx(),
+        Id::new("sb_obs_dock").with("hint"),
+        hint.anchor,
+        |ui| {
+            ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
+            ui.label(text::body(13.0, BodyWeight::Medium).job(&hint.title));
+            if let Some(key) = &hint.key {
+                widgets::kbd(ui, key);
+            }
+        },
+    );
 }
 
 /// Draws the dock's own row: what it is, the key that hides it, and the chevron that changes it
@@ -228,7 +285,7 @@ fn draw_dock(
 /// Expanded there is room to name the dock and the key that takes it off screen, which is the one
 /// thing a watcher cannot work out from the dock once it is gone. Collapsed, the chevron is all that
 /// fits.
-fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> bool {
+fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> Response {
     let (rect, response) = ui.allocate_exact_size(vec2(width, CHEVRON_HEIGHT), Sense::click());
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
     widgets::state_overlay(ui, &response, rect, corner_radius);
@@ -281,10 +338,10 @@ fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> bo
         ],
         stroke,
     ));
-    response.clicked()
+    response
 }
 
-/// Draws one row, returning whether it was clicked.
+/// Draws one row, returning what the pointer did to it.
 fn draw_row(
     ui: &mut Ui,
     width: f32,
@@ -292,7 +349,7 @@ fn draw_row(
     entry: Entry,
     key: Option<&str>,
     prefs: &PanelPrefs,
-) -> bool {
+) -> Response {
     let (rect, response) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT), Sense::click());
     let on = entry.is_on(prefs);
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
@@ -308,7 +365,7 @@ fn draw_row(
         // Square, and as wide as the dock lets it be: collapsed there is nothing else in the row,
         // so the keycap is the row.
         paint_key_chip(ui, centred(rect, rect.width().min(rect.height())), key, on);
-        return response.clicked();
+        return response;
     }
 
     let lamp = Rect::from_min_size(
@@ -337,7 +394,7 @@ fn draw_row(
         &entry.label(),
         Align::LEFT,
     );
-    response.clicked()
+    response
 }
 
 /// Draws the lamp that says whether a surface is on screen: filled when it is, an empty ring when it

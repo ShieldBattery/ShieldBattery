@@ -9,6 +9,7 @@ mod charts;
 mod controls;
 mod icons;
 mod panels;
+mod tooltip;
 
 pub use buttons::{
     ButtonPlate, ButtonVariant, HoldState, button, button_sized, chip_button, hold_to_confirm, kbd,
@@ -24,6 +25,7 @@ pub use panels::{
     panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,
     tag_sized, text_cell,
 };
+pub use tooltip::tooltip;
 
 use egui::{Color32, CornerRadius, Rect, Response, Shape, Stroke, StrokeKind, Ui};
 

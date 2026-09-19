@@ -929,6 +929,41 @@ pub enum Showcase {
     Loaded,
 }
 
+/// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
+///
+/// An offline render has no pointer of its own, so a screen whose whole point is what the pointer
+/// is over has to say where it is. The points are the design's own 1920x1080 ones, which is the
+/// space every render size is laid out in.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Hover {
+    /// Nowhere: every screen that is only being read.
+    None,
+    /// Over the graphs plot, where the crosshair and its card are.
+    Graphs,
+    /// Over the economy row's keycap on the collapsed dock.
+    DockEconomy,
+}
+
+impl Hover {
+    /// Where the pointer rests, in the emulated screen's points.
+    fn point(self) -> Option<(f32, f32)> {
+        match self {
+            Hover::None => None,
+            Hover::Graphs => Some((1550.0, 380.0)),
+            Hover::DockEconomy => Some((1878.0, 402.0)),
+        }
+    }
+
+    /// What a render of this pointer is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            Hover::None => "",
+            Hover::Graphs => "graph-hover",
+            Hover::DockEconomy => "dock-hover",
+        }
+    }
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
@@ -939,6 +974,7 @@ pub struct Preset {
     pub team_size: usize,
     pub panels: Screen,
     pub showcase: Showcase,
+    pub hover: Hover,
 }
 
 impl Preset {
@@ -949,6 +985,7 @@ impl Preset {
             team_size,
             panels,
             showcase: Showcase::Knobs,
+            hover: Hover::None,
         }
     }
 
@@ -959,10 +996,23 @@ impl Preset {
             team_size: 1,
             panels: Screen::Analyst,
             showcase,
+            hover: Hover::None,
         }
     }
 
-    pub const ALL: [Preset; 20] = [
+    /// A duel on the analyst's screen with the pointer resting on something, there to show what the
+    /// overlay only says while it is being pointed at.
+    const fn hover_showcase(hover: Hover) -> Preset {
+        Preset {
+            players: 2,
+            team_size: 1,
+            panels: Screen::Analyst,
+            showcase: Showcase::Knobs,
+            hover,
+        }
+    }
+
+    pub const ALL: [Preset; 22] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -989,6 +1039,8 @@ impl Preset {
         Preset::game(8, 4, Screen::Analyst),
         Preset::selection_showcase(Showcase::Producing),
         Preset::selection_showcase(Showcase::Loaded),
+        Preset::hover_showcase(Hover::Graphs),
+        Preset::hover_showcase(Hover::DockEconomy),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -997,6 +1049,9 @@ impl Preset {
             Showcase::Producing => return "1v1-selection-building".to_string(),
             Showcase::Loaded => return "1v1-selection-cargo".to_string(),
             Showcase::Knobs => {}
+        }
+        if self.hover != Hover::None {
+            return format!("{}-{}", self.shape(), self.hover.slug());
         }
         format!("{}-{}", self.shape(), self.panels.slug())
     }
@@ -1026,8 +1081,11 @@ impl Preset {
         knobs.host.mode = overlay_ui::shell::Mode::Replay;
         self.panels.apply(&mut knobs.host.panels);
         // The dock's two forms are both worth looking at, and the screen that asks for everything
-        // is the one whose watcher wants the rail spelled out.
-        knobs.host.panels.dock_expanded = self.panels == Screen::Analyst;
+        // is the one whose watcher wants the rail spelled out. A screen about what the pointer is
+        // over takes the strip of keycaps instead, since that is the form with anything left to say.
+        knobs.host.panels.dock_expanded =
+            self.panels == Screen::Analyst && self.hover == Hover::None;
+        knobs.host.pointer = self.hover.point();
         knobs.observer = Knobs {
             players: self.players,
             team_size: self.team_size,
