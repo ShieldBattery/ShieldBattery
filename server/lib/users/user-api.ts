@@ -23,7 +23,7 @@ import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES, USER_AVATAR_SIZE } from '../../../common/images'
 import { LadderPlayer } from '../../../common/ladder/ladder'
-import { SbMapId, toMapInfoJson } from '../../../common/maps'
+import { toMapInfoJson } from '../../../common/maps'
 import {
   MatchmakingType,
   NUM_PLACEMENT_MATCHES,
@@ -97,7 +97,6 @@ import { joiLocale } from '../i18n/locale-validator'
 import { ImageService } from '../images/image-service'
 import { getRankingsForUser } from '../ladder/rankings'
 import { sendMailTemplate } from '../mail/mailer'
-import { getMapInfos } from '../maps/map-models'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
   getMatchmakingFinalizedRanksForUser,
@@ -626,28 +625,18 @@ export class UserApi {
     const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
       const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
-      const uniqueUsers = new Set<SbUserId>()
-      const uniqueMaps = new Set<SbMapId>()
-      for (const g of games) {
-        uniqueMaps.add(g.mapId)
-
-        for (const team of g.config.teams) {
-          for (const player of team) {
-            if (!player.isComputer) {
-              uniqueUsers.add(player.id)
-            }
-          }
-        }
-      }
-      const [users, maps] = await Promise.all([
-        findUsersById(Array.from(uniqueUsers.values())),
-        getMapInfos(Array.from(uniqueMaps.values())),
-      ])
+      const { users, maps, replays } = await getGameListSideData({
+        games,
+        currentUserId: ctx.session?.user?.id,
+        replayService: this.replayService,
+        logger: ctx.log,
+      })
 
       return {
         games: games.map(g => toGameRecordJson(g)),
         maps: maps.map(m => toMapInfoJson(m)),
         users,
+        replays,
       }
     })()
 

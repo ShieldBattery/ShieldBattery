@@ -7,9 +7,8 @@ import { ReconciledResult, getResultLabel } from '../../common/games/results'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
-import { GamePlayersDisplay } from '../games/game-players-display'
+import { GameRecordSidePanel } from '../games/game-record-side-panel'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
-import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { LinkButton } from '../material/link-button'
@@ -92,7 +91,11 @@ export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
           </ViewFullHistoryLink>
         ) : null}
       </GameList>
-      <ConnectedGamePreview game={activeGame} forUserId={forUserId} />
+      <GameRecordSidePanel
+        game={activeGame}
+        forUserId={forUserId}
+        onViewResults={navigateToGameResults}
+      />
     </MatchHistoryRoot>
   )
 }
@@ -204,78 +207,5 @@ export function ConnectedGameListEntry({
 
       <Ripple ref={rippleRef} />
     </GameListEntryRoot>
-  )
-}
-
-const GamePreviewRoot = styled.div`
-  width: 276px;
-  flex-grow: 0;
-  flex-shrink: 0;
-
-  display: flex;
-  flex-direction: column;
-`
-
-const GamePreviewDetails = styled.div`
-  width: 100%;
-  flex-grow: 1;
-  padding: 16px 16px 20px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  background-color: var(--theme-container-low);
-  border-radius: 4px;
-`
-
-const NoGameText = styled.div`
-  ${bodyLarge};
-  color: var(--theme-on-surface-variant);
-  text-align: center;
-`
-
-const StyledMapThumbnail = styled(ReduxMapThumbnail)`
-  height: auto;
-`
-
-export interface ConnectedGamePreviewProps {
-  game?: Immutable<GameRecordJson>
-  forUserId: SbUserId
-}
-
-export function ConnectedGamePreview({ game, forUserId }: ConnectedGamePreviewProps) {
-  const { t } = useTranslation()
-
-  const gameId = game?.id
-  const mapId = game?.mapId
-
-  const onViewDetails = useCallback(() => {
-    if (gameId) {
-      navigateToGameResults(gameId)
-    }
-  }, [gameId])
-
-  if (!game) {
-    return (
-      <GamePreviewRoot>
-        <GamePreviewDetails>
-          <NoGameText>{t('user.miniMatchHistory.noGameSelected', 'No game selected')}</NoGameText>
-        </GamePreviewDetails>
-      </GamePreviewRoot>
-    )
-  }
-
-  return (
-    <GamePreviewRoot>
-      <GamePreviewDetails>
-        {mapId ? <StyledMapThumbnail key={mapId} mapId={mapId} size={256} showInfoLayer /> : null}
-        <GamePlayersDisplay game={game} forUserId={forUserId} />
-      </GamePreviewDetails>
-      <TextButton
-        label={t('user.miniMatchHistory.viewDetails', 'View details')}
-        onClick={onViewDetails}
-      />
-    </GamePreviewRoot>
   )
 }

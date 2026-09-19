@@ -74,6 +74,7 @@ export interface GetUserProfileResponse {
     games: GameRecordJson[]
     maps: MapInfoJson[]
     users: SbUser[]
+    replays: GameReplayInfo[]
   }
   seasons: MatchmakingSeasonJson[]
 }
