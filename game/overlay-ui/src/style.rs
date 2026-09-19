@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use egui::epaint::text::VariationCoords;
-use egui::style::TextStyle;
+use egui::style::{ScrollStyle, TextStyle};
 use egui::{FontData, FontDefinitions, FontFamily, FontTweak};
 
 use crate::fonts::{self, DynamicFonts};
+use crate::kit::theme;
 
 // Latin and Cyrillic faces ship inside the binary: they are small, and the overlay must render
 // even when nothing was installed beside it.
@@ -97,6 +98,31 @@ pub fn install_fonts_and_style(ctx: &egui::Context, dynamic: &DynamicFonts) {
     style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.7);
     // Don't want select/copy on text labels
     style.interaction.selectable_labels = false;
+
+    // Scrollbars are the one stock egui control the overlay draws, so they are the one place its
+    // widget palette shows. egui's default bar is a thin floating line that paints its handle in
+    // the text color when hovered, which over a dark log flashes white; the overlay's is a solid
+    // rail in the app's scrollbar greys, always visible where there is more to scroll to.
+    style.visuals.extreme_bg_color = theme::SCROLLBAR_RAIL;
+    style.visuals.widgets.inactive.bg_fill = theme::SCROLLBAR_HANDLE;
+    style.visuals.widgets.hovered.bg_fill = theme::SCROLLBAR_HANDLE_HOVER;
+    style.visuals.widgets.active.bg_fill = theme::SCROLLBAR_HANDLE_DRAG;
+    let handle_radius = theme::radius(theme::SCROLLBAR_RADIUS);
+    style.visuals.widgets.inactive.corner_radius = handle_radius;
+    style.visuals.widgets.hovered.corner_radius = handle_radius;
+    style.visuals.widgets.active.corner_radius = handle_radius;
+    style.spacing.scroll = ScrollStyle {
+        bar_width: theme::SCROLLBAR_WIDTH,
+        bar_inner_margin: theme::SPACE_XS,
+        bar_outer_margin: theme::SCROLLBAR_INSET,
+        dormant_background_opacity: 1.0,
+        active_background_opacity: 1.0,
+        interact_background_opacity: 1.0,
+        dormant_handle_opacity: 1.0,
+        active_handle_opacity: 1.0,
+        interact_handle_opacity: 1.0,
+        ..ScrollStyle::solid()
+    };
 
     // Increase default font sizes a bit.
     // 16.0 seems to give a size that roughly matches with the smallest text size BW uses.
