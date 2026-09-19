@@ -23,6 +23,11 @@ type BlockedStream {
 	"""
 	createdAt: DateTime!
 	"""
+	A globally unique ID for this block. At most one block exists per user, so this is derived
+	from the blocked user's ID.
+	"""
+	id: String!
+	"""
 	The blocked ShieldBattery user.
 	"""
 	user: SbUser
@@ -341,6 +346,11 @@ type LiveStream {
 	A ready-to-use thumbnail URL at a fixed size.
 	"""
 	thumbnailUrl: String!
+	"""
+	A globally unique ID for this stream. A user has at most one live stream at a time, so this
+	is derived from the streamer's user ID.
+	"""
+	id: String!
 	"""
 	The ShieldBattery user who is streaming.
 	"""
@@ -973,6 +983,11 @@ type TwitchChannel {
 	The Twitch display name.
 	"""
 	twitchDisplayName: String!
+	"""
+	A globally unique ID for this channel. At most one Twitch account is linked per user, so
+	this is derived from the ShieldBattery user's ID.
+	"""
+	id: String!
 }
 
 """
@@ -995,6 +1010,11 @@ type TwitchConnection {
 	When the account was first linked.
 	"""
 	linkedAt: DateTime!
+	"""
+	A globally unique ID for this link. At most one Twitch account is linked per user, so this
+	is derived from the ShieldBattery user's ID.
+	"""
+	id: String!
 }
 
 """

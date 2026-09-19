@@ -14,6 +14,7 @@ const members = {
 
 function stream(userId: number, viewerCount: number) {
   return {
+    id: `stream:${userId}`,
     twitchLogin: `login${userId}`,
     twitchDisplayName: `user${userId}`,
     title: `title${userId}`,

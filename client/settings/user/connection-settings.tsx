@@ -17,9 +17,14 @@ import {
   TwitchOAuthResult,
 } from '../../twitch/twitch-oauth'
 
+// graphcache skips its "no cache key" warning for any type whose name ends in `Connection`,
+// treating it as Relay pagination plumbing. `TwitchConnection` is a real entity that trips that
+// exemption, so requesting `id` here is load-bearing: drop it and the object silently stops being
+// normalized, with nothing in the console to say so.
 const ConnectionSettingsQuery = graphql(/* GraphQL */ `
   query ConnectionSettings {
     myTwitchConnection {
+      id
       twitchUserId
       twitchLogin
       twitchDisplayName
@@ -39,6 +44,7 @@ const StartTwitchLinkMutation = graphql(/* GraphQL */ `
 const CompleteTwitchLinkMutation = graphql(/* GraphQL */ `
   mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {
     twitchCompleteLink(code: $code, state: $state) {
+      id
       twitchUserId
       twitchLogin
       twitchDisplayName

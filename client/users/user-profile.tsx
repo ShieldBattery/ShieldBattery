@@ -242,10 +242,12 @@ const UserProfileTwitchQuery = graphql(/* GraphQL */ `
     user(id: $userId) {
       id
       twitchChannel {
+        id
         twitchLogin
         twitchDisplayName
       }
       liveStream {
+        id
         twitchLogin
         title
         gameName

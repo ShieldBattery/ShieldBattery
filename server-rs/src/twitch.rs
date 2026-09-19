@@ -618,6 +618,7 @@ struct StreamInfo {
 
 /// A persistent link between a ShieldBattery user and their Twitch account.
 #[derive(Debug, Clone, SimpleObject, sqlx::FromRow)]
+#[graphql(complex)]
 pub struct TwitchConnection {
     #[graphql(skip)]
     pub user_id: SbUserId,
@@ -632,6 +633,15 @@ pub struct TwitchConnection {
     /// The EventSub subscription ids we created for this broadcaster (internal bookkeeping).
     #[graphql(skip)]
     pub eventsub_subscription_ids: Vec<String>,
+}
+
+#[ComplexObject]
+impl TwitchConnection {
+    /// A globally unique ID for this link. At most one Twitch account is linked per user, so this
+    /// is derived from the ShieldBattery user's ID.
+    async fn id(&self) -> String {
+        format!("twitch-connection:{}", self.user_id)
+    }
 }
 
 /// The ephemeral "currently live" summary stored in Redis for a linked streamer.
@@ -693,6 +703,12 @@ pub struct LiveStream {
 
 #[ComplexObject]
 impl LiveStream {
+    /// A globally unique ID for this stream. A user has at most one live stream at a time, so this
+    /// is derived from the streamer's user ID.
+    async fn id(&self) -> String {
+        format!("stream:{}", self.user_id)
+    }
+
     /// The ShieldBattery user who is streaming.
     async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
         ctx.data::<DataLoader<UsersLoader>>()?
@@ -740,6 +756,12 @@ pub struct BlockedStream {
 
 #[ComplexObject]
 impl BlockedStream {
+    /// A globally unique ID for this block. At most one block exists per user, so this is derived
+    /// from the blocked user's ID.
+    async fn id(&self) -> String {
+        format!("blocked-stream:{}", self.user_id)
+    }
+
     /// The blocked ShieldBattery user.
     async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
         ctx.data::<DataLoader<UsersLoader>>()?
@@ -877,11 +899,23 @@ async fn load_live_stream_user_ids(redis: &RedisPool) -> eyre::Result<Vec<SbUser
 
 /// A public view of a user's linked Twitch channel, shown on their profile.
 #[derive(Clone, SimpleObject, sqlx::FromRow)]
+#[graphql(complex)]
 pub struct TwitchChannel {
+    #[graphql(skip)]
+    pub user_id: SbUserId,
     /// The Twitch login name (used in `twitch.tv/<login>` URLs).
     pub twitch_login: String,
     /// The Twitch display name.
     pub twitch_display_name: String,
+}
+
+#[ComplexObject]
+impl TwitchChannel {
+    /// A globally unique ID for this channel. At most one Twitch account is linked per user, so
+    /// this is derived from the ShieldBattery user's ID.
+    async fn id(&self) -> String {
+        format!("twitch-channel:{}", self.user_id)
+    }
 }
 
 /// Batches per-user Twitch channel lookups so that selecting `twitchChannel` on a list of users
@@ -914,6 +948,7 @@ impl Loader<SbUserId> for TwitchChannelLoader {
             (
                 r.user_id,
                 TwitchChannel {
+                    user_id: r.user_id,
                     twitch_login: r.twitch_login,
                     twitch_display_name: r.twitch_display_name,
                 },

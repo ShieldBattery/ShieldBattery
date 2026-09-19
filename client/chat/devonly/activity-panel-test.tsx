@@ -21,6 +21,7 @@ const now = Date.now()
 
 const streams = [
   {
+    id: 'stream:1',
     twitchLogin: 'flash',
     twitchDisplayName: 'Flash',
     title: 'ASL practice, ladder grind to A rank — come say hi',
@@ -30,6 +31,7 @@ const streams = [
     user: { id: makeSbUserId(1), name: 'Flash' },
   },
   {
+    id: 'stream:2',
     twitchLogin: 'bisu_official',
     twitchDisplayName: 'Bisu',
     title:
@@ -40,6 +42,7 @@ const streams = [
     user: { id: makeSbUserId(2), name: 'Bisu' },
   },
   {
+    id: 'stream:3',
     twitchLogin: 'jaedong',
     twitchDisplayName: 'Jaedong',
     title: 'ZvT lessons — reviewing your replays',

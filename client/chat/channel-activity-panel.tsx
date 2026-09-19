@@ -28,6 +28,7 @@ import { UsersState } from './chat-reducer'
 const ChannelActivityQuery = graphql(/* GraphQL */ `
   query ChannelActivity {
     liveStreams {
+      id
       twitchLogin
       viewerCount
       user {
@@ -321,7 +322,7 @@ export function ActivityPanel({
           </StreamSlot>
         ) : null}
         {rest.map(stream => (
-          <StreamSlot key={stream.twitchLogin}>
+          <StreamSlot key={stream.id}>
             <LiveStreamEntry query={stream} />
           </StreamSlot>
         ))}
