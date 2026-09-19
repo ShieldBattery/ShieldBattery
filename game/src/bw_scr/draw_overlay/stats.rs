@@ -4,12 +4,14 @@
 //! once and the four builders share it. That is also what keeps a row in one wing lined up with the
 //! row for the same player in the other.
 
+use bw_dat::{Unit, UnitId};
 use egui::Color32;
+use overlay_ui::kit::theme;
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MatchupView, MilitaryPlayerView,
-    MilitaryView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
-    TimelineEventView, TimelineView,
+    MilitaryView, SelectedUnitView, SelectionView, TeamCardPlayerView, TeamCardTotalsView,
+    TeamCardView, TeamCardsView, TimelineEventView, TimelineView,
 };
 use overlay_ui::transport;
 
@@ -282,6 +284,87 @@ pub fn build_control_groups_view(
     }
 }
 
+/// Builds the selection panel's view: what the local client has clicked, in the game's order.
+///
+/// Read straight off the selection rather than off the sampler, so the panel changes in the same
+/// frame the click does.
+pub fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
+    SelectionView {
+        units: bw
+            .client_selection
+            .iter()
+            .flatten()
+            .take(SelectionView::MAX_UNITS)
+            .map(|&unit| selected_unit_view(bw, players, unit))
+            .collect(),
+    }
+}
+
+/// One selected unit, named and measured the way the game's own console measures it.
+fn selected_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> SelectedUnitView {
+    let unit_id = unit.id();
+    // A unit can belong to a slot no stats wing has a row for — anything neutral, and any slot the
+    // wings dropped — and then no color or name on screen stands for its owner.
+    let owner = players
+        .iter()
+        .find(|player| player.player_id == unit.player());
+    SelectedUnitView {
+        icon: production::unit_icon(unit_id, bw.is_hd),
+        owner_color: owner.map_or(theme::TEXT_DIM, |player| player.color),
+        owner_name: owner.map(|player| player.name.clone()).unwrap_or_default(),
+        hit_points: (
+            whole_points(unit.hitpoints()),
+            // Already the game's "never zero" maximum: the unit's own hit points stand in for a
+            // dat entry of zero, and one point stands in for both being zero.
+            unit.max_hp_displayed().max(0) as u32,
+        ),
+        shields: unit_id.has_shields().then(|| {
+            (
+                whole_points(unit.shields()),
+                whole_points(unit_id.shields()),
+            )
+        }),
+        energy: is_spellcaster(unit_id).then(|| {
+            (
+                whole_points(unit.energy() as i32),
+                whole_points(max_energy(bw, unit) as i32),
+            )
+        }),
+        kills: unit.kills(),
+        building: unit_id.is_building(),
+    }
+}
+
+/// Whether units.dat marks this kind of unit a spellcaster, which is what the game draws energy
+/// for. `bw_dat` names the flags either side of this one in the same word, but not this one.
+fn is_spellcaster(unit_id: UnitId) -> bool {
+    const SPELLCASTER: u32 = 0x0020_0000;
+    unit_id.flags() & SPELLCASTER != 0
+}
+
+/// The energy this unit tops out at, in the same 8.8 fixed point its current energy is in.
+///
+/// The upgrade tables the maximum comes from are indexed by player slot and assert on anything past
+/// the twelfth, so a unit owned by no slot is answered with the unupgraded cap rather than read up.
+fn max_energy(bw: &BwVars, unit: Unit) -> u32 {
+    const PLAYER_SLOTS: u8 = 0xc;
+    const UNUPGRADED_MAX_ENERGY: u32 = 200 * 256;
+    if unit.player() < PLAYER_SLOTS {
+        bw.game.max_energy(unit.player(), unit.id())
+    } else {
+        UNUPGRADED_MAX_ENERGY
+    }
+}
+
+/// Whole points out of one of the game's 8.8 fixed-point health values.
+///
+/// Rounded up the way the game's own readouts round: anything left of a point is still a point, so
+/// a unit that is alive never reads as zero, and a negative value (which the game allows a dying
+/// unit to reach) reads as none rather than wrapping.
+fn whole_points(fixed: i32) -> u32 {
+    (fixed.max(0) as u32).saturating_add(0xff) >> 8
+}
+
 /// Builds the timeline's view, newest first.
 ///
 /// Only the players the wings have rows for: an event from a slot the panels are not reporting on
@@ -387,6 +470,22 @@ mod tests {
         assert_eq!(add_series(total, &[10.0]), vec![11.0]);
         let total = add_series(Vec::new(), &[1.0]);
         assert_eq!(add_series(total, &[10.0, 20.0]), vec![11.0]);
+    }
+
+    #[test]
+    fn a_part_of_a_point_still_reads_as_a_whole_one() {
+        assert_eq!(whole_points(0), 0);
+        assert_eq!(whole_points(1), 1);
+        assert_eq!(whole_points(0x80), 1);
+        assert_eq!(whole_points(0x100), 1);
+        assert_eq!(whole_points(0x101), 2);
+        assert_eq!(whole_points(40 * 256), 40);
+    }
+
+    #[test]
+    fn a_dying_units_negative_health_reads_as_none() {
+        assert_eq!(whole_points(-1), 0);
+        assert_eq!(whole_points(i32::MIN), 0);
     }
 
     #[test]

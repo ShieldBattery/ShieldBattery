@@ -2,8 +2,9 @@
 //!
 //! One row per player, led by the bar of their own color, then a tile per thing being made — a unit,
 //! an upgrade, a technology — carrying how many of it are on the way and how far along the nearest
-//! one is. It sits at the kit's ambient tier just above the game's console band, centred, which is
-//! where a watcher's eye already is during a fight.
+//! one is. It sits at the kit's ambient tier in the middle of the screen's bottom edge, on top of
+//! the selection panel and of whatever band the game's own console is taking, which is where a
+//! watcher's eye already is during a fight.
 //!
 //! A tile acts when it is clicked: it selects what is making that thing, and clicking it again
 //! walks to the next one, which is how a caster follows a reinforcement wave back to the buildings
@@ -21,14 +22,12 @@ use egui::{
 use crate::colors::{BLUE60, GREY_BLUE60};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{centred, paint_player_bar, paint_text, paint_tile_chrome, unit_codes};
+use crate::observer::{
+    centred, paint_player_bar, paint_text, paint_tile_chrome, stacked_offset, unit_codes,
+};
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 620.0;
-
-/// How far the panel's bottom edge sits above the screen's, which is clear of the console band the
-/// game's own interface owns.
-const BOTTOM_MARGIN: f32 = 232.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
@@ -131,16 +130,19 @@ pub struct ProductionOutcome {
     pub clicked: Option<(u8, usize)>,
 }
 
-/// Draws the production panel above the game's console band, fading and sliding it in and out.
-/// Returns nothing at all once it is gone, or while there is nothing being made.
+/// Draws the production panel `bottom` points above the screen's own bottom edge, fading and
+/// sliding it in and out. Returns nothing at all once it is gone, or while there is nothing being
+/// made.
 pub fn render_production_view(
     view: &ProductionView,
     ctx: &Context,
     shown: bool,
+    bottom: f32,
 ) -> Option<ProductionOutcome> {
     let id = Id::new("sb_production_panel");
+    let bottom = stacked_offset(ctx, id.with("bottom"), bottom);
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -BOTTOM_MARGIN))
+        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
         .order(Order::Foreground);
     let inner = motion::presence_area(
         ctx,

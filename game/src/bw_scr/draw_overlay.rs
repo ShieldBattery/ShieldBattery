@@ -145,6 +145,10 @@ pub struct BwVars {
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,
+    /// What the local client has selected, in the game's own order: the first entry is the unit the
+    /// game treats as the selection's subject. Read fresh for every frame, since a selection changes
+    /// between frames and the panel that draws it must never be a frame behind the console.
+    pub client_selection: [Option<Unit>; 12],
     pub first_player_unit: *mut *mut bw::Unit,
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
@@ -480,6 +484,7 @@ impl OverlayState {
                 timeline: stats::build_timeline_view(bw, &players, game_stats),
                 production: self.build_production_view(bw),
                 control_groups: stats::build_control_groups_view(bw, &players, game_stats),
+                selection: stats::build_selection_view(bw, &players),
                 // The game keeps no measurement of who holds the map, and one invented here would
                 // be a claim rather than a reading. The bar is simply not drawn until there is one.
                 map_control: None,

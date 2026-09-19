@@ -2873,6 +2873,7 @@ impl BwScr {
                             transport: self.replay_transport_state(),
                         });
                     let active_units = self.active_units();
+                    let client_selection = self.client_selection();
                     let first_player_unit = self.first_player_unit.resolve();
                     let first_dialog = self.resolve_first_dialog();
                     // Assuming that the last added draw command (Added during orig() call)
@@ -2943,6 +2944,7 @@ impl BwScr {
                                     use_rgb_colors,
                                     replay_visions,
                                     active_units,
+                                    client_selection,
                                     first_player_unit,
                                     first_dialog,
                                     graphic_layers,

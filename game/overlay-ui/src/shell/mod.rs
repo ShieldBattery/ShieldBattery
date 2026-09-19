@@ -89,6 +89,8 @@ pub enum Panel {
     Production,
     /// The control groups panel.
     ControlGroups,
+    /// The selection panel, which stands in for the console's own.
+    Selection,
     /// BW's own bottom console.
     Console,
     /// BW's own minimap.
@@ -102,7 +104,7 @@ pub enum Panel {
 impl Panel {
     /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
     /// the top of the screen down, then the game's own surfaces, then the controls.
-    pub const ALL: [Panel; 12] = [
+    pub const ALL: [Panel; 13] = [
         Panel::Matchup,
         Panel::MapControl,
         Panel::Economy,
@@ -111,6 +113,7 @@ impl Panel {
         Panel::Timeline,
         Panel::Production,
         Panel::ControlGroups,
+        Panel::Selection,
         Panel::Console,
         Panel::Minimap,
         Panel::Transport,
@@ -128,6 +131,7 @@ impl Panel {
             Panel::Timeline => Action::ToggleTimeline,
             Panel::Production => Action::ToggleProduction,
             Panel::ControlGroups => Action::ToggleControlGroups,
+            Panel::Selection => Action::ToggleSelection,
             Panel::Console => Action::ToggleConsole,
             Panel::Minimap => Action::ToggleMinimap,
             Panel::Transport => Action::ToggleTransport,
@@ -145,6 +149,7 @@ impl Panel {
             Panel::Timeline => "timeline",
             Panel::Production => "production",
             Panel::ControlGroups => "control groups",
+            Panel::Selection => "selection",
             Panel::Console => "console",
             Panel::Minimap => "minimap",
             Panel::Transport => "transport",
@@ -170,6 +175,7 @@ pub struct PanelPrefs {
     pub timeline: bool,
     pub production: bool,
     pub control_groups: bool,
+    pub selection: bool,
     pub console: bool,
     pub minimap: bool,
     pub transport: bool,
@@ -202,6 +208,7 @@ impl Default for PanelPrefs {
             timeline: true,
             production: true,
             control_groups: true,
+            selection: true,
             console: true,
             minimap: true,
             transport: true,
@@ -225,6 +232,7 @@ impl PanelPrefs {
             Panel::Timeline => self.timeline,
             Panel::Production => self.production,
             Panel::ControlGroups => self.control_groups,
+            Panel::Selection => self.selection,
             Panel::Console => self.console,
             Panel::Minimap => self.minimap,
             Panel::Transport => self.transport,
@@ -242,6 +250,7 @@ impl PanelPrefs {
             Panel::Timeline => self.timeline = shown,
             Panel::Production => self.production = shown,
             Panel::ControlGroups => self.control_groups = shown,
+            Panel::Selection => self.selection = shown,
             Panel::Console => self.console = shown,
             Panel::Minimap => self.minimap = shown,
             Panel::Transport => self.transport = shown,
@@ -822,11 +831,35 @@ impl Shell {
         ) {
             hit_rects.push(HitRect::new(rect));
         }
-        // The two centred strips are one stack too, drawn bottom first: a production panel with a
-        // row per player of an eight-player game is three times the height the design drew it at,
-        // and a control-groups panel pinned to the design's band would be drawn through it.
-        let production =
-            observer::render_production_view(&view.production, ctx, self.prefs.production);
+        // The three centred strips are one stack too, drawn bottom first: each is as tall as the
+        // game it reports on — a production panel with a row per player of an eight-player game is
+        // three times the height the design drew it at — so every one of them is placed over
+        // whatever the one under it actually came out as, and drops onto the one below when a panel
+        // between them is hidden.
+        //
+        // The stack stands on the console band while the game's own console is up, and on the
+        // screen's own bottom edge when it is not. At every 16:9 resolution the overlay is 1920
+        // points wide, so the widest of the three — control groups at 790 — leaves its left edge at
+        // 565, well clear of the 348-point square BW's minimap owns in that corner. A 4:3 screen is
+        // 1440 points wide and that edge falls at 325, which is inside the minimap's column: on
+        // those screens the bottom of the stack overlaps the minimap's top-right corner.
+        let screen_bottom = ctx.viewport_rect().bottom();
+        let base = if self.prefs.console {
+            observer::CONSOLE_BAND
+        } else {
+            observer::WING_MARGIN
+        };
+        let selection =
+            observer::render_selection_view(&view.selection, ctx, self.prefs.selection, base);
+        if let Some(rect) = selection {
+            hit_rects.push(HitRect::new(rect));
+        }
+        let production = observer::render_production_view(
+            &view.production,
+            ctx,
+            self.prefs.production,
+            observer::stacked_bottom(base, screen_bottom, selection),
+        );
         if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some((player_id, item)) = outcome.clicked {
@@ -836,16 +869,15 @@ impl Shell {
                 });
             }
         }
-        let screen_bottom = ctx.viewport_rect().bottom();
-        let above_production = production
-            .as_ref()
-            .map(|outcome| screen_bottom - outcome.rect.top() + observer::WING_GAP)
-            .unwrap_or(f32::NEG_INFINITY);
         if let Some(rect) = observer::render_control_groups_view(
             &view.control_groups,
             ctx,
             self.prefs.control_groups,
-            above_production.max(observer::CONTROL_GROUPS_BOTTOM),
+            observer::stacked_bottom(
+                base,
+                screen_bottom,
+                production.as_ref().map(|outcome| outcome.rect),
+            ),
         ) {
             hit_rects.push(HitRect::new(rect));
         }
@@ -1543,6 +1575,22 @@ mod tests {
             (Key::T, |prefs| prefs.timeline),
         ];
         for (key, is_shown) in wings {
+            assert!(is_shown(shell.panel_prefs()));
+            assert!(shell.key_pressed(key, Modifiers::NONE));
+            assert!(!is_shown(shell.panel_prefs()), "{key:?} moved nothing");
+        }
+    }
+
+    #[test]
+    fn the_centred_bottom_panels_answer_their_own_keys() {
+        let mut shell = spectating_shell();
+        type IsShown = fn(&PanelPrefs) -> bool;
+        let stack: [(Key, IsShown); 3] = [
+            (Key::F, |prefs| prefs.production),
+            (Key::H, |prefs| prefs.control_groups),
+            (Key::S, |prefs| prefs.selection),
+        ];
+        for (key, is_shown) in stack {
             assert!(is_shown(shell.panel_prefs()));
             assert!(shell.key_pressed(key, Modifiers::NONE));
             assert!(!is_shown(shell.panel_prefs()), "{key:?} moved nothing");
