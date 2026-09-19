@@ -13,8 +13,8 @@ import { getLiveLobbyWithHost } from './lobby-summaries'
 /**
  * What the unfurl says the lobby is doing: how many seats are open, or -- when it isn't taking
  * anyone into a seat right now -- what it's busy with instead. A lobby counting down or loading
- * refuses joins for as long as that lasts, so advertising its seats would send a reader at a door
- * that's shut.
+ * has given its seats to the game it is starting, so advertising them would promise a seat that a
+ * join would only queue for.
  */
 function statusFor(summary: LobbySummaryJson): string {
   if (summary.lifecycle === 'inGame') {

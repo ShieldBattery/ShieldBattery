@@ -2739,13 +2739,13 @@ export class LobbyService {
   }
 
   /**
-   * Returns the full preview of a lobby by id, or undefined if no such lobby exists. A
-   * counting-down or loading lobby can't be joined, so it's reported as gone rather than as a
-   * live roster with join buttons behind it, matching the unauthenticated summary endpoint.
+   * Returns the full preview of a lobby by id, or undefined if no such lobby exists. Where the
+   * lobby is in its life makes no difference: every live lobby takes joins, and the summary the
+   * preview carries says what it is doing, so existence is the only thing that can withhold one.
    */
   getPreview(lobbyId: SbLobbyId): LobbyPreviewJson | undefined {
     const lobby = this.lobbies.get(lobbyId)
-    if (!lobby || this.lobbyCountdowns.has(lobbyId) || this.loadingLobbies.has(lobbyId)) {
+    if (!lobby) {
       return undefined
     }
     return Lobbies.toPreviewJson(lobby, this._toSummaryJson(lobby))

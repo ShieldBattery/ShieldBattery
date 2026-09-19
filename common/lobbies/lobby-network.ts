@@ -191,7 +191,8 @@ export type LobbyLifecycle = 'gathering' | 'countingDown' | 'loading' | 'inGame'
 /**
  * Whether a lobby is in the middle of starting a game. This is a transient state -- within seconds
  * the lobby is either `inGame` or back to `gathering`, depending on whether the launch went
- * through -- and joins are refused for as long as it lasts.
+ * through. Its seats belong to the game being started for as long as it lasts, so a join waits on
+ * the bench rather than taking one.
  */
 export function isLaunchingLifecycle(lifecycle: LobbyLifecycle): boolean {
   return lifecycle === 'countingDown' || lifecycle === 'loading'

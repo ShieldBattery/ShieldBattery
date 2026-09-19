@@ -2201,6 +2201,24 @@ describe('lobbies/lobby-service', () => {
       expect(getLobbySummary(makeSbLobbyId('not-a-real-lobby'))).toBeUndefined()
     })
 
+    test('a lobby starting a game still previews', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, force: true })
+
+      // A launch is a few seconds of a lobby's life that a join waits out on the bench, so the
+      // preview behind an invite link has to show the lobby rather than report it gone.
+      expect(lobbyService.getPreview(id)).toEqual(
+        expect.objectContaining({ id, lifecycle: 'countingDown' }),
+      )
+    })
+
+    test('a preview is withheld only for a lobby that does not exist', () => {
+      expect(lobbyService.getPreview(makeSbLobbyId('not-a-real-lobby'))).toBeUndefined()
+    })
+
     test('a lobby with a game in progress reports its summary', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
