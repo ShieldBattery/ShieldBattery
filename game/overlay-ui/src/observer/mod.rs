@@ -334,10 +334,13 @@ pub(crate) fn centred(rect: Rect, height: f32) -> Rect {
 /// The wings are placed against the screen's own edges rather than at the absolute coordinates the
 /// design card draws them at, so a 4:3 screen and an ultrawide one both keep them out of the middle
 /// where the game is being played.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Wing {
     Left,
-    Right,
+    /// The right edge, stood in from by `inset`: the dock's column while the dock is there.
+    Right {
+        inset: f32,
+    },
 }
 
 /// How far a wing sits from the edge it hangs off.
@@ -360,6 +363,14 @@ pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
 /// a surface. The rail the dock expands into is allowed to sit over the panels, because it is
 /// something the watcher has just opened and is reading rather than something in their way.
 pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
+
+/// How far the surfaces on the right edge stand in from it this frame: the dock's column while the
+/// dock is on screen, and nothing once it is not, eased between the two so they follow the dock
+/// off the edge and make way for it coming back rather than jumping either way.
+pub(crate) fn dock_inset(ctx: &Context, dock_shown: bool) -> f32 {
+    let inset = if dock_shown { DOCK_RESERVE } else { 0.0 };
+    ctx.animate_value_with_time(Id::new("sb_dock_inset"), inset, theme::MOTION_PANEL_SECS)
+}
 
 /// Height of one player's row in a stats wing.
 pub(crate) const STAT_ROW_HEIGHT: f32 = 30.0;
@@ -520,7 +531,7 @@ pub(crate) fn wing_panel<R>(
 ) -> Option<InnerResponse<R>> {
     let (align, offset_x) = match wing {
         Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-        Wing::Right => (Align2::RIGHT_TOP, -(WING_MARGIN + DOCK_RESERVE)),
+        Wing::Right { inset } => (Align2::RIGHT_TOP, -(WING_MARGIN + inset)),
     };
     let area = Area::new(id)
         .anchor(align, vec2(offset_x, top))
