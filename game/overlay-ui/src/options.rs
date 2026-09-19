@@ -37,9 +37,14 @@ const NAV_ROW_HEIGHT: f32 = 42.0;
 /// How far a nav row's label stands in from the row's left edge, lit or not.
 const NAV_LABEL_INSET: f32 = theme::SPACE_LG;
 
-/// Padding between the content column's edge and its rows.
+/// Padding between the nav column's edges and its rows.
+const NAV_PAD_X: f32 = 14.0;
+const NAV_PAD_Y: f32 = 16.0;
+
+/// Padding between the content column's edge and its rows. Inside the scrolling region, along
+/// with the nav's, so the body meets the rules above and below it and a row is cut exactly there.
 const CONTENT_PAD_X: f32 = 24.0;
-const CONTENT_PAD_Y: f32 = 32.0;
+const CONTENT_PAD_Y: f32 = 24.0;
 
 /// Gap between two rows of a section.
 const ROW_SPACING: f32 = 22.0;
@@ -73,11 +78,8 @@ const SCROLLBAR_WIDTH: f32 = theme::SCROLLBAR_WIDTH + theme::SCROLLBAR_INSET + t
 
 /// How much room the content column leaves its rows. The scrollbar's own margins are the padding
 /// on the right, the way the chat log's list is padded.
-const CONTENT_WIDTH: f32 = tiers::dialog_content_width(DIALOG_WIDTH)
-    - NAV_WIDTH
-    - theme::HAIRLINE
-    - CONTENT_PAD_X * 2.0
-    - SCROLLBAR_WIDTH;
+const CONTENT_WIDTH: f32 =
+    DIALOG_WIDTH - NAV_WIDTH - theme::HAIRLINE - CONTENT_PAD_X * 2.0 - SCROLLBAR_WIDTH;
 
 /// How much room a row leaves its control.
 const CONTROL_WIDTH: f32 = CONTENT_WIDTH - LABEL_WIDTH;
@@ -812,7 +814,7 @@ pub fn render_options_view(
     tiers::tier2_dialog(ctx, Id::new("sb_options"), DIALOG_WIDTH, |ui| {
         let mut outcome = OptionsOutcome::default();
         tiers::dialog_header(ui, draw_header);
-        tiers::dialog_body(ui, |ui| {
+        tiers::dialog_body_flush(ui, |ui| {
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
                 outcome.section = draw_nav(ui, section, body_height);
@@ -860,11 +862,17 @@ fn draw_nav(ui: &mut Ui, section: OptionsSection, height: f32) -> Option<Options
             ui.set_width(NAV_WIDTH);
             ui.set_min_height(height);
             ui.spacing_mut().item_spacing = Vec2::ZERO;
-            for entry in OptionsSection::ALL {
-                if draw_nav_row(ui, entry, entry == section) {
-                    picked = Some(entry);
-                }
-            }
+            ui.add_space(NAV_PAD_Y);
+            ui.horizontal_top(|ui| {
+                ui.add_space(NAV_PAD_X);
+                ui.vertical(|ui| {
+                    for entry in OptionsSection::ALL {
+                        if draw_nav_row(ui, entry, entry == section) {
+                            picked = Some(entry);
+                        }
+                    }
+                });
+            });
         },
     );
     picked
@@ -872,7 +880,7 @@ fn draw_nav(ui: &mut Ui, section: OptionsSection, height: f32) -> Option<Options
 
 /// One nav row: a plain label, or the lit plate that says the player is reading this section.
 fn draw_nav_row(ui: &mut Ui, section: OptionsSection, active: bool) -> bool {
-    let size = vec2(NAV_WIDTH - theme::SPACE_MD, NAV_ROW_HEIGHT);
+    let size = vec2(NAV_WIDTH - NAV_PAD_X * 2.0, NAV_ROW_HEIGHT);
     let label = section.label();
     // The lit row keeps its label where the plain rows keep theirs: a label that slid to the
     // middle of the plate as it lit would read as the nav rearranging itself with every click.
