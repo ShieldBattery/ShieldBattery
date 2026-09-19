@@ -858,8 +858,9 @@ pub enum Screen {
     /// Every panel with the game's console hidden, which is where our own bottom panels have the
     /// room the design draws them in.
     Analyst,
-    /// The analyst's screen with the upper stats wings hidden, so the panels under them are drawn
-    /// where the wings would have been.
+    /// The analyst's screen with the upper stats wings and the dock hidden, so the panels under
+    /// the wings are drawn where the wings would have been, and the right-hand ones against the
+    /// edge the dock has left.
     ReflowWings,
     /// The analyst's screen with the lower half of the centred stack hidden, so the panels over it
     /// are drawn against the screen's own bottom edge.
@@ -867,7 +868,8 @@ pub enum Screen {
 }
 
 impl Screen {
-    /// Moves `prefs` to this screen's set of surfaces, leaving the dock where the watcher put it.
+    /// Moves `prefs` to this screen's set of surfaces, leaving the dock where the watcher put it
+    /// unless the screen is about the dock being gone.
     fn apply(self, prefs: &mut PanelPrefs) {
         // Everything a minimal screen gives up.
         let analysis = self != Screen::Minimal;
@@ -889,6 +891,7 @@ impl Screen {
             Screen::ReflowWings => {
                 prefs.economy = false;
                 prefs.military = false;
+                prefs.dock = false;
             }
             Screen::ReflowStack => {
                 prefs.production = false;

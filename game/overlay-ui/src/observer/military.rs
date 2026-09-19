@@ -116,12 +116,13 @@ pub fn render_military_view(
     ctx: &Context,
     shown: bool,
     top: f32,
+    right_inset: f32,
 ) -> Option<Rect> {
     let id = Id::new("sb_military_panel");
     let inner = wing_panel(
         ctx,
         id,
-        Wing::Right,
+        Wing::Right { inset: right_inset },
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
