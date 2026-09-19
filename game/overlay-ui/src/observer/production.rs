@@ -11,8 +11,8 @@
 //!
 //! Tiles are the one place these panels draw one of the game's own icons rather than a shape of
 //! their own: there is no vector stand-in for two hundred unit portraits. A host that cannot reach
-//! the game's icon atlas draws the icon's number instead, which is enough to check a layout and
-//! honest about what it is.
+//! the game's icon atlas writes the unit's short code instead, which is enough to check a layout
+//! and honest about what it is.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, TextureId, Ui, pos2, vec2,
@@ -21,7 +21,7 @@ use egui::{
 use crate::colors::{BLUE60, GREY_BLUE60};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{centred, paint_player_bar, paint_text, paint_tile_chrome};
+use crate::observer::{centred, paint_player_bar, paint_text, paint_tile_chrome, unit_codes};
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 620.0;
@@ -57,8 +57,8 @@ const PROGRESS_GAP: f32 = 3.0;
 /// How tall one row is: a tile and the progress bar under it.
 const ROW_HEIGHT: f32 = TILE_HEIGHT + PROGRESS_GAP + PROGRESS_HEIGHT;
 
-/// Text size of the icon's own number, which a host with no atlas draws in place of the icon, and
-/// of the count in the tile's corner.
+/// Text size of the unit's code, which a host with no atlas writes in place of the icon, and of the
+/// count in the tile's corner.
 const TILE_TEXT_SIZE: f32 = 11.5;
 const COUNT_TEXT_SIZE: f32 = 11.0;
 
@@ -79,7 +79,7 @@ const _: () = assert!(
 /// Which icon a tile carries.
 ///
 /// The number is always there; the texture is only there for a host that has the game's own icon
-/// atlas mapped into its renderer. The preview has no atlas, so it draws the number.
+/// atlas mapped into its renderer. The preview has no atlas, so it writes the unit's code.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct ProductionIcon {
     /// The atlas frame this icon is, as the host has mapped it.
@@ -218,7 +218,7 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, hovered: bool) {
             icon_rect,
             &text::body(TILE_TEXT_SIZE, text::BodyWeight::Semibold)
                 .with_color(theme::TEXT_SECONDARY),
-            &item.icon.index.to_string(),
+            &unit_codes::code_or_index(item.icon.index),
             Align::Center,
         ),
     }

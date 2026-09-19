@@ -1,10 +1,11 @@
-//! The controls that carry a setting: a segmented choice, a switch and a slider.
+//! The controls that carry a setting: a segmented choice, a strip of tabs, a switch and a
+//! slider.
 
 use std::ops::RangeInclusive;
 
 use egui::{Color32, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
-use crate::colors::{BLUE60, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60};
+use crate::colors::{BLUE60, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60, GREY_BLUE70};
 use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::tiers::gradient_round_rect;
@@ -270,4 +271,153 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>) -> Respo
         theme::TEXT_PRIMARY,
     );
     response
+}
+
+/// Horizontal padding inside a tab chip, and the least it may keep once the strip runs out of room.
+const TAB_PAD_X: f32 = 10.0;
+const TAB_PAD_X_MIN: f32 = 3.0;
+
+/// Vertical padding inside a tab chip.
+const TAB_PAD_Y: f32 = 4.0;
+
+/// Gap between two chips. Narrow enough that the row reads as one control rather than as a handful
+/// of buttons that happen to be beside each other.
+const TAB_GAP: f32 = theme::SPACE_XS;
+
+/// How wide a strip of these labels wants to be, for a caller reserving room for one beside
+/// something else.
+pub fn tab_strip_width(ui: &Ui, labels: &[&str]) -> f32 {
+    let spec = text::column_label();
+    let text: f32 = labels
+        .iter()
+        .map(|label| spec.galley(ui, label).size().x)
+        .sum();
+    text + chrome_width(labels.len(), TAB_PAD_X)
+}
+
+/// A row of chips naming what one surface could be showing, the one it is showing lit. Returns the
+/// chip that was clicked.
+///
+/// The strip never grows past `max_width`: a row that did would be clipped mid-word by whatever it
+/// sits in. It gives up its padding first and elides its labels second, in that order because which
+/// chip is lit is what the strip is read for at a glance, and that survives both.
+pub fn tab_strip(ui: &mut Ui, selected: usize, labels: &[&str], max_width: f32) -> Option<usize> {
+    if labels.is_empty() {
+        return None;
+    }
+    let spec = text::column_label();
+    let natural: Vec<f32> = labels
+        .iter()
+        .map(|label| spec.galley(ui, label).size().x)
+        .collect();
+    let text_total: f32 = natural.iter().sum();
+    let count = labels.len();
+    let gaps = TAB_GAP * count.saturating_sub(1) as f32;
+    // The padding is what a crowded strip gives up first: a chip drawn tight is still a chip, and
+    // a label cut short is a name the watcher has to guess at.
+    let pad_x =
+        ((max_width - gaps - text_total) / (count as f32 * 2.0)).clamp(TAB_PAD_X_MIN, TAB_PAD_X);
+    let room = (max_width - chrome_width(count, pad_x)).max(0.0);
+    let fitted = fitted_labels(&natural, room);
+
+    let galleys: Vec<_> = labels
+        .iter()
+        .zip(&fitted)
+        .zip(&natural)
+        .map(|((label, fitted), natural)| {
+            let job = if fitted < natural {
+                spec.job_truncated(label, *fitted)
+            } else {
+                spec.job(label)
+            };
+            ui.ctx().fonts_mut(|fonts| fonts.layout_job(job))
+        })
+        .collect();
+    // An elided galley can come back a hair over the width it was given, since the ellipsis is
+    // added after the fit, so each chip is clamped rather than trusted.
+    let widths: Vec<f32> = galleys
+        .iter()
+        .zip(&fitted)
+        .map(|(galley, fitted)| galley.size().x.min(*fitted) + pad_x * 2.0)
+        .collect();
+    let height = galleys
+        .iter()
+        .map(|galley| galley.size().y)
+        .fold(0.0, f32::max)
+        + TAB_PAD_Y * 2.0;
+    let (rect, response) = ui.allocate_exact_size(
+        vec2(widths.iter().sum::<f32>() + gaps, height),
+        Sense::hover(),
+    );
+
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    let mut clicked = None;
+    let mut left = rect.left();
+    for (index, galley) in galleys.into_iter().enumerate() {
+        let chip = Rect::from_min_size(pos2(left, rect.top()), vec2(widths[index], height));
+        left = chip.right() + TAB_GAP;
+        let chip_response = ui.interact(chip, response.id.with(index), Sense::click());
+        if chip_response.clicked() {
+            clicked = Some(index);
+        }
+        let active = index == selected;
+        if active {
+            ui.painter()
+                .rect_filled(chip, corner_radius, theme::alpha(BLUE60, 0.35));
+        }
+        ui.painter().add(Shape::rect_stroke(
+            chip,
+            corner_radius,
+            Stroke::new(
+                theme::HAIRLINE,
+                theme::alpha(BLUE60, if active { 0.70 } else { 0.25 }),
+            ),
+            StrokeKind::Inside,
+        ));
+        state_overlay(ui, &chip_response, chip, corner_radius);
+        focus_ring(ui, &chip_response, chip, corner_radius);
+        let color = if active { BLUE99 } else { GREY_BLUE70 };
+        ui.painter()
+            .galley(chip.center() - galley.size() * 0.5, galley, color);
+    }
+    clicked
+}
+
+/// Everything a strip of `count` chips takes up besides its labels: the padding inside each chip
+/// and the gaps between them.
+fn chrome_width(count: usize, pad_x: f32) -> f32 {
+    pad_x * 2.0 * count as f32 + TAB_GAP * count.saturating_sub(1) as f32
+}
+
+/// How much width each label gets out of `room`: every label that fits an equal share of it keeps
+/// its whole width, and whatever it leaves over is shared out again among the ones that do not.
+///
+/// A strip that took the same fraction off every label instead would elide the short names too,
+/// and a short name is the one a glance can still read whole.
+fn fitted_labels(natural: &[f32], room: f32) -> Vec<f32> {
+    let mut fitted: Vec<Option<f32>> = vec![None; natural.len()];
+    let mut left = room;
+    loop {
+        let open = fitted.iter().filter(|width| width.is_none()).count();
+        if open == 0 {
+            return fitted
+                .into_iter()
+                .map(|width| width.unwrap_or(0.0))
+                .collect();
+        }
+        let share = left / open as f32;
+        let settled: Vec<usize> = (0..natural.len())
+            .filter(|index| fitted[*index].is_none() && natural[*index] <= share)
+            .collect();
+        if settled.is_empty() {
+            // Everything still open wants more than its share, so they all take exactly that.
+            return (0..natural.len())
+                .map(|index| fitted[index].unwrap_or(share))
+                .collect();
+        }
+        for index in settled {
+            fitted[index] = Some(natural[index]);
+            left -= natural[index];
+        }
+    }
 }

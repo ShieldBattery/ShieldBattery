@@ -23,7 +23,7 @@ use overlay_ui::observer::{
     TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
     TimelineView, team_name,
 };
-use overlay_ui::shell::PanelPreset;
+use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
 
 use crate::knobs::Knobs as AllKnobs;
@@ -70,6 +70,16 @@ const EVENT_KINDS: [TimelineEventKind; 6] = [
 const ZERG_UNITS: [u16; 5] = [41, 37, 38, 43, 42];
 const TERRAN_UNITS: [u16; 5] = [7, 0, 2, 5, 8];
 const PROTOSS_UNITS: [u16; 5] = [64, 65, 66, 71, 69];
+
+/// The buildings a player of each race keeps on a key: their production and their town hall, which
+/// are the two every player of the race binds.
+const ZERG_BUILDINGS: [u16; 2] = [0x8e, 0x83];
+const TERRAN_BUILDINGS: [u16; 2] = [0x71, 0x6a];
+const PROTOSS_BUILDINGS: [u16; 2] = [0xa0, 0x9a];
+
+/// Which slot of a player's control groups the two building groups start at, which is where a
+/// player who binds their buildings at all puts them: after the armies they made with them.
+const BUILDING_SLOT: usize = 4;
 
 /// The fake game's knobs.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -464,6 +474,15 @@ fn race_units(race: RaceView) -> [u16; 5] {
     }
 }
 
+/// The buildings a player of this race's building groups are filled from.
+fn race_buildings(race: RaceView) -> [u16; 2] {
+    match race {
+        RaceView::Zerg => ZERG_BUILDINGS,
+        RaceView::Terran => TERRAN_BUILDINGS,
+        RaceView::Protoss | RaceView::Random => PROTOSS_BUILDINGS,
+    }
+}
+
 fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> MatchupPlayerView {
     let (supply_used, supply_max) = supply(knobs, index, t);
     MatchupPlayerView {
@@ -566,6 +585,11 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
 
 /// What a player has bound to their number keys: the first few of the ten, so the panel is judged
 /// with empty slots on it as well as full ones.
+///
+/// Every form a slot takes is dealt to someone, because a panel that only ever showed armies of one
+/// unit would be judged on the easy half of its job: two of the slots hold a building, which the
+/// game only lets one of on a key and which is drawn without a count, and every fourth slot holds a
+/// mix of two units, which is drawn as both.
 fn control_groups_player(
     knobs: &Knobs,
     state: &State,
@@ -573,18 +597,32 @@ fn control_groups_player(
     t: f64,
 ) -> ControlGroupsPlayerView {
     let units = race_units(knobs.race(index));
+    let buildings = race_buildings(knobs.race(index));
+    let icon = |id: u16| ProductionIcon {
+        texture: None,
+        index: id,
+    };
     let groups = (0..knobs.control_groups.min(10))
-        .map(|slot| ControlGroupView {
-            // Key `0` sits at the end of the number row, which is where the tenth group goes.
-            key: ((slot + 1) % 10) as u8,
-            icon: ProductionIcon {
-                texture: None,
-                index: units[(slot + index) % units.len()],
-            },
-            count: 1 + wave(slot as f64 * 1.9 + index as f64, t, 0.031, 11.0),
-            // Every third group goes untouched, which is what proves a stale one is told apart
-            // from a live one at a glance rather than only by reading it.
-            stale: (slot + index) % 3 == 2,
+        .map(|slot| {
+            let building = slot.checked_sub(BUILDING_SLOT).filter(|&of| of < 2);
+            ControlGroupView {
+                // Key `0` sits at the end of the number row, which is where the tenth group goes.
+                key: ((slot + 1) % 10) as u8,
+                icon: icon(match building {
+                    Some(of) => buildings[of],
+                    None => units[(slot + index) % units.len()],
+                }),
+                combo: (building.is_none() && slot % 4 == 3)
+                    .then(|| icon(units[(slot + index + 1) % units.len()])),
+                count: match building {
+                    Some(_) => 1,
+                    None => 1 + wave(slot as f64 * 1.9 + index as f64, t, 0.031, 11.0),
+                },
+                building: building.is_some(),
+                // Every third group goes untouched, which is what proves a stale one is told apart
+                // from a live one at a glance rather than only by reading it.
+                stale: (slot + index) % 3 == 2,
+            }
         })
         .collect();
     ControlGroupsPlayerView {
@@ -607,81 +645,112 @@ fn fraction(value: f64) -> f32 {
     (value - value.floor()) as f32
 }
 
+/// How much of the overlay a preset puts on screen at once.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Screen {
+    /// The game and as little else as possible: the matchup bar, the minimap and the plate.
+    Minimal,
+    /// Every panel the overlay has, over the game's own console.
+    Standard,
+    /// Every panel with the game's console hidden, which is where our own bottom panels have the
+    /// room the design draws them in.
+    Analyst,
+}
+
+impl Screen {
+    /// Moves `prefs` to this screen's set of surfaces, leaving the dock where the watcher put it.
+    fn apply(self, prefs: &mut PanelPrefs) {
+        // Everything a minimal screen gives up.
+        let analysis = self != Screen::Minimal;
+        prefs.matchup = true;
+        prefs.minimap = true;
+        prefs.transport = true;
+        prefs.map_control = analysis;
+        prefs.economy = analysis;
+        prefs.military = analysis;
+        prefs.graphs = analysis;
+        prefs.timeline = analysis;
+        prefs.production = analysis;
+        prefs.control_groups = analysis;
+        prefs.console = self == Screen::Standard;
+    }
+}
+
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
     /// How many players the game has, which is what decides whether it is read from the bar's two
     /// halves, its stacked ones, or the corner cards.
     pub players: usize,
-    pub panels: PanelPreset,
+    pub panels: Screen,
 }
 
 impl Preset {
     pub const ALL: [Preset; 12] = [
         Preset {
             players: 2,
-            panels: PanelPreset::Minimal,
+            panels: Screen::Minimal,
         },
         Preset {
             players: 2,
-            panels: PanelPreset::Standard,
+            panels: Screen::Standard,
         },
         Preset {
             players: 2,
-            panels: PanelPreset::Analyst,
+            panels: Screen::Analyst,
         },
         Preset {
             players: 4,
-            panels: PanelPreset::Minimal,
+            panels: Screen::Minimal,
         },
         Preset {
             players: 4,
-            panels: PanelPreset::Standard,
+            panels: Screen::Standard,
         },
         Preset {
             players: 4,
-            panels: PanelPreset::Analyst,
+            panels: Screen::Analyst,
         },
         Preset {
             players: 6,
-            panels: PanelPreset::Minimal,
+            panels: Screen::Minimal,
         },
         Preset {
             players: 6,
-            panels: PanelPreset::Standard,
+            panels: Screen::Standard,
         },
         Preset {
             players: 6,
-            panels: PanelPreset::Analyst,
+            panels: Screen::Analyst,
         },
         Preset {
             players: 8,
-            panels: PanelPreset::Minimal,
+            panels: Screen::Minimal,
         },
         Preset {
             players: 8,
-            panels: PanelPreset::Standard,
+            panels: Screen::Standard,
         },
         Preset {
             players: 8,
-            panels: PanelPreset::Analyst,
+            panels: Screen::Analyst,
         },
     ];
 
     pub fn label(self) -> &'static str {
         match (self.players, self.panels) {
-            (2, PanelPreset::Minimal) => "1v1-minimal",
-            (2, PanelPreset::Standard) => "1v1-standard",
-            (2, PanelPreset::Analyst) => "1v1-analyst",
-            (4, PanelPreset::Minimal) => "2v2-minimal",
-            (4, PanelPreset::Standard) => "2v2-standard",
-            (4, PanelPreset::Analyst) => "2v2-analyst",
-            (6, PanelPreset::Minimal) => "3v3-minimal",
-            (6, PanelPreset::Standard) => "3v3-standard",
-            (6, PanelPreset::Analyst) => "3v3-analyst",
-            (_, PanelPreset::Minimal) => "4v4-minimal",
-            (_, PanelPreset::Standard) => "4v4-standard",
-            (_, PanelPreset::Analyst) => "4v4-analyst",
+            (2, Screen::Minimal) => "1v1-minimal",
+            (2, Screen::Standard) => "1v1-standard",
+            (2, Screen::Analyst) => "1v1-analyst",
+            (4, Screen::Minimal) => "2v2-minimal",
+            (4, Screen::Standard) => "2v2-standard",
+            (4, Screen::Analyst) => "2v2-analyst",
+            (6, Screen::Minimal) => "3v3-minimal",
+            (6, Screen::Standard) => "3v3-standard",
+            (6, Screen::Analyst) => "3v3-analyst",
+            (_, Screen::Minimal) => "4v4-minimal",
+            (_, Screen::Standard) => "4v4-standard",
+            (_, Screen::Analyst) => "4v4-analyst",
         }
     }
 
@@ -689,9 +758,9 @@ impl Preset {
     pub fn apply(self, knobs: &mut AllKnobs) {
         knobs.host.mode = overlay_ui::shell::Mode::Replay;
         self.panels.apply(&mut knobs.host.panels);
-        // The dock's two forms are both worth looking at, and the preset that asks for everything is
-        // the one whose watcher wants the rail spelled out.
-        knobs.host.panels.dock_expanded = self.panels == PanelPreset::Analyst;
+        // The dock's two forms are both worth looking at, and the screen that asks for everything
+        // is the one whose watcher wants the rail spelled out.
+        knobs.host.panels.dock_expanded = self.panels == Screen::Analyst;
         knobs.observer = Knobs {
             players: self.players,
             ..Knobs::default()
@@ -704,8 +773,8 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     let mut changed = false;
 
     ui.label(
-        "Which panels are up is the shell's: the dock's own preset buttons and the panel \
-         checkboxes above move that.",
+        "Which panels are up is the shell's: the dock's own rows and the panel checkboxes above \
+         move that.",
     );
 
     changed |= ui

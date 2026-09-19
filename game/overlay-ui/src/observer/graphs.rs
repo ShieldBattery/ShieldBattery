@@ -1,16 +1,17 @@
 //! The graphs panel: one measurement of the game, plotted for every player since the first frame.
 //!
 //! A panel that plotted everything at once would plot nothing legibly, so it plots one series at a
-//! time and the watcher walks between them. That is why the panel's title is the series' own name
-//! rather than the word "graphs": the key that opens the panel is also the key that cycles it, and
-//! the title is what tells the watcher where in the cycle they are.
+//! time. Which one is up, and which one the watcher could have instead, is the tab strip under the
+//! header: the key that opens the panel walks that same strip, and a walk with no map is a walk
+//! nobody can aim.
 //!
 //! The plot itself is the kit's, so the axes, the legend and the fill under each line look the same
 //! here as anywhere else the overlay draws a series.
 
-use egui::{Color32, Context, Id, Rect, Ui, vec2};
+use egui::{Align, Color32, Context, Id, Layout, Rect, Ui, vec2};
 use serde::{Deserialize, Serialize};
 
+use crate::kit::theme;
 use crate::kit::widgets::{self, Series};
 use crate::observer::{Wing, wing_panel};
 use crate::tr;
@@ -52,17 +53,24 @@ impl GraphSeries {
         GraphSeries::Kills,
     ];
 
-    /// The next series in the cycle, or `None` after the last one.
+    /// The next series in the walk, or `None` after the last one.
     ///
-    /// `None` rather than wrapping, because the key that walks this cycle is also the key that
-    /// closes the panel: a cycle with no end would leave the watcher pressing it five more times to
-    /// get their screen back.
+    /// `None` rather than wrapping, because the key that walks these is also the key that closes
+    /// the panel: a walk with no end would leave the watcher pressing it five more times to get
+    /// their screen back.
     pub fn next(self) -> Option<GraphSeries> {
         let index = GraphSeries::ALL.iter().position(|kind| *kind == self)?;
         GraphSeries::ALL.get(index + 1).copied()
     }
 
-    /// What this series is called, which is also the panel's title while it is the one plotted.
+    /// The series before this one, or `None` at the first one. Ends rather than wrapping, for the
+    /// reason [`GraphSeries::next`] does.
+    pub fn previous(self) -> Option<GraphSeries> {
+        let index = GraphSeries::ALL.iter().position(|kind| *kind == self)?;
+        GraphSeries::ALL.get(index.checked_sub(1)?).copied()
+    }
+
+    /// What this series is called, which is what its tab is labelled with.
     pub fn title(self) -> String {
         match self {
             GraphSeries::ArmyValue => tr!("observer.seriesArmyValue", "Army value"),
@@ -96,24 +104,6 @@ pub enum GraphGrouping {
     Players,
 }
 
-impl GraphGrouping {
-    /// What the panel is titled while it is plotting `series` this way.
-    fn title(self, series: GraphSeries) -> String {
-        match self {
-            GraphGrouping::Teams => tr!(
-                "observer.graphsByTeam",
-                "{{series}} by team",
-                series = series.title()
-            ),
-            GraphGrouping::Players => tr!(
-                "observer.graphsByPlayer",
-                "{{series}} by player",
-                series = series.title()
-            ),
-        }
-    }
-}
-
 /// One line on the plot: a player's, or a whole side's.
 pub struct GraphLineView {
     /// Who the line belongs to, which is what the legend names it by.
@@ -134,8 +124,8 @@ pub struct GraphsView {
     /// from: a plot of the first two minutes and a plot of an hour look identical without it.
     pub span_secs: u32,
     pub lines: Vec<GraphLineView>,
-    /// What the lines are of, for a game that has both forms, or `None` for one that does not.
-    /// What the title says, so a watcher who pressed the chord can see it landed.
+    /// What the lines are of, for a game that has both forms, or `None` for one that does not. The
+    /// panel offers the other form beside its series tabs while this is set.
     pub grouping: Option<GraphGrouping>,
 }
 
@@ -146,10 +136,25 @@ impl GraphsView {
     }
 }
 
+/// What the watcher asked of the graphs panel this frame.
+pub struct GraphsOutcome {
+    /// Where the panel is on screen, for the host's hit testing.
+    pub rect: Rect,
+    /// A measurement to plot instead.
+    pub series: Option<GraphSeries>,
+    /// Whether the lines should be the players rather than the sides they are on.
+    pub per_player: Option<bool>,
+}
+
 /// Draws the graphs panel against the right edge of the screen at `top`, fading and sliding it in
 /// and out. Returns nothing at all once it is gone, or before there are two samples to draw a line
 /// between.
-pub fn render_graphs_view(view: &GraphsView, ctx: &Context, shown: bool, top: f32) -> Option<Rect> {
+pub fn render_graphs_view(
+    view: &GraphsView,
+    ctx: &Context,
+    shown: bool,
+    top: f32,
+) -> Option<GraphsOutcome> {
     let id = Id::new("sb_graphs_panel");
     let inner = wing_panel(
         ctx,
@@ -160,15 +165,18 @@ pub fn render_graphs_view(view: &GraphsView, ctx: &Context, shown: bool, top: f3
         shown && !view.is_empty(),
         |ui| draw_panel(ui, view),
     )?;
-    Some(inner.response.rect)
+    let (series, per_player) = inner.inner;
+    Some(GraphsOutcome {
+        rect: inner.response.rect,
+        series,
+        per_player,
+    })
 }
 
-fn draw_panel(ui: &mut Ui, view: &GraphsView) {
-    let title = match view.grouping {
-        Some(grouping) => grouping.title(view.series),
-        None => view.series.title(),
-    };
-    widgets::panel_header(ui, &title, Some("G"));
+fn draw_panel(ui: &mut Ui, view: &GraphsView) -> (Option<GraphSeries>, Option<bool>) {
+    widgets::panel_header(ui, &tr!("observer.panelGraphs", "Graphs"), Some("G"));
+    let picked = draw_tabs(ui, view);
+    ui.add_space(theme::SPACE_SM);
     let series: Vec<Series<'_>> = view
         .lines
         .iter()
@@ -187,6 +195,63 @@ fn draw_panel(ui: &mut Ui, view: &GraphsView) {
         vec2(CONTENT_WIDTH, PLOT_HEIGHT),
         view.span_secs,
     );
+    picked
+}
+
+/// Draws the row under the header: the measurements on the left, and what the lines stand for at
+/// the right end of it in a game that has both forms of them.
+///
+/// A row of its own rather than tabs in the header, because five measurements, a title and a keycap
+/// do not share one line in every language the overlay is read in.
+fn draw_tabs(ui: &mut Ui, view: &GraphsView) -> (Option<GraphSeries>, Option<bool>) {
+    let series_labels: Vec<String> = GraphSeries::ALL
+        .into_iter()
+        .map(|series| series.title())
+        .collect();
+    let grouping_labels = [
+        tr!("observer.graphTeams", "Teams"),
+        tr!("observer.graphPlayers", "Players"),
+    ];
+    ui.horizontal(|ui| {
+        let row = ui.available_width();
+        let grouping_room = match view.grouping {
+            Some(_) => widgets::tab_strip_width(ui, &borrowed(&grouping_labels)) + theme::SPACE_MD,
+            None => 0.0,
+        };
+        let index = GraphSeries::ALL
+            .iter()
+            .position(|series| *series == view.series)
+            .unwrap_or(0);
+        // The series strip is the one that gives way when the row is short: the grouping chips are
+        // two short words, and a pair of them elided is a pair nobody can tell apart.
+        let picked = widgets::tab_strip(
+            ui,
+            index,
+            &borrowed(&series_labels),
+            (row - grouping_room).max(0.0),
+        )
+        .and_then(|index| GraphSeries::ALL.get(index).copied());
+        let grouping = view.grouping.and_then(|grouping| {
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let active = usize::from(grouping == GraphGrouping::Players);
+                widgets::tab_strip(
+                    ui,
+                    active,
+                    &borrowed(&grouping_labels),
+                    ui.available_width(),
+                )
+            })
+            .inner
+            .map(|index| index == 1)
+        });
+        (picked, grouping)
+    })
+    .inner
+}
+
+/// The kit's strips take borrowed labels, which is what a translated string has to be lent as.
+fn borrowed(labels: &[String]) -> Vec<&str> {
+    labels.iter().map(String::as_str).collect()
 }
 
 #[cfg(test)]
@@ -202,13 +267,25 @@ mod tests {
     }
 
     #[test]
-    fn the_cycle_ends_rather_than_wrapping() {
+    fn the_walk_ends_rather_than_wrapping() {
         let mut series = GraphSeries::default();
         let mut walked = vec![series];
         while let Some(next) = series.next() {
             series = next;
             walked.push(series);
         }
+        assert_eq!(walked, GraphSeries::ALL.to_vec());
+    }
+
+    #[test]
+    fn walking_back_retraces_the_way_forward() {
+        let mut series = *GraphSeries::ALL.last().unwrap();
+        let mut walked = vec![series];
+        while let Some(previous) = series.previous() {
+            series = previous;
+            walked.push(series);
+        }
+        walked.reverse();
         assert_eq!(walked, GraphSeries::ALL.to_vec());
     }
 }

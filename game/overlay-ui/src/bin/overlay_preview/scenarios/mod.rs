@@ -149,7 +149,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 6] = [
     Preset::Transport(transport::Preset::SpoilerFree),
     Preset::Observer(observer::Preset {
         players: 6,
-        panels: overlay_ui::shell::PanelPreset::Analyst,
+        panels: observer::Screen::Analyst,
     }),
     Preset::Shell(shell::Preset::GameMenu),
 ];

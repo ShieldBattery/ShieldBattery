@@ -20,10 +20,9 @@ use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
-    EdgeCursor, STAT_COLOR_BAR, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value,
-    paint_stat_identity, paint_team_divider, paint_text, teams_worth_dividing, vision_alpha,
-    wing_panel,
+    EdgeCursor, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
+    STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
+    paint_team_divider, paint_text, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::{tr, tr_plural};
 
@@ -38,13 +37,13 @@ const BAR_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
 /// its column would otherwise push every number beside it out of the design's grid.
-const NAME_WIDTH: f32 = 112.0;
+const NAME_WIDTH: f32 = 114.0;
 
 /// Gap between two columns.
-const COLUMN_GAP: f32 = 10.0;
+const COLUMN_GAP: f32 = 6.0;
 
 /// Width of one of the two halves of the income column.
-const RATE_WIDTH: f32 = 69.0;
+const RATE_WIDTH: f32 = 71.0;
 
 /// Gap between the mineral rate and the gas rate, which is wider than the gap inside either of them
 /// so the pair reads as two numbers rather than four.
@@ -54,11 +53,11 @@ const RATE_GAP: f32 = 14.0;
 const INCOME_WIDTH: f32 = RATE_WIDTH * 2.0 + RATE_GAP;
 
 /// Width of the worker column, which carries a count and how many of it are standing still.
-const WORKERS_WIDTH: f32 = 104.0;
+const WORKERS_WIDTH: f32 = 92.0;
 
 /// Width of the efficiency column. The narrowest of the three, because it is the only one carrying
 /// a single number with no second half and no word beside it.
-const EFFICIENCY_WIDTH: f32 = 40.0;
+const EFFICIENCY_WIDTH: f32 = 58.0;
 
 /// The columns are the row and the row is the panel. Checked where the widths are written, because
 /// a column more than fits would be drawn outside the panel's chrome.
@@ -194,7 +193,7 @@ fn draw_headings(ui: &mut Ui) {
         ui,
         cursor.take(EFFICIENCY_WIDTH),
         &tr!("observer.columnEfficiency", "Eff"),
-        Align::RIGHT,
+        Align::LEFT,
     );
 }
 
@@ -219,6 +218,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
         cursor.take(RATE_WIDTH),
         ResourceGlyph::Minerals,
         &player.minerals_per_minute.to_string(),
+        Align::LEFT,
         alpha,
     );
     cursor.skip(RATE_GAP);
@@ -227,6 +227,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
         cursor.take(RATE_WIDTH),
         ResourceGlyph::Gas,
         &player.gas_per_minute.to_string(),
+        Align::LEFT,
         alpha,
     );
 
@@ -243,7 +244,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
         &text::body(EFFICIENCY_SIZE, text::BodyWeight::Medium)
             .with_color(theme::TEXT_POSITIVE.gamma_multiply(alpha)),
         &player.efficiency().to_string(),
-        Align::RIGHT,
+        Align::LEFT,
     );
 }
 
@@ -253,15 +254,12 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
 /// train the watcher to stop reading the column, which is the one thing it exists to be read for.
 fn draw_workers(ui: &Ui, rect: Rect, player: &EconomyPlayerView, alpha: f32) {
     let mut cursor = EdgeCursor::from_left(rect);
-    // The count sits where a resource number would, so the three numeric columns line up down the
-    // panel even though this one names no resource.
-    cursor.skip(STAT_GLYPH + STAT_GLYPH_GAP);
     paint_text(
         ui,
-        cursor.take(rect.width() - STAT_GLYPH - STAT_GLYPH_GAP - IDLE_GAP - IDLE_WIDTH),
+        cursor.take(rect.width() - IDLE_GAP - IDLE_WIDTH),
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
         &player.workers.to_string(),
-        Align::RIGHT,
+        Align::LEFT,
     );
     if player.idle_workers == 0 {
         return;
