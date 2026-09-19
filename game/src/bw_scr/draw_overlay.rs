@@ -478,8 +478,8 @@ impl OverlayState {
             });
             ObserverView {
                 // The corner cards are what a game the bar has no halves for is read from instead.
-                // A game split into more sides than the two corners hold draws none of them, which
-                // the view itself decides from the sides it was handed.
+                // They are cut from the game exactly where the bar would have cut it, so the same
+                // players end up on the same side of the screen either way.
                 team_cards: (matchup.form() == MatchupForm::ClockOnly)
                     .then(|| stats::build_team_cards_view(&matchup, &players, game_stats)),
                 economy: stats::build_economy_view(&players, game_stats),

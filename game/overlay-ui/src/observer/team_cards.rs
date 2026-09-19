@@ -1,9 +1,9 @@
 //! The team cards: what the matchup bar becomes once a game has more players than a bar can hold.
 //!
-//! Four players still fit across the top of the screen as two stacked pairs. Six or eight do not,
-//! so the bar gives up its halves, keeps the clock alone in the middle, and each side moves into a
-//! card of its own in a top corner — at the kit's hero tier, because these carry the match's
-//! identity exactly as the bar does.
+//! Four players still fit across the top of the screen as two stacked pairs. More than two in a
+//! half do not, so the bar gives up its halves, keeps the clock alone in the middle, and each half
+//! moves into a card of its own in a top corner — at the kit's hero tier, because these carry the
+//! match's identity exactly as the bar does.
 //!
 //! A card is read top to bottom: whose side it is and what the side is sitting on, then a row per
 //! player with the four numbers a watcher checks constantly, then the side's totals along the
@@ -11,9 +11,12 @@
 //! ahead, and four columns of per-player numbers answer that only after the watcher has added them
 //! up themselves.
 //!
+//! A card for a half the game never named — one end of a free-for-all, or of a game split into
+//! more sides than there are corners — keeps its rows and gives up both its title and its totals.
+//! A sum across players who are not on a side together is a number about nothing, and a title would
+//! claim the side that sum implies.
+//!
 //! Two cards at most, because the design gives them the screen's two top corners and nothing else.
-//! A game split into more sides than that is left with the clock alone rather than with a stack of
-//! cards over the panels underneath.
 
 use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, pos2, vec2};
 
@@ -148,12 +151,15 @@ pub struct TeamCardTotalsView {
     pub units_lost: u32,
 }
 
-/// One side of the game.
+/// One end of the game: a side of it, or a half of one that has no sides to be read off.
 pub struct TeamCardView {
-    /// The game's own team number, which is what the card is titled by.
-    pub team: u8,
+    /// The game's own team number, which is what the card is titled by, or `None` for a half that
+    /// stands for no side the game ever named.
+    pub team: Option<u8>,
     pub players: Vec<TeamCardPlayerView>,
-    pub totals: TeamCardTotalsView,
+    /// What the side has between them, or `None` for a card whose players are not on a side
+    /// together and so have nothing between them to add up.
+    pub totals: Option<TeamCardTotalsView>,
 }
 
 impl TeamCardView {
@@ -170,8 +176,8 @@ impl TeamCardView {
 
 /// Everything the team cards draw from.
 pub struct TeamCardsView {
-    /// The sides, outermost first: the first takes the screen's top-left corner and the second its
-    /// top-right. Any other count draws nothing at all.
+    /// The two ends of the game, outermost first: the first takes the screen's top-left corner and
+    /// the second its top-right. Any other count draws nothing at all.
     pub teams: Vec<TeamCardView>,
 }
 
@@ -246,21 +252,29 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView) {
         // layout, and egui's own item spacing would add to every one of them.
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         ui.set_width(CONTENT_WIDTH);
-        draw_header(ui, team);
+        // A card standing for a half of the game rather than for a side of it is given neither a
+        // title nor totals: both speak for a side, and players who share a card only because the
+        // game had to be cut somewhere are not one. The rows take the room the title would have
+        // had rather than standing under a band of nothing.
+        if let Some(number) = team.team {
+            draw_header(ui, team, number);
+        }
         draw_headings(ui);
         for player in &team.players {
             ui.add_space(STAT_ROW_GAP);
             draw_player(ui, player);
         }
-        ui.add_space(theme::SPACE_SM);
-        widgets::divider(ui);
-        ui.add_space(theme::SPACE_SM);
-        draw_totals(ui, &team.totals);
+        if let Some(totals) = &team.totals {
+            ui.add_space(theme::SPACE_SM);
+            widgets::divider(ui);
+            ui.add_space(theme::SPACE_SM);
+            draw_totals(ui, totals);
+        }
     });
 }
 
 /// Draws the card's title row: whose side it is, and what the side is sitting on between them.
-fn draw_header(ui: &mut Ui, team: &TeamCardView) {
+fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8) {
     let (rect, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADER_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(rect);
     // A side's own bar, which is what ties the card in the corner to the units on the map before
@@ -281,7 +295,7 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView) {
         ui,
         cursor.take(CONTENT_WIDTH),
         &text::hero_title(),
-        &team_name(team.team),
+        &team_name(number),
         Align::LEFT,
     );
     let (used, max) = team.supply();
@@ -536,36 +550,43 @@ mod tests {
             apm: 0,
         };
         let team = TeamCardView {
-            team: 1,
+            team: Some(1),
             players: vec![player(42, 60), player(18, 24)],
-            totals: TeamCardTotalsView::default(),
+            totals: Some(TeamCardTotalsView::default()),
         };
         assert_eq!(team.supply(), (60, 84));
     }
 
     #[test]
-    fn a_game_with_any_other_number_of_sides_gets_no_cards() {
+    fn a_game_with_any_other_number_of_cards_draws_none_of_them() {
         let card = |team| TeamCardView {
             team,
             players: Vec::new(),
-            totals: TeamCardTotalsView::default(),
+            totals: None,
         };
         assert!(TeamCardsView { teams: Vec::new() }.is_empty());
         assert!(
             TeamCardsView {
-                teams: vec![card(1)]
+                teams: vec![card(Some(1))]
             }
             .is_empty()
         );
         assert!(
             !TeamCardsView {
-                teams: vec![card(1), card(2)]
+                teams: vec![card(Some(1)), card(Some(2))]
+            }
+            .is_empty()
+        );
+        // The two halves of a game with no sides are two cards like any other pair.
+        assert!(
+            !TeamCardsView {
+                teams: vec![card(None), card(None)]
             }
             .is_empty()
         );
         assert!(
             TeamCardsView {
-                teams: vec![card(1), card(2), card(3)]
+                teams: vec![card(Some(1)), card(Some(2)), card(Some(3))]
             }
             .is_empty()
         );
