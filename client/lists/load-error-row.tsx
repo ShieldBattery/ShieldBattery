@@ -19,7 +19,17 @@ const ErrorIcon = styled(MaterialIcon)`
 
 const Message = styled.div`
   ${bodyMedium};
+  min-width: 0;
   color: var(--theme-on-surface-variant);
+`
+
+/**
+ * The row can be as narrow as a channel's user list, where the message and the button together
+ * don't fit on one line. The message is the part that may wrap; the button keeps its intrinsic
+ * width so its label is never cut off mid-word.
+ */
+const RetryButton = styled(TextButton)`
+  flex-shrink: 0;
 `
 
 /**
@@ -43,7 +53,7 @@ export function LoadErrorRow({
     <Root className={className}>
       <ErrorIcon icon='error' size={20} />
       <Message>{message}</Message>
-      <TextButton label={t('common.actions.retry', 'Retry')} onClick={onRetry} />
+      <RetryButton label={t('common.actions.retry', 'Retry')} onClick={onRetry} />
     </Root>
   )
 }
