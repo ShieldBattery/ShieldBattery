@@ -69,7 +69,8 @@ pub struct ObserverView {
     pub matchup: MatchupView,
     /// The corner cards a game too big for the matchup bar is read from, or `None` for one the bar
     /// still has room for. Two cards at most, because the design gives them the screen's two top
-    /// corners and nothing else: a game split into more sides than that keeps the clock alone.
+    /// corners and nothing else: a game of more sides than that is cut into two halves rather than
+    /// into more cards.
     pub team_cards: Option<TeamCardsView>,
     pub economy: EconomyView,
     pub military: MilitaryView,
@@ -627,6 +628,8 @@ mod tests {
         assert!(teams_worth_dividing([1, 1, 2, 2]));
         assert!(teams_worth_dividing([1, 1, 1, 2, 2, 2]));
         assert!(teams_worth_dividing([1, 2, 2]));
+        // Four sides of two are four blocks of rows, each worth a rule of its own.
+        assert!(teams_worth_dividing([1, 1, 2, 2, 3, 3, 4, 4]));
     }
 
     #[test]

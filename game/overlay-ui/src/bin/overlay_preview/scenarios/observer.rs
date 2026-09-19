@@ -11,17 +11,19 @@
 //! same image every time, and the preview's own clock is the only thing that moves it.
 //!
 //! Every measurement here is per-player and knows nothing about how many players there are, so the
-//! same fake game drives a duel, two sides of two and two sides of four. What changes with the
-//! count is which surfaces the game has: a duel is read from the matchup bar, four players from the
-//! stacked one, and anything larger from the corner team cards.
+//! same fake game drives a duel, two sides of two, two sides of four and a free-for-all of any
+//! size. What changes with the shape is which surfaces the game has: two players are read from the
+//! matchup bar, up to two a half from its stacked form, and anything wider from the corner team
+//! cards.
 
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionItemView, ProductionPlayerView, ProductionProgressView, ProductionView, RaceView,
-    SelectedUnitView, SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, team_name,
+    MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
+    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
+    ProductionView, RaceView, SelectedUnitView, SelectionView, TeamCardPlayerView,
+    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
+    TimelineView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -49,10 +51,6 @@ const EVENT_INTERVAL_SECS: u64 = 37;
 /// How many events the fake game keeps. More than the panel draws, so a host that grew the feed
 /// would have something to grow it with.
 const TIMELINE_DEPTH: usize = 12;
-
-/// The number of players a game has to reach before the matchup bar gives its halves up to the
-/// corner team cards.
-const TEAM_CARD_PLAYERS: usize = 5;
 
 /// What the fake game's timeline events are about, walked in turn: something is built, an upgrade
 /// runs its course, an expansion goes up, a technology runs its course.
@@ -100,9 +98,13 @@ pub struct Knobs {
     /// Where the game's clock starts, in seconds. A live game counts up from here; a replay takes
     /// its clock from the fake replay instead, so the two never disagree on screen.
     pub start_secs: u32,
-    /// How many players the fake game has. Split down the middle into two sides, which is what the
-    /// bar's two forms and the corner cards are all shapes of.
+    /// How many players the fake game has.
     pub players: usize,
+    /// How many players a side holds, filled in slot order: one side of this many, then the next.
+    /// A size of one is a free-for-all, where every player is their own side, and a size that does
+    /// not divide the player count leaves the last side short, the way a three-player game of two
+    /// against one does.
+    pub team_size: usize,
     /// What each player is playing, in slot order. A list rather than a fixed row of eight, so a
     /// knobs file written when the scenario had fewer slots still loads into this one.
     pub races: Vec<RaceView>,
@@ -138,6 +140,7 @@ impl Default for Knobs {
         Knobs {
             start_secs: 612,
             players: 2,
+            team_size: 1,
             races: vec![
                 RaceView::Zerg,
                 RaceView::Terran,
@@ -179,14 +182,21 @@ impl Knobs {
         }
     }
 
-    /// Which side a player is on. The first half of the slots are one side and the rest the other,
-    /// which is how a lobby lays a team game out.
+    /// How many players a side holds, whatever a knobs file asked for.
+    fn team_size(&self) -> usize {
+        self.team_size.clamp(1, self.player_count())
+    }
+
+    /// Which side a player is on, counting from one: the slots are dealt out a side at a time, the
+    /// way a lobby lays a team game out.
     fn team_of(&self, index: usize) -> u8 {
-        if index < self.player_count() / 2 {
-            1
-        } else {
-            2
-        }
+        (index / self.team_size()) as u8 + 1
+    }
+
+    /// How many sides the game has, the last of them short where the size does not divide the
+    /// players.
+    fn team_count(&self) -> usize {
+        self.player_count().div_ceil(self.team_size())
     }
 
     /// The slots on one side, in slot order.
@@ -196,9 +206,10 @@ impl Knobs {
             .collect()
     }
 
-    /// Whether this game is read from the corner cards rather than from the bar's own halves.
-    fn has_team_cards(&self) -> bool {
-        self.player_count() >= TEAM_CARD_PLAYERS
+    /// Whether this game has sides worth telling apart from the players on them, which is what
+    /// decides whether the graphs panel has two groupings to offer.
+    fn has_teams(&self) -> bool {
+        self.team_count() > 1 && self.team_size() > 1
     }
 }
 
@@ -257,8 +268,9 @@ pub fn build_view(
         is_replay,
     };
     ObserverView {
-        team_cards: knobs
-            .has_team_cards()
+        // The corner cards carry the players the bar gave up, so they are built for exactly the
+        // games the bar has no halves for.
+        team_cards: (matchup.form() == MatchupForm::ClockOnly)
             .then(|| team_cards(knobs, &matchup, t)),
         matchup,
         economy: EconomyView {
@@ -376,7 +388,7 @@ fn military_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Milita
 /// A game with one player per side has only one answer, so the panel is told there is no grouping
 /// to name rather than titled with a distinction it does not have.
 fn graphs_view(knobs: &Knobs, request: GraphRequest, game_secs: u64) -> GraphsView {
-    let has_teams = knobs.player_count() > 2;
+    let has_teams = knobs.has_teams();
     let per_player = request.per_player || !has_teams;
     let lines = if per_player {
         (0..knobs.player_count())
@@ -387,8 +399,7 @@ fn graphs_view(knobs: &Knobs, request: GraphRequest, game_secs: u64) -> GraphsVi
             })
             .collect()
     } else {
-        [1u8, 2]
-            .into_iter()
+        (1..=knobs.team_count() as u8)
             .map(|team| {
                 let side = knobs.side(team);
                 GraphLineView {
@@ -526,12 +537,15 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
     }
 }
 
-/// The two corner cards, built from the same players the bar would have carried.
+/// The two corner cards, built from the same players the bar would have carried, cut where the bar
+/// would have cut them.
 fn team_cards(knobs: &Knobs, matchup: &MatchupView, t: f64) -> TeamCardsView {
     TeamCardsView {
         teams: matchup
-            .sides()
+            .halves()
+            .each()
             .into_iter()
+            .filter(|(_, members)| !members.is_empty())
             .map(|(team, members)| TeamCardView {
                 team,
                 players: members
@@ -548,7 +562,9 @@ fn team_cards(knobs: &Knobs, matchup: &MatchupView, t: f64) -> TeamCardsView {
                         apm: player.apm,
                     })
                     .collect(),
-                totals: team_totals(knobs, team, t),
+                // Only a card that stands for a side has anything to sum: a half of a free-for-all
+                // is players who happen to share a corner, not a side with totals of its own.
+                totals: team.map(|team| team_totals(knobs, team, t)),
             })
             .collect(),
     }
@@ -881,6 +897,19 @@ impl Screen {
             _ => {}
         }
     }
+
+    /// What a render of this screen is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            Screen::Minimal => "minimal",
+            Screen::Standard => "standard",
+            Screen::Analyst => "analyst",
+            // The two reflow screens are takes on one another, so they are filed as a pair rather
+            // than each named after the panels it happens to hide.
+            Screen::ReflowWings => "reflow-a",
+            Screen::ReflowStack => "reflow-b",
+        }
+    }
 }
 
 /// Which of the selection panel's own readings a preset puts the fake game into.
@@ -900,18 +929,21 @@ pub enum Showcase {
 /// A one-click state of the observer panels: one shape of game, one set of surfaces.
 #[derive(Clone, Copy)]
 pub struct Preset {
-    /// How many players the game has, which is what decides whether it is read from the bar's two
-    /// halves, its stacked ones, or the corner cards.
+    /// How many players the game has, which together with the size of a side is what decides
+    /// whether it is read from the bar's two halves, its stacked ones, or the corner cards.
     pub players: usize,
+    /// How many players a side holds, one being a free-for-all.
+    pub team_size: usize,
     pub panels: Screen,
     pub showcase: Showcase,
 }
 
 impl Preset {
     /// One shape of game on one set of surfaces, with the selection the knobs' own.
-    pub const fn game(players: usize, panels: Screen) -> Preset {
+    pub const fn game(players: usize, team_size: usize, panels: Screen) -> Preset {
         Preset {
             players,
+            team_size,
             panels,
             showcase: Showcase::Knobs,
         }
@@ -921,53 +953,68 @@ impl Preset {
     const fn selection_showcase(showcase: Showcase) -> Preset {
         Preset {
             players: 2,
+            team_size: 1,
             panels: Screen::Analyst,
             showcase,
         }
     }
 
-    pub const ALL: [Preset; 16] = [
-        Preset::game(2, Screen::Minimal),
-        Preset::game(2, Screen::Standard),
-        Preset::game(2, Screen::Analyst),
-        Preset::game(2, Screen::ReflowWings),
-        Preset::game(2, Screen::ReflowStack),
-        Preset::game(4, Screen::Minimal),
-        Preset::game(4, Screen::Standard),
-        Preset::game(4, Screen::Analyst),
-        Preset::game(6, Screen::Minimal),
-        Preset::game(6, Screen::Standard),
-        Preset::game(6, Screen::Analyst),
-        Preset::game(8, Screen::Minimal),
-        Preset::game(8, Screen::Standard),
-        Preset::game(8, Screen::Analyst),
+    pub const ALL: [Preset; 20] = [
+        Preset::game(2, 1, Screen::Minimal),
+        Preset::game(2, 1, Screen::Standard),
+        Preset::game(2, 1, Screen::Analyst),
+        // The reflow screens are dealt to the duel alone, which is the shape with the room to read
+        // the move each of them is about off.
+        Preset::game(2, 1, Screen::ReflowWings),
+        Preset::game(2, 1, Screen::ReflowStack),
+        // An odd number of players, which is what leaves the stacked bar a slot short, and the
+        // same three with nobody allied, which is what leaves its halves standing for no side.
+        Preset::game(3, 2, Screen::Standard),
+        Preset::game(3, 1, Screen::Standard),
+        Preset::game(4, 2, Screen::Minimal),
+        Preset::game(4, 2, Screen::Standard),
+        Preset::game(4, 2, Screen::Analyst),
+        Preset::game(6, 3, Screen::Minimal),
+        Preset::game(6, 3, Screen::Standard),
+        Preset::game(6, 3, Screen::Analyst),
+        // A free-for-all and a game of four sides: both are read from cards the game names no side
+        // for, which is what the unlabelled card is drawn for.
+        Preset::game(6, 1, Screen::Analyst),
+        Preset::game(8, 2, Screen::Analyst),
+        Preset::game(8, 4, Screen::Minimal),
+        Preset::game(8, 4, Screen::Standard),
+        Preset::game(8, 4, Screen::Analyst),
         Preset::selection_showcase(Showcase::Producing),
         Preset::selection_showcase(Showcase::Loaded),
     ];
 
-    pub fn label(self) -> &'static str {
+    /// What a render of this preset is filed under: the shape of its game, then its screen.
+    pub fn label(self) -> String {
         match self.showcase {
-            Showcase::Producing => return "1v1-selection-building",
-            Showcase::Loaded => return "1v1-selection-cargo",
+            Showcase::Producing => return "1v1-selection-building".to_string(),
+            Showcase::Loaded => return "1v1-selection-cargo".to_string(),
             Showcase::Knobs => {}
         }
-        match (self.players, self.panels) {
-            (2, Screen::Minimal) => "1v1-minimal",
-            (2, Screen::Standard) => "1v1-standard",
-            (2, Screen::Analyst) => "1v1-analyst",
-            // The reflow screens are dealt to the duel alone, which is the shape with the room to
-            // read the move each of them is about off.
-            (_, Screen::ReflowWings) => "1v1-reflow-a",
-            (_, Screen::ReflowStack) => "1v1-reflow-b",
-            (4, Screen::Minimal) => "2v2-minimal",
-            (4, Screen::Standard) => "2v2-standard",
-            (4, Screen::Analyst) => "2v2-analyst",
-            (6, Screen::Minimal) => "3v3-minimal",
-            (6, Screen::Standard) => "3v3-standard",
-            (6, Screen::Analyst) => "3v3-analyst",
-            (_, Screen::Minimal) => "4v4-minimal",
-            (_, Screen::Standard) => "4v4-standard",
-            (_, Screen::Analyst) => "4v4-analyst",
+        format!("{}-{}", self.shape(), self.panels.slug())
+    }
+
+    /// What this preset's game is called. Two players are a duel however the game has them lined
+    /// up; a game where everyone is their own side is named after how many of them there are; two
+    /// even sides after the size of one, and more even sides than that after how many there are.
+    /// Anything left over is named after its players alone, having no shape a name would fit.
+    fn shape(self) -> String {
+        if self.players == 2 {
+            return "1v1".to_string();
+        }
+        if self.team_size == 1 {
+            return format!("{}ffa", self.players);
+        }
+        if !self.players.is_multiple_of(self.team_size) {
+            return format!("{}p", self.players);
+        }
+        match self.players / self.team_size {
+            2 => format!("{}v{}", self.team_size, self.team_size),
+            teams => format!("{teams}teams"),
         }
     }
 
@@ -980,6 +1027,7 @@ impl Preset {
         knobs.host.panels.dock_expanded = self.panels == Screen::Analyst;
         knobs.observer = Knobs {
             players: self.players,
+            team_size: self.team_size,
             selection_building: self.showcase == Showcase::Producing,
             selection_cargo: self.showcase == Showcase::Loaded,
             ..Knobs::default()
@@ -1002,9 +1050,16 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .add(egui::Slider::new(&mut k.players, 2..=MAX_PLAYERS).text("players"))
         .on_hover_text(
-            "Split down the middle into two sides. Two players get the matchup bar's halves, four \
-             get its stacked form, and five or more get the corner team cards with the clock \
-             alone between them.",
+            "Two players get the matchup bar's halves, up to two a half get its stacked form, and \
+             anything wider gets the corner team cards with the clock alone between them.",
+        )
+        .changed();
+    changed |= ui
+        .add(egui::Slider::new(&mut k.team_size, 1..=MAX_PLAYERS).text("players a side"))
+        .on_hover_text(
+            "How many players a side holds, dealt out in slot order. One is a free-for-all, and a \
+             size that does not divide the players leaves the last side short, the way three \
+             players at two a side are two against one.",
         )
         .changed();
     k.fill_races();

@@ -197,7 +197,9 @@ fn sides(players: &[StatsPlayer]) -> Vec<(u8, Vec<&StatsPlayer>)> {
 /// Builds the corner team cards, for a game whose players the matchup bar has no halves for.
 ///
 /// Read off the bar's own players rather than off the game a second time: the cards carry exactly
-/// the numbers the bar's halves would have, and a second reading of them could only disagree.
+/// the numbers the bar's halves would have, and a second reading of them could only disagree. The
+/// bar's own cut decides what a card holds, so the two surfaces put the same players on the same
+/// side of the screen whether or not the game has sides to be cut along.
 pub fn build_team_cards_view(
     matchup: &MatchupView,
     players: &[StatsPlayer],
@@ -205,8 +207,12 @@ pub fn build_team_cards_view(
 ) -> TeamCardsView {
     TeamCardsView {
         teams: matchup
-            .sides()
+            .halves()
+            .each()
             .into_iter()
+            // A half with nobody in it is no card: an empty corner of chrome would say the game
+            // has an end to it that has no players.
+            .filter(|(_, members)| !members.is_empty())
             .map(|(team, members)| TeamCardView {
                 team,
                 players: members
@@ -223,7 +229,12 @@ pub fn build_team_cards_view(
                         apm: player.apm,
                     })
                     .collect(),
-                totals: team_totals(stats, players.iter().filter(|player| player.team == team)),
+                // Only a card that stands for a side has anything to sum: the players on a half of
+                // a free-for-all are not on a side together, so their totals would be a number
+                // about nothing.
+                totals: team.map(|team| {
+                    team_totals(stats, players.iter().filter(|player| player.team == team))
+                }),
             })
             .collect(),
     }

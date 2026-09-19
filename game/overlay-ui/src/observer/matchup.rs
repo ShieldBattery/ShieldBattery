@@ -10,10 +10,13 @@
 //! one of their eyes. A player whose vision is off is dimmed rather than dropped — they are still in
 //! the game, and their numbers are still the ones the other side's are read against.
 //!
-//! Two sides of two players still fit across the top: the bar grows, and each half carries its
-//! side's players stacked one over the other. Anything larger than that belongs in the corner team
-//! cards, and the bar keeps its middle block alone, so a watcher is never shown two of six players
-//! as though they were the whole game.
+//! Two players a half still fit across the top: the bar grows, and each half carries them stacked
+//! one over the other, leaving an empty slot where a half is short one. A game whose players are
+//! not two sides — a free-for-all, or three sides or more — is cut down the middle of the list
+//! instead, since a half is then a place to put players rather than a claim about who is fighting
+//! whom. Anything wider than two a half belongs in the corner team cards, and the bar keeps its
+//! middle block alone, so a watcher is never shown two of six players as though they were the
+//! whole game.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, UiBuilder, pos2, vec2,
@@ -292,10 +295,33 @@ impl MatchupForm {
     }
 }
 
+/// The game cut into the two ends the bar and the corner cards are built from.
+pub struct Halves<'a> {
+    pub left: Vec<&'a MatchupPlayerView>,
+    pub right: Vec<&'a MatchupPlayerView>,
+    /// The game's own numbers for the two halves, for a game that has exactly two sides. A game cut
+    /// down the middle instead has halves standing for nothing the game ever named, and naming them
+    /// anyway would tell a watcher two players are on a side together when they are not.
+    pub teams: Option<(u8, u8)>,
+}
+
+impl<'a> Halves<'a> {
+    /// The two halves in the order they are drawn, outermost first, each with the side it stands
+    /// for where it stands for one.
+    pub fn each(self) -> [(Option<u8>, Vec<&'a MatchupPlayerView>); 2] {
+        let (left, right) = match self.teams {
+            Some((left, right)) => (Some(left), Some(right)),
+            None => (None, None),
+        };
+        [(left, self.left), (right, self.right)]
+    }
+}
+
 /// Everything the matchup bar draws from.
 pub struct MatchupView {
-    /// The players on the bar, in team order: the first side takes the left half and the second the
-    /// right. Any shape the bar has no form for leaves it its middle block alone.
+    /// The players on the bar, in team order, which is the order every surface reads them in. The
+    /// list is cut into the bar's two halves at the side it changes on where it has two sides, and
+    /// down its middle where it has any other number of them.
     pub players: Vec<MatchupPlayerView>,
     /// How far into the game it is, in seconds.
     pub elapsed_secs: u64,
@@ -319,6 +345,31 @@ impl MatchupView {
         sides
     }
 
+    /// The game cut into the left end and the right end of every surface that has two of them.
+    ///
+    /// A game of two sides is cut where the sides are, and the halves carry their numbers. Every
+    /// other shape — one side, or three or more of them — is cut down the middle of the player
+    /// list, which is a way of fitting the players on screen and not a reading of the game: those
+    /// halves go unnamed, and nothing is ever summed across one.
+    pub fn halves(&self) -> Halves<'_> {
+        let mut sides = self.sides();
+        if sides.len() == 2 {
+            let (right_team, right) = sides.remove(1);
+            let (left_team, left) = sides.remove(0);
+            return Halves {
+                left,
+                right,
+                teams: Some((left_team, right_team)),
+            };
+        }
+        let (left, right) = self.players.split_at(self.players.len().div_ceil(2));
+        Halves {
+            left: left.iter().collect(),
+            right: right.iter().collect(),
+            teams: None,
+        }
+    }
+
     /// Whether this game has sides worth telling apart from the players on them.
     pub fn has_teams(&self) -> bool {
         let sides = self.sides();
@@ -326,12 +377,21 @@ impl MatchupView {
     }
 
     /// Which form the bar takes for this game.
+    ///
+    /// Two players are a duel whether or not the game calls them two sides, and a game with nobody
+    /// left in it keeps its middle block alone. Everything else is stacked for as long as both
+    /// halves fit in two rows, and read from the corner cards once one of them does not.
     pub fn form(&self) -> MatchupForm {
-        let sides = self.sides();
-        if self.players.len() == 2 {
+        if self.players.is_empty() {
+            return MatchupForm::ClockOnly;
+        }
+        // One player is drawn the way one against one is, with the other half left empty: the wider
+        // bar's second row would be a blank under a blank.
+        if self.players.len() <= 2 {
             return MatchupForm::Duel;
         }
-        if sides.len() == 2 && sides.iter().all(|(_, members)| members.len() == 2) {
+        let halves = self.halves();
+        if halves.left.len() <= 2 && halves.right.len() <= 2 {
             return MatchupForm::Stacked;
         }
         MatchupForm::ClockOnly
@@ -377,36 +437,34 @@ fn draw_bar(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
         Rect::from_center_size(rect.center(), vec2(CENTRE_WIDTH.min(width), rect.height()));
 
     let mut clicked = None;
-    let sides: Vec<Vec<&MatchupPlayerView>> = match form {
-        MatchupForm::Duel => view.players.iter().map(|player| vec![player]).collect(),
-        MatchupForm::Stacked => view
-            .sides()
-            .into_iter()
-            .map(|(_, members)| members)
-            .collect(),
-        MatchupForm::ClockOnly => Vec::new(),
+    // Every stacked half is split into both of its slots whether or not it has a player for each,
+    // so a half short one leaves its second slot empty rather than growing its one player to the
+    // height of two. The slot is left blank rather than filled with anything of its own: the bar
+    // is a reading of the game, and a row standing in for a player who does not exist would be a
+    // claim the game never made.
+    let (metrics, rows) = match form {
+        MatchupForm::Stacked => (STACKED_ROW, 2),
+        _ => (DUEL_ROW, 1),
     };
-    let metrics = match form {
-        MatchupForm::Stacked => STACKED_ROW,
-        _ => DUEL_ROW,
-    };
-    for (index, members) in sides.into_iter().enumerate() {
-        let mirrored = index == 1;
-        let half = if mirrored {
-            Rect::from_min_max(centre.right_top(), rect.right_bottom())
-        } else {
-            Rect::from_min_max(rect.left_top(), centre.left_bottom())
-        };
-        for (row, player) in rows_of(half, members.len()).into_iter().zip(members) {
-            let response = ui.interact(
-                row,
-                ui.id().with(("matchup_player", player.player_id)),
-                Sense::click(),
-            );
-            draw_half(ui, row, player, mirrored, metrics);
-            widgets::state_overlay(ui, &response, row, theme::radius(theme::RADIUS_TIGHT));
-            if response.clicked() {
-                clicked = Some(player.player_id);
+    if form != MatchupForm::ClockOnly {
+        for (index, (_, members)) in view.halves().each().into_iter().enumerate() {
+            let mirrored = index == 1;
+            let half = if mirrored {
+                Rect::from_min_max(centre.right_top(), rect.right_bottom())
+            } else {
+                Rect::from_min_max(rect.left_top(), centre.left_bottom())
+            };
+            for (row, player) in rows_of(half, rows).into_iter().zip(members) {
+                let response = ui.interact(
+                    row,
+                    ui.id().with(("matchup_player", player.player_id)),
+                    Sense::click(),
+                );
+                draw_half(ui, row, player, mirrored, metrics);
+                widgets::state_overlay(ui, &response, row, theme::radius(theme::RADIUS_TIGHT));
+                if response.clicked() {
+                    clicked = Some(player.player_id);
+                }
             }
         }
     }
@@ -414,10 +472,10 @@ fn draw_bar(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
     clicked
 }
 
-/// Splits a side into one rect per player on it, stacked and evenly spaced.
+/// Splits a half into `count` slots, stacked and evenly spaced.
 ///
-/// A side with one player on it is the whole side, so a duel's half is exactly the rect it always
-/// was rather than a special case of a stack.
+/// A half of one slot is the whole half, so a duel's is exactly the rect it always was rather than
+/// a special case of a stack.
 fn rows_of(half: Rect, count: usize) -> Vec<Rect> {
     if count <= 1 {
         return vec![half];
@@ -691,14 +749,70 @@ mod tests {
         }
     }
 
+    /// The player ids in each half, and the sides the halves stand for.
+    fn halves(view: &MatchupView) -> (Vec<u8>, Vec<u8>, Option<(u8, u8)>) {
+        let halves = view.halves();
+        let ids = |members: &[&MatchupPlayerView]| {
+            members
+                .iter()
+                .map(|player| player.player_id)
+                .collect::<Vec<_>>()
+        };
+        (ids(&halves.left), ids(&halves.right), halves.teams)
+    }
+
+    #[test]
+    fn a_game_of_two_sides_is_cut_where_its_sides_are() {
+        assert_eq!(halves(&view(&[1, 2])), (vec![0], vec![1], Some((1, 2))));
+        assert_eq!(
+            halves(&view(&[1, 1, 2, 2])),
+            (vec![0, 1], vec![2, 3], Some((1, 2)))
+        );
+        // An uneven pair of sides is still cut where they are, however lopsided that leaves it.
+        assert_eq!(
+            halves(&view(&[1, 1, 1, 2])),
+            (vec![0, 1, 2], vec![3], Some((1, 2)))
+        );
+    }
+
+    #[test]
+    fn a_game_of_any_other_number_of_sides_is_cut_down_the_middle_and_left_unnamed() {
+        // A free-for-all, where the game gives every player a side of their own.
+        assert_eq!(halves(&view(&[1, 2, 3])), (vec![0, 1], vec![2], None));
+        assert_eq!(
+            halves(&view(&[1, 2, 3, 4, 5, 6])),
+            (vec![0, 1, 2], vec![3, 4, 5], None)
+        );
+        // Four sides of two, which are still listed in side order, so the cut falls between them.
+        assert_eq!(
+            halves(&view(&[1, 1, 2, 2, 3, 3, 4, 4])),
+            (vec![0, 1, 2, 3], vec![4, 5, 6, 7], None)
+        );
+        // A game the players of which are all on one side, which names no halves either.
+        assert_eq!(halves(&view(&[1, 1])), (vec![0], vec![1], None));
+        // One player takes a half of their own, leaving the other empty.
+        assert_eq!(halves(&view(&[1])), (vec![0], Vec::new(), None));
+    }
+
     #[test]
     fn the_bar_takes_the_form_its_game_has_room_for() {
+        assert_eq!(view(&[1]).form(), MatchupForm::Duel);
         assert_eq!(view(&[1, 2]).form(), MatchupForm::Duel);
+        // Two players are a duel whether the game calls them two sides or one.
+        assert_eq!(view(&[1, 1]).form(), MatchupForm::Duel);
+        assert_eq!(view(&[1, 2, 3]).form(), MatchupForm::Stacked);
+        assert_eq!(view(&[1, 1, 2]).form(), MatchupForm::Stacked);
+        assert_eq!(view(&[1, 2, 3, 4]).form(), MatchupForm::Stacked);
         assert_eq!(view(&[1, 1, 2, 2]).form(), MatchupForm::Stacked);
-        // Three a side is the corner cards' game, and so is a free-for-all of any size.
-        assert_eq!(view(&[1, 1, 1, 2, 2, 2]).form(), MatchupForm::ClockOnly);
-        assert_eq!(view(&[1, 2, 3, 4]).form(), MatchupForm::ClockOnly);
+        // Three in a half is more than the bar can stack, whether they are a side or half a
+        // free-for-all.
         assert_eq!(view(&[1, 1, 1, 2]).form(), MatchupForm::ClockOnly);
+        assert_eq!(view(&[1, 1, 1, 2, 2, 2]).form(), MatchupForm::ClockOnly);
+        assert_eq!(view(&[1, 2, 3, 4, 5, 6]).form(), MatchupForm::ClockOnly);
+        assert_eq!(
+            view(&[1, 1, 2, 2, 3, 3, 4, 4]).form(),
+            MatchupForm::ClockOnly
+        );
         assert_eq!(view(&[]).form(), MatchupForm::ClockOnly);
     }
 
@@ -708,6 +822,8 @@ mod tests {
         assert!(!view(&[1, 2, 3, 4]).has_teams());
         assert!(view(&[1, 1, 2, 2]).has_teams());
         assert!(view(&[1, 1, 1, 2, 2, 2]).has_teams());
+        // Four sides of two are four sides, whatever the halves the bar cuts them into.
+        assert!(view(&[1, 1, 2, 2, 3, 3, 4, 4]).has_teams());
     }
 
     #[test]
@@ -727,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    fn a_side_of_one_is_the_whole_side_rather_than_a_stack_of_one() {
+    fn a_half_of_one_slot_is_the_whole_half_rather_than_a_stack_of_one() {
         let half = Rect::from_min_max(pos2(0.0, 0.0), pos2(100.0, 64.0));
         assert_eq!(rows_of(half, 1), vec![half]);
         let rows = rows_of(half, 2);

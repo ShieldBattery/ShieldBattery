@@ -118,16 +118,17 @@ impl Preset {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    /// What a render of this preset is filed under, which is also how the selector names it.
+    pub fn label(self) -> String {
         match self {
-            Preset::Disconnect(preset) => preset.label(),
-            Preset::NetQuality(preset) => preset.label(),
-            Preset::NetStat(preset) => preset.label(),
-            Preset::ChatHistory(preset) => preset.label(),
-            Preset::Transport(preset) => preset.label(),
+            Preset::Disconnect(preset) => preset.label().to_string(),
+            Preset::NetQuality(preset) => preset.label().to_string(),
+            Preset::NetStat(preset) => preset.label().to_string(),
+            Preset::ChatHistory(preset) => preset.label().to_string(),
+            Preset::Transport(preset) => preset.label().to_string(),
             Preset::Observer(preset) => preset.label(),
-            Preset::Shell(preset) => preset.label(),
-            Preset::KitchenSink(preset) => preset.label(),
+            Preset::Shell(preset) => preset.label().to_string(),
+            Preset::KitchenSink(preset) => preset.label().to_string(),
         }
     }
 
@@ -156,7 +157,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 6] = [
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Transport(transport::Preset::SpoilerFree),
-    Preset::Observer(observer::Preset::game(6, observer::Screen::Analyst)),
+    Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::GameMenu),
 ];
 
