@@ -82,6 +82,8 @@
     "columnUnitsKillsLosses": "유닛 킬/손실",
     "columnWorkers": "일꾼",
     "columnWorkersKillsLosses": "일꾼 킬/손실",
+    "dockCollapse": "도크 접기",
+    "dockExpand": "도크 펼치기",
     "eventBuilt": "건설 완료",
     "eventExpansion": "멀티",
     "eventTechDone": "연구 완료",

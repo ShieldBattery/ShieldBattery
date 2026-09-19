@@ -82,6 +82,8 @@
     "columnUnitsKillsLosses": "单位 杀/损",
     "columnWorkers": "农民",
     "columnWorkersKillsLosses": "农民 杀/损",
+    "dockCollapse": "收起面板栏",
+    "dockExpand": "展开面板栏",
     "eventBuilt": "已建成",
     "eventExpansion": "分矿",
     "eventTechDone": "研究完成",
