@@ -16,8 +16,8 @@
 //! panel is that the same key is always in the same place. An empty one keeps its space and fades
 //! nearly out of the row, so what the row is made of is the keys the player is using.
 //!
-//! It sits at the kit's ambient tier just above the production panel, centred, so the two surfaces
-//! a watcher glances at during a fight are in the same place.
+//! It sits at the kit's ambient tier at the top of the centred bottom stack, over the production
+//! panel, so the surfaces a watcher glances at during a fight are all in the same place.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind,
@@ -28,15 +28,12 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, stacked_offset, unit_codes,
+    vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 790.0;
-
-/// How far the panel's bottom edge sits above the screen's when the production panel under it is
-/// the height the design drew it at, which is the band the design leaves this one.
-pub(crate) const BOTTOM_MARGIN: f32 = 388.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
@@ -192,6 +189,7 @@ pub fn render_control_groups_view(
     bottom: f32,
 ) -> Option<Rect> {
     let id = Id::new("sb_control_groups_panel");
+    let bottom = stacked_offset(ctx, id.with("bottom"), bottom);
     let area = Area::new(id)
         .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
         .order(Order::Foreground);

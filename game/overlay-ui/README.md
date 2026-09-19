@@ -133,10 +133,18 @@ sides keeps the clock alone.
 
 Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
 the side they carry and every stats wing is as tall as the players it has rows for, so the shell
-stacks them: each surface is placed under the bottom edge the one above it actually came out at,
-never above the design's own grid. That is what keeps a 4v4's economy table from being drawn through
-its timeline, and the same rule puts the control groups above whatever height the production panel
-reached.
+stacks them: each surface is placed under the bottom edge the one above it actually came out at.
+That is what keeps a 4v4's economy table from being drawn through its timeline, and the same rule
+puts the control groups above whatever height the production panel reached.
+
+A panel the watcher hides leaves its place to its neighbours rather than holding it empty, since the
+screen it was taking is what hiding it asked for: close military and the graphs are drawn where
+military was, close economy and the timeline moves up to the bar, and the centred bottom stack —
+selection, then production, then control groups — sits on whatever is below it and slides down when
+a panel under it goes. That stack stands on the console band while BW's own console is up and on the
+screen's bottom edge when it is not. Every one of those offsets is animated rather than assigned, so
+a panel crosses its neighbour's height instead of being redrawn somewhere else, and one that is
+still fading out still holds its place while it does.
 
 Under it hang four **stats wings**, tier-0 panels placed against the screen's own edges rather than
 at absolute coordinates, so other aspect ratios keep them out of the middle. **Economy** (left) and
@@ -159,8 +167,8 @@ from a measurement the game does not keep: a host with none reports `None`, and 
 drawn, its dock row is not offered and its key is not consumed. It is also not drawn where the wings
 leave no room for it, which is every screen narrower than the design's.
 
-The **production panel** is the tier-0 strip above the console band: a row per player of the things
-they are making, with a count and a progress bar per tile, and a click on a tile is
+The **production panel** is the tier-0 strip in the middle of the screen's bottom edge: a row per
+player of the things they are making, with a count and a progress bar per tile, and a click on a tile is
 `Intent::SelectProduction`, which the host turns into a selection of whatever is making it (asking
 again walks to the next one). A tile is the one place these panels draw one of the game's own icons,
 so the view carries both the texture id the host mapped and the atlas frame it is;
@@ -170,7 +178,16 @@ ten number keys, in the order a keyboard reads them, each slot carrying its digi
 whatever the group is mostly made of and how many units are in it. All ten are drawn whether or not
 there is anything on them, because a row that only showed the groups a player happens to have would
 move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
-minute are both drawn dim, which is what the panel is read for. The
+minute are both drawn dim, which is what the panel is read for. The **selection panel** is the
+bottom of that stack, and is the game console's own selection with nothing else of the console
+around it: twelve slots in the console's own two rows of six, and beside them the numbers the
+console only ever shows for a selection of one — health, shields and energy against what the unit
+has room for, and what it has killed. No host can draw a wireframe yet, so a slot carries the same
+icon or code the other panels fall back to, and the tint the game puts on a wireframe goes on the
+slot's outline instead: green, yellow and red as the unit's health and shields together fall through
+two thirds and a third. A selection of several is summed up as what it is made of rather than as
+twelve sets of numbers, and a selection of none leaves the panel on screen all the same, since a
+watcher clicking around a map would otherwise move every panel above it with every click. The
 **obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
 keycaps lit for the surfaces that are on;
 expanded, the control rail, with the names spelled out. Its list is `Panel::ALL` rather than a list
