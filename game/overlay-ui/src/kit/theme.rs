@@ -7,8 +7,8 @@
 use egui::{Color32, CornerRadius, Stroke};
 
 use crate::colors::{
-    AMBER60, AMBER70, BLUE10, BLUE60, BLUE70, BLUE80, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80,
-    GREY99, PROTOSS, RANDOM, TERRAN, ZERG,
+    AMBER60, AMBER70, BLUE10, BLUE60, BLUE70, BLUE80, GREY_BLUE10, GREY_BLUE40, GREY_BLUE50,
+    GREY_BLUE60, GREY_BLUE70, GREY_BLUE80, GREY99, PROTOSS, RANDOM, TERRAN, ZERG,
 };
 
 /// A token color at a fraction of full opacity, premultiplied the way egui wants it.
@@ -101,6 +101,21 @@ pub const RESOURCE_SUPPLY: Color32 = GREY_BLUE80;
 
 /// The edge of a small outlined control over gameplay: a jump chip, a stepper end, a keycap.
 pub const CHIP_STROKE: Color32 = alpha(BLUE80, 0.25);
+
+// A scrollbar, in the same greys the app's own scrollbars wear: a dark rail with a grey-blue handle
+// that steps one shade lighter under the pointer and one more while dragged. The steps are
+// palette neighbours rather than a jump to white, since the bar sits beside the text it scrolls
+// and must never outshine it.
+pub const SCROLLBAR_RAIL: Color32 = alpha(GREY_BLUE10, 0.80);
+pub const SCROLLBAR_HANDLE: Color32 = GREY_BLUE40;
+pub const SCROLLBAR_HANDLE_HOVER: Color32 = GREY_BLUE50;
+pub const SCROLLBAR_HANDLE_DRAG: Color32 = GREY_BLUE60;
+/// Width of the handle. The rail is the handle plus [`SCROLLBAR_INSET`] on both sides.
+pub const SCROLLBAR_WIDTH: f32 = 8.0;
+/// Corner radius of the handle: half its width, so it ends in a full round.
+pub const SCROLLBAR_RADIUS: u8 = 4;
+/// Gap between the handle and the rail's edge, so the handle reads as sitting in the rail.
+pub const SCROLLBAR_INSET: f32 = 2.0;
 
 // Who a chat line went to, as the hue of the tag beside it. The one everyone hears is the quiet
 // grey of the kit's plain tags, since most lines of most games go there and a log full of loud
