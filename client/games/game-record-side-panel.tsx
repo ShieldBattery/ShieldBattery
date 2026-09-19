@@ -34,9 +34,9 @@ const GameTypeChip = styled.div`
 
 export interface GameRecordSidePanelProps {
   game?: ReadonlyDeep<GameRecordJson>
-  /** When set, the roster shows win/loss coloring for this user's perspective. */
+  /** Whose perspective the roster is ordered from: this user's team (or the user) is listed first. */
   forUserId?: SbUserId
-  /** When true, the roster's per-column win/loss result is hidden. */
+  /** When true, the roster's per-player win/loss chips are hidden. */
   spoilerFree?: boolean
   alignWithFirstRow?: boolean
   onViewResults: (gameId: string) => void
@@ -193,14 +193,11 @@ function GameRecordSidePanelContent({
       {!map ? <GameSidePanelTitle>{mapName}</GameSidePanelTitle> : null}
 
       <GameSidePanelSection>
-        {/* Team names are always requested so a column whose result can't be reduced to one
-            outcome (a disputed game, a computer player) still gets an overline; a resolved result
-            replaces the name rather than joining it, so the overline never reads "Top · Win". */}
         <GamePlayersDisplay
           game={game}
           forUserId={forUserId}
           showTeamLabels={true}
-          showTeamResults={!spoilerFree}
+          showPlayerResults={!spoilerFree}
           interactiveNames={true}
         />
       </GameSidePanelSection>
