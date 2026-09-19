@@ -38,7 +38,9 @@ const LIST_MAX_HEIGHT: f32 = 432.0;
 
 /// Padding between the list's edge and its lines. The list is drawn as a sunken box inside the
 /// dialog so that a line cut off by scrolling is cut at the box's edge, which the eye reads as a
-/// window onto more text rather than as a layout that ran out of room.
+/// window onto more text rather than as a layout that ran out of room. The padding scrolls with
+/// the lines for that reason: padding outside the scrolling region would put the cut a few points
+/// inside the box, where it reads as a mistake.
 const LIST_PAD: i8 = 8;
 
 /// Width of the slot holding a line's scope tag. The tag elides inside it, so a long recipient name
@@ -51,17 +53,14 @@ const TIME_WIDTH: f32 = 38.0;
 /// Gap between two of a line's slots.
 const COLUMN_GAP: f32 = theme::SPACE_SM;
 
-/// Width the vertical scrollbar and its margin take out of the list. Reserved whether or not the
+/// Width the vertical scrollbar and its margins take out of the list. Reserved whether or not the
 /// list is long enough to scroll, so a message arriving does not re-wrap every line above it.
-const SCROLLBAR_WIDTH: f32 = 14.0;
+const SCROLLBAR_WIDTH: f32 = theme::SCROLLBAR_WIDTH + theme::SCROLLBAR_INSET + theme::SPACE_XS;
 
-/// Width the words of a line are laid out against.
-const MESSAGE_WIDTH: f32 = DIALOG_WIDTH
-    - LIST_PAD as f32 * 2.0
-    - TAG_WIDTH
-    - TIME_WIDTH
-    - COLUMN_GAP * 2.0
-    - SCROLLBAR_WIDTH;
+/// Width the words of a line are laid out against. The right-hand padding is the scrollbar's
+/// margin rather than a second gap of its own.
+const MESSAGE_WIDTH: f32 =
+    DIALOG_WIDTH - LIST_PAD as f32 - TAG_WIDTH - TIME_WIDTH - COLUMN_GAP * 2.0 - SCROLLBAR_WIDTH;
 
 /// The slots are the dialog, so widening one of them narrows the words. Checked where the widths
 /// are written: past the point where nothing is left for the words, every line would lay out one
@@ -164,16 +163,14 @@ pub fn render_chat_history_view(
 /// has said nothing.
 fn draw_list(ui: &mut Ui, view: &ChatHistoryView) {
     let background = ui.painter().add(Shape::Noop);
-    let inner = Frame::NONE
-        .inner_margin(Margin::same(LIST_PAD))
-        .show(ui, |ui| {
-            ui.set_width(DIALOG_WIDTH - f32::from(LIST_PAD) * 2.0);
-            if view.lines.is_empty() {
-                draw_empty(ui);
-            } else {
-                draw_lines(ui, view);
-            }
-        });
+    let inner = Frame::NONE.show(ui, |ui| {
+        ui.set_width(DIALOG_WIDTH);
+        if view.lines.is_empty() {
+            draw_empty(ui);
+        } else {
+            draw_lines(ui, view);
+        }
+    });
     let rect = inner.response.rect;
     let radius = theme::radius(theme::RADIUS_TIGHT);
     ui.painter().set(
@@ -214,11 +211,20 @@ fn draw_lines(ui: &mut Ui, view: &ChatHistoryView) {
         .auto_shrink([false, true])
         .stick_to_bottom(true)
         .show(ui, |ui| {
-            ui.spacing_mut().item_spacing.y = LINE_GAP;
-            let tag_height = widgets::tag_height(ui);
-            for line in &view.lines {
-                draw_line(ui, line, tag_height);
-            }
+            // The scrollbar's own margins are the padding on the right.
+            let padding = Margin {
+                left: LIST_PAD,
+                right: 0,
+                top: LIST_PAD,
+                bottom: LIST_PAD,
+            };
+            Frame::NONE.inner_margin(padding).show(ui, |ui| {
+                ui.spacing_mut().item_spacing.y = LINE_GAP;
+                let tag_height = widgets::tag_height(ui);
+                for line in &view.lines {
+                    draw_line(ui, line, tag_height);
+                }
+            });
         });
 }
 
