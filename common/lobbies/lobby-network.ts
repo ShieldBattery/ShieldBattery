@@ -190,6 +190,15 @@ export interface GetLobbyStateResponse {
  */
 export type LobbyLifecycle = 'gathering' | 'countingDown' | 'loading' | 'inGame'
 
+/**
+ * Whether a lobby is in the middle of starting a game. This is a transient state -- within seconds
+ * the lobby is either `inGame` or back to `gathering`, depending on whether the launch went
+ * through -- and joins are refused for as long as it lasts.
+ */
+export function isLaunchingLifecycle(lifecycle: LobbyLifecycle): boolean {
+  return lifecycle === 'countingDown' || lifecycle === 'loading'
+}
+
 /** The running game of a lobby that is `inGame`, and which members are still in it. */
 export interface LobbyRunStateJson {
   gameId: string

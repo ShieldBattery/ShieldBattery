@@ -41,6 +41,18 @@ export const MOCK_LOBBY_SUMMARY: LobbySummaryResponse = {
 
 const MOCK_LOBBY_SUMMARY_NO_CODE: LobbySummaryResponse = MOCK_LOBBY_SUMMARY_BASE
 
+/** The same lobby caught mid-launch, which reads differently from one that's simply open. */
+export const MOCK_LOBBY_SUMMARY_LAUNCHING: LobbySummaryResponse = {
+  ...MOCK_LOBBY_SUMMARY,
+  summary: { ...MOCK_LOBBY_SUMMARY.summary, lifecycle: 'countingDown' },
+}
+
+/** The same lobby with its game running, which takes joins onto its bench. */
+export const MOCK_LOBBY_SUMMARY_IN_GAME: LobbySummaryResponse = {
+  ...MOCK_LOBBY_SUMMARY,
+  summary: { ...MOCK_LOBBY_SUMMARY.summary, lifecycle: 'inGame' },
+}
+
 type Scenario =
   | 'loading'
   | 'notFound'
@@ -50,6 +62,7 @@ type Scenario =
   | 'failed'
   | 'loadedNoScheme'
   | 'loadedNoCode'
+  | 'loadedLaunching'
 
 const SCENARIOS: Array<{ id: Scenario; label: string }> = [
   { id: 'loading', label: 'Loading' },
@@ -60,6 +73,7 @@ const SCENARIOS: Array<{ id: Scenario; label: string }> = [
   { id: 'failed', label: 'App failed to open' },
   { id: 'loadedNoScheme', label: 'Loaded (no scheme)' },
   { id: 'loadedNoCode', label: 'Loaded (no join code)' },
+  { id: 'loadedLaunching', label: 'Loaded (starting game)' },
 ]
 
 interface ScenarioProps {
@@ -102,6 +116,12 @@ function scenarioToProps(scenario: Scenario): ScenarioProps {
     case 'loadedNoCode':
       return {
         state: { status: 'loaded', data: MOCK_LOBBY_SUMMARY_NO_CODE },
+        forceLaunchState: 'idle',
+        forceSchemeAvailable: true,
+      }
+    case 'loadedLaunching':
+      return {
+        state: { status: 'loaded', data: MOCK_LOBBY_SUMMARY_LAUNCHING },
         forceLaunchState: 'idle',
         forceSchemeAvailable: true,
       }

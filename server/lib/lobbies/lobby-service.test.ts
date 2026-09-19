@@ -17,7 +17,7 @@ import {
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
 import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
-import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { RolledOutcome } from '../../../common/rolled-outcomes'
@@ -2128,16 +2128,22 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('summaries', () => {
-    test('a counting-down lobby is reported as gone by the summary getter', async () => {
+    test('a counting-down lobby reports its summary, as counting down', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
 
-      // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
-      // resolver must treat it the same as a lobby that doesn't exist at all.
+      // Counting down is a few seconds of a lobby's life. Withholding the summary would tell every
+      // reader that the lobby is gone, which outlives the countdown by the length of the game.
       vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
-      expect(getLobbySummary(id)).toBeUndefined()
+      expect(getLobbySummary(id)).toEqual(
+        expect.objectContaining({ id, lifecycle: 'countingDown' }),
+      )
+    })
+
+    test('a lobby that never exists is still reported as gone', () => {
+      expect(getLobbySummary(makeSbLobbyId('not-a-real-lobby'))).toBeUndefined()
     })
 
     test('a lobby with a game in progress reports its summary', async () => {

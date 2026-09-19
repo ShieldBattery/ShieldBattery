@@ -368,19 +368,15 @@ export class LobbyService {
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
     // live lobby's summary without depending on this service directly.
+    //
+    // Every live lobby reports itself, whatever it's currently doing: a summary carries the
+    // lifecycle, so a reader can tell a lobby that's busy launching from one with open seats on its
+    // own. Withholding the summary for the seconds a lobby spends counting down or loading would
+    // instead make it indistinguishable from one that no longer exists -- a far longer-lived and
+    // less recoverable thing to say about it.
     setLobbySummaryGetter(id => {
       const lobby = this.lobbies.get(id)
-      if (!lobby) {
-        return undefined
-      }
-      const lifecycle = this._lifecycleOf(id)
-      // A counting-down or loading lobby can't be joined, so it's reported as gone rather than as
-      // an open lobby with slots available. A lobby with a game running still takes joins (onto its
-      // bench), so it reports itself like any other.
-      if (lifecycle === 'countingDown' || lifecycle === 'loading') {
-        return undefined
-      }
-      return this._toSummaryJson(lobby)
+      return lobby ? this._toSummaryJson(lobby) : undefined
     })
     setLobbyJoinCodeGetter(id => this.lobbyJoinCodes.get(id))
     setLobbyIdByJoinCodeGetter(code => this.joinCodeToLobby.get(code))

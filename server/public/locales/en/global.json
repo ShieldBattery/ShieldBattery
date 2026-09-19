@@ -1746,7 +1746,8 @@
       "noLongerOpen": "This lobby is no longer open.",
       "openSlotCount_one": "{{count}} open",
       "openSlotCount_other": "{{count}} open",
-      "slotsLabel": "Slots"
+      "slotsLabel": "Slots",
+      "startingGame": "Starting game"
     }
   },
   "map": {
