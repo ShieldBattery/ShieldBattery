@@ -837,18 +837,14 @@ impl Shell {
         // whatever the one under it actually came out as, and drops onto the one below when a panel
         // between them is hidden.
         //
-        // The stack stands on the console band while the game's own console is up, and on the
-        // screen's own bottom edge when it is not. At every 16:9 resolution the overlay is 1920
+        // The stack stands on the screen's own bottom edge: an observer's screen keeps the minimap
+        // and nothing else of the game's console band. At every 16:9 resolution the overlay is 1920
         // points wide, so the widest of the three — control groups at 790 — leaves its left edge at
         // 565, well clear of the 348-point square BW's minimap owns in that corner. A 4:3 screen is
         // 1440 points wide and that edge falls at 325, which is inside the minimap's column: on
         // those screens the bottom of the stack overlaps the minimap's top-right corner.
         let screen_bottom = ctx.viewport_rect().bottom();
-        let base = if self.prefs.console {
-            observer::CONSOLE_BAND
-        } else {
-            observer::WING_MARGIN
-        };
+        let base = observer::WING_MARGIN;
         let selection =
             observer::render_selection_view(&view.selection, ctx, self.prefs.selection, base);
         if let Some(rect) = selection {

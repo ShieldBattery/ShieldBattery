@@ -141,8 +141,8 @@ A panel the watcher hides leaves its place to its neighbours rather than holding
 screen it was taking is what hiding it asked for: close military and the graphs are drawn where
 military was, close economy and the timeline moves up to the bar, and the centred bottom stack —
 selection, then production, then control groups — sits on whatever is below it and slides down when
-a panel under it goes. That stack stands on the console band while BW's own console is up and on the
-screen's bottom edge when it is not. Every one of those offsets is animated rather than assigned, so
+a panel under it goes. That stack stands on the screen's bottom edge, since an observer's screen keeps
+the minimap and nothing else of BW's console band. Every one of those offsets is animated rather than assigned, so
 a panel crosses its neighbour's height instead of being redrawn somewhere else, and one that is
 still fading out still holds its place while it does.
 
@@ -180,14 +180,19 @@ there is anything on them, because a row that only showed the groups a player ha
 move its slots every time one was made or lost; an empty slot and a group nobody has recalled in a
 minute are both drawn dim, which is what the panel is read for. The **selection panel** is the
 bottom of that stack, and is the game console's own selection with nothing else of the console
-around it: twelve slots in the console's own two rows of six, and beside them the numbers the
-console only ever shows for a selection of one — health, shields and energy against what the unit
-has room for, and what it has killed. No host can draw a wireframe yet, so a slot carries the same
-icon or code the other panels fall back to, and the tint the game puts on a wireframe goes on the
-slot's outline instead: green, yellow and red as the unit's health and shields together fall through
-two thirds and a third. A selection of several is summed up as what it is made of rather than as
-twelve sets of numbers, and a selection of none leaves the panel on screen all the same, since a
-watcher clicking around a map would otherwise move every panel above it with every click. The
+around it. It draws whichever reading the selection is: several units are the console's own twelve
+slots in two rows of six and nothing besides, since twelve sets of numbers at once are numbers
+nobody reads; one unit is drawn large with whose it is and the numbers the console only ever shows
+for a selection of one — health, shields and energy against what the unit has room for, and what it
+has killed — on as many rows as it has readings for, with the units a transport or a bunker is
+carrying beside them; anything making something, a building training or researching and an egg
+mid-morph alike, puts what is on the way, how far along it is and what is queued behind it where
+those carried units would be; and a selection of none leaves the panel on screen saying so. No host
+can draw a wireframe yet, so a tile carries the same icon or code the other panels fall back to, and
+the tint the game puts on a wireframe goes on the tile's outline instead: green, yellow and red as
+the unit's health and shields together fall through two thirds and a third. The body is the same
+height in every one of those readings, since a watcher clicking around a map would otherwise move
+every panel above it with every click. The
 **obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
 keycaps lit for the surfaces that are on;
 expanded, the control rail, with the names spelled out. Its list is `Panel::ALL` rather than a list
@@ -403,10 +408,13 @@ games. Its knobs are where the clock starts, how many players the game has (spli
 into two sides, which is what walks the matchup bar through its three forms), each player's race,
 whether the left player is over their supply cap, whether they all carry the longest names the game
 allows, how many entries each production row holds, how many of the ten number keys each player has
-a group on, and whether the game reports map control at all — the real one does not yet, so that
+a group on, how many units the watcher has selected and whether that selection is instead a building
+part way through a unit or a transport with an army inside it, and whether the game reports map
+control at all — the real one does not yet, so that
 switch is how the bar's absence is judged. Its presets are each of its three screens — minimal,
 everything, and everything with the game's console hidden — at each of `1v1`, `2v2`, `3v3` and
-`4v4`, and the panels answer a vision toggle and a production click the way the
+`4v4`, plus two duels on the analyst's screen that put the selection panel into its producing and
+its loaded readings, and the panels answer a vision toggle and a production click the way the
 game would. Production tiles draw their
 atlas frame's number, since only the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop
 buttons, the production selection) are logged under the knobs.

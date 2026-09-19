@@ -145,6 +145,10 @@ pub struct BwVars {
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,
+    /// Every unit slot the game has, which is the only thing a unique id can be resolved against:
+    /// the units inside a transport or a bunker are named by id rather than by pointer. `None`
+    /// before the game has allocated the array.
+    pub units: Option<bw_dat::UnitArray>,
     /// What the local client has selected, in the game's own order: the first entry is the unit the
     /// game treats as the selection's subject. Read fresh for every frame, since a selection changes
     /// between frames and the panel that draws it must never be a frame behind the console.

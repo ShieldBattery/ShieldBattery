@@ -39,7 +39,9 @@ pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     render_production_view,
 };
-pub use selection::{SelectedUnitView, SelectionView, render_selection_view};
+pub use selection::{
+    ProductionProgressView, SelectedUnitView, SelectionCase, SelectionView, render_selection_view,
+};
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
@@ -347,11 +349,6 @@ pub(crate) const WING_TOP_GAP: f32 = 14.0;
 /// Gap between a panel and whatever the next one down is placed under.
 pub(crate) const WING_GAP: f32 = 12.0;
 
-/// How far the bottom-centre stack sits above the screen's own bottom edge while the game's console
-/// is on screen: the console band the game's interface owns, plus the gap the design leaves over
-/// it.
-pub(crate) const CONSOLE_BAND: f32 = 232.0;
-
 /// Gap between the matchup bar and the map-control strip hanging under it.
 pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
 
@@ -647,12 +644,10 @@ mod tests {
             stacked_bottom(WING_MARGIN, screen_bottom, None),
             WING_MARGIN
         );
-        // The base is a floor: a panel shorter than the band under the stack never drops into it.
+        // The base is a floor: a panel whose top is above it never pulls the next one down.
+        let base = 200.0;
         let short = Rect::from_min_max(pos2(0.0, 1040.0), pos2(600.0, 1064.0));
-        assert_eq!(
-            stacked_bottom(CONSOLE_BAND, screen_bottom, Some(short)),
-            CONSOLE_BAND
-        );
+        assert_eq!(stacked_bottom(base, screen_bottom, Some(short)), base);
     }
 
     #[test]
