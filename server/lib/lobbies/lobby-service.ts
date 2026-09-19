@@ -2102,9 +2102,11 @@ export class LobbyService {
     // A benched member holds no slot in the game being loaded, so their departure can't invalidate
     // a countdown or load in progress
     if (player) {
-      this._maybeCancelCountdown(lobby, lobbyIsEmpty)
-      this._maybeCancelLoading(lobby, lobbyIsEmpty)
-      this._releaseLaunchBench(lobby.id)
+      const cancelledCountdown = this._maybeCancelCountdown(lobby, lobbyIsEmpty)
+      const cancelledLoading = this._maybeCancelLoading(lobby, lobbyIsEmpty)
+      if (cancelledCountdown || cancelledLoading) {
+        this._releaseLaunchBench(lobby.id)
+      }
     }
     if (!lobbyIsEmpty && wasInGame) {
       this._maybeRegroup(lobby.id)
@@ -2278,18 +2280,20 @@ export class LobbyService {
       // just replaced wholesale) since the countdown began
       const current = this.lobbies.get(lobbyId)
       if (current) {
-        this._maybeCancelCountdown(current, false)
-        this._maybeCancelLoading(current, false, usersAtFault)
-        this._releaseLaunchBench(lobbyId)
+        const cancelledCountdown = this._maybeCancelCountdown(current, false)
+        const cancelledLoading = this._maybeCancelLoading(current, false, usersAtFault)
+        if (cancelledCountdown || cancelledLoading) {
+          this._releaseLaunchBench(lobbyId)
+        }
       }
     }
   }
 
-  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]) {
+  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]): boolean {
     if (!this.loadingLobbies.has(lobby.id)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
-      return
+      return false
     }
 
     this.loadingLobbies.get(lobby.id)!.abort()
@@ -2301,6 +2305,7 @@ export class LobbyService {
     if (!isLobbyEmpty) {
       this._publishListChange('add', lobby)
     }
+    return true
   }
 
   /**
@@ -2561,6 +2566,11 @@ export class LobbyService {
    * gathering again and its seats are its own once more. Reads the lobby back out of the registry
    * rather than taking it as an argument, since a caller that cancelled a countdown and a load in
    * turn holds a lobby from before either of them.
+   *
+   * Only for the transitions that end a launch. A lobby that was already gathering seats its own
+   * bench as part of whatever freed the seat, and some of those callers deliberately leave a
+   * vacated slot unfilled (`closeSlot` takes the slot out of the lobby entirely), so draining the
+   * bench here as well would hand over a seat that was on its way out.
    */
   private _releaseLaunchBench(lobbyId: SbLobbyId): void {
     const lobby = this.lobbies.get(lobbyId)
@@ -2578,10 +2588,10 @@ export class LobbyService {
     this._publishListChange('update', updated)
   }
 
-  // Cancels the countdown if one was occurring (no-op if it was not)
-  _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false) {
+  /** Cancels the countdown if one was occurring, returning whether there was one to cancel. */
+  _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false): boolean {
     if (!this.lobbyCountdowns.has(lobby.id)) {
-      return
+      return false
     }
 
     const countdown = this.lobbyCountdowns.get(lobby.id)
@@ -2593,6 +2603,7 @@ export class LobbyService {
     if (!isLobbyEmpty) {
       this._publishListChange('add', lobby)
     }
+    return true
   }
 
   getLobbyState({ lobbyId }: { lobbyId: SbLobbyId }): {

@@ -2146,6 +2146,25 @@ describe('lobbies/lobby-service', () => {
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
+
+    test('closing an occupied slot does not hand it to a member waiting for a seat', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      // Every seat is taken, so this join waits
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(1)
+
+      const [, , joinerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)
+      // The point of the request is to take the slot out of the lobby, so the seat it frees is not
+      // a seat anyone gets to take -- not the occupant's replacement, and not the one waiting
+      lobbyService.closeSlot({ client: host.client, slotId: joinerSlot!.id })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeUndefined()
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+      expect(lobby.teams[0].slots[1].type).toBe('closed')
+    })
   })
 
   describe('changeSlot', () => {
