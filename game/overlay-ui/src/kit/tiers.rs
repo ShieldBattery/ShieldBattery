@@ -47,6 +47,9 @@ const PANEL_MARGIN: Margin = Margin {
     bottom: 10,
 };
 
+/// What an ambient panel's chrome adds above and below its contents together.
+pub const PANEL_MARGIN_HEIGHT: f32 = (PANEL_MARGIN.top + PANEL_MARGIN.bottom) as f32;
+
 /// Padding between a dialog's chrome and its contents, wider because a modal has the room. A
 /// dialog is built from three bands that share these side margins and differ only in how much room
 /// they leave above and below what they hold.

@@ -22,9 +22,7 @@ use egui::{
 use crate::colors::{BLUE60, GREY_BLUE60};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{
-    centred, paint_player_bar, paint_text, paint_tile_chrome, stacked_offset, unit_codes,
-};
+use crate::observer::{centred, paint_player_bar, paint_text, paint_tile_chrome, unit_codes};
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 620.0;
@@ -140,7 +138,6 @@ pub fn render_production_view(
     bottom: f32,
 ) -> Option<ProductionOutcome> {
     let id = Id::new("sb_production_panel");
-    let bottom = stacked_offset(ctx, id.with("bottom"), bottom);
     let area = Area::new(id)
         .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
         .order(Order::Foreground);

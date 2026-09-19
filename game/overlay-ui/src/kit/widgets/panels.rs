@@ -11,6 +11,11 @@ use crate::kit::widgets::{kbd, state_overlay};
 /// Height of a panel's title row.
 const HEADER_HEIGHT: f32 = 20.0;
 
+/// How much of a panel [`panel_header`] takes from top to bottom: the title row, the space around
+/// the rule under it, and the rule itself. What a panel that must fit a given height measures its
+/// rows against.
+pub const PANEL_HEADER_HEIGHT: f32 = HEADER_HEIGHT + theme::SPACE_XS + 1.0 + theme::SPACE_SM;
+
 /// Height of one label-and-value row.
 const STAT_ROW_HEIGHT: f32 = 22.0;
 

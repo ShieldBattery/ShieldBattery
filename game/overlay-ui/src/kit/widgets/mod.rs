@@ -20,7 +20,7 @@ pub use controls::{
 };
 pub use icons::{ResourceGlyph, paint_resource_glyph};
 pub use panels::{
-    STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,
+    PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,
     panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,
     tag_sized, text_cell,
 };

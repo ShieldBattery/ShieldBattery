@@ -36,8 +36,7 @@ use crate::kit::text;
 use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    ProductionIcon, centred, paint_player_bar, paint_text, paint_tile_chrome, stacked_offset,
-    unit_codes,
+    ProductionIcon, centred, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
 };
 use crate::tr;
 
@@ -49,6 +48,8 @@ pub struct SelectedUnitView {
     /// The color of the player who owns it, and their name.
     pub owner_color: Color32,
     pub owner_name: String,
+    /// The game's own slot of the player who owns it, or `None` for a unit nobody owns.
+    pub owner: Option<u8>,
     /// Hit points, current and full.
     pub hit_points: (u32, u32),
     /// Shields, current and full, for a unit that has any.
@@ -315,7 +316,6 @@ pub fn render_selection_view(
     bottom: f32,
 ) -> Option<Rect> {
     let id = Id::new("sb_selection_panel");
-    let bottom = stacked_offset(ctx, id.with("bottom"), bottom);
     let area = Area::new(id)
         .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
         .order(Order::Foreground);
@@ -696,6 +696,7 @@ mod tests {
             },
             owner_color: Color32::WHITE,
             owner_name: String::new(),
+            owner: None,
             hit_points,
             shields,
             energy: None,
