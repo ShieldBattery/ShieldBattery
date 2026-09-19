@@ -31,7 +31,7 @@ use crate::observer::{
 use crate::tr;
 
 /// How wide a card is, in overlay points.
-pub const CARD_WIDTH: f32 = 560.0;
+pub const CARD_WIDTH: f32 = 512.0;
 
 /// How far a card's top edge sits below the screen's, level with the clock the bar has become.
 pub(crate) const CARD_TOP: f32 = 16.0;
@@ -65,17 +65,20 @@ const CHIP: f32 = 18.0;
 /// Gap between the chip and the name.
 const CHIP_GAP: f32 = 6.0;
 
-/// Width the player's name is laid out in. Fixed, because a name is player-chosen.
-const NAME_WIDTH: f32 = 118.0;
+/// Width the player's name is laid out in. Fixed, because a name is player-chosen, and it is what
+/// the value columns leave: a name has more to say than a number, and a bank past five digits is
+/// not a bank anybody keeps.
+const NAME_WIDTH: f32 = 142.0;
 
 /// Gap between two columns.
-const COLUMN_GAP: f32 = 10.0;
+const COLUMN_GAP: f32 = 6.0;
 
-/// Width of each of the four value columns.
-const MINERAL_WIDTH: f32 = 90.0;
-const GAS_WIDTH: f32 = 90.0;
-const SUPPLY_WIDTH: f32 = 96.0;
-const APM_WIDTH: f32 = 66.0;
+/// Width of each of the four value columns: room for five digits of minerals, four of gas, a supply
+/// count against its cap, and three digits of APM.
+const MINERAL_WIDTH: f32 = 84.0;
+const GAS_WIDTH: f32 = 70.0;
+const SUPPLY_WIDTH: f32 = 76.0;
+const APM_WIDTH: f32 = 56.0;
 
 /// The columns are the row and the row is the card. Checked where the widths are written, because
 /// a column more than fits would be drawn outside the card's chrome.
@@ -97,10 +100,10 @@ const _: () = assert!(
 );
 
 /// Width of each footer cell, and the gap between two of them.
-const FOOTER_INCOME: f32 = 150.0;
-const FOOTER_ARMY: f32 = 150.0;
-const FOOTER_WORKERS: f32 = 100.0;
-const FOOTER_TRADE: f32 = 112.0;
+const FOOTER_INCOME: f32 = 140.0;
+const FOOTER_ARMY: f32 = 140.0;
+const FOOTER_WORKERS: f32 = 80.0;
+const FOOTER_TRADE: f32 = 104.0;
 const FOOTER_GAP: f32 = 8.0;
 
 // The footer's cells are the card's width too, for the same reason.
@@ -111,8 +114,11 @@ const _: () = assert!(
 /// Width of one of the two halves of a footer cell that carries both resources.
 const FOOTER_HALF: f32 = (FOOTER_INCOME - FOOTER_GAP) / 2.0;
 
-/// Width of the slash between a kill count and a loss count.
+/// Width of the slash between a kill count and a loss count, and of the kill count ahead of it:
+/// room for four digits, so the loss count sits a fixed distance from the kills rather than
+/// wherever the cell's middle falls.
 const SLASH_WIDTH: f32 = 10.0;
+const TRADE_KILLS_WIDTH: f32 = 40.0;
 
 /// Text size of a player's name.
 const NAME_SIZE: f32 = 15.0;
@@ -492,21 +498,20 @@ fn draw_pair(ui: &Ui, rect: Rect, minerals: u32, gas: u32) {
             inner.take(FOOTER_HALF - STAT_GLYPH - STAT_GLYPH_GAP),
             &text::numeral(TOTAL_SIZE),
             &value.to_string(),
-            Align::RIGHT,
+            Align::LEFT,
         );
     }
 }
 
 /// Draws the side's kill-and-loss pair: what they took, then what it cost them.
 fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32) {
-    let half = (rect.width() - SLASH_WIDTH) / 2.0;
     let mut cursor = EdgeCursor::from_left(rect);
     paint_text(
         ui,
-        cursor.take(half),
+        cursor.take(TRADE_KILLS_WIDTH),
         &text::numeral(TOTAL_SIZE),
         &kills.to_string(),
-        Align::RIGHT,
+        Align::LEFT,
     );
     paint_text(
         ui,
@@ -517,7 +522,7 @@ fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32) {
     );
     paint_text(
         ui,
-        cursor.take(half),
+        cursor.take(rect.width() - TRADE_KILLS_WIDTH - SLASH_WIDTH),
         &text::numeral(TOTAL_SIZE).with_color(theme::TEXT_DIM),
         &losses.to_string(),
         Align::LEFT,
