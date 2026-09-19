@@ -1,9 +1,10 @@
+import { TFunction } from 'i18next'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { gameTypeToLabel } from '../../common/games/game-type'
-import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
+import { isLaunchingLifecycle, LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { apiUrl } from '../../common/urls'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -69,6 +70,29 @@ export type LobbySummaryLoadState =
 /** How long a cached summary fetch is shared between callers that opt into caching. */
 const SUMMARY_CACHE_MS = 30 * 1000
 
+/**
+ * The cache window for a lobby that's counting down or loading, which is much shorter than
+ * {@link SUMMARY_CACHE_MS}: such a lobby is seconds away from being something else, so its summary
+ * is worth far less than a settled one's. Keeping this below {@link LAUNCHING_REFRESH_MS} is also
+ * what lets a re-read actually reach the network instead of being handed the same launching result
+ * back for the rest of a full window.
+ */
+const LAUNCHING_SUMMARY_CACHE_MS = 10 * 1000
+
+/**
+ * How often a mounted summary re-reads a lobby that's counting down or loading. Nothing pushes a
+ * lifecycle change to a summary reader, so this is the only way a card that loaded mid-launch ever
+ * learns what the lobby settled into.
+ */
+const LAUNCHING_REFRESH_MS = 15 * 1000
+
+/** How long a freshly fetched summary stays cached, given what it turned out to describe. */
+function cacheWindowFor(data: LobbySummaryResponse): number {
+  return isLaunchingLifecycle(data.summary.lifecycle)
+    ? LAUNCHING_SUMMARY_CACHE_MS
+    : SUMMARY_CACHE_MS
+}
+
 const summaryCache = new Map<
   SbLobbyId,
   { expiresAt: number; promise: Promise<LobbySummaryLoadState> }
@@ -120,7 +144,8 @@ export function resetSummaryCacheForTesting() {
  * a channel switch) -- collapsing those into one request per lobby per window avoids fanning out
  * to the summary endpoint's IP throttle. A transient failure (anything other than a 404) isn't
  * cached, so a later caller retries instead of being stuck with the error for the whole window; a
- * 404 is cached like any other result, since a lobby that's gone stays gone.
+ * 404 is cached like any other result, since a lobby that's gone stays gone. A lobby caught
+ * mid-launch gets a much shorter window than a settled one (see {@link LAUNCHING_SUMMARY_CACHE_MS}).
  */
 export function fetchLobbySummary(
   lobbyId: SbLobbyId,
@@ -166,7 +191,7 @@ export function fetchLobbySummary(
       // slow fetch doesn't eat into it.
       const entry = summaryCache.get(lobbyId)
       if (entry?.promise === promise) {
-        entry.expiresAt = Date.now() + SUMMARY_CACHE_MS
+        entry.expiresAt = Date.now() + cacheWindowFor(data)
       }
       return { status: 'loaded', data }
     },
@@ -198,6 +223,10 @@ export function fetchLobbySummary(
  * refresh fails for a reason other than a 404, the last successfully loaded summary is kept instead
  * of being downgraded to the error state.
  *
+ * A summary that reports the lobby as counting down or loading re-reads itself on an interval until
+ * the lobby settles, since nothing pushes a lifecycle change to a summary reader and a launching
+ * lobby is only ever seconds away from being something else.
+ *
  * Pass `cached: true` to read through the shared cache described in {@link fetchLobbySummary}
  * instead of always hitting the network -- appropriate for call sites where the same lobby can be
  * requested many times at once and an eventually-consistent summary is fine. Note that caching
@@ -215,6 +244,17 @@ export function useLobbySummary(
   const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
+    const applyState = (state: LobbySummaryLoadState) =>
+      setResult(prev =>
+        // A lobby that's still loadable shouldn't lose its rendered details to a transient failure;
+        // only a 404 (definitively gone) replaces a loaded summary. This matters most to a re-read,
+        // which gets a fresh chance to fail (or to be denied by the fetch budget) for every card
+        // already rendering a perfectly good summary.
+        state.status === 'error' && prev?.lobbyId === lobbyId && prev.state.status === 'loaded'
+          ? prev
+          : { lobbyId, state },
+      )
+
     if (cached) {
       // The fetch itself is shared across every mount currently requesting this lobby, so it can't
       // be aborted just because this particular mount goes away -- only ignore a result that
@@ -223,7 +263,7 @@ export function useLobbySummary(
       fetchLobbySummary(lobbyId, { cached: true })
         .then(state => {
           if (!canceled) {
-            setResult({ lobbyId, state })
+            applyState(state)
           }
         })
         .catch(swallowNonBuiltins)
@@ -240,22 +280,49 @@ export function useLobbySummary(
         if (controller.signal.aborted) {
           return
         }
-        setResult(prev =>
-          // A lobby that's still loadable shouldn't lose its rendered details to a transient
-          // failure; only a 404 (definitively gone) replaces a loaded summary.
-          state.status === 'error' && prev?.lobbyId === lobbyId && prev.state.status === 'loaded'
-            ? prev
-            : { lobbyId, state },
-        )
+        applyState(state)
       })
       .catch(swallowNonBuiltins)
 
     return () => controller.abort()
   }, [lobbyId, refreshToken, cached])
 
+  const state = result?.lobbyId === lobbyId ? result.state : undefined
+  const isLaunching =
+    state?.status === 'loaded' && isLaunchingLifecycle(state.data.summary.lifecycle)
+
+  useEffect(() => {
+    if (!isLaunching) {
+      return undefined
+    }
+
+    // Re-reading is scheduled off the refresh itself rather than off each arriving result, so a
+    // lobby that stays launching across several reads keeps one steady interval instead of drifting
+    // by however long each read took.
+    const timer = setTimeout(() => setRefreshToken(t => t + 1), LAUNCHING_REFRESH_MS)
+    return () => clearTimeout(timer)
+  }, [isLaunching, refreshToken])
+
   const refresh = () => setRefreshToken(t => t + 1)
 
-  return [result?.lobbyId === lobbyId ? result.state : undefined, refresh]
+  return [state, refresh]
+}
+
+/**
+ * What the details list shows for slots: how many are open, or -- when the lobby isn't taking
+ * anyone into a seat right now -- what it's doing instead.
+ */
+function slotsValueFor(lobby: LobbySummaryResponse['summary'], t: TFunction): string {
+  if (lobby.lifecycle === 'inGame') {
+    return t('lobbies.lobby.inGame', 'In game')
+  }
+  if (isLaunchingLifecycle(lobby.lifecycle)) {
+    return t('lobbies.summary.startingGame', 'Starting game')
+  }
+  return t('lobbies.summary.openSlotCount', {
+    defaultValue: '{{count}} open',
+    count: lobby.playerSlots.open,
+  })
 }
 
 /**
@@ -288,14 +355,7 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
           </DetailRow>
           <DetailRow>
             <DetailLabel>{t('lobbies.summary.slotsLabel', 'Slots')}</DetailLabel>
-            <DetailValue>
-              {lobby.lifecycle === 'inGame'
-                ? t('lobbies.lobby.inGame', 'In game')
-                : t('lobbies.summary.openSlotCount', {
-                    defaultValue: '{{count}} open',
-                    count: lobby.playerSlots.open,
-                  })}
-            </DetailValue>
+            <DetailValue>{slotsValueFor(lobby, t)}</DetailValue>
           </DetailRow>
         </DetailsList>
       </InfoLayout>

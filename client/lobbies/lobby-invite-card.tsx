@@ -1,8 +1,10 @@
+import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import { openSlotCount as countOpenLobbySlots } from '../../common/lobbies'
+import { isLaunchingLifecycle, LobbyLifecycle } from '../../common/lobbies/lobby-network'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { MapImageInfo, SbMapId } from '../../common/maps'
@@ -24,6 +26,7 @@ import { isShieldBatteryUrl } from '../navigation/external-link'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
+import { useLobbyLifecycle } from './room/room-parts'
 import { useJoinLobbyAction } from './use-join-lobby-action'
 
 /**
@@ -93,7 +96,22 @@ export interface LobbyInviteDisplayData {
   gameType: GameType
   hostName: string
   openSlotCount: number
-  inGame: boolean
+  lifecycle: LobbyLifecycle
+}
+
+/** The card's third info line: where the lobby stands, in the terms that matter to a joiner. */
+function statusLineFor(display: LobbyInviteDisplayData, t: TFunction): string {
+  if (display.lifecycle === 'inGame') {
+    return t('lobbies.lobby.inGame', 'In game')
+  }
+  if (isLaunchingLifecycle(display.lifecycle)) {
+    return t('lobbies.summary.startingGame', 'Starting game')
+  }
+  return t('lobbies.joinLobby.openSlotCount', {
+    defaultValue_one: '{{count}} slot open',
+    defaultValue: '{{count}} slots open',
+    count: display.openSlotCount,
+  })
 }
 
 /**
@@ -118,13 +136,7 @@ function LobbyInviteCardBody({
   const dispatch = useAppDispatch()
 
   const hostAndGameType = `${display.hostName} · ${gameTypeToLabel(display.gameType, t)}`
-  const statusText = display.inGame
-    ? t('lobbies.lobby.inGame', 'In game')
-    : t('lobbies.joinLobby.openSlotCount', {
-        defaultValue_one: '{{count}} slot open',
-        defaultValue: '{{count}} slots open',
-        count: display.openSlotCount,
-      })
+  const statusText = statusLineFor(display, t)
 
   return (
     <InlineCardRoot $height={CARD_HEIGHT}>
@@ -204,7 +216,7 @@ export function LobbyInviteCardContent({
         gameType: lobby.gameType,
         hostName: host.name,
         openSlotCount: lobby.playerSlots.open,
-        inGame: lobby.lifecycle === 'inGame',
+        lifecycle: lobby.lifecycle,
       }}
       joinButton={{ joined: false, onClick: onJoinClick }}
     />
@@ -228,10 +240,8 @@ export function LobbyInviteJoinedCard({ display }: { display: LobbyInviteDisplay
  *
  * A viewer already seated in the linked lobby (the common case being its own invite link pasted
  * into its own chat) still sees the card, built from the live lobby state instead of a summary
- * fetch: the summary endpoint 404s for a lobby that's mid-countdown or loading (the getter that
- * backs it excludes transient lobbies), which would otherwise show a seated member their own live
- * lobby as "no longer open"; reading local state instead sidesteps that entirely, and keeps the
- * zero-fetch property for the common case of a lobby's own link appearing in its own chat.
+ * fetch. A seated member's store is both more current than any summary snapshot and free to read,
+ * so a lobby's own link appearing in its own chat costs no requests at all.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const isInThisLobby = useAppSelector(s => isInLobby(s.lobby) && s.lobby.info.id === lobbyId)
@@ -268,7 +278,7 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
 function OwnLobbyInviteCard() {
   const info = useAppSelector(s => s.lobby.info)
   const hostName = useAppSelector(s => s.users.byId.get(info.host.userId!)?.name) ?? ''
-  const inGame = useAppSelector(s => s.lobby.runState !== undefined)
+  const lifecycle = useLobbyLifecycle()
 
   return (
     <LobbyInviteJoinedCard
@@ -278,7 +288,7 @@ function OwnLobbyInviteCard() {
         gameType: info.gameType,
         hostName,
         openSlotCount: countOpenLobbySlots(info),
-        inGame,
+        lifecycle,
       }}
     />
   )
