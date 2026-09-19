@@ -269,7 +269,11 @@ pub fn build_control_groups_view(
                     .map(|group| ControlGroupView {
                         key: group.key,
                         icon: production::unit_icon(group.unit_id, bw.is_hd),
+                        combo: group
+                            .secondary_unit_id
+                            .map(|unit_id| production::unit_icon(unit_id, bw.is_hd)),
                         count: group.count,
+                        building: group.building,
                         stale: group.stale,
                     })
                     .collect(),

@@ -4,26 +4,25 @@
 //! It hangs off the right edge of the screen at the kit's ambient tier, in two forms of the same
 //! list. **Collapsed** it is a strip of keycaps, one per surface, lit for the ones that are on — a
 //! reminder for someone who already knows the keys, taking as little of the screen as a control can.
-//! **Expanded** it is the control rail: the same list with its names spelled out, plus the three
-//! presets, for someone who does not.
+//! **Expanded** it is the control rail: the same list with its names spelled out, for someone who
+//! does not.
 //!
 //! The list is the shell's panel table rather than a list of its own, so a surface built later
 //! appears here the day its toggle does, and one that does not exist yet is not advertised.
 //!
 //! It is anchored to the middle of the screen's right edge rather than to a fixed height: the list
 //! grows with the panels that exist and with what is being watched, and a fixed top would sooner or
-//! later push the presets into the console band the game's own interface owns.
+//! later push its last rows into the console band the game's own interface owns.
 
 use egui::{
     Align, Align2, Area, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind, Ui, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight};
-use crate::kit::tiers::gradient_round_rect;
 use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{centred, paint_text};
-use crate::shell::{Action, Hotkeys, Mode, Panel, PanelPrefs, PanelPreset};
+use crate::shell::{Action, Hotkeys, Mode, Panel, PanelPrefs};
 use crate::tr;
 
 /// How wide the dock is collapsed, in overlay points.
@@ -35,15 +34,11 @@ const EXPANDED_WIDTH: f32 = 208.0;
 /// How far the dock sits from the screen's right edge.
 const EDGE_MARGIN: f32 = 16.0;
 
-/// Height of one row, and of one preset button.
+/// Height of one row.
 const ROW_HEIGHT: f32 = theme::HIT_PANEL;
 
 /// Gap between two rows.
 const ROW_GAP: f32 = 4.0;
-
-/// Height of one preset button. Shorter than a row: three of them are a group, and a group as tall
-/// as the list above it would weigh more than what it is a shortcut to.
-const PRESET_HEIGHT: f32 = 28.0;
 
 /// Height of the chevron that changes the dock between its two forms.
 const CHEVRON_HEIGHT: f32 = 24.0;
@@ -136,8 +131,6 @@ pub struct DockOutcome {
     pub toggled: Option<Panel>,
     /// Whether the replay's length should be withheld.
     pub spoiler_free: Option<bool>,
-    /// A whole set of surfaces to move to at once.
-    pub preset: Option<PanelPreset>,
     /// Whether the dock should spell its rows out.
     pub expanded: Option<bool>,
 }
@@ -149,7 +142,6 @@ impl DockOutcome {
             rect: Rect::NOTHING,
             toggled: None,
             spoiler_free: None,
-            preset: None,
             expanded: None,
         }
     }
@@ -216,10 +208,6 @@ fn draw_dock(
             Entry::SpoilerFree => outcome.spoiler_free = Some(!prefs.spoiler_free),
         }
     }
-    ui.add_space(theme::SPACE_XS);
-    widgets::divider(ui);
-    ui.add_space(theme::SPACE_XS);
-    outcome.preset = draw_presets(ui, content_width, prefs, prefs.dock_expanded);
     outcome
 }
 
@@ -392,90 +380,4 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, on: bool) {
         key,
         Align::Center,
     );
-}
-
-/// Draws the presets, stacked: three names beside each other would be three abbreviations in any
-/// language that writes them longer than English does, and a preset a watcher cannot read is a
-/// preset they will not press.
-fn draw_presets(
-    ui: &mut Ui,
-    width: f32,
-    prefs: &PanelPrefs,
-    expanded: bool,
-) -> Option<PanelPreset> {
-    let active = prefs.preset();
-    let mut picked = None;
-    for preset in PanelPreset::ALL {
-        let (rect, _) = ui.allocate_exact_size(vec2(width, PRESET_HEIGHT), Sense::hover());
-        let name = preset_label(preset);
-        // Collapsed there is room for one character, so it is the initial of the preset's own name:
-        // a translated dock abbreviates the word its reader sees spelled out in the rail rather than
-        // an English one they never do.
-        let label: String = if expanded {
-            name
-        } else {
-            name.chars().next().into_iter().collect()
-        };
-        if draw_preset(ui, rect, preset, &label, active == Some(preset)) {
-            picked = Some(preset);
-        }
-    }
-    picked
-}
-
-/// Draws one preset button, returning whether it was clicked.
-///
-/// Presets carry a hero panel's chrome rather than a keycap's: collapsed, the dock is a column of
-/// single characters, and a preset that looked like the keys above it would read as one more key.
-fn draw_preset(ui: &mut Ui, rect: Rect, preset: PanelPreset, label: &str, active: bool) -> bool {
-    let response = ui.interact(
-        rect,
-        ui.id().with(("obs_dock_preset", preset.label())),
-        Sense::click(),
-    );
-    let corner_radius = theme::radius(theme::RADIUS_PANEL);
-    ui.painter().add(gradient_round_rect(
-        rect,
-        corner_radius,
-        [theme::TIER1_FILL_TOP, theme::TIER1_FILL_BOTTOM],
-    ));
-    if active {
-        ui.painter()
-            .rect_filled(rect, corner_radius, theme::alpha(theme::ACCENT, 0.16));
-    }
-    ui.painter().add(Shape::rect_stroke(
-        rect,
-        corner_radius,
-        Stroke::new(
-            theme::HAIRLINE,
-            if active {
-                theme::ACCENT
-            } else {
-                theme::TIER1_STROKE
-            },
-        ),
-        StrokeKind::Inside,
-    ));
-    widgets::state_overlay(ui, &response, rect, corner_radius);
-    paint_text(
-        ui,
-        rect.shrink(theme::SPACE_XS),
-        &text::button_label(12.0).with_color(if active {
-            theme::ACCENT
-        } else {
-            theme::TEXT_DIM
-        }),
-        label,
-        Align::Center,
-    );
-    response.clicked()
-}
-
-/// What a preset is called.
-fn preset_label(preset: PanelPreset) -> String {
-    match preset {
-        PanelPreset::Minimal => tr!("observer.presetMinimal", "Minimal"),
-        PanelPreset::Standard => tr!("observer.presetStandard", "Standard"),
-        PanelPreset::Analyst => tr!("observer.presetAnalyst", "Analyst"),
-    }
 }

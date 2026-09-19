@@ -145,8 +145,13 @@ pub struct ControlGroup {
     pub key: u8,
     /// What the group is mostly made of, which is the icon it is named by.
     pub unit_id: UnitId,
+    /// The other kind in a group made of two, or `None` for a group that is one thing.
+    pub secondary_unit_id: Option<UnitId>,
     /// How many living units are in it.
     pub count: u32,
+    /// Whether the group is a building. The game lets a group hold twelve units or one building, so
+    /// a building group is one building, and a count of it says nothing.
+    pub building: bool,
     /// Whether it has gone long enough without being recalled to be worth pointing out.
     pub stale: bool,
 }
@@ -402,10 +407,6 @@ impl GameStats {
     }
 
     /// Replaces every player's number-key groups with what the game has on them right now.
-    ///
-    /// The game stores unique unit ids rather than pointers, so an id that no longer resolves is a
-    /// unit that has died and is simply not counted: a group's count here is what recalling it
-    /// would select.
     fn record_control_groups(
         &mut self,
         game: Game,
@@ -421,7 +422,7 @@ impl GameStats {
             let groups = &mut self.players[player].control_groups;
             groups.clear();
             for group in 0..NUMBER_KEY_GROUPS {
-                let Some((unit_id, count)) = read_control_group(game, units, player, group) else {
+                let Some(contents) = read_control_group(game, units, player, group) else {
                     continue;
                 };
                 let stale = hotkey_frames_offset
@@ -430,8 +431,10 @@ impl GameStats {
                 groups.push(ControlGroup {
                     // The game indexes a group by the digit it is bound with.
                     key: group as u8,
-                    unit_id,
-                    count,
+                    unit_id: contents.dominant,
+                    secondary_unit_id: contents.runner_up,
+                    count: contents.count,
+                    building: contents.dominant.is_building(),
                     stale,
                 });
             }
@@ -585,20 +588,37 @@ impl GameStats {
     }
 }
 
-/// Reads one of a player's selection groups: what it is mostly made of, and how many living units
-/// are in it, or `None` for a group with nothing on it.
+/// What one group is made of, as one reading of it found.
+struct GroupContents {
+    /// The kind the group is named by.
+    dominant: UnitId,
+    /// The kind it is also named by, for a group that is enough of a mix to be worth calling one.
+    runner_up: Option<UnitId>,
+    /// How many living units are in it.
+    count: u32,
+}
+
+/// How small a share of a group its second kind may hold and still be worth naming, as the divisor
+/// of the fraction it has to reach.
 ///
-/// The icon is the commonest unit rather than the first, because the first entry of a group is
-/// whatever happened to be selected when it was bound, while what a caster wants named is the army
-/// the group is.
+/// A quarter. Below that the group is one thing with strays in it — an army of zealots that a
+/// templar walked into is still an army of zealots — and above it the group really was built as a
+/// mix, which is a different army and worth saying so.
+const COMBO_SHARE_DIVISOR: u32 = 4;
+
+/// Reads one of a player's selection groups: what it is made of and how many living units are in
+/// it, or `None` for a group with nothing on it.
+///
+/// The game stores unique unit ids rather than pointers, so an id that no longer resolves is a unit
+/// that has died and is simply not counted: the count is what recalling the group would select.
 fn read_control_group(
     game: Game,
     units: &UnitArray,
     player: usize,
     group: usize,
-) -> Option<(UnitId, u32)> {
+) -> Option<GroupContents> {
     let ids = unsafe { *(**game).selection_hotkeys.get(player)?.get(group)? };
-    let mut tally: Vec<(UnitId, u32)> = Vec::new();
+    let mut tally: Vec<(UnitId, u32, u32)> = Vec::new();
     let mut count = 0;
     for id in ids {
         // Zero is the game's own end of the group rather than a unit it failed to find.
@@ -612,14 +632,47 @@ fn read_control_group(
         let unit_id = unit.id();
         match tally
             .iter_mut()
-            .find(|(candidate, _)| *candidate == unit_id)
+            .find(|(candidate, _, _)| *candidate == unit_id)
         {
             Some(entry) => entry.1 += 1,
-            None => tally.push((unit_id, 1)),
+            None => tally.push((
+                unit_id,
+                1,
+                unit_id.mineral_cost().saturating_add(unit_id.gas_cost()),
+            )),
         }
     }
-    let dominant = tally.into_iter().max_by_key(|&(_, held)| held)?.0;
-    Some((dominant, count))
+    let (dominant, runner_up) = group_composition(&tally)?;
+    Some(GroupContents {
+        dominant,
+        runner_up,
+        count,
+    })
+}
+
+/// Picks the one or two kinds that name a group, out of its tally of `(kind, units, cost)`.
+///
+/// The group is named by its commonest kind rather than by its first, because the first entry of a
+/// group is whatever happened to be selected when it was bound, while what a caster wants named is
+/// the army the group is. Two kinds holding the same number of units are separated by what they
+/// cost: the expensive half of a mix is the half the group was built around, and a dropship full of
+/// marines is a drop rather than a dropship.
+///
+/// The runner-up is only named when it holds at least a [`COMBO_SHARE_DIVISOR`]th of the group.
+fn group_composition(tally: &[(UnitId, u32, u32)]) -> Option<(UnitId, Option<UnitId>)> {
+    let total: u32 = tally.iter().map(|&(_, held, _)| held).sum();
+    let leader = (0..tally.len()).max_by_key(|&index| {
+        let (_, held, cost) = tally[index];
+        (held, cost)
+    })?;
+    let runner_up = tally
+        .iter()
+        .enumerate()
+        .filter(|&(index, _)| index != leader)
+        .max_by_key(|&(_, &(_, held, cost))| (held, cost))
+        .filter(|&(_, &(_, held, _))| held.saturating_mul(COMBO_SHARE_DIVISOR) >= total)
+        .map(|(_, &(id, _, _))| id);
+    Some((tally[leader].0, runner_up))
 }
 
 /// The frame a group was last written on, read out of the table `game` keeps it in.
@@ -829,6 +882,48 @@ mod tests {
             player.samples.back().map(|s| s.workers),
             Some(MAX_SAMPLES as u32 + 9)
         );
+    }
+
+    #[test]
+    fn a_group_is_named_by_the_most_of_what_is_in_it() {
+        let zealots = (unit::ZEALOT, 8, 100);
+        let dragoons = (unit::DRAGOON, 4, 175);
+        assert_eq!(
+            group_composition(&[dragoons, zealots]),
+            Some((unit::ZEALOT, Some(unit::DRAGOON)))
+        );
+    }
+
+    #[test]
+    fn two_kinds_tied_on_units_are_separated_by_what_they_cost() {
+        let marines = (unit::MARINE, 4, 50);
+        let tanks = (unit::SIEGE_TANK_TANK, 4, 250);
+        assert_eq!(
+            group_composition(&[marines, tanks]),
+            Some((unit::SIEGE_TANK_TANK, Some(unit::MARINE)))
+        );
+    }
+
+    #[test]
+    fn a_kind_too_small_a_share_of_a_group_is_a_stray_rather_than_a_mix() {
+        // Two of twelve is under the share a second kind has to hold; three of twelve is exactly
+        // it.
+        let strays = [(unit::ZEALOT, 10, 100), (unit::HIGH_TEMPLAR, 2, 200)];
+        assert_eq!(group_composition(&strays), Some((unit::ZEALOT, None)));
+        let mix = [(unit::ZEALOT, 9, 100), (unit::HIGH_TEMPLAR, 3, 200)];
+        assert_eq!(
+            group_composition(&mix),
+            Some((unit::ZEALOT, Some(unit::HIGH_TEMPLAR)))
+        );
+    }
+
+    #[test]
+    fn a_group_of_one_kind_has_nothing_to_pair_it_with() {
+        assert_eq!(
+            group_composition(&[(unit::MUTALISK, 12, 150)]),
+            Some((unit::MUTALISK, None))
+        );
+        assert_eq!(group_composition(&[]), None);
     }
 
     #[test]

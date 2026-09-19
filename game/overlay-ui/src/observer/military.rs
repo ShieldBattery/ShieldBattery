@@ -33,15 +33,15 @@ const CONTENT_WIDTH: f32 = 462.0;
 /// Gap between the bar of the player's color and their name.
 const BAR_GAP: f32 = 8.0;
 
-/// Width the player's name is laid out in, matching the economy panel's so the two wings read as one
-/// table split across the screen.
-const NAME_WIDTH: f32 = 112.0;
+/// Width the player's name is laid out in. Wider than the economy panel's identity column, because
+/// this panel's three value columns together take less of the row than the economy panel's do.
+const NAME_WIDTH: f32 = 146.0;
 
 /// Gap between two columns.
-const COLUMN_GAP: f32 = 10.0;
+const COLUMN_GAP: f32 = 6.0;
 
 /// Width of one of the two halves of the army column.
-const VALUE_WIDTH: f32 = 69.0;
+const VALUE_WIDTH: f32 = 57.0;
 
 /// Gap between the mineral value and the gas value.
 const VALUE_GAP: f32 = 14.0;
@@ -50,10 +50,10 @@ const VALUE_GAP: f32 = 14.0;
 const ARMY_WIDTH: f32 = VALUE_WIDTH * 2.0 + VALUE_GAP;
 
 /// Width of the unit kill-and-loss column.
-const UNITS_WIDTH: f32 = 82.0;
+const UNITS_WIDTH: f32 = 88.0;
 
 /// Width of the worker kill-and-loss column.
-const WORKERS_WIDTH: f32 = 74.0;
+const WORKERS_WIDTH: f32 = 70.0;
 
 /// The columns are the row and the row is the panel. Checked where the widths are written, because
 /// a column more than fits would be drawn outside the panel's chrome.
@@ -70,8 +70,13 @@ const _: () = assert!(
         == CONTENT_WIDTH
 );
 
-/// Width of the slash between a kill count and a loss count.
-const SLASH_WIDTH: f32 = 10.0;
+/// Width of the hairline slash between a kill count and a loss count.
+const SLASH_WIDTH: f32 = 8.0;
+
+/// Width the kill count is laid out in, ahead of the slash. Wide enough for four digits, because a
+/// loss count sitting a fixed distance from the kill count beside it must not be shoved rightward
+/// as the kill count itself gains a digit.
+const KILLS_WIDTH: f32 = 36.0;
 
 /// One player's row.
 pub struct MilitaryPlayerView {
@@ -151,7 +156,7 @@ fn draw_headings(ui: &mut Ui) {
     paint_column_heading(
         ui,
         cursor.take(ARMY_WIDTH),
-        &tr!("observer.columnArmy", "Army"),
+        &tr!("observer.columnArmyValue", "Army value"),
         Align::LEFT,
     );
     cursor.skip(COLUMN_GAP);
@@ -159,14 +164,14 @@ fn draw_headings(ui: &mut Ui) {
         ui,
         cursor.take(UNITS_WIDTH),
         &tr!("observer.columnUnitsKillsLosses", "Units k/l"),
-        Align::RIGHT,
+        Align::LEFT,
     );
     cursor.skip(COLUMN_GAP);
     paint_column_heading(
         ui,
         cursor.take(WORKERS_WIDTH),
         &tr!("observer.columnWorkersKillsLosses", "Wkr k/l"),
-        Align::RIGHT,
+        Align::LEFT,
     );
 }
 
@@ -191,6 +196,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
         cursor.take(VALUE_WIDTH),
         ResourceGlyph::Minerals,
         &player.army_minerals.to_string(),
+        Align::LEFT,
         alpha,
     );
     cursor.skip(VALUE_GAP);
@@ -199,6 +205,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
         cursor.take(VALUE_WIDTH),
         ResourceGlyph::Gas,
         &player.army_gas.to_string(),
+        Align::LEFT,
         alpha,
     );
 
@@ -220,16 +227,17 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
     );
 }
 
-/// Draws one kill-and-loss pair: what the player took, then what it cost them.
+/// Draws one kill-and-loss pair as a run starting at the column's left edge: what the player took,
+/// then what it cost them, with the loss count a fixed distance from the kill count rather than
+/// centred in whatever room the column happens to have.
 fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32, alpha: f32) {
-    let half = (rect.width() - SLASH_WIDTH) / 2.0;
     let mut cursor = EdgeCursor::from_left(rect);
     paint_text(
         ui,
-        cursor.take(half),
+        cursor.take(KILLS_WIDTH),
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
         &kills.to_string(),
-        Align::RIGHT,
+        Align::LEFT,
     );
     paint_text(
         ui,
@@ -240,7 +248,7 @@ fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32, alpha: f32) {
     );
     paint_text(
         ui,
-        cursor.take(half),
+        cursor.take(rect.width() - KILLS_WIDTH - SLASH_WIDTH),
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_DIM.gamma_multiply(alpha)),
         &losses.to_string(),
         Align::LEFT,

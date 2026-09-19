@@ -1,24 +1,34 @@
 //! The control groups panel: what every player has bound to their number keys.
 //!
 //! One row per player, led by the bar of their own color and their name, then ten slots in the
-//! order a keyboard reads them. A slot carries the digit it answers to, the icon of whatever the
-//! group is mostly made of, and how many units are in it — which is what a caster reads a push
-//! against: a group of twelve that has not been touched in four minutes is an army sitting at home.
+//! order a keyboard reads them. A slot carries the digit it answers to, what the group is, and how
+//! many units are in it — which is what a caster reads a push against: a group of twelve that has
+//! not been touched in four minutes is an army sitting at home.
+//!
+//! What the group *is* takes the middle of the slot, because it is the line a watcher reads first:
+//! the game's own icon where the host has the atlas to draw it, and the unit's short code where it
+//! has not. A group of two kinds names both, since an army of zealots with templar in it is a
+//! different army from either of them alone. The game lets a group hold twelve units or one
+//! building, so a building group has no count and is not given one.
 //!
 //! The ten slots are always drawn, filled or not. A row that only showed the groups a player
 //! happens to have would move its tiles every time one was made or lost, and the whole point of the
-//! panel is that the same key is always in the same place.
+//! panel is that the same key is always in the same place. An empty one keeps its space and fades
+//! nearly out of the row, so what the row is made of is the keys the player is using.
 //!
 //! It sits at the kit's ambient tier just above the production panel, centred, so the two surfaces
 //! a watcher glances at during a fight are in the same place.
 
-use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, pos2, vec2};
+use egui::{
+    Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind,
+    TextureId, Ui, pos2, vec2,
+};
 
+use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, paint_tile_chrome,
-    vision_alpha,
+    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -31,8 +41,12 @@ pub(crate) const BOTTOM_MARGIN: f32 = 388.0;
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 
-/// Width of the bar of the player's own color that leads their row.
+/// Width of the bar of the player's own color that leads their row, and how tall it is drawn.
+///
+/// Shorter than the row: the bar says whose row this is, and one run the height of three lines of
+/// text would be a stripe down the panel rather than a mark against a name.
 const COLOR_BAR: f32 = 4.0;
+const COLOR_BAR_HEIGHT: f32 = 16.0;
 
 /// Gap between that bar and the player's name.
 const BAR_GAP: f32 = 9.0;
@@ -50,9 +64,9 @@ const NAME_GAP: f32 = 12.0;
 /// it does in the game's table: a watcher looking for a group is looking along the number row.
 const GROUP_KEYS: [u8; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
-/// Size of one slot.
+/// Size of one slot, which is three lines tall: the digit, what the group is, and how many.
 const TILE_WIDTH: f32 = 56.0;
-const TILE_HEIGHT: f32 = 26.0;
+const TILE_HEIGHT: f32 = 46.0;
 
 /// Gap between two slots.
 const TILE_GAP: f32 = 6.0;
@@ -72,28 +86,44 @@ const _: () = assert!(
         == CONTENT_WIDTH
 );
 
-/// Width of the digit at the head of a slot.
-const KEY_WIDTH: f32 = 12.0;
+/// Height of each of a slot's three lines: the digit it answers to, what the group is, and how many
+/// units are on it.
+const KEY_ROW: f32 = 11.0;
+const SUBJECT_ROW: f32 = 20.0;
+const COUNT_ROW: f32 = 13.0;
 
-/// Side of the icon on a slot.
-const ICON: f32 = 22.0;
+/// Gap between two of those lines. A hairline, because the three of them are one reading rather
+/// than three: what tells them apart is their weight and their color.
+const ROW_LEAD: f32 = 1.0;
 
-/// Width the unit count is laid out in.
-const COUNT_WIDTH: f32 = 16.0;
+/// A slot's lines are the slot: checked here, because a line more than fits would be drawn over the
+/// slot's own chrome.
+const _: () = assert!(KEY_ROW + ROW_LEAD + SUBJECT_ROW + ROW_LEAD + COUNT_ROW == TILE_HEIGHT);
 
-/// Gap between the three cells of a slot.
-const CELL_GAP: f32 = 3.0;
+/// Side of the icon on a slot, and of the two a group of two kinds is drawn with.
+const ICON: f32 = 20.0;
+const COMBO_ICON: f32 = 16.0;
 
-// A slot's cells are the slot: checked here, because a cell more than fits would be drawn over the
-// slot beside it.
-const _: () = assert!(KEY_WIDTH + CELL_GAP + ICON + CELL_GAP + COUNT_WIDTH == TILE_WIDTH);
+/// Gap between the two icons of a group of two kinds.
+const COMBO_ICON_GAP: f32 = 2.0;
 
-/// Text size of a slot's three cells: the digit it answers to, the icon's own number where the
-/// host has no atlas to draw the icon from, and how many units are on it. They are read in that
-/// order and sized in it too.
-const KEY_TEXT_SIZE: f32 = 11.0;
-const ICON_TEXT_SIZE: f32 = 11.0;
+/// Text size of a slot's three lines, read in the order they are written in.
+///
+/// The digit is set at the smallest size anything on the overlay is allowed at: it is the label of
+/// a slot whose place in the row already names it, and what is being read is everything above it.
+const KEY_TEXT_SIZE: f32 = text::MIN_SIZE;
+const CODE_TEXT_SIZE: f32 = 11.0;
 const COUNT_TEXT_SIZE: f32 = 12.5;
+
+/// How far apart the letters of a unit's code are set, which is what keeps three capitals from
+/// reading as one shape.
+///
+/// A group of two kinds drops it: two codes and the sign between them are as much as the slot
+/// holds, and the tracking is the first thing it gives up.
+const CODE_TRACKING: f32 = 0.4;
+
+/// What stands between the two codes of a group of two kinds.
+const COMBO_JOIN: &str = "+";
 
 /// Text size of a player's name, matching the stats wings' so the panels read as one set.
 const NAME_SIZE: f32 = 15.0;
@@ -104,14 +134,25 @@ const NAME_SIZE: f32 = 15.0;
 /// slot that emptied itself would read as a group that no longer exists.
 const STALE_ALPHA: f32 = 0.45;
 
+/// How much of itself a slot with nothing on it is drawn at.
+///
+/// Fainter than a forgotten group, because it is the grid rather than a reading: it is there so the
+/// slots around it never move, and it has nothing of its own to say.
+const EMPTY_ALPHA: f32 = 0.32;
+
 /// One of a player's groups.
 pub struct ControlGroupView {
     /// The digit this group answers to.
     pub key: u8,
     /// The game's own icon for whatever the group is mostly made of.
     pub icon: ProductionIcon,
+    /// The icon of the other kind in a group made of two, or `None` for a group of one kind.
+    pub combo: Option<ProductionIcon>,
     /// How many units are in it.
     pub count: u32,
+    /// Whether the group is a building. The game lets a group hold twelve units or one building, so
+    /// a building group is one building and has no count worth drawing.
+    pub building: bool,
     /// Whether it has gone long enough without being recalled to be worth pointing out.
     pub stale: bool,
 }
@@ -182,7 +223,7 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView) {
         let bar = cursor.take(COLOR_BAR);
         paint_player_bar(
             ui,
-            centred(bar, row.height()),
+            centred(bar, COLOR_BAR_HEIGHT),
             player.color,
             // The color bar keeps more of itself than the rest of a vision-less row: it is what
             // says whose row this is, and two rows dimmed alike are hard to tell apart.
@@ -208,58 +249,128 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView) {
     }
 }
 
-/// Draws one slot: the digit it answers to and, when there is a group on it, what that group is.
+/// Draws one slot: the digit it answers to and, when there is a group on it, what that group is and
+/// how much of it there is.
 fn draw_slot(ui: &Ui, rect: Rect, key: u8, group: Option<&ControlGroupView>, alpha: f32) {
     let alpha = match group {
         Some(group) if group.stale => alpha * STALE_ALPHA,
         Some(_) => alpha,
-        // An empty slot is the grid rather than a reading, so it is drawn at the same weight a
-        // stale one is: present, and plainly holding nothing.
-        None => alpha * STALE_ALPHA,
+        None => alpha * EMPTY_ALPHA,
     };
-    paint_tile_chrome(ui, rect, false);
-    let mut cursor = EdgeCursor::from_left(rect);
+    paint_slot_chrome(ui, rect, alpha);
+    // Every line sits at the same height in every slot of the row, filled or not, so the digits
+    // read as one line across the panel and a group is compared against the one beside it rather
+    // than hunted for. A slot with no count is one whose last line is blank, which draws the
+    // difference where the difference is.
+    let mut top = rect.top();
+    let mut line = |height: f32| {
+        let line = Rect::from_min_size(pos2(rect.left(), top), vec2(rect.width(), height));
+        top += height + ROW_LEAD;
+        line
+    };
+    paint_key(ui, line(KEY_ROW), key, alpha);
+    let Some(group) = group else {
+        return;
+    };
+    paint_subject(ui, line(SUBJECT_ROW), group, alpha);
+    if !group.building {
+        paint_text(
+            ui,
+            line(COUNT_ROW),
+            &text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold)
+                .with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+            &group.count.to_string(),
+            Align::Center,
+        );
+    }
+}
+
+/// Draws the digit a slot answers to.
+fn paint_key(ui: &Ui, rect: Rect, key: u8, alpha: f32) {
     paint_text(
         ui,
-        cursor.take(KEY_WIDTH),
+        rect,
         &text::body(KEY_TEXT_SIZE, text::BodyWeight::Medium)
             .with_color(theme::TEXT_LABEL.gamma_multiply(alpha)),
         &key.to_string(),
         Align::Center,
     );
-    cursor.skip(CELL_GAP);
-    let icon_rect = centred(cursor.take(ICON), ICON.min(rect.height() - 2.0));
-    cursor.skip(CELL_GAP);
-    let count_rect = cursor.take(COUNT_WIDTH);
-    let Some(group) = group else {
-        return;
-    };
-    match group.icon.texture {
-        Some(texture) => {
-            ui.painter().image(
-                texture,
-                icon_rect,
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                Color32::WHITE.gamma_multiply(alpha),
-            );
+}
+
+/// Draws what a group is: the game's own icons where the host has them, and the units' codes where
+/// it has not.
+fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
+    let combo = group.combo;
+    match (group.icon.texture, combo.and_then(|icon| icon.texture)) {
+        (Some(first), Some(second)) => {
+            let left = rect.center().x - (COMBO_ICON * 2.0 + COMBO_ICON_GAP) * 0.5;
+            let icon = |step: f32| {
+                Rect::from_center_size(
+                    pos2(
+                        left + step * (COMBO_ICON + COMBO_ICON_GAP) + COMBO_ICON * 0.5,
+                        rect.center().y,
+                    ),
+                    vec2(COMBO_ICON, COMBO_ICON),
+                )
+            };
+            paint_icon(ui, icon(0.0), first, alpha);
+            paint_icon(ui, icon(1.0), second, alpha);
         }
-        None => paint_text(
+        (Some(texture), None) => paint_icon(
             ui,
-            icon_rect,
-            &text::body(ICON_TEXT_SIZE, text::BodyWeight::Semibold)
-                .with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha)),
-            &group.icon.index.to_string(),
-            Align::Center,
+            Rect::from_center_size(rect.center(), vec2(ICON, ICON)),
+            texture,
+            alpha,
         ),
+        (None, _) => {
+            let code = unit_codes::code_or_index(group.icon.index);
+            let label = match combo {
+                Some(icon) => {
+                    format!(
+                        "{code}{COMBO_JOIN}{}",
+                        unit_codes::code_or_index(icon.index)
+                    )
+                }
+                None => code,
+            };
+            let spec = text::body(CODE_TEXT_SIZE, text::BodyWeight::Semibold)
+                .with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha))
+                .with_letter_spacing(if combo.is_some() { 0.0 } else { CODE_TRACKING });
+            paint_text(ui, rect, &spec, &label, Align::Center);
+        }
     }
-    paint_text(
-        ui,
-        count_rect,
-        &text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold)
-            .with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
-        &group.count.to_string(),
-        Align::RIGHT,
+}
+
+/// Draws one of the game's own icons.
+fn paint_icon(ui: &Ui, rect: Rect, texture: TextureId, alpha: f32) {
+    ui.painter().image(
+        texture,
+        rect,
+        Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+        Color32::WHITE.gamma_multiply(alpha),
     );
+}
+
+/// Paints a slot's own chrome, at however much of itself the slot is drawn at.
+///
+/// Its own rather than the chrome the clickable tiles share, because a slot fades whole: an empty
+/// or forgotten one whose border stayed at full strength would be the loudest thing in the row.
+fn paint_slot_chrome(ui: &Ui, rect: Rect, alpha: f32) {
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter().rect_filled(
+        rect,
+        corner_radius,
+        theme::alpha(GREY_BLUE10, 0.85).gamma_multiply(alpha),
+    );
+    ui.painter().add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(
+            theme::HAIRLINE,
+            theme::alpha(BLUE80, 0.20).gamma_multiply(alpha),
+        ),
+        StrokeKind::Inside,
+    ));
 }
 
 #[cfg(test)]
