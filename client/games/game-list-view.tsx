@@ -124,13 +124,12 @@ export interface GameListViewProps {
   showRankedCustom?: boolean
   /** Shows the game source (All/Ranked/Custom) filter chip and reads its URL param (games page only). */
   showSourceFilter?: boolean
-  /**
-   * Shows each row's result: as a leading Win/Loss column from `forUserId`'s perspective when one
-   * is given, otherwise as a marker beside every player's name, since without a perspective there
-   * is no single side a row-level label could honestly describe.
-   */
+  /** Shows each human player's own reconciled result as a compact chip beside their name. */
   showResult?: boolean
-  /** Whose perspective results and the side panel roster are shown from (match history only). */
+  /**
+   * Whose perspective rows and the side panel roster are ordered from: this user's team (or the
+   * user) is listed first (match history only).
+   */
   forUserId?: SbUserId
   /** Rendered in place of the list once a load has confirmed there are no matching games. */
   noResultsText: string

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
-import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { ButtonStateStyleProps, useButtonState } from '../material/button'
@@ -18,17 +17,16 @@ import { GamePlayersDisplay } from './game-players-display'
 // in `GameListView` and the replay library (its inline size tracks the actual row width, unlike
 // the page width, which also has to fit the side detail panel). Thresholds come from the cells'
 // widths (players' 328px basis, duration's fixed 96px, map's 196px, this file's own 100px time
-// column, the 96px leading cell when present, gaps, and row padding). Below that, a phone-width
-// compact step drops the bookmark column and lets the leading and duration cells shrink to content.
+// column, gaps, and row padding). Below that, a phone-width compact step drops the bookmark column
+// and lets the duration cell shrink to content.
 /** Row width below which the relative-time cell is dropped first. */
 const HIDE_RELATIVE_TIME_BELOW_PX = 880
 /** Row width below which the map + game type cell is also dropped, to stop clipping. */
 const HIDE_MAP_AND_GAME_TYPE_BELOW_PX = 640
 /**
  * Row width below which the row goes compact for phone-width layouts: the bookmark column is
- * dropped, the leading (result) and duration cells shrink to their content instead of reserving
- * their desktop widths, and the row's own padding and gaps tighten, leaving the players cell as
- * much of the row as possible.
+ * dropped, the duration cell shrinks to its content instead of reserving its desktop width, and the
+ * row's own padding and gaps tighten, leaving the players cell as much of the row as possible.
  */
 const COMPACT_ROW_BELOW_PX = 480
 
@@ -67,7 +65,7 @@ const BaseCell = styled.div`
 
 /**
  * A fixed-width, non-growing column reserved for a single leading action (e.g. a replay's star /
- * bookmark toggle), kept narrow so it reads as its own column rather than sharing the leading cell.
+ * bookmark toggle), kept narrow so it reads as its own column rather than part of the players cell.
  */
 const BookmarkCell = styled.div`
   flex: 0 0 auto;
@@ -80,18 +78,6 @@ const BookmarkCell = styled.div`
 
   @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
     display: none;
-  }
-`
-
-const LeadingCell = styled(BaseCell)`
-  width: 96px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-
-  @container game-list-rows (width < ${COMPACT_ROW_BELOW_PX}px) {
-    width: auto;
   }
 `
 
@@ -168,21 +154,6 @@ const MapAndGameTypeCell = styled(BaseCell)`
   }
 `
 
-const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
-  ${titleMedium};
-  color: ${props => {
-    switch (props.$result) {
-      case 'win':
-        return 'var(--theme-positive)'
-      case 'loss':
-        return 'var(--theme-negative)'
-      default:
-        return 'var(--theme-on-surface-variant)'
-    }
-  }};
-  flex-shrink: 0;
-`
-
 const MapNameAndGameTypeContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -215,11 +186,6 @@ export interface GameListEntryLayoutProps {
    * When omitted, the column isn't rendered.
    */
   bookmark?: React.ReactNode
-  /**
-   * Content of the leading cell (e.g. a match result label). When omitted, the cell isn't
-   * rendered.
-   */
-  leading?: React.ReactNode
   /** Content of the players cell (a players/teams display). */
   players: React.ReactNode
   /**
@@ -241,12 +207,11 @@ export interface GameListEntryLayoutProps {
 
 /**
  * The purely presentational layout for a game/replay list row: the row root plus its cells (an
- * optional bookmark column and leading cell, then players, duration, and map + game type). Carries
- * no data dependencies so it can back both real games (see `GameListEntry`) and local replay files.
+ * optional bookmark column, then players, duration, and map + game type). Carries no data
+ * dependencies so it can back both real games (see `GameListEntry`) and local replay files.
  */
 export function GameListEntryLayout({
   bookmark,
-  leading,
   players,
   relativeTime,
   duration,
@@ -258,8 +223,6 @@ export function GameListEntryLayout({
   return (
     <GameListEntryRoot className={className} $hasLeadingAction={bookmark !== undefined}>
       {bookmark !== undefined ? <BookmarkCell>{bookmark}</BookmarkCell> : null}
-
-      {leading !== undefined ? <LeadingCell>{leading}</LeadingCell> : null}
 
       <PlayersCell>{players}</PlayersCell>
 
@@ -333,16 +296,13 @@ export const SelectableRowContainer = styled.div<ButtonStateStyleProps & { $sele
 
 export interface GameListEntryProps {
   game: ReadonlyDeep<GameRecordJson>
-  /**
-   * Shows each row's result: as a leading Win/Loss column from `forUserId`'s perspective when one
-   * is given, otherwise as a marker beside every player's name, since without a perspective there
-   * is no single side a row-level label could honestly describe.
-   */
+  /** Shows each human player's own reconciled result as a compact chip beside their name. */
   showResult?: boolean
+  /** Whose perspective the row is ordered from: this user's team (or the user) is listed first. */
   forUserId?: SbUserId
   /**
-   * Hides the game length and, when results are shown, the match result — both spoilers for
-   * someone rewatching their games.
+   * Hides the game length and, when results are shown, the players' result chips — both spoilers
+   * for someone rewatching their games.
    */
   spoilerFree?: boolean
   /** Shows the row in its selected state. */
@@ -372,31 +332,16 @@ export function GameListEntry({
     onDoubleClick: onDoubleClick ? () => onDoubleClick(game.id) : undefined,
   })
 
-  const { results } = game
-
-  // NOTE(2Pac): No need to memoize this under react-compiler; it re-derives only when its inputs
-  // change.
-  let result: ReconciledResult = 'unknown'
-  if (showResult && forUserId && Array.isArray(results)) {
-    result = results.find(([userId]) => userId === forUserId)?.[1].result ?? 'unknown'
-  }
-
   const gameType = getGameTypeLabel(game, t)
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
   const layoutProps: GameListEntryLayoutProps = {
-    leading:
-      showResult && forUserId ? (
-        <GameListEntryResult $result={spoilerFree ? 'unknown' : result}>
-          {spoilerFree ? '—' : getResultLabel(result, t, true)}
-        </GameListEntryResult>
-      ) : undefined,
     players: (
       <GamePlayersDisplay
         game={game}
         forUserId={forUserId}
         showTeamLabels={false}
-        showPlayerResults={showResult && !forUserId && !spoilerFree}
+        showPlayerResults={showResult && !spoilerFree}
       />
     ),
     relativeTime: <GameRelativeTime timestampMs={game.startTime} />,

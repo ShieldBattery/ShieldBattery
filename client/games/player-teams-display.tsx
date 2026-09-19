@@ -34,18 +34,6 @@ const PlayerTeamOverline = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const PlayerTeamOverlineResult = styled.span<{ $result: ReconciledResult }>`
-  color: ${props => {
-    if (props.$result === 'win') {
-      return 'var(--theme-positive)'
-    } else if (props.$result === 'loss') {
-      return 'var(--theme-negative)'
-    } else {
-      return 'inherit'
-    }
-  }};
-`
-
 const PlayerRowContainer = styled.div`
   height: 20px;
 
@@ -143,16 +131,10 @@ export interface PlayerTeamsDisplayPlayer {
 export function PlayerTeamsDisplay({
   teams,
   teamLabels,
-  teamResults,
   className,
 }: {
   teams: ReadonlyArray<ReadonlyArray<PlayerTeamsDisplayPlayer>>
   teamLabels?: ReadonlyArray<string>
-  /**
-   * One reconciled result per team, aligned by index with `teams`. A team's result takes the
-   * place of its label in the column overline; the label only shows for teams without one.
-   */
-  teamResults?: ReadonlyArray<ReconciledResult>
   className?: string
 }) {
   const { t } = useTranslation()
@@ -161,21 +143,10 @@ export function PlayerTeamsDisplay({
     <PlayerTeamsRoot className={className}>
       {teams.map((team, teamIndex) => {
         const label = teamLabels?.[teamIndex]
-        const result = teamResults?.[teamIndex]
-        let overline: React.ReactNode
-        if (result) {
-          overline = (
-            <PlayerTeamOverlineResult $result={result}>
-              {getResultLabel(result, t)}
-            </PlayerTeamOverlineResult>
-          )
-        } else if (label) {
-          overline = label
-        }
 
         return (
           <PlayerTeamColumn key={`team-${teamIndex}`}>
-            {overline ? <PlayerTeamOverline>{overline}</PlayerTeamOverline> : null}
+            {label ? <PlayerTeamOverline>{label}</PlayerTeamOverline> : null}
             {team.map((player, playerIndex) => (
               <PlayerRowContainer key={`player-${playerIndex}`}>
                 {player.result && player.result !== 'unknown' ? (
