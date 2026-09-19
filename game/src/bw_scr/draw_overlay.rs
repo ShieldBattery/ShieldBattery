@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::mem;
 use std::path::Path;
 use std::ptr::NonNull;
+use std::sync::Arc;
 use std::time::Instant;
 
 use bw_dat::dialog::{Control, Dialog};
@@ -11,7 +12,7 @@ use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
 use overlay_ui::observer::{
     GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView, RaceView,
 };
-use overlay_ui::options::OptionsView;
+use overlay_ui::options::{OptionsLists, OptionsView};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     Shell, Views,
@@ -301,6 +302,7 @@ impl OverlayState {
         net_stats: Option<&NetStatsStatus>,
         chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
         options: &Mutex<OptionsView>,
+        option_lists: &Mutex<Arc<OptionsLists>>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -513,6 +515,9 @@ impl OverlayState {
         // A copy for the frame rather than a lock held across the draw: the intents the frame
         // reports back take the lock again to record what the player moved.
         let options_view = *options.lock();
+        // Shared rather than copied: the names in it are read every frame and written only when
+        // the app's settings arrive.
+        let option_lists_view = option_lists.lock().clone();
         let mut views = Views {
             disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
                 view: &disconnect_view,
@@ -526,6 +531,7 @@ impl OverlayState {
             transport: transport_view.as_ref(),
             observer: observer_view.as_ref(),
             options: Some(&options_view),
+            option_lists: Some(&option_lists_view),
         };
         // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
         // of the player's input and asks nothing of the game.

@@ -5,7 +5,7 @@
 //! stands in for it: with the network-stats panel up and the mode set to observing, a frame here is
 //! an ambient panel under whatever modal the native dialogs raise.
 
-use overlay_ui::options::{OptionsSection, OptionsView};
+use overlay_ui::options::{MonitorView, OptionsLists, OptionsSection, OptionsView};
 use serde::{Deserialize, Serialize};
 
 use crate::knobs::Knobs as AllKnobs;
@@ -98,6 +98,23 @@ pub fn sync_options_modal(knobs: &Knobs, shell: &mut overlay_ui::shell::Shell) {
         shell.set_options_section(knobs.options_section);
     } else if !knobs.options_open && open {
         shell.close_modal(ModalId::Options);
+    }
+}
+
+/// The displays the emulated host reports. Two of them, so the monitor row is a choice to step
+/// through rather than a single entry, and the first is the primary the way a desktop has one.
+pub fn option_lists() -> OptionsLists {
+    OptionsLists {
+        monitors: vec![
+            MonitorView {
+                name: "AORUS FO27Q2".to_string(),
+                primary: true,
+            },
+            MonitorView {
+                name: "DELL U2415".to_string(),
+                primary: false,
+            },
+        ],
     }
 }
 

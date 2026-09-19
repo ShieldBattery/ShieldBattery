@@ -267,6 +267,7 @@ pub fn render(
     // here what the in-game menu's Options button does in a game.
     shell::sync_options_modal(&knobs.shell, shell);
     let options_view = (knobs.scenario == ScenarioKind::Shell).then_some(knobs.shell.options);
+    let option_lists = (knobs.scenario == ScenarioKind::Shell).then(shell::option_lists);
     let mut views = Views {
         disconnect: disconnect_view.as_ref().map(|view| DisconnectSurface {
             view,
@@ -277,6 +278,7 @@ pub fn render(
         transport: transport_view.as_ref(),
         observer: observer_view.as_ref(),
         options: options_view.as_ref(),
+        option_lists: option_lists.as_ref(),
     };
 
     let output = shell.frame(ctx, &knobs.host.host_frame(), &mut views);

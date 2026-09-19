@@ -62,6 +62,7 @@ mod draw_overlay;
 mod file_hook;
 mod game;
 mod game_stats;
+mod monitors;
 mod pe_image;
 mod replay_save;
 mod replay_transport;
@@ -423,6 +424,10 @@ pub struct BwScr {
     /// the player has since moved there. Held here rather than in the overlay because the settings
     /// arrive long before the first frame is drawn.
     options: Mutex<overlay_ui::options::OptionsView>,
+    /// The options screen's lists that are read off this machine rather than out of a setting,
+    /// which is the displays the game can be put on. Read once, when the settings arrive; shared
+    /// rather than copied so a frame takes the list without cloning the names in it.
+    option_lists: Mutex<Arc<overlay_ui::options::OptionsLists>>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -1928,6 +1933,7 @@ impl BwScr {
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
             replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
             options: Mutex::new(overlay_ui::options::OptionsView::default()),
+            option_lists: Mutex::new(Arc::new(overlay_ui::options::OptionsLists::default())),
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -2978,6 +2984,7 @@ impl BwScr {
                                 net_stats.as_ref(),
                                 &self.chat_history,
                                 &self.options,
+                                &self.option_lists,
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -6000,8 +6007,15 @@ impl bw::Bw for BwScr {
 
         // The overlay's options screen opens on what the app was playing on. Nothing writes back
         // into these settings from here, so this is the only time the game's side of them is read.
-        *self.options.lock() =
+        let mut options =
             draw_overlay::options::options_view_from_settings(&settings.scr, &settings.local);
+        // Which display the game is on is the one setting the screen shows that is not in either
+        // settings object: a launch names it by the desktop rectangle it covers, and the list it
+        // is an index into is this machine's rather than anything the app sent.
+        let (option_lists, monitor) = monitors::displays(settings.monitor_bounds);
+        options.monitor = monitor;
+        *self.options.lock() = options;
+        *self.option_lists.lock() = Arc::new(option_lists);
 
         // The overlay reads its language from a process-wide locale, set here because settings
         // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which

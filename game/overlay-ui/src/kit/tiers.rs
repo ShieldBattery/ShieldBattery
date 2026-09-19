@@ -289,6 +289,24 @@ pub fn dialog_footer<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
     band(ui, DIALOG_FOOTER_MARGIN, add).inner
 }
 
+/// A dialog's bottom band, ruled off from the body above it.
+///
+/// For a dialog whose body scrolls: the rule is where the body's contents are cut, and without it
+/// a row clipped at that edge reads as a layout that ran out of room rather than as a window onto
+/// more of the list.
+pub fn dialog_footer_ruled<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
+    let inner = band(ui, DIALOG_FOOTER_MARGIN, add);
+    let rect = inner.response.rect;
+    ui.painter().add(Shape::line_segment(
+        [
+            pos2(rect.left(), rect.top() + theme::HAIRLINE * 0.5),
+            pos2(rect.right(), rect.top() + theme::HAIRLINE * 0.5),
+        ],
+        Stroke::new(theme::HAIRLINE, theme::TIER2_DIVIDER),
+    ));
+    inner.inner
+}
+
 /// One band of a dialog, the full width of the chrome and padded by its own margin.
 fn band<R>(ui: &mut Ui, margin: Margin, add: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
     let width = ui.available_width();

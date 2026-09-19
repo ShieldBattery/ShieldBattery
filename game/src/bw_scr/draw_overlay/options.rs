@@ -473,6 +473,9 @@ mod tests {
             announcer: 5,
 
             display_mode: DisplayMode::Fullscreen,
+            // Which display the game is on is read off the machine rather than out of either
+            // settings object, so it stays where a fresh view has it.
+            monitor: 0,
             brightness: 100,
             fps_limit_on: true,
             fps_limit: 240,
