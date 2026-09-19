@@ -361,6 +361,40 @@ pub enum HoldState {
     Confirmed,
 }
 
+/// One leg of a hold button's sweep: where it set out from, where it is going, and when.
+#[derive(Clone, Copy, Default)]
+struct Sweep {
+    from: f32,
+    to: f32,
+    /// When the leg began, on egui's clock.
+    started: f64,
+    /// How long the leg takes, which is the distance it covers at the sweep's one speed.
+    duration: f32,
+}
+
+impl Sweep {
+    /// Where the sweep stands at `now`.
+    fn at(&self, now: f64) -> f32 {
+        if self.duration <= 0.0 {
+            return self.to;
+        }
+        let fraction = ((now - self.started) as f32 / self.duration).clamp(0.0, 1.0);
+        self.from + (self.to - self.from) * fraction
+    }
+
+    /// A new leg towards `to`, setting out from wherever this one stands at `now`, at the speed
+    /// that covers the whole sweep in `full` seconds.
+    fn turned(&self, to: f32, full: f32, now: f64) -> Sweep {
+        let from = self.at(now);
+        Sweep {
+            from,
+            to,
+            started: now,
+            duration: full * (to - from).abs(),
+        }
+    }
+}
+
 /// A destructive action that has to be held down to fire.
 ///
 /// A click cannot do it and neither can a slip: the sweep takes the full hold time to cross the
@@ -377,32 +411,26 @@ pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
     // The sweep always moves at the same speed: a full hold takes the whole hold time and a full
     // unwind the whole release time, so a press that lands on a half-unwound sweep finishes in
     // half the time rather than crawling the remaining distance over the full three seconds. The
-    // animation only knows how long its current leg should take, and it measures elapsed time
-    // against whatever duration it is handed each frame, so a leg's duration is fixed from how far
-    // the sweep had to travel when the leg began and reused until the direction changes.
+    // sweep keeps its own clock rather than using egui's value animation, which reads where a
+    // changing value stands off the duration it is handed on the frame the target changes: a leg
+    // that begins mid-sweep would then be measured against its own, shorter length and start from
+    // the wrong place.
     let target: f32 = if held { 1.0 } else { 0.0 };
-    let leg_id = response.id.with("sweep-leg");
-    let last_id = response.id.with("sweep-last");
-    let leg = ui.data_mut(|data| {
-        let last = data.get_temp::<f32>(last_id).unwrap_or(0.0);
-        match data.get_temp::<(f32, f32)>(leg_id) {
-            Some((leg_target, duration)) if leg_target == target => duration,
-            _ => {
-                let full = if held {
-                    theme::MOTION_HOLD_SECS
-                } else {
-                    theme::MOTION_HOLD_RELEASE_SECS
-                };
-                let duration = full * (target - last).abs();
-                data.insert_temp(leg_id, (target, duration));
-                duration
-            }
+    let now = ui.input(|input| input.time);
+    let sweep_id = response.id.with("sweep");
+    let progress = ui.data_mut(|data| {
+        let mut sweep = data.get_temp::<Sweep>(sweep_id).unwrap_or_default();
+        if sweep.to != target {
+            let full = if held {
+                theme::MOTION_HOLD_SECS
+            } else {
+                theme::MOTION_HOLD_RELEASE_SECS
+            };
+            sweep = sweep.turned(target, full, now);
         }
+        data.insert_temp(sweep_id, sweep);
+        sweep.at(now)
     });
-    let progress = ui
-        .ctx()
-        .animate_value_with_time(response.id.with("sweep"), target, leg);
-    ui.data_mut(|data| data.insert_temp(last_id, progress));
     // A completed hold fires once and then waits for the pointer to come up, so keeping the button
     // pressed cannot confirm the same action over and over.
     let latch_id = response.id.with("fired");
@@ -467,4 +495,31 @@ pub fn kbd(ui: &mut Ui, key: &str) -> Response {
         painter.galley(rect.center() - galley.size() * 0.5, galley, theme::TEXT_DIM);
     }
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A leg that sets out mid-sweep covers only what is left, at the same speed as a full one: a
+    /// press landing on a half-unwound sweep fills in half the hold time, and a release taken
+    /// halfway through a hold unwinds in half the release time.
+    #[test]
+    fn a_leg_takes_time_in_proportion_to_the_distance_left() {
+        let idle = Sweep::default();
+        assert_eq!(idle.at(10.0), 0.0);
+        let hold = idle.turned(1.0, 3.0, 10.0);
+        assert_eq!(hold.duration, 3.0);
+        assert_eq!(hold.at(11.5), 0.5);
+        // Released halfway: the unwind starts where the hold stood and takes half the release time.
+        let release = hold.turned(0.0, 0.15, 11.5);
+        assert_eq!(release.from, 0.5);
+        assert_eq!(release.duration, 0.075);
+        assert_eq!(release.at(11.5 + 0.075), 0.0);
+        // Pressed again a third of the way into the unwind: the hold sets out from there, not
+        // from full, and covers the rest at the hold's own speed.
+        let pressed = release.turned(1.0, 3.0, 11.525);
+        assert!((pressed.from - 1.0 / 3.0).abs() < 1e-3);
+        assert!((pressed.duration - 2.0).abs() < 1e-3);
+    }
 }
