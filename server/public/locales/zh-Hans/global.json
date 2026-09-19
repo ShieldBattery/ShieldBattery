@@ -401,17 +401,15 @@
         },
         "description": "管理您的好友列表：添加、移除，或查看好友及其当前动态。",
         "empty": "您的好友列表是空的。",
-        "header": "好友（{{online}} 人在线，{{offline}} 人离线）：",
-        "hideOffline": "隐藏离线好友",
         "list": {
-          "description": "列出您的好友以及他们正在做什么。"
+          "description": "列出您的好友以及他们正在做什么。",
+          "noneOnline": "没有在线好友"
         },
         "loadError": "无法加载您的好友列表：{{errorMessage}}",
         "remove": {
           "description": "将某个用户从您的好友中移除。",
           "removed": "已将 <2><0></0></2> 从您的好友中移除。"
-        },
-        "showOffline_other": "显示 {{count}} 位离线好友"
+        }
       },
       "help": {
         "aliasesLabel": "别名",
@@ -419,6 +417,13 @@
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "列出您可以在此使用的命令。",
         "dialogTitle": "聊天命令",
+        "groups": {
+          "chat": "聊天",
+          "fun": "娱乐",
+          "matchmaking": "匹配",
+          "moderation": "管理",
+          "people": "用户"
+        },
         "intro": "在消息开头输入命令即可运行。若要发送以斜杠开头的消息，请改为输入 <1>//</1>。"
       },
       "join": {
@@ -441,15 +446,9 @@
         "chatRestricted": "您目前被限制发送聊天消息。",
         "sendError": "无法得出结果：{{errorMessage}}"
       },
-      "profile": {
-        "description": "显示某个用户的资料卡：排名和胜负战绩。"
-      },
       "quote": {
         "description": "随机引用一句《母巢之战》的单位台词，也可以指定单位。",
         "unknownUnit": "没有名为 <1>{{name}}</1> 的单位。可用单位：{{units}}"
-      },
-      "rank": {
-        "description": "显示某个用户当前的排位分级。"
       },
       "relationships": {
         "acceptFailed": "无法接受 <2><0></0></2> 的好友请求：{{errorMessage}}",
@@ -568,8 +567,6 @@
       "successMessage": "消息已删除"
     },
     "errors": {
-      "loadingHistory": "加载消息记录时出错：{{errorMessage}}",
-      "loadingUserList": "加载用户列表时出错：{{errorMessage}}",
       "messageNotFound": "找不到该消息，它可能已被删除。"
     },
     "joinChannel": {
@@ -707,6 +704,7 @@
     "userList": {
       "active": "活跃用户",
       "idle": "空闲用户",
+      "loadFailed": "无法加载用户列表",
       "offline": "离线用户"
     },
     "whispers": {
@@ -780,6 +778,7 @@
       "remove": "删除",
       "rename": "重命名",
       "reset": "重置",
+      "retry": "重试",
       "reveal": "显示",
       "save": "保存",
       "search": "搜索",
@@ -1103,6 +1102,7 @@
     },
     "sidePanel": {
       "empty": "选择一场游戏查看详情",
+      "moreActions": "更多操作",
       "viewFullResults": "查看完整结果"
     }
   },
@@ -1857,6 +1857,11 @@
       "previewHint": "将鼠标悬停在表情符号上可查看其短代码",
       "searchPlaceholder": "搜索表情符号"
     },
+    "errors": {
+      "loadFailed": "无法加载消息",
+      "loadNewerFailed": "无法加载更新的消息",
+      "loadOlderFailed": "无法加载更早的消息"
+    },
     "jumpToBottom": "跳至底部",
     "jumpToPresent": "跳至最新消息",
     "localLine": {
@@ -1911,6 +1916,7 @@
     "notConnectedText": "未连接"
   },
   "news": {
+    "adminActions": "管理员操作",
     "archive": {
       "error": "新闻暂时不可用。",
       "loadMore": "加载更多",
@@ -1918,8 +1924,11 @@
     },
     "byAuthor": "作者：{{name}}",
     "copyLink": "复制新闻链接",
+    "deleteDialogBody": "该新闻将被永久删除。此操作无法撤销。",
+    "deleteDialogTitle": "确定删除“{{title}}”吗？",
     "draft": "草稿",
     "manageNews": "管理新闻",
+    "postDeleted": "新闻已删除",
     "seeAll": "查看所有新闻",
     "unavailable": "新闻暂时不可用。"
   },
@@ -1968,7 +1977,6 @@
         "inPlaylists": "所在播放列表",
         "parseError": "无法读取此录像。"
       },
-      "moreActions": "更多操作",
       "moveDown": "下移",
       "movedToRecycleBin": "录像已移至回收站",
       "moveToRecycleBin": "移至回收站",
@@ -2611,8 +2619,6 @@
       "retrievingError": "获取比赛历史时发生错误。"
     },
     "miniMatchHistory": {
-      "noGameSelected": "没有选择游戏",
-      "viewDetails": "查看详情",
       "viewFullHistory": "查看完整对战记录"
     },
     "seasons": {
@@ -2654,7 +2660,12 @@
     "card": {
       "loadError": "无法加载该用户的资料。",
       "noGames": "暂无对局",
-      "record_other": "{{count}} 场 · {{wins}}–{{losses}}",
+      "rankLine": "{{division}} · {{mode}} · {{points}} 分",
+      "rankTooltip": {
+        "points": "{{points}} 分",
+        "winRate": "胜率 {{winRate}}%"
+      },
+      "totalGames_other": "{{count}} 场",
       "unranked": "未定级",
       "viewProfile": "资料"
     },
@@ -2776,7 +2787,6 @@
     "errors": {
       "cantWhisperYourself": "您不能与自己私聊。",
       "invalidAction": "必须与该用户正在私聊中才能查询历史信息记录",
-      "loadingHistory": "加载历史信息记录时遇到错误：{{errorMessage}}",
       "messageLinkNotFound": "无法打开该消息，它不在您的任何私聊中。",
       "messageNotFound": "在此私聊中找不到该消息。",
       "noSelfMessaging": "您不能对自己发送信息",

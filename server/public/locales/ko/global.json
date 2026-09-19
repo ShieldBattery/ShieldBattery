@@ -261,7 +261,7 @@
       "errors": {
         "toggleBannerVisibility": "배너 표시를 전환하는 중 문제가 발생했습니다"
       },
-      "moreActions": "추가 행동"
+      "moreActions": "추가 작업"
     },
     "channelInfo": {
       "defaultError": "오류 발생: {{statusText}}",
@@ -271,7 +271,7 @@
     "channelInfoCard": {
       "adminView": "관리자 보기",
       "joined": "참가",
-      "moreActions": "추가 행동",
+      "moreActions": "추가 작업",
       "noDescription": "해당 채널은 설명이 없습니다.",
       "private": "이 채널은 비공개이므로 가입하려면 초대가 필요합니다.",
       "userCount_other": "{{count}} 멤버"
@@ -401,17 +401,15 @@
         },
         "description": "친구 목록을 관리합니다: 추가, 삭제, 현재 활동과 함께 목록 보기.",
         "empty": "친구 목록이 비어 있습니다.",
-        "header": "친구 ({{online}}명 온라인, {{offline}}명 오프라인):",
-        "hideOffline": "오프라인 친구 숨기기",
         "list": {
-          "description": "친구 목록과 각자 무엇을 하고 있는지 보여줍니다."
+          "description": "친구 목록과 각자 무엇을 하고 있는지 보여줍니다.",
+          "noneOnline": "온라인 친구 없음"
         },
         "loadError": "친구 목록을 불러오지 못했습니다: {{errorMessage}}",
         "remove": {
           "description": "친구 목록에서 사용자를 삭제합니다.",
           "removed": "친구 목록에서 <2><0></0></2>님을 삭제했습니다."
-        },
-        "showOffline_other": "오프라인 친구 {{count}}명 보기"
+        }
       },
       "help": {
         "aliasesLabel": "또는",
@@ -419,6 +417,13 @@
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "여기서 사용할 수 있는 명령어를 보여줍니다.",
         "dialogTitle": "채팅 명령어",
+        "groups": {
+          "chat": "채팅",
+          "fun": "재미",
+          "matchmaking": "매치메이킹",
+          "moderation": "관리",
+          "people": "사용자"
+        },
         "intro": "메시지 맨 앞에 명령어를 입력하면 실행됩니다. 슬래시로 시작하는 메시지를 보내려면 대신 <1>//</1>를 입력하세요."
       },
       "join": {
@@ -441,15 +446,9 @@
         "chatRestricted": "현재 채팅 메시지 전송이 제한된 상태입니다.",
         "sendError": "결과를 정하지 못했습니다: {{errorMessage}}"
       },
-      "profile": {
-        "description": "사용자의 순위와 전적이 담긴 프로필 카드를 보여줍니다."
-      },
       "quote": {
         "description": "브루드 워 유닛 대사를 무작위로 인용합니다. 유닛을 지정하면 그 유닛의 대사만 인용합니다.",
         "unknownUnit": "<1>{{name}}</1>(이)라는 유닛이 없습니다. 유닛 목록: {{units}}"
-      },
-      "rank": {
-        "description": "사용자의 현재 랭크 디비전을 보여줍니다."
       },
       "relationships": {
         "acceptFailed": "<2><0></0></2>님의 친구 요청을 수락하지 못했습니다: {{errorMessage}}",
@@ -568,8 +567,6 @@
       "successMessage": "메시지 삭제됨"
     },
     "errors": {
-      "loadingHistory": "메시지 기록을 불러오는 중 오류가 발생했습니다: {{errorMessage}}",
-      "loadingUserList": "사용자 목록을 불러오는 중 오류가 발생했습니다: {{errorMessage}}",
       "messageNotFound": "해당 메시지를 찾을 수 없습니다. 삭제되었을 수 있습니다."
     },
     "joinChannel": {
@@ -707,6 +704,7 @@
     "userList": {
       "active": "활동 중",
       "idle": "자리 비움",
+      "loadFailed": "사용자 목록을 불러오지 못했습니다",
       "offline": "오프라인"
     },
     "whispers": {
@@ -780,6 +778,7 @@
       "remove": "제거",
       "rename": "이름 변경",
       "reset": "초기화",
+      "retry": "다시 시도",
       "reveal": "노출",
       "save": "저장",
       "search": "찾기",
@@ -1103,6 +1102,7 @@
     },
     "sidePanel": {
       "empty": "게임을 선택하면 상세 정보가 표시됩니다",
+      "moreActions": "추가 작업",
       "viewFullResults": "전체 결과 보기"
     }
   },
@@ -1857,6 +1857,11 @@
       "previewHint": "이모지 위에 마우스를 올리면 코드를 확인할 수 있습니다",
       "searchPlaceholder": "이모지 검색"
     },
+    "errors": {
+      "loadFailed": "메시지를 불러오지 못했습니다",
+      "loadNewerFailed": "최신 메시지를 불러오지 못했습니다",
+      "loadOlderFailed": "이전 메시지를 불러오지 못했습니다"
+    },
     "jumpToBottom": "맨 아래로 이동",
     "jumpToPresent": "최신 메시지로 이동",
     "localLine": {
@@ -1911,6 +1916,7 @@
     "notConnectedText": "연결되지 않음"
   },
   "news": {
+    "adminActions": "관리자 작업",
     "archive": {
       "error": "지금은 소식을 불러올 수 없습니다.",
       "loadMore": "더 불러오기",
@@ -1918,8 +1924,11 @@
     },
     "byAuthor": "작성자: {{name}}",
     "copyLink": "소식 링크 복사",
+    "deleteDialogBody": "이 소식이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+    "deleteDialogTitle": "\"{{title}}\"을(를) 삭제하시겠습니까?",
     "draft": "초안",
     "manageNews": "소식 관리",
+    "postDeleted": "소식이 삭제되었습니다",
     "seeAll": "모든 소식 보기",
     "unavailable": "지금은 소식을 불러올 수 없습니다."
   },
@@ -1968,7 +1977,6 @@
         "inPlaylists": "포함된 재생목록",
         "parseError": "이 리플레이를 읽을 수 없습니다."
       },
-      "moreActions": "추가 작업",
       "moveDown": "아래로 이동",
       "movedToRecycleBin": "리플레이를 휴지통으로 이동했습니다",
       "moveToRecycleBin": "휴지통으로 이동",
@@ -2611,8 +2619,6 @@
       "retrievingError": "전적을 불러오는 중 오류가 발생했습니다."
     },
     "miniMatchHistory": {
-      "noGameSelected": "선택된 게임이 없습니다",
-      "viewDetails": "자세히 보기",
       "viewFullHistory": "전체 전적 보기"
     },
     "seasons": {
@@ -2654,7 +2660,12 @@
     "card": {
       "loadError": "이 사용자의 프로필을 불러오지 못했습니다.",
       "noGames": "플레이한 게임 없음",
-      "record_other": "{{count}}전 · {{wins}}–{{losses}}",
+      "rankLine": "{{division}} · {{mode}} · {{points}}점",
+      "rankTooltip": {
+        "points": "{{points}}점",
+        "winRate": "승률 {{winRate}}%"
+      },
+      "totalGames_other": "{{count}}전",
       "unranked": "랭크 없음",
       "viewProfile": "프로필"
     },
@@ -2776,7 +2787,6 @@
     "errors": {
       "cantWhisperYourself": "자기 자신에게는 귓속말을 보낼 수 없습니다.",
       "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다",
-      "loadingHistory": "메시지 기록을 불러오는 중 오류 발생: {{errorMessage}}",
       "messageLinkNotFound": "해당 메시지를 열 수 없습니다. 내 귓속말에 없는 메시지입니다.",
       "messageNotFound": "이 귓속말에서 해당 메시지를 찾을 수 없습니다.",
       "noSelfMessaging": "자신에게 메시지를 보낼 수 없습니다",

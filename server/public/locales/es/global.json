@@ -405,19 +405,15 @@
         },
         "description": "Gestiona tu lista de amigos: añade, quita o míralos con su actividad actual.",
         "empty": "Tu lista de amigos está vacía.",
-        "header": "Amigos ({{online}} conectados, {{offline}} desconectados):",
-        "hideOffline": "Ocultar amigos desconectados",
         "list": {
-          "description": "Muestra tus amigos y lo que están haciendo."
+          "description": "Muestra tus amigos y lo que están haciendo.",
+          "noneOnline": "No hay amigos conectados"
         },
         "loadError": "No se pudo cargar tu lista de amigos: {{errorMessage}}",
         "remove": {
           "description": "Quita a un usuario de tus amigos.",
           "removed": "Quitaste a <2><0></0></2> de tus amigos."
-        },
-        "showOffline_one": "Mostrar {{count}} amigo desconectado",
-        "showOffline_many": "Mostrar {{count}} de amigos desconectados",
-        "showOffline_other": "Mostrar {{count}} amigos desconectados"
+        }
       },
       "help": {
         "aliasesLabel": "También",
@@ -425,6 +421,13 @@
         "commandLine": "<0>{{usage}}</0> — {{description}}",
         "description": "Muestra los comandos que puedes usar aquí.",
         "dialogTitle": "Comandos del chat",
+        "groups": {
+          "chat": "Chat",
+          "fun": "Diversión",
+          "matchmaking": "Emparejamiento",
+          "moderation": "Moderación",
+          "people": "Personas"
+        },
         "intro": "Escribe un comando al inicio de un mensaje para ejecutarlo. Para enviar un mensaje que empiece con una barra, escribe <1>//</1> en su lugar."
       },
       "join": {
@@ -447,15 +450,9 @@
         "chatRestricted": "Ahora mismo tienes restringido el envío de mensajes de chat.",
         "sendError": "No se pudo resolver eso: {{errorMessage}}"
       },
-      "profile": {
-        "description": "Muestra la tarjeta de perfil de un usuario: su rango y sus victorias y derrotas."
-      },
       "quote": {
         "description": "Cita una frase al azar de una unidad de Brood War, o de una unidad concreta si la nombras.",
         "unknownUnit": "No hay ninguna unidad llamada <1>{{name}}</1>. Unidades: {{units}}"
-      },
-      "rank": {
-        "description": "Muestra las divisiones clasificatorias actuales de un usuario."
       },
       "relationships": {
         "acceptFailed": "No se pudo aceptar la solicitud de amistad de <2><0></0></2>: {{errorMessage}}",
@@ -576,8 +573,6 @@
       "successMessage": "Mensaje eliminado"
     },
     "errors": {
-      "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
-      "loadingUserList": "Error al cargar la lista de usuarios: {{errorMessage}}",
       "messageNotFound": "No se encontró ese mensaje. Puede que se haya eliminado."
     },
     "joinChannel": {
@@ -715,6 +710,7 @@
     "userList": {
       "active": "Activo",
       "idle": "Inactivo",
+      "loadFailed": "No se pudo cargar la lista de usuarios",
       "offline": "Desconectado"
     },
     "whispers": {
@@ -788,6 +784,7 @@
       "remove": "Eliminar",
       "rename": "Renombrar",
       "reset": "Restablecer",
+      "retry": "Reintentar",
       "reveal": "Revelar",
       "save": "Guardar",
       "search": "Buscar",
@@ -1115,6 +1112,7 @@
     },
     "sidePanel": {
       "empty": "Selecciona una partida para ver sus detalles",
+      "moreActions": "Más acciones",
       "viewFullResults": "Ver resultados completos"
     }
   },
@@ -1899,6 +1897,11 @@
       "previewHint": "Pasa el cursor sobre un emoji para ver su código",
       "searchPlaceholder": "Buscar emojis"
     },
+    "errors": {
+      "loadFailed": "No se pudieron cargar los mensajes",
+      "loadNewerFailed": "No se pudieron cargar los mensajes más recientes",
+      "loadOlderFailed": "No se pudieron cargar los mensajes anteriores"
+    },
     "jumpToBottom": "Saltar al final",
     "jumpToPresent": "Saltar al presente",
     "localLine": {
@@ -1953,6 +1956,7 @@
     "notConnectedText": "No conectado"
   },
   "news": {
+    "adminActions": "Acciones de administrador",
     "archive": {
       "error": "Las noticias no están disponibles en este momento.",
       "loadMore": "Cargar más",
@@ -1960,8 +1964,11 @@
     },
     "byAuthor": "por {{name}}",
     "copyLink": "Copiar enlace a la noticia",
+    "deleteDialogBody": "Esta noticia se eliminará permanentemente. Esto no se puede deshacer.",
+    "deleteDialogTitle": "¿Eliminar \"{{title}}\"?",
     "draft": "Borrador",
     "manageNews": "Gestionar noticias",
+    "postDeleted": "Noticia eliminada",
     "seeAll": "Ver todas las noticias",
     "unavailable": "Las noticias no están disponibles en este momento."
   },
@@ -2010,7 +2017,6 @@
         "inPlaylists": "En playlists",
         "parseError": "No se pudo leer este replay."
       },
-      "moreActions": "Más acciones",
       "moveDown": "Bajar",
       "movedToRecycleBin": "Replay movido a la Papelera de reciclaje",
       "moveToRecycleBin": "Mover a la Papelera de reciclaje",
@@ -2661,8 +2667,6 @@
       "retrievingError": "Se produjo un error al recuperar el historial de partidos."
     },
     "miniMatchHistory": {
-      "noGameSelected": "Ningún juego seleccionado",
-      "viewDetails": "Ver detalles",
       "viewFullHistory": "Ver el historial completo de partidas"
     },
     "seasons": {
@@ -2704,9 +2708,14 @@
     "card": {
       "loadError": "No se pudo cargar el perfil de este usuario.",
       "noGames": "Sin partidas jugadas",
-      "record_one": "{{count}} partida · {{wins}}–{{losses}}",
-      "record_many": "{{count}} de partidas · {{wins}}–{{losses}}",
-      "record_other": "{{count}} partidas · {{wins}}–{{losses}}",
+      "rankLine": "{{division}} · {{mode}} · {{points}} pts",
+      "rankTooltip": {
+        "points": "{{points}} pts",
+        "winRate": "{{winRate}}% de victorias"
+      },
+      "totalGames_one": "{{count}} partida",
+      "totalGames_many": "{{count}} de partidas",
+      "totalGames_other": "{{count}} partidas",
       "unranked": "Sin clasificar",
       "viewProfile": "Perfil"
     },
@@ -2830,7 +2839,6 @@
     "errors": {
       "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
       "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
-      "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
       "messageLinkNotFound": "No se pudo abrir ese mensaje. No está en ninguno de tus susurros.",
       "messageNotFound": "No se encontró ese mensaje en este susurro.",
       "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
