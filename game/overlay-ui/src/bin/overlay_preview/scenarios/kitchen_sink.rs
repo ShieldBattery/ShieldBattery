@@ -10,7 +10,7 @@ use overlay_ui::kit::text::{self, BodyWeight};
 use overlay_ui::kit::widgets::{
     ButtonVariant, HoldState, Series, button, hold_to_confirm, line_plot, panel_header,
     progress_bar, pulsing_dots, segmented, set_disabled, share_bar, slider, sparkline, stat_row,
-    switch, tab_strip, tag,
+    stepper, switch, tab_strip, tag,
 };
 use overlay_ui::kit::{motion, theme, tiers};
 use serde::{Deserialize, Serialize};
@@ -254,6 +254,18 @@ fn hero_panel(ui: &mut Ui) {
     ui.add_space(theme::SPACE_XS);
     remembered(ui, "segmented", 1usize, |ui, selected| {
         segmented(ui, selected, &["Small", "Medium", "Large"]);
+    });
+
+    ui.add_space(theme::SPACE_MD);
+    ui.label(text::column_label().job("announcer"));
+    ui.add_space(theme::SPACE_XS);
+    // A stepper carries a list too long to lay out as chips, so the specimen is a list of names
+    // rather than a handful of words.
+    const NAMES: [&str; 3] = ["Default", "Um Jae Kyung", "Um, Jeon, Kim Trio"];
+    remembered(ui, "stepper", 1usize, |ui, selected| {
+        let width = ui.available_width();
+        let delta = stepper(ui, NAMES[*selected], vec2(width, theme::HIT_PANEL));
+        *selected = (*selected as i32 + delta).rem_euclid(NAMES.len() as i32) as usize;
     });
 
     ui.add_space(theme::SPACE_SM);

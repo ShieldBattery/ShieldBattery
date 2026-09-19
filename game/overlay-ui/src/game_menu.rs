@@ -36,12 +36,14 @@ const WORDMARK: &str = "ShieldBattery";
 
 /// What the player asked the menu for this frame.
 ///
-/// Only the one action the overlay can carry out today is reported. The rest of the stack is drawn
+/// Only the actions the overlay can carry out today are reported. The rest of the stack is drawn
 /// so the menu is the menu, and each will report itself here as the host action behind it is built.
 #[derive(Default)]
 pub struct GameMenuOutcome {
     /// Whether the player asked to go back to the game, which is the same thing `Esc` asks for.
     pub return_to_game: bool,
+    /// Whether the player asked for the options screen, which opens over this menu.
+    pub open_options: bool,
 }
 
 /// Draws the in-game menu over the paused game.
@@ -51,9 +53,9 @@ pub fn render_game_menu(
 ) -> tiers::DialogResponse<GameMenuOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_game_menu"), MENU_WIDTH, |ui| {
         tiers::dialog_header(ui, |ui| draw_header(ui, game_seconds));
-        let return_to_game = tiers::dialog_body(ui, draw_actions);
+        let outcome = tiers::dialog_body(ui, draw_actions);
         tiers::dialog_footer(ui, draw_footer);
-        GameMenuOutcome { return_to_game }
+        outcome
     })
 }
 
@@ -92,23 +94,34 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
 }
 
 /// The stack of things that can be done from here, loudest first.
-fn draw_actions(ui: &mut Ui) -> bool {
+fn draw_actions(ui: &mut Ui) -> GameMenuOutcome {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let size = vec2(width, BUTTON_HEIGHT);
-    let return_to_game = widgets::plate_button(
+    let mut outcome = GameMenuOutcome {
+        return_to_game: widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.returnToGame", "Return to game"),
+            size,
+            ButtonPlate::primary(),
+        )
+        .clicked(),
+        open_options: false,
+    };
+    ui.add_space(BUTTON_GAP);
+    outcome.open_options = widgets::plate_button(
         ui,
         &spec,
-        &tr!("gameMenu.returnToGame", "Return to game"),
+        &tr!("gameMenu.options", "Options"),
         size,
-        ButtonPlate::primary(),
+        ButtonPlate::standard(),
     )
     .clicked();
-    // The rest of the stack has no host action behind it yet: the screens two of them open have
+    // The rest of the stack has no host action behind it yet: the screen one of them opens has
     // not been built, and leaving a game is a command the overlay does not send. They are drawn
     // because a menu missing half its entries is not the menu it replaces.
     for (label, plate) in [
-        (tr!("gameMenu.options", "Options"), ButtonPlate::standard()),
         (
             tr!("gameMenu.alliancesAndChat", "Alliances & chat"),
             ButtonPlate::standard(),
@@ -124,7 +137,7 @@ fn draw_actions(ui: &mut Ui) -> bool {
         ui.add_space(BUTTON_GAP);
         widgets::plate_button(ui, &spec, &label, size, plate);
     }
-    return_to_game
+    outcome
 }
 
 /// The footer: the key that closes the menu, and the reason closing it is not urgent.

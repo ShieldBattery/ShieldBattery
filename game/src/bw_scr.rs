@@ -419,6 +419,10 @@ pub struct BwScr {
     /// How replay playback is running, tracked off the command stream rather than read out of the
     /// game's own globals.
     replay_transport: Mutex<replay_transport::ReplayTransport>,
+    /// What the overlay's options screen shows: the settings the app sent at launch, plus whatever
+    /// the player has since moved there. Held here rather than in the overlay because the settings
+    /// arrive long before the first frame is drawn.
+    options: Mutex<overlay_ui::options::OptionsView>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -1923,6 +1927,7 @@ impl BwScr {
             chat_manager: Mutex::new(chat::ChatManager::new()),
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
             replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
+            options: Mutex::new(overlay_ui::options::OptionsView::default()),
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -2972,6 +2977,7 @@ impl BwScr {
                                 &disconnect_status,
                                 net_stats.as_ref(),
                                 &self.chat_history,
+                                &self.options,
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -5991,6 +5997,11 @@ impl bw::Bw for BwScr {
 
         *self.team_color_config.lock() =
             settings.team_colors.as_ref().and_then(|tc| tc.to_config());
+
+        // The overlay's options screen opens on what the app was playing on. Nothing writes back
+        // into these settings from here, so this is the only time the game's side of them is read.
+        *self.options.lock() =
+            draw_overlay::options::options_view_from_settings(&settings.scr, &settings.local);
 
         // The overlay reads its language from a process-wide locale, set here because settings
         // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which

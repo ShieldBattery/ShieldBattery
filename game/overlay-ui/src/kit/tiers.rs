@@ -79,8 +79,11 @@ const DIALOG_FOOTER_MARGIN: Margin = Margin {
 };
 
 /// How much room a dialog's bands leave their contents inside a dialog `outer_width` wide.
-pub fn dialog_content_width(outer_width: f32) -> f32 {
-    outer_width - f32::from(DIALOG_PAD_X) * 2.0
+///
+/// A `const fn` so a dialog whose columns are laid out from constants can check they add up at
+/// compile time rather than discovering it on screen.
+pub const fn dialog_content_width(outer_width: f32) -> f32 {
+    outer_width - DIALOG_PAD_X as f32 * 2.0
 }
 
 /// How wide a dialog has to be for its bands to leave `content_width` points inside them.

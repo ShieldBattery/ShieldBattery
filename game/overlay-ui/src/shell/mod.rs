@@ -28,6 +28,9 @@ use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::game_menu::render_game_menu;
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, GraphSeries, ObserverView};
+use crate::options::{
+    OptionsOutcome, OptionsSection, OptionsView, SettingChange, render_options_view,
+};
 use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
 pub use hotkeys::{Action, Chord, Hotkeys};
@@ -285,6 +288,8 @@ pub enum ModalId {
     GameMenu,
     /// The chat log, standing in for SC:R's own.
     ChatHistory,
+    /// The settings screen, standing in for SC:R's own options popup.
+    Options,
 }
 
 impl ModalId {
@@ -295,7 +300,7 @@ impl ModalId {
     pub fn is_dismissible(self) -> bool {
         match self {
             ModalId::WaitingForPlayers | ModalId::ConnectionInterrupted => false,
-            ModalId::GameMenu | ModalId::ChatHistory => true,
+            ModalId::GameMenu | ModalId::ChatHistory | ModalId::Options => true,
         }
     }
 
@@ -310,7 +315,9 @@ impl ModalId {
     /// The native dialog this modal stands in for, which the host must dismiss along with it.
     pub fn native_dialog(self) -> Option<NativeDialog> {
         match self {
-            ModalId::WaitingForPlayers | ModalId::ConnectionInterrupted => None,
+            // Nothing of the game's stands behind the options screen: SC:R's own options are a
+            // web popup its menu opens, and the menu that would have opened it is ours already.
+            ModalId::WaitingForPlayers | ModalId::ConnectionInterrupted | ModalId::Options => None,
             ModalId::GameMenu => Some(NativeDialog::GameMenu),
             ModalId::ChatHistory => Some(NativeDialog::ChatHistory),
         }
@@ -323,6 +330,7 @@ impl ModalId {
             ModalId::ConnectionInterrupted => "connection interrupted",
             ModalId::GameMenu => "game menu",
             ModalId::ChatHistory => "chat history",
+            ModalId::Options => "options",
         }
     }
 }
@@ -354,6 +362,11 @@ pub enum Intent {
     DropPlayer { slot: u8 },
     /// Give up on a connection that will not come back and leave the game.
     AbandonGame,
+    /// Put one setting on the value the player moved it to, in the game and wherever the host
+    /// persists it.
+    ChangeSetting(SettingChange),
+    /// Put every setting back on the value a fresh install plays on.
+    ResetSettings,
     /// Show or stop showing the game through this player's eyes. What that means for their allies
     /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
     /// watcher looking at a map neither player sees.
@@ -500,6 +513,10 @@ pub struct Views<'a> {
     /// playing one — again whether or not any of them is on screen, since the keys that show them
     /// arrive between frames.
     pub observer: Option<&'a ObserverView>,
+    /// What the game's settings currently are. A host hands these over whenever they change under
+    /// it — at startup, and after anything but the options screen itself has moved one — and the
+    /// shell keeps showing what it was last told until it is told something else.
+    pub options: Option<&'a OptionsView>,
 }
 
 /// One screen rect the overlay owns this frame.
@@ -585,6 +602,16 @@ pub struct Shell {
     pending_seek: Option<u32>,
     /// When the last seek went out, on the context's own clock.
     last_seek_secs: f64,
+    /// What the settings screen shows. The shell's own copy rather than the host's, because a
+    /// player who moves a control must see it move on the frame they moved it, well before the
+    /// host has applied anything.
+    options: OptionsView,
+    /// The last values a host handed over, so a host that keeps feeding the same view does not
+    /// take back a change the player has just made.
+    host_options: Option<OptionsView>,
+    /// Which page of the settings screen is on. Not persisted: it is where the player was looking
+    /// a moment ago, which is worth nothing once the game is over.
+    options_section: OptionsSection,
     intents: Vec<Intent>,
 }
 
@@ -607,6 +634,9 @@ impl Shell {
             focused_player: None,
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
+            options: OptionsView::default(),
+            host_options: None,
+            options_section: OptionsSection::default(),
             intents: Vec::new(),
         }
     }
@@ -621,6 +651,21 @@ impl Shell {
 
     pub fn hotkeys(&self) -> &Hotkeys {
         &self.hotkeys
+    }
+
+    /// The settings the options screen is showing.
+    pub fn options(&self) -> &OptionsView {
+        &self.options
+    }
+
+    /// Which page of the options screen is on.
+    pub fn options_section(&self) -> OptionsSection {
+        self.options_section
+    }
+
+    /// Opens the options screen on `section`, for a host restoring where a player was.
+    pub fn set_options_section(&mut self, section: OptionsSection) {
+        self.options_section = section;
     }
 
     /// The modal stack, bottom first.
@@ -684,6 +729,26 @@ impl Shell {
         });
     }
 
+    /// Closes a dismissible modal from outside the modal itself, for a host acting on something
+    /// the player did elsewhere.
+    ///
+    /// A modal the game's own state owns cannot be closed this way, for the same reason it cannot
+    /// be opened that way: the next frame's status sync would put it straight back.
+    pub fn close_modal(&mut self, id: ModalId) {
+        if !id.is_dismissible() {
+            return;
+        }
+        let Some(index) = self.modals.iter().position(|modal| modal.id == id) else {
+            return;
+        };
+        self.modals.remove(index);
+        if let Some(dialog) = id.native_dialog()
+            && self.live_native_dialogs[dialog.index()]
+        {
+            self.intents.push(Intent::CloseNativeDialog(dialog));
+        }
+    }
+
     /// Records that a replaced native dialog is gone, so its replacement goes with it. Asks for no
     /// dismissal of its own: the dialog this would have closed has already closed.
     pub fn native_dialog_closed(&mut self, dialog: NativeDialog) {
@@ -721,6 +786,14 @@ impl Shell {
         self.sync_status_modals(views.disconnect.as_ref());
 
         self.transport = views.transport.copied();
+        // Adopted only when the host's own copy moves: one that kept handing over the same values
+        // every frame would otherwise undo the control the player is holding.
+        if let Some(options) = views.options.copied()
+            && self.host_options != Some(options)
+        {
+            self.options = options;
+            self.host_options = Some(options);
+        }
 
         let mut hit_rects = Vec::new();
         // The ambient layer is drawn before the modal layer so the scrim covers it. The diagnostic
@@ -742,15 +815,43 @@ impl Shell {
         };
 
         if let Some(modal) = self.modals.last().copied() {
-            let outcome = draw_modal(ctx, modal.id, views, self.host.game_seconds, &mut hit_rects);
+            let outcome = draw_modal(
+                ctx,
+                modal.id,
+                views,
+                self.host.game_seconds,
+                &ModalContext {
+                    options: &self.options,
+                    options_section: self.options_section,
+                },
+                &mut hit_rects,
+            );
             for slot in outcome.drop_requests {
                 self.intents.push(Intent::DropPlayer { slot });
             }
             if outcome.abandoned {
                 self.intents.push(Intent::AbandonGame);
             }
+            if let Some(section) = outcome.options_section {
+                self.options_section = section;
+            }
+            // Recorded here as well as asked of the host, so the control the player moved stays
+            // where they put it however long the host takes to apply it.
+            for change in outcome.options_changes {
+                self.options.apply(change);
+                self.intents.push(Intent::ChangeSetting(change));
+            }
+            if outcome.options_reset {
+                self.options = OptionsView::default();
+                self.intents.push(Intent::ResetSettings);
+            }
+            // Dismissed first: the modal that reported it is the one on top, and opening another
+            // one here would make the dismissal close the wrong screen.
             if outcome.dismissed && modal.id.is_dismissible() {
                 self.dismiss_top_modal();
+            }
+            if outcome.open_options {
+                self.open_modal(ModalId::Options);
             }
         }
 
@@ -1176,6 +1277,20 @@ struct ModalOutcome {
     drop_requests: Vec<u8>,
     /// Whether the player gave up on their own connection.
     abandoned: bool,
+    /// Whether the player asked for the options screen.
+    open_options: bool,
+    /// The page of the options screen they moved to.
+    options_section: Option<OptionsSection>,
+    /// Settings they moved, in the order they moved them.
+    options_changes: Vec<SettingChange>,
+    /// Whether they asked for every setting to go back to its default.
+    options_reset: bool,
+}
+
+/// The shell's own state a modal is drawn from, as against the view-models its host built.
+struct ModalContext<'a> {
+    options: &'a OptionsView,
+    options_section: OptionsSection,
 }
 
 fn draw_modal(
@@ -1183,6 +1298,7 @@ fn draw_modal(
     id: ModalId,
     views: &mut Views<'_>,
     game_seconds: u64,
+    shell: &ModalContext<'_>,
     hit_rects: &mut Vec<HitRect>,
 ) -> ModalOutcome {
     match id {
@@ -1197,9 +1313,9 @@ fn draw_modal(
                 hit_rects.push(HitRect::new(dialog.response.rect));
             }
             ModalOutcome {
-                dismissed: false,
                 drop_requests: dialog.inner.drop_requests,
                 abandoned: dialog.inner.abandoned,
+                ..ModalOutcome::default()
             }
         }
         ModalId::GameMenu => {
@@ -1207,8 +1323,8 @@ fn draw_modal(
             hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
-                drop_requests: Vec::new(),
-                abandoned: false,
+                open_options: dialog.inner.open_options,
+                ..ModalOutcome::default()
             }
         }
         ModalId::ChatHistory => {
@@ -1221,8 +1337,24 @@ fn draw_modal(
             hit_rects.push(HitRect::scrolling(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner || dialog.scrim_clicked,
-                drop_requests: Vec::new(),
-                abandoned: false,
+                ..ModalOutcome::default()
+            }
+        }
+        ModalId::Options => {
+            let dialog = render_options_view(shell.options, ctx, shell.options_section);
+            hit_rects.push(HitRect::scrolling(dialog.response.rect));
+            let OptionsOutcome {
+                section,
+                changes,
+                reset,
+                done,
+            } = dialog.inner;
+            ModalOutcome {
+                dismissed: done || dialog.scrim_clicked,
+                options_section: section,
+                options_changes: changes,
+                options_reset: reset,
+                ..ModalOutcome::default()
             }
         }
     }
@@ -1470,6 +1602,59 @@ mod tests {
         shell.native_dialog_spawned(NativeDialog::TimeOut);
         assert!(shell.native_dialog_live(NativeDialog::TimeOut));
         assert_eq!(shell.top_modal(), None);
+    }
+
+    /// The options screen stacks over the menu that opens it, so closing it leaves the player back
+    /// in that menu rather than back in the game.
+    #[test]
+    fn closing_the_options_screen_returns_to_the_menu_it_opened_from() {
+        let mut shell = spectating_shell();
+        shell.native_dialog_spawned(NativeDialog::GameMenu);
+        shell.open_modal(ModalId::Options);
+        assert_eq!(shell.top_modal(), Some(ModalId::Options));
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
+        // Nothing of the game's stands behind the options screen, so closing it asks the host for
+        // nothing; the menu it returned to still has its own dialog hidden behind it.
+        assert!(shell.pending_intents().is_empty());
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+        assert_eq!(
+            shell.pending_intents(),
+            [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
+        );
+    }
+
+    /// A host that keeps handing over the same settings must not take back a change the player has
+    /// just made, and one that hands over different settings must be believed.
+    #[test]
+    fn host_settings_are_adopted_only_when_the_host_moves_them() {
+        let mut shell = Shell::new();
+        let host = HostFrame::default();
+        let mut given = OptionsView {
+            music_volume: 20,
+            ..OptionsView::default()
+        };
+        let ctx = egui::Context::default();
+        let run = |shell: &mut Shell, options: &OptionsView| {
+            let mut views = Views {
+                options: Some(options),
+                ..Views::default()
+            };
+            ctx.begin_pass(egui::RawInput::default());
+            shell.frame(&ctx, &host, &mut views);
+            // A layout check has no GPU texture store to hand the atlas to.
+            ctx.end_pass().textures_delta.clear();
+        };
+        run(&mut shell, &given);
+        assert_eq!(shell.options().music_volume, 20);
+        // Something the player did, which the same host view must not undo.
+        shell.options.apply(SettingChange::MusicVolume(75));
+        run(&mut shell, &given);
+        assert_eq!(shell.options().music_volume, 75);
+        given.music_volume = 35;
+        run(&mut shell, &given);
+        assert_eq!(shell.options().music_volume, 35);
     }
 
     #[test]

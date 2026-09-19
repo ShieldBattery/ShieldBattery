@@ -3,12 +3,13 @@
 
 use std::ops::RangeInclusive;
 
-use egui::{Color32, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
+use egui::{Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
-use crate::colors::{BLUE60, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60, GREY_BLUE70};
-use crate::kit::text;
+use crate::colors::{
+    BLUE60, BLUE70, BLUE80, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60, GREY_BLUE70,
+};
+use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::theme;
-use crate::kit::tiers::gradient_round_rect;
 use crate::kit::widgets::{active_halo, focus_ring, state_overlay};
 
 /// Track height of a switch, which also sets its knob.
@@ -19,7 +20,7 @@ const SWITCH_WIDTH: f32 = 44.0;
 const SWITCH_TRAVEL_SECS: f32 = 0.12;
 
 /// Height of a slider's track.
-const SLIDER_TRACK: f32 = 4.0;
+const SLIDER_TRACK: f32 = 5.0;
 /// Thickness of the bar a scrub track's playhead rides.
 const SCRUB_BAR: f32 = 5.0;
 /// Radius of a scrub track's playhead.
@@ -27,84 +28,191 @@ const SCRUB_HEAD: f32 = 5.5;
 /// Corner radius of the bar, which is round enough at this thickness to read as a capsule.
 const SCRUB_RADIUS: u8 = 2;
 /// Radius of a slider's knob.
-const SLIDER_KNOB: f32 = 7.0;
-/// Room kept to the right of a slider for its value.
-const SLIDER_VALUE_WIDTH: f32 = 52.0;
+const SLIDER_KNOB: f32 = 8.0;
+/// Room kept to the right of a slider for its value, and the size that value is set at.
+const SLIDER_VALUE_WIDTH: f32 = 46.0;
+const SLIDER_VALUE_SIZE: f32 = 18.0;
 
-/// A row of mutually exclusive choices, one of which is always taken.
+/// Height of a segmented chip and of a stepper's ends, which is the kit's own smallest control.
+const CHIP_HEIGHT: f32 = theme::HIT_PANEL;
+
+/// Horizontal padding inside a segmented chip, and the least it keeps once the row runs out of
+/// room.
+const SEGMENT_PAD_X: f32 = 14.0;
+const SEGMENT_PAD_X_MIN: f32 = 4.0;
+
+/// Gap between two chips of one control, narrow enough that the row reads as one choice rather
+/// than as a handful of buttons beside each other.
+const SEGMENT_GAP: f32 = theme::SPACE_XS;
+
+/// The style a chip's label is set in: small, a touch heavier than body copy, and tracked apart so
+/// a one-word choice does not read as a clump.
+fn segment_spec() -> TextSpec {
+    text::body(12.5, BodyWeight::Medium).with_letter_spacing(0.8)
+}
+
+/// How wide a row of these chips wants to be, for a caller sizing a row around one.
+pub fn segmented_width(ui: &Ui, labels: &[&str]) -> f32 {
+    let spec = segment_spec();
+    let text: f32 = labels
+        .iter()
+        .map(|label| spec.galley(ui, label).size().x)
+        .sum();
+    text + SEGMENT_PAD_X * 2.0 * labels.len() as f32
+        + SEGMENT_GAP * labels.len().saturating_sub(1) as f32
+}
+
+/// A row of mutually exclusive choices, one of which is always taken, sized to its labels.
 ///
 /// Returns a response that reports `changed` when the selection moved, so a caller can persist the
 /// setting without comparing values itself.
 pub fn segmented(ui: &mut Ui, selected: &mut usize, labels: &[&str]) -> Response {
-    let spec = text::button_label(13.0).with_color(Color32::PLACEHOLDER);
-    let galleys: Vec<_> = labels.iter().map(|label| spec.galley(ui, label)).collect();
-    let mut widths: Vec<f32> = galleys
-        .iter()
-        .map(|galley| (galley.size().x + theme::SPACE_LG * 2.0).max(72.0))
-        .collect();
-    // A control that grew past its panel would be clipped mid-label, so the segments give up their
-    // padding proportionally rather than the row spilling over.
-    let wanted: f32 = widths.iter().sum();
-    let available = ui.available_width();
-    if wanted > available && available > 0.0 {
-        let scale = available / wanted;
-        for width in &mut widths {
-            *width *= scale;
-        }
+    let width = segmented_width(ui, labels).min(ui.available_width());
+    segmented_sized(ui, selected, labels, vec2(width, CHIP_HEIGHT))
+}
+
+/// The same row in exactly `size`, for a control standing in someone else's grid.
+///
+/// The row never grows past the size it was given: one that did would be clipped mid-word by
+/// whatever it sits in. It gives up its padding first and elides its labels second, in that order
+/// because which chip is lit is what the row is read for at a glance, and that survives both.
+pub fn segmented_sized(ui: &mut Ui, selected: &mut usize, labels: &[&str], size: Vec2) -> Response {
+    let (rect, mut response) = ui.allocate_exact_size(size, Sense::hover());
+    if labels.is_empty() {
+        return response;
     }
-    let total: f32 = widths.iter().sum();
-    let (rect, mut response) =
-        ui.allocate_exact_size(vec2(total, theme::HIT_PANEL), Sense::hover());
+    let spec = segment_spec();
+    let natural: Vec<f32> = labels
+        .iter()
+        .map(|label| spec.galley(ui, label).size().x)
+        .collect();
+    let count = labels.len();
+    let gaps = SEGMENT_GAP * count.saturating_sub(1) as f32;
+    let text_total: f32 = natural.iter().sum();
+    let pad_x = ((size.x - gaps - text_total) / (count as f32 * 2.0))
+        .clamp(SEGMENT_PAD_X_MIN, SEGMENT_PAD_X);
+    let room = (size.x - gaps - pad_x * 2.0 * count as f32).max(0.0);
+    let fitted = fitted_labels(&natural, room);
+    // Whatever the labels did not need is shared out evenly, so the chips fill the width they were
+    // given rather than leaving a ragged tail inside someone else's column.
+    let slack = (room - fitted.iter().sum::<f32>()).max(0.0) / count as f32;
 
-    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
-    ui.painter().add(gradient_round_rect(
-        rect,
-        corner_radius,
-        [theme::TIER2_FILL_TOP, theme::TIER2_FILL_BOTTOM],
-    ));
-
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
     let mut left = rect.left();
-    for (index, galley) in galleys.into_iter().enumerate() {
-        let segment =
-            Rect::from_min_size(pos2(left, rect.top()), vec2(widths[index], rect.height()));
-        left = segment.right();
-        let segment_response = ui.interact(segment, response.id.with(index), Sense::click());
-        if segment_response.clicked() && *selected != index {
+    for (index, label) in labels.iter().enumerate() {
+        let width = fitted[index] + slack + pad_x * 2.0;
+        let chip = Rect::from_min_size(pos2(left, rect.top()), vec2(width, size.y));
+        left = chip.right() + SEGMENT_GAP;
+        let chip_response = ui.interact(chip, response.id.with(index), Sense::click());
+        if chip_response.clicked() && *selected != index {
             *selected = index;
             response.mark_changed();
         }
-        let is_selected = *selected == index;
-        if is_selected {
-            ui.painter()
-                .rect_filled(segment, corner_radius, BLUE60.gamma_multiply(0.28));
-            active_halo(ui, segment.shrink(1.0), corner_radius, BLUE60);
-        } else if index > 0 {
-            // A divider only between unselected neighbours: next to a lit segment its own edge
-            // already separates them.
-            ui.painter().add(Shape::line_segment(
-                [
-                    pos2(segment.left(), segment.top() + theme::SPACE_SM),
-                    pos2(segment.left(), segment.bottom() - theme::SPACE_SM),
-                ],
-                Stroke::new(theme::HAIRLINE, theme::TIER0_DIVIDER),
-            ));
+        if !ui.is_rect_visible(chip) {
+            continue;
         }
-        state_overlay(ui, &segment_response, segment, corner_radius);
-        focus_ring(ui, &segment_response, segment, corner_radius);
-        let color = if is_selected {
-            theme::TEXT_PRIMARY
-        } else {
-            theme::TEXT_DIM
-        };
+        let active = *selected == index;
+        if active {
+            ui.painter()
+                .rect_filled(chip, corner_radius, theme::alpha(BLUE60, 0.35));
+            active_halo(ui, chip, corner_radius, BLUE60);
+        }
+        ui.painter().add(Shape::rect_stroke(
+            chip,
+            corner_radius,
+            Stroke::new(
+                theme::HAIRLINE,
+                if active {
+                    theme::alpha(BLUE80, 0.80)
+                } else {
+                    theme::alpha(BLUE70, 0.35)
+                },
+            ),
+            StrokeKind::Inside,
+        ));
+        state_overlay(ui, &chip_response, chip, corner_radius);
+        focus_ring(ui, &chip_response, chip, corner_radius);
+        let color = if active { BLUE99 } else { GREY_BLUE70 };
+        let job = spec.job_truncated(label, fitted[index] + slack);
+        let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
         ui.painter()
-            .galley(segment.center() - galley.size() * 0.5, galley, color);
+            .galley(chip.center() - galley.size() * 0.5, galley, color);
     }
+    response
+}
 
+/// How wide a stepper's square ends are.
+const STEPPER_END: f32 = CHIP_HEIGHT;
+
+/// A value with a step either side, for a choice from a list too long to lay out as chips.
+///
+/// Returns which way the player asked to move, and nothing on the frames they did not: the list is
+/// the caller's, so walking it — and deciding whether it wraps — is theirs too.
+pub fn stepper(ui: &mut Ui, label: &str, size: Vec2) -> i32 {
+    // The ends take their ids from the control's own allocation rather than from the `Ui` they
+    // stand in, so two steppers in one row of a layout are two controls rather than one reported
+    // twice.
+    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    let back = Rect::from_min_size(rect.min, vec2(STEPPER_END, size.y));
+    let forward = Rect::from_min_size(
+        pos2(rect.right() - STEPPER_END, rect.top()),
+        vec2(STEPPER_END, size.y),
+    );
+    let value = Rect::from_min_max(
+        pos2(back.right() + SEGMENT_GAP, rect.top()),
+        pos2(forward.left() - SEGMENT_GAP, rect.bottom()),
+    );
+    let mut delta = 0;
+    if stepper_end(ui, response.id.with("back"), back, false).clicked() {
+        delta -= 1;
+    }
+    if stepper_end(ui, response.id.with("forward"), forward, true).clicked() {
+        delta += 1;
+    }
+    if value.is_positive() && ui.is_rect_visible(value) {
+        let spec = text::body(15.0, BodyWeight::Regular);
+        let job = spec.job_truncated(label, value.width());
+        let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+        ui.painter()
+            .galley(value.center() - galley.size() * 0.5, galley, spec.color);
+    }
+    delta
+}
+
+/// One end of a stepper: a chip with a triangle pointing the way it steps.
+///
+/// The triangle is painted rather than typed, so no font has to carry the glyph and no language
+/// writes the control differently.
+fn stepper_end(ui: &mut Ui, id: egui::Id, rect: Rect, forward: bool) -> Response {
+    let response = ui.interact(rect, id, Sense::click());
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
     ui.painter().add(Shape::rect_stroke(
         rect,
         corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::TIER2_STROKE_OUTER),
+        Stroke::new(theme::HAIRLINE, theme::alpha(BLUE70, 0.35)),
         StrokeKind::Inside,
+    ));
+    state_overlay(ui, &response, rect, corner_radius);
+    focus_ring(ui, &response, rect, corner_radius);
+    let color = if response.hovered() {
+        BLUE99
+    } else {
+        GREY_BLUE70
+    };
+    let centre = rect.center();
+    let half = 5.0;
+    let tip = if forward { half } else { -half };
+    ui.painter().add(Shape::convex_polygon(
+        vec![
+            pos2(centre.x + tip, centre.y),
+            pos2(centre.x - tip, centre.y - half),
+            pos2(centre.x - tip, centre.y + half),
+        ],
+        color,
+        Stroke::NONE,
     ));
     response
 }
@@ -217,8 +325,22 @@ pub fn scrub_track(ui: &mut Ui, fraction: f32, size: Vec2) -> ScrubTrack {
 /// A value between two bounds, with the value itself shown in condensed numerals beside it.
 pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>) -> Response {
     let width = ui.available_width().clamp(160.0, 320.0);
-    let (rect, mut response) =
-        ui.allocate_exact_size(vec2(width, theme::HIT_PANEL), Sense::click_and_drag());
+    slider_sized(ui, value, range, 0.0, vec2(width, theme::HIT_PANEL))
+}
+
+/// The same slider in exactly `size`, moving in whole `step`s.
+///
+/// A step of zero is a value that moves continuously. Anything else is a setting the game keeps in
+/// notches, and a slider that let the player land between two of them would report a value the game
+/// would quietly round away.
+pub fn slider_sized(
+    ui: &mut Ui,
+    value: &mut f32,
+    range: RangeInclusive<f32>,
+    step: f32,
+    size: Vec2,
+) -> Response {
+    let (rect, mut response) = ui.allocate_exact_size(size, Sense::click_and_drag());
     let track = Rect::from_min_max(
         pos2(
             rect.left() + SLIDER_KNOB,
@@ -234,7 +356,7 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>) -> Respo
     if let Some(pointer) = response.interact_pointer_pos() {
         let fraction =
             ((pointer.x - track.left()) / track.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0);
-        let new_value = range.start() + fraction * span;
+        let new_value = snap(range.start() + fraction * span, *range.start(), step);
         if new_value != *value {
             *value = new_value;
             response.mark_changed();
@@ -248,20 +370,21 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>) -> Respo
     }
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
     let painter = ui.painter();
-    painter.rect_filled(track, corner_radius, theme::alpha(GREY_BLUE40, 0.65));
+    painter.rect_filled(track, corner_radius, theme::alpha(GREY_BLUE60, 0.35));
     let mut filled = track;
     filled.set_right(track.left() + track.width() * fraction);
     painter.rect_filled(filled, corner_radius, BLUE60);
 
     let centre = pos2(filled.right(), track.center().y);
-    for (step, alpha) in [(3.0f32, 0.30f32), (6.0, 0.14), (9.0, 0.06)] {
-        painter.circle_filled(centre, SLIDER_KNOB + step, BLUE60.gamma_multiply(alpha));
+    for (ring, alpha) in [(3.0f32, 0.30f32), (6.0, 0.14), (9.0, 0.06)] {
+        painter.circle_filled(centre, SLIDER_KNOB + ring, BLUE60.gamma_multiply(alpha));
     }
-    painter.circle_filled(centre, SLIDER_KNOB, BLUE95);
+    painter.circle_filled(centre, SLIDER_KNOB, BLUE99);
     focus_ring(ui, &response, track.expand(SLIDER_KNOB), corner_radius);
 
-    let decimals = usize::from(span < 20.0);
-    let readout = text::numeral(15.0).galley(ui, &format!("{value:.decimals$}"));
+    // A stepped slider reports whole notches, so its readout has no decimals to show.
+    let decimals = usize::from(step <= 0.0 && span < 20.0);
+    let readout = text::numeral(SLIDER_VALUE_SIZE).galley(ui, &format!("{value:.decimals$}"));
     ui.painter().galley(
         pos2(
             rect.right() - readout.size().x,
@@ -271,6 +394,15 @@ pub fn slider(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>) -> Respo
         theme::TEXT_PRIMARY,
     );
     response
+}
+
+/// `value` moved to the nearest notch of `step` counted from `origin`, or left alone when the
+/// slider has no notches.
+fn snap(value: f32, origin: f32, step: f32) -> f32 {
+    if step <= 0.0 {
+        return value;
+    }
+    origin + ((value - origin) / step).round() * step
 }
 
 /// Horizontal padding inside a tab chip, and the least it may keep once the strip runs out of room.

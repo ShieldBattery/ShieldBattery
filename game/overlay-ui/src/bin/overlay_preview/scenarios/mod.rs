@@ -17,6 +17,7 @@ pub mod shell;
 pub mod transport;
 
 use egui::Context;
+use overlay_ui::options::OptionsSection;
 use overlay_ui::shell::{
     DisconnectSurface, HitRect, InputCapture, Intent, ModalId, Mode, NativeDialog, Shell, Views,
 };
@@ -119,7 +120,7 @@ impl Preset {
             Preset::ChatHistory(preset) => preset.label().to_string(),
             Preset::Transport(preset) => preset.label().to_string(),
             Preset::Observer(preset) => preset.label(),
-            Preset::Shell(preset) => preset.label().to_string(),
+            Preset::Shell(preset) => preset.label(),
             Preset::KitchenSink(preset) => preset.label().to_string(),
         }
     }
@@ -143,13 +144,14 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 6] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 7] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Transport(transport::Preset::SpoilerFree),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::GameMenu),
+    Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),
 ];
 
 /// Every scenario preset, in selector order.
@@ -261,6 +263,10 @@ pub fn render(
             },
         )
     });
+    // The options screen is raised by the shell rather than by a native dialog, so the knob does
+    // here what the in-game menu's Options button does in a game.
+    shell::sync_options_modal(&knobs.shell, shell);
+    let options_view = (knobs.scenario == ScenarioKind::Shell).then_some(knobs.shell.options);
     let mut views = Views {
         disconnect: disconnect_view.as_ref().map(|view| DisconnectSurface {
             view,
@@ -270,6 +276,7 @@ pub fn render(
         chat_history: chat_history_view.as_ref(),
         transport: transport_view.as_ref(),
         observer: observer_view.as_ref(),
+        options: options_view.as_ref(),
     };
 
     let output = shell.frame(ctx, &knobs.host.host_frame(), &mut views);
@@ -285,6 +292,10 @@ pub fn render(
             // Leaving a game is the host's to carry out; the preview has no game to leave, so it
             // only reports that the hold completed.
             Intent::AbandonGame => outcome.abandoned = true,
+            // The emulated game has no settings to write, so a change is only reported: the shell
+            // is already showing it, which is what the screen is being looked at for.
+            Intent::ChangeSetting(change) => outcome.setting_changes.push(change),
+            Intent::ResetSettings => outcome.settings_reset = true,
             Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
             // The fake replay answers these, the way the game answers them by moving its own clock.
             Intent::Seek(frame) => state.transport.seek_to(frame),
@@ -312,6 +323,10 @@ pub struct Outcome {
     pub disconnect_clicks: Vec<u8>,
     /// Whether the player held the abandon control on the self-reconnecting notice down to the end.
     pub abandoned: bool,
+    /// Settings the options screen reported moved, which a game would write through to SC:R.
+    pub setting_changes: Vec<overlay_ui::options::SettingChange>,
+    /// Whether the options screen asked for every setting to go back to its default.
+    pub settings_reset: bool,
     /// Native dialogs the shell wants dismissed, because the surface standing in for one was closed.
     /// The game DLL drives the real dialog's return control; the preview closes the switch that
     /// stands in for it.
