@@ -262,7 +262,6 @@ pub fn build_control_groups_view(
             .iter()
             .map(|player| ControlGroupsPlayerView {
                 player_id: player.player_id,
-                name: player.name.clone(),
                 color: player.color,
                 vision: player.vision,
                 groups: stats

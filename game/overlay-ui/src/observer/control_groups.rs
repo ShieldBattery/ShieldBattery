@@ -3,9 +3,10 @@
 //! One row, for one player: the owner of whatever the watcher has selected, or whoever it showed
 //! last while nothing is. A row per player was ten slots times eight in a big game, which is a wall
 //! of tiles nobody reads, and what a watcher wants to know about groups is what the player they are
-//! looking at has on their keys. The row is led by the bar of the player's color and their name,
-//! then ten slots in the order a keyboard reads them. A slot carries the digit it answers to, what the group is, and how
-//! many units are in it — which is what a caster reads a push against: a group of twelve that has
+//! looking at has on their keys. The row is a bar of the player's color, then ten slots in the order
+//! a keyboard reads them; the bar alone says whose keys they are, since the panel is short enough
+//! that a name beside it would be most of the row. A slot carries the digit it answers to, what the
+//! group is, and how many units are in it — which is what a caster reads a push against: a group of twelve that has
 //! not been touched in four minutes is an army sitting at home.
 //!
 //! What the group *is* takes the middle of the slot, because it is the line a watcher reads first:
@@ -35,7 +36,7 @@ use crate::observer::{
 };
 
 /// How wide the panel is, in overlay points.
-pub const PANEL_WIDTH: f32 = 790.0;
+pub const PANEL_WIDTH: f32 = 651.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
@@ -43,19 +44,12 @@ const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 /// Width of the bar of the player's own color that leads their row, and how tall it is drawn.
 ///
 /// Shorter than the row: the bar says whose row this is, and one run the height of three lines of
-/// text would be a stripe down the panel rather than a mark against a name.
+/// text would be a stripe down the panel rather than a mark at the head of the row.
 const COLOR_BAR: f32 = 4.0;
 const COLOR_BAR_HEIGHT: f32 = 16.0;
 
-/// Gap between that bar and the player's name.
+/// Gap between that bar and the first slot.
 const BAR_GAP: f32 = 9.0;
-
-/// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
-/// its slot would otherwise push every tile beside it out of the design's grid.
-const NAME_WIDTH: f32 = 127.0;
-
-/// Gap between the name and the first slot.
-const NAME_GAP: f32 = 12.0;
 
 /// The digits a group answers to, in the order a keyboard reads them.
 ///
@@ -78,8 +72,6 @@ const ROW_GAP: f32 = 4.0;
 const _: () = assert!(
     COLOR_BAR
         + BAR_GAP
-        + NAME_WIDTH
-        + NAME_GAP
         + TILE_WIDTH * GROUP_KEYS.len() as f32
         + TILE_GAP * (GROUP_KEYS.len() as f32 - 1.0)
         == CONTENT_WIDTH
@@ -124,9 +116,6 @@ const CODE_TRACKING: f32 = 0.4;
 /// What stands between the two codes of a group of two kinds.
 const COMBO_JOIN: &str = "+";
 
-/// Text size of a player's name, matching the stats wings' so the panels read as one set.
-const NAME_SIZE: f32 = 15.0;
-
 /// How much of itself a group that has not been used in a while is drawn at.
 ///
 /// Dimmed rather than dropped: a forgotten group is exactly what a watcher wants pointed out, and a
@@ -160,7 +149,6 @@ pub struct ControlGroupView {
 pub struct ControlGroupsPlayerView {
     /// The game's own slot for this player, which is what a selection names its owner by.
     pub player_id: u8,
-    pub name: String,
     /// The color this player is on the map, which is what ties the row to what the watcher sees.
     pub color: Color32,
     /// Whether the watcher currently sees the game through this player's eyes.
@@ -243,14 +231,6 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>) {
             if player.vision { 1.0 } else { 0.5 },
         );
         cursor.skip(BAR_GAP);
-        paint_text(
-            ui,
-            cursor.take(NAME_WIDTH),
-            &text::player_name(NAME_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
-            &player.name,
-            Align::LEFT,
-        );
-        cursor.skip(NAME_GAP);
         for (index, key) in GROUP_KEYS.into_iter().enumerate() {
             if index > 0 {
                 cursor.skip(TILE_GAP);
