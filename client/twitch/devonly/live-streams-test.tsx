@@ -28,6 +28,7 @@ function thumb(from: string, to: string) {
 const now = Date.now()
 const mockStreams = [
   {
+    id: 'stream:1',
     twitchLogin: 'flash',
     twitchDisplayName: 'Flash',
     title: 'ASL practice, ladder grind to A rank',
@@ -37,6 +38,7 @@ const mockStreams = [
     user: { id: 1, name: 'Flash' },
   },
   {
+    id: 'stream:2',
     twitchLogin: 'bisu_official',
     twitchDisplayName: 'Bisu',
     title: 'fastest money games with viewers',
@@ -46,6 +48,7 @@ const mockStreams = [
     user: { id: 2, name: 'Bisu' },
   },
   {
+    id: 'stream:3',
     twitchLogin: 'jaedong',
     twitchDisplayName: 'Jaedong',
     title: 'ZvT lessons — reviewing your replays',
@@ -55,6 +58,7 @@ const mockStreams = [
     user: { id: 3, name: 'Jaedong' },
   },
   {
+    id: 'stream:4',
     // Twitch handle differs from the SB name, to exercise the "@handle" subtitle.
     twitchLogin: 'bw_soulkey',
     twitchDisplayName: 'BW_SoulKey',

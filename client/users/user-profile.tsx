@@ -246,6 +246,7 @@ const UserProfileTwitchQuery = graphql(/* GraphQL */ `
         twitchDisplayName
       }
       liveStream {
+        id
         twitchLogin
         title
         gameName

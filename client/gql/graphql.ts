@@ -386,7 +386,12 @@ export type ChannelActivityQueryVariables = Exact<{ [key: string]: never }>
 
 export type ChannelActivityQuery = {
   liveStreams: Array<
-    { twitchLogin: string; viewerCount: number; user: { id: Types.SbUserId } | null } & {
+    {
+      id: string
+      twitchLogin: string
+      viewerCount: number
+      user: { id: Types.SbUserId } | null
+    } & {
       ' $fragmentRefs'?: {
         LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
       }
@@ -887,6 +892,7 @@ export type LiveStreams_FeedFragmentFragment = {
 } & { ' $fragmentName'?: 'LiveStreams_FeedFragmentFragment' }
 
 export type LiveStreams_FeedEntryFragmentFragment = {
+  id: string
   twitchLogin: string
   twitchDisplayName: string
   title: string
@@ -1022,7 +1028,7 @@ export type UserProfileOverlayLiveQueryVariables = Exact<{
 export type UserProfileOverlayLiveQuery = {
   user: {
     id: Types.SbUserId
-    liveStream: { twitchLogin: string; title: string; viewerCount: number } | null
+    liveStream: { id: string; twitchLogin: string; title: string; viewerCount: number } | null
   } | null
 }
 
@@ -1064,6 +1070,7 @@ export type UserProfileTwitchQuery = {
     id: Types.SbUserId
     twitchChannel: { twitchLogin: string; twitchDisplayName: string } | null
     liveStream: {
+      id: string
       twitchLogin: string
       title: string
       gameName: string
@@ -1819,6 +1826,7 @@ export const LiveStreams_FeedEntryFragmentFragmentDoc = {
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
@@ -1876,6 +1884,7 @@ export const LiveStreams_FeedFragmentFragmentDoc = {
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
@@ -2814,6 +2823,7 @@ export const ChannelActivityDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
@@ -2933,6 +2943,7 @@ export const ChannelActivityDocument = {
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
@@ -4091,6 +4102,7 @@ export const HomePageLiveContentDocument = {
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
@@ -5064,6 +5076,7 @@ export const LiveStreamsPageDocument = {
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
@@ -5478,6 +5491,7 @@ export const UserProfileOverlayLiveDocument = {
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
@@ -5660,6 +5674,7 @@ export const UserProfileTwitchDocument = {
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },

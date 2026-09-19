@@ -55,6 +55,7 @@ const UserProfileOverlayLiveQuery = graphql(/* GraphQL */ `
     user(id: $userId) {
       id
       liveStream {
+        id
         twitchLogin
         title
         viewerCount

@@ -693,6 +693,12 @@ pub struct LiveStream {
 
 #[ComplexObject]
 impl LiveStream {
+    /// A globally unique ID for this stream. A user has at most one live stream at a time, so this
+    /// is derived from the streamer's user ID.
+    async fn id(&self) -> String {
+        format!("stream:{}", self.user_id)
+    }
+
     /// The ShieldBattery user who is streaming.
     async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
         ctx.data::<DataLoader<UsersLoader>>()?

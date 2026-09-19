@@ -342,6 +342,11 @@ type LiveStream {
 	"""
 	thumbnailUrl: String!
 	"""
+	A globally unique ID for this stream. A user has at most one live stream at a time, so this
+	is derived from the streamer's user ID.
+	"""
+	id: String!
+	"""
 	The ShieldBattery user who is streaming.
 	"""
 	user: SbUser

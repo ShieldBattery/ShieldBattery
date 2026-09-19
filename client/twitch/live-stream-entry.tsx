@@ -28,6 +28,7 @@ export const LiveStreams_FeedFragment = graphql(/* GraphQL */ `
 
 const LiveStreams_FeedEntryFragment = graphql(/* GraphQL */ `
   fragment LiveStreams_FeedEntryFragment on LiveStream {
+    id
     twitchLogin
     twitchDisplayName
     title
