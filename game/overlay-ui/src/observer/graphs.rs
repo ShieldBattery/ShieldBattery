@@ -154,12 +154,13 @@ pub fn render_graphs_view(
     ctx: &Context,
     shown: bool,
     top: f32,
+    right_inset: f32,
 ) -> Option<GraphsOutcome> {
     let id = Id::new("sb_graphs_panel");
     let inner = wing_panel(
         ctx,
         id,
-        Wing::Right,
+        Wing::Right { inset: right_inset },
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),

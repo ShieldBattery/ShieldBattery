@@ -161,18 +161,28 @@ pub fn render_obs_dock(
     let area = Area::new(id)
         .anchor(Align2::RIGHT_CENTER, vec2(-EDGE_MARGIN, 0.0))
         .order(Order::Foreground);
-    let inner = motion::presence_area(ctx, id.with("presence"), prefs.dock, area, |ui| {
-        tiers::tier0_panel(ui, |ui| {
-            let width = if prefs.dock_expanded {
-                EXPANDED_WIDTH
-            } else {
-                COLLAPSED_WIDTH
-            };
-            ui.set_width(tiers::panel_content_width(width));
-            draw_dock(ui, prefs, hotkeys, mode, map_control_available)
-        })
-        .inner
-    })?;
+    let width = if prefs.dock_expanded {
+        EXPANDED_WIDTH
+    } else {
+        COLLAPSED_WIDTH
+    };
+    // The dock hangs off the screen's edge, so that is where it goes when hidden: it slides its
+    // whole width out past the edge and comes back the same way, rather than fading where it
+    // stands like a panel that belongs to the middle of the screen.
+    let inner = motion::presence_area_along(
+        ctx,
+        id.with("presence"),
+        prefs.dock,
+        area,
+        vec2(width + EDGE_MARGIN, 0.0),
+        |ui| {
+            tiers::tier0_panel(ui, |ui| {
+                ui.set_width(tiers::panel_content_width(width));
+                draw_dock(ui, prefs, hotkeys, mode, map_control_available)
+            })
+            .inner
+        },
+    )?;
     let mut outcome = inner.inner;
     outcome.rect = inner.response.rect;
     Some(outcome)

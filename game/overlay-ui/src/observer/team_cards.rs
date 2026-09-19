@@ -24,9 +24,9 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    DOCK_RESERVE, EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT,
-    STAT_ROW_GAP, STAT_ROW_HEIGHT, WING_MARGIN, Wing, centred, paint_column_heading,
-    paint_player_bar, paint_race_chip, paint_text, team_name, vision_alpha,
+    EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
+    STAT_ROW_HEIGHT, WING_MARGIN, Wing, centred, paint_column_heading, paint_player_bar,
+    paint_race_chip, paint_text, team_name, vision_alpha,
 };
 use crate::tr;
 
@@ -209,6 +209,7 @@ pub fn render_team_cards_view(
     view: &TeamCardsView,
     ctx: &Context,
     shown: bool,
+    right_inset: f32,
 ) -> TeamCardsOutcome {
     let mut outcome = TeamCardsOutcome {
         rects: Vec::new(),
@@ -216,11 +217,14 @@ pub fn render_team_cards_view(
         right_bottom: None,
     };
     let shown = shown && !view.is_empty();
-    for (index, wing) in [Wing::Left, Wing::Right].into_iter().enumerate() {
+    for (index, wing) in [Wing::Left, Wing::Right { inset: right_inset }]
+        .into_iter()
+        .enumerate()
+    {
         let id = Id::new(("sb_team_card", index));
         let (align, offset_x) = match wing {
             Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-            Wing::Right => (Align2::RIGHT_TOP, -(WING_MARGIN + DOCK_RESERVE)),
+            Wing::Right { inset } => (Align2::RIGHT_TOP, -(WING_MARGIN + inset)),
         };
         let area = Area::new(id)
             .anchor(align, vec2(offset_x, CARD_TOP))
@@ -246,7 +250,7 @@ pub fn render_team_cards_view(
         let bottom = rect.bottom() - ctx.viewport_rect().top();
         match wing {
             Wing::Left => outcome.left_bottom = Some(bottom),
-            Wing::Right => outcome.right_bottom = Some(bottom),
+            Wing::Right { .. } => outcome.right_bottom = Some(bottom),
         }
     }
     outcome

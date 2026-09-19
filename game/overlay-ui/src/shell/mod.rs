@@ -777,8 +777,10 @@ impl Shell {
         // carries, so where the wings start is measured off what the cards actually came out as
         // rather than guessed at from a player count.
         let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
+        let right_inset = observer::dock_inset(ctx, self.prefs.dock);
         if let Some(cards) = &view.team_cards {
-            let outcome = observer::render_team_cards_view(cards, ctx, self.prefs.matchup);
+            let outcome =
+                observer::render_team_cards_view(cards, ctx, self.prefs.matchup, right_inset);
             for rect in outcome.rects {
                 hit_rects.push(HitRect::new(rect));
             }
@@ -807,8 +809,13 @@ impl Shell {
         if let Some(rect) = economy {
             hit_rects.push(HitRect::new(rect));
         }
-        let military =
-            observer::render_military_view(&view.military, ctx, self.prefs.military, tops.right);
+        let military = observer::render_military_view(
+            &view.military,
+            ctx,
+            self.prefs.military,
+            tops.right,
+            right_inset,
+        );
         if let Some(rect) = military {
             hit_rects.push(HitRect::new(rect));
         }
@@ -822,6 +829,7 @@ impl Shell {
                 tops.right,
                 military,
             ),
+            right_inset,
         ) {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(series) = outcome.series {
