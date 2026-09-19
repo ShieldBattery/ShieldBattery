@@ -454,7 +454,11 @@ fn draw_row(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
     } else {
         0.0
     };
-    let button_column = if row.state.is_waiting() {
+    // Only a player the game has given up waiting on has a drop control, so only their row keeps
+    // room for one: a stalled row that held the room empty would have its state text standing a
+    // button's width in from the edge every other row's sits against.
+    let has_drop = row.state == PeerState::Reconnecting;
+    let button_column = if has_drop {
         BUTTON_MARGIN + BUTTON_SIZE.x
     } else {
         0.0
@@ -511,7 +515,7 @@ fn draw_row(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
                 state_spec(row),
                 &state_text(row),
             );
-            if row.state.is_waiting() {
+            if has_drop {
                 ui.add_space(BUTTON_MARGIN);
                 draw_drop_button(ui, row, clicked);
             }
@@ -532,15 +536,11 @@ fn color_bar(ui: &mut Ui, color: Color32) {
     ui.painter().rect_filled(bar, theme::radius(1), color);
 }
 
-/// Draws the drop control for a row the game is waiting on: an outlined countdown while the relay
-/// would refuse the request, then a lit, clickable one. A [`Stalled`](PeerState::Stalled) row keeps
-/// the same footprint and nothing in it, so a row's link being confirmed down doesn't move the rows
-/// around it.
+/// Draws the drop control for a row whose player is known to be gone: an outlined countdown while
+/// the relay would refuse the request, then a lit, clickable one. A [`Stalled`](PeerState::Stalled)
+/// row has no control and no room kept for one; when its link is confirmed down the control
+/// arrives with the change of state, which is a change the row is showing anyway.
 fn draw_drop_button(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
-    if row.state != PeerState::Reconnecting {
-        ui.allocate_exact_size(BUTTON_SIZE, Sense::hover());
-        return;
-    }
     let spec = text::button_label(12.5).with_letter_spacing(1.4);
     if !row.drop_unlocked {
         let remaining = DROP_UNLOCK_UI.as_secs().saturating_sub(row.seconds);
