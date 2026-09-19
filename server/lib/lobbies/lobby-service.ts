@@ -368,19 +368,15 @@ export class LobbyService {
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
     // live lobby's summary without depending on this service directly.
+    //
+    // Every live lobby reports itself, whatever it's currently doing: a summary carries the
+    // lifecycle, so a reader can tell a lobby that's busy launching from one with open seats on its
+    // own. Withholding the summary for the seconds a lobby spends counting down or loading would
+    // instead make it indistinguishable from one that no longer exists -- a far longer-lived and
+    // less recoverable thing to say about it.
     setLobbySummaryGetter(id => {
       const lobby = this.lobbies.get(id)
-      if (!lobby) {
-        return undefined
-      }
-      const lifecycle = this._lifecycleOf(id)
-      // A counting-down or loading lobby can't be joined, so it's reported as gone rather than as
-      // an open lobby with slots available. A lobby with a game running still takes joins (onto its
-      // bench), so it reports itself like any other.
-      if (lifecycle === 'countingDown' || lifecycle === 'loading') {
-        return undefined
-      }
-      return this._toSummaryJson(lobby)
+      return lobby ? this._toSummaryJson(lobby) : undefined
     })
     setLobbyJoinCodeGetter(id => this.lobbyJoinCodes.get(id))
     setLobbyIdByJoinCodeGetter(code => this.joinCodeToLobby.get(code))
@@ -499,7 +495,13 @@ export class LobbyService {
       : undefined
   }
 
-  /** Returns a summary of every lobby that belongs on the public lobby list. */
+  /**
+   * Returns a summary of every lobby that belongs on the public lobby list.
+   *
+   * The list answers "what can I browse and join right now", so a lobby on its way into a game
+   * drops off it until it settles -- deliberately a different question from the one
+   * `setLobbySummaryGetter` answers, which is only whether the lobby exists.
+   */
   getListedSummaries(): LobbySummaryJson[] {
     return [...this.lobbies.values()]
       .filter(l => l.visibility === 'listed')
@@ -674,21 +676,6 @@ export class LobbyService {
     }
 
     const lifecycle = this._lifecycleOf(id)
-    // A lobby on its way into a game is briefly closed to joins: its roster is being handed to the
-    // game loader, so there is nothing a joiner could be added to yet. A lobby with a game already
-    // running still takes joins, onto its bench.
-    if (lifecycle === 'countingDown') {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.JoinAlreadyStarted,
-        'lobby is counting down',
-      )
-    }
-    if (lifecycle === 'loading') {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.JoinAlreadyStarted,
-        'lobby has already started',
-      )
-    }
 
     if (this.lobbyBannedUsers.get(lobby.id)?.has(client.userId)) {
       throw new LobbyServiceError(
@@ -698,10 +685,11 @@ export class LobbyService {
     }
 
     let updated: Lobby
-    if (lifecycle === 'inGame') {
-      // The lobby's seats, including its observer slots, are the running game's roster; an
-      // observer request is no more seatable than a player request while that's true, so it
-      // gets the same bench treatment as any other join here.
+    if (lifecycle !== 'gathering') {
+      // The lobby's seats, including its observer slots, belong to the game it is starting or
+      // already running, so there is nothing a joiner can be seated into until it gathers again.
+      // An observer request is no more seatable than a player request while that's true, so every
+      // join waits on the bench here.
       updated = this._benchJoiner(lobby, client.userId, joinRegion)
     } else if (asObserver) {
       // An explicit observer request takes an open observer slot or fails outright: unlike an
@@ -2008,12 +1996,13 @@ export class LobbyService {
    * whatever slot is free, an observer slot included. That is the one case where waiting for a seat
    * lands someone in the observer team, and it jumps nobody's queue — there is nobody to jump.
    *
-   * While a game is running the lobby's seats are that game's roster, so nobody is seated into one
-   * that opens up; the bench is drained instead when the lobby regroups. A new host is still picked,
-   * since a lobby whose host walks out mid-game needs one regardless.
+   * A lobby that is starting a game or running one has given its seats to that game, so nobody is
+   * seated into one that opens up; the bench is drained instead once the lobby gathers again (when
+   * it regroups, or when a launch is called off). A new host is still picked, since a lobby whose
+   * host walks out mid-game needs one regardless.
    */
   private _seatBenchOverflow(lobby: Lobby): Lobby {
-    if (this.runStates.has(lobby.id)) {
+    if (this._lifecycleOf(lobby.id) !== 'gathering') {
       return Lobbies.reassignHost(lobby)
     }
 
@@ -2113,8 +2102,11 @@ export class LobbyService {
     // A benched member holds no slot in the game being loaded, so their departure can't invalidate
     // a countdown or load in progress
     if (player) {
-      this._maybeCancelCountdown(lobby, lobbyIsEmpty)
-      this._maybeCancelLoading(lobby, lobbyIsEmpty)
+      const cancelledCountdown = this._maybeCancelCountdown(lobby, lobbyIsEmpty)
+      const cancelledLoading = this._maybeCancelLoading(lobby, lobbyIsEmpty)
+      if (cancelledCountdown || cancelledLoading) {
+        this._releaseLaunchBench(lobby.id)
+      }
     }
     if (!lobbyIsEmpty && wasInGame) {
       this._maybeRegroup(lobby.id)
@@ -2288,17 +2280,20 @@ export class LobbyService {
       // just replaced wholesale) since the countdown began
       const current = this.lobbies.get(lobbyId)
       if (current) {
-        this._maybeCancelCountdown(current, false)
-        this._maybeCancelLoading(current, false, usersAtFault)
+        const cancelledCountdown = this._maybeCancelCountdown(current, false)
+        const cancelledLoading = this._maybeCancelLoading(current, false, usersAtFault)
+        if (cancelledCountdown || cancelledLoading) {
+          this._releaseLaunchBench(lobbyId)
+        }
       }
     }
   }
 
-  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]) {
+  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]): boolean {
     if (!this.loadingLobbies.has(lobby.id)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
-      return
+      return false
     }
 
     this.loadingLobbies.get(lobby.id)!.abort()
@@ -2310,6 +2305,7 @@ export class LobbyService {
     if (!isLobbyEmpty) {
       this._publishListChange('add', lobby)
     }
+    return true
   }
 
   /**
@@ -2551,6 +2547,7 @@ export class LobbyService {
     }
 
     this._maybeCancelCountdown(lobby)
+    this._releaseLaunchBench(lobby.id)
   }
 
   /** Drops a lobby's running game, cancelling the stuck-game deadline that came with it. */
@@ -2564,10 +2561,37 @@ export class LobbyService {
     this.runStates.delete(lobbyId)
   }
 
-  // Cancels the countdown if one was occurring (no-op if it was not)
-  _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false) {
-    if (!this.lobbyCountdowns.has(lobby.id)) {
+  /**
+   * Seats whoever started waiting while the lobby was busy starting a game, now that it is
+   * gathering again and its seats are its own once more. Reads the lobby back out of the registry
+   * rather than taking it as an argument, since a caller that cancelled a countdown and a load in
+   * turn holds a lobby from before either of them.
+   *
+   * Only for the transitions that end a launch. A lobby that was already gathering seats its own
+   * bench as part of whatever freed the seat, and some of those callers deliberately leave a
+   * vacated slot unfilled (`closeSlot` takes the slot out of the lobby entirely), so draining the
+   * bench here as well would hand over a seat that was on its way out.
+   */
+  private _releaseLaunchBench(lobbyId: SbLobbyId): void {
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby || lobby.bench.length === 0 || this._lifecycleOf(lobbyId) !== 'gathering') {
       return
+    }
+
+    const updated = this._seatBenchOverflow(lobby)
+    if (updated === lobby) {
+      return
+    }
+
+    this.lobbies.set(lobbyId, updated)
+    this._publishLobbyDiff(lobby, updated)
+    this._publishListChange('update', updated)
+  }
+
+  /** Cancels the countdown if one was occurring, returning whether there was one to cancel. */
+  _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false): boolean {
+    if (!this.lobbyCountdowns.has(lobby.id)) {
+      return false
     }
 
     const countdown = this.lobbyCountdowns.get(lobby.id)
@@ -2579,24 +2603,14 @@ export class LobbyService {
     if (!isLobbyEmpty) {
       this._publishListChange('add', lobby)
     }
+    return true
   }
 
   getLobbyState({ lobbyId }: { lobbyId: SbLobbyId }): {
     lobbyId: SbLobbyId
     lobbyState: LobbyState
   } {
-    let lobbyState: LobbyState
-    if (!this.lobbies.has(lobbyId)) {
-      lobbyState = 'nonexistent'
-    } else {
-      lobbyState = 'exists'
-      if (this.lobbyCountdowns.has(lobbyId)) {
-        lobbyState = 'countingDown'
-      } else if (this.loadingLobbies.has(lobbyId)) {
-        lobbyState = 'hasStarted'
-      }
-    }
-
+    const lobbyState: LobbyState = this.lobbies.has(lobbyId) ? 'exists' : 'nonexistent'
     return { lobbyId, lobbyState }
   }
 
@@ -2725,13 +2739,13 @@ export class LobbyService {
   }
 
   /**
-   * Returns the full preview of a lobby by id, or undefined if no such lobby exists. A
-   * counting-down or loading lobby can't be joined, so it's reported as gone rather than as a
-   * live roster with join buttons behind it, matching the unauthenticated summary endpoint.
+   * Returns the full preview of a lobby by id, or undefined if no such lobby exists. Where the
+   * lobby is in its life makes no difference: every live lobby takes joins, and the summary the
+   * preview carries says what it is doing, so existence is the only thing that can withhold one.
    */
   getPreview(lobbyId: SbLobbyId): LobbyPreviewJson | undefined {
     const lobby = this.lobbies.get(lobbyId)
-    if (!lobby || this.lobbyCountdowns.has(lobbyId) || this.loadingLobbies.has(lobbyId)) {
+    if (!lobby) {
       return undefined
     }
     return Lobbies.toPreviewJson(lobby, this._toSummaryJson(lobby))

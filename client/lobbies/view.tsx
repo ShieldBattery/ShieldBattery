@@ -413,26 +413,9 @@ function LobbyStateContent({
       )
     case 'exists':
       return <JoinableLobbyView key={routeLobbyId} routeLobbyId={routeLobbyId} />
-    case 'countingDown':
-    case 'hasStarted':
-      return <LobbyStartedMessage />
     default:
       return assertUnreachable(state)
   }
-}
-
-function LobbyStartedMessage() {
-  const { t } = useTranslation()
-
-  return (
-    <StateMessageLayout>
-      <StateMessageIcon icon='avg_pace' />
-      <BodyLarge>
-        {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
-      </BodyLarge>
-      <BrowseLobbiesButton />
-    </StateMessageLayout>
-  )
 }
 
 function BrowseLobbiesButton() {
@@ -473,7 +456,6 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const snackbarController = useSnackbarController()
   const [summary, refreshSummary] = useLobbySummary(routeLobbyId)
   const [lobbyGone, setLobbyGone] = useState(false)
-  const [lobbyStarted, setLobbyStarted] = useState(false)
   const [join, isJoining] = useJoinLobbyAction()
 
   const lobbyName = summary?.status === 'loaded' ? summary.data.summary.name : undefined
@@ -491,9 +473,6 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
           case LobbyJoinErrorCode.NoLongerOpen:
             setLobbyGone(true)
             break
-          case LobbyJoinErrorCode.AlreadyStarted:
-            setLobbyStarted(true)
-            break
           default:
             snackbarController.showSnackbar(message)
             break
@@ -508,7 +487,6 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
     <JoinableLobbyContent
       summary={summary}
       lobbyGone={lobbyGone}
-      lobbyStarted={lobbyStarted}
       isJoining={isJoining}
       onJoinClick={onJoinClick}
     />
@@ -523,13 +501,11 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
 export function JoinableLobbyContent({
   summary,
   lobbyGone,
-  lobbyStarted,
   isJoining,
   onJoinClick,
 }: {
   summary: LobbySummaryLoadState | undefined
   lobbyGone: boolean
-  lobbyStarted: boolean
   isJoining: boolean
   onJoinClick: () => void
 }) {
@@ -547,10 +523,6 @@ export function JoinableLobbyContent({
       testName='join-lobby-button'
     />
   )
-
-  if (lobbyStarted) {
-    return <LobbyStartedMessage />
-  }
 
   if (lobbyGone || summary?.status === 'notFound') {
     return (

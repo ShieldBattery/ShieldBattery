@@ -228,10 +228,8 @@ export function LobbyInviteJoinedCard({ display }: { display: LobbyInviteDisplay
  *
  * A viewer already seated in the linked lobby (the common case being its own invite link pasted
  * into its own chat) still sees the card, built from the live lobby state instead of a summary
- * fetch: the summary endpoint 404s for a lobby that's mid-countdown or loading (the getter that
- * backs it excludes transient lobbies), which would otherwise show a seated member their own live
- * lobby as "no longer open"; reading local state instead sidesteps that entirely, and keeps the
- * zero-fetch property for the common case of a lobby's own link appearing in its own chat.
+ * fetch. A seated member's store is both more current than any summary snapshot and free to read,
+ * so a lobby's own link appearing in its own chat costs no requests at all.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const isInThisLobby = useAppSelector(s => isInLobby(s.lobby) && s.lobby.info.id === lobbyId)

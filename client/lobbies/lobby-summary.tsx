@@ -1,9 +1,10 @@
+import { TFunction } from 'i18next'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { gameTypeToLabel } from '../../common/games/game-type'
-import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
+import { isLaunchingLifecycle, LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { apiUrl } from '../../common/urls'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -215,6 +216,16 @@ export function useLobbySummary(
   const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
+    const applyState = (state: LobbySummaryLoadState) =>
+      setResult(prev =>
+        // A lobby that's still loadable shouldn't lose its rendered details to a transient
+        // failure; only a 404 (definitively gone) replaces a loaded summary. Every refresh gets a
+        // fresh chance to fail, so this is what keeps a rendered summary on screen across one.
+        state.status === 'error' && prev?.lobbyId === lobbyId && prev.state.status === 'loaded'
+          ? prev
+          : { lobbyId, state },
+      )
+
     if (cached) {
       // The fetch itself is shared across every mount currently requesting this lobby, so it can't
       // be aborted just because this particular mount goes away -- only ignore a result that
@@ -223,7 +234,7 @@ export function useLobbySummary(
       fetchLobbySummary(lobbyId, { cached: true })
         .then(state => {
           if (!canceled) {
-            setResult({ lobbyId, state })
+            applyState(state)
           }
         })
         .catch(swallowNonBuiltins)
@@ -240,13 +251,7 @@ export function useLobbySummary(
         if (controller.signal.aborted) {
           return
         }
-        setResult(prev =>
-          // A lobby that's still loadable shouldn't lose its rendered details to a transient
-          // failure; only a 404 (definitively gone) replaces a loaded summary.
-          state.status === 'error' && prev?.lobbyId === lobbyId && prev.state.status === 'loaded'
-            ? prev
-            : { lobbyId, state },
-        )
+        applyState(state)
       })
       .catch(swallowNonBuiltins)
 
@@ -256,6 +261,23 @@ export function useLobbySummary(
   const refresh = () => setRefreshToken(t => t + 1)
 
   return [result?.lobbyId === lobbyId ? result.state : undefined, refresh]
+}
+
+/**
+ * What the details list shows for slots: how many are open, or -- when the lobby isn't taking
+ * anyone into a seat right now -- what it's doing instead.
+ */
+function slotsValueFor(lobby: LobbySummaryResponse['summary'], t: TFunction): string {
+  if (lobby.lifecycle === 'inGame') {
+    return t('lobbies.lobby.inGame', 'In game')
+  }
+  if (isLaunchingLifecycle(lobby.lifecycle)) {
+    return t('lobbies.summary.startingGame', 'Starting game')
+  }
+  return t('lobbies.summary.openSlotCount', {
+    defaultValue: '{{count}} open',
+    count: lobby.playerSlots.open,
+  })
 }
 
 /**
@@ -288,14 +310,7 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
           </DetailRow>
           <DetailRow>
             <DetailLabel>{t('lobbies.summary.slotsLabel', 'Slots')}</DetailLabel>
-            <DetailValue>
-              {lobby.lifecycle === 'inGame'
-                ? t('lobbies.lobby.inGame', 'In game')
-                : t('lobbies.summary.openSlotCount', {
-                    defaultValue: '{{count}} open',
-                    count: lobby.playerSlots.open,
-                  })}
-            </DetailValue>
+            <DetailValue>{slotsValueFor(lobby, t)}</DetailValue>
           </DetailRow>
         </DetailsList>
       </InfoLayout>

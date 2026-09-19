@@ -1,10 +1,11 @@
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
+import { LobbyLifecycle, LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { asMockedFunction } from '../../common/testing/mocks'
 import { fetchJson } from '../network/fetch'
 import { FetchError } from '../network/fetch-errors'
-import { fetchLobbySummary, resetSummaryCacheForTesting } from './lobby-summary'
+import { fetchLobbySummary, resetSummaryCacheForTesting, useLobbySummary } from './lobby-summary'
 
 vi.mock('../network/fetch', () => ({
   fetchJson: vi.fn(),
@@ -14,8 +15,22 @@ const fetchJsonMock = asMockedFunction(fetchJson)
 
 const RESPONSE = { summary: { name: 'Test lobby' }, host: { name: 'host' } } as LobbySummaryResponse
 
+function summaryFor(lifecycle: LobbyLifecycle): LobbySummaryResponse {
+  return {
+    summary: { name: 'Test lobby', lifecycle },
+    host: { name: 'host' },
+  } as LobbySummaryResponse
+}
+
 function notFoundError(): FetchError {
   return new FetchError(new Response('', { status: 404, statusText: 'Not Found' }), '')
+}
+
+/** Lets every pending fetch settle and the hook re-render off it, `ms` of fake time later. */
+async function advance(ms: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms)
+  })
 }
 
 describe('client/lobbies/lobby-summary/fetchLobbySummary', () => {
@@ -138,5 +153,52 @@ describe('client/lobbies/lobby-summary/fetchLobbySummary', () => {
     await fetchLobbySummary(id)
 
     expect(fetchJsonMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('client/lobbies/lobby-summary/useLobbySummary', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    resetSummaryCacheForTesting()
+    fetchJsonMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  test('keeps a rendered summary when a cached refresh fails', async () => {
+    const id = makeSbLobbyId('lobby-a')
+    fetchJsonMock
+      .mockResolvedValueOnce(summaryFor('gathering'))
+      .mockRejectedValue(new Error('network down'))
+
+    const { result } = renderHook(() => useLobbySummary(id, { cached: true }))
+    await advance(0)
+
+    // Past the shared cache window, so the refresh actually reaches the network
+    await advance(31 * 1000)
+    await act(async () => {
+      result.current[1]()
+    })
+    await advance(0)
+
+    expect(fetchJsonMock).toHaveBeenCalledTimes(2)
+    expect(result.current[0]).toEqual({ status: 'loaded', data: summaryFor('gathering') })
+  })
+
+  test('replaces a rendered summary when a refresh finds the lobby gone', async () => {
+    const id = makeSbLobbyId('lobby-a')
+    fetchJsonMock.mockResolvedValueOnce(summaryFor('gathering')).mockRejectedValue(notFoundError())
+
+    const { result } = renderHook(() => useLobbySummary(id))
+    await advance(0)
+    await act(async () => {
+      result.current[1]()
+    })
+    await advance(0)
+
+    expect(result.current[0]).toEqual({ status: 'notFound' })
   })
 })

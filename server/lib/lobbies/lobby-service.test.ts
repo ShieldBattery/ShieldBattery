@@ -17,7 +17,7 @@ import {
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
 import { LobbyServiceErrorCode } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
-import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { RolledOutcome } from '../../../common/rolled-outcomes'
@@ -711,7 +711,7 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
-    test('joining a lobby during its countdown rejects with a JoinAlreadyStarted code', async () => {
+    test('joining a lobby during its countdown puts the joiner on the bench', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       // A countdown requires 2 opposing sides.
       await joinLobby(joiner, id)
@@ -720,11 +720,13 @@ describe('lobbies/lobby-service', () => {
       vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
-      // The client renders a counting-down/loading lobby as a whole separate screen, distinct from
-      // the ordinary join-error codes covered above.
-      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
-        code: LobbyServiceErrorCode.JoinAlreadyStarted,
-      })
+      await joinLobby(otherHost, id)
+
+      // The seats belong to the game being started, so the joiner waits rather than taking one of
+      // the slots that are still open.
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeUndefined()
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
     })
 
     test('joining a lobby the user was banned from rejects with a Banned code', async () => {
@@ -1099,6 +1101,40 @@ describe('lobbies/lobby-service', () => {
 
       // The lobby is gathering again rather than wedged in its loading state
       expect(lobbyService.getLobbyState({ lobbyId: id }).lobbyState).toBe('exists')
+    })
+
+    test('a member who joined during a failed load is seated once it gathers again', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      let failLoad: (err: Error) => void
+      loadGameMock.mockImplementationOnce(async (request: GameLoadRequest) => {
+        loadGameRequests.push(request)
+        return await new Promise((_resolve, reject) => {
+          failLoad = reject
+        })
+      })
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, force: true })
+      await vi.advanceTimersByTimeAsync(5000)
+      vi.useRealTimers()
+      expect(loadGameRequests).toHaveLength(1)
+
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      failLoad!(new Error('load exploded'))
+      await vi.waitFor(() => {
+        expect(lobbyPublishes(id).some(data => data?.type === 'cancelLoading')).toBe(true)
+      })
+
+      // The seats the abandoned game was holding are the lobby's again, so nobody is left waiting
+      // behind an open one.
+      await vi.waitFor(() => {
+        expect(lobbyService.lobbies.get(id)!.bench).toEqual([])
+      })
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, OTHER_HOST_USER.id)[2]).toBeDefined()
     })
 
     test('a game start does not release a bench member who already left for another lobby', async () => {
@@ -2110,6 +2146,25 @@ describe('lobbies/lobby-service', () => {
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
+
+    test('closing an occupied slot does not hand it to a member waiting for a seat', async () => {
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      // Every seat is taken, so this join waits
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(1)
+
+      const [, , joinerSlot] = findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)
+      // The point of the request is to take the slot out of the lobby, so the seat it frees is not
+      // a seat anyone gets to take -- not the occupant's replacement, and not the one waiting
+      lobbyService.closeSlot({ client: host.client, slotId: joinerSlot!.id })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeUndefined()
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+      expect(lobby.teams[0].slots[1].type).toBe('closed')
+    })
   })
 
   describe('changeSlot', () => {
@@ -2128,16 +2183,40 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('summaries', () => {
-    test('a counting-down lobby is reported as gone by the summary getter', async () => {
+    test('a counting-down lobby reports its summary, as counting down', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
 
-      // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
-      // resolver must treat it the same as a lobby that doesn't exist at all.
+      // Counting down is a few seconds of a lobby's life. Withholding the summary would tell every
+      // reader that the lobby is gone, which outlives the countdown by the length of the game.
       vi.useFakeTimers()
       lobbyService.startCountdown({ client: host.client, force: true })
 
-      expect(getLobbySummary(id)).toBeUndefined()
+      expect(getLobbySummary(id)).toEqual(
+        expect.objectContaining({ id, lifecycle: 'countingDown' }),
+      )
+    })
+
+    test('a lobby that never exists is still reported as gone', () => {
+      expect(getLobbySummary(makeSbLobbyId('not-a-real-lobby'))).toBeUndefined()
+    })
+
+    test('a lobby starting a game still previews', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, force: true })
+
+      // A launch is a few seconds of a lobby's life that a join waits out on the bench, so the
+      // preview behind an invite link has to show the lobby rather than report it gone.
+      expect(lobbyService.getPreview(id)).toEqual(
+        expect.objectContaining({ id, lifecycle: 'countingDown' }),
+      )
+    })
+
+    test('a preview is withheld only for a lobby that does not exist', () => {
+      expect(lobbyService.getPreview(makeSbLobbyId('not-a-real-lobby'))).toBeUndefined()
     })
 
     test('a lobby with a game in progress reports its summary', async () => {
@@ -2579,14 +2658,32 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
-    test('joining a lobby that is loading its game rejects with a JoinAlreadyStarted code', async () => {
+    test('joining a lobby that is loading its game puts the joiner on the bench', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       lobbyService.loadingLobbies.set(id, new AbortController())
 
-      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
-        code: LobbyServiceErrorCode.JoinAlreadyStarted,
-      })
+      await joinLobby(otherHost, id)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeUndefined()
+      expect(lobby.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+    })
+
+    test('a member who joined during a countdown is seated when the host calls it off', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, force: true })
+      await joinLobby(otherHost, id)
+
+      lobbyService.cancelCountdown({ client: host.client, lobbyId: id })
+
+      // The lobby's seats are its own again, so nobody is left waiting behind an open one.
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.bench).toEqual([])
+      expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeDefined()
     })
 
     test('a member who joined during the game is seated when the lobby regroups', async () => {

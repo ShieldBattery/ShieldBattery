@@ -149,6 +149,20 @@ describe('lobbies/lobby-page-meta', () => {
       )
     })
 
+    test.each(['countingDown', 'loading'] as const)(
+      'describes a %s lobby as starting a game rather than its open slot count',
+      async lifecycle => {
+        summaryGetterMock.mockReturnValueOnce({ ...BASE_SUMMARY, lifecycle })
+        findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+        const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
+
+        expect(result?.description).toBe(
+          'Melee lobby on Fighting Spirit — starting game. Hosted by HostUser.',
+        )
+      },
+    )
+
     test('falls back to the default page image when the map has no image', async () => {
       summaryGetterMock.mockReturnValueOnce({
         ...BASE_SUMMARY,

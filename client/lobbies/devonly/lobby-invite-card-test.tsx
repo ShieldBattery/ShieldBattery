@@ -6,14 +6,15 @@ import {
   LobbyInviteJoinedCard,
 } from '../lobby-invite-card'
 import { LobbySummaryLoadState } from '../lobby-summary'
-import { MOCK_LOBBY_SUMMARY } from './lobby-landing-test'
+import { MOCK_LOBBY_SUMMARY, MOCK_LOBBY_SUMMARY_IN_GAME } from './lobby-landing-test'
 import { ScenarioPicker } from './scenario-picker'
 
-type Scenario = 'loading' | 'loaded' | 'notFound' | 'error' | 'joined'
+type Scenario = 'loading' | 'loaded' | 'inGame' | 'notFound' | 'error' | 'joined'
 
 const SCENARIOS: Array<{ id: Scenario; label: string }> = [
   { id: 'loading', label: 'Loading' },
   { id: 'loaded', label: 'Loaded' },
+  { id: 'inGame', label: 'In game' },
   { id: 'notFound', label: 'Not found' },
   { id: 'error', label: 'Error' },
   { id: 'joined', label: 'Joined (own lobby)' },
@@ -25,6 +26,8 @@ function scenarioToState(scenario: Exclude<Scenario, 'joined'>): LobbySummaryLoa
       return undefined
     case 'loaded':
       return { status: 'loaded', data: MOCK_LOBBY_SUMMARY }
+    case 'inGame':
+      return { status: 'loaded', data: MOCK_LOBBY_SUMMARY_IN_GAME }
     case 'notFound':
       return { status: 'notFound' }
     case 'error':

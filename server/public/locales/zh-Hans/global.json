@@ -1558,8 +1558,7 @@
     },
     "state": {
       "exists": "你现在不在这个房间。想加入吗？",
-      "nonexistent": "未找到房间。要新建一个吗？",
-      "started": "这个房间已经开始，无法加入。"
+      "nonexistent": "未找到房间。要新建一个吗？"
     },
     "summary": {
       "gameTypeLabel": "游戏类型",
@@ -1567,7 +1566,8 @@
       "mapLabel": "地图",
       "noLongerOpen": "该房间已不再开放。",
       "openSlotCount_other": "剩余{{count}}个",
-      "slotsLabel": "座位"
+      "slotsLabel": "座位",
+      "startingGame": "正在开始游戏"
     }
   },
   "map": {

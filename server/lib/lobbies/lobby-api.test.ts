@@ -34,10 +34,6 @@ const EXPECTED_ERROR_MAPPING: Record<
     status: 409,
     bodyCode: LobbyJoinErrorCode.AlreadyInActivity,
   },
-  [LobbyServiceErrorCode.JoinAlreadyStarted]: {
-    status: 409,
-    bodyCode: LobbyJoinErrorCode.AlreadyStarted,
-  },
   [LobbyServiceErrorCode.LobbyFull]: { status: 409, bodyCode: LobbyJoinErrorCode.Full },
   [LobbyServiceErrorCode.NoActiveClient]: { status: 400 },
   [LobbyServiceErrorCode.NoLobby]: { status: 404, bodyCode: LobbyJoinErrorCode.NoLongerOpen },

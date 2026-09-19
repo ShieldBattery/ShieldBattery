@@ -1,4 +1,5 @@
 import { gameTypeToLabel } from '../../../common/games/game-type'
+import { isLaunchingLifecycle, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
 import logger from '../logging/logger'
 import {
@@ -8,6 +9,24 @@ import {
   PageMetadataResolver,
 } from '../page-metadata/types'
 import { getLiveLobbyWithHost } from './lobby-summaries'
+
+/**
+ * What the unfurl says the lobby is doing: how many seats are open, or -- when it isn't taking
+ * anyone into a seat right now -- what it's busy with instead. A lobby counting down or loading
+ * has given its seats to the game it is starting, so advertising them would promise a seat that a
+ * join would only queue for.
+ */
+function statusFor(summary: LobbySummaryJson): string {
+  if (summary.lifecycle === 'inGame') {
+    return 'in game'
+  }
+  if (isLaunchingLifecycle(summary.lifecycle)) {
+    return 'starting game'
+  }
+
+  const openSlots = summary.playerSlots.open
+  return `${openSlots} open ${openSlots === 1 ? 'slot' : 'slots'}`
+}
 
 /**
  * Resolves the Open Graph/Twitter Card metadata for a lobby's logged-out landing page (registered
@@ -40,15 +59,12 @@ export const lobbyPageMetadata: PageMetadataResolver = async (params, context) =
   const { summary, host } = result
 
   const gameTypeLabel = gameTypeToLabel(summary.gameType, englishT)
-  const openSlots = summary.playerSlots.open
-  const slotWord = openSlots === 1 ? 'slot' : 'slots'
-  const status = summary.lifecycle === 'inGame' ? 'in game' : `${openSlots} open ${slotWord}`
 
   return {
     url: context.canonicalHost + urlForLobby(summary.id, summary.name),
     type: 'website',
     title: summary.name,
-    description: `${gameTypeLabel} lobby on ${summary.map.name} — ${status}. Hosted by ${host.name}.`,
+    description: `${gameTypeLabel} lobby on ${summary.map.name} — ${statusFor(summary)}. Hosted by ${host.name}.`,
     // `summary.map` is the same `MapInfoJson` the game/league resolvers use, so the same fallback
     // chain applies directly — no separate server-side map lookup is needed here.
     image:

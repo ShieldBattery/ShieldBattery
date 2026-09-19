@@ -1606,8 +1606,7 @@
     },
     "state": {
       "exists": "Вы не находитесь в этом лобби. Присоединиться?",
-      "nonexistent": "Лобби не найдено. Хотите создать новое?",
-      "started": "Это лобби уже запущено, и к нему нельзя присоединиться."
+      "nonexistent": "Лобби не найдено. Хотите создать новое?"
     },
     "summary": {
       "gameTypeLabel": "Тип игры",
@@ -1618,7 +1617,8 @@
       "openSlotCount_few": "{{count}} открыто",
       "openSlotCount_many": "{{count}} открыто",
       "openSlotCount_other": "{{count}} открыто",
-      "slotsLabel": "Слоты"
+      "slotsLabel": "Слоты",
+      "startingGame": "Запуск игры"
     }
   },
   "map": {
