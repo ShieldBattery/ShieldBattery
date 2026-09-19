@@ -910,10 +910,6 @@ impl OverlayState {
                 options.lock().apply(change);
                 info!("Overlay: setting change requested: {change:?}");
             }
-            Intent::ResetSettings => {
-                *options.lock() = OptionsView::default();
-                info!("Overlay: settings reset requested");
-            }
         }
     }
 
