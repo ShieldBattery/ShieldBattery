@@ -153,63 +153,12 @@ impl Panel {
     }
 }
 
-/// A whole set of panels at once, for a watcher who wants a screen rather than a list of switches.
-///
-/// A preset decides the surfaces that carry information and leaves the dock where it is: a preset
-/// that hid the control it was picked from would take the watcher's way back with it.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum PanelPreset {
-    /// The game and as little else as possible: the matchup bar and the minimap.
-    Minimal,
-    /// What a watcher gets before they ask for anything: every panel, over the game's own console.
-    Standard,
-    /// Everything the overlay knows, with the game's console hidden to make room for it.
-    Analyst,
-}
-
-impl PanelPreset {
-    pub const ALL: [PanelPreset; 3] = [
-        PanelPreset::Minimal,
-        PanelPreset::Standard,
-        PanelPreset::Analyst,
-    ];
-
-    /// A short name for this preset in a knob panel or a log line.
-    pub fn label(self) -> &'static str {
-        match self {
-            PanelPreset::Minimal => "minimal",
-            PanelPreset::Standard => "standard",
-            PanelPreset::Analyst => "analyst",
-        }
-    }
-
-    /// Moves `prefs` to this preset's set of surfaces.
-    pub fn apply(self, prefs: &mut PanelPrefs) {
-        // Everything a minimal screen gives up. A panel built later joins this line, which is what
-        // keeps the analyst preset meaning "everything the overlay knows".
-        let analysis = !matches!(self, PanelPreset::Minimal);
-        prefs.matchup = true;
-        prefs.minimap = true;
-        prefs.transport = true;
-        prefs.map_control = analysis;
-        prefs.economy = analysis;
-        prefs.military = analysis;
-        prefs.graphs = analysis;
-        prefs.timeline = analysis;
-        prefs.production = analysis;
-        prefs.control_groups = analysis;
-        // The game's own console is what the analyst preset gives up instead: our panels want the
-        // bottom of the screen, and a watcher reading them is not selecting units.
-        prefs.console = matches!(self, PanelPreset::Standard);
-    }
-}
-
 /// What the player wants of the overlay: which ambient panels are on screen, and whether it keeps
 /// a replay's outcome to itself.
 ///
-/// Independent booleans rather than a preset: the console and the minimap in particular are separate
-/// surfaces in the game, and observers routinely keep one without the other. Serializable so a host
-/// can persist the set per profile.
+/// Independent booleans rather than named sets of them: the console and the minimap in particular
+/// are separate surfaces in the game, and observers routinely keep one without the other.
+/// Serializable so a host can persist the set per profile.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
@@ -313,18 +262,6 @@ impl PanelPrefs {
         for panel in Panel::ALL {
             self.set(panel, shown);
         }
-    }
-
-    /// Which preset this set of panels is, if it is one of them.
-    ///
-    /// Derived by applying each preset to a copy rather than by listing its fields a second time,
-    /// so a preset and the set it is recognised by can never drift apart.
-    pub fn preset(&self) -> Option<PanelPreset> {
-        PanelPreset::ALL.into_iter().find(|preset| {
-            let mut candidate = *self;
-            preset.apply(&mut candidate);
-            candidate == *self
-        })
     }
 }
 
@@ -631,10 +568,6 @@ pub struct Shell {
     /// shell's while there is something behind it, and a keypress arrives between frames, so what
     /// the last frame was told has to be kept here.
     map_control_available: bool,
-    /// Whether the last observer frame was of a game with sides worth telling apart from the
-    /// players on them, which is the only kind of game the per-player graphs chord has two plots to
-    /// switch between. Kept here for the same reason the line above it is.
-    team_graphs_available: bool,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
     pending_seek: Option<u32>,
@@ -659,7 +592,6 @@ impl Shell {
             host: HostFrame::default(),
             transport: None,
             map_control_available: false,
-            team_graphs_available: false,
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
             intents: Vec::new(),
@@ -821,7 +753,6 @@ impl Shell {
     /// into intents for the host and into preferences of its own.
     fn frame_observer(&mut self, ctx: &Context, view: &ObserverView, hit_rects: &mut Vec<HitRect>) {
         self.map_control_available = view.map_control.is_some();
-        self.team_graphs_available = view.has_teams();
         if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, self.prefs.matchup)
         {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -869,13 +800,19 @@ impl Shell {
         if let Some(rect) = military {
             hit_rects.push(HitRect::new(rect));
         }
-        if let Some(rect) = observer::render_graphs_view(
+        if let Some(outcome) = observer::render_graphs_view(
             &view.graphs,
             ctx,
             self.prefs.graphs,
             observer::WingTops::below(tops.right, military, screen_top),
         ) {
-            hit_rects.push(HitRect::new(rect));
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let Some(series) = outcome.series {
+                self.prefs.graph_series = series;
+            }
+            if let Some(per_player) = outcome.per_player {
+                self.prefs.graph_per_player = per_player;
+            }
         }
         if let Some(rect) = observer::render_timeline_view(
             &view.timeline,
@@ -926,9 +863,6 @@ impl Shell {
             }
             if let Some(spoiler_free) = outcome.spoiler_free {
                 self.prefs.spoiler_free = spoiler_free;
-            }
-            if let Some(preset) = outcome.preset {
-                preset.apply(&mut self.prefs);
             }
             if let Some(expanded) = outcome.expanded {
                 self.prefs.dock_expanded = expanded;
@@ -1076,6 +1010,7 @@ impl Shell {
             | Action::SeekBackward
             | Action::SeekForward => self.apply_transport_action(action, modifiers),
             Action::ToggleGraphs => self.apply_graphs_action(modifiers),
+            Action::ToggleDock => self.apply_dock_action(modifiers),
             // The bar reports a measurement the game does not keep, so a game whose host has none
             // leaves the key alone rather than moving a preference nothing can act on.
             Action::ToggleMapControl if !self.map_control_available => false,
@@ -1089,37 +1024,50 @@ impl Shell {
         }
     }
 
-    /// Carries out the graphs key, which opens the panel, then walks it through the measurements it
-    /// can plot, then closes it again.
+    /// Carries out the graphs key, which opens the panel, walks it through the measurements it can
+    /// plot, then closes it again. `Shift` walks the same line the other way.
     ///
     /// One key rather than two, because the panel plots one series at a time: the watcher's question
     /// is "show me the next one", and a second key for the panel itself would leave them choosing
-    /// between two keys that both look like the way in.
+    /// between two keys that both look like the way in. The walk ends at both edges rather than
+    /// wrapping, so the direction that opened the panel is the direction that closes it again.
     fn apply_graphs_action(&mut self, modifiers: Modifiers) -> bool {
-        // `Shift` asks for the per-player form of a team game's graphs, which is a distinction a
-        // game with one player per side does not have: there the two plots would be the same plot,
-        // so the chord stays the game's.
-        if modifiers.shift {
-            if !self.team_graphs_available {
-                return false;
-            }
-            // Shown as well as switched: the watcher asked for a plot, and answering with a
-            // changed preference behind a hidden panel would read as a key that did nothing.
-            self.prefs.graphs = true;
-            self.prefs.graph_per_player = !self.prefs.graph_per_player;
-            return true;
-        }
+        let backwards = modifiers.shift;
         if !self.prefs.graphs {
             self.prefs.graphs = true;
-            self.prefs.graph_series = GraphSeries::default();
+            // A backward walk starts at the far end of the line, which is what makes the two
+            // directions mirrors: each opens the panel on the series the other one closes it from.
+            self.prefs.graph_series = match backwards {
+                true => GraphSeries::ALL.last().copied().unwrap_or_default(),
+                false => GraphSeries::default(),
+            };
             return true;
         }
-        match self.prefs.graph_series.next() {
+        let stepped = match backwards {
+            true => self.prefs.graph_series.previous(),
+            false => self.prefs.graph_series.next(),
+        };
+        match stepped {
             Some(series) => self.prefs.graph_series = series,
             None => {
                 self.prefs.graphs = false;
                 self.prefs.graph_series = GraphSeries::default();
             }
+        }
+        true
+    }
+
+    /// Carries out the dock key: on its own it takes the dock off screen and back, and with `Shift`
+    /// it changes which of the dock's two forms it comes back in.
+    ///
+    /// A form the watcher cannot see has not changed as far as they are concerned, so the chord
+    /// shows a hidden dock rather than answering with nothing.
+    fn apply_dock_action(&mut self, modifiers: Modifiers) -> bool {
+        if modifiers.shift {
+            self.prefs.dock_expanded = !self.prefs.dock_expanded;
+            self.prefs.dock = true;
+        } else {
+            self.prefs.toggle(Panel::Dock);
         }
         true
     }
@@ -1555,28 +1503,34 @@ mod tests {
     }
 
     #[test]
-    fn the_per_player_graphs_chord_belongs_to_the_game_only_where_it_has_two_plots() {
+    fn the_graphs_chord_walks_the_series_backwards_and_then_closes_the_panel() {
         let mut shell = spectating_shell();
         let shift = Modifiers {
             shift: true,
             ..Modifiers::NONE
         };
-        // A duel plots the same lines either way, so the chord stays the game's.
-        let before = *shell.panel_prefs();
-        assert!(!shell.key_pressed(Key::G, shift));
-        assert_eq!(*shell.panel_prefs(), before);
-
-        shell.team_graphs_available = true;
         shell.set_panel_prefs(PanelPrefs {
             graphs: false,
+            graph_series: GraphSeries::Income,
             ..PanelPrefs::default()
         });
+
+        // Backwards from a hidden panel opens it on the last measurement, which is where walking
+        // forwards would have closed it.
         assert!(shell.key_pressed(Key::G, shift));
-        assert!(shell.panel_prefs().graph_per_player);
-        // Switching a plot is asking to see it, so the panel comes with it.
         assert!(shell.panel_prefs().graphs);
+        assert_eq!(
+            shell.panel_prefs().graph_series,
+            *GraphSeries::ALL.last().unwrap()
+        );
+
+        for expected in GraphSeries::ALL.into_iter().rev().skip(1) {
+            assert!(shell.key_pressed(Key::G, shift));
+            assert_eq!(shell.panel_prefs().graph_series, expected);
+            assert!(shell.panel_prefs().graphs);
+        }
         assert!(shell.key_pressed(Key::G, shift));
-        assert!(!shell.panel_prefs().graph_per_player);
+        assert!(!shell.panel_prefs().graphs);
     }
 
     #[test]
@@ -1617,38 +1571,27 @@ mod tests {
     }
 
     #[test]
-    fn a_preset_is_recognised_in_the_panels_it_leaves_behind() {
-        for preset in PanelPreset::ALL {
-            let mut prefs = PanelPrefs::default();
-            preset.apply(&mut prefs);
-            assert_eq!(
-                prefs.preset(),
-                Some(preset),
-                "{preset:?} is not its own set"
-            );
-        }
-    }
+    fn the_dock_chord_changes_its_form_and_brings_it_back_to_be_seen() {
+        let mut shell = spectating_shell();
+        let shift = Modifiers {
+            shift: true,
+            ..Modifiers::NONE
+        };
+        assert!(!shell.panel_prefs().dock_expanded);
+        assert!(shell.key_pressed(Key::Backtick, shift));
+        assert!(shell.panel_prefs().dock_expanded);
+        assert!(shell.panel_prefs().dock);
 
-    #[test]
-    fn presets_leave_the_dock_where_the_watcher_put_it() {
-        let mut prefs = PanelPrefs {
+        // Changing the form of a dock nobody can see would read as a key that did nothing, so it
+        // comes back on screen with the change.
+        shell.set_panel_prefs(PanelPrefs {
             dock: false,
             dock_expanded: true,
             ..PanelPrefs::default()
-        };
-        for preset in PanelPreset::ALL {
-            preset.apply(&mut prefs);
-            assert!(!prefs.dock, "{preset:?} put the dock back on screen");
-            assert!(prefs.dock_expanded, "{preset:?} folded the rail away");
-        }
-    }
-
-    #[test]
-    fn a_set_of_panels_that_is_no_preset_is_named_as_none() {
-        let mut prefs = PanelPrefs::default();
-        PanelPreset::Standard.apply(&mut prefs);
-        prefs.minimap = false;
-        assert_eq!(prefs.preset(), None);
+        });
+        assert!(shell.key_pressed(Key::Backtick, shift));
+        assert!(!shell.panel_prefs().dock_expanded);
+        assert!(shell.panel_prefs().dock);
     }
 
     #[test]

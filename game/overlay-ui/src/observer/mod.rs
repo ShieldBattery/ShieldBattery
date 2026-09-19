@@ -19,6 +19,7 @@ mod military;
 mod production;
 mod team_cards;
 mod timeline;
+mod unit_codes;
 
 pub(crate) use control_groups::BOTTOM_MARGIN as CONTROL_GROUPS_BOTTOM;
 pub use control_groups::{
@@ -26,7 +27,9 @@ pub use control_groups::{
 };
 pub use dock::{DockOutcome, render_obs_dock};
 pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
-pub use graphs::{GraphGrouping, GraphLineView, GraphSeries, GraphsView, render_graphs_view};
+pub use graphs::{
+    GraphGrouping, GraphLineView, GraphSeries, GraphsOutcome, GraphsView, render_graphs_view,
+};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
@@ -40,6 +43,7 @@ pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
 pub use timeline::{TimelineEventKind, TimelineEventView, TimelineView, render_timeline_view};
+pub use unit_codes::unit_code;
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
@@ -500,12 +504,14 @@ pub(crate) fn paint_column_heading(ui: &Ui, rect: Rect, label: &str, align: Alig
     paint_text(ui, rect, &text::column_label(), label, align);
 }
 
-/// Paints one resource cell of a stats wing: the glyph that says which resource, then the number.
+/// Paints one resource cell of a stats wing: the glyph that says which resource, then the number,
+/// aligned within the room to its right the way the column it sits in aligns its values.
 pub(crate) fn paint_resource_value(
     ui: &Ui,
     rect: Rect,
     glyph: ResourceGlyph,
     value: &str,
+    align: Align,
     alpha: f32,
 ) {
     let glyph_rect = centred(
@@ -525,7 +531,7 @@ pub(crate) fn paint_resource_value(
         value_rect,
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
         value,
-        Align::RIGHT,
+        align,
     );
 }
 

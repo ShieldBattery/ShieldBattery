@@ -80,7 +80,7 @@ conspicuously plain. Offline renders include one pseudolocale pass per translate
 | `kit::text`    | The type styles (`dialog_title`, `panel_title`, `numeral`, `player_name`, `body`, `column_label`, `button_label`) as `TextSpec`s that hand out a `TextFormat`, a `LayoutJob` or a laid-out galley. `caps` uppercases only what has a case, so Korean and Chinese labels stay as written. Nothing renders below 11 points. `bw_chat_colors` is BW's inline color-code table and `bw_colored_job` lays text out through it.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `kit::tiers`   | The three surfaces: `tier0_panel` (ambient), `tier1_panel` (gradient, bevel, parameterised corners), `tier2_dialog` (scrim, double stroke, glow, inset shadow), plus the `gradient_round_rect` and chrome shapes they are built from. A dialog is a stack of bands rather than one padded box — `dialog_header` (ruled off below it), `dialog_body` and `dialog_footer` — so every dialog wears the same padding, and `dialog_content_width` / `dialog_outer_width` convert between the chrome and the room inside it. `dialog_title` paints the glowing title wherever the caller's layout puts it.                                                                                                                                                                                                                                                             |
 | `kit::motion`  | `enter_exit` / `presence_area` (150 ms fade and slide, `None` once a surface is gone) and the pulse phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `plate_button` with its `ButtonPlate` (the double-rect button a modal's stack of choices is built from: primary, standard, quiet, destructive, destructive-lit, locked), `chip_button`, `hold_to_confirm`, `segmented`, `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `status_dot`, `pulsing_dots`, `centered_paragraph`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, `paint_resource_glyph` (the mineral / gas / supply glyphs, drawn from paths so they render in a host that cannot reach BW's icon atlases), and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
+| `kit::widgets` | Buttons (`Tier1`, `Tier2`, `Tier2Primary`, `Ghost`), `plate_button` with its `ButtonPlate` (the double-rect button a modal's stack of choices is built from: primary, standard, quiet, destructive, destructive-lit, locked), `chip_button`, `hold_to_confirm`, `segmented`, `tab_strip` (with `tab_strip_width` for a caller reserving room for one), `switch`, `slider`, `scrub_track`, `kbd`, `panel_header`, `stat_row`, `tag` / `tag_sized` / `tag_exact`, `status_dot`, `pulsing_dots`, `centered_paragraph`, `line_plot`, `sparkline`, `progress_bar`, `share_bar`, `paint_resource_glyph` (the mineral / gas / supply glyphs, drawn from paths so they render in a host that cannot reach BW's icon atlases), and `set_disabled`. Each takes a `&mut Ui`, allocates its own space and paints itself from the theme. The `_exact` and `_sized` variants are for cells in a fixed layout, which must not resize with what they hold. |
 
 ## The shell
 
@@ -143,11 +143,11 @@ at absolute coordinates, so other aspect ratios keep them out of the middle. **E
 **military** (right) are tables of fixed-width columns, one row per player: income per minute in each
 resource, worker count with how many are idle, and resources gathered per worker per minute; army
 value in each resource, and the unit and worker kill-and-loss pairs. **Graphs** (right, under
-military) plots one measurement of the whole game through the kit's `line_plot`, and its title is
-that measurement's name rather than the word "graphs", because the key that opens the panel is the
-key that walks it. In a game with sides worth telling apart from the players on them it plots the
-sides by default and says so in its title, since the question a team game poses is which side is
-ahead; `Shift+G` switches it to one line per player and back. Both tables split their rows the same
+military) plots one measurement of the whole game through the kit's `line_plot`, with a strip of
+tabs under its header naming the five it could plot: `G` walks that strip forward and `Shift+G`
+back, and a tab can be clicked instead. In a game with sides worth telling apart from the players on
+them, two more chips at the right end of the same row switch between the sides and the players; it
+plots the sides by default, since the question a team game poses is which side is ahead. Both tables split their rows the same
 way, with a rule naming each side under the first, and a game with one player a side gets no rules
 at all — a divider between every pair of rows would be a divider for nothing. **Timeline** (left, under economy) is a fixed six rows of `m:ss` plus
 what happened, newest at the top, naming the thing it is about with the game's own icon rather than
@@ -173,9 +173,8 @@ move its slots every time one was made or lost; an empty slot and a group nobody
 minute are both drawn dim, which is what the panel is read for. The
 **obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
 keycaps lit for the surfaces that are on;
-expanded, the control rail, with the names spelled out and the `Minimal` / `Standard` / `Analyst`
-presets under them. Its list is `Panel::ALL` rather than a list of its own, so a panel built later
-appears there the day its toggle does.
+expanded, the control rail, with the names spelled out. Its list is `Panel::ALL` rather than a list
+of its own, so a panel built later appears there the day its toggle does.
 
 The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
 once per second of game time and keeps two hours of per-player history, a timeline of what changed
@@ -236,22 +235,22 @@ its music). Shift is allowed through, since it scales an action rather than sele
 one. **A binding the shell cannot act on yet is not consumed**, so a key whose surface has not been
 built leaves the game's own behavior alone.
 
-| Action                               | Key       | Action                     | Key     |
-| ------------------------------------ | --------- | -------------------------- | ------- |
-| Pause / resume                       | `P`       | Transport plate            | `Y`     |
-| Speed up / down                      | `U` / `D` | Military                   | `M`     |
-| Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift: per-player) | `G`     |
-| All panels                           | `A`       | Timeline                   | `T`     |
-| Economy                              | `E`       | Control groups             | `H`     |
-| Production                           | `F`       | Map control                | `N`     |
-| Console                              | `W`       | Cycle vision               | `V`     |
-| Side panel (matchup bar)             | `R`       | Spoiler-free               | `L`     |
-| Minimap                              | `Q`       | Edge dock                  | `` ` `` |
+| Action                               | Key       | Action                    | Key     |
+| ------------------------------------ | --------- | ------------------------- | ------- |
+| Pause / resume                       | `P`       | Transport plate           | `Y`     |
+| Speed up / down                      | `U` / `D` | Military                  | `M`     |
+| Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift: backwards) | `G`     |
+| All panels                           | `A`       | Timeline                  | `T`     |
+| Economy                              | `E`       | Control groups            | `H`     |
+| Production                           | `F`       | Map control               | `N`     |
+| Console                              | `W`       | Cycle vision              | `V`     |
+| Side panel (matchup bar)             | `R`       | Spoiler-free              | `L`     |
+| Minimap                              | `Q`       | Edge dock (Shift: form)   | `` ` `` |
 
-Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q`, `Y` and `` ` `` move panels, `G` walks the
-graphs panel through its measurements and then closes it, `Shift+G` switches that panel between its
-sides and its players but only in a game that has both, `N` moves the map-control bar but only while
-a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
+Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `` ` `` takes the dock on
+and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` walks the
+graphs panel through its measurements and then closes it and `Shift+G` walks the same line the other
+way, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
 waiting for its surface. The transport keys are consumed only while a replay's view-model is being
 fed, and `L` only in a replay, so anywhere else they stay the game's.
 
@@ -264,11 +263,7 @@ why the DLL's `console.rs` moves them with separate calls, `set_console_visible`
 for a clear screen, not for a replay's length to be given away; whether the dock is spelled out
 as the control rail, which is one surface in two forms rather than two panels; and `graph_series`
 and `graph_per_player`, which are what the one graphs panel is currently about rather than panels of
-their own. A `PanelPreset`
-(`Minimal`, `Standard`, `Analyst`) is a whole set of those panels at once; `PanelPrefs::preset` says
-which one a set of panels is by applying each preset to a copy, so a preset and the set it is
-recognised by cannot drift apart. A preset never touches the dock: one that hid the control it was
-picked from would take the watcher's way back with it.
+their own.
 
 **Native dialog replacements** (`shell::native_dialogs`) are the list of SC:R dialogs the overlay
 stands in for: `TimeOut`, `ChatHistory` and `GameMenu`. A host matches a spawning dialog with
@@ -392,8 +387,9 @@ into two sides, which is what walks the matchup bar through its three forms), ea
 whether the left player is over their supply cap, whether they all carry the longest names the game
 allows, how many entries each production row holds, how many of the ten number keys each player has
 a group on, and whether the game reports map control at all — the real one does not yet, so that
-switch is how the bar's absence is judged. Its presets are each panel preset at each of `1v1`,
-`2v2`, `3v3` and `4v4`, and the panels answer a vision toggle and a production click the way the
+switch is how the bar's absence is judged. Its presets are each of its three screens — minimal,
+everything, and everything with the game's console hidden — at each of `1v1`, `2v2`, `3v3` and
+`4v4`, and the panels answer a vision toggle and a production click the way the
 game would. Production tiles draw their
 atlas frame's number, since only the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop
 buttons, the production selection) are logged under the knobs.

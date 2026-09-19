@@ -40,7 +40,7 @@ pub enum Action {
     ToggleTransport,
     /// The military panel.
     ToggleMilitary,
-    /// The graphs panel; repeated presses cycle it, `Shift` switches it to per-player.
+    /// The graphs panel; repeated presses walk its measurements, `Shift` walks them backwards.
     ToggleGraphs,
     /// The timeline feed.
     ToggleTimeline,
@@ -52,7 +52,7 @@ pub enum Action {
     CycleVision,
     /// Spoiler-free mode, which hides everything that gives the outcome away.
     ToggleSpoilerFree,
-    /// The edge dock holding the panel rail.
+    /// The edge dock holding the panel rail; `Shift` changes which of its two forms it is in.
     ToggleDock,
 }
 
@@ -124,7 +124,7 @@ impl Chord {
     /// Ctrl and Alt must be up. SC:R binds nearly every modified chord in game (`Alt+M` opens its
     /// menu, `Ctrl+M` cycles music, `Ctrl+Q` quits), so a bare-letter binding that also fired with
     /// those held would take keystrokes the game still owns. Shift is allowed through, because it
-    /// scales an action — a longer seek, a per-player graph — rather than selecting a different one.
+    /// scales an action — a longer seek, a walk the other way — rather than selecting a different one.
     pub fn matches(self, key: Key, modifiers: Modifiers) -> bool {
         self.key == key && !modifiers.ctrl && !modifiers.alt
     }

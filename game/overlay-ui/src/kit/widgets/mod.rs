@@ -15,7 +15,9 @@ pub use buttons::{
     plate_button,
 };
 pub use charts::{Series, line_plot, progress_bar, share_bar, sparkline, sparkline_to};
-pub use controls::{ScrubTrack, scrub_track, segmented, slider, switch};
+pub use controls::{
+    ScrubTrack, scrub_track, segmented, slider, switch, tab_strip, tab_strip_width,
+};
 pub use icons::{ResourceGlyph, paint_resource_glyph};
 pub use panels::{
     STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,

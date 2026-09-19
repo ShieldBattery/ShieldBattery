@@ -10,7 +10,7 @@ use overlay_ui::kit::text::{self, BodyWeight};
 use overlay_ui::kit::widgets::{
     ButtonVariant, HoldState, Series, button, hold_to_confirm, line_plot, panel_header,
     progress_bar, pulsing_dots, segmented, set_disabled, share_bar, slider, sparkline, stat_row,
-    switch, tag,
+    switch, tab_strip, tag,
 };
 use overlay_ui::kit::{motion, theme, tiers};
 use serde::{Deserialize, Serialize};
@@ -250,10 +250,27 @@ fn hero_panel(ui: &mut Ui) {
     }
 
     ui.add_space(theme::SPACE_MD);
-    ui.label(text::column_label().job("panel preset"));
+    ui.label(text::column_label().job("minimap size"));
     ui.add_space(theme::SPACE_XS);
-    remembered(ui, "preset", 1usize, |ui, selected| {
-        segmented(ui, selected, &["Minimal", "Standard", "Analyst"]);
+    remembered(ui, "segmented", 1usize, |ui, selected| {
+        segmented(ui, selected, &["Small", "Medium", "Large"]);
+    });
+
+    ui.add_space(theme::SPACE_SM);
+    ui.label(text::column_label().job("plotted series"));
+    ui.add_space(theme::SPACE_XS);
+    // More tabs than this column has room for, which is where the strip gives up its padding and
+    // then elides: the specimen is worth having only if it is the crowded case.
+    remembered(ui, "tabs", 1usize, |ui, selected| {
+        let width = ui.available_width();
+        if let Some(picked) = tab_strip(
+            ui,
+            *selected,
+            &["Army value", "Income", "Supply", "Workers", "Kills"],
+            width,
+        ) {
+            *selected = picked;
+        }
     });
 
     ui.add_space(theme::SPACE_SM);
