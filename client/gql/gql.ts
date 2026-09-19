@@ -18,7 +18,7 @@ type Documents = {
   '\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      coverImagePath\n      coverImageUrl\n      author {\n        id\n        name\n      }\n    }\n  }\n': typeof types.AdminNewsPostDocument
   '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n      }\n    }\n  }\n': typeof types.AdminNewsHistoryDocument
   '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n': typeof types.NewsCreatePostDocument
-  '\n  query AdminBlockedStreams {\n    blockedStreams {\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.AdminBlockedStreamsDocument
+  '\n  query AdminBlockedStreams {\n    blockedStreams {\n      id\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.AdminBlockedStreamsDocument
   '\n  mutation AdminUnblockStream($userId: SbUserId!) {\n    unblockStream(userId: $userId)\n  }\n': typeof types.AdminUnblockStreamDocument
   '\n  query AdminMatchmakingConfig {\n    matchmakingConfig {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n      perMode {\n        matchmakingType\n        config {\n          weightRatingVariance\n          weightWinProb\n          weightLatency\n          uncertaintyK\n          minQuality\n          adaptiveComfortableMultiplier\n          adaptiveDecayPerMissing\n          populationHalfLifeSeconds\n        }\n      }\n      defaults {\n        searchIntervalSeconds\n        maxPlayersExamined\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n    }\n  }\n': typeof types.AdminMatchmakingConfigDocument
   '\n  mutation AdminUpdateMatchmakingConfig($config: MatchmakerConfigInput!) {\n    updateMatchmakingConfig(config: $config) {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        minQuality\n      }\n    }\n  }\n': typeof types.AdminUpdateMatchmakingConfigDocument
@@ -57,9 +57,9 @@ type Documents = {
   '\n  mutation AccountSettingsChangeEmail($currentPassword: String!, $email: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { email: $email }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeEmailDocument
   '\n  mutation AccountSettingsChangeDisplayName($currentPassword: String!, $name: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { name: $name }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeDisplayNameDocument
   '\n  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeLoginNameDocument
-  '\n  query ConnectionSettings {\n    myTwitchConnection {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsDocument
+  '\n  query ConnectionSettings {\n    myTwitchConnection {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsDocument
   '\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n': typeof types.ConnectionSettingsStartTwitchLinkDocument
-  '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsCompleteTwitchLinkDocument
+  '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsCompleteTwitchLinkDocument
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n': typeof types.ConnectionSettingsUnlinkTwitchDocument
   '\n  query LiveUserIds {\n    liveStreamUserIds\n  }\n': typeof types.LiveUserIdsDocument
   '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      viewerCount\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n': typeof types.LiveStreams_FeedFragmentFragmentDoc
@@ -74,7 +74,7 @@ type Documents = {
   '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n': typeof types.UserRankedModesDocument
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n': typeof types.UserRatingHistoryDocument
-  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
+  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
 }
 const documents: Documents = {
   '\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
@@ -85,7 +85,7 @@ const documents: Documents = {
     types.AdminNewsHistoryDocument,
   '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n':
     types.NewsCreatePostDocument,
-  '\n  query AdminBlockedStreams {\n    blockedStreams {\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n':
+  '\n  query AdminBlockedStreams {\n    blockedStreams {\n      id\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n':
     types.AdminBlockedStreamsDocument,
   '\n  mutation AdminUnblockStream($userId: SbUserId!) {\n    unblockStream(userId: $userId)\n  }\n':
     types.AdminUnblockStreamDocument,
@@ -163,11 +163,11 @@ const documents: Documents = {
     types.AccountSettingsChangeDisplayNameDocument,
   '\n  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n':
     types.AccountSettingsChangeLoginNameDocument,
-  '\n  query ConnectionSettings {\n    myTwitchConnection {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n':
+  '\n  query ConnectionSettings {\n    myTwitchConnection {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n':
     types.ConnectionSettingsDocument,
   '\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n':
     types.ConnectionSettingsStartTwitchLinkDocument,
-  '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n':
+  '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n':
     types.ConnectionSettingsCompleteTwitchLinkDocument,
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n':
     types.ConnectionSettingsUnlinkTwitchDocument,
@@ -196,7 +196,7 @@ const documents: Documents = {
     types.UserRankedModesDocument,
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n':
     types.UserRatingHistoryDocument,
-  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
+  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
     types.UserProfileTwitchDocument,
 }
 
@@ -242,8 +242,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query AdminBlockedStreams {\n    blockedStreams {\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query AdminBlockedStreams {\n    blockedStreams {\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n']
+  source: '\n  query AdminBlockedStreams {\n    blockedStreams {\n      id\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminBlockedStreams {\n    blockedStreams {\n      id\n      createdAt\n      twitchLogin\n      twitchDisplayName\n      user {\n        id\n        name\n      }\n      blockedBy {\n        id\n        name\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -476,8 +476,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query ConnectionSettings {\n    myTwitchConnection {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n',
-): (typeof documents)['\n  query ConnectionSettings {\n    myTwitchConnection {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n']
+  source: '\n  query ConnectionSettings {\n    myTwitchConnection {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n',
+): (typeof documents)['\n  query ConnectionSettings {\n    myTwitchConnection {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -488,8 +488,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n',
-): (typeof documents)['\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n']
+  source: '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n',
+): (typeof documents)['\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      id\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -578,8 +578,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n']
+  source: '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n']
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {}

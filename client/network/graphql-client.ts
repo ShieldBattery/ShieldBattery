@@ -104,6 +104,9 @@ const cacheKeys: KeyingConfig = {
   MatchmakingExtra1V1Data: NON_KEYED_EMBEDDED,
   MatchmakingExtra1V1FastestData: NON_KEYED_EMBEDDED,
   MatchmakingExtra2V2Data: NON_KEYED_EMBEDDED,
+  // A one-shot payload carrying the OAuth URL to send the user to. It describes an action about to
+  // happen rather than a thing that persists, so there is nothing to identify it by.
+  TwitchLinkStart: NON_KEYED_EMBEDDED,
   // Rating history is a per-user, per-mode series: the points have no identity of their own
   // and the containers are only meaningful under the query that asked for them. Without
   // this the cache warns once per point, which is hundreds of warnings for one chart.

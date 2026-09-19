@@ -14,6 +14,7 @@ import { bodyLarge, bodyMedium, singleLine, TitleLarge, titleSmall } from '../st
 const BlockedStreamsQuery = graphql(/* GraphQL */ `
   query AdminBlockedStreams {
     blockedStreams {
+      id
       createdAt
       twitchLogin
       twitchDisplayName

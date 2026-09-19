@@ -221,6 +221,7 @@ export type AdminBlockedStreamsQueryVariables = Exact<{ [key: string]: never }>
 
 export type AdminBlockedStreamsQuery = {
   blockedStreams: Array<{
+    id: string
     createdAt: string
     twitchLogin: string | null
     twitchDisplayName: string | null
@@ -846,6 +847,7 @@ export type ConnectionSettingsQueryVariables = Exact<{ [key: string]: never }>
 
 export type ConnectionSettingsQuery = {
   myTwitchConnection: {
+    id: string
     twitchUserId: string
     twitchLogin: string
     twitchDisplayName: string
@@ -866,6 +868,7 @@ export type ConnectionSettingsCompleteTwitchLinkMutationVariables = Exact<{
 
 export type ConnectionSettingsCompleteTwitchLinkMutation = {
   twitchCompleteLink: {
+    id: string
     twitchUserId: string
     twitchLogin: string
     twitchDisplayName: string
@@ -1068,7 +1071,7 @@ export type UserProfileTwitchQueryVariables = Exact<{
 export type UserProfileTwitchQuery = {
   user: {
     id: Types.SbUserId
-    twitchChannel: { twitchLogin: string; twitchDisplayName: string } | null
+    twitchChannel: { id: string; twitchLogin: string; twitchDisplayName: string } | null
     liveStream: {
       id: string
       twitchLogin: string
@@ -2232,6 +2235,7 @@ export const AdminBlockedStreamsDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
@@ -4836,6 +4840,7 @@ export const ConnectionSettingsDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchUserId' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
@@ -4937,6 +4942,7 @@ export const ConnectionSettingsCompleteTwitchLinkDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchUserId' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
@@ -5663,6 +5669,7 @@ export const UserProfileTwitchDocument = {
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
                     ],
