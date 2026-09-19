@@ -147,10 +147,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 6] = [
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Transport(transport::Preset::SpoilerFree),
-    Preset::Observer(observer::Preset {
-        players: 6,
-        panels: observer::Screen::Analyst,
-    }),
+    Preset::Observer(observer::Preset::game(6, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::GameMenu),
 ];
 

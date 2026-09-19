@@ -2873,6 +2873,15 @@ impl BwScr {
                             transport: self.replay_transport_state(),
                         });
                     let active_units = self.active_units();
+                    // The whole unit array, which is what a unique id (as the loaded-unit slots of
+                    // a transport hold) has to be looked up in. Null until the game allocates it.
+                    let units = match self.units.resolve() {
+                        vector if vector.is_null() => None,
+                        vector => Some(bw_dat::UnitArray::new(
+                            (*vector).data as *mut bw::Unit,
+                            (*vector).length,
+                        )),
+                    };
                     let client_selection = self.client_selection();
                     let first_player_unit = self.first_player_unit.resolve();
                     let first_dialog = self.resolve_first_dialog();
@@ -2944,6 +2953,7 @@ impl BwScr {
                                     use_rgb_colors,
                                     replay_visions,
                                     active_units,
+                                    units,
                                     client_selection,
                                     first_player_unit,
                                     first_dialog,
