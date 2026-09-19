@@ -12,6 +12,7 @@ import {
   InitialChannelData,
   JoinedChannelInfo,
   SbChannelId,
+  ServerChatMessage,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import type { HistoryLoadError } from '../messaging/message-load-error'
@@ -656,6 +657,51 @@ function updateMessages(
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
 }
 
+/**
+ * Places a live server-origin message in a channel, honoring the split between the contiguous loaded
+ * window and the present that window may have fallen behind. A window attached to the present simply
+ * grows by the message. A detached one doesn't take it at all and only raises its record of how far
+ * the present has run ahead: the message belongs past the gap at the window's far end rather than at
+ * the end of what's loaded, and appending it there would drag the window's forward cursor
+ * (`newestServerOriginTime`) past every message still unloaded inside that gap, so paging forward
+ * would seek from beyond them and the window would then look as though it had caught up. Holding the
+ * present separately is what lets the window tell, once it really has paged forward, that it has.
+ *
+ * Either way the arrival is recorded, so whether a message counts as unread never depends on where
+ * the loaded window happens to sit.
+ *
+ * Server-origin messages only, as the parameter's type enforces: the banners this client puts in a
+ * channel itself can never be re-fetched, so withholding one loses it for good (`carryClientMessage`
+ * is what holds those), and their local-clock times are no use as a history cursor regardless.
+ */
+function addLiveServerMessage(
+  state: ChatState,
+  channelId: SbChannelId,
+  message: ServerChatMessage,
+  arrival: LiveArrival | undefined,
+) {
+  const channelMessages = state.idToMessages.get(channelId)
+  if (!channelMessages) {
+    return
+  }
+
+  if (channelMessages.hasNewer) {
+    channelMessages.detachedNewestTime = Math.max(
+      channelMessages.detachedNewestTime ?? -Infinity,
+      message.time,
+    )
+    if (arrival) {
+      recordLiveArrival(state, channelId, arrival)
+    }
+    return
+  }
+
+  updateMessages(state, channelId, arrival, messages => {
+    messages.push(message)
+    return messages
+  })
+}
+
 function updateChannelInfos(
   state: ChatState,
   basicChannelInfos: BasicChannelInfo[],
@@ -796,13 +842,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
+    // Membership lands ahead of the message, so a join moves the count and the active list at once
+    // even when the loaded window sits too far behind the present to hold the banner yet.
     channelUsers.active.add(user.id)
     detailedChannelInfo.userCount += 1
 
-    updateMessages(state, channelId, { windowFocused, time: message.time }, m => {
-      m.push(message)
-      return m
-    })
+    addLiveServerMessage(state, channelId, message, { windowFocused, time: message.time })
   },
 
   ['@chat/updateLeave'](state, action) {
@@ -869,33 +914,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { message: newMessage, channelMentions } = action.payload
     const { channelId, isSelfMessage, mentionsSelf, windowFocused } = action.meta
 
-    const channelMessages = state.idToMessages.get(channelId)
-    if (channelMessages?.hasNewer) {
-      // The loaded window sits behind the present, so this message belongs past the gap at its far
-      // end rather than at the end of what's loaded. Remembering how far the present has run ahead
-      // is what lets the window tell, once it has paged forward, that it has actually caught up.
-      channelMessages.detachedNewestTime = Math.max(
-        channelMessages.detachedNewestTime ?? -Infinity,
-        newMessage.time,
-      )
-      if (isSelfMessage) {
-        recordSelfMessage(state, channelId, newMessage.time)
-      } else {
-        recordLiveArrival(state, channelId, { windowFocused, time: newMessage.time })
-      }
-    } else {
-      updateMessages(
-        state,
-        channelId,
-        isSelfMessage ? undefined : { windowFocused, time: newMessage.time },
-        m => {
-          m.push(newMessage)
-          return m
-        },
-      )
-      if (isSelfMessage && channelMessages) {
-        recordSelfMessage(state, channelId, newMessage.time)
-      }
+    // A message the user sent themselves is never a live arrival: having just spoken they're caught
+    // up, which `recordSelfMessage` records in place of an arrival's unread bookkeeping.
+    addLiveServerMessage(
+      state,
+      channelId,
+      newMessage,
+      isSelfMessage ? undefined : { windowFocused, time: newMessage.time },
+    )
+    if (isSelfMessage && state.idToMessages.has(channelId)) {
+      recordSelfMessage(state, channelId, newMessage.time)
     }
 
     updateChannelInfos(state, channelMentions)

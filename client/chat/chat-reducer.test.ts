@@ -32,6 +32,7 @@ import chatReducerImport, {
   channelHasUnreadMention,
   channelNeedsAttention,
   isChannelMuted,
+  newestServerOriginTime,
   oldestServerOriginTime,
 } from './chat-reducer'
 
@@ -1176,6 +1177,130 @@ describe('client/chat/chat-reducer', () => {
       const result = chatReducer(state, updateJoinAction(200))
 
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('a join past a detached window stays out of it and only moves the present', () => {
+      const state = makeState({
+        messages: [textMessage(120), textMessage(130)],
+        hasNewer: true,
+        detachedNewestTime: 400,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 130,
+      })
+
+      const result = chatReducer(state, updateJoinAction(500))
+
+      expect(messageIdsOf(result)).toEqual(['text-120', 'text-130'])
+      expect(windowOf(result).detachedNewestTime).toBe(500)
+      // The forward cursor still sits at the loaded edge, so the next page covers the gap rather
+      // than seeking from beyond it.
+      expect(newestServerOriginTime(windowOf(result).messages)).toBe(130)
+    })
+
+    test('a join past a detached window still goes unread', () => {
+      const state = makeState({
+        messages: [textMessage(120)],
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 120,
+      })
+
+      const result = chatReducer(state, updateJoinAction(500))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(120)
+    })
+
+    test('membership follows a join immediately while history is detached', () => {
+      const state = makeState({ messages: [textMessage(120)], hasNewer: true })
+
+      const result = chatReducer(state, updateJoinAction(500))
+
+      expect(result.idToUsers.get(CHANNEL_ID)!.active.has(USER_ID)).toBe(true)
+      expect(result.idToDetailedInfo.get(CHANNEL_ID)!.userCount).toBe(2)
+    })
+  })
+
+  describe('live arrivals past a detached window', () => {
+    test('a text message and a join both wait past the gap until the window pages up to them', () => {
+      // An older window, a text message arriving beyond it, then a join beyond that: the window
+      // takes neither, and both are loaded by paging forward from the window's own edge.
+      let state = makeState({
+        messages: [textMessage(120), textMessage(130)],
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 130,
+      })
+
+      state = chatReducer(state, updateMessageAction(400, false))
+      expect(messageIdsOf(state)).toEqual(['text-120', 'text-130'])
+      expect(windowOf(state).detachedNewestTime).toBe(400)
+
+      state = chatReducer(state, updateJoinAction(500))
+      expect(messageIdsOf(state)).toEqual(['text-120', 'text-130'])
+      expect(windowOf(state).detachedNewestTime).toBe(500)
+
+      // The view can only report what it has loaded, and that position doesn't cover the gap, so the
+      // channel stays unread rather than being acknowledged up to the join.
+      const cursor = newestServerOriginTime(windowOf(state).messages)
+      expect(cursor).toBe(130)
+      state = chatReducer(state, updateLastReadTimeAction(cursor!))
+      expect(state.idToLastReadTime.get(CHANNEL_ID)).toBe(130)
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(true)
+
+      state = chatReducer(
+        state,
+        loadNewerMessagesBeginAction({ afterTime: cursor, knownNewestTime: 500 }),
+      )
+      state = chatReducer(
+        state,
+        loadNewerMessagesAction(
+          historyResponse([textMessage(400), joinMessage(500)], { hasMoreAfter: false }),
+          { afterTime: cursor, knownNewestTime: 500 },
+        ),
+      )
+
+      expect(messageIdsOf(state)).toEqual(['text-120', 'text-130', 'text-400', 'user-join-500'])
+      expect(windowOf(state).hasNewer).toBe(false)
+      expect(windowOf(state).detachedNewestTime).toBeUndefined()
+
+      // Only now does a read report cover everything known to exist.
+      state = chatReducer(state, updateLastReadTimeAction(500))
+      expect(state.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('a join landing while a forward page is in flight cannot reattach the window', () => {
+      // The page was requested when the client knew of nothing newer, so an empty response only
+      // means the server's query ran before the arrivals were stored, not that they are gone.
+      let state = makeState({
+        messages: [textMessage(120), textMessage(130)],
+        hasNewer: true,
+        activated: true,
+        atBottom: true,
+        lastReadTime: 130,
+      })
+
+      state = chatReducer(
+        state,
+        loadNewerMessagesBeginAction({ afterTime: 130, knownNewestTime: 130 }),
+      )
+      state = chatReducer(state, updateMessageAction(400, false))
+      state = chatReducer(state, updateJoinAction(500))
+      state = chatReducer(
+        state,
+        loadNewerMessagesAction(historyResponse([], { hasMoreAfter: false }), {
+          afterTime: 130,
+          knownNewestTime: 130,
+        }),
+      )
+
+      expect(messageIdsOf(state)).toEqual(['text-120', 'text-130'])
+      expect(windowOf(state).hasNewer).toBe(true)
+      expect(windowOf(state).detachedNewestTime).toBe(500)
+      expect(newestServerOriginTime(windowOf(state).messages)).toBe(130)
     })
   })
 
