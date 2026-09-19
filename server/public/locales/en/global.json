@@ -1269,6 +1269,7 @@
     },
     "sidePanel": {
       "empty": "Select a game to see its details",
+      "moreActions": "More actions",
       "viewFullResults": "View full results"
     }
   },
@@ -2158,7 +2159,6 @@
         "inPlaylists": "In playlists",
         "parseError": "This replay could not be read."
       },
-      "moreActions": "More actions",
       "moveDown": "Move down",
       "movedToRecycleBin": "Replay moved to Recycle Bin",
       "moveToRecycleBin": "Move to Recycle Bin",
@@ -2805,8 +2805,6 @@
       "retrievingError": "There was an error retrieving the match history."
     },
     "miniMatchHistory": {
-      "noGameSelected": "No game selected",
-      "viewDetails": "View details",
       "viewFullHistory": "View full match history"
     },
     "seasons": {

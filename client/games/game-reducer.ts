@@ -25,6 +25,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     for (const game of matchHistory.games) {
       state.byId.set(game.id, game)
     }
+    for (const replay of matchHistory.replays) {
+      state.replayInfoById.set(replay.gameId, replay)
+    }
   },
 
   ['@users/getMatchHistory'](state, { payload: { games, replays } }) {

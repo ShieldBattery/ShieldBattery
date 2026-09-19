@@ -1,11 +1,16 @@
 // Generic sticky detail panel used by game/replay list pages (e.g. the replay library, and
 // future side panels on the games and match-history pages) to show the currently selected entry.
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled, { keyframes } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { MapNoImage } from '../maps/map-image'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
+import { FilledButton, IconButton } from '../material/button'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, bodySmall, singleLine, titleLarge } from '../styles/typography'
 import { GameRelativeTime } from './game-list-entry'
@@ -143,6 +148,80 @@ export const GameSidePanelActions = styled.div`
   align-items: center;
   gap: 8px;
 `
+
+/**
+ * The panel's single filled action, stretched to fill the row beside the overflow button. A panel
+ * offers exactly one of these — every other action belongs in `GameSidePanelOverflow`, so that a
+ * glance at the row always finds the same shape and one obvious thing to press.
+ */
+export const GameSidePanelPrimaryAction = styled(FilledButton)`
+  flex-grow: 1;
+`
+
+export interface GameSidePanelOverflowProps {
+  /**
+   * Builds the menu's items. `closeMenu` dismisses the menu before an action runs; `openSubmenu`
+   * swaps to `renderSubmenu`'s content on this same anchor, for an item that has to pick something
+   * (a save destination, a playlist) rather than act on its own.
+   *
+   * Returns a flat array rather than a fragment so every item stays a direct child of `MenuList`:
+   * it only clones `dense`/focus state onto, and only lets arrow-key navigation reach, its direct
+   * `MenuItem` children.
+   */
+  renderItems: (controls: {
+    closeMenu: () => void
+    openSubmenu: (triggeringEvent: Event | React.SyntheticEvent) => boolean
+  }) => React.ReactNode[]
+  /** Content for the popover an item opens through `openSubmenu`, anchored on this same button. */
+  renderSubmenu?: (controls: { closeSubmenu: () => void }) => React.ReactNode
+}
+
+/**
+ * The panel's secondary actions: one `more_vert` button opening a menu, plus an optional second
+ * popover on the same anchor for an item that needs content of its own. Shared by the game and
+ * replay panels so their action rows stay the same shape, and so the anchor/origin pairing the two
+ * popovers depend on can't drift apart.
+ *
+ * Only rendered when there is something to put in the menu — an overflow button that opens an
+ * empty list is worse than no button at all.
+ */
+export function GameSidePanelOverflow({ renderItems, renderSubmenu }: GameSidePanelOverflowProps) {
+  const { t } = useTranslation()
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+  const [submenuOpen, openSubmenu, closeSubmenu] = usePopoverController({ refreshAnchorPos })
+
+  return (
+    <>
+      <IconButton
+        ref={anchor}
+        icon={<MaterialIcon icon='more_vert' />}
+        title={t('games.sidePanel.moreActions', 'More actions')}
+        onClick={openMenu}
+      />
+      <Popover
+        open={menuOpen}
+        onDismiss={closeMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList dense={true}>{renderItems({ closeMenu, openSubmenu })}</MenuList>
+      </Popover>
+      {renderSubmenu ? (
+        <Popover
+          open={submenuOpen}
+          onDismiss={closeSubmenu}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX='right'
+          originY='top'>
+          {renderSubmenu({ closeSubmenu })}
+        </Popover>
+      ) : null}
+    </>
+  )
+}
 
 export interface GameSidePanelProps {
   /** Map shown as the panel's hero image; a placeholder tile is shown when undefined. */

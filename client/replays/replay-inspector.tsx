@@ -16,6 +16,8 @@ import {
   GameSidePanelActions,
   GameSidePanelChipsRow,
   GameSidePanelEmpty,
+  GameSidePanelOverflow,
+  GameSidePanelPrimaryAction,
   GameSidePanelRelativeTime,
   GameSidePanelSection,
   GameSidePanelTitle,
@@ -23,11 +25,10 @@ import {
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Logo from '../logos/logo-no-bg.svg?react'
-import { FilledButton, IconButton } from '../material/button'
+import { IconButton } from '../material/button'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyMedium, labelMedium } from '../styles/typography'
@@ -75,10 +76,6 @@ const SourceBadgeBnet = styled.div`
 const ErrorNote = styled.div`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
-`
-
-const WatchButton = styled(FilledButton)`
-  flex-grow: 1;
 `
 
 const BookmarkButton = styled(IconButton)<{ $bookmarked: boolean }>`
@@ -338,9 +335,6 @@ export function ReplayInspector({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const computerLabel = t('game.playerName.computer', 'Computer')
-  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
-  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
-  const [addMenuOpen, openAddMenu, closeAddMenu] = usePopoverController({ refreshAnchorPos })
   const { map, status: mapStatus } = useSbGameMap(entry?.sbGameId)
 
   const entryId = entry?.id
@@ -444,11 +438,13 @@ export function ReplayInspector({
 
   const actions = (
     <GameSidePanelActions>
-      <WatchButton
+      <GameSidePanelPrimaryAction
         label={t('replays.library.watchReplay', 'Watch replay')}
         iconStart={<MaterialIcon icon='play_arrow' />}
         onClick={() => onWatch(entry)}
       />
+      {/* Bookmarking keeps a button of its own rather than folding into the menu: it's a toggle
+          whose amber fill is its label, and the library's rows carry the identical control. */}
       <BookmarkButton
         $bookmarked={bookmarked}
         icon={<MaterialIcon icon='bookmark' filled={bookmarked} />}
@@ -459,25 +455,13 @@ export function ReplayInspector({
         }
         onClick={() => onToggleBookmark(entry)}
       />
-      <IconButton
-        ref={anchor}
-        icon={<MaterialIcon icon='more_vert' />}
-        title={t('replays.library.moreActions', 'More actions')}
-        onClick={openMenu}
-      />
-      <Popover
-        open={menuOpen}
-        onDismiss={closeMenu}
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}
-        originX='right'
-        originY='top'>
-        <MenuList dense={true}>
-          {getReplayActionMenuItems({
+      <GameSidePanelOverflow
+        renderItems={({ closeMenu, openSubmenu }) =>
+          getReplayActionMenuItems({
             entry,
             inPlaylistView,
             closeMenu,
-            onOpenAddToPlaylist: openAddMenu,
+            onOpenAddToPlaylist: openSubmenu,
             onRemoveFromPlaylist,
             onReveal,
             onMoveToRecycleBin,
@@ -486,27 +470,21 @@ export function ReplayInspector({
                 ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }
                 : undefined,
             t,
-          })}
-        </MenuList>
-      </Popover>
-      <Popover
-        open={addMenuOpen}
-        onDismiss={closeAddMenu}
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}
-        originX='right'
-        originY='top'>
-        <MenuList dense={true}>
-          {getAddToPlaylistMenuItems({
-            entry,
-            playlists,
-            closeMenu: closeAddMenu,
-            onAddToPlaylist,
-            t,
-            dispatch,
-          })}
-        </MenuList>
-      </Popover>
+          })
+        }
+        renderSubmenu={({ closeSubmenu }) => (
+          <MenuList dense={true}>
+            {getAddToPlaylistMenuItems({
+              entry,
+              playlists,
+              closeMenu: closeSubmenu,
+              onAddToPlaylist,
+              t,
+              dispatch,
+            })}
+          </MenuList>
+        )}
+      />
     </GameSidePanelActions>
   )
 
