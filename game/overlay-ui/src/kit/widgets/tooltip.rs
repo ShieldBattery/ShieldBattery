@@ -37,6 +37,10 @@ pub fn tooltip(ctx: &Context, id: Id, anchor: Pos2, add: impl FnOnce(&mut Ui)) {
         // off there and stay cut off wherever it was then moved to.
         .fixed_pos(screen.min)
         .show(ctx, |ui| {
+            // Nothing in a card wraps. An area remembers its size from frame to frame, and one card
+            // after another is drawn through this same area: text that wrapped to the width of the
+            // last card would come out narrower still, and narrower again the frame after.
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
             let background = ui.painter().add(Shape::Noop);
             let inner = egui::Frame::NONE
                 .inner_margin(theme::SPACE_SM)
