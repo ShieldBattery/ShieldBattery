@@ -631,6 +631,14 @@ impl<'e> Analysis<'e> {
         self.0.sync_active()
     }
 
+    pub fn record_turn_sync_slot(&mut self) -> Option<VirtualAddress> {
+        self.0.record_turn_sync_slot()
+    }
+
+    pub fn sync_slot_index(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_slot_index()
+    }
+
     /// Built-in/proto turn latency (the pipe-depth floor, natively 2). We may override it. See
     /// guide §4 / §5.3.
     pub fn builtin_turn_latency(&mut self) -> Option<Operand<'e>> {

@@ -51,6 +51,7 @@ use bytes::Bytes;
 use rally_point_client::ChatOut;
 use rally_point_client::DirectiveTracker;
 use rally_point_client::LeaveTracker;
+use rally_point_client::SyncGenerationTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{LeaveDirective, Payload};
@@ -465,6 +466,11 @@ pub struct TurnState {
     /// Local origin slot (which slot our own outbound turns belong to). The relay rebinds the wire
     /// `slot` from the token regardless; this is for our own bookkeeping/echo.
     local_slot: SlotId,
+    /// Maps native sync recorder ring positions to checksum generations sent to the relay.
+    sync_generation: SyncGenerationTracker,
+    /// One-time diagnostics for the enhanced checksum-generation stream.
+    sync_generation_first_logged: bool,
+    sync_generation_invalid_logged: bool,
     /// Local turns handed to the driver but not yet executed by the sim — the PIPE hook keeps
     /// this at the latency target. Up on [`submit_local_turn`](Self::submit_local_turn), down on
     /// [`mark_local_turn_executed`](Self::mark_local_turn_executed); a single counter so the two
@@ -628,6 +634,9 @@ impl TurnState {
             slot_homes: Vec::new(),
             relay_regions: HashMap::new(),
             local_slot,
+            sync_generation: SyncGenerationTracker::default(),
+            sync_generation_first_logged: false,
+            sync_generation_invalid_logged: false,
             turns_in_flight: 0,
             consumed_turns: [0; bw::MAX_STORM_PLAYERS],
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
@@ -820,7 +829,12 @@ impl TurnState {
     /// Returns `false` if the channel to the driver is closed or full (the driver died or the game
     /// stalled) — the caller decides how to surface that (stall UI / teardown). `seq` and `slot`
     /// are left zero: the driver assigns the seq and the relay binds the slot from the token.
-    pub fn submit_local_turn(&mut self, commands: &[u8], frame: Option<u32>) -> bool {
+    pub fn submit_local_turn(
+        &mut self,
+        commands: &[u8],
+        frame: Option<u32>,
+        sync_ring: Option<u8>,
+    ) -> bool {
         let commands = Bytes::copy_from_slice(commands);
         if self.local_only {
             // The result is decided and the link is closing (see `begin_local_only`), so send
@@ -840,6 +854,23 @@ impl TurnState {
             self.first_frame_logged = true;
             debug!("netcode v2: first in-loop turn stamped at frame {frame}");
         }
+        let sync_generation = sync_ring.and_then(|ring| {
+            let generation = self.sync_generation.stamp_turn(&commands, ring);
+            match generation {
+                Some(u64::MAX) if !self.sync_generation_invalid_logged => {
+                    self.sync_generation_invalid_logged = true;
+                    debug!("netcode v2: native sync generation observation is invalid");
+                }
+                Some(generation) if generation != u64::MAX && !self.sync_generation_first_logged => {
+                    self.sync_generation_first_logged = true;
+                    debug!(
+                        "netcode v2: first sync generation stamped: generation {generation}, ring {ring}"
+                    );
+                }
+                _ => {}
+            }
+            generation
+        });
         let payload = Payload {
             seq: 0,
             slot: 0,
@@ -848,6 +879,7 @@ impl TurnState {
             // We never originate relay directives; the relay stamps the buffer directive onto turns
             // it forwards, so our own outbound turn carries none.
             buffer_directive: None,
+            sync_generation,
         };
         match self.channels.outbound.try_send(payload) {
             Ok(()) => {
@@ -872,6 +904,11 @@ impl TurnState {
             queue.push_back(commands);
         }
         self.turns_in_flight = self.turns_in_flight.saturating_add(1);
+    }
+
+    /// Records one active native sync-slot write. Inactive native sync must not report a stale ring.
+    pub fn record_sync_slot(&mut self, before: u8, after: u8) {
+        self.sync_generation.record_sync_slot(before, after);
     }
 
     /// OUT path for in-game chat: hands a message to the driver's chat channel for the other
@@ -2056,10 +2093,124 @@ mod tests {
             slot: slot.0 as u32,
             commands: Bytes::copy_from_slice(commands),
             game_frame_count: Some(0),
+            sync_generation: None,
             buffer_directive: None,
         }
     }
 
+    fn checksum(generation: u64) -> [u8; 7] {
+        let ring = (generation % 16) as u8;
+        [0x37, (ring << 4) | (1 + ring % 2), 0, 0, 0, 0, 0]
+    }
+
+    fn submit_sync_turn(
+        state: &mut TurnState,
+        out_rx: &mut mpsc::Receiver<Payload>,
+        commands: &[u8],
+        ring: Option<u8>,
+    ) -> Payload {
+        assert!(state.submit_local_turn(commands, Some(0), ring));
+        out_rx.try_recv().expect("turn forwarded to the driver")
+    }
+
+    #[test]
+    fn inactive_sync_history_cannot_anchor_the_first_active_checksum() {
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
+
+        for ring in [15_u8, 3, 11] {
+            let sent = submit_sync_turn(&mut state, &mut out_rx, &checksum(u64::from(ring)), None);
+            assert_eq!(sent.sync_generation, None);
+        }
+
+        state.record_sync_slot(0, 1);
+        let unstamped = submit_sync_turn(&mut state, &mut out_rx, &[0x05], Some(1));
+        assert_eq!(unstamped.sync_generation, None);
+        state.record_sync_slot(1, 2);
+        let stamped = submit_sync_turn(&mut state, &mut out_rx, &checksum(1), Some(2));
+        assert_eq!(stamped.sync_generation, Some(1));
+    }
+
+    #[test]
+    fn sync_generation_stages_across_native_steps_pipe_resizes_and_growth_flushes() {
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
+
+        // OUT sees the seed checksum before the native recorder advances it.
+        assert_eq!(
+            submit_sync_turn(&mut state, &mut out_rx, &checksum(14), Some(14)).sync_generation,
+            Some(14)
+        );
+        state.record_sync_slot(14, 15);
+        assert_eq!(
+            submit_sync_turn(&mut state, &mut out_rx, &checksum(14), Some(15)).sync_generation,
+            Some(14)
+        );
+
+        // A shrinking pipe skips OUTs; the old buffer stays tied to its staged generation.
+        state.record_sync_slot(15, 0);
+        state.record_sync_slot(0, 1);
+        assert_eq!(
+            submit_sync_turn(&mut state, &mut out_rx, &checksum(15), Some(1)).sync_generation,
+            Some(15)
+        );
+        state.record_sync_slot(1, 2);
+        assert_eq!(
+            submit_sync_turn(&mut state, &mut out_rx, &checksum(17), Some(2)).sync_generation,
+            Some(17)
+        );
+
+        // A growing pipe flushes its current staged checksum repeatedly without advancing it.
+        for _ in 0..4 {
+            assert_eq!(
+                submit_sync_turn(&mut state, &mut out_rx, &checksum(18), Some(2)).sync_generation,
+                Some(18)
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_sync_observation_stays_explicit_and_preserves_commands_and_echo() {
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        let mut commands = vec![0x05];
+        commands.extend(checksum(1));
+        let original = commands.clone();
+
+        state.record_sync_slot(1, 3);
+        let sent = submit_sync_turn(&mut state, &mut out_rx, &commands, Some(1));
+        assert_eq!(sent.sync_generation, Some(u64::MAX));
+        state.record_sync_slot(1, 2);
+        assert_eq!(
+            submit_sync_turn(&mut state, &mut out_rx, &checksum(1), Some(2)).sync_generation,
+            Some(u64::MAX)
+        );
+        assert_eq!(&sent.commands[..], original);
+        assert!(state.receive_turns(0));
+        assert_eq!(dispatched(&state), vec![(LOCAL_STORM, original)]);
+    }
     fn leave_directive(slot: SlotId, apply_at_frame: u32, reason: u32) -> LeaveDirective {
         LeaveDirective {
             final_turn_count: None,
@@ -2192,7 +2343,7 @@ mod tests {
         assert!(!state.should_self_close());
 
         // In-game: the local turn echoes into the sim but nothing reaches the (void) relay.
-        assert!(state.submit_local_turn(b"solo", Some(0)));
+        assert!(state.submit_local_turn(b"solo", Some(0), None));
         assert!(
             out_rx.try_recv().is_err(),
             "a sessionless game must not send to the relay"
@@ -2237,7 +2388,7 @@ mod tests {
             !state.receive_turns(0),
             "the local slot is required but hasn't submitted a turn yet"
         );
-        assert!(state.submit_local_turn(b"local", Some(0)));
+        assert!(state.submit_local_turn(b"local", Some(0), None));
         assert!(state.receive_turns(0), "both identity slots present");
         let mut got = dispatched(&state);
         got.sort_by_key(|(storm, _)| storm.0);
@@ -2281,7 +2432,7 @@ mod tests {
         // A stall consumes nothing, so the peer turn is still queued for the next check.
 
         assert!(
-            state.submit_local_turn(b"local", Some(0)),
+            state.submit_local_turn(b"local", Some(0), None),
             "submit should succeed while the driver end is open"
         );
         assert!(
@@ -2317,7 +2468,7 @@ mod tests {
         // The loop is stepping, so the turn carries its frame.
         state.submit_game_started();
 
-        assert!(state.submit_local_turn(b"local", Some(7)));
+        assert!(state.submit_local_turn(b"local", Some(7), None));
         // It went out to the relay...
         let sent = out_rx.try_recv().expect("turn forwarded to the driver");
         assert_eq!(&sent.commands[..], b"local");
@@ -2351,7 +2502,7 @@ mod tests {
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         // Local present, peer absent → would stall.
-        assert!(state.submit_local_turn(b"local", Some(0)));
+        assert!(state.submit_local_turn(b"local", Some(0), None));
         assert!(!state.receive_turns(0));
 
         // The peer leaves; the sim should proceed on the remaining slot alone. The local turn is
@@ -2451,7 +2602,7 @@ mod tests {
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         // PEER_SLOT is left unmapped on purpose, to exercise the "no storm id yet" branch.
 
-        assert!(state.submit_local_turn(b"local", Some(0)));
+        assert!(state.submit_local_turn(b"local", Some(0), None));
         // Peer slot isn't required (unmapped), so this is ready and dispatches immediately.
         assert!(state.receive_turns(0));
 
@@ -2489,7 +2640,7 @@ mod tests {
         state.map_slot(PEER_SLOT, PEER_STORM);
         in_tx.try_send(peer_turn(PEER_SLOT, b"t1")).unwrap();
         in_tx.try_send(peer_turn(PEER_SLOT, b"t2")).unwrap();
-        assert!(state.submit_local_turn(b"local2", Some(1)));
+        assert!(state.submit_local_turn(b"local2", Some(1), None));
         assert!(state.receive_turns(1));
 
         let snapshot = state.debug_snapshot();
@@ -2541,8 +2692,8 @@ mod tests {
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert_eq!(state.outstanding_turns(), 0);
-        state.submit_local_turn(b"a", Some(0));
-        state.submit_local_turn(b"b", Some(1));
+        state.submit_local_turn(b"a", Some(0), None);
+        state.submit_local_turn(b"b", Some(1), None);
         assert_eq!(state.outstanding_turns(), 2);
         state.mark_local_turn_executed();
         assert_eq!(state.outstanding_turns(), 1);
@@ -2604,7 +2755,7 @@ mod tests {
             "due at its frame: mapped to storm id, with the directive's reason"
         );
         // The leave dropped the peer from the readiness set, so a later step is ready without it.
-        assert!(state.submit_local_turn(b"local2", Some(5)));
+        assert!(state.submit_local_turn(b"local2", Some(5), None));
         assert!(
             state.receive_turns(5),
             "the left peer no longer gates readiness"
@@ -2639,7 +2790,7 @@ mod tests {
         );
 
         // Step one: the peer's first turn dispatches.
-        assert!(state.submit_local_turn(b"l1", Some(0)));
+        assert!(state.submit_local_turn(b"l1", Some(0), None));
         assert!(state.receive_turns(0));
         assert!(
             state.take_due_leaves(10).is_empty(),
@@ -2648,12 +2799,12 @@ mod tests {
 
         // Step two: the peer's second — final — turn dispatches, and the leave comes due at the
         // very next poll, frame regardless.
-        assert!(state.submit_local_turn(b"l2", Some(1)));
+        assert!(state.submit_local_turn(b"l2", Some(1), None));
         assert!(state.receive_turns(1));
         assert_eq!(state.take_due_leaves(0), vec![(PEER_STORM, DROPPED)]);
 
         // The leave dropped the peer from the readiness set, so the next step proceeds without it.
-        assert!(state.submit_local_turn(b"l3", Some(2)));
+        assert!(state.submit_local_turn(b"l3", Some(2), None));
         assert!(
             state.receive_turns(2),
             "the departed peer no longer gates readiness"
@@ -2684,7 +2835,7 @@ mod tests {
         );
         // Surfacing it marked the peer left, so it no longer gates readiness: the sim proceeds on
         // the local turn alone.
-        assert!(state.submit_local_turn(b"solo", Some(0)));
+        assert!(state.submit_local_turn(b"solo", Some(0), None));
         assert!(
             state.receive_turns(0),
             "sim proceeds on the local turn alone"
@@ -2759,7 +2910,7 @@ mod tests {
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         // Seed time: the counter reads a lobby-era value.
-        assert!(state.submit_local_turn(b"seed", Some(215)));
+        assert!(state.submit_local_turn(b"seed", Some(215), None));
         let sent = out_rx
             .try_recv()
             .expect("seed turn forwarded to the driver");
@@ -2771,7 +2922,7 @@ mod tests {
 
         // The first in-loop receive latches the loop as stepping; from here the stamp is real.
         state.submit_game_started();
-        assert!(state.submit_local_turn(b"in-loop", Some(0)));
+        assert!(state.submit_local_turn(b"in-loop", Some(0), None));
         let sent = out_rx
             .try_recv()
             .expect("in-loop turn forwarded to the driver");
@@ -2797,7 +2948,7 @@ mod tests {
         state.begin_local_only();
 
         assert!(
-            state.submit_local_turn(b"local", Some(9)),
+            state.submit_local_turn(b"local", Some(9), None),
             "local echo still succeeds in local-only mode"
         );
         // Nothing was handed to the driver: the link is closing.
@@ -2854,7 +3005,7 @@ mod tests {
             .try_send(leave_directive(PEER_SLOT, 10, DROPPED))
             .unwrap();
         assert!(state.take_due_leaves(5).is_empty());
-        assert!(state.submit_local_turn(b"local", Some(5)));
+        assert!(state.submit_local_turn(b"local", Some(5), None));
         assert!(!state.receive_turns(5), "stalled on the peer at frame 5");
 
         state.begin_local_only();
@@ -2949,7 +3100,7 @@ mod tests {
         assert_eq!(leave_intent_rx.try_recv(), Ok(()));
         // ...and stopped handing our turns to the (closing) link, while still echoing locally so the
         // sim plays on versus the AI.
-        assert!(state.submit_local_turn(b"solo", Some(6)));
+        assert!(state.submit_local_turn(b"solo", Some(6), None));
         assert!(
             out_rx.try_recv().is_err(),
             "no turn reaches the relay once local-only"
@@ -3255,7 +3406,7 @@ mod tests {
         }
 
         in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
-        assert!(state.submit_local_turn(b"local", Some(0)));
+        assert!(state.submit_local_turn(b"local", Some(0), None));
         assert!(
             state.receive_turns(0),
             "normal in-game turn dispatch is unaffected by the lobby traffic"

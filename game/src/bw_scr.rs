@@ -415,6 +415,12 @@ struct NetcodeV2Bw {
     receive_storm_turns: VirtualAddress,
     /// PIPE hook target: `flush_local_turns_to_latency_depth(...)`, replaced wholesale.
     flush_local_turns: VirtualAddress,
+    /// Native checksum recorder, invoked once per executed network step while sync is active.
+    record_turn_sync_slot: VirtualAddress,
+    /// Enables native checksum generation after the initialized-game prelude.
+    sync_active: Value<u32>,
+    /// Current position in the native 16-entry checksum ring.
+    sync_slot_index: Value<u8>,
     /// Called by the PIPE replacement to flush one turn (keep-alive seed + `send_turn_message` +
     /// sync append). No stack args — it reads its globals directly.
     flush_outgoing_command_turn: unsafe extern "C" fn(),
@@ -1097,6 +1103,11 @@ fn resolve_netcode_v2(
     ctx: scarf::OperandCtx<'static>,
 ) -> Result<NetcodeV2Bw, BwInitError> {
     let send_turn_message = analysis.send_turn_message().ok_or("send_turn_message")?;
+    let record_turn_sync_slot = analysis
+        .record_turn_sync_slot()
+        .ok_or("record_turn_sync_slot")?;
+    let sync_active = analysis.sync_active().ok_or("sync_active")?;
+    let sync_slot_index = analysis.sync_slot_index().ok_or("sync_slot_index")?;
     let receive_storm_turns = analysis
         .receive_storm_turns()
         .ok_or("receive_storm_turns")?;
@@ -1141,6 +1152,9 @@ fn resolve_netcode_v2(
         send_turn_message,
         receive_storm_turns,
         flush_local_turns,
+        record_turn_sync_slot,
+        sync_active: Value::new(ctx, sync_active),
+        sync_slot_index: Value::new(ctx, sync_slot_index),
         flush_outgoing_command_turn: unsafe { mem::transmute(flush_outgoing_command_turn.0) },
         apply_pending_player_leaves: unsafe { mem::transmute(apply_pending_player_leaves.0) },
         player_turns: Value::new(ctx, player_turns),
@@ -2198,6 +2212,28 @@ impl BwScr {
                     address,
                 );
 
+                let address = nc.record_turn_sync_slot.0 as usize - base;
+                exe.hook_closure_address(
+                    RecordTurnSyncSlot,
+                    move |orig| {
+                        // The pre-game pipe seed precedes native sync initialization. Only
+                        // observe the active ring, and never hold the turn-state lock over BW.
+                        let before = if self.game_started.load(Ordering::Acquire)
+                            && nc.sync_active.resolve() != 0
+                        {
+                            Some(nc.sync_slot_index.resolve())
+                        } else {
+                            None
+                        };
+                        orig();
+                        if let Some(before) = before {
+                            let after = nc.sync_slot_index.resolve();
+                            netcode_v2::with_turn_state(|s| s.record_sync_slot(before, after));
+                        }
+                    },
+                    address,
+                );
+
                 // Full replacement for Storm's network join handshake, active only when a lobby
                 // session seed is staged (the native-lobby join seam). With no seed staged — always,
                 // for now — it falls through to the original, so installing it is a no-op for every
@@ -3155,7 +3191,14 @@ impl BwScr {
             let frame = nc.game_frame_count.resolve();
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
-            match netcode_v2::with_turn_state(|s| s.submit_local_turn(&filtered, Some(frame))) {
+            let sync_ring = if nc.sync_active.resolve() != 0 {
+                Some(nc.sync_slot_index.resolve())
+            } else {
+                None
+            };
+            match netcode_v2::with_turn_state(|s| {
+                s.submit_local_turn(&filtered, Some(frame), sync_ring)
+            }) {
                 None => TurnSendOutcome::Native,
                 Some(true) => TurnSendOutcome::Submitted,
                 Some(false) => TurnSendOutcome::Failed,
@@ -6957,6 +7000,7 @@ mod hooks {
         !0 => SendTurnMessage(*const u8, usize) -> usize;
         !0 => ReceiveStormTurns(u32, u32, *mut c_void, *mut c_void, *mut c_void) -> u32;
         !0 => FlushLocalTurns(usize, usize) -> usize;
+        !0 => RecordTurnSyncSlot();
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
