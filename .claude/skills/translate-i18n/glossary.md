@@ -64,6 +64,13 @@ Beyond the Blizzard `terms/` data, record ad-hoc decisions here as you make them
 consistent. (Seed — extend over time.)
 
 ### es
+- **Common action buttons:** Stop (playback)→**Detener**, Hide→**Ocultar**,
+  Reveal (masked information)→**Mostrar**, Join (channel/league/lobby)→**Unirse**.
+  Use infinitives for action labels, consistent with Aceptar, Guardar, and Cancelar.
+- **Clear (action) → Borrar**, **Clear filters → Borrar filtros** for consistent filter and
+  notification actions. "Claro" expresses clarity or agreement, not clearing. "Limpiar filtros"
+  is also idiomatic; use "Borrar filtros" consistently in this UI. Reset→**Restablecer** for
+  restoring settings or defaults.
 - Register: informal **tú** (matches the existing file: Introduce, Selecciona, tu instalación).
 - **news post → noticia** (Noticia creada, Crear noticia); required-field validation follows the
   in-file "Introduce …" imperative style. Statuses agree with feminine "noticia"
