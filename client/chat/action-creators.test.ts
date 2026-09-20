@@ -16,6 +16,7 @@ import {
   ChannelLeaveSeverity,
   getChannelLeaveSeverity,
   getMessageHistory,
+  getNewerMessages,
   markChannelRead,
   markChannelReadNow,
 } from './action-creators'
@@ -316,6 +317,79 @@ describe('chat/action-creators/getMessageHistory', () => {
 
     expect(dispatched).toEqual(
       expect.arrayContaining([expect.objectContaining({ type: '@chat/loadMessageHistoryBegin' })]),
+    )
+  })
+})
+
+describe('chat/action-creators/getNewerMessages', () => {
+  beforeEach(() => {
+    fetchJsonMock.mockReset()
+  })
+
+  test('seeks from the loaded edge, not from live activity beyond the window', () => {
+    fetchJsonMock.mockResolvedValue({})
+
+    const dispatched: any[] = []
+    const dispatch = ((action: unknown) => {
+      dispatched.push(action)
+    }) as DispatchFunction<any>
+    // A window sitting behind the present, with the present known to have run on to 500. Seeking
+    // from 500 would skip whatever the gap between 130 and 500 holds.
+    const state = {
+      chat: {
+        idToMessages: new Map([
+          [
+            CHANNEL_ID,
+            {
+              messages: [
+                {
+                  id: 'text-120',
+                  type: ServerChatMessageType.TextMessage,
+                  channelId: CHANNEL_ID,
+                  time: 120,
+                  from: OTHER_ID,
+                  text: 'hello',
+                },
+                {
+                  id: 'text-130',
+                  type: ServerChatMessageType.TextMessage,
+                  channelId: CHANNEL_ID,
+                  time: 130,
+                  from: OTHER_ID,
+                  text: 'hello',
+                },
+              ],
+              hasNewer: true,
+              detachedNewestTime: 500,
+              windowGen: 3,
+            },
+          ],
+        ]),
+      },
+    } as unknown as RootState
+
+    getNewerMessages(CHANNEL_ID, 50, { onSuccess: () => {}, onError: () => {} })(
+      dispatch,
+      () => state,
+    )
+
+    expect(fetchJsonMock).toHaveBeenCalledWith(
+      expect.stringContaining('afterTime=130'),
+      expect.anything(),
+    )
+    expect(dispatched).toEqual(
+      expect.arrayContaining([
+        {
+          type: '@chat/loadNewerMessagesBegin',
+          payload: {
+            channelId: CHANNEL_ID,
+            limit: 50,
+            afterTime: 130,
+            windowGen: 3,
+            knownNewestTime: 500,
+          },
+        },
+      ]),
     )
   })
 })
