@@ -232,6 +232,14 @@ interface OfflineData {
 
 type FriendsListRowData = HeaderData | OnlineData | OfflineData
 
+/**
+ * Identifies a row by what it holds rather than by where it sits, so that entries keep their
+ * component state (an open profile overlay, say) when the list reorders around them.
+ */
+function computeFriendsRowKey(_index: number, row: FriendsListRowData): React.Key {
+  return row.type === FriendsListRowType.Header ? `header:${row.label}` : `user:${row.userId}`
+}
+
 function VirtualizedFriendsList({ height }: { height: number }) {
   const { t } = useTranslation()
   const friends = useAppSelector(s => s.relationships.friends)
@@ -296,13 +304,13 @@ function VirtualizedFriendsList({ height }: { height: number }) {
   const renderRow = useCallback((index: number, row: FriendsListRowData) => {
     if (row.type === FriendsListRowType.Header) {
       return (
-        <ListOverline key={row.label} $firstOverline={index === 0}>
+        <ListOverline $firstOverline={index === 0}>
           {row.label} ({row.count})
         </ListOverline>
       )
     } else {
       const faded = row.type === FriendsListRowType.Offline
-      return <FriendEntry userId={row.userId} faded={faded} isLive={row.isLive} key={row.userId} />
+      return <FriendEntry userId={row.userId} faded={faded} isLive={row.isLive} />
     }
   }, [])
 
@@ -311,6 +319,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}
+      computeItemKey={computeFriendsRowKey}
       data={rowData}
       itemContent={renderRow}
       increaseViewportBy={height}
@@ -336,6 +345,14 @@ interface FriendRequestsUserData {
 }
 
 type FriendRequestsRowData = FriendRequestsHeaderData | FriendRequestsUserData
+
+/**
+ * Identifies a row by what it holds rather than by where it sits, so that entries keep their
+ * component state (an open profile overlay, say) when the list reorders around them.
+ */
+function computeFriendRequestsRowKey(_index: number, row: FriendRequestsRowData): React.Key {
+  return row.type === FriendRequestsRowType.Header ? `header:${row.label}` : `user:${row.userId}`
+}
 
 function VirtualizedFriendRequestsList({ height }: { height: number }) {
   const { t } = useTranslation()
@@ -394,7 +411,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
     (index: number, row: FriendRequestsRowData) => {
       if (row.type === FriendRequestsRowType.Header) {
         return (
-          <ListOverline key={row.label} $firstOverline={index === 0}>
+          <ListOverline $firstOverline={index === 0}>
             {row.label} ({row.count})
           </ListOverline>
         )
@@ -479,7 +496,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
               />
             </>
           )
-        return <FriendEntry userId={row.userId} key={row.userId} actions={actions} />
+        return <FriendEntry userId={row.userId} actions={actions} />
       }
     },
     [selfUser.id, t, dispatch, snackbarController],
@@ -490,6 +507,7 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}
+      computeItemKey={computeFriendRequestsRowKey}
       data={rowData}
       itemContent={renderRow}
       increaseViewportBy={height}

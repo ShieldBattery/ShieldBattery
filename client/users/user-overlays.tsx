@@ -44,8 +44,15 @@ export function useUserOverlays({
   UserMenu,
 }: UserOverlaysProps): UserOverlays {
   const [clickableElem, setClickableElem] = useState<HTMLElement | null>(null)
-  const [anchorX, anchorY] = useElemAnchorPosition(clickableElem, profileAnchorX, profileAnchorY)
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
+  // The overlay follows its anchor while it's open: these are usually rows in a virtualized list
+  // that reorders underneath them as people join, leave or change presence.
+  const [anchorX, anchorY] = useElemAnchorPosition(
+    clickableElem,
+    profileAnchorX,
+    profileAnchorY,
+    profileOverlayOpen,
+  )
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
   return {
