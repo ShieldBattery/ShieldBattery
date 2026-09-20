@@ -559,7 +559,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
-          hasUnread: false,
+          latestUnreadTime: undefined,
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
         {
@@ -568,13 +568,13 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: testJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
-          hasUnread: false,
+          latestUnreadTime: undefined,
           lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
         },
       ])
     })
 
-    test('marks a channel with unread messages', async () => {
+    test("reports how far a channel's unread messages run", async () => {
       await joinUserToChannel(
         user1,
         shieldBatteryChannel,
@@ -584,8 +584,10 @@ describe('chat/chat-service', () => {
 
       asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
+      const latestUnreadTime = new Date(1577836800000)
+
       asMockedFunction(getUnreadChannelInfo).mockResolvedValue([
-        { channelId: shieldBatteryChannel.id, latestMentionTime: undefined },
+        { channelId: shieldBatteryChannel.id, latestUnreadTime, latestMentionTime: undefined },
       ])
 
       const result = await chatService.getJoinedChannels(user1.id)
@@ -600,7 +602,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
-          hasUnread: true,
+          latestUnreadTime: latestUnreadTime.getTime(),
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       ])
@@ -614,12 +616,13 @@ describe('chat/chat-service', () => {
         joinUser1ShieldBatteryChannelMessage,
       )
 
+      const latestUnreadTime = new Date(1577836800000)
       const latestMentionTime = new Date(1577836800000)
 
       asMockedFunction(getChannelsForUser).mockResolvedValue([user1ShieldBatteryChannelEntry])
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel])
       asMockedFunction(getUnreadChannelInfo).mockResolvedValue([
-        { channelId: shieldBatteryChannel.id, latestMentionTime },
+        { channelId: shieldBatteryChannel.id, latestUnreadTime, latestMentionTime },
       ])
 
       const result = await chatService.getJoinedChannels(user1.id)
@@ -634,7 +637,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
-          hasUnread: true,
+          latestUnreadTime: latestUnreadTime.getTime(),
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
           latestMentionTime: latestMentionTime.getTime(),
         },
@@ -667,7 +670,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
-          hasUnread: false,
+          latestUnreadTime: undefined,
           lastReadTime: lastReadTime.getTime(),
         },
       ])

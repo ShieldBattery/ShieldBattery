@@ -20,7 +20,7 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToWhisper,
   getMessagesForWhisperSession,
-  getUnreadWhisperTargets,
+  getUnreadWhisperInfo,
   getWhisperMessageParticipants,
   getWhisperMessageSentTime,
   getWhisperSessionsForUser,
@@ -64,7 +64,7 @@ vi.mock('../chat/chat-models', async () => {
 
 vi.mock('./whisper-models', () => ({
   getWhisperSessionsForUser: vi.fn().mockResolvedValue([]),
-  getUnreadWhisperTargets: vi.fn().mockResolvedValue([]),
+  getUnreadWhisperInfo: vi.fn().mockResolvedValue([]),
   updateLastReadTime: vi.fn(),
   startWhisperSession: vi.fn(),
   startWhisperSessionsBothDirections: vi.fn(),
@@ -91,7 +91,7 @@ describe('whispers/whisper-service', () => {
     // connecting a client below loads sessions through these and a previous test's return value
     // would seed this test's in-memory session state.
     asMockedFunction(getWhisperSessionsForUser).mockResolvedValue([])
-    asMockedFunction(getUnreadWhisperTargets).mockResolvedValue([])
+    asMockedFunction(getUnreadWhisperInfo).mockResolvedValue([])
 
     nydus = createFakeNydusServer()
     const sessionLookup = new RequestSessionLookup()
@@ -146,9 +146,10 @@ describe('whispers/whisper-service', () => {
   })
 
   describe('getWhisperSessions', () => {
-    test('returns unread targets and a read position for every session', async () => {
+    test('returns a read position and unread extent for every session', async () => {
       const user2ReadTime = new Date('2023-03-12T00:00:00.000Z')
       const user3StartDate = new Date('2023-03-10T00:00:00.000Z')
+      const user3UnreadTime = new Date('2023-03-11T00:00:00.000Z')
       asMockedFunction(getWhisperSessionsForUser).mockResolvedValue([
         {
           targetId: user2.id,
@@ -157,19 +158,28 @@ describe('whispers/whisper-service', () => {
         },
         { targetId: user3.id, lastReadTime: undefined, startDate: user3StartDate },
       ])
-      asMockedFunction(getUnreadWhisperTargets).mockResolvedValue([user3.id])
+      asMockedFunction(getUnreadWhisperInfo).mockResolvedValue([
+        { targetId: user3.id, latestUnreadTime: user3UnreadTime },
+      ])
 
       const result = await whisperService.getWhisperSessions(user1.id)
 
       expect(result).toEqual({
         sessions: [user2.id, user3.id],
         users: [user2, user3],
-        unreadSessions: [user3.id],
         lastReadTimes: [
-          { targetId: user2.id, lastReadTime: user2ReadTime.getTime() },
+          {
+            targetId: user2.id,
+            lastReadTime: user2ReadTime.getTime(),
+            latestUnreadTime: undefined,
+          },
           // A session with no recorded position is unread from its start date on, so its marker
           // sits one millisecond before that.
-          { targetId: user3.id, lastReadTime: user3StartDate.getTime() - 1 },
+          {
+            targetId: user3.id,
+            lastReadTime: user3StartDate.getTime() - 1,
+            latestUnreadTime: user3UnreadTime.getTime(),
+          },
         ],
       })
     })

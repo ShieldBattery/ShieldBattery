@@ -32,6 +32,7 @@ import chatReducerImport, {
   channelHasUnreadMention,
   channelNeedsAttention,
   isChannelMuted,
+  newestKnownChannelTime,
   newestServerOriginTime,
   oldestServerOriginTime,
 } from './chat-reducer'
@@ -106,6 +107,7 @@ function makeState(
     unread?: boolean
     lastReadTime?: number
     latestMentionTime?: number
+    latestUnreadTime?: number
     unreadLineTime?: number
     unreadLineSeen?: boolean
     unreadLineLeftBottom?: boolean
@@ -174,6 +176,9 @@ function makeState(
     idToLatestMentionTime: new Map(
       overrides.latestMentionTime !== undefined ? [[CHANNEL_ID, overrides.latestMentionTime]] : [],
     ),
+    idToLatestUnreadTime: new Map(
+      overrides.latestUnreadTime !== undefined ? [[CHANNEL_ID, overrides.latestUnreadTime]] : [],
+    ),
     idToUnreadLine: new Map(
       overrides.unreadLineTime !== undefined
         ? [
@@ -210,7 +215,11 @@ const CHANNEL_BASIC_INFO: BasicChannelInfo = {
 const SENDER: SbUser = { id: USER_ID, name: 'sender', created: 0 }
 
 function initialChannelData(
-  overrides: { latestMentionTime?: number; hasUnread?: boolean; lastReadTime?: number } = {},
+  overrides: {
+    latestMentionTime?: number
+    latestUnreadTime?: number
+    lastReadTime?: number
+  } = {},
 ): InitialChannelData {
   return {
     channelInfo: CHANNEL_BASIC_INFO,
@@ -224,7 +233,7 @@ function initialChannelData(
       togglePrivate: false,
       editPermissions: false,
     },
-    hasUnread: overrides.hasUnread,
+    latestUnreadTime: overrides.latestUnreadTime,
     lastReadTime: overrides.lastReadTime,
     latestMentionTime: overrides.latestMentionTime,
   }
@@ -627,6 +636,58 @@ describe('client/chat/chat-reducer', () => {
 
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
     })
+
+    test('keeps the flag when a partial read falls short of a backlog with no history loaded', () => {
+      const state = makeState({ unread: true, lastReadTime: 100, latestUnreadTime: 300 })
+
+      const result = chatReducer(state, updateLastReadTimeAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+    })
+
+    test('clears the flag when a read covers a backlog with no history loaded', () => {
+      const state = makeState({ unread: true, lastReadTime: 100, latestUnreadTime: 300 })
+
+      const result = chatReducer(state, updateLastReadTimeAction(300))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('answers a partial read the same way whether or not the backlog is loaded', () => {
+      const unloaded = makeState({ unread: true, lastReadTime: 100, latestUnreadTime: 300 })
+      const loaded = makeState({
+        unread: true,
+        lastReadTime: 100,
+        latestUnreadTime: 300,
+        messages: [textMessage(300)],
+      })
+
+      const partialUnloaded = chatReducer(unloaded, updateLastReadTimeAction(200))
+      const partialLoaded = chatReducer(loaded, updateLastReadTimeAction(200))
+      expect(partialUnloaded.unreadChannels.has(CHANNEL_ID)).toBe(true)
+      expect(partialLoaded.unreadChannels.has(CHANNEL_ID)).toBe(true)
+
+      const fullUnloaded = chatReducer(unloaded, updateLastReadTimeAction(300))
+      const fullLoaded = chatReducer(loaded, updateLastReadTimeAction(300))
+      expect(fullUnloaded.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(fullLoaded.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('keeps the flag when a detached window ends older than the unread backlog', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 100,
+        latestUnreadTime: 300,
+        hasNewer: true,
+        messages: [textMessage(150)],
+      })
+
+      const result = chatReducer(state, updateLastReadTimeAction(200))
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
   })
 
   describe('channelHasUnreadMention', () => {
@@ -770,10 +831,42 @@ describe('client/chat/chat-reducer', () => {
 
       const result = chatReducer(
         state,
-        getJoinedChannelsAction(initialChannelData({ hasUnread: true, lastReadTime: 100 })),
+        getJoinedChannelsAction(initialChannelData({ latestUnreadTime: 300, lastReadTime: 100 })),
       )
 
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('seeds how far the unread backlog runs alongside the flag', () => {
+      const state = makeState()
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ latestUnreadTime: 300, lastReadTime: 100 })),
+      )
+
+      expect(result.idToLatestUnreadTime.get(CHANNEL_ID)).toBe(300)
+      expect(newestKnownChannelTime(result, CHANNEL_ID)).toBe(300)
+    })
+
+    test('leaves the unread backlog extent unset when the initial data carries none', () => {
+      const state = makeState()
+
+      const result = chatReducer(state, getJoinedChannelsAction(initialChannelData()))
+
+      expect(result.idToLatestUnreadTime.has(CHANNEL_ID)).toBe(false)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('keeps a newer unread extent when re-initialized with an older one', () => {
+      const state = makeState({ latestUnreadTime: 500 })
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ latestUnreadTime: 300 })),
+      )
+
+      expect(result.idToLatestUnreadTime.get(CHANNEL_ID)).toBe(500)
     })
   })
 

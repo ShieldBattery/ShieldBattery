@@ -41,7 +41,7 @@ import {
   startWhisperSession as dbStartWhisperSession,
   startWhisperSessionsBothDirections as dbStartWhisperSessionsBothDirections,
   getMessagesForWhisperSession,
-  getUnreadWhisperTargets,
+  getUnreadWhisperInfo,
   getWhisperMessageParticipants,
   getWhisperMessageSentTime,
   getWhisperSessionsForUser,
@@ -94,22 +94,23 @@ export default class WhisperService {
   }
 
   async getWhisperSessions(userId: SbUserId): Promise<GetWhisperSessionsResponse> {
-    const [sessionEntries, unreadSessions] = await Promise.all([
+    const [sessionEntries, unreadInfo] = await Promise.all([
       getWhisperSessionsForUser(userId),
-      getUnreadWhisperTargets(userId),
+      getUnreadWhisperInfo(userId),
     ])
     const sessions = sessionEntries.map(s => s.targetId)
+    const unreadByTarget = new Map(unreadInfo.map(u => [u.targetId, u]))
     // The whisper unread query counts messages `sent >= start_date` when no read position has been
     // recorded, so a session without one still gets a marker here, one millisecond before its start.
     const lastReadTimes = sessionEntries.map(s => ({
       targetId: s.targetId,
       lastReadTime: s.lastReadTime?.getTime() ?? s.startDate.getTime() - 1,
+      latestUnreadTime: unreadByTarget.get(s.targetId)?.latestUnreadTime.getTime(),
     }))
     const users = await findUsersById(sessions)
     return {
       sessions,
       users,
-      unreadSessions,
       lastReadTimes,
     }
   }
@@ -275,7 +276,7 @@ export default class WhisperService {
     const mentionedChannelIds = channelMentions.map(c => c.id)
 
     // Both session rows must exist before the message does: a session with no recorded read
-    // position counts messages from `start_date` on as unread (see `getUnreadWhisperTargets`), so
+    // position counts messages from `start_date` on as unread (see `getUnreadWhisperInfo`), so
     // a `start_date` that postdates the conversation's first message would hide that message from
     // the recipient's unread state.
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way

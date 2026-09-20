@@ -286,15 +286,20 @@ export interface InitialChannelData {
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
   /**
-   * Whether the channel has messages newer than the user's last recorded read position. Absent or
-   * false means the channel should not be treated as unread.
+   * Epoch millis of the newest message in the channel that sits past the user's read position and
+   * counts toward unreadness. Omitted when there is none, which is what marks the channel read.
+   *
+   * A time rather than a flag: a client holding nothing but this initialization data has no
+   * messages to measure a read position against, so a flag would leave it unable to tell a read
+   * position that covers the whole unread backlog from one that covers only part of it, and it
+   * would have to guess which way to move the badge when another of the user's sessions reads
+   * partway through.
    */
-  hasUnread?: boolean
+  latestUnreadTime?: number
   /**
    * Epoch millis of the user's read position in the channel: their last recorded read position, or
    * one millisecond before their join date if they've never recorded one. Used to place the
-   * unread-messages divider; `hasUnread` stays the authority for badge state since the client can't
-   * compute unreadness itself without messages loaded.
+   * unread-messages divider and, against `latestUnreadTime`, to decide badge state.
    */
   lastReadTime?: number
   /**

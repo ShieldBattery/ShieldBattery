@@ -92,6 +92,18 @@ export interface WhisperSession {
    */
   lastReadTime?: number
   /**
+   * The server's word (epoch ms) on how far this session's unread messages ran when the client last
+   * initialized it. Seeded at init, where the session holds no messages and nothing else would say
+   * that anything past the read position exists; without it a read position arriving from another
+   * of the user's sessions would look like it covered a conversation this client knows nothing
+   * about, and clear the badge over messages nobody has seen.
+   *
+   * Never cleared: it is a message time like any other, and `newestKnownWhisperTime` only ever
+   * compares it against the read position, so it stops mattering the moment that position passes
+   * it.
+   */
+  latestUnreadTime?: number
+  /**
    * The unread divider for the session's current activation. Captured when an unread session
    * activates, or when a message goes unseen in an activated session (its view scrolled up, its
    * window detached from the present, or the app window unfocused) that either has no divider or
@@ -121,6 +133,7 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     atBottom: false,
     hasUnread: false,
     lastReadTime: undefined,
+    latestUnreadTime: undefined,
     unreadLine: undefined,
   }
 }
@@ -194,13 +207,19 @@ function isLocalMessage(message: WhisperSessionMessage): message is LocalMessage
 
 /**
  * The newest time (epoch ms) of anything known to exist in a whisper session: the newest loaded
- * server-origin message and the present of a detached window. A read position covering this covers
- * everything the client knows about.
+ * server-origin message, the present of a detached window, and the extent of the unread backlog the
+ * server reported at init. A read position covering this covers everything the client knows about.
+ *
+ * The init-reported extent is what makes this answer the same question whether or not any history
+ * has been loaded: a session initialized but never opened has no messages of its own to speak for
+ * the backlog behind it.
  */
 export function newestKnownWhisperTime(session: Immutable<WhisperSession>): number | undefined {
-  const knownTimes = [newestServerOriginTime(session.messages), session.detachedNewestTime].filter(
-    t => t !== undefined,
-  )
+  const knownTimes = [
+    newestServerOriginTime(session.messages),
+    session.detachedNewestTime,
+    session.latestUnreadTime,
+  ].filter(t => t !== undefined)
 
   return knownTimes.length ? Math.max(...knownTimes) : undefined
 }
@@ -476,23 +495,23 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.byId.set(session, defaultWhisperSession(session))
     }
 
-    // Seeds the unread badge from the server's recorded read position, so it survives a restart
-    // instead of resetting to "read" until the next message arrives. Whether the session is on
-    // screen doesn't enter into it: the flag follows the read position either way, and the view's
-    // read report lowers it once that position covers the newest message.
-    for (const target of action.payload.unreadSessions ?? []) {
-      const session = state.byId.get(target)
-      if (session) {
-        session.hasUnread = true
-      }
-    }
-
     // Seeds each session's read position from the server, so the unread divider has somewhere to
-    // freeze at even before any local mark-read report has happened this session.
-    for (const { targetId, lastReadTime } of action.payload.lastReadTimes ?? []) {
+    // freeze at even before any local mark-read report has happened this session, along with the
+    // unread badge and the extent of the backlog behind it, so both survive a restart instead of
+    // resetting to "read" until the next message arrives. Whether the session is on screen doesn't
+    // enter into it: the badge follows the read position either way, and a read report lowers it
+    // once that position covers the extent seeded here.
+    for (const { targetId, lastReadTime, latestUnreadTime } of action.payload.lastReadTimes ?? []) {
       const session = state.byId.get(targetId)
       if (session) {
         session.lastReadTime = lastReadTime
+        if (latestUnreadTime !== undefined) {
+          session.latestUnreadTime = Math.max(
+            session.latestUnreadTime ?? -Infinity,
+            latestUnreadTime,
+          )
+          session.hasUnread = true
+        }
       }
     }
   },

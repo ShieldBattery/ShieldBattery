@@ -19,6 +19,7 @@ import whisperReducerImport, {
   WhisperSession,
   WhisperSessionMessage,
   WhisperState,
+  newestKnownWhisperTime,
 } from './whisper-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it
@@ -72,6 +73,7 @@ function makeState(
     atBottom?: boolean
     unread?: boolean
     lastReadTime?: number
+    latestUnreadTime?: number
     unreadLineTime?: number
     unreadLineSeen?: boolean
     unreadLineLeftBottom?: boolean
@@ -101,6 +103,7 @@ function makeState(
     atBottom: overrides.atBottom ?? false,
     hasUnread: overrides.unread ?? false,
     lastReadTime: overrides.lastReadTime,
+    latestUnreadTime: overrides.latestUnreadTime,
     unreadLine:
       overrides.unreadLineTime !== undefined
         ? {
@@ -314,12 +317,43 @@ describe('client/whispers/whisper-reducer', () => {
         payload: {
           sessions: [TARGET_ID],
           users: [],
-          unreadSessions: [TARGET_ID],
-          lastReadTimes: [{ targetId: TARGET_ID, lastReadTime: 100 }],
+          lastReadTimes: [{ targetId: TARGET_ID, lastReadTime: 100, latestUnreadTime: 300 }],
         },
       })
 
       expect(sessionOf(result).hasUnread).toBe(true)
+    })
+
+    test('seeds how far the unread backlog runs alongside the flag', () => {
+      const state = makeState()
+
+      const result = whisperReducer(state, {
+        type: '@whispers/getWhisperSessions',
+        payload: {
+          sessions: [TARGET_ID],
+          users: [],
+          lastReadTimes: [{ targetId: TARGET_ID, lastReadTime: 100, latestUnreadTime: 300 }],
+        },
+      })
+
+      expect(sessionOf(result).latestUnreadTime).toBe(300)
+      expect(newestKnownWhisperTime(sessionOf(result))).toBe(300)
+    })
+
+    test('leaves a session read when the server reports no unread backlog', () => {
+      const state = makeState()
+
+      const result = whisperReducer(state, {
+        type: '@whispers/getWhisperSessions',
+        payload: {
+          sessions: [TARGET_ID],
+          users: [],
+          lastReadTimes: [{ targetId: TARGET_ID, lastReadTime: 100 }],
+        },
+      })
+
+      expect(sessionOf(result).hasUnread).toBe(false)
+      expect(sessionOf(result).latestUnreadTime).toBeUndefined()
     })
   })
 
@@ -495,6 +529,58 @@ describe('client/whispers/whisper-reducer', () => {
       })
 
       const result = whisperReducer(state, updateLastReadTimeAction(100))
+
+      expect(sessionOf(result).hasUnread).toBe(true)
+    })
+
+    test('keeps the flag when a partial read falls short of a backlog with no history loaded', () => {
+      const state = makeState({ unread: true, lastReadTime: 100, latestUnreadTime: 300 })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(200))
+
+      expect(sessionOf(result).hasUnread).toBe(true)
+      expect(sessionOf(result).lastReadTime).toBe(200)
+    })
+
+    test('clears the flag when a read covers a backlog with no history loaded', () => {
+      const state = makeState({ unread: true, lastReadTime: 100, latestUnreadTime: 300 })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(300))
+
+      expect(sessionOf(result).hasUnread).toBe(false)
+    })
+
+    test('answers a partial read the same way whether or not the backlog is loaded', () => {
+      const unloaded = makeState({ unread: true, lastReadTime: 100, latestUnreadTime: 300 })
+      const loaded = makeState({
+        unread: true,
+        lastReadTime: 100,
+        latestUnreadTime: 300,
+        messages: [textMessage(300)],
+      })
+
+      expect(sessionOf(whisperReducer(unloaded, updateLastReadTimeAction(200))).hasUnread).toBe(
+        true,
+      )
+      expect(sessionOf(whisperReducer(loaded, updateLastReadTimeAction(200))).hasUnread).toBe(true)
+
+      expect(sessionOf(whisperReducer(unloaded, updateLastReadTimeAction(300))).hasUnread).toBe(
+        false,
+      )
+      expect(sessionOf(whisperReducer(loaded, updateLastReadTimeAction(300))).hasUnread).toBe(false)
+    })
+
+    test('keeps the flag when a detached window ends older than the unread backlog', () => {
+      const state = makeState({
+        activated: true,
+        unread: true,
+        lastReadTime: 100,
+        latestUnreadTime: 300,
+        hasNewer: true,
+        messages: [textMessage(150)],
+      })
+
+      const result = whisperReducer(state, updateLastReadTimeAction(200))
 
       expect(sessionOf(result).hasUnread).toBe(true)
     })

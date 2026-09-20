@@ -183,15 +183,24 @@ export interface GetWhisperSessionsResponse {
   sessions: SbUserId[]
   users: SbUser[]
   /**
-   * IDs of the target users whose conversations have messages newer than the user's last recorded
-   * read position. A session whose target ID is absent from this list should not be treated as
-   * unread. Additive over the base response so older clients ignore it.
+   * The user's read position for each whisper session, and how far past it that conversation's
+   * unread messages run. Every session is listed. Additive over the base response so older clients
+   * ignore it.
+   *
+   * `lastReadTime` is their last recorded read position, or one millisecond before the session's
+   * start date if they've never recorded one. `latestUnreadTime` is the newest incoming message
+   * sitting past that position, and is omitted when there is none, which is what marks the session
+   * read.
+   *
+   * The unread extent is a time rather than a flag: a client holding nothing but this response has
+   * no messages to measure a read position against, so a flag would leave it unable to tell a read
+   * position that covers the whole unread backlog from one that covers only part of it, and it
+   * would have to guess which way to move the badge when another of the user's sessions reads
+   * partway through.
    */
-  unreadSessions?: SbUserId[]
-  /**
-   * Epoch millis of the user's read position for each whisper session: their last recorded read
-   * position, or one millisecond before the session's start date if they've never recorded one.
-   * Every session is listed. Additive over the base response so older clients ignore it.
-   */
-  lastReadTimes?: Array<{ targetId: SbUserId; lastReadTime: number }>
+  lastReadTimes?: Array<{
+    targetId: SbUserId
+    lastReadTime: number
+    latestUnreadTime?: number
+  }>
 }
