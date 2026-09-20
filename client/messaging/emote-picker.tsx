@@ -236,12 +236,26 @@ const PickerArea = styled.div`
     ${titleSmall};
   }
 
+  /* The library rings these buttons on plain :focus, so a mouse click leaves a circle behind
+     until focus moves elsewhere. Dropping that ring uncovers the library's own outline: none,
+     so the app's standard focus outline has to be reinstated for keyboard users; the buttons
+     have no background of their own, so the radius exists only to round that outline. */
   .EmojiPickerReact .epr-cat-btn {
+    border-radius: 50%;
     color: var(--theme-on-surface-variant);
 
     ${IconRoot} {
       /* Override the library's sans-serif reset so Material icon ligatures still render. */
       font-family: 'Material Symbols Outlined';
+    }
+
+    &:focus::before {
+      content: none;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--theme-grey-blue);
+      outline-offset: 2px;
     }
   }
 
