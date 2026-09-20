@@ -33,12 +33,20 @@ const WINDOW_MAX_AGE_MS = 30 * 60 * 1000
 
 /**
  * Everything about the browser's contents that isn't recoverable from somewhere more durable. The
- * tab, thumbnail size, sort and filters all live in local storage and come back on their own; the
  * accumulated pages, the favorites that render above them and the search that produced them all
  * die with the component, and all three determine how tall the list is — so a scroll position
  * restored without them would just clamp against a single fresh page.
+ *
+ * The tab, sort and filters that pick those pages out do come back on their own, but they live in
+ * local storage, which is shared across history entries (and with the map browser the lobby
+ * creation page renders), so the values in it at restore time aren't necessarily the ones the pages
+ * were fetched with. `querySignature` records the ones that were, so a window that no longer
+ * matches can be dropped rather than listing maps the visible settings don't describe and paging on
+ * from an offset counted against a different list.
  */
 interface ServerMapsWindow {
+  /** {@link mapQuerySignature} of the settings the stored pages were fetched with. */
+  querySignature: string
   mapIds: SbMapId[]
   hasMoreMaps: boolean
   favoritedMapIds: SbMapId[]
@@ -118,6 +126,26 @@ function tabToVisibility(tab: MapTab): MapVisibility {
   }
 }
 
+/**
+ * Canonicalizes the settings that determine which maps the list contains (and in which order),
+ * for comparing the ones a stored window was fetched with against the ones in effect now.
+ */
+function mapQuerySignature(
+  tab: MapTab,
+  sort: MapSortType,
+  numPlayers: ReadonlyArray<NumPlayers>,
+  tilesets: ReadonlyArray<Tileset>,
+): string {
+  // The filters are stored in whatever order the sets the filter overlay hands back iterated in, so
+  // sort them: picking the same filter twice has to produce the same signature.
+  return JSON.stringify([
+    tab,
+    sort,
+    [...numPlayers].sort((a, b) => a - b),
+    [...tilesets].sort((a, b) => a - b),
+  ])
+}
+
 function thumbnailSizeToLayout(thumbnailSize: MapThumbnailSize): {
   columnCount: number
   padding: number
@@ -180,11 +208,6 @@ export function BrowseServerMaps({
   useScrollMemory(contentsRef)
 
   const entryKey = useHistoryEntryKey()
-  // Read once per mount: the store contract allows a lazy initializer since it runs at most once
-  // and so never re-reads on a re-render.
-  const [restoredWindow] = useState(() =>
-    entryKey !== undefined ? windowCache.get(entryKey) : undefined,
-  )
 
   const [activeTab, setActiveTab] = useUserLocalStorageValue<MapTab>(
     'maps.browseServer.activeTab',
@@ -225,6 +248,23 @@ export function BrowseServerMaps({
         ? (value as Tileset[])
         : undefined,
   )
+
+  const querySignature = mapQuerySignature(activeTab, sortOption, numPlayersFilter, tilesetFilter)
+
+  // Read once per mount: the store contract allows a lazy initializer since it runs at most once
+  // and so never re-reads on a re-render.
+  const [restoredWindow] = useState(() => {
+    // An `uploadedMapId` arrives with a remount (the maps page keys this component on it) meant to
+    // pick the new map up, followed by a switch to the tab it was uploaded into that leaves the
+    // list alone. Restoring the contents from before the upload would defeat the refetch and list
+    // the previous tab's maps under the new one.
+    if (entryKey === undefined || uploadedMapId !== undefined) {
+      return undefined
+    }
+
+    const stored = windowCache.get(entryKey)
+    return stored?.querySignature === querySignature ? stored : undefined
+  })
 
   const [mapIds, setMapIds] = useState<SbMapId[] | undefined>(restoredWindow?.mapIds)
   const [favoritedMapIds, setFavoritedMapIds] = useState<SbMapId[]>(
@@ -361,7 +401,13 @@ export function BrowseServerMaps({
     // it has to be restored alongside, so the two always expire together.
     return () => {
       if (mapIds !== undefined) {
-        windowCache.set(entryKey, { mapIds, hasMoreMaps, favoritedMapIds, searchQuery })
+        windowCache.set(entryKey, {
+          querySignature,
+          mapIds,
+          hasMoreMaps,
+          favoritedMapIds,
+          searchQuery,
+        })
       } else {
         // `reset()` clears the maps while a new tab/filter/search's first page is in flight. If the
         // user leaves before it lands, the previous contents must not survive to be restored
@@ -369,7 +415,7 @@ export function BrowseServerMaps({
         windowCache.delete(entryKey)
       }
     }
-  }, [entryKey, mapIds, hasMoreMaps, favoritedMapIds, searchQuery])
+  }, [entryKey, querySignature, mapIds, hasMoreMaps, favoritedMapIds, searchQuery])
 
   const onRemoveMap = (mapId: SbMapId) => {
     setMapIds(mapIds?.filter(id => id !== mapId))
