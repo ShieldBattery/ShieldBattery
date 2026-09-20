@@ -153,6 +153,18 @@ export interface ChatState {
    */
   idToLatestMentionTime: Map<SbChannelId, number>
   /**
+   * A map of channel ID -> the server's word (epoch ms) on how far the channel's unread messages
+   * ran when this client last initialized it. Seeded at init, where the channel's history is empty
+   * and nothing else would say that anything past the read position exists; without it a read
+   * position arriving from another of the user's sessions would look like it covered a channel this
+   * client knows nothing about, and clear the badge over messages nobody has seen.
+   *
+   * Never cleared: it is a message time like any other, and `newestKnownChannelTime` only ever
+   * compares it against the read position, so it stops mattering the moment that position passes
+   * it.
+   */
+  idToLatestUnreadTime: Map<SbChannelId, number>
+  /**
    * A map of channel ID -> the unread divider for the channel's current activation. Captured when
    * an unread channel activates, or when a message goes unseen in an activated channel (its view
    * scrolled up, its window detached from the present, or the app window unfocused) that either has
@@ -182,6 +194,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   privateChannels: new Set(),
   idToLastReadTime: new Map(),
   idToLatestMentionTime: new Map(),
+  idToLatestUnreadTime: new Map(),
   idToUnreadLine: new Map(),
 }
 
@@ -320,6 +333,7 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.unreadChannels.delete(channelId)
   state.idToLastReadTime.delete(channelId)
   state.idToLatestMentionTime.delete(channelId)
+  state.idToLatestUnreadTime.delete(channelId)
   state.idToUnreadLine.delete(channelId)
 }
 
@@ -341,8 +355,13 @@ export function newestServerOriginTime(messages: readonly ChannelMessage[]): num
 
 /**
  * The newest time (epoch ms) of anything known to exist in a channel: the newest loaded
- * server-origin message, the present of a detached window, and the latest mention. A read position
- * covering this covers everything the client knows about.
+ * server-origin message, the present of a detached window, the latest mention, and the extent of
+ * the unread backlog the server reported at init. A read position covering this covers everything
+ * the client knows about.
+ *
+ * The init-reported extent is what makes this answer the same question whether or not any history
+ * has been loaded: a channel initialized but never opened has no messages of its own to speak for
+ * the backlog behind it.
  */
 export function newestKnownChannelTime(
   chatState: Immutable<ChatState>,
@@ -353,6 +372,7 @@ export function newestKnownChannelTime(
     channelMessages ? newestServerOriginTime(channelMessages.messages) : undefined,
     channelMessages?.detachedNewestTime,
     chatState.idToLatestMentionTime.get(channelId),
+    chatState.idToLatestUnreadTime.get(channelId),
   ].filter(t => t !== undefined)
 
   return knownTimes.length ? Math.max(...knownTimes) : undefined
@@ -758,7 +778,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     joinedChannelInfo,
     selfPreferences,
     selfPermissions,
-    hasUnread,
+    latestUnreadTime,
     lastReadTime,
     latestMentionTime,
   } = data
@@ -795,11 +815,16 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     )
   }
 
-  // Seeds the unread badge from the server's recorded read position, so it survives a restart
-  // instead of resetting to "read" until the next message arrives. Whether the channel is on screen
-  // doesn't enter into it: the flag follows the read position either way, and the view's read
-  // report lowers it once that position covers the newest message.
-  if (hasUnread) {
+  // Seeds the unread badge and the extent of the backlog behind it from the server, so both survive
+  // a restart instead of resetting to "read" until the next message arrives. Whether the channel is
+  // on screen doesn't enter into it: the badge follows the read position either way, and a read
+  // report lowers it once that position covers the extent seeded here.
+  if (latestUnreadTime !== undefined) {
+    const existing = state.idToLatestUnreadTime.get(channelId)
+    state.idToLatestUnreadTime.set(
+      channelId,
+      existing === undefined ? latestUnreadTime : Math.max(existing, latestUnreadTime),
+    )
     state.unreadChannels.add(channelId)
   }
 

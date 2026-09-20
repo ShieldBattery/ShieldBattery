@@ -178,7 +178,7 @@ export default class ChatService {
         joinedChannelInfo: toJoinedChannelInfo(channelInfo),
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
-        hasUnread: unreadInfo !== undefined,
+        latestUnreadTime: unreadInfo?.latestUnreadTime.getTime(),
         // The unread queries treat everything from others since `joinDate` as unread when no read
         // position has been recorded, and the divider goes before the first message *after* the
         // reported marker, so the marker has to sit one millisecond before the join.
@@ -224,8 +224,8 @@ export default class ChatService {
       ])
 
       if (channelInfo && userChannelEntry) {
-        // `hasUnread` and `latestMentionTime` are omitted: nothing can be unread or mention the
-        // user at the instant they join. `lastReadTime` is still sent, one millisecond before the
+        // `latestUnreadTime` and `latestMentionTime` are omitted: nothing can be unread or mention
+        // the user at the instant they join. `lastReadTime` is still sent, one millisecond before the
         // join, so the client can place the unread divider once messages arrive.
         this.publisher.publish(getChannelUserPath(channelId, userSockets.userId), {
           action: 'init3',

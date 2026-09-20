@@ -889,6 +889,11 @@ export async function updateLastReadTime(
 export interface UnreadChannelInfo {
   channelId: SbChannelId
   /**
+   * The time of the newest message counting toward the channel's unreadness. Always set: a channel
+   * with no such message isn't returned at all.
+   */
+  latestUnreadTime: Date
+  /**
    * The time of the newest unread message that mentions the user and wasn't sent by someone
    * they've blocked, or `undefined` if none of the channel's unread messages mention them.
    */
@@ -909,7 +914,12 @@ export interface UnreadChannelInfo {
  * arrive as epoch milliseconds while `sent` keeps microseconds, so a full-precision strict
  * comparison would leave the newest message permanently unread.
  *
- * Alongside the unread predicate itself, this also computes the time of the newest unread message
+ * What's returned per channel is how far the unread run reaches rather than the bare fact that it
+ * exists, because a client that has loaded no messages has nothing else to measure a read position
+ * against: it's the difference between a read position that covers the whole backlog and one that
+ * covers part of it.
+ *
+ * Alongside the unread extent itself, this also computes the time of the newest unread message
  * that mentions the user, ignoring mentions from users they've blocked (the live client applies the
  * same block check before treating an incoming mention as urgent, so the seeded state has to agree
  * with it). That subquery is served by the partial `channel_messages_mentions_idx` index, which
@@ -921,9 +931,10 @@ export async function getUnreadChannelInfo(userId: SbUserId): Promise<UnreadChan
   try {
     const result = await client.query<{
       channel_id: SbChannelId
+      latest_unread_time: Date
       latest_mention_time: Date | null
     }>(sql`
-      SELECT cu.channel_id, (
+      SELECT cu.channel_id, unread.latest_unread_time, (
         SELECT MAX(m.sent)
         FROM channel_messages m
         WHERE m.channel_id = cu.channel_id
@@ -944,20 +955,23 @@ export async function getUnreadChannelInfo(userId: SbUserId): Promise<UnreadChan
           )
       ) AS latest_mention_time
       FROM channel_users cu
+      CROSS JOIN LATERAL (
+        SELECT MAX(m.sent) AS latest_unread_time
+        FROM channel_messages m
+        WHERE m.channel_id = cu.channel_id
+          AND m.user_id != cu.user_id
+          AND m.sent >= COALESCE(
+            (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+            cu.join_date
+          )
+          AND m.data ->> 'type' = ${ServerChatMessageType.TextMessage}
+      ) unread
       WHERE cu.user_id = ${userId}
-        AND EXISTS (
-          SELECT 1 FROM channel_messages m
-          WHERE m.channel_id = cu.channel_id
-            AND m.user_id != cu.user_id
-            AND m.sent >= COALESCE(
-              (cu.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
-              cu.join_date
-            )
-            AND m.data ->> 'type' = ${ServerChatMessageType.TextMessage}
-        )
+        AND unread.latest_unread_time IS NOT NULL
     `)
     return result.rows.map(row => ({
       channelId: row.channel_id,
+      latestUnreadTime: row.latest_unread_time,
       latestMentionTime: row.latest_mention_time ?? undefined,
     }))
   } finally {

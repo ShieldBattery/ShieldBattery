@@ -121,8 +121,21 @@ export async function updateLastReadTime(
 }
 
 /**
- * Returns the IDs of the target users in a user's whisper sessions that have an unread message
- * from that target: one sent after the user's last recorded read position for the session, or —
+ * The unread state of one of a user's whisper sessions, as returned by `getUnreadWhisperInfo`.
+ */
+export interface UnreadWhisperInfo {
+  targetId: SbUserId
+  /**
+   * The time of the newest message counting toward the session's unreadness. Always set: a session
+   * with no such message isn't returned at all.
+   */
+  latestUnreadTime: Date
+}
+
+/**
+ * Returns, for each of a user's whisper sessions that has an unread message from its target, how
+ * far that session's unread run reaches. A message counts as unread when it is from the target and
+ * was sent after the user's last recorded read position for the session, or —
  * when no read position has been recorded yet — sent at or after the session started. A session
  * row is created no later than the first message of a conversation (see `sendWhisperMessage`), so
  * a conversation the user has never opened counts as unread from its very first message;
@@ -138,25 +151,36 @@ export async function updateLastReadTime(
  * at millisecond granularity (`sent >= read + 1ms` rather than `sent > read`): read positions
  * arrive as epoch milliseconds while `sent` keeps microseconds, so a full-precision strict
  * comparison would leave the newest message permanently unread.
+ *
+ * What's returned per session is how far the unread run reaches rather than the bare fact that it
+ * exists, because a client that has loaded no messages has nothing else to measure a read position
+ * against: it's the difference between a read position that covers the whole backlog and one that
+ * covers part of it.
  */
-export async function getUnreadWhisperTargets(userId: SbUserId): Promise<SbUserId[]> {
+export async function getUnreadWhisperInfo(userId: SbUserId): Promise<UnreadWhisperInfo[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<{ target_user_id: SbUserId }>(sql`
-      SELECT ws.target_user_id FROM whisper_sessions ws
+    const result = await client.query<{ target_user_id: SbUserId; latest_unread_time: Date }>(sql`
+      SELECT ws.target_user_id, unread.latest_unread_time
+      FROM whisper_sessions ws
+      CROSS JOIN LATERAL (
+        SELECT MAX(m.sent) AS latest_unread_time
+        FROM whisper_messages m
+        WHERE m.user_low = LEAST(ws.user_id, ws.target_user_id)
+          AND m.user_high = GREATEST(ws.user_id, ws.target_user_id)
+          AND m.from_id = ws.target_user_id
+          AND m.sent >= COALESCE(
+            (ws.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
+            ws.start_date
+          )
+      ) unread
       WHERE ws.user_id = ${userId}
-        AND EXISTS (
-          SELECT 1 FROM whisper_messages m
-          WHERE m.user_low = LEAST(ws.user_id, ws.target_user_id)
-            AND m.user_high = GREATEST(ws.user_id, ws.target_user_id)
-            AND m.from_id = ws.target_user_id
-            AND m.sent >= COALESCE(
-              (ws.last_read_time AT TIME ZONE 'UTC') + interval '1 millisecond',
-              ws.start_date
-            )
-        )
+        AND unread.latest_unread_time IS NOT NULL
     `)
-    return result.rows.map(row => row.target_user_id)
+    return result.rows.map(row => ({
+      targetId: row.target_user_id,
+      latestUnreadTime: row.latest_unread_time,
+    }))
   } finally {
     done()
   }

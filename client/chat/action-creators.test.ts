@@ -229,12 +229,15 @@ const NOW = 5_000_000
 function makeReadPositionState({
   messages = [],
   latestMentionTime,
+  latestUnreadTime,
   unread = false,
   lastReadTime,
   hasUnreadLine = false,
 }: {
   messages?: ChannelTextMessage[]
   latestMentionTime?: number
+  /** How far the server said the channel's unread messages ran, if it reported any. */
+  latestUnreadTime?: number
   /** Whether `channelId` should be flagged unread. */
   unread?: boolean
   /** The read position to seed for `channelId`, if any. */
@@ -260,6 +263,9 @@ function makeReadPositionState({
     ]),
     idToLatestMentionTime: new Map(
       latestMentionTime !== undefined ? [[CHANNEL_ID, latestMentionTime]] : [],
+    ),
+    idToLatestUnreadTime: new Map(
+      latestUnreadTime !== undefined ? [[CHANNEL_ID, latestUnreadTime]] : [],
     ),
     unreadChannels: new Set(unread ? [CHANNEL_ID] : []),
     idToLastReadTime: new Map(lastReadTime !== undefined ? [[CHANNEL_ID, lastReadTime]] : []),
