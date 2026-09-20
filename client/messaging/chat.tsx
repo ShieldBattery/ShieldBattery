@@ -805,33 +805,39 @@ export function Chat({
     const pendingTarget = pendingScrollRef.current?.target
 
     // Any move has to happen before the scroll position is read below, so what the rest of this
-    // reports is where the list actually ends up rather than where it passed through. A list that
-    // has just mounted counts as arriving at its conversation however many times it happens: the
-    // mount pins to the bottom, and nothing else here would put the viewport back.
-    if (reason === 'mount' || lastSeenConversationRef.current !== refreshToken) {
-      lastSeenConversationRef.current = refreshToken
-      pendingScrollRef.current = undefined
-      wasAtBottomRef.current = undefined
-      lastScrollTopRef.current = undefined
-      if (linkedMessageId) {
-        // A link names the one place in the conversation the user asked for, which outranks both
-        // the position they left behind and the divider.
-        startLinkedMessageJump(scroller, linkedMessageId)
-      } else if (viewStateKey !== undefined) {
-        startAnchorRestore(scroller, viewStateKey)
+    // reports is where the list actually ends up rather than where it passed through. A resize
+    // moves no messages, so it can carry no move any further than the one before it did: the list
+    // has already put its own viewport back, and a move still waiting on history stays armed for
+    // the content update that can finish it. Only what's measured against the viewport, below, has
+    // to be read again.
+    if (reason !== 'resize') {
+      // A list that has just mounted counts as arriving at its conversation however many times it
+      // happens: the mount pins to the bottom, and nothing else here would put the viewport back.
+      if (reason === 'mount' || lastSeenConversationRef.current !== refreshToken) {
+        lastSeenConversationRef.current = refreshToken
+        pendingScrollRef.current = undefined
+        wasAtBottomRef.current = undefined
+        lastScrollTopRef.current = undefined
+        if (linkedMessageId) {
+          // A link names the one place in the conversation the user asked for, which outranks both
+          // the position they left behind and the divider.
+          startLinkedMessageJump(scroller, linkedMessageId)
+        } else if (viewStateKey !== undefined) {
+          startAnchorRestore(scroller, viewStateKey)
+        }
+      } else if (
+        userScrolled &&
+        (pendingTarget?.kind === 'anchor' || pendingTarget?.kind === 'message')
+      ) {
+        // Where the user has scrolled to says more about where they want to be than a reading
+        // position they left behind, or a message they followed a link to, does.
+        pendingScrollRef.current = undefined
+        if (pendingTarget.kind === 'message') {
+          reportLinkedMessage(pendingTarget.messageId, 'cancelled')
+        }
+      } else {
+        applyPendingScroll(scroller)
       }
-    } else if (
-      userScrolled &&
-      (pendingTarget?.kind === 'anchor' || pendingTarget?.kind === 'message')
-    ) {
-      // Where the user has scrolled to says more about where they want to be than a reading
-      // position they left behind, or a message they followed a link to, does.
-      pendingScrollRef.current = undefined
-      if (pendingTarget.kind === 'message') {
-        reportLinkedMessage(pendingTarget.messageId, 'cancelled')
-      }
-    } else {
-      applyPendingScroll(scroller)
     }
 
     // A move that's still pending leaves the list wherever it was placed by default, which says

@@ -6,6 +6,7 @@ import { ServerChatMessageType } from '../../common/chat'
 import { UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
+import { observeResize } from '../dom/dimension-hooks'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { useAppSelector } from '../redux-hooks'
@@ -290,6 +291,12 @@ export type ScrollUpdateReason =
   | 'scroll'
   /** The list's content changed, and the list has placed the viewport within the new content. */
   | 'content'
+  /**
+   * The scroller changed size, and the list has placed the viewport within the new one. Nothing
+   * about the content changed, but everything measured against the viewport (how far from the
+   * bottom the list sits, what part of it the unread divider falls in) has to be read again.
+   */
+  | 'resize'
 
 export interface MessageListProps {
   messages: ReadonlyArray<SbMessage>
@@ -375,18 +382,77 @@ interface MessageListSnapshot {
 
 export class MessageList extends React.Component<MessageListProps> {
   private scrollableRef = React.createRef<HTMLDivElement>()
+  private unobserveResize: (() => void) | undefined
+  /**
+   * Whether the list sat at the bottom of its content as of the last thing that moved it. A
+   * scroller that shrinks takes the bottom of the content out of view without touching the scroll
+   * offset, so by the time the shrink can be observed the scroller already reads as scrolled away
+   * from the bottom; only a value recorded beforehand says whether the user was caught up.
+   */
+  private wasAtBottom = true
+  /**
+   * The scroller's size as of the last observation acted on, so an observation that reports the
+   * size it already had (the one every observer delivers when it starts) moves nothing.
+   */
+  private lastSize: { width: number; height: number } | undefined
+
   private onScroll = animationFrameHandler(target => {
     if (target && this.props.onScrollUpdate) {
       this.props.onScrollUpdate(target, 'scroll')
     }
+    this.recordAtBottom()
   })
 
   override componentWillUnmount() {
     this.onScroll.cancel()
+    this.unobserveResize?.()
+    this.unobserveResize = undefined
 
     if (this.props.viewStateKey !== undefined) {
       this.saveViewState(this.props.viewStateKey, this.props.messages)
     }
+  }
+
+  /**
+   * Records where the viewport has ended up, for the next resize to decide from. Everything that
+   * moves the list calls this once the move (and whatever the owner does in response to hearing
+   * about it) is done.
+   */
+  private recordAtBottom() {
+    const scrollable = this.scrollableRef.current
+    if (scrollable) {
+      this.wasAtBottom = isScrolledToBottom(scrollable)
+    }
+  }
+
+  /**
+   * Puts a list that was following the conversation back at the bottom after the scroller changes
+   * size. A shrinking scroller (the chat input growing to a second line, the window getting
+   * shorter) otherwise leaves the newest message clipped off the bottom edge, and far enough past
+   * the at-bottom leeway that the list stops following new messages entirely.
+   *
+   * A list the user has scrolled up in is left exactly where they put it, and a move that hasn't
+   * landed yet is left armed: a resize brings it no closer, so it still finishes on the content
+   * update that can carry it.
+   */
+  private onResize = () => {
+    const scrollable = this.scrollableRef.current
+    if (!scrollable) {
+      return
+    }
+
+    const size = { width: scrollable.clientWidth, height: scrollable.clientHeight }
+    if (this.lastSize?.width === size.width && this.lastSize.height === size.height) {
+      return
+    }
+    this.lastSize = size
+
+    if (this.wasAtBottom) {
+      scrollable.scrollTop = scrollable.scrollHeight
+    }
+
+    this.props.onScrollUpdate?.(scrollable, 'resize')
+    this.recordAtBottom()
   }
 
   /**
@@ -457,6 +523,10 @@ export class MessageList extends React.Component<MessageListProps> {
       scrollable.scrollTop = scrollable.scrollHeight
 
       this.props.onScrollUpdate?.(scrollable, 'mount')
+      this.recordAtBottom()
+
+      this.lastSize = { width: scrollable.clientWidth, height: scrollable.clientHeight }
+      this.unobserveResize = observeResize(scrollable, this.onResize)
     }
   }
 
@@ -470,6 +540,16 @@ export class MessageList extends React.Component<MessageListProps> {
       return
     }
 
+    this.placeViewportInNewContent(prevProps, snapshot, scrollable)
+    this.recordAtBottom()
+  }
+
+  /** Puts the viewport where the content this update brought calls for. */
+  private placeViewportInNewContent(
+    prevProps: MessageListProps,
+    snapshot: MessageListSnapshot,
+    scrollable: HTMLDivElement,
+  ) {
     if (
       this.props.viewStateKey !== undefined &&
       prevProps.viewStateKey !== this.props.viewStateKey
@@ -549,7 +629,7 @@ export class MessageList extends React.Component<MessageListProps> {
       <Scrollable
         ref={this.scrollableRef}
         className={this.props.className}
-        onScroll={this.props.onScrollUpdate ? this.onScroll.handler : undefined}>
+        onScroll={this.onScroll.handler}>
         <InfiniteScrollList
           prevLoadingEnabled={true}
           nextLoadingEnabled={true}

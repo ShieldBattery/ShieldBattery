@@ -59,8 +59,8 @@ export function useObservedDimensions<T extends Element>(
   return [ref, dimensions]
 }
 
-type ResizeObserverHookCallback = (entry: ResizeObserverEntry) => void
-const observedResizeElements = new WeakMap<Element, ResizeObserverHookCallback>()
+type ResizeObservedCallback = (entry: ResizeObserverEntry) => void
+const observedResizeElements = new WeakMap<Element, ResizeObservedCallback>()
 
 function onResizeObserved(entries: ResizeObserverEntry[]) {
   for (const entry of entries) {
@@ -75,6 +75,28 @@ function onResizeObserved(entries: ResizeObserverEntry[]) {
 // one to observe multiple elements, at least according to some casual googling. So instead of
 // creating one for each hook, we lazily create a single one and use it for all of them.
 const resizeObserver = new ResizeObserver(onResizeObserved)
+
+/**
+ * Watches an element for size changes, calling `onResize` with each observation. Returns a function
+ * that stops watching it.
+ *
+ * An element carries one watcher at a time: watching one that's already watched replaces the
+ * callback it had. Prefer `useResizeObserver` (or `useObservedDimensions`) in components; this is
+ * for code that has no hooks to work with.
+ */
+export function observeResize(
+  elem: Element,
+  onResize: ResizeObservedCallback,
+  options?: ResizeObserverOptions,
+): () => void {
+  observedResizeElements.set(elem, onResize)
+  resizeObserver.observe(elem, options)
+
+  return () => {
+    resizeObserver.unobserve(elem)
+    observedResizeElements.delete(elem)
+  }
+}
 
 export function useResizeObserver<T extends Element>(
   options: ResizeObserverOptions = {},
@@ -122,16 +144,7 @@ export function useResizeObserver<T extends Element>(
       })
     }
 
-    if (elem) {
-      observedResizeElements.set(elem, onResize)
-      resizeObserver?.observe(elem, options)
-      return () => {
-        resizeObserver?.unobserve(elem)
-        observedResizeElements.delete(elem)
-      }
-    } else {
-      return undefined
-    }
+    return elem ? observeResize(elem, onResize, options) : undefined
   }, [elem, options])
 
   return [setElem, observerEntry]
