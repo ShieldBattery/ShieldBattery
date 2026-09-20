@@ -604,6 +604,11 @@ type Mutation {
 	unblockStream(userId: SbUserId!): Boolean!
 	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	userUpdatePermissions(userId: SbUserId!, permissions: SbPermissionsInput!): SbUser!
+	"""
+	Forcibly changes a user's display name. Optionally grants them a name change token so they
+	can pick a replacement themselves without waiting out the usual cooldown.
+	"""
+	userAdminChangeDisplayName(userId: SbUserId!, newName: String!, grantToken: Boolean!, reason: String): SbUser!
 	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
 	userDeleteRestrictedName(id: Int!): Int!
 	userTestRestrictedName(name: String!): NameRestriction

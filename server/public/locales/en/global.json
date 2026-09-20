@@ -2828,6 +2828,21 @@
         "title": "IP addresses"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "Renames this user right away and records the change in the history below. Granting a name change token lets them pick their own name immediately, without waiting out the usual cooldown.",
+          "error": "Something went wrong changing the display name. Please try again later.",
+          "grantToken": "Grant a name change token",
+          "nameInvalid": "That display name is not a valid name.",
+          "nameLabel": "New display name",
+          "nameUnavailable": "That display name is not available.",
+          "nameUnchanged": "This user already has that display name.",
+          "randomize": "Suggest another name",
+          "reasonHint": "The reason is stored with the audit entry shown in the history below.",
+          "reasonLabel": "Reason (optional)",
+          "submit": "Change name",
+          "success": "Display name changed",
+          "title": "Change display name"
+        },
         "displayNameChanges": "Display Name Changes",
         "loginNameChanges": "Login Name Changes",
         "noDisplayNameHistory": "No display name changes found.",

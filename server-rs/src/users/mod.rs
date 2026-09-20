@@ -20,7 +20,7 @@ use deadpool_redis::redis::AsyncCommands;
 use ipnetwork::IpNetwork;
 use names::{
     NameChecker, NameRestriction, RestrictedNameKind, RestrictedNameReason,
-    create_case_insensitive_regex,
+    create_case_insensitive_regex, validate_display_name_format,
 };
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -269,6 +269,9 @@ pub enum PublishedUserMessage {
 
     #[serde(rename_all = "camelCase")]
     EmailChanged { user_id: SbUserId, email: String },
+
+    #[serde(rename_all = "camelCase")]
+    DisplayNameChanged { user_id: SbUserId, name: String },
 }
 
 #[derive(SimpleObject, sqlx::FromRow)]
@@ -642,6 +645,10 @@ impl UsersMutation {
                     }
                 }
 
+                if let Err(message) = validate_display_name_format(&new_name) {
+                    return Err(graphql_error("INVALID_DISPLAY_NAME", message));
+                }
+
                 // Check against restricted names and existing users
                 if let Some(_restriction) = ctx.data::<NameChecker>()?.check_name(&new_name).await?
                 {
@@ -668,7 +675,11 @@ impl UsersMutation {
 
                 has_update = true;
                 query.push("name = ");
-                query.push_bind_unseparated(new_name);
+                query.push_bind_unseparated(new_name.clone());
+                published_messages.push(PublishedUserMessage::DisplayNameChanged {
+                    user_id: user.id,
+                    name: new_name,
+                });
 
                 // Update tokens and/or timestamp based on change type
                 if will_use_token {
@@ -754,7 +765,7 @@ impl UsersMutation {
                 _ => None,
             };
 
-            set_audit_context(&mut tx, user.id, client_ip, user_agent, session_id).await?;
+            set_audit_context(&mut tx, user.id, client_ip, user_agent, session_id, None).await?;
 
             query
                 .build()
@@ -864,6 +875,124 @@ impl UsersMutation {
                 permissions,
             })
             .await?;
+
+        Ok(user.into())
+    }
+
+    /// Forcibly changes a user's display name. Optionally grants them a name change token so they
+    /// can pick a replacement themselves without waiting out the usual cooldown.
+    #[graphql(guard = RequiredPermission::BanUsers)]
+    async fn user_admin_change_display_name(
+        &self,
+        ctx: &Context<'_>,
+        user_id: SbUserId,
+        new_name: String,
+        grant_token: bool,
+        reason: Option<String>,
+    ) -> Result<SbUser> {
+        let Some(admin) = ctx.data::<Option<CurrentUser>>()? else {
+            return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
+        };
+
+        let reason = reason
+            .map(|r| r.trim().to_owned())
+            .filter(|r| !r.is_empty());
+
+        let db = ctx.data::<PgPool>()?;
+        let Some(target) = sqlx::query!(
+            r#"SELECT name::TEXT as "name!" FROM users WHERE id = $1"#,
+            user_id as _,
+        )
+        .fetch_optional(db)
+        .await?
+        else {
+            return Err(graphql_error("USER_NOT_FOUND", "User not found"));
+        };
+
+        if let Err(message) = validate_display_name_format(&new_name) {
+            return Err(graphql_error("INVALID_DISPLAY_NAME", message));
+        }
+
+        if target.name == new_name {
+            return Err(graphql_error(
+                "DISPLAY_NAME_UNCHANGED",
+                "User already has that display name",
+            ));
+        }
+
+        if let Some(_restriction) = ctx.data::<NameChecker>()?.check_name(&new_name).await? {
+            return Err(graphql_error(
+                "DISPLAY_NAME_UNAVAILABLE",
+                "Display name is not available",
+            ));
+        }
+
+        let existing = sqlx::query!(
+            "SELECT id FROM users WHERE name = $1 AND id != $2",
+            new_name,
+            user_id as _,
+        )
+        .fetch_optional(db)
+        .await?;
+        if existing.is_some() {
+            return Err(graphql_error(
+                "DISPLAY_NAME_UNAVAILABLE",
+                "Display name is not available",
+            ));
+        }
+
+        let client_ip = ctx.data::<ClientIp>()?;
+        let user_agent = ctx.data::<Option<TypedHeader<UserAgent>>>()?;
+        let session_id = match ctx.data::<SbSession>()? {
+            SbSession::Authenticated(auth_session) => Some(auth_session.session_id.as_str()),
+            _ => None,
+        };
+
+        let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
+        set_audit_context(
+            &mut tx,
+            admin.id,
+            client_ip,
+            user_agent,
+            session_id,
+            reason.as_deref(),
+        )
+        .await?;
+
+        // A forced rename leaves `last_name_change` alone: it isn't the user's own change, so it
+        // must neither consume nor restart the cooldown on the change they can make themselves.
+        sqlx::query!(
+            r#"
+                UPDATE users
+                SET name = $1, name_change_tokens = name_change_tokens + $2
+                WHERE id = $3
+            "#,
+            new_name,
+            i32::from(grant_token),
+            user_id as _,
+        )
+        .execute(&mut *tx)
+        .await
+        .wrap_err("Failed to update display name")?;
+
+        tx.commit().await.wrap_err("Failed to commit transaction")?;
+
+        let user = ctx
+            .data::<CurrentUserRepo>()?
+            .load_cached_user(user_id, CacheBehavior::ForceRefresh)
+            .await
+            .wrap_err("Failed to refresh cached user")?;
+
+        let redis = ctx.data::<RedisPool>()?.clone();
+        let message = PublishedUserMessage::DisplayNameChanged {
+            user_id,
+            name: user.name.clone(),
+        };
+        spawn_with_tracing(async move {
+            if let Err(e) = redis.publish(message).await {
+                error!("Failed to publish message: {e:?}");
+            }
+        });
 
         Ok(user.into())
     }
@@ -1062,13 +1191,16 @@ pub struct CreateSignupCodeInput {
     pub notes: Option<String>,
 }
 
-/// Helper function to set audit context before updates
+/// Helper function to set audit context before updates. The audit triggers treat an empty
+/// `app.change_reason` as no reason at all, so `change_reason` of `None` is sent as an empty
+/// string.
 async fn set_audit_context(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     current_user_id: SbUserId,
     client_ip: &ClientIp,
     user_agent: &Option<TypedHeader<UserAgent>>,
     session_id: Option<&str>,
+    change_reason: Option<&str>,
 ) -> Result<(), sqlx::Error> {
     let user_agent_string = user_agent
         .as_ref()
@@ -1081,12 +1213,14 @@ async fn set_audit_context(
             set_config('app.current_user_id', $1, true) as current_user_config,
             set_config('app.client_ip', $2, true) as client_ip_config,
             set_config('app.user_agent', $3, true) as user_agent_config,
-            set_config('app.session_id', $4, true) as session_id_config
+            set_config('app.session_id', $4, true) as session_id_config,
+            set_config('app.change_reason', $5, true) as change_reason_config
         "#,
         current_user_id.0.to_string(),
         client_ip.0.to_string(),
         user_agent_string,
         session_id,
+        change_reason.unwrap_or(""),
     )
     .fetch_one(&mut **tx)
     .await?;

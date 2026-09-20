@@ -61,8 +61,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.self!.restrictions.delete(restriction.kind)
     }
   },
-  ['@auth/displayNameChanged'](state, { payload: { newDisplayName } }) {
-    if (state.self) {
+  ['@auth/displayNameChanged'](state, { payload: { userId, newDisplayName } }) {
+    if (state.self?.user.id === userId) {
       state.self.user.name = newDisplayName
     }
   },

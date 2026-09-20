@@ -158,6 +158,13 @@ export type PublishedUserMessage =
         email: string
       }
     }
+  | {
+      type: 'displayNameChanged'
+      data: {
+        userId: TypeshareTypes.SbUserId
+        name: string
+      }
+    }
 
 /**
  * Error codes the matchmaking HTTP API returns in the `code` field of its JSON error bodies. This

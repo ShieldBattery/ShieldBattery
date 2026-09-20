@@ -327,7 +327,19 @@ export interface PermissionsChangedEvent {
   permissions: SbPermissions
 }
 
-export type AuthEvent = EmailChangedEvent | EmailVerifiedEvent | PermissionsChangedEvent
+/**
+ * A user's display name changed, either because they changed it themselves or because an admin
+ * forced a change.
+ */
+export interface DisplayNameChangedEvent {
+  action: 'displayNameChanged'
+  userId: SbUserId
+  /** The user's new display name. */
+  name: string
+}
+
+export type AuthEvent =
+  DisplayNameChangedEvent | EmailChangedEvent | EmailVerifiedEvent | PermissionsChangedEvent
 
 export interface UsernameAvailableResponse {
   available: boolean

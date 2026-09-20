@@ -321,6 +321,58 @@ impl NameChecker {
     }
 }
 
+/// The minimum length (in characters) of a user's display name.
+pub const DISPLAY_NAME_MIN_LENGTH: usize = 1;
+/// The maximum length (in characters) of a user's display name.
+pub const DISPLAY_NAME_MAX_LENGTH: usize = 16;
+
+/// Returns whether `c` is allowed to appear in a user's display name.
+fn is_allowed_display_name_char(c: char) -> bool {
+    c.is_ascii_alphanumeric()
+        || matches!(
+            c,
+            '`' | '~'
+                | '!'
+                | '$'
+                | '^'
+                | '&'
+                | '*'
+                | '('
+                | ')'
+                | '['
+                | ']'
+                | '-'
+                | '_'
+                | '+'
+                | '='
+                | '.'
+                | '{'
+                | '}'
+        )
+}
+
+/// Checks that `name` is a syntactically valid display name, returning a human-readable
+/// description of the problem if it isn't. This only covers the format: whether a name is
+/// restricted or already taken by someone else is checked separately.
+///
+/// This must stay in sync with `USERNAME_ALLOWED_CHARACTERS`, `USERNAME_MINLENGTH` and
+/// `USERNAME_MAXLENGTH` in `common/constants.ts`, which clients validate against before submitting
+/// a name.
+pub fn validate_display_name_format(name: &str) -> Result<(), &'static str> {
+    if !name.chars().all(is_allowed_display_name_char) {
+        return Err("Display name contains invalid characters");
+    }
+    // Every allowed character is single-byte ASCII, so the byte length is also the character count.
+    if name.len() < DISPLAY_NAME_MIN_LENGTH {
+        return Err("Display name must not be empty");
+    }
+    if name.len() > DISPLAY_NAME_MAX_LENGTH {
+        return Err("Display name must be at most 16 characters");
+    }
+
+    Ok(())
+}
+
 pub fn create_case_insensitive_regex(pattern: &str) -> Result<Regex, regex::Error> {
     let pattern = format!("(?i){pattern}");
     Regex::new(&pattern)
@@ -356,5 +408,51 @@ mod tests {
 
         assert_eq!(matched.id, 7);
         assert_eq!(matched.reason, RestrictedNameReason::Reserved);
+    }
+
+    #[test]
+    fn display_name_format_accepts_allowed_names() {
+        for name in [
+            "a",
+            "tec27",
+            "SomeGuy",
+            "[SB]Player",
+            "x_x",
+            "a.b-c+d=e",
+            "`~!$^&*(){}",
+            "SixteenCharsLong",
+        ] {
+            assert_eq!(validate_display_name_format(name), Ok(()), "name: {name}");
+        }
+    }
+
+    #[test]
+    fn display_name_format_rejects_bad_lengths() {
+        assert!(validate_display_name_format("").is_err());
+        assert!(validate_display_name_format("SeventeenCharsLong").is_err());
+        assert!(validate_display_name_format(&"a".repeat(17)).is_err());
+    }
+
+    #[test]
+    fn display_name_format_rejects_disallowed_characters() {
+        for name in [
+            "has space",
+            "at@sign",
+            "hash#tag",
+            "per%cent",
+            "semi;colon",
+            "sla/sh",
+            r"back\slash",
+            "quo\"te",
+            "com,ma",
+            "emoji\u{1f600}",
+            "acc\u{e9}nted",
+            "new\nline",
+        ] {
+            assert!(
+                validate_display_name_format(name).is_err(),
+                "expected rejection for name: {name}"
+            );
+        }
     }
 }

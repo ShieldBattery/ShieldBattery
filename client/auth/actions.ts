@@ -101,6 +101,7 @@ export interface ClearRestriction {
 export interface DisplayNameChanged {
   type: '@auth/displayNameChanged'
   payload: {
+    userId: SbUserId
     newDisplayName: string
   }
   error?: false

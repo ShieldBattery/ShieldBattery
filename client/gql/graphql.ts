@@ -954,6 +954,17 @@ export type UserNameAuditHistoryQuery = {
   }>
 }
 
+export type AdminChangeUserDisplayNameMutationVariables = Exact<{
+  userId: Types.SbUserId
+  newName: string
+  grantToken: boolean
+  reason?: string | null | undefined
+}>
+
+export type AdminChangeUserDisplayNameMutation = {
+  userAdminChangeDisplayName: { id: Types.SbUserId; name: string }
+}
+
 export type AdminUserProfileQueryVariables = Exact<{
   userId: Types.SbUserId
   includePermissions: boolean
@@ -5250,6 +5261,88 @@ export const UserNameAuditHistoryDocument = {
     },
   ],
 } as unknown as DocumentNode<UserNameAuditHistoryQuery, UserNameAuditHistoryQueryVariables>
+export const AdminChangeUserDisplayNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminChangeUserDisplayName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'newName' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'grantToken' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'reason' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userAdminChangeDisplayName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'newName' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'newName' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'grantToken' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'grantToken' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'reason' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'reason' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AdminChangeUserDisplayNameMutation,
+  AdminChangeUserDisplayNameMutationVariables
+>
 export const AdminUserProfileDocument = {
   kind: 'Document',
   definitions: [

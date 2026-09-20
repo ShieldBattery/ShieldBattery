@@ -808,6 +808,7 @@ export function ChangeDisplayNameDialog({
   nextDisplayNameChangeAllowedAt,
 }: ChangeDisplayNameDialogProps) {
   const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()!
   const snackbarController = useSnackbarController()
   const { t } = useTranslation()
   const [{ fetching }, changeDisplayName] = useMutation(ChangeDisplayNameMutation)
@@ -910,6 +911,7 @@ export function ChangeDisplayNameDialog({
             dispatch({
               type: '@auth/displayNameChanged',
               payload: {
+                userId: selfUser.id,
                 newDisplayName: model.name,
               },
             })

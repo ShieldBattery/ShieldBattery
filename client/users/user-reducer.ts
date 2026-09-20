@@ -70,6 +70,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, [action.payload.user])
   },
 
+  ['@auth/displayNameChanged'](state, { payload: { userId, newDisplayName } }) {
+    const userState = state.byId.get(userId)
+    if (userState) {
+      userState.name = newDisplayName
+    }
+  },
+
   ['@chat/loadMessageHistory'](state, action) {
     if (!action.error) {
       updateUsers(state, action.payload.users)

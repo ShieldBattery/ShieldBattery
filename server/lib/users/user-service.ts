@@ -65,6 +65,13 @@ export class UserService {
               email: message.data.email,
             })
             break
+          case 'displayNameChanged':
+            this.publisher.publish(`/userProfiles/${message.data.userId}`, {
+              action: 'displayNameChanged',
+              userId: message.data.userId,
+              name: message.data.name,
+            })
+            break
           default:
             message satisfies never
         }

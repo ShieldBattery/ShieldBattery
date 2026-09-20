@@ -15,6 +15,16 @@ const eventToAction: Readonly<EventToActionMap> = {
     }
   },
 
+  displayNameChanged(event) {
+    return {
+      type: '@auth/displayNameChanged',
+      payload: {
+        userId: event.userId,
+        newDisplayName: event.name,
+      },
+    }
+  },
+
   emailVerified() {
     return {
       type: '@auth/emailVerified',
