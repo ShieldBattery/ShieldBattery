@@ -488,21 +488,30 @@ export function useRefAnchorPosition<T extends HTMLElement>(
  * A hook that keeps track of an element's position on re-render, using a specified location within
  * its bounding rect. Note that the position will only be updated when the component re-renders, so
  * if it can change for reasons outside of the component tree (e.g. window resizing, scrolling), you
- * may need to attach event handlers to cause re-renders.
+ * may need to attach event handlers to cause re-renders (or use `followElement`).
  *
  * @param anchorElement which element to track the position of
  * @param originX which location to use for calculating the X position within the anchor's
  *   bounding rect
  * @param originY which location to use for calculating the Y position within the anchor's
  *   bounding rect
+ * @param followElement whether to re-read the element's position every animation frame, so that
+ *   movement with no matching re-render here (a virtualized list reordering the row the element
+ *   sits in, say) still updates the position. Costs a rect read per frame, so it should only be
+ *   turned on while something is actually anchored to the element.
  */
 export function useElemAnchorPosition(
   element: HTMLElement | null,
   originX: OriginX,
   originY: OriginY,
+  followElement = false,
 ): [x: number | undefined, y: number | undefined, refresh: () => void] {
   const [ref, x, y, refresh] = useRefAnchorPosition(originX, originY)
   const cleanupRef = useRef<ReturnType<React.RefCallback<HTMLElement>>>(undefined)
+  // Anchored elements routinely live inside `React.memo` and `forwardRef` components, where
+  // react-dom leaves `useEffectEvent` handlers frozen at their mount-time closure, so the refresh
+  // callback is reached through a ref instead.
+  const refreshRef = useRef(refresh)
 
   useLayoutEffect(() => {
     if (cleanupRef.current && element === null) {
@@ -513,6 +522,36 @@ export function useElemAnchorPosition(
 
     cleanupRef.current = assignRef(ref, element)
   }, [element, ref])
+
+  useLayoutEffect(() => {
+    refreshRef.current = refresh
+  })
+
+  useLayoutEffect(() => {
+    if (!element || !followElement) {
+      return undefined
+    }
+
+    let frame = 0
+    let lastRect = element.getBoundingClientRect()
+    const checkPosition = () => {
+      const rect = element.getBoundingClientRect()
+      if (
+        rect.left !== lastRect.left ||
+        rect.top !== lastRect.top ||
+        rect.right !== lastRect.right ||
+        rect.bottom !== lastRect.bottom
+      ) {
+        lastRect = rect
+        refreshRef.current()
+      }
+
+      frame = requestAnimationFrame(checkPosition)
+    }
+    frame = requestAnimationFrame(checkPosition)
+
+    return () => cancelAnimationFrame(frame)
+  }, [element, followElement])
 
   return [x, y, refresh]
 }

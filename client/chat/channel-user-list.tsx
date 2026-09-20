@@ -213,6 +213,14 @@ interface FadedRowData {
 
 type UserListRowData = HeaderRowData | ActiveRowData | FadedRowData
 
+/**
+ * Identifies a row by what it holds rather than by where it sits, so that entries keep their
+ * component state (an open profile overlay, say) when the roster reorders around them.
+ */
+function computeRowKey(_index: number, row: UserListRowData): React.Key {
+  return row.type === UserListRowType.Header ? `header:${row.label}` : `user:${row.userId}`
+}
+
 interface UserListProps {
   active: SbUserId[]
   idle: SbUserId[]
@@ -285,7 +293,7 @@ export const UserList = React.memo((props: UserListProps) => {
   const renderRow = useCallback((index: number, row: UserListRowData) => {
     if (row.type === UserListRowType.Header) {
       return (
-        <UserListOverline key={row.label} $firstOverline={index === 0}>
+        <UserListOverline $firstOverline={index === 0}>
           <span>
             {row.label} ({row.count})
           </span>
@@ -293,14 +301,7 @@ export const UserList = React.memo((props: UserListProps) => {
       )
     } else {
       const faded = row.type === UserListRowType.Faded
-      return (
-        <ConnectedUserListEntry
-          userId={row.userId}
-          key={row.userId}
-          faded={faded}
-          isLive={row.isLive}
-        />
-      )
+      return <ConnectedUserListEntry userId={row.userId} faded={faded} isLive={row.isLive} />
     }
   }, [])
 
@@ -317,6 +318,7 @@ export const UserList = React.memo((props: UserListProps) => {
       <RosterContainer>
         <Virtuoso
           components={{ Header: PaddingHeader, Footer: PaddingFooter }}
+          computeItemKey={computeRowKey}
           data={rowData}
           itemContent={renderRow}
         />
