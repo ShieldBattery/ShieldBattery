@@ -6,6 +6,11 @@ import {
   resetLastReadForTesting,
 } from './last-read'
 
+/** A step into the coalescing window short enough to leave room for several more before it ends. */
+const PART_WAY_MS = LAST_READ_COALESCE_MS / 5
+/** What's left of the window after a single `PART_WAY_MS` step. */
+const REST_OF_WINDOW_MS = LAST_READ_COALESCE_MS - PART_WAY_MS
+
 describe('messaging/last-read', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -28,21 +33,21 @@ describe('messaging/last-read', () => {
   test('trailing fold fires once, at the shortened delay relative to the last actual send', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
+    reportLastRead('key', 100, send) // leading
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 150, send) // folded; timer scheduled for t=1000+4000=5000
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 150, send) // folded; timer scheduled for the rest of the window
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(500) // t=1500
+    vi.advanceTimersByTime(PART_WAY_MS)
     reportLastRead('key', 200, send) // another rapid report; still folded into the same timer
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(3499) // t=4999, just short of the window
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS - 2 * PART_WAY_MS - 1) // just short of the window
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(1) // t=5000
+    vi.advanceTimersByTime(1) // a full window since the leading send
     expect(send).toHaveBeenCalledTimes(2)
     expect(send).toHaveBeenLastCalledWith(200)
   })
@@ -50,7 +55,7 @@ describe('messaging/last-read', () => {
   test('a report at or before the last sent value is dropped and never sent, immediately or later', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
+    reportLastRead('key', 100, send) // leading
     expect(send).toHaveBeenCalledTimes(1)
 
     reportLastRead('key', 100, send) // equal to lastValue -> dropped
@@ -58,20 +63,20 @@ describe('messaging/last-read', () => {
     expect(send).toHaveBeenCalledTimes(1)
 
     // Nothing was scheduled, so letting the window elapse must not produce a trailing send either.
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS + 1000)
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS + PART_WAY_MS)
     expect(send).toHaveBeenCalledTimes(1)
   })
 
   test('a stale report while a trailing send is pending does not lower the scheduled value', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 300, send) // pending scheduled with lastValue=300, fires at t=5000
+    reportLastRead('key', 100, send) // leading
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 300, send) // pending scheduled with lastValue=300
     reportLastRead('key', 200, send) // stale relative to the pending value -> dropped
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(4000) // t=5000
+    vi.advanceTimersByTime(REST_OF_WINDOW_MS)
     expect(send).toHaveBeenCalledTimes(2)
     expect(send).toHaveBeenLastCalledWith(300)
   })
@@ -79,16 +84,16 @@ describe('messaging/last-read', () => {
   test('newer reports while pending only raise the value: still one trailing send, with the newest value', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 200, send) // pending scheduled, fires at t=5000
-    vi.advanceTimersByTime(500) // t=1500
+    reportLastRead('key', 100, send) // leading
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 200, send) // pending scheduled for the end of the window
+    vi.advanceTimersByTime(PART_WAY_MS)
     reportLastRead('key', 300, send) // still pending, just raises lastValue
-    vi.advanceTimersByTime(500) // t=2000
+    vi.advanceTimersByTime(PART_WAY_MS)
     reportLastRead('key', 400, send) // still pending, just raises lastValue again
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(3000) // t=5000, the original timer fires
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS - 3 * PART_WAY_MS) // the original timer fires
     expect(send).toHaveBeenCalledTimes(2)
     expect(send).toHaveBeenLastCalledWith(400)
   })
@@ -96,10 +101,10 @@ describe('messaging/last-read', () => {
   test('a report after the window has fully elapsed with nothing pending is leading-edge again', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
+    reportLastRead('key', 100, send) // leading
     expect(send).toHaveBeenCalledTimes(1)
 
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000, exactly the window since the last send
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // exactly the window since the last send
     reportLastRead('key', 200, send)
 
     expect(send).toHaveBeenCalledTimes(2)
@@ -109,9 +114,9 @@ describe('messaging/last-read', () => {
   test('flushLastRead fires a pending trailing send immediately, exactly once, with the newest value', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 200, send) // pending, would otherwise fire at t=5000
+    reportLastRead('key', 100, send) // leading
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 200, send) // pending, would otherwise wait out the window
 
     flushLastRead('key')
 
@@ -119,7 +124,7 @@ describe('messaging/last-read', () => {
     expect(send).toHaveBeenLastCalledWith(200)
 
     // The timer must have been cancelled, so letting the original window elapse fires nothing more.
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS + 1000)
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS + PART_WAY_MS)
     expect(send).toHaveBeenCalledTimes(2)
   })
 
@@ -136,10 +141,10 @@ describe('messaging/last-read', () => {
   test('flushLastRead after the trailing timer already fired is a no-op', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 200, send) // pending, fires at t=5000
-    vi.advanceTimersByTime(4000) // t=5000, trailing send fires on its own
+    reportLastRead('key', 100, send) // leading
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 200, send) // pending
+    vi.advanceTimersByTime(REST_OF_WINDOW_MS) // trailing send fires on its own
     expect(send).toHaveBeenCalledTimes(2)
 
     expect(() => flushLastRead('key')).not.toThrow()
@@ -150,9 +155,9 @@ describe('messaging/last-read', () => {
     const sendA = vi.fn()
     const sendB = vi.fn()
 
-    reportLastRead('a', 100, sendA) // t=0, leading for a
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('a', 200, sendA) // pending for a, fires at t=5000
+    reportLastRead('a', 100, sendA) // leading for a
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('a', 200, sendA) // pending for a
 
     reportLastRead('b', 500, sendB) // b has no prior state, so this is leading-edge
 
@@ -165,12 +170,12 @@ describe('messaging/last-read', () => {
     const sendFirst = vi.fn()
     const sendSecond = vi.fn()
 
-    reportLastRead('key', 100, sendFirst) // t=0, leading; calls sendFirst
-    vi.advanceTimersByTime(1000) // t=1000
+    reportLastRead('key', 100, sendFirst) // leading; calls sendFirst
+    vi.advanceTimersByTime(PART_WAY_MS)
     reportLastRead('key', 200, sendFirst) // creates the pending entry, capturing sendFirst
     reportLastRead('key', 300, sendSecond) // still pending; only raises lastValue, doesn't replace the captured send
 
-    vi.advanceTimersByTime(4000) // t=5000, trailing send fires
+    vi.advanceTimersByTime(REST_OF_WINDOW_MS) // trailing send fires
 
     expect(sendFirst).toHaveBeenCalledTimes(2)
     expect(sendFirst).toHaveBeenLastCalledWith(300)
@@ -180,10 +185,10 @@ describe('messaging/last-read', () => {
   test('a delivered position stays dropped when it is reported again', async () => {
     const send = vi.fn().mockResolvedValue(undefined)
 
-    reportLastRead('key', 100, send) // t=0, leading
+    reportLastRead('key', 100, send) // leading
     await vi.advanceTimersByTimeAsync(0)
 
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000, leading-edge again
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // leading-edge again
     reportLastRead('key', 100, send)
 
     expect(send).toHaveBeenCalledTimes(1)
@@ -192,10 +197,10 @@ describe('messaging/last-read', () => {
   test('a failed send lets the next report carry the same position again', async () => {
     const send = vi.fn().mockRejectedValueOnce(new Error('request failed'))
 
-    reportLastRead('key', 100, send) // t=0, leading; never reaches the server
+    reportLastRead('key', 100, send) // leading; never reaches the server
     await vi.advanceTimersByTimeAsync(0)
 
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000, leading-edge again
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // leading-edge again
     reportLastRead('key', 100, send)
 
     expect(send).toHaveBeenCalledTimes(2)
@@ -208,14 +213,14 @@ describe('messaging/last-read', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('request failed'))
 
-    reportLastRead('key', 100, send) // t=0, leading, delivered
+    reportLastRead('key', 100, send) // leading, delivered
     await vi.advanceTimersByTimeAsync(0)
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 200, send) // pending, fires at t=5000
-    await vi.advanceTimersByTimeAsync(4000) // t=5000, trailing send fires and fails
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 200, send) // pending
+    await vi.advanceTimersByTimeAsync(REST_OF_WINDOW_MS) // trailing send fires and fails
     expect(send).toHaveBeenCalledTimes(2)
 
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=10000, leading-edge again
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // leading-edge again
     reportLastRead('key', 200, send)
 
     expect(send).toHaveBeenCalledTimes(3)
@@ -234,13 +239,13 @@ describe('messaging/last-read', () => {
       )
       .mockResolvedValueOnce(undefined)
 
-    reportLastRead('key', 100, send) // t=0, leading, still in flight
-    vi.advanceTimersByTime(1000) // t=1000
-    reportLastRead('key', 200, send) // pending, fires at t=5000
+    reportLastRead('key', 100, send) // leading, still in flight
+    vi.advanceTimersByTime(PART_WAY_MS)
+    reportLastRead('key', 200, send) // pending
     failSend(new Error('request failed'))
     await vi.advanceTimersByTimeAsync(0)
 
-    await vi.advanceTimersByTimeAsync(4000) // t=5000
+    await vi.advanceTimersByTimeAsync(REST_OF_WINDOW_MS)
 
     expect(send).toHaveBeenCalledTimes(2)
     expect(send).toHaveBeenLastCalledWith(200)
@@ -258,14 +263,14 @@ describe('messaging/last-read', () => {
       )
       .mockResolvedValueOnce(undefined)
 
-    reportLastRead('key', 100, send) // t=0, leading, still in flight
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=5000
+    reportLastRead('key', 100, send) // leading, still in flight
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS)
     reportLastRead('key', 200, send) // leading-edge again, delivered
     await vi.advanceTimersByTimeAsync(0)
     failSend(new Error('request failed'))
     await vi.advanceTimersByTimeAsync(0)
 
-    vi.advanceTimersByTime(LAST_READ_COALESCE_MS) // t=10000
+    vi.advanceTimersByTime(LAST_READ_COALESCE_MS)
     reportLastRead('key', 200, send) // 200 already reached the server, so nothing to re-send
 
     expect(send).toHaveBeenCalledTimes(2)
@@ -274,7 +279,7 @@ describe('messaging/last-read', () => {
   test('flushLastRead forgets a key with nothing scheduled', () => {
     const send = vi.fn()
 
-    reportLastRead('key', 100, send) // t=0, leading, nothing left pending
+    reportLastRead('key', 100, send) // leading, nothing left pending
     flushLastRead('key')
 
     // With no state left for the key, this report has nothing to be measured against and goes out

@@ -135,9 +135,12 @@ const userPreferencesThrottle = createThrottle('chatuserpreferences', {
   window: 60000,
 })
 
+// Clients coalesce read-position reports down to at most one a second per conversation, so a user
+// reading along in a busy channel sustains close to that rate on its own. The limit sits above it
+// with room for the extra sends switching between channels adds.
 const markReadThrottle = createThrottle('chatmarkread', {
-  rate: 30,
-  burst: 60,
+  rate: 90,
+  burst: 120,
   window: 60000,
 })
 

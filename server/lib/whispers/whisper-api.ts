@@ -55,9 +55,12 @@ const retrievalThrottle = createThrottle('whisperretrieval', {
   window: 60000,
 })
 
+// Clients coalesce read-position reports down to at most one a second per conversation, so a user
+// reading along in a busy conversation sustains close to that rate on its own. The limit sits above
+// it with room for the extra sends switching between conversations adds.
 const markReadThrottle = createThrottle('whispermarkread', {
-  rate: 30,
-  burst: 60,
+  rate: 90,
+  burst: 120,
   window: 60000,
 })
 

@@ -6,8 +6,13 @@
  * arriving faster than this get folded into a single trailing send of the newest position once the
  * window elapses, so scrolling through a burst of newly-arrived messages sends at most one request
  * per window rather than one per message.
+ *
+ * This is deliberately short. A trailing send that hasn't fired yet is lost outright when the
+ * client goes away first (the process exits, the page navigates), and the conversation comes back
+ * unread by up to a window's worth of messages. Widening the window saves requests during a burst
+ * and widens that loss by the same amount.
  */
-export const LAST_READ_COALESCE_MS = 5000
+export const LAST_READ_COALESCE_MS = 1000
 
 /**
  * Sends a read position for a conversation. A returned promise that rejects means the position
