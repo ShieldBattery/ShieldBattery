@@ -246,6 +246,14 @@ function getJoinedChannelsAction(data: InitialChannelData): ChatActions {
   }
 }
 
+/**
+ * The state a reconnect leaves behind: everything cleared, ahead of the initialization data that
+ * refills it. A mark-read relayed from another of the user's sessions can land in this window.
+ */
+function reconnectedState(): Immutable<ChatState> {
+  return chatReducer(makeState(), { type: '@network/connect' } as unknown as ChatActions)
+}
+
 function updateMessageAction(
   time: number,
   mentionsSelf: boolean,
@@ -867,6 +875,77 @@ describe('client/chat/chat-reducer', () => {
       )
 
       expect(result.idToLatestUnreadTime.get(CHANNEL_ID)).toBe(500)
+    })
+
+    test('keeps a read position that arrived first, and lowers the badge the data seeds', () => {
+      const state = chatReducer(reconnectedState(), updateLastReadTimeAction(200))
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ lastReadTime: 100, latestUnreadTime: 150 })),
+      )
+
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+
+    test('lands in the same place whichever of the data and the read update arrives first', () => {
+      const data = initialChannelData({ lastReadTime: 100, latestUnreadTime: 150 })
+
+      const readFirst = chatReducer(
+        chatReducer(reconnectedState(), updateLastReadTimeAction(200)),
+        getJoinedChannelsAction(data),
+      )
+      const dataFirst = chatReducer(
+        chatReducer(reconnectedState(), getJoinedChannelsAction(data)),
+        updateLastReadTimeAction(200),
+      )
+
+      expect(readFirst.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+      expect(readFirst.unreadChannels.has(CHANNEL_ID)).toBe(false)
+      expect(dataFirst.idToLastReadTime.get(CHANNEL_ID)).toBe(
+        readFirst.idToLastReadTime.get(CHANNEL_ID),
+      )
+      expect(dataFirst.unreadChannels.has(CHANNEL_ID)).toBe(
+        readFirst.unreadChannels.has(CHANNEL_ID),
+      )
+    })
+
+    test('keeps the badge up when the read position that arrived first stops short of the backlog', () => {
+      const state = chatReducer(reconnectedState(), updateLastReadTimeAction(200))
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ lastReadTime: 100, latestUnreadTime: 300 })),
+      )
+
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('keeps the badge up for a mention newer than the merged read position', () => {
+      const state = chatReducer(reconnectedState(), updateLastReadTimeAction(200))
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(
+          initialChannelData({ lastReadTime: 100, latestUnreadTime: 150, latestMentionTime: 400 }),
+        ),
+      )
+
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(true)
+    })
+
+    test('takes the initial data position when it is newer than one already recorded', () => {
+      const state = chatReducer(reconnectedState(), updateLastReadTimeAction(100))
+
+      const result = chatReducer(
+        state,
+        getJoinedChannelsAction(initialChannelData({ lastReadTime: 200, latestUnreadTime: 150 })),
+      )
+
+      expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
+      expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
     })
   })
 

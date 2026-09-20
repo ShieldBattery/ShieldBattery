@@ -122,6 +122,25 @@ function makeState(
   return state as Immutable<WhisperState>
 }
 
+function getWhisperSessionsAction(lastReadTime: number, latestUnreadTime?: number): WhisperActions {
+  return {
+    type: '@whispers/getWhisperSessions',
+    payload: {
+      sessions: [TARGET_ID],
+      users: [],
+      lastReadTimes: [{ targetId: TARGET_ID, lastReadTime, latestUnreadTime }],
+    },
+  }
+}
+
+/**
+ * The state a reconnect leaves behind: every session cleared, ahead of the session list that
+ * refills it. A mark-read relayed from another of the user's sessions can land in this window.
+ */
+function reconnectedState(): Immutable<WhisperState> {
+  return whisperReducer(makeState(), { type: '@network/connect' } as unknown as WhisperActions)
+}
+
 function updateLastReadTimeAction(
   lastReadTime: number,
   dismissUnreadLine?: boolean,
@@ -355,9 +374,60 @@ describe('client/whispers/whisper-reducer', () => {
       expect(sessionOf(result).hasUnread).toBe(false)
       expect(sessionOf(result).latestUnreadTime).toBeUndefined()
     })
+
+    test('keeps a read position that arrived first, and lowers the badge the list seeds', () => {
+      const state = whisperReducer(reconnectedState(), updateLastReadTimeAction(200))
+
+      const result = whisperReducer(state, getWhisperSessionsAction(100, 150))
+
+      expect(sessionOf(result).lastReadTime).toBe(200)
+      expect(sessionOf(result).hasUnread).toBe(false)
+    })
+
+    test('lands in the same place whichever of the list and the read update arrives first', () => {
+      const readFirst = whisperReducer(
+        whisperReducer(reconnectedState(), updateLastReadTimeAction(200)),
+        getWhisperSessionsAction(100, 150),
+      )
+      const listFirst = whisperReducer(
+        whisperReducer(reconnectedState(), getWhisperSessionsAction(100, 150)),
+        updateLastReadTimeAction(200),
+      )
+
+      expect(sessionOf(readFirst).lastReadTime).toBe(200)
+      expect(sessionOf(readFirst).hasUnread).toBe(false)
+      expect(sessionOf(listFirst).lastReadTime).toBe(sessionOf(readFirst).lastReadTime)
+      expect(sessionOf(listFirst).hasUnread).toBe(sessionOf(readFirst).hasUnread)
+    })
+
+    test('keeps the badge up when the read position that arrived first stops short of the backlog', () => {
+      const state = whisperReducer(reconnectedState(), updateLastReadTimeAction(200))
+
+      const result = whisperReducer(state, getWhisperSessionsAction(100, 300))
+
+      expect(sessionOf(result).lastReadTime).toBe(200)
+      expect(sessionOf(result).hasUnread).toBe(true)
+    })
+
+    test('takes the list position when it is newer than one already recorded', () => {
+      const state = whisperReducer(reconnectedState(), updateLastReadTimeAction(100))
+
+      const result = whisperReducer(state, getWhisperSessionsAction(200, 150))
+
+      expect(sessionOf(result).lastReadTime).toBe(200)
+      expect(sessionOf(result).hasUnread).toBe(false)
+    })
   })
 
   describe('@whispers/updateLastReadTime', () => {
+    test('records a position for a session it holds nothing for, without listing that session', () => {
+      const result = whisperReducer(reconnectedState(), updateLastReadTimeAction(200))
+
+      expect(result.byId.get(TARGET_ID)?.lastReadTime).toBe(200)
+      expect(result.byId.get(TARGET_ID)?.hasUnread).toBe(false)
+      expect(result.sessions.has(TARGET_ID)).toBe(false)
+    })
+
     test('does not regress the stored position when the incoming time is stale', () => {
       const state = makeState({ lastReadTime: 1000 })
 
