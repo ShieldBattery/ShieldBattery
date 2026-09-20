@@ -501,10 +501,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // resetting to "read" until the next message arrives. Whether the session is on screen doesn't
     // enter into it: the badge follows the read position either way, and a read report lowers it
     // once that position covers the extent seeded here.
+    //
+    // The read position is merged rather than installed, and the badge derived from whichever
+    // position is newer: a mark-read made in another of the user's sessions can arrive ahead of
+    // this response, and is as authoritative as the position the response carries.
     for (const { targetId, lastReadTime, latestUnreadTime } of action.payload.lastReadTimes ?? []) {
       const session = state.byId.get(targetId)
       if (session) {
-        session.lastReadTime = lastReadTime
         if (latestUnreadTime !== undefined) {
           session.latestUnreadTime = Math.max(
             session.latestUnreadTime ?? -Infinity,
@@ -512,6 +515,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
           )
           session.hasUnread = true
         }
+        advanceReadPosition(session, lastReadTime)
       }
     }
   },
@@ -990,10 +994,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@whispers/updateLastReadTime'](state, action) {
     const { targetId, lastReadTime, dismissUnreadLine } = action.payload
 
-    const session = state.byId.get(targetId)
-    if (!session) {
-      return
+    // A mark-read can arrive for a session this client holds no state for at all: the server
+    // publishes to the user's own path from the moment they connect, ahead of the session list it
+    // answers with, so a reconnect leaves a window with nothing here to record the position on.
+    // Recording it against a session created on the spot is what carries it across that window,
+    // since the session list preserves a session already present. Such a session stays out of
+    // `sessions` until the list names it — it holds no messages and has nothing to show — and a
+    // read position can only ever lower an unread flag, never raise one, so it cannot put a badge
+    // on a conversation nobody has heard from.
+    if (!state.byId.has(targetId)) {
+      state.byId.set(targetId, defaultWhisperSession(targetId))
     }
+    const session = state.byId.get(targetId)!
 
     const effective = advanceReadPosition(session, lastReadTime)
 

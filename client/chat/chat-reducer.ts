@@ -803,10 +803,6 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   state.idToSelfPreferences.set(channelId, selfPreferences)
   state.idToSelfPermissions.set(channelId, selfPermissions)
 
-  if (lastReadTime !== undefined) {
-    state.idToLastReadTime.set(channelId, lastReadTime)
-  }
-
   if (latestMentionTime !== undefined) {
     const existing = state.idToLatestMentionTime.get(channelId)
     state.idToLatestMentionTime.set(
@@ -826,6 +822,17 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
       existing === undefined ? latestUnreadTime : Math.max(existing, latestUnreadTime),
     )
     state.unreadChannels.add(channelId)
+  }
+
+  // A mark-read made in another of the user's sessions can arrive between the reconnect that clears
+  // this state and the initialization data that refills it, so the read position that comes with
+  // that data is merged rather than installed: whichever position is newer wins. The badge is then
+  // derived from that position against the extent seeded above, rather than being left as the
+  // initialization data found it. Both arrival orders land in the same place — a position covering
+  // the backlog lowers the badge, one that stops short of it leaves the badge up.
+  const readTime = lastReadTime ?? state.idToLastReadTime.get(channelId)
+  if (readTime !== undefined) {
+    advanceReadPosition(state, channelId, readTime)
   }
 
   updateMessages(state, channelId, undefined, m => {
