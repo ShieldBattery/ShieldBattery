@@ -15,6 +15,8 @@ import { useSelfUser } from '../auth/auth-utils'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
+import { useHistoryEntryKey, useScrollMemory } from '../navigation/router-hooks'
+import { createViewStateStore } from '../navigation/view-state-store'
 import { useRefreshToken } from '../network/refresh-token'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
@@ -23,6 +25,29 @@ import { getFavorites as getFavoritedMaps, getMaps } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
 import { ReduxMapThumbnail } from './map-thumbnail'
 import { MapThumbnailSize } from './thumbnail-size'
+
+// TTL must match useScrollMemory's: the saved scroll position and the saved window restore
+// together, and a scroll restored into a missing window would clamp against a single fresh page.
+// Both are stamped when the user leaves the page.
+const WINDOW_MAX_AGE_MS = 30 * 60 * 1000
+
+/**
+ * Everything about the browser's contents that isn't recoverable from somewhere more durable. The
+ * tab, thumbnail size, sort and filters all live in local storage and come back on their own; the
+ * accumulated pages, the favorites that render above them and the search that produced them all
+ * die with the component, and all three determine how tall the list is — so a scroll position
+ * restored without them would just clamp against a single fresh page.
+ */
+interface ServerMapsWindow {
+  mapIds: SbMapId[]
+  hasMoreMaps: boolean
+  favoritedMapIds: SbMapId[]
+  searchQuery: string
+}
+
+const windowCache = createViewStateStore<ServerMapsWindow>('server-maps', {
+  maxAgeMs: WINDOW_MAX_AGE_MS,
+})
 
 const Container = styled.div`
   display: flex;
@@ -151,6 +176,16 @@ export function BrowseServerMaps({
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
 
+  const contentsRef = useRef<HTMLDivElement>(null)
+  useScrollMemory(contentsRef)
+
+  const entryKey = useHistoryEntryKey()
+  // Read once per mount: the store contract allows a lazy initializer since it runs at most once
+  // and so never re-reads on a re-render.
+  const [restoredWindow] = useState(() =>
+    entryKey !== undefined ? windowCache.get(entryKey) : undefined,
+  )
+
   const [activeTab, setActiveTab] = useUserLocalStorageValue<MapTab>(
     'maps.browseServer.activeTab',
     MapTab.OfficialMaps,
@@ -191,14 +226,16 @@ export function BrowseServerMaps({
         : undefined,
   )
 
-  const [mapIds, setMapIds] = useState<SbMapId[]>()
-  const [favoritedMapIds, setFavoritedMapIds] = useState<SbMapId[]>([])
+  const [mapIds, setMapIds] = useState<SbMapId[] | undefined>(restoredWindow?.mapIds)
+  const [favoritedMapIds, setFavoritedMapIds] = useState<SbMapId[]>(
+    restoredWindow?.favoritedMapIds ?? [],
+  )
 
-  const [hasMoreMaps, setHasMoreMaps] = useState(true)
+  const [hasMoreMaps, setHasMoreMaps] = useState(restoredWindow?.hasMoreMaps ?? true)
   const [isLoadingMoreMaps, setIsLoadingMoreMaps] = useState(false)
   const [getMapsError, setGetMapsError] = useState<Error>()
   const [getFavoritedMapsError, setGetFavoritedMapsError] = useState<Error>()
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(restoredWindow?.searchQuery ?? '')
 
   const getMapsAbortControllerRef = useRef<AbortController>(new AbortController())
   const getFavoritedMapsAbortControllerRef = useRef<AbortController>(new AbortController())
@@ -314,6 +351,26 @@ export function BrowseServerMaps({
     }
   }, [])
 
+  useEffect(() => {
+    if (entryKey === undefined) {
+      return undefined
+    }
+
+    // Written at cleanup time rather than as the contents change, so the store's TTL stamp lands
+    // when the user actually leaves — the same moment `useScrollMemory` saves the scroll position
+    // it has to be restored alongside, so the two always expire together.
+    return () => {
+      if (mapIds !== undefined) {
+        windowCache.set(entryKey, { mapIds, hasMoreMaps, favoritedMapIds, searchQuery })
+      } else {
+        // `reset()` clears the maps while a new tab/filter/search's first page is in flight. If the
+        // user leaves before it lands, the previous contents must not survive to be restored
+        // against settings they no longer match.
+        windowCache.delete(entryKey)
+      }
+    }
+  }, [entryKey, mapIds, hasMoreMaps, favoritedMapIds, searchQuery])
+
   const onRemoveMap = (mapId: SbMapId) => {
     setMapIds(mapIds?.filter(id => id !== mapId))
     onMapRemove?.(mapId)
@@ -382,7 +439,7 @@ export function BrowseServerMaps({
         </Tabs>
       </TabArea>
       <ScrollDivider $position='top' />
-      <Contents>
+      <Contents ref={contentsRef}>
         <ContentsBody>
           {uploadedMapId && activeTab === MapTab.MyMaps ? (
             <MapSection

@@ -1,6 +1,6 @@
 import keycode from 'keycode'
 import * as React from 'react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
@@ -83,6 +83,17 @@ export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
     }
   }, [closeActivityBar, localUnreadNotifications, serverUnreadNotifications, dispatch])
 
+  // The list is newest-first and grows at the top, so every open starts there rather than wherever
+  // a previous one was left. The popover usually mounts fresh (and so is already at the top), but
+  // reopening it while its close animation is still running reuses the mounted contents, scroll
+  // offset and all.
+  const scrollableRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (activityBarOpen) {
+      scrollableRef.current?.scrollTo(0, 0)
+    }
+  }, [activityBarOpen])
+
   const [buttonElem, setButtonElem] = useState<HTMLButtonElement | null>(null)
   useButtonHotkey({ elem: buttonElem, hotkey: ALT_N })
 
@@ -115,7 +126,7 @@ export function NotificationsButton({ icon }: { icon: React.ReactNode }) {
         anchorY={(anchorY ?? 0) - 8}
         originX='center'
         originY='top'>
-        <PopoverScrollable>
+        <PopoverScrollable ref={scrollableRef}>
           <PopoverContents>
             <ConnectedNotificationsList />
           </PopoverContents>
