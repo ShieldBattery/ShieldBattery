@@ -126,9 +126,9 @@ export function ConnectedUserProfilePage({
 
   useEffect(() => {
     if (user && usernameFromRoute !== user.name) {
-      correctUsernameForProfile(user.id, user.name, subPage)
+      correctUsernameForProfile(user.id, user.name)
     }
-  }, [usernameFromRoute, user, subPage])
+  }, [usernameFromRoute, user])
 
   useEffect(() => {
     if (subPage === UserProfileSubPage.Admin && !isAdmin) {

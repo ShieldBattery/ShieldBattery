@@ -90,12 +90,18 @@ export function updateExpandedRanksUrlParam(expanded: boolean) {
  * used when the client arrived on the page but the username doesn't match what we have stored for
  * their user ID.
  */
-export function correctUsernameForProfile(
-  userId: SbUserId,
-  username: string,
-  tab?: UserProfileSubPage,
-) {
-  replace(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
+/**
+ * Rewrites the current profile URL so its username segment matches the user's current name. Any
+ * path that follows the username (the tab, an admin sub-page) and the query string are kept, so a
+ * rename never bounces the viewer to a different part of the profile.
+ */
+export function correctUsernameForProfile(userId: SbUserId, username: string) {
+  const { pathname, search, hash } = window.location
+  const segments = pathname.split('/')
+  // A profile path splits as ['', 'users', id, username, ...rest]
+  const rest = segments[1] === 'users' ? segments.slice(4).join('/') : ''
+  const base = urlPath`/users/${userId}/${username}`
+  replace({ pathname: rest ? `${base}/${rest}` : base, search, hash })
 }
 
 const viewUserProfileRequestCoalescer = new RequestCoalescer<SbUserId>()
