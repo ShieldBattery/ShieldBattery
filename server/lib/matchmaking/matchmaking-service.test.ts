@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegionId, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
+  defaultPreferences,
   MatchmakingCompletionType,
   MatchmakingPreferences,
   MatchmakingType,
@@ -273,35 +274,83 @@ describe('matchmaking/matchmaking-service', () => {
     vi.useRealTimers()
   })
 
-  test('warms the queued region when a player queues with one', async () => {
+  test('does not warm regions when players join or remain in the queue', async () => {
     await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
-
-    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
-  })
-
-  test('does not warm when a player queues without a region', async () => {
-    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
 
     expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
-  })
+    await vi.advanceTimersByTimeAsync(180_000)
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
 
-  test('re-warms queued regions on the renewal interval while players are queued', async () => {
-    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
-    netcodeV2Service.warmRegions.mockClear()
-
-    await vi.advanceTimersByTimeAsync(60_000)
-
-    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
-  })
-
-  test('stops re-warming once the queue empties', async () => {
-    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
     await service.cancel(USER_A)
-    netcodeV2Service.warmRegions.mockClear()
-
+    await service.cancel(USER_B)
     await vi.advanceTimersByTimeAsync(120_000)
-
     expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { name: 'shared region', regions: ['us-east', 'us-east'], expected: ['us-east'] },
+    {
+      name: 'different regions',
+      regions: ['us-east', 'eu-west'],
+      expected: ['us-east', 'eu-west'],
+    },
+    { name: 'one missing region', regions: [undefined, 'eu-west'], expected: ['eu-west'] },
+    { name: 'no regions', regions: [undefined, undefined], expected: [] },
+    {
+      name: 'team match',
+      regions: ['us-east', undefined, 'eu-west', 'us-east'],
+      expected: ['us-east', 'eu-west'],
+    },
+  ])('warms only matched regions before acceptance: $name', async ({ regions, expected }) => {
+    const mode = regions.length === 4 ? MatchmakingType.Match2v2 : MatchmakingType.Match1v1
+    gameServerRegionsService.getRegions.mockResolvedValue(
+      ['us-east', 'eu-west', 'unmatched'].map(id => ({ id: makeGameServerRegionId(id) })),
+    )
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+
+    const entries = []
+    for (const [index, region] of regions.entries()) {
+      const userId = makeSbUserId(index + 1)
+      const clientId = 'CLIENT_' + userId
+      clientSockets.set(userId, createFakeClient(userId, clientId))
+      await service.find(
+        userId,
+        clientId,
+        [],
+        [{ ...defaultPreferences(mode, userId), mapSelections: [MAP_ID] }],
+        DEFAULT_PUBKEY,
+        region ? { region: makeGameServerRegionId(region), regionManual: true } : undefined,
+      )
+      entries.push({ id: userId, ticket: 'ticket-' + userId })
+    }
+    const unmatchedUser = makeSbUserId(10)
+    clientSockets.set(unmatchedUser, createFakeClient(unmatchedUser, 'UNMATCHED'))
+    await queuePlayer(unmatchedUser, 'UNMATCHED', { region: makeGameServerRegionId('unmatched') })
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode,
+        teamA: entries.slice(0, entries.length / 2),
+        teamB: entries.slice(entries.length / 2),
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+
+    expect(netcodeV2Service.warmRegions.mock.calls).toEqual(expected.length ? [[expected]] : [])
+    expect(gameLoader.loadGame).not.toHaveBeenCalled()
+
+    // Acceptance times out, but the unmatched player keeps searching without renewing any region.
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(netcodeV2Service.warmRegions).toHaveBeenCalledTimes(expected.length ? 1 : 0)
   })
 
   test('recovers from an orphaned Rust queue entry by canceling and retrying once', async () => {
@@ -389,7 +438,7 @@ describe('matchmaking/matchmaking-service', () => {
   })
 
   test('requeues innocent players when a match is dropped due to missing player data', async () => {
-    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
     await queuePlayer(USER_B, CLIENT_B)
 
     // B cancels in the window before the match event is processed, dropping their queue data.
@@ -410,6 +459,8 @@ describe('matchmaking/matchmaking-service', () => {
       },
     })
     await vi.advanceTimersByTimeAsync(0)
+
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
 
     // A is innocent: they get requeued with their event ticket rather than ejected with an error.
     expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-a')
@@ -849,8 +900,7 @@ describe('matchmaking/matchmaking-service', () => {
     const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
     expect(request.region).toBe(REGION_US_EAST)
     expect(request.rttMs).toBeUndefined()
-    // The region is warmed on the player's behalf even without a measurement.
-    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
   })
 
   test('queues without a region when the client reports none', async () => {

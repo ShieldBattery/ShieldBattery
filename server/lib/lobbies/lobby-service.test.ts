@@ -1,7 +1,11 @@
 import { NydusServer } from 'nydus'
 import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
+import {
+  GameServerRegion,
+  GameServerRegionId,
+  makeGameServerRegionId,
+} from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
 import { GameRecord } from '../../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
@@ -210,6 +214,10 @@ describe('lobbies/lobby-service', () => {
   let lobbyService: LobbyService
   /** Whether the service's restriction check reports the acting user as chat restricted. */
   let isChatRestricted: boolean
+  let availableRegions: GameServerRegion[]
+  let warmRegionsMock: ReturnType<
+    typeof vi.fn<(regions: ReadonlyArray<GameServerRegionId>) => void>
+  >
 
   let host: Sockets
   let joiner: Sockets
@@ -364,6 +372,8 @@ describe('lobbies/lobby-service', () => {
     const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
 
     isChatRestricted = false
+    availableRegions = [region('us-east')]
+    warmRegionsMock = vi.fn<(regions: ReadonlyArray<GameServerRegionId>) => void>()
 
     clock = new FakeClock()
     // Timeouts are driven by hand: run automatically, every one of them would fire as a microtask
@@ -394,10 +404,10 @@ describe('lobbies/lobby-service', () => {
         isRestricted: async () => isChatRestricted,
       } as unknown as RestrictionService,
       {
-        getRegions: async () => [region('us-east')],
+        getRegions: async () => availableRegions,
       } as unknown as GameServerRegionsService,
       {
-        warmRegions: () => {},
+        warmRegions: warmRegionsMock,
       } as unknown as NetcodeV2Service,
       userSockets,
       gameLifecycleEvents,
@@ -1003,6 +1013,22 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(otherHost, id, region)
       return id
     }
+
+    test('warms seated human regions only when a countdown begins', async () => {
+      availableRegions = [region('us-east'), region('eu-west')]
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
+      await joinLobby(joiner, id, 'us-east')
+      await joinLobby(otherHost, id, 'eu-west')
+
+      // Creating and filling a lobby, including putting someone on its bench, must not hold a
+      // relay warm. Only a seated human belongs to the game about to start.
+      expect(warmRegionsMock).not.toHaveBeenCalled()
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, force: true })
+
+      expect(warmRegionsMock).toHaveBeenCalledExactlyOnceWith([makeGameServerRegionId('us-east')])
+    })
 
     test('a member leaving the bench leaves the lobby', async () => {
       const id = await createLobbyWithBench()

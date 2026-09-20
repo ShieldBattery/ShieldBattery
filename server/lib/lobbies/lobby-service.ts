@@ -619,7 +619,6 @@ export class LobbyService {
     this._subscribeClientToLobby(lobby, user, client)
 
     this._publishListChange('add', lobby)
-    this._warmLobbyRegions(lobby)
 
     return { id: lobby.id }
   }
@@ -762,7 +761,6 @@ export class LobbyService {
 
     this._publishLobbyDiff(lobby, updated)
     this._subscribeClientToLobby(lobby, user, client)
-    this._warmLobbyRegions(updated)
   }
 
   /**
@@ -803,9 +801,8 @@ export class LobbyService {
   }
 
   /**
-   * Signals the coordinator to keep every region occupied by a human slot in this lobby warm, so a
-   * game server is ready by the time the lobby launches. Best-effort and debounced downstream, so
-   * it's safe to call on every occupancy change.
+   * Best-effort signal to keep every region occupied by a human slot in this lobby warm when its
+   * countdown begins, reducing the chance that its game waits for a relay to start.
    */
   _warmLobbyRegions(lobby: Lobby) {
     const regions = [
@@ -1252,9 +1249,6 @@ export class LobbyService {
     // new layout just as much as the people in it do.
     this._publishPreview(updated)
     this._publishListChange('update', updated)
-    if (needsReconciliation) {
-      this._warmLobbyRegions(updated)
-    }
   }
 
   /**
@@ -1357,7 +1351,6 @@ export class LobbyService {
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
-    this._warmLobbyRegions(updated)
   }
 
   /**
@@ -1524,7 +1517,6 @@ export class LobbyService {
     const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
-    this._warmLobbyRegions(updated)
   }
 
   changeSlot({
@@ -1582,7 +1574,6 @@ export class LobbyService {
     updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
-    this._warmLobbyRegions(updated)
   }
 
   setRace({
@@ -1683,7 +1674,6 @@ export class LobbyService {
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
-    this._warmLobbyRegions(updated)
   }
 
   closeSlot({
@@ -1758,7 +1748,6 @@ export class LobbyService {
     updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(afterKick, updated)
-    this._warmLobbyRegions(updated)
   }
 
   kickPlayer({
@@ -1817,7 +1806,6 @@ export class LobbyService {
       }
       this.lobbies.set(lobby.id, updated)
       this._publishLobbyDiff(lobby, updated)
-      this._warmLobbyRegions(updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
       this._removeUserFromLobby(lobby, playerToKick.userId!, REMOVAL_TYPE_KICK, seatFromBench)
     }
@@ -1910,7 +1898,6 @@ export class LobbyService {
     updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
-    this._warmLobbyRegions(updated)
   }
 
   removeObserver({
@@ -1950,7 +1937,6 @@ export class LobbyService {
     }
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
-    this._warmLobbyRegions(updated)
   }
 
   /**
@@ -2089,7 +2075,6 @@ export class LobbyService {
         removalType === REMOVAL_TYPE_KICK ? client.userId : undefined,
         removalType === REMOVAL_TYPE_BAN ? client.userId : undefined,
       )
-      this._warmLobbyRegions(updatedLobby)
     }
     this.lobbyClients.delete(client)
     this.activityRegistry.unregisterClientForUser(client.userId)
@@ -2165,7 +2150,7 @@ export class LobbyService {
       }
     }
 
-    // Last chance to warm the lobby's regions before a session is created for it.
+    // Warm the lobby's regions during the countdown, before its session is created.
     this._warmLobbyRegions(lobby)
 
     const lobbyId = lobby.id
@@ -2460,7 +2445,6 @@ export class LobbyService {
       this._publishListChange('update', updated)
     } else {
       this._publishLobbyDiff(lobby, updated)
-      this._warmLobbyRegions(updated)
     }
 
     // Results are usually still being settled at this point, but a game that ended long enough ago
