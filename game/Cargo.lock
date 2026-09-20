@@ -4091,7 +4091,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 [[package]]
 name = "rally-point-client"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=65f5c6145f190f6ed6f1ec276988799ca8d44343#65f5c6145f190f6ed6f1ec276988799ca8d44343"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=11fa3a7fc7e9ce9687869751fdf79b7857333fec#11fa3a7fc7e9ce9687869751fdf79b7857333fec"
 dependencies = [
  "rally-point-proto",
  "rally-point-transport",
@@ -4105,7 +4105,7 @@ dependencies = [
 [[package]]
 name = "rally-point-proto"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=65f5c6145f190f6ed6f1ec276988799ca8d44343#65f5c6145f190f6ed6f1ec276988799ca8d44343"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=11fa3a7fc7e9ce9687869751fdf79b7857333fec#11fa3a7fc7e9ce9687869751fdf79b7857333fec"
 dependencies = [
  "bytes",
  "prost",
@@ -4118,7 +4118,7 @@ dependencies = [
 [[package]]
 name = "rally-point-transport"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=65f5c6145f190f6ed6f1ec276988799ca8d44343#65f5c6145f190f6ed6f1ec276988799ca8d44343"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=11fa3a7fc7e9ce9687869751fdf79b7857333fec#11fa3a7fc7e9ce9687869751fdf79b7857333fec"
 dependencies = [
  "noq",
  "prost",
