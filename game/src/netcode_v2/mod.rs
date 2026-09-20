@@ -963,14 +963,21 @@ impl TurnState {
             Some(entry) => entry.1 = now,
             None => self.drop_requests.push((slot, now)),
         }
+        // Every outcome is logged, the successful hand-off included: a drop request is the one
+        // thing a stalled survivor can do, so a report that says "I clicked Drop and nothing
+        // happened" needs the click itself in the log, not only its failures. A lost request is a
+        // warning because it costs the player a re-click while their game sits stalled.
         match self.channels.request_drop.try_send(slot) {
-            Ok(()) => true,
+            Ok(()) => {
+                info!("netcode v2: drop requested for {slot:?}; handed to the driver");
+                true
+            }
             Err(mpsc::error::TrySendError::Full(_)) => {
-                debug!("netcode v2: request_drop channel full, dropping request for {slot:?}");
+                warn!("netcode v2: request_drop channel full, dropping request for {slot:?}");
                 false
             }
             Err(mpsc::error::TrySendError::Closed(_)) => {
-                debug!("netcode v2: request_drop channel closed, dropping request for {slot:?}");
+                warn!("netcode v2: request_drop channel closed, dropping request for {slot:?}");
                 false
             }
         }
