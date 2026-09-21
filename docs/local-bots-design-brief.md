@@ -76,9 +76,10 @@ The intended flow is:
 1. **Choose a map pool.** Pick individual maps or use the current ShieldBattery map
    pool. Allow saving a custom map pool as a named preset and loading it later.
 2. **Choose potential opponents.** Select a set of bots from the available collection
-   or supported local builds. Show enough skill/race information to build a useful
-   practice pool. The set can include opponents of any strength. Save the set as a
-   named opponent preset and load it again for future sessions.
+   or supported local builds. Recommend suitable bots using the player's current
+   ladder rating when available, and show enough skill/race information to build a
+   useful practice pool. The set can include opponents of any strength. Save the set
+   as a named opponent preset and load it again for future sessions.
 3. **Choose identity visibility.** Anonymization is on by default. The player can
    instead choose to know which bot was selected.
 4. **Play.** One action selects a compatible map, one selected opponent, and a race
@@ -184,9 +185,9 @@ small catalog look empty or complicated.
 in ShieldBattery's human rating system so a newer player can choose an appropriate
 challenge. Explore the familiar ranked division indicator as the primary shorthand,
 with rating details where useful. Explain that it describes the bot's estimated
-playing strength, not a ranked match or a change to the player's own MMR. When a
-player's rating is available, comparison can help, but choosing opponents must also
-work without a player rating or an online lookup.
+playing strength, not a ranked match or a change to the player's own MMR. Recommend
+appropriate opponents using the player's current ladder rating when available;
+choosing opponents must also work without a player rating or an online lookup.
 
 The measurement/calibration method is not decided, and no calibrated bot ratings
 exist yet. Do not directly convert bot-versus-bot tournament Elo into human MMR.
@@ -199,6 +200,32 @@ of a multi-race bot are equally strong. How maps, source patches, and persistent
 learning affect calibration needs definition. Raw tournament ratings can remain
 secondary detail with their source, date, and version caveat.
 There is no agreed universal difficulty slider for an individual bot.
+
+### Recommendations based on the player's rating
+
+Rating-based bot recommendations are required in both one-off selection and practice
+opponent-pool building. Explore a **Recommended for you** group or filter, with a
+short explanation such as "Near your current ladder rating." Suggested variations
+could offer a gentler opponent or a tougher challenge; the exact rating bands and
+recommendation algorithm remain to be defined.
+
+Use the player's current rating for the relevant ladder, not a historical peak or
+an unrelated format's rating. Account for the bot release/race's calibrated strength
+and the selected setup's compatibility. Show installation readiness independently:
+a recommended bot may still need downloading. Uncalibrated bots remain browsable but
+must not be presented as measured matches for the player's rating.
+
+Recommendations assist selection; they do not restrict available opponents, silently
+add bots to a pool, or rewrite a saved preset as the player's rating changes. The
+player explicitly chooses which suggestions to play against or add to their set.
+During anonymous play, recommendations must not reveal which opponent was drawn.
+
+If the player has no ladder rating, retain normal browsing and explain that personal
+rating-based recommendations are not available yet. Do not require ranked placement
+games to use local bot practice. Offline, a cached rating can support recommendations
+if identified as last known; fetching a fresh rating must not block local play. If
+there are no suitably calibrated compatible bots, say so and keep the full compatible
+collection accessible rather than labeling an unsuitable bot as a close match.
 
 ## Game setup and compatibility
 
@@ -354,8 +381,10 @@ Prioritize a connected flow over a large collection of unrelated screens:
 2. Practice setup: custom/current ShieldBattery map pool, named map-pool and opponent
    presets, saving/editing/loading a lineup, anonymity on by default, and a single
    Play action. Include a saved lineup with a missing bot that needs attention.
-3. Bot selection with human-comparable division/rating indicators and provisional or
-   unrated variations; retain direct selection of any compatible bot.
+3. Bot selection with human-comparable division/rating indicators and **Recommended
+   for you** suggestions based on the player's ladder rating. Include no-player-rating,
+   cached-rating, and no-suitable-recommendations states, plus provisional/unrated bots;
+   retain direct selection of any compatible bot and explicit additions to a pool.
 4. Anonymous launch and in-game opponent name, an identified-opponent variation,
    and replay browsing with the real identity. Explore post-game reveal and playing
    another randomly selected matchup.
