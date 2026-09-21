@@ -18,6 +18,8 @@ use winapi::um::winnt::FILE_ATTRIBUTE_READONLY;
 
 use scr_analysis::VirtualAddress;
 
+use crate::bw::ReplayData;
+use crate::bw::commands::command_length;
 use crate::windows::winapi_str;
 
 /// Size of the path buffer SC:R passes to `build_replay_file_path`.
@@ -130,6 +132,138 @@ pub unsafe fn save_replay_by_name_hook(
     }
 }
 
+/// The byte length of the longest prefix of a replay recording buffer that SC:R's replay writer
+/// can walk to the end.
+///
+/// `data` is the recorded bytes (`data_start..data_length`): closed records of
+/// `{u32 frame, u8 count, {u8 player, command...}*}` where the commands' lengths (from
+/// `command_lengths`, the game's per-id table) sum to exactly `count`, followed by at most one
+/// open record whose command bytes start at `open_record_start` and whose count byte has not been
+/// written yet. The writer walks closed records by their count byte and each command by its
+/// length, with no bounds check inside a record, and a command id its table has no length for
+/// (length -1) leaves the walk stuck forever: a buffer that fails this walk hangs the game at the
+/// first replay save. So this stops at the first record that does not parse — a count that
+/// overruns the buffer, an unknown or zero-length command, or commands that do not sum to the
+/// count — and returns the offset that record starts at, or `data.len()` when everything parses.
+/// An open record whose commands do not parse is dropped whole (its header included).
+pub fn consistent_recording_length(
+    data: &[u8],
+    open_record_start: Option<usize>,
+    command_lengths: &[u32],
+) -> usize {
+    let closed_end = match open_record_start {
+        // The open record's header is the 5 bytes before its command bytes; a pointer that
+        // cannot be that (inside the header, or past the data) means no walkable open record.
+        Some(start) if start >= 5 && start <= data.len() => start - 5,
+        Some(_) => return 0,
+        None => data.len(),
+    };
+    let mut offset = 0;
+    while offset < closed_end {
+        let Some(&count) = data.get(offset + 4) else {
+            return offset;
+        };
+        let body_start = offset + 5;
+        let body_end = body_start + count as usize;
+        if body_end > closed_end {
+            return offset;
+        }
+        if !commands_fill(&data[body_start..body_end], command_lengths) {
+            return offset;
+        }
+        offset = body_end;
+    }
+    match open_record_start {
+        Some(start) if commands_fill(&data[start..], command_lengths) => data.len(),
+        Some(_) => closed_end,
+        None => data.len(),
+    }
+}
+
+/// Whether `body` is exactly a sequence of `{u8 player, command}` pairs with known lengths.
+fn commands_fill(mut body: &[u8], command_lengths: &[u32]) -> bool {
+    while !body.is_empty() {
+        let Some(command) = body.get(1..) else {
+            return false;
+        };
+        match command_length(command, command_lengths) {
+            Some(length) if length > 0 && length <= command.len() => body = &command[length..],
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Cuts the recorder's buffer back to the longest prefix SC:R's replay writer can walk (see
+/// [`consistent_recording_length`]), logging what was dropped. Called before every replay save:
+/// the writer's walk has no bounds check and never returns from a malformed record, so a buffer
+/// that fails the walk would hang the game instead of producing a replay. A record dropped here
+/// loses its commands from the saved replay, which is the lesser harm. If the cut removes the
+/// open record, the recorder is left as if no record were open, positioned so its next append
+/// opens a fresh one.
+///
+/// # Safety
+/// `replay` must be the game's live recorder, called on the game thread.
+pub unsafe fn sanitize_recording(
+    replay: *mut ReplayData,
+    frame_count: u32,
+    command_lengths: &[u32],
+) {
+    unsafe {
+        if replay.is_null() || (*replay).recording == 0 || (*replay).data_start.is_null() {
+            return;
+        }
+        let length = (*replay).data_length as usize;
+        let data = std::slice::from_raw_parts((*replay).data_start, length);
+        let open_record_start = if (*replay).current_frame_data_start.is_null() {
+            None
+        } else {
+            Some((*replay).current_frame_data_start as usize - (*replay).data_start as usize)
+        };
+        let consistent = consistent_recording_length(data, open_record_start, command_lengths);
+        if consistent >= length {
+            return;
+        }
+        warn!(
+            "Replay recording has {} unwalkable trailing bytes at offset {consistent} (open \
+             record at {open_record_start:?}); dropping them so the replay save cannot hang",
+            length - consistent,
+        );
+        (*replay).data_length = consistent as u32;
+        if open_record_start.is_some_and(|start| start > consistent) {
+            (*replay).current_frame_data_start = std::ptr::null_mut();
+            (*replay).current_frame = frame_count.wrapping_sub(1);
+        }
+    }
+}
+
+/// Puts the recorder back into a state where its next append opens a record, after SC:R's replay
+/// writer ran mid-game.
+///
+/// Before walking the buffer, the writer closes the open frame record (writing its count byte and
+/// clearing `current_frame_data_start`) but leaves `current_frame` at the frame that record was
+/// for. The recorder opens a record only when the game frame differs from `current_frame`; while
+/// they still match, an append assumes the record it just closed is still open and writes bare
+/// command bytes after it. Every save during a game leaves this trap armed until the frame
+/// counter moves, and the stalled-quit path springs it: the upload replay is saved while a
+/// network stall holds the frame counter still, and the leaves fabricated for the remote slots
+/// are recorded right after, in that same frame, outside any record. The teardown's LastReplay
+/// autosave then walks into them and hangs the game (see [`sanitize_recording`]). Moving
+/// `current_frame` off the live frame makes the next append open a fresh record.
+///
+/// # Safety
+/// `replay` must be the game's live recorder, called on the game thread.
+pub unsafe fn rearm_recorder_after_save(replay: *mut ReplayData, frame_count: u32) {
+    unsafe {
+        if replay.is_null() || (*replay).recording == 0 {
+            return;
+        }
+        if (*replay).current_frame_data_start.is_null() && (*replay).current_frame == frame_count {
+            (*replay).current_frame = frame_count.wrapping_sub(1);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::OpenOptions;
@@ -224,5 +358,172 @@ mod tests {
 
         assert!(path.exists(), "{error}");
         drop(handle);
+    }
+
+    /// A command-length table with only the ids these tests use: hotkey (0x13, 3 bytes), leave
+    /// (0x57, 2 bytes), chat (0x5c, 82 bytes); everything else unknown, as SC:R's own table
+    /// reports unknown ids.
+    fn lengths() -> Vec<u32> {
+        let mut table = vec![u32::MAX; 0x76];
+        table[0x13] = 3;
+        table[0x57] = 2;
+        table[0x5c] = 82;
+        table
+    }
+
+    fn record(frame: u32, commands: &[&[u8]]) -> Vec<u8> {
+        let mut out = frame.to_le_bytes().to_vec();
+        let body: Vec<u8> = commands.iter().flat_map(|c| c.iter().copied()).collect();
+        out.push(body.len() as u8);
+        out.extend(body);
+        out
+    }
+
+    const HOTKEY: &[u8] = &[0x00, 0x13, 0x00, 0x00];
+    const LEAVE: &[u8] = &[0x01, 0x57, 0x03];
+
+    #[test]
+    fn consistent_recording_length_accepts_closed_and_open_records() {
+        let mut data = record(424, &[HOTKEY]);
+        data.extend(record(425, &[HOTKEY, HOTKEY]));
+        assert_eq!(
+            consistent_recording_length(&data, None, &lengths()),
+            data.len()
+        );
+
+        // An open record: header written, count byte still stale, commands appended after it.
+        let open_start = data.len() + 5;
+        data.extend(record(426, &[]));
+        data.extend(LEAVE);
+        assert_eq!(
+            consistent_recording_length(&data, Some(open_start), &lengths()),
+            data.len()
+        );
+    }
+
+    #[test]
+    fn consistent_recording_length_stops_at_bare_command_bytes_after_the_last_record() {
+        // The stalled-quit shape: a closed record, then a leave appended without a header.
+        let closed = record(425, &[HOTKEY]);
+        let mut data = closed.clone();
+        data.extend(LEAVE);
+        assert_eq!(
+            consistent_recording_length(&data, None, &lengths()),
+            closed.len()
+        );
+    }
+
+    #[test]
+    fn consistent_recording_length_stops_at_a_record_that_does_not_parse() {
+        let first = record(10, &[HOTKEY]);
+        let mut data = first.clone();
+        // Count says 4 bytes, but the command id is unknown to the table.
+        data.extend(record(11, &[&[0x00, 0x42, 0x00, 0x00]]));
+        data.extend(record(12, &[HOTKEY]));
+        assert_eq!(
+            consistent_recording_length(&data, None, &lengths()),
+            first.len()
+        );
+
+        // A count that overruns the buffer.
+        let mut data = first.clone();
+        data.extend([13, 0, 0, 0, 40, 0x00, 0x13]);
+        assert_eq!(
+            consistent_recording_length(&data, None, &lengths()),
+            first.len()
+        );
+
+        // Commands that end short of the count.
+        let mut data = first.clone();
+        data.extend([14, 0, 0, 0, 5, 0x00, 0x13, 0x00, 0x00, 0x00]);
+        assert_eq!(
+            consistent_recording_length(&data, None, &lengths()),
+            first.len()
+        );
+    }
+
+    #[test]
+    fn consistent_recording_length_drops_an_open_record_that_does_not_parse() {
+        let closed = record(30, &[HOTKEY]);
+        let mut data = closed.clone();
+        let open_start = data.len() + 5;
+        data.extend(record(31, &[]));
+        data.extend([0x00, 0x13, 0x00]); // truncated hotkey
+        assert_eq!(
+            consistent_recording_length(&data, Some(open_start), &lengths()),
+            closed.len()
+        );
+        // A pointer that cannot be an open record's command start walks nothing.
+        assert_eq!(consistent_recording_length(&data, Some(2), &lengths()), 0);
+    }
+
+    #[test]
+    fn sanitize_recording_cuts_the_buffer_and_closes_a_removed_open_record() {
+        let closed = record(425, &[HOTKEY]);
+        let mut buffer = closed.clone();
+        let open_start = buffer.len() + 5;
+        buffer.extend(record(426, &[]));
+        buffer.extend([0x00, 0x13]);
+        let mut replay = ReplayData {
+            recording: 1,
+            playing_back: 0,
+            data_start: buffer.as_mut_ptr(),
+            data_length: buffer.len() as u32,
+            data_capacity: buffer.len() as u32,
+            current_frame_data_start: unsafe { buffer.as_mut_ptr().add(open_start) },
+            current_frame: 426,
+            data_pos: std::ptr::null_mut(),
+        };
+        unsafe { sanitize_recording(&mut replay, 426, &lengths()) };
+        assert_eq!(replay.data_length as usize, closed.len());
+        assert!(replay.current_frame_data_start.is_null());
+        assert_eq!(replay.current_frame, 425);
+
+        // A clean buffer is left alone.
+        let mut clean = closed.clone();
+        let mut replay = ReplayData {
+            recording: 1,
+            playing_back: 0,
+            data_start: clean.as_mut_ptr(),
+            data_length: clean.len() as u32,
+            data_capacity: clean.len() as u32,
+            current_frame_data_start: std::ptr::null_mut(),
+            current_frame: 425,
+            data_pos: std::ptr::null_mut(),
+        };
+        unsafe { sanitize_recording(&mut replay, 500, &lengths()) };
+        assert_eq!(replay.data_length as usize, closed.len());
+        assert_eq!(replay.current_frame, 425);
+    }
+
+    #[test]
+    fn rearm_recorder_after_save_moves_current_frame_off_the_live_frame() {
+        let mut buffer = record(425, &[HOTKEY]);
+        let mut replay = ReplayData {
+            recording: 1,
+            playing_back: 0,
+            data_start: buffer.as_mut_ptr(),
+            data_length: buffer.len() as u32,
+            data_capacity: buffer.len() as u32,
+            current_frame_data_start: std::ptr::null_mut(),
+            current_frame: 425,
+            data_pos: std::ptr::null_mut(),
+        };
+        // The writer closed the record for frame 425 while the game still sits at frame 425.
+        unsafe { rearm_recorder_after_save(&mut replay, 425) };
+        assert_eq!(replay.current_frame, 424);
+
+        // A recorder whose frame already moved on, or with a record still open, is untouched.
+        replay.current_frame = 425;
+        unsafe { rearm_recorder_after_save(&mut replay, 426) };
+        assert_eq!(replay.current_frame, 425);
+        replay.current_frame_data_start = buffer.as_mut_ptr();
+        unsafe { rearm_recorder_after_save(&mut replay, 425) };
+        assert_eq!(replay.current_frame, 425);
+        // Not recording (a replay being played back): nothing to re-arm.
+        replay.current_frame_data_start = std::ptr::null_mut();
+        replay.recording = 0;
+        unsafe { rearm_recorder_after_save(&mut replay, 425) };
+        assert_eq!(replay.current_frame, 425);
     }
 }

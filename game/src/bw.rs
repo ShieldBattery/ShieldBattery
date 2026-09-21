@@ -527,9 +527,16 @@ pub struct ReplayData {
     pub playing_back: u32,
     pub data_start: *mut u8,
     pub data_length: u32,
-    pub unk10: u32,
-    pub data_unk: *mut u8,
-    pub unk18: u32,
+    pub data_capacity: u32,
+    /// Start of the command bytes of the frame record the recorder is still appending to, or
+    /// null when no record is open. The record's count byte sits just before this pointer and is
+    /// only written when the record is closed (by the next record opening, or by the replay
+    /// writer before it walks the buffer).
+    pub current_frame_data_start: *mut u8,
+    /// The game frame the recorder last opened a record for. An append at this same frame goes
+    /// into the buffer without opening a record, on the assumption the record for it is still
+    /// open; see `bw_scr::replay_save::rearm_recorder_after_save`.
+    pub current_frame: u32,
     pub data_pos: *mut u8,
 }
 

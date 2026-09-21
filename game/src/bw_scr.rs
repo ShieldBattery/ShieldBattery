@@ -3015,6 +3015,11 @@ impl BwScr {
                 exe.hook_closure_address(
                     SaveReplayByName,
                     move |name, replace_existing, orig| {
+                        replay_save::sanitize_recording(
+                            self.replay_data(),
+                            (*self.game()).frame_count,
+                            self.game_command_lengths(),
+                        );
                         replay_save::save_replay_by_name_hook(
                             autosave,
                             name,
@@ -5430,7 +5435,13 @@ impl BwScr {
             let old_frame_count = (*replay_header).replay_end_frame;
             (*replay_header).replay_end_frame = (*game).frame_count;
 
+            replay_save::sanitize_recording(
+                self.replay_data(),
+                (*game).frame_count,
+                self.game_command_lengths(),
+            );
             let result = (self.save_replay)(path.as_ptr());
+            replay_save::rearm_recorder_after_save(self.replay_data(), (*game).frame_count);
 
             (*replay_header).replay_end_frame = old_frame_count;
             result != 0
