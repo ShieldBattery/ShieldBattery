@@ -123,12 +123,25 @@ or JAR entry point, argument array, working directory, assets, writable director
 allowed races, map/game-mode/opponent-count restrictions, and verified bridge version.
 Separate file hashes/source provenance from a claim that all API behavior works.
 
-An independently released **bot-packages repository** is a useful destination for
-build recipes, provenance, license/dependency inventories, and signed catalog
-metadata. It need not be created before the local runtime works. Prefer on-demand
-versioned downloads with integrity checks, atomic installation, and an offline cache
-over putting every bot into the desktop installer. Ship bot packages and permitted
-runtime components, not StarCraft executables or game assets.
+The local **`../robotics-facility/` repository** holds the bot-package scaffold:
+commit-pinned independent source checkouts, candidate metadata, draft package/catalog
+schemas, and an initially empty release catalog. Its `docs/catalog-and-offline.md`
+defines the proposed delivery and installed-state contract. Existing build recipes
+remain in this repository until moved with their host code and notices.
+
+Keep the remote catalog, cached catalog, and installed inventory separate. Show
+cached entries immediately, refresh asynchronously when stale or explicitly requested,
+and retain the last valid catalog after failure. Launch installed versions using
+local package descriptors without a catalog fetch or login round trip. Updates are
+explicit; a removed catalog entry does not silently uninstall an existing package.
+Maps, game files, and required runtimes must also be present for offline play.
+
+Prefer on-demand versioned downloads with integrity checks and atomic installation.
+DigitalOcean Spaces is the proposed canonical delivery host, with provider-independent
+HTTPS URLs so GitHub releases or mirrors remain possible. No public hosting has been
+configured. Ship bot packages and permitted runtime components, not StarCraft
+executables or game assets. Signed publication, installation, and app integration
+remain implementation work.
 
 Catalog admission requires reviewing the exact bot version, linked libraries,
 assets, and distribution obligations. A tournament download or public source tree
