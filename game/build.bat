@@ -47,7 +47,7 @@ xcopy "%scriptroot%\..\tools\sb_init_64.dll" "%scriptroot%\dist" /y /f /c
 @rem build the DLL
 cd "%scriptroot%"
 cargo build %target% %cargoflags%
-if not errorlevel 0 goto exit
+if errorlevel 1 goto exit
 
 @rem this did xcopy before, but xcopy isn't good for renaming the 64-bit dll,
 @rem so mimicking xcopy with echo + copy
