@@ -143,6 +143,14 @@ export interface GameTurnStateSnapshot {
 export interface GameDebugState {
   /** `null` if there is no live session to report on. */
   turnState: GameTurnStateSnapshot | null
+  /** Presentation and simulation progress, available even without a network session. */
+  presentation?: {
+    background: boolean
+    windowVisible: boolean
+    gameFrame: number
+    renderCalls: number
+    hdAssetSkips: number
+  }
 }
 
 /** The reply payload for a `debugControl`/`screenshot` request, sent as `/game/debug/screenshot`. */

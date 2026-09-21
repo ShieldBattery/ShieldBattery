@@ -103,6 +103,9 @@ export interface GameSetup {
 
 /** Configuration info for launching a local game client to play a specific game. */
 export interface GameLaunchConfig {
+  /** Local presentation policy for this process. Background clients never show a game window. */
+  presentation?: 'background'
+
   /** The user currently logged into the application and playing the game. */
   localUser: SbUser
   /**

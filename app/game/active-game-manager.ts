@@ -25,7 +25,10 @@ import {
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
 import { SlotType } from '../../common/lobbies/slot'
-import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
+import {
+  DEFAULT_LOCAL_SETTINGS,
+  DEFAULT_SCR_SETTINGS,
+} from '../../common/settings/default-settings'
 import {
   cloneCustomTeamColors,
   resolveFfaColors,
@@ -36,7 +39,12 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
-import { LocalSettingsManager, ScrSettingsManager } from '../settings'
+import { fromBlizzardToSb, LocalSettingsManager, ScrSettingsManager } from '../settings'
+import {
+  BACKGROUND_CSETTINGS,
+  BACKGROUND_LOCAL_SETTINGS,
+  createBackgroundGameSettings,
+} from './background-game-settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { isCrashExitCode } from './crash-exit-code'
 import { MapStore } from './map-store'
@@ -72,6 +80,7 @@ interface ActiveGameInfo {
    */
   promise?: Promise<any>
   config?: GameLaunchConfig
+  backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>
   /**
    * The per-session netcode v2 keypair for this game, selected from the manager's key ring once the
    * server's handoff ({@link ActiveGameManager.setNetcodeV2Setup}) names which public key it embedded
@@ -224,22 +233,42 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     const gameId = config.setup.gameId
+    const backgroundSettings =
+      config.presentation === 'background'
+        ? createBackgroundGameSettings(app.getPath('userData'))
+        : undefined
+    let processMayBeRunning = false
     const activeGamePromise = doLaunch(
       gameId,
       this.serverPort,
       this.localSettings,
       this.scrSettings,
-    ).then(
-      async proc => {
-        try {
-          const code = await proc.waitForExit()
-          this.handleGameExit(gameId, code)
-        } catch (err) {
-          this.handleGameExitWaitError(gameId, err as Error)
-        }
-      },
-      err => this.handleGameLaunchError(gameId, err),
+      backgroundSettings,
     )
+      .then(
+        async proc => {
+          processMayBeRunning = true
+          try {
+            const code = await proc.waitForExit()
+            processMayBeRunning = false
+            this.handleGameExit(gameId, code)
+          } catch (err) {
+            this.handleGameExitWaitError(gameId, err as Error)
+          }
+        },
+        err => this.handleGameLaunchError(gameId, err),
+      )
+      .finally(async () => {
+        // A failed wait does not prove the process exited; retain its live settings in that case.
+        if (backgroundSettings && !processMayBeRunning) {
+          try {
+            const prepared = await backgroundSettings
+            await prepared.dispose()
+          } catch (err) {
+            log.error(`Error cleaning background game settings: ${getErrorStack(err)}`)
+          }
+        }
+      })
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
     // must not inherit the old (hung) game's session, so it starts with no keypair adopted yet:
@@ -256,6 +285,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       id: gameId,
       promise: activeGamePromise,
       config,
+      backgroundSettings,
       status: { state: GameStatus.Unknown, extra: null },
     }
     log.verbose(`Creating new game ${gameId}`)
@@ -356,16 +386,27 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       ? map.path
       : this.mapStore.getPath(map.hash, map.mapData.format)
 
-    const local = await this.localSettings.get()
+    const backgroundSettings = await game.backgroundSettings
+    const local = backgroundSettings
+      ? { ...DEFAULT_LOCAL_SETTINGS, ...BACKGROUND_LOCAL_SETTINGS }
+      : await this.localSettings.get()
+    const scr = backgroundSettings
+      ? { ...DEFAULT_SCR_SETTINGS, ...fromBlizzardToSb(BACKGROUND_CSETTINGS) }
+      : await this.scrSettings.get()
+    if (this.activeGame !== game) {
+      this.emit('gameCommand', id, 'quit')
+      return
+    }
     // The stored settings should already have every field populated (via the defaults/migration
     // in `app/settings.ts`), but fall back to the defaults for anything that's still missing so
     // the resolvers below always have complete team-color settings to work with.
     const resolvedLocal = {
       ...DEFAULT_LOCAL_SETTINGS,
       ...local,
-      customTeamColors:
-        local.customTeamColors ?? cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
-      customFfaColors: local.customFfaColors ?? [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
+      customTeamColors: cloneCustomTeamColors(
+        local.customTeamColors ?? DEFAULT_LOCAL_SETTINGS.customTeamColors,
+      ),
+      customFfaColors: [...(local.customFfaColors ?? DEFAULT_LOCAL_SETTINGS.customFfaColors)],
     }
     const desiredMonitorBounds =
       local.monitorId !== undefined
@@ -394,8 +435,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
       local,
-      scr: await this.scrSettings.get(),
-      settingsFilePath: this.scrSettings.gameFilepath,
+      scr,
+      settingsFilePath: backgroundSettings?.settingsFilePath ?? this.scrSettings.gameFilepath,
       monitorBounds,
       // `local` only stores the active preset *names* plus the custom pools; the DLL has no
       // preset tables of its own, so the active preset is mapped to concrete colors here and the
@@ -768,11 +809,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       })
     }
 
-    Promise.resolve()
-      .then(() => this.scrSettings.syncWithGameSettingsFile())
-      .catch(err => {
-        log.error(`Error syncing settings with game settings file: ${err?.stack ?? err}`)
-      })
+    if (!this.activeGame.backgroundSettings) {
+      Promise.resolve()
+        .then(() => this.scrSettings.syncWithGameSettingsFile())
+        .catch(err => {
+          log.error(`Error syncing settings with game settings file: ${err?.stack ?? err}`)
+        })
+    }
 
     let status = this.activeGame.status?.state ?? GameStatus.Unknown
     if (status < GameStatus.Finished) {
@@ -829,7 +872,11 @@ async function doLaunch(
   serverPort: number,
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
+  backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
 ) {
+  // Observe preparation immediately so a filesystem error cannot become an unhandled rejection
+  // while the launcher is waiting for the user's settings or StarCraft path check.
+  await backgroundSettings
   const settings = await localSettings.get()
   const injectPath = settings.launch32Bit ? injectPath32 : injectPath64
   try {
@@ -848,7 +895,9 @@ async function doLaunch(
   }
 
   // Ensure that our local settings file is up-to-date with the current settings
-  await scrSettings.writeGameSettingsFile()
+  if (!backgroundSettings) {
+    await scrSettings.writeGameSettingsFile()
+  }
 
   const userDataPath = app.getPath('userData')
   let appPath = settings.launch32Bit
@@ -882,7 +931,8 @@ async function doLaunch(
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
-    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg}`
+    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ` +
+    (backgroundSettings ? '-sb-background' : '')
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

@@ -287,6 +287,9 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
 /// they can be persisted to settings. Should only be called from the game thread, after the game
 /// loop has ended (while the globals are still valid).
 fn save_minimap_settings() {
+    if crate::is_background_game() {
+        return;
+    }
     let bw = get_bw();
     // With custom team colors active the real global is pinned per mode, so persist the virtual
     // mode the user actually sees; otherwise read BW's real global exactly as before.

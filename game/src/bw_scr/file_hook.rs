@@ -49,6 +49,8 @@ pub fn open_file_hook(
                 && !is_sd
                 && let Some(patched) = check_dummied_out_hd(path)
             {
+                #[cfg(debug_assertions)]
+                crate::debug_control::record_hd_asset_skip();
                 memory_buffer_to_bw_file_handle(patched, out);
                 return out;
             }

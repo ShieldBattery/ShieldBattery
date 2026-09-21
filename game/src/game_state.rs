@@ -928,7 +928,10 @@ impl GameState {
                     }
                     DebugControlCommand::QueryState => {
                         let turn_state = crate::netcode_v2::with_turn_state(|s| s.debug_snapshot());
-                        let response = crate::debug_control::DebugStateResponse { turn_state };
+                        let response = crate::debug_control::DebugStateResponse {
+                            turn_state,
+                            presentation: crate::debug_control::presentation_snapshot(),
+                        };
                         return app_socket::send_message(
                             &self.ws_send,
                             "/game/debug/state",

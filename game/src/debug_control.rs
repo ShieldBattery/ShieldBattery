@@ -135,6 +135,45 @@ pub enum DebugChatTarget {
 pub struct DebugStateResponse {
     /// `None` when no netcode v2 session is live (native/legacy transport, or the turn state is gone).
     pub turn_state: Option<TurnStateSnapshot>,
+    pub presentation: PresentationSnapshot,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresentationSnapshot {
+    pub background: bool,
+    pub window_visible: bool,
+    pub game_frame: u32,
+    pub render_calls: u32,
+    pub hd_asset_skips: u32,
+}
+
+static GAME_FRAME: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static RENDER_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static HD_ASSET_SKIPS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn record_hd_asset_skip() {
+    HD_ASSET_SKIPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Publish simulation progress on the game thread for async debug queries.
+pub fn record_game_frame(frame: u32) {
+    GAME_FRAME.store(frame, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn record_render_call() {
+    RENDER_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn presentation_snapshot() -> PresentationSnapshot {
+    PresentationSnapshot {
+        background: crate::is_background_game(),
+        window_visible: crate::forge::game_window_handle()
+            .is_some_and(|hwnd| unsafe { winapi::um::winuser::IsWindowVisible(hwnd) != 0 }),
+        game_frame: GAME_FRAME.load(std::sync::atomic::Ordering::Relaxed),
+        render_calls: RENDER_CALLS.load(std::sync::atomic::Ordering::Relaxed),
+        hd_asset_skips: HD_ASSET_SKIPS.load(std::sync::atomic::Ordering::Relaxed),
+    }
 }
 
 /// A point-in-time read of [`crate::netcode_v2::TurnState`], for verification tooling.
@@ -513,6 +552,13 @@ mod tests {
     #[test]
     fn state_response_serializes_camel_case_with_null_storm_id() {
         let response = DebugStateResponse {
+            presentation: PresentationSnapshot {
+                background: true,
+                window_visible: false,
+                game_frame: 480,
+                render_calls: 6000,
+                hd_asset_skips: 895,
+            },
             turn_state: Some(TurnStateSnapshot {
                 local_slot: 0,
                 latency_turns: 2,
@@ -566,6 +612,13 @@ mod tests {
         assert_eq!(
             json,
             serde_json::json!({
+                "presentation": {
+                    "background": true,
+                    "windowVisible": false,
+                    "gameFrame": 480,
+                    "renderCalls": 6000,
+                    "hdAssetSkips": 895,
+                },
                 "turnState": {
                     "localSlot": 0,
                     "latencyTurns": 2,
