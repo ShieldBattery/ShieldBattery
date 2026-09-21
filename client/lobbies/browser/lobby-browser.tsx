@@ -15,6 +15,7 @@ import { useKeyListener } from '../../keyboard/key-listener'
 import logger from '../../logging/logger'
 import { isMatchmakingAtom } from '../../matchmaking/matchmaking-atoms'
 import { FilledButton, TextButton } from '../../material/button'
+import { useScrollMemory } from '../../navigation/router-hooks'
 import siteSocket from '../../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useRelationshipsLoader } from '../../social/friends-list'
@@ -144,6 +145,12 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
   const currentLobbyId = useAppSelector(s => s.lobby.info.id)
   const [joinLobbyAction, isJoinPending] = useJoinLobbyAction()
+
+  // Tracked as an element rather than a ref because the list is swapped out for an empty state
+  // whenever the filters (or the lobbies themselves) leave nothing to show, and the hook has to
+  // pick the scroller back up when rows return.
+  const [listPane, setListPane] = useState<HTMLDivElement | null>(null)
+  useScrollMemory(listPane)
 
   useRelationshipsLoader()
 
@@ -374,7 +381,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   } else {
     panes = (
       <>
-        <ListPane>
+        <ListPane ref={setListPane}>
           {visible.map(summary => {
             const isOwn = inCurrentLobby && currentLobbyId === summary.id
             return (

@@ -101,12 +101,19 @@ export function useHistoryEntryKey(): string | undefined {
  *
  * Restoring into content that is currently shorter than the saved position clamps naturally;
  * nothing re-restores if the content later grows.
+ *
+ * The scroller can be given either as a ref or as the element itself. A ref is read once, when the
+ * effect runs, so it suits a scroller that's rendered for as long as its page is. An element (held
+ * in state, via a callback ref) additionally re-runs the effect whenever the scroller mounts or
+ * unmounts, which is what a scroller that's only conditionally rendered needs — one swapped out for
+ * an empty state, say — since a ref would leave the hook holding a detached element and tracking
+ * nothing for the rest of the visit.
  */
-export function useScrollMemory(ref: RefObject<Element | null>): void {
+export function useScrollMemory(target: Element | RefObject<Element | null> | null): void {
   const entryKey = useHistoryEntryKey()
 
   useLayoutEffect(() => {
-    const elem = ref.current
+    const elem = target === null || target instanceof Element ? target : target.current
     if (!elem || entryKey === undefined) {
       return undefined
     }
@@ -127,5 +134,5 @@ export function useScrollMemory(ref: RefObject<Element | null>): void {
         scrollPositions.set(entryKey, lastScrollTop)
       }
     }
-  }, [entryKey, ref])
+  }, [entryKey, target])
 }
