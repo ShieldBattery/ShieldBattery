@@ -63,6 +63,8 @@ pub mod scr;
 
 mod bw_hash_table;
 mod bw_vector;
+#[cfg(debug_assertions)]
+mod bwapi;
 mod chat;
 mod chat_history;
 mod console;
@@ -115,6 +117,8 @@ unsafe fn is_minimap_mask_draw(cmd: &scr::DrawCommand, vertex_buf: *mut scr::Ver
 }
 
 pub struct BwScr {
+    #[cfg(debug_assertions)]
+    bwapi_terrain: Option<bwapi::Terrain>,
     game: Value<*mut bw::Game>,
     game_data: Value<*mut bw::BwGameData>,
     players: Value<*mut bw::Player>,
@@ -4626,6 +4630,8 @@ impl bw::Bw for BwScr {
                 // closes the gate); SB already placed the cursor at the handoff.
                 crate::forge::suppress_scr_cursor_moves(true);
                 (self.game_loop)();
+                #[cfg(debug_assertions)]
+                self.bwapi_end();
                 crate::forge::suppress_scr_cursor_moves(false);
                 // Replay seeking exits game loop and sets a bool for it to restart,
                 // we don't have access to that bool but we hook the replay seek

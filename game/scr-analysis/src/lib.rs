@@ -44,6 +44,14 @@ pub struct Analysis<'e>(
 );
 
 impl<'e> Analysis<'e> {
+    pub fn tileset_cv5(&mut self) -> Option<Operand<'e>> {
+        self.0.tileset_cv5()
+    }
+
+    pub fn minitile_data(&mut self) -> Option<Operand<'e>> {
+        self.0.minitile_data()
+    }
+
     pub fn new(binary: &'e BinaryFile<VirtualAddress>, ctx: OperandCtx<'e>) -> Analysis<'e> {
         Analysis(samase_scarf::Analysis::new(binary, ctx), binary, ctx)
     }

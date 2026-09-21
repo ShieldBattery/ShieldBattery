@@ -210,6 +210,12 @@ impl BwScr {
         let console_vtables = analysis.console_vtables();
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
+        #[cfg(debug_assertions)]
+        let bwapi_terrain = if std::env::var_os("SB_BWAPI").is_some() {
+            super::bwapi::Terrain::analyze(&mut analysis, ctx)
+        } else {
+            None
+        };
         let first_player_unit = analysis.first_player_unit().ok_or("first_player_unit")?;
         let client_selection = analysis.client_selection().ok_or("client_selection")?;
         let sprite_x = analysis.sprite_x().ok_or("sprite_x")?;
@@ -693,6 +699,8 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             first_active_unit: Value::new(ctx, first_active_unit),
+            #[cfg(debug_assertions)]
+            bwapi_terrain,
             sound: sound::Sound::new(
                 sfx_data.map(|x| Value::new(ctx, x)),
                 unsafe { mem::transmute(lookup_sound_id.0) },
