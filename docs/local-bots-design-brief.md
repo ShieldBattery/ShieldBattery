@@ -77,7 +77,8 @@ The intended flow is:
    pool. Allow saving a custom map pool as a named preset and loading it later.
 2. **Choose potential opponents.** Select a set of bots from the available collection
    or supported local builds. Show enough skill/race information to build a useful
-   practice pool. The set can include opponents of any strength.
+   practice pool. The set can include opponents of any strength. Save the set as a
+   named opponent preset and load it again for future sessions.
 3. **Choose identity visibility.** Anonymization is on by default. The player can
    instead choose to know which bot was selected.
 4. **Play.** One action selects a compatible map, one selected opponent, and a race
@@ -109,8 +110,24 @@ ShieldBattery pool needs a clearly identified pool (including which matchmaking
 format, if relevant). A cached official pool can support offline practice, but label
 it as the last downloaded pool rather than claiming it is current. Explain changes
 and missing maps when refreshing an official pool. Whether an official-pool selection
-follows updates or saves a snapshot, and whether presets also save opponents and
-anonymity settings, are open decisions. Named custom map-pool presets are required.
+follows updates or saves a snapshot remains an open decision.
+
+**Opponent presets:** named opponent-set presets are required alongside map-pool
+presets. Players can save, load, rename, update, and delete a lineup, such as "Terran
+practice" or "A tougher challenge." Keep opponent presets independent of map presets
+so the same lineup can be used with different maps. Show the saved opponents and
+make unsaved edits apparent; saving changes should be deliberate.
+
+Presets persist locally across sessions and remain usable offline when their bots
+and other prerequisites are installed. Retain the selected bot releases, including
+supported custom builds, rather than silently switching to newer versions. A missing
+or incompatible bot should remain visible as needing attention; offer installation,
+replacement, or explicit removal instead of silently changing the saved lineup.
+Deleting a preset removes the saved selection, not bot installations or learning.
+
+Map and opponent presets do not implicitly change the anonymity toggle. A combined
+practice preset that also stores both pools and other session settings is a possible
+follow-up, not required for the first preset design.
 
 ### Anonymous opponents and replay identity
 
@@ -334,8 +351,9 @@ open design choices.
 Prioritize a connected flow over a large collection of unrelated screens:
 
 1. Entry into local play with clear paths for practice matchmaking and one-off games.
-2. Practice setup: custom/current ShieldBattery map pool, named map-pool presets,
-   multiple candidate opponents, anonymity on by default, and a single Play action.
+2. Practice setup: custom/current ShieldBattery map pool, named map-pool and opponent
+   presets, saving/editing/loading a lineup, anonymity on by default, and a single
+   Play action. Include a saved lineup with a missing bot that needs attention.
 3. Bot selection with human-comparable division/rating indicators and provisional or
    unrated variations; retain direct selection of any compatible bot.
 4. Anonymous launch and in-game opponent name, an identified-opponent variation,
@@ -345,8 +363,8 @@ Prioritize a connected flow over a large collection of unrelated screens:
    attribution, modification disclosure, and installation actions.
 6. Pool readiness/download flow, including missing Java, incompatible combinations,
    a recoverable download failure, and a pool with no playable matchup.
-7. Offline return visit with installed bots and saved map presets, a cached official
-   map pool, and the first-use/no-catalog empty state.
+7. Offline return visit with installed bots and saved map/opponent presets, a cached
+   official map pool, and the first-use/no-catalog empty state.
 8. Bot management showing an available update, retained learning, and reset confirmation.
 9. Custom-bot import/refresh with a readable compatibility error and access to logs.
 10. Launch preparation/cancellation, a bot startup failure, and return from a completed
@@ -358,7 +376,7 @@ as a separate screen. Use the existing ShieldBattery visual language. Status and
 alone, and the picker/setup should remain usable with keyboard navigation.
 
 The main design questions are placement, human-comparable skill presentation,
-map-pool/preset management, anonymity and post-game reveal, and how library management
+map and opponent preset management, anonymity and post-game reveal, and how library management
 connects to both ways of playing. Keep offline readiness understandable without making
 the user wade through implementation details. Leave room for bots in future online
 lobbies, but avoid exposing hosting, ladder eligibility, or tournament
