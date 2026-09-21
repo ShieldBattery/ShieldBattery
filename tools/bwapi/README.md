@@ -5,6 +5,27 @@ It controls the local human player slot through ordinary synchronized game comma
 It is disabled by default and is compiled out of release DLLs. It is not a production bot
 integration or a claim of full BWAPI compatibility.
 
+## Verified scenarios
+
+The verified scope is two pinned, unchanged-source Win32 clients using BWAPI
+protocol version 10003:
+
+- ZZZKBot won a complete x86 SC:R game against the built-in Terran computer.
+- ZZZKBot won a complete x64 netcode v2 game against a passive Random peer,
+  including race discovery, Extractor construction, synchronized combat, and
+  `onEnd` while the victory dialog remained open.
+- UAlbertaBot won a complete x64 netcode v2 game against a passive local Zerg
+  peer with its stock configuration.
+
+The [compatibility research report](../../docs/bwapi-compatibility-research.md)
+records the game IDs, sync-probe boundaries, behavior exercised, learning-file
+evidence, and post-terminal limitations.
+
+After the latest adapter fixes, all 17 bridge tests pass on x86 and x64, clippy
+passes for both targets, formatting passes, and both `game\build.bat` outputs are fresh and
+match their built DLL hashes. These are scenario results, not full API
+conformance.
+
 ## Build the existing test bot
 
 Install Visual Studio 2022 with C++ x86/x64 tools and CMake. From the repository root:
@@ -68,17 +89,41 @@ start, so start a fresh process for every match.
    after testing; it otherwise waits for another game.
 
 The bridge does not pause a multiplayer simulation while the bot computes. A slow client
-receives the next available snapshot when it acknowledges the previous one. Commands are
-validated against current ownership, visibility, and native unit identity before submission.
-This protects normal game progression from a stalled/disconnected bot; it also differs from
-the stock BWAPI server's synchronous per-frame behavior.
+receives the next available snapshot when it acknowledges the previous one, so snapshots can
+skip frames. An external client that attaches during startup can receive its first match
+snapshot after frame zero. Commands are validated against current ownership, visibility, and
+native unit identity before submission. This protects normal game progression from a
+stalled/disconnected bot; it also differs from the stock BWAPI server's synchronous per-frame
+behavior.
 
 ## Compatibility boundaries
 
-The first target is the pinned ZZZKBot source build and BWAPI client protocol version 10003.
-Other BWAPI releases, C++ DLL ABIs, terrain-library expectations, and sophisticated combat
-semantics require separate validation. OpenBW's implementation is useful as an engine-adapter
-reference; replacing SC:R with OpenBW is not necessary for this bridge.
+The supported target is the pinned BWAPI 4.4 client protocol version 10003 and the source
+builds described above. This does not provide binary compatibility for arbitrary native
+`AIModule` DLLs. Other BWAPI releases, C++ ABIs, terrain-library expectations, and
+sophisticated command, query, and event semantics require separate validation. OpenBW's
+implementation is useful as an engine-adapter reference; replacing SC:R with OpenBW is not
+necessary for this bridge.
+
+Unit commands and queries cover the verified scenarios but remain partial. Generic game
+commands such as `LeaveGame`, drawing, local speed, and frame skip are unsupported. Native
+terminal states 1 through 3 ignore queued bot commands; state 3 is victory, while state 1
+(Disconnected) and state 2 are defeat. The first following client acknowledgement receives
+`MatchFrame` plus `MatchEnd` with `isInGame` still true, and the next
+acknowledgement receives menu state. The x64 ZZZK victory verified that `onEnd` runs
+while the result dialog is open. The native End Mission UI action remains manual because
+`LeaveGame` is unsupported.
+
+The adapter reads map flags, indexed tiles, CV5 data, and minitile data through four thin
+`scr-analysis` wrappers over APIs already present in the pinned samase_scarf revision;
+samase_scarf itself was not changed. Verify the C++ and Rust wire layouts for x86 and x64
+against the pinned headers with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/bwapi/verify-abi.ps1 -BwapiRoot .claude-scratch/bwapi-research
+```
+
+The four-way verification and an independent rerun both pass for the pinned sources.
 
 The shared interface still has BWAPI 1.16-era limits (256-square maps, 1700-unit spatial
 index, 10000 unit identities per game). Extended SC:R limits need an explicit policy.
