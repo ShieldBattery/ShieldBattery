@@ -46,6 +46,10 @@ struct Bridge {
 struct Snapshot {
     started: bool,
     exhausted: bool,
+    end_published: bool,
+    end_acknowledged: bool,
+    known_races: [Option<u8>; 12],
+    seen_players: [bool; 12],
     ids: HashMap<u32, usize>,
     units: Vec<TrackedUnit>,
     accepted_commands: u64,
@@ -98,6 +102,10 @@ impl BwScr {
             let result = active.server.poll(|data, connected| unsafe {
                 if connected {
                     active.state = Snapshot::default();
+                    if matches!((*self.game()).victory_state[local as usize], 1..=3) {
+                        active.state.end_published = true;
+                        active.state.end_acknowledged = true;
+                    }
                     data.is_in_game = 0;
                     data.event_count = 1;
                     data.events[0] = wire::Event {
@@ -126,48 +134,29 @@ impl BwScr {
                 return;
             };
             let deadline = std::time::Instant::now() + std::time::Duration::from_millis(500);
-            let mut published = false;
-            let mut acknowledged = false;
-            while !acknowledged && std::time::Instant::now() < deadline {
+            while !bridge_value.state.end_acknowledged && std::time::Instant::now() < deadline {
                 let result = bridge_value.server.poll(|data, initial| {
-                    data.clear_inbound();
-                    data.event_string_count = 0;
-                    if published || initial {
-                        data.is_in_game = 0;
-                        data.event_count = 1;
-                        data.events[0] = wire::Event {
-                            kind: 3,
-                            value1: 0,
-                            value2: 0,
-                        };
-                        acknowledged = true;
-                    } else {
-                        // The stock client only materializes events on a frame event and clears
-                        // its players/events when isInGame becomes false. Keep the final snapshot
-                        // until the bot has acknowledged its end callback.
-                        data.is_in_game = 1;
-                        data.event_count = 2;
-                        data.events[0] = wire::Event {
-                            kind: 2,
-                            value1: 0,
-                            value2: 0,
-                        };
-                        let local = unsafe { self.local_player_id.resolve() } as usize;
-                        let won = local < 8 && unsafe { (*self.game()).victory_state[local] == 3 };
-                        data.events[1] = wire::Event {
-                            kind: 1,
-                            value1: i32::from(won),
-                            value2: 0,
-                        };
-                        published = true;
+                    if initial {
+                        bridge_value.state.started = false;
                     }
+                    let local = unsafe { self.local_player_id.resolve() } as usize;
+                    let won = local < 8 && unsafe { (*self.game()).victory_state[local] == 3 };
+                    if local < 8 && bridge_value.state.started {
+                        unsafe {
+                            bridge_value.state.update_players(self, data, local as u8);
+                            let game = bw_dat::Game::from_ptr(self.game());
+                            data.frame_count = game.frame_count() as i32;
+                            data.elapsed_time = game.elapsed_seconds() as i32;
+                        }
+                    }
+                    bridge_value.state.finish(data, won);
                 });
                 if result.is_err()
                     || matches!(result, Ok(crate::bwapi::transport::PollEvent::Disconnected))
                 {
                     break;
                 }
-                if !acknowledged {
+                if !bridge_value.state.end_acknowledged {
                     std::thread::sleep(std::time::Duration::from_millis(5));
                 }
             }
@@ -180,9 +169,36 @@ impl BwScr {
 }
 
 impl Snapshot {
+    fn finish(&mut self, data: &mut wire::GameData, won: bool) {
+        data.clear_inbound();
+        data.event_count = 0;
+        data.event_string_count = 0;
+        if !self.started || self.end_published {
+            data.is_in_game = 0;
+            event(data, 3, 0);
+            self.end_acknowledged = true;
+        } else {
+            // The stock client materializes events on MatchFrame and clears its player/event
+            // state when isInGame becomes false. Publish the end callback before the menu.
+            data.is_in_game = 1;
+            event(data, 2, 0);
+            event(data, 1, i32::from(won));
+            self.end_published = true;
+            info!("BWAPI: MatchEnd winner={won} frame={}", data.frame_count);
+        }
+    }
+
     unsafe fn exchange(&mut self, bw: &BwScr, data: &mut wire::GameData, local: u8) {
         unsafe {
             let game = bw_dat::Game::from_ptr(bw.game());
+            let victory = (**game).victory_state[local as usize];
+            if self.end_published || (self.started && matches!(victory, 1..=3)) {
+                self.update_players(bw, data, local);
+                data.frame_count = game.frame_count() as i32;
+                data.elapsed_time = game.elapsed_seconds() as i32;
+                self.finish(data, victory == 3);
+                return;
+            }
             let vector = &*bw.units.resolve();
             let native = UnitArray::new(vector.data.cast(), vector.length);
             if self.started {
@@ -225,6 +241,11 @@ impl Snapshot {
             self.update_players(bw, data, local);
             self.update_tiles(bw, data, local);
             self.update_units(data, &native, local, game);
+            for (i, seen) in self.seen_players.iter().enumerate() {
+                if *seen {
+                    data.players[i].race = i32::from((*bw.players().add(i)).race);
+                }
+            }
             if self.exhausted || data.event_count as usize >= wire::MAX_EVENTS {
                 self.exhausted = true;
                 data.event_count = 0;
@@ -259,6 +280,26 @@ impl Snapshot {
     unsafe fn initialize(&mut self, bw: &BwScr, data: &mut wire::GameData, local: u8) {
         unsafe {
             let game = &*bw.game();
+            if let Some(setup) = crate::game_thread::setup_info() {
+                for mapping in crate::game_thread::player_id_mapping() {
+                    let Some(id) = mapping.game_id else {
+                        continue;
+                    };
+                    let Some(known) = self.known_races.get_mut(id.0 as usize) else {
+                        continue;
+                    };
+                    *known = setup
+                        .slots
+                        .iter()
+                        .find(|s| s.user_id == Some(mapping.sb_user_id))
+                        .and_then(|s| match s.race.as_deref() {
+                            Some("z") => Some(0),
+                            Some("t") => Some(1),
+                            Some("p") => Some(2),
+                            _ => None,
+                        });
+                }
+            }
             data.self_ = i32::from(local);
             data.neutral = 11;
             data.enemy = (0..8)
@@ -402,7 +443,11 @@ impl Snapshot {
                 // Client-writable fields are overwritten before publication.
                 *out = mem::zeroed();
                 copy_text(&mut out.name, &player.name);
-                out.race = i32::from(player.race);
+                out.race = if i < 8 && i != local as usize {
+                    observed_race(self.known_races[i], self.seen_players[i], player.race)
+                } else {
+                    i32::from(player.race)
+                };
                 out.kind = i32::from(player.player_type);
                 out.force = 1;
                 out.is_neutral = u8::from(i == 11);
@@ -421,13 +466,16 @@ impl Snapshot {
                     }
                 }
                 for j in 0..12usize {
-                    out.is_ally[j] = u8::from(game.allied(i as u8, j as u8));
+                    let participants = out.is_participating != 0
+                        && j < 8
+                        && matches!((*bw.players().add(j)).player_type, 1 | 2);
+                    out.is_ally[j] = u8::from(participants && game.allied(i as u8, j as u8));
                     out.is_enemy[j] =
-                        u8::from(i < 8 && j < 8 && i != j && !game.allied(i as u8, j as u8));
+                        u8::from(participants && i != j && !game.allied(i as u8, j as u8));
                 }
                 if i < 8 {
                     out.is_victorious = u8::from((**game).victory_state[i] == 3);
-                    out.is_defeated = u8::from((**game).victory_state[i] == 2);
+                    out.is_defeated = u8::from(matches!((**game).victory_state[i], 1 | 2));
                 }
                 if i != local as usize {
                     continue;
@@ -525,6 +573,9 @@ impl Snapshot {
             let mut accessible_now = vec![false; self.units.len()];
             for &(id, unit, accessible, visible) in &current {
                 seen[id] = true;
+                if visible {
+                    self.seen_players[unit.player() as usize] = true;
+                }
                 accessible_now[id] = accessible;
                 if !accessible {
                     continue;
@@ -656,7 +707,15 @@ impl Snapshot {
                 out.addon = self.unit_id(native, unit.addon());
                 out.nydus_exit = self.unit_id(native, unit.nydus_linked());
                 out.power_up = self.unit_id(native, unit.powerup());
-                out.rally_unit = self.unit_id(native, unit.rally_unit());
+                out.rally_unit = -1;
+                out.rally_position_x = 32000;
+                out.rally_position_y = 32032;
+                if can_produce(unit.id().0) {
+                    out.rally_unit = self.unit_id(native, unit.rally_unit());
+                    let rally = (**unit).rally_pylon.rally.pos;
+                    out.rally_position_x = i32::from(rally.x);
+                    out.rally_position_y = i32::from(rally.y);
+                }
                 out.transport = if unit.in_transport() {
                     self.unit_id(native, unit.related())
                 } else {
@@ -929,6 +988,17 @@ fn map_hash(path: &std::path::Path) -> std::io::Result<String> {
         .collect())
 }
 
+// BWAPI 4.4's ProducesUnits flag is part of its public type table.
+fn can_produce(kind: u16) -> bool {
+    matches!(kind, 72 | 81..=83 | 106 | 111 | 113 | 114 | 130..=133 | 154 | 155 | 160 | 167)
+}
+
+fn observed_race(selected: Option<u8>, seen: bool, actual: u8) -> i32 {
+    selected
+        .map(i32::from)
+        .unwrap_or_else(|| if seen { i32::from(actual) } else { 8 })
+}
+
 fn construction_order(order: u8) -> bool {
     matches!(normalized_order(order), 25 | 26 | 30..=33 | 37 | 44..=46 | 48 | 70)
 }
@@ -968,7 +1038,7 @@ fn redact_inside(unit: &mut wire::UnitData) {
     unit.remaining_upgrade_time = 0;
     unit.rally_unit = -1;
     unit.rally_position_x = 32000;
-    unit.rally_position_y = 32000;
+    unit.rally_position_y = 32032;
     unit.has_nuke = 0;
     unit.transport = -1;
     unit.is_hallucination = 0;
@@ -1022,6 +1092,47 @@ fn normalized_order(order: u8) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn match_end_is_delivered_once_before_menu_and_discards_pending_commands() {
+        let layout = std::alloc::Layout::new::<wire::GameData>();
+        // The wire schema contains only integers, floats, and fixed arrays; zero is valid.
+        let mut data = unsafe {
+            let ptr = std::alloc::alloc_zeroed(layout).cast::<wire::GameData>();
+            if ptr.is_null() {
+                std::alloc::handle_alloc_error(layout);
+            }
+            Box::from_raw(ptr)
+        };
+        let mut state = Snapshot {
+            started: true,
+            ..Default::default()
+        };
+        data.unit_command_count = 1;
+        state.finish(&mut data, true);
+        assert_eq!(data.unit_command_count, 0);
+        assert_eq!(data.is_in_game, 1);
+        assert_eq!(data.event_count, 2);
+        assert_eq!(data.events[0].kind, 2);
+        assert_eq!(data.events[1].kind, 1);
+        assert_eq!(data.events[1].value1, 1);
+        assert!(!state.end_acknowledged);
+        state.finish(&mut data, true);
+        assert_eq!(data.is_in_game, 0);
+        assert_eq!(data.event_count, 1);
+        assert_eq!(data.events[0].kind, 3);
+        assert!(state.end_acknowledged);
+        state.finish(&mut data, true);
+        assert_eq!(data.event_count, 1);
+        assert_eq!(data.events[0].kind, 3);
+    }
+
+    #[test]
+    fn random_race_is_unknown_until_an_opponent_unit_is_seen() {
+        assert_eq!(observed_race(None, false, 0), 8);
+        assert_eq!(observed_race(None, true, 0), 0);
+        assert_eq!(observed_race(Some(1), false, 1), 1);
+    }
 
     #[test]
     fn drone_landing_remains_construction_until_the_building_morphs() {
