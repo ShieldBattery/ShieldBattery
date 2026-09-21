@@ -17,6 +17,10 @@ protocol version 10003:
 - UAlbertaBot won a complete x64 netcode v2 game against a passive local Zerg
   peer with its stock configuration.
 
+A fresh game after all adapter review fixes also verified ZZZKBot winning on
+x86 against an x64 peer, with matching active-match sync probes and an automatic
+winning end callback.
+
 The [compatibility research report](../../docs/bwapi-compatibility-research.md)
 records the game IDs, sync-probe boundaries, behavior exercised, learning-file
 evidence, and post-terminal limitations.

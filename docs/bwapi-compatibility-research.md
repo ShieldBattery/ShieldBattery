@@ -53,10 +53,21 @@ families, or the full public API. After the latest adapter fixes, all 17 bridge
 tests pass on both x86 and x64, clippy passes for both targets, formatting passes, and both
 `build.bat` outputs are fresh and match their built DLL hashes.
 
-The full-game runs preceded the final review corrections to producer-only rally
-fields, race disclosure within the discovery snapshot, disconnected-player status,
-and terminal metadata on native-loop exit. Those corrections passed the final
-x86/x64 tests, lint, and builds; another full game was not run after them.
+A subsequent completion audit ran the current adapter after all review corrections.
+In game `01a0c3c1-7226-73ea-a65b-43d531a8f894`, ZZZKBot controlled the
+ShieldBattery-launched x86 client against a passive x64 Random peer, which resolved
+to Protoss. Both clients used netcode v2. The bot won at frame 4684, received
+`onEnd winner=1` while the native victory dialog remained open, and acknowledged
+menu state (`isInGame=0`, `MenuFrame`). Its existing learning file grew from 517
+to 1035 bytes and recorded the winning callback. All 20 probes from frame 0
+through 4560 matched; probes 4800 and 5040 diverged after terminal departure.
+The live snapshot also verified that the spawning pool exposes no rally point.
+After the native End Mission action, ShieldBattery reported the game as finished
+and displayed the bot player's win (03:18). The bridge logged 12312 accepted and
+11 rejected commands. The normal source-build recipe was rerun before this game, and the current x86
+DLL was rebuilt through `game\build.bat x86`. Local audit artifacts are preserved
+under `.claude-scratch/bwapi-audit/` (`bot.out.log`, `sync.json`, `terminal.json`,
+and `victory.png`).
 
 ZZZKBot is a better first real bot than an artificial worker-rush example. Its
 normal strategy is a small Zerg rush bot, its project has no BWTA or BWEM
