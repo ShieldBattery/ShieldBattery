@@ -368,22 +368,19 @@ fn push_u32(record: &mut Vec<u8>, value: u32) {
 }
 
 fn is_terran_building(unit_type: u16) -> bool {
-    matches!(
-        unit_type,
-        106 | 109..=114 | 116 | 120..=123
-    )
+    matches!(unit_type, 106 | 109..=114 | 116 | 120 | 122..=125)
 }
 
 fn is_zerg_building(unit_type: u16) -> bool {
-    matches!(unit_type, 131..=146)
+    matches!(unit_type, 131..=146 | 149)
 }
 
 fn is_protoss_building(unit_type: u16) -> bool {
-    matches!(unit_type, 154..=169)
+    matches!(unit_type, 154..=157 | 159..=160 | 162..=167 | 169..=172)
 }
 
 fn is_player_building(unit_type: u16) -> bool {
-    matches!(unit_type, 106..=123 | 131..=146 | 154..=169)
+    is_terran_building(unit_type) || is_zerg_building(unit_type) || is_protoss_building(unit_type)
 }
 
 #[cfg(test)]
@@ -455,6 +452,12 @@ mod tests {
     fn encodes_build_train_and_morph_records() {
         let build = encoded(command(kind::BUILD, 12, 34, 109), None, TERRAN_SCV);
         assert_eq!(build[1], [0x0c, 0x1e, 12, 0, 34, 0, 109, 0]);
+
+        let extractor = encoded(command(kind::BUILD, 12, 34, 149), None, ZERG_DRONE);
+        assert_eq!(extractor[1], [0x0c, 0x19, 12, 0, 34, 0, 149, 0]);
+
+        let shield_battery = encoded(command(kind::BUILD, 12, 34, 172), None, PROTOSS_PROBE);
+        assert_eq!(shield_battery[1], [0x0c, 0x1f, 12, 0, 34, 0, 172, 0]);
 
         let train = encoded(command(kind::TRAIN, 32_000, 32_032, 0), None, 0);
         assert_eq!(train[1], [0x1f, 0, 0]);
