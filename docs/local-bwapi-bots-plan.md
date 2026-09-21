@@ -166,8 +166,14 @@ one opponent must not be offered for an unsupported multi-opponent match.
 ZZZKBot and UAlbertaBot are the currently exercised integration baselines. The bots
 below are candidates, **not verified compatible or approved distribution packages**.
 Top-level licenses are only the first step; pin and audit each dependency and asset.
-The live SSCAIT scores page timed out during this research. Search snapshots are
-insufficient for fresh numerical ranks, so do not publish them as current ratings.
+The user subsequently supplied a saved SSCAIT page. The
+[snapshot review](sscait-bot-snapshot-2026-09-21.md) records its displayed Elo values,
+status, entry aliases, and version caveats. It contains 292 entries, 114 enabled;
+its separate rank column is blank. Stardust leads the displayed Elo values at 3445.
+This is a saved-page observation, not a verified server-side measurement timestamp.
+Monster, the BananaBrain race variants, Dragon, and WillyT warrant additional
+investigation for strength, race coverage, or multi-opponent support. McRaveZ is the
+active rated Zerg entry; do not confuse it with the disabled Protoss McRave entry.
 
 | Candidate                                                         | Useful coverage                                                                    | Upstream license and remaining work                                                                                                                                                                                                                               |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -181,7 +187,11 @@ Locutus is a possible later Protoss candidate; inspect its custom license and BW
 map-cache requirements before packaging. BananaBrain and Microwave are interesting
 strength/variety candidates, but this research did not establish author-controlled
 redistribution terms. Treat their availability on tournament download pages as
-insufficient permission. No author outreach or catalog publication has occurred.
+insufficient permission. Travis plans author outreach; prepare requests for recommended versions,
+attribution, redistribution, and competitive-use permission where needed. Track
+local-play/distribution and public-ladder/tournament eligibility separately, with
+the scope and versions covered by any author grant. No author outreach or catalog
+publication has occurred as part of this research.
 
 For Stardust in particular, local distribution and competitive submission are
 separate decisions. Preserve its exact license, and obtain permission or clarification
