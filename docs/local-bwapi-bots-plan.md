@@ -107,9 +107,14 @@ it is not a security sandbox. [Windows job-object documentation](https://learn.m
 
 Keep bot-specific settings, logs, terrain caches, and learning files separate from
 the human's SC:R settings and from other bot instances. Packages are immutable;
-writable state has its own versioned directory. Define how tournament-style `read`
-and `write` trees are promoted between games. Concurrent instances must not write
-the same learning files. Expose a reset-learning action for repeatable difficulty.
+writable state belongs to a persistent learning profile independent of package
+release ID. Track state-format compatibility and the last writer release separately:
+compatible updates retain history, migrations work on a copy with a preserved
+snapshot, and incompatible updates must not discard old state. Profiles can be
+associated with an SB user but are neither user IDs nor match/session identifiers.
+Define how tournament-style `read` and `write` trees are promoted between games.
+Concurrent instances must not write the same learning files. Expose a reset-learning
+action that restores the selected compatible release's packaged baseline.
 
 Measure startup time, steady-state CPU/GPU/RAM, and one/two/four-bot matches before
 choosing a default bot-count limit. Hidden clients still run full simulations.
