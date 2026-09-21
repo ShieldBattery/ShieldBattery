@@ -52,6 +52,8 @@ pub mod scr;
 
 mod bw_hash_table;
 mod bw_vector;
+#[cfg(debug_assertions)]
+mod bwapi;
 mod chat;
 mod console;
 mod dialog_hook;
@@ -69,6 +71,8 @@ const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
 
 pub struct BwScr {
+    #[cfg(debug_assertions)]
+    bwapi_terrain: Option<bwapi::Terrain>,
     game: Value<*mut bw::Game>,
     game_data: Value<*mut bw::BwGameData>,
     players: Value<*mut bw::Player>,
@@ -1377,6 +1381,12 @@ impl BwScr {
         let console_vtables = analysis.console_vtables();
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
+        #[cfg(debug_assertions)]
+        let bwapi_terrain = if std::env::var_os("SB_BWAPI").is_some() {
+            bwapi::Terrain::analyze(&mut analysis, ctx)
+        } else {
+            None
+        };
         let first_player_unit = analysis.first_player_unit().ok_or("first_player_unit")?;
         let client_selection = analysis.client_selection().ok_or("client_selection")?;
         let sprite_x = analysis.sprite_x().ok_or("sprite_x")?;
@@ -1692,6 +1702,8 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             first_active_unit: Value::new(ctx, first_active_unit),
+            #[cfg(debug_assertions)]
+            bwapi_terrain,
             sfx_data: sfx_data.map(|x| Value::new(ctx, x)),
             first_player_unit: Value::new(ctx, first_player_unit),
             client_selection: Value::new(ctx, client_selection),
@@ -2141,6 +2153,8 @@ impl BwScr {
                     orig();
                     game_thread::after_step_game();
                     self.update_team_colors_from_alliances();
+                    #[cfg(debug_assertions)]
+                    self.bwapi_step();
                 },
                 address,
             );
@@ -5778,6 +5792,8 @@ impl bw::Bw for BwScr {
                 // closes the gate); SB already placed the cursor at the handoff.
                 crate::forge::suppress_scr_cursor_moves(true);
                 (self.game_loop)();
+                #[cfg(debug_assertions)]
+                self.bwapi_end();
                 crate::forge::suppress_scr_cursor_moves(false);
                 // Replay seeking exits game loop and sets a bool for it to restart,
                 // we don't have access to that bool but we hook the replay seek

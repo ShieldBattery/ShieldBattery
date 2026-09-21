@@ -19,6 +19,7 @@ panic = "abort"
 lto = true
 
 [dependencies]
+sha1 = "0.11.0"
 atomic_enum = "0.3"
 # Decodes the base64-wrapped rally-point2 credentials (token / client key / relay cert) handed
 # over at launch. Already in the tree transitively; pinned here as a direct dep.
@@ -98,6 +99,7 @@ features = [
   "memoryapi",
   "minwinbase",
   "minwindef",
+  "namedpipeapi",
   "processthreadsapi",
   "shlobj",
   "stringapiset",

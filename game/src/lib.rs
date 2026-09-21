@@ -49,6 +49,8 @@ mod app_messages;
 mod app_socket;
 mod bw;
 mod bw_scr;
+#[cfg(debug_assertions)]
+mod bwapi;
 mod cancel_token;
 mod crash_dump;
 #[cfg(debug_assertions)]

@@ -4742,6 +4742,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
+ "sha1",
  "smallvec",
  "thiserror 2.0.20",
  "tokio",
