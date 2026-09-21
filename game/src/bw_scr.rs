@@ -4508,11 +4508,12 @@ impl bw::Bw for BwScr {
             .get("visualizeNetworkStalls")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
-        let disable_hd = settings
-            .local
-            .get("disableHd")
-            .and_then(|x| x.as_bool())
-            .unwrap_or(false);
+        let disable_hd = crate::is_background_game()
+            || settings
+                .local
+                .get("disableHd")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false);
 
         let use_custom_cursor_size = settings
             .local
@@ -6374,6 +6375,8 @@ unsafe fn step_game_logic_hook(
     param: usize, // Always 0, nonzero would affect replay playback somehow
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
+    #[cfg(debug_assertions)]
+    crate::debug_control::record_game_frame(unsafe { (*bw.game()).frame_count });
     if !bw.first_game_logic_frame_done.load(Ordering::Relaxed) {
         bw.first_game_logic_frame_done
             .store(true, Ordering::Relaxed);

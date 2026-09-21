@@ -110,6 +110,7 @@ rootElemPromise
       // bundles.
       window.__sbReduxStore = reduxStore
       window.__sbDebugGame = {
+        launch: config => new TypedIpcRenderer().invoke('activeGameSetConfig', config),
         queryGameState: gameId =>
           new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
         forceUnsyncedLeave: (gameId, slot) =>

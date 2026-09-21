@@ -100,6 +100,14 @@ native unit identity before submission. This protects normal game progression fr
 stalled/disconnected bot; it also differs from the stock BWAPI server's synchronous per-frame
 behavior.
 
+## Hidden, low-resource game clients
+
+Launch configs can opt into `presentation: 'background'` to use a hidden 640x480
+SC:R client with private canned settings, SD asset loading, muted audio, and no
+ShieldBattery overlay. See [background SC:R clients](../../docs/background-scr-clients.md)
+for the developer launch controls, measured savings, and remaining renderer and
+multi-client lifecycle work. This mode still runs native graphics initialization.
+
 ## Compatibility boundaries
 
 The supported target is the pinned BWAPI 4.4 client protocol version 10003 and the source

@@ -87,6 +87,11 @@ impl BwScr {
                         callbacks.len(),
                         second_draw,
                     );
+                    // Background clients still run native draw-command lifecycle code, but have
+                    // no interactive overlay to update or render.
+                    if crate::is_background_game() {
+                        return;
+                    }
                     let renderer = self.renderer.resolve();
                     let commands = self.draw_commands.resolve();
                     let vertex_buffer = self.vertex_buffer.resolve();
@@ -699,6 +704,8 @@ impl BwScr {
                             fog_style.write_shader_constants(c, is_minimap);
                         }
                     }
+                    #[cfg(debug_assertions)]
+                    crate::debug_control::record_render_call();
                     let ret = {
                         let _timing = crate::frame_timing::render();
                         orig(renderer, commands, width, height)
