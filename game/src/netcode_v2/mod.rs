@@ -323,14 +323,17 @@ impl DisconnectStatus {
         }
     }
 
-    /// Whether the session has a real, relay-acknowledged connection problem right now: our own link
-    /// is down, or at least one peer's drop has been relay-confirmed. Deliberately excludes the
-    /// stall-only tier — an unconfirmed stall is not relay-acknowledged, so it should never be strong
-    /// enough to lock game input against what might be a passing latency blip. Used to gate whether
-    /// `bw_scr::draw_overlay::OverlayState::window_proc` pauses game-destined input, so a disconnect
-    /// overlay in this state behaves like a pause.
-    pub fn is_blocking(&self) -> bool {
-        self.self_lost || !self.peers.is_empty()
+    /// Whether the disconnect overlay is showing a condition that must pause the player's unit
+    /// commands at `now`: our own link is down, at least one peer's drop is relay-confirmed, or the
+    /// sim has been stalled on a remote turn for at least [`STALL_TIER_DELAY`]. The sustained stall
+    /// counts even though the relay hasn't confirmed anything: while the sim is frozen, every
+    /// command the player issues is queued into the same turn and bursts out the moment turns
+    /// resume, so a stall that is long enough to draw the panel must also stop taking commands.
+    /// A stall shorter than the delay never blocks, so a passing latency blip can't lock input.
+    /// Used to gate whether `bw_scr::draw_overlay::OverlayState::window_proc` swallows game-destined
+    /// input; the game menu stays reachable so the player can always quit.
+    pub fn is_blocking(&self, now: Instant) -> bool {
+        self.self_lost || !self.peers.is_empty() || self.stall_sustained(now)
     }
 
     /// This client's own connection state at `now`. Driven solely by [`self_lost`](Self::self_lost) —
@@ -4137,20 +4140,25 @@ mod tests {
     }
 
     #[test]
-    fn is_blocking_only_on_self_loss_or_a_confirmed_peer_never_on_stall_alone() {
+    fn is_blocking_on_self_loss_a_confirmed_peer_or_a_sustained_stall() {
         let now = Instant::now();
 
-        // A sustained, whole-roster, unconfirmed stall must NOT block input — it might be a passing
-        // latency blip, not a real relay-acknowledged problem.
-        let stalled_only = DisconnectStatus {
+        // A stall blocks only once it has lasted the stall-tier delay (the point the panel appears);
+        // a shorter one is a passing latency blip and must never lock input.
+        let stalled_briefly = DisconnectStatus {
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
             }],
-            stalled_since: Some(now - STALL_TIER_DELAY * 2),
+            stalled_since: Some(now - STALL_TIER_DELAY / 2),
             ..DisconnectStatus::healthy()
         };
-        assert!(!stalled_only.is_blocking());
+        assert!(!stalled_briefly.is_blocking(now));
+        let stalled_only = DisconnectStatus {
+            stalled_since: Some(now - STALL_TIER_DELAY * 2),
+            ..stalled_briefly
+        };
+        assert!(stalled_only.is_blocking(now));
         assert_eq!(stalled_only.self_state(now), SelfState::Healthy);
 
         // A relay-confirmed peer drop blocks, regardless of the unlock threshold.
@@ -4162,15 +4170,15 @@ mod tests {
             }],
             ..DisconnectStatus::healthy()
         };
-        assert!(confirmed.is_blocking());
+        assert!(confirmed.is_blocking(now));
 
         // Our own relay-confirmed link loss blocks too.
         let self_lost = DisconnectStatus {
             self_lost: true,
             ..DisconnectStatus::healthy()
         };
-        assert!(self_lost.is_blocking());
+        assert!(self_lost.is_blocking(now));
 
-        assert!(!DisconnectStatus::healthy().is_blocking());
+        assert!(!DisconnectStatus::healthy().is_blocking(now));
     }
 }

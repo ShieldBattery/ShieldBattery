@@ -45,6 +45,12 @@ pub struct OverlayState {
     /// If (and only if) a mouse button down event was captured,
     /// capture the up event as well.
     captured_mouse_down: [bool; 2],
+    /// Per mouse button, whether the last press was delivered to BW (neither captured by the
+    /// overlay nor swallowed by the disconnect block), so its release is delivered too. BW must
+    /// see every release of a press it saw — otherwise it is left mid-drag-select with no way to
+    /// finish — and must never see a release without its press, which can shift BW's dialog focus
+    /// (off an open chat box, for one). Indexed like [`mouse_down`](Self::mouse_down).
+    bw_mouse_down: [bool; 2],
     /// Keep track if mouse button is down even when it wasn't started on
     /// top of overlay rects.
     mouse_down: [bool; 2],
@@ -63,12 +69,21 @@ pub struct OverlayState {
     /// [`step`](Self::step). [`window_proc`](Self::window_proc) reads this to keep chat usable while
     /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) is otherwise swallowing game input.
     chat_textbox_open: bool,
-    /// Whether the disconnect overlay is in a real connection-problem state (our own link down, or
-    /// at least one relay-confirmed disconnected peer) — as opposed to the brief stall-only tier,
-    /// which must never lock input against a passing jitter blip. Refreshed each
-    /// [`step`](Self::step) from the same [`DisconnectStatus`] the overlay renders; read by
-    /// [`window_proc`](Self::window_proc) to gate game-destined input.
+    /// Whether the disconnect overlay is showing a condition that pauses unit commands (our own link
+    /// down, a relay-confirmed peer drop, or a sustained sim stall — see
+    /// [`DisconnectStatus::is_blocking`]). Refreshed each [`step`](Self::step) from the same
+    /// [`DisconnectStatus`] the overlay renders; read by [`window_proc`](Self::window_proc) to gate
+    /// game-destined input.
     disconnect_blocks_input: bool,
+    /// Whether a BW dialog the player operates (the F10 game menu, its sub-menus, the quit
+    /// confirmation, options) is at the top of BW's dialog stack, refreshed each
+    /// [`step`](Self::step). Derived by exclusion: the only dialogs that top the stack without the
+    /// player having opened one are the always-present in-game "Minimap" and the hidden
+    /// "TimeOut" that BW spawns during a stall. While a menu is open,
+    /// [`window_proc`](Self::window_proc) lets every key and click through regardless of
+    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input), so the player can always reach
+    /// Quit — a blocked player with no way out has only the task manager left.
+    bw_menu_open: bool,
 }
 
 struct UiRect {
@@ -258,6 +273,7 @@ impl OverlayState {
                 show_console: true,
             },
             captured_mouse_down: [false; 2],
+            bw_mouse_down: [false; 2],
             mouse_down: [false; 2],
             window_size: (100, 100),
             screen_size: (100, 100),
@@ -280,6 +296,7 @@ impl OverlayState {
             was_loading: false,
             chat_textbox_open: false,
             disconnect_blocks_input: false,
+            bw_menu_open: false,
         }
     }
 
@@ -393,10 +410,16 @@ impl OverlayState {
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
         self.chat_textbox_open = chat_textbox_open;
-        // Only a real connection problem (our own link down, or a relay-confirmed peer drop) blocks
-        // game input — never the brief stall-only tier, so a passing latency jitter can't lock the
-        // player out of their own game.
-        self.disconnect_blocks_input = disconnect_status.is_blocking();
+        // Unit commands are swallowed whenever the disconnect panel shows a paused sim (a stall the
+        // panel is reporting, a confirmed peer drop, or our own link down): commands issued into a
+        // frozen sim all land in the same turn and burst out together when turns resume. The game
+        // menu is exempt (see `bw_menu_open`), so a player can still quit out of a stuck game.
+        self.disconnect_blocks_input = disconnect_status.is_blocking(Instant::now());
+        self.bw_menu_open = bw.first_dialog.is_some_and(|dialog| {
+            let control = dialog.as_control();
+            let name = control.string();
+            name != "Minimap" && name != "TimeOut"
+        });
         self.replay_panels.hotkeys_active =
             bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         // `run_ui` replaced `Context::run` in egui 0.34: it hands the callback a root `Ui` covering
@@ -876,6 +899,13 @@ impl OverlayState {
     /// Specifically prevents the cursor from changing due to units being behind the overlay.
     /// Only thing we do return for now is 0 for regular mouse pointer.
     pub fn decide_cursor_type(&self) -> Option<BwCursorType> {
+        // While the disconnect overlay is swallowing game input the sim is frozen, and with it BW's
+        // per-frame cursor selection, so the cursor would otherwise stay whatever shape it had when
+        // the stall began (a hover or drag cursor over nothing). Pin the plain pointer instead,
+        // unless the player is operating a BW menu, whose own cursor handling still runs.
+        if self.disconnect_blocks_input && !self.bw_menu_open {
+            return Some(BwCursorType::Arrow);
+        }
         if self.mouse_down != [false, false] && self.captured_mouse_down == [false, false] {
             // Mouse is down but not captured by us, don't modify cursor even
             // if it would be on top of overlay.
@@ -941,12 +971,19 @@ impl OverlayState {
                     };
                     self.mouse_down[button_idx] = pressed;
                     if !handle {
-                        return if self.should_block_game_pointer_input() {
-                            Some(0)
+                        // BW gets a press only while the disconnect block is off, and gets a
+                        // release exactly when it got the press: a swallowed release would leave
+                        // it mid-drag-select with no way to finish, and an orphan release (press
+                        // swallowed, release delivered) is an input sequence BW never expects.
+                        let deliver = if pressed {
+                            !self.should_block_game_pointer_input()
                         } else {
-                            None
+                            self.bw_mouse_down[button_idx]
                         };
+                        self.bw_mouse_down[button_idx] = pressed && deliver;
+                        return if deliver { None } else { Some(0) };
                     }
+                    self.bw_mouse_down[button_idx] = false;
                     self.captured_mouse_down[button_idx] = pressed;
                     self.events.push(Event::PointerButton {
                         pos,
@@ -1055,29 +1092,40 @@ impl OverlayState {
         }
     }
 
-    /// Whether a mouse event aimed at the game world (it missed every registered ui rect) should be
+    /// Whether a mouse press aimed at the game world (it missed every registered ui rect) should be
     /// swallowed instead of reaching BW, so the disconnect overlay behaves like a pause: unit
-    /// selection, drag-select, and move/attack commands all ride these same messages. Gated on
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) — the brief stall-only tier never
-    /// blocks, only a relay-acknowledged connection problem (our own link, or a confirmed peer drop).
+    /// selection, drag-select, and move/attack commands all start from these presses (a release
+    /// follows its press to wherever the press went, see the caller). Gated on
+    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input), and lifted while a BW menu is
+    /// open ([`bw_menu_open`](Self::bw_menu_open)) so its buttons stay clickable — a menu dialog
+    /// on top of the stack takes the clicks itself, so none of them can reach the game world.
     /// Chat needs no mouse carve-out here: opening, typing, and sending are all keyboard-driven.
     fn should_block_game_pointer_input(&self) -> bool {
-        self.disconnect_blocks_input
+        self.disconnect_blocks_input && !self.bw_menu_open
     }
 
     /// Whether a keyboard event aimed at the game (a hotkey or unit command, since anything egui or
     /// the replay-hotkey check wanted has already returned above) should be swallowed instead of
     /// reaching BW. Mirrors [`should_block_game_pointer_input`](Self::should_block_game_pointer_input)'s
-    /// gate, but carves out the chat surface: with the chat textbox open every key passes through
-    /// (backspace, arrow keys, Escape to close — actual typed characters and Enter-to-open/submit
-    /// ride WM_CHAR, which this doesn't gate at all, see the WM_CHAR arm above). The `VK_RETURN`
-    /// carve-out below is harmless but not what opens the chat box (SC:R opens it from the Enter
-    /// *character* on WM_CHAR, not this virtual-key WM_KEYDOWN) — kept so a bare Return keydown
-    /// doesn't get eaten as a stray hotkey while the box is closed.
+    /// gate, with three carve-outs. The chat surface: with the chat textbox open every key passes
+    /// through (backspace, arrow keys, Escape to close — actual typed characters and
+    /// Enter-to-open/submit ride WM_CHAR, which this doesn't gate at all, see the WM_CHAR arm
+    /// above); the `VK_RETURN` carve-out is harmless but not what opens the chat box (SC:R opens
+    /// it from the Enter *character* on WM_CHAR, not this virtual-key WM_KEYDOWN) — kept so a bare
+    /// Return keydown doesn't get eaten as a stray hotkey while the box is closed. `VK_F10` always
+    /// passes so the game menu can be opened, and with a menu open every key passes so it can be
+    /// navigated and closed. Escape stays blocked while no menu is open: it carries no unit
+    /// command, but BW's stack-top dialog during a stall is the hidden "TimeOut", and Escape's
+    /// effect on it is not something the overlay wants to find out. Alt combinations (BW's menu
+    /// accelerators) stay blocked too: BW ignores them under that dialog anyway, and a lone Alt
+    /// reaching the window can leave it in Windows' menu-key mode, eating every key after it.
     fn should_block_game_keyboard_input(&self, vkey: i32) -> bool {
+        use winapi::um::winuser::{VK_F10, VK_RETURN};
         self.disconnect_blocks_input
             && !self.chat_textbox_open
-            && vkey != winapi::um::winuser::VK_RETURN
+            && !self.bw_menu_open
+            && vkey != VK_RETURN
+            && vkey != VK_F10
     }
 
     fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
