@@ -464,6 +464,11 @@ impl BwScr {
                     build_replay_file_path: unsafe { mem::transmute(build_replay_file_path.0) },
                 })
             }
+            // Background clients require both entry points so autosave cannot delete the
+            // player's LastReplay before writing is suppressed.
+            _ if crate::is_background_game() => {
+                return Err("background replay autosave suppression".into());
+            }
             _ => {
                 warn!(
                     "Could not find save_replay_by_name/build_replay_file_path; SC:R will handle \
@@ -560,6 +565,9 @@ impl BwScr {
         };
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let skip_render = analysis.skip_render();
+        if skip_render.is_none() && crate::is_background_game() {
+            warn!("Background render skipping is unavailable for this StarCraft build");
+        }
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let tick_gated_work = tick_gates::TickGatedWork {
             screen_scrolling: analysis.update_screen_scrolling().zip(
@@ -599,6 +607,15 @@ impl BwScr {
         let select_units = analysis.select_units().ok_or("select_units")?;
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
+        let load_sfx_audio_object = if crate::is_background_game() {
+            let result = analysis.load_sfx_audio_object();
+            if result.is_none() {
+                warn!("Background sound asset skipping is unavailable for this StarCraft build");
+            }
+            result
+        } else {
+            None
+        };
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
         let net_player_count_addr = analysis.net_player_count().ok_or("net_player_count")?;
         #[cfg(debug_assertions)]
@@ -843,6 +860,7 @@ impl BwScr {
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             render_screen: unsafe { mem::transmute(render_screen.0) },
             skip_render: skip_render.map(|x| unsafe { mem::transmute(x.0) }),
+            load_sfx_audio_object,
             print_text: unsafe { mem::transmute(print_text_addr.0) },
             save_replay: unsafe { mem::transmute(save_replay.0) },
             load_snp_list,

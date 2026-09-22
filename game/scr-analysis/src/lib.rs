@@ -1120,6 +1120,10 @@ impl<'e> Analysis<'e> {
         self.0.lookup_sound_id()
     }
 
+    pub fn load_sfx_audio_object(&mut self) -> Option<VirtualAddress> {
+        self.0.load_sfx_audio_object()
+    }
+
     pub fn play_sound(&mut self) -> Option<VirtualAddress> {
         self.0.play_sound()
     }

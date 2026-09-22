@@ -347,6 +347,7 @@ pub struct BwScr {
     /// What the in-game loop calls instead of `render_screen` on an iteration it doesn't draw:
     /// ends the renderer's frame without drawing or presenting it, and begins the next.
     skip_render: Option<unsafe extern "C" fn()>,
+    load_sfx_audio_object: Option<VirtualAddress>,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
     save_replay: unsafe extern "C" fn(*const i8) -> u32,
     sc_main: Option<VirtualAddress>,
@@ -3867,6 +3868,9 @@ impl BwScr {
     /// [`begin_replay_save_colors`](Self::begin_replay_save_colors)), so calling it here goes
     /// through that hook too.
     pub fn save_replay(&self, path: &str) -> bool {
+        if crate::is_background_game() {
+            return false;
+        }
         let Ok(path) = CString::new(path) else {
             error!("Replay path contained null byte");
             return false;
@@ -5819,6 +5823,11 @@ fn copy_file_hook(
         if !is_copying_lastreplay {
             return orig(src_name, dest_name, fail_if_exist);
         }
+        if crate::is_background_game() {
+            // No replay was written; do not copy a previous visible game's LastReplay.
+            debug!("Suppressing LastReplay copy for background game");
+            return 1;
+        }
         if replay_save::last_save_skipped() {
             // SC:R treats a failed copy as a missing autosave and carries on.
             warn!("Not copying LastReplay.rep to the autosave folder: it holds an earlier game");
@@ -6168,6 +6177,7 @@ mod hooks {
         !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DrawSoftwareCursor();
+        !0 => LoadSfxAudioObject(*mut c_void, u32) -> u32;
         !0 => DecideCursorType() -> u32;
         // BW's tick-gated client-side work; see `tick_gates`.
         !0 => UpdateScreenScrolling();

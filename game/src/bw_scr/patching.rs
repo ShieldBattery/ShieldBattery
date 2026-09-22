@@ -740,6 +740,10 @@ impl BwScr {
             exe.hook_closure_address(
                 SaveReplay,
                 move |path, orig| {
+                    if crate::is_background_game() {
+                        debug!("Suppressing replay write for background game");
+                        return 1;
+                    }
                     let _colors = self.begin_replay_save_colors();
                     orig(path)
                 },
@@ -918,8 +922,11 @@ impl BwScr {
                     self.write_pending_game_settings();
                     let own =
                         crate::frame_pacing::own_draw(!callbacks.is_null() && callback_count == 1);
+                    // Background clients never draw once the game has started.
+                    let background_skip = crate::is_background_game()
+                        && self.first_game_logic_frame_done.load(Ordering::Relaxed);
                     if let Some(skip_render) = self.skip_render
-                        && own.as_ref().is_some_and(|own| own.skips())
+                        && (background_skip || own.as_ref().is_some_and(|own| own.skips()))
                     {
                         // The in-game loop's callback is the game's per-frame HUD update, which
                         // brings the UI in line with what the logic step changed: it hides the
@@ -933,6 +940,13 @@ impl BwScr {
                             (*callbacks.add(i))();
                         }
                         skip_render();
+                        if background_skip {
+                            #[cfg(debug_assertions)]
+                            crate::debug_control::record_skipped_render_call();
+                            // Rendering normally caps this loop's frequency. Keep event/turn
+                            // polling responsive without busy-spinning after bypassing that cap.
+                            std::thread::sleep(std::time::Duration::from_millis(16));
+                        }
                     } else {
                         orig(callbacks, callback_count);
                     }
@@ -1305,6 +1319,20 @@ impl BwScr {
                     func.has_changed = always_true;
                     func.update_status = update_status;
                 }
+            }
+
+            if let Some(address) = self.load_sfx_audio_object {
+                // Muted clients still preload SFX. Use the loader's native failure path so
+                // its callers retain empty audio objects without opening or decoding assets.
+                exe.hook_closure_address(
+                    LoadSfxAudioObject,
+                    |_asset, _sound_id, _orig| {
+                        #[cfg(debug_assertions)]
+                        crate::debug_control::record_skipped_sound_load();
+                        0
+                    },
+                    address.0 as usize - base,
+                );
             }
 
             self.rendering_patches(&mut exe, base);
