@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
+import { GameStatus } from '../../common/games/game-status'
 import {
   DEFAULT_LOCAL_SETTINGS,
   DEFAULT_SCR_SETTINGS,
@@ -136,6 +137,49 @@ test('failed exit wait retains the settings of a potentially surviving process',
   await (manager as any).activeGame.promise
   expect(JSON.parse(await fs.readFile(payload.settingsFilePath, 'utf8')).HDPreferences).toBe(false)
   expect(scr.syncWithGameSettingsFile).not.toHaveBeenCalled()
+})
+
+test('graceful stop asks a playing game to leave before waiting for its exit', async () => {
+  let exit!: (code: number) => void
+  runtime.launch.mockImplementation(async () => ({
+    waitForExit: () =>
+      new Promise<number>(resolve => {
+        exit = resolve
+      }),
+  }))
+  const { manager, config } = createManager()
+  const commands: unknown[][] = []
+  manager.on('gameCommand', (...args) => commands.push(args))
+  manager.setGameConfig(config)
+  await vi.waitFor(() => expect(runtime.launch).toHaveBeenCalledOnce())
+  manager.handleGameStart('test')
+
+  const stopped = manager.stop(true)
+  await vi.waitFor(() => expect(commands).toContainEqual(['test', 'leave']))
+  expect(commands).not.toContainEqual(['test', 'quit'])
+
+  exit(0)
+  await stopped
+})
+
+test('graceful stop clears its deadline when the process promise rejects', async () => {
+  const { manager } = createManager()
+  const commands: unknown[][] = []
+  manager.on('gameCommand', (...args) => commands.push(args))
+  ;(manager as any).activeGame = {
+    id: 'test',
+    status: { state: GameStatus.Playing, extra: null },
+    promise: Promise.reject(new Error('Process wait failed')),
+  }
+
+  vi.useFakeTimers()
+  try {
+    await expect(manager.stop(true)).rejects.toThrow('Process wait failed')
+    expect(commands).toContainEqual(['test', 'leave'])
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 test('canceling before the game connects sends quit instead of starting the canceled game', async () => {

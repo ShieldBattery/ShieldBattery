@@ -207,11 +207,38 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.localControlPipe = pipe
   }
 
-  async stop(): Promise<void> {
+  async stop(graceful = false): Promise<void> {
     const game = this.activeGame
     if (!game) return
-    this.forceQuitGame(game.id)
-    await game.promise
+
+    const gamePromise = game.promise
+    if (graceful && game.status?.state === GameStatus.Playing && gamePromise) {
+      game.stopRequested = true
+      this.emit('gameCommand', game.id, 'leave')
+
+      let timedOut = false
+      let deadline: ReturnType<typeof setTimeout> | undefined
+      const timeout = new Promise<void>(resolve => {
+        deadline = setTimeout(() => {
+          timedOut = true
+          resolve()
+        }, 2000)
+      })
+      try {
+        await Promise.race([gamePromise, timeout])
+      } finally {
+        if (deadline) {
+          clearTimeout(deadline)
+        }
+      }
+      if (timedOut) {
+        this.forceQuitGame(game.id)
+      }
+    } else {
+      this.forceQuitGame(game.id)
+    }
+
+    await gamePromise
   }
 
   setServerPort(port: number) {
@@ -544,9 +571,19 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.resolvePendingDebugReply(this.pendingDebugQueries, gameId, payload, 'debug state')
   }
 
+  /** Requests a normal game exit, including replay saving and result reporting (debug builds only). */
+  debugLeaveGame(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got debugLeaveGame for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'leaveGame' })
+  }
+
   /**
-   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
-   * builds only). Fire-and-forget: there's no reply, callers verify the effect via
+   * Tells the active game process to inject a drop of a remote rally-point2 slot (debug game
+   * builds only). The DLL rejects its own slot. Fire-and-forget: verify the effect via
    * {@link debugQueryState}.
    */
   forceGameLeave(gameId: string, slot: number): void {
