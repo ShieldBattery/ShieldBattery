@@ -439,12 +439,13 @@ unsafe fn game_results() -> GameThreadResults {
     }
 }
 
-/// Whether the replay of this game gets uploaded once it ends: only games the server tracks
-/// (ones it issued a result code for) do, and replay playback never does.
+/// Whether this visible client uploads a replay for a server-tracked game when it ends.
+/// Background clients and replay playback never create an upload replay.
 fn will_upload_replay() -> bool {
-    SETUP_INFO
-        .get()
-        .is_some_and(|info| !info.is_replay() && info.result_code.is_some())
+    !crate::is_background_game()
+        && SETUP_INFO
+            .get()
+            .is_some_and(|info| !info.is_replay() && info.result_code.is_some())
 }
 
 /// Saves a replay to a temporary location for upload purposes.

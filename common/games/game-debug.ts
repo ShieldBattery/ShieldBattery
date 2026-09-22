@@ -149,6 +149,8 @@ export interface GameDebugState {
     windowVisible: boolean
     gameFrame: number
     renderCalls: number
+    skippedRenderCalls?: number
+    skippedSoundLoads?: number
     hdAssetSkips: number
   }
 }

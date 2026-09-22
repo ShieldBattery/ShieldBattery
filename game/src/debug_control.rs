@@ -145,10 +145,14 @@ pub struct PresentationSnapshot {
     pub window_visible: bool,
     pub game_frame: u32,
     pub render_calls: u32,
+    pub skipped_render_calls: u32,
+    pub skipped_sound_loads: u32,
     pub hd_asset_skips: u32,
 }
 
 static GAME_FRAME: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static SKIPPED_SOUND_LOADS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static SKIPPED_RENDER_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static RENDER_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static HD_ASSET_SKIPS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
@@ -159,6 +163,14 @@ pub fn record_hd_asset_skip() {
 /// Publish simulation progress on the game thread for async debug queries.
 pub fn record_game_frame(frame: u32) {
     GAME_FRAME.store(frame, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn record_skipped_sound_load() {
+    SKIPPED_SOUND_LOADS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn record_skipped_render_call() {
+    SKIPPED_RENDER_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 }
 
 pub fn record_render_call() {
@@ -172,6 +184,8 @@ pub fn presentation_snapshot() -> PresentationSnapshot {
             .is_some_and(|hwnd| unsafe { winapi::um::winuser::IsWindowVisible(hwnd) != 0 }),
         game_frame: GAME_FRAME.load(std::sync::atomic::Ordering::Relaxed),
         render_calls: RENDER_CALLS.load(std::sync::atomic::Ordering::Relaxed),
+        skipped_render_calls: SKIPPED_RENDER_CALLS.load(std::sync::atomic::Ordering::Relaxed),
+        skipped_sound_loads: SKIPPED_SOUND_LOADS.load(std::sync::atomic::Ordering::Relaxed),
         hd_asset_skips: HD_ASSET_SKIPS.load(std::sync::atomic::Ordering::Relaxed),
     }
 }
@@ -557,6 +571,8 @@ mod tests {
                 window_visible: false,
                 game_frame: 480,
                 render_calls: 6000,
+                skipped_render_calls: 12000,
+                skipped_sound_loads: 300,
                 hd_asset_skips: 895,
             },
             turn_state: Some(TurnStateSnapshot {
@@ -617,6 +633,8 @@ mod tests {
                     "windowVisible": false,
                     "gameFrame": 480,
                     "renderCalls": 6000,
+                    "skippedRenderCalls": 12000,
+                    "skippedSoundLoads": 300,
                     "hdAssetSkips": 895,
                 },
                 "turnState": {

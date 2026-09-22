@@ -472,7 +472,13 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     //  lead to all tasks in the cycle getting stuck, so that has to be avoided; in cases where two
     //  tasks want to send messages both ways, at least one of them spawns a child task every time
     //  it wants to send something.
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+    let mut runtime_builder = tokio::runtime::Builder::new_multi_thread();
+    if is_background_game() {
+        // The simulation has its own thread. Background clients need only a small pool for
+        // app IPC and turn traffic, rather than one async worker per logical processor per bot.
+        runtime_builder.worker_threads(2);
+    }
+    let runtime = runtime_builder
         .enable_all()
         .on_thread_start(crash_dump::reserve_exception_handler_stack)
         .build()

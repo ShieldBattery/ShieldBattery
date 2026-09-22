@@ -772,6 +772,10 @@ impl<'e> Analysis<'e> {
         self.0.draw_graphic_layers()
     }
 
+    pub fn skip_render(&mut self) -> Option<VirtualAddress> {
+        self.0.skip_render()
+    }
+
     pub fn render_screen(&mut self) -> Option<VirtualAddress> {
         self.0.render_screen()
     }
@@ -915,6 +919,10 @@ impl<'e> Analysis<'e> {
 
     pub fn lookup_sound_id(&mut self) -> Option<VirtualAddress> {
         self.0.lookup_sound_id()
+    }
+
+    pub fn load_sfx_audio_object(&mut self) -> Option<VirtualAddress> {
+        self.0.load_sfx_audio_object()
     }
 
     pub fn play_sound(&mut self) -> Option<VirtualAddress> {

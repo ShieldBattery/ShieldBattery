@@ -265,6 +265,8 @@ pub struct BwScr {
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
     render_screen: unsafe extern "C" fn(*mut c_void, usize),
+    skip_render: Option<unsafe extern "C" fn()>,
+    load_sfx_audio_object: Option<VirtualAddress>,
     lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
     play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
@@ -1554,8 +1556,8 @@ impl BwScr {
                 None
             }
         };
-        // Non-fatal, all-or-nothing: replacing the replay file safely needs the path that the save
-        // is going to write to, which only the path builder can produce.
+        // Replacing replay files safely needs both entry points. Background clients require
+        // them so autosave cannot delete the player's LastReplay before writing is suppressed.
         let replay_autosave = match (
             analysis.save_replay_by_name(),
             analysis.build_replay_file_path(),
@@ -1565,6 +1567,9 @@ impl BwScr {
                     save_replay_by_name,
                     build_replay_file_path: unsafe { mem::transmute(build_replay_file_path.0) },
                 })
+            }
+            _ if crate::is_background_game() => {
+                return Err("background replay autosave suppression".into());
             }
             _ => {
                 warn!(
@@ -1625,6 +1630,15 @@ impl BwScr {
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
+        let skip_render = if crate::is_background_game() {
+            let result = analysis.skip_render();
+            if result.is_none() {
+                warn!("Background render skipping is unavailable for this StarCraft build");
+            }
+            result
+        } else {
+            None
+        };
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let load_ddsgrp_cursor = analysis.load_ddsgrp_cursor().ok_or("load_ddsgrp_cursor")?;
         let cursor_scale_factor = analysis
@@ -1633,6 +1647,15 @@ impl BwScr {
         let select_units = analysis.select_units().ok_or("select_units")?;
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
+        let load_sfx_audio_object = if crate::is_background_game() {
+            let result = analysis.load_sfx_audio_object();
+            if result.is_none() {
+                warn!("Background sound asset skipping is unavailable for this StarCraft build");
+            }
+            result
+        } else {
+            None
+        };
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
         let net_player_count_addr = analysis.net_player_count().ok_or("net_player_count")?;
 
@@ -1813,6 +1836,8 @@ impl BwScr {
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
             render_screen: unsafe { mem::transmute(render_screen.0) },
+            skip_render: skip_render.map(|address| unsafe { mem::transmute(address.0) }),
+            load_sfx_audio_object,
             lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
             play_sound: unsafe { mem::transmute(play_sound.0) },
             print_text: unsafe { mem::transmute(print_text_addr.0) },
@@ -2671,6 +2696,20 @@ impl BwScr {
                 }
             }
 
+            if let Some(address) = self.load_sfx_audio_object {
+                // Muted clients still preload SFX. Use the loader's native failure path so
+                // its callers retain empty audio objects without opening or decoding assets.
+                exe.hook_closure_address(
+                    LoadSfxAudioObject,
+                    |_asset, _sound_id, _orig| {
+                        #[cfg(debug_assertions)]
+                        crate::debug_control::record_skipped_sound_load();
+                        0
+                    },
+                    address.0 as usize - base,
+                );
+            }
+
             self.rendering_patches(&mut exe, base);
 
             for &vtable in &self.console_vtables {
@@ -2767,6 +2806,28 @@ impl BwScr {
 
             let draw = (*renderer_vtable).draw;
             let create_shader = (*renderer_vtable).create_shader;
+
+            if let Some(skip_render) = self.skip_render {
+                let address = self.render_screen as usize - base;
+                exe.hook_closure_address(
+                    RenderScreen,
+                    move |extra_funcs, extra_func_len, orig| {
+                        if self.first_game_logic_frame_done.load(Ordering::Relaxed) {
+                            // Enter the engine's complete no-draw path before queuing any layers.
+                            // It still clears per-frame commands, lights, and palette state.
+                            skip_render();
+                            #[cfg(debug_assertions)]
+                            crate::debug_control::record_skipped_render_call();
+                            // Rendering normally caps this loop's frequency. Keep event/turn
+                            // polling responsive without busy-spinning after bypassing that cap.
+                            std::thread::sleep(std::time::Duration::from_millis(16));
+                        } else {
+                            orig(extra_funcs, extra_func_len);
+                        }
+                    },
+                    address,
+                );
+            }
 
             let address = self.draw_graphic_layers.0 as usize - base;
             // draw_graphic_layers is the main BW draw command queuing function.
@@ -3026,6 +3087,16 @@ impl BwScr {
                 );
             }
 
+            if crate::is_background_game() {
+                exe.hook_closure_address(
+                    SaveReplay,
+                    |_path, _orig| {
+                        debug!("Suppressing replay write for background game");
+                        1
+                    },
+                    self.save_replay as usize - base,
+                );
+            }
             // SC:R autosaves the replay from inside the multiplayer game teardown and replaces the
             // existing file without clearing a read-only attribute, then reports a failed replace
             // with a modal dialog. Clear the file out of the way here and log a failure instead.
@@ -3034,6 +3105,11 @@ impl BwScr {
                 exe.hook_closure_address(
                     SaveReplayByName,
                     move |name, replace_existing, orig| {
+                        if crate::is_background_game() {
+                            // Skip path creation and deletion as well as the writer itself.
+                            debug!("Suppressing replay autosave for background game");
+                            return 1;
+                        }
                         replay_save::sanitize_recording(
                             self.replay_data(),
                             (*self.game()).frame_count,
@@ -5444,6 +5520,9 @@ impl BwScr {
     /// Saves a replay to the specified path. The path should be a valid filesystem path.
     /// Returns true if the replay was saved successfully.
     pub fn save_replay(&self, path: &str) -> bool {
+        if crate::is_background_game() {
+            return false;
+        }
         let Ok(path) = CString::new(path) else {
             error!("Replay path contained null byte");
             return false;
@@ -6765,6 +6844,11 @@ fn copy_file_hook(
         if !is_copying_lastreplay {
             return orig(src_name, dest_name, fail_if_exist);
         }
+        if crate::is_background_game() {
+            // No replay was written; do not copy a previous visible game's LastReplay.
+            debug!("Suppressing LastReplay copy for background game");
+            return 1;
+        }
 
         // Fix dest name to [SB]HHMMSS-maptitle.rep
         // Limit filename to 50 chars -- SC:R doesn't really seem to have
@@ -7052,6 +7136,8 @@ mod hooks {
         !0 => DrawMinimapPlayerUnits(u32);
         !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
+        !0 => RenderScreen(*mut c_void, usize);
+        !0 => LoadSfxAudioObject(*mut c_void, u32) -> u32;
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);
         !0 => NetPlayerCount() -> u32;
@@ -7062,6 +7148,7 @@ mod hooks {
         // `save_replay_by_name(name, replace_existing)`. `replace_existing` is a C bool, so it is a
         // single byte in the register/stack slot rather than a full word.
         !0 => SaveReplayByName(*const i8, u8) -> i32;
+        !0 => SaveReplay(*const i8) -> u32;
     );
 
     system_hooks!(
