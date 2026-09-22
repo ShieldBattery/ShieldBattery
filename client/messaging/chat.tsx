@@ -322,6 +322,12 @@ export interface ChatProps {
   UserMenu?: UserMenuComponent
   /** An optional component type that will be used to render message context menu items. */
   MessageMenu?: MessageMenuComponent
+  /**
+   * An optional component type rendered next to the author's name on each text message, for
+   * conversations that mark something about who is speaking (a chat channel's owner and
+   * moderators, say). Names mentioned within a message's text never get one.
+   */
+  NameBadge?: React.ComponentType<{ userId: SbUserId }>
   /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
   disallowMentionInteraction?: boolean
   /**
@@ -400,6 +406,7 @@ export function Chat({
   extraContent,
   UserMenu,
   MessageMenu = DefaultMessageMenu,
+  NameBadge,
   disallowMentionInteraction: disallowUserInteraction,
   linkedMessageId,
   onLinkedMessageSettled,
@@ -1107,6 +1114,7 @@ export function Chat({
           mentionUser,
           UserMenu,
           MessageMenu,
+          NameBadge,
           disallowMentionInteraction: disallowUserInteraction,
           linkedMessageId: flashedMessageId,
         }}>

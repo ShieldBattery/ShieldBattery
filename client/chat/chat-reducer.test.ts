@@ -128,6 +128,7 @@ function makeState(
     idToBasicInfo: new Map(),
     idToDetailedInfo: new Map([[CHANNEL_ID, { id: CHANNEL_ID, userCount: 1 }]]),
     idToJoinedInfo: new Map(),
+    idToModeratorIds: new Map(),
     idToUsers: new Map([
       [
         CHANNEL_ID,
@@ -219,12 +220,14 @@ function initialChannelData(
     latestMentionTime?: number
     latestUnreadTime?: number
     lastReadTime?: number
+    ownerId?: SbUserId
+    moderatorIds?: SbUserId[]
   } = {},
 ): InitialChannelData {
   return {
     channelInfo: CHANNEL_BASIC_INFO,
     detailedChannelInfo: { id: CHANNEL_ID, userCount: 1 },
-    joinedChannelInfo: { id: CHANNEL_ID },
+    joinedChannelInfo: { id: CHANNEL_ID, ownerId: overrides.ownerId },
     selfPreferences: { ...DEFAULT_CHANNEL_PREFERENCES },
     selfPermissions: {
       kick: false,
@@ -233,6 +236,7 @@ function initialChannelData(
       togglePrivate: false,
       editPermissions: false,
     },
+    moderatorIds: overrides.moderatorIds ?? [],
     latestUnreadTime: overrides.latestUnreadTime,
     lastReadTime: overrides.lastReadTime,
     latestMentionTime: overrides.latestMentionTime,
@@ -946,6 +950,109 @@ describe('client/chat/chat-reducer', () => {
 
       expect(result.idToLastReadTime.get(CHANNEL_ID)).toBe(200)
       expect(result.unreadChannels.has(CHANNEL_ID)).toBe(false)
+    })
+  })
+
+  describe('channel roles', () => {
+    const OWNER_ID = makeSbUserId(10)
+    const MODERATOR_ID = makeSbUserId(11)
+    const MEMBER_ID = makeSbUserId(12)
+
+    function initializedState(
+      overrides: { ownerId?: SbUserId; moderatorIds?: SbUserId[] } = {},
+    ): Immutable<ChatState> {
+      return chatReducer(makeState(), getJoinedChannelsAction(initialChannelData(overrides)))
+    }
+
+    function moderatorsOf(state: Immutable<ChatState>): ReadonlySet<SbUserId> | undefined {
+      return state.idToModeratorIds.get(CHANNEL_ID)
+    }
+
+    test('seeds the moderators from the initial channel data', () => {
+      const result = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      expect(Array.from(moderatorsOf(result)!)).toEqual([MODERATOR_ID])
+    })
+
+    test('records a member who has just been given moderation permissions', () => {
+      const state = initializedState({ ownerId: OWNER_ID })
+
+      const result = chatReducer(state, {
+        type: '@chat/userProfileChanged',
+        payload: { action: 'userProfileChanged', userId: MEMBER_ID, isModerator: true },
+        meta: { channelId: CHANNEL_ID },
+      })
+
+      expect(moderatorsOf(result)!.has(MEMBER_ID)).toBe(true)
+    })
+
+    test('drops a member who has just lost their moderation permissions', () => {
+      const state = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      const result = chatReducer(state, {
+        type: '@chat/userProfileChanged',
+        payload: { action: 'userProfileChanged', userId: MODERATOR_ID, isModerator: false },
+        meta: { channelId: CHANNEL_ID },
+      })
+
+      expect(moderatorsOf(result)!.has(MODERATOR_ID)).toBe(false)
+    })
+
+    test('drops a moderator who leaves the channel', () => {
+      const state = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      const result = chatReducer(state, {
+        type: '@chat/updateLeave',
+        payload: { action: 'leave2', userId: MODERATOR_ID },
+        meta: { channelId: CHANNEL_ID, windowFocused: true },
+      })
+
+      expect(moderatorsOf(result)!.has(MODERATOR_ID)).toBe(false)
+    })
+
+    test('drops a moderator who is kicked from the channel', () => {
+      const state = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      const result = chatReducer(state, {
+        type: '@chat/updateKick',
+        payload: {
+          action: 'kick',
+          targetId: MODERATOR_ID,
+          channelName: CHANNEL_BASIC_INFO.name,
+        },
+        meta: { channelId: CHANNEL_ID, windowFocused: true },
+      })
+
+      expect(moderatorsOf(result)!.has(MODERATOR_ID)).toBe(false)
+    })
+
+    test("forgets the channel's roles when the user leaves it", () => {
+      const state = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      const result = chatReducer(state, updateLeaveSelfAction())
+
+      expect(moderatorsOf(result)).toBeUndefined()
+    })
+
+    test('leaves the moderators alone when the channel changes owners', () => {
+      const state = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      const result = chatReducer(state, {
+        type: '@chat/ownerChanged',
+        payload: { action: 'ownerChanged', newOwnerId: MODERATOR_ID },
+        meta: { channelId: CHANNEL_ID, windowFocused: true },
+      })
+
+      expect(Array.from(moderatorsOf(result)!)).toEqual([MODERATOR_ID])
+      expect(result.idToJoinedInfo.get(CHANNEL_ID)?.ownerId).toBe(MODERATOR_ID)
+    })
+
+    test("forgets every channel's roles on a reconnect", () => {
+      const state = initializedState({ ownerId: OWNER_ID, moderatorIds: [MODERATOR_ID] })
+
+      const result = chatReducer(state, { type: '@network/connect' } as unknown as ChatActions)
+
+      expect(result.idToModeratorIds.size).toBe(0)
     })
   })
 
