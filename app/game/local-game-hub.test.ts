@@ -71,6 +71,55 @@ test('queues early lobby frames, binds the sender, and forwards turns without lo
   expect(failure).not.toHaveBeenCalled()
 })
 
+test('forwards an authenticated leave directive without echoing it to the departed client', async () => {
+  const { client, failure } = await setup()
+  const first = await client(0)
+  const second = await client(1)
+  await vi.waitFor(() => expect(second.messages).toHaveLength(1))
+
+  send(first.socket, {
+    type: 'turn',
+    seq: '0',
+    commands: 'AA==',
+    gameFrame: 12,
+    syncGeneration: null,
+  })
+  await vi.waitFor(() => expect(second.messages).toHaveLength(2))
+  send(first.socket, {
+    type: 'leave',
+    slot: 1,
+    finalTurnCount: '1',
+    applyAtFrame: 13,
+  })
+
+  await vi.waitFor(() => expect(second.messages).toHaveLength(3))
+  expect(second.messages[2]).toEqual({
+    type: 'leave',
+    slot: 0,
+    reason: 3,
+    applyAtFrame: 13,
+    leaveSeq: '1',
+    finalTurnCount: '1',
+    finalized: false,
+  })
+  expect(first.messages).toHaveLength(1)
+  first.socket.destroy()
+  await vi.waitFor(() => expect(first.socket.destroyed).toBe(true))
+  expect(failure).not.toHaveBeenCalled()
+})
+
+test('rejects a leave directive whose turn count was not forwarded', async () => {
+  const { client, failure } = await setup()
+  const first = await client(0)
+  const second = await client(1)
+  await vi.waitFor(() => expect(second.messages).toHaveLength(1))
+
+  send(first.socket, { type: 'leave', finalTurnCount: '1', applyAtFrame: 0 })
+
+  await vi.waitFor(() => expect(failure).toHaveBeenCalledOnce())
+  expect(failure.mock.calls[0][0].message).toContain('final turn count')
+})
+
 test('a duplicate slot cannot replace an established client', async () => {
   const { client, failure } = await setup()
   const first = await client(0)
