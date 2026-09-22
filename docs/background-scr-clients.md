@@ -215,6 +215,7 @@ bot supervisor. A temporary process watcher closes the bot client, external bot,
 and bot Electron session when the player's game exits.
 
 The replay-only guard compiled for both architectures, and both-target clippy and
-formatting checks passed. The x86 DLL was copied to `dist`; the x64 copy was blocked
-by the ongoing interactive game. That game uses the diagnostic build with native
-rendering retained. Re-run `game\build.bat` after it exits to refresh the x64 DLL.
+formatting checks passed. Both DLLs were copied to `dist`; the x64 refresh completed
+after the interactive game exited. The player reported that the match worked well.
+The process watcher completed, and the bot game, external bot, and bot Electron
+session were confirmed stopped.
