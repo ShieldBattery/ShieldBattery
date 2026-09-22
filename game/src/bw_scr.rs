@@ -2812,7 +2812,11 @@ impl BwScr {
                 exe.hook_closure_address(
                     RenderScreen,
                     move |extra_funcs, extra_func_len, orig| {
-                        if self.first_game_logic_frame_done.load(Ordering::Relaxed) {
+                        // Live peers require the native render path for matching synchronization
+                        // state. Replay playback has no peers and can use the no-draw finalizer.
+                        if game_thread::is_replay()
+                            && self.first_game_logic_frame_done.load(Ordering::Relaxed)
+                        {
                             // Enter the engine's complete no-draw path before queuing any layers.
                             // It still clears per-frame commands, lights, and palette state.
                             skip_render();
