@@ -1617,7 +1617,7 @@ const Row = React.memo(
             user={username}
             image={avatarUrl}
             live={isLive}
-            liveTitle={t('twitch.live.avatarTooltip', 'Live on Twitch')}
+            liveTitle={t('twitch.live.avatarTooltip', 'Streaming live')}
           />
           <PlayerNameAndRace>
             <PlayerName>{username}</PlayerName>

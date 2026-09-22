@@ -61,11 +61,15 @@ export interface FsStats {
   birthtime: Date
 }
 
+/** The OAuth-based account linking flows the desktop app can run. */
+export type OauthProvider = 'twitch' | 'youtube'
+
 /**
- * The result of running the Twitch OAuth flow in the desktop app, which opens the authorize URL in
- * the user's real browser and captures the redirect via a loopback server (see `runTwitchOauthFlow`).
+ * The result of running an OAuth authorization flow in the desktop app, which opens the provider's
+ * authorize URL in the user's real browser and captures the redirect via a loopback server (see
+ * `runOauthFlow`).
  */
-export interface TwitchOauthFlowResult {
+export interface OauthFlowResult {
   /** The authorization code, present on success. */
   code?: string
   /** The state that was issued, echoed back for validation. */
@@ -198,6 +202,15 @@ interface IpcInvokeables {
   logMessage: (level: string, message: string) => void
 
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
+
+  /**
+   * Runs an OAuth authorization flow for `provider` in a dedicated desktop window (the renderer
+   * can't open a controllable popup that redirects back to us), resolving with the code/state --
+   * or an error -- captured from the redirect to our callback URL.
+   */
+  oauthFlow: (provider: OauthProvider, authorizeUrl: string) => Promise<OauthFlowResult>
+  /** Settles an in-flight `oauthFlow` early, as if the user had declined. */
+  oauthFlowCancel: () => void
 
   pathsGetDocumentsPath: () => Promise<string>
   /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
@@ -334,15 +347,6 @@ interface IpcInvokeables {
   settingsOverwriteBlizzardFile: () => void
 
   shieldbatteryCheckFiles: () => Promise<ShieldBatteryFileResult[]>
-
-  /**
-   * Runs the Twitch OAuth authorization flow in a dedicated desktop window (the renderer can't open
-   * a controllable popup that redirects back to us), resolving with the code/state -- or an error
-   * -- captured from the redirect to our callback URL.
-   */
-  twitchOauthFlow: (authorizeUrl: string) => Promise<TwitchOauthFlowResult>
-  /** Settles an in-flight `twitchOauthFlow` early, as if the user had declined. */
-  twitchOauthFlowCancel: () => void
 
   windowGetStatus: () => Promise<{ focused: boolean; maximized: boolean }>
 }

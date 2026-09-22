@@ -36,14 +36,16 @@ use crate::email::{
 use crate::file_store::FileStore;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::live_streams::{LiveStream, LiveStreamsLoader};
 use crate::random_code::gen_random_code;
 use crate::redis::RedisPool;
 use crate::sessions::SbSession;
 use crate::state::AppState;
 use crate::telemetry::spawn_with_tracing;
-use crate::twitch::{LiveStream, LiveStreamLoader, TwitchChannel, TwitchChannelLoader};
+use crate::twitch::{TwitchChannel, TwitchChannelLoader};
 use crate::users::auth::{get_stored_credentials, hash_password, validate_credentials};
 use crate::users::permissions::{PermissionsLoader, RequiredPermission, SbPermissions};
+use crate::youtube::{YoutubeChannel, YoutubeChannelLoader};
 
 mod auth;
 pub mod names;
@@ -117,11 +119,21 @@ impl SbUser {
             .await
     }
 
-    /// This user's current Twitch stream, if they are live right now.
-    async fn live_stream(&self, ctx: &Context<'_>) -> Result<Option<LiveStream>> {
-        ctx.data::<DataLoader<LiveStreamLoader>>()?
+    /// The YouTube channel this user has linked, if any (shown on their profile).
+    async fn youtube_channel(&self, ctx: &Context<'_>) -> Result<Option<YoutubeChannel>> {
+        ctx.data::<DataLoader<YoutubeChannelLoader>>()?
             .load_one(self.id)
             .await
+    }
+
+    /// Every broadcast this user has running right now, one per platform they're live on (Twitch
+    /// first), or an empty list when they aren't streaming.
+    async fn live_streams(&self, ctx: &Context<'_>) -> Result<Vec<LiveStream>> {
+        Ok(ctx
+            .data::<DataLoader<LiveStreamsLoader>>()?
+            .load_one(self.id)
+            .await?
+            .unwrap_or_default())
     }
 }
 
@@ -133,6 +145,14 @@ impl From<CurrentUser> for SbUser {
             avatar_url: value.avatar_url,
         }
     }
+}
+
+/// The user this request is authenticated as, or an `UNAUTHORIZED` error for resolvers that can't
+/// do anything useful without one.
+pub fn require_current_user<'a>(ctx: &'a Context<'_>) -> Result<&'a CurrentUser> {
+    ctx.data::<Option<CurrentUser>>()?
+        .as_ref()
+        .ok_or_else(|| graphql_error("UNAUTHORIZED", "Unauthorized"))
 }
 
 pub struct IsCurrentUser(SbUserId);

@@ -29,7 +29,6 @@ const ChannelActivityQuery = graphql(/* GraphQL */ `
   query ChannelActivity {
     liveStreams {
       id
-      twitchLogin
       viewerCount
       user {
         id
@@ -111,7 +110,7 @@ export function deriveActivityEntries(
     }
     streams.push(stream)
   }
-  streams.sort((a, b) => b.viewerCount - a.viewerCount)
+  streams.sort((a, b) => (b.viewerCount ?? 0) - (a.viewerCount ?? 0))
 
   const games: GameActivityEntry[] = []
   for (const game of data.liveGames) {

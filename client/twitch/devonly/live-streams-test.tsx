@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import { Avatar } from '../../avatars/avatar'
+import { LiveStreamPlatform } from '../../gql/graphql'
 import { LiveStreamsFeed } from '../../home/home'
 import { titleLarge, titleSmall } from '../../styles/typography'
 import { ProfileLiveBanner } from '../../users/user-profile'
@@ -8,7 +9,7 @@ import {
   LiveLabel,
   LivePill,
   LiveWatchRow,
-  TwitchMark,
+  PlatformMark,
   UptimePill,
   ViewerCountPill,
 } from '../live-indicators'
@@ -28,42 +29,52 @@ function thumb(from: string, to: string) {
 const now = Date.now()
 const mockStreams = [
   {
-    id: 'stream:1',
-    twitchLogin: 'flash',
-    twitchDisplayName: 'Flash',
+    id: 'stream:twitch:1',
+    platform: LiveStreamPlatform.Twitch,
+    displayName: 'Flash',
+    url: 'https://twitch.tv/flash',
     title: 'ASL practice, ladder grind to A rank',
+    gameName: 'StarCraft: Remastered',
     viewerCount: 1240,
     startedAt: new Date(now - 94 * 60_000).toISOString(),
     thumbnailUrl: thumb('#123a86', '#0f2033'),
     user: { id: 1, name: 'Flash' },
   },
   {
-    id: 'stream:2',
-    twitchLogin: 'bisu_official',
-    twitchDisplayName: 'Bisu',
+    id: 'stream:youtube:2',
+    platform: LiveStreamPlatform.Youtube,
+    displayName: 'Bisu',
+    url: 'https://www.youtube.com/watch?v=bisu-fastest',
     title: 'fastest money games with viewers',
+    // YouTube exposes no category for a broadcast.
+    gameName: null,
     viewerCount: 870,
     startedAt: new Date(now - 47 * 60_000).toISOString(),
     thumbnailUrl: thumb('#5b3aa8', '#14202e'),
     user: { id: 2, name: 'Bisu' },
   },
   {
-    id: 'stream:3',
-    twitchLogin: 'jaedong',
-    twitchDisplayName: 'Jaedong',
+    id: 'stream:twitch:3',
+    platform: LiveStreamPlatform.Twitch,
+    displayName: 'Jaedong',
+    url: 'https://twitch.tv/jaedong',
     title: 'ZvT lessons — reviewing your replays',
+    gameName: 'StarCraft: Remastered',
     viewerCount: 512,
     startedAt: new Date(now - 130 * 60_000).toISOString(),
     thumbnailUrl: thumb('#2a4a2f', '#14202e'),
     user: { id: 3, name: 'Jaedong' },
   },
   {
-    id: 'stream:4',
-    // Twitch handle differs from the SB name, to exercise the "@handle" subtitle.
-    twitchLogin: 'bw_soulkey',
-    twitchDisplayName: 'BW_SoulKey',
+    id: 'stream:youtube:4',
+    platform: LiveStreamPlatform.Youtube,
+    // The platform's own display name differs from the SB name, to exercise the "@handle" line.
+    displayName: 'BW_SoulKey',
+    url: 'https://www.youtube.com/watch?v=soulkey-bgh',
     title: 'chill BGH into ladder later',
-    viewerCount: 205,
+    gameName: null,
+    // YouTube hides the concurrent viewer count on some broadcasts.
+    viewerCount: null,
     startedAt: new Date(now - 18 * 60_000).toISOString(),
     thumbnailUrl: thumb('#7a5a1e', '#14202e'),
     user: { id: 4, name: 'SoulKey' },
@@ -115,6 +126,10 @@ const WatchRowArea = styled.div`
   max-width: 100%;
   padding: 16px;
 
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
   background-color: var(--theme-container-low);
   border-radius: 8px;
 `
@@ -129,7 +144,8 @@ export function LiveStreamsTest() {
         <LiveLabel />
         <ViewerCountPill count={1240} />
         <UptimePill startedAt={mockStreams[0].startedAt} />
-        <TwitchMark />
+        <PlatformMark platform={LiveStreamPlatform.Twitch} />
+        <PlatformMark platform={LiveStreamPlatform.Youtube} />
       </PrimitiveRow>
 
       <SectionTitle>Home feed (featured hero + compact rows)</SectionTitle>
@@ -137,22 +153,37 @@ export function LiveStreamsTest() {
         <LiveStreamsFeed query={mockFeed} />
       </Sidebar>
 
-      <SectionTitle>Profile live banner</SectionTitle>
+      <SectionTitle>Profile live banners (with and without category/viewers)</SectionTitle>
       <ProfileLiveBanner
-        twitchLogin='flash'
+        url='https://twitch.tv/flash'
+        platform={LiveStreamPlatform.Twitch}
         title='ASL practice, ladder grind to A rank — come say hi and rank with me'
         gameName='StarCraft: Remastered'
         viewerCount={1240}
         thumbnailUrl={thumb('#123a86', '#0f2033')}
         startedAt={mockStreams[0].startedAt}
       />
+      <ProfileLiveBanner
+        url='https://www.youtube.com/watch?v=soulkey-bgh'
+        platform={LiveStreamPlatform.Youtube}
+        title='chill BGH into ladder later'
+        gameName={null}
+        viewerCount={null}
+        thumbnailUrl={thumb('#7a5a1e', '#14202e')}
+        startedAt={mockStreams[3].startedAt}
+      />
 
-      <SectionTitle>Profile hover-card watch row</SectionTitle>
+      <SectionTitle>Profile hover-card watch rows</SectionTitle>
       <WatchRowArea>
         <LiveWatchRow
-          twitchLogin='flash'
+          url='https://twitch.tv/flash'
           title='ASL practice, ladder grind to A rank'
           viewerCount={1240}
+        />
+        <LiveWatchRow
+          url='https://www.youtube.com/watch?v=soulkey-bgh'
+          title='chill BGH into ladder later'
+          viewerCount={null}
         />
       </WatchRowArea>
 
@@ -164,7 +195,7 @@ export function LiveStreamsTest() {
 
       <SectionTitle>Small avatar (live) — ring + tag at lobby-slot size</SectionTitle>
       <LobbySlotRow>
-        <LobbySlotAvatar user='Bisu' live={true} liveTitle='Live on Twitch' />
+        <LobbySlotAvatar user='Bisu' live={true} liveTitle='Streaming live' />
         <span>Bisu</span>
       </LobbySlotRow>
 
@@ -223,7 +254,7 @@ const FriendRowName = styled.div`
 function FriendRow({ user, isLive }: { user: string; isLive: boolean }) {
   return (
     <FriendRowRoot>
-      <FriendAvatar user={user} live={isLive} liveTitle='Live on Twitch' />
+      <FriendAvatar user={user} live={isLive} liveTitle='Streaming live' />
       <FriendRowName>{user}</FriendRowName>
       {isLive ? <LiveLabel /> : null}
     </FriendRowRoot>

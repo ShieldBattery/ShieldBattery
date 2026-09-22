@@ -330,16 +330,16 @@ export function LiveStreamsFeed({
   }
 
   // The most-watched stream is featured as a hero card; the rest become compact rows.
-  const sorted = [...liveStreams].sort((a, b) => b.viewerCount - a.viewerCount)
+  const sorted = [...liveStreams].sort((a, b) => (b.viewerCount ?? 0) - (a.viewerCount ?? 0))
   const [featured, ...rest] = sorted
 
   return (
     <HomeSection>
       <HomeSectionTitle>{t('twitch.liveStreams.title', 'Live streams')}</HomeSectionTitle>
       <LiveStreamsRoot>
-        <FeaturedLiveStreamEntry key={featured.twitchLogin} query={featured} />
+        <FeaturedLiveStreamEntry key={featured.id} query={featured} />
         {rest.slice(0, 4).map(stream => (
-          <LiveStreamEntry key={stream.twitchLogin} query={stream} />
+          <LiveStreamEntry key={stream.id} query={stream} />
         ))}
         <SeeAllContainer>
           <LinkButton href='/live'>

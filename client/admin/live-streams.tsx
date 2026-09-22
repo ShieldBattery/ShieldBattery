@@ -18,6 +18,8 @@ const BlockedStreamsQuery = graphql(/* GraphQL */ `
       createdAt
       twitchLogin
       twitchDisplayName
+      youtubeChannelTitle
+      youtubeHandle
       user {
         id
         name
@@ -142,13 +144,25 @@ export function AdminLiveStreams() {
     content = (
       <BlockList>
         {blocked.map(entry => {
-          const name = entry.user?.name ?? entry.twitchDisplayName ?? 'Unknown user'
+          const name =
+            entry.user?.name ??
+            entry.twitchDisplayName ??
+            entry.youtubeChannelTitle ??
+            'Unknown user'
           const key = entry.user?.id ?? entry.twitchLogin ?? name
+          // A YouTube channel is only reachable by handle; without one there's just a title to show.
+          let youtubeLine: string | undefined
+          if (entry.youtubeHandle) {
+            youtubeLine = `youtube.com/${entry.youtubeHandle}`
+          } else if (entry.youtubeChannelTitle) {
+            youtubeLine = entry.youtubeChannelTitle
+          }
           return (
             <BlockRow key={key}>
               <BlockInfo>
                 <Name>{name}</Name>
                 {entry.twitchLogin ? <Handle>twitch.tv/{entry.twitchLogin}</Handle> : null}
+                {youtubeLine ? <Handle>{youtubeLine}</Handle> : null}
                 <Meta>
                   Blocked {longTimestamp.format(new Date(entry.createdAt))}
                   {entry.blockedBy ? ` by ${entry.blockedBy.name}` : ''}

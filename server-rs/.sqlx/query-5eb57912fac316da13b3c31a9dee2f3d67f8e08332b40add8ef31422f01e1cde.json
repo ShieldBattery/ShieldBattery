@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT user_id as \"user_id: SbUserId\", youtube_channel_id, youtube_channel_title,\n                    youtube_handle\n                FROM youtube_connections\n                WHERE user_id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "youtube_channel_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "youtube_channel_title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_channel_title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "youtube_handle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_handle"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "5eb57912fac316da13b3c31a9dee2f3d67f8e08332b40add8ef31422f01e1cde"
+}

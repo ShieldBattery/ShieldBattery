@@ -29,9 +29,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, Context as _, eyre};
-use deadpool_redis::redis::{
-    AsyncCommands, Cmd, ExistenceCheck, RedisResult, SetExpiry, SetOptions, aio::ConnectionLike,
-};
+use deadpool_redis::redis::{AsyncCommands, ExistenceCheck, SetExpiry, SetOptions};
 use hmac::{Hmac, KeyInit, Mac};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -40,15 +38,15 @@ use sqlx::PgPool;
 use tokio::sync::{Notify, RwLock};
 use tracing::{error, warn};
 use url::Url;
-use uuid::Uuid;
 
 use crate::configuration::Settings;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::live_streams::{self, LiveStream, LiveStreamPlatform};
+use crate::oauth_link;
 use crate::redis::RedisPool;
 use crate::state::AppState;
-use crate::users::permissions::RequiredPermission;
-use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
+use crate::users::{SbUserId, require_current_user};
 
 const TWITCH_OAUTH_AUTHORIZE_URL: &str = "https://id.twitch.tv/oauth2/authorize";
 const TWITCH_OAUTH_TOKEN_URL: &str = "https://id.twitch.tv/oauth2/token";
@@ -62,7 +60,7 @@ const TWITCH_HELIX_EVENTSUB_URL: &str = "https://api.twitch.tv/helix/eventsub/su
 /// existing Twitch login is reused. Twitch requires an exact, port-inclusive redirect_uri match and
 /// rejects bare IP literals, so this must be a single fixed `localhost` port registered as a second
 /// redirect URI in the Twitch console. The desktop app parses this port out of the authorize URL and
-/// binds its loopback server on it -- see `runTwitchOauthFlow` in `app/app.ts`.
+/// binds its loopback server on it.
 const DESKTOP_REDIRECT_URI: &str = "http://localhost:27193/twitch/callback";
 
 const SUB_TYPE_STREAM_ONLINE: &str = "stream.online";
@@ -79,23 +77,10 @@ const STARCRAFT_CATEGORY_IDS: &[&str] = &["11989", "1664649323"];
 const STREAM_THUMBNAIL_WIDTH: u32 = 320;
 const STREAM_THUMBNAIL_HEIGHT: u32 = 180;
 
-/// How long a pending link request (the server-issued `state`) stays valid. Long enough for a user
-/// to complete the Twitch consent screen, short enough to bound abuse of a leaked state value.
-const LINK_STATE_TTL_SECONDS: u64 = 600;
+/// Redis key prefix owning this platform's pending OAuth link states.
+const LINK_KEY_PREFIX: &str = "twitch";
 /// Redis hash of `sbUserId -> LiveStreamSummary` for every currently-live linked streamer.
 const LIVE_STREAMS_KEY: &str = "twitch:live";
-/// Atomically removes malformed hash values only if they have not changed since they were read. A
-/// concurrent refresh may replace a malformed value with a valid summary between the read and this
-/// cleanup, in which case the replacement must be retained.
-const REMOVE_MALFORMED_LIVE_STREAMS_SCRIPT: &str = r#"
-local removed = 0
-for i = 1, #ARGV, 2 do
-  if redis.call('HGET', KEYS[1], ARGV[i]) == ARGV[i + 1] then
-    removed = removed + redis.call('HDEL', KEYS[1], ARGV[i])
-  end
-end
-return removed
-"#;
 /// How long we remember a processed EventSub message id to drop Twitch's redeliveries.
 const WEBHOOK_DEDUPE_TTL_SECONDS: u64 = 600;
 /// Reject EventSub messages whose timestamp is further than this from now (replay protection).
@@ -121,19 +106,6 @@ const STREAM_ONLINE_LOOKUP_ATTEMPTS: u32 = 4;
 const STREAM_ONLINE_LOOKUP_RETRY_DELAY: Duration = Duration::from_secs(2);
 
 type HmacSha256 = Hmac<Sha256>;
-
-fn link_state_key(state: &str) -> String {
-    format!("twitch:link_state:{state}")
-}
-
-/// What we stash in Redis for a pending link `state`: the user who started the flow, plus the
-/// redirect URI baked into their authorize URL. The redirect URI differs between the web and desktop
-/// flows and must be replayed verbatim in the token exchange, so we remember which one was used.
-#[derive(Debug, Serialize, Deserialize)]
-struct PendingLink {
-    user_id: i32,
-    redirect_uri: String,
-}
 
 fn webhook_dedupe_key(message_id: &str) -> String {
     format!("twitch:eventsub_seen:{message_id}")
@@ -677,57 +649,21 @@ impl LiveStreamSummary {
     fn is_starcraft(&self) -> bool {
         STARCRAFT_CATEGORY_IDS.contains(&self.game_id.as_str())
     }
-}
 
-/// A ShieldBattery user who is currently live-streaming, for the home-page feed.
-#[derive(Clone, SimpleObject)]
-#[graphql(complex)]
-pub struct LiveStream {
-    #[graphql(skip)]
-    pub user_id: SbUserId,
-    /// The Twitch login name (used in `twitch.tv/<login>` URLs).
-    pub twitch_login: String,
-    /// The Twitch display name.
-    pub twitch_display_name: String,
-    /// The stream's title.
-    pub title: String,
-    /// The Twitch category/game being streamed.
-    pub game_name: String,
-    /// The stream's current viewer count.
-    pub viewer_count: i32,
-    /// When the stream started.
-    pub started_at: DateTime<Utc>,
-    /// A ready-to-use thumbnail URL at a fixed size.
-    pub thumbnail_url: String,
-}
-
-#[ComplexObject]
-impl LiveStream {
-    /// A globally unique ID for this stream. A user has at most one live stream at a time, so this
-    /// is derived from the streamer's user ID.
-    async fn id(&self) -> String {
-        format!("stream:{}", self.user_id)
-    }
-
-    /// The ShieldBattery user who is streaming.
-    async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
-        ctx.data::<DataLoader<UsersLoader>>()?
-            .load_one(self.user_id)
-            .await
-    }
-}
-
-impl LiveStream {
-    fn from_summary(user_id: SbUserId, summary: LiveStreamSummary) -> Self {
-        Self {
+    pub(crate) fn into_live_stream(self, user_id: SbUserId) -> LiveStream {
+        let feed_eligible = self.is_starcraft();
+        LiveStream {
             user_id,
-            twitch_login: summary.twitch_login,
-            twitch_display_name: summary.twitch_display_name,
-            title: summary.title,
-            game_name: summary.game_name,
-            viewer_count: summary.viewer_count.clamp(0, i64::from(i32::MAX)) as i32,
-            started_at: summary.started_at,
-            thumbnail_url: summary
+            feed_eligible,
+            platform: LiveStreamPlatform::Twitch,
+            display_name: self.twitch_display_name,
+            url: format!("https://twitch.tv/{}", self.twitch_login),
+            title: self.title,
+            game_name: Some(self.game_name),
+            viewer_count: Some(self.viewer_count.clamp(0, i64::from(i32::MAX)) as i32),
+            started_at: self.started_at,
+            // Twitch serves thumbnails through a templated URL the caller sizes itself.
+            thumbnail_url: self
                 .thumbnail_url
                 .replace("{width}", &STREAM_THUMBNAIL_WIDTH.to_string())
                 .replace("{height}", &STREAM_THUMBNAIL_HEIGHT.to_string()),
@@ -735,166 +671,24 @@ impl LiveStream {
     }
 }
 
-/// A streamer an admin has blocked from the live-streams feed (shown on the home page and the
-/// dedicated live streams page), for the admin blocked-streams list. The block hides them from the
-/// `liveStreams` feed only; the `twitch_login`/`twitch_display_name` come from their
-/// currently-linked channel (via a LEFT JOIN) and are absent if they've since unlinked.
-#[derive(SimpleObject)]
-#[graphql(complex)]
-pub struct BlockedStream {
-    #[graphql(skip)]
-    pub user_id: SbUserId,
-    #[graphql(skip)]
-    pub blocked_by_id: Option<SbUserId>,
-    /// The Twitch login of the blocked user's currently-linked channel, if they still have one.
-    pub twitch_login: Option<String>,
-    /// The Twitch display name of the blocked user's currently-linked channel, if any.
-    pub twitch_display_name: Option<String>,
-    /// When the block was created.
-    pub created_at: DateTime<Utc>,
+/// Loads every currently-live Twitch streamer from Redis (unfiltered).
+pub(crate) async fn load_live_streams(
+    redis: &RedisPool,
+) -> eyre::Result<Vec<(SbUserId, LiveStreamSummary)>> {
+    live_streams::load_all_live_streams(LIVE_STREAMS_KEY, redis).await
 }
 
-#[ComplexObject]
-impl BlockedStream {
-    /// A globally unique ID for this block. At most one block exists per user, so this is derived
-    /// from the blocked user's ID.
-    async fn id(&self) -> String {
-        format!("blocked-stream:{}", self.user_id)
-    }
-
-    /// The blocked ShieldBattery user.
-    async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
-        ctx.data::<DataLoader<UsersLoader>>()?
-            .load_one(self.user_id)
-            .await
-    }
-
-    /// The admin who created the block, if their account still exists.
-    async fn blocked_by(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
-        match self.blocked_by_id {
-            Some(id) => ctx.data::<DataLoader<UsersLoader>>()?.load_one(id).await,
-            None => Ok(None),
-        }
-    }
-}
-
-struct ParsedLiveStreamEntries {
-    streams: Vec<(SbUserId, LiveStreamSummary)>,
-    malformed: Vec<(SbUserId, String)>,
-}
-
-fn parse_live_stream_entries(
-    entries: impl IntoIterator<Item = (SbUserId, Option<String>)>,
-) -> ParsedLiveStreamEntries {
-    let entries = entries.into_iter();
-    let (lower_bound, _) = entries.size_hint();
-    let mut streams = Vec::with_capacity(lower_bound);
-    let mut malformed = Vec::new();
-
-    for (user_id, json) in entries {
-        let Some(json) = json else {
-            continue;
-        };
-        match serde_json::from_str::<LiveStreamSummary>(&json) {
-            Ok(summary) => streams.push((user_id, summary)),
-            Err(e) => {
-                warn!("Failed to parse live stream for user {}: {e:?}", user_id.0);
-                malformed.push((user_id, json));
-            }
-        }
-    }
-
-    ParsedLiveStreamEntries { streams, malformed }
-}
-
-fn remove_malformed_live_streams_command(entries: &[(SbUserId, String)]) -> Cmd {
-    let mut cmd = deadpool_redis::redis::cmd("EVAL");
-    cmd.arg(REMOVE_MALFORMED_LIVE_STREAMS_SCRIPT)
-        .arg(1)
-        .arg(LIVE_STREAMS_KEY);
-    for (user_id, json) in entries {
-        cmd.arg(i32::from(*user_id)).arg(json);
-    }
-    cmd
-}
-
-async fn remove_malformed_live_streams(
-    conn: &mut impl ConnectionLike,
-    entries: &[(SbUserId, String)],
-) {
-    if entries.is_empty() {
-        return;
-    }
-
-    let result: RedisResult<usize> = remove_malformed_live_streams_command(entries)
-        .query_async(conn)
-        .await;
-    if let Err(e) = result {
-        // Malformed entries have always been omitted from results. Cleanup is only a safeguard for
-        // the field-only live-user-id query, so a cleanup failure must not turn a successful read
-        // into a GraphQL error.
-        warn!("Failed to remove malformed live streams from Redis: {e:?}");
-    }
-}
-
-async fn load_live_stream_user_ids_from_connection(
-    redis: &mut impl AsyncCommands,
-) -> RedisResult<Vec<SbUserId>> {
-    let user_ids: Vec<i32> = redis.hkeys(LIVE_STREAMS_KEY).await?;
-    Ok(user_ids.into_iter().map(SbUserId).collect())
-}
-
-async fn load_live_stream_values_from_connection(
-    redis: &mut impl AsyncCommands,
-    user_ids: &[SbUserId],
-) -> RedisResult<Vec<Option<String>>> {
-    let fields: Vec<i32> = user_ids.iter().copied().map(i32::from).collect();
-    redis.hmget(LIVE_STREAMS_KEY, fields).await
-}
-
-/// Loads every currently-live streamer from Redis (unfiltered).
-async fn load_live_streams(redis: &RedisPool) -> eyre::Result<Vec<(SbUserId, LiveStreamSummary)>> {
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    let entries: HashMap<i32, String> = conn
-        .hgetall(LIVE_STREAMS_KEY)
-        .await
-        .wrap_err("Failed to load live streams")?;
-    let parsed = parse_live_stream_entries(
-        entries
-            .into_iter()
-            .map(|(user_id, json)| (SbUserId(user_id), Some(json))),
-    );
-    remove_malformed_live_streams(&mut conn, &parsed.malformed).await;
-    Ok(parsed.streams)
-}
-
-/// Loads only the live-stream summaries for `user_ids`, preserving the input/result alignment long
-/// enough to associate each Redis value with its user before invalid or missing values are omitted.
-async fn load_live_streams_for_users(
+/// Loads only the live-stream summaries for `user_ids`.
+pub(crate) async fn load_live_streams_for_users(
     redis: &RedisPool,
     user_ids: &[SbUserId],
 ) -> eyre::Result<Vec<(SbUserId, LiveStreamSummary)>> {
-    if user_ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    let values = load_live_stream_values_from_connection(&mut conn, user_ids)
-        .await
-        .wrap_err("Failed to load live streams")?;
-    let parsed = parse_live_stream_entries(user_ids.iter().copied().zip(values));
-    remove_malformed_live_streams(&mut conn, &parsed.malformed).await;
-    Ok(parsed.streams)
+    live_streams::load_live_streams_for_users(LIVE_STREAMS_KEY, redis, user_ids).await
 }
 
-/// Loads the field-only live-user index. The typed writer serializes a complete summary before HSET,
-/// so normal entries are valid; full/detail reads atomically remove any malformed legacy or corrupt
-/// values they encounter.
-async fn load_live_stream_user_ids(redis: &RedisPool) -> eyre::Result<Vec<SbUserId>> {
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    load_live_stream_user_ids_from_connection(&mut conn)
-        .await
-        .wrap_err("Failed to load live streams")
+/// Loads the field-only index of users currently streaming on Twitch.
+pub(crate) async fn load_live_stream_user_ids(redis: &RedisPool) -> eyre::Result<Vec<SbUserId>> {
+    live_streams::load_live_stream_user_ids(LIVE_STREAMS_KEY, redis).await
 }
 
 /// A public view of a user's linked Twitch channel, shown on their profile.
@@ -959,59 +753,22 @@ impl Loader<SbUserId> for TwitchChannelLoader {
     }
 }
 
-/// Batches per-user live-stream lookups (a single Redis `HMGET`) so that selecting `liveStream` on a
-/// list of users doesn't fan out into one Redis call each. Category-agnostic (any live stream).
-pub struct LiveStreamLoader {
-    redis: RedisPool,
-}
-
-impl LiveStreamLoader {
-    pub fn new(redis: RedisPool) -> Self {
-        Self { redis }
-    }
-}
-
-impl Loader<SbUserId> for LiveStreamLoader {
-    type Value = LiveStream;
-    type Error = async_graphql::Error;
-
-    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
-        let live = load_live_streams_for_users(&self.redis, keys)
-            .await
-            .map_err(|e| graphql_error("INTERNAL_SERVER_ERROR", e.to_string()))?;
-
-        Ok(live
-            .into_iter()
-            .map(|(user_id, summary)| (user_id, LiveStream::from_summary(user_id, summary)))
-            .collect())
-    }
-}
-
 pub struct TwitchModule {
     db_pool: PgPool,
-    redis_pool: RedisPool,
 }
 
 impl TwitchModule {
-    pub fn new(db_pool: PgPool, redis_pool: RedisPool) -> Self {
-        Self {
-            db_pool,
-            redis_pool,
-        }
+    pub fn new(db_pool: PgPool) -> Self {
+        Self { db_pool }
     }
 }
 
 impl SchemaBuilderModule for TwitchModule {
     fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
-        builder
-            .data(DataLoader::new(
-                TwitchChannelLoader::new(self.db_pool.clone()),
-                tokio::spawn,
-            ))
-            .data(DataLoader::new(
-                LiveStreamLoader::new(self.redis_pool.clone()),
-                tokio::spawn,
-            ))
+        builder.data(DataLoader::new(
+            TwitchChannelLoader::new(self.db_pool.clone()),
+            tokio::spawn,
+        ))
     }
 }
 
@@ -1176,133 +933,16 @@ async fn delete_connection(pool: &PgPool, user_id: SbUserId) -> eyre::Result<Opt
     Ok(row.map(|r| r.eventsub_subscription_ids))
 }
 
-/// The set of users an admin has blocked from the live-streams feed. Read on each `live_streams`
-/// poll so a block takes effect on the very next feed refresh; the table holds one row per blocked
-/// user, so this stays small and the read is negligible next to the Redis scan on the same path.
-async fn load_feed_blocked_user_ids(pool: &PgPool) -> eyre::Result<HashSet<SbUserId>> {
-    let rows = sqlx::query!(r#"SELECT user_id as "user_id: SbUserId" FROM twitch_feed_blocks"#,)
-        .fetch_all(pool)
-        .await
-        .wrap_err("Failed to load Twitch feed blocks")?;
-    Ok(rows.into_iter().map(|r| r.user_id).collect())
-}
-
-/// Builds the ordered `liveStreams` feed from the raw Redis entries: keep only StarCraft streams that
-/// aren't feed-blocked, then sort by viewer count (highest first).
-fn feed_streams(
-    entries: Vec<(SbUserId, LiveStreamSummary)>,
-    blocked: &HashSet<SbUserId>,
-) -> Vec<LiveStream> {
-    let mut streams: Vec<LiveStream> = entries
-        .into_iter()
-        .filter(|(user_id, summary)| summary.is_starcraft() && !blocked.contains(user_id))
-        .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
-        .collect();
-    streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
-    streams
-}
-
-/// Records a feed block for `user_id`, remembering which admin created it. Idempotent: re-blocking an
-/// already-blocked user keeps the original block (and its original `blocked_by`/`created_at`).
-async fn insert_feed_block(
-    pool: &PgPool,
-    user_id: SbUserId,
-    blocked_by: SbUserId,
-) -> eyre::Result<()> {
-    sqlx::query!(
-        r#"
-            INSERT INTO twitch_feed_blocks (user_id, blocked_by)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO NOTHING
-        "#,
-        user_id as _,
-        blocked_by as _,
-    )
-    .execute(pool)
-    .await
-    .wrap_err("Failed to insert Twitch feed block")?;
-    Ok(())
-}
-
-/// Removes a feed block, returning whether one existed.
-async fn delete_feed_block(pool: &PgPool, user_id: SbUserId) -> eyre::Result<bool> {
-    let result = sqlx::query!(
-        r#"DELETE FROM twitch_feed_blocks WHERE user_id = $1"#,
-        user_id as _,
-    )
-    .execute(pool)
-    .await
-    .wrap_err("Failed to delete Twitch feed block")?;
-    Ok(result.rows_affected() > 0)
-}
-
-/// Loads the blocked-streams list for the admin UI, newest first, joining in each user's current
-/// Twitch channel identity when they still have one linked.
-async fn load_feed_blocks(pool: &PgPool) -> eyre::Result<Vec<BlockedStream>> {
-    sqlx::query_as!(
-        BlockedStream,
-        r#"
-            SELECT b.user_id as "user_id: SbUserId",
-                b.blocked_by as "blocked_by_id: SbUserId",
-                c.twitch_login as "twitch_login?",
-                c.twitch_display_name as "twitch_display_name?",
-                b.created_at
-            FROM twitch_feed_blocks b
-            LEFT JOIN twitch_connections c ON c.user_id = b.user_id
-            ORDER BY b.created_at DESC
-        "#,
-    )
-    .fetch_all(pool)
-    .await
-    .wrap_err("Failed to load Twitch feed blocks")
-}
-
 async fn set_stream_live(
     redis: &RedisPool,
     user_id: SbUserId,
     summary: &LiveStreamSummary,
 ) -> eyre::Result<()> {
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    let json = serde_json::to_string(summary).wrap_err("Failed to serialize live stream")?;
-    conn.hset::<_, _, _, ()>(LIVE_STREAMS_KEY, i32::from(user_id), json)
-        .await
-        .wrap_err("Failed to store live stream")?;
-    Ok(())
+    live_streams::set_stream_live(LIVE_STREAMS_KEY, redis, user_id, summary).await
 }
 
 async fn set_stream_offline(redis: &RedisPool, user_id: SbUserId) -> eyre::Result<()> {
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    conn.hdel::<_, _, ()>(LIVE_STREAMS_KEY, i32::from(user_id))
-        .await
-        .wrap_err("Failed to clear live stream")?;
-    Ok(())
-}
-
-fn live_stream_updates_pipeline(
-    live: &[(SbUserId, LiveStreamSummary)],
-    offline: &[SbUserId],
-) -> eyre::Result<deadpool_redis::redis::Pipeline> {
-    let mut pipeline = deadpool_redis::redis::pipe();
-
-    if !live.is_empty() {
-        pipeline.cmd("HSET").arg(LIVE_STREAMS_KEY);
-        for (user_id, summary) in live {
-            let json =
-                serde_json::to_string(summary).wrap_err("Failed to serialize live stream")?;
-            pipeline.arg(i32::from(*user_id)).arg(json);
-        }
-        pipeline.ignore();
-    }
-
-    if !offline.is_empty() {
-        pipeline.cmd("HDEL").arg(LIVE_STREAMS_KEY);
-        for user_id in offline {
-            pipeline.arg(i32::from(*user_id));
-        }
-        pipeline.ignore();
-    }
-
-    Ok(pipeline)
+    live_streams::set_stream_offline(LIVE_STREAMS_KEY, redis, user_id).await
 }
 
 /// Applies one refresh phase with at most one HSET and one HDEL in a single Redis round trip.
@@ -1311,16 +951,7 @@ async fn apply_live_stream_updates(
     live: &[(SbUserId, LiveStreamSummary)],
     offline: &[SbUserId],
 ) -> eyre::Result<()> {
-    let pipeline = live_stream_updates_pipeline(live, offline)?;
-    if pipeline.is_empty() {
-        return Ok(());
-    }
-
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    pipeline
-        .exec_async(&mut conn)
-        .await
-        .wrap_err("Failed to update live streams")
+    live_streams::apply_live_stream_updates(LIVE_STREAMS_KEY, redis, live, offline).await
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1332,12 +963,6 @@ async fn apply_live_stream_updates(
 pub struct TwitchLinkStart {
     /// The Twitch OAuth authorize URL the client should open (e.g. in a popup) to begin linking.
     pub url: String,
-}
-
-fn require_current_user<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<&'a CurrentUser> {
-    ctx.data::<Option<CurrentUser>>()?
-        .as_ref()
-        .ok_or_else(|| graphql_error("UNAUTHORIZED", "Unauthorized"))
 }
 
 fn require_twitch_client<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<&'a Arc<TwitchClient>> {
@@ -1364,36 +989,6 @@ impl TwitchQuery {
         let user = require_current_user(ctx)?;
         Ok(load_connection(ctx.data::<PgPool>()?, user.id).await?)
     }
-
-    /// ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
-    /// first). Users an admin has blocked from the feed are omitted (the block hides them here only;
-    /// their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
-    async fn live_streams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<LiveStream>> {
-        let entries = load_live_streams(ctx.data::<RedisPool>()?).await?;
-        let blocked = load_feed_blocked_user_ids(ctx.data::<PgPool>()?).await?;
-        Ok(feed_streams(entries, &blocked))
-    }
-
-    /// Streamers an admin has blocked from the live-streams feed, newest first. For the admin
-    /// blocked-streams management UI.
-    #[graphql(guard = RequiredPermission::ManageLiveStreams)]
-    async fn blocked_streams(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<BlockedStream>> {
-        Ok(load_feed_blocks(ctx.data::<PgPool>()?).await?)
-    }
-
-    /// The ids of every ShieldBattery user who is currently live-streaming (any category). This lets
-    /// the client badge "live" state across user lists (friends, chat, etc.) from a single lookup,
-    /// with per-stream details fetched lazily via `SbUser.liveStream` where needed. Category-agnostic
-    /// by design, matching the profile "Live" badge (`live_streams` is the StarCraft-filtered feed).
-    async fn live_stream_user_ids(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<SbUserId>> {
-        Ok(load_live_stream_user_ids(ctx.data::<RedisPool>()?).await?)
-    }
 }
 
 #[derive(Default)]
@@ -1414,24 +1009,13 @@ impl TwitchMutation {
         let client = require_twitch_client(ctx)?;
         let redirect_uri = client.redirect_uri_for(desktop);
 
-        // A server-issued, single-use `state` bound to this user, stored in Redis. Completing the
-        // link requires both this state (proving the flow started here) and the same user's auth
-        // token, which together prevent an attacker from linking their Twitch account to a victim.
-        let state = Uuid::new_v4().to_string();
-        let pending = serde_json::to_string(&PendingLink {
-            user_id: i32::from(user.id),
-            redirect_uri: redirect_uri.to_string(),
-        })
-        .wrap_err("Failed to serialize pending Twitch link")?;
-        let mut redis = ctx
-            .data::<RedisPool>()?
-            .get()
-            .await
-            .wrap_err("Could not connect to Redis")?;
-        redis
-            .set_ex::<_, _, ()>(link_state_key(&state), pending, LINK_STATE_TTL_SECONDS)
-            .await
-            .wrap_err("Failed to store Twitch link state")?;
+        let state = oauth_link::store_pending_link(
+            ctx.data::<RedisPool>()?,
+            LINK_KEY_PREFIX,
+            user.id,
+            redirect_uri,
+        )
+        .await?;
 
         Ok(TwitchLinkStart {
             url: client.authorize_url(&state, redirect_uri)?,
@@ -1450,36 +1034,19 @@ impl TwitchMutation {
         let client = require_twitch_client(ctx)?;
         let pool = ctx.data::<PgPool>()?;
 
-        // Validate + consume the one-time state.
-        let mut redis = ctx
-            .data::<RedisPool>()?
-            .get()
-            .await
-            .wrap_err("Could not connect to Redis")?;
-        let key = link_state_key(&state);
-        let stored: Option<String> = redis
-            .get(&key)
-            .await
-            .wrap_err("Failed to read Twitch link state")?;
-
-        // Only delete the state once we've confirmed it belongs to the caller -- otherwise anyone
-        // who learns another flow's `state` value (e.g. from a shared link/log) could invalidate
-        // that pending link just by calling this with their own session. The GET-then-DEL here isn't
-        // atomic, but that's fine: if two of the owner's own requests race, the loser just fails the
-        // single-use code exchange at Twitch instead of the state check.
-        let pending = stored
-            .and_then(|s| serde_json::from_str::<PendingLink>(&s).ok())
-            .filter(|p| p.user_id == i32::from(user.id));
-        let Some(pending) = pending else {
+        let Some(pending) = oauth_link::consume_pending_link(
+            ctx.data::<RedisPool>()?,
+            LINK_KEY_PREFIX,
+            &state,
+            user.id,
+        )
+        .await?
+        else {
             return Err(graphql_error(
                 "TWITCH_INVALID_STATE",
                 "Your Twitch linking request was invalid or expired. Please try again.",
             ));
         };
-        let _: () = redis
-            .del(&key)
-            .await
-            .wrap_err("Failed to clear Twitch link state")?;
 
         let access_token = client
             .exchange_code(&code, &pending.redirect_uri)
@@ -1584,32 +1151,6 @@ impl TwitchMutation {
         }
 
         Ok(true)
-    }
-
-    /// Blocks a user's stream from appearing in the live-streams feed (shown on the home page and
-    /// the dedicated live streams page). Idempotent (a repeat block keeps the original). The block
-    /// hides them from the feed only, not from the profile stream card / avatar "live" ring / friend
-    /// notifications. Requires the `manageLiveStreams` permission.
-    #[graphql(guard = RequiredPermission::ManageLiveStreams)]
-    async fn block_stream(
-        &self,
-        ctx: &Context<'_>,
-        user_id: SbUserId,
-    ) -> async_graphql::Result<bool> {
-        let admin = require_current_user(ctx)?;
-        insert_feed_block(ctx.data::<PgPool>()?, user_id, admin.id).await?;
-        Ok(true)
-    }
-
-    /// Removes a user's feed block, letting their stream appear in the feed again. Returns whether a
-    /// block was removed. Requires the `manageLiveStreams` permission.
-    #[graphql(guard = RequiredPermission::ManageLiveStreams)]
-    async fn unblock_stream(
-        &self,
-        ctx: &Context<'_>,
-        user_id: SbUserId,
-    ) -> async_graphql::Result<bool> {
-        Ok(delete_feed_block(ctx.data::<PgPool>()?, user_id).await?)
     }
 }
 
@@ -2186,42 +1727,6 @@ async fn refresh_connection_identities(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use deadpool_redis::redis::{RedisFuture, Value};
-
-    struct FakeRedis {
-        response: Option<Value>,
-        commands: Vec<Vec<u8>>,
-    }
-
-    impl FakeRedis {
-        fn returning(response: Value) -> Self {
-            Self {
-                response: Some(response),
-                commands: Vec::new(),
-            }
-        }
-    }
-
-    impl ConnectionLike for FakeRedis {
-        fn req_packed_command<'a>(&'a mut self, cmd: &'a Cmd) -> RedisFuture<'a, Value> {
-            self.commands.push(cmd.get_packed_command());
-            let response = self.response.take().expect("missing fake Redis response");
-            Box::pin(async move { Ok(response) })
-        }
-
-        fn req_packed_commands<'a>(
-            &'a mut self,
-            _cmd: &'a deadpool_redis::redis::Pipeline,
-            _offset: usize,
-            _count: usize,
-        ) -> RedisFuture<'a, Vec<Value>> {
-            panic!("live-stream reads should issue one command, not a pipeline")
-        }
-
-        fn get_db(&self) -> i64 {
-            0
-        }
-    }
 
     fn live_stream_summary() -> LiveStreamSummary {
         LiveStreamSummary {
@@ -2239,148 +1744,48 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn live_stream_user_ids_uses_hkeys() {
-        let mut redis = FakeRedis::returning(Value::Array(vec![
-            Value::BulkString(b"7".to_vec()),
-            Value::BulkString(b"9".to_vec()),
-        ]));
+    #[test]
+    fn live_stream_summary_is_stored_as_camel_case_json() {
+        // Running servers on both sides of a deploy read and write `twitch:live`, so this JSON
+        // shape is a compatibility contract rather than an implementation detail.
+        let json = serde_json::to_value(live_stream_summary()).unwrap();
 
-        let ids = load_live_stream_user_ids_from_connection(&mut redis)
-            .await
-            .unwrap();
-
-        assert_eq!(ids, vec![SbUserId(7), SbUserId(9)]);
-        assert_eq!(redis.commands.len(), 1);
-        let mut expected = deadpool_redis::redis::cmd("HKEYS");
-        expected.arg(LIVE_STREAMS_KEY);
-        assert_eq!(redis.commands[0], expected.get_packed_command());
-    }
-
-    #[tokio::test]
-    async fn requested_live_stream_values_use_one_aligned_hmget() {
-        let valid_json = serde_json::to_string(&live_stream_summary()).unwrap();
-        let mut redis = FakeRedis::returning(Value::Array(vec![
-            Value::BulkString(valid_json.as_bytes().to_vec()),
-            Value::Nil,
-            Value::BulkString(b"{malformed".to_vec()),
-        ]));
-        let user_ids = [SbUserId(7), SbUserId(8), SbUserId(9)];
-
-        let values = load_live_stream_values_from_connection(&mut redis, &user_ids)
-            .await
-            .unwrap();
-
-        assert_eq!(values[0].as_deref(), Some(valid_json.as_str()));
-        assert_eq!(values[1], None);
-        assert_eq!(values[2].as_deref(), Some("{malformed"));
-        assert_eq!(redis.commands.len(), 1);
-        let mut expected = deadpool_redis::redis::cmd("HMGET");
-        expected.arg(LIVE_STREAMS_KEY).arg(7).arg(8).arg(9);
-        assert_eq!(redis.commands[0], expected.get_packed_command());
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "twitchUserId": "123",
+                "twitchLogin": "streamer",
+                "twitchDisplayName": "Streamer",
+                "title": "Ladder",
+                "gameId": STARCRAFT_CATEGORY_IDS[0],
+                "gameName": "StarCraft",
+                "viewerCount": 42,
+                "startedAt": "2026-07-26T12:00:00Z",
+                "thumbnailUrl": "https://example.com/{width}x{height}.jpg",
+            })
+        );
     }
 
     #[test]
-    fn live_stream_parsing_omits_missing_and_malformed_values() {
-        let valid_json = serde_json::to_string(&live_stream_summary()).unwrap();
-        let malformed_json = "{malformed".to_owned();
+    fn a_starcraft_stream_is_feed_eligible_with_a_sized_thumbnail() {
+        let stream = live_stream_summary().into_live_stream(SbUserId(7));
 
-        let parsed = parse_live_stream_entries([
-            (SbUserId(7), Some(valid_json)),
-            (SbUserId(8), None),
-            (SbUserId(9), Some(malformed_json.clone())),
-        ]);
-
-        assert_eq!(parsed.streams.len(), 1);
-        assert_eq!(parsed.streams[0].0, SbUserId(7));
-        assert_eq!(parsed.streams[0].1.title, "Ladder");
-        assert_eq!(parsed.malformed, vec![(SbUserId(9), malformed_json)]);
+        assert!(stream.feed_eligible);
+        assert_eq!(stream.platform, LiveStreamPlatform::Twitch);
+        assert_eq!(stream.url, "https://twitch.tv/streamer");
+        assert_eq!(stream.display_name, "Streamer");
+        assert_eq!(stream.game_name.as_deref(), Some("StarCraft"));
+        assert_eq!(stream.viewer_count, Some(42));
+        assert_eq!(stream.thumbnail_url, "https://example.com/320x180.jpg");
     }
 
     #[test]
-    fn feed_streams_drops_blocked_and_non_starcraft_then_sorts_by_viewers() {
-        let mut low = live_stream_summary();
-        low.viewer_count = 10;
-        let mut high = live_stream_summary();
-        high.viewer_count = 500;
-        let mut blocked_stream = live_stream_summary();
-        blocked_stream.viewer_count = 999;
-        let mut non_starcraft = live_stream_summary();
-        non_starcraft.game_id = "509658".to_owned(); // "Just Chatting", not a StarCraft category
+    fn a_stream_outside_the_starcraft_categories_is_not_feed_eligible() {
+        let mut summary = live_stream_summary();
+        // "Just Chatting", not a StarCraft category.
+        summary.game_id = "509658".to_owned();
 
-        let entries = vec![
-            (SbUserId(1), low),
-            (SbUserId(2), high),
-            (SbUserId(3), blocked_stream),
-            (SbUserId(4), non_starcraft),
-        ];
-        let blocked = HashSet::from([SbUserId(3)]);
-
-        let streams = feed_streams(entries, &blocked);
-
-        // The blocked user (3) and the non-StarCraft stream (4) are gone; the rest are ordered by
-        // viewer count, highest first.
-        let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
-        assert_eq!(ids, vec![SbUserId(2), SbUserId(1)]);
-        assert_eq!(streams[0].viewer_count, 500);
-        assert_eq!(streams[1].viewer_count, 10);
-    }
-
-    #[test]
-    fn malformed_cleanup_compares_the_value_before_deleting() {
-        let entries = vec![
-            (SbUserId(7), "{bad-one".to_owned()),
-            (SbUserId(9), "{bad-two".to_owned()),
-        ];
-
-        let actual = remove_malformed_live_streams_command(&entries);
-        let mut expected = deadpool_redis::redis::cmd("EVAL");
-        expected
-            .arg(REMOVE_MALFORMED_LIVE_STREAMS_SCRIPT)
-            .arg(1)
-            .arg(LIVE_STREAMS_KEY)
-            .arg(7)
-            .arg("{bad-one")
-            .arg(9)
-            .arg("{bad-two");
-
-        assert_eq!(actual.get_packed_command(), expected.get_packed_command());
-    }
-
-    #[test]
-    fn live_stream_refresh_updates_are_batched_by_operation() {
-        let first = live_stream_summary();
-        let mut second = live_stream_summary();
-        second.twitch_user_id = "456".to_owned();
-        second.twitch_login = "other-streamer".to_owned();
-        let live = vec![(SbUserId(7), first), (SbUserId(8), second)];
-        let offline = vec![SbUserId(9), SbUserId(10)];
-
-        let actual = live_stream_updates_pipeline(&live, &offline).unwrap();
-
-        assert_eq!(actual.len(), 2);
-        let mut expected = deadpool_redis::redis::pipe();
-        expected
-            .cmd("HSET")
-            .arg(LIVE_STREAMS_KEY)
-            .arg(7)
-            .arg(serde_json::to_string(&live[0].1).unwrap())
-            .arg(8)
-            .arg(serde_json::to_string(&live[1].1).unwrap())
-            .ignore()
-            .cmd("HDEL")
-            .arg(LIVE_STREAMS_KEY)
-            .arg(9)
-            .arg(10)
-            .ignore();
-
-        assert_eq!(actual.get_packed_pipeline(), expected.get_packed_pipeline());
-    }
-
-    #[test]
-    fn empty_live_stream_refresh_does_not_issue_redis_commands() {
-        let pipeline = live_stream_updates_pipeline(&[], &[]).unwrap();
-        assert!(pipeline.is_empty());
+        assert!(!summary.into_live_stream(SbUserId(7)).feed_eligible);
     }
 
     #[test]

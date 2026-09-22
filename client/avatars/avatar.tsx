@@ -171,7 +171,7 @@ export function ConnectedAvatar({
         image={avatarUrl}
         className={className}
         live={isLive}
-        liveTitle={t('twitch.live.avatarTooltip', 'Live on Twitch')}
+        liveTitle={t('twitch.live.avatarTooltip', 'Streaming live')}
       />
     )
   }

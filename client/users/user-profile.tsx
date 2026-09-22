@@ -16,7 +16,9 @@ import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { graphql } from '../gql'
+import { LiveStreamPlatform } from '../gql/graphql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
+import YoutubeIcon from '../icons/brands/youtube.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
@@ -41,10 +43,11 @@ import {
 } from '../styles/typography'
 import {
   LivePill,
+  PlatformMark,
   TWITCH_PURPLE,
-  TwitchMark,
   UptimePill,
   ViewerCountPill,
+  YOUTUBE_RED,
 } from '../twitch/live-indicators'
 import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
 import {
@@ -212,12 +215,20 @@ const LiveBadge = styled.div`
   white-space: nowrap;
 `
 
-const TwitchChannelLink = styled.a`
+/** One row per linked streaming channel, stacked under the user's title. */
+const ChannelLinks = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 4px;
+`
+
+const ChannelLink = styled.a`
   ${bodyLarge};
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
 
   &,
   &:link,
@@ -237,8 +248,15 @@ const TwitchChannelIcon = styled(TwitchIcon)`
   color: ${TWITCH_PURPLE};
 `
 
-const UserProfileTwitchQuery = graphql(/* GraphQL */ `
-  query UserProfileTwitch($userId: SbUserId!) {
+const YoutubeChannelIcon = styled(YoutubeIcon)`
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: ${YOUTUBE_RED};
+`
+
+const UserProfileConnectionsQuery = graphql(/* GraphQL */ `
+  query UserProfileConnections($userId: SbUserId!) {
     user(id: $userId) {
       id
       twitchChannel {
@@ -246,9 +264,16 @@ const UserProfileTwitchQuery = graphql(/* GraphQL */ `
         twitchLogin
         twitchDisplayName
       }
-      liveStream {
+      youtubeChannel {
         id
-        twitchLogin
+        title
+        url
+      }
+      liveStreams {
+        id
+        platform
+        displayName
+        url
         title
         gameName
         viewerCount
@@ -318,18 +343,19 @@ export function UserProfilePage({
   useScrollMemory(scrollerRef)
 
   // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
-  // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
-  // render in once they arrive. The poll below keeps the Live badge/banner consistent with the
-  // app-wide avatar badges, which refresh on their own interval.
-  const [{ data: twitchData }, reexecuteTwitchQuery] = useQuery({
-    query: UserProfileTwitchQuery,
+  // behind a loading fallback) just to resolve the optional linked channels and live state --
+  // these render in once they arrive. The poll below keeps the Live badge/banners consistent with
+  // the app-wide avatar badges, which refresh on their own interval.
+  const [{ data: connectionsData }, reexecuteConnectionsQuery] = useQuery({
+    query: UserProfileConnectionsQuery,
     variables: { userId: user.id },
     context: { suspense: false },
   })
-  useQueryPolling(reexecuteTwitchQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
-  const twitchChannel = twitchData?.user?.twitchChannel
-  const liveStream = twitchData?.user?.liveStream ?? undefined
-  const isLive = !!liveStream
+  useQueryPolling(reexecuteConnectionsQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
+  const twitchChannel = connectionsData?.user?.twitchChannel
+  const youtubeChannel = connectionsData?.user?.youtubeChannel
+  const liveStreams = connectionsData?.user?.liveStreams ?? []
+  const isLive = liveStreams.length > 0
 
   let content: React.ReactNode
   switch (subPage) {
@@ -387,27 +413,43 @@ export function UserProfilePage({
             />
           </UsernameRow>
           <TitleMedium>{title}</TitleMedium>
-          {twitchChannel ? (
-            <TwitchChannelLink
-              href={`https://twitch.tv/${twitchChannel.twitchLogin}`}
-              target='_blank'
-              rel='noopener'>
-              <TwitchChannelIcon />
-              <span>{twitchChannel.twitchDisplayName}</span>
-            </TwitchChannelLink>
+          {twitchChannel || youtubeChannel ? (
+            <ChannelLinks>
+              {twitchChannel ? (
+                <ChannelLink
+                  href={`https://twitch.tv/${twitchChannel.twitchLogin}`}
+                  target='_blank'
+                  rel='noopener'>
+                  <TwitchChannelIcon />
+                  <span>{twitchChannel.twitchDisplayName}</span>
+                </ChannelLink>
+              ) : null}
+              {youtubeChannel ? (
+                <ChannelLink href={youtubeChannel.url} target='_blank' rel='noopener'>
+                  <YoutubeChannelIcon />
+                  <span>{youtubeChannel.title}</span>
+                </ChannelLink>
+              ) : null}
+            </ChannelLinks>
           ) : null}
         </UsernameAndTitle>
       </TopSection>
 
-      {liveStream ? (
-        <ProfileLiveBanner
-          twitchLogin={liveStream.twitchLogin}
-          title={liveStream.title}
-          gameName={liveStream.gameName}
-          viewerCount={liveStream.viewerCount}
-          thumbnailUrl={liveStream.thumbnailUrl}
-          startedAt={liveStream.startedAt}
-        />
+      {isLive ? (
+        <LiveBanners>
+          {liveStreams.map(stream => (
+            <ProfileLiveBanner
+              key={stream.id}
+              url={stream.url}
+              platform={stream.platform}
+              title={stream.title}
+              gameName={stream.gameName}
+              viewerCount={stream.viewerCount}
+              thumbnailUrl={stream.thumbnailUrl}
+              startedAt={stream.startedAt}
+            />
+          ))}
+        </LiveBanners>
       ) : null}
 
       <TabArea>
@@ -440,10 +482,19 @@ export function UserProfilePage({
   )
 }
 
+/**
+ * Holds every banner for a user who is live on more than one platform, stacked in the order the
+ * server returns them.
+ */
+const LiveBanners = styled.div`
+  width: 100%;
+  margin-bottom: 20px;
+`
+
 const LiveBannerContainer = styled.div`
   width: 100%;
   max-width: 720px;
-  margin: 0 0 32px;
+  margin: 0 0 12px;
   padding: 0 24px;
 `
 
@@ -545,8 +596,12 @@ const BannerFoot = styled.div`
 
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+`
+
+/** Keeps the watch button at the trailing edge even when there's no viewer count beside it. */
+const BannerWatchAction = styled.div`
+  margin-left: auto;
 `
 
 const BannerViewers = styled.div`
@@ -556,17 +611,21 @@ const BannerViewers = styled.div`
 `
 
 export function ProfileLiveBanner({
-  twitchLogin,
+  url,
+  platform,
   title,
   gameName,
   viewerCount,
   thumbnailUrl,
   startedAt,
 }: {
-  twitchLogin: string
+  url: string
+  platform: LiveStreamPlatform
   title: string
-  gameName: string
-  viewerCount: number
+  /** Null on platforms that expose no category for a broadcast, which drops the category line. */
+  gameName: string | null
+  /** Null when the platform doesn't report a viewer count, which drops every count display. */
+  viewerCount: number | null
   thumbnailUrl: string
   startedAt: string
 }) {
@@ -574,12 +633,14 @@ export function ProfileLiveBanner({
 
   return (
     <LiveBannerContainer>
-      <LiveBannerRoot href={`https://twitch.tv/${twitchLogin}`} target='_blank' rel='noopener'>
+      <LiveBannerRoot href={url} target='_blank' rel='noopener'>
         <BannerThumb>
           <BannerThumbImg src={thumbnailUrl} alt='' loading='lazy' />
-          <BannerViewerCorner>
-            <ViewerCountPill count={viewerCount} />
-          </BannerViewerCorner>
+          {viewerCount !== null ? (
+            <BannerViewerCorner>
+              <ViewerCountPill count={viewerCount} />
+            </BannerViewerCorner>
+          ) : null}
           <BannerUptimeCorner>
             <UptimePill startedAt={startedAt} />
           </BannerUptimeCorner>
@@ -587,21 +648,25 @@ export function ProfileLiveBanner({
         <BannerBody>
           <BannerTop>
             <LivePill />
-            <BannerCategory>{gameName}</BannerCategory>
+            {gameName !== null ? <BannerCategory>{gameName}</BannerCategory> : null}
             <BannerMark>
-              <TwitchMark />
+              <PlatformMark platform={platform} />
             </BannerMark>
           </BannerTop>
           <BannerTitle>{title}</BannerTitle>
           <BannerFoot>
-            <BannerViewers>
-              {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
-            </BannerViewers>
-            <FilledButton
-              styledAs='div'
-              label={t('twitch.live.watch', 'Watch stream')}
-              iconStart={<MaterialIcon icon='play_arrow' size={20} />}
-            />
+            {viewerCount !== null ? (
+              <BannerViewers>
+                {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
+              </BannerViewers>
+            ) : null}
+            <BannerWatchAction>
+              <FilledButton
+                styledAs='div'
+                label={t('twitch.live.watch', 'Watch stream')}
+                iconStart={<MaterialIcon icon='play_arrow' size={20} />}
+              />
+            </BannerWatchAction>
           </BannerFoot>
         </BannerBody>
       </LiveBannerRoot>

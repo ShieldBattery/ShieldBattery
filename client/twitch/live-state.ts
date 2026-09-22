@@ -30,7 +30,8 @@ export const LiveUsersContext = createContext<ReadonlySet<SbUserId>>(new Set())
 /**
  * Returns the set of users who are currently live-streaming (any category). Backed by a single,
  * app-wide query (batched server-side) so any user list can badge "live" state without a per-user
- * lookup. Per-stream details are fetched lazily via `SbUser.liveStream` where a surface needs them.
+ * lookup. Per-stream details are fetched lazily via `SbUser.liveStreams` where a surface needs
+ * them.
  *
  * Exactly one always-mounted caller (the `LiveUsersContext` provider) should pass `poll: true` to
  * drive the periodic refresh (see {@link LIVE_USER_IDS_POLL_INTERVAL_MS}); everywhere else this is

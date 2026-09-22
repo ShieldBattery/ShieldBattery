@@ -55,6 +55,12 @@ export enum GameReportResolution {
   Duplicate = 'DUPLICATE',
 }
 
+/** The platform a broadcast is happening on. */
+export enum LiveStreamPlatform {
+  Twitch = 'TWITCH',
+  Youtube = 'YOUTUBE',
+}
+
 export type MatchmakerConfigInput = {
   global: MatchmakerModeConfigOverridesInput
   maxPlayersExamined?: number | null | undefined
@@ -225,6 +231,8 @@ export type AdminBlockedStreamsQuery = {
     createdAt: string
     twitchLogin: string | null
     twitchDisplayName: string | null
+    youtubeChannelTitle: string | null
+    youtubeHandle: string | null
     user: { id: Types.SbUserId; name: string } | null
     blockedBy: { id: Types.SbUserId; name: string } | null
   }>
@@ -387,12 +395,7 @@ export type ChannelActivityQueryVariables = Exact<{ [key: string]: never }>
 
 export type ChannelActivityQuery = {
   liveStreams: Array<
-    {
-      id: string
-      twitchLogin: string
-      viewerCount: number
-      user: { id: Types.SbUserId } | null
-    } & {
+    { id: string; viewerCount: number | null; user: { id: Types.SbUserId } | null } & {
       ' $fragmentRefs'?: {
         LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
       }
@@ -853,6 +856,13 @@ export type ConnectionSettingsQuery = {
     twitchDisplayName: string
     linkedAt: string
   } | null
+  myYoutubeConnection: {
+    id: string
+    channelId: string
+    title: string
+    handle: string | null
+    linkedAt: string
+  } | null
 }
 
 export type ConnectionSettingsStartTwitchLinkMutationVariables = Exact<{
@@ -880,13 +890,38 @@ export type ConnectionSettingsUnlinkTwitchMutationVariables = Exact<{ [key: stri
 
 export type ConnectionSettingsUnlinkTwitchMutation = { twitchUnlink: boolean }
 
+export type ConnectionSettingsStartYoutubeLinkMutationVariables = Exact<{
+  desktop: boolean
+}>
+
+export type ConnectionSettingsStartYoutubeLinkMutation = { youtubeStartLink: { url: string } }
+
+export type ConnectionSettingsCompleteYoutubeLinkMutationVariables = Exact<{
+  code: string
+  state: string
+}>
+
+export type ConnectionSettingsCompleteYoutubeLinkMutation = {
+  youtubeCompleteLink: {
+    id: string
+    channelId: string
+    title: string
+    handle: string | null
+    linkedAt: string
+  }
+}
+
+export type ConnectionSettingsUnlinkYoutubeMutationVariables = Exact<{ [key: string]: never }>
+
+export type ConnectionSettingsUnlinkYoutubeMutation = { youtubeUnlink: boolean }
+
 export type LiveUserIdsQueryVariables = Exact<{ [key: string]: never }>
 
 export type LiveUserIdsQuery = { liveStreamUserIds: Array<Types.SbUserId> }
 
 export type LiveStreams_FeedFragmentFragment = {
   liveStreams: Array<
-    { twitchLogin: string; viewerCount: number } & {
+    { id: string; viewerCount: number | null } & {
       ' $fragmentRefs'?: {
         LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
       }
@@ -896,10 +931,12 @@ export type LiveStreams_FeedFragmentFragment = {
 
 export type LiveStreams_FeedEntryFragmentFragment = {
   id: string
-  twitchLogin: string
-  twitchDisplayName: string
+  platform: LiveStreamPlatform
+  displayName: string
+  url: string
   title: string
-  viewerCount: number
+  gameName: string | null
+  viewerCount: number | null
   startedAt: string
   thumbnailUrl: string
   user: { id: Types.SbUserId; name: string } | null
@@ -1042,7 +1079,7 @@ export type UserProfileOverlayLiveQueryVariables = Exact<{
 export type UserProfileOverlayLiveQuery = {
   user: {
     id: Types.SbUserId
-    liveStream: { id: string; twitchLogin: string; title: string; viewerCount: number } | null
+    liveStreams: Array<{ id: string; url: string; title: string; viewerCount: number | null }>
   } | null
 }
 
@@ -1075,23 +1112,26 @@ export type UserRatingHistoryQuery = {
   }
 }
 
-export type UserProfileTwitchQueryVariables = Exact<{
+export type UserProfileConnectionsQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
 
-export type UserProfileTwitchQuery = {
+export type UserProfileConnectionsQuery = {
   user: {
     id: Types.SbUserId
     twitchChannel: { id: string; twitchLogin: string; twitchDisplayName: string } | null
-    liveStream: {
+    youtubeChannel: { id: string; title: string; url: string } | null
+    liveStreams: Array<{
       id: string
-      twitchLogin: string
+      platform: LiveStreamPlatform
+      displayName: string
+      url: string
       title: string
-      gameName: string
-      viewerCount: number
+      gameName: string | null
+      viewerCount: number | null
       startedAt: string
       thumbnailUrl: string
-    } | null
+    }>
   } | null
 }
 
@@ -1841,9 +1881,11 @@ export const LiveStreams_FeedEntryFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'platform' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'displayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
@@ -1879,7 +1921,7 @@ export const LiveStreams_FeedFragmentFragmentDoc = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'FragmentSpread',
@@ -1899,9 +1941,11 @@ export const LiveStreams_FeedFragmentFragmentDoc = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'platform' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'displayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
@@ -2250,6 +2294,8 @@ export const AdminBlockedStreamsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'youtubeChannelTitle' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'youtubeHandle' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'user' },
@@ -2839,7 +2885,6 @@ export const ChannelActivityDocument = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'Field',
@@ -2959,9 +3004,11 @@ export const ChannelActivityDocument = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'platform' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'displayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
@@ -4118,9 +4165,11 @@ export const HomePageLiveContentDocument = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'platform' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'displayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
@@ -4175,7 +4224,7 @@ export const HomePageLiveContentDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'FragmentSpread',
@@ -4859,6 +4908,20 @@ export const ConnectionSettingsDocument = {
               ],
             },
           },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'myYoutubeConnection' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'channelId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'handle' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'linkedAt' } },
+              ],
+            },
+          },
         ],
       },
     },
@@ -4986,6 +5049,128 @@ export const ConnectionSettingsUnlinkTwitchDocument = {
   ConnectionSettingsUnlinkTwitchMutation,
   ConnectionSettingsUnlinkTwitchMutationVariables
 >
+export const ConnectionSettingsStartYoutubeLinkDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ConnectionSettingsStartYoutubeLink' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'desktop' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'youtubeStartLink' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'desktop' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'desktop' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'url' } }],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  ConnectionSettingsStartYoutubeLinkMutation,
+  ConnectionSettingsStartYoutubeLinkMutationVariables
+>
+export const ConnectionSettingsCompleteYoutubeLinkDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ConnectionSettingsCompleteYoutubeLink' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'code' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'state' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'youtubeCompleteLink' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'code' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'code' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'state' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'state' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'channelId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'handle' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'linkedAt' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  ConnectionSettingsCompleteYoutubeLinkMutation,
+  ConnectionSettingsCompleteYoutubeLinkMutationVariables
+>
+export const ConnectionSettingsUnlinkYoutubeDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ConnectionSettingsUnlinkYoutube' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [{ kind: 'Field', name: { kind: 'Name', value: 'youtubeUnlink' } }],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  ConnectionSettingsUnlinkYoutubeMutation,
+  ConnectionSettingsUnlinkYoutubeMutationVariables
+>
 export const LiveUserIdsDocument = {
   kind: 'Document',
   definitions: [
@@ -5094,9 +5279,11 @@ export const LiveStreamsPageDocument = {
         kind: 'SelectionSet',
         selections: [
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'platform' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'displayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'url' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
@@ -5127,7 +5314,7 @@ export const LiveStreamsPageDocument = {
             selectionSet: {
               kind: 'SelectionSet',
               selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'FragmentSpread',
@@ -5586,12 +5773,12 @@ export const UserProfileOverlayLiveDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 {
                   kind: 'Field',
-                  name: { kind: 'Name', value: 'liveStream' },
+                  name: { kind: 'Name', value: 'liveStreams' },
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                     ],
@@ -5722,13 +5909,13 @@ export const UserRatingHistoryDocument = {
     },
   ],
 } as unknown as DocumentNode<UserRatingHistoryQuery, UserRatingHistoryQueryVariables>
-export const UserProfileTwitchDocument = {
+export const UserProfileConnectionsDocument = {
   kind: 'Document',
   definitions: [
     {
       kind: 'OperationDefinition',
       operation: 'query',
-      name: { kind: 'Name', value: 'UserProfileTwitch' },
+      name: { kind: 'Name', value: 'UserProfileConnections' },
       variableDefinitions: [
         {
           kind: 'VariableDefinition',
@@ -5770,12 +5957,26 @@ export const UserProfileTwitchDocument = {
                 },
                 {
                   kind: 'Field',
-                  name: { kind: 'Name', value: 'liveStream' },
+                  name: { kind: 'Name', value: 'youtubeChannel' },
                   selectionSet: {
                     kind: 'SelectionSet',
                     selections: [
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'url' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'liveStreams' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'platform' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'displayName' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
@@ -5791,4 +5992,4 @@ export const UserProfileTwitchDocument = {
       },
     },
   ],
-} as unknown as DocumentNode<UserProfileTwitchQuery, UserProfileTwitchQueryVariables>
+} as unknown as DocumentNode<UserProfileConnectionsQuery, UserProfileConnectionsQueryVariables>

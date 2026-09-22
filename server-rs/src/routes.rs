@@ -42,6 +42,7 @@ use crate::game_reports::GameReportsModule;
 use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
+use crate::live_streams::LiveStreamsModule;
 use crate::maps::MapsModule;
 use crate::matchmaking::api::create_matchmaking_api;
 use crate::matchmaking::config::load_matchmaker_config;
@@ -56,6 +57,7 @@ use crate::twitch::{
 };
 use crate::users::names::{NameChecker, create_names_api};
 use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
+use crate::youtube::{YoutubeClient, YoutubeModule};
 
 const DATABASE_POOL_CONNECTIONS: &str = "database_pool_connections";
 const DATABASE_POOL_MAX_CONNECTIONS: &str = "database_pool_max_connections";
@@ -386,8 +388,23 @@ pub async fn create_app(
         ));
     }
 
+    // Only present when YouTube is configured; disables the integration otherwise.
+    let youtube_client = YoutubeClient::from_settings(&settings);
+    if let Some(youtube_client) = youtube_client.clone() {
+        tokio::spawn(crate::youtube::refresh_live_streams_loop(
+            youtube_client.clone(),
+            db_pool.clone(),
+            redis_pool.clone(),
+        ));
+        tokio::spawn(crate::youtube::refresh_identities_loop(
+            youtube_client,
+            db_pool.clone(),
+        ));
+    }
+
     crate::graphql::errors::describe_metrics();
     crate::redis::describe_metrics();
+    crate::youtube::describe_youtube_metrics();
 
     let schema = build_schema()
         .extension(Tracing)
@@ -400,7 +417,10 @@ pub async fn create_app(
         .data(name_checker.clone())
         .data(matchmaker_config.clone())
         .data(twitch_client.clone())
-        .module(TwitchModule::new(db_pool.clone(), redis_pool.clone()))
+        .data(youtube_client)
+        .module(TwitchModule::new(db_pool.clone()))
+        .module(YoutubeModule::new(db_pool.clone()))
+        .module(LiveStreamsModule::new(redis_pool.clone()))
         .module(MapsModule::new(db_pool.clone()))
         .module(GamesModule::new(db_pool.clone()))
         .module(GameReportsModule::new(db_pool.clone()))

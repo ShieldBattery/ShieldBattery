@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO live_stream_feed_blocks (user_id, blocked_by)\n            VALUES ($1, $2)\n            ON CONFLICT (user_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f2553f5233a22119b6ed9e3af976a27f3f35eefd775826449d51dcc0105455b8"
+}

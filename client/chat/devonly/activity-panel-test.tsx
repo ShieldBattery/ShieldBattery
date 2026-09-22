@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import { makeSbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { LiveStreamPlatform } from '../../gql/graphql'
 import { bodyMedium, titleLarge } from '../../styles/typography'
 import { LiveUsersContext } from '../../twitch/live-state'
 import { ActivityPanel, GameActivityEntry } from '../channel-activity-panel'
@@ -21,32 +22,39 @@ const now = Date.now()
 
 const streams = [
   {
-    id: 'stream:1',
-    twitchLogin: 'flash',
-    twitchDisplayName: 'Flash',
+    id: 'stream:twitch:1',
+    platform: LiveStreamPlatform.Twitch,
+    displayName: 'Flash',
+    url: 'https://twitch.tv/flash',
     title: 'ASL practice, ladder grind to A rank — come say hi',
+    gameName: 'StarCraft: Remastered',
     viewerCount: 1240,
     startedAt: new Date(now - 94 * 60_000).toISOString(),
     thumbnailUrl: placeholderImage('#123a86', '#0f2033'),
     user: { id: makeSbUserId(1), name: 'Flash' },
   },
   {
-    id: 'stream:2',
-    twitchLogin: 'bisu_official',
-    twitchDisplayName: 'Bisu',
+    id: 'stream:twitch:2',
+    platform: LiveStreamPlatform.Twitch,
+    displayName: 'Bisu',
+    url: 'https://twitch.tv/bisu_official',
     title:
       'fastest money games with viewers all night, !discord for the lobby password and !bracket for the cup',
+    gameName: 'StarCraft: Remastered',
     viewerCount: 870,
     startedAt: new Date(now - 47 * 60_000).toISOString(),
     thumbnailUrl: placeholderImage('#5b3aa8', '#14202e'),
     user: { id: makeSbUserId(2), name: 'Bisu' },
   },
   {
-    id: 'stream:3',
-    twitchLogin: 'jaedong',
-    twitchDisplayName: 'Jaedong',
+    id: 'stream:youtube:3',
+    platform: LiveStreamPlatform.Youtube,
+    displayName: 'Jaedong',
+    url: 'https://www.youtube.com/watch?v=jaedong-zvt',
     title: 'ZvT lessons — reviewing your replays',
-    viewerCount: 512,
+    // YouTube exposes no category for a broadcast, and hides the viewer count on some of them.
+    gameName: null,
+    viewerCount: null,
     startedAt: new Date(now - 130 * 60_000).toISOString(),
     thumbnailUrl: placeholderImage('#2a4a2f', '#14202e'),
     user: { id: makeSbUserId(3), name: 'Jaedong' },

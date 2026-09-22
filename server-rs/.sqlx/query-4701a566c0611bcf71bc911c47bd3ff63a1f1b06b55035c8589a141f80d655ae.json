@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM twitch_feed_blocks WHERE user_id = $1",
+  "query": "DELETE FROM live_stream_feed_blocks WHERE user_id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "a54dc84f1979b02cfdce601ee59f13a8e70382839d34aa9f7cec6a90c8162d6c"
+  "hash": "4701a566c0611bcf71bc911c47bd3ff63a1f1b06b55035c8589a141f80d655ae"
 }

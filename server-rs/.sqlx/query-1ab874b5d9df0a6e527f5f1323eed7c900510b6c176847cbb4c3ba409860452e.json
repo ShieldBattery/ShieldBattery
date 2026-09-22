@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE youtube_connections\n            SET youtube_channel_title = $2, youtube_handle = $3, updated_at = now()\n            WHERE youtube_channel_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1ab874b5d9df0a6e527f5f1323eed7c900510b6c176847cbb4c3ba409860452e"
+}
