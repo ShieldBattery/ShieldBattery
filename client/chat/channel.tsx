@@ -57,6 +57,7 @@ import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard, PrivateChannelNotice } from './channel-info-card'
 import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
+import { MessageRoleBadge } from './channel-role-badge'
 import { ConnectedChannelSettings } from './channel-settings/channel-settings'
 import { UserList } from './channel-user-list'
 import {
@@ -653,6 +654,7 @@ export function ConnectedChatChannel({
             }
             UserMenu={ChannelUserMenu}
             MessageMenu={ChannelMessageMenu}
+            NameBadge={MessageRoleBadge}
           />
         ) : (
           <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />

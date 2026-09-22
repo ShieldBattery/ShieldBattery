@@ -86,6 +86,41 @@ export async function getChannelsForUser(userId: SbUserId): Promise<JoinedChanne
 }
 
 /**
+ * Gets the IDs of the members holding a moderation permission (kick, ban or edit permissions) in
+ * each of the given channels, keyed by channel ID. Channel owners are not listed by virtue of
+ * owning the channel; they appear only if they also hold one of those permissions. A channel with
+ * no such members is absent from the result rather than mapped to an empty array.
+ */
+export async function getModeratorIdsForChannels(
+  channelIds: ReadonlyArray<SbChannelId>,
+  withClient?: DbClient,
+): Promise<Map<SbChannelId, SbUserId[]>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<Dbify<{ channelId: SbChannelId; userId: SbUserId }>>(sql`
+      SELECT channel_id, user_id
+      FROM channel_users
+      WHERE channel_id = ANY(${channelIds}) AND (kick OR ban OR edit_permissions)
+      ORDER BY channel_id, join_date, user_id;
+    `)
+
+    const moderatorIds = new Map<SbChannelId, SbUserId[]>()
+    for (const row of result.rows) {
+      const forChannel = moderatorIds.get(row.channel_id)
+      if (forChannel) {
+        forChannel.push(row.user_id)
+      } else {
+        moderatorIds.set(row.channel_id, [row.user_id])
+      }
+    }
+
+    return moderatorIds
+  } finally {
+    done()
+  }
+}
+
+/**
  * Gets a user info for each user in a particular channel. We don't order the users here since
  * they're re-sorted alphabetically on the client anyway.
  */

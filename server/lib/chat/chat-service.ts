@@ -85,6 +85,7 @@ import {
   getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
+  getModeratorIdsForChannels,
   getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
@@ -163,7 +164,11 @@ export default class ChatService {
       getChannelsForUser(userId),
       getUnreadChannelInfo(userId),
     ])
-    const channelInfos = await getChannelInfos(joinedChannels.map(c => c.channelId))
+    const channelIds = joinedChannels.map(c => c.channelId)
+    const [channelInfos, moderatorIdsByChannel] = await Promise.all([
+      getChannelInfos(channelIds),
+      getModeratorIdsForChannels(channelIds),
+    ])
 
     const channelInfosMap = new global.Map(channelInfos.map(c => [c.id, c]))
     const unreadChannelsMap = new global.Map(unreadChannelInfo.map(c => [c.channelId, c]))
@@ -178,6 +183,7 @@ export default class ChatService {
         joinedChannelInfo: toJoinedChannelInfo(channelInfo),
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
+        moderatorIds: moderatorIdsByChannel.get(c.channelId) ?? [],
         latestUnreadTime: unreadInfo?.latestUnreadTime.getTime(),
         // The unread queries treat everything from others since `joinDate` as unread when no read
         // position has been recorded, and the divider goes before the first message *after* the
@@ -218,9 +224,10 @@ export default class ChatService {
     if (userSockets) {
       this.subscribeUserToChannel(userSockets, channelId)
 
-      const [channelInfo, userChannelEntry] = await Promise.all([
+      const [channelInfo, userChannelEntry, moderatorIdsByChannel] = await Promise.all([
         getChannelInfo(channelId),
         getUserChannelEntryForUser(userSockets.userId, channelId),
+        getModeratorIdsForChannels([channelId]),
       ])
 
       if (channelInfo && userChannelEntry) {
@@ -234,6 +241,7 @@ export default class ChatService {
           joinedChannelInfo: toJoinedChannelInfo(channelInfo),
           selfPreferences: userChannelEntry.channelPreferences,
           selfPermissions: userChannelEntry.channelPermissions,
+          moderatorIds: moderatorIdsByChannel.get(channelId) ?? [],
           lastReadTime: userChannelEntry.joinDate.getTime() - 1,
         })
       }

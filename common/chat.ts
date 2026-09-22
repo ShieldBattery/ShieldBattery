@@ -286,6 +286,11 @@ export interface InitialChannelData {
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
   /**
+   * IDs of the channel members holding a moderation permission (kick, ban or editPermissions).
+   * Listed regardless of ownership; the owner is named by `joinedChannelInfo.ownerId`.
+   */
+  moderatorIds: SbUserId[]
+  /**
    * Epoch millis of the newest message in the channel that sits past the user's read position and
    * counts toward unreadness. Omitted when there is none, which is what marks the channel read.
    *

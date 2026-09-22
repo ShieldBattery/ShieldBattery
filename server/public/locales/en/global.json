@@ -293,6 +293,10 @@
       "deletedChannel": "deleted-channel",
       "privateChannel": "private-channel"
     },
+    "channelRole": {
+      "moderator": "Channel moderator",
+      "owner": "Channel owner"
+    },
     "channelSettings": {
       "bannedUsers": {
         "automatedBadge": "Automated",

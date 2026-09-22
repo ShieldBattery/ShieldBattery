@@ -17,6 +17,7 @@ import { StaffBadgedAvatar } from '../users/staff-badge'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
+import { ChannelRoleBadge } from './channel-role-badge'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -83,6 +84,24 @@ const EntryLiveLabel = styled(LiveLabel)`
   flex-shrink: 0;
   margin-left: 8px;
 `
+
+/** Lays the roster's name line out as a row so a role badge can sit beside the name. */
+const RosterNameLine = styled(NameLine)`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
+/** Takes the ellipsizing, so a long name shortens rather than pushing the badge out of the row. */
+const RosterName = styled.span`
+  ${singleLine};
+  min-width: 0;
+`
+
+const RosterRoleBadge = styled(ChannelRoleBadge)`
+  flex-shrink: 0;
+`
+
 const LoadingName = styled.div`
   width: 64px;
   height: 20px;
@@ -175,7 +194,10 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         <StyledAvatar userId={props.userId} />
         {user ? (
           <NameBlock>
-            <NameLine>{user.name}</NameLine>
+            <RosterNameLine>
+              <RosterName>{user.name}</RosterName>
+              <RosterRoleBadge userId={props.userId} />
+            </RosterNameLine>
             <FriendActivityStatusLine userId={props.userId} />
           </NameBlock>
         ) : (
