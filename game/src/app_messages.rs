@@ -545,6 +545,8 @@ pub struct PlayerInfo {
     pub id: LobbyPlayerId,
     pub race: Option<String>,
     pub user_id: Option<SbUserId>,
+    /// Real local-bot identity used only while serializing a replay.
+    pub replay_name: Option<String>,
     /// BW player slot index. Only set in UMS; for other game types the index is equal to
     /// GameSetupInfo.slots index.
     /// And either way this value becomes useless after BW randomizes the slots during

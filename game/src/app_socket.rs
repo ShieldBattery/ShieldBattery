@@ -279,6 +279,7 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
             let setup = parse_payload(payload, "Invalid game setup", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
+        "leave" => Ok(MessageResult::Game(GameStateMessage::LeaveGame)),
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         #[cfg(debug_assertions)]
@@ -353,6 +354,15 @@ mod tests {
     use crate::debug_control::DebugControlCommand;
 
     #[test]
+    fn leave_dispatches_to_game_state() {
+        let result = handle_app_message(r#"{"command":"leave","payload":null}"#.into());
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::LeaveGame))
+        ));
+    }
+
+    #[test]
     fn debug_control_ping_dispatches_to_game_state() {
         let result =
             handle_app_message(r#"{"command":"debugControl","payload":{"type":"ping"}}"#.into());
@@ -386,6 +396,19 @@ mod tests {
             result,
             Ok(MessageResult::Game(GameStateMessage::DebugControl(
                 DebugControlCommand::ForceUnsyncedLeave { slot: 2 }
+            )))
+        ));
+    }
+
+    #[test]
+    fn debug_control_leave_game_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"leaveGame"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::LeaveGame
             )))
         ));
     }

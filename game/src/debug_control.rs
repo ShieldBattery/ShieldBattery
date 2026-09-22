@@ -8,13 +8,12 @@
 //! cfg!(debug_assertions)` guard would NOT be sufficient — the code would still ship in the
 //! release binary and remain a viable patch target for anyone willing to flip the check in-memory.
 
-use std::mem;
-use std::ptr::null_mut;
-use std::slice;
-
 use base64::prelude::{BASE64_STANDARD, Engine as _};
 use image::ImageEncoder;
 use serde::{Deserialize, Serialize};
+use std::mem;
+use std::ptr::null_mut;
+use std::slice;
 use winapi::shared::windef::{HGDIOBJ, RECT};
 use winapi::um::wingdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CreateCompatibleDC, CreateDIBSection,
@@ -33,10 +32,14 @@ pub enum DebugControlCommand {
     /// Snapshot the current netcode-v2 turn state; the DLL replies on `/game/debug/state` with a
     /// [`DebugStateResponse`].
     QueryState,
-    /// Force a synced leave of a mapped slot on THIS client. Writes the slot's
+    /// Inject a non-consensus remote-player drop on THIS client. The local slot is rejected.
+    /// This is fault injection, not a request for this client to quit. It writes the slot's
     /// `pending_leave_reason` on the game thread so the native synced-leave pass applies it like a
     /// real drop, and drops the slot from the readiness set so a stalled step can proceed.
     ForceUnsyncedLeave { slot: u8 },
+    /// Ask SC:R's native window procedure to close the running game normally. The message is
+    /// delivered on the window's owning game thread, which runs the usual game-loop teardown.
+    LeaveGame,
     /// Deliberately diverge THIS client's simulation from its peers by adding a large amount to the
     /// local player's minerals on the game thread. A resource-state change that only one client
     /// makes desyncs BW's lockstep once the diverged value is spent or otherwise checked, so this is

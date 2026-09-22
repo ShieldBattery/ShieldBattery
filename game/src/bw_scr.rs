@@ -3093,16 +3093,27 @@ impl BwScr {
                 );
             }
 
-            if crate::is_background_game() {
-                exe.hook_closure_address(
-                    SaveReplay,
-                    |_path, _orig| {
+            exe.hook_closure_address(
+                SaveReplay,
+                move |path, orig| {
+                    if crate::is_background_game() {
                         debug!("Suppressing replay write for background game");
-                        1
-                    },
-                    self.save_replay as usize - base,
-                );
-            }
+                        return 1;
+                    }
+                    if let Some(setup) = game_thread::setup_info()
+                        .filter(|setup| setup.local_session.is_some() && !setup.is_replay())
+                    {
+                        return replay_save::with_replay_player_names(
+                            self.replay_header(),
+                            &setup.slots,
+                            game_thread::player_id_mapping(),
+                            || orig(path),
+                        );
+                    }
+                    orig(path)
+                },
+                self.save_replay as usize - base,
+            );
             // SC:R autosaves the replay from inside the multiplayer game teardown and replaces the
             // existing file without clearing a read-only attribute, then reports a failed replace
             // with a modal dialog. Clear the file out of the way here and log a failure instead.

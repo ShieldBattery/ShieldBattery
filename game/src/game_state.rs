@@ -110,6 +110,7 @@ pub enum GameStateMessage {
     GameSetupDone,
     GameThread(GameThreadMessage),
     CleanupQuit,
+    LeaveGame,
     QuitIfNotStarted,
     /// Debug/verification control surface command (see `crate::debug_control`); absent from
     /// release builds.
@@ -915,6 +916,9 @@ impl GameState {
                 };
                 tokio::spawn(task);
             }
+            LeaveGame => {
+                crate::game_exit::request_leave_game();
+            }
             QuitIfNotStarted => {
                 if !get_bw().has_game_started() {
                     debug!("Exiting since game has not started");
@@ -947,13 +951,22 @@ impl GameState {
                         .boxed();
                     }
                     DebugControlCommand::ForceUnsyncedLeave { slot } => {
-                        crate::netcode_v2::with_turn_state(|s| {
-                            s.debug_force_unsynced_leave(rally_point_client::proto::ids::SlotId(
-                                slot,
-                            ))
-                        });
-                        // Fire-and-forget: the injection applies on the game thread's next receive;
-                        // verify via queryState. No reply.
+                        let slot = rally_point_client::proto::ids::SlotId(slot);
+                        if let Some(false) = crate::netcode_v2::with_turn_state(|s| {
+                            s.debug_force_unsynced_leave(slot)
+                        }) {
+                            warn!(
+                                "debugControl: forceUnsyncedLeave rejected local slot {}; use leaveGame to quit this client",
+                                slot.0
+                            );
+                        }
+                        // Fire-and-forget: the remote-drop injection applies on the game thread's next
+                        // receive; verify via queryState. No reply.
+                    }
+                    DebugControlCommand::LeaveGame => {
+                        crate::game_exit::request_leave_game();
+                        // Fire-and-forget: WM_CLOSE is delivered to SC:R's game thread, which runs
+                        // the ordinary quit path. No reply: the process exits once it completes.
                     }
                     DebugControlCommand::ForceDesync => {
                         crate::netcode_v2::with_turn_state(|s| s.debug_force_desync());

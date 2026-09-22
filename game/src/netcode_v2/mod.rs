@@ -560,10 +560,11 @@ pub struct TurnState {
     /// running loop first stamps is the evidence that the stamp restarted from near zero after
     /// the pre-loop pipe seed, which a log can then check against the relay's flight recording.
     first_frame_logged: bool,
-    /// Slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game thread.
-    /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_unsynced_leaves`), which
-    /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
-    /// exercising the leave/reconnect paths without a real human quit.
+    /// Remote slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game
+    /// thread. The local slot is rejected: the native leave pass treats it as a departed participant, not a
+    /// client quit. Drained by the IN hook before it checks readiness (see
+    /// `bw_scr::apply_forced_unsynced_leaves`), which writes each slot's `pending_leave_reason` and drops it
+    /// from `required`. Debug-only fault injection for exercising remote-drop handling.
     #[cfg(debug_assertions)]
     forced_unsynced_leaves: Vec<SlotId>,
     /// Set by the `forceDesync` debug command; drained by the IN hook on the game thread (see
@@ -1823,12 +1824,17 @@ impl TurnState {
         }
     }
 
-    /// Queues a slot for a forced synced leave, for the `forceUnsyncedLeave` debug-control command. The
-    /// game thread drains this on its next receive (see `bw_scr::apply_forced_unsynced_leaves`); nothing is
-    /// applied here, so this is safe to call from the async side.
+    /// Queues a remote slot for a forced synced leave, for the `forceUnsyncedLeave` debug-control command.
+    /// The game thread drains this on its next receive (see `bw_scr::apply_forced_unsynced_leaves`); nothing
+    /// is applied here, so this is safe to call from the async side. Returns `false` for the local slot:
+    /// applying the native leave pass to it removes its participant state but does not terminate this client.
     #[cfg(debug_assertions)]
-    pub fn debug_force_unsynced_leave(&mut self, slot: SlotId) {
+    pub fn debug_force_unsynced_leave(&mut self, slot: SlotId) -> bool {
+        if slot == self.local_slot {
+            return false;
+        }
         self.forced_unsynced_leaves.push(slot);
+        true
     }
 
     /// Drains the slots queued by [`debug_force_unsynced_leave`](Self::debug_force_unsynced_leave), in queue order.
@@ -2736,16 +2742,21 @@ mod tests {
     }
 
     #[test]
-    fn forced_unsynced_leaves_drain_in_order_then_empty() {
+    fn forced_unsynced_leaves_reject_local_slot_and_queue_remote_slot() {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
             turn_state();
-        state.debug_force_unsynced_leave(PEER_SLOT);
-        state.debug_force_unsynced_leave(LOCAL_SLOT);
 
-        assert_eq!(
-            state.take_forced_unsynced_leaves(),
-            vec![PEER_SLOT, LOCAL_SLOT]
+        assert!(
+            !state.debug_force_unsynced_leave(LOCAL_SLOT),
+            "the native leave pass cannot simulate this client's own quit"
         );
+        assert!(
+            state.take_forced_unsynced_leaves().is_empty(),
+            "rejecting the local slot must not change the pending-leave queue"
+        );
+
+        assert!(state.debug_force_unsynced_leave(PEER_SLOT));
+        assert_eq!(state.take_forced_unsynced_leaves(), vec![PEER_SLOT]);
         // A second drain finds nothing: `take` left the queue empty.
         assert!(state.take_forced_unsynced_leaves().is_empty());
     }

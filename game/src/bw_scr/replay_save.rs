@@ -132,6 +132,59 @@ pub unsafe fn save_replay_by_name_hook(
     }
 }
 
+/// Temporarily replaces concealed local-bot names in the serialized replay header. Live player
+/// names stay unchanged, including when saving before gameplay has ended.
+///
+/// The header must remain valid throughout `save`, and this must run on the game thread while
+/// nothing else mutates its player names. The mapping must use the randomized in-game player IDs.
+pub unsafe fn with_replay_player_names<R>(
+    header: *mut crate::bw::ReplayHeader,
+    slots: &[crate::app_messages::PlayerInfo],
+    mapping: &[crate::game_thread::PlayerIdMapping],
+    save: impl FnOnce() -> R,
+) -> R {
+    if header.is_null() {
+        return save();
+    }
+    unsafe {
+        let players = std::ptr::addr_of_mut!((*header).players).cast::<crate::bw::Player>();
+        let mut original = scopeguard::guard([None; 8], |names: [Option<[u8; 25]>; 8]| {
+            for (id, name) in names.into_iter().enumerate() {
+                if let Some(name) = name {
+                    std::ptr::addr_of_mut!((*players.add(id)).name).write(name);
+                }
+            }
+        });
+        for slot in slots {
+            let (Some(user_id), Some(name)) = (slot.user_id, slot.replay_name.as_deref()) else {
+                continue;
+            };
+            if name.is_empty()
+                || name.len() > 24
+                || !name.bytes().all(|x| (0x20..=0x7e).contains(&x))
+            {
+                warn!("Ignoring invalid replay player name");
+                continue;
+            }
+            let Some(id) = mapping
+                .iter()
+                .find(|player| player.sb_user_id == user_id)
+                .and_then(|player| player.game_id)
+                .map(|id| id.0 as usize)
+                .filter(|&id| id < original.len())
+            else {
+                continue;
+            };
+            let ptr = std::ptr::addr_of_mut!((*players.add(id)).name);
+            original[id].get_or_insert_with(|| ptr.read());
+            let mut encoded = [0; 25];
+            encoded[..name.len()].copy_from_slice(name.as_bytes());
+            ptr.write(encoded);
+        }
+        save()
+    }
+}
+
 /// The byte length of the longest prefix of a replay recording buffer that SC:R's replay writer
 /// can walk to the end.
 ///
@@ -272,6 +325,115 @@ mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
     use super::*;
+
+    fn replay_name_slot(user: u32, name: Option<&str>) -> crate::app_messages::PlayerInfo {
+        serde_json::from_value(serde_json::json!({
+            "id": "test-slot", "userId": user, "replayName": name,
+            "teamId": 0, "type": "human", "typeId": 6,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn replay_names_follow_randomized_players_and_restore_after_failed_save() {
+        use crate::app_messages::SbUserId;
+        use crate::bw::players::BwPlayerId;
+        use crate::game_thread::PlayerIdMapping;
+        let mut header: crate::bw::ReplayHeader = unsafe { std::mem::zeroed() };
+        header.players[5].name[..12].copy_from_slice(b"Practice bot");
+        header.players[1].name[..14].copy_from_slice(b"Practice bot 2");
+        header.players[0].name[..6].copy_from_slice(b"Player");
+        let original = std::array::from_fn::<_, 12, _>(|i| header.players[i].name);
+        let slots = [
+            replay_name_slot(1, None),
+            replay_name_slot(2, Some("ZZZKBot")),
+            replay_name_slot(3, Some("ZZZKBot 2")),
+        ];
+        let mapping = [
+            PlayerIdMapping {
+                sb_user_id: SbUserId(1),
+                game_id: Some(BwPlayerId(0)),
+            },
+            PlayerIdMapping {
+                sb_user_id: SbUserId(2),
+                game_id: Some(BwPlayerId(5)),
+            },
+            PlayerIdMapping {
+                sb_user_id: SbUserId(3),
+                game_id: Some(BwPlayerId(1)),
+            },
+        ];
+        let ptr = &raw mut header;
+        for result in [0, 1] {
+            let saved = unsafe {
+                with_replay_player_names(ptr, &slots, &mapping, || {
+                    let first = (*ptr).players[5].name;
+                    let second = (*ptr).players[1].name;
+                    assert_eq!(&first[..8], b"ZZZKBot\0");
+                    assert_eq!(&second[..10], b"ZZZKBot 2\0");
+                    assert_eq!((*ptr).players[0].name, original[0]);
+                    result
+                })
+            };
+            assert_eq!(saved, result);
+            assert_eq!(
+                std::array::from_fn::<_, 12, _>(|i| header.players[i].name),
+                original
+            );
+        }
+    }
+
+    #[test]
+    fn replay_names_ignore_missing_invalid_and_unmapped_identities() {
+        use crate::app_messages::SbUserId;
+        use crate::bw::players::BwPlayerId;
+        use crate::game_thread::PlayerIdMapping;
+        let mut header: crate::bw::ReplayHeader = unsafe { std::mem::zeroed() };
+        let ptr = &raw mut header;
+        let mapping = [PlayerIdMapping {
+            sb_user_id: SbUserId(2),
+            game_id: Some(BwPlayerId(5)),
+        }];
+        for name in [
+            None,
+            Some(""),
+            Some("non-ASCII: \u{e9}"),
+            Some("bad\0name"),
+            Some("1234567890123456789012345"),
+        ] {
+            let slots = [
+                replay_name_slot(2, name),
+                replay_name_slot(3, Some("No mapping")),
+            ];
+            unsafe {
+                with_replay_player_names(ptr, &slots, &mapping, || {
+                    assert_eq!(
+                        std::array::from_fn::<_, 12, _>(|i| (*ptr).players[i].name),
+                        [[0; 25]; 12]
+                    );
+                });
+            }
+        }
+        for game_id in [None, Some(BwPlayerId(8)), Some(BwPlayerId(255))] {
+            let mapping = [PlayerIdMapping {
+                sb_user_id: SbUserId(2),
+                game_id,
+            }];
+            unsafe {
+                with_replay_player_names(
+                    ptr,
+                    &[replay_name_slot(2, Some("Observer"))],
+                    &mapping,
+                    || {
+                        assert_eq!(
+                            std::array::from_fn::<_, 12, _>(|i| (*ptr).players[i].name),
+                            [[0; 25]; 12]
+                        );
+                    },
+                );
+            }
+        }
+    }
 
     /// A uniquely named directory under the system temp directory, removed on drop.
     struct TempDir(PathBuf);

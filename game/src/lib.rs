@@ -56,6 +56,7 @@ mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
 mod forge;
+mod game_exit;
 mod game_state;
 mod game_thread;
 mod http;
