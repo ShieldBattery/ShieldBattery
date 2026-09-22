@@ -68,6 +68,7 @@ mod http_proxy;
 #[cfg(debug_assertions)]
 mod input_latency_probe;
 mod mouse_speed;
+mod native_network;
 mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
