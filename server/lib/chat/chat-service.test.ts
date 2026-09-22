@@ -67,6 +67,7 @@ import {
   getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
+  getModeratorIdsForChannels,
   getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
@@ -175,6 +176,7 @@ vi.mock('./chat-models', async () => {
     removeBannedIdentifiersFromChannel: vi.fn(),
     getChannelInfo: vi.fn(),
     getChannelInfos: vi.fn().mockResolvedValue([]),
+    getModeratorIdsForChannels: vi.fn().mockResolvedValue(new Map()),
     findChannelByName: vi.fn(),
     findChannelsByName: vi.fn().mockResolvedValue([]),
     searchChannels: vi.fn().mockResolvedValue([]),
@@ -646,6 +648,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           latestUnreadTime: undefined,
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
@@ -655,9 +658,44 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: testJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           latestUnreadTime: undefined,
           lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
         },
+      ])
+    })
+
+    test("lists each channel's moderators", async () => {
+      await joinUserToChannel(
+        user1,
+        shieldBatteryChannel,
+        user1ShieldBatteryChannelEntry,
+        joinUser1ShieldBatteryChannelMessage,
+      )
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([
+        user1ShieldBatteryChannelEntry,
+        user1TestChannelEntry,
+      ])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
+      asMockedFunction(getModeratorIdsForChannels).mockResolvedValue(
+        new Map([[testChannel.id, [user2.id]]]),
+      )
+
+      const result = await chatService.getJoinedChannels(user1.id)
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      asMockedFunction(getModeratorIdsForChannels).mockResolvedValue(new Map())
+
+      expect(result.map(c => [c.channelInfo.id, c.moderatorIds])).toEqual([
+        [shieldBatteryChannel.id, []],
+        [testChannel.id, [user2.id]],
       ])
     })
 
@@ -689,6 +727,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           latestUnreadTime: latestUnreadTime.getTime(),
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
@@ -724,6 +763,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           latestUnreadTime: latestUnreadTime.getTime(),
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
           latestMentionTime: latestMentionTime.getTime(),
@@ -757,6 +797,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           latestUnreadTime: undefined,
           lastReadTime: lastReadTime.getTime(),
         },
@@ -849,6 +890,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       )
@@ -991,6 +1033,7 @@ describe('chat/chat-service', () => {
           joinedChannelInfo: shieldBatteryJoinedInfo,
           selfPreferences: channelPreferences,
           selfPermissions: channelPermissions,
+          moderatorIds: [],
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
         },
       )
@@ -1040,6 +1083,7 @@ describe('chat/chat-service', () => {
         lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
         selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
+        moderatorIds: [],
       })
     })
 

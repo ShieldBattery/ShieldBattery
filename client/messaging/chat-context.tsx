@@ -10,6 +10,12 @@ export interface ChatContextValue {
   UserMenu?: UserMenuComponent
   /** Component that will display and customize context menu items for messages. */
   MessageMenu: MessageMenuComponent
+  /**
+   * Component rendered next to the author's name on each text message, for surfaces that mark
+   * something about who is speaking (a chat channel's owner and moderators, say). It is not
+   * rendered on names mentioned within a message's text. Left unset where names carry no badge.
+   */
+  NameBadge?: React.ComponentType<{ userId: SbUserId }>
   /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
   disallowMentionInteraction?: boolean
   /**

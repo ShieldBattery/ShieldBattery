@@ -1,6 +1,7 @@
 import { DevSection } from '../../debug/dev-section'
 import { ActivityPanelTest } from './activity-panel-test'
 import { ChatCardsTest } from './chat-cards-test'
+import { RoleBadgesTest } from './role-badges-test'
 
 export function DevChat() {
   return (
@@ -9,6 +10,7 @@ export function DevChat() {
       routes={[
         ['Activity panel', 'activity-panel', ActivityPanelTest],
         ['Chat cards', 'cards', ChatCardsTest],
+        ['Role badges', 'role-badges', RoleBadgesTest],
       ]}
     />
   )

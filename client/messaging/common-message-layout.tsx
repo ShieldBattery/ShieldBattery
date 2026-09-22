@@ -288,7 +288,7 @@ export function TextMessage({
   testId,
 }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
-  const { UserMenu, MessageMenu, disallowMentionInteraction } = useContext(ChatContext)
+  const { UserMenu, MessageMenu, NameBadge, disallowMentionInteraction } = useContext(ChatContext)
   // The invite-card age gate needs the current time, which a pure render can't read directly;
   // capture it once on mount. A message mounts when it first becomes visible (on arrival, or when
   // scrollback loads), which is the moment the age check is about.
@@ -329,6 +329,7 @@ export function TextMessage({
         {isActionLine ? <EmoteGlyph>{'* '}</EmoteGlyph> : undefined}
         <UsernameComponent
           userId={userId}
+          badge={NameBadge ? <NameBadge userId={userId} /> : undefined}
           filterClick={filterClick}
           UserMenu={UserMenu}
           interactive={!disallowMentionInteraction}

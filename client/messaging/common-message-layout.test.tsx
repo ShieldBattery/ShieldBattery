@@ -10,7 +10,9 @@ import createStore from '../create-store'
 import { gameFromMessageLink, GameLinkTarget } from '../games/game-link-card'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
 import { userFromMessageLink, UserLinkTarget } from '../users/user-card'
+import { ChatContext } from './chat-context'
 import { TextMessage } from './common-message-layout'
+import { DefaultMessageMenu } from './message-context-menu'
 
 // The outcome line is built with `Trans`, which needs an i18next instance to render against.
 // `escapeValue` matches how the app initializes i18next: React escapes what it renders, so escaping
@@ -160,6 +162,34 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     expect(container.textContent).toContain(question)
     const chip = screen.getByTestId('outcome-chip')
     expect(chip.textContent).toBe('Yes')
+  })
+
+  test('a name badge renders beside the author name and not on mentions', () => {
+    render(
+      <ReduxProvider store={store}>
+        <ChatContext.Provider
+          value={{
+            MessageMenu: DefaultMessageMenu,
+            NameBadge: ({ userId: badgedUserId }) => (
+              <span data-testid='name-badge'>{`badge:${badgedUserId}`}</span>
+            ),
+          }}>
+          <div data-testid='message-container'>
+            <TextMessage
+              msgId='MESSAGE_ID'
+              userId={userId}
+              selfUserId={selfUserId}
+              time={0}
+              text='hey <@123>'
+            />
+          </div>
+        </ChatContext.Provider>
+      </ReduxProvider>,
+    )
+
+    const badges = screen.getAllByTestId('name-badge')
+    expect(badges).toHaveLength(1)
+    expect(badges[0].textContent).toBe(`badge:${userId}`)
   })
 
   test('message with a link', () => {
