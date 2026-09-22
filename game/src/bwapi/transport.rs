@@ -1,10 +1,10 @@
 //! Nonblocking Windows transport for BWAPI 4.4 external clients.
 //!
-//! The client and server exchange only a four-byte little-endian code over a message-mode named
-//! pipe. `1` means the client has finished writing its command side of `GameData`; `2` means the
-//! server has finished writing its snapshot and events. The large state itself lives in a named
-//! file mapping. This module never waits for either side, because it is called from the game
-//! thread.
+//! Native clients send a four-byte little-endian code over the message-mode named pipe. The
+//! JBWAPI Java clients send their `1` request as one byte; the server accepts both request
+//! widths and always publishes its four-byte little-endian `2` snapshot code. The large state
+//! itself lives in a named file mapping. This module never waits for either side, because it is
+//! called from the game thread.
 
 use std::{
     ffi::CString,
@@ -298,7 +298,9 @@ impl Server {
                 _ => Err(io::Error::last_os_error()),
             };
         }
-        if read != bytes.len() as DWORD || i32::from_le_bytes(bytes) != CLIENT_REQUEST {
+        let valid_request = (read == 1 && bytes[0] == CLIENT_REQUEST as u8)
+            || (read == bytes.len() as DWORD && i32::from_le_bytes(bytes) == CLIENT_REQUEST);
+        if !valid_request {
             return Ok(self.reset_connection());
         }
         Ok(RequestResult::Request)
@@ -445,8 +447,12 @@ mod tests {
 
     use super::*;
     use winapi::{
-        shared::minwindef::{DWORD, FALSE},
+        shared::{
+            minwindef::{DWORD, FALSE},
+            winerror::ERROR_MORE_DATA,
+        },
         um::{
+            errhandlingapi::GetLastError,
             fileapi::{CreateFileA, OPEN_EXISTING, ReadFile, WriteFile},
             handleapi::{CloseHandle, INVALID_HANDLE_VALUE},
             memoryapi::{FILE_MAP_READ, FILE_MAP_WRITE, MapViewOfFile, UnmapViewOfFile},
@@ -593,6 +599,38 @@ mod tests {
             }
             Ok(i32::from_le_bytes(bytes))
         }
+
+        fn read_java_snapshot(&self) -> io::Result<()> {
+            for _ in 0..8 {
+                let mut byte = 0;
+                let mut read = 0;
+                let ok = unsafe {
+                    ReadFile(
+                        self.pipe,
+                        (&raw mut byte).cast(),
+                        size_of::<u8>() as DWORD,
+                        &mut read,
+                        ptr::null_mut(),
+                    )
+                };
+                if ok == FALSE && unsafe { GetLastError() } != ERROR_MORE_DATA {
+                    return Err(io::Error::last_os_error());
+                }
+                if read != size_of::<u8>() as DWORD {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "short Java pipe read",
+                    ));
+                }
+                if byte == SERVER_SNAPSHOT as u8 {
+                    return Ok(());
+                }
+            }
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Java byte stream did not reach a snapshot marker",
+            ))
+        }
     }
 
     impl Drop for Client {
@@ -734,6 +772,86 @@ mod tests {
             PollEvent::Connected
         );
         assert_eq!(client.read_snapshot().unwrap(), SERVER_SNAPSHOT);
+    }
+
+    #[test]
+    fn java_one_byte_requests_preserve_snapshot_byte_stream_and_reject_bad_widths() {
+        let _lock = TRANSPORT_TEST_LOCK.lock().unwrap();
+        let mut server = Server::new(None).unwrap();
+        let client = Client::connect(server.process_id).unwrap();
+
+        assert_eq!(
+            server
+                .poll(|data, initial| {
+                    assert!(initial);
+                    data.frame_count = 1;
+                })
+                .unwrap(),
+            PollEvent::Connected
+        );
+        // The first response remains the native four-byte snapshot message.
+        assert_eq!(client.read_snapshot().unwrap(), SERVER_SNAPSHOT);
+
+        client.write_message(&[CLIENT_REQUEST as u8]).unwrap();
+        assert_eq!(
+            server
+                .poll(|data, initial| {
+                    assert!(!initial);
+                    data.frame_count = 2;
+                })
+                .unwrap(),
+            PollEvent::Exchange
+        );
+        // JBWAPI reads one byte at a time, retaining the three zero bytes in this message.
+        client.read_java_snapshot().unwrap();
+
+        client.write_message(&[CLIENT_REQUEST as u8]).unwrap();
+        assert_eq!(
+            server
+                .poll(|data, initial| {
+                    assert!(!initial);
+                    data.frame_count = 3;
+                })
+                .unwrap(),
+            PollEvent::Exchange
+        );
+        // This consumes the retained zeroes before the next four-byte snapshot marker.
+        client.read_java_snapshot().unwrap();
+        assert_eq!(client.data().frame_count, 3);
+
+        client.write_message(&[1, 0]).unwrap();
+        assert_eq!(
+            server.poll(|_, _| unreachable!()).unwrap(),
+            PollEvent::Disconnected
+        );
+        drop(client);
+        assert_eq!(server.poll(|_, _| unreachable!()).unwrap(), PollEvent::Idle);
+
+        let client = Client::connect(server.process_id).unwrap();
+        assert_eq!(
+            server.poll(|_, initial| assert!(initial)).unwrap(),
+            PollEvent::Connected
+        );
+        assert_eq!(client.read_snapshot().unwrap(), SERVER_SNAPSHOT);
+        client.write_message(&[1, 0, 0]).unwrap();
+        assert_eq!(
+            server.poll(|_, _| unreachable!()).unwrap(),
+            PollEvent::Disconnected
+        );
+        drop(client);
+        assert_eq!(server.poll(|_, _| unreachable!()).unwrap(), PollEvent::Idle);
+
+        let client = Client::connect(server.process_id).unwrap();
+        assert_eq!(
+            server.poll(|_, initial| assert!(initial)).unwrap(),
+            PollEvent::Connected
+        );
+        assert_eq!(client.read_snapshot().unwrap(), SERVER_SNAPSHOT);
+        client.write_message(&[SERVER_SNAPSHOT as u8]).unwrap();
+        assert_eq!(
+            server.poll(|_, _| unreachable!()).unwrap(),
+            PollEvent::Disconnected
+        );
     }
 
     #[test]
