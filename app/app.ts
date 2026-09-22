@@ -837,6 +837,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameSendChat', (event, gameId, text) =>
       activeGameManager.sendGameChat(gameId, text),
     )
+    ipcMain.handle('activeGameInjectGameCommand', (event, gameId, bytes) =>
+      activeGameManager.injectGameCommand(gameId, bytes),
+    )
     ipcMain.handle('activeGameRequestDrop', (event, gameId, slot) =>
       activeGameManager.requestGameDrop(gameId, slot),
     )

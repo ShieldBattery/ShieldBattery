@@ -312,7 +312,7 @@ pub struct DisconnectRow {
 
 impl DisconnectStatus {
     /// The all-healthy status: nothing disconnected, no stall, our own link fine. Used where there
-    /// is no turn state to read (a replay, or a re-entrant lock).
+    /// is no turn state to read (a solo replay, or a re-entrant lock).
     pub fn healthy() -> Self {
         DisconnectStatus {
             peers: Vec::new(),
@@ -572,6 +572,12 @@ pub struct TurnState {
     /// locally echoes each one through the same path the in-game chat box's own send tap uses.
     #[cfg(debug_assertions)]
     debug_chat_queue: Vec<(ChatTarget, String)>,
+    /// Raw BW game-command buffers the `injectGameCommand` debug command has queued for this client
+    /// to issue, in queue order. Drained by the IN hook on the game thread (see
+    /// `bw_scr::apply_debug_game_commands`), which hands each one to the native `send_command`
+    /// entry point so it rides the outgoing turn like a command from the in-game UI.
+    #[cfg(debug_assertions)]
+    debug_command_queue: Vec<Vec<u8>>,
     /// The last [`CHAT_LOG_CAPACITY`] chat lines rendered by this client (its own, and any peer's),
     /// recorded at injection time by [`record_chat`](Self::record_chat) for `queryState`
     /// verification. Oldest first.
@@ -661,6 +667,8 @@ impl TurnState {
             forced_desync: false,
             #[cfg(debug_assertions)]
             debug_chat_queue: Vec::new(),
+            #[cfg(debug_assertions)]
+            debug_command_queue: Vec::new(),
             #[cfg(debug_assertions)]
             chat_log: VecDeque::new(),
             disconnected: Vec::new(),
@@ -1861,6 +1869,24 @@ impl TurnState {
     #[cfg(debug_assertions)]
     pub fn take_debug_chat_queue(&mut self) -> Vec<(ChatTarget, String)> {
         std::mem::take(&mut self.debug_chat_queue)
+    }
+
+    /// Queues a raw BW game-command buffer for the `injectGameCommand` debug-control command. The
+    /// game thread drains this on its next receive (see `bw_scr::apply_debug_game_commands`) and
+    /// hands each buffer to the native `send_command` entry point — the same call the in-game UI
+    /// makes when it issues a command — so the record rides this client's outgoing turn. Nothing is
+    /// issued here, so this is safe to call from the async side.
+    #[cfg(debug_assertions)]
+    pub fn debug_queue_game_command(&mut self, bytes: Vec<u8>) {
+        self.debug_command_queue.push(bytes);
+    }
+
+    /// Drains the buffers queued by
+    /// [`debug_queue_game_command`](Self::debug_queue_game_command), in queue order. Called once
+    /// per receive on the game thread.
+    #[cfg(debug_assertions)]
+    pub fn take_debug_command_queue(&mut self) -> Vec<Vec<u8>> {
+        std::mem::take(&mut self.debug_command_queue)
     }
 
     /// Records one rendered chat line for `queryState` verification, capped to the last

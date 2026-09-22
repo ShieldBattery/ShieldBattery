@@ -56,6 +56,14 @@ pub enum DebugControlCommand {
         #[serde(default)]
         target: DebugChatTarget,
     },
+    /// Hand raw BW game-command bytes to the native `send_command` entry point on the game
+    /// thread's next receive, so they ride this client's outgoing turn exactly as a command issued
+    /// by the in-game UI does. Nothing validates the bytes beyond rejecting an empty buffer and one
+    /// too large to be a single command record — a malformed record reaches the simulation as-is,
+    /// and desyncing or crashing on it is the caller's problem. Lets verification tooling issue
+    /// records the UI has no other trigger for, such as replay control (`0x56` pause/speed, `0x5d`
+    /// seek). No reply — verify via a peer, [`DebugControlCommand::QueryState`], or a screenshot.
+    InjectGameCommand { bytes: Vec<u8> },
     /// Submit a manual drop request for a disconnected slot over the active netcode-v2 session, as a
     /// survivor would with the overlay's Drop button — the identical [`crate::netcode_v2::TurnState::request_drop`]
     /// call. Fire-and-forget: the relay honors it only once the slot has been down past its floor,
@@ -666,6 +674,19 @@ mod tests {
             DebugControlCommand::SendChat {
                 text: "hi".to_string(),
                 target: DebugChatTarget::Player { slot: 3 },
+            }
+        );
+    }
+
+    #[test]
+    fn inject_game_command_parses_camel_case_with_bytes() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"injectGameCommand","bytes":[86,1,0,0,0,0,1,0,0,0]}"#)
+                .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::InjectGameCommand {
+                bytes: vec![86, 1, 0, 0, 0, 0, 1, 0, 0, 0],
             }
         );
     }

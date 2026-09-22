@@ -119,6 +119,8 @@ rootElemPromise
           new TypedIpcRenderer().invoke('activeGameDebugCrash', gameId, kind),
         sendChat: (gameId, text) =>
           new TypedIpcRenderer().invoke('activeGameSendChat', gameId, text),
+        injectGameCommand: (gameId, bytes) =>
+          new TypedIpcRenderer().invoke('activeGameInjectGameCommand', gameId, bytes),
         requestDrop: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameRequestDrop', gameId, slot),
         toggleNetStats: gameId => new TypedIpcRenderer().invoke('activeGameToggleNetStats', gameId),

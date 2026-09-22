@@ -244,7 +244,7 @@ export interface GameLoadRequest {
   signal?: AbortSignal
 }
 
-function gameUserPath(gameId: string, userId: SbUserId) {
+export function gameUserPath(gameId: string, userId: SbUserId) {
   return urlPath`/gameLoader/${gameId}/${userId}`
 }
 

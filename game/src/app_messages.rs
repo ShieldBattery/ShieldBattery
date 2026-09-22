@@ -276,7 +276,7 @@ pub struct NetworkStallInfo {
 pub enum NetworkTransport {
     /// The rally-point2 QUIC turn transport (netcode v2).
     NetcodeV2,
-    /// No relay: a local-only game (a solo game versus AI, or a replay).
+    /// No relay: a local-only game (a solo game versus AI, or a solo replay).
     Native,
 }
 

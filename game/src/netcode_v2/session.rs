@@ -8,8 +8,8 @@
 //! services the link — re-dialing itself on a link drop, without tearing the turn channels down —
 //! and stores the resulting [`TurnState`] where the three BW hooks (installed in `bw_scr.rs`) can
 //! reach it via [`with_turn_state`]. [`establish_sessionless`] stores a driverless [`TurnState`] the
-//! same way for a solo game. With no turn state stored (a replay), the hooks find nothing here and
-//! run BW's original turn handling unchanged.
+//! same way for a solo game. With no turn state stored (a solo replay), the hooks find nothing
+//! here and run BW's original turn handling unchanged.
 
 use std::ffi::CString;
 use std::net::SocketAddr;
@@ -140,7 +140,7 @@ pub async fn establish_session(
     // Background Wi-Fi scans can interrupt packet delivery for long enough to stall a real-time
     // session. Acquire immediately before the first relay dial so the lobby is covered too. The
     // lease is moved into the reconnecting driver below; a failed or cancelled dial drops it here.
-    // Sessionless games and replays never call this function.
+    // Sessionless games and solo replays never call this function.
     let wifi_low_latency = WifiLowLatencyLease::acquire();
 
     // Dial the home relay, racing its candidate addresses (preference order, v6 first, each next
@@ -260,7 +260,7 @@ pub async fn establish_session(
 /// before process teardown guarantees the announcement was actually delivered, not stranded in a
 /// dying process (which would leave the surviving players stalled on the drop path instead of
 /// getting the prompt "player left"). Returns immediately when there is no session or no driver
-/// (sessionless/replay), and the timeout bounds a driver stuck re-dialing a dead relay.
+/// (sessionless or solo replay), and the timeout bounds a driver stuck re-dialing a dead relay.
 pub async fn wait_for_driver_shutdown(timeout: Duration) {
     // Clone the receiver out under the lock, await outside it: holding the session lock across the
     // await would block the game thread's hooks for up to the whole timeout.
@@ -526,9 +526,9 @@ async fn connect_relay_with_timing(
 
 /// Runs `f` against the current game's [`TurnState`], if one is live.
 ///
-/// Returns `None` when there is no turn state stored (a replay) or when the turn-state mutex is
-/// already held by this thread — a re-entrant hook call, which the caller treats the same as "no
-/// turn state" and runs BW's original behavior. Keep `f` short: it runs with the BW sync thread
+/// Returns `None` when there is no turn state stored (a solo replay) or when the turn-state mutex
+/// is already held by this thread — a re-entrant hook call, which the caller treats the same as
+/// "no turn state" and runs BW's original behavior. Keep `f` short: it runs with the BW sync thread
 /// holding the lock, and it must not call back into native code that can re-enter a turn hook (see
 /// the IN-hook lock discipline in the module docs).
 pub fn with_turn_state<R>(f: impl FnOnce(&mut TurnState) -> R) -> Option<R> {
@@ -541,8 +541,8 @@ pub fn with_turn_state<R>(f: impl FnOnce(&mut TurnState) -> R) -> Option<R> {
 /// [`TurnState::begin_local_only`]).
 ///
 /// Unlike [`with_turn_state`], this distinguishes its two `None` cases instead of collapsing them:
-/// no turn state stored (a replay — the hooks never find a turn state here either) stays a silent
-/// no-op, but the lock already held re-entrantly is warned, because this call fires from the
+/// no turn state stored (a solo replay — the hooks never find a turn state here either) stays a
+/// silent no-op, but the lock already held re-entrantly is warned, because this call fires from the
 /// dialog hook rather than one of the three turn hooks — if it ever raced one of them, losing the
 /// transition silently would leave the game networked when it should have gone local-only.
 pub fn begin_local_only() {
@@ -560,7 +560,7 @@ pub fn begin_local_only() {
 /// whether a relay-backed session took the report.
 ///
 /// `true` means the report was handed to a relay driver. `false` means there is no relay driver —
-/// a solo game (whose sessionless turn state has no relay to deliver over), or a replay (no turn
+/// a solo game (whose sessionless turn state has no relay to deliver), or a solo replay (no turn
 /// state at all), or the re-entrant-lock case (which can't actually happen here, since this fires
 /// from the async result handler well off the turn hooks, but is warned rather than silently
 /// mis-reporting). A `false` return means no one reports this game's result; a sessionless

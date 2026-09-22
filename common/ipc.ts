@@ -134,6 +134,16 @@ interface IpcInvokeables {
    */
   activeGameSendChat: (gameId: string, text: string) => void
   /**
+   * Tells the active game process to feed raw BW game-command bytes into this client's outgoing
+   * turn, through the same native entry point the in-game UI issues its commands through (debug
+   * game builds only). Only registered in development (`isDev`). Nothing validates the bytes, so a
+   * malformed record can desync or crash the game. Lets verification tooling issue records the UI
+   * has no other trigger for, such as replay control (`0x56` pause/speed, `0x5d` seek).
+   * Fire-and-forget: there's no reply; verify via a peer, a screenshot, or
+   * {@link IpcInvokeables.activeGameDebugQueryState}.
+   */
+  activeGameInjectGameCommand: (gameId: string, bytes: number[]) => void
+  /**
    * Tells the active game process to submit a manual drop request for a disconnected rally-point2
    * slot over its netcode v2 session (debug game builds only), the same request the in-game
    * disconnect overlay's Drop button makes. Only registered in development (`isDev`).

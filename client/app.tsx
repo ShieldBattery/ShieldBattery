@@ -51,6 +51,14 @@ const ReduxDevToolsContainer =
     ? React.lazy(() => import('./debug/redux-devtools'))
     : undefined
 
+if (IS_ELECTRON && import.meta.env.DEV) {
+  // Dynamically imported so production bundles never include the dev replay session console
+  // helper it installs on `window`.
+  import('./replays/devonly/replay-session-dev').catch(err => {
+    console.error('Failed to load dev replay session helper: ', err)
+  })
+}
+
 const DevComponent = import.meta.env.PROD ? () => null : React.lazy(() => import('./dev'))
 
 function LoadableDev() {

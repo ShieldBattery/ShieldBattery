@@ -533,6 +533,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Tells the active game process to feed raw BW game-command bytes into this client's outgoing
+   * turn (debug game builds only), through the same native entry point the in-game UI issues its
+   * commands through. Nothing validates the bytes, so a malformed record can desync or crash the
+   * game. Fire-and-forget: there's no reply; verify via a peer, a screenshot, or
+   * {@link debugQueryState}.
+   */
+  injectGameCommand(gameId: string, bytes: number[]): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got injectGameCommand for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'injectGameCommand', bytes })
+  }
+
+  /**
    * Tells the active game process to submit a manual drop request for a disconnected rally-point2
    * slot over its netcode v2 session (debug game builds only), the same request the in-game
    * disconnect overlay's Drop button makes. Fire-and-forget: there's no reply; the relay honors it

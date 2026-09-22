@@ -90,6 +90,12 @@ impl ChatManager {
         self.muted_players.clear();
     }
 
+    /// Whether messages from `user` should be kept from the local player, because they blocked that
+    /// user on ShieldBattery or muted them for this game.
+    pub fn is_user_hidden(&self, user: SbUserId) -> bool {
+        self.blocked_players.contains(&user) || self.muted_players.contains(&user)
+    }
+
     /// Returns true if the message was handled (e.g. the original function should not be called).
     pub fn handle_message(&mut self, _message: &str, player_id: u32) -> bool {
         // Chat senders arrive as game player ids: 0-11 for players, 0x80-0x83 for observers.
@@ -107,8 +113,7 @@ impl ChatManager {
             .iter()
             .find(|p| p.player_id.is_some_and(|id| id.0 as u32 == player_index));
         if let Some(player) = player
-            && (self.blocked_players.contains(&player.sb_user_id)
-                || self.muted_players.contains(&player.sb_user_id))
+            && self.is_user_hidden(player.sb_user_id)
         {
             return true;
         }
@@ -255,6 +260,26 @@ mod tests {
         assert!(manager.handle_message("hi", 128));
         assert!(manager.handle_message("hi", 131));
         assert!(!manager.handle_message("hi", 129));
+    }
+
+    #[test]
+    fn blocked_and_muted_users_are_hidden() {
+        let mut manager = manager_with_players();
+        assert!(!manager.is_user_hidden(SbUserId(2)));
+        manager.add_muted_player(SbUserId(2));
+        assert!(manager.is_user_hidden(SbUserId(2)));
+        manager.remove_muted_player(SbUserId(2));
+        assert!(!manager.is_user_hidden(SbUserId(2)));
+
+        manager.add_blocked_player(SbUserId(3));
+        assert!(manager.is_user_hidden(SbUserId(3)));
+        // The local user can never block or mute themselves into being hidden.
+        manager.add_blocked_player(SbUserId(1));
+        assert!(!manager.is_user_hidden(SbUserId(1)));
+        // A user with no roster entry at all is only hidden once blocked or muted.
+        assert!(!manager.is_user_hidden(SbUserId(99)));
+        manager.add_muted_player(SbUserId(99));
+        assert!(manager.is_user_hidden(SbUserId(99)));
     }
 
     #[test]

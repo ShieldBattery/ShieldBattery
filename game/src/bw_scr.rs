@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::ffi::{CStr, CString, OsString};
 use std::marker::PhantomData;
@@ -1230,6 +1231,40 @@ fn build_chat_record(sender_game_id: u8, text: &str) -> [u8; CHAT_RECORD_LEN] {
     record
 }
 
+/// The storm id whose replay-control commands decide playback for a replay several clients watch
+/// through one relay session. It is the session host's slot, which is always storm id 0.
+const SHARED_REPLAY_HOST_STORM_ID: u32 = 0;
+
+/// Splits a turn's command buffer into its replay-control records (`0x56` speed/pause and `0x5d`
+/// seek) and every other record, each group keeping the order it had in the buffer. Returns `None`
+/// when the buffer holds no control record at all — the common per-turn case, which then needs no
+/// copying.
+///
+/// The two groups have to be handed to the native command processor in separate calls because the
+/// engine only honors a replay-control record that arrives as the local client's own command, so
+/// applying one on behalf of another client means processing it under a different sender identity
+/// than the rest of that client's turn.
+fn split_replay_control_commands(
+    slice: &[u8],
+    command_lengths: &[u32],
+) -> Option<(Vec<u8>, Vec<u8>)> {
+    let mut controls = Vec::new();
+    let mut rest = Vec::new();
+    for command in commands::iter_commands(slice, command_lengths) {
+        match command {
+            [commands::id::REPLAY_SPEED, ..] | [commands::id::REPLAY_SEEK, ..] => {
+                controls.extend_from_slice(command)
+            }
+            _ => rest.extend_from_slice(command),
+        }
+    }
+    if controls.is_empty() {
+        None
+    } else {
+        Some((controls, rest))
+    }
+}
+
 impl BwScr {
     /// On failure returns a description of address that couldn't be found
     pub fn new() -> Result<BwScr, BwInitError> {
@@ -1945,6 +1980,37 @@ impl BwScr {
                         is_observer,
                         &self.game_command_lengths,
                     );
+                    // A replay watched by several clients through one relay session has a single
+                    // shared playback position, so the replay-control commands in a live turn go
+                    // through the routing in `apply_shared_replay_controls` rather than being
+                    // processed like any other command. The third argument tells a live turn apart
+                    // from the replay's own recorded command stream, which is never shared.
+                    let shared_replay_session = is_replay
+                        && are_recorded_replay_commands == 0
+                        && netcode_v2::with_turn_state(|_| ()).is_some();
+                    let sender_storm = self.storm_command_user.resolve();
+                    let local_storm = self.local_storm_id.resolve();
+                    // Only the host controls shared playback, so a watcher's control commands are
+                    // dropped everywhere, including on the watcher that sent them.
+                    let slice = if shared_replay_session
+                        && sender_storm != SHARED_REPLAY_HOST_STORM_ID
+                        && let Some((dropped, rest)) =
+                            split_replay_control_commands(&slice, &self.game_command_lengths)
+                    {
+                        for command in
+                            commands::iter_commands(&dropped, &self.game_command_lengths)
+                        {
+                            debug!(
+                                "Dropping replay control command {:#x} from storm player \
+                                {sender_storm}: only storm player \
+                                {SHARED_REPLAY_HOST_STORM_ID} controls shared replay playback",
+                                command[0],
+                            );
+                        }
+                        Cow::Owned(rest)
+                    } else {
+                        slice
+                    };
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
@@ -2008,7 +2074,21 @@ impl BwScr {
                     let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
                     self.is_processing_game_commands
                         .store(true, Ordering::Relaxed);
-                    orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
+                    // The host's replay controls take a call of their own, stamped with the local
+                    // player's identity; what's left of the turn is processed as usual below.
+                    let to_process = if shared_replay_session
+                        && sender_storm == SHARED_REPLAY_HOST_STORM_ID
+                        && sender_storm != local_storm
+                    {
+                        self.apply_shared_replay_controls(&slice, local_storm, orig)
+                    } else {
+                        Cow::Borrowed(&*slice)
+                    };
+                    orig(
+                        to_process.as_ptr(),
+                        to_process.len(),
+                        are_recorded_replay_commands,
+                    );
                     self.is_processing_game_commands
                         .store(was_processing, Ordering::Relaxed);
                     if alliance_or_vision_seen && (command_user as usize) < 12 {
@@ -3309,6 +3389,10 @@ impl BwScr {
             // the same path a human's own Enter keypress uses.
             #[cfg(debug_assertions)]
             self.apply_debug_chat();
+            // Debug-only: the `injectGameCommand` command's queued raw command records, handed to
+            // the same native entry point the in-game UI issues its commands through.
+            #[cfg(debug_assertions)]
+            self.apply_debug_game_commands();
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
@@ -3326,6 +3410,12 @@ impl BwScr {
                 s.pump_connectivity(true, Instant::now());
                 s.pump_region_labels();
             });
+            // The host slot's turn bytes for this step, copied out for
+            // [`dispatch_remote_host_replay_controls`](Self::dispatch_remote_host_replay_controls)
+            // to feed to the command processor once the lock is released. Only a watcher other than
+            // the host has anything to copy; the bytes are borrowed from the turn state, so they
+            // can't outlive the lock without being owned.
+            let mut host_turn: Option<Vec<u8>> = None;
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;
@@ -3338,6 +3428,14 @@ impl BwScr {
                     self.storm_player_flags.resolve(),
                     s.dispatch_buffers(),
                 );
+                if game_thread::is_replay()
+                    && self.local_storm_id.resolve() != SHARED_REPLAY_HOST_STORM_ID
+                {
+                    host_turn = s
+                        .dispatch_buffers()
+                        .find(|&(storm, _)| storm.0 as u32 == SHARED_REPLAY_HOST_STORM_ID)
+                        .map(|(_, bytes)| bytes.to_vec());
+                }
                 s.apply_due_directive(next_frame);
                 // Exactly once per executed step (one local turn leaves the pipe), NOT per dispatched
                 // slot — see TurnState::mark_local_turn_executed.
@@ -3356,6 +3454,9 @@ impl BwScr {
                     let leaving = self.run_synced_leave_pass(nc);
                     for (storm, _) in leaving {
                         netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
+                    }
+                    if let Some(turn) = host_turn {
+                        self.dispatch_remote_host_replay_controls(&turn);
                     }
                     TurnReceiveOutcome::Ready
                 }
@@ -3633,26 +3734,12 @@ impl BwScr {
                     return 0;
                 }
             }
-            // 2. Local identity fixup: correct the local session slot and node from the 0 that create
-            //    produced to this client's roster slot.
-            nc.storm_local_player_slot.write(seed.local_slot);
-            let local = (nc.get_local_storm_session_player)();
-            if local.is_null() {
-                error!("netcode v2: join replacement could not resolve local session player");
+            // 2. Reshape the created session into the roster's shape: the local identity moves to
+            //    this client's roster slot, every other member is admitted.
+            if self.v2_seed_created_session(seed).is_err() {
                 return 0;
             }
-            write_session_player_slot(local, seed.local_slot);
-            // Create already wrote the local name into this node; rewriting it keeps the fixup
-            // self-sufficient and identical for any future caller.
-            copy_session_player_name(local, &seed.local_name);
-            (nc.storm_register_slot_name)(
-                seed.local_slot as u32,
-                seed.local_name.as_ptr() as *const u8,
-            );
-            // 3. Seed the other members. Done after the local fixup so its slot-name registration for
-            //    the local slot re-registers over the local name create left at that index.
-            self.v2_seed_storm_session_members(&seed.members);
-            // 4. The local game-level net player id the native caller stores: session slot plus the
+            // 3. The local game-level net player id the native caller stores: session slot plus the
             //    turn base.
             // Every roster consumer treats the game-level net player id as identical to the session
             // slot; that holds because the turn base stays 0 in this flow (its native writers are
@@ -3664,12 +3751,70 @@ impl BwScr {
                 "storm_turn_base expected to be 0"
             );
             *out_net_player_id = seed.local_slot as u32 + nc.storm_turn_base.resolve();
-            // 5. Native join's success tail drains Storm's deferred inbound queue. Nothing can be
+            // 4. Native join's success tail drains Storm's deferred inbound queue. Nothing can be
             //    queued when no Storm networking has run, but calling it keeps the replacement
             //    faithful to the native tail and covers any provider-queued edge.
             (nc.snet_drain_deferred_queue)();
-            // 6. TRUE: the caller treats the join as succeeded.
+            // 5. TRUE: the caller treats the join as succeeded.
             1
+        }
+    }
+
+    /// Reshapes a freshly created local Storm session into the shape a network join would have
+    /// produced. `storm_create_game` seats its creator at session slot 0; this moves the local
+    /// identity to the roster slot `seed` names and seeds every other roster member, standing in
+    /// for the peer-admit a network join's handshake would have performed.
+    ///
+    /// Returns `Err` when the local session player cannot be resolved, leaving the session
+    /// half-reshaped — the caller must treat that as a failed setup rather than continue.
+    unsafe fn v2_seed_created_session(
+        &self,
+        seed: &netcode_v2::LobbySessionSeed,
+    ) -> Result<(), ()> {
+        unsafe {
+            let nc = &self.netcode_v2;
+            // Local identity fixup: correct the local session slot and node from the 0 that create
+            // produced to this client's roster slot.
+            nc.storm_local_player_slot.write(seed.local_slot);
+            let local = (nc.get_local_storm_session_player)();
+            if local.is_null() {
+                error!("netcode v2: could not resolve local session player after create");
+                return Err(());
+            }
+            write_session_player_slot(local, seed.local_slot);
+            // Create already wrote the local name into this node; rewriting it keeps the fixup
+            // self-sufficient and identical for any future caller.
+            copy_session_player_name(local, &seed.local_name);
+            (nc.storm_register_slot_name)(
+                seed.local_slot as u32,
+                seed.local_name.as_ptr() as *const u8,
+            );
+            // Seed the other members after the local fixup, so the fixup's slot-name registration
+            // for the local slot re-registers over the local name create left at that index.
+            self.v2_seed_storm_session_members(&seed.members);
+            Ok(())
+        }
+    }
+
+    /// Seats a client that had to build its session through the native create path at the roster
+    /// slot it actually occupies. A replay is such a game: the join-side map loader
+    /// `init_map_from_path` rejects a replay file, so a replay client holding a non-zero roster
+    /// slot runs the native create — which seats it at slot 0 and stores 0 as BW's local net
+    /// player id — instead of a join.
+    ///
+    /// Reshapes the created session with [`v2_seed_created_session`](Self::v2_seed_created_session)
+    /// and then writes `local_storm_id` to the roster slot, the value the native join's success
+    /// tail would have stored from the join replacement's returned id. Everything keyed on the
+    /// local storm id — the id maps built by `update_nation_and_human_ids`, the host-only `0x48`
+    /// send in `do_lobby_game_init`, chat attribution — then sees the roster slot.
+    pub unsafe fn v2_adopt_roster_slot_after_create(
+        &self,
+        seed: &netcode_v2::LobbySessionSeed,
+    ) -> Result<(), ()> {
+        unsafe {
+            self.v2_seed_created_session(seed)?;
+            self.local_storm_id.write(seed.local_slot as u32);
+            Ok(())
         }
     }
 
@@ -3819,6 +3964,37 @@ impl BwScr {
         }
     }
 
+    /// Debug-only `injectGameCommand` application, run on the game thread alongside
+    /// [`apply_debug_chat`](Self::apply_debug_chat). Drains the raw BW game-command buffers the
+    /// `injectGameCommand` command queued and hands each one to the native `send_command` entry
+    /// point — the same call the in-game UI makes when it issues a command — so the record rides
+    /// this client's outgoing turn like any other. A buffer that is empty or larger than a single
+    /// command record can be is logged and skipped; nothing else validates the bytes, so a
+    /// malformed record reaches the simulation exactly as it would from a broken UI path.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_debug_game_commands(&self) {
+        // Every BW command record fits well inside this; the cap only keeps a bad request from
+        // handing an arbitrarily large buffer to native code.
+        const MAX_COMMAND_LEN: usize = 0x200;
+
+        unsafe {
+            let Some(queued) = netcode_v2::with_turn_state(|s| s.take_debug_command_queue()) else {
+                return; // no live session
+            };
+            for bytes in queued {
+                if bytes.is_empty() || bytes.len() > MAX_COMMAND_LEN {
+                    warn!(
+                        "debugControl: skipping injectGameCommand buffer of {} bytes \
+                         (allowed 1..={MAX_COMMAND_LEN})",
+                        bytes.len(),
+                    );
+                    continue;
+                }
+                (self.send_command)(bytes.as_ptr(), bytes.len());
+            }
+        }
+    }
+
     /// Send path shared by the in-game chat box's send tap (`dialog_hook::chat_box_event_handler`)
     /// and the `sendChat` debug command: submits `text` to the active netcode v2 session's chat
     /// channel, scoped by `target`, then injects this client's own local echo — the classic chat
@@ -3855,11 +4031,22 @@ impl BwScr {
     /// own local echo (`send_chat_message`, with `storm_player` set to this client's own storm id)
     /// — one path renders both, so the two can never diverge in formatting or attribution.
     ///
+    /// A replay watched through a relay session takes a different route (see below), printing the
+    /// line instead of injecting a record.
+    ///
     /// Returns `false` (injecting nothing) when `storm_player` can't be resolved to a `players[]`
     /// slot right now — see [`unique_player_for_storm`](Self::unique_player_for_storm) — e.g. it
     /// already left.
     unsafe fn inject_chat_message(&self, storm_player: StormPlayerId, text: &str) -> bool {
         unsafe {
+            // During replay playback the `players[]` slots hold the *recorded* game's players, so a
+            // chat record's sender byte can only ever name one of them and never the watcher who
+            // typed the line; the engine also renders nothing on screen for a live chat record
+            // while a replay plays back. Watchers are named from the session roster instead and
+            // their messages are printed as plain text.
+            if game_thread::is_replay() && netcode_v2::with_turn_state(|_| ()).is_some() {
+                return self.print_shared_replay_chat(storm_player, text);
+            }
             let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
                 return false;
             };
@@ -3886,6 +4073,55 @@ impl BwScr {
             }
             injected
         }
+    }
+
+    /// Renders one chat message from a replay several clients watch through one relay session,
+    /// naming its sender from the session roster and printing it as plain neutral-colored text.
+    ///
+    /// BW's `players[]` slots describe the recorded game during playback, so a watcher has no slot
+    /// there to be attributed to and the classic chat record has nowhere to render; the roster is
+    /// the only thing that knows which watcher a storm id belongs to. A sender the roster doesn't
+    /// name (or one the setup info has no user for) is labelled by its storm id, since a message
+    /// that can't be attributed is still worth showing.
+    ///
+    /// A message from a watcher the local player has blocked or muted is consumed without being
+    /// printed. Always returns `true`: the message is handled either way, and no native chat path
+    /// could render it.
+    fn print_shared_replay_chat(&self, storm_player: StormPlayerId, text: &str) -> bool {
+        let sender = netcode_v2::with_turn_state(|s| s.roster_storm_ids())
+            .unwrap_or_default()
+            .into_iter()
+            .find(|&(_, storm)| storm == storm_player)
+            .map(|(user, _)| user);
+        if let Some(user) = sender
+            && self.chat_manager.lock().is_user_hidden(user)
+        {
+            return true;
+        }
+        let name = sender
+            .and_then(|user| {
+                game_thread::setup_info().and_then(|info| info.users.iter().find(|u| u.id == user))
+            })
+            .map(|user| user.name.clone())
+            .unwrap_or_else(|| format!("Watcher {}", storm_player.0));
+        let text = commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY);
+        // An interior NUL would cut the line short at the C string boundary, so drop them.
+        match CString::new(format!("{name}: {text}").replace('\0', "")) {
+            Ok(line) => self.print_text(&line),
+            Err(e) => warn!("Could not render shared replay chat line: {e}"),
+        }
+        #[cfg(debug_assertions)]
+        {
+            let own = storm_player.0 as u32 == unsafe { self.local_storm_id.resolve() };
+            netcode_v2::with_turn_state(|s| {
+                s.record_chat(crate::debug_control::DebugChatLogEntry {
+                    sender_game_id: storm_player.0,
+                    text: text.to_string(),
+                    own,
+                })
+            });
+        }
+        true
     }
 
     /// Whether a received chat message naming `target` should be shown to the local player, given
@@ -4048,6 +4284,105 @@ impl BwScr {
             self.unique_command_user
                 .write(self.local_unique_player_id.resolve());
             true
+        }
+    }
+
+    /// Applies the replay-control commands (`0x56` speed/pause, `0x5d` seek) out of a turn that
+    /// arrived from a *different* client, and returns the rest of the turn for the caller to
+    /// process the ordinary way. `orig` is the native command processor, `local_storm` the local
+    /// client's storm id.
+    ///
+    /// When several clients watch one replay through a relay session they only stay on the same
+    /// frame if every one of them applies the same replay controls on the same turn. The controls
+    /// travel as ordinary commands in the sender's turn, but the engine honors a replay-control
+    /// record only while its `command_user` / `unique_command_user` / `storm_command_user` globals
+    /// name the local player — a record received from someone else is otherwise ignored, which
+    /// would leave the sender's playback running ahead of or behind everyone else's. So the
+    /// control records are re-stamped as the local player's own for the length of one processor
+    /// call and the globals are put back immediately after, leaving the sender's identity intact
+    /// for the remainder of the turn.
+    ///
+    /// Which sender's controls count is decided by the caller and is deliberately narrow: only
+    /// [`SHARED_REPLAY_HOST_STORM_ID`]'s records ever reach here, and no other watcher's records
+    /// are honored on any client, so shared playback has exactly one driver.
+    unsafe fn apply_shared_replay_controls<'a>(
+        &self,
+        slice: &'a [u8],
+        local_storm: u32,
+        orig: unsafe extern "C" fn(*const u8, usize, u32),
+    ) -> Cow<'a, [u8]> {
+        unsafe {
+            let Some((controls, rest)) =
+                split_replay_control_commands(slice, &self.game_command_lengths)
+            else {
+                return Cow::Borrowed(slice);
+            };
+            for command in commands::iter_commands(&controls, &self.game_command_lengths) {
+                match command {
+                    [commands::id::REPLAY_SPEED, rest @ ..] if rest.len() == 9 => debug!(
+                        "Applying host replay speed command: pause {}, speed {}, multiplier {}",
+                        rest[0],
+                        LittleEndian::read_u32(&rest[1..]),
+                        LittleEndian::read_u32(&rest[5..]),
+                    ),
+                    [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => debug!(
+                        "Applying host replay seek command: frame {}",
+                        LittleEndian::read_u32(rest),
+                    ),
+                    _ => debug!("Applying host replay control command {command:02x?}"),
+                }
+            }
+            let prev_command_user = self.command_user.resolve();
+            let prev_unique_command_user = self.unique_command_user.resolve();
+            let prev_storm_command_user = self.storm_command_user.resolve();
+            self.command_user.write(self.local_player_id.resolve());
+            self.unique_command_user
+                .write(self.local_unique_player_id.resolve());
+            self.storm_command_user.write(local_storm);
+            orig(controls.as_ptr(), controls.len(), 0);
+            self.command_user.write(prev_command_user);
+            self.unique_command_user.write(prev_unique_command_user);
+            self.storm_command_user.write(prev_storm_command_user);
+            Cow::Owned(rest)
+        }
+    }
+
+    /// Hands the replay-control records (`0x56` speed/pause, `0x5d` seek) out of the host slot's
+    /// just-received turn to the command processor, so they reach
+    /// [`apply_shared_replay_controls`](Self::apply_shared_replay_controls) on a watcher that isn't
+    /// the host.
+    ///
+    /// The engine's replay playback only feeds the *local* client's own turn bytes to the command
+    /// processor: a remote slot's turn is consumed for lockstep and then dropped, so nothing the
+    /// host sends would otherwise ever reach the command hook on another watcher, and the host's
+    /// pauses and seeks would move only the host's own playback. Calling the hooked entry point
+    /// here re-enters that hook with the sender globals naming the host slot, which is exactly the
+    /// shape [`apply_shared_replay_controls`] recognizes — it does its own local re-stamp and
+    /// restore, so shared playback is applied through one path no matter how the records arrived.
+    /// Run once per executed step, with the turn state's lock released, since the hook re-entry can
+    /// issue commands that re-lock it.
+    ///
+    /// Only the control records are dispatched. The rest of the host's turn stays dropped: a
+    /// watcher's other commands have no effect on a replay's recorded simulation, and feeding them
+    /// in would append them to the replay's command log for no gain.
+    unsafe fn dispatch_remote_host_replay_controls(&self, turn: &[u8]) {
+        unsafe {
+            let Some((controls, _)) =
+                split_replay_control_commands(turn, &self.game_command_lengths)
+            else {
+                return;
+            };
+            let prev_command_user = self.command_user.resolve();
+            let prev_unique_command_user = self.unique_command_user.resolve();
+            let prev_storm_command_user = self.storm_command_user.resolve();
+            self.storm_command_user.write(SHARED_REPLAY_HOST_STORM_ID);
+            self.command_user.write(self.local_player_id.resolve());
+            self.unique_command_user
+                .write(self.local_unique_player_id.resolve());
+            (self.process_game_commands)(controls.as_ptr(), controls.len(), 0);
+            self.command_user.write(prev_command_user);
+            self.unique_command_user.write(prev_unique_command_user);
+            self.storm_command_user.write(prev_storm_command_user);
         }
     }
 
@@ -7368,5 +7703,42 @@ mod tests {
         for slot in 12..16u8 {
             assert!(BwPlayerId(game_player_id_for_slot(slot)).is_observer());
         }
+    }
+
+    /// Lengths for the command ids the shared-replay split tests use. Every other id is left
+    /// variable-length (`!0`), which makes it an unknown command as far as
+    /// `commands::command_length` is concerned.
+    fn test_command_lengths() -> Vec<u32> {
+        let mut lengths = vec![!0u32; 0x100];
+        lengths[commands::id::NOP as usize] = 1;
+        lengths[commands::id::SYNC as usize] = 7;
+        lengths[commands::id::REPLAY_SPEED as usize] = 10;
+        lengths[commands::id::REPLAY_SEEK as usize] = 5;
+        lengths
+    }
+
+    #[test]
+    fn replay_controls_split_from_the_rest_of_a_turn() {
+        let lengths = test_command_lengths();
+        let speed = [commands::id::REPLAY_SPEED, 1, 2, 0, 0, 0, 4, 0, 0, 0];
+        let seek = [commands::id::REPLAY_SEEK, 0x10, 0x20, 0, 0];
+        let sync = [commands::id::SYNC, 1, 2, 3, 4, 5, 6];
+        let nop = [commands::id::NOP];
+        let mut buffer = Vec::new();
+        buffer.extend_from_slice(&nop);
+        buffer.extend_from_slice(&speed);
+        buffer.extend_from_slice(&sync);
+        buffer.extend_from_slice(&seek);
+
+        let (controls, rest) = split_replay_control_commands(&buffer, &lengths).unwrap();
+        assert_eq!(controls, [&speed[..], &seek[..]].concat());
+        assert_eq!(rest, [&nop[..], &sync[..]].concat());
+    }
+
+    #[test]
+    fn turn_without_replay_controls_is_not_split() {
+        let lengths = test_command_lengths();
+        let buffer = [commands::id::NOP, commands::id::SYNC, 1, 2, 3, 4, 5, 6];
+        assert!(split_replay_control_commands(&buffer, &lengths).is_none());
     }
 }

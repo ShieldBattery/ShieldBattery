@@ -274,9 +274,15 @@ Poll both instances in the same loop for a two-client game. If the session does 
   `networkStatus`, …) — assert on this instead of grepping the game DLL log.
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
   `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
-  `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
-  `forceQuit(gameId)`, `crash(gameId, kind)` and `screenshot(gameId)` for driving/inspecting a
-  running game over CDP (a release DLL doesn't implement these, so query calls time out).
+  `sendChat(gameId, text)`, `injectGameCommand(gameId, bytes)`, `requestDrop(gameId, slot)`,
+  `toggleNetStats(gameId)`, `forceQuit(gameId)`, `crash(gameId, kind)` and `screenshot(gameId)` for
+  driving/inspecting a running game over CDP (a release DLL doesn't implement these, so query calls
+  time out). `injectGameCommand(gameId, bytes)` feeds a raw BW game-command record into this
+  client's outgoing turn through the same native entry point the in-game UI issues commands
+  through, so you can trigger records with no UI path of their own. Replay control rides it:
+  pause/speed is `[0x56, pause, ...speed u32 le, ...multiplier u32 le]`, a seek is
+  `[0x5d, ...frame u32 le]`. Nothing validates the bytes, so a malformed record desyncs or crashes
+  the game.
   `crash(gameId, 'accessViolation' | 'stackOverflow')` kills the game process with that fault to
   exercise the DLL's crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty
   `latest_crash.dmp` in the logs dir, a "Shieldbattery crash :(" message box (close it, or kill

@@ -45,7 +45,7 @@ pub struct GameState {
     async_stop: SharedCanceler,
     /// Netcode v2 credentials + relay endpoints, if the app sent them (`netcodeV2Setup`). Consumed
     /// by `init_game` to stand up the rally-point2 session (`netcode_v2::establish_session`).
-    /// `None` for a solo game (which runs a sessionless turn state) or a replay.
+    /// `None` for a solo game (which runs a sessionless turn state) or a solo replay.
     netcode_v2_setup: Option<Box<NetcodeV2Setup>>,
 }
 
@@ -247,9 +247,10 @@ impl GameState {
         let ws_send = self.ws_send.clone();
 
         // Present for a relay game, whose per-session credentials + relay endpoints the app sent as
-        // `netcodeV2Setup`; absent for a solo (single-human) game or a replay. Drives the transport
-        // policy the async block below branches on.
+        // `netcodeV2Setup`; absent for a solo (single-human) game or a solo replay. Drives the
+        // transport policy the async block below branches on.
         let netcode_v2_setup = self.netcode_v2_setup.take();
+        let uses_netcode_v2 = netcode_v2_setup.is_some();
 
         self.init_main_thread
             .send(())
@@ -290,12 +291,14 @@ impl GameState {
                 // Writes the local player name, brings up the SNP provider (choose_snp) and sets
                 // is_multiplayer. A networked game needs the provider too: Storm's local session
                 // create hard-fails without one, even though the rp2 turn transport carries all real
-                // traffic. A replay plays back through a local Storm session created here (it is
-                // always its own host), with its user latency from the setup info; networked games
-                // create their lobby in their own setup path below and let the turn transport own
-                // latency.
+                // traffic. A solo replay plays back through a local Storm session created here
+                // (it is always its own host), with its user latency from the setup info. A replay
+                // shared over a relay session creates its lobby in the relay path below like any
+                // other networked game: the lobby seam has to be latched on before any native
+                // create/join runs, so the lobby cannot be created here, and the turn transport
+                // owns latency there.
                 get_bw().remaining_game_init(&local_user.name);
-                if info.is_replay() {
+                if info.is_replay() && !uses_netcode_v2 {
                     create_lobby(&info)?;
                     debug!("Setting initial user latency: {latency:?}");
                     get_bw().set_user_latency(latency);
@@ -307,8 +310,10 @@ impl GameState {
 
             // Transport policy:
             // - `netcodeV2Setup` present → a relay game (host or peer): stand up the QUIC turn
-            //   transport and run the native lobby over the rp2 seam.
-            // - absent, a replay → play back locally from the recorded command stream (no session).
+            //   transport and run the native lobby over the rp2 seam. A replay with a setup is one
+            //   of these too: its Storm session holds every watcher.
+            // - absent, a replay → a solo replay: play back locally from the recorded command
+            //   stream (no session).
             // - absent, exactly one human → a solo game: a sessionless, local-only turn state.
             // - absent, more than one human → a server misconfiguration: fail the load loudly.
             if let Some(setup) = netcode_v2_setup {
@@ -361,11 +366,13 @@ impl GameState {
                 // Storm networking. Storm ids come straight from the rp2 roster (storm id ≡ rp2
                 // slot) instead of being learned from a Storm join, and the joined-player set is
                 // built directly rather than discovered through Storm's flag-poll reconciliation.
+                // A replay peer creates as well, because only the create path can load a replay.
                 let bw = get_bw();
-                let MapInfo::Game(ref game_map) = info.map else {
-                    return Err(GameInitError::NetcodeV2SessionInit(
-                        "netcode v2 game is not a map game".into(),
-                    ));
+                // The UMS force layout comes from the map's data. A replay carries none: the
+                // engine reads the map out of the replay file itself.
+                let ums_forces: &[MapForce] = match info.map {
+                    MapInfo::Game(ref game_map) => &game_map.map_data.ums_forces[..],
+                    MapInfo::Replay(_) => &[],
                 };
 
                 // The (user → storm id) mapping from the live session roster (storm id ≡ rp2 slot).
@@ -421,8 +428,6 @@ impl GameState {
                     })
                     .collect::<Result<Vec<_>, GameInitError>>()?;
 
-                let ums_forces = &game_map.map_data.ums_forces[..];
-
                 if is_host {
                     // Storm makes the session creator slot 0 unconditionally, and storm id ≡ rp2
                     // slot everywhere else, so the server assigns the host rp2 slot 0. If that
@@ -440,6 +445,27 @@ impl GameState {
                         // Admit the peers into the just-created session, standing in for the network
                         // join packets native Storm would have received from each of them.
                         bw.v2_seed_storm_session_members(&members);
+                    }
+                } else if info.is_replay() {
+                    // A replay peer creates rather than joins: the join-side map loader rejects a
+                    // replay file, while the replay entry the host uses loads it. Creating seats
+                    // this client at slot 0 like any other creator, so the session is then reshaped
+                    // to the roster slot with the other members seeded — the same end state the
+                    // join replacement builds for a map game.
+                    unsafe {
+                        create_lobby(&info)?;
+                        bw.v2_adopt_roster_slot_after_create(&netcode_v2::LobbySessionSeed {
+                            game_name,
+                            local_name,
+                            slot_count,
+                            local_slot: local_storm,
+                            members,
+                        })
+                        .map_err(|()| {
+                            GameInitError::NetcodeV2SessionInit(
+                                "could not seat the replay session at the roster slot".into(),
+                            )
+                        })?;
                     }
                 } else {
                     // Stage the session seed the storm_join_game hook consumes to build this client's
@@ -471,9 +497,17 @@ impl GameState {
                     // host's game-info blob, so its template stays zeroed — which BW runs as Use Map
                     // Settings (wrong rules → a turn-0 desync against the host's real-rules sim). The
                     // registry is identical on every client, so this local lookup matches the host.
-                    bw.apply_game_type_template(game_type).map_err(|()| {
-                        GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
-                    })?;
+                    //
+                    // A replay is the exception: its game data comes from the replay file, loaded
+                    // with it, and overlaying the launch's placeholder game type would replace the
+                    // recorded one.
+                    if !info.is_replay() {
+                        bw.apply_game_type_template(game_type).map_err(|()| {
+                            GameInitError::NetcodeV2SessionInit(
+                                "game type template lookup failed".into(),
+                            )
+                        })?;
+                    }
                     // Fill net_player_info directly for every human and observer. Native
                     // init_net_player only populates the entry a player Storm's own provider-gated
                     // name lookup resolves — the local player, but not a roster-seeded remote — so a
@@ -508,6 +542,16 @@ impl GameState {
                         ums_forces,
                         Some(&storm_id_map),
                     );
+                }
+
+                // The ShieldBattery replay extension describes the recorded game rather than the
+                // transport it is watched over, so a relayed replay needs it loaded just like a
+                // solo playback does.
+                if info.is_replay() {
+                    load_sbat_replay_data(sbat_replay_data).await;
+                }
+
+                unsafe {
                     // Natively lobby_state 4 is reached when the lobby-entry slot-setup record is
                     // received, which never arrives under this seam; set it directly.
                     bw.set_lobby_state(4);
@@ -587,16 +631,16 @@ impl GameState {
                     unsafe { bw.lobby_state() },
                 );
             } else if info.is_replay() {
-                // A replay plays back from its recorded command stream, not the turn transport:
-                // there is no session and no peers to join. Its local Storm session was already
-                // created in the prologue; here it lays out slots, loads any ShieldBattery replay
-                // extension, and readies the lobby.
+                // A solo replay plays back from its recorded command stream, not the turn
+                // transport: there is no session and no peers to join. Its local Storm session was
+                // already created in the prologue; here it lays out slots, loads any ShieldBattery
+                // replay extension, and readies the lobby.
                 game_thread::step_lobby_init();
                 let bw = get_bw();
 
                 // The prologue's create_lobby assigns this client's storm id (almost certainly 0,
-                // since a replay's local session has no one else to share it with) — read it rather
-                // than assume. `players[].storm_id` must carry this real value by the time
+                // since a solo replay's local session has no one else to share it with) — read it
+                // rather than assume. `players[].storm_id` must carry this real value by the time
                 // `ready_lobby_for_start` runs `update_nation_and_human_ids`, which asserts every
                 // human/observer slot's storm id is a valid (< 16) id; feeding it the placeholder
                 // `setup_slots` plants when given no roster would trip that assert.
@@ -632,8 +676,8 @@ impl GameState {
                         );
                     }
                     // Native init_net_player's name lookup only resolves the local player (there is
-                    // no roster-seeded remote to fill in for a replay), so this alone populates the
-                    // net_player_info entry the game needs.
+                    // no roster-seeded remote to fill in for a solo replay), so this alone
+                    // populates the net_player_info entry the game needs.
                     bw.init_network_player_info(local_storm);
                 }
 
@@ -645,20 +689,7 @@ impl GameState {
                     setup_slots(&info.slots, &info.users, game_type, &[], Some(&storm_id_map));
                 }
 
-                if let Some(sbat_replay_data_promise) = sbat_replay_data {
-                    match sbat_replay_data_promise.await {
-                        Ok(Some(o)) => {
-                            debug!("Loaded shieldbattery replay extension");
-                            game_thread::set_sbat_replay_data(o);
-                        }
-                        Ok(None) => (),
-                        Err(e) => {
-                            // A failure to read the extra replay data is usually not fatal, so log
-                            // it and continue.
-                            error!("Failed to read shieldbattery replay data: {e}");
-                        }
-                    }
-                }
+                load_sbat_replay_data(sbat_replay_data).await;
 
                 unsafe {
                     bw.ready_lobby_for_start();
@@ -670,9 +701,10 @@ impl GameState {
                     .await
                     .map_err(|_| GameInitError::Closed)?;
 
-                // The replay's local session is fully readied above; there is no session peer to
-                // wait on, so init proceeds directly. Lobby init completes later on the game thread
-                // in the StartGame handler (which synthesizes the 0x48 and steps to completion).
+                // The solo replay's local session is fully readied above; there is no session
+                // peer to wait on, so init proceeds directly. Lobby init completes later on the
+                // game thread in the StartGame handler (which synthesizes the 0x48 and steps to
+                // completion).
             } else {
                 // No netcode v2 setup and not a replay: a solo game, the local human versus AI. More
                 // than one human here is a server misconfiguration — multiplayer must run on netcode
@@ -756,7 +788,9 @@ impl GameState {
 
             forge::start_process_events_dispatch();
 
-            if !info.is_replay() {
+            // A solo replay has no one to start in step with, so it skips straight to the game.
+            // Every other game, a relayed replay included, runs the countdown.
+            if !info.is_replay() || uses_netcode_v2 {
                 unsafe {
                     do_countdown().await;
                 }
@@ -967,6 +1001,12 @@ impl GameState {
                         // Fire-and-forget: sent + locally echoed on the game thread's next receive
                         // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
                         // box's own send tap uses. No reply.
+                    }
+                    DebugControlCommand::InjectGameCommand { bytes } => {
+                        crate::netcode_v2::with_turn_state(|s| s.debug_queue_game_command(bytes));
+                        // Fire-and-forget: the bytes are handed to native `send_command` on the game
+                        // thread's next receive (see `bw_scr::apply_debug_game_commands`), which
+                        // puts them in this client's outgoing turn. No reply.
                     }
                     DebugControlCommand::RequestDrop { slot } => {
                         crate::netcode_v2::with_turn_state(|s| {
@@ -1385,11 +1425,13 @@ unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
 /// ShieldBattery setup info + map. Shared by the native join path ([`join_lobby`]) and the netcode
 /// v2 direct-registration path (which native `create_game_multiplayer` populated only on a
 /// successful Storm create). Not used in-game beyond `game_type`.
+///
+/// A replay has no map to describe: the engine takes the map, and its dimensions, out of the replay
+/// file that `is_replay` points it at, so the map fields stay zeroed.
 fn build_bw_game_data(
     info: &GameSetupInfo,
     game_type: BwGameType,
-    map_data: &crate::app_messages::MapData,
-    map_name: &str,
+    map: &MapInfo,
 ) -> bw::BwGameData {
     let max_player_count = info.slots.len() as u8;
     let active_player_count = info
@@ -1397,20 +1439,24 @@ fn build_bw_game_data(
         .iter()
         .filter(|x| x.is_human() || x.is_observer())
         .count() as u8;
+    let (map_data, map_name, is_replay) = match map {
+        MapInfo::Game(game_map) => (Some(&game_map.map_data), game_map.name.as_str(), 0),
+        MapInfo::Replay(_) => (None, "", 1),
+    };
 
     // SAFETY: `BwGameData` is a `#[repr(C)]` POD (integers + byte arrays), so an all-zero bit
     // pattern is a valid instance; the fields we care about are set explicitly below.
     let mut game_info = bw::BwGameData {
         index: 1,
-        map_width: map_data.width,
-        map_height: map_data.height,
+        map_width: map_data.map_or(0, |d| d.width),
+        map_height: map_data.map_or(0, |d| d.height),
         active_player_count,
         max_player_count,
         game_speed: 6, // Fastest
         game_type: game_type.primary as u16,
         game_subtype: game_type.subtype as u16,
-        tileset: map_data.tileset,
-        is_replay: 0,
+        tileset: map_data.map_or(0, |d| d.tileset),
+        is_replay,
         ..unsafe { mem::zeroed() }
     };
 
@@ -1456,8 +1502,8 @@ fn sanitized_name_cstring(raw: &str) -> Option<CString> {
 /// id `setup_slots` places them at — and BW does not randomize UMS slots. Observers occupy the
 /// observer game slots `players[12..16]` (ids 0x80-0x83): the nth observer in slot order takes
 /// `players[11 + n]`, matching `setup_slots`, and BW's randomization leaves those slots in place.
-/// A slot whose user has no roster storm id is skipped (a replay's roster names only the local
-/// viewer).
+/// A slot whose user has no roster storm id is skipped (a solo replay's roster names only the
+/// local viewer).
 fn build_v2_joined_players(
     info: &GameSetupInfo,
     storm_id_map: &HashMap<SbUserId, u8>,
@@ -1510,16 +1556,15 @@ unsafe fn join_lobby(
     user_latency: UserLatency,
 ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
     unsafe {
-        let MapInfo::Game(ref game_map) = info.map else {
-            panic!("join_lobby called for a replay");
+        // A replay carries no map data to read the EUD flag from.
+        let is_eud = match info.map {
+            MapInfo::Game(ref game_map) => game_map.map_data.is_eud,
+            MapInfo::Replay(_) => false,
         };
-        let map_data = &game_map.map_data;
-        let map_name = &game_map.name;
-        let is_eud = map_data.is_eud;
 
         // This info isn't used ingame (with exception of game_type?),
         // but it is written in the header of replays/saves.
-        let game_info = build_bw_game_data(info, game_type, map_data, map_name);
+        let game_info = build_bw_game_data(info, game_type, &info.map);
         let map_path = match CString::new(info.map_path.as_bytes()) {
             Ok(o) => Arc::new(o),
             Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
@@ -1589,8 +1634,8 @@ unsafe fn setup_slots(
     game_type: BwGameType,
     ums_forces: &[MapForce],
     // The real storm id per user (storm id ≡ rp2 slot, from the roster), used to lay out slots
-    // directly. `None` for a replay, which has no roster and plants the placeholder `27` (a replay
-    // reads its participants from the recorded stream, not from these slot storm ids).
+    // directly. `None` for a solo replay, which has no roster and plants the placeholder `27` (a
+    // replay reads its participants from the recorded stream, not from these slot storm ids).
     v2_storm_ids: Option<&HashMap<SbUserId, u8>>,
 ) {
     let id_to_name = users
@@ -1913,6 +1958,26 @@ fn start_game_request(
 
     sender.send(request).map_err(|_| ())?;
     Ok(wait_done)
+}
+
+/// Awaits a [`read_sbat_replay_data`] read and hands the ShieldBattery replay extension it found
+/// to the game thread. A replay without the extension, or one whose extension cannot be read, still
+/// plays back — the extension only adds ShieldBattery's own data on top — so a failure is logged
+/// and playback continues without it.
+async fn load_sbat_replay_data(
+    data: Option<impl Future<Output = Result<Option<replay::SbatReplayData>, io::Error>>>,
+) {
+    let Some(promise) = data else {
+        return;
+    };
+    match promise.await {
+        Ok(Some(o)) => {
+            debug!("Loaded shieldbattery replay extension");
+            game_thread::set_sbat_replay_data(o);
+        }
+        Ok(None) => (),
+        Err(e) => error!("Failed to read shieldbattery replay data: {e}"),
+    }
 }
 
 async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayData>, io::Error> {
@@ -2348,15 +2413,7 @@ mod tests {
     #[test]
     fn build_bw_game_data_fills_map_and_counts() {
         let info = v2_setup_info();
-        let MapInfo::Game(ref game_map) = info.map else {
-            panic!("fixture is a map game");
-        };
-        let data = build_bw_game_data(
-            &info,
-            BwGameType::melee(),
-            &game_map.map_data,
-            &game_map.name,
-        );
+        let data = build_bw_game_data(&info, BwGameType::melee(), &info.map);
         // Packed struct: copy each field to a local before asserting (can't take a reference to a
         // packed field).
         assert_eq!({ data.map_width }, 112);
@@ -2375,6 +2432,24 @@ mod tests {
         assert!(name.starts_with(b"test game"));
         let map_name = data.map_name;
         assert!(map_name.starts_with(b"Fighting Spirit"));
+    }
+
+    #[test]
+    fn build_bw_game_data_marks_a_replay_and_leaves_the_map_zeroed() {
+        let info = v2_setup_info();
+        let map = MapInfo::Replay(crate::app_messages::ReplayMapInfo {
+            is_replay: true,
+            path: "z:\\replays\\rep.rep".into(),
+        });
+        let data = build_bw_game_data(&info, BwGameType::melee(), &map);
+        // Packed struct: copy each field to a local before asserting (can't take a reference to a
+        // packed field).
+        assert_eq!({ data.is_replay }, 1);
+        assert_eq!({ data.map_width }, 0);
+        assert_eq!({ data.map_height }, 0);
+        assert_eq!({ data.tileset }, 0);
+        let map_name = data.map_name;
+        assert_eq!(map_name[0], 0);
     }
 
     #[test]
