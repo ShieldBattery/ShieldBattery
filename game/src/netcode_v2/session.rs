@@ -84,6 +84,9 @@ enum SessionLink {
     /// channels, held alive so every driver-bound send in [`TurnState`] lands in a void rather than
     /// erroring on a closed channel.
     Sessionless(ParkedChannels),
+    /// A private named-pipe game supervised by the Electron main process. Its driver owns the
+    /// pipe and exits when the turn state is dropped; no network endpoint exists.
+    Local,
 }
 
 /// Holds back each in-game turn this client sends, from game frame `from_frame` on, for `delay`
@@ -371,6 +374,18 @@ pub async fn wait_for_driver_shutdown(timeout: Duration) {
         Err(_) => warn!(
             "netcode v2: relay driver still running after {timeout:?}; proceeding with shutdown"
         ),
+    }
+}
+
+/// Stores a turn state that is driven by the private local named-pipe hub. The pipe driver owns
+/// every far end of the channels; dropping this session closes those senders and makes it exit.
+pub fn store_local_turn_state(turn_state: TurnState) {
+    if let Some(mut guard) = SESSION.lock() {
+        *guard = Some(NetcodeV2Session {
+            link: SessionLink::Local,
+            turn_state,
+            driver_done: None,
+        });
     }
 }
 
@@ -694,7 +709,7 @@ pub fn submit_result_report(report: Vec<u8>) -> bool {
             }
             // A sessionless solo game has no relay to deliver over, so it does not take the report
             // and no one reports its result.
-            SessionLink::Sessionless(_) => false,
+            SessionLink::Sessionless(_) | SessionLink::Local => false,
         },
         None => false,
     }

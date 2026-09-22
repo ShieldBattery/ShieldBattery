@@ -219,3 +219,16 @@ formatting checks passed. Both DLLs were copied to `dist`; the x64 refresh compl
 after the interactive game exited. The player reported that the match worked well.
 The process watcher completed, and the bot game, external bot, and bot Electron
 session were confirmed stopped.
+
+## Local named-pipe play, 2026-09-21
+
+The app now owns a local session with one visible player and separately supervised
+hidden bot clients. See the [launch API](local-bots-launch-api.md) for the UI contract
+and verification. An x86 three-client test (one player, two ZZZKBots) matched sync
+probes through frame 1,680, including both independently attached BWAPI clients;
+terminating the app cleaned up all seven supporting game/bot/monitor processes.
+
+A live x64 hidden client with native rendering capped at 30 FPS and the BWAPI bridge
+active measured **4.42% of one core**, 323 MiB working set, and 402 MiB private memory
+over 30 seconds. The external bot process is excluded. This is the relevant live
+sample; the earlier replay-only rendering-bypass numbers are not directly comparable.

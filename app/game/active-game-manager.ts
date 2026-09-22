@@ -76,6 +76,7 @@ interface PendingDebugReply<T> {
 }
 
 interface ActiveGameInfo {
+  stopRequested?: boolean
   id: string
   status?: {
     state: GameStatus
@@ -142,6 +143,7 @@ function reportedStatus(game: ActiveGameInfo): ReportedGameStatus {
     state: statusToString(game.status?.state ?? GameStatus.Unknown),
     extra: game.status?.extra,
     isReplay: game.config ? isReplayLaunchConfig(game.config) : false,
+    isLocal: !!game.config?.setup.localSession,
     networkStatus: game.networkStatus,
   }
 }
@@ -161,6 +163,8 @@ export interface ReplayDiagnosticsRequest {
 }
 
 export type ActiveGameManagerEvents = {
+  gameExit: [gameId: string]
+
   gameCommand: [gameId: string, command: string, ...args: any[]]
   gameResult: [
     info: {
@@ -213,6 +217,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    */
   private pendingNetcodeV2Keys = new NetcodeV2KeyRing()
   private serverPort = 0
+  private localControlPipe?: string
   /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
   private pendingDebugQueries = new Map<string, PendingDebugReply<GameDebugState>[]>()
   /** FIFO queues of pending `debugScreenshot` requests, keyed by game ID. */
@@ -256,6 +261,17 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
+  setLocalControlPipe(pipe: string) {
+    this.localControlPipe = pipe
+  }
+
+  async stop(): Promise<void> {
+    const game = this.activeGame
+    if (!game) return
+    this.forceQuitGame(game.id)
+    await game.promise
+  }
+
   setServerPort(port: number) {
     this.serverPort = port
   }
@@ -297,6 +313,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   private launchGameProcess(
     gameId: string,
+    config: GameLaunchConfig,
     backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
   ): Promise<void> {
     let processMayBeRunning = false
@@ -306,6 +323,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       this.localSettings,
       this.scrSettings,
       backgroundSettings,
+      config.setup.localSession
+        ? {
+            controlPipe: this.localControlPipe!,
+            bwapiInstance: config.bwapiInstance,
+          }
+        : undefined,
     )
       .then(
         async proc => {
@@ -368,7 +391,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       config.presentation === 'background'
         ? createBackgroundGameSettings(app.getPath('userData'))
         : undefined
-    const activeGamePromise = this.launchGameProcess(gameId, backgroundSettings)
+    const activeGamePromise = this.launchGameProcess(gameId, config, backgroundSettings)
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
     // must not inherit the old (hung) game's session, so it starts with no keypair adopted yet:
@@ -377,6 +400,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     const carried = current?.id === gameId ? current : undefined
     this.activeGame = {
       ...current,
+      stopRequested: false,
       netcodeV2Keys: carried?.netcodeV2Keys,
       netcodeV2Setup: carried?.netcodeV2Setup,
       // A fresh launch's transport is unknown until the new game's init reports it; this also
@@ -414,7 +438,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       status: { state: GameStatus.Unknown, extra: null },
     }
     this.watchOnlyGames.set(gameId, game)
-    game.promise = this.launchGameProcess(gameId)
+    game.promise = this.launchGameProcess(gameId, config)
     log.verbose(`Creating new watch-only game ${gameId}`)
     this.setStatus(game, GameStatus.Launching)
     return gameId
@@ -507,6 +531,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       return
     }
 
+    if (game.stopRequested) {
+      this.emit('gameCommand', id, 'quit')
+      return
+    }
     this.setStatus(game, GameStatus.Configuring)
     const config = game.config!
     const { map } = config.setup
@@ -600,6 +628,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     if (game) {
       this.setStatus(game, GameStatus.Error, err)
       this.untrackGame(game)
+      this.emit('gameExit', id)
     }
   }
 
@@ -799,11 +828,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * unlike an external process kill. Fire-and-forget.
    */
   forceQuitGame(gameId: string): void {
-    if (!this.gameFor(gameId)) {
+    const game = this.gameFor(gameId)
+    if (!game) {
       log.verbose(`Got forceQuitGame for ${gameId}, but it is not an active game`)
       return
     }
 
+    game.stopRequested = true
     this.emit('gameCommand', gameId, 'quit')
   }
 
@@ -1103,6 +1134,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
           log.error(`Error syncing settings with game settings file: ${err?.stack ?? err}`)
         })
     }
+    this.emit('gameExit', id)
   }
 
   handleGameExitWaitError(id: string, err: Error) {
@@ -1162,10 +1194,12 @@ async function doLaunch(
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
   backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
+  localSession?: { controlPipe: string; bwapiInstance?: string },
 ) {
   // Observe preparation immediately so a filesystem error cannot become an unhandled rejection
   // while the launcher is waiting for the user's settings or StarCraft path check.
   await backgroundSettings
+  if (localSession && !localSession.controlPipe) throw new Error('Local control pipe is not ready')
   const settings = await localSettings.get()
   const injectPath = settings.launch32Bit ? injectPath32 : injectPath64
   try {
@@ -1213,7 +1247,7 @@ async function doLaunch(
   const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
   // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
   // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
-  const logNameArg = `-log-name=${gameLogBaseName()}`
+  const logNameArg = `-log-name=${gameLogBaseName()}${localSession ? `-${gameId}` : ''}`
   const rallyPointPortArg =
     Number.isInteger(RALLY_POINT_PORT) && RALLY_POINT_PORT > 0 && RALLY_POINT_PORT <= 0xffff
       ? `-rally-point-port=${RALLY_POINT_PORT}`
@@ -1228,7 +1262,11 @@ async function doLaunch(
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
     `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${devScrArgs} ` +
-    (backgroundSettings ? '-sb-background' : '')
+    (backgroundSettings ? '-sb-background ' : '') +
+    (localSession
+      ? `-sb-local "-sb-app-pipe=${localSession.controlPipe}" ` +
+        (localSession.bwapiInstance ? `-sb-bwapi=${localSession.bwapiInstance}` : '')
+      : '')
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

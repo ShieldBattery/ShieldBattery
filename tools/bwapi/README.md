@@ -45,8 +45,11 @@ cmake --build .claude-scratch/bwapi-bot-build --config Release --target ZZZKBotC
 
 If the checkouts already exist, use them without cloning again. CMake verifies the pinned
 revisions and accepts `BWAPI_SOURCE_DIR` and `ZZZKBOT_SOURCE_DIR` overrides. The bot source
-and BWAPI client are compiled unchanged; `host.cpp` delivers AIModule callbacks in an
-external process. This builds from source, not from an arbitrary precompiled bot DLL.
+is compiled unchanged; `host.cpp` delivers AIModule callbacks in an external process. CMake copies
+the pinned BWAPI 4.4 `Client.cpp` into its build directory and changes only discovery: an unset
+`SB_BWAPI_INSTANCE` keeps the stock global table, while a set token selects
+`Local\\bwapi_shared_memory_game_list_<token>`. The upstream checkout is never modified. This
+builds from source, not from an arbitrary precompiled bot DLL.
 BWAPI and ZZZKBot carry LGPLv3 licenses in their upstream repositories.
 
 ## Build UAlbertaBot
@@ -65,7 +68,8 @@ cmake -P tools/bwapi/ualbertabot.cmake
 
 The script verifies both upstream revisions, exports the pinned UAlbertaBot
 tree into an isolated build directory, stages the same BWAPI 4.4 headers and
-libraries used by ZZZKBot, and builds the upstream Visual Studio solution as
+the generated token-aware `BWAPIClient.lib` used by ZZZKBot, and builds the upstream
+Visual Studio solution as
 Release Win32 with the installed VS 2022 toolset. It does not patch bot source
 or configuration. The runnable tree is
 `.claude-scratch/ualbertabot-build/bin`; launch from that directory so the
@@ -75,16 +79,25 @@ Select Terran for the local player. The stock configuration chooses
 `Terran_MarineRush`. UAlbertaBot only handles the first game after each process
 start, so start a fresh process for every match.
 
-## Launch
+## Local human-versus-bot play
+
+Use the desktop [local launch API](../../docs/local-bots-launch-api.md). It starts
+one visible player and one or more hidden bot clients, assigns isolated BWAPI
+instances, and owns cleanup. Supply cached map metadata, a built external bot
+executable, and a separate working profile for each simultaneous bot. No server
+lobby or relay is required.
+
+## Manual single-bot bridge test
 
 1. Start the normal local dev services, including the renderer server. See
    [dev-env](../../.claude/skills/dev-env/SKILL.md).
 2. Build the DLL with `game\build.bat` (64-bit) or `game\build.bat x86` (32-bit).
-3. Set `SB_BWAPI=1` in the environment of a **new** Electron process. Existing processes do not
-   inherit environment changes. Use a local test session and the debug DLL.
+3. Launch each bot game with a unique `-sb-bwapi=<token>` argument and start its bot with the
+   matching `SB_BWAPI_INSTANCE=<token>` environment variable. The token selects only that game's
+   discovery table; the PID-specific shared-memory and pipe names remain BWAPI 4.4-compatible.
+   `SB_BWAPI=1` remains available only for non-local legacy test launches.
 4. Start `.claude-scratch/bwapi-bot-build/bin/ZZZKBotClient.exe` in a dedicated working directory.
-   It retries until the game server is available. Keep only one unconnected BWAPI-enabled game
-   while using the stock client's automatic discovery.
+   It retries until its selected game server is available. Use one host process per bot game.
 5. Create a plain melee lobby. Select **Zerg** for the local player and add an opponent.
    ZZZKBot assumes it is playing Zerg. Start the match; the bot takes over the local player's
    units. Use the legacy unit limit while testing BWAPI compatibility.

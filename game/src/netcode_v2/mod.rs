@@ -61,12 +61,15 @@ use tokio::sync::mpsc;
 
 mod input_table;
 mod lead;
+mod local;
 mod net_stats;
 mod rehome;
 mod session;
 
 pub use input_table::{InputCounts, InputTable};
 pub use lead::Lead;
+pub use local::establish_local_session;
+
 pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
@@ -78,7 +81,8 @@ pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
     error_with_root_cause, establish_session, establish_sessionless, set_lobby_session_seed,
-    submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
+    store_local_turn_state, submit_result_report, wait_for_driver_shutdown,
+    with_lobby_session_seed, with_turn_state,
 };
 
 use self::net_stats::NetStats;

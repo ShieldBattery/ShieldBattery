@@ -132,9 +132,9 @@ pub struct Server {
 
 impl Server {
     /// Creates the discovery mapping, process-specific game mapping, and nonblocking message pipe.
-    pub fn new() -> io::Result<Self> {
+    pub fn new(instance: Option<&str>) -> io::Result<Self> {
         let process_id = unsafe { GetCurrentProcessId() };
-        let table_name = CString::new("Local\\bwapi_shared_memory_game_list").unwrap();
+        let table_name = game_table_mapping_name(instance)?;
         let data_name = CString::new(format!("Local\\bwapi_shared_memory_{process_id}")).unwrap();
         let pipe_name = CString::new(format!(r"\\.\pipe\bwapi_pipe_{process_id}")).unwrap();
 
@@ -334,6 +334,20 @@ impl Server {
         self.refresh_game_table();
         RequestResult::Disconnected
     }
+}
+
+fn game_table_mapping_name(instance: Option<&str>) -> io::Result<CString> {
+    let mut name = String::from("Local\\bwapi_shared_memory_game_list");
+    if let Some(instance) = instance {
+        name.push('_');
+        name.push_str(instance);
+    }
+    CString::new(name).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "BWAPI discovery instance contains a null byte",
+        )
+    })
 }
 
 impl Drop for Server {
@@ -610,9 +624,21 @@ mod tests {
     }
 
     #[test]
+    fn discovery_mapping_name_uses_instance_suffix_only_when_requested() {
+        assert_eq!(
+            game_table_mapping_name(None).unwrap().to_bytes(),
+            b"Local\\bwapi_shared_memory_game_list",
+        );
+        assert_eq!(
+            game_table_mapping_name(Some("bot-17")).unwrap().to_bytes(),
+            b"Local\\bwapi_shared_memory_game_list_bot-17",
+        );
+    }
+
+    #[test]
     fn real_pipe_and_mapping_handshake_disconnect_and_reconnect() {
         let _lock = TRANSPORT_TEST_LOCK.lock().unwrap();
-        let mut server = Server::new().unwrap();
+        let mut server = Server::new(None).unwrap();
         assert_eq!(server.poll(|_, _| unreachable!()).unwrap(), PollEvent::Idle);
 
         let mut client = Client::connect(server.process_id).unwrap();

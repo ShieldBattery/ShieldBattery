@@ -12,6 +12,7 @@ import { GameServerRegion, GameServerRegionLatencies } from './game-server-regio
 import { GameDebugInputEvent, GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
+import { LocalGameRequest, LocalGameStatus } from './games/local-game'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
@@ -135,6 +136,9 @@ interface IpcInvokeables {
    * Clears the current game config (e.g. cancels a game launch) provided the current game is
    * `gameId`.
    */
+  localGameStart: (request: LocalGameRequest) => LocalGameStatus
+  localGameStop: () => void
+  localGameGetStatus: () => LocalGameStatus | undefined
   activeGameClearConfig: (gameId: string) => void
   /**
    * Queries the active game process's debug state (debug game builds only). Only registered in
@@ -513,6 +517,7 @@ interface IpcMainSendables {
    * `activeGameReportResult`.
    */
   activeGameReportPlayer: (gameId: string, request: InGameReportRequest) => void
+  localGameStatus: (status: LocalGameStatus) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */

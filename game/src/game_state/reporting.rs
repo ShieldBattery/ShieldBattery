@@ -26,6 +26,13 @@ pub(super) async fn send_game_result(
     };
     let _ = app_socket::send_message(ws_send, "/game/result", &results_message).await;
 
+    if info.local_session.is_some() {
+        debug!(
+            "Local game result is kept in the desktop app; skipping server report and replay upload"
+        );
+        return;
+    }
+
     if info.result_code.is_none() {
         debug!("Had no result code, skipping sending results and replay");
         return;
