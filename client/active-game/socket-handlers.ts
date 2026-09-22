@@ -108,7 +108,7 @@ export default function ({
 
       updateActiveGame(status)
 
-      if (status.isReplay) {
+      if (status.isReplay || status.isLocal) {
         // Don't report replay status to the server (because it will error out and result in us
         // quitting the game immediately). We may want to change this at some point, but we'll have
         // to make the server assign replay IDs in that case.

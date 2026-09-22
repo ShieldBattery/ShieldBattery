@@ -68,7 +68,9 @@ struct TrackedUnit {
 
 impl BwScr {
     pub(super) unsafe fn bwapi_step(&self) {
-        if std::env::var_os("SB_BWAPI").is_none() || crate::game_thread::is_replay() {
+        let instance = crate::bwapi_instance();
+        let legacy_enabled = std::env::var_os("SB_BWAPI").is_some() && !crate::is_local_game();
+        if (instance.is_none() && !legacy_enabled) || crate::game_thread::is_replay() {
             return;
         }
         let local = unsafe { self.local_player_id.resolve() };
@@ -87,7 +89,7 @@ impl BwScr {
                     error!("BWAPI: required terrain analysis unavailable; bridge disabled");
                     return;
                 }
-                match Server::new() {
+                match Server::new(instance) {
                     Ok(server) => {
                         info!("BWAPI: external-client server enabled for local player {local}");
                         *bridge = Some(Bridge {

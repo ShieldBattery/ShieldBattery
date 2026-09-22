@@ -3,7 +3,9 @@ use std::time::Duration;
 use futures::prelude::*;
 use quick_error::{ResultExt, quick_error};
 use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
+use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite;
@@ -15,21 +17,14 @@ use crate::game_state::{self, GameStateMessage};
 
 pub type SendMessages = mpsc::Sender<WsMessage>;
 
-type WebSocketStream =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>;
+type WebSocketStream<S> = tokio_tungstenite::WebSocketStream<S>;
 
-async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungstenite::Error> {
+fn app_request(url: &str) -> Result<http::Request<()>, tungstenite::Error> {
     use http::header::HeaderValue;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
     let args = crate::parse_args();
-    let url = format!("ws://127.0.0.1:{}", args.server_port);
-    info!("Connecting to {url} ...");
-    // Have tungstenite build base request for our url, which includes necessary headers
-    // like sec-websocket-key, then add our own headers.
-    let mut request = url
-        .into_client_request()
-        .expect("Couldn't build HTTP request for app connection");
+    let mut request = url.into_client_request()?;
     let headers = request.headers_mut();
     headers.reserve(2);
     headers.insert("Origin", HeaderValue::from_static("BROODWARS"));
@@ -37,9 +32,31 @@ async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungst
         "x-game-id",
         HeaderValue::from_str(&args.game_id).expect("Invalid game id"),
     );
-    tokio_tungstenite::connect_async(request).await
+    Ok(request)
 }
 
+async fn connect_to_app() -> Result<
+    (
+        WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+        HandshakeResponse,
+    ),
+    tungstenite::Error,
+> {
+    let args = crate::parse_args();
+    let url = format!("ws://127.0.0.1:{}", args.server_port);
+    info!("Connecting to {url} ...");
+    tokio_tungstenite::connect_async(app_request(&url)?).await
+}
+
+async fn connect_to_local_app(
+    pipe_name: &str,
+) -> Result<(WebSocketStream<NamedPipeClient>, HandshakeResponse), tungstenite::Error> {
+    info!("Connecting to local ShieldBattery app pipe ...");
+    let pipe = ClientOptions::new()
+        .open(pipe_name)
+        .map_err(tungstenite::Error::Io)?;
+    tokio_tungstenite::client_async(app_request("ws://localhost/")?, pipe).await
+}
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 enum ConnectionEndReason {
     SocketClosed,
@@ -50,12 +67,15 @@ enum ConnectionEndReason {
 /// All errors are handled before the future resolves, and either the
 /// stream or message channel being closed will cause the future to
 /// resolve to a success.
-async fn app_websocket_connection(
-    client: WebSocketStream,
+async fn app_websocket_connection<S>(
+    client: WebSocketStream<S>,
     recv_messages: mpsc::Receiver<WsMessage>,
     game_send: &game_state::SendMessages,
     async_stop: SharedCanceler,
-) -> ConnectionEndReason {
+) -> ConnectionEndReason
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     let (mut ws_sink, mut ws_stream) = client.split();
     let mut recv_messages = recv_messages;
     'handle_messages: loop {
@@ -109,25 +129,39 @@ pub async fn websocket_connection_future(
     async_stop: SharedCanceler,
     recv_messages: mpsc::Receiver<WsMessage>,
 ) {
-    // Retry as long as this fails to connect.
-    // Return once connection succeeds once (even if it ends prematurely).
-    // The app cannot handle reconnections at the moment, trying to
-    // start again from game init phase, following by killing the process
-    // if this tells that the game is already ininited.
-    // So better to just let this task die than the entire process die
-    // if the connection between two local processes drops for some
-    // inexplicable reason.
+    if let Some(pipe_name) = crate::local_app_pipe() {
+        let mut retries = 30;
+        loop {
+            let (client, _response) = match connect_to_local_app(pipe_name).await {
+                Ok(connection) => connection,
+                Err(error) => {
+                    error!("Couldn't connect to local ShieldBattery app pipe: {error}");
+                    tokio::time::sleep(Duration::from_millis(1000)).await;
+                    retries -= 1;
+                    if retries == 0 {
+                        async_stop.cancel();
+                        return;
+                    }
+                    continue;
+                }
+            };
+            app_websocket_connection(client, recv_messages, &game_send, async_stop.clone()).await;
+            // A local game's owner is its supervisor. Keep no orphaned visible or background SC:R
+            // process alive after that private app connection closes.
+            async_stop.cancel();
+            return;
+        }
+    }
+
     let mut retries = 30;
     loop {
         let (client, _response) = match connect_to_app().await {
-            Ok(o) => o,
-            Err(e) => {
-                error!("Couldn't connect to Shieldbattery: {e}");
+            Ok(connection) => connection,
+            Err(error) => {
+                error!("Couldn't connect to Shieldbattery: {error}");
                 tokio::time::sleep(Duration::from_millis(1000)).await;
                 retries -= 1;
                 if retries == 0 {
-                    // Normally the app initiates game quitting, so if we fail
-                    // to connect to it we'll have to quit now.
                     error!("Didn't manage to connect to app, exiting");
                     async_stop.cancel();
                 }
@@ -136,25 +170,22 @@ pub async fn websocket_connection_future(
         };
         info!("Connected to Shieldbattery app");
         app_websocket_connection(client, recv_messages, &game_send, async_stop).await;
-        // If we lost connection to app before game started, clean up this
-        // process so that it won't stay around. Not going to close a game that
-        // is being played though =)
         let _ = game_send.send(GameStateMessage::QuitIfNotStarted).await;
         return;
     }
 }
-
 enum MessageResult {
     WebSocket(WsMessage),
     Game(GameStateMessage),
     Stop,
 }
 
-/// Commands whose payloads carry secrets (e.g. `netcodeV2Setup`'s per-session private key).
+/// Commands whose payloads carry secrets (e.g. `netcodeV2Setup`'s per-session private key or
+/// `setupGame`'s local-session secret).
 /// For these, neither the raw message text nor serde's own error output (which can embed
 /// mistyped field *values*) may reach a log line or error string. Add any new secret-bearing
 /// command here and redaction applies everywhere in `handle_app_message` automatically.
-const SENSITIVE_COMMANDS: &[&str] = &["netcodeV2Setup"];
+const SENSITIVE_COMMANDS: &[&str] = &["netcodeV2Setup", "setupGame"];
 
 const REDACTED: &str = "<payload redacted>";
 
@@ -415,5 +446,20 @@ mod tests {
     fn unknown_command_still_errors() {
         let result = handle_app_message(r#"{"command":"notARealCommand","payload":null}"#.into());
         assert!(matches!(result, Err(HandleMessageError::UnknownCommand(_))));
+    }
+
+    #[test]
+    fn setup_game_parse_errors_redact_the_local_session_secret() {
+        let secret = "this-local-session-secret-must-not-appear-in-errors";
+        let result = handle_app_message(format!(
+            r#"{{"command":"setupGame","payload":{{"localSession":{{"secret":"{secret}"}}}}}}"#
+        ));
+        let error = match result {
+            Err(error) => error.to_string(),
+            Ok(_) => panic!("malformed setupGame payload unexpectedly succeeded"),
+        };
+
+        assert!(error.contains(REDACTED));
+        assert!(!error.contains(secret));
     }
 }

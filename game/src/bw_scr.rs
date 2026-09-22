@@ -1384,7 +1384,9 @@ impl BwScr {
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
         #[cfg(debug_assertions)]
-        let bwapi_terrain = if std::env::var_os("SB_BWAPI").is_some() {
+        let bwapi_terrain = if crate::bwapi_instance().is_some()
+            || (std::env::var_os("SB_BWAPI").is_some() && !crate::is_local_game())
+        {
             bwapi::Terrain::analyze(&mut analysis, ctx)
         } else {
             None

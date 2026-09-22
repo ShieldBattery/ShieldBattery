@@ -553,6 +553,9 @@ struct Args {
     user_data_path: PathBuf,
     use_legacy_cursor_sizing: bool,
     background: bool,
+    local_game: bool,
+    local_app_pipe: Option<String>,
+    bwapi_instance: Option<String>,
     /// Base name for the rotating log file (`<log_name>.<slot>.log`). The launcher passes an
     /// `SB_SESSION`-namespaced value so concurrent dev instances don't share a log; defaults to
     /// `game` when the launcher doesn't specify one.
@@ -583,12 +586,34 @@ fn try_parse_args() -> Option<Args> {
     let user_data_path = args.next()?.into();
     let mut use_legacy_cursor_sizing = false;
     let mut background = false;
+    let mut local_game = false;
+    let mut local_app_pipe = None;
+    let mut bwapi_instance = None;
     let mut log_name = "game".to_owned();
     let mut rally_point_port = None;
 
     for arg in args {
         let arg = arg.into_string().ok()?;
-        if arg == "-sb-background" {
+        if arg == "-sb-local" {
+            local_game = true;
+        } else if let Some(pipe) = arg.strip_prefix("-sb-app-pipe=") {
+            if !pipe.starts_with(r"\\.\pipe\ShieldBattery.LocalControl.")
+                || pipe.contains(['"', '\n', '\r'])
+            {
+                return None;
+            }
+            local_app_pipe = Some(pipe.to_owned());
+        } else if let Some(instance) = arg.strip_prefix("-sb-bwapi=") {
+            if instance.is_empty()
+                || instance.len() > 64
+                || !instance
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            {
+                return None;
+            }
+            bwapi_instance = Some(instance.to_owned());
+        } else if arg == "-sb-background" {
             background = true;
         } else if arg == "-legacy-cursor-sizing" {
             // NOTE(tec27): We pass this through args because we need to know if it's enabled before
@@ -614,6 +639,9 @@ fn try_parse_args() -> Option<Args> {
         user_data_path,
         use_legacy_cursor_sizing,
         background,
+        local_game,
+        local_app_pipe,
+        bwapi_instance,
         log_name,
         rally_point_port,
     })
@@ -631,4 +659,19 @@ pub fn rally_point_port_override() -> Option<u16> {
 /// Unit tests and other callers outside the injected process have no background launch flag.
 pub fn is_background_game() -> bool {
     ARGS.get().is_some_and(|args| args.background)
+}
+
+/// Local sessions use only app-owned IPC and end when their owner disconnects.
+pub fn is_local_game() -> bool {
+    ARGS.get().is_some_and(|args| args.local_game)
+}
+
+/// The private named pipe used for local-session launch and lifecycle messages.
+pub fn local_app_pipe() -> Option<&'static str> {
+    ARGS.get().and_then(|args| args.local_app_pipe.as_deref())
+}
+
+/// Explicit discovery namespace for one supervised BWAPI client.
+pub fn bwapi_instance() -> Option<&'static str> {
+    ARGS.get().and_then(|args| args.bwapi_instance.as_deref())
 }

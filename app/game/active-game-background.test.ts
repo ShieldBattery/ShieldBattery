@@ -137,3 +137,25 @@ test('failed exit wait retains the settings of a potentially surviving process',
   expect(JSON.parse(await fs.readFile(payload.settingsFilePath, 'utf8')).HDPreferences).toBe(false)
   expect(scr.syncWithGameSettingsFile).not.toHaveBeenCalled()
 })
+
+test('canceling before the game connects sends quit instead of starting the canceled game', async () => {
+  let exit!: (code: number) => void
+  runtime.launch.mockImplementation(async () => ({
+    waitForExit: () =>
+      new Promise<number>(resolve => {
+        exit = resolve
+      }),
+  }))
+  const { manager, config } = createManager()
+  const commands: unknown[][] = []
+  manager.on('gameCommand', (...args) => commands.push(args))
+  manager.setGameConfig(config)
+  const stopped = manager.stop()
+  await vi.waitFor(() => expect(exit).toBeDefined())
+  await manager.handleGameConnected('test')
+  expect(commands.filter(([, command]) => command === 'setupGame')).toHaveLength(0)
+  expect(commands.at(-1)).toEqual(['test', 'quit'])
+  exit(0)
+  await stopped
+  expect(manager.getStatus()).toBeNull()
+})

@@ -61,8 +61,46 @@ target_include_directories(BWAPI-Static PUBLIC
 target_compile_features(BWAPI-Static PUBLIC cxx_std_17)
 target_compile_definitions(BWAPI-Static PRIVATE NOMINMAX)
 
-# Keep the stock client transport and shared-memory model from BWAPI 4.4.
+# Copy and patch only the pinned BWAPIClient discovery source. The upstream checkout remains
+# read-only: bots and every other BWAPI client source keep their upstream implementation.
+set(BWAPI_CLIENT_ORIGINAL_SOURCE "${BWAPI_SOURCE_DIR}/bwapi/BWAPIClient/Source/Client.cpp")
+set(BWAPI_CLIENT_PATCHED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/generated/BWAPIClient-Client.cpp")
+file(READ "${BWAPI_CLIENT_ORIGINAL_SOURCE}" BWAPI_CLIENT_SOURCE)
+set(BWAPI_CLIENT_ORIGINAL_DISCOVERY [=[    this->gameTableFileHandle = OpenFileMappingA(FILE_MAP_WRITE | FILE_MAP_READ, FALSE, "Local\\bwapi_shared_memory_game_list" );]=])
+set(BWAPI_CLIENT_PATCHED_DISCOVERY [=[    std::string gameTableName("Local\\bwapi_shared_memory_game_list");
+    char instance[128];
+    const DWORD instanceLength =
+      GetEnvironmentVariableA("SB_BWAPI_INSTANCE", instance, sizeof(instance));
+    if (instanceLength > 0 && instanceLength < sizeof(instance))
+    {
+      gameTableName += "_";
+      gameTableName.append(instance, instanceLength);
+    }
+    this->gameTableFileHandle = OpenFileMappingA(FILE_MAP_WRITE | FILE_MAP_READ, FALSE, gameTableName.c_str());]=])
+string(REPLACE
+  "${BWAPI_CLIENT_ORIGINAL_DISCOVERY}"
+  "${BWAPI_CLIENT_PATCHED_DISCOVERY}"
+  BWAPI_CLIENT_PATCHED_CONTENT
+  "${BWAPI_CLIENT_SOURCE}")
+if(BWAPI_CLIENT_PATCHED_CONTENT STREQUAL BWAPI_CLIENT_SOURCE)
+  message(FATAL_ERROR "Pinned BWAPI Client.cpp discovery anchor was not found")
+endif()
+file(WRITE "${BWAPI_CLIENT_PATCHED_SOURCE}" "${BWAPI_CLIENT_PATCHED_CONTENT}")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/BWAPIClient-instance-discovery.txt"
+  "BWAPIClient is built from the pinned Client.cpp with SB_BWAPI_INSTANCE discovery selection.\n")
+
+# Preserve upstream's complete static client target, replacing only its generated Client.cpp source.
 add_subdirectory("${BWAPI_SOURCE_DIR}/CMake/Client" "bwapi-client")
+set_property(SOURCE "${BWAPI_CLIENT_ORIGINAL_SOURCE}"
+  DIRECTORY "${BWAPI_SOURCE_DIR}/CMake/Client"
+  PROPERTY HEADER_FILE_ONLY TRUE)
+get_property(BWAPI_CLIENT_ORIGINAL_IS_HEADER SOURCE "${BWAPI_CLIENT_ORIGINAL_SOURCE}"
+  DIRECTORY "${BWAPI_SOURCE_DIR}/CMake/Client"
+  PROPERTY HEADER_FILE_ONLY)
+if(NOT BWAPI_CLIENT_ORIGINAL_IS_HEADER)
+  message(FATAL_ERROR "Could not disable the pinned BWAPI Client.cpp source")
+endif()
+target_sources(BWAPIClient PRIVATE "${BWAPI_CLIENT_PATCHED_SOURCE}")
 target_compile_features(BWAPIClient PUBLIC cxx_std_17)
 
 set(ZZZKBOT_SOURCE_ROOT "${ZZZKBOT_SOURCE_DIR}/ZZZKBot/Source")

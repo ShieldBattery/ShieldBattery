@@ -1,5 +1,6 @@
 import http from 'http'
 import { AddressInfo } from 'net'
+import { randomUUID } from 'node:crypto'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
 import { ALL_MINIMAP_COLOR_MODES, LocalSettings } from '../../common/settings/local-settings'
@@ -32,23 +33,64 @@ function authorize(info: AuthorizeInfo): boolean {
 export class GameServer {
   private idToSocket = new Map<string, WebSocket>()
   private activeGameManager = container.resolve(ActiveGameManager)
+  private managers = new Map<string, ActiveGameManager>()
 
   constructor(
     private server: WebSocketServer,
     private localSettings: LocalSettingsManager,
   ) {
-    this.activeGameManager.on('gameCommand', (id, command, payload) => {
-      log.verbose(`Sending game command to ${id}: ${command}`)
-      const socket = this.idToSocket.get(id)
-      if (socket && socket.readyState === socket.OPEN) {
-        this.sendCommand(socket, command, payload)
-      } else {
-        // Is this a bad error or something that commonly occurs? Guessing that it's common.
-        log.verbose(`No game connection for ${id}`)
-      }
-    })
+    this.attachManager(this.activeGameManager)
+    this.attachServer(this.server)
+  }
 
-    this.server.on('connection', (socket, request) => {
+  registerManager(gameId: string, manager: ActiveGameManager): () => void {
+    if (this.managers.has(gameId)) throw new Error('Game instance already registered')
+    this.managers.set(gameId, manager)
+    const detach = manager === this.activeGameManager ? () => {} : this.attachManager(manager)
+    return () => {
+      this.managers.delete(gameId)
+      this.idToSocket.get(gameId)?.terminate()
+      this.idToSocket.delete(gameId)
+      detach()
+    }
+  }
+
+  async createLocalControlPipe(): Promise<{ endpoint: string; dispose: () => void }> {
+    const endpoint = `\\\\.\\pipe\\ShieldBattery.LocalControl.${randomUUID()}`
+    const server = http.createServer()
+    const ws = new WebSocketServer({ server, verifyClient: authorize })
+    this.attachServer(ws)
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(endpoint, () => {
+        server.removeListener('error', reject)
+        resolve()
+      })
+    })
+    server.on('error', error => log.error(`Local game control pipe failed: ${error}`))
+    return {
+      endpoint,
+      dispose: () => {
+        for (const socket of ws.clients) socket.terminate()
+        ws.close()
+        server.close()
+      },
+    }
+  }
+
+  private attachManager(manager: ActiveGameManager): () => void {
+    const listener = (id: string, command: string, payload: unknown) => {
+      const socket = this.idToSocket.get(id)
+      if (socket?.readyState === WebSocket.OPEN) this.sendCommand(socket, command, payload)
+    }
+    manager.on('gameCommand', listener)
+    return () => {
+      manager.off('gameCommand', listener)
+    }
+  }
+
+  private attachServer(server: WebSocketServer) {
+    server.on('connection', (socket, request) => {
       const gameId = request.headers['x-game-id']
       if (gameId && !Array.isArray(gameId)) {
         log.verbose('game websocket connected')
@@ -67,12 +109,14 @@ export class GameServer {
           log.error(`Game socket error ${String(e.stack ?? e)}`)
         })
         this.idToSocket.set(gameId, socket)
-        this.activeGameManager.handleGameConnected(gameId).catch(err => {
-          log.error(`error handling game connection: ${err.stack ?? err}`)
-        })
+        ;(this.managers.get(gameId) ?? this.activeGameManager)
+          .handleGameConnected(gameId)
+          .catch(err => {
+            log.error(`error handling game connection: ${err.stack ?? err}`)
+          })
       }
     })
-    this.server.on('error', e => {
+    server.on('error', e => {
       log.error(`Game server error ${String(e.stack ?? e)}`)
     })
   }
@@ -87,39 +131,35 @@ export class GameServer {
   }
 
   onMessage(gameId: string, message: string) {
+    const manager = this.managers.get(gameId) ?? this.activeGameManager
     const { command, payload } = JSON.parse(message)
     switch (command) {
       case '/game/setupProgress':
-        this.activeGameManager.handleSetupProgress(gameId, payload.status)
+        manager.handleSetupProgress(gameId, payload.status)
         break
       case '/game/start':
-        this.activeGameManager.handleGameStart(gameId)
+        manager.handleGameStart(gameId)
         break
       case '/game/result':
-        this.activeGameManager.handleGameResult(
-          gameId,
-          payload.results,
-          payload.time,
-          payload.tempReplayPath,
-        )
+        manager.handleGameResult(gameId, payload.results, payload.time, payload.tempReplayPath)
         break
       case '/game/finished':
-        this.activeGameManager.handleGameFinished(gameId)
+        manager.handleGameFinished(gameId)
         break
       case '/game/replaySaved':
-        this.activeGameManager.handleReplaySaved(gameId, payload.path)
+        manager.handleReplaySaved(gameId, payload.path)
         break
       case '/game/replayUploaded':
-        this.activeGameManager.handleReplayUploaded(gameId)
+        manager.handleReplayUploaded(gameId)
         break
       case '/game/networkStatus':
-        this.activeGameManager.handleNetworkStatus(gameId, payload)
+        manager.handleNetworkStatus(gameId, payload)
         break
       case '/game/debug/state':
-        this.activeGameManager.handleDebugState(gameId, payload)
+        manager.handleDebugState(gameId, payload)
         break
       case '/game/debug/screenshot':
-        this.activeGameManager.handleDebugScreenshot(gameId, payload)
+        manager.handleDebugScreenshot(gameId, payload)
         break
       case '/game/windowMove':
         {

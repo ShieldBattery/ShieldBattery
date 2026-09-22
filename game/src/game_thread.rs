@@ -443,6 +443,7 @@ unsafe fn game_results() -> GameThreadResults {
 /// Background clients and replay playback never create an upload replay.
 fn will_upload_replay() -> bool {
     !crate::is_background_game()
+        && !crate::is_local_game()
         && SETUP_INFO
             .get()
             .is_some_and(|info| !info.is_replay() && info.result_code.is_some())

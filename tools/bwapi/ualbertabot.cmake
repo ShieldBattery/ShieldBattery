@@ -62,11 +62,14 @@ require_git_commit("${BWAPI_SOURCE_DIR}" "${BWAPI_COMMIT}")
 
 set(BWAPI_INCLUDE_DIR "${BWAPI_SOURCE_DIR}/bwapi/include")
 set(BWAPI_STATIC_LIBRARY "${BWAPI_BUILD_DIR}/Release/BWAPI-Static.lib")
+# BWAPIClient.lib is the generated, token-aware discovery client from CMakeLists.txt.
 set(BWAPI_CLIENT_LIBRARY "${BWAPI_SOURCE_DIR}/bwapi/lib/Release/BWAPIClient.lib")
+set(BWAPI_CLIENT_PROVENANCE "${BWAPI_BUILD_DIR}/BWAPIClient-instance-discovery.txt")
 foreach(required_path IN ITEMS
     "${BWAPI_INCLUDE_DIR}"
     "${BWAPI_STATIC_LIBRARY}"
-    "${BWAPI_CLIENT_LIBRARY}")
+    "${BWAPI_CLIENT_LIBRARY}"
+    "${BWAPI_CLIENT_PROVENANCE}")
   if(NOT EXISTS "${required_path}")
     message(FATAL_ERROR
       "Missing ${required_path}. Build BWAPI-Static and BWAPIClient with the Win32 tools/bwapi CMake configuration first.")

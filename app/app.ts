@@ -42,6 +42,7 @@ import { GameServerRegionList } from './game-server-regions/region-list'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
+import { LocalGameManager } from './game/local-game-manager'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs } from './launch-args'
@@ -152,8 +153,9 @@ protocol.registerSchemesAsPrivileged([
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow: BrowserWindow | null
 let systemTray: SystemTray
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 let gameServer: GameServer
+let localGameManager: LocalGameManager | undefined
 let replayLibrary: ReplayLibraryService | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
@@ -794,6 +796,27 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   const activeGameManager = container.resolve(ActiveGameManager)
+  const getLocalGameManager = () => {
+    if (!localGameManager) {
+      localGameManager = new LocalGameManager(
+        activeGameManager,
+        gameServer,
+        container.resolve(MapStore),
+        localSettings,
+        scrSettings,
+      )
+      localGameManager.on('status', status => {
+        TypedIpcSender.from(mainWindow?.webContents).send('localGameStatus', status)
+      })
+    }
+    return localGameManager
+  }
+  ipcMain.handle('localGameStart', (_, request) => {
+    if (!isDev) throw new Error('Local BWAPI games require the development game DLL')
+    return getLocalGameManager().start(request)
+  })
+  ipcMain.handle('localGameStop', () => localGameManager?.stop())
+  ipcMain.handle('localGameGetStatus', () => localGameManager?.getStatus())
 
   activeGameManager
     .on('gameStatus', status => {
@@ -815,6 +838,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameSetConfig', (event, config) => {
     try {
+      if (localGameManager?.isActive())
+        throw new Error('Stop the local game before launching another game')
       return activeGameManager.setGameConfig(config)
     } catch (err: any) {
       logger.error(`Error setting game config: ${getErrorStack(err)}`)
@@ -831,7 +856,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
     // but there's no reason to expose these outside of development.
     ipcMain.handle('activeGameDebugQueryState', (event, gameId) =>
-      activeGameManager.debugQueryState(gameId),
+      ((gameId && localGameManager?.getManager(gameId)) || activeGameManager).debugQueryState(
+        gameId,
+      ),
     )
     ipcMain.handle('activeGameDebugScreenshot', (event, gameId) =>
       activeGameManager.debugScreenshot(gameId),
@@ -1459,6 +1486,7 @@ app.on('ready', () => {
       }
 
       app.on('will-quit', () => {
+        localGameManager?.stop().catch(err => logger.error(String(err)))
         localSettings.saveSettingsToDiskSync()
         scrSettings.saveSettingsToDiskSync()
       })

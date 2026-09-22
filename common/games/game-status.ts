@@ -78,7 +78,7 @@ export function stringToStatus(str: GameStatusString): GameStatus {
   }
 }
 
-export type GameNetworkTransport = 'netcodeV2' | 'native'
+export type GameNetworkTransport = 'netcodeV2' | 'native' | 'local'
 
 /**
  * Which turn transport a running game ended up on, as reported by the game client once the
@@ -95,6 +95,8 @@ export interface ReportedGameStatus {
   state: GameStatusString
   extra?: any
   isReplay: boolean
+  /** Local practice games have no server status or result reporting. */
+  isLocal?: boolean
   /**
    * Which turn transport the game ended up using, reported once via `/game/networkStatus` during
    * game init and carried on every subsequent status report for the game.

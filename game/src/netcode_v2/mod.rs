@@ -57,9 +57,12 @@ use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use tokio::sync::mpsc;
 
+mod local;
 mod net_stats;
 mod rehome;
 mod session;
+
+pub use local::establish_local_session;
 
 pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 
@@ -72,7 +75,8 @@ pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
     error_with_root_cause, establish_session, establish_sessionless, set_lobby_session_seed,
-    submit_result_report, wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
+    store_local_turn_state, submit_result_report, wait_for_driver_shutdown,
+    with_lobby_session_seed, with_turn_state,
 };
 
 use self::net_stats::NetStats;

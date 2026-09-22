@@ -311,38 +311,39 @@ impl GameState {
             // - absent, a replay → play back locally from the recorded command stream (no session).
             // - absent, exactly one human → a solo game: a sessionless, local-only turn state.
             // - absent, more than one human → a server misconfiguration: fail the load loudly.
-            if let Some(setup) = netcode_v2_setup {
-                // Stand up the rally-point2 turn transport before the native lobby is created. A game
-                // launched for netcode v2 must run on it; if the relay can't be reached the load
-                // fails outright, so the app cancels it and surfaces an error rather than silently
-                // playing on native networking.
-                //
-                // A game with AI players self-closes its relay session when the last remote human
-                // leaves, so the lone human plays on versus the computers locally (see
-                // `TurnState::should_self_close`).
+            if netcode_v2_setup.is_some() || info.local_session.is_some() {
+                if netcode_v2_setup.is_some() && info.local_session.is_some() {
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "a game cannot select both netcode v2 and localSession".into(),
+                    ));
+                }
+                // Both transports use the same game-thread TurnState/lobby seam. The relay path
+                // owns QUIC and re-home; a local match instead connects each SC:R process to the
+                // Electron-owned named-pipe hub before any native lobby command can flush.
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
-                // Context the re-home provider authenticates its SB-server failover requests with
-                // (the same gameId + userId + resultCode the results submission uses).
-                let rehome_context = netcode_v2::RehomeContext {
-                    server_url: server_url.clone(),
-                    game_id: info.game_id.clone(),
-                    user_id: local_user.id,
-                    result_code: info.result_code.clone(),
-                };
-                let mut session_start =
-                    netcode_v2::establish_session(&setup, has_computers, rehome_context)
+                let (mut session_start, transport) = if let Some(setup) = netcode_v2_setup {
+                    let rehome_context = netcode_v2::RehomeContext {
+                        server_url: server_url.clone(),
+                        game_id: info.game_id.clone(),
+                        user_id: local_user.id,
+                        result_code: info.result_code.clone(),
+                    };
+                    let start = netcode_v2::establish_session(&setup, has_computers, rehome_context)
                         .await
-                        // The full root cause matters here: this string is the error the app
-                        // reports to the server as this client's load failure, and the deep
-                        // detail (e.g. the relay's close reason) is often the only clue to why
-                        // a session could not be established.
                         .map_err(|e| {
-                            GameInitError::NetcodeV2SessionInit(netcode_v2::error_with_root_cause(
-                                &e,
-                            ))
+                            GameInitError::NetcodeV2SessionInit(netcode_v2::error_with_root_cause(&e))
                         })?;
-                info!("Netcode v2 session established");
-                // Route lobby command traffic through the rp2 turn transport rather than native
+                    info!("Netcode v2 session established");
+                    (start, NetworkTransport::NetcodeV2)
+                } else {
+                    let setup = info.local_session.as_ref().expect("checked localSession");
+                    let start = netcode_v2::establish_local_session(setup, has_computers)
+                        .await
+                        .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                    info!("Local named-pipe session established");
+                    (start, NetworkTransport::Local)
+                };
+                // Route lobby command traffic through the selected turn transport rather than native
                 // Storm networking. This must latch on before any native create/join runs: the
                 // host's lobby machine starts flushing lobby turns the instant its session is
                 // created, and those turns have to ride the seam from the very first flush.
@@ -351,7 +352,7 @@ impl GameState {
                     &ws_send,
                     "/game/networkStatus",
                     NetworkStatus {
-                        transport: NetworkTransport::NetcodeV2,
+                        transport,
                         error: None,
                     },
                 )
@@ -566,8 +567,13 @@ impl GameState {
                                     "Netcode v2 session-start directive received without an initial \
                                     buffer depth; keeping the seeded depth and starting game"
                                 ),
+                                None if transport == NetworkTransport::Local => {
+                                    return Err(GameInitError::NetcodeV2SessionInit(
+                                        "local session hub closed before every client was ready".into(),
+                                    ));
+                                }
                                 None => warn!(
-                                    "Netcode v2 session-start channel closed before a directive; starting anyway"
+                                    "netcode v2 session-start channel closed before a directive; starting anyway"
                                 ),
                             }
                             break;
@@ -1149,6 +1155,13 @@ async fn send_game_result(
         temp_replay_path: results.replay_path.as_ref().and_then(|p| p.to_str()),
     };
     let _ = app_socket::send_message(ws_send, "/game/result", &results_message).await;
+
+    if info.local_session.is_some() {
+        debug!(
+            "Local game result is kept in the desktop app; skipping server report and replay upload"
+        );
+        return;
+    }
 
     if info.result_code.is_none() {
         debug!("Had no result code, skipping sending results and replay");

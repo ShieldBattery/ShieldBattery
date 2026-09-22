@@ -74,6 +74,7 @@ export default defineConfig([
     ...shared,
     input: {
       index: path.join(ROOT, 'app/startup.js'),
+      'local-bot-worker': path.join(ROOT, 'app/game/local-bot-worker.ts'),
       // The replay library's DB, watcher and parser run in a worker thread; this is its entry,
       // loaded via `new Worker(...)` from the main bundle.
       'db-worker': path.join(ROOT, 'app/replay-library/worker/db-worker.ts'),

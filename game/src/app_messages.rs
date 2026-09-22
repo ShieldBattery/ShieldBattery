@@ -276,6 +276,8 @@ pub struct NetworkStallInfo {
 pub enum NetworkTransport {
     /// The rally-point2 QUIC turn transport (netcode v2).
     NetcodeV2,
+    /// A private named-pipe hub owned by the local-game supervisor.
+    Local,
     /// No relay: a local-only game (a solo game versus AI, or a replay).
     Native,
 }
@@ -375,6 +377,8 @@ pub enum GameType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameSetupInfo {
+    /// Private local-game transport handoff. Mutually exclusive with netcode v2.
+    pub local_session: Option<LocalSessionSetup>,
     pub name: String,
     pub map: MapInfo,
     pub map_path: String,
@@ -401,6 +405,25 @@ pub struct ServerConfig {
     pub server_url: String,
 }
 
+/// The local supervisor's private named-pipe session. The endpoint and secret never leave the
+/// current Windows user session; the secret still authenticates a client before it can claim a
+/// slot, so another same-user process cannot inject turns merely by finding the pipe name.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalSessionSetup {
+    pub endpoint: String,
+    pub secret: Secret,
+    pub slot: u8,
+    pub roster: Vec<LocalSessionRosterEntry>,
+    pub initial_buffer_turns: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalSessionRosterEntry {
+    pub slot: u8,
+    pub user_id: SbUserId,
+}
 impl GameSetupInfo {
     pub fn is_replay(&self) -> bool {
         match self.map {
