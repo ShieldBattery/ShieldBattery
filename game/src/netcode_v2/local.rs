@@ -13,7 +13,7 @@ use base64::Engine;
 use bytes::Bytes;
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::Payload;
+use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use rally_point_client::{ChatOut, PhaseStatus, TurnChannels};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader};
@@ -266,6 +266,8 @@ async fn run_driver(
     let (read, mut write) = tokio::io::split(pipe);
     let mut lines = BufReader::new(read).lines();
     let mut next_seq = 0u64;
+    let mut last_game_frame = None;
+    let mut leave_sent = false;
     loop {
         tokio::select! {
             frame = lines.next_line() => {
@@ -275,34 +277,46 @@ async fn run_driver(
                 }
                 handle_hub_frame(&frame, &channels).await?;
             }
-            turn = channels.outbound.recv() => {
+            turn = channels.outbound.recv(), if !leave_sent => {
                 let Some(turn) = turn else { return Ok(()); };
+                let game_frame = turn.game_frame_count;
                 let frame = ClientFrame::Turn {
                     seq: next_seq.to_string(),
                     commands: base64::engine::general_purpose::STANDARD.encode(&turn.commands),
-                    game_frame: turn.game_frame_count,
+                    game_frame,
                     sync_generation: turn.sync_generation.map(|value| value.to_string()),
                 };
                 next_seq = next_seq.wrapping_add(1);
+                if game_frame.is_some() {
+                    last_game_frame = game_frame;
+                }
                 write_frame(&mut write, &frame).await?;
             }
-            lobby = channels.lobby_out.recv() => {
+            lobby = channels.lobby_out.recv(), if !leave_sent => {
                 let Some(payload) = lobby else { return Ok(()); };
                 write_frame(&mut write, &ClientFrame::Lobby { payload: base64::engine::general_purpose::STANDARD.encode(payload) }).await?;
             }
-            skin = channels.skin_out.recv() => {
+            skin = channels.skin_out.recv(), if !leave_sent => {
                 let Some(payload) = skin else { return Ok(()); };
                 write_frame(&mut write, &ClientFrame::Skin { payload: base64::engine::general_purpose::STANDARD.encode(payload) }).await?;
             }
-            chat = channels.chat_out.recv() => {
+            chat = channels.chat_out.recv(), if !leave_sent => {
                 let Some(chat) = chat else { return Ok(()); };
                 write_frame(&mut write, &ClientFrame::Chat { target_kind: chat.target_kind, target_slot: chat.target_slot, text: chat.text }).await?;
             }
-            leave = channels.leave_intent.recv() => {
+            leave = channels.leave_intent.recv(), if !leave_sent => {
                 let Some(()) = leave else { return Ok(()); };
-                write_frame(&mut write, &ClientFrame::Leave).await?;
+                write_frame(
+                    &mut write,
+                    &ClientFrame::Leave {
+                        final_turn_count: next_seq.to_string(),
+                        apply_at_frame: last_game_frame.map_or(0, |frame| frame.saturating_add(1)),
+                    },
+                )
+                .await?;
+                leave_sent = true;
             }
-            started = channels.game_started.recv() => {
+            started = channels.game_started.recv(), if !leave_sent => {
                 let Some(()) = started else { return Ok(()); };
                 write_frame(&mut write, &ClientFrame::Started).await?;
             }
@@ -382,6 +396,28 @@ async fn handle_hub_frame(
                 .await
                 .map_err(|_| LocalSessionError::Hub("chat receiver closed".into()))?;
         }
+        HubFrame::Leave {
+            slot,
+            reason,
+            apply_at_frame,
+            leave_seq,
+            final_turn_count,
+            finalized,
+        } => {
+            let directive = parse_leave_directive(
+                slot,
+                reason,
+                apply_at_frame,
+                &leave_seq,
+                &final_turn_count,
+                finalized,
+            )?;
+            channels
+                .leaves
+                .send(directive)
+                .await
+                .map_err(|_| LocalSessionError::Hub("game leave receiver closed".into()))?;
+        }
         HubFrame::Ready {
             initial_buffer_turns,
         } if initial_buffer_turns >= 1 => {
@@ -401,6 +437,42 @@ async fn handle_hub_frame(
     Ok(())
 }
 
+fn parse_leave_directive(
+    slot: u8,
+    reason: u32,
+    apply_at_frame: u32,
+    leave_seq: &str,
+    final_turn_count: &str,
+    finalized: bool,
+) -> Result<LeaveDirective, LocalSessionError> {
+    if usize::from(slot) >= bw::MAX_STORM_PLAYERS {
+        return Err(LocalSessionError::Hub(
+            "leave references an invalid slot".into(),
+        ));
+    }
+    if reason != 3 {
+        return Err(LocalSessionError::Hub("leave has an invalid reason".into()));
+    }
+    if finalized {
+        return Err(LocalSessionError::Hub("leave must not be finalized".into()));
+    }
+    let leave_seq = parse_u32(leave_seq, "leave sequence")?;
+    if leave_seq == 0 {
+        return Err(LocalSessionError::Hub(
+            "leave sequence must be nonzero".into(),
+        ));
+    }
+    let final_turn_count = parse_u64(final_turn_count, "final turn count")?;
+    Ok(LeaveDirective {
+        slot: u32::from(slot),
+        reason,
+        apply_at_frame,
+        leave_seq,
+        final_turn_count: Some(final_turn_count),
+        finalized,
+    })
+}
+
 fn decode_bytes(value: &str) -> Result<Vec<u8>, LocalSessionError> {
     base64::engine::general_purpose::STANDARD
         .decode(value)
@@ -408,6 +480,12 @@ fn decode_bytes(value: &str) -> Result<Vec<u8>, LocalSessionError> {
 }
 
 fn parse_u64(value: &str, field: &str) -> Result<u64, LocalSessionError> {
+    value
+        .parse()
+        .map_err(|_| LocalSessionError::Hub(format!("invalid {field}")))
+}
+
+fn parse_u32(value: &str, field: &str) -> Result<u32, LocalSessionError> {
     value
         .parse()
         .map_err(|_| LocalSessionError::Hub(format!("invalid {field}")))
@@ -457,7 +535,10 @@ enum ClientFrame<'a> {
         target_slot: u32,
         text: String,
     },
-    Leave,
+    Leave {
+        final_turn_count: String,
+        apply_at_frame: u32,
+    },
     Started,
 }
 
@@ -491,6 +572,14 @@ enum HubFrame {
         target_kind: u32,
         target_slot: u32,
         text: String,
+    },
+    Leave {
+        slot: u8,
+        reason: u32,
+        apply_at_frame: u32,
+        leave_seq: String,
+        final_turn_count: String,
+        finalized: bool,
     },
     Error {
         message: String,
@@ -555,6 +644,66 @@ mod tests {
                 && commands == "AAEC"
                 && sync_generation == "18446744073709551614"
         ));
+    }
+
+    #[test]
+    fn leave_wire_is_decoded_into_a_final_turn_directive() {
+        let frame: HubFrame = serde_json::from_value(serde_json::json!({
+            "type": "leave",
+            "slot": 1,
+            "reason": 3,
+            "applyAtFrame": 123,
+            "leaveSeq": "9",
+            "finalTurnCount": "42",
+            "finalized": false,
+        }))
+        .unwrap();
+        let HubFrame::Leave {
+            slot,
+            reason,
+            apply_at_frame,
+            leave_seq,
+            final_turn_count,
+            finalized,
+        } = frame
+        else {
+            panic!("expected leave frame")
+        };
+
+        let directive = parse_leave_directive(
+            slot,
+            reason,
+            apply_at_frame,
+            &leave_seq,
+            &final_turn_count,
+            finalized,
+        )
+        .unwrap();
+        assert_eq!(directive.slot, 1);
+        assert_eq!(directive.reason, 3);
+        assert_eq!(directive.apply_at_frame, 123);
+        assert_eq!(directive.leave_seq, 9);
+        assert_eq!(directive.final_turn_count, Some(42));
+        assert!(!directive.finalized);
+    }
+
+    #[test]
+    fn leave_wire_carries_the_final_forwarded_turn_count() {
+        let wire = serde_json::to_value(ClientFrame::Leave {
+            final_turn_count: "42".into(),
+            apply_at_frame: 123,
+        })
+        .unwrap();
+
+        assert_eq!(wire["type"], "leave");
+        assert_eq!(wire["finalTurnCount"], "42");
+        assert_eq!(wire["applyAtFrame"], 123);
+    }
+
+    #[test]
+    fn leave_wire_rejects_an_invalid_reason() {
+        let error = parse_leave_directive(1, 2, 0, "1", "0", false).unwrap_err();
+        assert!(error.to_string().contains("invalid reason"));
     }
 
     #[test]
