@@ -816,6 +816,7 @@ fn monitor_from_point(
 
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
+        crate::native_network::init_hooks(patcher);
         use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
         use self::scr_hooks::*;
         // 1161 init could hook just starcraft/storm import table, unfortunately

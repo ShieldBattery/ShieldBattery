@@ -60,6 +60,7 @@ mod game_state;
 mod game_thread;
 mod http;
 mod http_proxy;
+mod native_network;
 mod netcode_v2;
 mod recurse_checked_mutex;
 mod replay;
