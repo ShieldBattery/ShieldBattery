@@ -5,7 +5,7 @@ import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typogra
 import {
   LiveDot,
   LivePill,
-  TwitchMark,
+  PlatformMark,
   UptimePill,
   useStreamUptime,
   ViewerCountPill,
@@ -19,7 +19,7 @@ import { LiveStreamModeration, ModerationContainer } from './live-stream-moderat
 export const LiveStreams_FeedFragment = graphql(/* GraphQL */ `
   fragment LiveStreams_FeedFragment on Query {
     liveStreams {
-      twitchLogin
+      id
       viewerCount
       ...LiveStreams_FeedEntryFragment
     }
@@ -29,9 +29,11 @@ export const LiveStreams_FeedFragment = graphql(/* GraphQL */ `
 const LiveStreams_FeedEntryFragment = graphql(/* GraphQL */ `
   fragment LiveStreams_FeedEntryFragment on LiveStream {
     id
-    twitchLogin
-    twitchDisplayName
+    platform
+    displayName
+    url
     title
+    gameName
     viewerCount
     startedAt
     thumbnailUrl
@@ -49,20 +51,16 @@ function useLiveStream(query: FragmentType<typeof LiveStreams_FeedEntryFragment>
 }
 
 /**
- * The ShieldBattery identity leads every entry: the SB username. The Twitch handle is only worth
- * showing when it differs from the SB name.
+ * The ShieldBattery identity leads every entry: the SB username. The streaming platform's own
+ * display name is only worth showing when it differs from the SB name.
  */
 function getIdentity(stream: LiveStreamFragment) {
-  const sbName = stream.user?.name ?? stream.twitchDisplayName
+  const sbName = stream.user?.name ?? stream.displayName
   const handle =
-    stream.user && stream.twitchDisplayName.toLowerCase() !== stream.user.name.toLowerCase()
-      ? stream.twitchDisplayName
+    stream.user && stream.displayName.toLowerCase() !== stream.user.name.toLowerCase()
+      ? stream.displayName
       : undefined
   return { sbName, handle }
-}
-
-function streamUrl(login: string) {
-  return `https://twitch.tv/${login}`
 }
 
 const Name = styled.span`
@@ -185,20 +183,22 @@ export function FeaturedLiveStreamEntry({
   const { sbName, handle } = getIdentity(stream)
 
   const entry = (
-    <FeaturedRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
+    <FeaturedRoot href={stream.url} target='_blank' rel='noopener'>
       <FeaturedThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' loading='lazy' />
         <CornerTopLeft>
           <LivePill />
         </CornerTopLeft>
-        <CornerTopRight>
-          <ViewerCountPill count={stream.viewerCount} />
-        </CornerTopRight>
+        {stream.viewerCount !== null ? (
+          <CornerTopRight>
+            <ViewerCountPill count={stream.viewerCount} />
+          </CornerTopRight>
+        ) : null}
         <CornerBottomLeft>
           <UptimePill startedAt={stream.startedAt} />
         </CornerBottomLeft>
         <CornerBottomRight>
-          <TwitchMark />
+          <PlatformMark platform={stream.platform} />
         </CornerBottomRight>
       </FeaturedThumb>
       <FeaturedMeta>
@@ -302,16 +302,19 @@ export function LiveStreamEntry({
   const uptime = useStreamUptime(stream.startedAt)
 
   const entry = (
-    <RowRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
+    <RowRoot href={stream.url} target='_blank' rel='noopener'>
       <RowThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' width={108} height={61} loading='lazy' />
-        <RowViewerCorner>
-          <ViewerCountPill count={stream.viewerCount} />
-        </RowViewerCorner>
+        {stream.viewerCount !== null ? (
+          <RowViewerCorner>
+            <ViewerCountPill count={stream.viewerCount} />
+          </RowViewerCorner>
+        ) : null}
       </RowThumb>
       <RowInfo>
         <RowNameLine>
           <LiveDot $size={7} />
+          <PlatformMark platform={stream.platform} size={14} />
           <Name>{sbName}</Name>
           {handle ? <Handle>@{handle}</Handle> : null}
         </RowNameLine>

@@ -1,7 +1,9 @@
 import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
+import { LiveStreamPlatform } from '../gql/graphql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
+import YoutubeIcon from '../icons/brands/youtube.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useNow } from '../react/date-hooks'
 import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../styles/typography'
@@ -9,11 +11,14 @@ import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../s
 /**
  * A shared visual language for "live" state, reused across the home feed, profiles, and anywhere
  * else a streaming user surfaces. "Live" itself is intentionally brand-neutral (the `--theme-live`
- * color); the only per-platform element is the small platform mark (see `TwitchMark`).
+ * color); the only per-platform element is the small platform mark (see `PlatformMark`).
  */
 
 /** The Twitch brand color, used only for the Twitch glyph (a brand mark), never for "live" state. */
 export const TWITCH_PURPLE = '#9146ff'
+
+/** The YouTube brand color, used only for the YouTube glyph (a brand mark), never for "live" state. */
+export const YOUTUBE_RED = '#ff0000'
 
 /** A dark scrim used behind pills that overlay stream thumbnails, to keep them legible. */
 const THUMBNAIL_OVERLAY = 'rgba(16, 21, 30, 0.82)'
@@ -189,11 +194,27 @@ const TwitchGlyph = styled(TwitchIcon)`
   color: ${TWITCH_PURPLE};
 `
 
-/** The small brand mark shown on a stream, currently Twitch-only. */
-export function TwitchMark({ size, className }: { size?: number; className?: string }) {
+// The YouTube glyph is a wide rounded rectangle rather than a squarish mark, so it needs more of
+// the box than the Twitch glyph to read at the same visual weight.
+const YoutubeGlyph = styled(YoutubeIcon)`
+  width: 76%;
+  height: 76%;
+  color: ${YOUTUBE_RED};
+`
+
+/** The small brand mark identifying which platform a broadcast is on. */
+export function PlatformMark({
+  platform,
+  size,
+  className,
+}: {
+  platform: LiveStreamPlatform
+  size?: number
+  className?: string
+}) {
   return (
     <PlatformMarkRoot $size={size} className={className}>
-      <TwitchGlyph />
+      {platform === LiveStreamPlatform.Youtube ? <YoutubeGlyph /> : <TwitchGlyph />}
     </PlatformMarkRoot>
   )
 }
@@ -258,30 +279,29 @@ const WatchRowMeta = styled.div`
  * call-to-action (e.g. the profile hover card).
  */
 export function LiveWatchRow({
-  twitchLogin,
+  url,
   title,
   viewerCount,
   className,
 }: {
-  twitchLogin: string
+  url: string
   title: string
-  viewerCount: number
+  /** Null when the platform doesn't report a viewer count, which drops the meta line entirely. */
+  viewerCount: number | null
   className?: string
 }) {
   const { t } = useTranslation()
   return (
-    <WatchRowRoot
-      href={`https://twitch.tv/${twitchLogin}`}
-      target='_blank'
-      rel='noopener'
-      className={className}>
+    <WatchRowRoot href={url} target='_blank' rel='noopener' className={className}>
       <WatchRowIcon icon='play_arrow' size={20} />
       <WatchRowInfo>
         <WatchRowTitle>{title}</WatchRowTitle>
-        <WatchRowMeta>
-          <LiveDot $size={6} />
-          {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
-        </WatchRowMeta>
+        {viewerCount !== null ? (
+          <WatchRowMeta>
+            <LiveDot $size={6} />
+            {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
+          </WatchRowMeta>
+        ) : null}
       </WatchRowInfo>
     </WatchRowRoot>
   )

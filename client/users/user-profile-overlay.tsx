@@ -54,15 +54,24 @@ const UserProfileOverlayLiveQuery = graphql(/* GraphQL */ `
   query UserProfileOverlayLive($userId: SbUserId!) {
     user(id: $userId) {
       id
-      liveStream {
+      liveStreams {
         id
-        twitchLogin
+        url
         title
         viewerCount
       }
     }
   }
 `)
+
+/** Stacks the watch rows for a user who is broadcasting on more than one platform. */
+const LiveWatchRows = styled.div`
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
 
 export interface ConnectedUserProfileOverlayProps {
   userId: SbUserId
@@ -245,7 +254,7 @@ export function UserProfileOverlayContents({
     variables: { userId },
     context: { suspense: false },
   })
-  const liveStream = liveData?.user?.liveStream ?? undefined
+  const liveStreams = liveData?.user?.liveStreams ?? []
 
   const username = user?.name
 
@@ -283,7 +292,7 @@ export function UserProfileOverlayContents({
           navigateToUserProfile(userId, username ?? '')
         }}>
         <AvatarContainer>
-          <AvatarCircle $isLive={!!liveStream}>
+          <AvatarCircle $isLive={liveStreams.length > 0}>
             <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
           {user?.staffBadge ? <ProfileStaffBadge /> : null}
@@ -301,12 +310,17 @@ export function UserProfileOverlayContents({
         </UsernameAndTitle>
       </IdentityArea>
       <FriendActivityStatusLine userId={userId} />
-      {liveStream ? (
-        <LiveWatchRow
-          twitchLogin={liveStream.twitchLogin}
-          title={liveStream.title}
-          viewerCount={liveStream.viewerCount}
-        />
+      {liveStreams.length > 0 ? (
+        <LiveWatchRows>
+          {liveStreams.map(stream => (
+            <LiveWatchRow
+              key={stream.id}
+              url={stream.url}
+              title={stream.title}
+              viewerCount={stream.viewerCount}
+            />
+          ))}
+        </LiveWatchRows>
       ) : null}
       {profile ? (
         <>

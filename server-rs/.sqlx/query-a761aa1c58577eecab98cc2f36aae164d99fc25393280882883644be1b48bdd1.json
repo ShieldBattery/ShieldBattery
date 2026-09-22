@@ -1,0 +1,80 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO youtube_connections\n                (user_id, youtube_channel_id, youtube_channel_title, youtube_handle,\n                    uploads_playlist_id)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (user_id) DO UPDATE SET\n                youtube_channel_id = EXCLUDED.youtube_channel_id,\n                youtube_channel_title = EXCLUDED.youtube_channel_title,\n                youtube_handle = EXCLUDED.youtube_handle,\n                uploads_playlist_id = EXCLUDED.uploads_playlist_id,\n                updated_at = now()\n            RETURNING user_id, youtube_channel_id as channel_id, youtube_channel_title as title,\n                youtube_handle as handle, linked_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_channel_title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "handle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_handle"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "linked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "linked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "a761aa1c58577eecab98cc2f36aae164d99fc25393280882883644be1b48bdd1"
+}

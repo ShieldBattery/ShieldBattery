@@ -2680,7 +2680,25 @@
             "invalidState": "Your Twitch linking request expired. Please try again.",
             "notConfigured": "Twitch linking is not available right now."
           },
+          "feedHint": "Streams in the StarCraft categories appear in the live streams feed.",
           "name": "Twitch",
+          "notConnected": "Not connected"
+        },
+        "youtube": {
+          "connect": "Connect",
+          "connectedAs": "Connected as {{channel}}",
+          "connectedSnackbar": "YouTube channel connected.",
+          "disconnect": "Disconnect",
+          "disconnectedSnackbar": "YouTube channel disconnected.",
+          "errors": {
+            "alreadyLinked": "That YouTube channel is already linked to another ShieldBattery account.",
+            "generic": "Something went wrong linking your YouTube channel. Please try again.",
+            "invalidState": "Your YouTube linking request expired. Please try again.",
+            "noChannel": "That Google account doesn't have a YouTube channel.",
+            "notConfigured": "YouTube linking is not available right now."
+          },
+          "feedHint": "Broadcasts that mention StarCraft or Brood War in their title or description appear in the live streams feed.",
+          "name": "YouTube",
           "notConnected": "Not connected"
         }
       },
@@ -2774,7 +2792,7 @@
   },
   "twitch": {
     "live": {
-      "avatarTooltip": "Live on Twitch",
+      "avatarTooltip": "Streaming live",
       "badge": "Live",
       "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
       "uptimeMinutes": "{{minutes}}m",

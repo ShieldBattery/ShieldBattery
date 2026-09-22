@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT user_id as \"user_id: SbUserId\", youtube_channel_id, youtube_channel_title,\n                uploads_playlist_id\n            FROM youtube_connections\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "youtube_channel_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_channel_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "youtube_channel_title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "youtube_channel_title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "uploads_playlist_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "youtube_connections",
+            "name": "uploads_playlist_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3f4a9564012e6dbee27531062caf9793e357468d2d8eccf19a53aae96874000a"
+}

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { makeSbMapId } from '../../common/maps'
 import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { LiveStreamPlatform } from '../gql/graphql'
 import { deriveActivityEntries } from './channel-activity-panel'
 
 const [flash, bisu, jaedong, stork, outsider, self] = [1, 2, 3, 4, 5, 6].map(makeSbUserId)
@@ -12,12 +13,14 @@ const members = {
   offline: new Set([jaedong, stork]),
 }
 
-function stream(userId: number, viewerCount: number) {
+function stream(userId: number, viewerCount: number | null, platform = LiveStreamPlatform.Twitch) {
   return {
-    id: `stream:${userId}`,
-    twitchLogin: `login${userId}`,
-    twitchDisplayName: `user${userId}`,
+    id: `stream:${platform.toLowerCase()}:${userId}`,
+    platform,
+    displayName: `user${userId}`,
+    url: `https://example.test/${userId}`,
     title: `title${userId}`,
+    gameName: platform === LiveStreamPlatform.Twitch ? 'StarCraft: Brood War' : null,
     viewerCount,
     startedAt: new Date().toISOString(),
     thumbnailUrl: '',
@@ -57,6 +60,8 @@ describe('client/chat/channel-activity-panel', () => {
         liveStreams: [
           stream(bisu, 200),
           stream(outsider, 9000),
+          // A platform that reports no viewer count sorts below everyone who does.
+          stream(stork, null, LiveStreamPlatform.Youtube),
           stream(flash, 1200),
           stream(self, 5000),
           { ...stream(jaedong, 300), user: null },
@@ -67,7 +72,7 @@ describe('client/chat/channel-activity-panel', () => {
       self,
     )
 
-    expect(streams.map(s => s.user?.id)).toEqual([flash, bisu])
+    expect(streams.map(s => s.user?.id)).toEqual([flash, bisu, stork])
     expect(games).toEqual([])
   })
 

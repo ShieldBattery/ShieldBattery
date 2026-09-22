@@ -10,7 +10,7 @@ import { Home } from './home/home'
 import { MainLayoutLoadingDotsArea } from './main-layout'
 import { AnimatedSwitch } from './navigation/animated-switch'
 import { StaticNewsRedirect } from './news/static-news-redirect'
-import { TwitchOAuthCallback } from './twitch/twitch-oauth-callback'
+import { OAuthCallback } from './oauth/oauth-callback'
 
 const AdminPanel = React.lazy(() => import('./admin/panel'))
 const LobbyView = React.lazy(async () => ({
@@ -74,6 +74,16 @@ const WhisperRouteComponent = React.lazy(async () => ({
   default: (await import('./whispers/route')).WhisperRouteComponent,
 }))
 
+// Declared at module level rather than inline in the routes below: an inline arrow would be a new
+// component type on every render, remounting the page (and re-running its effects) each time.
+function TwitchOAuthCallback() {
+  return <OAuthCallback provider='twitch' />
+}
+
+function YoutubeOAuthCallback() {
+  return <OAuthCallback provider='youtube' />
+}
+
 export function AppRoutes({
   container,
 }: {
@@ -100,6 +110,7 @@ export function AppRoutes({
       />
 
       <Route path='/twitch/callback' component={TwitchOAuthCallback} />
+      <Route path='/youtube/callback' component={YoutubeOAuthCallback} />
 
       {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
 

@@ -31,6 +31,9 @@ pub struct Settings {
     /// Twitch integration credentials. `None` disables the integration entirely (account linking
     /// errors out and the live-streams feed stays empty), so dev/CI can run without Twitch creds.
     pub twitch: Option<TwitchSettings>,
+    /// YouTube integration credentials. `None` disables the integration entirely (channel linking
+    /// errors out and no channels are polled), so dev/CI can run without Google creds.
+    pub youtube: Option<YoutubeSettings>,
     /// The public origin of this (GraphQL) server, e.g. `https://gql.shieldbattery.net`. Only
     /// required when the Twitch integration is configured, since Twitch delivers EventSub
     /// webhooks to `<gql_origin>/twitch/eventsub`.
@@ -54,6 +57,19 @@ pub struct TwitchSettings {
     /// signature on incoming webhook notifications. Must stay stable across restarts (it's shared
     /// with Twitch), so it's configured rather than generated.
     pub eventsub_secret: SecretString,
+}
+
+#[derive(Debug, Clone)]
+pub struct YoutubeSettings {
+    /// The OAuth client ID of our registered Google application. Public (embedded in authorize URLs
+    /// the client opens), so it's a plain String.
+    pub client_id: String,
+    /// The OAuth client secret of our registered Google application. Only ever used server-side for
+    /// the authorization-code token exchange.
+    pub client_secret: SecretString,
+    /// The API key the public YouTube Data API reads authenticate with. Separate from the OAuth
+    /// credentials: live detection needs no user token, only our project's quota.
+    pub api_key: SecretString,
 }
 
 #[derive(Debug, Clone)]
@@ -217,6 +233,23 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         eventsub_secret: twitch_eventsub_secret.unwrap().into(),
     });
 
+    let youtube_client_id = env_var_non_empty("SB_YOUTUBE_CLIENT_ID");
+    let youtube_client_secret = env_var_non_empty("SB_YOUTUBE_CLIENT_SECRET");
+    let youtube_api_key = env_var_non_empty("SB_YOUTUBE_API_KEY");
+    if youtube_client_id.is_some() != youtube_client_secret.is_some()
+        || youtube_client_id.is_some() != youtube_api_key.is_some()
+    {
+        return Err(eyre!(
+            "SB_YOUTUBE_CLIENT_ID, SB_YOUTUBE_CLIENT_SECRET, and SB_YOUTUBE_API_KEY must all be \
+             set or all unset"
+        ));
+    }
+    let youtube = youtube_client_id.map(|client_id| YoutubeSettings {
+        client_id,
+        client_secret: youtube_client_secret.unwrap().into(),
+        api_key: youtube_api_key.unwrap().into(),
+    });
+
     let rp2_coordinator_url = env_var_non_empty("SB_RP2_COORDINATOR_URL");
 
     let gql_origin = env_var_non_empty("SB_GQL_ORIGIN");
@@ -297,6 +330,7 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         ),
         file_store,
         twitch,
+        youtube,
         gql_origin,
         rp2_coordinator_url,
     })

@@ -57,7 +57,7 @@ export function LiveStreamsPage() {
   })
   useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
   const { liveStreams } = useFragment(LiveStreams_FeedFragment, data) ?? { liveStreams: [] }
-  const sorted = [...liveStreams].sort((a, b) => b.viewerCount - a.viewerCount)
+  const sorted = [...liveStreams].sort((a, b) => (b.viewerCount ?? 0) - (a.viewerCount ?? 0))
 
   return (
     <Root>
@@ -66,7 +66,7 @@ export function LiveStreamsPage() {
         {sorted.length > 0 ? (
           <LiveStreamsGrid>
             {sorted.map(stream => (
-              <FeaturedLiveStreamEntry key={stream.twitchLogin} query={stream} />
+              <FeaturedLiveStreamEntry key={stream.id} query={stream} />
             ))}
           </LiveStreamsGrid>
         ) : (

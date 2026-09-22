@@ -6,8 +6,9 @@ scalar AssignedRace
 """
 A streamer an admin has blocked from the live-streams feed (shown on the home page and the
 dedicated live streams page), for the admin blocked-streams list. The block hides them from the
-`liveStreams` feed only; the `twitch_login`/`twitch_display_name` come from their
-currently-linked channel (via a LEFT JOIN) and are absent if they've since unlinked.
+`liveStreams` feed only. The per-platform channel identities come from the connections the user
+has linked right now (via LEFT JOINs), so they're absent for any platform they haven't linked or
+have since unlinked.
 """
 type BlockedStream {
 	"""
@@ -18,6 +19,14 @@ type BlockedStream {
 	The Twitch display name of the blocked user's currently-linked channel, if any.
 	"""
 	twitchDisplayName: String
+	"""
+	The title of the blocked user's currently-linked YouTube channel, if they still have one.
+	"""
+	youtubeChannelTitle: String
+	"""
+	The `@handle` of the blocked user's currently-linked YouTube channel, if it has one.
+	"""
+	youtubeHandle: String
 	"""
 	When the block was created.
 	"""
@@ -315,31 +324,32 @@ type League {
 }
 
 """
-A ShieldBattery user who is currently live-streaming, for the home-page feed.
+A ShieldBattery user's live broadcast on one platform.
 """
 type LiveStream {
+	platform: LiveStreamPlatform!
 	"""
-	The Twitch login name (used in `twitch.tv/<login>` URLs).
+	Twitch display name / YouTube channel title.
 	"""
-	twitchLogin: String!
+	displayName: String!
 	"""
-	The Twitch display name.
+	Where to watch: `https://twitch.tv/<login>` or `https://www.youtube.com/watch?v=<videoId>`.
 	"""
-	twitchDisplayName: String!
+	url: String!
 	"""
-	The stream's title.
+	The broadcast's title.
 	"""
 	title: String!
 	"""
-	The Twitch category/game being streamed.
+	Twitch category name; null on YouTube (no game metadata is exposed).
 	"""
-	gameName: String!
+	gameName: String
 	"""
-	The stream's current viewer count.
+	Null when the platform doesn't report a count (YouTube hides it for some broadcasts).
 	"""
-	viewerCount: Int!
+	viewerCount: Int
 	"""
-	When the stream started.
+	When the broadcast started.
 	"""
 	startedAt: DateTime!
 	"""
@@ -347,14 +357,21 @@ type LiveStream {
 	"""
 	thumbnailUrl: String!
 	"""
-	A globally unique ID for this stream. A user has at most one live stream at a time, so this
-	is derived from the streamer's user ID.
+	Globally unique: `stream:twitch:<userId>` or `stream:youtube:<userId>`.
 	"""
 	id: String!
 	"""
 	The ShieldBattery user who is streaming.
 	"""
 	user: SbUser
+}
+
+"""
+The platform a broadcast is happening on.
+"""
+enum LiveStreamPlatform {
+	TWITCH
+	YOUTUBE
 }
 
 type LobbyExtra {
@@ -567,6 +584,19 @@ type Mutation {
 	exactly as if each had been resolved individually. Returns how many were resolved.
 	"""
 	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
+	"""
+	Blocks a user's streams from appearing in the live-streams feed (shown on the home page and
+	the dedicated live streams page). The block covers every platform they stream on and is
+	idempotent (a repeat block keeps the original). It hides them from the feed only, not from
+	the profile stream cards / avatar "live" ring / friend notifications. Requires the
+	`manageLiveStreams` permission.
+	"""
+	blockStream(userId: SbUserId!): Boolean!
+	"""
+	Removes a user's feed block, letting their streams appear in the feed again. Returns whether
+	a block was removed. Requires the `manageLiveStreams` permission.
+	"""
+	unblockStream(userId: SbUserId!): Boolean!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -590,18 +620,6 @@ type Mutation {
 	Removes the current user's Twitch connection. Returns whether a connection was removed.
 	"""
 	twitchUnlink: Boolean!
-	"""
-	Blocks a user's stream from appearing in the live-streams feed (shown on the home page and
-	the dedicated live streams page). Idempotent (a repeat block keeps the original). The block
-	hides them from the feed only, not from the profile stream card / avatar "live" ring / friend
-	notifications. Requires the `manageLiveStreams` permission.
-	"""
-	blockStream(userId: SbUserId!): Boolean!
-	"""
-	Removes a user's feed block, letting their stream appear in the feed again. Returns whether a
-	block was removed. Requires the `manageLiveStreams` permission.
-	"""
-	unblockStream(userId: SbUserId!): Boolean!
 	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	userUpdatePermissions(userId: SbUserId!, permissions: SbPermissionsInput!): SbUser!
 	"""
@@ -613,6 +631,22 @@ type Mutation {
 	userDeleteRestrictedName(id: Int!): Int!
 	userTestRestrictedName(name: String!): NameRestriction
 	createSignupCode(input: CreateSignupCodeInput!): SignupCode!
+	"""
+	Begins linking the current user's YouTube channel, returning the Google OAuth authorize URL
+	the client should open. Completing the flow calls `youtubeCompleteLink` with the resulting
+	`code` and `state`. `desktop` selects the loopback redirect URI used by the desktop app
+	instead of our web callback.
+	"""
+	youtubeStartLink(desktop: Boolean! = false): YoutubeLinkStart!
+	"""
+	Completes linking the current user's YouTube channel using the `code` and `state` returned by
+	the Google OAuth redirect.
+	"""
+	youtubeCompleteLink(code: String!, state: String!): YoutubeConnection!
+	"""
+	Removes the current user's YouTube connection. Returns whether a connection was removed.
+	"""
+	youtubeUnlink: Boolean!
 	"""
 	Replaces the matchmaker config. Writes the row, appends to `matchmaking_config_history`, and
 	hot-reloads the live config so the change takes effect within one search tick. Out-of-range
@@ -752,6 +786,26 @@ type Query {
 	activeLeagues: [League!]!
 	futureLeagues: [League!]!
 	pastLeagues: [League!]!
+	"""
+	ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
+	first; broadcasts whose platform reports no count come last). Users an admin has blocked from
+	the feed are omitted (the block hides them here only; their live state elsewhere -- profile,
+	avatar ring, friend notifications -- is unaffected).
+	"""
+	liveStreams: [LiveStream!]!
+	"""
+	Streamers an admin has blocked from the live-streams feed, newest first. For the admin
+	blocked-streams management UI.
+	"""
+	blockedStreams: [BlockedStream!]!
+	"""
+	The ids of every ShieldBattery user who is currently live-streaming on any platform (any
+	category). This lets the client badge "live" state across user lists (friends, chat, etc.)
+	from a single lookup, with per-stream details fetched lazily via `SbUser.liveStreams` where
+	needed. Category-agnostic by design, matching the profile "Live" badge (`liveStreams` is the
+	StarCraft-filtered feed).
+	"""
+	liveStreamUserIds: [SbUserId!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
@@ -763,24 +817,6 @@ type Query {
 	The current user's linked Twitch connection, or `null` if they haven't linked one.
 	"""
 	myTwitchConnection: TwitchConnection
-	"""
-	ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
-	first). Users an admin has blocked from the feed are omitted (the block hides them here only;
-	their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
-	"""
-	liveStreams: [LiveStream!]!
-	"""
-	Streamers an admin has blocked from the live-streams feed, newest first. For the admin
-	blocked-streams management UI.
-	"""
-	blockedStreams: [BlockedStream!]!
-	"""
-	The ids of every ShieldBattery user who is currently live-streaming (any category). This lets
-	the client badge "live" state across user lists (friends, chat, etc.) from a single lookup,
-	with per-stream details fetched lazily via `SbUser.liveStream` where needed. Category-agnostic
-	by design, matching the profile "Live" badge (`live_streams` is the StarCraft-filtered feed).
-	"""
-	liveStreamUserIds: [SbUserId!]!
 	user(id: SbUserId!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
@@ -788,6 +824,10 @@ type Query {
 	userLoginNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [LoginNameAuditEntry!]!
 	userDisplayNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [DisplayNameAuditEntry!]!
 	signupCodes(includeExhausted: Boolean): [SignupCode!]!
+	"""
+	The current user's linked YouTube connection, or `null` if they haven't linked one.
+	"""
+	myYoutubeConnection: YoutubeConnection
 	"""
 	The current matchmaker config: stored overrides plus the built-in defaults.
 	"""
@@ -954,9 +994,14 @@ type SbUser {
 	"""
 	twitchChannel: TwitchChannel
 	"""
-	This user's current Twitch stream, if they are live right now.
+	The YouTube channel this user has linked, if any (shown on their profile).
 	"""
-	liveStream: LiveStream
+	youtubeChannel: YoutubeChannel
+	"""
+	Every broadcast this user has running right now, one per platform they're live on (Twitch
+	first), or an empty list when they aren't streaming.
+	"""
+	liveStreams: [LiveStream!]!
 }
 
 """
@@ -1098,6 +1143,71 @@ type UserRankedMode {
 	rating would reveal it.
 	"""
 	delta: Float
+}
+
+"""
+A public view of a user's linked YouTube channel, shown on their profile.
+"""
+type YoutubeChannel {
+	"""
+	YouTube's stable channel id for the linked channel.
+	"""
+	channelId: String!
+	"""
+	The channel's display title.
+	"""
+	title: String!
+	"""
+	The channel's `@handle` (e.g. `@flash`), if it has one.
+	"""
+	handle: String
+	"""
+	A globally unique ID for this channel. At most one YouTube channel is linked per user, so
+	this is derived from the ShieldBattery user's ID.
+	"""
+	id: String!
+	"""
+	`https://www.youtube.com/<handle>` when there is a handle, else
+	`https://www.youtube.com/channel/<channelId>`.
+	"""
+	url: String!
+}
+
+"""
+A persistent link between a ShieldBattery user and their YouTube channel.
+"""
+type YoutubeConnection {
+	"""
+	YouTube's stable channel id for the linked channel.
+	"""
+	channelId: String!
+	"""
+	The channel's display title.
+	"""
+	title: String!
+	"""
+	The channel's `@handle` (e.g. `@flash`), if it has one.
+	"""
+	handle: String
+	"""
+	When the channel was first linked.
+	"""
+	linkedAt: DateTime!
+	"""
+	A globally unique ID for this link. At most one YouTube channel is linked per user, so this
+	is derived from the ShieldBattery user's ID.
+	"""
+	id: String!
+}
+
+"""
+The result of starting a YouTube link: the authorize URL the client should open.
+"""
+type YoutubeLinkStart {
+	"""
+	The Google OAuth authorize URL the client should open (e.g. in a popup) to begin linking.
+	"""
+	url: String!
 }
 
 """

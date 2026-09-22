@@ -8,11 +8,13 @@ use tokio::io;
 use crate::game_reports::{GameReportsMutation, GameReportsQuery};
 use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
+use crate::live_streams::{LiveStreamsMutation, LiveStreamsQuery};
 use crate::matchmaking::admin::{MatchmakingConfigMutation, MatchmakingConfigQuery};
 use crate::matchmaking::history::MatchmakingHistoryQuery;
 use crate::news::{NewsMutation, NewsQuery};
 use crate::twitch::{TwitchMutation, TwitchQuery};
 use crate::users::{UsersMutation, UsersQuery};
+use crate::youtube::{YoutubeMutation, YoutubeQuery};
 
 pub type SbSchema = Schema<Query, Mutation, EmptySubscription>;
 pub type SbSchemaBuilder = SchemaBuilder<Query, Mutation, EmptySubscription>;
@@ -22,9 +24,11 @@ pub struct Query(
     GameReportsQuery,
     GamesQuery,
     LeaguesQuery,
+    LiveStreamsQuery,
     NewsQuery,
     TwitchQuery,
     UsersQuery,
+    YoutubeQuery,
     MatchmakingConfigQuery,
     MatchmakingHistoryQuery,
 );
@@ -32,9 +36,11 @@ pub struct Query(
 #[derive(MergedObject, Default)]
 pub struct Mutation(
     GameReportsMutation,
+    LiveStreamsMutation,
     NewsMutation,
     TwitchMutation,
     UsersMutation,
+    YoutubeMutation,
     MatchmakingConfigMutation,
 );
 
