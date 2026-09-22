@@ -198,7 +198,14 @@ impl Snapshot {
                 self.update_players(bw, data, local);
                 data.frame_count = game.frame_count() as i32;
                 data.elapsed_time = game.elapsed_seconds() as i32;
+                let first_end = !self.end_published;
                 self.finish(data, victory == 3);
+                if first_end && crate::is_background_game() {
+                    // Hidden clients cannot wait for someone to dismiss the victory/defeat UI.
+                    // The normal loop exit gives the bot its bounded final exchange and publishes
+                    // the native result without changing the already adjudicated victory state.
+                    crate::game_exit::request_leave_game();
+                }
                 return;
             }
             let vector = &*bw.units.resolve();

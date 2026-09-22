@@ -59,6 +59,7 @@ mod debug_control;
 mod forge;
 mod frame_pacing;
 mod frame_timing;
+mod game_exit;
 mod game_state;
 mod game_thread;
 #[cfg(debug_assertions)]

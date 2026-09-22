@@ -745,6 +745,16 @@ impl BwScr {
                         return 1;
                     }
                     let _colors = self.begin_replay_save_colors();
+                    if let Some(setup) = game_thread::setup_info()
+                        .filter(|setup| setup.local_session.is_some() && !setup.is_replay())
+                    {
+                        return super::replay_save::with_replay_player_names(
+                            self.replay_header(),
+                            &setup.slots,
+                            game_thread::player_id_mapping(),
+                            || orig(path),
+                        );
+                    }
                     orig(path)
                 },
                 address,
