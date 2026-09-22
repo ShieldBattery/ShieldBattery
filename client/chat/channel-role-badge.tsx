@@ -22,6 +22,16 @@ const BadgeRoot = styled(Tooltip)`
     which inherits; left alone it drags the glyph that far out of the badge's box and over the name.
   */
   text-indent: 0;
+  /*
+    The badge is chrome rather than text, and its glyph is a ligature whose text content is the
+    icon's name, so it must stay out of any text copied out of a container that makes its
+    descendants selectable (the message list does). The doubled selectors outrank that container's
+    rule.
+  */
+  &&,
+  && * {
+    user-select: none;
+  }
 `
 
 const BadgeGlyph = styled.span<{ $role: ChannelRole }>`
