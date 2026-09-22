@@ -28,15 +28,15 @@ const BadgeGlyph = styled.span<{ $role: ChannelRole }>`
   display: inline-flex;
   align-items: center;
 
-  /* The shape carries the meaning (a crown for the owner, a shield for a moderator); the colors
-     only reinforce it. */
+  /* The shape carries the meaning (a crown for the owner, crossed swords for a moderator); the
+     colors only reinforce it. */
   color: ${props => (props.$role === 'owner' ? 'var(--color-amber80)' : 'var(--color-blue80)')};
 `
 
 /**
  * A compact icon marking a user's standing in the chat channel currently being displayed: a crown
- * for its owner, a shield for a member holding moderation permissions in it. Renders nothing for
- * everyone else, and for a channel whose roles this client doesn't know.
+ * for its owner, crossed swords for a member holding moderation permissions in it. Renders nothing
+ * for everyone else, and for a channel whose roles this client doesn't know.
  */
 export function ChannelRoleBadge({ userId, className }: { userId: SbUserId; className?: string }) {
   const { t } = useTranslation()
@@ -57,7 +57,7 @@ export function ChannelRoleBadge({ userId, className }: { userId: SbUserId; clas
     // say nothing the name they sit beside doesn't already lead to.
     <BadgeRoot className={className} text={label} position='top' tabIndex={-1}>
       <BadgeGlyph $role={role} role='img' aria-label={label}>
-        <MaterialIcon icon={role === 'owner' ? 'crown' : 'shield'} size={16} />
+        <MaterialIcon icon={role === 'owner' ? 'crown' : 'swords'} size={16} />
       </BadgeGlyph>
     </BadgeRoot>
   )
