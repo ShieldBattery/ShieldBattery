@@ -922,8 +922,10 @@ impl BwScr {
                     self.write_pending_game_settings();
                     let own =
                         crate::frame_pacing::own_draw(!callbacks.is_null() && callback_count == 1);
-                    // Background clients never draw once the game has started.
+                    // Background clients never draw replay playback once it has started. Live peers
+                    // require the native render path for matching synchronization state.
                     let background_skip = crate::is_background_game()
+                        && game_thread::is_replay()
                         && self.first_game_logic_frame_done.load(Ordering::Relaxed);
                     if let Some(skip_render) = self.skip_render
                         && (background_skip || own.as_ref().is_some_and(|own| own.skips()))

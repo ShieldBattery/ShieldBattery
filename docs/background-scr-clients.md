@@ -25,13 +25,13 @@ There is no user-facing bot launch UI yet.
   thread to initialize. The temporary file is removed after confirmed process exit or
   launch failure. If waiting for exit fails, it is retained because the process may
   still need it. Abrupt app termination can also leave a temporary directory.
-- ShieldBattery overlay rendering and its startup draw timer are skipped. After the
-  first game logic step, native rendering uses SC:R's own no-draw frame finalizer,
-  preserving command-buffer, light, and palette cleanup. A 16 ms wait replaces the
-  renderer's frame cap while the normal event and turn loops keep running. Startup
-  rendering still initializes normally, with a 30 FPS cap. If analysis cannot resolve
-  the finalizer,
-  background mode retains native rendering and logs a warning.
+- ShieldBattery overlay rendering and its startup draw timer are skipped. Live games
+  retain native rendering with a 30 FPS cap: bypassing it caused immediate peer drops
+  in a visible-player/hidden-bot match. Replay playback can use SC:R's no-draw frame
+  finalizer after the first logic step, preserving command-buffer, light, and palette
+  cleanup. For replays, a 16 ms wait replaces the renderer's frame cap while normal
+  event and turn loops keep running. Startup renders normally. If analysis cannot
+  resolve the finalizer, native rendering remains enabled and a warning is logged.
 - The native SFX loader returns its ordinary failure result without opening or decoding
   assets. Audio initialization stays intact. Unsupported loader shapes retain the
   muted native behavior and log a warning. With the canned settings, the measured
@@ -68,8 +68,9 @@ await window.__sbDebugGame.forceQuit(gameId)
 Omit `presentation` for the visible baseline. The debug state includes
 `presentation.background`, `windowVisible`, `gameFrame`, `hdAssetSkips`, and
 `renderCalls`, `skippedRenderCalls`, and `skippedSoundLoads`. On supported builds,
-render calls stop increasing after startup while skipped renders and game frames
-advance. The counters are compiled out of release DLLs.
+replay render calls stop increasing after startup while skipped renders and game
+frames advance. Live games continue incrementing native render calls. The counters
+are compiled out of release DLLs.
 
 The normal `launch32Bit` setting still chooses the executable architecture. Use an
 isolated `SB_SESSION` for testing. To attach an existing external bot, additionally
@@ -143,7 +144,9 @@ binary fixtures; the optional SFX loader resolves in 125, with 40 explicit fallb
 ## Rendering optimization follow-up, 2026-09-21
 
 Thirty-second process samples during the same replay (debug builds, one machine).
-These samples exclude the external bot process and run without the BWAPI bridge:
+These samples exclude the external bot process and run without the BWAPI bridge.
+The rendering bypass is now restricted to replays; these CPU savings do not describe
+the supported live-game configuration:
 
 | Client                                         | CPU, percent of one core | Working set | Private bytes |
 | ---------------------------------------------- | -----------------------: | ----------: | ------------: |
@@ -166,7 +169,8 @@ render/audio experiments also matched through frame 4560. The final 16 ms wait r
 the expected 10.08 seconds per 240 simulation frames. These are sampled fingerprints,
 not exhaustive determinism validation or a multi-client network-stall test.
 
-With ZZZKBot active on x86, a separate 30-second sample measured 3.1% of one core
+Before the live-game regression was discovered, a solo ZZZKBot run on x86
+with the rendering bypass enabled measured 3.1% of one core
 for SC:R including the BWAPI bridge, and 0.16% for the external bot. Working sets
 were 318 MiB and 17 MiB respectively. This measures one small early-game army and
 one bot; more expensive bots and later-game simulation can cost substantially more.
@@ -185,3 +189,32 @@ Both DLL builds, both-target clippy, formatting, the 250 Rust workspace tests pe
 architecture, seven launcher tests, and TypeScript typechecking passed. The analysis
 repository's 109 binary-fixture tests plus unit/doc tests passed. This does not cover
 multiple simultaneous hidden clients, long-running memory stability, or network stalls.
+
+## Live peer regression and fallback, 2026-09-21
+
+A visible x64 player and hidden x64 ZZZKBot client dropped each other immediately
+with rendering bypass enabled. The initial sync probes agreed, but native drops
+occurred at frames 4 and 9. Thus matching replay probes and solo bot activity did
+not establish live-peer compatibility.
+
+An A/B retry retained the hidden window, SD/HD asset settings, audio suppression,
+and worker limit, but restored native rendering at 30 FPS. It reached frame 8721
+with both clients connected and the bot window still hidden. Sync probes matched
+at frames 0, 240, and 480. This establishes a usable fallback on x64, not the exact
+cause of the divergence or a completed-match certification. The equivalent paired
+live-game check on x86 remains outstanding.
+
+The render bypass is restricted to replay playback. Native rendering performs UI,
+viewport, and graphics-layer updates that the no-draw finalizer omits; further
+instrumentation must identify which omitted work affects peer synchronization
+before live games can use it safely. Existing no-replay-save behavior is unchanged.
+
+This interactive test used two isolated Electron sessions and the normal developer
+server lobby/relay flow. It does not implement offline local transport or a general
+bot supervisor. A temporary process watcher closes the bot client, external bot,
+and bot Electron session when the player's game exits.
+
+The replay-only guard compiled for both architectures, and both-target clippy and
+formatting checks passed. The x86 DLL was copied to `dist`; the x64 copy was blocked
+by the ongoing interactive game. That game uses the diagnostic build with native
+rendering retained. Re-run `game\build.bat` after it exits to refresh the x64 DLL.
