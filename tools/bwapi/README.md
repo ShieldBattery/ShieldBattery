@@ -7,8 +7,8 @@ integration or a claim of full BWAPI compatibility.
 
 ## Verified scenarios
 
-The verified scope is two pinned, unchanged-source Win32 clients using BWAPI
-protocol version 10003:
+The initial verified scenarios used two pinned, unchanged-source Win32 clients
+with BWAPI protocol version 10003:
 
 - ZZZKBot won a complete x86 SC:R game against the built-in Terran computer.
 - ZZZKBot won a complete x64 netcode v2 game against a passive Random peer,
@@ -25,10 +25,29 @@ The [compatibility research report](../../docs/bwapi-compatibility-research.md)
 records the game IDs, sync-probe boundaries, behavior exercised, learning-file
 evidence, and post-terminal limitations.
 
-After the latest adapter fixes, all 17 bridge tests pass on x86 and x64, clippy
+For that initial checkpoint, all 17 bridge tests passed on x86 and x64, clippy
 passes for both targets, formatting passes, and both `game\build.bat` outputs are fresh and
 match their built DLL hashes. These are scenario results, not full API
 conformance.
+
+## OpprimoBot catalog checkpoint (2026-09-23)
+
+[OpprimoBot sb.1](https://github.com/ShieldBattery/robotics-facility/releases/tag/opprimobot-sb-1)
+is available in signed staging catalog revision 10, initially as Terran with
+Bio and Defensive tags. Install it through the bot library; source builds,
+patches, notices, and the full admission record live in robotics-facility.
+
+The bridge supports Terran add-ons, Siege/Unsiege, Stim, Medic Healing, Repair,
+Wraith cloak, Scanner Sweep, EMP, Defensive Matrix, and Yamato command records.
+Construction snapshots preserve SCV/building and incomplete add-on relationships.
+Visible but undetected units use BWAPI's partial clearance and field redaction.
+
+The packaged executable completed combat games against ZZZKBot on x86 and x64
+SC:R, with 22 and 26 matching common sync probes respectively, zero rejected
+Opprimo commands, and clean natural-loss shutdown. Concurrent Terran probes also
+exercised gas, add-ons, siege tanks, medics, and deliberate quit. All 34 BWAPI
+regression tests pass on both architectures. These tests do not establish every
+late-game spell, map, race, or multiplayer format; human difficulty is uncalibrated.
 
 ## Build the existing test bot
 
