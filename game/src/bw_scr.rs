@@ -7340,13 +7340,33 @@ unsafe fn step_game_logic_hook(
                 let minerals = (*game).minerals;
                 let gas = (*game).gas;
                 let trigger_timer = bw.trigger_execution_timer.resolve();
+                // A fold over the active unit list's synced fields, so a unit-state divergence
+                // shows up here even when the RNG and resources still agree.
+                let mut unit_fold = 0u32;
+                let mut unit_count = 0u32;
+                for unit in bw.active_units() {
+                    let pos = unit.position();
+                    let word = u32::from(unit.id().0)
+                        ^ ((unit.hitpoints() as u32) << 8)
+                        ^ ((pos.x as u16 as u32) << 16)
+                        ^ ((pos.y as u16 as u32) << 24)
+                        ^ ((unit.shields() as u32) << 4)
+                        ^ (u32::from(unit.energy()) << 12);
+                    unit_fold = unit_fold.rotate_left(3) ^ word;
+                    unit_count += 1;
+                }
+                let visions = (*game).visions;
                 debug!(
-                    "Sync probe: frame {} rng {:x?} minerals {:?} gas {:?} trigger_timer {}",
+                    "Sync probe: frame {} rng {:x?} minerals {:?} gas {:?} trigger_timer {} \
+                     units {} fold {:08x} visions {:x?}",
                     frame,
                     rng_words,
                     &minerals[..4],
                     &gas[..4],
                     trigger_timer,
+                    unit_count,
+                    unit_fold,
+                    &visions[..8],
                 );
             }
         }
