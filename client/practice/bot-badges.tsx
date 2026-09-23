@@ -317,17 +317,7 @@ export function ReadinessBadge({ bot, size = 'medium', className }: ReadinessBad
   let runtimeLine: React.ReactNode
   if (runtime.kind === 'java') {
     const hasJava = !!bot.javaOverride || !!findJavaRuntime(library?.java.detected ?? [], runtime)
-    if (hasJava && bot.readiness.state === 'ready') {
-      runtimeLine = (
-        <StatusLine $tone='neutral' $dense={dense}>
-          <MaterialIcon icon='check_circle' size={dense ? 17 : 18} />
-          {t('practice.bots.runtimeInstalled', {
-            defaultValue: '{{runtime}} · installed',
-            runtime: javaRuntimeLabel(runtime, t),
-          })}
-        </StatusLine>
-      )
-    } else if (!hasJava) {
+    if (!hasJava) {
       runtimeLine = (
         <div>
           {bot.readiness.state !== 'missingRuntime' ? (

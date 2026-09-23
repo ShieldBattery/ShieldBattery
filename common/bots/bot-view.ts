@@ -80,6 +80,15 @@ export function isBotReady(bot: BotView): boolean {
   return bot.readiness.state === 'ready'
 }
 
+/**
+ * Whether the bot's files are on this PC. This differs from readiness: an in-progress or failed
+ * download of an update still leaves the installed release in place, while a failed first download
+ * leaves nothing.
+ */
+export function isBotOnThisPc(bot: Pick<BotView, 'installed' | 'localBuild'>): boolean {
+  return !!bot.installed || !!bot.localBuild
+}
+
 export function findJavaRuntime(
   detected: JavaRuntimeInfo[],
   runtime: Extract<BotRuntime, { kind: 'java' }>,

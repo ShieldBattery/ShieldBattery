@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { BotFormatId, BotRuntime } from '../../common/bots/bot-catalog'
+import { BotFormatId, BotRuntime, latestCatalogRelease } from '../../common/bots/bot-catalog'
 import { BotKey } from '../../common/bots/bot-library'
 import { findJavaRuntime } from '../../common/bots/bot-view'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -361,15 +361,32 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
   }
 
   const showLicenses = async () => {
-    const licenses = bot.installed?.package.licenses ?? []
+    const title = t('practice.details.licenseTitle', 'License')
+    const latest = bot.catalogEntry ? latestCatalogRelease(bot.catalogEntry) : undefined
+    const licenses = (bot.installed ?? latest)?.package.licenses ?? []
     if (licenses.length === 0) {
       dispatch(
         openSimpleDialog(
-          t('practice.details.licenseTitle', 'License'),
+          title,
           t(
             'practice.details.noLicenseText',
             "This package doesn't carry a license notice on this PC.",
           ),
+        ),
+      )
+      return
+    }
+    if (!bot.installed) {
+      // Notice texts are read from the package files, so until it's downloaded only the license
+      // names from the catalog are known.
+      dispatch(
+        openSimpleDialog(
+          title,
+          t('practice.details.licenseNotDownloaded', {
+            defaultValue:
+              'Licensed under {{licenses}}. The full license text is included with the download.',
+            licenses: licenses.map(l => l.name).join(', '),
+          }),
         ),
       )
       return
@@ -381,12 +398,7 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
       sections.push(`${license.name}\n\n${text ?? ''}`)
     }
 
-    dispatch(
-      openSimpleDialog(
-        t('practice.details.licenseTitle', 'License'),
-        <NoticeText>{sections.join('\n\n')}</NoticeText>,
-      ),
-    )
+    dispatch(openSimpleDialog(title, <NoticeText>{sections.join('\n\n')}</NoticeText>))
   }
 
   let versionBlock: React.ReactNode
@@ -427,12 +439,14 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
               size: formatMegabytes(bot.installed.sizeBytes, t),
             })}
           </BlockTitle>
-          <Muted>
-            {t(
-              'practice.details.installedKeepsWorking',
-              'Your installed version keeps working until you update.',
-            )}
-          </Muted>
+          {bot.updateAvailable ? (
+            <Muted>
+              {t(
+                'practice.details.installedKeepsWorking',
+                'Your installed version keeps working until you update.',
+              )}
+            </Muted>
+          ) : null}
         </BlockText>
         {bot.updateAvailable ? (
           <TextButton
@@ -661,6 +675,7 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
   }
 
   const homepage = bot.homepage || bot.sourceUrl
+  const modifiers = Array.from(new Set(bot.modifications.map(m => m.modifier)))
   const tags = botDisplayTags(bot, t)
 
   return (
@@ -689,6 +704,15 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
                   {t('practice.details.projectLink', 'Project page')}
                 </LinkButton>
               ) : null}
+              {isLocalBuild ? null : (
+                <LinkButton
+                  type='button'
+                  onClick={() => {
+                    runAsyncAction(showLicenses())
+                  }}>
+                  {t('practice.details.license', 'License')}
+                </LinkButton>
+              )}
               <MetaItem>
                 <RaceIconList races={bot.races} size={16} />
               </MetaItem>
@@ -752,24 +776,16 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
               <BlockTitle>
                 {t('practice.details.modifiedBy', {
                   defaultValue: 'Modified by {{modifier}}',
-                  modifier: bot.modifications[0].modifier,
+                  modifier: modifiers.join(', '),
                 })}
               </BlockTitle>
-              {bot.modifications.map(modification => (
-                <Muted key={`${modification.modifier}-${modification.date}`}>
-                  {modification.summary}
-                </Muted>
+              {bot.modifications.map((modification, i) => (
+                // A package's modification list is immutable, so its position is a stable key.
+                <Muted key={`${modification.scope}-${i}`}>{modification.summary}</Muted>
               ))}
               <NoticeLinks>
                 <LinkButton type='button' onClick={() => openExternal(bot.sourceUrl)}>
                   {t('practice.details.patches', 'Patches')}
-                </LinkButton>
-                <LinkButton
-                  type='button'
-                  onClick={() => {
-                    runAsyncAction(showLicenses())
-                  }}>
-                  {t('practice.details.license', 'License')}
                 </LinkButton>
               </NoticeLinks>
             </BlockText>

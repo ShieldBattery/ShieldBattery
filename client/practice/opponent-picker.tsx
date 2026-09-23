@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ALL_BOT_RACE_NAMES, BotRaceName, botRaceToRaceChar } from '../../common/bots/bot-catalog'
-import { BotView } from '../../common/bots/bot-view'
+import { BotView, isBotOnThisPc } from '../../common/bots/bot-view'
 import { customGameBotCapacity, PracticeBotRef } from '../../common/bots/practice'
 import { botPeakRating } from '../../common/bots/practice-logic'
 import { raceCharToLabel } from '../../common/races'
@@ -405,7 +405,7 @@ export function OpponentPicker({ mode }: OpponentPickerProps) {
   const visible = bots
     .filter(bot => matchesSearch(bot, search, t))
     .filter(bot => raceFilter.size === 0 || bot.races.some(r => raceFilter.has(r)))
-    .filter(bot => !installedOnly || bot.readiness.state !== 'notInstalled')
+    .filter(bot => !installedOnly || isBotOnThisPc(bot))
   const sorted = sortBots(visible, sortOrder)
 
   const toggleLineup = (bot: BotView) => {
@@ -469,7 +469,7 @@ export function OpponentPicker({ mode }: OpponentPickerProps) {
       case 'lineup':
         return { kind: 'add', added: lineupKeys.has(bot.key), onToggle: () => toggleLineup(bot) }
       case 'library':
-        return { kind: 'install', installed: bot.readiness.state !== 'notInstalled' }
+        return { kind: 'install', installed: isBotOnThisPc(bot) }
       case 'slot':
         return { kind: 'select', onSelect: () => selectForSlot(bot) }
       default:
