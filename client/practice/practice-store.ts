@@ -1,10 +1,10 @@
 import { Draft } from 'immer'
 import { debounce } from 'lodash-es'
 import {
+  createDefaultPracticeStore,
   MAX_PRACTICE_HISTORY,
   PracticeGameRecord,
   PracticeStoreData,
-  createDefaultPracticeStore,
 } from '../../common/bots/practice'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson, SbMapId } from '../../common/maps'

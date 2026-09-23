@@ -7,7 +7,7 @@ import { GameType } from '../games/game-type'
 import { MapInfoJson, SbMapId } from '../maps'
 import { BotRaceName } from './bot-catalog'
 import { BotKey } from './bot-library'
-import { BotView, botCanPlayMap, botFormatCompatibility, isBotReady } from './bot-view'
+import { botCanPlayMap, botFormatCompatibility, BotView, isBotReady } from './bot-view'
 import { PracticeBotRef } from './practice'
 
 export interface LineupEntryStatus {

@@ -3,9 +3,9 @@ import { atomWithImmer } from 'jotai-immer'
 import { BotLibrarySnapshot } from '../../common/bots/bot-library'
 import { BotView, buildBotViews } from '../../common/bots/bot-view'
 import {
+  createDefaultPracticeStore,
   PracticeGameRecord,
   PracticeStoreData,
-  createDefaultPracticeStore,
 } from '../../common/bots/practice'
 import { LocalGameStatus } from '../../common/games/local-game'
 import { RaceChar } from '../../common/races'

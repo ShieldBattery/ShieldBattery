@@ -481,6 +481,8 @@ const EmptyActions = styled.div`
 
 export function PracticeHome() {
   const { t } = useTranslation()
+  // The day the backdrop is picked for; it stays put while the page is open.
+  const [dayKey] = useState(() => localDayKey(new Date()))
   const dispatch = useAppDispatch()
   const store = useAtomValue(practiceStoreAtom)
   const bots = useAtomValue(botViewsAtom)
@@ -529,7 +531,7 @@ export function PracticeHome() {
       ? readiness.entries.slice(0, MAX_OPPONENT_CHIPS - 1)
       : readiness.entries
   const hiddenEntries = readiness.entries.slice(shownEntries.length)
-  const backdropMap = pickDailyItem(poolMaps.filter(hasImage), localDayKey(new Date()))
+  const backdropMap = pickDailyItem(poolMaps.filter(hasImage), dayKey)
 
   return (
     <PracticePageColumn>

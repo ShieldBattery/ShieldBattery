@@ -176,7 +176,7 @@ const Outcome = styled.div<{ $glow?: OutcomeGlow }>`
   text-transform: uppercase;
   letter-spacing: 6px;
   text-shadow: ${props =>
-    props.$glow ? `0 0 24px rgb(from ${OUTCOME_GLOW_COLORS[props.$glow]} r g b / 0.55),` : ''}
+      props.$glow ? `0 0 24px rgb(from ${OUTCOME_GLOW_COLORS[props.$glow]} r g b / 0.55),` : ''}
     0 2px 4px rgb(0 0 0 / 0.6);
 `
 

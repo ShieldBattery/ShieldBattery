@@ -1,17 +1,17 @@
 import { BotRaceName } from '../../common/bots/bot-catalog'
 import { BotKey, PracticeBotSelection } from '../../common/bots/bot-library'
-import { BotView, botFormatCompatibility } from '../../common/bots/bot-view'
+import { botFormatCompatibility, BotView } from '../../common/bots/bot-view'
 import {
+  canPlayPracticeRace,
+  customGameType,
   HIDDEN_OPPONENT_NAME,
   PracticeBotRace,
   PracticeGameOpponent,
   PracticeGameRecord,
   PracticeLaunchRequest,
-  canPlayPracticeRace,
-  customGameType,
   resolvePracticeRace,
 } from '../../common/bots/practice'
-import { PoolReadiness, computePoolReadiness, drawMatchup } from '../../common/bots/practice-logic'
+import { computePoolReadiness, drawMatchup, PoolReadiness } from '../../common/bots/practice-logic'
 import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson } from '../../common/maps'

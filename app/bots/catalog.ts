@@ -454,7 +454,9 @@ export function validateBotPackage(
     },
     sourceReview: {
       status: asEnum(sourceReview.status, `${where}.sourceReview.status`, REVIEW_STATUSES) as
-        'pending' | 'approved' | 'rejected',
+        | 'pending'
+        | 'approved'
+        | 'rejected',
       evidence: asString(sourceReview.evidence, `${where}.sourceReview.evidence`),
     },
     modifications:
