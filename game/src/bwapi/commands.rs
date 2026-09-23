@@ -18,6 +18,7 @@ pub mod kind {
     pub const ATTACK_MOVE: i32 = 0;
     pub const ATTACK_UNIT: i32 = 1;
     pub const BUILD: i32 = 2;
+    pub const BUILD_ADDON: i32 = 3;
     pub const TRAIN: i32 = 4;
     pub const MORPH: i32 = 5;
     pub const RESEARCH: i32 = 6;
@@ -29,16 +30,30 @@ pub mod kind {
     pub const STOP: i32 = 13;
     pub const GATHER: i32 = 15;
     pub const RETURN_CARGO: i32 = 16;
+    pub const REPAIR: i32 = 17;
+    pub const CLOAK: i32 = 20;
+    pub const DECLOAK: i32 = 21;
+    pub const SIEGE: i32 = 22;
+    pub const UNSIEGE: i32 = 23;
     pub const RIGHT_CLICK_POSITION: i32 = 30;
     pub const RIGHT_CLICK_UNIT: i32 = 31;
     pub const CANCEL_CONSTRUCTION: i32 = 33;
     pub const CANCEL_MORPH: i32 = 37;
+    pub const USE_TECH: i32 = 40;
+    pub const USE_TECH_POSITION: i32 = 41;
+    pub const USE_TECH_UNIT: i32 = 42;
 }
 
 const SELECTION: u8 = 0x63;
 const RIGHT_CLICK: u8 = 0x60;
 const TARGETED_ORDER: u8 = 0x61;
 const BUILD: u8 = 0x0c;
+const BUILD_ADDON_ORDER: u8 = 0x24;
+const SIEGE: u8 = 0x26;
+const UNSIEGE: u8 = 0x25;
+const STIM_PACK: u8 = 0x36;
+const CLOAK: u8 = 0x21;
+const DECLOAK: u8 = 0x22;
 const TRAIN: u8 = 0x1f;
 const UNIT_MORPH: u8 = 0x23;
 const BUILDING_MORPH: u8 = 0x35;
@@ -64,14 +79,38 @@ const ORDER_ATTACK_MOVE: u8 = 0x0e;
 const ORDER_RALLY_UNIT: u8 = 0x27;
 const ORDER_RALLY_POSITION: u8 = 0x28;
 const ORDER_HARVEST: u8 = 0x4f;
+const ORDER_REPAIR: u8 = 34;
+const ORDER_YAMATO_GUN: u8 = 113;
+const ORDER_EMP_SHOCKWAVE: u8 = 122;
+const ORDER_SCANNER_SWEEP: u8 = 139;
+const ORDER_DEFENSIVE_MATRIX: u8 = 141;
 const ORDER_DRONE_BUILD: u8 = 0x19;
 const ORDER_SCV_BUILD: u8 = 0x1e;
 const ORDER_PROBE_BUILD: u8 = 0x1f;
 const ORDER_BUILD_NYDUS_EXIT: u8 = 0x2e;
 const ORDER_CARRIER_ATTACK: u8 = 0x35;
 const ORDER_REAVER_ATTACK: u8 = 0x3b;
+const ORDER_MEDIC_HEAL: u8 = 176;
 
+const TERRAN_MARINE: u16 = 0;
+const TERRAN_SIEGE_TANK_TANK_MODE: u16 = 5;
+const TERRAN_SIEGE_TANK_SIEGE_MODE: u16 = 30;
+const TERRAN_FIREBAT: u16 = 32;
+const TERRAN_MEDIC: u16 = 34;
 const TERRAN_SCV: u16 = 7;
+const TERRAN_WRAITH: u16 = 8;
+const TERRAN_SCIENCE_VESSEL: u16 = 9;
+const TERRAN_BATTLECRUISER: u16 = 12;
+const TERRAN_COMMAND_CENTER: u16 = 106;
+const TERRAN_COMSAT_STATION: u16 = 107;
+const TERRAN_NUCLEAR_SILO: u16 = 108;
+const TERRAN_FACTORY: u16 = 113;
+const TERRAN_STARPORT: u16 = 114;
+const TERRAN_CONTROL_TOWER: u16 = 115;
+const TERRAN_SCIENCE_FACILITY: u16 = 116;
+const TERRAN_COVERT_OPS: u16 = 117;
+const TERRAN_PHYSICS_LAB: u16 = 118;
+const TERRAN_MACHINE_SHOP: u16 = 120;
 const ZERG_LARVA: u16 = 35;
 const ZERG_HYDRALISK: u16 = 38;
 const ZERG_DRONE: u16 = 41;
@@ -94,13 +133,15 @@ const ZERG_CREEP_COLONY: u16 = 143;
 /// supported positional commands use pixel coordinates, which must be inside the corresponding
 /// tile dimensions multiplied by 32. `actor_id` and `target_id` are SC:R native unique IDs, where
 /// zero is not a valid actor or target ID. The caller is responsible for ownership and visibility
-/// checks before calling this function.
+/// checks before calling this function. `actor_tile`, when provided for add-ons, must be derived
+/// from the actor's native position and placement dimensions, not from bot-supplied coordinates.
 pub fn encode(
     command: Command,
     actor_id: u32,
     target_id: Option<u32>,
     map_size: (u16, u16),
     actor_type: u16,
+    actor_tile: Option<(i32, i32)>,
 ) -> Option<Vec<Vec<u8>>> {
     if actor_id == 0 || actor_type > MAX_UNIT_TYPE || map_size.0 == 0 || map_size.1 == 0 {
         return None;
@@ -129,6 +170,12 @@ pub fn encode(
             let (x, y) = tile_position(command.x, command.y, map_size)?;
             let unit_type = unit_type(command.extra)?;
             build_command(x, y, unit_type, actor_type)?
+        }
+        kind::BUILD_ADDON => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            let addon_type = unit_type(command.extra)?;
+            addon_command(actor_tile?, addon_type, actor_type, map_size)?
         }
         kind::TRAIN => {
             no_target(target_id)?;
@@ -206,11 +253,70 @@ pub fn encode(
                 CANCEL_MORPH
             }]
         }
+        kind::SIEGE => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            matches!(command.extra, 0 | 5).then_some(())?;
+            (actor_type == TERRAN_SIEGE_TANK_TANK_MODE).then_some(vec![SIEGE, 0])?
+        }
+        kind::UNSIEGE => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            matches!(command.extra, 0 | 5).then_some(())?;
+            (actor_type == TERRAN_SIEGE_TANK_SIEGE_MODE).then_some(vec![UNSIEGE, 0])?
+        }
+        kind::CLOAK | kind::DECLOAK => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            // useTech(Cloaking_Field) retains its tech ID after BWAPI changes the command type.
+            (actor_type == TERRAN_WRAITH && matches!(command.extra, 0 | 9)).then_some(())?;
+            vec![
+                if command.kind == kind::CLOAK {
+                    CLOAK
+                } else {
+                    DECLOAK
+                },
+                0,
+            ]
+        }
+        kind::USE_TECH => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            (command.extra == 0 && matches!(actor_type, TERRAN_MARINE | TERRAN_FIREBAT))
+                .then_some(vec![STIM_PACK])?
+        }
+        kind::USE_TECH_POSITION => {
+            no_target(target_id)?;
+            let (x, y) = pixel_position(command.x, command.y, map_size)?;
+            let order = match (actor_type, command.extra) {
+                (TERRAN_COMSAT_STATION, 4) => ORDER_SCANNER_SWEEP,
+                (TERRAN_SCIENCE_VESSEL, 2) => ORDER_EMP_SHOCKWAVE,
+                _ => return None,
+            };
+            targeted_order(x, y, 0, order, false)
+        }
+        kind::USE_TECH_UNIT => {
+            let target = required_target_id(target_id)?;
+            let (x, y) = pixel_position(command.x, command.y, map_size)?;
+            let order = match (actor_type, command.extra) {
+                (TERRAN_MEDIC, 34) => ORDER_MEDIC_HEAL,
+                (TERRAN_SCIENCE_VESSEL, 6) => ORDER_DEFENSIVE_MATRIX,
+                (TERRAN_BATTLECRUISER, 8) => ORDER_YAMATO_GUN,
+                _ => return None,
+            };
+            targeted_order(x, y, target, order, false)
+        }
         kind::GATHER => {
             let target = required_target_id(target_id)?;
             let (x, y) = pixel_position(command.x, command.y, map_size)?;
             let queued = queue_flag(command.extra)?;
             targeted_order(x, y, target, ORDER_HARVEST, queued)
+        }
+        kind::REPAIR => {
+            (actor_type == TERRAN_SCV).then_some(())?;
+            let target = required_target_id(target_id)?;
+            let (x, y) = pixel_position(command.x, command.y, map_size)?;
+            targeted_order(x, y, target, ORDER_REPAIR, queue_flag(command.extra)?)
         }
         kind::RETURN_CARGO => {
             no_target(target_id)?;
@@ -277,6 +383,37 @@ fn build_command(x: u16, y: u16, unit_type: u16, actor_type: u16) -> Option<Vec<
     push_u16(&mut record, x);
     push_u16(&mut record, y);
     push_u16(&mut record, unit_type);
+    Some(record)
+}
+
+fn addon_command(
+    actor_tile: (i32, i32),
+    addon_type: u16,
+    actor_type: u16,
+    map_size: (u16, u16),
+) -> Option<Vec<u8>> {
+    let valid_pair = matches!(
+        (actor_type, addon_type),
+        (
+            TERRAN_COMMAND_CENTER,
+            TERRAN_COMSAT_STATION | TERRAN_NUCLEAR_SILO
+        ) | (TERRAN_FACTORY, TERRAN_MACHINE_SHOP)
+            | (TERRAN_STARPORT, TERRAN_CONTROL_TOWER)
+            | (
+                TERRAN_SCIENCE_FACILITY,
+                TERRAN_COVERT_OPS | TERRAN_PHYSICS_LAB
+            )
+    );
+    valid_pair.then_some(())?;
+
+    // BWAPI derives the add-on placement from the parent building's upper-left tile.
+    let x = actor_tile.0.checked_add(4)?;
+    let y = actor_tile.1.checked_add(1)?;
+    let (x, y) = tile_position(x, y, map_size)?;
+    let mut record = vec![BUILD, BUILD_ADDON_ORDER];
+    push_u16(&mut record, x);
+    push_u16(&mut record, y);
+    push_u16(&mut record, addon_type);
     Some(record)
 }
 
@@ -386,6 +523,16 @@ fn is_player_building(unit_type: u16) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn encode(
+        command: Command,
+        actor_id: u32,
+        target_id: Option<u32>,
+        map_size: (u16, u16),
+        actor_type: u16,
+    ) -> Option<Vec<Vec<u8>>> {
+        super::encode(command, actor_id, target_id, map_size, actor_type, None)
+    }
 
     const MAP: (u16, u16) = (128, 96);
     const ACTOR: u32 = 0x89ab_cdef;
@@ -516,6 +663,340 @@ mod tests {
 
         let cancel_unit_morph = encoded(command(kind::CANCEL_MORPH, 0, 0, 0), None, ZERG_DRONE);
         assert_eq!(cancel_unit_morph[1], [0x19]);
+    }
+
+    fn encoded_with_actor_tile(
+        command: Command,
+        target: Option<u32>,
+        actor_type: u16,
+        actor_tile: (i32, i32),
+    ) -> Vec<Vec<u8>> {
+        super::encode(command, ACTOR, target, MAP, actor_type, Some(actor_tile)).unwrap()
+    }
+
+    #[test]
+    fn encodes_terran_addon_from_trusted_parent_tile() {
+        let records = encoded_with_actor_tile(
+            command(
+                kind::BUILD_ADDON,
+                32_000,
+                32_032,
+                TERRAN_MACHINE_SHOP.into(),
+            ),
+            None,
+            TERRAN_FACTORY,
+            (12, 34),
+        );
+        assert_eq!(records[1], [0x0c, 0x24, 16, 0, 35, 0, 120, 0]);
+    }
+
+    #[test]
+    fn encodes_terran_siege_stim_and_heal_records() {
+        for extra in [0, 5] {
+            let siege = encoded(
+                command(kind::SIEGE, 32_000, 32_032, extra),
+                None,
+                TERRAN_SIEGE_TANK_TANK_MODE,
+            );
+            assert_eq!(siege[1], [0x26, 0]);
+            let unsiege = encoded(
+                command(kind::UNSIEGE, 32_000, 32_032, extra),
+                None,
+                TERRAN_SIEGE_TANK_SIEGE_MODE,
+            );
+            assert_eq!(unsiege[1], [0x25, 0]);
+        }
+
+        let stim = encoded(
+            command(kind::USE_TECH, 32_000, 32_032, 0),
+            None,
+            TERRAN_MARINE,
+        );
+        assert_eq!(stim[1], [0x36]);
+
+        let heal = encoded(
+            command(kind::USE_TECH_UNIT, 511, 512, 34),
+            Some(TARGET),
+            TERRAN_MEDIC,
+        );
+        assert_eq!(
+            heal[1],
+            [0x61, 0xff, 1, 0, 2, 0x67, 0x45, 0x23, 1, 0xe4, 0, 176, 0]
+        );
+    }
+
+    #[test]
+    fn encodes_later_terran_abilities_and_repair() {
+        for extra in [0, 9] {
+            let cloak = encoded(
+                command(kind::CLOAK, 32_000, 32_032, extra),
+                None,
+                TERRAN_WRAITH,
+            );
+            assert_eq!(cloak[1], [0x21, 0]);
+            let decloak = encoded(command(kind::DECLOAK, 0, 0, extra), None, TERRAN_WRAITH);
+            assert_eq!(decloak[1], [0x22, 0]);
+        }
+
+        let scanner = encoded(
+            command(kind::USE_TECH_POSITION, 320, 240, 4),
+            None,
+            TERRAN_COMSAT_STATION,
+        );
+        assert_eq!(
+            scanner[1],
+            [0x61, 0x40, 1, 0xf0, 0, 0, 0, 0, 0, 0xe4, 0, 139, 0]
+        );
+
+        let emp = encoded(
+            command(kind::USE_TECH_POSITION, 320, 240, 2),
+            None,
+            TERRAN_SCIENCE_VESSEL,
+        );
+        assert_eq!(
+            emp[1],
+            [0x61, 0x40, 1, 0xf0, 0, 0, 0, 0, 0, 0xe4, 0, 122, 0]
+        );
+
+        let matrix = encoded(
+            command(kind::USE_TECH_UNIT, 511, 512, 6),
+            Some(TARGET),
+            TERRAN_SCIENCE_VESSEL,
+        );
+        assert_eq!(
+            matrix[1],
+            [0x61, 0xff, 1, 0, 2, 0x67, 0x45, 0x23, 1, 0xe4, 0, 141, 0]
+        );
+
+        let yamato = encoded(
+            command(kind::USE_TECH_UNIT, 511, 512, 8),
+            Some(TARGET),
+            TERRAN_BATTLECRUISER,
+        );
+        assert_eq!(
+            yamato[1],
+            [0x61, 0xff, 1, 0, 2, 0x67, 0x45, 0x23, 1, 0xe4, 0, 113, 0]
+        );
+
+        for queued in [0, 1] {
+            let repair = encoded(
+                command(kind::REPAIR, 511, 512, queued),
+                Some(TARGET),
+                TERRAN_SCV,
+            );
+            assert_eq!(
+                repair[1],
+                [
+                    0x61,
+                    0xff,
+                    1,
+                    0,
+                    2,
+                    0x67,
+                    0x45,
+                    0x23,
+                    1,
+                    0xe4,
+                    0,
+                    34,
+                    queued as u8
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_later_terran_commands() {
+        for (cmd, target, actor) in [
+            (
+                command(kind::SIEGE, 0, 0, 6),
+                None,
+                TERRAN_SIEGE_TANK_TANK_MODE,
+            ),
+            (
+                command(kind::UNSIEGE, 0, 0, 6),
+                None,
+                TERRAN_SIEGE_TANK_SIEGE_MODE,
+            ),
+            (command(kind::CLOAK, 0, 0, 9), None, TERRAN_MARINE),
+            (command(kind::CLOAK, 1, 0, 9), None, TERRAN_WRAITH),
+            (command(kind::CLOAK, 0, 0, 2), None, TERRAN_WRAITH),
+            (command(kind::DECLOAK, 0, 0, 9), Some(TARGET), TERRAN_WRAITH),
+            (
+                command(kind::USE_TECH_POSITION, 320, 240, 4),
+                None,
+                TERRAN_SCIENCE_VESSEL,
+            ),
+            (
+                command(kind::USE_TECH_POSITION, 320, 240, 2),
+                None,
+                TERRAN_COMSAT_STATION,
+            ),
+            (
+                command(kind::USE_TECH_POSITION, 320, 240, 34),
+                None,
+                TERRAN_COMSAT_STATION,
+            ),
+            (
+                command(kind::USE_TECH_POSITION, 320, 240, 4),
+                Some(TARGET),
+                TERRAN_COMSAT_STATION,
+            ),
+            (
+                command(kind::USE_TECH_POSITION, 4096, 240, 4),
+                None,
+                TERRAN_COMSAT_STATION,
+            ),
+            (
+                command(kind::USE_TECH_POSITION, 320, -1, 2),
+                None,
+                TERRAN_SCIENCE_VESSEL,
+            ),
+            (
+                command(kind::USE_TECH_UNIT, 511, 512, 6),
+                None,
+                TERRAN_SCIENCE_VESSEL,
+            ),
+            (
+                command(kind::USE_TECH_UNIT, 511, 512, 8),
+                Some(0),
+                TERRAN_BATTLECRUISER,
+            ),
+            (
+                command(kind::USE_TECH_UNIT, 4096, 512, 6),
+                Some(TARGET),
+                TERRAN_SCIENCE_VESSEL,
+            ),
+            (
+                command(kind::USE_TECH_UNIT, 511, 512, 6),
+                Some(TARGET),
+                TERRAN_BATTLECRUISER,
+            ),
+            (
+                command(kind::USE_TECH_UNIT, 511, 512, 8),
+                Some(TARGET),
+                TERRAN_SCIENCE_VESSEL,
+            ),
+            (command(kind::REPAIR, 511, 512, 0), None, TERRAN_SCV),
+            (
+                command(kind::REPAIR, 511, 512, 0),
+                Some(TARGET),
+                TERRAN_MEDIC,
+            ),
+            (command(kind::REPAIR, 511, 512, 2), Some(TARGET), TERRAN_SCV),
+            (
+                command(kind::REPAIR, 511, 3072, 0),
+                Some(TARGET),
+                TERRAN_SCV,
+            ),
+        ] {
+            assert!(
+                encode(cmd, ACTOR, target, MAP, actor).is_none(),
+                "{cmd:?} for actor {actor}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_terran_command_shapes_and_actors() {
+        assert!(
+            encode(
+                command(
+                    kind::BUILD_ADDON,
+                    32_000,
+                    32_032,
+                    TERRAN_MACHINE_SHOP.into()
+                ),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_FACTORY,
+            )
+            .is_none()
+        );
+        assert!(
+            super::encode(
+                command(kind::BUILD_ADDON, 1, 1, TERRAN_MACHINE_SHOP.into()),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_FACTORY,
+                Some((12, 34)),
+            )
+            .is_none()
+        );
+        assert!(
+            super::encode(
+                command(
+                    kind::BUILD_ADDON,
+                    32_000,
+                    32_032,
+                    TERRAN_CONTROL_TOWER.into()
+                ),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_FACTORY,
+                Some((12, 34)),
+            )
+            .is_none()
+        );
+        assert!(
+            super::encode(
+                command(
+                    kind::BUILD_ADDON,
+                    32_000,
+                    32_032,
+                    TERRAN_MACHINE_SHOP.into()
+                ),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_FACTORY,
+                Some((124, 34)),
+            )
+            .is_none()
+        );
+        assert!(
+            encode(
+                command(kind::SIEGE, 32_000, 32_032, 0),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_SIEGE_TANK_SIEGE_MODE,
+            )
+            .is_none()
+        );
+        assert!(
+            encode(
+                command(kind::USE_TECH, 32_000, 32_032, 1),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_MARINE,
+            )
+            .is_none()
+        );
+        assert!(
+            encode(
+                command(kind::USE_TECH_UNIT, 511, 512, 34),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_MEDIC,
+            )
+            .is_none()
+        );
+        assert!(
+            encode(
+                command(kind::USE_TECH_UNIT, 511, 512, 33),
+                ACTOR,
+                Some(TARGET),
+                MAP,
+                TERRAN_MEDIC,
+            )
+            .is_none()
+        );
     }
 
     #[test]

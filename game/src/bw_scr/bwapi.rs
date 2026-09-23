@@ -542,9 +542,13 @@ impl Snapshot {
                 if unit.sprite().is_none() || unit.player() >= 12 || unit.id().0 >= 228 {
                     continue;
                 }
-                let visible = !unit.is_hidden()
-                    && unit.is_visible_to(local)
-                    && (unit.player() == local || !unit.is_invisible_hidden_to(local));
+                let observation = local_visibility(unit, local, data);
+                let visible = observation.visible;
+                // BWAPI grants neutral units at frame zero special access. Keep that pre-start
+                // behavior separate from the normal player-vision path.
+                let detected = unit.player() == local
+                    || observation.detected
+                    || (!self.started && unit.player() == 11);
                 let accessible =
                     unit.player() == local || visible || (!self.started && unit.player() == 11);
                 let native_id = native.to_unique_id(unit);
@@ -576,11 +580,11 @@ impl Snapshot {
                 } else {
                     continue;
                 };
-                current.push((id, unit, accessible, visible));
+                current.push((id, unit, accessible, visible, detected));
             }
             let mut seen = vec![false; self.units.len()];
             let mut accessible_now = vec![false; self.units.len()];
-            for &(id, unit, accessible, visible) in &current {
+            for &(id, unit, accessible, visible, detected) in &current {
                 seen[id] = true;
                 if visible {
                     self.seen_players[unit.player() as usize] = true;
@@ -611,7 +615,7 @@ impl Snapshot {
                 out.id = id as i32;
                 out.player = i32::from(unit.player());
                 out.kind = i32::from(unit.id().0);
-                out.clearance_level = if unit.player() == local { 3 } else { 2 };
+                out.clearance_level = clearance_level(unit.player() == local, detected);
                 out.exists = 1;
                 out.is_visible[local as usize] = u8::from(visible);
                 out.position_x = i32::from(unit.position().x);
@@ -635,7 +639,7 @@ impl Snapshot {
                 out.air_weapon_cooldown = i32::from((**unit).air_cooldown);
                 out.spell_cooldown = i32::from((**unit).spell_cooldown);
                 out.is_completed = u8::from(unit.is_completed());
-                out.is_detected = 1;
+                out.is_detected = u8::from(detected);
                 out.is_powered = u8::from(
                     !(unit.id().is_building()
                         && unit.id().races().intersects(bw_dat::RaceFlags::PROTOSS)
@@ -644,10 +648,13 @@ impl Snapshot {
                 out.is_interruptible = u8::from(unit.flags() & 0x1000 == 0);
                 out.is_invincible = u8::from(unit.is_invincible());
                 out.is_burrowed = u8::from(unit.is_burrowed());
-                out.is_cloaked = u8::from(unit.is_invisible());
+                out.is_cloaked = u8::from(unit.flags() & 0x200 != 0 && !unit.is_burrowed());
                 out.is_hallucination = u8::from(unit.is_hallucination());
                 out.is_lifted = u8::from(unit.id().is_building() && unit.is_air());
-                out.is_moving = u8::from((**unit).flingy.flingy_flags & 2 != 0);
+                out.is_moving = u8::from(
+                    (**unit).flingy.flingy_flags & (0x02 | 0x10) != 0
+                        || unit.order() == bw_dat::order::MOVE,
+                );
                 let damage_dealer = unit.subunit_turret();
                 let attack_image = damage_dealer.sprite().and_then(|s| s.main_image());
                 let attacking = attack_image
@@ -683,7 +690,7 @@ impl Snapshot {
                 );
                 out.is_gathering = u8::from(matches!(unit.order().0, 79..=90));
                 out.is_morphing = u8::from(matches!(unit.order().0, 42 | 43 | 45));
-                if out.is_morphing != 0 {
+                if out.is_morphing != 0 && detected {
                     out.is_completed = 0;
                 }
                 out.is_constructing = u8::from(
@@ -713,7 +720,17 @@ impl Snapshot {
                 );
                 out.order_target = self.unit_id(native, unit.target());
                 out.build_unit = self.unit_id(native, unit.currently_building());
-                out.addon = self.unit_id(native, unit.addon());
+                let addon = if unit.id().is_building() {
+                    unit.currently_building()
+                        .filter(|child| child.id().is_addon() && !child.is_dying())
+                        .or_else(|| {
+                            unit.addon()
+                                .filter(|child| child.id().is_addon() && !child.is_dying())
+                        })
+                } else {
+                    None
+                };
+                out.addon = self.unit_id(native, addon);
                 out.nydus_exit = self.unit_id(native, unit.nydus_linked());
                 out.power_up = self.unit_id(native, unit.powerup());
                 out.rally_unit = -1;
@@ -775,6 +792,9 @@ impl Snapshot {
                 if unit.id().0 == 72 {
                     out.interceptor_count = unit.fighter_amount() as i32;
                 }
+                if unit.player() != local && !detected {
+                    redact_undetected(out);
+                }
                 if unit.player() != local {
                     redact_inside(out);
                 }
@@ -818,9 +838,10 @@ impl Snapshot {
                     }
                 }
             }
+            augment_own_build_relationships(&mut data.units, i32::from(local));
             let mut x_search = Vec::new();
             let mut y_search = Vec::new();
-            for &(id, unit, accessible, visible) in &current {
+            for &(id, unit, accessible, visible, _detected) in &current {
                 if accessible && !unit.is_hidden() && x_search.len() + 2 <= data.x_unit_search.len()
                 {
                     let rect = unit.collision_rect();
@@ -916,8 +937,10 @@ impl Snapshot {
                     command.kind,
                     commands::kind::ATTACK_UNIT
                         | commands::kind::GATHER
+                        | commands::kind::REPAIR
                         | commands::kind::RIGHT_CLICK_UNIT
                         | commands::kind::SET_RALLY_UNIT
+                        | commands::kind::USE_TECH_UNIT
                 ) {
                     let Some(target) = target else {
                         self.rejected_commands += 1;
@@ -943,6 +966,7 @@ impl Snapshot {
                     target.map(|u| native.to_unique_id(u)),
                     (game.map_width_tiles, game.map_height_tiles),
                     actor.id().0,
+                    (command.kind == commands::kind::BUILD_ADDON).then(|| addon_parent_tile(actor)),
                 ) else {
                     if self.rejected_commands < 10 {
                         warn!(
@@ -981,6 +1005,279 @@ impl Snapshot {
     }
 }
 
+// Match BWAPI UnitInterface::getTilePosition, including its absolute-coordinate conversion.
+fn addon_parent_tile(actor: bw_dat::Unit) -> (i32, i32) {
+    let position = actor.position();
+    let placement = actor.id().placement();
+    (
+        (i32::from(position.x) - i32::from(placement.width) / 2).abs() / 32,
+        (i32::from(position.y) - i32::from(placement.height) / 2).abs() / 32,
+    )
+}
+
+const ORDER_CONSTRUCTING_BUILDING: i32 = 33;
+
+/// Restores BWAPI's reciprocal construction relationship for units owned by the local player.
+///
+/// The native `currentBuildUnit` field is incomplete for an SCV constructing a Terran building;
+/// BWAPI derives that link from the SCV's `orderTarget` after its unit records are refreshed.
+fn augment_own_build_relationships(units: &mut [wire::UnitData], local: i32) {
+    for parent_index in 0..units.len() {
+        if !is_own_existing(&units[parent_index], local) {
+            continue;
+        }
+
+        if units[parent_index].order == ORDER_CONSTRUCTING_BUILDING {
+            if let Some(child_index) =
+                own_incomplete_child(units, parent_index, units[parent_index].order_target, local)
+            {
+                link_constructing_parent_and_child(units, parent_index, child_index);
+            }
+        } else if let Some(child_index) =
+            own_incomplete_child(units, parent_index, units[parent_index].addon, local)
+        {
+            link_constructing_parent_and_child(units, parent_index, child_index);
+        } else if units[parent_index].is_training != 0
+            && let Some(child_index) =
+                own_incomplete_child(units, parent_index, units[parent_index].build_unit, local)
+        {
+            link_training_child(units, parent_index, child_index);
+        }
+    }
+}
+
+fn own_incomplete_child(
+    units: &[wire::UnitData],
+    parent_index: usize,
+    child_index: i32,
+    local: i32,
+) -> Option<usize> {
+    let child_index = usize::try_from(child_index).ok()?;
+    if child_index == parent_index {
+        return None;
+    }
+    let child = units.get(child_index)?;
+    (is_own_existing(child, local) && child.is_completed == 0).then_some(child_index)
+}
+
+fn link_constructing_parent_and_child(
+    units: &mut [wire::UnitData],
+    parent_index: usize,
+    child_index: usize,
+) {
+    let child_kind = units[child_index].kind;
+    let parent = &mut units[parent_index];
+    parent.build_unit = child_index as i32;
+    parent.build_kind = child_kind;
+    parent.is_constructing = 1;
+    parent.is_idle = 0;
+
+    let child = &mut units[child_index];
+    child.build_unit = parent_index as i32;
+    child.build_kind = child_kind;
+    child.is_constructing = 1;
+    child.is_idle = 0;
+}
+
+fn link_training_child(units: &mut [wire::UnitData], parent_index: usize, child_index: usize) {
+    let child = &mut units[child_index];
+    child.build_unit = parent_index as i32;
+    child.build_kind = child.kind;
+    child.is_constructing = 1;
+    child.is_idle = 0;
+}
+
+fn is_own_existing(unit: &wire::UnitData, local: i32) -> bool {
+    unit.exists != 0 && unit.clearance_level == 3 && unit.player == local
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct LocalVisibility {
+    visible: bool,
+    detected: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct LocalVisibilityInput {
+    has_sprite: bool,
+    owned_by_local: bool,
+    scanner_sweep: bool,
+    scanner_visible: bool,
+    sprite_visible: bool,
+    requires_detection: bool,
+    detected_by_local: bool,
+    burrowed: bool,
+    moving: bool,
+    accelerating: bool,
+    order_is_move: bool,
+    ground_weapon_cooldown: bool,
+    air_weapon_cooldown: bool,
+}
+
+/// Mirrors BWAPI's local-player `isVisible` and `isDetected` update rules.
+fn resolve_local_visibility(input: LocalVisibilityInput) -> LocalVisibility {
+    if !input.has_sprite {
+        return LocalVisibility {
+            visible: false,
+            detected: false,
+        };
+    }
+    if input.owned_by_local {
+        return LocalVisibility {
+            visible: true,
+            detected: true,
+        };
+    }
+    if input.scanner_sweep {
+        return LocalVisibility {
+            visible: input.scanner_visible,
+            detected: true,
+        };
+    }
+
+    let can_detect = !input.requires_detection || input.detected_by_local;
+    let visible_without_detection = input.moving
+        || input.accelerating
+        || input.order_is_move
+        || input.ground_weapon_cooldown
+        || input.air_weapon_cooldown
+        || !input.burrowed;
+    let visible = input.sprite_visible
+        && (!input.requires_detection || input.detected_by_local || visible_without_detection);
+    LocalVisibility {
+        visible,
+        detected: visible && can_detect,
+    }
+}
+
+/// Reads only `bw_dat`'s architecture-neutral unit representation.
+unsafe fn local_visibility(
+    unit: bw_dat::Unit,
+    local: u8,
+    data: &wire::GameData,
+) -> LocalVisibility {
+    let native = unsafe { &**unit };
+    let detection_status = native.detection_status;
+    let detected_by_local =
+        detection_status == u32::MAX || detection_status & (1u32 << u32::from(local)) != 0;
+    let scanner_sweep = unit.id() == bw_dat::unit::SCANNER_SWEEP;
+    resolve_local_visibility(LocalVisibilityInput {
+        has_sprite: unit.sprite().is_some(),
+        owned_by_local: unit.player() == local,
+        scanner_sweep,
+        scanner_visible: scanner_sweep
+            && scanner_sweep_visible(data, unit.position().x, unit.position().y),
+        sprite_visible: unit.is_visible_to(local),
+        requires_detection: unit.flags() & 0x100 != 0,
+        detected_by_local,
+        burrowed: unit.is_burrowed(),
+        moving: native.flingy.flingy_flags & 0x10 != 0,
+        accelerating: native.flingy.flingy_flags & 0x02 != 0,
+        order_is_move: unit.order() == bw_dat::order::MOVE,
+        ground_weapon_cooldown: native.ground_cooldown != 0,
+        air_weapon_cooldown: native.air_cooldown != 0,
+    })
+}
+
+/// BWAPI tests a five-by-five-tile area centered on the scanner-sweep position.
+fn scanner_sweep_visible(data: &wire::GameData, x: i16, y: i16) -> bool {
+    let left = (i32::from(x) - 64) / 32;
+    let top = (i32::from(y) - 64) / 32;
+    let right = (i32::from(x) + 64) / 32;
+    let bottom = (i32::from(y) + 64) / 32;
+    for x in left..=right {
+        for y in top..=bottom {
+            if x >= 0
+                && y >= 0
+                && x < data.map_width
+                && y < data.map_height
+                && data.is_visible[x as usize][y as usize] != 0
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+const CLEARANCE_PARTIAL: i32 = 1;
+const CLEARANCE_DETECTED: i32 = 2;
+const CLEARANCE_OWN: i32 = 3;
+const UNKNOWN_POSITION_X: i32 = 32000;
+const UNKNOWN_POSITION_Y: i32 = 32064;
+const UNKNOWN_ORDER: i32 = 190;
+
+fn clearance_level(owned_by_local: bool, detected: bool) -> i32 {
+    if owned_by_local {
+        CLEARANCE_OWN
+    } else if detected {
+        CLEARANCE_DETECTED
+    } else {
+        CLEARANCE_PARTIAL
+    }
+}
+/// Detector-gated fields are unavailable for a shimmer or an active burrowed unit.
+fn redact_undetected(unit: &mut wire::UnitData) {
+    unit.hit_points = 0;
+    unit.last_hit_points = 0;
+    unit.shields = 0;
+    unit.resources = 0;
+    unit.resource_group = 0;
+    unit.kill_count = 0;
+    unit.acid_spore_count = 0;
+    unit.scarab_count = 0;
+    unit.interceptor_count = 0;
+    unit.spider_mine_count = 0;
+    unit.defense_matrix_points = 0;
+    unit.defense_matrix_timer = 0;
+    unit.ensnare_timer = 0;
+    unit.irradiate_timer = 0;
+    unit.lockdown_timer = 0;
+    unit.maelstrom_timer = 0;
+    unit.order_timer = 0;
+    unit.plague_timer = 0;
+    unit.remove_timer = 0;
+    unit.stasis_timer = 0;
+    unit.stim_timer = 0;
+    unit.build_unit = -1;
+    unit.target = -1;
+    unit.target_position_x = UNKNOWN_POSITION_X;
+    unit.target_position_y = UNKNOWN_POSITION_Y;
+    unit.order = UNKNOWN_ORDER;
+    unit.order_target = -1;
+    unit.order_target_position_x = UNKNOWN_POSITION_X;
+    unit.order_target_position_y = UNKNOWN_POSITION_Y;
+    unit.secondary_order = UNKNOWN_ORDER;
+    unit.addon = -1;
+    unit.nydus_exit = -1;
+    unit.power_up = -1;
+    unit.carrier = -1;
+    unit.hatchery = -1;
+    unit.is_accelerating = 0;
+    unit.is_being_gathered = 0;
+    unit.is_detected = 0;
+    unit.is_blind = 0;
+    unit.is_braking = 0;
+    unit.carry_resource_kind = 0;
+    unit.is_constructing = 0;
+    unit.is_gathering = 0;
+    unit.is_idle = 0;
+    unit.is_interruptible = 0;
+    unit.is_invincible = 0;
+    unit.is_lifted = 0;
+    unit.is_morphing = 0;
+    unit.is_parasited = 0;
+    unit.is_selected = 0;
+    unit.is_stuck = 0;
+    unit.is_training = 0;
+    unit.is_under_storm = 0;
+    unit.is_under_dark_swarm = 0;
+    unit.is_under_dweb = 0;
+    unit.is_powered = 1;
+    unit.buttonset = 228;
+    unit.last_attacker_player = -1;
+    unit.recently_attacked = 0;
+}
 fn map_hash(path: &std::path::Path) -> std::io::Result<String> {
     use sha1::{Digest, Sha1};
     use std::io::Read;
@@ -1179,6 +1476,417 @@ mod tests {
         assert_eq!(unit.has_nuke, 0);
         assert_eq!(unit.hit_points, 100);
         assert_eq!(unit.exists, 1);
+    }
+
+    fn partial_visibility_input() -> LocalVisibilityInput {
+        LocalVisibilityInput {
+            has_sprite: true,
+            owned_by_local: false,
+            scanner_sweep: false,
+            scanner_visible: false,
+            sprite_visible: true,
+            requires_detection: true,
+            detected_by_local: false,
+            burrowed: true,
+            moving: false,
+            accelerating: false,
+            order_is_move: false,
+            ground_weapon_cooldown: false,
+            air_weapon_cooldown: false,
+        }
+    }
+
+    #[test]
+    fn a_unit_without_a_sprite_is_neither_visible_nor_detected() {
+        let mut input = partial_visibility_input();
+        input.has_sprite = false;
+        input.owned_by_local = true;
+
+        assert_eq!(
+            resolve_local_visibility(input),
+            LocalVisibility {
+                visible: false,
+                detected: false,
+            }
+        );
+    }
+    #[test]
+    fn hidden_units_stay_hidden_even_when_they_are_active() {
+        let mut input = partial_visibility_input();
+        input.sprite_visible = false;
+        input.moving = true;
+        input.ground_weapon_cooldown = true;
+
+        assert_eq!(
+            resolve_local_visibility(input),
+            LocalVisibility {
+                visible: false,
+                detected: false,
+            }
+        );
+    }
+
+    #[test]
+    fn undetected_cloak_shimmers_but_a_static_burrow_does_not() {
+        let mut shimmer = partial_visibility_input();
+        shimmer.burrowed = false;
+        assert_eq!(
+            resolve_local_visibility(shimmer),
+            LocalVisibility {
+                visible: true,
+                detected: false,
+            }
+        );
+
+        assert_eq!(
+            resolve_local_visibility(partial_visibility_input()),
+            LocalVisibility {
+                visible: false,
+                detected: false,
+            }
+        );
+    }
+
+    #[test]
+    fn active_burrowed_units_are_visible_but_not_detected() {
+        for reveal in 0..5 {
+            let mut input = partial_visibility_input();
+            match reveal {
+                0 => input.moving = true,
+                1 => input.accelerating = true,
+                2 => input.order_is_move = true,
+                3 => input.ground_weapon_cooldown = true,
+                4 => input.air_weapon_cooldown = true,
+                _ => unreachable!(),
+            }
+            assert_eq!(
+                resolve_local_visibility(input),
+                LocalVisibility {
+                    visible: true,
+                    detected: false,
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn detection_and_ownership_have_their_bwapi_visibility_levels() {
+        let mut detected = partial_visibility_input();
+        detected.detected_by_local = true;
+        assert_eq!(
+            resolve_local_visibility(detected),
+            LocalVisibility {
+                visible: true,
+                detected: true,
+            }
+        );
+
+        let mut own = partial_visibility_input();
+        own.owned_by_local = true;
+        own.sprite_visible = false;
+        assert_eq!(
+            resolve_local_visibility(own),
+            LocalVisibility {
+                visible: true,
+                detected: true,
+            }
+        );
+        assert_eq!(clearance_level(true, true), CLEARANCE_OWN);
+        assert_eq!(clearance_level(false, true), CLEARANCE_DETECTED);
+        assert_eq!(clearance_level(false, false), CLEARANCE_PARTIAL);
+    }
+
+    #[test]
+    fn partial_observation_retains_only_bwapi_public_fields() {
+        let mut unit = wire::UnitData {
+            clearance_level: CLEARANCE_PARTIAL,
+            position_x: 100,
+            position_y: 200,
+            angle: 1.0,
+            velocity_x: 2.0,
+            velocity_y: 3.0,
+            ground_weapon_cooldown: 4,
+            air_weapon_cooldown: 5,
+            spell_cooldown: 6,
+            is_attacking: 1,
+            is_attack_frame: 1,
+            is_burrowed: 1,
+            is_cloaked: 1,
+            is_completed: 1,
+            is_detected: 1,
+            is_moving: 1,
+            is_starting_attack: 1,
+            hit_points: 100,
+            shields: 80,
+            resources: 999,
+            order: 6,
+            order_target: 2,
+            target: 3,
+            addon: 4,
+            carry_resource_kind: 2,
+            is_training: 1,
+            is_lifted: 1,
+            is_stuck: 1,
+            is_under_storm: 1,
+            energy: 250,
+            training_queue_count: 1,
+            training_queue: [7; 5],
+            remaining_train_time: 60,
+            rally_unit: 8,
+            has_nuke: 1,
+            ..Default::default()
+        };
+
+        redact_undetected(&mut unit);
+        redact_inside(&mut unit);
+
+        assert_eq!(unit.clearance_level, CLEARANCE_PARTIAL);
+        assert_eq!((unit.position_x, unit.position_y), (100, 200));
+        assert_eq!(unit.angle, 1.0);
+        assert_eq!((unit.velocity_x, unit.velocity_y), (2.0, 3.0));
+        assert_eq!(
+            (
+                unit.ground_weapon_cooldown,
+                unit.air_weapon_cooldown,
+                unit.spell_cooldown,
+            ),
+            (4, 5, 6)
+        );
+        assert_eq!(
+            (
+                unit.is_attacking,
+                unit.is_attack_frame,
+                unit.is_burrowed,
+                unit.is_cloaked,
+                unit.is_completed,
+                unit.is_moving,
+                unit.is_starting_attack,
+            ),
+            (1, 1, 1, 1, 1, 1, 1)
+        );
+        assert_eq!((unit.hit_points, unit.shields, unit.resources), (0, 0, 0));
+        assert_eq!(unit.order, UNKNOWN_ORDER);
+        assert_eq!(unit.secondary_order, UNKNOWN_ORDER);
+        assert_eq!(unit.order_target, -1);
+        assert_eq!(
+            (unit.target_position_x, unit.target_position_y),
+            (UNKNOWN_POSITION_X, UNKNOWN_POSITION_Y)
+        );
+        assert_eq!(unit.target, -1);
+        assert_eq!(unit.addon, -1);
+        assert_eq!(unit.carry_resource_kind, 0);
+        assert_eq!(unit.is_training, 0);
+        assert_eq!(unit.is_detected, 0);
+        assert_eq!(unit.is_lifted, 0);
+        assert_eq!(unit.is_stuck, 0);
+        assert_eq!(unit.is_under_storm, 0);
+        assert_eq!(unit.energy, 0);
+        assert_eq!(unit.training_queue, [228; 5]);
+        assert_eq!(unit.remaining_train_time, 0);
+        assert_eq!(unit.rally_unit, -1);
+        assert_eq!(unit.has_nuke, 0);
+    }
+    fn own_unit(player: i32, kind: i32) -> wire::UnitData {
+        wire::UnitData {
+            exists: 1,
+            clearance_level: 3,
+            player,
+            kind,
+            is_idle: 1,
+            build_unit: -1,
+            addon: -1,
+            order_target: -1,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn construction_augmentation_links_an_scv_and_incomplete_refinery() {
+        let mut units = [
+            wire::UnitData {
+                order: ORDER_CONSTRUCTING_BUILDING,
+                order_target: 1,
+                ..own_unit(1, 7)
+            },
+            wire::UnitData {
+                is_completed: 0,
+                ..own_unit(1, 110)
+            },
+        ];
+
+        augment_own_build_relationships(&mut units, 1);
+
+        assert_eq!(units[0].build_unit, 1);
+        assert_eq!(units[1].build_unit, 0);
+        assert_eq!(units[0].build_kind, 110);
+        assert_eq!(units[1].build_kind, 110);
+        assert_eq!(units[0].is_constructing, 1);
+        assert_eq!(units[1].is_constructing, 1);
+        assert_eq!(units[0].is_idle, 0);
+        assert_eq!(units[1].is_idle, 0);
+    }
+
+    #[test]
+    fn construction_augmentation_links_incomplete_addons_and_training_children() {
+        let mut addon_units = [
+            wire::UnitData {
+                addon: 1,
+                ..own_unit(1, 113)
+            },
+            wire::UnitData {
+                is_completed: 0,
+                ..own_unit(1, 120)
+            },
+        ];
+        augment_own_build_relationships(&mut addon_units, 1);
+        assert_eq!(addon_units[0].build_unit, 1);
+        assert_eq!(addon_units[1].build_unit, 0);
+        assert_eq!(addon_units[0].is_constructing, 1);
+        assert_eq!(addon_units[1].is_constructing, 1);
+
+        let mut training_units = [
+            wire::UnitData {
+                is_training: 1,
+                build_unit: 1,
+                build_kind: 228,
+                ..own_unit(1, 106)
+            },
+            wire::UnitData {
+                is_completed: 0,
+                ..own_unit(1, 7)
+            },
+        ];
+        augment_own_build_relationships(&mut training_units, 1);
+        assert_eq!(training_units[0].build_unit, 1);
+        assert_eq!(training_units[0].build_kind, 228);
+        assert_eq!(training_units[0].is_constructing, 0);
+        assert_eq!(training_units[0].is_idle, 1);
+        assert_eq!(training_units[1].build_unit, 0);
+        assert_eq!(training_units[1].is_constructing, 1);
+        assert_eq!(training_units[1].is_idle, 0);
+    }
+
+    #[test]
+    fn completed_addon_falls_through_to_training_child() {
+        let mut units = [
+            wire::UnitData {
+                addon: 1,
+                is_training: 1,
+                build_unit: 2,
+                build_kind: 228,
+                ..own_unit(1, 113)
+            },
+            wire::UnitData {
+                is_completed: 1,
+                ..own_unit(1, 120)
+            },
+            wire::UnitData {
+                is_completed: 0,
+                ..own_unit(1, 7)
+            },
+        ];
+
+        augment_own_build_relationships(&mut units, 1);
+
+        assert_eq!(units[0].build_unit, 2);
+        assert_eq!(units[0].build_kind, 228);
+        assert_eq!(units[0].is_constructing, 0);
+        assert_eq!(units[0].is_idle, 1);
+        assert_eq!(units[1].build_unit, -1);
+        assert_eq!(units[2].build_unit, 0);
+        assert_eq!(units[2].build_kind, 7);
+        assert_eq!(units[2].is_constructing, 1);
+        assert_eq!(units[2].is_idle, 0);
+    }
+
+    #[test]
+    fn construction_augmentation_skips_completed_stale_and_foreign_links() {
+        let mut completed = [
+            wire::UnitData {
+                order: ORDER_CONSTRUCTING_BUILDING,
+                order_target: 1,
+                ..own_unit(1, 7)
+            },
+            wire::UnitData {
+                is_completed: 1,
+                ..own_unit(1, 110)
+            },
+        ];
+        augment_own_build_relationships(&mut completed, 1);
+        assert_eq!(completed[0].build_unit, -1);
+        assert_eq!(completed[0].is_constructing, 0);
+        assert_eq!(completed[1].is_constructing, 0);
+
+        let mut stale = [
+            wire::UnitData {
+                order: ORDER_CONSTRUCTING_BUILDING,
+                order_target: 1,
+                ..own_unit(1, 7)
+            },
+            wire::UnitData {
+                exists: 0,
+                clearance_level: 0,
+                player: 1,
+                kind: 110,
+                build_unit: -1,
+                ..Default::default()
+            },
+        ];
+        augment_own_build_relationships(&mut stale, 1);
+        assert_eq!(stale[0].build_unit, -1);
+        assert_eq!(stale[1].build_unit, -1);
+
+        let mut foreign = [
+            wire::UnitData {
+                order: ORDER_CONSTRUCTING_BUILDING,
+                order_target: 1,
+                clearance_level: 2,
+                player: 2,
+                exists: 1,
+                kind: 7,
+                build_unit: -1,
+                is_idle: 1,
+                build_kind: 228,
+                ..Default::default()
+            },
+            wire::UnitData {
+                clearance_level: 2,
+                player: 2,
+                exists: 1,
+                kind: 110,
+                build_unit: -1,
+                is_idle: 1,
+                build_kind: 228,
+                ..Default::default()
+            },
+        ];
+        augment_own_build_relationships(&mut foreign, 1);
+        assert_eq!(foreign[0].build_unit, -1);
+        assert_eq!(foreign[1].build_unit, -1);
+        assert_eq!(foreign[0].build_kind, 228);
+        assert_eq!(foreign[1].build_kind, 228);
+
+        let mut cross_player = [
+            wire::UnitData {
+                order: ORDER_CONSTRUCTING_BUILDING,
+                order_target: 1,
+                ..own_unit(1, 7)
+            },
+            wire::UnitData {
+                clearance_level: 2,
+                player: 2,
+                exists: 1,
+                kind: 110,
+                build_unit: -1,
+                is_idle: 1,
+                build_kind: 228,
+                ..Default::default()
+            },
+        ];
+        augment_own_build_relationships(&mut cross_player, 1);
+        assert_eq!(cross_player[0].build_unit, -1);
+        assert_eq!(cross_player[1].build_unit, -1);
+        assert_eq!(cross_player[1].build_kind, 228);
     }
 
     #[test]
