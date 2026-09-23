@@ -2242,6 +2242,7 @@
       "observerSeat": "Observer seat, no map slot used",
       "players": "Players",
       "raceUnsupported": "{{name}} can't play this race",
+      "randomUnsupported": "{{name}} can't play every race, so it can't be random",
       "readyToStart": "Ready to start",
       "removeBot": "Remove {{name}}",
       "selectMap": "Select map",

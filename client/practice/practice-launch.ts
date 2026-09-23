@@ -3,10 +3,13 @@ import { BotKey, PracticeBotSelection } from '../../common/bots/bot-library'
 import { BotView, botFormatCompatibility } from '../../common/bots/bot-view'
 import {
   HIDDEN_OPPONENT_NAME,
+  PracticeBotRace,
   PracticeGameOpponent,
   PracticeGameRecord,
   PracticeLaunchRequest,
+  canPlayPracticeRace,
   customGameType,
+  resolvePracticeRace,
 } from '../../common/bots/practice'
 import { PoolReadiness, computePoolReadiness, drawMatchup } from '../../common/bots/practice-logic'
 import { GameType } from '../../common/games/game-type'
@@ -41,7 +44,14 @@ const FALLBACK_PLAYER_NAME = 'Player'
 
 export interface LaunchOpponent {
   bot: BotView
+  race: PracticeBotRace
+}
+
+/** An opponent with any Random pick drawn, as it is launched and recorded. */
+interface ResolvedOpponent {
+  bot: BotView
   race: BotRaceName
+  random: boolean
 }
 
 export interface LaunchPracticeGameParams {
@@ -197,18 +207,19 @@ function watchSession(sessionId: string): void {
   onChange()
 }
 
-function toRecordOpponents(opponents: ReadonlyArray<LaunchOpponent>): PracticeGameOpponent[] {
+function toRecordOpponents(opponents: ReadonlyArray<ResolvedOpponent>): PracticeGameOpponent[] {
   return opponents.map(o => ({
     key: o.bot.key,
     releaseId: o.bot.releaseId,
     name: o.bot.name,
     version: o.bot.version,
     race: o.race,
+    ...(o.random ? { random: true } : {}),
   }))
 }
 
 function toBotSelections(
-  opponents: ReadonlyArray<LaunchOpponent>,
+  opponents: ReadonlyArray<ResolvedOpponent>,
   hidden: boolean,
 ): PracticeBotSelection[] {
   return opponents.map(o => ({
@@ -225,7 +236,12 @@ function toBotSelections(
  * setup exactly as it was.
  */
 export async function launchPracticeGame(params: LaunchPracticeGameParams): Promise<void> {
-  const { mode, map, gameType, playerRace, opponents, hidden, observe = false } = params
+  const { mode, map, gameType, playerRace, hidden, observe = false } = params
+  const opponents = params.opponents.map((o): ResolvedOpponent => ({
+    bot: o.bot,
+    race: resolvePracticeRace(o.race),
+    random: o.race === 'random',
+  }))
 
   const attempt: LaunchAttempt = { cancelled: false }
   currentAttempt = attempt
@@ -557,7 +573,7 @@ export function startCustomGame(): void {
       return
     }
 
-    if (!bot.races.includes(slot.race)) {
+    if (!canPlayPracticeRace(bot.races, slot.race)) {
       dispatch(
         openDialog({
           type: DialogType.PracticeReadiness,

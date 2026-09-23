@@ -8,7 +8,7 @@ import { GameType } from '../games/game-type'
 import { MapInfoJson, SbMapId } from '../maps'
 import { MatchmakingType } from '../matchmaking'
 import { RaceChar } from '../races'
-import { BotRaceName } from './bot-catalog'
+import { ALL_BOT_RACE_NAMES, BotRaceName, playsEveryRace } from './bot-catalog'
 import { BotKey, PracticeBotSelection } from './bot-library'
 
 /**
@@ -76,9 +76,33 @@ export interface PracticeMatchmakingSetup {
   skipPartialLineupWarning: boolean
 }
 
+/**
+ * The race a bot is set to play. Bots are always launched with a concrete race, so `random` is
+ * drawn at launch, and only a bot that plays every race can be set to it.
+ */
+export type PracticeBotRace = BotRaceName | 'random'
+
+/** Whether a bot that plays `races` can be set to `race`. */
+export function canPlayPracticeRace(
+  races: ReadonlyArray<BotRaceName>,
+  race: PracticeBotRace,
+): boolean {
+  return race === 'random' ? playsEveryRace(races) : races.includes(race)
+}
+
+/** The race a bot launches with: a Random pick draws one of the three. */
+export function resolvePracticeRace(
+  race: PracticeBotRace,
+  random: () => number = Math.random,
+): BotRaceName {
+  return race === 'random'
+    ? ALL_BOT_RACE_NAMES[Math.floor(random() * ALL_BOT_RACE_NAMES.length)]
+    : race
+}
+
 export interface CustomGameBotSlot {
   bot: PracticeBotRef
-  race: BotRaceName
+  race: PracticeBotRace
 }
 
 export interface CustomGameSetup {
@@ -101,7 +125,10 @@ export interface PracticeGameOpponent {
   releaseId?: string
   name: string
   version: string
+  /** The race the bot played; for a Random pick, the race it was drawn. */
   race: BotRaceName
+  /** The bot was set to Random, so a rematch draws its race again. */
+  random?: boolean
 }
 
 /**
