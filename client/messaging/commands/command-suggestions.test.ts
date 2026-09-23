@@ -124,6 +124,8 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'away',
+      'dnd',
       'f',
       'block',
       'unblock',
@@ -150,6 +152,8 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'away',
+      'dnd',
       'f',
       'block',
       'unblock',
@@ -173,6 +177,8 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'away',
+      'dnd',
       'f',
       'block',
       'unblock',
@@ -195,6 +201,7 @@ describe('messaging/commands/command-suggestions/matchCommands', () => {
       'whois',
       'who',
       'whoami',
+      'away',
     ])
   })
 
