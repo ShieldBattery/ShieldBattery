@@ -3,7 +3,11 @@ import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
-import { MatchmakingSeasonJson, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
+import {
+  MatchCanceledReason,
+  MatchmakingSeasonJson,
+  PublicMatchmakingRatingChangeJson,
+} from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
 
@@ -41,6 +45,7 @@ export enum DialogType {
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
+  MatchCanceled = 'matchCanceled',
   MatchmakingBanned = 'matchmakingBanned',
   NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
@@ -277,6 +282,13 @@ type MarkdownDialogPayload = BaseDialogPayload<
     hasButton?: boolean
   }
 >
+type MatchCanceledDialogPayload = BaseDialogPayload<
+  typeof DialogType.MatchCanceled,
+  {
+    phase: 'draft' | 'load'
+    reason: MatchCanceledReason
+  }
+>
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
 // Kept as an inline shape (rather than importing from the dialog's own file) so this file stays
 // free of dependencies on dialog implementations, which would otherwise cycle back here through
@@ -422,6 +434,7 @@ export type DialogPayload =
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
+  | MatchCanceledDialogPayload
   | MatchmakingBannedDialogPayload
   | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload

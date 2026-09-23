@@ -23,6 +23,7 @@ import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import {
   getMatchmakingModeInfo,
+  MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
   MatchmakingEvent,
@@ -40,7 +41,12 @@ import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { withDbClient } from '../db'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { GameLoader, GameLoadErrorType, GameLoadPlayer } from '../games/game-loader'
+import {
+  GameLoader,
+  GameLoadErrorType,
+  GameLoadPlayer,
+  isGameLoaderError,
+} from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
@@ -301,6 +307,37 @@ class Match {
   getDraftState(): DraftState | undefined {
     return this.draftState
   }
+}
+
+/**
+ * Determines the cause reported to the players of a match that fell apart after every player
+ * accepted it. Only players marked for a ban are blamed for a failure, so a failure that marked
+ * nobody is reported as an error.
+ */
+function getMatchCanceledReason(
+  phase: MatchmakingMatchFailPhase,
+  err: unknown,
+  toBan: ReadonlySet<SbUserId>,
+): MatchCanceledReason {
+  if (!toBan.size) {
+    return 'error'
+  }
+
+  if (
+    phase === 'loading' &&
+    err instanceof MatchmakingServiceError &&
+    err.code === MatchmakingServiceErrorCode.LoadFailed &&
+    isGameLoaderError(err.cause)
+  ) {
+    switch (err.cause.code) {
+      case GameLoadErrorType.PlayerFailed:
+        return 'playerFailedToLoad'
+      case GameLoadErrorType.Timeout:
+        return 'loadTimeout'
+    }
+  }
+
+  return 'playerLeft'
 }
 
 interface QueueEntry {
@@ -992,6 +1029,7 @@ export class MatchmakingService {
       }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
 
       const [toKick, toBan, toRequeue] = match.getKicksBansAndRequeues()
+      const reason = getMatchCanceledReason(phase, err, toBan)
 
       const entities = match.teams.flat()
 
@@ -1006,11 +1044,12 @@ export class MatchmakingService {
           } else if (phase === 'drafting') {
             this.publishToActiveClient(p.id, {
               type: 'draftCancel',
+              reason,
             })
           } else if (phase === 'loading') {
             this.publishToActiveClient(p.id, {
               type: 'cancelLoading',
-              reason: 'loading failed',
+              reason,
             })
           }
           this.unregisterActivity(p.id)
@@ -1061,11 +1100,12 @@ export class MatchmakingService {
           if (phase === 'drafting') {
             this.publishToActiveClient(p.id, {
               type: 'draftCancel',
+              reason,
             })
           } else if (phase === 'loading') {
             this.publishToActiveClient(p.id, {
               type: 'cancelLoading',
-              reason: 'loading failed',
+              reason,
             })
           }
 
