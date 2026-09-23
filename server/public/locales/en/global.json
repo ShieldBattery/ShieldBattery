@@ -2193,7 +2193,6 @@
       "notYetRated": "Unrated",
       "provisionalDivision": "{{division}} (provisional)",
       "ready": "Ready",
-      "runtimeInstalled": "{{runtime}} · installed",
       "runtimeNotInstalled": "{{runtime}} not installed",
       "support": {
         "experimental": "Experimental",
@@ -2275,6 +2274,7 @@
       "license": "License",
       "licenseTitle": "License",
       "localBuildDescription": "A local build you added. ShieldBattery hasn't reviewed it.",
+      "licenseNotDownloaded": "Licensed under {{licenses}}. The full license text is included with the download.",
       "localBuildVersion": "Version {{version}}",
       "missingBody": "It may have been removed from this PC. Add it again to see its details.",
       "missingTitle": "This bot is no longer in your library",

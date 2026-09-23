@@ -159,6 +159,10 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
   const [javaArchitecture, setJavaArchitecture] = useState<BotArchitecture>(
     existing?.runtime.kind === 'java' ? existing.runtime.architecture : 'x86',
   )
+  // Not editable here, but kept so that saving a build doesn't drop the JVM options it launches with.
+  const [jvmArguments, setJvmArguments] = useState(
+    existing?.runtime.kind === 'java' ? existing.runtime.jvmArguments : undefined,
+  )
   const [races, setRaces] = useState<BotRaceName[]>(existing?.races ?? [])
   const [showErrors, setShowErrors] = useState(false)
   const [saveError, setSaveError] = useState<string>()
@@ -209,6 +213,7 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
       if (spec.runtime.kind === 'java') {
         setJavaMajor(spec.runtime.major)
         setJavaArchitecture(spec.runtime.architecture)
+        setJvmArguments(spec.runtime.jvmArguments)
       }
     } else if (picked.executable.toLowerCase().endsWith('.jar')) {
       // A JAR can't be launched on its own, so it always needs a Java runtime.
@@ -240,7 +245,12 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
       workingDirectory: workingDirectory || parentDirectory(executable),
       runtime:
         runtimeKind === 'java'
-          ? { kind: 'java', major: javaMajor, architecture: javaArchitecture }
+          ? {
+              kind: 'java',
+              major: javaMajor,
+              architecture: javaArchitecture,
+              ...(jvmArguments ? { jvmArguments } : {}),
+            }
           : { kind: 'native' },
       races,
     }
