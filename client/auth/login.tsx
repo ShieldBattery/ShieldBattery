@@ -15,27 +15,46 @@ import { AuthLayout } from './auth-layout'
 import { useRedirectAfterLogin } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
 
+// The recovery links come after the form controls in the DOM so that tabbing (and screen readers)
+// move through the controls contiguously, but they're placed visually above their fields.
 const StyledForm = styled.form`
   width: 100%;
   margin-bottom: 16px;
 
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'username-link'
+    'username'
+    'password-link'
+    'password'
+    'submit';
+  row-gap: 4px;
 `
 
-const Field = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+const UsernameField = styled(TextField)`
+  grid-area: username;
 `
 
-const FieldRecoveryLink = styled(Link)`
-  align-self: flex-end;
+const PasswordField = styled(PasswordTextField)`
+  grid-area: password;
+`
+
+const UsernameRecoveryLink = styled(Link)`
+  grid-area: username-link;
+  justify-self: end;
+`
+
+const PasswordRecoveryLink = styled(Link)`
+  grid-area: password-link;
+  justify-self: end;
+  margin-top: 8px;
 `
 
 const RememberAndSubmit = styled.div`
+  grid-area: submit;
+  margin-top: 8px;
+
   display: grid;
   grid-template-columns: max-content 1fr max-content;
   gap: 8px;
@@ -121,41 +140,31 @@ export function Login() {
     <AuthLayout title={t('auth.login.title', 'Log in to ShieldBattery')}>
       {lastError ? <UserErrorDisplay error={lastError} /> : null}
       <StyledForm noValidate={true} onSubmit={submit}>
-        <Field>
-          <FieldRecoveryLink href='/recover-username'>
-            {t('auth.login.forgotUsername', 'Recover username')}
-          </FieldRecoveryLink>
-          <TextField
-            {...bindInput('username')}
-            label={t('auth.login.username', 'Username')}
-            floatingLabel={true}
-            inputProps={{
-              tabIndex: 0,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}
-            disabled={isLoading}
-          />
-        </Field>
-
-        <Field>
-          <FieldRecoveryLink href='/forgot-password'>
-            {t('auth.login.forgotPassword', 'Reset password')}
-          </FieldRecoveryLink>
-          <PasswordTextField
-            {...bindInput('password')}
-            label={t('auth.login.password', 'Password')}
-            floatingLabel={true}
-            inputProps={{
-              tabIndex: 0,
-              autoCapitalize: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}
-            disabled={isLoading}
-          />
-        </Field>
+        <UsernameField
+          {...bindInput('username')}
+          label={t('auth.login.username', 'Username')}
+          floatingLabel={true}
+          inputProps={{
+            tabIndex: 0,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            autoFocus: true,
+            spellCheck: false,
+          }}
+          disabled={isLoading}
+        />
+        <PasswordField
+          {...bindInput('password')}
+          label={t('auth.login.password', 'Password')}
+          floatingLabel={true}
+          inputProps={{
+            tabIndex: 0,
+            autoCapitalize: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}
+          disabled={isLoading}
+        />
 
         <RememberAndSubmit>
           <RememberCheckBox
@@ -173,6 +182,13 @@ export function Login() {
             disabled={isLoading}
           />
         </RememberAndSubmit>
+
+        <UsernameRecoveryLink href='/recover-username'>
+          {t('auth.login.forgotUsername', 'Recover username')}
+        </UsernameRecoveryLink>
+        <PasswordRecoveryLink href='/forgot-password'>
+          {t('auth.login.forgotPassword', 'Reset password')}
+        </PasswordRecoveryLink>
       </StyledForm>
       <div>
         <Trans t={t} i18nKey='auth.login.createAccountLinkText'>

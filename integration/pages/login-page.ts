@@ -3,11 +3,16 @@ import { Locator, Page } from '@playwright/test'
 export class LoginPage {
   private readonly page: Page
 
-  private readonly inputUsername: Locator
-  private readonly inputPassword: Locator
-  private readonly inputRememberMe: Locator
+  readonly inputUsername: Locator
+  readonly inputPassword: Locator
+  readonly inputRememberMe: Locator
 
-  private readonly buttonLogIn: Locator
+  readonly buttonLogIn: Locator
+  readonly buttonTogglePasswordVisibility: Locator
+
+  readonly linkRecoverUsername: Locator
+  readonly linkResetPassword: Locator
+  readonly linkCreateAccount: Locator
 
   private readonly errorMessage: Locator
 
@@ -19,6 +24,11 @@ export class LoginPage {
     this.inputRememberMe = page.locator('input[name="rememberMe"]')
 
     this.buttonLogIn = page.locator('button[data-testid="submit-button"]')
+    this.buttonTogglePasswordVisibility = page.locator('button[title="Show password"]')
+
+    this.linkRecoverUsername = page.locator('a[href="/recover-username"]')
+    this.linkResetPassword = page.locator('a[href="/forgot-password"]')
+    this.linkCreateAccount = page.locator('a[href^="/signup"]')
 
     this.errorMessage = page.locator('div[data-testid="errors-container"]')
   }
