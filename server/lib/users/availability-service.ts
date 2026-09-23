@@ -3,11 +3,13 @@ import { singleton } from 'tsyringe'
 import { AccountSettings } from '../../../common/settings/account-settings'
 import { urlPath } from '../../../common/urls'
 import { AvailabilityInfo, AvailabilityUpdateEvent } from '../../../common/users/availability'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 import { AccountSettingsService } from '../settings/account-settings-service'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { RestrictionService } from './restriction-service'
 
 export function getAvailabilityPath(userId: SbUserId): string {
   return urlPath`/availability/${userId}`
@@ -29,27 +31,37 @@ type AvailabilityServiceEvents = {
  * A user counts as online here for exactly as long as `UserSocketsManager` has sockets for them, the
  * same condition `ActivityStatusService` uses, so the two never disagree about whether a user is
  * offline.
+ *
+ * A chat-restricted user's status message is withheld from everyone else, since it's text they'd be
+ * showing to other users. Their own sessions still see it through their account settings.
  */
 @singleton()
 export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents> {
   /** Online users whose stored availability has loaded. */
   private byUser = new Map<SbUserId, AvailabilityInfo>()
+  /**
+   * Online users known to be chat restricted. Checked when they connect and added to when a
+   * restriction is applied; a restriction expiring takes effect on their next connection.
+   */
+  private chatRestricted = new Set<SbUserId>()
 
   constructor(
     private publisher: TypedPublisher<AvailabilityUpdateEvent>,
     private userSocketsManager: UserSocketsManager,
     accountSettingsService: AccountSettingsService,
+    restrictionService: RestrictionService,
   ) {
     super()
 
     userSocketsManager
       .on('newUser', userSockets => {
-        this.loadStored(userSockets, accountSettingsService).catch(err => {
+        this.loadStored(userSockets, accountSettingsService, restrictionService).catch(err => {
           logger.error({ err }, 'error loading availability for new user')
         })
       })
       .on('userQuit', userId => {
         this.byUser.delete(userId)
+        this.chatRestricted.delete(userId)
         this.publisher.publish(getAvailabilityPath(userId), { userId, info: null })
       })
 
@@ -57,6 +69,18 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
       // An offline user's change is stored and gets loaded when they next connect.
       if (this.userSocketsManager.getById(userId)) {
         this.update(userId, toAvailabilityInfo(settings))
+      }
+    })
+
+    restrictionService.on('restrictionApplied', (userId, kind) => {
+      if (kind !== RestrictionKind.Chat || !this.userSocketsManager.getById(userId)) {
+        return
+      }
+
+      this.chatRestricted.add(userId)
+      const info = this.byUser.get(userId)
+      if (info) {
+        this.update(userId, info)
       }
     })
   }
@@ -72,19 +96,28 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
   private async loadStored(
     userSockets: UserSocketsGroup,
     accountSettingsService: AccountSettingsService,
+    restrictionService: RestrictionService,
   ): Promise<void> {
     const { userId } = userSockets
-    const settings = await accountSettingsService.getSettings(userId)
-    // Skip the result if the user disconnected meanwhile (a later connection does its own load),
-    // or if a change made during the load already set a newer value.
-    if (this.userSocketsManager.getById(userId) !== userSockets || this.byUser.has(userId)) {
+    const [settings, isChatRestricted] = await Promise.all([
+      accountSettingsService.getSettings(userId),
+      restrictionService.isRestricted(userId, RestrictionKind.Chat),
+    ])
+    // Skip the result if the user disconnected meanwhile (a later connection does its own load).
+    if (this.userSocketsManager.getById(userId) !== userSockets) {
       return
     }
-
-    this.update(userId, toAvailabilityInfo(settings))
+    // Only ever added here: a restriction applied during the load has already been recorded.
+    if (isChatRestricted) {
+      this.chatRestricted.add(userId)
+    }
+    // A change made during the load already set a newer value, but it went out before the
+    // restriction was known, so it's re-applied rather than kept as is.
+    this.update(userId, this.byUser.get(userId) ?? toAvailabilityInfo(settings))
   }
 
-  private update(userId: SbUserId, info: AvailabilityInfo): void {
+  private update(userId: SbUserId, stored: AvailabilityInfo): void {
+    const info = this.chatRestricted.has(userId) ? { ...stored, statusMessage: '' } : stored
     const prev = this.byUser.get(userId)
     if (
       prev &&

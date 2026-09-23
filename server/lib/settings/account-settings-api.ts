@@ -1,4 +1,5 @@
 import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import {
   AccountSettingsResponse,
@@ -8,11 +9,13 @@ import {
   ALL_USER_AVAILABILITIES,
   MAX_STATUS_MESSAGE_LENGTH,
 } from '../../../common/users/availability'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
+import { RestrictionService } from '../users/restriction-service'
 import { validateRequest } from '../validation/joi-validator'
 import { AccountSettingsService } from './account-settings-service'
 
@@ -40,7 +43,10 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
 @httpApi('/account-settings')
 @httpBeforeAll(ensureLoggedIn)
 export class AccountSettingsApi {
-  constructor(private accountSettingsService: AccountSettingsService) {}
+  constructor(
+    private accountSettingsService: AccountSettingsService,
+    private restrictionService: RestrictionService,
+  ) {}
 
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountSettingsThrottle, throttleByUser))
@@ -48,8 +54,17 @@ export class AccountSettingsApi {
     const { body } = validateRequest(ctx, {
       body: updateAccountSettingsSchema,
     })
+    const userId = ctx.session!.user.id
 
-    const settings = await this.accountSettingsService.updateSettings(ctx.session!.user.id, body)
+    // A status message is text shown to other users, so chat restrictions cover it.
+    if (
+      body.statusMessage &&
+      (await this.restrictionService.isRestricted(userId, RestrictionKind.Chat))
+    ) {
+      throw new httpErrors.Forbidden('Chat restricted users cannot set a status message')
+    }
+
+    const settings = await this.accountSettingsService.updateSettings(userId, body)
     return { settings }
   }
 }

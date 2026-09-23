@@ -6,6 +6,7 @@ import {
   MAX_STATUS_MESSAGE_LENGTH,
   UserAvailability,
 } from '../../common/users/availability'
+import { RestrictionKind } from '../../common/users/restrictions'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { MenuItem } from '../material/menu/item'
 import { TextField } from '../material/text-field'
@@ -45,6 +46,10 @@ export function AvailabilityPicker() {
   const dispatch = useAppDispatch()
   const availability = useAppSelector(s => s.settings.account.availability)
   const statusMessage = useAppSelector(s => s.settings.account.statusMessage)
+  // Other users don't see a chat-restricted user's status message, and the server won't set one.
+  const isChatRestricted = useAppSelector(
+    s => !!s.auth.self?.restrictions.has(RestrictionKind.Chat),
+  )
   // Only set while the user is editing, so a message changed by another session shows up here
   // whenever this one isn't mid-edit.
   const [draftMessage, setDraftMessage] = useState<string>()
@@ -99,6 +104,7 @@ export function AvailabilityPicker() {
         label={t('users.availability.statusMessage', 'Status message')}
         value={draftMessage ?? statusMessage}
         allowErrors={false}
+        disabled={isChatRestricted}
         hasClearButton={true}
         inputProps={{ maxLength: MAX_STATUS_MESSAGE_LENGTH }}
         testName='availability-status-message'
