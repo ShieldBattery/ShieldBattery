@@ -6254,6 +6254,9 @@ mod hooks {
         // strings, expected game id/version, host net key, advertise value — are opaque here and are
         // passed through verbatim to the original on the native (unseeded) path.
         !0 => StormJoinGame(usize, usize, usize, *mut u32, usize, usize, usize, usize, usize) -> u32;
+        // Storm's `get_outstanding_turn_count(out)`, stdcall with 1 arg (retn 4 on x86). Returns
+        // nonzero on success; zero makes the caller report a network error and leave the game.
+        !0 => GetOutstandingTurnCount(*mut u32) -> u32;
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;

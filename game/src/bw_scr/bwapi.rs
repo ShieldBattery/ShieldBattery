@@ -884,6 +884,10 @@ impl Snapshot {
                 .flatten()
                 .map(|u| native.to_unique_id(u))
                 .collect();
+            // Every command goes to `send_command`, as native BWAPI does: a turn that fills up is
+            // sent early (the pipe sends one fewer later), and BW itself drops commands only once
+            // the pipe is at its in-flight cap. The batch is cleared after this exchange, so
+            // anything held back here would be lost rather than retried.
             let mut submitted = false;
             for command in &data.unit_commands[..count] {
                 let Some(actor) = usize::try_from(command.unit_index)

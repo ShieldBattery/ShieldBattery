@@ -507,6 +507,19 @@ impl BwScr {
                     address,
                 );
 
+                let address = nc.get_outstanding_turn_count.0 as usize - base;
+                exe.hook_closure_address(
+                    GetOutstandingTurnCount,
+                    move |out, orig| match self.netcode_v2_outstanding_turns() {
+                        Some(count) if !out.is_null() => {
+                            *out = count;
+                            1
+                        }
+                        _ => orig(out),
+                    },
+                    address,
+                );
+
                 let address = nc.record_turn_sync_slot.0 as usize - base;
                 exe.hook_closure_address(
                     RecordTurnSyncSlot,
