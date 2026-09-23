@@ -16,6 +16,7 @@ import {
 } from '../messaging/message-records'
 import { WhisperActions } from './actions'
 import whisperReducerImport, {
+  hasAttentionWorthyWhisper,
   newestKnownWhisperTime,
   WhisperSession,
   WhisperSessionMessage,
@@ -2126,6 +2127,28 @@ describe('client/whispers/whisper-reducer', () => {
       expect(carried.length).toBe(50)
       expect(carried.map(m => m.id)).not.toContain('old-0')
       expect(carried.map(m => m.id)).toContain('newest')
+    })
+  })
+
+  describe('hasAttentionWorthyWhisper', () => {
+    test('an unread whisper needs attention', () => {
+      expect(hasAttentionWorthyWhisper(makeState({ unread: true }), new Map())).toBe(true)
+    })
+
+    test("a blocked user's unread whisper doesn't need attention", () => {
+      expect(
+        hasAttentionWorthyWhisper(makeState({ unread: true }), new Map([[TARGET_ID, {}]])),
+      ).toBe(false)
+    })
+
+    test('blocking a different user leaves an unread whisper needing attention', () => {
+      expect(
+        hasAttentionWorthyWhisper(makeState({ unread: true }), new Map([[OTHER_ID, {}]])),
+      ).toBe(true)
+    })
+
+    test("a read whisper doesn't need attention", () => {
+      expect(hasAttentionWorthyWhisper(makeState(), new Map())).toBe(false)
     })
   })
 })

@@ -5,6 +5,7 @@ import { channelHasUnreadMention, channelNeedsAttention } from '../chat/chat-red
 import { IconButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
+import { hasAttentionWorthyWhisper } from '../whispers/whisper-reducer'
 
 const UnreadIndicator = styled.div<{ $urgent?: boolean }>`
   width: 12px;
@@ -44,7 +45,9 @@ export function SocialSidebarButton({ onClick, icon, isOpen }: SocialSidebarButt
   const hasUnreadChat = useAppSelector(s =>
     s.chat.joinedChannels.values().some(id => channelNeedsAttention(s.chat, id)),
   )
-  const hasUnreadWhispers = useAppSelector(s => s.whispers.byId.values().some(w => w.hasUnread))
+  const hasUnreadWhispers = useAppSelector(s =>
+    hasAttentionWorthyWhisper(s.whispers, s.relationships.blocks),
+  )
   // Whisper unread counts as urgent since a whisper is inherently directed at the current user,
   // matching how the tray's tracked-unread state treats it.
   const hasUrgent = useAppSelector(
