@@ -7,11 +7,12 @@ use crate::bw::{self, Bw};
 
 // 'SBAT'
 pub const PROVIDER_ID: u32 = 0x53424154;
-// NOTE(tec27): The value below is what *Storm* will obey and deal with fragmenting around. We
-// maintain our own max payload size that assumes a larger min-MTU (basically always safe nowadays).
-// We could probably bump this up but I have yet to see a case where Storm hits this max anyway.
-// min-MTU - (rally-point-overhead) - (max-IP-header-size + udp-header-size) - netcode-overhead
-pub const SNP_PAYLOAD_SIZE: u32 = 576 - 13 - (60 + 8) - 23;
+/// The most bytes of commands one local turn can hold. BW flushes the turn it is building as soon
+/// as a command would take it past `min(max_packet_size - 16, 0x200)`, where 0x200 is the size of
+/// its outgoing command buffer and the 16 bytes are Storm's reservation for its own header. Our
+/// SNP never carries Storm's packets (turns go over netcode v2), so it advertises exactly enough
+/// for turns to use the whole buffer.
+const TURN_COMMAND_CAPACITY: u32 = 0x200;
 const STORM_ERROR_NO_MESSAGES_WAITING: u32 = 0x8510006b;
 
 pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
@@ -21,8 +22,7 @@ pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
     // to us. All of the network modes set at least 0x20000000 though, so we'll set it as
     // well.
     unknown1: 0x20000000,
-    // minus 16 because Storm normally does that (overhead?)
-    max_packet_size: SNP_PAYLOAD_SIZE - 16,
+    max_packet_size: TURN_COMMAND_CAPACITY + 16,
     unknown3: 16,
     displayed_player_count: 256,
     // This value is related to timeouts in some way (it's always used alongside

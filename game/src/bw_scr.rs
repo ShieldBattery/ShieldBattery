@@ -421,6 +421,9 @@ struct NetcodeV2Bw {
     receive_storm_turns: VirtualAddress,
     /// PIPE hook target: `flush_local_turns_to_latency_depth(...)`, replaced wholesale.
     flush_local_turns: VirtualAddress,
+    /// `get_outstanding_turn_count(out) -> success`, answered from the turn state in-game. Its only
+    /// in-game caller is `send_command`'s overflow guard (the PIPE, its other caller, is replaced).
+    get_outstanding_turn_count: VirtualAddress,
     /// Native checksum recorder, invoked once per executed network step while sync is active.
     record_turn_sync_slot: VirtualAddress,
     /// Enables native checksum generation after the initialized-game prelude.
@@ -1123,6 +1126,9 @@ fn resolve_netcode_v2(
     let flush_outgoing_command_turn = analysis
         .flush_outgoing_command_turn()
         .ok_or("flush_outgoing_command_turn")?;
+    let get_outstanding_turn_count = analysis
+        .get_outstanding_turn_count()
+        .ok_or("get_outstanding_turn_count")?;
     let apply_pending_player_leaves = analysis
         .apply_pending_player_leaves()
         .ok_or("apply_pending_player_leaves")?;
@@ -1158,6 +1164,7 @@ fn resolve_netcode_v2(
         send_turn_message,
         receive_storm_turns,
         flush_local_turns,
+        get_outstanding_turn_count,
         record_turn_sync_slot,
         sync_active: Value::new(ctx, sync_active),
         sync_slot_index: Value::new(ctx, sync_slot_index),
@@ -2253,6 +2260,19 @@ impl BwScr {
                     address,
                 );
 
+                let address = nc.get_outstanding_turn_count.0 as usize - base;
+                exe.hook_closure_address(
+                    GetOutstandingTurnCount,
+                    move |out, orig| match self.netcode_v2_outstanding_turns() {
+                        Some(count) if !out.is_null() => {
+                            *out = count;
+                            1
+                        }
+                        _ => orig(out),
+                    },
+                    address,
+                );
+
                 let address = nc.record_turn_sync_slot.0 as usize - base;
                 exe.hook_closure_address(
                     RecordTurnSyncSlot,
@@ -3308,6 +3328,19 @@ impl BwScr {
             }
             let nc = &self.netcode_v2;
             let frame = nc.game_frame_count.resolve();
+            if !IN_PIPE_FLUSH.with(|flag| flag.get()) {
+                // `send_command` ends the turn early when a command won't fit in it, which is
+                // native behavior: the turn is complete (one sync record, like any other) and the
+                // pipe sends one fewer later. See `netcode_v2_outstanding_turns` for its cap.
+                static LOGGED: AtomicU32 = AtomicU32::new(0);
+                if LOGGED.fetch_add(1, Ordering::Relaxed) < 20 {
+                    let in_flight = netcode_v2::with_turn_state(|s| s.outstanding_turns());
+                    debug!(
+                        "netcode v2: turn filled before the pipe flush: frame {frame} len {len} \
+                         in_flight {in_flight:?}"
+                    );
+                }
+            }
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
             let sync_ring = if nc.sync_active.resolve() != 0 {
@@ -3558,13 +3591,30 @@ impl BwScr {
             match to_flush {
                 None => false,
                 Some(n) => {
+                    IN_PIPE_FLUSH.with(|flag| flag.set(true));
                     for _ in 0..n {
                         (nc.flush_outgoing_command_turn)();
                     }
+                    IN_PIPE_FLUSH.with(|flag| flag.set(false));
                     true
                 }
             }
         }
+    }
+
+    /// Hook body for `get_outstanding_turn_count`: in-game, the local turns in flight per the turn
+    /// state, standing in for Storm's own count (which goes degenerate once its send/ack sequence
+    /// stops advancing). The count gates `send_command`'s early flush: when a command won't fit in
+    /// the turn being built, BW sends that turn early unless the count is already at
+    /// `16 - builtin_turn_latency`, in which case it drops the command. That cap keeps every sync
+    /// record in flight inside BW's 16-entry checksum ring; past it, peers check records against
+    /// ring entries that have been overwritten and drop this client despite identical sims.
+    /// Returns `None` (let Storm answer) before the game starts or with no turn state.
+    fn netcode_v2_outstanding_turns(&self) -> Option<u32> {
+        if !self.game_started.load(Ordering::Acquire) {
+            return None;
+        }
+        netcode_v2::with_turn_state(|s| s.outstanding_turns())
     }
 
     /// Seeds the turn state's pipe at the lobby→game transition. The lobby is gated native, so nothing
@@ -7175,6 +7225,9 @@ mod hooks {
         // strings, expected game id/version, host net key, advertise value — are opaque here and are
         // passed through verbatim to the original on the native (unseeded) path.
         !0 => StormJoinGame(usize, usize, usize, *mut u32, usize, usize, usize, usize, usize) -> u32;
+        // Storm's `get_outstanding_turn_count(out)`, stdcall with 1 arg (retn 4 on x86). Returns
+        // nonzero on success; zero makes the caller report a network error and leave the game.
+        !0 => GetOutstandingTurnCount(*mut u32) -> u32;
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
@@ -7519,4 +7572,10 @@ mod tests {
             assert!(BwPlayerId(game_player_id_for_slot(slot)).is_observer());
         }
     }
+}
+
+thread_local! {
+    /// Set while the PIPE replacement is the one asking BW to flush turns, so a turn send that
+    /// arrives on the OUT hook from any other native path can be told apart and logged.
+    static IN_PIPE_FLUSH: Cell<bool> = const { Cell::new(false) };
 }
