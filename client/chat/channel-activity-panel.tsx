@@ -82,11 +82,11 @@ export interface GameActivityEntry {
   map: ChannelActivityData['liveGames'][number]['map']
 }
 
-/** The channel's members: anyone in its active, idle or offline set counts. */
-type ChannelMembers = ReadonlyDeep<Pick<UsersState, 'active' | 'idle' | 'offline'>>
+/** The channel's members: anyone in its active or offline set counts. */
+type ChannelMembers = ReadonlyDeep<Pick<UsersState, 'active' | 'offline'>>
 
 function isMember(users: ChannelMembers, userId: SbUserId): boolean {
-  return users.active.has(userId) || users.idle.has(userId) || users.offline.has(userId)
+  return users.active.has(userId) || users.offline.has(userId)
 }
 
 interface DerivedActivity {
@@ -166,7 +166,7 @@ const EntryList = styled.div`
 `
 
 // Same inset as the roster's group headers: 8px margin + 8px padding, so the label lines up with
-// "Active" / "Idle" below and the panel's scrollbar sits on the same edge as the roster's.
+// "Active" below and the panel's scrollbar sits on the same edge as the roster's.
 const panelHeader = css`
   ${labelMedium};
   ${singleLine};

@@ -12,7 +12,7 @@ import { LocalStrong } from '../local-strong'
 import { resolveTarget } from './user-card'
 
 /** How present a user is in one channel, as that channel's member list has it. */
-type ChannelPresence = 'active' | 'idle' | 'offline'
+type ChannelPresence = 'active' | 'offline'
 
 interface ChannelPresenceEntry {
   channelId: SbChannelId
@@ -29,8 +29,6 @@ function getPresenceWord(presence: ChannelPresence, t: TFunction): string {
   switch (presence) {
     case 'active':
       return t('chat.commands.whois.presence.active', 'active')
-    case 'idle':
-      return t('chat.commands.whois.presence.idle', 'idle')
     case 'offline':
       return t('chat.commands.whois.presence.offline', 'offline')
     default:
@@ -172,8 +170,6 @@ export const whoisCommand = defineCommand({
 
           if (users.active.has(target.id)) {
             entries.push({ channelId, presence: 'active' })
-          } else if (users.idle.has(target.id)) {
-            entries.push({ channelId, presence: 'idle' })
           } else if (users.offline.has(target.id)) {
             entries.push({ channelId, presence: 'offline' })
           }

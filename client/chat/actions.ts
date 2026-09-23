@@ -11,7 +11,7 @@ import {
   ChatPermissionsChangedEvent,
   ChatPreferencesChangedEvent,
   ChatUserActiveEvent,
-  ChatUserIdleEvent,
+  ChatUserAvailabilityEvent,
   ChatUserOfflineEvent,
   ChatUserProfileChangedEvent,
   GetBatchedChannelInfosResponse,
@@ -69,7 +69,7 @@ export type ChatActions =
   | UpdateMessage
   | UpdateMessageDeleted
   | UpdateUserActive
-  | UpdateUserIdle
+  | UpdateUserAvailability
   | UpdateUserOffline
   | UpdateSelfPreferences
   | UpdateSelfPermissions
@@ -583,7 +583,7 @@ export interface InitActiveUsers {
 }
 
 /**
- * A user in one of our chat channels has become active (non-idle and online).
+ * A user in one of our chat channels has become active (online).
  */
 export interface UpdateUserActive {
   type: '@chat/updateUserActive'
@@ -591,12 +591,10 @@ export interface UpdateUserActive {
   meta: { channelId: SbChannelId }
 }
 
-/**
- * A user in one of our chat channels has become idle (still online, but not active).
- */
-export interface UpdateUserIdle {
-  type: '@chat/updateUserIdle'
-  payload: ChatUserIdleEvent
+/** The availability of an online user in one of our chat channels has changed. */
+export interface UpdateUserAvailability {
+  type: '@chat/updateUserAvailability'
+  payload: ChatUserAvailabilityEvent
   meta: { channelId: SbChannelId }
 }
 

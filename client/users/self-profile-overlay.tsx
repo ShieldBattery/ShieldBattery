@@ -5,8 +5,10 @@ import { Avatar } from '../avatars/avatar'
 import { Popover, PopoverProps, useElemAnchorPosition } from '../material/popover'
 import { bodyMedium, singleLine, titleLarge } from '../styles/typography'
 
+// A fixed width keeps the popover from resizing as its contents change (e.g. a check mark moving to
+// a longer row, or a text field gaining its clear button); anything too long truncates instead.
 const PopoverContents = styled.div`
-  min-width: 240px;
+  width: 280px;
 `
 
 const Header = styled.div`
@@ -25,6 +27,7 @@ const StyledAvatar = styled(Avatar)`
 const Username = styled.div`
   ${titleLarge};
   ${singleLine};
+  max-width: calc(100% - 32px);
 `
 
 const Actions = styled.div`

@@ -87,12 +87,20 @@ const CornerBadge = styled(StaffBadge)`
  * one (bottom-right is reserved for presence status). Renders a plain avatar for everyone else.
  * Size it by setting width/height via `className` — the badge scales with it.
  */
-export function StaffBadgedAvatar({ userId, className }: { userId: SbUserId; className?: string }) {
+export function StaffBadgedAvatar({
+  userId,
+  className,
+  showAvailability,
+}: {
+  userId: SbUserId
+  className?: string
+  showAvailability?: boolean
+}) {
   const hasStaffBadge = useAppSelector(s => s.users.byId.get(userId)?.staffBadge ?? false)
 
   return (
     <BadgedAvatarRoot className={className}>
-      <FillingAvatar userId={userId} />
+      <FillingAvatar userId={userId} showAvailability={showAvailability} />
       {hasStaffBadge ? <CornerBadge /> : null}
     </BadgedAvatarRoot>
   )

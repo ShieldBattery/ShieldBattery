@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbChannelId } from '../../common/chat'
 import { RolledOutcome } from '../../common/rolled-outcomes'
+import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
+import { UserAvailability } from '../../common/users/availability'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { type WhisperMessageEvent, WhisperMessageType } from '../../common/whispers'
 import { registerDispatch } from '../dispatch-registry'
@@ -50,6 +52,8 @@ interface WhisperCase {
   quietWhispersWhileInGame?: boolean
   /** The account's `showWhispersEverywhere` setting. Defaults to `true`. */
   showWhispersEverywhere?: boolean
+  /** The account's `availability`. Defaults to online. */
+  availability?: UserAvailability
   /** Whether the message should alert: the attention IPC plus the alert sound. */
   alerts: boolean
   /** The surface last on screen, which is where an echo goes. Defaults to a chat channel. */
@@ -114,6 +118,24 @@ describe('whisper message echoes', () => {
       fromSelf: false,
       blocked: false,
       inGame: false,
+      alerts: true,
+      echoed: true,
+      becomesReplyTarget: true,
+    },
+    {
+      name: 'in do not disturb, a message is recorded and echoed but does not alert',
+      fromSelf: false,
+      blocked: false,
+      availability: UserAvailability.DoNotDisturb,
+      alerts: false,
+      echoed: true,
+      becomesReplyTarget: true,
+    },
+    {
+      name: 'while away, a message alerts as usual',
+      fromSelf: false,
+      blocked: false,
+      availability: UserAvailability.Away,
       alerts: true,
       echoed: true,
       becomesReplyTarget: true,
@@ -184,9 +206,10 @@ describe('whisper message echoes', () => {
       relationships: { blocks: new Map(options.blocked ? [[sender.id, {}]] : []) },
       settings: {
         account: {
-          quietChannelsWhileInGame: true,
+          ...DEFAULT_ACCOUNT_SETTINGS,
           quietWhispersWhileInGame: options.quietWhispersWhileInGame ?? true,
           showWhispersEverywhere: options.showWhispersEverywhere ?? true,
+          availability: options.availability ?? UserAvailability.Online,
         },
       },
       gameClient: {

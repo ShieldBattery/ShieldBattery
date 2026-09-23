@@ -8,6 +8,7 @@ import {
   makeSbChannelId,
 } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { UserAvailability } from '../../common/users/availability'
 import { isInActiveGame } from '../active-game/game-client-reducer'
 import { AvailableSound, audioManager } from '../audio/audio-manager'
 import { Dispatchable, dispatch } from '../dispatch-registry'
@@ -118,14 +119,16 @@ const eventToChatAction: EventToChatActionMap = {
         !isSelfMessage && !isBlocked && event.mentions.some(m => m.id === auth.self!.user.id)
       const preferences = idToSelfPreferences.get(channelId) ?? DEFAULT_CHANNEL_PREFERENCES
       const quietInGame = accountSettings.quietChannelsWhileInGame && isInActiveGame(gameClient)
+      const doNotDisturb = accountSettings.availability === UserAvailability.DoNotDisturb
       // Muting silences everything but a mention; only the `Nothing` level silences mentions too.
-      // While this client is in a game with quiet-while-in-game on, nothing in a channel alerts,
-      // mentions included, since a sound or taskbar flash is most disruptive mid-game; the unread
-      // and mention recording below is unaffected.
+      // While this client is in a game with quiet-while-in-game on, or the user is in do not
+      // disturb, nothing in a channel alerts, mentions included; the unread and mention recording
+      // below is unaffected.
       const shouldAlert =
         !isSelfMessage &&
         !isBlocked &&
         !quietInGame &&
+        !doNotDisturb &&
         preferences.notificationLevel !== ChannelNotificationLevel.Nothing &&
         (isMention ||
           (preferences.notificationLevel === ChannelNotificationLevel.All && !preferences.muted))
@@ -177,9 +180,9 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
-  userIdle2(channelId, event) {
+  userAvailability(channelId, event) {
     return {
-      type: '@chat/updateUserIdle',
+      type: '@chat/updateUserAvailability',
       payload: event,
       meta: { channelId },
     }

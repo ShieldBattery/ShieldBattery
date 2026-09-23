@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { singleton } from 'tsyringe'
 import {
   AccountSettings,
@@ -15,12 +16,19 @@ export function getAccountSettingsPath(userId: SbUserId): string {
   return urlPath`/account-settings/${userId}`
 }
 
+type AccountSettingsServiceEvents = {
+  /** A user's settings were changed; `settings` is their complete settings after the change. */
+  change: [userId: SbUserId, settings: AccountSettings]
+}
+
 @singleton()
-export class AccountSettingsService {
+export class AccountSettingsService extends EventEmitter<AccountSettingsServiceEvents> {
   constructor(
     private publisher: TypedPublisher<AccountSettingsEvent>,
     private userSocketsManager: UserSocketsManager,
   ) {
+    super()
+
     userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<AccountSettingsEvent>(
         getAccountSettingsPath(userSockets.userId),
@@ -50,6 +58,7 @@ export class AccountSettingsService {
     const settings = fillAccountSettingsDefaults(stored)
     // Reaches every socket the user has open, including the one that made the change.
     this.publisher.publish(getAccountSettingsPath(userId), { action: 'update', settings })
+    this.emit('change', userId, settings)
     return settings
   }
 }

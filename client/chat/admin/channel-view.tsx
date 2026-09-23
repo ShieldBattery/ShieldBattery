@@ -530,7 +530,7 @@ export function AdminChannelView({
                     refreshToken={channelInfo.id}
                     MessageComponent={ChannelMessage}
                   />
-                  <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
+                  <StyledUserList active={sortedActiveUserIds} offline={[]} />
                 </ChannelContainer>
               </ChatContext.Provider>
             </AdminChannelInfoContext.Provider>

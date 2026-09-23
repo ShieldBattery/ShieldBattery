@@ -55,6 +55,7 @@ import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
 import { LiveUsersContext, useLiveUserIds } from './twitch/live-state'
 import { navigateToUserProfile } from './users/action-creators'
+import { AvailabilityPicker } from './users/availability-picker'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
 
 const ALT_A = { keyCode: keycode('a'), altKey: true }
@@ -508,6 +509,7 @@ const UserButton = styled.button`
   gap: 8px;
 
   background-color: var(--theme-primary-container);
+  --availability-dot-ring: var(--theme-primary-container);
   border-radius: 8px;
   color: var(--theme-on-primary-container);
 
@@ -586,7 +588,7 @@ function AppBarUser({
       data-testid='app-bar-user-button'
       aria-label={t('navigation.bar.userMenu', 'User menu')}>
       <UserButtonAvatarContainer>
-        <UserButtonAvatar userId={user.id} />
+        <UserButtonAvatar userId={user.id} showAvailability={true} />
       </UserButtonAvatarContainer>
       <UserButtonNameAndTitle>
         <Tooltip
@@ -666,6 +668,8 @@ function AppBar({
             anchor={profileEntryElem}
             username={selfUser?.name ?? ''}
             avatarUrl={selfUser?.avatarUrl}>
+            <AvailabilityPicker />
+            <Divider />
             <MenuItem
               icon={<MaterialIcon icon='account_box' />}
               text={t('navigation.leftNav.viewProfile', 'View profile')}

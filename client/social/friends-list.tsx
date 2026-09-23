@@ -634,7 +634,7 @@ function FriendEntry({
         onClick={onClick}
         onContextMenu={onContextMenu}>
         <AvatarContainer>
-          <StyledAvatar userId={userId} />
+          <StyledAvatar userId={userId} showAvailability={true} />
         </AvatarContainer>
         {user ? (
           <NameBlock>

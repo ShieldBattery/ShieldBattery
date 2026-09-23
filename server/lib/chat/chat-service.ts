@@ -42,6 +42,7 @@ import { subtract } from '../../../common/data-structures/sets'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
+import { AvailabilityInfo, isDefaultAvailabilityInfo } from '../../../common/users/availability'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -59,6 +60,7 @@ import { outcomeField } from '../messaging/outcome-field'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { rollOutcome } from '../messaging/roll-outcome'
 import NotificationService from '../notifications/notification-service'
+import { AvailabilityService } from '../users/availability-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { findConnectedUsers } from '../users/user-identifiers'
@@ -148,6 +150,7 @@ export default class ChatService {
     private imageService: ImageService,
     private restrictionService: RestrictionService,
     private notificationService: NotificationService,
+    private availabilityService: AvailabilityService,
   ) {
     userSocketsManager
       .on('newUser', userSockets => {
@@ -156,6 +159,24 @@ export default class ChatService {
         )
       })
       .on('userQuit', userId => this.handleUserQuit(userId))
+
+    availabilityService.on('change', (userId, availability, prev) => {
+      // Channels assume the default for a user they've heard nothing else about, so a user coming
+      // online with the default has nothing to announce.
+      if (!prev && isDefaultAvailabilityInfo(availability)) {
+        return
+      }
+
+      // A user whose channel list is still loading isn't in `users` yet; their `userActive2`
+      // carries the availability once it has loaded.
+      for (const channelId of this.state.users.get(userId)?.values() ?? []) {
+        this.publisher.publish(getChannelPath(channelId), {
+          action: 'userAvailability',
+          userId,
+          availability,
+        })
+      }
+    })
   }
 
   async getJoinedChannels(userId: SbUserId): Promise<InitialChannelData[]> {
@@ -203,6 +224,7 @@ export default class ChatService {
     this.publisher.publish(getChannelPath(channelId), {
       action: 'join2',
       user: userInfo,
+      availability: this.getNonDefaultAvailability(userInfo.id),
       message: {
         id: message.msgId,
         type: ServerChatMessageType.JoinChannel,
@@ -1630,6 +1652,15 @@ export default class ChatService {
     }
   }
 
+  /**
+   * Returns a user's availability for sending to channel members, who assume the default when it's
+   * omitted.
+   */
+  private getNonDefaultAvailability(userId: SbUserId): AvailabilityInfo | undefined {
+    const availability = this.availabilityService.get(userId)
+    return availability && !isDefaultAvailabilityInfo(availability) ? availability : undefined
+  }
+
   private getUserSockets(userId: SbUserId): UserSocketsGroup {
     const userSockets = this.userSocketsManager.getById(userId)
     if (!userSockets) {
@@ -1640,10 +1671,18 @@ export default class ChatService {
   }
 
   private subscribeUserToChannel(userSockets: UserSocketsGroup, channelId: SbChannelId) {
-    userSockets.subscribe<ChatInitActiveUsersEvent>(getChannelPath(channelId), () => ({
-      action: 'initActiveUsers',
-      activeUserIds: this.state.channels.get(channelId)?.toArray() ?? [],
-    }))
+    userSockets.subscribe<ChatInitActiveUsersEvent>(getChannelPath(channelId), () => {
+      const activeUserIds = this.state.channels.get(channelId)?.toArray() ?? []
+      const availabilities: ChatInitActiveUsersEvent['availabilities'] = []
+      for (const userId of activeUserIds) {
+        const availability = this.getNonDefaultAvailability(userId)
+        if (availability) {
+          availabilities.push({ userId, ...availability })
+        }
+      }
+
+      return { action: 'initActiveUsers', activeUserIds, availabilities }
+    })
     userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
   }
 
@@ -1691,6 +1730,7 @@ export default class ChatService {
       this.publisher.publish(getChannelPath(userChannel.channelId), {
         action: 'userActive2',
         userId: userSockets.userId,
+        availability: this.getNonDefaultAvailability(userSockets.userId),
       })
       this.subscribeUserToChannel(userSockets, userChannel.channelId)
     }

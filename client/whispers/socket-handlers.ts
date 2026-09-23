@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { UserAvailability } from '../../common/users/availability'
 import { WhisperEvent, WhisperUserEvent } from '../../common/whispers'
 import { isInActiveGame } from '../active-game/game-client-reducer'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
@@ -53,11 +54,13 @@ const eventToAction: EventToActionMap = {
       const isSelfMessage = event.message.from === self.user.id
       const isBlocked = blocks.has(event.message.from)
       const windowFocused = windowFocus.isFocused()
-      // While this client is in a game with the whisper quiet setting on, a whisper neither
-      // sounds nor asks for attention, since that is exactly when an interruption hurts most; the
-      // unread recording in the `@whispers/updateMessage` dispatch below is unaffected.
-      const quietInGame = accountSettings.quietWhispersWhileInGame && isInActiveGame(gameClient)
-      if (!isSelfMessage && !isBlocked && !quietInGame) {
+      // While this client is in a game with the whisper quiet setting on, or the user is in do not
+      // disturb, a whisper neither sounds nor asks for attention; the unread recording in the
+      // `@whispers/updateMessage` dispatch below is unaffected.
+      const quiet =
+        accountSettings.availability === UserAvailability.DoNotDisturb ||
+        (accountSettings.quietWhispersWhileInGame && isInActiveGame(gameClient))
+      if (!isSelfMessage && !isBlocked && !quiet) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
           urgent: true,
@@ -73,8 +76,8 @@ const eventToAction: EventToActionMap = {
       })
 
       // A blocked sender's whisper is silent everywhere: it's not echoed, and it doesn't become
-      // the `/reply` target. Quiet-while-in-game only holds back sound/attention above, so it
-      // plays no part in either decision here.
+      // the `/reply` target. Quieting only holds back sound/attention above, so it plays no part
+      // in either decision here.
       if (!isSelfMessage && !isBlocked) {
         jotaiStore.set(lastWhisperSenderAtom, from)
       }
@@ -110,7 +113,7 @@ const eventToAction: EventToActionMap = {
         return
       }
 
-      if (!isSelfMessage && !isBlocked && !quietInGame && (!session.activated || !windowFocused)) {
+      if (!isSelfMessage && !isBlocked && !quiet && (!session.activated || !windowFocused)) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

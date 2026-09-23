@@ -543,7 +543,6 @@
         "online": "<0><0></0></0> is online.",
         "presence": {
           "active": "active",
-          "idle": "idle",
           "offline": "offline"
         },
         "self": "You are <2><0></0></2>.",
@@ -868,7 +867,6 @@
     },
     "userList": {
       "active": "Active",
-      "idle": "Idle",
       "loadFailed": "Couldn't load the user list",
       "offline": "Offline"
     },
@@ -2857,6 +2855,15 @@
       "punishments": {
         "title": "Punishments"
       }
+    },
+    "availability": {
+      "away": "Away",
+      "doNotDisturb": "Do not disturb",
+      "doNotDisturbDescription": "Mutes message sounds and alerts",
+      "online": "Online",
+      "pickerLabel": "Availability",
+      "statusMessage": "Status message",
+      "withMessage": "{{availability}}: {{message}}"
     },
     "card": {
       "loadError": "Couldn't load this user's profile.",

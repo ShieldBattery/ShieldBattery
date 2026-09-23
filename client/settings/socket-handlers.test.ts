@@ -1,6 +1,9 @@
 import type { NydusClient } from 'nydus-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { AccountSettingsUpdateEvent } from '../../common/settings/account-settings'
+import {
+  AccountSettingsUpdateEvent,
+  DEFAULT_ACCOUNT_SETTINGS,
+} from '../../common/settings/account-settings'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { registerDispatch } from '../dispatch-registry'
 import registerModule from './socket-handlers'
@@ -27,11 +30,7 @@ describe('account settings updates', () => {
 
     const event: AccountSettingsUpdateEvent = {
       action: 'update',
-      settings: {
-        quietChannelsWhileInGame: false,
-        quietWhispersWhileInGame: true,
-        showWhispersEverywhere: true,
-      },
+      settings: { ...DEFAULT_ACCOUNT_SETTINGS, quietChannelsWhileInGame: false },
     }
     receive({ params: { userId: String(USER_ID) } }, event)
 

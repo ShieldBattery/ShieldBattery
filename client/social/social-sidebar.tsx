@@ -104,6 +104,7 @@ const rootCss = css`
   flex-direction: column;
 
   background-color: var(--theme-container-lowest);
+  --availability-dot-ring: var(--theme-container-lowest);
   border-radius: 12px 0 0 12px;
   overflow-x: hidden;
 `
@@ -684,7 +685,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
       <Entry
         link={urlForWhisper(userId, username ?? '')}
         button={button}
-        icon={<ConnectedAvatar userId={userId} />}
+        icon={<ConnectedAvatar userId={userId} showAvailability={true} />}
         trailing={<WhisperActivityGlyph userId={userId} />}
         needsAttention={hasUnread}
         urgentAttention={hasUnread}

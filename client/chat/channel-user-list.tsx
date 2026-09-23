@@ -28,6 +28,7 @@ const UserListContainer = styled.div`
   contain: content;
 
   background-color: var(--theme-container-low);
+  --availability-dot-ring: var(--theme-container-low);
   border-radius: 8px;
 `
 
@@ -172,7 +173,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         $isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <StyledAvatar userId={props.userId} />
+        <StyledAvatar userId={props.userId} showAvailability={true} />
         {user ? (
           <NameBlock>
             <NameLine>{user.name}</NameLine>
@@ -223,7 +224,6 @@ function computeRowKey(_index: number, row: UserListRowData): React.Key {
 
 interface UserListProps {
   active: SbUserId[]
-  idle: SbUserId[]
   offline: SbUserId[]
   /**
    * Whether the last request for the channel's members failed. What the roster below the error row
@@ -237,7 +237,7 @@ interface UserListProps {
 }
 
 export const UserList = React.memo((props: UserListProps) => {
-  const { active, idle, offline, loadError, onRetryLoad, className } = props
+  const { active, offline, loadError, onRetryLoad, className } = props
   const { t } = useTranslation()
   const liveUserIds = useLiveUserIds()
 
@@ -257,21 +257,6 @@ export const UserList = React.memo((props: UserListProps) => {
       })),
     )
 
-    if (idle.length) {
-      result.push({
-        type: UserListRowType.Header,
-        label: t('chat.userList.idle', 'Idle'),
-        count: idle.length,
-      })
-      result = result.concat(
-        idle.map(userId => ({
-          type: UserListRowType.Faded,
-          userId,
-          isLive: liveUserIds.has(userId),
-        })),
-      )
-    }
-
     if (offline.length) {
       result.push({
         type: UserListRowType.Header,
@@ -288,7 +273,7 @@ export const UserList = React.memo((props: UserListProps) => {
     }
 
     return result
-  }, [active, idle, offline, liveUserIds, t])
+  }, [active, offline, liveUserIds, t])
 
   const renderRow = useCallback((index: number, row: UserListRowData) => {
     if (row.type === UserListRowType.Header) {

@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { labelSmall } from '../styles/typography'
 import { LiveUsersContext } from '../twitch/live-state'
 import { getBatchUserInfo } from '../users/action-creators'
+import { AvailabilityDot } from '../users/availability'
 import PlaceholderIcon from './avatar-placeholder.svg?react'
 import { randomColorForString } from './colors'
 
@@ -92,9 +93,20 @@ export interface AvatarProps {
   live?: boolean
   /** Native tooltip text shown while `live`, explaining what the treatment means. */
   liveTitle?: string
+  /** Rendered over the avatar, inside its positioned root (e.g. a corner indicator). */
+  children?: React.ReactNode
 }
 
-export function Avatar({ image, user, color, glowing, className, live, liveTitle }: AvatarProps) {
+export function Avatar({
+  image,
+  user,
+  color,
+  glowing,
+  className,
+  live,
+  liveTitle,
+  children,
+}: AvatarProps) {
   const { t } = useTranslation()
 
   let contents
@@ -122,6 +134,7 @@ export function Avatar({ image, user, color, glowing, className, live, liveTitle
     <AvatarRoot className={className} $live={live} title={live ? liveTitle : undefined}>
       {contents}
       {live ? <LiveTag aria-hidden={true}>{t('twitch.live.badge', 'Live')}</LiveTag> : null}
+      {children}
     </AvatarRoot>
   )
 }
@@ -144,12 +157,18 @@ export interface ConnectedAvatarProps {
    * hover card, which draw their own ring + badge).
    */
   showLiveIndicator?: boolean
+  /**
+   * Whether to show the user's availability as a dot on the avatar's bottom-right corner, when it's
+   * known. Meant for surfaces that present a user's presence (friends, channel members, profiles).
+   */
+  showAvailability?: boolean
 }
 
 export function ConnectedAvatar({
   userId,
   className,
   showLiveIndicator = true,
+  showAvailability = false,
 }: ConnectedAvatarProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -171,8 +190,9 @@ export function ConnectedAvatar({
         image={avatarUrl}
         className={className}
         live={isLive}
-        liveTitle={t('twitch.live.avatarTooltip', 'Live on Twitch')}
-      />
+        liveTitle={t('twitch.live.avatarTooltip', 'Live on Twitch')}>
+        {showAvailability ? <AvailabilityDot userId={userId} /> : null}
+      </Avatar>
     )
   }
 }

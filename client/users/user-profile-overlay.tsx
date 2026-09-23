@@ -42,6 +42,7 @@ import {
   navigateToUserProfileWithExpandedRanks,
   viewUserProfile,
 } from './action-creators'
+import { AvailabilityDot, StatusMessageLine } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { StaffBadge } from './staff-badge'
 
@@ -287,6 +288,7 @@ export function UserProfileOverlayContents({
             <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
           {user?.staffBadge ? <ProfileStaffBadge /> : null}
+          <AvailabilityDot userId={userId} />
           <ViewProfileHover>
             {t('users.profileOverlay.viewProfile', 'View profile')}
           </ViewProfileHover>
@@ -301,6 +303,7 @@ export function UserProfileOverlayContents({
         </UsernameAndTitle>
       </IdentityArea>
       <FriendActivityStatusLine userId={userId} />
+      <StatusMessageLine userId={userId} />
       {liveStream ? (
         <LiveWatchRow
           twitchLogin={liveStream.twitchLogin}

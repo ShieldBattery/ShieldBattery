@@ -21,7 +21,7 @@ export interface ChannelCommandContext {
   channelId: SbChannelId
   selfUserId: SbUserId
   /**
-   * Every member the client knows of (online, idle or offline). Targets typed into commands resolve
+   * Every member the client knows of (online or offline). Targets typed into commands resolve
    * against this list to a confirmed id; a name not on it is an error, never a guess.
    */
   members: ReadonlyArray<CommandUserEntry>

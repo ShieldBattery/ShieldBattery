@@ -133,7 +133,6 @@ function makeState(
         CHANNEL_ID,
         {
           active: new Set<SbUserId>(),
-          idle: new Set<SbUserId>(),
           offline: new Set<SbUserId>(),
           hasLoadedUserList: false,
           loadingUserList: false,

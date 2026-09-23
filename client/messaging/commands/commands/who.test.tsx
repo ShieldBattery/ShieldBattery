@@ -88,11 +88,9 @@ const channelContext: ChannelCommandContext = {
 
 function makeState({
   active = [],
-  idle = [],
   offline = [],
 }: {
   active?: ReturnType<typeof makeSbUserId>[]
-  idle?: ReturnType<typeof makeSbUserId>[]
   offline?: ReturnType<typeof makeSbUserId>[]
 } = {}) {
   return {
@@ -108,7 +106,6 @@ function makeState({
           FOO_ID,
           {
             active: new Set(active),
-            idle: new Set(idle),
             offline: new Set(offline),
             hasLoadedUserList: true,
             loadingUserList: false,
@@ -176,8 +173,8 @@ describe('messaging/commands/commands/who', () => {
   test('names who is around and counts who is not', () => {
     const { emit } = runInput(
       '/who foo',
-      // bob is active and Alice is only idle, so despite the name ordering, bob is named first.
-      makeState({ active: [BOB], idle: [ALICE], offline: [CAROL] }),
+      // Named online users are sorted by name regardless of join order.
+      makeState({ active: [BOB, ALICE], offline: [CAROL] }),
     )
 
     expect(emit).not.toHaveBeenCalled()
@@ -187,16 +184,15 @@ describe('messaging/commands/commands/who', () => {
 
     expect(emit.mock.calls[0][0].kind).toBe('info')
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
-      'Users in #foo (2 online, 1 offline): bob, Alice',
+      'Users in #foo (2 online, 1 offline): Alice, bob',
     )
   })
 
-  test('active members are named before idle ones, and only the first few are named', () => {
+  test('online members are named by sorted order, and only the first few are named', () => {
     const { emit } = runInput(
       '/who foo',
       makeState({
-        active: [BOB, ALICE],
-        idle: [CAROL, DAVE, EVE, FRANK, GRACE],
+        active: [BOB, ALICE, CAROL, DAVE, EVE, FRANK, GRACE],
       }),
     )
 
@@ -208,10 +204,7 @@ describe('messaging/commands/commands/who', () => {
   })
 
   test('exactly as many online as fit are all named', () => {
-    const { emit } = runInput(
-      '/who foo',
-      makeState({ active: [BOB, ALICE], idle: [CAROL, DAVE, EVE] }),
-    )
+    const { emit } = runInput('/who foo', makeState({ active: [BOB, ALICE, CAROL, DAVE, EVE] }))
 
     asMockedFunction(retrieveUserList).mock.calls[0][1].onSuccess(undefined)
 

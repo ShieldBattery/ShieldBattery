@@ -1,4 +1,5 @@
 import type { NydusClient, RouteInfo } from 'nydus-client'
+import { AvailabilityUpdateEvent } from '../../common/users/availability'
 import {
   FriendActivityStatusUpdateEvent,
   UserRelationshipEvent,
@@ -50,6 +51,16 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     (route: RouteInfo, event: FriendActivityStatusUpdateEvent) => {
       dispatch({
         type: '@users/updateFriendActivityStatus',
+        payload: event,
+      })
+    },
+  )
+
+  siteSocket.registerRoute(
+    '/availability/:userId',
+    (route: RouteInfo, event: AvailabilityUpdateEvent) => {
+      dispatch({
+        type: '@users/updateFriendAvailability',
         payload: event,
       })
     },

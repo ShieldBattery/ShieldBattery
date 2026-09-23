@@ -24,6 +24,7 @@ import {
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { ActivityStatusService, getFriendActivityStatusPath } from './activity-status-service'
+import { createFakeAvailabilityService } from './testing/availability-service'
 import { UserRelationshipService, getRelationshipsPath } from './user-relationship-service'
 
 function clearFakeDb() {
@@ -388,6 +389,7 @@ describe('users/user-relationship-service', () => {
       userSocketsManager,
       notificationService,
       activityStatusService,
+      createFakeAvailabilityService(),
     )
     connector = new NydusConnector(nydus, sessionLookup)
 
