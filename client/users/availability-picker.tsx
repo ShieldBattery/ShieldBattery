@@ -33,8 +33,9 @@ const CheckIcon = styled(MaterialIcon)`
   color: var(--theme-on-surface-variant);
 `
 
+// Lines the field's edges up with the menu items' highlight above it
 const MessageField = styled(TextField)`
-  margin: 4px 12px 0;
+  margin: 4px 4px 0;
 `
 
 /**
@@ -85,7 +86,7 @@ export function AvailabilityPicker() {
               ? t('users.availability.doNotDisturbDescription', 'Mutes message sounds and alerts')
               : undefined
           }
-          trailingContent={a === availability ? <CheckIcon icon='check' size={20} /> : undefined}
+          trailingContent={a === availability ? <CheckIcon icon='check' /> : undefined}
           testName={`availability-${a}`}
           onClick={() => {
             if (a !== availability) {
