@@ -344,6 +344,12 @@ interface IpcInvokeables {
   /** Settles an in-flight `twitchOauthFlow` early, as if the user had declined. */
   twitchOauthFlowCancel: () => void
 
+  /**
+   * Returns whether the user has gone without input to their computer long enough to count as
+   * idle (or has locked their screen). Changes are sent as `userIdleChanged`.
+   */
+  userIdleGetState: () => boolean
+
   windowGetStatus: () => Promise<{ focused: boolean; maximized: boolean }>
 }
 
@@ -434,6 +440,9 @@ interface IpcMainSendables {
   updaterNewVersionDownloaded: () => void
   updaterNewVersionFound: () => void
   updaterUpToDate: () => void
+
+  /** Sent whenever the user becomes idle or comes back (see `userIdleGetState`). */
+  userIdleChanged: (idle: boolean) => void
 
   /** Sent when the window is focused or unfocused. */
   windowFocusChanged: (focused: boolean) => void

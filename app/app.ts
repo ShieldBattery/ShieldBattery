@@ -1,6 +1,16 @@
 import { ZipArchive } from 'archiver'
 import crypto from 'crypto'
-import { app, BrowserWindow, dialog, Menu, protocol, screen, Session, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  powerMonitor,
+  protocol,
+  screen,
+  Session,
+  shell,
+} from 'electron'
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
@@ -43,6 +53,7 @@ import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
+import { DEFAULT_IDLE_THRESHOLD_MS, UserIdleWatcher } from './user-idle-watcher'
 
 const collectPromise = import('./security/client').then(m => m.collect)
 /** Resolves to `undefined` unless the build configured an implementation to prefer. */
@@ -992,6 +1003,23 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       latencies,
     )
   })
+
+  const userIdleWatcher = new UserIdleWatcher(powerMonitor, getIdleThresholdMs())
+  ipcMain.handle('userIdleGetState', () => userIdleWatcher.isIdle())
+  userIdleWatcher.on('change', idle => {
+    TypedIpcSender.from(mainWindow?.webContents).send('userIdleChanged', idle)
+  })
+  userIdleWatcher.start()
+}
+
+/**
+ * How long the system has to go without input before the user counts as idle. Development builds
+ * take an override in seconds from `SB_IDLE_THRESHOLD_SECONDS`, so going idle can be tested without
+ * waiting out the full threshold.
+ */
+function getIdleThresholdMs(): number {
+  const overrideSeconds = isDev ? Number(process.env.SB_IDLE_THRESHOLD_SECONDS) : NaN
+  return overrideSeconds > 0 ? overrideSeconds * 1000 : DEFAULT_IDLE_THRESHOLD_MS
 }
 
 /** Origin the renderer's modules are served from while hot-reloading. */

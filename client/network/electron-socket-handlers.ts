@@ -13,6 +13,7 @@ import matchmaking from '../matchmaking/socket-handlers'
 import replays from '../replays/ipc-handlers'
 import settings from '../settings/ipc-handlers'
 import systemBar from '../system-bar/ipc-handlers'
+import idleReporting from '../users/idle-reporting'
 import { SocketHandler, SocketHandlerParams } from './socket-handler'
 
 function gameServerRegionsHandler({ siteSocket, ipcRenderer }: SocketHandlerParams) {
@@ -46,6 +47,7 @@ const electronHandlers: SocketHandler[] = [
   download,
   gameServerRegionsHandler,
   gameServerRegionsIpc,
+  idleReporting,
   lobbies,
   lobbiesIpc,
   matchmaking,

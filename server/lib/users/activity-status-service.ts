@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { singleton } from 'tsyringe'
 import {
   FriendActivityStatus,
@@ -48,6 +49,14 @@ interface InGameActivity {
 
 type Activity = GameplayActivity | InGameActivity
 
+type ActivityStatusServiceEvents = {
+  /**
+   * A user's activity status was published to their friends: they came online, went offline, or
+   * started doing something else.
+   */
+  change: [userId: SbUserId, status: FriendActivityStatus]
+}
+
 /**
  * Tracks what each user is currently doing and publishes changes to their friends. This is the
  * single source of truth for `FriendActivityStatus`: everything that can change it (the gameplay
@@ -55,7 +64,7 @@ type Activity = GameplayActivity | InGameActivity
  * disconnects) routes through here.
  */
 @singleton()
-export class ActivityStatusService {
+export class ActivityStatusService extends EventEmitter<ActivityStatusServiceEvents> {
   private activities = new Map<SbUserId, Activity>()
 
   constructor(
@@ -64,6 +73,8 @@ export class ActivityStatusService {
     clientSocketsManager: ClientSocketsManager,
     private clock: Clock,
   ) {
+    super()
+
     userSocketsManager
       .on('newUser', userSockets => {
         this.publish(userSockets.userId, this.getStatus(userSockets.userId))
@@ -194,6 +205,7 @@ export class ActivityStatusService {
 
   private publish(userId: SbUserId, status: FriendActivityStatus): void {
     this.publisher.publish(getFriendActivityStatusPath(userId), { userId, status })
+    this.emit('change', userId, status)
   }
 }
 
