@@ -160,6 +160,8 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       '/whois [user]',
       '/who <channel>',
       '/whoami',
+      '/away',
+      '/dnd',
       '/f <add|remove|list>',
       '/block <user>',
       '/unblock <user>',
@@ -202,6 +204,7 @@ describe('messaging/commands/command-provider/createCommandNameProvider', () => 
       'command:whois',
       'command:who',
       'command:whoami',
+      'command:away',
     ])
     expect(whisper.insertText).toBe('/whisper ')
     // The alias spells the command out, so Enter sends rather than completing it.

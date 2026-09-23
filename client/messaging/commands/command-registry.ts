@@ -1,4 +1,5 @@
 import { ChatCommand, matchesCommandName } from './command-schema'
+import { awayCommand, dndCommand } from './commands/availability'
 import { blockCommand, unblockCommand } from './commands/block'
 import { cancelCommand } from './commands/cancel'
 import { closeCommand } from './commands/close'
@@ -30,6 +31,8 @@ export const ALL_COMMANDS: ReadonlyArray<ChatCommand> = [
   whoisCommand,
   whoCommand,
   whoamiCommand,
+  awayCommand,
+  dndCommand,
   friendsCommand,
   blockCommand,
   unblockCommand,

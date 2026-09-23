@@ -352,6 +352,13 @@
       "required": "Enter a channel name"
     },
     "commands": {
+      "availability": {
+        "error": "Couldn't change your status: {{errorMessage}}",
+        "set": "Your status is now <1>{{label}}</1>."
+      },
+      "away": {
+        "description": "Sets your status to Away, or back to Online if you are already away."
+      },
       "ban": {
         "description": "Bans a user from this channel.",
         "noPermission": "You don't have permission to ban users from this channel.",
@@ -373,6 +380,9 @@
       "close": {
         "description": "Closes this whisper conversation.",
         "error": "Couldn't close the conversation: {{errorMessage}}"
+      },
+      "dnd": {
+        "description": "Sets your status to Do not disturb (muting message sounds and alerts), or back to Online."
       },
       "eightBall": {
         "description": "Asks the magic 8-ball a question, answered by the server."

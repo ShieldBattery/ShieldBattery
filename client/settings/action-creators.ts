@@ -8,7 +8,6 @@ import {
 import { LocalSettings, ScrSettings } from '../../common/settings/local-settings'
 import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { audioManager } from '../audio/audio-manager'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import { pushCurrentWithState } from '../navigation/routing'
@@ -82,16 +81,6 @@ export function mergeScrSettings(
       )
     }
   })
-}
-
-/** Resets the master `audioManager` volume to the current value in the settings. */
-export function resetMasterVolume(): ThunkAction {
-  return (_, getState) => {
-    const {
-      settings: { local },
-    } = getState()
-    audioManager.setMasterVolume(local.masterVolume)
-  }
 }
 
 /**
