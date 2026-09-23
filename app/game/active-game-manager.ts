@@ -288,6 +288,17 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         ? createBackgroundGameSettings(app.getPath('userData'))
         : undefined
     let processMayBeRunning = false
+    const cleanupBackgroundSettings = async () => {
+      // A failed wait does not prove the process exited; retain its live settings in that case.
+      if (backgroundSettings && !processMayBeRunning) {
+        try {
+          const prepared = await backgroundSettings
+          await prepared.dispose()
+        } catch (err) {
+          log.error(`Error cleaning background game settings: ${getErrorStack(err)}`)
+        }
+      }
+    }
     const activeGamePromise = doLaunch(
       gameId,
       this.serverPort,
@@ -314,16 +325,9 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         },
         err => this.handleGameLaunchError(gameId, err),
       )
-      .finally(async () => {
-        // A failed wait does not prove the process exited; retain its live settings in that case.
-        if (backgroundSettings && !processMayBeRunning) {
-          try {
-            const prepared = await backgroundSettings
-            await prepared.dispose()
-          } catch (err) {
-            log.error(`Error cleaning background game settings: ${getErrorStack(err)}`)
-          }
-        }
+      .then(cleanupBackgroundSettings, async err => {
+        await cleanupBackgroundSettings()
+        throw err
       })
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id

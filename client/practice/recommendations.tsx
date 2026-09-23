@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { BotView } from '../../common/bots/bot-view'
 import {
-  RecommendationBand,
   hasAnyCalibratedBot,
+  RecommendationBand,
   recommendBots,
 } from '../../common/bots/practice-logic'
 import { MatchmakingType } from '../../common/matchmaking'
