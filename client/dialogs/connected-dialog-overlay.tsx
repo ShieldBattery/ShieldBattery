@@ -28,6 +28,21 @@ const EmailVerificationDialog = React.lazy(async () => ({
 const BugReportDialog = React.lazy(async () => ({
   default: (await import('../bugs/bug-report-dialog')).BugReportDialog,
 }))
+const BotDetailsDialog = React.lazy(async () => ({
+  default: (await import('../practice/bot-details-dialog')).BotDetailsDialog,
+}))
+const LocalBuildDialog = React.lazy(async () => ({
+  default: (await import('../practice/local-build-dialog')).LocalBuildDialog,
+}))
+const PracticeLaunchingDialog = React.lazy(async () => ({
+  default: (await import('../practice/practice-launching-dialog')).PracticeLaunchingDialog,
+}))
+const PresetNameDialog = React.lazy(async () => ({
+  default: (await import('../practice/preset-name-dialog')).PresetNameDialog,
+}))
+const PracticeReadinessDialog = React.lazy(async () => ({
+  default: (await import('../practice/readiness-dialogs')).PracticeReadinessDialog,
+}))
 const AdminDeleteChatMessageDialog = React.lazy(async () => ({
   default: (await import('../chat/admin/delete-message-dialog')).AdminDeleteChatMessageDialog,
 }))
@@ -189,6 +204,8 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptableUseDialog }
     case DialogType.AdminDeleteChatMessage:
       return { component: AdminDeleteChatMessageDialog }
+    case DialogType.BotDetails:
+      return { component: BotDetailsDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
     case DialogType.ChangeDisplayName:
@@ -241,6 +258,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndCreateDialog }
     case DialogType.LobbyLeaveAndJoin:
       return { component: LobbyLeaveAndJoinDialog }
+    case DialogType.LocalBuildBot:
+      return { component: LocalBuildDialog }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog }
     case DialogType.MapDownload:
@@ -257,6 +276,12 @@ function getDialog(dialogType: DialogType): {
       return { component: NewsPostSettingsDialog }
     case DialogType.PostMatch:
       return { component: PostMatchDialog }
+    case DialogType.PracticeLaunching:
+      return { component: PracticeLaunchingDialog, modal: true }
+    case DialogType.PracticePresetName:
+      return { component: PresetNameDialog }
+    case DialogType.PracticeReadiness:
+      return { component: PracticeReadinessDialog }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog }
     case DialogType.RemoveUserAvatar:

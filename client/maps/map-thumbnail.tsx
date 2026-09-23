@@ -16,7 +16,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
-import { singleLine, titleMedium } from '../styles/typography'
+import { singleLine, titleMedium, titleSmall } from '../styles/typography'
 import {
   addToFavorites,
   batchGetMapInfo,
@@ -162,6 +162,11 @@ const MapName = styled.div`
   ${titleMedium};
   ${singleLine};
   color: var(--theme-on-surface);
+
+  /* Small tiles keep the name bar but can't fit the medium title face. */
+  @container (max-width: 175px) {
+    ${titleSmall};
+  }
 `
 
 const MapActionButton = styled(IconButton)`

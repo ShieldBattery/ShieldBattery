@@ -15,6 +15,9 @@ export interface LocalSessionSetup {
 /** An explicitly selected, already installed external BWAPI client. */
 export interface LocalBotLaunch {
   id: string
+  /** The name written to the replay for this bot, if the caller wants it to differ from `name`. */
+  replayName?: string
+  /** The name shown in the local game. */
   name: string
   race: Exclude<RaceChar, 'r'>
   executable: string
@@ -27,9 +30,17 @@ export interface LocalBotLaunch {
 export interface LocalGameRequest {
   /** Metadata for a map that is already in the app's local map store. */
   map: MapInfoJson
-  player: { name: string; race: RaceChar }
+  /**
+   * The human. With `observer` set they take an observer seat and watch the bots play each other
+   * (which needs at least two bots); `race` is then ignored.
+   */
+  player: { name: string; race: RaceChar; observer?: boolean }
   bots: LocalBotLaunch[]
-  gameType?: GameType.Melee | GameType.FreeForAll
+  /**
+   * Top vs bottom seats the human alone on the top team against every bot; it needs a playing
+   * human and is launched as free for all otherwise.
+   */
+  gameType?: GameType.Melee | GameType.FreeForAll | GameType.TopVsBottom
 }
 
 export interface LocalGameStatus {

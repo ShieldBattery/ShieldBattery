@@ -32,6 +32,7 @@ import { SbLobbyId } from '../common/lobbies/sb-lobby-id'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
+import { BotLibrary } from './bots/bot-library'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
@@ -156,6 +157,7 @@ let systemTray: SystemTray
 
 let gameServer: GameServer
 let localGameManager: LocalGameManager | undefined
+let botLibrary: BotLibrary | undefined
 let replayLibrary: ReplayLibraryService | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
@@ -811,12 +813,63 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
     return localGameManager
   }
-  ipcMain.handle('localGameStart', (_, request) => {
+  const requireLocalGameSupport = () => {
     if (!isDev) throw new Error('Local BWAPI games require the development game DLL')
+  }
+  ipcMain.handle('localGameStart', (_, request) => {
+    requireLocalGameSupport()
     return getLocalGameManager().start(request)
   })
   ipcMain.handle('localGameStop', () => localGameManager?.stop())
   ipcMain.handle('localGameGetStatus', () => localGameManager?.getStatus())
+
+  // Namespaced by SB_SESSION like the settings and log files: two dev instances sharing one
+  // library would overwrite each other's state and could run one learning profile twice.
+  const sbSessionName = process.env.SB_SESSION
+  botLibrary = new BotLibrary({
+    dataRoot: path.join(getUserDataPath(), sbSessionName ? `bots-${sbSessionName}` : 'bots'),
+    localGameLogsRoot: path.join(app.getPath('userData'), 'logs', 'local-games'),
+    isDev,
+    getLocalGameManager,
+    getParentWindow: () => mainWindow,
+    onChanged: snapshot => {
+      TypedIpcSender.from(mainWindow?.webContents).send('botLibraryChanged', snapshot)
+    },
+    onInstallProgress: progress => {
+      TypedIpcSender.from(mainWindow?.webContents).send('botLibraryInstallProgress', progress)
+    },
+  })
+  const bots = botLibrary
+
+  ipcMain.handle('practiceGameStart', (_, request) => {
+    requireLocalGameSupport()
+    return bots.startPracticeGame(request)
+  })
+  ipcMain.handle('practiceOpenLogs', (_, sessionId) => bots.openLogs(sessionId))
+  ipcMain.handle('practiceStoreLoad', () => bots.loadPracticeStore())
+  ipcMain.handle('practiceStoreSave', (_, data) => bots.savePracticeStore(data))
+
+  ipcMain.handle('botLibraryGet', () => bots.get())
+  ipcMain.handle('botLibraryRefreshCatalog', () => bots.refreshCatalog())
+  ipcMain.handle('botLibraryInstall', (_, botId, releaseId) => bots.install(botId, releaseId))
+  ipcMain.handle('botLibraryCancelInstall', (_, botId) => bots.cancelInstall(botId))
+  ipcMain.handle('botLibraryClearInstallFailure', (_, botId) => bots.clearInstallFailure(botId))
+  ipcMain.handle('botLibraryRemove', (_, botId) => bots.remove(botId))
+  ipcMain.handle('botLibraryAddLocalBuild', (_, spec) => bots.addLocalBuild(spec))
+  ipcMain.handle('botLibraryUpdateLocalBuild', (_, key, spec) => bots.updateLocalBuild(key, spec))
+  ipcMain.handle('botLibraryRemoveLocalBuild', (_, key) => bots.removeLocalBuild(key))
+  ipcMain.handle('botLibraryPickLocalBuild', () => bots.pickLocalBuild())
+  ipcMain.handle('botLibraryPickDirectory', (_, title) => bots.pickDirectory(title))
+  ipcMain.handle('botLibraryPickJava', () => bots.pickJava())
+  ipcMain.handle('botLibraryDetectJava', () => bots.detectJava())
+  ipcMain.handle('botLibrarySetJavaOverride', (_, key, javaPath) =>
+    bots.setJavaOverride(key, javaPath),
+  )
+  ipcMain.handle('botLibraryResetLearning', (_, key) => bots.resetLearning(key))
+  ipcMain.handle('botLibraryReadNotice', (_, botId, noticePath) =>
+    bots.readNotice(botId, noticePath),
+  )
+  ipcMain.handle('botLibraryOpenFolder', (_, key) => bots.openFolder(key))
 
   activeGameManager
     .on('gameStatus', status => {
@@ -862,6 +915,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     )
     ipcMain.handle('activeGameDebugScreenshot', (event, gameId) =>
       activeGameManager.debugScreenshot(gameId),
+    )
+    ipcMain.handle('activeGameDebugLeave', (event, gameId) =>
+      (localGameManager?.getManager(gameId) ?? activeGameManager).debugLeaveGame(gameId),
     )
     ipcMain.handle('activeGameForceUnsyncedLeave', (event, gameId, slot) =>
       activeGameManager.forceGameLeave(gameId, slot),
@@ -995,6 +1051,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('mapStoreDownloadMap', (event, mapHash, mapFormat, mapUrl) =>
     mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
+  ipcMain.handle('mapStoreCheckMaps', (event, maps) => mapStore.checkMaps(maps))
 
   ipcMain.handle('replayStoreGetPath', (event, id, expectedHash) =>
     replayStore.getPathIfExists(id, expectedHash),
@@ -1487,6 +1544,7 @@ app.on('ready', () => {
 
       app.on('will-quit', () => {
         localGameManager?.stop().catch(err => logger.error(String(err)))
+        botLibrary?.shutdown()
         localSettings.saveSettingsToDiskSync()
         scrSettings.saveSettingsToDiskSync()
       })

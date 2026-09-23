@@ -116,6 +116,7 @@ rootElemPromise
         launch: config => new TypedIpcRenderer().invoke('activeGameSetConfig', config),
         queryGameState: gameId =>
           new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
+        leaveGame: gameId => new TypedIpcRenderer().invoke('activeGameDebugLeave', gameId),
         forceUnsyncedLeave: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameForceUnsyncedLeave', gameId, slot),
         forceDesync: gameId => new TypedIpcRenderer().invoke('activeGameForceDesync', gameId),

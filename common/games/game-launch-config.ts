@@ -14,6 +14,8 @@ import { LocalSessionSetup } from './local-game'
 export interface PlayerInfo {
   /** The ID of the player slot, an opaque string. */
   id: string
+  /** An optional local-only name to write for this slot when saving a replay. */
+  replayName?: string
   /** Shieldbattery user ID of the player. Only set for 'human' and 'observer' */
   userId?: SbUserId
   /** The race set for this slot. */

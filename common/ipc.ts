@@ -7,6 +7,15 @@ import type {
   WebContents,
 } from 'electron'
 import { Promisable } from 'type-fest'
+import {
+  BotInstallProgress,
+  BotKey,
+  BotLibrarySnapshot,
+  JavaRuntimeInfo,
+  LocalBuildBot,
+  LocalBuildBotSpec,
+} from './bots/bot-library'
+import { PracticeLaunchRequest, PracticeStoreData } from './bots/practice'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
@@ -95,6 +104,41 @@ interface IpcInvokeables {
   localGameStart: (request: LocalGameRequest) => LocalGameStatus
   localGameStop: () => void
   localGameGetStatus: () => LocalGameStatus | undefined
+  /**
+   * Starts a local practice game from library bots. The main process resolves each bot's files,
+   * runtime and learning profile, leases the bots for the game's duration, and returns the same
+   * status `localGameStart` would.
+   */
+  practiceGameStart: (request: PracticeLaunchRequest) => LocalGameStatus
+  /** Opens the log folder for a local game session (or the practice log root). */
+  practiceOpenLogs: (sessionId?: string) => void
+  practiceStoreLoad: () => PracticeStoreData | undefined
+  practiceStoreSave: (data: PracticeStoreData) => void
+
+  botLibraryGet: () => BotLibrarySnapshot
+  /** Fetches the catalog; failures keep the cached catalog and are reported in the snapshot. */
+  botLibraryRefreshCatalog: () => BotLibrarySnapshot
+  botLibraryInstall: (botId: string, releaseId: string) => void
+  botLibraryCancelInstall: (botId: string) => void
+  botLibraryClearInstallFailure: (botId: string) => void
+  /** Removes an installed catalog release. Learning data is kept. */
+  botLibraryRemove: (botId: string) => void
+  botLibraryAddLocalBuild: (spec: LocalBuildBotSpec) => LocalBuildBot
+  botLibraryUpdateLocalBuild: (key: BotKey, spec: LocalBuildBotSpec) => LocalBuildBot
+  botLibraryRemoveLocalBuild: (key: BotKey) => void
+  /** Reads an optional `sb-bot.json` descriptor next to a chosen executable. */
+  botLibraryPickLocalBuild: () => Promise<
+    { executable: string; spec: Partial<LocalBuildBotSpec> } | undefined
+  >
+  botLibraryPickDirectory: (title: string) => Promise<string | undefined>
+  botLibraryPickJava: () => Promise<string | undefined>
+  botLibraryDetectJava: () => JavaRuntimeInfo[]
+  botLibrarySetJavaOverride: (key: BotKey, javaPath: string | undefined) => void
+  /** Restores a bot's learning profile to its packaged baseline. Fails while the bot is in use. */
+  botLibraryResetLearning: (key: BotKey) => void
+  /** Returns the text of a packaged license/notice file. */
+  botLibraryReadNotice: (botId: string, noticePath: string) => Promise<string>
+  botLibraryOpenFolder: (key: BotKey) => void
   activeGameClearConfig: (gameId: string) => void
   /**
    * Queries the active game process's debug state (debug game builds only). Only registered in
@@ -109,12 +153,15 @@ interface IpcInvokeables {
    */
   activeGameDebugScreenshot: (gameId?: string) => GameDebugScreenshot
   /**
-   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
+   * Tells the active game process to inject a drop of a remote rally-point2 slot (debug game
    * builds only). Only registered in development (`isDev`). Fire-and-forget: there's no reply, so
    * callers should verify the effect via {@link IpcInvokeables.activeGameDebugQueryState} (the
-   * slot's `required` flag becomes `false`).
+   * slot's `required` flag becomes `false`). The DLL rejects its own slot; use `activeGameDebugLeave`
+   * for normal local exit.
    */
   activeGameForceUnsyncedLeave: (gameId: string, slot: number) => void
+  /** Requests a normal game exit with replay saving and result reporting (development only). */
+  activeGameDebugLeave: (gameId: string) => void
   /**
    * Tells the active game process to deliberately desync this client's simulation from its peers by
    * perturbing the local player's minerals (debug game builds only). Only registered in development
@@ -202,6 +249,8 @@ interface IpcInvokeables {
   logMessage: (level: string, message: string) => void
 
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
+  /** Returns the hashes of the given maps whose files are present in the local map store. */
+  mapStoreCheckMaps: (maps: Array<{ hash: string; format: MapExtension }>) => Promise<string[]>
 
   pathsGetDocumentsPath: () => Promise<string>
   /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
@@ -411,6 +460,8 @@ interface IpcMainSendables {
     replayPath: string
   }) => void
   localGameStatus: (status: LocalGameStatus) => void
+  botLibraryChanged: (snapshot: BotLibrarySnapshot) => void
+  botLibraryInstallProgress: (progress: BotInstallProgress) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */

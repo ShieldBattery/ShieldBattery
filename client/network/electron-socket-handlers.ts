@@ -10,6 +10,7 @@ import lobbies from '../lobbies/electron-socket-handlers'
 import lobbiesIpc from '../lobbies/ipc-handlers'
 import logger from '../logging/logger'
 import matchmaking from '../matchmaking/socket-handlers'
+import practice from '../practice/ipc-handlers'
 import replays from '../replays/ipc-handlers'
 import settings from '../settings/ipc-handlers'
 import systemBar from '../system-bar/ipc-handlers'
@@ -51,6 +52,7 @@ const electronHandlers: SocketHandler[] = [
   lobbies,
   lobbiesIpc,
   matchmaking,
+  practice,
   replays,
   settings,
   systemBar,

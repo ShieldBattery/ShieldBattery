@@ -10,30 +10,17 @@ import {
   isTeamType,
 } from '../../../common/games/game-type'
 import { MAX_OBSERVERS } from '../../../common/lobbies'
-import { SbMapId, tilesetToName } from '../../../common/maps'
+import { SbMapId } from '../../../common/maps'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
-import { MaterialIcon } from '../../icons/material/material-icon'
-import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
-import { OutlinedButton } from '../../material/button'
-import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { FilterChip } from '../../material/filter-chip'
-import { InputError } from '../../material/input-error'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
+import { bodySmall } from '../../styles/typography'
+import { MapSelectionPanel, Section, SectionHeader } from './map-column'
 import { SlotsPreview } from './slots-preview'
 import { TeamSplitPicker } from './team-split-picker'
 
-export const Section = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-export const SectionHeader = styled.div`
-  ${labelLarge};
-  color: var(--theme-on-surface-variant);
-`
+export { Section, SectionHeader } from './map-column'
 
 const Form = styled.form`
   container-type: inline-size;
@@ -77,134 +64,6 @@ const SettingsColumn = styled.div`
   gap: 28px;
   flex-grow: 1;
   min-width: 0;
-`
-
-/**
- * Arranges the map thumbnail alongside its name and meta line. Narrow containers lay these out as
- * a single compact row; wide containers turn the whole thing into a card, stacking the full-width
- * thumbnail (whose own name bar takes over what the row would otherwise show inline) above the
- * meta line and the change-map button.
- */
-const MapPanel = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-
-  @container (min-width: 720px) {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-
-    background-color: var(--theme-container-low);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-`
-
-const MapThumbnailWrapper = styled.div`
-  width: 96px;
-  height: 96px;
-  aspect-ratio: 1;
-  flex-shrink: 0;
-
-  @container (min-width: 720px) {
-    width: 100%;
-    height: auto;
-  }
-`
-
-const MapInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-grow: 1;
-  min-width: 0;
-
-  @container (min-width: 720px) {
-    padding: 10px 12px 0;
-  }
-`
-
-const MapName = styled.div`
-  ${bodyLarge};
-  ${singleLine};
-
-  @container (min-width: 720px) {
-    display: none;
-  }
-`
-
-const MapMeta = styled.div`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-`
-
-const ChangeMapButton = styled(OutlinedButton)`
-  flex-shrink: 0;
-
-  @container (min-width: 720px) {
-    align-self: stretch;
-
-    /* Inside the map card, inset the button to sit within the card's padded footer area. */
-    ${MapPanel} > & {
-      margin: 12px;
-    }
-  }
-`
-
-const EmptyMapPlaceholder = styled.button`
-  ${buttonReset};
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-
-  width: 96px;
-  height: 96px;
-  aspect-ratio: 1;
-  flex-shrink: 0;
-
-  border: 1px dashed var(--theme-outline);
-  border-radius: 4px;
-
-  &:hover {
-    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
-  }
-
-  &:disabled {
-    cursor: default;
-    opacity: var(--theme-disabled-opacity);
-    pointer-events: none;
-  }
-
-  @container (min-width: 720px) {
-    width: 100%;
-    height: auto;
-  }
-`
-
-const EmptyMapIcon = styled(MaterialIcon)`
-  color: var(--theme-on-surface-variant);
-`
-
-const EmptyMapText = styled.div`
-  ${labelLarge};
-`
-
-const RecentMapsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-`
-
-const RecentMapWrapper = styled.div<{ $selected: boolean }>`
-  aspect-ratio: 1;
-  padding: 1px;
-  border-radius: 6px;
-  border: 2px solid ${props => (props.$selected ? 'var(--theme-amber)' : 'transparent')};
 `
 
 const GameTypeRow = styled.div`
@@ -286,36 +145,6 @@ function adjustedGameSubType({
     const maxTeams = Math.min(4, slots)
     return Math.min(maxTeams, Math.max(2, subType))
   }
-}
-
-function RecentMapEntry({
-  mapId,
-  selected,
-  disabled,
-  onClick,
-}: {
-  mapId: SbMapId
-  selected: boolean
-  disabled?: boolean
-  onClick: () => void
-}) {
-  const mapName = useAppSelector(s => s.maps.byId.get(mapId)?.name)
-
-  return (
-    <RecentMapWrapper $selected={selected} title={mapName}>
-      <ReduxMapThumbnail
-        mapId={mapId}
-        size={256}
-        forceAspectRatio={1}
-        hasMapDetailsAction={false}
-        hasDownloadAction={false}
-        hasFavoriteAction={false}
-        hasMapPreviewAction={false}
-        hasRegenMapImageAction={false}
-        onClick={disabled ? undefined : onClick}
-      />
-    </RecentMapWrapper>
-  )
 }
 
 export interface GameSetupFormProps {
@@ -447,18 +276,6 @@ export function GameSetupForm({
     setMap: changeMap,
   }))
 
-  const mapMetaParts = selectedMapInfo
-    ? [
-        t('lobbies.createLobby.mapPlayerCount', {
-          defaultValue: '{{count}} players',
-          defaultValue_one: '{{count}} player',
-          count: selectedMapInfo.mapData.slots,
-        }),
-        tilesetToName(selectedMapInfo.mapData.tileset, t),
-        `${selectedMapInfo.mapData.width}×${selectedMapInfo.mapData.height}`,
-      ]
-    : []
-
   return (
     <Form noValidate={true} onSubmit={submit}>
       <Columns>
@@ -540,55 +357,14 @@ export function GameSetupForm({
         </SettingsColumn>
 
         <MapColumn>
-          {mapId ? (
-            <MapPanel>
-              <MapThumbnailWrapper>
-                <ReduxMapThumbnail
-                  mapId={mapId}
-                  forceAspectRatio={1}
-                  size={512}
-                  showInfoLayer={true}
-                  onClick={disabled ? undefined : onChangeMap}
-                />
-              </MapThumbnailWrapper>
-              <MapInfo>
-                <MapName>{selectedMapInfo?.name ?? ''}</MapName>
-                <MapMeta>{mapMetaParts.join(' · ')}</MapMeta>
-              </MapInfo>
-              <ChangeMapButton
-                type='button'
-                label={t('lobbies.hostGame.changeMap', 'Change map')}
-                iconStart={<MaterialIcon icon='map' />}
-                disabled={disabled}
-                onClick={onChangeMap}
-              />
-            </MapPanel>
-          ) : (
-            <EmptyMapPlaceholder type='button' disabled={disabled} onClick={onChangeMap}>
-              <EmptyMapIcon icon='map' />
-              <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
-            </EmptyMapPlaceholder>
-          )}
-          {mapIdError ? <InputError error={mapIdError} /> : null}
-
-          {recentMaps?.length ? (
-            <Section>
-              <SectionHeader>
-                {t('lobbies.createLobby.recentMapsHeader', 'Recent maps')}
-              </SectionHeader>
-              <RecentMapsGrid>
-                {recentMaps.map(id => (
-                  <RecentMapEntry
-                    key={id}
-                    mapId={id}
-                    selected={id === mapId}
-                    disabled={disabled}
-                    onClick={() => changeMap(id)}
-                  />
-                ))}
-              </RecentMapsGrid>
-            </Section>
-          ) : null}
+          <MapSelectionPanel
+            mapId={mapId}
+            recentMaps={recentMaps}
+            disabled={disabled}
+            errorText={mapIdError}
+            onChangeMap={onChangeMap}
+            onSelectMap={changeMap}
+          />
         </MapColumn>
       </Columns>
     </Form>

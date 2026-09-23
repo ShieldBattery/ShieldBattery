@@ -26,6 +26,25 @@ export class MapStore {
     return path.join(this.basePath, firstDir, secondDir, `map.${mapFormat}`)
   }
 
+  /**
+   * Returns the hashes of the maps whose files are present locally. This only looks at whether a
+   * non-empty file is there: the hash isn't recomputed, since launching a map verifies its
+   * contents anyway and this runs over whole map pools.
+   */
+  async checkMaps(maps: Array<{ hash: string; format: MapExtension }>): Promise<string[]> {
+    const found = await Promise.all(
+      maps.map(async ({ hash, format }) => {
+        try {
+          const stats = await fsPromises.stat(this.getPath(hash, format))
+          return stats.isFile() && stats.size > 0 ? hash : undefined
+        } catch {
+          return undefined
+        }
+      }),
+    )
+    return found.filter((hash): hash is string => hash !== undefined)
+  }
+
   async downloadMap(mapHash: string, mapFormat: MapExtension, mapUrl: string): Promise<boolean> {
     if (!this.activeDownloads.has(mapHash)) {
       this.activeDownloads.set(mapHash, this.checkAndDownloadMap(mapHash, mapFormat, mapUrl))

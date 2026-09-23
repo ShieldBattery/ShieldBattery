@@ -96,7 +96,7 @@ const ErrorText = styled.div`
 
 const TabArea = styled.div`
   position: relative;
-  padding: 0px 24px 8px;
+  padding: 8px 24px;
 `
 
 const ScrollDivider = styled.div<{ $position: 'top' | 'bottom' }>`
