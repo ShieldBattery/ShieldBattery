@@ -169,16 +169,12 @@ export const whoCommand = defineCommand({
                   return name !== undefined ? [{ id, name }] : []
                 })
 
-            // Active members come before idle ones, since they're the likelier to still be
-            // around; only the first MAX_NAMED_ONLINE of that order are named and the rest are
-            // counted, so a large channel that everyone stays joined to answers with a line
-            // rather than hundreds of names.
+            // Only the first MAX_NAMED_ONLINE by name are named and the rest are counted, so a large
+            // channel that everyone stays joined to answers with a line rather than hundreds of
+            // names.
             const byName = (a: { name: string }, b: { name: string }) =>
               nameCollator.compare(a.name, b.name)
-            const onlineUsers = [
-              ...namesOf(users?.active).sort(byName),
-              ...namesOf(users?.idle).sort(byName),
-            ]
+            const onlineUsers = namesOf(users?.active).sort(byName)
             const namedOnlineUsers = onlineUsers.slice(0, MAX_NAMED_ONLINE)
             const moreCount = onlineUsers.length - namedOnlineUsers.length
             const offlineCount = namesOf(users?.offline).length

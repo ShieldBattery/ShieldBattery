@@ -415,12 +415,6 @@ export interface ChatUserAvailabilityEvent {
   availability: AvailabilityInfo
 }
 
-export interface ChatUserIdleEvent {
-  action: 'userIdle2'
-  /** The ID of a user that has become idle in a chat channel. */
-  userId: SbUserId
-}
-
 export interface ChatUserOfflineEvent {
   action: 'userOffline2'
   /** The ID of a user that went offline in a chat channel. */
@@ -448,7 +442,6 @@ export type ChatEvent =
   | ChatInitActiveUsersEvent
   | ChatUserActiveEvent
   | ChatUserAvailabilityEvent
-  | ChatUserIdleEvent
   | ChatUserOfflineEvent
   | ChatUserProfileChangedEvent
 

@@ -247,10 +247,6 @@ export function ConnectedChatChannel({
     useUserEntriesSelector(channelUsers?.active),
     areUserEntriesEqual,
   )
-  const sortedIdleUserEntries = useAppSelector(
-    useUserEntriesSelector(channelUsers?.idle),
-    areUserEntriesEqual,
-  )
   const sortedOfflineUserEntries = useAppSelector(
     useUserEntriesSelector(channelUsers?.offline),
     areUserEntriesEqual,
@@ -262,7 +258,6 @@ export function ConnectedChatChannel({
 
   const mentionableUsers = useMemo(() => {
     const onlineUsers = sortedActiveUserEntries
-      .concat(sortedIdleUserEntries)
       .filter(([_, username]) => username !== undefined)
       .map(([id, username]) => ({ id, name: username!, online: true }))
     const offlineUsers = sortedOfflineUserEntries
@@ -270,11 +265,11 @@ export function ConnectedChatChannel({
       .map(([id, username]) => ({ id, name: username!, online: false }))
 
     return onlineUsers.concat(offlineUsers)
-  }, [sortedActiveUserEntries, sortedIdleUserEntries, sortedOfflineUserEntries])
+  }, [sortedActiveUserEntries, sortedOfflineUserEntries])
 
   const baseMentionableUsers = useMemo(() => {
     const onlineRecentChatters = sortedRecentChattersEntries
-      .filter(([id]) => channelUsers?.active.has(id) || channelUsers?.idle.has(id))
+      .filter(([id]) => channelUsers?.active.has(id))
       .filter(([_, username]) => username !== undefined)
       .map(([id, username]) => ({ id, name: username!, online: true }))
     const offlineRecentChatters = sortedRecentChattersEntries
@@ -283,7 +278,7 @@ export function ConnectedChatChannel({
       .map(([id, username]) => ({ id, name: username!, online: false }))
 
     return onlineRecentChatters.concat(offlineRecentChatters)
-  }, [channelUsers?.active, channelUsers?.idle, channelUsers?.offline, sortedRecentChattersEntries])
+  }, [channelUsers?.active, channelUsers?.offline, sortedRecentChattersEntries])
 
   // Mirrors when the member list offers an enabled Kick or Ban action: the channel owner and server
   // moderators can always use them, and everyone else needs the matching channel permission.
@@ -305,10 +300,6 @@ export function ConnectedChatChannel({
   const sortedActiveUserIds = useMemo(
     () => sortedActiveUserEntries.map(([id]) => id),
     [sortedActiveUserEntries],
-  )
-  const sortedIdleUserIds = useMemo(
-    () => sortedIdleUserEntries.map(([id]) => id),
-    [sortedIdleUserEntries],
   )
   const sortedOfflineUserIds = useMemo(
     () => sortedOfflineUserEntries.map(([id]) => id),
@@ -644,7 +635,6 @@ export function ConnectedChatChannel({
                 <ChannelActivityPanel channelId={channelId} />
                 <StyledUserList
                   active={sortedActiveUserIds}
-                  idle={sortedIdleUserIds}
                   offline={sortedOfflineUserIds}
                   loadError={channelUsers?.userListError ?? false}
                   onRetryLoad={onRetryUserList}

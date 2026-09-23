@@ -78,7 +78,6 @@ interface FakeChannel {
   name?: string
   hasLoadedUserList?: boolean
   active?: SbUserId[]
-  idle?: SbUserId[]
   offline?: SbUserId[]
 }
 
@@ -97,7 +96,6 @@ function makeState({
     const channelId = makeSbChannelId(channel.id)
     idToUsers.set(channelId, {
       active: new Set(channel.active ?? []),
-      idle: new Set(channel.idle ?? []),
       offline: new Set(channel.offline ?? []),
       hasLoadedUserList: channel.hasLoadedUserList ?? true,
       loadingUserList: false,
@@ -212,7 +210,7 @@ describe('messaging/commands/commands/whois', () => {
 
   test('someone who is not a friend and offline everywhere is offline', () => {
     const { emit } = runForTarget(
-      makeState({ channels: [{ id: 1, name: 'foo', idle: [SELF_ID], offline: [TARGET_ID] }] }),
+      makeState({ channels: [{ id: 1, name: 'foo', active: [SELF_ID], offline: [TARGET_ID] }] }),
     )
 
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(

@@ -38,7 +38,6 @@ export type ChannelMessage = ChatMessage | LocalMessage
 
 export interface UsersState {
   active: Set<SbUserId>
-  idle: Set<SbUserId>
   offline: Set<SbUserId>
 
   hasLoadedUserList: boolean
@@ -264,7 +263,6 @@ function removeUserFromChannel(
   }
 
   channelUsers.active.delete(userId)
-  channelUsers.idle.delete(userId)
   channelUsers.offline.delete(userId)
   channelUserProfiles.delete(userId)
   detailedChannelInfo.userCount -= 1
@@ -762,7 +760,6 @@ function initChannelUsers(state: ChatState, channelId: SbChannelId, activeUserId
   } else {
     state.idToUsers.set(channelId, {
       active: new Set(activeUserIds),
-      idle: new Set(),
       offline: new Set(),
       hasLoadedUserList: false,
       loadingUserList: false,
@@ -1007,21 +1004,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
 
     channelUsers.active.add(userId)
-    channelUsers.idle.delete(userId)
-    channelUsers.offline.delete(userId)
-  },
-
-  ['@chat/updateUserIdle'](state, action) {
-    const { userId } = action.payload
-    const { channelId } = action.meta
-
-    const channelUsers = state.idToUsers.get(channelId)
-    if (!channelUsers) {
-      return
-    }
-
-    channelUsers.idle.add(userId)
-    channelUsers.active.delete(userId)
     channelUsers.offline.delete(userId)
   },
 
@@ -1036,7 +1018,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     channelUsers.offline.add(userId)
     channelUsers.active.delete(userId)
-    channelUsers.idle.delete(userId)
   },
 
   ['@chat/loadMessageHistoryBegin'](state, action) {
@@ -1290,9 +1271,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    const offlineArray = userList.filter(
-      u => !channelUsers.active.has(u.id) && !channelUsers.idle.has(u.id),
-    )
+    const offlineArray = userList.filter(u => !channelUsers.active.has(u.id))
 
     channelUsers.loadingUserList = false
     channelUsers.offline = new Set(offlineArray.map(u => u.id))

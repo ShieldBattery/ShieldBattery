@@ -188,14 +188,6 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
-  userIdle2(channelId, event) {
-    return {
-      type: '@chat/updateUserIdle',
-      payload: event,
-      meta: { channelId },
-    }
-  },
-
   userOffline2(channelId, event) {
     return {
       type: '@chat/updateUserOffline',

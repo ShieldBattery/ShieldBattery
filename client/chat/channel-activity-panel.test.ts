@@ -8,8 +8,7 @@ const [flash, bisu, jaedong, stork, outsider, self] = [1, 2, 3, 4, 5, 6].map(mak
 
 const members = {
   active: new Set([flash, self]),
-  idle: new Set([bisu]),
-  offline: new Set([jaedong, stork]),
+  offline: new Set([bisu, jaedong, stork]),
 }
 
 function stream(userId: number, viewerCount: number) {

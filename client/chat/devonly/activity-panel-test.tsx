@@ -108,8 +108,7 @@ const games: GameActivityEntry[] = [
 ]
 
 const roster = {
-  active: [1, 2, 3].map(makeSbUserId),
-  idle: [4, 5].map(makeSbUserId),
+  active: [1, 2, 3, 4, 5].map(makeSbUserId),
   offline: [6, 7, 8, 9, 10, 11, 12].map(makeSbUserId),
 }
 
@@ -167,7 +166,7 @@ function Column({
   return (
     <MemberColumn $height={height}>
       <ActivityPanel streams={streams} games={games} />
-      <FillingUserList active={roster.active} idle={roster.idle} offline={roster.offline} />
+      <FillingUserList active={roster.active} offline={roster.offline} />
     </MemberColumn>
   )
 }
