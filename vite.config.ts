@@ -91,7 +91,7 @@ function compareVersions(a: number[], b: number[]): number {
   return 0
 }
 
-export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
+export default defineConfig(({ command, mode }): UserConfig => {
   const isProd = mode === 'production'
 
   return {
@@ -117,7 +117,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     oxc: sharedOxc(isProd),
 
     plugins: [
-      ...(await sharedPlugins()),
+      ...sharedPlugins(),
       shellPlugin({ emittedAt: 'index.html', destination: resolve(ROOT, SHELL_OUT) }),
     ],
 

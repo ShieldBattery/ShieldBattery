@@ -8,6 +8,16 @@ minimumReleaseAgeExclude:
   # dev-only translation extractor, exact-pinned; its releases are frequent and never reach
   # production
   - 'i18next-cli'
+  # build-time only (React Compiler for the client builds); a single version cleared by hand
+  - 'oxc-transform-react@0.151.0'
+  # its native bindings, which it pins to its own exact version
+  - '@oxc-transform-react/*'
+
+peerDependencyRules:
+  allowedVersions:
+    # plugin-react's caret range on a 0.x version admits only 0.145.x, but it calls nothing that
+    # changed since; 0.145.0 and 0.151.0 compile our client identically
+    '@vitejs/plugin-react>oxc-transform-react': 0.151.0
 
 overrides:
   '@types/node': 24.13.3

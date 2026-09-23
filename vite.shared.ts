@@ -1,5 +1,4 @@
-import babel from '@rolldown/plugin-babel'
-import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react'
 import jotai from 'jotai-rolldown'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
@@ -109,12 +108,32 @@ export function sharedOxc(isProd: boolean): UserConfig['oxc'] {
  * The plugin chain both client builds run. They compile the same sources, so the only thing that
  * varies between them is where the output goes and what the defines say.
  *
- * Returns Vite's loose `PluginOption` rather than `Plugin[]`: `@rolldown/plugin-babel` is typed
- * against rolldown's own `Plugin`, which is structurally incompatible with Vite's re-export of it.
+ * Returns Vite's loose `PluginOption` rather than `Plugin[]`: `jotai-rolldown` is typed against
+ * rolldown's own `Plugin`, which is structurally incompatible with Vite's re-export of it.
  */
-export async function sharedPlugins(): Promise<NonNullable<UserConfig['plugins']>> {
+export function sharedPlugins(): NonNullable<UserConfig['plugins']> {
   return [
-    react(),
+    // `compiler` runs React Compiler (React's Rust port, through `oxc-transform-react`) as the first
+    // transform over every source file, and makes that same transform responsible for the Fast
+    // Refresh registrations Vite's own JSX transform would otherwise inject.
+    //
+    // Notably absent: core-js injection. `babel-plugin-polyfill-corejs3` produces a bundle that
+    // throws on load, because core-js is CommonJS and rolldown's wrapper for it lives in the
+    // runtime chunk, while the injected side-effect imports hoist *into* that same chunk -- a
+    // circular import that leaves the wrappers uninitialized when they're called. Chunk grouping
+    // doesn't break the cycle, and the other injection modes either need `core-js-pure` (which
+    // changes semantics) or silently emit nothing.
+    //
+    // Dropping it costs nothing measurable today: with injection on, exactly seven polyfills
+    // were emitted (array.includes, four iterator helpers, set.union, uint8-array.to-hex) and
+    // all seven are false positives from babel matching method *names* -- nothing here calls
+    // `.union()`, `Iterator.from` or `.toHex()`, and `.includes`/`.every`/`.filter`/`.find`/
+    // `.forEach` on arrays predate every browser we target. `build.target` still lowers syntax.
+    //
+    // What this does remove is the safety net: a newly-used API that our floor lacks will now
+    // simply break there rather than being polyfilled. `@core-js/unplugin` is the intended fix
+    // once core-js v4 ships it, being rolldown-native rather than an injection of CJS imports.
+    react({ compiler: true }),
     svgr({
       // Left on the default `**/*.svg?react`: an SVG is a component only where the import asks for
       // one, which keeps a dependency's SVG an image (turning one into JSX would break its
@@ -138,29 +157,6 @@ export async function sharedPlugins(): Promise<NonNullable<UserConfig['plugins']
     }),
     jotai(),
     graphqlOptimizer(ROOT),
-    // React Compiler is the only thing left on Babel, and only until oxc's Rust port becomes
-    // reachable from released Vite (oxc#24542).
-    //
-    // Notably absent: core-js injection. `babel-plugin-polyfill-corejs3` produces a bundle that
-    // throws on load, because core-js is CommonJS and rolldown's wrapper for it lives in the
-    // runtime chunk, while the injected side-effect imports hoist *into* that same chunk -- a
-    // circular import that leaves the wrappers uninitialized when they're called. Chunk grouping
-    // doesn't break the cycle, and the other injection modes either need `core-js-pure` (which
-    // changes semantics) or silently emit nothing.
-    //
-    // Dropping it costs nothing measurable today: with injection on, exactly seven polyfills
-    // were emitted (array.includes, four iterator helpers, set.union, uint8-array.to-hex) and
-    // all seven are false positives from babel matching method *names* -- nothing here calls
-    // `.union()`, `Iterator.from` or `.toHex()`, and `.includes`/`.every`/`.filter`/`.find`/
-    // `.forEach` on arrays predate every browser we target. `build.target` still lowers syntax.
-    //
-    // What this does remove is the safety net: a newly-used API that our floor lacks will now
-    // simply break there rather than being polyfilled. `@core-js/unplugin` is the intended fix
-    // once core-js v4 ships it, being rolldown-native rather than an injection of CJS imports.
-    await babel({
-      presets: [reactCompilerPreset()],
-      exclude: [/[\\/]node_modules[\\/]/],
-    }),
   ]
 }
 

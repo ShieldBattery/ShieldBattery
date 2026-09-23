@@ -59,7 +59,7 @@ function resolveServerUrl(isProd: boolean): string {
   return parsed.SB_CANONICAL_HOST || 'http://localhost:5555'
 }
 
-export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
+export default defineConfig(({ command, mode }): UserConfig => {
   const isProd = mode === 'production'
   const serverUrl = resolveServerUrl(isProd)
 
@@ -83,7 +83,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     oxc: sharedOxc(isProd),
 
     plugins: [
-      ...(await sharedPlugins()),
+      ...sharedPlugins(),
       shellPlugin({ emittedAt: SHELL_ENTRY, destination: resolve(ROOT, OUT_DIR, 'index.html') }),
     ],
 
