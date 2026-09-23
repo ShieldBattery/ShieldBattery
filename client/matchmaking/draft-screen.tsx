@@ -325,9 +325,7 @@ function DraftRacePicker({
   const myId = useSelfUser()?.id
   const [isOverTime, setIsOverTime] = useState(false)
 
-  const isMyPick =
-    draftState.currentPicker?.team === draftState.myTeamIndex &&
-    draftState.ownTeam.players[draftState.currentPicker.slot].userId === myId
+  const isMyPick = isMyDraftPick(draftState, myId)
   const myPlayer = draftState.ownTeam.players.find(p => p.userId === myId)
 
   // NOTE(tec27): This seems very complex but basically: we want a pulsing animation for the opacity
@@ -518,6 +516,13 @@ const PickerText = styled(m.div)`
   text-align: center;
 `
 
+function isMyDraftPick(draftState: ClientDraftState, myId: SbUserId | undefined): boolean {
+  return (
+    draftState.currentPicker?.team === draftState.myTeamIndex &&
+    draftState.ownTeam.players[draftState.currentPicker.slot].userId === myId
+  )
+}
+
 function PickerAndTimer({ draftState }: { draftState: ClientDraftState }) {
   const { t } = useTranslation()
   const myId = useSelfUser()?.id
@@ -552,7 +557,7 @@ function PickerAndTimer({ draftState }: { draftState: ClientDraftState }) {
 
   return (
     <DraftTimerArea>
-      <DraftTimer />
+      <DraftTimer isMyPick={isMyDraftPick(draftState, myId)} />
       <AnimatePresence mode='wait'>
         {pickerText ? (
           <PickerText
@@ -619,7 +624,7 @@ const DraftTimerText = styled(m.div)<{ $state?: TimerState }>`
   font-features: 'tnum' on;
 `
 
-function DraftTimer() {
+function DraftTimer({ isMyPick }: { isMyPick: boolean }) {
   const pickTimeStart = useAtomValue(draftPickTimeStartAtom)
   const [currentTime, setCurrentTime] = useState<number | undefined>(undefined)
 
@@ -652,7 +657,12 @@ function DraftTimer() {
   // A value that never goes below 4 because the countdown sound covers all 5 ticks below that
   const soundTimeLeft = timeLeft !== undefined ? Math.max(4, timeLeft) : undefined
 
+  // Timer sounds are only actionable for the player who is picking, so other picks stay silent
   useEffect(() => {
+    if (!isMyPick) {
+      return () => {}
+    }
+
     let sound: FadeableSound | undefined
     if (soundTimeLeft === 4) {
       sound = audioManager.playFadeableSound(AvailableSound.Countdown)
@@ -663,7 +673,7 @@ function DraftTimer() {
     return () => {
       sound?.fadeOut()
     }
-  }, [soundTimeLeft])
+  }, [isMyPick, soundTimeLeft])
 
   let state: TimerState = 'normal'
   if (timeLeft !== undefined && timeLeft <= 5) {
