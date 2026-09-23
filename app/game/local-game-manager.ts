@@ -10,6 +10,7 @@ import { GameType } from '../../common/games/game-type'
 import { LocalGameRequest, LocalGameStatus } from '../../common/games/local-game'
 import HashThrough from '../../common/hash-through'
 import { SlotType } from '../../common/lobbies/slot'
+import { BwUserLatency } from '../../common/network'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
@@ -246,6 +247,10 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
             users,
             seed,
             useLegacyLimits: true,
+            // Netcode v2 strips DTR's turn rate commands, so a dynamic rate would never move off
+            // its low starting rate. Pin the rate every server-launched game uses.
+            turnRate: 24,
+            userLatency: BwUserLatency.Low,
             localSession: { endpoint, secret, slot, roster, initialBufferTurns: 1 },
           },
         }
