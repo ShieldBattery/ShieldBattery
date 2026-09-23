@@ -7,7 +7,7 @@ description: Drive the real ShieldBattery Electron app to verify functionality �
 
 The Electron app is the **primary** verification surface. Most features are gated behind the
 Electron client check, and the web `/dev` devonly pages render against mock data with no store — they
-prove a component *looks* right, nothing more. To verify that something *works*, drive the real app.
+prove a component _looks_ right, nothing more. To verify that something _works_, drive the real app.
 
 ## Prerequisites
 
@@ -22,16 +22,16 @@ prove a component *looks* right, nothing more. To verify that something *works*,
    - **Don't wrap it in `npx`/`pnpm dlx`/`pnpm exec`.** `npx` (even `--no-install`) adds config-warning
      noise you'd have to `2>/dev/null` away. `pnpm dlx` re-downloads from the registry each run (the
      fetch-and-run path — it would drift from the pinned global). `pnpm exec` prints `Already up to
-     date` / `Done in Nms` to **stdout** (not stderr — `2>/dev/null` won't strip it), corrupting the
+date` / `Done in Nms` to **stdout** (not stderr — `2>/dev/null` won't strip it), corrupting the
      snapshot/eval output this skill parses. And `playwright-cli` isn't a project dep, so pnpm has
      nothing to resolve for it anyway. Bare `playwright-cli` is the clean choice.
 4. **If you changed `game/` Rust code and will launch a game to verify it, rebuild with
    `game\build.bat` first** — a bare `cargo build` leaves `game/dist/shieldbattery_64.dll` (the DLL
-   the app injects by default) stale, so the launched game silently runs the *old* code. If a
+   the app injects by default) stale, so the launched game silently runs the _old_ code. If a
    game-launch result contradicts your change, suspect a stale `dist/` DLL. (See AGENTS.md → Game
    DLL.)
 5. **If you changed `app/` (Electron main-process) code, run `pnpm run build-app-main` before
-   launching.** The launch below runs `electron.exe app`, which loads the *bundled* main process
+   launching.** The launch below runs `electron.exe app`, which loads the _bundled_ main process
    from `app/dist/index.js` — only the renderer is served live by the :5566 dev server. A stale
    bundle is silent until something you added is missing at runtime (e.g. a new IPC handler fails
    with `No handler registered for '…'`). `common/` changes used by the main process need the
@@ -48,7 +48,7 @@ different account) and a distinct port per instance.
 `npx electron` (or bash + the electron binary) as a background task. Every wrapper layer (npx,
 pnpm, Git Bash's `env`/MSYS exec emulation) breaks the Windows process tree, so `TaskStop` kills
 only the wrapper and the real `electron.exe` survives as an orphaned, visible window; a
-direct-binary bash launch orphans too. `Start-Process` returns the *actual* electron PID, and
+direct-binary bash launch orphans too. `Start-Process` returns the _actual_ electron PID, and
 `Stop-Process` on it takes down the whole app, Chromium children included:
 
 ```powershell
@@ -139,6 +139,7 @@ both sides.
 
 > **Login recipe — the plain role-locator sequence is reliable on every instance.** Per instance,
 > one at a time (don't fire-and-forget-race them):
+>
 > ```bash
 > playwright-cli -s=cN click "getByRole('button', { name: 'Log in' })"   # opens the form overlay
 > sleep 2                                                                 # let the overlay render
@@ -146,10 +147,11 @@ both sides.
 > playwright-cli -s=cN fill 'input[name="password"]' shieldbattery
 > playwright-cli -s=cN click "getByTestId('submit-button')"
 > ```
+>
 > Then confirm: `eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"` →
 > e.g. `"claude-1Novice"`.
 > **Do NOT click "Log in" via an `eval` that finds the button by text and calls `.click()`** — that
-> silently does *not* fire the React handler (the form never opens, `input[name=username]` stays
+> silently does _not_ fire the React handler (the form never opens, `input[name=username]` stays
 > absent). Use the `getByRole` locator (or a `snapshot` ref click) instead. If a rare transient
 > `Error / Gone` (410) dialog pops, close it via its exact `× Close` ref from a snapshot (the role
 > locator `Close` is ambiguous with the window control) and redo the login.
@@ -163,27 +165,27 @@ Examples:
 - **Lobby**: `c1` creates/hosts, `c2` joins; verify both see the slot changes.
 - **Party**: `c1` invites `claude-2`; accept on `c2`; verify party state on both.
 - **Matchmaking**: queue both clients on the same type/maps; verify a match is found and the
-  countdown/launch begins on both. (Actually *launching the game* and verifying outcomes is the
+  countdown/launch begins on both. (Actually _launching the game_ and verifying outcomes is the
   **verify-pr** skill's game-launch tier.)
 
 ## Navigating to an in-game state from a lobby (stable selectors)
 
 This is the **lobby** path to getting two clients in-game — `c1` hosts a custom lobby, `c2` joins,
-`c1` starts. (Matchmaking is a *separate* path with its own ready-up/ban mechanics — not covered
+`c1` starts. (Matchmaking is a _separate_ path with its own ready-up/ban mechanics — not covered
 here; see the **verify-pr** skill's T4 game-launch tier for that.) The lobby → in-game path carries
 `data-testid` hooks so you don't have to snapshot-scrape ephemeral refs at each step. Target them
 with `getByTestId('…')` (or a `[data-testid='…']` selector inside an `eval`):
 
-| test id | Element | Screen |
-| --- | --- | --- |
-| `nav-play-button` | The big Play button | home |
-| `create-lobby-button` | Opens the create-lobby form | `/play/lobbies` |
-| `lobby-name-input` | Lobby-name field (lands on the real `<input>`) | create form |
-| `create-lobby-submit` | Submits the create form | create form |
-| `lobby-list-entry` | One row per joinable lobby (text = name + host) | `/play/lobbies` |
-| `start-game-button` | Host's Start game | lobby view |
-| `leave-lobby-button` | Leave lobby | lobby view |
-| `lobby-slot` | One per slot (open/closed/player). **No index** — disambiguate by contained text | lobby view |
+| test id               | Element                                                                          | Screen          |
+| --------------------- | -------------------------------------------------------------------------------- | --------------- |
+| `nav-play-button`     | The big Play button                                                              | home            |
+| `create-lobby-button` | Opens the create-lobby form                                                      | `/play/lobbies` |
+| `lobby-name-input`    | Lobby-name field (lands on the real `<input>`)                                   | create form     |
+| `create-lobby-submit` | Submits the create form                                                          | create form     |
+| `lobby-list-entry`    | One row per joinable lobby (text = name + host)                                  | `/play/lobbies` |
+| `start-game-button`   | Host's Start game                                                                | lobby view      |
+| `leave-lobby-button`  | Leave lobby                                                                      | lobby view      |
+| `lobby-slot`          | One per slot (open/closed/player). **No index** — disambiguate by contained text | lobby view      |
 
 Both accounts logged in (see Two-client flows). Host on `c1`, join on `c2`, start on `c1`:
 
@@ -214,9 +216,11 @@ playwright-cli -s=c1 click "getByTestId('start-game-button')"
 > null forever). The host can bypass readiness by **pressing and holding the button for 2 s**
 > (`START_GAME_HOLD_MS` in `client/lobbies/room/use-start-game-hold.ts`; the hint reads "Hold to
 > start anyway"). Over CDP that's a mouse-down / wait / mouse-up, not a click:
+>
 > ```bash
 > playwright-cli -s=c1 run-code "async page => { const b = page.getByTestId('start-game-button'); await b.hover(); await page.mouse.down(); await page.waitForTimeout(2500); await page.mouse.up(); }"
 > ```
+>
 > (Recipe derived from the hold implementation; the plain-click path above is the live-verified one.)
 
 > **3+ players / a bigger map:** the map's slot count caps the lobby (an 8-slot map gives 8
@@ -224,7 +228,7 @@ playwright-cli -s=c1 click "getByTestId('start-game-button')"
 > Confirm who's in via `eval "[...document.querySelectorAll('[data-testid=lobby-slot]')].map(e=>e.textContent).filter(t=>/claude/.test(t))"`.
 
 > **Lobbies are persistent.** A lobby lives at `/lobbies/<id>/<name>` and survives the game: when
-> the game ends, every client lands back in the *same* lobby, and the host can change the map, game
+> the game ends, every client lands back in the _same_ lobby, and the host can change the map, game
 > type and other settings from inside it without leaving. For repeated games in one session, reuse
 > the lobby instead of leaving and recreating it (and don't click `leave-lobby-button` on a lobby
 > the user set up for you).
@@ -245,7 +249,7 @@ Launching a game is slow — StarCraft starts, the DLL injects, and game network
 so `gameClient.status.state` walks `configuring` → `playing` over ~30–60s, and the result
 path later moves `playing` → `resultSent`/`finished`. Don't guess a fixed sleep; poll the state.
 
-**Poll with a bounded *foreground* loop, one short `eval` at a time** — do **not** wrap a long
+**Poll with a bounded _foreground_ loop, one short `eval` at a time** — do **not** wrap a long
 `until playwright-cli … eval …; do sleep; done` in a background Bash task. A long-lived background
 loop of CDP evals silently drops the playwright-cli session mid-wait (later calls start failing
 `The browser 'cN' is not open`) even though the Electron app itself stays up and listening — you
@@ -273,7 +277,7 @@ Poll both instances in the same loop for a two-client game. If the session does 
   Game-relevant: `gameClient.status` is the full `ReportedGameStatus` (state, error,
   `networkStatus`, …) — assert on this instead of grepping the game DLL log.
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
-  `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
+  `queryGameState(gameId)`, `leaveGame(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
   `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
   `forceQuit(gameId)`, `crash(gameId, kind)` and `screenshot(gameId)` for driving/inspecting a
   running game over CDP (a release DLL doesn't implement these, so query calls time out).
@@ -288,18 +292,19 @@ Poll both instances in the same loop for a two-client game. If the session does 
     ~10s after the call), a 1v1 **voids** (no-majority), team games discard the caller as the
     diverged minority. Use it to exercise desync policy / desync-flagged paths (e.g. the
     flight-recorder pin).
-  - **`forceUnsyncedLeave(gameId, slot)` does NOT reliably desync.** It injects a local,
-    non-consensus leave of `slot` on the calling client. `slot` is **required** (the DLL rejects
-    the command with `missing field 'slot'` if omitted); pass the caller's own storm slot (the
-    host is `0`) to end the caller. Targeting the caller's **own** slot
-    just ends the caller: it stops emitting checksums before any diverged
-    one crosses the wire, so the opponent sees an ordinary drop and the game **scores normally**
-    (win/loss, no void — verified live). Its legit use is ending a game unattended via the
-    allied-victory path (see verify-pr T4), not triggering desyncs.
+  - **`leaveGame(gameId)`** exits through SC:R's native Quit confirmation, automatically selecting
+    its affirmative button. Use this for unattended normal game exit and replay-save checks. It
+    routes to either the visible client or a local bot client by game ID. Verify `finished`, the
+    saved replay, and process exit; the command itself only acknowledges dispatch. Live tested on
+    32-bit and 64-bit local bot games; ranked result reconciliation still needs separate validation.
+  - **`forceUnsyncedLeave(gameId, slot)`** injects a non-consensus **remote-player** departure on
+    the calling client. The DLL rejects its own slot: the native participant-departure handler
+    removes units but does not initiate the local disconnect/quit flow. This is fault injection,
+    not a way to exit the client or simulate its connection loss. A one-sided injection can diverge
+    simulation and produce contradictory results; use `forceDesync` for a deliberate desync test.
   - **`forceQuit(gameId)`** is the reliable teardown between checks — a hard process-level end
     that works even mid-game or at the native victory dialog. The opponent sees a drop.
-  None of the three produces a clean MMR-scored finish on its own; a human leaving via the
-  in-game menu is the clean path when the test needs a real scored result (verify-pr T4).
+    For an MMR check, validate the resulting game and rating changes in the database (verify-pr T4).
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
 - **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app-<session>.0.log`, one file per
   `SB_SESSION` (`app-session1.0.log` for instance 1). `app.0.log` is the no-session/prod name.
@@ -341,4 +346,4 @@ the app spawned (`StarCraft.exe`) dies separately: `taskkill //F //IM StarCraft.
 
 Only for pure CSS/layout/visual checks on a component that has a `/dev` page. Start the Node server,
 `playwright-cli open http://localhost:5555/dev`, navigate to the component. Never use this to claim a
-*behavior* works.
+_behavior_ works.

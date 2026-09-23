@@ -27,33 +27,33 @@ Skip these only for pure non-code changes (docs/markdown, assets).
 
 ## Verification tiers
 
-| Tier | What it means | How |
-| --- | --- | --- |
-| **T0 Static** | lint, typecheck, unit tests | commands above |
-| **T1 Visual** | component renders correctly | browser on a `/dev` page — CSS/layout only |
-| **T2 App** | feature works in the real client | drive one Electron instance (**verify-app**) |
-| **T3 Multi** | interaction between users | two+ Electron instances (**verify-app**) |
-| **T4 Game** | end-to-end in-game outcome | launch a real match, verify DB + UI (below) |
+| Tier          | What it means                    | How                                          |
+| ------------- | -------------------------------- | -------------------------------------------- |
+| **T0 Static** | lint, typecheck, unit tests      | commands above                               |
+| **T1 Visual** | component renders correctly      | browser on a `/dev` page — CSS/layout only   |
+| **T2 App**    | feature works in the real client | drive one Electron instance (**verify-app**) |
+| **T3 Multi**  | interaction between users        | two+ Electron instances (**verify-app**)     |
+| **T4 Game**   | end-to-end in-game outcome       | launch a real match, verify DB + UI (below)  |
 
 T1 is the weak tier — it only proves rendering, because `/dev` pages use mock data and no store.
-Anything about *behavior* needs T2+.
+Anything about _behavior_ needs T2+.
 
 ## Changed-path → tier matrix
 
-| Changed path | Run |
-| --- | --- |
-| `*.md`, docs, comments only | nothing (maybe lint) |
-| Styles/CSS/`styled-components`/layout only | T0 + T1 |
-| `client/` feature logic, reducers, atoms, hooks | T0 + T2 |
-| Multiplayer client features (chat, whispers, lobbies, parties, matchmaking, social) | T0 + T3 |
-| `server/lib/<feature>` | T0 + the feature's vitest; integration subset if specs cover it (below) |
-| `server/` auth / session / websockets | T0 + T2 (login + a socket-backed view) and/or integration |
-| `server-rs/` | T0 + Rust checks (below); `pnpm gen-graphql` if schema changed |
-| DB migration (`migrations/`) | run it (`pnpm run migrate:run`) + exercise affected flows; `pnpm run sqlx-prepare` |
-| `game/` (Rust DLL) | Rust game checks (below); **T4** if it touches results/netcode/sync/replays |
-| MMR / results / ranks / match-history logic (client, `server`, or `game`) | **T4** + DB outcome checks |
-| `app/` (Electron main) | T0 + T2 smoke: boots, logs in, settings open, game path detected |
-| `common/` | T0 (it fans out everywhere — typecheck is load-bearing) + tests of touched dependents |
+| Changed path                                                                        | Run                                                                                   |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `*.md`, docs, comments only                                                         | nothing (maybe lint)                                                                  |
+| Styles/CSS/`styled-components`/layout only                                          | T0 + T1                                                                               |
+| `client/` feature logic, reducers, atoms, hooks                                     | T0 + T2                                                                               |
+| Multiplayer client features (chat, whispers, lobbies, parties, matchmaking, social) | T0 + T3                                                                               |
+| `server/lib/<feature>`                                                              | T0 + the feature's vitest; integration subset if specs cover it (below)               |
+| `server/` auth / session / websockets                                               | T0 + T2 (login + a socket-backed view) and/or integration                             |
+| `server-rs/`                                                                        | T0 + Rust checks (below); `pnpm gen-graphql` if schema changed                        |
+| DB migration (`migrations/`)                                                        | run it (`pnpm run migrate:run`) + exercise affected flows; `pnpm run sqlx-prepare`    |
+| `game/` (Rust DLL)                                                                  | Rust game checks (below); **T4** if it touches results/netcode/sync/replays           |
+| MMR / results / ranks / match-history logic (client, `server`, or `game`)           | **T4** + DB outcome checks                                                            |
+| `app/` (Electron main)                                                              | T0 + T2 smoke: boots, logs in, settings open, game path detected                      |
+| `common/`                                                                           | T0 (it fans out everywhere — typecheck is load-bearing) + tests of touched dependents |
 
 When several rows apply, run the union. When unsure whether logic is reachable from the UI, prefer
 the higher tier.
@@ -62,6 +62,7 @@ the higher tier.
 
 **Integration tests** (Playwright against a throwaway Docker stack on :5527, separate from your dev
 stack):
+
 ```bash
 .\run-integration-tests.bat                 # full (rebuilds the app server container)
 .\run-integration-tests.bat nobuild         # skip rebuild when only test code changed
@@ -69,6 +70,7 @@ stack):
 ```
 
 **Rust GraphQL server** (`server-rs/`):
+
 ```bash
 cd server-rs && cargo check
 cd server-rs && cargo clippy --all-targets --workspace -- -D warnings
@@ -78,6 +80,7 @@ pnpm run gen-graphql     # after changing the GraphQL schema (regenerates client
 ```
 
 **Game DLL** (`game/`):
+
 ```bash
 game\build.bat           # debug 64-bit (default; what the app injects in dev)
 game\build.bat x86       # debug 32-bit
@@ -87,7 +90,7 @@ cd game && cargo test
 
 ## T4: game-launch / outcome verification
 
-This tier exists because the important questions are about *outcomes*, not just "did the game open":
+This tier exists because the important questions are about _outcomes_, not just "did the game open":
 does MMR update correctly, is the result recorded, does match history/replay upload work. Verifying
 the launch alone is not enough.
 
@@ -102,6 +105,7 @@ itself. (Lobby launch mechanics — `c1` hosts, `c2` joins, host starts — are 
 skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both paths.)
 
 **Setup**:
+
 - Dev stack up incl. the app renderer dev server (`pnpm run dev`); two app instances logged in as
   two seeded accounts (see **verify-app**).
 - **Rebuild the game DLL first**: `.\game\build.bat` from PowerShell (`cmd //c game\build.bat`
@@ -112,7 +116,8 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
   setting is on — then build with `game\build.bat x86`), so no app restart needed after a rebuild.
 
 **Drive a match**:
-1. Arm a ready-up auto-clicker on **each** client *before* queuing — the "Ready up" window is short
+
+1. Arm a ready-up auto-clicker on **each** client _before_ queuing — the "Ready up" window is short
    and polling-then-clicking is too slow (a missed ready-up cancels the match AND bans you, below):
    `playwright-cli -s=cN run-code "async page => { await page.getByRole('button', { name: 'Ready up' }).click({ timeout: 150000 }); }"`
    (run in background, one per client).
@@ -129,52 +134,40 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      `'playing'`.
 4. Decisive finish — three paths:
    - **Human graceful leave (reliable, needs a person at the keyboard).** Ask the user to leave the
-     match *through the in-game menu* (F10 / Menu → Quit/Leave Game → Yes) on the loser's window —
+     match _through the in-game menu_ (F10 / Menu → Quit/Leave Game → Yes) on the loser's window —
      **not** by closing the window / Alt-F4 / killing the process. A graceful leave ends the game
      normally on the opponent's side (no dropped-player dialog to hang on), so both DLLs report a
      decisive result → clean winner-up/loser-down MMR. This is the way to get a real MMR delta in
-     this env (works for both 1v1 and 2v2). For **2v2**, the whole losing *team* must
+     this env (works for both 1v1 and 2v2). For **2v2**, the whole losing _team_ must
      leave: have the user leave both of one team's windows.
-   - **Debug-tooling drop (unattended, netcode-v2 debug builds).** The debug DLL exposes a
-     game-control surface over CDP — `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)`
-     injects a **local, non-consensus** drop of `slot` on the calling client only (it deliberately
-     bypasses the synced-leave machinery — that's its testing purpose), so the caller takes the
-     allied-victory path and the game **ends with no human at the keyboard**; `forceQuit(gameId)`
-     then hard-tears-down any window still sitting on a result/victory dialog (see verify-app for
-     the whole surface + details). This needs the **debug DLL** (which this tier already builds —
-     the surface compiles out of release) and a dev app session (`isDev`-gated senders).
-     **Never rely on it for a scored result on a netcode-v2 matchmaking game** — but note its
-     desync behavior is NOT guaranteed either, in either direction: the unsynced injection forks
-     the calling client's simulation, but whether the relay's checksum comparator ever *sees* the
-     divergence depends on a diverged checksum crossing the wire before the caller's link ends.
-     Targeting the caller's **own** slot ends the caller immediately — verified live: the
-     opponent saw an ordinary drop and the game **scored a normal win/loss, no desync, no
-     void**. Under other slot/timing combinations diverged checksums do cross and the desync
-     policy fires (a 1v1 divergence is no-majority by construction → void; a team game discards
-     the diverged minority). **If the test needs a desync, use `forceDesync(gameId)` instead**
-     (see verify-app) — it diverges the sim while both clients keep playing, so the comparator
-     reliably fires within seconds. Further caveats on `forceUnsyncedLeave`: it's a
-     **per-client trigger, not consensus** (a 3+ player game needs the slot injected on *every*
-     remaining client on the same turn), and a one-sided drop makes the two clients report
-     contradictory results, so the game can reconcile **disputed → no MMR delta**, same as the
-     kill path. So this is the tool for driving the **netcode leave/reconnect paths** and
-     getting a game to *end* unattended — not for a guaranteed clean MMR delta (use the human
-     path for that) and not for a guaranteed desync (use `forceDesync`).
-   - **`Stop-Process` one `StarCraft.exe` (unattended fallback).** The other is *supposed* to be
+   - **Debug graceful leave (unattended, debug DLL builds).** Call
+     `window.__sbDebugGame.leaveGame(gameId)`. It opens SC:R's native Quit dialog and confirms the
+     affirmative button, so the native game loop, replay autosave, and result reporting finish
+     normally. Live tested on 32-bit and 64-bit local bot games. For ranked matches, still verify
+     the server's reconciled result and rating delta; local testing alone does not establish MMR
+     behavior. Poll for `finished` and process exit instead of treating IPC dispatch as completion.
+   - **Debug remote-player drop (fault injection).**
+     `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)` injects a non-consensus departure of
+     a **remote** slot on the calling client. Its own slot is rejected: the native participant
+     handler removes units without running local disconnect/quit UI. Do not use this to end the
+     client. A one-sided injection can desync continuing peers or produce contradictory results;
+     use `forceDesync(gameId)` when the test specifically needs a desync.
+   - **`Stop-Process` one `StarCraft.exe` (unattended fallback).** The other is _supposed_ to be
      credited the win, but in practice the survivor often hangs on BW's dropped-player dialog with no
      human to dismiss it → both report `unknown` → game reconciles **disputed**, no MMR (see Known
      issues). Prefer `forceQuit` over a raw `Stop-Process` when the app is dev-built (it routes
      through the app, so `ActiveGameManager` resets its own state cleanly). Use only when no human is
      available and you don't need the MMR delta.
 
-**Verify outcomes** — UI *and* DB (`docker exec shieldbattery-db-1 psql -U shieldbattery -d shieldbattery`):
+**Verify outcomes** — UI _and_ DB (`docker exec shieldbattery-db-1 psql -U shieldbattery -d shieldbattery`):
+
 - `games`/`games_users` — a row with results for the match.
 - `matchmaking_rating_changes` — a delta row per player.
 - `matchmaking_ratings` — rating moved (winner up, loser down), `wins`/`losses`/`num_games_played`.
 - `user_stats`, match history (profile), replay upload if in scope.
 
 **⚠ Bans escalate machine-wide.** Every failed ready-up / abrupt abort records a `matchmaking_bans`
-row keyed by *client identifier* (matched with `minSameIdentifiers=1` in dev) — so it bans BOTH
+row keyed by _client identifier_ (matched with `minSameIdentifiers=1` in dev) — so it bans BOTH
 local instances and escalates (warning → 15m → 30m …). Between messy attempts:
 `DELETE FROM matchmaking_bans;` (dev only). Symptom when banned: clicking Find match shows a "Banned
 from matchmaking" dialog instead of searching.
@@ -189,10 +182,10 @@ look, SQL — so the next run skips the trial-and-error. When you verify somethi
 bits in here, and keep this lean:
 
 - **No run reports.** Don't append "MMR moved 1500→1758 on PR #1286" narration — that doesn't help
-  the next run. Record the *how*, not the *what-happened*.
+  the next run. Record the _how_, not the _what-happened_.
 - **Don't repeat verify-app.** Launch, login, CDP attach, two-client login, and reading
   logs/console/requests/DB all live in the **verify-app** skill — reference it, don't copy it.
-- **Findings ≠ recipes.** A surprising-but-unconfirmed observation goes under *Known issues* below
+- **Findings ≠ recipes.** A surprising-but-unconfirmed observation goes under _Known issues_ below
   (and gets deleted once resolved), not woven into a recipe.
 
 - **Matchmaking queue (T3).** Navigate each client to matchmaking by clicking `a[href="/play/"]`
@@ -203,20 +196,20 @@ bits in here, and keep this lean:
   - Redis (:6380): a `sbthrottle:matchmaking~<userId>` key per queued user. The matcher's own queue
     is in-memory in server-rs, so no queue keys land in Redis.
   - A formed match writes `matchmaking_completions` (`completion_type='found'`, one row per player) —
-    this lands the instant the match forms, *before* the `games` row (created at game load). No
+    this lands the instant the match forms, _before_ the `games` row (created at game load). No
     `found` rows ⇒ no match yet.
   - Two players that are **rating-equal** match on the **first ~6s tick** (the adaptive threshold
     relaxes for small queues). The seeded accounts drift apart as test games accumulate, and the
     quality formula can stall a ~240-point gap for minutes. To force a fast clean match,
     equalize first: `UPDATE matchmaking_ratings SET rating=1500, uncertainty=350, volatility=0.06
-    WHERE user_id IN (...) AND matchmaking_type='<mode>';` then queue.
+WHERE user_id IN (...) AND matchmaking_type='<mode>';` then queue.
   - **Multi-queue UI.** `/play/matchmaking` is a **multi-select checkbox list**, not
     buttons/tabs: three `input[type=checkbox]` in fixed order **[0]=1v1, [1]=1v1 Fastest, [2]=2v2**.
     Check one or more, then the single **"Find match"** button (`getByRole('button',{name:'Find
-    match',exact:true})`) queues for *all* checked types at once. A player checked for N types shows
+match',exact:true})`) queues for _all_ checked types at once. A player checked for N types shows
     `queue_size{matchmaking_type=...} 1` for **each** of those N (the `/metrics` gauge is the
     cleanest multi-queue proof). When they match in one mode they're pulled from **all** their
-    queues (queue drains fully), and only the *matched* mode writes a `found` completion — the other
+    queues (queue drains fully), and only the _matched_ mode writes a `found` completion — the other
     queued modes are abandoned with no completion. **Cancel**, by contrast, writes one
     `cancel`/`disconnect` completion per queued type. After a game a **"Match results" dialog** stays
     open and silently blocks the next Find match — close it with the **"Close dialog"** button before
@@ -226,8 +219,8 @@ bits in here, and keep this lean:
     If a `click` times out on its actionability wait, first check for the dev-server error overlay
     covering the page (verify-app has the removal one-liner). For a button that is genuinely
     present, an in-page fallback is `eval "(()=>{const b=[...document.querySelectorAll('button')]
-    .find(b=>/^\s*Find match\s*$/.test(b.textContent)); if(b&&!b.disabled){b.click(); return 'ok'}
-    return 'no'})()"`. Don't use that fallback for the app-bar "Log in" button: its `.click()`
+.find(b=>/^\s*Find match\s*$/.test(b.textContent)); if(b&&!b.disabled){b.click(); return 'ok'}
+return 'no'})()"`. Don't use that fallback for the app-bar "Log in" button: its `.click()`
     does not fire the React handler (see verify-app). Two `eval` gotchas: (1) it wraps input as
     `() => (<expr>)`, so a statement with `;` is a SyntaxError — use a single-expression IIFE;
     (2) the matchmaking checkboxes re-render on each toggle, so clicking several from one captured
@@ -236,7 +229,7 @@ bits in here, and keep this lean:
     scope lacks `setTimeout` — poll with `await page.waitForTimeout(250)`.
   - server-rs restart watchdog: queue a player, kill the `cargo run` on :5556 and restart it (new
     process → new `/matchmaker/token` UUID). Within ~10s Node logs `failed to fetch ... process
-    token — will retry` then `Rust matchmaker restart detected — surfacing failure`, ejects searching
+token — will retry` then `Rust matchmaker restart detected — surfacing failure`, ejects searching
     players, and the client shows the **"Matchmaking error — interrupted due to a server error"**
     dialog (`matchmakingServiceError`). Mid-match players are deliberately spared.
   - Queue gauge: `curl -s localhost:5555/metrics | grep shieldbattery_matchmaker_queue_size`
@@ -252,13 +245,13 @@ bits in here, and keep this lean:
   `gameType: topVBottom`). The **race draft** then runs but **auto-completes**: each pick auto-locks
   the player's provisional (queued) race after `DRAFT_PICK_TIME_MS`+2s (=17s), so you can leave it
   untouched — no need to drive picks. Game loads + 4 `StarCraft.exe` launch. Clean finish: user
-  leaves *both* losing-team windows (graceful, see T4 step 4). Outcome: 2 win / 2 loss rows in
+  leaves _both_ losing-team windows (graceful, see T4 step 4). Outcome: 2 win / 2 loss rows in
   `games_users`, 4 `matchmaking_rating_changes` rows (type `2v2`), `assigned_matchup` like `pt-zz`.
 
 - **Channel user permissions (T3).** Three clients exercise delegation cleanly (owner + delegated
   moderator + target). Setup: c1 creates a channel via the chat-list **"Create channel"** button →
   becomes owner (`channels.owner_id`); others join via the chat-list **search box**
-  (`textbox "Search"`, type the exact name) → the result row's **Join** button. *Joining gotcha:*
+  (`textbox "Search"`, type the exact name) → the result row's **Join** button. _Joining gotcha:_
   direct URL nav doesn't join, and clicking the compact list row doesn't join — only the
   search-result Join button does. Open the permissions UI: channel-header **"More actions"**
   (`more_vert`) → **"Channel settings"** → **"Users" → "Permissions"** → click a user row →
@@ -303,7 +296,7 @@ bits in here, and keep this lean:
 - **Matchup columns on game results (T4).** `registerGame` writes `selected_matchup` when the `games`
   row is created (e.g. `r-r` for two random-race players); `maybeReconcileResults` writes
   `assigned_matchup` at reconciliation (e.g. `p-p` once random resolves). Handy: `assigned_matchup` is
-  computed **outside** the MMR block, so a *disputed* result (kill BOTH `StarCraft.exe` → both players
+  computed **outside** the MMR block, so a _disputed_ result (kill BOTH `StarCraft.exe` → both players
   `unknown` → MMR block skipped) still writes it — a cheap way to validate the matchup write without
   engineering a clean win.
 
@@ -326,7 +319,7 @@ bits in here, and keep this lean:
 - **Game reporting (T3, reporter + admin clients).** Needs a finished game both seeded users played
   (the dev DB usually has one; else play a lobby game first). Reporter side: results page →
   `flagReport` button (participants only — non-participants see no button) → dialog: Player select
-  lists the *other* humans; picking **Other** flips Details to required with a live error; submit →
+  lists the _other_ humans; picking **Other** flips Details to required with a live error; submit →
   "Report submitted." snackbar → row in `game_reports` (reasons stored snake_case: `griefing`,
   `abandoning`...). Re-report same target → "You've already reported this player for this game."
   Admin side: grant via the **Manage game reports** checkbox (`/users/:id/:name/admin`, save via
@@ -350,24 +343,24 @@ bits in here, and keep this lean:
   and work in a plain browser at :5555 — no Electron needed (Electron only for the live-badge pip,
   which needs the nydus socket). Navigation gotcha app-wide: a bare `history.pushState` often
   doesn't re-render — follow it with `dispatchEvent(new PopStateEvent('popstate'))`. Login page has
-  TWO "Log in" buttons (app-bar nav + form submit) — click the *last* match;
+  TWO "Log in" buttons (app-bar nav + form submit) — click the _last_ match;
   `claude-admin`/`shieldbattery` has `manageNews` (re-run `pnpm run seed-dev` if unsure).
-  - *Public*: feed cards are `a[href^="/news/"]`; archive `/news` has a "Load more" button (assert
+  - _Public_: feed cards are `a[href^="/news/"]`; archive `/news` has a "Load more" button (assert
     unique hrefs across the cursor seam). Coverless posts get a deterministic stock srcSet
     (`static-news/*.jpg`, hash of UUID); uploaded covers serve `news-images/...` 800w/1600w. Feed
     freshness rides the HomeQuery poll (60s, `LIVE_STREAMS_POLL_INTERVAL_MS`) — wait a full minute
     or remount home before calling staleness a bug. Legacy `/static-news/:index` → seed UUID
     `5eed0000-...-00(index+1)`; 23 seeded posts (`migrations/20260711120000_seed_news_posts.sql`).
-  - *Badge (two clients)*: pip = `[class*=MenuItemPip]` on the Home nav item; pushed on `/newsPosts`
+  - _Badge (two clients)_: pip = `[class*=MenuItemPip]` on the Home nav item; pushed on `/newsPosts`
     by Node `NewsService`. Park the receiver on `/ladder` first — a client sitting on home
     marks-seen instantly, so the pip never shows (that's correct, not a missed event). LastSeen
     lives in per-user localStorage `news.lastSeenNewsPost`. Scheduled posts flip via a server timer
     (~1s slop past the minute); immediate publish/unpublish push within ~2s.
-  - *Admin* (`/admin/news`, needs manageNews; editor at `/admin/news/:id`, reach via double
+  - _Admin_ (`/admin/news`, needs manageNews; editor at `/admin/news/:id`, reach via double
     `history.pushState`): list row actions are icon-text buttons
     `edit|history|publish|unpublished|delete`; drafts sort first. Delete confirm is inline (not
-    `role=dialog`) — snapshot for the "Delete"/"Cancel" refs. In the editor the *first* `textarea`
-    is the summary, the *second* is the content — don't `querySelector('textarea')` blindly.
+    `role=dialog`) — snapshot for the "Delete"/"Cancel" refs. In the editor the _first_ `textarea`
+    is the summary, the _second_ is the content — don't `querySelector('textarea')` blindly.
     Schedule = radio + playwright `fill` on `input[type=datetime-local]` (local-TZ
     `YYYY-MM-DDTHH:mm`). Multiline markdown content must be set via the native value setter — a
     shell-arg `fill` silently drops everything past the first newline. Cover upload:
@@ -378,19 +371,19 @@ bits in here, and keep this lean:
     no-ops). Save = button matching /save changes/i, disabled while an upload is in flight; success
     shows a "saved" snackbar in `body.innerText`. Every mutation writes one `news_post_edits` row
     (CASCADE on post delete) — count rows to prove the audit trail.
-  - *OG/meta tags*: `curl -s localhost:5555/news/<uuid> | tr '\n' ' '` before grepping `<meta`
+  - _OG/meta tags_: `curl -s localhost:5555/news/<uuid> | tr '\n' ' '` before grepping `<meta`
     tags — a multi-line summary puts a newline inside the content attribute and line-based grep
     silently misses the tag. Check: cover post → `/files/news-images/...` og:image; coverless →
     deterministic `/images/static-news/<name>.jpg`; draft/unknown-uuid/other routes → default tags.
-  - *Media-origin restriction*: dev post `019f5c2c-0593-7474-8424-99ad2ec7559d` is a fixture with
+  - _Media-origin restriction_: dev post `019f5c2c-0593-7474-8424-99ad2ec7559d` is a fixture with
     a file-store cover + external picsum/mp4/webm inline media — externals must render as `<a>`
     (0 `<video>`), file-store images as loaded `<img>`. Cover images use `srcSet` only (empty
     `src` attribute on the `<img>` is normal — check `srcset`/`naturalWidth`).
-  - *Guards*: the GraphQL patch arg is `updates` (`newsUpdatePost(id, updates: {...})`); non-admin →
+  - _Guards_: the GraphQL patch arg is `updates` (`newsUpdatePost(id, updates: {...})`); non-admin →
     `FORBIDDEN`, Node upload endpoint → 403. Test the Node endpoint with an **absolute**
     `http://localhost:5555/...` URL + Bearer JWT — a relative fetch from `shieldbattery://app/`
     hits the app-shell protocol handler and fake-200s.
-  - *Server code isn't hot-reloaded* — after editing `server/`, restart `pnpm run start-server`;
+  - _Server code isn't hot-reloaded_ — after editing `server/`, restart `pnpm run start-server`;
     killing the task can orphan the child node.exe holding :5555 (new boot dies with EADDRINUSE but
     curl still answers with **old** code) — `netstat -ano | findstr :5555` and kill the PID.
 
@@ -404,7 +397,7 @@ bits in here, and keep this lean:
   `value`/`selectionStart`/`aria-controls` (set only while a palette is open, so it doubles as the
   open signal)/`aria-activedescendant` (= `<listbox id>-<index>`) plus
   `[role=listbox] [role=option]` textContent (a command row reads `/kick <user> [reason]Kicks a
-  user…`, alias chips as `Also/w/m…`; a mouse accept is `option.click()` in an eval). Fixtures:
+user…`, alias chips as `Also/w/m…`; a mouse accept is `option.click()` in an eval). Fixtures:
   `/chat/15/modtest26` (claude-admin id 9 = owner → kick/ban listed; claude-1 id 10 = plain member
   → hidden), whisper surface `/whispers/11/claude-2`; navigate with the pushState+popstate IIFE.
   `/help` + Enter opens the "Chat commands" dialog (`[role=dialog]` textContent lists the rows;
@@ -420,7 +413,7 @@ path before treating one as real; delete it once resolved.
   requests reconciling the same game can collide on `matchmaking_rating_changes`. The normal submit
   path already treats this as benign (its catch logs `info`: "another request already updated rating
   information"). The 15-min scheduled `reconcileIncompleteResults` job runs the same code with
-  `force` but its `try/catch` logs *any* failure as a generic `error`, so stale "stuck" games surface
+  `force` but its `try/catch` logs _any_ failure as a generic `error`, so stale "stuck" games surface
   it as an alarming line. Reads as expected idempotency, not a bug; if worth quieting, mirror the
   submit path's dup-key downgrade in the job's catch. (Symbols in
   `server/lib/games/game-result-service.ts`; grep `matchmaking_rating_changes_pkey` /
@@ -430,15 +423,13 @@ path before treating one as real; delete it once resolved.
   2026-06-16). The survivor hangs on BW's dropped-player dialog with no human to dismiss it (~2 min,
   sometimes crash-looping `c000001d`) and never reports; the killed side reports `unknown` via the
   Electron fallback → game reconciles **disputed** (both `unknown`) → **no `matchmaking_rating_changes`,
-  ratings unmoved**. **Resolved for runs with a human available:** a *graceful in-game leave* (F10 →
+  ratings unmoved**. **Resolved for runs with a human available:** a _graceful in-game leave_ (F10 →
   Quit/Leave) instead of a process kill ends the game normally and yields a clean winner-up/loser-down
   MMR delta — validated for both 1v1 and 2v2 (see T4 "Decisive finish" → human path).
   So this is only a hazard for fully-unattended runs; when you need the MMR delta, get a human to
   leave gracefully rather than killing the process. (The matcher-side writes — formation,
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)
-  On a **debug DLL build**, `window.__sbDebugGame.forceQuit(gameId)` dismisses/tears down the hung
-  survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceUnsyncedLeave` can
-  end the game unattended — but neither escapes the no-MMR outcome (T4 "Decisive finish"). Whether
-  `forceUnsyncedLeave` also trips the desync policy depends on slot/timing (own-slot = ordinary
-  drop, no desync — verified live; see T4); `forceDesync(gameId)` is the deliberate,
-  reliable desync trigger when a test wants the void path (see verify-app).
+  On a **debug DLL build**, use `window.__sbDebugGame.leaveGame(gameId)` to request a normal exit
+  and confirm the native Quit dialog. `forceQuit(gameId)` remains the hard-stop fallback.
+  `forceUnsyncedLeave` is remote-player fault injection and rejects the caller's own slot;
+  `forceDesync(gameId)` is the deliberate desync trigger (see verify-app).
