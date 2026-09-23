@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'vitest'
-import { isIndexedPathVanished, isPathUnderRoot } from './replay-watcher-paths'
+import {
+  isIndexableReplayFilename,
+  isIndexedPathVanished,
+  isPathUnderRoot,
+} from './replay-watcher-paths'
 
 describe('app/replay-library/replay-watcher-paths/isPathUnderRoot', () => {
   test('a file directly inside the root is under it', () => {
@@ -189,5 +193,45 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
       [],
     )
     expect(vanished).toBe(false)
+  })
+})
+
+describe('app/replay-library/replay-watcher-paths/isIndexableReplayFilename', () => {
+  test('indexes ordinary replay files', () => {
+    expect(isIndexableReplayFilename('[SB]151422-Impossible UVGaiden 0.20 EN.rep')).toBe(true)
+    expect(isIndexableReplayFilename('my game.rep')).toBe(true)
+  })
+
+  test('matches the .rep extension case-insensitively', () => {
+    expect(isIndexableReplayFilename('GAME.REP')).toBe(true)
+  })
+
+  test('skips non-replay files', () => {
+    expect(isIndexableReplayFilename('notes.txt')).toBe(false)
+    expect(isIndexableReplayFilename('game.rep.bak')).toBe(false)
+  })
+
+  test("skips SC:R's LastReplay.rep, case-insensitively", () => {
+    expect(isIndexableReplayFilename('LastReplay.rep')).toBe(false)
+    expect(isIndexableReplayFilename('lastreplay.rep')).toBe(false)
+    expect(isIndexableReplayFilename('LASTREPLAY.REP')).toBe(false)
+  })
+
+  test('only skips the exact LastReplay.rep basename', () => {
+    expect(isIndexableReplayFilename('LastReplay (2).rep')).toBe(true)
+    expect(isIndexableReplayFilename('MyLastReplay.rep')).toBe(true)
+    expect(isIndexableReplayFilename('LastReplay.rep.rep')).toBe(true)
+  })
+})
+
+describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished with LastReplay.rep', () => {
+  test('a previously indexed LastReplay.rep is pruned once the scan skips it', () => {
+    // The scan never reports LastReplay.rep, so a row an index already holds for it reads as
+    // vanished even though the file is still on disk, and the reconcile prunes it.
+    const ROOT = 'C:\\replays'
+    const scanned = new Set(['C:\\replays\\AutoSave\\20260905\\[SB]151422-map.rep'])
+    expect(isIndexedPathVanished('C:\\replays\\LastReplay.rep', [ROOT], [ROOT], scanned, [])).toBe(
+      true,
+    )
   })
 })

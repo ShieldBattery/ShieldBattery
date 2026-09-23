@@ -30,6 +30,22 @@ export function isPathUnderRoot(filePath: string, root: string): boolean {
 }
 
 /**
+ * The file SC:R writes each finished game to before copying it into its dated `AutoSave` folder.
+ * It's overwritten by every game, so indexing it would list the most recent game twice (once here,
+ * once as the autosave copy) and leave its row describing whichever game was played last.
+ */
+const LAST_REPLAY_FILENAME = 'lastreplay.rep'
+
+/**
+ * Whether a file with this basename should be indexed as a replay: any `.rep` file except SC:R's
+ * `LastReplay.rep` scratch copy (matched case-insensitively, in whatever folder it sits).
+ */
+export function isIndexableReplayFilename(filename: string): boolean {
+  const lower = filename.toLowerCase()
+  return lower.endsWith('.rep') && lower !== LAST_REPLAY_FILENAME
+}
+
+/**
  * Decides whether an already-indexed replay path should be pruned from the index during a
  * reconcile.
  *

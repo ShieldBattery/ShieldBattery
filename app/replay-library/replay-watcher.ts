@@ -13,7 +13,7 @@ import {
   parseReplayFile,
   ReplayFileInfo,
 } from './replay-parser'
-import { isIndexedPathVanished } from './replay-watcher-paths'
+import { isIndexableReplayFilename, isIndexedPathVanished } from './replay-watcher-paths'
 
 /** Debounce window for coalescing filesystem events into a single reconcile. */
 const WATCH_DEBOUNCE_MS = 500
@@ -442,7 +442,7 @@ export class ReplayWatcher {
         const full = path.join(dir, entry.name)
         if (entry.isDirectory()) {
           await walk(full)
-        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.rep')) {
+        } else if (entry.isFile() && isIndexableReplayFilename(entry.name)) {
           try {
             const s = await stat(full)
             result.set(full, { mtime: Math.floor(s.mtimeMs), size: s.size })
