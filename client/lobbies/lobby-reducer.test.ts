@@ -655,7 +655,6 @@ describe('client/lobbies/lobby-reducer', () => {
           inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!],
           elapsedMs: 0,
         },
-        isParticipant: true,
       },
     })
 
@@ -675,7 +674,6 @@ describe('client/lobbies/lobby-reducer', () => {
         type: '@lobbies/updateGameStarted',
         payload: {
           runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 },
-          isParticipant: true,
         },
       })
     }).not.toThrow()
@@ -695,7 +693,6 @@ describe('client/lobbies/lobby-reducer', () => {
           inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!],
           elapsedMs: 0,
         },
-        isParticipant: true,
       },
     })
 
@@ -716,7 +713,6 @@ describe('client/lobbies/lobby-reducer', () => {
       type: '@lobbies/updateGameStarted',
       payload: {
         runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 },
-        isParticipant: true,
       },
     })
 
@@ -861,7 +857,6 @@ describe('client/lobbies/lobby-reducer', () => {
       type: '@lobbies/updateGameStarted',
       payload: {
         runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 },
-        isParticipant: true,
       },
     })
     expect(state.readyUserIds).toEqual([])

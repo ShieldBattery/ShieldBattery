@@ -15,7 +15,6 @@ export type MatchmakingActions =
   | InitPreferences
   | UpdatePreferencesSuccess
   | UpdatePreferencesFailure
-  | GameStarted
   | MatchmakingStatusUpdate
   | GetMatchmakingSeasons
   | GetCurrentMatchmakingSeason
@@ -62,11 +61,6 @@ export interface UpdatePreferencesSuccess {
 
 export interface UpdatePreferencesFailure extends BaseFetchFailure<'@matchmaking/updatePreferences'> {
   meta: { type: MatchmakingType }
-}
-
-export interface GameStarted {
-  type: '@matchmaking/gameStarted'
-  payload: undefined
 }
 
 /** The status (enabled/disabled) of one or more types of matchmaking has changed. */

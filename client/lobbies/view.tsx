@@ -8,6 +8,7 @@ import { getErrorStack } from '../../common/errors'
 import { LobbyState } from '../../common/lobbies'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { isInActiveGame } from '../active-game/game-client-reducer'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
@@ -91,7 +92,10 @@ export function LobbyView(props: LobbyViewProps) {
   const isLeavingLobby =
     !inLobby && prevRouteLobbyId === routeLobbyId && prevInLobby && prevLobbyId === prevRouteLobbyId
 
-  const isActiveGame = useAppSelector(s => s.activeGame.isActive)
+  // A replay has no lobby or results to return to, so only a real game holds the lobby's route.
+  const isActiveGame = useAppSelector(
+    s => isInActiveGame(s.gameClient) && !s.gameClient.status?.isReplay,
+  )
   const prevIsActiveGame = usePrevious(isActiveGame)
   const gameClientGameId = useAppSelector(s => s.gameClient.gameId)
   const prevGameClientGameId = usePrevious(gameClientGameId)
