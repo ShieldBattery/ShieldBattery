@@ -290,6 +290,8 @@ pnpm run lint
 pnpm run typecheck
 ```
 
+`pnpm run lint:fix` fixes what it can: formatting (oxfmt), import order, and unused imports.
+
 ### Running integration tests locally
 
 Since the integration service setup uses Docker, you'll need to have that installed and set up.
