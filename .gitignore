@@ -7,7 +7,8 @@ test-results/
 test-state/
 server/.env
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .react-email/
 .env
 .env-build
