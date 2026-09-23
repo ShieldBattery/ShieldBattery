@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import { useAtomValue } from 'jotai'
+import keycode from 'keycode'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -17,12 +18,12 @@ import { RaceChar, raceCharToLabel } from '../../common/races'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { useKeyListener } from '../keyboard/key-listener'
 import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
-import { FilledButton, FilledTonalButton, IconButton, OutlinedButton } from '../material/button'
+import { FilledButton, FilledTonalButton, IconButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
-import { zIndexSettings } from '../material/zindex'
-import { push } from '../navigation/routing'
+import { replace } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
 import { startReplay } from '../replays/action-creators'
 import { getRaceColor } from '../styles/colors'
@@ -39,19 +40,13 @@ import {
 import { BotAvatar } from './bot-avatar'
 import { botDisplayTags, PlayStyleTags, StrengthBadge } from './bot-badges'
 import { botViewsAtom, practiceSessionAtom, practiceStoreAtom } from './practice-atoms'
-import {
-  LaunchOpponent,
-  launchPracticeGame,
-  startCustomGame,
-  startPracticeMatchmaking,
-} from './practice-launch'
+import { LaunchOpponent, launchPracticeGame, startPracticeMatchmaking } from './practice-launch'
+import { closePracticeResult } from './practice-result-overlay'
 
 const Root = styled.div`
-  position: fixed;
-  inset: var(--sb-system-bar-height, 0) 0 0;
-  z-index: ${zIndexSettings - 2};
+  position: absolute;
+  inset: 0;
 
-  background-color: var(--theme-surface);
   overflow-x: hidden;
   overflow-y: auto;
   contain: paint;
@@ -227,9 +222,7 @@ const OpponentRow = styled.div`
   gap: 16px;
 `
 
-const InitialTile = styled.span`
-  ${titleLarge};
-
+const IconTile = styled.span`
   width: 64px;
   height: 64px;
   flex-shrink: 0;
@@ -259,11 +252,6 @@ const OpponentName = styled.div`
 const OpponentMeta = styled.div`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
-`
-
-const PlayedRace = styled.span<{ $race: RaceChar }>`
-  color: ${props => getRaceColor(props.$race)};
-  font-weight: 500;
 `
 
 const StrengthColumn = styled.div`
@@ -366,10 +354,6 @@ const BigTonalButton = styled(FilledTonalButton)`
   min-height: 48px;
 `
 
-const BigOutlinedButton = styled(OutlinedButton)`
-  min-height: 48px;
-`
-
 const ErrorText = styled.div`
   ${bodyMedium};
   max-width: 640px;
@@ -385,8 +369,10 @@ const SectionEyebrow = styled.div`
 `
 
 /** The result screen covers the play page, so leaving it always lands back on the practice home. */
+const ESCAPE = keycode('esc')
+
 function closeResult() {
-  push('/play/practice')
+  closePracticeResult()
 }
 
 function learningNote(mode: BotLearningMode | undefined, t: TFunction): string {
@@ -529,6 +515,16 @@ export function PracticeResult() {
   const store = useAtomValue(practiceStoreAtom)
   const bots = useAtomValue(botViewsAtom)
 
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (event.keyCode === ESCAPE) {
+        closeResult()
+        return true
+      }
+      return false
+    },
+  })
+
   if (!session) {
     return (
       <Root>
@@ -543,10 +539,7 @@ export function PracticeResult() {
             <Eyebrow>{t('practice.result.eyebrow', 'Practice · Unranked')}</Eyebrow>
             <Outcome>{t('practice.result.noGame', 'No recent game')}</Outcome>
           </Headline>
-          <BigButton
-            label={t('practice.result.backToPractice', 'Back to practice')}
-            onClick={closeResult}
-          />
+          <BigButton label={t('common.actions.close', 'Close')} onClick={closeResult} />
         </Content>
       </Root>
     )
@@ -587,15 +580,6 @@ export function PracticeResult() {
     ? record.opponents.map(opponent => botRaceToRaceChar(opponent.race))
     : [playerRace, ...(primaryRace ? [primaryRace] : [])]
   const matchSummary = participantCount(record) > 2 ? matchGroupSummary(record, t) : undefined
-
-  // Matchmaking draws someone new. A watched game's only follow-up is its setup again, the same
-  // thing Rematch means elsewhere, so it takes Rematch's icon; a played custom game shows both.
-  let playAgainIcon = 'play_arrow'
-  if (record.mode === 'matchmaking') {
-    playAgainIcon = 'shuffle'
-  } else if (record.observed) {
-    playAgainIcon = 'replay'
-  }
 
   const openBotDetails = (botKey: string) => {
     dispatch(openDialog({ type: DialogType.BotDetails, initData: { botKey } }))
@@ -688,27 +672,27 @@ export function PracticeResult() {
             {featured ? (
               <>
                 <OpponentRow>
-                  <InitialTile aria-hidden={true}>
-                    {primary.name.charAt(0).toUpperCase()}
-                  </InitialTile>
+                  <IconTile aria-hidden={true}>
+                    <MaterialIcon
+                      icon={primaryBot?.source === 'local' ? 'code' : 'smart_toy'}
+                      size={36}
+                    />
+                  </IconTile>
                   <OpponentText>
                     <OpponentName>{primary.name}</OpponentName>
                     <OpponentMeta>
                       {primaryBot?.source === 'local'
-                        ? t('practice.result.opponentMetaLocal', {
-                            defaultValue: '{{version}} · local build · played',
+                        ? t('practice.result.opponentBylineLocal', {
+                            defaultValue: '{{version}} · local build',
                             version: primary.version,
                           })
-                        : t('practice.result.opponentMeta', {
-                            defaultValue: '{{version}} · by {{author}} · played',
+                        : t('practice.result.opponentByline', {
+                            defaultValue: '{{version}} · by {{author}}',
                             version: primary.version,
                             author:
                               primaryBot?.authors[0]?.name ??
                               t('practice.result.unknownAuthor', 'an unknown author'),
-                          })}{' '}
-                      <PlayedRace $race={botRaceToRaceChar(primary.race)}>
-                        {raceCharToLabel(botRaceToRaceChar(primary.race), t)}
-                      </PlayedRace>
+                          })}
                     </OpponentMeta>
                   </OpponentText>
                   {primaryBot ? <BotAvatar races={primaryBot.races} size={48} /> : null}
@@ -762,7 +746,7 @@ export function PracticeResult() {
         ) : null}
 
         <Actions>
-          <BigOutlinedButton
+          <BigTonalButton
             label={t('practice.result.watchReplay', 'Watch replay')}
             iconStart={<MaterialIcon icon='movie' />}
             disabled={!record.replayPath}
@@ -772,29 +756,29 @@ export function PracticeResult() {
               }
             }}
           />
-          {/* A watched game has no opponent to face again, so replaying its setup is all there is. */}
-          {record.observed ? null : (
-            <BigTonalButton
-              label={t('practice.result.rematch', 'Rematch')}
-              iconStart={<MaterialIcon icon='replay' />}
-              onClick={rematch}
+          <BigTonalButton
+            label={
+              record.observed
+                ? t('practice.result.watchAgain', 'Watch again')
+                : t('practice.result.rematch', 'Rematch')
+            }
+            iconStart={<MaterialIcon icon='replay' />}
+            onClick={rematch}
+          />
+          {record.mode === 'matchmaking' ? (
+            <BigButton
+              label={t('practice.result.findNewOpponent', 'Find new opponent')}
+              iconStart={<MaterialIcon icon='shuffle' />}
+              onClick={startPracticeMatchmaking}
+            />
+          ) : (
+            <BigButton
+              label={t('practice.result.backToSetup', 'Back to setup')}
+              iconStart={<MaterialIcon icon='tune' />}
+              // Swapping out the result's own history entry keeps back from reopening it.
+              onClick={() => replace('/play/practice/game')}
             />
           )}
-          <BigButton
-            label={
-              record.mode === 'matchmaking'
-                ? t('practice.result.findNewOpponent', 'Find new opponent')
-                : t('practice.result.playAgain', 'Play again')
-            }
-            iconStart={<MaterialIcon icon={playAgainIcon} />}
-            onClick={() => {
-              if (record.mode === 'matchmaking') {
-                startPracticeMatchmaking()
-              } else {
-                startCustomGame()
-              }
-            }}
-          />
         </Actions>
       </Content>
     </Root>

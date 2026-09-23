@@ -29,6 +29,7 @@ import { NavigationTrapProvider } from './navigation/navigation-trap'
 import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
 import { SiteSocketManager } from './network/site-socket-manager'
+import { PracticeResultOverlay } from './practice/practice-result-overlay'
 import { LoadingDotsArea } from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
@@ -278,6 +279,7 @@ const AppContent = React.memo(() => {
       {IS_ELECTRON ? <GameDefaultsFirstRunPrompt /> : null}
       <LazyConnectedSettings />
       <DraftScreenOverlay />
+      {IS_ELECTRON ? <PracticeResultOverlay /> : null}
       <ConnectedDialogOverlay />
     </>
   )

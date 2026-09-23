@@ -30,6 +30,7 @@ import {
   practiceSessionAtom,
   practiceStoreAtom,
 } from './practice-atoms'
+import { showPracticeResult } from './practice-result-overlay'
 import { recordPracticeGame, updatePracticeStore } from './practice-store'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -173,7 +174,7 @@ function maybeShowResult(sessionId: string): void {
   }
 
   stopWatching()
-  push('/play/practice/result')
+  showPracticeResult()
 }
 
 function watchSession(sessionId: string): void {
