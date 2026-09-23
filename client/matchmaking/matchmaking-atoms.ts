@@ -1,5 +1,5 @@
 import { atom, Setter } from 'jotai'
-import { MatchmakingType } from '../../common/matchmaking'
+import { MatchCanceledReason, MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { JotaiStore } from '../jotai-store'
@@ -83,6 +83,20 @@ export const acceptRequestGenerationAtom = atom<number | undefined>(undefined)
 
 export const matchLaunchingAtom = atom(false)
 
+export interface CanceledMatch {
+  /** The phase the match was in when it was canceled. */
+  phase: 'draft' | 'load'
+  reason: MatchCanceledReason
+}
+
+/**
+ * A match this client was in that was canceled after every player accepted it. The server follows
+ * the cancel with a `requeue` event if this client is going back into the queue, or with a queue
+ * status saying it is no longer queued if it was the one removed for the cancel, so this holds the
+ * cause until one of those says which it was.
+ */
+export const canceledMatchAtom = atom<CanceledMatch | undefined>(undefined)
+
 /**
  * The matchmaking type of the match currently launching, set alongside `matchLaunchingAtom`.
  * `foundMatchAtom` is cleared before the launching-game dialog opens, so this carries the type
@@ -97,6 +111,7 @@ export function clearMatchmakingState(storeOrSetter: JotaiStore | Setter) {
   setter(foundMatchAtom, undefined)
   setter(matchLaunchingAtom, false)
   setter(launchingMatchmakingTypeAtom, undefined)
+  setter(canceledMatchAtom, undefined)
 }
 
 /**

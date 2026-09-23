@@ -31,6 +31,7 @@ import {
 } from './draft-atoms'
 import {
   acceptedPlayersAtom,
+  canceledMatchAtom,
   clearMatchmakingState,
   currentSearchInfoAtom,
   foundMatchAtom,
@@ -124,7 +125,9 @@ export const eventToAction: EventToActionMap = {
   },
 
   draftCancel: (matchmakingType, event) => {
+    logger.debug(`Draft canceled: ${event.reason}`)
     resetDraftState(jotaiStore)
+    jotaiStore.set(canceledMatchAtom, { phase: 'draft', reason: event.reason })
   },
 
   draftChatMessage: (matchmakingType, event) => (dispatch, getState) => {
@@ -175,14 +178,22 @@ export const eventToAction: EventToActionMap = {
     })
   },
 
-  requeue: (matchmakingType, event) => (_dispatch, getState) => {
+  requeue: (matchmakingType, event) => (dispatch, getState) => {
     logger.debug(`Re-entered matchmaking queue`)
     audioManager.playSound(AvailableSound.EnteredQueue)
 
-    // A requeue can follow any phase of a match falling apart. `foundMatchAtom` is only set during
-    // the accept phase, so its presence here is what identifies a requeue caused by players failing
-    // to ready up; a canceled draft or a failed load clears it before the requeue arrives and
-    // carries its own messaging.
+    // A requeue can follow any phase of a match falling apart. A match canceled during the draft or
+    // game load leaves its cause in `canceledMatchAtom`, and the StarCraft window or draft screen
+    // closing on the player needs an explanation that stays up until they've read it.
+    const canceledMatch = jotaiStore.get(canceledMatchAtom)
+    if (canceledMatch) {
+      jotaiStore.set(canceledMatchAtom, undefined)
+      dispatch(openDialog({ type: DialogType.MatchCanceled, initData: canceledMatch }))
+      return
+    }
+
+    // `foundMatchAtom` is only set during the accept phase, so its presence here is what identifies
+    // a requeue caused by players failing to ready up.
     const failedToAccept = !!jotaiStore.get(foundMatchAtom)
     jotaiStore.set(foundMatchAtom, undefined)
 
@@ -218,10 +229,7 @@ export const eventToAction: EventToActionMap = {
     jotaiStore.set(matchLaunchingAtom, false)
     jotaiStore.set(launchingMatchmakingTypeAtom, undefined)
     dispatch(closeDialog(DialogType.LaunchingGame))
-
-    externalShowSnackbar(
-      i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
-    )
+    jotaiStore.set(canceledMatchAtom, { phase: 'load', reason: event.reason })
   },
 
   gameStarted: (matchmakingType, event) => (dispatch, getState) => {
@@ -235,6 +243,13 @@ export const eventToAction: EventToActionMap = {
       `Matchmaking queue status received: ${event.matchmaking ? JSON.stringify(event.matchmaking) : 'Not in queue'}`,
     )
     if (!event.matchmaking) {
+      // A canceled game load followed by removal from the queue, rather than a requeue, means this
+      // client was one of the players removed for the load failing.
+      if (jotaiStore.get(canceledMatchAtom)?.phase === 'load') {
+        externalShowSnackbar(
+          i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
+        )
+      }
       clearMatchmakingState(jotaiStore)
     }
     // NOTE(tec27): Any other state updates will be handled by `startSearch`

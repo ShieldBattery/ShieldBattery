@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
   ALL_MATCHMAKING_TYPES,
+  MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingType,
   matchmakingTypeToLabel,
@@ -30,6 +31,7 @@ import {
   launchingMatchmakingTypeAtom,
   matchLaunchingAtom,
 } from '../matchmaking-atoms'
+import { eventToAction } from '../socket-handlers'
 
 const ControlsCard = styled(Card)`
   max-width: 480px;
@@ -51,6 +53,7 @@ export function MatchDialogsTest() {
   const [hasAccepted, setHasAccepted] = useState(false)
   const [showProvisioningStatus, setShowProvisioningStatus] = useState(false)
   const [autoCloseSecs, setAutoCloseSecs] = useState(10)
+  const [canceledReason, setCanceledReason] = useState<MatchCanceledReason>('playerLeft')
 
   const showAcceptDialog = useStableCallback(() => {
     store.set(currentSearchInfoAtom, {
@@ -90,6 +93,23 @@ export function MatchDialogsTest() {
       dispatch(closeDialog(DialogType.LaunchingGame))
     }, autoCloseSecs * 1000)
   })
+
+  /** Runs the real socket handlers for a canceled match followed by the requeue. */
+  const showCanceledMatch = (phase: 'draft' | 'load') => {
+    const cancelAction =
+      phase === 'draft'
+        ? eventToAction.draftCancel(matchmakingType, {
+            type: 'draftCancel',
+            reason: canceledReason,
+          })
+        : eventToAction.cancelLoading(matchmakingType, {
+            type: 'cancelLoading',
+            reason: canceledReason,
+          })
+    if (cancelAction) dispatch(cancelAction)
+    const requeueAction = eventToAction.requeue(matchmakingType, { type: 'requeue' })
+    if (requeueAction) dispatch(requeueAction)
+  }
 
   return (
     <div>
@@ -154,6 +174,18 @@ export function MatchDialogsTest() {
           label='Show failed-to-accept dialog'
           onClick={() => dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))}
         />
+        <Select
+          value={canceledReason}
+          label='Match canceled reason'
+          allowErrors={false}
+          onChange={(value: MatchCanceledReason) => setCanceledReason(value)}>
+          <SelectOption value='playerLeft' text='playerLeft' />
+          <SelectOption value='playerFailedToLoad' text='playerFailedToLoad' />
+          <SelectOption value='loadTimeout' text='loadTimeout' />
+          <SelectOption value='error' text='error' />
+        </Select>
+        <FilledButton label='Cancel draft + requeue' onClick={() => showCanceledMatch('draft')} />
+        <FilledButton label='Cancel loading + requeue' onClick={() => showCanceledMatch('load')} />
       </ControlsCard>
     </div>
   )

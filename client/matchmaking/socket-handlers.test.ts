@@ -6,7 +6,12 @@ import { DispatchFunction } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { currentSearchInfoAtom, FoundMatch, foundMatchAtom } from './matchmaking-atoms'
+import {
+  canceledMatchAtom,
+  currentSearchInfoAtom,
+  FoundMatch,
+  foundMatchAtom,
+} from './matchmaking-atoms'
 import { eventToAction } from './socket-handlers'
 
 vi.mock('../audio/audio-manager', () => ({
@@ -134,6 +139,7 @@ describe('client/matchmaking/socket-handlers/requeue', () => {
     showSnackbarMock.mockClear()
     jotaiStore.set(foundMatchAtom, undefined)
     jotaiStore.set(currentSearchInfoAtom, undefined)
+    jotaiStore.set(canceledMatchAtom, undefined)
   })
 
   test('shows the returning-to-queue snackbar when the accept dialog is gone', () => {
@@ -154,12 +160,78 @@ describe('client/matchmaking/socket-handlers/requeue', () => {
     expect(jotaiStore.get(foundMatchAtom)).toBeUndefined()
   })
 
-  test('stays quiet for a requeue that follows a phase carrying its own messaging', () => {
-    // Nothing found means the match fell apart past the accept phase (a canceled draft or a failed
-    // load), which reports itself.
+  test('stays quiet when neither a found match nor a canceled match explains the requeue', () => {
     runRequeue()
 
     expect(showSnackbarMock).not.toHaveBeenCalled()
     expect(jotaiStore.get(foundMatchAtom)).toBeUndefined()
+  })
+})
+
+describe('client/matchmaking/socket-handlers/canceled match', () => {
+  beforeEach(() => {
+    showSnackbarMock.mockClear()
+    jotaiStore.set(foundMatchAtom, undefined)
+    jotaiStore.set(currentSearchInfoAtom, undefined)
+    jotaiStore.set(canceledMatchAtom, undefined)
+  })
+
+  function openedDialogs(dispatched: unknown[]) {
+    return dispatched.filter((a: any) => a.type === '@dialogs/open').map((a: any) => a.payload)
+  }
+
+  test('explains a canceled draft once the player is requeued', () => {
+    runHandler(
+      eventToAction.draftCancel(MatchmakingType.Match2v2, {
+        type: 'draftCancel',
+        reason: 'playerLeft',
+      }),
+      [],
+    )
+    const dispatched = runRequeue()
+
+    expect(openedDialogs(dispatched)).toEqual([
+      { type: DialogType.MatchCanceled, initData: { phase: 'draft', reason: 'playerLeft' } },
+    ])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+    expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
+  })
+
+  test('explains a canceled game load once the player is requeued', () => {
+    const cancelDispatched = runHandler(
+      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+        type: 'cancelLoading',
+        reason: 'loadTimeout',
+      }),
+      [],
+    )
+    const dispatched = runRequeue()
+
+    expect(cancelDispatched).toContainEqual({
+      type: '@dialogs/close',
+      payload: { dialogType: DialogType.LaunchingGame },
+    })
+    expect(openedDialogs(dispatched)).toEqual([
+      { type: DialogType.MatchCanceled, initData: { phase: 'load', reason: 'loadTimeout' } },
+    ])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('tells a player removed for a failed load only that the game failed to load', () => {
+    runHandler(
+      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+        type: 'cancelLoading',
+        reason: 'playerFailedToLoad',
+      }),
+      [],
+    )
+    eventToAction.queueStatus(MatchmakingType.Match1v1, { type: 'queueStatus' })
+
+    expect(showSnackbarMock).toHaveBeenCalledTimes(1)
+    expect(showSnackbarMock.mock.calls[0][0]).toBe('The game has failed to load.')
+    expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
+
+    // A later requeue from a different match isn't explained by the stale cancel.
+    expect(openedDialogs(runRequeue())).toEqual([])
   })
 })

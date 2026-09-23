@@ -1998,6 +1998,17 @@
     "match": {
       "gameFailedToLoad": "The game has failed to load."
     },
+    "matchCanceled": {
+      "backInQueue": "You're back in the matchmaking queue, searching for a new match.",
+      "draftError": "The race draft was canceled because of a server error.",
+      "draftPlayerLeft": "A player left during the race draft, so the match was canceled.",
+      "loadError": "The game couldn't start because of a server error.",
+      "loadPlayerLeft": "A player left before the game could start, so the match was canceled.",
+      "loadTimeout": "A player took too long to load, so the game couldn't start.",
+      "notYourFault": "This wasn't your fault. Whoever caused it has been removed from the queue.",
+      "playerFailedToLoad": "A player disconnected or failed to load, so the game couldn't start.",
+      "title": "Match canceled"
+    },
     "postMatchDialog": {
       "leagues": "Leagues",
       "matchmaking": "Matchmaking",

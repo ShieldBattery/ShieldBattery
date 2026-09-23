@@ -29,7 +29,7 @@ import {
   rsRequeuePlayer,
 } from './matchmaker-rs-client'
 import { MatchmakingService } from './matchmaking-service'
-import { getMatchmakingUserPath } from './matchmaking-socket-paths'
+import { getMatchmakingClientPath, getMatchmakingUserPath } from './matchmaking-socket-paths'
 
 // We only mock the network functions of the Rust client; the error type and codes stay real so the
 // service's `code` checks behave like production.
@@ -759,6 +759,80 @@ describe('matchmaking/matchmaking-service', () => {
       teamARating: 1500,
       teamBRating: 1600,
       maxLatency: 1,
+    })
+  })
+
+  describe('tells the requeued player why the game load was canceled', () => {
+    const cases: Array<[description: string, error: () => unknown, reason: string]> = [
+      [
+        'a player failed to load',
+        () =>
+          new BaseGameLoaderError(GameLoadErrorType.PlayerFailed, 'player failed', {
+            data: { userId: USER_A },
+          }),
+        'playerFailedToLoad',
+      ],
+      [
+        'a player timed out loading',
+        () =>
+          new BaseGameLoaderError(GameLoadErrorType.Timeout, 'timed out', {
+            data: { unloaded: [USER_A] },
+          }),
+        'loadTimeout',
+      ],
+      [
+        'the load timed out without blaming anyone',
+        () =>
+          new BaseGameLoaderError(GameLoadErrorType.Timeout, 'timed out', {
+            data: { unloaded: [] },
+          }),
+        'error',
+      ],
+      [
+        'the load failed internally',
+        () => new BaseGameLoaderError(GameLoadErrorType.Internal, 'game load failed'),
+        'error',
+      ],
+    ]
+
+    test.each(cases)('%s', async (_description, makeError, reason) => {
+      asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+      asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+      gameLoader.loadGame.mockResolvedValue(Result.error(makeError()))
+
+      await queuePlayer(USER_A, CLIENT_A)
+      await queuePlayer(USER_B, CLIENT_B)
+
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          quality: 12.5,
+          skillVariance: 30000,
+          winProbability: 0.42,
+          teamARating: 1500,
+          teamBRating: 1600,
+          maxLatency: 1,
+        },
+      })
+      await vi.advanceTimersByTimeAsync(0)
+
+      await service.accept(USER_A)
+      await service.accept(USER_B)
+      for (let i = 0; i < 20; i++) {
+        await vi.advanceTimersByTimeAsync(0)
+      }
+
+      const clientBPath = getMatchmakingClientPath(clientSockets.get(USER_B)!)
+      const clientBEvents = publisher.publish.mock.calls
+        .filter((call: any[]) => call[0] === clientBPath)
+        .map((call: any[]) => call[1])
+      expect(clientBEvents).toContainEqual({ type: 'cancelLoading', reason })
+      expect(clientBEvents.findIndex(e => e?.type === 'requeue')).toBeGreaterThan(
+        clientBEvents.findIndex(e => e?.type === 'cancelLoading'),
+      )
     })
   })
 

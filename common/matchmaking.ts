@@ -991,9 +991,15 @@ export interface MatchReadyEvent {
   type: 'matchReady'
 }
 
+/**
+ * Why a match fell apart after every player accepted it. `error` covers failures no player is
+ * blamed for, so nobody was removed from the queue over it.
+ */
+export type MatchCanceledReason = 'playerLeft' | 'playerFailedToLoad' | 'loadTimeout' | 'error'
+
 export interface CancelLoadingEvent {
   type: 'cancelLoading'
-  reason: string
+  reason: MatchCanceledReason
 }
 
 export interface GameStartedEvent {
@@ -1041,6 +1047,7 @@ export interface DraftCompletedEvent {
 
 export interface DraftCancelEvent {
   type: 'draftCancel'
+  reason: MatchCanceledReason
 }
 
 /**
