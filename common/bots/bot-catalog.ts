@@ -10,6 +10,11 @@ export type BotRaceName = 'zerg' | 'terran' | 'protoss'
 
 export const ALL_BOT_RACE_NAMES: ReadonlyArray<BotRaceName> = ['zerg', 'terran', 'protoss']
 
+/** Whether a bot plays every race, so any race a Random pick lands on is one it can play. */
+export function playsEveryRace(races: ReadonlyArray<BotRaceName>): boolean {
+  return ALL_BOT_RACE_NAMES.every(race => races.includes(race))
+}
+
 export function botRaceToRaceChar(race: BotRaceName): AssignedRaceChar {
   switch (race) {
     case 'zerg':

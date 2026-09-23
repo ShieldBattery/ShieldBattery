@@ -3,13 +3,15 @@ import { useAtomValue } from 'jotai'
 import { useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { BotFormatId, BotRaceName, botRaceToRaceChar } from '../../common/bots/bot-catalog'
+import { BotFormatId } from '../../common/bots/bot-catalog'
 import { botFormatCompatibility, BotView } from '../../common/bots/bot-view'
 import {
+  canPlayPracticeRace,
   customGameBotCapacity,
   CustomGameBotSlot,
   customGameType,
   MAX_RECENT_PRACTICE_MAPS,
+  PracticeBotRace,
 } from '../../common/bots/practice'
 import { GameType } from '../../common/games/game-type'
 import { NUM_RECENT_MAPS } from '../../common/lobbies'
@@ -160,6 +162,8 @@ const SlotBlock = styled.div`
   /* Matches the gap between a slot's name and status lines, so all three lines read evenly. */
   gap: 4px;
 
+  /* The human's row is outlined; the same width here keeps the columns of both lined up. */
+  border: 1px solid transparent;
   border-radius: 8px;
 `
 
@@ -224,13 +228,24 @@ const Guidance = styled.div<{ $error?: boolean }>`
   color: ${props => (props.$error ? 'var(--theme-error)' : 'var(--theme-on-surface-variant)')};
 `
 
+/** Spaced like the human's `RacePicker`, so the race columns line up between rows. */
 const RaceButtons = styled.div`
   display: flex;
   align-items: center;
   gap: 4px;
 `
 
-const DimmedRaceButton = styled(RaceButton)`
+const SlotRaceButton = styled(RaceButton)`
+  /*
+   * RaceButtons spaces the buttons itself: a disabled button sits alone in its tooltip's wrapper,
+   * so the picker's sibling margin would land on some buttons and not others.
+   */
+  &:not(:first-child) {
+    margin-left: 0;
+  }
+`
+
+const DimmedRaceButton = styled(SlotRaceButton)`
   opacity: var(--theme-disabled-opacity);
 `
 
@@ -538,7 +553,7 @@ export function CustomGameSetup({ onBack }: CustomGameSetupProps) {
         })
         break
       }
-      if (!bot.races.includes(slot.race)) {
+      if (!canPlayPracticeRace(bot.races, slot.race)) {
         blockingProblem = t('practice.customGame.botCantPlayRace', {
           defaultValue: "{{name}} can't play that race.",
           name: bot.name,
@@ -817,7 +832,13 @@ export function CustomGameSetup({ onBack }: CustomGameSetupProps) {
   )
 }
 
-const ALL_PICKER_RACES: ReadonlyArray<RaceChar> = ['z', 'p', 't', 'r']
+/** The human's picker order, so each race sits in the same column in every row. */
+const PICKER_RACES: ReadonlyArray<[RaceChar, PracticeBotRace]> = [
+  ['z', 'zerg'],
+  ['p', 'protoss'],
+  ['t', 'terran'],
+  ['r', 'random'],
+]
 
 /**
  * The race choices for one bot slot. Races the package can't play stay visible but disabled, so a
@@ -829,23 +850,16 @@ function BotSlotRaces({
   onSetRace,
 }: {
   bot: BotView
-  race: BotRaceName
-  onSetRace: (race: BotRaceName) => void
+  race: PracticeBotRace
+  onSetRace: (race: PracticeBotRace) => void
 }) {
   const { t } = useTranslation()
-  const supported = new Set(bot.races.map(botRaceToRaceChar))
-  const selected = botRaceToRaceChar(race)
 
   return (
     <RaceButtons>
-      {ALL_PICKER_RACES.map(raceChar => {
-        // Every bot is launched with a concrete race; Random is shown only so the row lines up with
-        // the human's picker, and stays dimmed unless the package says it could handle it.
-        const isRandom = raceChar === 'r'
-        const canPlay = isRandom ? false : supported.has(raceChar)
-        const dimmed = isRandom ? bot.randomRace !== 'supported' : !canPlay
-        const Button = dimmed ? DimmedRaceButton : RaceButton
-        const botRace = bot.races.find(r => botRaceToRaceChar(r) === raceChar)
+      {PICKER_RACES.map(([raceChar, pickerRace]) => {
+        const canPlay = canPlayPracticeRace(bot.races, pickerRace)
+        const Button = canPlay ? SlotRaceButton : DimmedRaceButton
 
         const button = (
           <Button
@@ -854,13 +868,9 @@ function BotSlotRaces({
             disabled={!canPlay}
             $size={RacePickerSize.Medium}
             $race={raceChar}
-            $active={raceChar === selected}
+            $active={pickerRace === race}
             $allowInteraction={canPlay}
-            onClick={() => {
-              if (botRace) {
-                onSetRace(botRace)
-              }
-            }}>
+            onClick={() => onSetRace(pickerRace)}>
             <StyledRaceIcon race={raceChar} applyRaceColor={false} $size={RacePickerSize.Medium} />
           </Button>
         )
@@ -870,10 +880,17 @@ function BotSlotRaces({
         ) : (
           <Tooltip
             key={raceChar}
-            text={t('practice.customGame.raceUnsupported', {
-              defaultValue: "{{name}} can't play this race",
-              name: bot.name,
-            })}>
+            text={
+              pickerRace === 'random'
+                ? t('practice.customGame.randomUnsupported', {
+                    defaultValue: "{{name}} can't play every race, so it can't be random",
+                    name: bot.name,
+                  })
+                : t('practice.customGame.raceUnsupported', {
+                    defaultValue: "{{name}} can't play this race",
+                    name: bot.name,
+                  })
+            }>
             {button}
           </Tooltip>
         )

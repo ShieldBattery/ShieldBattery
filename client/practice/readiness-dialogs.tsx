@@ -2,11 +2,13 @@ import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { BotRaceName, BotRuntime } from '../../common/bots/bot-catalog'
+import { BotRaceName, BotRuntime, playsEveryRace } from '../../common/bots/bot-catalog'
 import { BotKey } from '../../common/bots/bot-library'
 import { BotView } from '../../common/bots/bot-view'
+import { PracticeBotRace } from '../../common/bots/practice'
 import { LineupEntryStatus, PoolReadiness } from '../../common/bots/practice-logic'
 import { MapInfoJson } from '../../common/maps'
+import { raceCharToLabel } from '../../common/races'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, FilledTonalButton, OutlinedButton, TextButton } from '../material/button'
@@ -31,7 +33,7 @@ export type PracticeReadinessPayload =
   | {
       kind: 'incompatibleRace'
       bot: BotView
-      race: BotRaceName
+      race: PracticeBotRace
       onSetRace: (race: BotRaceName) => void
       onRemove: () => void
     }
@@ -441,13 +443,12 @@ export function PracticeReadinessDialog(props: PracticeReadinessDialogProps) {
       const { bot, race, onSetRace, onRemove } = payload
       const supported = bot.races[0]
       const racesText = bot.races.map(r => botRaceToLabel(r, t)).join(', ')
-      const randomNote =
-        bot.randomRace === 'supported'
-          ? ''
-          : t('practice.readiness.noRandomNote', {
-              defaultValue: " Random isn't offered because {{name}} doesn't support it.",
-              name: bot.name,
-            })
+      const randomNote = playsEveryRace(bot.races)
+        ? ''
+        : t('practice.readiness.noRandomNote', {
+            defaultValue: " Random isn't offered because {{name}} doesn't support it.",
+            name: bot.name,
+          })
 
       const buttons = [
         <FilledTonalButton
@@ -479,7 +480,7 @@ export function PracticeReadinessDialog(props: PracticeReadinessDialogProps) {
           title={t('practice.readiness.incompatibleRaceTitle', {
             defaultValue: "{{name}} can't play {{race}}",
             name: bot.name,
-            race: botRaceToLabel(race, t),
+            race: race === 'random' ? raceCharToLabel('r', t) : botRaceToLabel(race, t),
           })}>
           <Body>
             {t('practice.readiness.incompatibleRaceBody', {

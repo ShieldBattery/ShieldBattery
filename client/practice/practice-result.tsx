@@ -4,7 +4,7 @@ import keycode from 'keycode'
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { BotLearningMode, botRaceToRaceChar } from '../../common/bots/bot-catalog'
+import { BotLearningMode, botRaceToRaceChar, playsEveryRace } from '../../common/bots/bot-catalog'
 import { BotView } from '../../common/bots/bot-view'
 import {
   customGameType,
@@ -596,7 +596,10 @@ export function PracticeResult() {
       if (!bot) {
         return
       }
-      opponents.push({ bot, race: opponent.race })
+      opponents.push({
+        bot,
+        race: opponent.random && playsEveryRace(bot.races) ? 'random' : opponent.race,
+      })
     }
 
     launchPracticeGame({
