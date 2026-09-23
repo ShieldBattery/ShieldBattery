@@ -1,6 +1,5 @@
 import { useAtomValue } from 'jotai'
 import { useEffect, useEffectEvent } from 'react'
-import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { MatchmakingType } from '../../common/matchmaking'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
@@ -15,19 +14,6 @@ import { PracticeHome } from './practice-home'
 import { refreshInstalledMaps } from './practice-launch'
 import { PracticeSetup } from './practice-setup'
 import { knownMapIdsToMaps } from './practice-store'
-
-/**
- * The column every practice page lives in. The surrounding play page already centers content and
- * provides the top padding, so this only adds the vertical rhythm between a page's sections.
- */
-export const PracticePageColumn = styled.div`
-  width: 100%;
-  padding: 24px 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-`
 
 /**
  * Keeps the data every practice page reads from up to date: the official pool cache, whether the

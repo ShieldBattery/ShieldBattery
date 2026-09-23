@@ -41,7 +41,7 @@ import { BotAvatar } from './bot-avatar'
 import { botDisplayTags, PlayStyleTags, StrengthBadge } from './bot-badges'
 import { botViewsAtom, practiceSessionAtom, practiceStoreAtom } from './practice-atoms'
 import { LaunchOpponent, launchPracticeGame, startPracticeMatchmaking } from './practice-launch'
-import { closePracticeResult } from './practice-result-overlay'
+import { closePracticeResult } from './practice-result-navigation'
 
 const Root = styled.div`
   position: absolute;

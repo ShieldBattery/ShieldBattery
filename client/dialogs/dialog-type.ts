@@ -13,7 +13,7 @@ import {
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
-import type { PracticeReadinessPayload } from '../practice/readiness-dialogs'
+import type { PracticeReadinessPayload } from '../practice/readiness-types'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
