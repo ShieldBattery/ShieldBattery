@@ -13,7 +13,6 @@ import { OpponentPicker } from './opponent-picker'
 import { practiceStoreAtom } from './practice-atoms'
 import { PracticeHome } from './practice-home'
 import { refreshInstalledMaps } from './practice-launch'
-import { PracticeResult } from './practice-result'
 import { PracticeSetup } from './practice-setup'
 import { knownMapIdsToMaps } from './practice-store'
 
@@ -104,7 +103,6 @@ export function PracticeRoot() {
           }}
         />
       </Route>
-      <Route path='/play/practice/result' component={PracticeResult} />
       <Route component={PracticeHome} />
     </Switch>
   )
