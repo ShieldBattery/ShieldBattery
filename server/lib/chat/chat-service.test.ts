@@ -23,6 +23,11 @@ import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
 import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { asMockedFunction } from '../../../common/testing/mocks'
+import {
+  AvailabilityInfo,
+  DEFAULT_AVAILABILITY_INFO,
+  UserAvailability,
+} from '../../../common/users/availability'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
@@ -31,8 +36,10 @@ import { ImageService } from '../images/image-service'
 import { rollOutcome } from '../messaging/roll-outcome'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
+import { AvailabilityService } from '../users/availability-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
+import { FakeAvailabilityService } from '../users/testing/availability-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import {
@@ -101,6 +108,11 @@ vi.mock('../db/transaction', () => ({
     return await next(dbClient)
   }),
 }))
+
+const AWAY_AVAILABILITY: AvailabilityInfo = {
+  availability: UserAvailability.Away,
+  statusMessage: 'brb',
+}
 
 vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
 vi.mock('../models/permissions')
@@ -209,6 +221,7 @@ describe('chat/chat-service', () => {
   let chatService: ChatService
   let connector: NydusConnector
   let notificationService: NotificationService
+  let availabilityService: FakeAvailabilityService
 
   const shieldBatteryBasicInfo: BasicChannelInfo = {
     id: makeSbChannelId(1),
@@ -460,6 +473,7 @@ describe('chat/chat-service', () => {
     const publisher = new TypedPublisher(nydus)
     const imageService = new ImageService()
     notificationService = createFakeNotificationService()
+    availabilityService = new FakeAvailabilityService()
 
     chatService = new ChatService(
       publisher,
@@ -467,6 +481,7 @@ describe('chat/chat-service', () => {
       imageService,
       mockRestrictionService,
       notificationService,
+      availabilityService as any as AvailabilityService,
     )
     connector = new NydusConnector(nydus, sessionLookup)
 
@@ -505,11 +520,13 @@ describe('chat/chat-service', () => {
         {
           action: 'initActiveUsers',
           activeUserIds: [user3.id],
+          availabilities: [],
         },
       )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(client3, getChannelPath(testChannel.id), {
         action: 'initActiveUsers',
         activeUserIds: [user3.id],
+        availabilities: [],
       })
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client3,
@@ -521,6 +538,77 @@ describe('chat/chat-service', () => {
         getChannelUserPath(testChannel.id, user3.id),
         undefined,
       )
+    })
+
+    test("announces a connecting user's non-default availability and lists it for others", async () => {
+      const user3: SbUser = { id: 3 as SbUserId, name: 'USER_NAME_3', created: 1577836800000 }
+      asMockedFunction(getChannelsForUser).mockResolvedValue([
+        { ...user1TestChannelEntry, userId: user3.id },
+      ])
+      availabilityService.get.mockImplementation(userId =>
+        userId === user3.id ? AWAY_AVAILABILITY : undefined,
+      )
+
+      const client3 = connector.connectClient(user3, 'USER3_CLIENT_ID')
+      await new Promise(resolve => setTimeout(resolve, 20))
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+
+      expect(nydus.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'userActive2',
+        userId: user3.id,
+        availability: AWAY_AVAILABILITY,
+      })
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(client3, getChannelPath(testChannel.id), {
+        action: 'initActiveUsers',
+        activeUserIds: [user3.id],
+        availabilities: [{ userId: user3.id, ...AWAY_AVAILABILITY }],
+      })
+    })
+  })
+
+  describe('availability changes', () => {
+    async function connectUser3ToTestChannel() {
+      const user3: SbUser = { id: 3 as SbUserId, name: 'USER_NAME_3', created: 1577836800000 }
+      asMockedFunction(getChannelsForUser).mockResolvedValue([
+        { ...user1TestChannelEntry, userId: user3.id },
+      ])
+      connector.connectClient(user3, 'USER3_CLIENT_ID')
+      await new Promise(resolve => setTimeout(resolve, 20))
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      vi.mocked(nydus.publish).mockClear()
+      return user3
+    }
+
+    test("publishes a change to the user's channels", async () => {
+      const user3 = await connectUser3ToTestChannel()
+
+      availabilityService.emit('change', user3.id, AWAY_AVAILABILITY, DEFAULT_AVAILABILITY_INFO)
+
+      expect(nydus.publish).toHaveBeenCalledExactlyOnceWith(getChannelPath(testChannel.id), {
+        action: 'userAvailability',
+        userId: user3.id,
+        availability: AWAY_AVAILABILITY,
+      })
+    })
+
+    test('publishes nothing when a user comes online with the default', async () => {
+      const user3 = await connectUser3ToTestChannel()
+
+      availabilityService.emit('change', user3.id, DEFAULT_AVAILABILITY_INFO, undefined)
+
+      expect(nydus.publish).not.toHaveBeenCalled()
+    })
+
+    test('publishes a change back to the default', async () => {
+      const user3 = await connectUser3ToTestChannel()
+
+      availabilityService.emit('change', user3.id, DEFAULT_AVAILABILITY_INFO, AWAY_AVAILABILITY)
+
+      expect(nydus.publish).toHaveBeenCalledExactlyOnceWith(getChannelPath(testChannel.id), {
+        action: 'userAvailability',
+        userId: user3.id,
+        availability: DEFAULT_AVAILABILITY_INFO,
+      })
     })
   })
 
@@ -745,6 +833,7 @@ describe('chat/chat-service', () => {
         {
           action: 'initActiveUsers',
           activeUserIds: [user2.id, user1.id],
+          availabilities: [],
         },
       )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
@@ -886,6 +975,7 @@ describe('chat/chat-service', () => {
         {
           action: 'initActiveUsers',
           activeUserIds: [user2.id, user1.id],
+          availabilities: [],
         },
       )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
@@ -936,6 +1026,7 @@ describe('chat/chat-service', () => {
       expect(nydus.subscribeClient).toHaveBeenCalledWith(client1, getChannelPath(testChannel.id), {
         action: 'initActiveUsers',
         activeUserIds: [user1.id],
+        availabilities: [],
       })
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,

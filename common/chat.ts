@@ -2,6 +2,7 @@ import { Tagged } from 'type-fest'
 import { Jsonify } from './json'
 import { Patch } from './patch'
 import { RolledOutcome } from './rolled-outcomes'
+import { AvailabilityInfo } from './users/availability'
 import { SbUser } from './users/sb-user'
 import { SbUserId } from './users/sb-user-id'
 
@@ -319,6 +320,8 @@ export interface ChatJoinEvent {
   user: SbUser
   /** A message info for the user joining a channel that is saved in the DB. */
   message: JoinChannelMessage
+  /** The joining user's availability, omitted if it's the default (online, no message). */
+  availability?: AvailabilityInfo
 }
 
 export interface ChatEditEvent {
@@ -387,12 +390,29 @@ export interface ChatInitActiveUsersEvent {
   action: 'initActiveUsers'
   /** A list of IDs of active users that are in the chat channel. */
   activeUserIds: SbUserId[]
+  /**
+   * The availability of each active user whose availability isn't the default (online, no message).
+   * Every active user not listed here has the default.
+   */
+  availabilities: Array<AvailabilityInfo & { userId: SbUserId }>
 }
 
 export interface ChatUserActiveEvent {
   action: 'userActive2'
   /** The ID of a user that has become active in a chat channel. */
   userId: SbUserId
+  /** The user's availability, omitted if it's the default (online, no message). */
+  availability?: AvailabilityInfo
+}
+
+/**
+ * The availability of an online user in the chat channel has changed. Channel members see each
+ * other's availability, while activity (lobby, queue, game) stays visible to friends only.
+ */
+export interface ChatUserAvailabilityEvent {
+  action: 'userAvailability'
+  userId: SbUserId
+  availability: AvailabilityInfo
 }
 
 export interface ChatUserIdleEvent {
@@ -427,6 +447,7 @@ export type ChatEvent =
   | ChatMessageDeletedEvent
   | ChatInitActiveUsersEvent
   | ChatUserActiveEvent
+  | ChatUserAvailabilityEvent
   | ChatUserIdleEvent
   | ChatUserOfflineEvent
   | ChatUserProfileChangedEvent

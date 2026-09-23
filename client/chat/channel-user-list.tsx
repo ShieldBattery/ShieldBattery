@@ -28,6 +28,7 @@ const UserListContainer = styled.div`
   contain: content;
 
   background-color: var(--theme-container-low);
+  --availability-dot-ring: var(--theme-container-low);
   border-radius: 8px;
 `
 
@@ -172,7 +173,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         $isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <StyledAvatar userId={props.userId} />
+        <StyledAvatar userId={props.userId} showAvailability={true} />
         {user ? (
           <NameBlock>
             <NameLine>{user.name}</NameLine>

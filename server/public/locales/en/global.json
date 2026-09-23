@@ -2858,6 +2858,15 @@
         "title": "Punishments"
       }
     },
+    "availability": {
+      "away": "Away",
+      "doNotDisturb": "Do not disturb",
+      "doNotDisturbDescription": "Mutes message sounds and alerts",
+      "online": "Online",
+      "pickerLabel": "Availability",
+      "statusMessage": "Status message",
+      "withMessage": "{{availability}}: {{message}}"
+    },
     "card": {
       "loadError": "Couldn't load this user's profile.",
       "noGames": "No games played",

@@ -8,6 +8,8 @@ import {
   makeSbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
+import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
+import { UserAvailability } from '../../common/users/availability'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { registerDispatch } from '../dispatch-registry'
 import type { RootState } from '../root-reducer'
@@ -49,6 +51,8 @@ interface MessageCase {
   inGame?: boolean
   /** The account's `quietChannelsWhileInGame` setting. Defaults to `true`. */
   quietChannelsWhileInGame?: boolean
+  /** The account's `availability`. Defaults to online. */
+  availability?: UserAvailability
 }
 
 describe('channel message echoes', () => {
@@ -206,6 +210,30 @@ describe('channel message echoes', () => {
       alerts: true,
       urgent: true,
     },
+    {
+      name: 'in do not disturb, a mention is recorded but does not alert',
+      availability: UserAvailability.DoNotDisturb,
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      mention: true,
+      alerts: false,
+    },
+    {
+      name: 'in do not disturb, a non-mention at the all level does not alert',
+      availability: UserAvailability.DoNotDisturb,
+      level: ChannelNotificationLevel.All,
+      mention: false,
+      alerts: false,
+    },
+    {
+      name: 'while away, a mention still alerts urgently',
+      availability: UserAvailability.Away,
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.Mentions,
+      mention: true,
+      alerts: true,
+      urgent: true,
+    },
   ])('$name', options => {
     const sender = options.fromSelf ? SELF : OTHER
     const preferences: ChannelPreferences | undefined =
@@ -225,9 +253,9 @@ describe('channel message echoes', () => {
       relationships: { blocks: new Map(options.blocked ? [[sender.id, {}]] : []) },
       settings: {
         account: {
+          ...DEFAULT_ACCOUNT_SETTINGS,
           quietChannelsWhileInGame: options.quietChannelsWhileInGame ?? true,
-          quietWhispersWhileInGame: true,
-          showWhispersEverywhere: true,
+          availability: options.availability ?? UserAvailability.Online,
         },
       },
       gameClient: {

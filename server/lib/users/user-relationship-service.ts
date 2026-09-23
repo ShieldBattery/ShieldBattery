@@ -1,5 +1,6 @@
 import { singleton } from 'tsyringe'
 import { NotificationType } from '../../../common/notifications'
+import { AvailabilityUpdateEvent } from '../../../common/users/availability'
 import {
   FriendActivityStatus,
   FriendActivityStatusUpdateEvent,
@@ -20,6 +21,7 @@ import { Clock } from '../time/clock'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { ActivityStatusService, getFriendActivityStatusPath } from './activity-status-service'
+import { AvailabilityService, getAvailabilityPath } from './availability-service'
 import {
   acceptFriendRequest,
   blockUser,
@@ -47,6 +49,7 @@ export class UserRelationshipService {
     private userSocketsManager: UserSocketsManager,
     private notificationService: NotificationService,
     private activityStatusService: ActivityStatusService,
+    private availabilityService: AvailabilityService,
   ) {
     userSocketsManager.on('newUser', userSockets => {
       // NOTE(tec27): We don't provide initial data over this as it's potentially a lot of stuff
@@ -66,7 +69,7 @@ export class UserRelationshipService {
           }
 
           for (const { toId: friendId } of summary.friends) {
-            this.subscribeToFriendActivityStatusUpdates(userSockets, friendId)
+            this.subscribeToFriendPresence(userSockets, friendId)
           }
         })
         .catch(err => {
@@ -90,15 +93,13 @@ export class UserRelationshipService {
 
     // Any delete potentially deletes a friend relationship, so we ensure they don't get status
     // updates any more either
-    this.userSocketsManager
-      .getById(toUserId)
-      ?.unsubscribe(getFriendActivityStatusPath(deletedUserId))
+    const userSockets = this.userSocketsManager.getById(toUserId)
+    userSockets?.unsubscribe(getFriendActivityStatusPath(deletedUserId))
+    userSockets?.unsubscribe(getAvailabilityPath(deletedUserId))
   }
 
-  private subscribeToFriendActivityStatusUpdates(
-    userSockets: UserSocketsGroup | undefined,
-    friendId: SbUserId,
-  ) {
+  /** Subscribes a user's sockets to both the activity status and availability of a friend. */
+  private subscribeToFriendPresence(userSockets: UserSocketsGroup | undefined, friendId: SbUserId) {
     userSockets?.subscribe<FriendActivityStatusUpdateEvent>(
       getFriendActivityStatusPath(friendId),
       async () => {
@@ -109,6 +110,11 @@ export class UserRelationshipService {
         return status !== FriendActivityStatus.Offline ? { userId: friendId, status } : undefined
       },
     )
+    userSockets?.subscribe<AvailabilityUpdateEvent>(getAvailabilityPath(friendId), async () => {
+      // Like the activity status above, only sent for online friends.
+      const info = this.availabilityService.get(friendId)
+      return info ? { userId: friendId, info } : undefined
+    })
   }
 
   async sendFriendRequest(fromId: SbUserId, toId: SbUserId): Promise<UserRelationship> {
@@ -158,14 +164,8 @@ export class UserRelationshipService {
               relationships.find(r => r.fromId === toId)!,
             )
 
-            this.subscribeToFriendActivityStatusUpdates(
-              this.userSocketsManager.getById(fromId),
-              toId,
-            )
-            this.subscribeToFriendActivityStatusUpdates(
-              this.userSocketsManager.getById(toId),
-              fromId,
-            )
+            this.subscribeToFriendPresence(this.userSocketsManager.getById(fromId), toId)
+            this.subscribeToFriendPresence(this.userSocketsManager.getById(toId), fromId)
 
             await Promise.all([
               this.notificationService.addNotification({
@@ -242,11 +242,11 @@ export class UserRelationshipService {
               relationships.find(r => r.fromId === requestingId)!,
             )
 
-            this.subscribeToFriendActivityStatusUpdates(
+            this.subscribeToFriendPresence(
               this.userSocketsManager.getById(acceptingId),
               requestingId,
             )
-            this.subscribeToFriendActivityStatusUpdates(
+            this.subscribeToFriendPresence(
               this.userSocketsManager.getById(requestingId),
               acceptingId,
             )

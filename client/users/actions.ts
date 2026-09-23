@@ -1,3 +1,4 @@
+import { AvailabilityUpdateEvent } from '../../common/users/availability'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
@@ -22,6 +23,13 @@ export type UserActions =
   | AdminGetUserIps
   | AdminAvatarCleared
   | GetUserRankingHistory
+  | UpdateFriendAvailability
+
+/** A friend's availability changed, or they came online or went offline. */
+export interface UpdateFriendAvailability {
+  type: '@users/updateFriendAvailability'
+  payload: AvailabilityUpdateEvent
+}
 
 export interface GetUserProfile {
   type: '@users/getUserProfile'

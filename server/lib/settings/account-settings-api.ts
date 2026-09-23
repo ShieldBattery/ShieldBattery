@@ -4,6 +4,10 @@ import {
   AccountSettingsResponse,
   UpdateAccountSettingsRequest,
 } from '../../../common/settings/account-settings'
+import {
+  ALL_USER_AVAILABILITIES,
+  MAX_STATUS_MESSAGE_LENGTH,
+} from '../../../common/users/availability'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -18,6 +22,21 @@ const accountSettingsThrottle = createThrottle('accountsettings', {
   window: 60000,
 })
 
+/** Every `AccountSettings` key needs a rule here; unknown keys are rejected. */
+export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsRequest>({
+  quietChannelsWhileInGame: Joi.boolean(),
+  quietWhispersWhileInGame: Joi.boolean(),
+  showWhispersEverywhere: Joi.boolean(),
+  availability: Joi.valid(...ALL_USER_AVAILABILITIES),
+  statusMessage: Joi.string()
+    .trim()
+    .max(MAX_STATUS_MESSAGE_LENGTH)
+    .pattern(/^[^\r\n]*$/)
+    .allow(''),
+})
+  .min(1)
+  .required()
+
 @httpApi('/account-settings')
 @httpBeforeAll(ensureLoggedIn)
 export class AccountSettingsApi {
@@ -27,14 +46,7 @@ export class AccountSettingsApi {
   @httpBefore(throttleMiddleware(accountSettingsThrottle, throttleByUser))
   async updateSettings(ctx: RouterContext): Promise<AccountSettingsResponse> {
     const { body } = validateRequest(ctx, {
-      // Every `AccountSettings` key needs a rule here; unknown keys are rejected.
-      body: Joi.object<UpdateAccountSettingsRequest>({
-        quietChannelsWhileInGame: Joi.boolean(),
-        quietWhispersWhileInGame: Joi.boolean(),
-        showWhispersEverywhere: Joi.boolean(),
-      })
-        .min(1)
-        .required(),
+      body: updateAccountSettingsSchema,
     })
 
     const settings = await this.accountSettingsService.updateSettings(ctx.session!.user.id, body)

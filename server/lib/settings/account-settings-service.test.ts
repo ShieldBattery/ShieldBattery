@@ -2,6 +2,7 @@ import { NydusServer } from 'nydus'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { DEFAULT_ACCOUNT_SETTINGS } from '../../../common/settings/account-settings'
 import { asMockedFunction } from '../../../common/testing/mocks'
+import { UserAvailability } from '../../../common/users/availability'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { RequestSessionLookup } from '../websockets/session-lookup'
@@ -45,11 +46,7 @@ describe('settings/account-settings-service', () => {
 
       expect(client.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
-        settings: {
-          quietChannelsWhileInGame: false,
-          quietWhispersWhileInGame: true,
-          showWhispersEverywhere: true,
-        },
+        settings: { ...DEFAULT_ACCOUNT_SETTINGS, quietChannelsWhileInGame: false },
       })
     })
 
@@ -89,18 +86,25 @@ describe('settings/account-settings-service', () => {
       expect(updateAccountSettings).toHaveBeenCalledWith(user1.id, {
         quietChannelsWhileInGame: false,
       })
-      expect(result).toEqual({
-        quietChannelsWhileInGame: false,
-        quietWhispersWhileInGame: true,
-        showWhispersEverywhere: true,
-      })
+      expect(result).toEqual({ ...DEFAULT_ACCOUNT_SETTINGS, quietChannelsWhileInGame: false })
       expect(nydus.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
-        settings: {
-          quietChannelsWhileInGame: false,
-          quietWhispersWhileInGame: true,
-          showWhispersEverywhere: true,
-        },
+        settings: { ...DEFAULT_ACCOUNT_SETTINGS, quietChannelsWhileInGame: false },
+      })
+    })
+
+    test('emits the filled-in settings as a change', async () => {
+      asMockedFunction(updateAccountSettings).mockResolvedValue({
+        availability: UserAvailability.Away,
+      })
+      const onChange = vi.fn()
+      service.on('change', onChange)
+
+      await service.updateSettings(user1.id, { availability: UserAvailability.Away })
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(user1.id, {
+        ...DEFAULT_ACCOUNT_SETTINGS,
+        availability: UserAvailability.Away,
       })
     })
   })

@@ -11,6 +11,7 @@ import {
   ChatPermissionsChangedEvent,
   ChatPreferencesChangedEvent,
   ChatUserActiveEvent,
+  ChatUserAvailabilityEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
   ChatUserProfileChangedEvent,
@@ -69,6 +70,7 @@ export type ChatActions =
   | UpdateMessage
   | UpdateMessageDeleted
   | UpdateUserActive
+  | UpdateUserAvailability
   | UpdateUserIdle
   | UpdateUserOffline
   | UpdateSelfPreferences
@@ -588,6 +590,13 @@ export interface InitActiveUsers {
 export interface UpdateUserActive {
   type: '@chat/updateUserActive'
   payload: ChatUserActiveEvent
+  meta: { channelId: SbChannelId }
+}
+
+/** The availability of an online user in one of our chat channels has changed. */
+export interface UpdateUserAvailability {
+  type: '@chat/updateUserAvailability'
+  payload: ChatUserAvailabilityEvent
   meta: { channelId: SbChannelId }
 }
 

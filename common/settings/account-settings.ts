@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { isUserAvailability, UserAvailability } from '../users/availability'
 
 /**
  * Settings that are a property of the account rather than the machine: stored on the server,
@@ -29,12 +30,21 @@ export interface AccountSettings {
    * their screen.
    */
   showWhispersEverywhere: boolean
+  /**
+   * How available the user has said they are. Unlike the other keys this is visible to other users:
+   * friends and everyone sharing a chat channel see it while the user is online.
+   */
+  availability: UserAvailability
+  /** A short message shown alongside `availability` to the same users. Empty if none is set. */
+  statusMessage: string
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   quietChannelsWhileInGame: true,
   quietWhispersWhileInGame: true,
   showWhispersEverywhere: true,
+  availability: UserAvailability.Online,
+  statusMessage: '',
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(
@@ -60,6 +70,9 @@ export function fillAccountSettingsDefaults(stored: unknown): AccountSettings {
       // after the runtime check above.
       ;(result[key] as unknown) = value
     }
+  }
+  if (!isUserAvailability(result.availability)) {
+    result.availability = DEFAULT_ACCOUNT_SETTINGS.availability
   }
 
   return result
