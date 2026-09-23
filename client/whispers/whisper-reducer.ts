@@ -225,6 +225,18 @@ export function newestKnownWhisperTime(session: Immutable<WhisperSession>): numb
 }
 
 /**
+ * Returns whether any whisper conversation has unread messages that should draw the user's
+ * attention. A blocked user's whispers are still stored and still unread, but they're silent: they
+ * don't raise any unread indicator until the user is unblocked.
+ */
+export function hasAttentionWorthyWhisper(
+  whisperState: Immutable<WhisperState>,
+  blocks: ReadonlyMap<SbUserId, unknown>,
+): boolean {
+  return whisperState.byId.entries().some(([userId, w]) => w.hasUnread && !blocks.has(userId))
+}
+
+/**
  * Returns `incoming` with every message already present in `existing` removed. The history
  * endpoints seek by millisecond-precision time, so a page boundary landing inside a group of
  * messages that share a timestamp can hand back messages the window already holds.
