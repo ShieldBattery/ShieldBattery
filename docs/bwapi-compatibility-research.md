@@ -5,6 +5,28 @@ against ShieldBattery's StarCraft: Remastered bridge. It uses upstream project
 documentation and source as the authority. The implementation status here is a
 development snapshot, not a promise that every API call or bot is supported.
 
+## Terran catalog checkpoint (2026-09-23)
+
+OpprimoBot is now source-built and offered as a Terran-only staging profile.
+Its pinned source, patches, dependency licenses, corresponding-source rebuild,
+release digests, and game IDs are recorded in the
+[robotics-facility admission review](https://github.com/ShieldBattery/robotics-facility/blob/main/docs/opprimobot-admission.md).
+
+This integration adds Terran ability records and restores BWAPI's reciprocal
+construction links. The missing SCV/building link had made unfinished refineries
+appear ready to use, causing Opprimo to assign gas workers too early. Snapshot
+visibility also distinguishes detected units from cloak shimmer/active burrowed
+observations, with detector-gated fields redacted and unit-target commands still
+restricted to detected enemies.
+
+The packaged bot completed natural-loss combat games against ZZZKBot on both
+SC:R architectures, with matching sync probes and clean shutdown. A separate
+concurrent production probe reached gas, add-ons, siege tanks, and medics. These
+are prototype compatibility results, not complete BWAPI conformance or human
+skill calibration. Other races, irregular maps, team/FFA play, and late-game
+spell behavior still need broader validation. The initial bridge investigations
+below remain historical evidence for the original native-client integration.
+
 ## Verified results
 
 The first integration target is
