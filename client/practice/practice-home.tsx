@@ -40,7 +40,7 @@ import {
   practiceStoreAtom,
 } from './practice-atoms'
 import { startPracticeMatchmaking } from './practice-launch'
-import { PracticePageColumn } from './practice-root'
+import { PracticePageColumn } from './practice-layout'
 import { knownMapIdsToMaps, updatePracticeStore } from './practice-store'
 
 /** Opponent chips shown on the home summary before the rest collapse into a "+N" chip. */

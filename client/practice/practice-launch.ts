@@ -33,7 +33,7 @@ import {
   practiceSessionAtom,
   practiceStoreAtom,
 } from './practice-atoms'
-import { showPracticeResult } from './practice-result-overlay'
+import { showPracticeResult } from './practice-result-navigation'
 import { recordPracticeGame, updatePracticeStore } from './practice-store'
 
 const ipcRenderer = new TypedIpcRenderer()

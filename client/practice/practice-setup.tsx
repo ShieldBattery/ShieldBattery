@@ -35,6 +35,7 @@ import { effectivePoolMapIds, fullPoolMapIds, useLadderMapPool } from './ladder-
 import { MapPoolEditor, MapPoolGrid } from './map-pool-editor'
 import { botViewsAtom, installedMapHashesAtom, practiceStoreAtom } from './practice-atoms'
 import { ensureMapsDownloaded, startPracticeMatchmaking } from './practice-launch'
+import { PracticePageColumn } from './practice-layout'
 import {
   beginMapPoolPresetEdit,
   cancelMapPoolPresetEdit,
@@ -50,7 +51,6 @@ import {
   toggleMapPoolPresetEditMap,
   updateLineupPreset,
 } from './practice-presets'
-import { PracticePageColumn } from './practice-root'
 import { knownMapIdsToMaps, updatePracticeStore } from './practice-store'
 
 const Header = styled.div`

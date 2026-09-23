@@ -2,10 +2,8 @@ import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { BotRaceName, BotRuntime, playsEveryRace } from '../../common/bots/bot-catalog'
-import { BotKey } from '../../common/bots/bot-library'
+import { BotRuntime, playsEveryRace } from '../../common/bots/bot-catalog'
 import { BotView } from '../../common/bots/bot-view'
-import { PracticeBotRace } from '../../common/bots/practice'
 import { LineupEntryStatus, PoolReadiness } from '../../common/bots/practice-logic'
 import { MapInfoJson } from '../../common/maps'
 import { raceCharToLabel } from '../../common/races'
@@ -25,43 +23,9 @@ import {
   runAsyncAction,
 } from './bot-actions'
 import { botRaceToLabel, formatMegabytes, javaRuntimeLabel } from './bot-badges'
+import type { PracticeReadinessPayload } from './readiness-types'
 
 const BYTES_PER_MEGABYTE = 1024 * 1024
-
-export type PracticeReadinessPayload =
-  | { kind: 'missingRuntime'; bot: BotView; onStartWithout?: () => void }
-  | {
-      kind: 'incompatibleRace'
-      bot: BotView
-      race: PracticeBotRace
-      onSetRace: (race: BotRaceName) => void
-      onRemove: () => void
-    }
-  | { kind: 'downloading'; bot: BotView; onStartWithout?: () => void }
-  | { kind: 'downloadFailed'; bot: BotView; onRemove: () => void; onStartWithout?: () => void }
-  | {
-      kind: 'partialLineup'
-      readiness: PoolReadiness
-      onStartAnyway: (dontAskAgain: boolean) => void
-      onFixFirst: () => void
-    }
-  | {
-      kind: 'nothingPlayable'
-      readiness: PoolReadiness
-      onDownloadMaps: () => void
-      onDownloadBots: () => void
-      onChangeMapPool: () => void
-      onEditLineup: () => void
-    }
-  | {
-      kind: 'problems'
-      readiness: PoolReadiness
-      onDownloadBots: () => void
-      onEditLineup: () => void
-      onChangeMapPool: () => void
-      onRemoveBot: (key: BotKey) => void
-      onStartWithReady: () => void
-    }
 
 export type PracticeReadinessDialogProps = CommonDialogProps & PracticeReadinessPayload
 
