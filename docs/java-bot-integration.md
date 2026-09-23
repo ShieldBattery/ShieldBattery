@@ -1,8 +1,11 @@
 # Java bot integration handoff
 
 PurpleWave is the first Java catalog bot. The staging catalog offers
-`purplewave-sb-2`, a Protoss 1v1 profile requiring Java 21 x64. Java is not bundled.
-[Release and source review](https://github.com/ShieldBattery/robotics-facility/blob/purplewave-sb-2/docs/releases/purplewave-sb-2.md).
+`purplewave-sb-3`, an all-race 1v1 profile requiring Java 21 x64. Java is not bundled.
+Updating an installed sb.1/sb.2 package unlocks Terran and Zerg. The executable and
+saved-state format are unchanged; dedicated Terran/Zerg bridge game verification
+is still pending.
+[Release and source review](https://github.com/ShieldBattery/robotics-facility/blob/main/docs/releases/purplewave-sb-3.md).
 
 ## App/runtime contract
 
