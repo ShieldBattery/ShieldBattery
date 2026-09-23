@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
 import { ActiveGameManager } from './active-game-manager'
@@ -121,5 +121,36 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     const errorStatus = statuses.find(status => status.state === 'error')
     expect(errorStatus, 'an error status was emitted').toBeDefined()
     expect(String(errorStatus!.extra)).toContain('no adoptable keypair (noKeysGenerated)')
+  })
+})
+
+describe('ActiveGameManager graceful stop', () => {
+  let manager: ActiveGameManager
+  let commands: Array<[string, string, ...any[]]>
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    manager = makeManager()
+    commands = []
+    manager.on('gameCommand', (gameId, command, ...args) => {
+      commands.push([gameId, command, ...args])
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('lets a game that has its result exit on its own before quitting it', async () => {
+    manager.setGameConfig(configFor('game-1'))
+    manager.handleGameResult('game-1', {}, 0)
+    commands.length = 0
+
+    // The launch is pinned in flight, so the game never exits and this stop never settles.
+    manager.stop(true).catch(() => {})
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(commands, 'no leave request and no quit yet').toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(commands).toEqual([['game-1', 'quit']])
   })
 })

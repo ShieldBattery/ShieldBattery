@@ -212,9 +212,16 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     if (!game) return
 
     const gamePromise = game.promise
-    if (graceful && game.status?.state === GameStatus.Playing && gamePromise) {
-      game.stopRequested = true
-      this.emit('gameCommand', game.id, 'leave')
+    const state = game.status?.state
+    // A game that has its result is already leaving (a background client exits on its own once
+    // its result is in), and that native exit is what gives a BWAPI client its match end. Quitting
+    // it outright would cut that short, so it gets the same deadline as a game asked to leave.
+    const leaving = state === GameStatus.HasResult || state === GameStatus.ResultSent
+    if (graceful && (state === GameStatus.Playing || leaving) && gamePromise) {
+      if (!leaving) {
+        game.stopRequested = true
+        this.emit('gameCommand', game.id, 'leave')
+      }
 
       let timedOut = false
       let deadline: ReturnType<typeof setTimeout> | undefined
