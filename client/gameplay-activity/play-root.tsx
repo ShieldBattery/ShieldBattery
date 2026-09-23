@@ -11,6 +11,7 @@ import { FindMatch } from '../matchmaking/find-match'
 import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
 import { push } from '../navigation/routing'
 import { NotConnected } from '../network/not-connected'
+import { PracticeRoot } from '../practice/practice-root'
 import { useStableCallback, useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -18,14 +19,16 @@ import { CenteredContentContainer } from '../styles/centered-container'
 enum PlayTab {
   Matchmaking = 'matchmaking',
   Lobbies = 'lobbies',
+  Practice = 'practice',
 }
 
-const ALL_TABS: ReadonlyArray<PlayTab> = [PlayTab.Matchmaking, PlayTab.Lobbies]
+const ALL_TABS: ReadonlyArray<PlayTab> = [PlayTab.Matchmaking, PlayTab.Lobbies, PlayTab.Practice]
 
 function normalizeTab(tab: PlayTab | string | undefined): PlayTab | undefined {
   switch (tab) {
     case PlayTab.Matchmaking:
     case PlayTab.Lobbies:
+    case PlayTab.Practice:
       return tab
     default:
       return undefined
@@ -41,6 +44,8 @@ function tabToLabel(t: TFunction, tab: PlayTab, lobbyCount: number): string {
         defaultValue: 'Lobbies ({{lobbyCount}})',
         lobbyCount,
       })
+    case PlayTab.Practice:
+      return t('practice.activity.title', 'Practice')
     default:
       return tab satisfies never
   }
@@ -103,32 +108,37 @@ function RoutedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
   }, [routeTab, lastActiveTab, setLastActiveTab])
 
   // TODO(tec27): Show different content instead of the normal route if searching for a match?
+  // Practice games run entirely on this PC, so the tabs stay up while disconnected and only the
+  // server-backed activities show the connection notice.
   return (
     <CenteredContentContainer>
-      {isConnected ? (
-        <ContentGrid>
-          <TabsContainer>
-            <Tabs activeTab={activeTab} onChange={onTabChange}>
-              {ALL_TABS.map(tab => (
-                <TabItem key={tab} value={tab} text={tabToLabel(t, tab, lobbyCount)} />
-              ))}
-            </Tabs>
-          </TabsContainer>
-          <Switch>
-            <Route path='/play/matchmaking/*?' component={Matchmaking} />
-            <Route path='/play/lobbies/*?' component={Lobbies} />
-            <Redirect to={`/play/${activeTab}`} replace={true} />
-          </Switch>
-        </ContentGrid>
-      ) : (
-        <NotConnected />
-      )}
+      <ContentGrid>
+        <TabsContainer>
+          <Tabs activeTab={activeTab} onChange={onTabChange}>
+            {ALL_TABS.map(tab => (
+              <TabItem key={tab} value={tab} text={tabToLabel(t, tab, lobbyCount)} />
+            ))}
+          </Tabs>
+        </TabsContainer>
+        <Switch>
+          <Route path='/play/matchmaking/*?'>
+            {isConnected ? <Matchmaking /> : <NotConnected />}
+          </Route>
+          <Route path='/play/lobbies/*?'>{isConnected ? <Lobbies /> : <NotConnected />}</Route>
+          <Route path='/play/practice/*?' component={Practice} />
+          <Redirect to={`/play/${activeTab}`} replace={true} />
+        </Switch>
+      </ContentGrid>
     </CenteredContentContainer>
   )
 }
 
 function Matchmaking() {
   return IS_ELECTRON ? <FindMatch /> : <OnlyInApp />
+}
+
+function Practice() {
+  return IS_ELECTRON ? <PracticeRoot /> : <OnlyInApp />
 }
 
 function Lobbies() {

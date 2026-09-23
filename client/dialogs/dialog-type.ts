@@ -1,3 +1,4 @@
+import type { BotKey, LocalBuildBot } from '../../common/bots/bot-library'
 import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
@@ -12,6 +13,7 @@ import {
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
+import type { PracticeReadinessPayload } from '../practice/readiness-dialogs'
 
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
@@ -19,6 +21,7 @@ export enum DialogType {
   AdminCloseChannel = 'adminCloseChannel',
   AdminDeleteChannel = 'adminDeleteChannel',
   AdminRenameChannel = 'adminRenameChannel',
+  BotDetails = 'botDetails',
   BugReport = 'bugReport',
   ChangeDisplayName = 'changeDisplayName',
   ChangeEmail = 'changeEmail',
@@ -48,6 +51,7 @@ export enum DialogType {
   LeaveLeague = 'leaveLeague',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
+  LocalBuildBot = 'localBuildBot',
   MapDetails = 'mapDetails',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
@@ -57,6 +61,9 @@ export enum DialogType {
   NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
   PostMatch = 'postMatch',
+  PracticeLaunching = 'practiceLaunching',
+  PracticePresetName = 'practicePresetName',
+  PracticeReadiness = 'practiceReadiness',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
   RenamePlaylist = 'renamePlaylist',
@@ -102,6 +109,14 @@ type AdminRenameChannelDialogPayload = BaseDialogPayload<
     channelName: string
     /** Called once the channel has been renamed successfully. */
     onSuccess?: () => void
+  }
+>
+type BotDetailsDialogPayload = BaseDialogPayload<
+  typeof DialogType.BotDetails,
+  {
+    botKey: BotKey
+    /** An extra primary action for the surface that opened the dialog (e.g. "Add to lineup"). */
+    action?: { label: string; onAction: () => void }
   }
 >
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
@@ -303,6 +318,14 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
     onJoinFailed?: (message: string, error: unknown) => void
   }
 >
+type LocalBuildBotDialogPayload = BaseDialogPayload<
+  typeof DialogType.LocalBuildBot,
+  {
+    /** The build being refreshed; omitted when adding a new one. */
+    existing?: LocalBuildBot
+    onSaved?: (bot: LocalBuildBot) => void
+  }
+>
 
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
@@ -390,6 +413,25 @@ export type PostMatchDialogPayload = BaseDialogPayload<
     season: MatchmakingSeasonJson
   }
 >
+type PracticeLaunchingDialogPayload = BaseDialogPayload<
+  typeof DialogType.PracticeLaunching,
+  {
+    /** Stops the launch that is in flight. */
+    onCancel: () => void
+  }
+>
+type PracticePresetNameDialogPayload = BaseDialogPayload<
+  typeof DialogType.PracticePresetName,
+  {
+    title: string
+    initialName?: string
+    onSubmit: (name: string) => void
+  }
+>
+type PracticeReadinessDialogPayload = BaseDialogPayload<
+  typeof DialogType.PracticeReadiness,
+  PracticeReadinessPayload
+>
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
 type RemoveUserAvatarDialogPayload = BaseDialogPayload<
   typeof DialogType.RemoveUserAvatar,
@@ -458,6 +500,7 @@ export type DialogPayload =
   | AdminCloseChannelDialogPayload
   | AdminDeleteChannelDialogPayload
   | AdminRenameChannelDialogPayload
+  | BotDetailsDialogPayload
   | BugReportDialogPayload
   | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload
@@ -487,6 +530,7 @@ export type DialogPayload =
   | LeaveLeagueDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
+  | LocalBuildBotDialogPayload
   | MapDetailsDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
@@ -496,6 +540,9 @@ export type DialogPayload =
   | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload
   | PostMatchDialogPayload
+  | PracticeLaunchingDialogPayload
+  | PracticePresetNameDialogPayload
+  | PracticeReadinessDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload
   | RenamePlaylistDialogPayload

@@ -98,9 +98,17 @@ monitor owns the directly spawned executable only. Bots that start detached chil
 processes need additional process-tree ownership before they can be supported with
 the same cleanup guarantee.
 
-Anonymized opponent names and replay identity metadata have not been implemented
-by this launch API. Supply real bot names for now; the UI should not advertise
-anonymity until replay attribution is wired up.
+Each bot may supply an optional `replayName` alongside its in-game `name`, using
+that same 1-24 printable-ASCII limit. Omit it to keep the in-game name in the
+replay. The practice library provides real catalog/local-build names separately
+from concealed display names, deduplicating each set against the human and other
+bots. No renderer-side replay rewrite is needed.
+
+The game DLL maps replay names by the session user ID to the randomized game
+player slot. While saving, it temporarily substitutes names in the replay header
+and restores them afterward. Live player names remain concealed, including for
+saves made before the match ends. This covers SC:R's LastReplay/autosave writer
+and leaves hidden clients' replay suppression intact.
 
 ## Verification, 2026-09-21
 
@@ -118,3 +126,32 @@ anonymity until replay attribution is wired up.
 These are targeted smoke tests, not broad bot compatibility certification. Complete
 physical offline operation of the renderer/app shell and installed-bot management
 remain separate from this cached-map, named-pipe launch path.
+
+## Desktop bot library and practice UI
+
+The app owns a bot library in `app/bots/` and the renderer's Practice tab (`/play/practice`,
+`client/practice/`) drives it over the typed IPC channels in `common/ipc.ts` (`botLibrary*`,
+`practice*`, `mapStoreCheckMaps`). Shared types live in `common/bots/`: catalog and package
+descriptors mirror the robotics-facility metadata schema, `bot-view.ts` derives per-bot readiness,
+and `practice-logic.ts` holds pool readiness, the random draw, and rating-based recommendations.
+
+Everything is stored under `<userData>/bots/` (`bots-<SB_SESSION>/` for a namespaced dev
+instance): `library.json` (installed releases, local builds,
+per-bot Java overrides), `catalog.json` (the last catalog served for the configured URL, kept
+as the signed document so its signature is checked again on every load),
+`packages/<botId>/<releaseId>/` (immutable extracted packages), `profiles/<key>/work[-N]/`
+(writable working copies that hold learning data), `downloads/` (in-progress archives), and
+`practice.json` (setup, presets, cached ladder pool, known maps, and the history of practice
+games, including the real identity behind a concealed opponent and the saved replay path).
+
+Catalog URL: `SB_BOT_CATALOG_URL`, else the staging CDN for development builds and the production
+CDN otherwise. Installing downloads to a scratch file, checks size and SHA-256, extracts through
+entry-name and size guards, verifies the archive's `package.json` against the catalog's
+descriptor and manifest hash, then promotes the directory atomically. A failure keeps whatever was
+installed before.
+
+`practiceGameStart` accepts library bot keys rather than paths: the main process resolves the
+executable (or `java.exe` plus `-jar`), arguments, and working copy, leases the bots while the
+session runs, and delegates to the launch API above. A concealed practice opponent is given the
+in-game name `Practice bot`; the practice history keeps the drawn bot's identity for the result
+screen. The saved replay itself receives the real names through `replayName`.
