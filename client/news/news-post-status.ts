@@ -1,5 +1,7 @@
 export type PostStatus =
-  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
+  | { kind: 'draft' }
+  | { kind: 'scheduled'; date: Date }
+  | { kind: 'published'; date: Date }
 
 /** Classifies a post's publish state given the current time (`now`, in millis). */
 export function getPostStatus(publishedAt: string | null | undefined, now: number): PostStatus {

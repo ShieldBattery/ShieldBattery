@@ -28,7 +28,7 @@ import { TextField } from '../../material/text-field'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useNow } from '../../react/date-hooks'
 import { useAppDispatch } from '../../redux-hooks'
-import { BodyMedium, TitleLarge, bodyLarge, bodyMedium, labelMedium } from '../../styles/typography'
+import { bodyLarge, BodyMedium, bodyMedium, labelMedium, TitleLarge } from '../../styles/typography'
 import {
   adminApplyRestriction,
   adminBanUser,

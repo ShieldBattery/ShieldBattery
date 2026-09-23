@@ -689,7 +689,8 @@ export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 60000
 export const DRAFT_PICK_TIME_MS = 15000
 
 export type DraftPlayer = { userId: SbUserId; provisionalRace: RaceChar } & (
-  { hasLocked: false } | { hasLocked: true; finalRace: RaceChar }
+  | { hasLocked: false }
+  | { hasLocked: true; finalRace: RaceChar }
 )
 
 export interface DraftTeam {
@@ -726,7 +727,8 @@ export function getAnonymizedName(nameIndex: AnonymizedNameIndex, t: TFunction):
 }
 
 export type AnonymizedDraftPlayer = { index: number; nameIndex: AnonymizedNameIndex } & (
-  { hasLocked: false } | { hasLocked: true; finalRace: RaceChar }
+  | { hasLocked: false }
+  | { hasLocked: true; finalRace: RaceChar }
 )
 
 export interface ClientDraftState {

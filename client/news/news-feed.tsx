@@ -12,7 +12,7 @@ import { Ripple } from '../material/ripple'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { useLastSeenNewsPost } from './last-seen-news-post'
-import { NewsImage, newsDateFormatter } from './news-image'
+import { newsDateFormatter, NewsImage } from './news-image'
 import { urlForNewsPost } from './news-url'
 
 export const News_HomeFeedFragment = graphql(/* GraphQL */ `

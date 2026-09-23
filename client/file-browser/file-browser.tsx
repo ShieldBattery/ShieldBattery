@@ -15,7 +15,7 @@ import { Select } from '../material/select/select'
 import { elevationPlus2 } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { usePrevious, useStableCallback } from '../react/state-hooks'
-import { TitleLarge, bodyLarge } from '../styles/typography'
+import { bodyLarge, TitleLarge } from '../styles/typography'
 import { PathBreadcrumbs } from './file-browser-breadcrumbs'
 import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
 import {

@@ -1,4 +1,4 @@
-import { HKCU, HKLM, Hkey, WindowsRegistry } from '@shieldbattery/windows-registry'
+import { HKCU, Hkey, HKLM, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import logger from './logger'

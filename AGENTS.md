@@ -50,8 +50,8 @@ server/lib/websockets/api-decorators.ts - WebSocket decorators
 pnpm run local-dev             # Run all dev services together (recommended)
 pnpm run test                  # Unit tests (Vitest)
 pnpm run test:integration      # Integration tests (Playwright)
-pnpm run lint                  # oxlint (type-aware) + Prettier check
-pnpm run lint:fix              # oxlint + Prettier autofix
+pnpm run lint                  # oxlint (type-aware) + oxfmt check
+pnpm run lint:fix              # oxlint + oxfmt autofix (also sorts imports, drops unused ones)
 pnpm run typecheck             # TypeScript type checking
 
 # Code generation (run after changing relevant source)

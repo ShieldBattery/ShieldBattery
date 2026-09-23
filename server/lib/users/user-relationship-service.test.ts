@@ -10,22 +10,22 @@ import {
   UserRelationshipKind,
   UserRelationshipSummary,
 } from '../../../common/users/relationships'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-groups'
 import {
-  InspectableNydusClient,
-  NydusConnector,
   clearTestLogs,
   createFakeNydusServer,
+  InspectableNydusClient,
+  NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { ActivityStatusService, getFriendActivityStatusPath } from './activity-status-service'
 import { createFakeAvailabilityService } from './testing/availability-service'
-import { UserRelationshipService, getRelationshipsPath } from './user-relationship-service'
+import { getRelationshipsPath, UserRelationshipService } from './user-relationship-service'
 
 function clearFakeDb() {
   ;(global as any).__TESTONLY_CLEAR_DB()

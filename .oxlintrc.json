@@ -149,7 +149,15 @@
     "no-unused-expressions": ["error", { "allowTaggedTemplates": true }],
     "no-unused-vars": [
       "error",
-      { "vars": "all", "args": "none", "caughtErrors": "none", "varsIgnorePattern": "^_" }
+      {
+        "vars": "all",
+        "args": "none",
+        "caughtErrors": "none",
+        "varsIgnorePattern": "^_",
+        // `--fix` deletes unused imports (keeping bare side-effect imports), the half of organizing
+        // imports that oxfmt's sorting doesn't do.
+        "fix": { "imports": "safe-fix" }
+      }
     ],
     "no-var": "error",
     "no-void": "error",
@@ -158,6 +166,8 @@
       { "terms": ["fixme", "do not submit", "xxx"], "location": "start" }
     ],
     "object-shorthand": "error",
+    // Only the names within each import's braces; oxfmt orders the import statements themselves.
+    "sort-imports": ["error", { "ignoreDeclarationSort": true, "ignoreCase": true }],
     "prefer-const": "error",
 
     "eslint-core/camelcase": [
@@ -169,7 +179,7 @@
       }
     ],
     "eslint-core/no-undef-init": "error",
-    // Prettier owns every other formatting concern; it has no opinion on comment spacing.
+    // oxfmt owns every other formatting concern; it has no opinion on comment spacing.
     "@stylistic/spaced-comment": [
       "error",
       "always",

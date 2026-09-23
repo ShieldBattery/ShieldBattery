@@ -10,7 +10,7 @@ export default {
     'client/gql/': {
       preset: 'client',
       hooks: {
-        afterOneFileWrite: ['prettier --write'],
+        afterOneFileWrite: ['oxfmt'],
       },
       config: {
         dedupeFragments: true,

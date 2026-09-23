@@ -4,7 +4,7 @@ import {
   FriendActivityStatusUpdateEvent,
   UserRelationshipEvent,
 } from '../../common/users/relationships'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 
 type EventToActionMap = {
   [E in UserRelationshipEvent['type']]?: (

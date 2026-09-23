@@ -66,8 +66,8 @@ cargo install typeshare-cli
 If you're using VSCode, the following plugins will likely be useful for development. They're also
 listed in `.vscode/extensions.json`, so VSCode offers to install them when you open the project:
 
-- [Oxc](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode) (oxlint)
-- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+- [Oxc](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode) (oxlint and the oxfmt formatter;
+  set it as the default formatter for JS/TS)
 - [GraphQL Language Support](https://marketplace.visualstudio.com/items?itemName=GraphQL.vscode-graphql)
 - [Styled Components](https://marketplace.visualstudio.com/items?itemName=styled-components.vscode-styled-components)
 - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)

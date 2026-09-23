@@ -78,7 +78,10 @@ export interface CommonWhisperEchoMessage extends BaseMessage {
 export type LocalMessage = CommonLocalLineMessage | CommonWhisperEchoMessage
 
 export type CommonMessage =
-  CommonTextMessage | CommonNewDayMessage | CommonLocalLineMessage | CommonWhisperEchoMessage
+  | CommonTextMessage
+  | CommonNewDayMessage
+  | CommonLocalLineMessage
+  | CommonWhisperEchoMessage
 export type SbMessage = CommonMessage | ChatMessage | LobbyMessage | DraftChatMessage
 
 const SERVER_ORIGIN_MESSAGE_TYPES: ReadonlySet<string> = new Set<string>([

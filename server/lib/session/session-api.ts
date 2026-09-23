@@ -23,12 +23,12 @@ import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import { Clock } from '../time/clock'
 import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { joiClientIdentifiers } from '../users/client-ids'
-import { UserApiError, convertUserApiErrors } from '../users/user-api-errors'
+import { convertUserApiErrors, UserApiError } from '../users/user-api-errors'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
 import { UserService } from '../users/user-service'
 import { validateRequest } from '../validation/joi-validator'
-import { SessionError, SessionErrorCode, getJwt } from './jwt-session-middleware'
+import { getJwt, SessionError, SessionErrorCode } from './jwt-session-middleware'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
 // when lots of people need to create sessions at once from the same place (e.g. LAN events)

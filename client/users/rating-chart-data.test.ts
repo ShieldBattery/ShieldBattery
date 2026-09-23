@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { MatchmakingDivision } from '../../common/matchmaking'
 import {
-  RatingChartPoint,
-  RatingChartSeason,
   bandOpacity,
   buildSeasonBands,
   pointsForMetric,
+  RatingChartPoint,
+  RatingChartSeason,
   seasonAxisTicks,
   splitOnDiscontinuity,
   valueExtent,

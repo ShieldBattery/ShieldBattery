@@ -9,7 +9,7 @@ import { Clock } from '../time/clock'
 import { addMatchmakingSeason, deleteMatchmakingSeason, getMatchmakingSeasons } from './models'
 
 export class MatchmakingSeasonsServiceError extends CodedError<MatchmakingSeasonsServiceErrorCode> {
-  // prettier wants to put this brace on the preceding line which makes the line too long, *shrug*
+  // the formatter wants to put this brace on the preceding line, making the line too long *shrug*
 }
 
 @singleton()

@@ -20,7 +20,10 @@ export type UserEntry = [userId: SbUserId, username: string | undefined]
  */
 export function useUserEntriesSelector(
   userIds:
-    ReadonlySet<SbUserId> | ReadonlyMap<SbUserId, unknown> | ReadonlyArray<SbUserId> | undefined,
+    | ReadonlySet<SbUserId>
+    | ReadonlyMap<SbUserId, unknown>
+    | ReadonlyArray<SbUserId>
+    | undefined,
 ) {
   return useCallback(
     (state: RootState): ReadonlyArray<UserEntry> => {

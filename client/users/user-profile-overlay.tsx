@@ -4,15 +4,15 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useQuery } from 'urql'
 import {
-  LadderPlayer,
   getRankedTypesByActivity,
+  LadderPlayer,
   ladderPlayerToMatchmakingDivision,
 } from '../../common/ladder/ladder'
 import {
-  MatchmakingSeasonJson,
-  MatchmakingType,
   getTotalBonusPoolForSeason,
   matchmakingDivisionToLabel,
+  MatchmakingSeasonJson,
+  MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -27,8 +27,8 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FriendActivityStatusLine } from '../social/friend-activity-status'
 import {
-  BodyMedium,
   bodyLarge,
+  BodyMedium,
   bodyMedium,
   labelMedium,
   labelSmall,

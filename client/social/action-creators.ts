@@ -2,7 +2,7 @@ import { apiUrl } from '../../common/urls'
 import { GetRelationshipsResponse } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
 
 export function getRelationshipsIfNeeded(spec: RequestHandlingSpec): ThunkAction {

@@ -4,14 +4,14 @@ import {
   ChatEvent,
   ChatUserEvent,
   DEFAULT_CHANNEL_PREFERENCES,
-  SbChannelId,
   makeSbChannelId,
+  SbChannelId,
 } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { UserAvailability } from '../../common/users/availability'
 import { isInActiveGame } from '../active-game/game-client-reducer'
-import { AvailableSound, audioManager } from '../audio/audio-manager'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { audioManager, AvailableSound } from '../audio/audio-manager'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()

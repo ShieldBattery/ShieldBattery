@@ -1,7 +1,7 @@
 import {
-  MatchmakingDivision,
   getAllDivisionsWithBounds,
   getTotalBonusPool,
+  MatchmakingDivision,
 } from '../../common/matchmaking'
 
 /**

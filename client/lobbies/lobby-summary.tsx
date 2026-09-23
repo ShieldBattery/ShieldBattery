@@ -65,7 +65,9 @@ const DetailValue = styled.div`
  * The load state of a lobby summary fetch (see `useLobbySummary`).
  */
 export type LobbySummaryLoadState =
-  { status: 'loaded'; data: LobbySummaryResponse } | { status: 'notFound' } | { status: 'error' }
+  | { status: 'loaded'; data: LobbySummaryResponse }
+  | { status: 'notFound' }
+  | { status: 'error' }
 
 /** How long a cached summary fetch is shared between callers that opt into caching. */
 const SUMMARY_CACHE_MS = 30 * 1000

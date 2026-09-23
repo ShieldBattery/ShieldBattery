@@ -4,7 +4,7 @@ import { createStore } from 'jotai'
 import { DevTools } from 'jotai-devtools'
 
 if (import.meta.env.DEV && !DevTools) {
-  // This shouldn't ever happen, we just need to convince prettier not to remove the import and
+  // This shouldn't ever happen, we just need to keep the unused-import fixer from removing it and
   // doing a bare import gets stripped by webpack because I guess it assumes the import is pure?
   console.log('jotai-devtools not found!!!')
 }

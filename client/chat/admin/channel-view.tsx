@@ -5,8 +5,8 @@ import {
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
-  SbChannelId,
   makeSbChannelId,
+  SbChannelId,
 } from '../../../common/chat'
 import { appendToMultimap } from '../../../common/data-structures/maps'
 import { apiUrl, urlPath } from '../../../common/urls'
@@ -24,7 +24,7 @@ import {
 } from '../../messaging/message-context-menu'
 import { MessageList } from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
-import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../../network/abortable-thunk'
 import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
 import { useRefreshToken } from '../../network/refresh-token'

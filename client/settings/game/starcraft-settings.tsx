@@ -15,7 +15,7 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { starcraftHealthy } from '../../starcraft/health-state'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
 import { selectableTextContainer } from '../../styles/text-selection'
-import { BodyLarge, LabelMedium, bodyLarge, bodyMedium, titleMedium } from '../../styles/typography'
+import { BodyLarge, bodyLarge, bodyMedium, LabelMedium, titleMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 

@@ -1,7 +1,7 @@
 import type { NydusClient, RouteInfo } from 'nydus-client'
 import { RestrictionEvent } from '../../common/users/restrictions'
 import { AuthEvent } from '../../common/users/user-network'
-import { Dispatchable, dispatch } from '../dispatch-registry'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 
 type EventToActionMap = {
   [E in AuthEvent['action']]: (event: Extract<AuthEvent, { action: E }>) => Dispatchable | undefined

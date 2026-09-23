@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import {
+  type ChatMessage,
   ClientChatMessageType,
   makeSbChannelId,
   ServerChatMessageType,
-  type ChatMessage,
 } from '../../common/chat'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { findUnreadLineIndex, isScrolledToBottom } from './message-list'

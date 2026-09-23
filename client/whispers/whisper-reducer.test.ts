@@ -16,10 +16,10 @@ import {
 } from '../messaging/message-records'
 import { WhisperActions } from './actions'
 import whisperReducerImport, {
+  newestKnownWhisperTime,
   WhisperSession,
   WhisperSessionMessage,
   WhisperState,
-  newestKnownWhisperTime,
 } from './whisper-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it

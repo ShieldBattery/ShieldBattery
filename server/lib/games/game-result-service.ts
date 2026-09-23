@@ -12,9 +12,9 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import {
-  MatchupString,
   computeMatchupString,
   getTeamsFromConfig,
+  MatchupString,
 } from '../../../common/games/matchups'
 import {
   ALL_GAME_CLIENT_ALLIANCE_STATES,
@@ -53,36 +53,35 @@ import {
   setReconciledResult,
 } from '../games/game-models'
 import {
-  ResultSubmission,
   applyDepartureConcessionTiebreak,
   applyDesyncPolicy,
+  ResultSubmission,
 } from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
 import { doFullRankingsUpdate, updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
+  getActiveLeaguesForUsersWithLock,
+  getLeaguesById,
+  getLeagueUserChangesForGame,
+  insertLeagueUserChange,
   LeagueUser,
   LeagueUserChange,
-  getActiveLeaguesForUsersWithLock,
-  getLeagueUserChangesForGame,
-  getLeaguesById,
-  insertLeagueUserChange,
   updateLeagueUser,
 } from '../leagues/league-models'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
-  MatchmakingRating,
-  MatchmakingRatingChange,
   getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
   insertMatchmakingRatingChange,
+  MatchmakingRating,
+  MatchmakingRatingChange,
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import {
-  StoredResultReport,
   areAllHumansAccountedFor,
   getCurrentReportedResults,
   getDepartureTimesForGame,
@@ -90,6 +89,7 @@ import {
   getUserGameRecord,
   setReportedResults,
   setUserReconciledResult,
+  StoredResultReport,
 } from '../models/games-users'
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { Redis } from '../redis/redis'

@@ -15,12 +15,12 @@ import { getDivisionColor } from '../../common/matchmaking'
 import { longTimestamp, monthDay } from '../i18n/date-formats'
 import { bodyMedium } from '../styles/typography'
 import {
-  RatingChartPoint,
-  RatingChartSeason,
-  RatingMetric,
   bandOpacity,
   buildSeasonBands,
   pointsForMetric,
+  RatingChartPoint,
+  RatingChartSeason,
+  RatingMetric,
   seasonAxisTicks,
   splitOnDiscontinuity,
   valueExtent,

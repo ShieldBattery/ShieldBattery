@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
-  LAST_READ_COALESCE_MS,
   flushLastRead,
+  LAST_READ_COALESCE_MS,
   reportLastRead,
   resetLastReadForTesting,
 } from './last-read'

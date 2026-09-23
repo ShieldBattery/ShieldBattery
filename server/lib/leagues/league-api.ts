@@ -15,11 +15,11 @@ import {
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
+  League,
   LEAGUE_BADGE_HEIGHT,
   LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
-  League,
   LeagueErrorCode,
   LeagueId,
   ServerAdminAddLeagueRequest,
@@ -54,7 +54,6 @@ import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
 import { getLeaderboard } from './leaderboard'
 import {
-  LeagueUser,
   adminGetAllLeagues,
   adminGetLeague,
   banLeagueUser,
@@ -67,6 +66,7 @@ import {
   getManyLeagueUsers,
   getPastLeagues,
   joinLeagueForUser,
+  LeagueUser,
   unbanLeagueUser,
   updateLeague,
 } from './league-models'

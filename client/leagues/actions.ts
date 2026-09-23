@@ -7,7 +7,11 @@ import {
 } from '../../common/leagues/leagues'
 
 export type LeaguesActions =
-  GetLeaguesList | GetLeague | JoinLeague | GetLeagueLeaderboard | GetLeagueGames
+  | GetLeaguesList
+  | GetLeague
+  | JoinLeague
+  | GetLeagueLeaderboard
+  | GetLeagueGames
 
 export interface GetLeaguesList {
   type: '@leagues/getList'

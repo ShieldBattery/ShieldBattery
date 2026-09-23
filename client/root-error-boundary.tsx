@@ -8,7 +8,7 @@ import { FilledButton } from './material/button'
 import { zIndexSystemBar } from './material/zindex'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
-import { TitleLarge, bodyLarge } from './styles/typography'
+import { bodyLarge, TitleLarge } from './styles/typography'
 import { WindowControls } from './system-bar/window-controls'
 
 export interface RootErrorBoundaryProps {

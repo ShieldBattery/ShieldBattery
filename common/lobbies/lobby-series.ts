@@ -6,7 +6,8 @@ import { LobbySeriesGameJson } from './lobby-network'
  * single side (melee, FFA, 1v1), the one player who did.
  */
 export type LobbySeriesWinner =
-  { kind: 'team'; teamId: number; name?: string } | { kind: 'player'; userId: SbUserId }
+  | { kind: 'team'; teamId: number; name?: string }
+  | { kind: 'player'; userId: SbUserId }
 
 /**
  * Returns who won a series game, if a single side or player can be said to have.

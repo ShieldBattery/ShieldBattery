@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   ChannelPermissions,
   ChannelTextMessage,
+  makeSbChannelId,
   SbChannelId,
   ServerChatMessageType,
-  makeSbChannelId,
 } from '../../common/chat'
 import { asMockedFunction } from '../../common/testing/mocks'
-import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { DispatchFunction } from '../dispatch-registry'
 import { LastReadSender, reportLastRead } from '../messaging/last-read'
 import { fetchJson } from '../network/fetch'

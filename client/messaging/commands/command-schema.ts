@@ -140,7 +140,14 @@ export interface SubcommandArg extends BaseArg {
 }
 
 export type CommandArg =
-  UserArg | ChannelArg | WordArg | RestArg | EnumArg | DurationArg | NumberArg | SubcommandArg
+  | UserArg
+  | ChannelArg
+  | WordArg
+  | RestArg
+  | EnumArg
+  | DurationArg
+  | NumberArg
+  | SubcommandArg
 
 /** The value a parsed subcommand argument carries: which option was named, and its own arguments. */
 export interface ParsedSubcommand<Name extends string = string, Args = ParsedArgValues> {

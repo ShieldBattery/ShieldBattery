@@ -16,10 +16,10 @@ import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { BodyLarge, BodyMedium, TitleLarge } from '../styles/typography'
 import {
-  UpdateProgress,
-  UpdateStateChangeHandler,
   addChangeHandler,
   removeChangeHandler,
+  UpdateProgress,
+  UpdateStateChangeHandler,
 } from './updater-state'
 
 const ipcRenderer = new TypedIpcRenderer()

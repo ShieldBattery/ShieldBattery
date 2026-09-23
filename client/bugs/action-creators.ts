@@ -7,7 +7,7 @@ import {
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
 
 const ipcRenderer = new TypedIpcRenderer()

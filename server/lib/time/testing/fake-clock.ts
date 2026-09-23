@@ -24,7 +24,9 @@ export interface TimeReachedStopCondition {
 }
 
 export type StopCondition =
-  EmptyQueueStopCondition | NumTasksStopCondition | TimeReachedStopCondition
+  | EmptyQueueStopCondition
+  | NumTasksStopCondition
+  | TimeReachedStopCondition
 
 export class FakeClock extends Clock {
   private currentTime = 0

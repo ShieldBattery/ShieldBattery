@@ -1,10 +1,9 @@
 {
   "recommendations": [
     "oxc.oxc-vscode",
-    "esbenp.prettier-vscode",
     "GraphQL.vscode-graphql",
     "styled-components.vscode-styled-components",
     "rust-lang.rust-analyzer"
   ],
-  "unwantedRecommendations": ["dbaeumer.vscode-eslint"]
+  "unwantedRecommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
 }

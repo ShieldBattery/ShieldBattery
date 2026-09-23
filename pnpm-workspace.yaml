@@ -12,6 +12,12 @@ minimumReleaseAgeExclude:
   - 'oxc-transform-react@0.151.0'
   # its native bindings, which it pins to its own exact version
   - '@oxc-transform-react/*'
+  # oxc's linter and formatter, exact-pinned; dev-only, and each pins its native bindings to its
+  # own version
+  - 'oxlint@1.85.0'
+  - '@oxlint/*'
+  - 'oxfmt@0.70.0'
+  - '@oxfmt/*'
 
 peerDependencyRules:
   allowedVersions:

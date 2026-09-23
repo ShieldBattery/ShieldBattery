@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { SbPolicyType, policyTypeToLabel } from '../../common/policies/policy-type'
+import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { TransInterpolation } from '../i18n/i18next'

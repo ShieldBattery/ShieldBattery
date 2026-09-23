@@ -25,9 +25,9 @@ import {
 } from '../../common/games/netcode-v2'
 import {
   GameClientResult,
+  getResultLabel,
   ReconciledPlayerResult,
   ReconciledResult,
-  getResultLabel,
 } from '../../common/games/results'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getTeamNames } from '../../common/maps'
@@ -65,9 +65,9 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
-  DisplaySmall,
   bodyLarge,
   bodyMedium,
+  DisplaySmall,
   labelMedium,
   singleLine,
   titleLarge,

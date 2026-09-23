@@ -3,7 +3,7 @@ import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/g
 import { GameType } from '../../../common/games/game-type'
 import { makeSbMapId } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { createGameUserRecord } from '../models/games-users'
 import { createGameRecord } from './game-models'
 import { registerGame } from './registration'

@@ -1,4 +1,4 @@
-import { KeyObject, createPublicKey } from 'node:crypto'
+import { createPublicKey, KeyObject } from 'node:crypto'
 import log from '../logging/logger'
 
 const HEX_PUBKEY_PATTERN = /^[0-9a-f]{64}$/i

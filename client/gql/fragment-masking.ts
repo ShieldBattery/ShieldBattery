@@ -1,7 +1,7 @@
 /* eslint-disable */
 import {
-  DocumentTypeDecoration,
   ResultOf,
+  DocumentTypeDecoration,
   TypedDocumentNode,
 } from '@graphql-typed-document-node/core'
 import { FragmentDefinitionNode } from 'graphql'

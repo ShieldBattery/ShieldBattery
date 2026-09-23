@@ -15,7 +15,7 @@ import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { lastChatSurfaceAtom } from '../messaging/local-message-target'
-import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import {
   CREDENTIAL_STORAGE,
   CredentialStorageType,

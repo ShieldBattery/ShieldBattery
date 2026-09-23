@@ -94,12 +94,12 @@ Unaddressed feedback is every unresolved thread plus every top-level comment or 
 isn't minimized. For each item, check the claim before touching code:
 
 - "X doesn't exist", "X is unused", "the repo already does Y": grep for it.
-- Formatting claims: `pnpm exec prettier --check <file>`. Character counts in a comment are not
+- Formatting claims: `pnpm exec oxfmt --check <file>`. Character counts in a comment are not
   evidence.
 - A thread from an earlier round may describe code that a later commit already changed: GitHub
   re-anchors unresolved comments to the new head. Compare against the commit the comment was written
   on before treating it as open.
-- Suggestion blocks can be malformed. Apply the idea by hand, then prettier.
+- Suggestion blocks can be malformed. Apply the idea by hand, then `pnpm run lint:fix`.
 
 `claude[bot]` reviews again on every push, so the loop only continues while you keep pushing. Batch
 fixes into one push. When a round contradicts an earlier round, settle on the better design once,

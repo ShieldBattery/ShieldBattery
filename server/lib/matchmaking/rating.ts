@@ -1,11 +1,11 @@
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
 import {
-  MATCHMAKING_INACTIVE_TIME_MS,
-  MatchmakingSeason,
-  POINTS_FOR_RATING_TARGET_FACTOR,
   arePointsConverged,
   getConvergencePoints,
   getTotalBonusPoolForSeason,
+  MATCHMAKING_INACTIVE_TIME_MS,
+  MatchmakingSeason,
+  POINTS_FOR_RATING_TARGET_FACTOR,
   wasPlayerInactive,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'

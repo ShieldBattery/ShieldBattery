@@ -5,11 +5,6 @@ import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   BenchedUser,
-  Lobby,
-  LobbyVisibility,
-  MAX_OBSERVERS,
-  SlotWithIndexes,
-  Team,
   findSlotById,
   getLobbySlots,
   getLobbySlotsWithIndexes,
@@ -19,8 +14,13 @@ import {
   isLobbyEmpty,
   isSlotUnoccupied,
   isUms,
+  Lobby,
+  LobbyVisibility,
+  MAX_OBSERVERS,
   slotCount,
+  SlotWithIndexes,
   takenSlotCount,
+  Team,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
 import {
@@ -32,8 +32,6 @@ import {
 } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
-  Slot,
-  SlotType,
   createClosed,
   createComputer,
   createControlledClosed,
@@ -42,8 +40,10 @@ import {
   createObserver,
   createOpen,
   createUmsComputer,
+  Slot,
+  SlotType,
 } from '../../../common/lobbies/slot'
-import { MapForce, MapInfo, getTeamNames, numTeams, toMapInfoJson } from '../../../common/maps'
+import { getTeamNames, MapForce, MapInfo, numTeams, toMapInfoJson } from '../../../common/maps'
 import { encodePrettyId } from '../../../common/pretty-id'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'

@@ -17,32 +17,32 @@ import {
 } from '../../../common/games/results'
 import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSbMapId } from '../../../common/maps'
-import { MatchmakingSeason, MatchmakingType, makeSeasonId } from '../../../common/matchmaking'
+import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking'
 import { AssignedRaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
-  LeagueUser,
   getActiveLeaguesForUsersWithLock,
+  LeagueUser,
   updateLeagueUser,
 } from '../leagues/league-models'
 import {
   DEFAULT_MATCHMAKING_RATING,
-  MatchmakingRating,
   getMatchmakingRatingsWithLock,
   insertMatchmakingRatingChange,
+  MatchmakingRating,
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import {
-  StoredResultReport,
   areAllHumansAccountedFor,
   getCurrentReportedResults,
   getUserGameRecord,
   setReportedResults,
   setUserReconciledResult,
+  StoredResultReport,
 } from '../models/games-users'
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { FakeClock } from '../time/testing/fake-clock'
@@ -60,10 +60,10 @@ import {
   setReconciledResult,
 } from './game-models'
 import GameResultService, {
-  SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
   getValidationTeams,
   haveAllRequiredReportersReported,
   isResultsExempt,
+  SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
   usedNetcodeV2,
 } from './game-result-service'
 

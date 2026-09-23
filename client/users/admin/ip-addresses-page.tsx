@@ -5,7 +5,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { UserIpInfoJson } from '../../../common/users/user-network'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
-import { TitleLarge, bodyLarge, bodyMedium } from '../../styles/typography'
+import { bodyLarge, bodyMedium, TitleLarge } from '../../styles/typography'
 import { adminGetUserIps } from '../action-creators'
 import { ConnectedUsername } from '../connected-username'
 

@@ -14,7 +14,7 @@ import { CheckBox } from '../../material/check-box'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
-import { TitleLarge, bodyLarge } from '../../styles/typography'
+import { bodyLarge, TitleLarge } from '../../styles/typography'
 import { adminSetStaffBadge } from '../action-creators'
 
 const Root = styled.div`

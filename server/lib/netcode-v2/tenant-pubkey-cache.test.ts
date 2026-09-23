@@ -1,11 +1,11 @@
 import {
-  KeyObject,
   generateKeyPairSync,
+  KeyObject,
   sign as signEd25519,
   verify as verifyEd25519,
 } from 'node:crypto'
 import { describe, expect, test, vi } from 'vitest'
-import { TenantPubkeyCache, parseTenantPublicKeyHex } from './tenant-pubkey-cache'
+import { parseTenantPublicKeyHex, TenantPubkeyCache } from './tenant-pubkey-cache'
 
 /** Raw 32-byte Ed25519 public key, hex-encoded — the wire format the coordinator returns. */
 function rawPublicKeyHex(publicKey: KeyObject): string {

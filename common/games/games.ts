@@ -6,8 +6,8 @@ import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues/leagues'
 import { MapInfoJson, SbMapId } from '../maps'
 import {
   MatchmakingSeasonJson,
-  PublicMatchmakingRatingChangeJson,
   matchmakingTypeToLabel,
+  PublicMatchmakingRatingChangeJson,
 } from '../matchmaking'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'

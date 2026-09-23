@@ -10,14 +10,14 @@ import {
   GetChannelHistoryServerResponse,
   InitialChannelData,
   JoinChannelMessage,
+  makeSbChannelId,
   SbChannelId,
   SelfJoinChannelMessage,
   ServerChatMessage,
   ServerChatMessageType,
-  makeSbChannelId,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
-import { SbUserId, makeSbUserId } from '../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { MessagingActions } from '../messaging/actions'
 import type { HistoryLoadError } from '../messaging/message-load-error'
 import {
@@ -27,10 +27,10 @@ import {
 } from '../messaging/message-records'
 import { ChatActions } from './actions'
 import chatReducerImport, {
-  ChannelMessage,
-  ChatState,
   channelHasUnreadMention,
+  ChannelMessage,
   channelNeedsAttention,
+  ChatState,
   isChannelMuted,
   newestKnownChannelTime,
   newestServerOriginTime,

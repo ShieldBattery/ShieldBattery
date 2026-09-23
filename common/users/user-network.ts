@@ -339,7 +339,10 @@ export interface DisplayNameChangedEvent {
 }
 
 export type AuthEvent =
-  DisplayNameChangedEvent | EmailChangedEvent | EmailVerifiedEvent | PermissionsChangedEvent
+  | DisplayNameChangedEvent
+  | EmailChangedEvent
+  | EmailVerifiedEvent
+  | PermissionsChangedEvent
 
 export interface UsernameAvailableResponse {
   available: boolean

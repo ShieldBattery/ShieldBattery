@@ -3,9 +3,9 @@ import styled from 'styled-components'
 import {
   AddMatchmakingSeasonRequest,
   GetMatchmakingSeasonsResponse,
+  makeSeasonId,
   MatchmakingSeasonJson,
   SeasonId,
-  makeSeasonId,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
@@ -18,7 +18,7 @@ import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useNow } from '../react/date-hooks'
 import { useStableCallback } from '../react/state-hooks'
-import { TitleMedium, bodyLarge, titleLarge } from '../styles/typography'
+import { bodyLarge, titleLarge, TitleMedium } from '../styles/typography'
 
 const Container = styled.div`
   height: 100%;

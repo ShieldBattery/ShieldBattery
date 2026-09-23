@@ -1,4 +1,4 @@
-import { KeyObject, generateKeyPairSync, sign as signEd25519 } from 'node:crypto'
+import { generateKeyPairSync, KeyObject, sign as signEd25519 } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   NetcodeV2DepartureNotification,

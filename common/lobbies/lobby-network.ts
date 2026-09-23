@@ -214,7 +214,8 @@ export interface LobbyRunStateJson {
  * part of a game's sides, so they don't appear here.
  */
 export type LobbySeriesPlayerJson =
-  { type: 'human'; userId: SbUserId; race: RaceChar } | { type: 'computer'; race: RaceChar }
+  | { type: 'human'; userId: SbUserId; race: RaceChar }
+  | { type: 'computer'; race: RaceChar }
 
 /** One side of a game a lobby played. `name` is absent in game types whose teams are unnamed. */
 export interface LobbySeriesTeamJson {
@@ -576,7 +577,12 @@ export interface UpdateLobbySettingsRequest {
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
-  'name' | 'map' | 'gameType' | 'gameSubType' | 'useLegacyLimits' | 'allowObservers'
+  | 'name'
+  | 'map'
+  | 'gameType'
+  | 'gameSubType'
+  | 'useLegacyLimits'
+  | 'allowObservers'
 
 /**
  * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the

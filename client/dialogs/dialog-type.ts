@@ -282,7 +282,9 @@ type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.Matchm
 // free of dependencies on dialog implementations, which would otherwise cycle back here through
 // the dialog's use of form/state hooks that ultimately import the dialog reducer.
 type NewsPostStatus =
-  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
+  | { kind: 'draft' }
+  | { kind: 'scheduled'; date: Date }
+  | { kind: 'published'; date: Date }
 type NewsPostDeleteConfirmationDialogPayload = BaseDialogPayload<
   typeof DialogType.NewsPostDeleteConfirmation,
   {

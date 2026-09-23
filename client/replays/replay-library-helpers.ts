@@ -7,7 +7,9 @@ import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
 /** Which subset of the library the rail is currently pointed at, addressed by the `/replays…` pathname. */
 export type LibraryView =
-  { kind: 'all' } | { kind: 'bookmarked' } | { kind: 'playlist'; id: number }
+  | { kind: 'all' }
+  | { kind: 'bookmarked' }
+  | { kind: 'playlist'; id: number }
 
 /**
  * Parses a pathname under `/replays` into the `LibraryView` it addresses:

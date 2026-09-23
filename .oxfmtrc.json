@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "arrowParens": "avoid",
+  "bracketSameLine": true,
+  "endOfLine": "lf",
+  "jsxSingleQuote": true,
+  "printWidth": 100,
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "sortPackageJson": false,
+  // Packages, then relative paths, with no blank line between the two. A blank line is a partition
+  // that sorting never moves imports across, which is how an import that must load first (like
+  // `server/app.ts`'s `./env`) stays first. Names inside the braces are sorted by oxlint's
+  // `sort-imports` rule, and unused imports are removed by its `no-unused-vars` fixer.
+  "sortImports": {
+    "groups": [
+      ["builtin", "external", "internal", "unknown"],
+      ["parent", "sibling", "index"]
+    ],
+    "newlinesBetween": false,
+    "partitionByNewline": true
+  },
+  "ignorePatterns": [
+    ".claude/**",
+    ".claude-scratch/**",
+    ".playwright-cli/**",
+    ".react-email/**",
+    "game/**",
+    "server-rs/**",
+    "server/testing/google/**",
+    // Generated or vendored; never hand-formatted.
+    "app/vendor/**",
+    "server/public/scripts/**"
+  ]
+}

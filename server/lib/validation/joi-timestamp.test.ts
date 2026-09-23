@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { MAX_DATE_MILLIS, joiTimestampMillis } from './joi-timestamp'
+import { joiTimestampMillis, MAX_DATE_MILLIS } from './joi-timestamp'
 
 describe('server/lib/validation/joi-timestamp', () => {
   test('accepts the largest instant a Date can represent', () => {

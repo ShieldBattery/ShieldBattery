@@ -233,7 +233,8 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
   const prefs = useAppSelector(
     s =>
       s.matchmakingPreferences.byType.get(type)?.preferences as
-        Immutable<MatchmakingPreferences> | undefined,
+        | Immutable<MatchmakingPreferences>
+        | undefined,
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(type))
   const prefsMapSelections = prefs?.mapSelections

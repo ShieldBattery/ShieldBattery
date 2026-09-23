@@ -1,7 +1,7 @@
 import { Section } from 'react-email'
 import { TransWithoutContext as Trans } from 'react-i18next'
 import { EmailProps } from '../email-props'
-import { TransInterpolation, t } from '../i18n/i18next'
+import { t, TransInterpolation } from '../i18n/i18next'
 import { EmailContainer, EmailHeading, EmailSignature, EmailText, SbEmail } from '../ui/email-ui'
 
 export default function LoginNameChange(props: EmailProps) {

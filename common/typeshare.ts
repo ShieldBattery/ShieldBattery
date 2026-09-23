@@ -141,7 +141,8 @@ export type PublishedMessage =
   | { type: 'gameReport'; data: PublishedGameReportMessage }
 
 export type PublishedNewsMessage =
-  { type: 'urgentMessageChanged'; data: undefined } | { type: 'newsPostsChanged'; data: undefined }
+  | { type: 'urgentMessageChanged'; data: undefined }
+  | { type: 'newsPostsChanged'; data: undefined }
 
 export type PublishedUserMessage =
   | {
