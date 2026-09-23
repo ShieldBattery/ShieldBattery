@@ -40,11 +40,19 @@ jobs:
           # pull_request runs check out — so Claude reads the PR's actual files.
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr_number) || '' }}
 
+      # The action's bundled Claude Code (2.1.278) predates Opus 5.5, which needs 2.1.280+.
+      # Drop this step and `path_to_claude_code_executable` once the action ships a newer CLI.
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.280
+          ~/.local/bin/claude --version
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          path_to_claude_code_executable: /home/runner/.local/bin/claude
 
           prompt: |
             REPO: ${{ github.repository }}
