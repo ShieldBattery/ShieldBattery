@@ -60,7 +60,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     '/availability/:userId',
     (route: RouteInfo, event: AvailabilityUpdateEvent) => {
       dispatch({
-        type: '@users/updateFriendAvailability',
+        type: '@users/updateAvailability',
         payload: event,
       })
     },

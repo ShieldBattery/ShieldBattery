@@ -5,10 +5,10 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface AvailabilityState {
   /**
-   * The last known availability of other users, heard about from friend presence or from a shared
-   * chat channel. An entry can outlive this client's view of that user once neither source covers
-   * them any more, so readers only trust it for a user they currently know to be online (see
-   * `useUserAvailability`).
+   * The last known availability of users, heard about from friend presence or from a shared chat
+   * channel (and, for the current user, from the server directly). An entry for another user can
+   * outlive this client's view of them once neither source covers them any more, so readers only
+   * trust it for a user they currently know to be online (see `useUserAvailability`).
    */
   byUserId: Map<SbUserId, AvailabilityInfo>
 }
@@ -18,7 +18,7 @@ const DEFAULT_STATE: Immutable<AvailabilityState> = {
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
-  ['@users/updateFriendAvailability'](state, { payload: { userId, info } }) {
+  ['@users/updateAvailability'](state, { payload: { userId, info } }) {
     if (info) {
       state.byUserId.set(userId, info)
     } else {

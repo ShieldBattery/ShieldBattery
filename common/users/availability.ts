@@ -52,3 +52,13 @@ export interface AvailabilityUpdateEvent {
   /** The user's current availability, or `null` if they're offline. */
   info: AvailabilityInfo | null
 }
+
+/**
+ * Sent by a desktop client whenever the user it's running for goes idle or comes back (judged by
+ * input anywhere on their computer, not just to the app), and again each time it reconnects. A user
+ * who's Online is shown as Away while all of their connected clients report them idle.
+ */
+export interface ReportClientIdleRequest {
+  clientId: string
+  idle: boolean
+}

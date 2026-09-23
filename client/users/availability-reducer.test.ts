@@ -42,7 +42,7 @@ describe('users/availability-reducer', () => {
 
   test('replaces a stale value when a user comes back online with the default', () => {
     let state = reducer(initialState(), {
-      type: '@users/updateFriendAvailability',
+      type: '@users/updateAvailability',
       payload: { userId: USER_A, info: AWAY },
     })
     state = reducer(state, {
@@ -61,7 +61,7 @@ describe('users/availability-reducer', () => {
       meta: { channelId: CHANNEL_ID },
     })
     state = reducer(state, {
-      type: '@users/updateFriendAvailability',
+      type: '@users/updateAvailability',
       payload: { userId: USER_B, info: AWAY },
     })
 
@@ -71,7 +71,7 @@ describe('users/availability-reducer', () => {
       meta: { channelId: CHANNEL_ID },
     })
     state = reducer(state, {
-      type: '@users/updateFriendAvailability',
+      type: '@users/updateAvailability',
       payload: { userId: USER_B, info: null },
     })
 

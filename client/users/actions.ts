@@ -23,11 +23,14 @@ export type UserActions =
   | AdminGetUserIps
   | AdminAvatarCleared
   | GetUserRankingHistory
-  | UpdateFriendAvailability
+  | UpdateAvailability
 
-/** A friend's availability changed, or they came online or went offline. */
-export interface UpdateFriendAvailability {
-  type: '@users/updateFriendAvailability'
+/**
+ * The availability of a friend or of the current user changed, or a friend came online or went
+ * offline.
+ */
+export interface UpdateAvailability {
+  type: '@users/updateAvailability'
   payload: AvailabilityUpdateEvent
 }
 

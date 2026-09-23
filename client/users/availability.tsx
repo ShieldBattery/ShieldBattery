@@ -37,7 +37,8 @@ function isKnownOnline(state: RootState, userId: SbUserId): boolean {
 /**
  * Reads a user's current availability, or `undefined` if they're offline or this client has no
  * way of knowing it (they're not a friend and share no channel with us). The current user always
- * has one, taken from their own account settings.
+ * has one, taken from their own account settings, except that while they're set to Online it shows
+ * Away if that's what the server is showing everyone else because they've gone idle.
  */
 export function useUserAvailability(userId: SbUserId): AvailabilityInfo | undefined {
   const isSelf = useAppSelector(s => s.auth.self?.user.id === userId)
@@ -47,7 +48,13 @@ export function useUserAvailability(userId: SbUserId): AvailabilityInfo | undefi
   const info = useAppSelector(s => s.availability.byUserId.get(userId))
 
   if (isSelf) {
-    return { availability: selfAvailability, statusMessage: selfStatusMessage }
+    // Only an Online choice is ever shown differently. Any other choice shows up right away, rather
+    // than after the server has published it.
+    const availability =
+      selfAvailability === UserAvailability.Online && info?.availability === UserAvailability.Away
+        ? UserAvailability.Away
+        : selfAvailability
+    return { availability, statusMessage: selfStatusMessage }
   }
 
   return knownOnline ? (info ?? DEFAULT_AVAILABILITY_INFO) : undefined
