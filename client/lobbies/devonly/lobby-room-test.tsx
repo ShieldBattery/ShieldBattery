@@ -371,7 +371,6 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         type: '@lobbies/updateGameStarted',
         payload: {
           runState: { gameId: game.gameId, inGameUsers: [], elapsedMs: 0 },
-          isParticipant: true,
         },
       })
       dispatch({
@@ -449,7 +448,6 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       type: '@lobbies/updateGameStarted',
       payload: {
         runState: { gameId: 'mock-running-game', inGameUsers, elapsedMs: 5 * 60 * 1000 },
-        isParticipant: true,
       },
     })
   }

@@ -228,11 +228,6 @@ export const eventToAction: EventToActionMap = {
     logger.debug(`Match started successfully`)
     clearMatchmakingState(jotaiStore)
     dispatch(closeDialog(DialogType.LaunchingGame))
-    // TODO(tec27): Delete this event type after we get rid of active-game-reducer
-    dispatch({
-      type: '@matchmaking/gameStarted',
-      payload: undefined,
-    })
   },
 
   queueStatus: (matchmakingType, event) => {
