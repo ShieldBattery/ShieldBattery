@@ -134,6 +134,8 @@ interface IpcInvokeables {
   botLibraryPickJava: () => Promise<string | undefined>
   botLibraryDetectJava: () => JavaRuntimeInfo[]
   botLibrarySetJavaOverride: (key: BotKey, javaPath: string | undefined) => void
+  botLibraryAddJava: (javaPath: string) => JavaRuntimeInfo
+  botLibraryRemoveJava: (javaPath: string) => void
   /** Restores a bot's learning profile to its packaged baseline. Fails while the bot is in use. */
   botLibraryResetLearning: (key: BotKey) => void
   /** Returns the text of a packaged license/notice file. */

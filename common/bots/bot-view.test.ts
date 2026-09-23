@@ -95,7 +95,7 @@ function makeSnapshot(overrides: Partial<BotLibrarySnapshot> = {}): BotLibrarySn
     localBuilds: [],
     installs: [],
     installFailures: [],
-    java: { detected: [], overrides: {} },
+    java: { detected: [], added: [], overrides: {} },
     inUse: [],
     hasLearningData: [],
     ...overrides,
@@ -158,6 +158,7 @@ describe('buildBotViews', () => {
       ...base,
       java: {
         detected: [{ path: 'j', major: 17, architecture: 'x86_64' as const }],
+        added: [],
         overrides: {},
       },
     }
@@ -165,11 +166,18 @@ describe('buildBotViews', () => {
 
     const detected = {
       ...base,
-      java: { detected: [{ path: 'j', major: 17, architecture: 'x86' as const }], overrides: {} },
+      java: {
+        detected: [{ path: 'j', major: 17, architecture: 'x86' as const }],
+        added: [],
+        overrides: {},
+      },
     }
     expect(buildBotViews(detected)[0].readiness.state).toBe('ready')
 
-    const override = { ...base, java: { detected: [], overrides: { purple: 'C:\\java.exe' } } }
+    const override = {
+      ...base,
+      java: { detected: [], added: [], overrides: { purple: 'C:\\java.exe' } },
+    }
     expect(buildBotViews(override)[0].readiness.state).toBe('ready')
   })
 

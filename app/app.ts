@@ -865,6 +865,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('botLibrarySetJavaOverride', (_, key, javaPath) =>
     bots.setJavaOverride(key, javaPath),
   )
+  ipcMain.handle('botLibraryAddJava', (_, javaPath) => bots.addJava(javaPath))
+  ipcMain.handle('botLibraryRemoveJava', (_, javaPath) => bots.removeJava(javaPath))
   ipcMain.handle('botLibraryResetLearning', (_, key) => bots.resetLearning(key))
   ipcMain.handle('botLibraryReadNotice', (_, botId, noticePath) =>
     bots.readNotice(botId, noticePath),

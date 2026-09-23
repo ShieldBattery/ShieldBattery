@@ -18,6 +18,7 @@ import {
   BotRuntime,
 } from '../../common/bots/bot-catalog'
 import {
+  AddedJavaRuntime,
   BotCatalogStatus,
   BotInstallFailure,
   BotInstallProgress,
@@ -116,6 +117,12 @@ export class BotLibrary {
   >()
   private installFailures: BotInstallFailure[] = []
   private readonly java = new JavaDetector()
+  /**
+   * The last probe of each of `data.javaRuntimes`, keyed by lowercased path. An `undefined` value
+   * means it was probed and didn't run; a path with no entry hasn't been probed yet this run.
+   */
+  private readonly addedJava = new Map<string, JavaRuntimeInfo | undefined>()
+  private addedJavaProbe: Promise<void> = Promise.resolve()
   private readonly leases = new BotLeases()
   private learningKeys: BotKey[] = []
   /** The tail of each bot's queue of changes, present only while one is queued or running. */
@@ -164,8 +171,8 @@ export class BotLibrary {
 
     // Readiness for Java bots depends on what is installed on this PC, so find out without making
     // the first library request wait for a process spawn per candidate.
-    this.java
-      .detect()
+    this.addedJavaProbe = this.probeAddedJava()
+    Promise.all([this.java.detect(), this.addedJavaProbe])
       .then(() => this.broadcast())
       .catch(err => log.warning(`Error detecting Java runtimes: ${displayableError(err)}`))
   }
@@ -181,7 +188,15 @@ export class BotLibrary {
       installs: Array.from(this.installs.values(), install => install.progress),
       installFailures: this.installFailures,
       java: {
-        detected: this.java.getDetected(),
+        detected: this.javaRuntimes(),
+        added: this.data.javaRuntimes.map(javaPath => {
+          const key = javaPath.toLowerCase()
+          let status: AddedJavaRuntime['status'] = 'checking'
+          if (this.addedJava.has(key)) {
+            status = this.addedJava.get(key) ? 'usable' : 'unusable'
+          }
+          return { path: javaPath, status }
+        }),
         checkedAt: this.java.getCheckedAt(),
         overrides: this.data.javaOverrides,
       },
@@ -531,9 +546,70 @@ export class BotLibrary {
 
   async detectJava(): Promise<JavaRuntimeInfo[]> {
     await this.initialized
-    const detected = await this.java.detect({ force: true })
+    this.addedJavaProbe = this.probeAddedJava()
+    await Promise.all([this.java.detect({ force: true }), this.addedJavaProbe])
     this.broadcast()
-    return detected
+    return this.javaRuntimes()
+  }
+
+  /** Every usable runtime, the user's added ones first so `findJavaRuntime` prefers them. */
+  private javaRuntimes(): JavaRuntimeInfo[] {
+    const added = this.data.javaRuntimes.map(javaPath => javaPath.toLowerCase())
+    const usable = added.flatMap(key => this.addedJava.get(key) ?? [])
+    return [
+      ...usable,
+      ...this.java.getDetected().filter(java => !added.includes(java.path.toLowerCase())),
+    ]
+  }
+
+  private isAddedJava(key: string): boolean {
+    return this.data.javaRuntimes.some(existing => existing.toLowerCase() === key)
+  }
+
+  /**
+   * Re-probes the added runtimes. Paths can be added or removed while this runs, so each result is
+   * written back on its own, and only while its path is still in the list: a scan never drops a
+   * runtime added during it or brings back one removed during it.
+   */
+  private async probeAddedJava(): Promise<void> {
+    for (const javaPath of this.data.javaRuntimes) {
+      const info = await probeJava(javaPath)
+      const key = javaPath.toLowerCase()
+      if (this.isAddedJava(key)) {
+        this.addedJava.set(key, info)
+      }
+    }
+  }
+
+  /** Adds a `java.exe` for any bot needing its version and architecture to run with. */
+  async addJava(javaPath: string): Promise<JavaRuntimeInfo> {
+    await this.initialized
+    if (!path.isAbsolute(javaPath)) {
+      throw new Error('Choose a java.exe on this PC')
+    }
+    const probed = await probeJava(javaPath)
+    if (!probed) {
+      throw new Error(`That file didn't report itself as a Windows Java runtime`)
+    }
+    const key = javaPath.toLowerCase()
+    this.addedJava.set(key, probed)
+    if (!this.isAddedJava(key)) {
+      this.data.javaRuntimes = [...this.data.javaRuntimes, javaPath]
+      await this.save()
+    }
+    this.broadcast()
+    return probed
+  }
+
+  async removeJava(javaPath: string): Promise<void> {
+    await this.initialized
+    const key = javaPath.toLowerCase()
+    this.data.javaRuntimes = this.data.javaRuntimes.filter(
+      existing => existing.toLowerCase() !== key,
+    )
+    this.addedJava.delete(key)
+    await this.save()
+    this.broadcast()
   }
 
   async setJavaOverride(key: BotKey, javaPath: string | undefined): Promise<void> {
@@ -552,7 +628,7 @@ export class BotLibrary {
     }
     const probed = await probeJava(javaPath)
     if (!probed) {
-      throw new Error(`That file didn't report itself as a Java runtime`)
+      throw new Error(`That file didn't report itself as a Windows Java runtime`)
     }
     this.data.javaOverrides[key] = javaPath
     await this.save()
@@ -722,7 +798,7 @@ export class BotLibrary {
     if (override) {
       return override
     }
-    const detected = findJavaRuntime(this.java.getDetected(), runtime)
+    const detected = findJavaRuntime(this.javaRuntimes(), runtime)
     if (!detected) {
       throw new Error(
         `${name} needs a ${architectureLabel(runtime.architecture)} Java ${runtime.major} ` +
@@ -835,7 +911,7 @@ export class BotLibrary {
     let status: LocalGameStatus
     try {
       // A Java bot's readiness depends on a scan that may not have finished yet this run.
-      await this.java.detect()
+      await Promise.all([this.java.detect(), this.addedJavaProbe])
 
       const sourceNames = request.bots.map(bot => {
         const build = this.data.localBuilds.find(candidate => candidate.key === bot.key)

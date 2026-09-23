@@ -21,6 +21,8 @@ export interface BotLibraryData {
   localBuilds: LocalBuildBot[]
   /** `java.exe` the user picked for a specific bot, overriding detection. */
   javaOverrides: Record<BotKey, string>
+  /** `java.exe` installs the user added for every bot, tried before detected ones. */
+  javaRuntimes: string[]
 }
 
 export interface LoadedLibraryData {
@@ -30,7 +32,7 @@ export interface LoadedLibraryData {
 }
 
 export function emptyLibraryData(): BotLibraryData {
-  return { installed: [], localBuilds: [], javaOverrides: {} }
+  return { installed: [], localBuilds: [], javaOverrides: {}, javaRuntimes: [] }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,6 +134,11 @@ export async function loadLibraryData(filePath: string): Promise<LoadedLibraryDa
       if (typeof javaPath === 'string' && javaPath.length) {
         data.javaOverrides[key] = javaPath
       }
+    }
+  }
+  for (const javaPath of Array.isArray(value.javaRuntimes) ? value.javaRuntimes : []) {
+    if (typeof javaPath === 'string' && javaPath.length) {
+      data.javaRuntimes.push(javaPath)
     }
   }
   return { data, dropped }

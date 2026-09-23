@@ -30,6 +30,9 @@ const VENDOR_DIRECTORIES = [
  * Reads `java.specification.version` and `sun.arch.data.model` out of the output of
  * `java -XshowSettings:properties -version`. Returns undefined when either is missing or
  * unrecognizable, since a runtime that can't say what it is can't be matched to a bot.
+ *
+ * A runtime reporting a non-Windows `os.name` is refused too: under Wine, a Linux `java` picked
+ * through the `Z:` drive runs and answers, but a bot on it can't reach BWAPI's Windows shared memory.
  */
 export function parseJavaProperties(
   output: string,
@@ -45,6 +48,10 @@ export function parseJavaProperties(
   const version = properties.get('java.specification.version')
   const dataModel = properties.get('sun.arch.data.model')
   if (!version || !dataModel) {
+    return undefined
+  }
+  const osName = properties.get('os.name')
+  if (osName !== undefined && !osName.startsWith('Windows')) {
     return undefined
   }
 

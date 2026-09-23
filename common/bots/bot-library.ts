@@ -102,6 +102,13 @@ export interface JavaRuntimeInfo {
   architecture: BotArchitecture
 }
 
+export interface AddedJavaRuntime {
+  /** Path to `java.exe`. */
+  path: string
+  /** `checking` until its first probe since the app started finishes. */
+  status: 'checking' | 'usable' | 'unusable'
+}
+
 export interface CachedBotCatalog {
   revision: number
   fetchedAt: number
@@ -124,7 +131,10 @@ export interface BotLibrarySnapshot {
   installs: BotInstallProgress[]
   installFailures: BotInstallFailure[]
   java: {
+    /** Usable runtimes, the ones the user added first so they win over detected duplicates. */
     detected: JavaRuntimeInfo[]
+    /** `java.exe` installs the user added, including any that no longer run. */
+    added: AddedJavaRuntime[]
     checkedAt?: number
     /** Per-bot `java.exe` override chosen by the user. */
     overrides: Record<BotKey, string>

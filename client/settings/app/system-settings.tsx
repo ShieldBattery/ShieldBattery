@@ -26,7 +26,7 @@ import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodySmall, singleLine, titleSmall } from '../../styles/typography'
+import { bodySmall } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
 import {
   FormContainer,
@@ -34,6 +34,8 @@ import {
   SettingsSectionDescription,
   SettingsSectionHeader,
 } from '../settings-content'
+import { JavaSettings } from './java-settings'
+import { PathDetail, PathIconTile, PathList, PathName, PathRow, PathText } from './path-list'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -71,61 +73,6 @@ const IndentedCheckBox = styled(CheckBox)`
 
 const RegionLockedText = styled.div`
   ${bodySmall};
-  color: var(--theme-on-surface-variant);
-`
-
-const FolderList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`
-
-const FolderRow = styled.div`
-  min-height: 56px;
-  padding: 8px 8px 8px 12px;
-
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  border-radius: 8px;
-
-  &:hover {
-    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
-  }
-`
-
-const FolderIconTile = styled.div`
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 8px;
-  background-color: var(--theme-container-high);
-  color: var(--theme-on-surface-variant);
-`
-
-const FolderText = styled.div`
-  flex: 1 1 auto;
-  min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-`
-
-const FolderName = styled.div`
-  ${titleSmall};
-  ${singleLine};
-`
-
-const FolderPath = styled.div`
-  ${bodySmall};
-  ${singleLine};
-
   color: var(--theme-on-surface-variant);
 `
 
@@ -324,16 +271,16 @@ export function AppSystemSettings() {
             )}
           </SettingsSectionDescription>
 
-          <FolderList>
+          <PathList>
             {configuredFolders.map(folder => (
-              <FolderRow key={folder}>
-                <FolderIconTile>
+              <PathRow key={folder}>
+                <PathIconTile>
                   <MaterialIcon icon='folder' />
-                </FolderIconTile>
-                <FolderText>
-                  <FolderName title={folder}>{folderDisplayName(folder)}</FolderName>
-                  <FolderPath title={folder}>{folder}</FolderPath>
-                </FolderText>
+                </PathIconTile>
+                <PathText>
+                  <PathName title={folder}>{folderDisplayName(folder)}</PathName>
+                  <PathDetail title={folder}>{folder}</PathDetail>
+                </PathText>
                 <Tooltip text={removeFolderLabel}>
                   <IconButton
                     icon={<MaterialIcon icon='delete' />}
@@ -341,9 +288,9 @@ export function AppSystemSettings() {
                     onClick={() => onRemoveFolder(folder)}
                   />
                 </Tooltip>
-              </FolderRow>
+              </PathRow>
             ))}
-          </FolderList>
+          </PathList>
 
           <AddFolderButton
             label={t('settings.app.system.addReplayFolder', 'Add folder')}
@@ -399,6 +346,7 @@ export function AppSystemSettings() {
             ) : null}
           </SectionContainer>
         ) : null}
+        <JavaSettings />
       </FormContainer>
     </form>
   )

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { InstalledBotRelease } from '../../common/bots/bot-library'
+import { InstalledBotRelease, JavaRuntimeInfo } from '../../common/bots/bot-library'
 import { PracticeLaunchRequest } from '../../common/bots/practice'
 import { GameType } from '../../common/games/game-type'
 import type { LocalGameManager } from '../game/local-game-manager'
@@ -53,8 +53,16 @@ vi.mock('./library-store', async importOriginal => {
     loadCachedCatalog: async () => undefined,
   }
 })
+const java = vi.hoisted(() => ({
+  probeJava: vi.fn(async (path: string): Promise<JavaRuntimeInfo | undefined> => ({
+    path,
+    major: 21,
+    architecture: 'x86_64',
+  })),
+}))
 vi.mock('./java-runtime', async importOriginal => ({
   ...(await importOriginal<typeof import('./java-runtime')>()),
+  ...java,
   JavaDetector: class {
     async detect() {}
     getDetected() {
@@ -130,5 +138,80 @@ describe('BotLibrary launches and bot changes', () => {
 
     await expect(library.resetLearning('zzzkbot')).rejects.toThrow(/being used by a game/)
     expect(learning.resetLearning).not.toHaveBeenCalled()
+  })
+})
+
+describe('BotLibrary added Java installs', () => {
+  const JAVA_A = '/java/a/bin/java.exe'
+  const JAVA_B = '/java/b/bin/java.exe'
+  let library: BotLibrary
+
+  /** Makes the next probe wait until the returned function is called. */
+  function holdNextProbe(): () => void {
+    let release!: () => void
+    const held = new Promise<void>(resolve => {
+      release = resolve
+    })
+    java.probeJava.mockImplementationOnce(async probed => {
+      await held
+      return { path: probed, major: 21, architecture: 'x86_64' }
+    })
+    return release
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    library = new BotLibrary({
+      dataRoot: 'bots',
+      localGameLogsRoot: 'logs',
+      isDev: true,
+      getLocalGameManager: () => new FakeLocalGameManager() as unknown as LocalGameManager,
+      getParentWindow: () => null,
+      onChanged: () => {},
+      onInstallProgress: () => {},
+    })
+  })
+
+  test('a scan keeps an install added while it runs', async () => {
+    await library.addJava(JAVA_A)
+    const release = holdNextProbe()
+    const scanning = library.detectJava()
+    await vi.waitFor(() => expect(java.probeJava).toHaveBeenNthCalledWith(2, JAVA_A))
+
+    await library.addJava(JAVA_B)
+    release()
+    await scanning
+
+    const { java: snapshot } = library.getSnapshot()
+    expect(snapshot.detected.map(d => d.path)).toEqual([JAVA_A, JAVA_B])
+    expect(snapshot.added).toEqual([
+      { path: JAVA_A, status: 'usable' },
+      { path: JAVA_B, status: 'usable' },
+    ])
+  })
+
+  test('a scan leaves out an install removed while it runs', async () => {
+    await library.addJava(JAVA_A)
+    const release = holdNextProbe()
+    const scanning = library.detectJava()
+    await vi.waitFor(() => expect(java.probeJava).toHaveBeenNthCalledWith(2, JAVA_A))
+
+    await library.removeJava(JAVA_A)
+    release()
+    await scanning
+
+    const { java: snapshot } = library.getSnapshot()
+    expect(snapshot.detected).toEqual([])
+    expect(snapshot.added).toEqual([])
+  })
+
+  test('an install that stops running is kept but marked unusable', async () => {
+    await library.addJava(JAVA_A)
+    java.probeJava.mockResolvedValueOnce(undefined)
+    await library.detectJava()
+
+    const { java: snapshot } = library.getSnapshot()
+    expect(snapshot.detected).toEqual([])
+    expect(snapshot.added).toEqual([{ path: JAVA_A, status: 'unusable' }])
   })
 })
