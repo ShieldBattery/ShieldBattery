@@ -29,7 +29,7 @@ function configureCoordinator() {
 function wireRegion(id: string, displayName: string, suffix: string) {
   return {
     id,
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     display_name: displayName,
     beacon: `beacon-${suffix}`,
     fallback: `fallback-${suffix}`,
@@ -38,7 +38,7 @@ function wireRegion(id: string, displayName: string, suffix: string) {
 
 /** A `GET /regions` `backbone_rtts` entry, in the coordinator's snake_case wire shape. */
 function wireBackboneRtt(a: string, b: string, rttMs: number, measuredAt: number) {
-  // eslint-disable-next-line camelcase
+  // eslint-disable-next-line eslint-core/camelcase
   return { a, b, rtt_ms: rttMs, measured_at: measuredAt }
 }
 
@@ -50,7 +50,7 @@ function wireBackboneRtt(a: string, b: string, rttMs: number, measuredAt: number
 function mockCoordinatorRegionsOnce(regions: unknown[], backboneRtts?: unknown[]) {
   const body: Record<string, unknown> = { regions }
   if (backboneRtts !== undefined) {
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     body.backbone_rtts = backboneRtts
   }
   const json = vi.fn().mockResolvedValue(body)

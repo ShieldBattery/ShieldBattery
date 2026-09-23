@@ -1,0 +1,4 @@
+# Generated or vendored; never hand-formatted. (Prettier reads only the root .gitignore, so build
+# output ignored by a nested one has to be repeated here.)
+app/vendor/
+server/public/scripts/

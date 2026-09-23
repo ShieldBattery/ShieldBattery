@@ -23,7 +23,7 @@ export class DiscordWebhookNotifier {
     await got.post(this.webhookUrl, {
       json: {
         content: content.slice(0, 2000),
-        // eslint-disable-next-line camelcase
+        // eslint-disable-next-line eslint-core/camelcase
         allowed_mentions: {
           parse: [],
         },

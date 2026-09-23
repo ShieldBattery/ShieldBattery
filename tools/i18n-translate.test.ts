@@ -1,5 +1,5 @@
 // Fixtures intentionally use i18next plural keys (foo_one/foo_other), which aren't camelCase.
-/* eslint-disable camelcase */
+/* eslint-disable eslint-core/camelcase */
 import fs from 'fs'
 import path from 'path'
 import { describe, expect, test } from 'vitest'

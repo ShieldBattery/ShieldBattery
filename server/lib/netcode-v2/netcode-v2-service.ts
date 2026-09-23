@@ -631,13 +631,13 @@ export class NetcodeV2Service {
     )
     const latencyEstimateField =
       latencyEstimateMs !== undefined
-        ? // eslint-disable-next-line camelcase
+        ? // eslint-disable-next-line eslint-core/camelcase
           { latency_estimate_ms: Math.ceil(latencyEstimateMs) }
         : {}
 
     const request: CoordinatorSessionRequest = {
       tenant: config.tenant,
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       external_id: gameId,
       players: slots.map(({ slot, userId, observer, region, pubkey }) => {
         if (pubkey === undefined) {
@@ -650,9 +650,9 @@ export class NetcodeV2Service {
         }
         return {
           slot,
-          // eslint-disable-next-line camelcase
+          // eslint-disable-next-line eslint-core/camelcase
           client_pubkey: Array.from(Buffer.from(pubkey, 'base64')),
-          // eslint-disable-next-line camelcase
+          // eslint-disable-next-line eslint-core/camelcase
           external_ref: String(userId),
           observer,
           ...(region !== undefined ? { region } : {}),
@@ -961,7 +961,7 @@ export class NetcodeV2Service {
     const request: CoordinatorRehomeRequest = {
       tenant: config.tenant,
       session,
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       dead_relay_id: deadRelayId,
     }
 
@@ -1078,7 +1078,7 @@ export class NetcodeV2Service {
     }
 
     const url = `${config.coordinatorUrl}/flight/blob`
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     const bodyStr = JSON.stringify({ tenant: config.tenant, session, relay_id: relayId })
     try {
       const response = await got.post(url, {

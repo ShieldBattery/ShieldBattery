@@ -48,7 +48,9 @@ function promptPin() {
       output: out,
       terminal: true,
     })
-    out.write('\nYubiKey PIN (used to sign all files in this build) — typing is hidden, press Enter to submit:\n')
+    out.write(
+      '\nYubiKey PIN (used to sign all files in this build) — typing is hidden, press Enter to submit:\n',
+    )
     // Suppress echo so the PIN never appears on screen.
     rl._writeToOutput = () => {}
     rl.question('', pin => {

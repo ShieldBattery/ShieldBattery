@@ -65,7 +65,7 @@ cargo install typeshare-cli
 
 If you're using VSCode, the following plugins will likely be useful for development:
 
-- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+- [Oxc](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode) (oxlint)
 - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - [GraphQL Language Support](https://marketplace.visualstudio.com/items?itemName=GraphQL.vscode-graphql)
 - [Styled Components](https://marketplace.visualstudio.com/items?itemName=styled-components.vscode-styled-components)

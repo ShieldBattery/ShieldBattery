@@ -18,7 +18,7 @@ import { setServerConfig } from './server-config-storage'
 
 const isDev = import.meta.env.DEV
 
-// eslint-disable-next-line camelcase
+// eslint-disable-next-line eslint-core/camelcase
 window.__webpack_nonce__ = window.SB_CSP_NONCE
 
 enableArrayMethods()

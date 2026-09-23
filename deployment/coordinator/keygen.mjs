@@ -55,8 +55,12 @@ const signingPkcs8B64 = pkcs8V2(signingSeed, signingPub).toString('base64')
 // The app server's request-signing keypair: the SEED goes to the app server
 // (SB_RP2_CLIENT_KEY), the PUBLIC key goes in the tenant's client_pubkeys.
 const client = generateKeyPairSync('ed25519')
-const clientSeedHex = seedFromPkcs8(client.privateKey.export({ type: 'pkcs8', format: 'der' })).toString('hex')
-const clientPubHex = rawFromSpki(client.publicKey.export({ type: 'spki', format: 'der' })).toString('hex')
+const clientSeedHex = seedFromPkcs8(
+  client.privateKey.export({ type: 'pkcs8', format: 'der' }),
+).toString('hex')
+const clientPubHex = rawFromSpki(client.publicKey.export({ type: 'spki', format: 'der' })).toString(
+  'hex',
+)
 
 const tenantEntry = {
   id: tenantId,

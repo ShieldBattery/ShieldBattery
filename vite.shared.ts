@@ -55,7 +55,7 @@ export function sharedDefines({
     IS_ELECTRON: isElectron,
     // styled-components reads this bare identifier to nonce the <style> tags it injects. Our
     // style-src has no 'unsafe-inline', so without it every styled component fails to apply.
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     __webpack_nonce__: 'window.SB_CSP_NONCE',
     ...Object.fromEntries(
       Object.entries({ SB_VERSION: packageJson.version, ...env }).map(([key, value]) => [

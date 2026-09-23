@@ -413,6 +413,9 @@ export const Ripple = React.memo(({ disabled, className, ref }: RippleProps) => 
     [disabledRef, animateActivation, maybeRunDeactivation, forceUpdate],
   )
 
+  // animateActivation() sets this ref and then forces the render that reads it, which is what
+  // hands the activation off to the layout effect below.
+  /* eslint-disable react-hooks/refs */
   const isStartingActivation = startActivationRef.current
   useLayoutEffect(() => {
     if (wasDeactivating && !deactivating) {
@@ -427,11 +430,13 @@ export const Ripple = React.memo(({ disabled, className, ref }: RippleProps) => 
       activationTimerRef.current = setTimeout(onActivationTimer, DEACTIVATION_TIMEOUT_MS)
     }
   }, [wasDeactivating, deactivating, isStartingActivation, onActivationTimer])
+  /* eslint-enable react-hooks/refs */
   useLayoutEffect(() => {
     if (wasActivating && !activating) {
       // Ensure that layout happens after the classes change so that the deactivation animation
       // runs
       rootRef?.current?.getBoundingClientRect()
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the class change has to follow the forced layout above
       setDeactivating(true)
       fgDeactivationRemovalTimerRef.current = setTimeout(() => {
         setDeactivating(false)

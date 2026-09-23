@@ -244,13 +244,13 @@ describe('netcode-v2/relayEndpointToInfo', () => {
     certDer?: number[]
   }) {
     return {
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       relay_id: args.relayId,
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       relay_addr: args.addr,
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       cert_der: args.certDer ?? RELAY_CERT_DER,
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       ...(args.addrs !== undefined ? { relay_addrs: args.addrs } : {}),
     }
   }
@@ -391,7 +391,7 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
   })
 
   // Mirrors the coordinator's snake_case CoordinatorRelayEndpoint wire shape.
-  // eslint-disable-next-line camelcase
+  // eslint-disable-next-line eslint-core/camelcase
   const newTargetRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
 
   test('coalesces concurrent asks for the same session + dead relay into one coordinator call', async () => {
@@ -467,7 +467,7 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     configureNetcodeV2()
     // The relay 2 the first ask is sent has since died; the coordinator now moves the group to a
     // fresh relay 3. A cache would have livelocked survivors on the dead relay 2 forever.
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     const laterTargetRelay = { relay_id: 3, relay_addr: '10.0.0.3:14900', cert_der: RELAY_CERT_DER }
     const json = vi
       .fn()
@@ -546,7 +546,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     vi.useRealTimers()
   })
 
-  // eslint-disable-next-line camelcase
+  // eslint-disable-next-line eslint-core/camelcase
   const HOME_RELAY = { relay_id: 1, relay_addr: '10.0.0.1:14900', cert_der: RELAY_CERT_DER }
   /** A well-formed 32-byte pubkey (base64), carried in on each slot. */
   const PUBKEY = Buffer.alloc(32, 7).toString('base64')
@@ -554,7 +554,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
   function sessionResponse(slots: number[]) {
     return {
       session: 100,
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       home_relay: HOME_RELAY,
       tokens: slots.map(slot => ({ slot, token: [slot] })),
       bounds: { min: 2, max: 8 },
@@ -906,7 +906,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     configureNetcodeV2()
     mockSessionResponse({
       ...sessionResponse([0]),
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       relay_regions: [{ relay_id: 1, region: 'us-east' }],
     })
     const service = makeService()
@@ -943,11 +943,11 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   test('records one deduped home event per distinct relay across a dev cross-relay split', async () => {
     configureNetcodeV2()
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
     mockSessionResponse({
       ...sessionResponse([0, 1, 2]),
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       slot_homes: [
         { slot: 1, relay: secondaryRelay },
         // A second slot homing on the same secondary relay must not duplicate its home event.
@@ -1027,11 +1027,11 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   test('roster entries use their slot_homes override relay for homeRelayId', async () => {
     configureNetcodeV2()
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
     mockSessionResponse({
       ...sessionResponse([0, 1]),
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       slot_homes: [{ slot: 1, relay: secondaryRelay }],
     })
     const service = makeService()
@@ -1502,7 +1502,7 @@ describe('netcode-v2/NetcodeV2Service#fetchFlightBlob', () => {
     expect(got.post).toHaveBeenCalledWith(
       'http://coordinator.example/flight/blob',
       expect.objectContaining({
-        // eslint-disable-next-line camelcase
+        // eslint-disable-next-line eslint-core/camelcase
         body: JSON.stringify({ tenant: 'sb-dev', session: 42, relay_id: 7 }),
         headers: expect.objectContaining({
           'content-type': 'application/json',

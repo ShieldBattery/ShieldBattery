@@ -24,7 +24,7 @@ function mockAccountingRow(row: { allAccounted: boolean | null; total: string } 
   const query = vi.fn().mockResolvedValue({
     rows: row
       ? [
-          // eslint-disable-next-line camelcase
+          // eslint-disable-next-line eslint-core/camelcase
           { all_accounted: row.allAccounted, total: row.total },
         ]
       : [],

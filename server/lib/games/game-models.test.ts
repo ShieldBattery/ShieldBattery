@@ -113,9 +113,9 @@ describe('games/game-models/findFullyReportedUnreconciledGames', () => {
 describe('games/game-models/findUnreconciledV2GamesForProbe', () => {
   test('returns gameId/session pairs, normalizing the BIGINT session id to a number', async () => {
     mockDbClient([
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       { id: 'game-1', netcode_v2_session: '1234567890123' },
-      // eslint-disable-next-line camelcase
+      // eslint-disable-next-line eslint-core/camelcase
       { id: 'game-2', netcode_v2_session: '42' },
     ])
     const olderThan = new Date('2026-07-04T00:00:00.000Z')
@@ -496,11 +496,11 @@ describe('games/game-models/getNetcodeV2DebugInfo', () => {
     ]
     mockDbClient([
       {
-        /* eslint-disable camelcase */
+        /* eslint-disable eslint-core/camelcase */
         netcode_v2_session: '1234567890123',
         netcode_v2_relays: relays,
         netcode_v2_requested_regions: requestedRegions,
-        /* eslint-enable camelcase */
+        /* eslint-enable eslint-core/camelcase */
       },
     ])
 
@@ -512,11 +512,11 @@ describe('games/game-models/getNetcodeV2DebugInfo', () => {
   test('returns a null session and empty lists for a game with no netcode-v2 history', async () => {
     mockDbClient([
       {
-        /* eslint-disable camelcase */
+        /* eslint-disable eslint-core/camelcase */
         netcode_v2_session: null,
         netcode_v2_relays: null,
         netcode_v2_requested_regions: null,
-        /* eslint-enable camelcase */
+        /* eslint-enable eslint-core/camelcase */
       },
     ])
 
@@ -529,7 +529,7 @@ describe('games/game-models/getNetcodeV2DebugInfo', () => {
     const relays: NetcodeV2RelayEvent[] = [
       { kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900', at: 1000 },
     ]
-    // eslint-disable-next-line camelcase
+    // eslint-disable-next-line eslint-core/camelcase
     mockDbClient([{ netcode_v2_session: '1234567890123', netcode_v2_relays: relays }])
 
     const result = await getNetcodeV2DebugInfo('game-1')

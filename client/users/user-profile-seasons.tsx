@@ -101,6 +101,8 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
       </Container>
     )
   }
+
+  return null
 }
 
 const SeasonHeader = styled.div`

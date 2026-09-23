@@ -18,7 +18,7 @@ honestly (paste failures; say what you skipped and why).
 ## Universal checks (almost always)
 
 ```bash
-pnpm run lint           # eslint + prettier;  add --fix to autofix
+pnpm run lint           # oxlint + prettier;  `pnpm run lint:fix` to autofix
 pnpm run typecheck      # tsc over the whole project
 pnpm exec vitest run <path>   # unit tests near the change (use `run`, not bare `vitest` = watch)
 ```

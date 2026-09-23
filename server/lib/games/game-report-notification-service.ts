@@ -9,7 +9,7 @@ import { RedisSubscriber } from '../redis/redis'
 import { findUsersById } from '../users/user-model'
 
 /** Labels for the DB reason strings (snake_case, straight from server-rs), for the Discord message. */
-/* eslint-disable camelcase */
+/* eslint-disable eslint-core/camelcase */
 const REASON_LABELS: Record<string, string> = {
   cheating: 'Cheating or exploiting',
   abandoning: 'Left the game',
@@ -17,7 +17,7 @@ const REASON_LABELS: Record<string, string> = {
   abusive_chat: 'Abusive chat',
   other: 'Other',
 }
-/* eslint-enable camelcase */
+/* eslint-enable eslint-core/camelcase */
 
 /** How much of the free-text details to include in the Discord message. */
 const DISCORD_DETAILS_MAX_LENGTH = 200

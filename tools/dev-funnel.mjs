@@ -27,9 +27,7 @@ const match = envFile.match(/^\s*SB_RP2_COORDINATOR_URL\s*=\s*(\S+)/m)
 const url = match?.[1]?.replace(/^['"]|['"]$/g, '')
 
 if (!url || /127\.0\.0\.1|localhost|\[::1\]/.test(url)) {
-  console.log(
-    'No remote coordinator in .env (SB_RP2_COORDINATOR_URL) — webhook funnel not needed.',
-  )
+  console.log('No remote coordinator in .env (SB_RP2_COORDINATOR_URL) — webhook funnel not needed.')
   process.exit(0)
 }
 
