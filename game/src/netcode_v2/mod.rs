@@ -1270,9 +1270,14 @@ impl TurnState {
             })
     }
 
-    /// Marks a storm slot as departed: it no longer gates step readiness, and its queued and
-    /// in-dispatch bytes are dropped. Called from the synced leave pass when a peer leaves/drops so
-    /// the sim stops waiting on a slot that will never send another turn.
+    /// Marks a storm slot as departed: it no longer gates step readiness, and its queued turns are
+    /// dropped. Called from the synced leave pass when a peer leaves/drops so the sim stops waiting
+    /// on a slot that will never send another turn.
+    ///
+    /// The slot's turn already in `current_dispatch` stays owned: the leave pass runs inside the IN
+    /// hook after `player_turns[]` points at it, and BW reads those bytes once the hook returns. The
+    /// next successful [`receive_turns`](Self::receive_turns) retires it, since the slot is no
+    /// longer required.
     pub fn mark_slot_left(&mut self, storm_id: StormPlayerId) {
         let storm = storm_id.0 as usize;
         if let Some(req) = self.required.get_mut(storm) {
@@ -1280,9 +1285,6 @@ impl TurnState {
         }
         if let Some(queue) = self.inbound_queues.get_mut(storm) {
             queue.clear();
-        }
-        if let Some(slot) = self.current_dispatch.get_mut(storm) {
-            *slot = None;
         }
         // An applied leave ends the survivor overlay's lifetime for this slot: the peer has left
         // lockstep (whether it reconnected in time or was dropped for good), so the "waiting..."
@@ -2667,7 +2669,8 @@ mod tests {
         );
         assert!(peer.has_dispatch);
 
-        // A synced leave clears the required flag; the snapshot should reflect it immediately.
+        // A synced leave clears the required flag and the queue immediately; the turn BW is about to
+        // execute stays dispatched until the next receive.
         state.mark_slot_left(PEER_STORM);
         let snapshot = state.debug_snapshot();
         let peer = snapshot
@@ -2677,7 +2680,55 @@ mod tests {
             .expect("peer slot present");
         assert!(!peer.required);
         assert_eq!(peer.queued_turns, 0);
+        assert!(peer.has_dispatch);
+
+        assert!(state.submit_local_turn(b"local3", Some(2), None));
+        assert!(state.receive_turns(2));
+        let snapshot = state.debug_snapshot();
+        let peer = snapshot
+            .slots
+            .iter()
+            .find(|s| s.slot == PEER_SLOT.0)
+            .expect("peer slot present");
         assert!(!peer.has_dispatch);
+    }
+
+    #[test]
+    fn leave_keeps_the_dispatched_turn_alive_until_the_next_receive() {
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        in_tx.try_send(peer_turn(PEER_SLOT, b"peer turn")).unwrap();
+        assert!(state.submit_local_turn(b"local", Some(0), None));
+        assert!(state.receive_turns(0));
+
+        // The IN hook writes these pointers into `player_turns[]`, then runs the leave pass, and
+        // BW reads through them only after the hook returns.
+        let dispatched = |state: &TurnState| {
+            state
+                .dispatch_buffers()
+                .map(|(storm, bytes)| (storm.0, bytes.as_ptr(), bytes.to_vec()))
+                .collect::<Vec<_>>()
+        };
+        let before = dispatched(&state);
+        assert!(before.iter().any(|&(storm, ..)| storm == PEER_STORM.0));
+
+        state.mark_slot_left(PEER_STORM);
+        assert_eq!(
+            dispatched(&state),
+            before,
+            "a leave must not free or move a turn BW has yet to read"
+        );
+
+        assert!(state.submit_local_turn(b"local2", Some(1), None));
+        assert!(state.receive_turns(1));
+        assert!(
+            dispatched(&state)
+                .iter()
+                .all(|&(storm, ..)| storm != PEER_STORM.0),
+            "the next receive retires the departed slot's turn"
+        );
     }
 
     #[test]
