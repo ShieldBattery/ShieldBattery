@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import path from 'node:path'
 import { afterEach, expect, test, vi } from 'vitest'
 import { LocalGameRequest } from '../../common/games/local-game'
 
@@ -28,8 +29,9 @@ function requestWith(replayName?: string): LocalGameRequest {
         name: 'Debug bot',
         replayName,
         race: 'p',
-        executable: 'C:\\bots\\debug-bot.exe',
-        workingDirectory: 'C:\\bots',
+        // Validation requires absolute paths, which differ between the Windows app and CI runners.
+        executable: path.resolve('bots', 'debug-bot.exe'),
+        workingDirectory: path.resolve('bots'),
       },
     ],
   } as LocalGameRequest
