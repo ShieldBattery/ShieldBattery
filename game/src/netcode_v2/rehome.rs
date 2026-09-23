@@ -101,9 +101,9 @@ pub(crate) struct ServerRehome {
     url: String,
     user_id: u32,
     result_code: String,
-    /// Whether the home-relay dial connected over IPv6. The driver dials exactly one address per
-    /// re-home, so when a replacement descriptor advertises both families, the pick prefers the
-    /// one this client's connectivity demonstrably reaches (see [`pick_dial_addr`]).
+    /// Whether the home-relay dial connected over IPv6. When a replacement descriptor advertises
+    /// both families, the driver dials the one this client's connectivity demonstrably reaches
+    /// first (see [`order_dial_addrs`]).
     home_connected_ipv6: bool,
     /// When the last failure warning was emitted, for rate limiting (see [`WARN_INTERVAL`]).
     last_warn: Mutex<Option<Instant>>,
@@ -153,12 +153,12 @@ impl ServerRehome {
                         return RehomeOutcome::Unavailable;
                     }
                 };
-                // The driver dials exactly one address per re-home, so a dual-family descriptor
-                // needs a pick: prefer the family the home dial actually connected over — the one
-                // this client's connectivity demonstrably reaches — and otherwise take the
-                // descriptor's most-preferred address. A wrong pick surfaces as a failed dial and
-                // a later re-ask, so the pick leans on the one piece of evidence this client has.
-                let Some(relay_addr) = pick_dial_addr(&target.addrs, self.home_connected_ipv6)
+                // The driver dials the replacement's addresses in order until one connects, so
+                // lead with the family the home dial actually connected over — the one this
+                // client's connectivity demonstrably reaches — and keep the rest behind it: a
+                // family that has died since costs one dial timeout, not the re-home.
+                let Some((relay_addr, fallback_addrs)) =
+                    order_dial_addrs(&target.addrs, self.home_connected_ipv6)
                 else {
                     self.warn_rate_limited(&format!(
                         "re-home replacement relay {relay_id} had no dial address"
@@ -176,6 +176,7 @@ impl ServerRehome {
                     relay_id,
                     endpoint,
                     relay_addr,
+                    fallback_addrs,
                     server_name: target.server_name,
                 }
             }
@@ -200,15 +201,25 @@ impl RehomeProvider for ServerRehome {
     }
 }
 
-/// The single dial address handed to the driver for a re-home: the first address of the family the
-/// home dial connected over, or — when the replacement advertises nothing in that family — the
-/// descriptor's most-preferred address. `None` only for an empty candidate list.
-fn pick_dial_addr(addrs: &[SocketAddr], prefer_ipv6: bool) -> Option<SocketAddr> {
-    addrs
+/// Splits a re-home target's candidates into the address the driver dials first and the fallbacks
+/// behind it, in descriptor order: the first address of the family the home dial connected over
+/// leads, or — when the replacement advertises nothing in that family — the descriptor's
+/// most-preferred address. `None` only for an empty candidate list.
+fn order_dial_addrs(
+    addrs: &[SocketAddr],
+    prefer_ipv6: bool,
+) -> Option<(SocketAddr, Vec<SocketAddr>)> {
+    let lead = addrs
         .iter()
-        .copied()
-        .find(|addr| addr.is_ipv6() == prefer_ipv6)
-        .or_else(|| addrs.first().copied())
+        .position(|addr| addr.is_ipv6() == prefer_ipv6)
+        .or((!addrs.is_empty()).then_some(0))?;
+    let fallbacks = addrs
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != lead)
+        .map(|(_, &addr)| addr)
+        .collect();
+    Some((addrs[lead], fallbacks))
 }
 
 /// Builds the re-home provider from the launch context, or `None` when re-home is disabled — no
@@ -293,22 +304,22 @@ mod tests {
     }
 
     #[test]
-    fn pick_prefers_the_home_dial_family() {
+    fn ordering_leads_with_the_home_dial_family_and_keeps_the_rest_behind_it() {
         let v6: SocketAddr = "[2001:db8::1]:14900".parse().unwrap();
         let v4: SocketAddr = "203.0.113.7:14900".parse().unwrap();
-        // The candidate list is v6-first either way; the pick follows the connectivity evidence,
-        // not the list order.
-        assert_eq!(pick_dial_addr(&[v6, v4], true), Some(v6));
-        assert_eq!(pick_dial_addr(&[v6, v4], false), Some(v4));
+        // The candidate list is v6-first either way; the lead follows the connectivity evidence,
+        // not the list order, and the other family stays dialable behind it.
+        assert_eq!(order_dial_addrs(&[v6, v4], true), Some((v6, vec![v4])));
+        assert_eq!(order_dial_addrs(&[v6, v4], false), Some((v4, vec![v6])));
     }
 
     #[test]
-    fn pick_falls_back_to_the_most_preferred_address_when_the_family_is_absent() {
+    fn ordering_leads_with_the_most_preferred_address_when_the_family_is_absent() {
         let v6: SocketAddr = "[2001:db8::1]:14900".parse().unwrap();
         let v4: SocketAddr = "203.0.113.7:14900".parse().unwrap();
-        assert_eq!(pick_dial_addr(&[v6], false), Some(v6));
-        assert_eq!(pick_dial_addr(&[v4], true), Some(v4));
-        assert_eq!(pick_dial_addr(&[], true), None);
+        assert_eq!(order_dial_addrs(&[v6], false), Some((v6, vec![])));
+        assert_eq!(order_dial_addrs(&[v4], true), Some((v4, vec![])));
+        assert_eq!(order_dial_addrs(&[], true), None);
     }
 
     #[test]

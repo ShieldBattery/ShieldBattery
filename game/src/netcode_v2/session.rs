@@ -160,9 +160,18 @@ pub async fn establish_session(
     let (driver, mut channels) = LinkDriver::new(link);
     // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
     // `SessionLink::Relay` below) so a re-dial after a drop reuses the already-bound local port.
+    // Re-dials start at the address that just connected and rotate through the relay's others,
+    // so a client whose path to one family dies mid-game (IPv6 dropping while IPv4 still works)
+    // resumes over the other instead of re-dialing the dead address until it is dropped.
     let reconnect = Reconnect {
         endpoint: ClientEndpoint::from_endpoint(endpoint.endpoint().clone()),
         relay_addr,
+        fallback_addrs: home
+            .addrs
+            .iter()
+            .copied()
+            .filter(|&addr| addr != relay_addr)
+            .collect(),
         server_name: home.server_name.clone(),
         // Seeds the driver's current-relay tracking: the home relay is what a first death names dead.
         relay_id: setup.home_relay.relay_id,
