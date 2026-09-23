@@ -29,6 +29,7 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, titleSmall } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SettingsSectionHeader } from '../settings-content'
+import { JavaSettings } from './java-settings'
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
@@ -323,6 +324,7 @@ export function AppSystemSettings() {
             </InputDelaySetting>
           </SectionContainer>
         ) : null}
+        <JavaSettings />
       </FormContainer>
     </form>
   )

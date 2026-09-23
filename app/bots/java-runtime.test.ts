@@ -5,6 +5,7 @@ const JAVA_17_OUTPUT = `Property settings:
     java.class.version = 61.0
     java.home = C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.9
     java.specification.version = 17
+    os.name = Windows 10
     sun.arch.data.model = 64
     sun.desktop = windows
 
@@ -41,6 +42,10 @@ describe('app/bots/java-runtime/parseJavaProperties', () => {
     [
       'an unknown data model',
       '    java.specification.version = 17\n    sun.arch.data.model = 128\n',
+    ],
+    [
+      'a non-Windows runtime',
+      '    java.specification.version = 21\n    os.name = Linux\n    sun.arch.data.model = 64\n',
     ],
     [
       'an unreadable version',

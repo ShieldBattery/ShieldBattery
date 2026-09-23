@@ -2541,7 +2541,9 @@
       "catalogRefreshFailedTitle": "Couldn't refresh the bot list",
       "downloadFailedTitle": "Couldn't download {{name}}",
       "javaDetectFailedTitle": "Couldn't check for Java",
+      "javaOverrideClearFailedTitle": "Couldn't change the Java install",
       "javaPickFailedTitle": "Couldn't use that Java install",
+      "javaRemoveFailedTitle": "Couldn't remove that Java install",
       "noRelease": "This bot has no downloadable release right now. Refresh the bot list and try again.",
       "openFolderFailedTitle": "Couldn't open the bot's folder",
       "openLogsFailedTitle": "Couldn't open the logs",
@@ -3167,6 +3169,21 @@
         "emulateTurnRate24Delay": {
           "description": "Your commands always take at least 2 frames to happen, even when your connection is fast enough for less. This only changes your own game.",
           "label": "Add input delay to match TR24 Low"
+        },
+        "java": {
+          "add": "Add a Java install…",
+          "checkAgain": "Check again",
+          "checking": "Looking for Java installs…",
+          "checkingOne": "Checking…",
+          "description": "Java bots run with an install matching the Java version and 32 or 64-bit build they need. Installs you add here are tried before the ones found automatically.",
+          "foundAutomatically": "Found automatically",
+          "noneFound": "No Java installs were found on this PC.",
+          "notRunning": "This Java install didn't run",
+          "pinnedDescription": "These bots always run with the install chosen for them. Reset one to let it use a matching install from above.",
+          "pinnedTitle": "Bots with their own Java install",
+          "remove": "Remove",
+          "reset": "Reset",
+          "title": "Java for bots"
         },
         "networkOverline": "Network",
         "quitOnClose": "Quit ShieldBattery when closing the window",

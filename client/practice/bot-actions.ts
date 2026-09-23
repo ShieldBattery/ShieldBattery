@@ -1,4 +1,5 @@
 import { BotCatalogRelease, BotRuntime, latestCatalogRelease } from '../../common/bots/bot-catalog'
+import { BotKey } from '../../common/bots/bot-library'
 import { BotView } from '../../common/bots/bot-view'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -132,6 +133,48 @@ export async function pickJavaFor(bot: BotView): Promise<void> {
   } catch (err) {
     showFailure(
       i18n.t('practice.botActions.javaPickFailedTitle', "Couldn't use that Java install"),
+      err,
+    )
+  }
+}
+
+/** Lets the bot go back to using whichever matching Java install was found or added. */
+export async function clearJavaOverride(key: BotKey): Promise<void> {
+  try {
+    await ipcRenderer.invoke('botLibrarySetJavaOverride', key, undefined)
+  } catch (err) {
+    showFailure(
+      i18n.t(
+        'practice.botActions.javaOverrideClearFailedTitle',
+        "Couldn't change the Java install",
+      ),
+      err,
+    )
+  }
+}
+
+/** Asks for a `java.exe` that any bot needing its version and architecture can run with. */
+export async function addJavaInstall(): Promise<void> {
+  try {
+    const javaPath = await ipcRenderer.invoke('botLibraryPickJava')
+    if (!javaPath) {
+      return
+    }
+    await ipcRenderer.invoke('botLibraryAddJava', javaPath)
+  } catch (err) {
+    showFailure(
+      i18n.t('practice.botActions.javaPickFailedTitle', "Couldn't use that Java install"),
+      err,
+    )
+  }
+}
+
+export async function removeJavaInstall(javaPath: string): Promise<void> {
+  try {
+    await ipcRenderer.invoke('botLibraryRemoveJava', javaPath)
+  } catch (err) {
+    showFailure(
+      i18n.t('practice.botActions.javaRemoveFailedTitle', "Couldn't remove that Java install"),
       err,
     )
   }
