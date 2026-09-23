@@ -48,3 +48,41 @@ test('logging in with the wrong password', async () => {
   const actualErrorMessage = await loginPage.getErrorMessage()
   expect(actualErrorMessage).toBe(ERROR_INCORRECT_CREDENTIALS)
 })
+
+test('tabbing through the login form visits the controls before the links', async ({ page }) => {
+  await loginPage.navigateTo()
+
+  const expectedOrder = [
+    loginPage.inputUsername,
+    loginPage.inputPassword,
+    loginPage.buttonTogglePasswordVisibility,
+    loginPage.inputRememberMe,
+    loginPage.buttonLogIn,
+    loginPage.linkRecoverUsername,
+    loginPage.linkResetPassword,
+    loginPage.linkCreateAccount,
+  ]
+
+  await expect(expectedOrder[0]).toBeFocused()
+  for (const locator of expectedOrder.slice(1)) {
+    await page.keyboard.press('Tab')
+    await expect(locator).toBeFocused()
+  }
+  for (const locator of expectedOrder.slice(0, -1).reverse()) {
+    await page.keyboard.press('Shift+Tab')
+    await expect(locator).toBeFocused()
+  }
+})
+
+test('pressing Enter in the password field submits the form', async ({ page }) => {
+  await loginPage.navigateTo()
+  await expect(loginPage.inputUsername).toBeFocused()
+
+  await page.keyboard.type('DoesNotExist')
+  await page.keyboard.press('Tab')
+  await page.keyboard.type('password123')
+  await page.keyboard.press('Enter')
+
+  const actualErrorMessage = await loginPage.getErrorMessage()
+  expect(actualErrorMessage).toBe(ERROR_INCORRECT_CREDENTIALS)
+})
