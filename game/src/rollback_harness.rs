@@ -347,6 +347,113 @@ struct SoundLedger {
     presented: Vec<SoundRequest>,
 }
 
+/// One unit as a frame shows it: which slot, what it is, and where.
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct UnitView {
+    unit: usize,
+    id: u16,
+    x: i16,
+    y: i16,
+}
+
+/// The units the frame on screen showed, recorded at the end of each tick so the next tick can
+/// see how the late commands changed that same frame.
+static DISPLAYED_UNITS: Mutex<Option<(u32, Vec<UnitView>)>> = Mutex::new(None);
+
+/// How far the frame shown at the end of the previous tick turned out to be wrong, once this tick
+/// re-simulated it with the commands that had arrived since: what a player would see corrected.
+#[derive(Default, Copy, Clone)]
+struct Corrections {
+    /// Units shown on the frame that are still there but somewhere else.
+    moved: u32,
+    /// The largest of those moves, in pixels along either axis.
+    max_move: u32,
+    /// Units there that the frame did not show: a death taken back, or something created on a
+    /// command that arrived late. They pop into view.
+    popped_in: u32,
+    /// Units the frame showed that are not there: a death that happened on a command that arrived
+    /// late, or something whose creation the late commands undid. They pop out of view.
+    popped_out: u32,
+}
+
+static TICK_CORRECTIONS: Mutex<Corrections> = Mutex::new(Corrections {
+    moved: 0,
+    max_move: 0,
+    popped_in: 0,
+    popped_out: 0,
+});
+
+/// Every active unit, ordered by slot.
+unsafe fn capture_units(bw: &BwScr) -> Vec<UnitView> {
+    unsafe {
+        let mut units = bw
+            .active_units()
+            .map(|unit| {
+                let position = unit.position();
+                UnitView {
+                    unit: *unit as usize,
+                    id: unit.id().0,
+                    x: position.x,
+                    y: position.y,
+                }
+            })
+            .collect::<Vec<_>>();
+        units.sort_unstable_by_key(|x| x.unit);
+        units
+    }
+}
+
+/// Compares the units the previous tick showed for frame `frame` with the same frame as this tick
+/// has just re-simulated it, if that is the frame the simulation is on now.
+unsafe fn compare_displayed_units(bw: &BwScr) {
+    unsafe {
+        let displayed = DISPLAYED_UNITS.lock();
+        let Some((frame, shown)) = displayed.as_ref() else {
+            return;
+        };
+        if bw.probe_frame_count() != Some(*frame) {
+            return;
+        }
+        let now = capture_units(bw);
+        let mut corrections = Corrections::default();
+        let (mut i, mut j) = (0, 0);
+        while i < shown.len() || j < now.len() {
+            let a = shown.get(i);
+            let b = now.get(j);
+            match (a, b) {
+                (Some(a), Some(b)) if a.unit == b.unit => {
+                    if a.id != b.id {
+                        corrections.popped_out += 1;
+                        corrections.popped_in += 1;
+                    } else if a.x != b.x || a.y != b.y {
+                        corrections.moved += 1;
+                        let distance = (a.x as i32 - b.x as i32)
+                            .unsigned_abs()
+                            .max((a.y as i32 - b.y as i32).unsigned_abs());
+                        corrections.max_move = corrections.max_move.max(distance);
+                    }
+                    i += 1;
+                    j += 1;
+                }
+                (Some(a), Some(b)) if a.unit < b.unit => {
+                    corrections.popped_out += 1;
+                    i += 1;
+                }
+                (Some(_), Some(_)) | (None, Some(_)) => {
+                    corrections.popped_in += 1;
+                    j += 1;
+                }
+                (Some(_), None) => {
+                    corrections.popped_out += 1;
+                    i += 1;
+                }
+                (None, None) => break,
+            }
+        }
+        *TICK_CORRECTIONS.lock() = corrections;
+    }
+}
+
 /// Wall time the parts of one tick took.
 #[derive(Default)]
 struct TickTimes {
@@ -865,6 +972,8 @@ unsafe fn apply_pending_settings(bw: &BwScr) {
             SOUND_LEDGER.lock().presented.clear();
         }
         drop(guard);
+        // The frame on screen jumps with the depth; that is not a correction.
+        *DISPLAYED_UNITS.lock() = None;
         ROLLBACK_FRAMES.store(depth, Ordering::Release);
         info!(
             "Rollback settings applied: depth {depth}, delays {:?}",
@@ -1103,6 +1212,7 @@ pub fn reset_for_game_init() {
     ledger.requested.clear();
     ledger.presented.clear();
     OBSERVER_RESEARCH_KEYS.lock().clear();
+    *DISPLAYED_UNITS.lock() = None;
 }
 
 /// Resolves the operands the snapshot covers, onto the same context the rest of `BwScr`'s operands
@@ -1971,6 +2081,7 @@ unsafe fn run_tick(
             if confirmed {
                 dump_if_due(bw);
             }
+            compare_displayed_units(bw);
             (ret, elapsed)
         };
 
@@ -1986,6 +2097,7 @@ unsafe fn run_tick(
 
         SUPPRESSED_COMMANDS.store(0, Ordering::Relaxed);
         APPLIED_DELAYED_COMMANDS.store(0, Ordering::Relaxed);
+        *TICK_CORRECTIONS.lock() = Corrections::default();
         GATING_ACTIVE.store(true, Ordering::Relaxed);
         RECORD_SOUNDS.store(true, Ordering::Relaxed);
         match harness.confirmed {
@@ -2048,6 +2160,9 @@ unsafe fn run_tick(
         // the person watching has selected. They come off before every restore and every
         // snapshot, and go back on here for the frame about to be shown.
         bw.rollback_rebuild_selection_visuals();
+        if let Some(frame) = bw.probe_frame_count() {
+            *DISPLAYED_UNITS.lock() = Some((frame, capture_units(bw)));
+        }
         if let Some(paced_tick) = paced_tick {
             bw.probe_set_next_game_step_tick(paced_tick);
         }
@@ -2061,6 +2176,7 @@ unsafe fn run_tick(
                 SUPPRESSED_COMMANDS.load(Ordering::Relaxed),
                 APPLIED_DELAYED_COMMANDS.load(Ordering::Relaxed),
                 &sounds,
+                &TICK_CORRECTIONS.lock(),
                 &times,
             );
         } else {
@@ -2122,6 +2238,7 @@ fn write_row(
     suppressed_commands: u32,
     applied_delayed_commands: u32,
     sounds: &SoundCounts,
+    corrections: &Corrections,
     times: &TickTimes,
 ) {
     let mut log_file = LOG_FILE.lock();
@@ -2143,7 +2260,7 @@ fn write_row(
     };
     let result = writeln!(
         &mut log_file.file,
-        "{},{},{},{suppressed_commands},{applied_delayed_commands},{},{},{},{},{},{},{}",
+        "{},{},{},{suppressed_commands},{applied_delayed_commands},{},{},{},{},{},{},{},{},{},{},{}",
         fingerprint_columns(present),
         fingerprint_columns(confirmed),
         ROLLBACK_FRAMES.load(Ordering::Relaxed),
@@ -2151,6 +2268,10 @@ fn write_row(
         sounds.late,
         sounds.late_frames,
         sounds.stale,
+        corrections.moved,
+        corrections.max_move,
+        corrections.popped_in,
+        corrections.popped_out,
         times.restore.as_micros(),
         times.steps.as_micros(),
         times.snapshot.as_micros(),
@@ -2213,6 +2334,7 @@ impl HarnessFile {
              c_trigger_timer,c_elapsed_seconds,c_player_types,rollback_frames,\
              suppressed_commands,applied_delayed_commands,\
              sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
+             units_moved,max_move,units_popped_in,units_popped_out,\
              restore_micros,steps_micros,snapshot_micros"
         )
         .map_err(|e| format!("{}: {e}", path.display()))?;
