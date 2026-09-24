@@ -1,5 +1,5 @@
+import promClient from '@prometheus-io/client'
 import { Logger } from 'pino'
-import promClient from 'prom-client'
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../common/users/permissions'
 import { SelfUser } from '../common/users/sb-user'

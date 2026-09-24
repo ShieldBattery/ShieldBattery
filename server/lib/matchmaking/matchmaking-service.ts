@@ -1,6 +1,6 @@
+import { Counter, exponentialBuckets, Gauge, Histogram } from '@prometheus-io/client'
 import { Immutable } from 'immer'
 import { nanoid } from 'nanoid'
-import { Counter, exponentialBuckets, Gauge, Histogram } from 'prom-client'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { Result } from 'typescript-result'

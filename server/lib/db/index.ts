@@ -1,5 +1,5 @@
+import { Counter } from '@prometheus-io/client'
 import pg, { QueryConfigValues } from 'pg'
-import { Counter } from 'prom-client'
 import { isTestRun } from '../../../common/is-test-run'
 import log from '../logging/logger'
 import { monotonicNow } from '../time/monotonic-now'

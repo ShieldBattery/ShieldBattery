@@ -124,7 +124,7 @@ async function createTemplate(
   versionCode: string,
   templateContent: string,
 ): Promise<Record<string, any>> {
-  // Uses the native global FormData (not the `form-data` package): got 15 rejects non-native
+  // Uses the native global FormData (not the `form-data` package): got rejects non-native
   // FormData with "Non-native FormData is not supported".
   const body = new FormData()
   body.append('name', templateName)
