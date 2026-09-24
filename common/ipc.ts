@@ -166,6 +166,15 @@ interface IpcInvokeables {
    */
   activeGameToggleNetStats: (gameId: string) => void
   /**
+   * Changes the active game process's rollback harness depth and per-player command delays
+   * mid-replay (debug game builds only, in a replay launched with `SB_ROLLBACK_HARNESS` set). Only
+   * registered in development (`isDev`). `delays` maps storm player ids to how many frames late
+   * their commands arrive; players it leaves out get none. A `depth` of 0 stops rolling back.
+   * Fire-and-forget: there's no reply; verify via the game log and the harness CSV's
+   * `rollback_frames` column.
+   */
+  activeGameSetRollback: (gameId: string, depth: number, delays: Record<number, number>) => void
+  /**
    * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
    * save; the only teardown that works mid-game). Only registered in development (`isDev`).
    * Fire-and-forget: there's no reply.

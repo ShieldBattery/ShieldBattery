@@ -567,6 +567,27 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Changes the active game process's rollback harness depth and per-player command delays
+   * mid-replay (debug game builds only). `delays` maps storm player ids to frames of delay.
+   * Fire-and-forget: there's no reply; verify via the game log and the harness CSV.
+   */
+  setGameRollback(gameId: string, depth: number, delays: Record<number, number>): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got setGameRollback for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', {
+      type: 'setRollback',
+      depth,
+      delays: Object.entries(delays).map(([player, frames]) => ({
+        player: Number(player),
+        frames,
+      })),
+    })
+  }
+
+  /**
    * Tells the active game process to quit abruptly (debug game builds only, but the underlying
    * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
    * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,

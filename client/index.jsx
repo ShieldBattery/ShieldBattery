@@ -122,6 +122,8 @@ rootElemPromise
         requestDrop: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameRequestDrop', gameId, slot),
         toggleNetStats: gameId => new TypedIpcRenderer().invoke('activeGameToggleNetStats', gameId),
+        setRollback: (gameId, depth, delays = {}) =>
+          new TypedIpcRenderer().invoke('activeGameSetRollback', gameId, depth, delays),
         forceQuit: gameId => new TypedIpcRenderer().invoke('activeGameForceQuit', gameId),
         screenshot: gameId => new TypedIpcRenderer().invoke('activeGameDebugScreenshot', gameId),
       }
