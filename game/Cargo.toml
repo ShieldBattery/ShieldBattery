@@ -104,6 +104,7 @@ features = [
   "minwinbase",
   "minwindef",
   "processthreadsapi",
+  "realtimeapiset",
   "shlobj",
   "stringapiset",
   "synchapi",

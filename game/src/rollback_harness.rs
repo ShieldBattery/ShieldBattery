@@ -347,10 +347,13 @@ struct SoundLedger {
     presented: Vec<SoundRequest>,
 }
 
-/// One unit as a frame shows it: which slot, what it is, and where.
+/// One unit as a frame shows it: which slot, which occupant of that slot, what it is, and where.
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct UnitView {
     unit: usize,
+    /// Counts the times the slot has been handed out, so a slot that a unit died out of and a new
+    /// one took over reads as two different units rather than as one that jumped across the map.
+    unique_index: u8,
     id: u16,
     x: i16,
     y: i16,
@@ -362,12 +365,15 @@ static DISPLAYED_UNITS: Mutex<Option<(u32, Vec<UnitView>)>> = Mutex::new(None);
 
 /// How far the frame shown at the end of the previous tick turned out to be wrong, once this tick
 /// re-simulated it with the commands that had arrived since: what a player would see corrected.
-#[derive(Default, Copy, Clone)]
+#[derive(Default)]
 struct Corrections {
-    /// Units shown on the frame that are still there but somewhere else.
-    moved: u32,
-    /// The largest of those moves, in pixels along either axis.
-    max_move: u32,
+    /// How far each unit shown on the frame that is still there but somewhere else moved, in
+    /// pixels along whichever axis it moved further.
+    moves: Vec<u32>,
+    /// Units shown on the frame that are still there but as a different unit type: a morph or a
+    /// mode change (larva to egg, a tank sieging) that the late commands started, undid or moved
+    /// to another frame.
+    morphed: u32,
     /// Units there that the frame did not show: a death taken back, or something created on a
     /// command that arrived late. They pop into view.
     popped_in: u32,
@@ -377,8 +383,8 @@ struct Corrections {
 }
 
 static TICK_CORRECTIONS: Mutex<Corrections> = Mutex::new(Corrections {
-    moved: 0,
-    max_move: 0,
+    moves: Vec::new(),
+    morphed: 0,
     popped_in: 0,
     popped_out: 0,
 });
@@ -392,6 +398,7 @@ unsafe fn capture_units(bw: &BwScr) -> Vec<UnitView> {
                 let position = unit.position();
                 UnitView {
                     unit: *unit as usize,
+                    unique_index: (**unit).minor_unique_index,
                     id: unit.id().0,
                     x: position.x,
                     y: position.y,
@@ -422,15 +429,19 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
             let b = now.get(j);
             match (a, b) {
                 (Some(a), Some(b)) if a.unit == b.unit => {
-                    if a.id != b.id {
+                    if a.unique_index != b.unique_index {
                         corrections.popped_out += 1;
                         corrections.popped_in += 1;
-                    } else if a.x != b.x || a.y != b.y {
-                        corrections.moved += 1;
-                        let distance = (a.x as i32 - b.x as i32)
-                            .unsigned_abs()
-                            .max((a.y as i32 - b.y as i32).unsigned_abs());
-                        corrections.max_move = corrections.max_move.max(distance);
+                    } else {
+                        if a.id != b.id {
+                            corrections.morphed += 1;
+                        }
+                        if a.x != b.x || a.y != b.y {
+                            let distance = (a.x as i32 - b.x as i32)
+                                .unsigned_abs()
+                                .max((a.y as i32 - b.y as i32).unsigned_abs());
+                            corrections.moves.push(distance);
+                        }
                     }
                     i += 1;
                     j += 1;
@@ -460,6 +471,24 @@ struct TickTimes {
     restore: Duration,
     steps: Duration,
     snapshot: Duration,
+    /// The whole tick, bookkeeping and sound reconciliation included.
+    total: Duration,
+    /// Processor cycles the game thread ran for over the same span as `total`. A tick whose wall
+    /// time is far above what these cycles take at the processor's usual rate spent the
+    /// difference descheduled, which is the system's doing rather than the tick's.
+    cycles: u64,
+}
+
+/// Processor cycles the calling thread has run for. Unlike wall time it stops counting while the
+/// thread is not scheduled.
+fn thread_cycles() -> u64 {
+    use winapi::um::processthreadsapi::GetCurrentThread;
+    use winapi::um::realtimeapiset::QueryThreadCycleTime;
+    let mut cycles = 0;
+    unsafe {
+        QueryThreadCycleTime(GetCurrentThread(), &mut cycles);
+    }
+    cycles
 }
 
 /// What reconciling one tick's sound requests did.
@@ -2055,6 +2084,8 @@ unsafe fn run_tick(
     rollback_frames: usize,
 ) -> usize {
     unsafe {
+        let tick_start = Instant::now();
+        let tick_start_cycles = thread_cycles();
         let mut guard = HARNESS.lock();
         if guard.is_none() {
             *guard = Harness::build(bw);
@@ -2170,6 +2201,8 @@ unsafe fn run_tick(
 
         if let (Some(present), Some(confirmed)) = (bw.probe_fingerprint(), confirmed_fingerprint) {
             let sounds = reconcile_sounds(bw, confirmed.frame, present.frame);
+            times.total = tick_start.elapsed();
+            times.cycles = thread_cycles().wrapping_sub(tick_start_cycles);
             write_row(
                 &present,
                 &confirmed,
@@ -2258,9 +2291,18 @@ fn write_row(
     let Some(log_file) = log_file.as_mut() else {
         return;
     };
+    // Every move rather than a summary of them, so an analysis can take percentiles over a whole
+    // run; they are few enough per tick that the row stays short.
+    let moves = corrections
+        .moves
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join(";");
     let result = writeln!(
         &mut log_file.file,
-        "{},{},{},{suppressed_commands},{applied_delayed_commands},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{suppressed_commands},{applied_delayed_commands},{},{},{},{},{},{},{},{},{},{moves},\
+         {},{},{},{},{}",
         fingerprint_columns(present),
         fingerprint_columns(confirmed),
         ROLLBACK_FRAMES.load(Ordering::Relaxed),
@@ -2268,13 +2310,16 @@ fn write_row(
         sounds.late,
         sounds.late_frames,
         sounds.stale,
-        corrections.moved,
-        corrections.max_move,
+        corrections.moves.len(),
+        corrections.moves.iter().copied().max().unwrap_or(0),
+        corrections.morphed,
         corrections.popped_in,
         corrections.popped_out,
         times.restore.as_micros(),
         times.steps.as_micros(),
         times.snapshot.as_micros(),
+        times.total.as_micros(),
+        times.cycles / 1000,
     );
     if let Err(e) = result {
         // Give up on the file rather than logging once per frame for the rest of the game.
@@ -2318,11 +2363,15 @@ impl HarnessFile {
             .unwrap_or(Duration::ZERO)
             .as_secs();
         // Alongside the game log, which is the directory anyone collecting a run's artifacts
-        // already picks up.
+        // already picks up. The process id keeps games started in the same second from
+        // truncating each other's file.
         let path = crate::parse_args()
             .user_data_path
             .join("logs")
-            .join(format!("rollback-harness-{seconds}.csv"));
+            .join(format!(
+                "rollback-harness-{seconds}-{}.csv",
+                std::process::id()
+            ));
         let mut file = File::create(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         writeln!(
             &mut file,
@@ -2334,8 +2383,8 @@ impl HarnessFile {
              c_trigger_timer,c_elapsed_seconds,c_player_types,rollback_frames,\
              suppressed_commands,applied_delayed_commands,\
              sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
-             units_moved,max_move,units_popped_in,units_popped_out,\
-             restore_micros,steps_micros,snapshot_micros"
+             units_moved,max_move,units_morphed,units_popped_in,units_popped_out,move_distances,\
+             restore_micros,steps_micros,snapshot_micros,tick_micros,tick_kcycles"
         )
         .map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(HarnessFile { path, file })
