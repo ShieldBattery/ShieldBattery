@@ -55,6 +55,30 @@ const ENV_VAR: &str = "SB_ROLLBACK_HARNESS";
 /// after. Does nothing on its own; the delays are only applied while [`ENV_VAR`] arms the harness.
 const DELAY_ENV_VAR: &str = "SB_ROLLBACK_DELAY";
 
+/// Environment variable naming one frame whose simulations to audit: the executable's static data
+/// is copied just before the step that first simulates the frame and again before the confirmed
+/// step that simulates it for the last time, and every difference outside the snapshot's ranges is
+/// written out. The snapshot state both steps start from is the same, so with no delayed players a
+/// difference there is state the earlier simulations left behind that the snapshot does not cover.
+const AUDIT_ENV_VAR: &str = "SB_ROLLBACK_AUDIT_FRAME";
+
+/// Environment variable adding static memory to the snapshot beyond what analysis resolves, as a
+/// comma-separated list of `<hex offset from the executable's base>+<hex length>`. Offsets are
+/// specific to one build of the game, so this is only for trying out candidates an audit turned up.
+const EXTRA_RANGES_ENV_VAR: &str = "SB_ROLLBACK_EXTRA_RANGES";
+
+/// The frame [`AUDIT_ENV_VAR`] names, or 0 when no audit was asked for.
+static AUDIT_FRAME: AtomicU32 = AtomicU32::new(0);
+
+/// The static data copied before the audited frame was first simulated, once it has been.
+static AUDIT_FIRST: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+
+/// The snapshot's ranges as the step that first simulated the audited frame left them.
+static AUDIT_FIRST_RESULT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+
+/// Whether the audit has been written, so a replay seek back past the frame does not write it again.
+static AUDIT_DONE: AtomicBool = AtomicBool::new(false);
+
 /// Rollback depth in frames, or 0 when the harness is not armed.
 static ROLLBACK_FRAMES: AtomicU32 = AtomicU32::new(0);
 
@@ -86,9 +110,15 @@ static SUPPRESSED_COMMANDS: AtomicU32 = AtomicU32::new(0);
 /// Commands of delayed players that the current tick's confirmed step applied.
 static APPLIED_DELAYED_COMMANDS: AtomicU32 = AtomicU32::new(0);
 
-/// Whether sound requests are being swallowed because the frame being simulated has already been
-/// played once. Read by the `play_sound` hook.
-static SUPPRESS_SOUNDS: AtomicBool = AtomicBool::new(false);
+/// Whether the steps of a tick are running, so the `play_sound` hook records the simulation's sound
+/// requests in [`SOUND_LEDGER`] instead of playing them.
+static RECORD_SOUNDS: AtomicBool = AtomicBool::new(false);
+
+/// The sounds of the frames a later tick can still re-simulate.
+static SOUND_LEDGER: Mutex<SoundLedger> = Mutex::new(SoundLedger {
+    requested: Vec::new(),
+    presented: Vec::new(),
+});
 
 /// Whether the run has already been checked against the "replay playback only" requirement.
 static ELIGIBILITY_CHECKED: AtomicBool = AtomicBool::new(false);
@@ -218,6 +248,9 @@ enum RangeKind {
     /// One pointer per AI player, each to that player's array of one `AiRegion` per pathing region
     /// of the current map.
     AiRegions,
+    /// The per-player trigger list headers the operand is the base of; copied as
+    /// [`TriggerLists`] rather than as ranges.
+    TriggerLists,
 }
 
 /// Synced state the snapshot deliberately leaves out, with the reason. Logged beside the layout so
@@ -253,6 +286,7 @@ unsafe impl Sync for RangeSpec {}
 /// One contiguous span of BW memory the snapshot copies.
 #[derive(Copy, Clone)]
 struct Range {
+    name: &'static str,
     start: usize,
     len: usize,
 }
@@ -268,7 +302,7 @@ impl RangeList {
     /// resolved: the harness runs with whatever it does have, and the layout log names the rest.
     fn add(&mut self, name: &'static str, start: usize, len: usize) {
         match start != 0 && len != 0 {
-            true => self.ranges.push(Range { start, len }),
+            true => self.ranges.push(Range { name, start, len }),
             false => self.omit(name),
         }
     }
@@ -278,6 +312,62 @@ impl RangeList {
     }
 }
 
+/// One sound the simulation asked for while a tick was running.
+///
+/// A re-simulated frame asks for the same sounds again unless the commands that arrived since
+/// changed what happened on it, so a request is recognised across ticks by its frame, sound and
+/// position.
+#[derive(Copy, Clone)]
+struct SoundRequest {
+    frame: u32,
+    sound_id: u32,
+    /// Where on the map the sound plays, or `None` for one that is not positioned.
+    position: Option<(i32, i32)>,
+    volume: f32,
+}
+
+impl SoundRequest {
+    fn is_same_sound(&self, other: &SoundRequest) -> bool {
+        self.frame == other.frame
+            && self.sound_id == other.sound_id
+            && self.position == other.position
+    }
+}
+
+/// Sound requests on either side of one tick.
+///
+/// A tick re-simulates every frame an earlier tick already played sounds for, so reconciling the
+/// two lists once its steps have run tells which requests are new (the new frame's, and any that
+/// the late commands caused on a re-simulated frame) and which sounds were played for a prediction
+/// that did not happen.
+struct SoundLedger {
+    /// Requests the steps of the tick in progress have made, in the order they made them.
+    requested: Vec<SoundRequest>,
+    /// Requests already played for the frames the next tick re-simulates.
+    presented: Vec<SoundRequest>,
+}
+
+/// Wall time the parts of one tick took.
+#[derive(Default)]
+struct TickTimes {
+    restore: Duration,
+    steps: Duration,
+    snapshot: Duration,
+}
+
+/// What reconciling one tick's sound requests did.
+#[derive(Default)]
+struct SoundCounts {
+    /// Requests for the tick's new frame, played as the frame is shown.
+    on_time: u32,
+    /// Requests for a re-simulated frame that no earlier tick played, played now instead.
+    late: u32,
+    /// Frames the late requests were played behind the frame they were made on, summed.
+    late_frames: u32,
+    /// Sounds an earlier tick played for a re-simulated frame that no longer asks for them.
+    stale: u32,
+}
+
 struct Harness {
     ranges: Vec<Range>,
     /// Two buffers of the layout's total size, so a fresh snapshot is never written into the one a
@@ -285,6 +375,8 @@ struct Harness {
     buffers: [Vec<u8>; 2],
     /// Index into `buffers` of the snapshot the next tick rolls back to, or `None` until the first
     /// snapshot of the game has been taken.
+    /// The trigger lists, when analysis found their headers.
+    trigger_lists: Option<TriggerLists>,
     confirmed: Option<usize>,
 }
 
@@ -296,6 +388,15 @@ struct HarnessFile {
 /// Arms the harness if the environment asks for it. Called once while the DLL initialises, before
 /// the game thread exists.
 pub fn init_from_env() {
+    if let Ok(spec) = std::env::var(DUMP_ENV_VAR) {
+        match spec.parse::<u32>() {
+            Ok(frame) if frame > 0 => {
+                DUMP_FRAME.store(frame, Ordering::Release);
+                info!("{DUMP_ENV_VAR}: dumping the snapshot ranges at frame {frame}");
+            }
+            _ => error!("{DUMP_ENV_VAR}={spec:?} is not a frame number; ignoring it"),
+        }
+    }
     let Ok(spec) = std::env::var(ENV_VAR) else {
         if std::env::var(DELAY_ENV_VAR).is_ok() {
             error!("{DELAY_ENV_VAR} needs {ENV_VAR} to be set as well; ignoring it");
@@ -326,6 +427,450 @@ pub fn init_from_env() {
     };
     ROLLBACK_FRAMES.store(frames, Ordering::Release);
     info!("{ENV_VAR} armed: every logic step will roll back {frames} frames");
+    if let Ok(spec) = std::env::var(AUDIT_ENV_VAR) {
+        match spec.parse::<u32>() {
+            Ok(frame) if frame > frames => {
+                AUDIT_FRAME.store(frame, Ordering::Release);
+                info!("{AUDIT_ENV_VAR}: auditing the simulations of frame {frame}");
+            }
+            _ => error!("{AUDIT_ENV_VAR}={spec:?} is not a frame past the first tick; ignoring it"),
+        }
+    }
+}
+
+/// Adds the ranges [`EXTRA_RANGES_ENV_VAR`] names to the layout, for trying out whether some static
+/// memory the analysis does not cover yet is state the snapshot is missing.
+fn add_extra_ranges_from_env(bw: &BwScr, list: &mut RangeList) {
+    let Ok(spec) = std::env::var(EXTRA_RANGES_ENV_VAR) else {
+        return;
+    };
+    let Some((exe_base, _, _)) = bw.rollback_exe_data_section() else {
+        return;
+    };
+    for entry in spec.split(',').filter(|x| !x.trim().is_empty()) {
+        let parsed = entry.split_once('+').and_then(|(offset, len)| {
+            let offset = usize::from_str_radix(offset.trim().trim_start_matches("0x"), 16).ok()?;
+            let len = usize::from_str_radix(len.trim().trim_start_matches("0x"), 16).ok()?;
+            Some((offset, len))
+        });
+        match parsed {
+            Some((offset, len)) => {
+                info!("{EXTRA_RANGES_ENV_VAR}: adding exe+{offset:x}, {len:x} bytes");
+                list.add("extra", exe_base + offset, len);
+            }
+            None => error!(
+                "{EXTRA_RANGES_ENV_VAR} entry {entry:?} is not <hex exe offset>+<hex length>; \
+                 ignoring it"
+            ),
+        }
+    }
+}
+
+/// Players that have a trigger list.
+const TRIGGER_LIST_PLAYERS: usize = 8;
+
+/// Bytes of the trigger a trigger list node carries after its two links: the map's trigger record
+/// with its runtime state (execution flags, the action in progress) in it.
+const TRIGGER_SIZE: usize = 0x960;
+
+/// Upper bound on the nodes one trigger list is walked for, against a list whose links have been
+/// overwritten.
+const MAX_TRIGGERS_PER_PLAYER: usize = 0x10000;
+
+/// The per-player trigger lists, which the snapshot copies node by node rather than as ranges.
+///
+/// Each player's triggers are a circular doubly linked list of heap nodes whose header lives in a
+/// static array, and the nodes hold state the simulation changes (which triggers have run, how far
+/// a waiting one has got). The lists never grow during a game, but a trigger pass that decides a
+/// player's defeat, or a player leaving, frees that player's whole list; a re-simulation of the
+/// same frames then has to find the list as it was. So a snapshot keeps each list's header and
+/// whole nodes, and a restore copies the nodes back when the same ones are still linked, or
+/// allocates new nodes for them, with their links translated, when the list has been freed since.
+struct TriggerLists {
+    /// The first of the [`TRIGGER_LIST_PLAYERS`] list headers, each `next, previous, count`.
+    heads: usize,
+    /// For each snapshot buffer, every player's list.
+    saved: [Vec<SavedTriggerList>; 2],
+}
+
+#[derive(Default)]
+struct SavedTriggerList {
+    /// The list's header words.
+    header: [usize; 3],
+    /// The nodes' addresses, in the order they were walked.
+    nodes: Vec<usize>,
+    /// The nodes' bytes, links included, [`TRIGGER_NODE_SIZE`] each, in the same order.
+    bytes: Vec<u8>,
+}
+
+/// Bytes of one trigger list node: its two links, then its trigger.
+const TRIGGER_NODE_SIZE: usize = 2 * size_of::<usize>() + TRIGGER_SIZE;
+
+impl TriggerLists {
+    fn new(heads: usize) -> TriggerLists {
+        let empty = || {
+            (0..TRIGGER_LIST_PLAYERS)
+                .map(|_| SavedTriggerList::default())
+                .collect()
+        };
+        TriggerLists {
+            heads,
+            saved: [empty(), empty()],
+        }
+    }
+
+    fn head(&self, player: usize) -> *mut usize {
+        (self.heads + player * 3 * size_of::<usize>()) as *mut usize
+    }
+
+    /// Every node of one list, found by following the second link from the header round to the
+    /// header again.
+    unsafe fn walk(&self, player: usize) -> Vec<usize> {
+        unsafe {
+            let head = self.head(player);
+            let mut nodes = Vec::new();
+            let mut node = head.add(1).read();
+            while node != head as usize && node != 0 && nodes.len() < MAX_TRIGGERS_PER_PLAYER {
+                nodes.push(node);
+                node = (node as *const usize).add(1).read();
+            }
+            nodes
+        }
+    }
+
+    unsafe fn take(&mut self, buffer: usize) {
+        unsafe {
+            for player in 0..TRIGGER_LIST_PLAYERS {
+                let nodes = self.walk(player);
+                let head = self.head(player);
+                let saved = &mut self.saved[buffer][player];
+                saved.header = [head.read(), head.add(1).read(), head.add(2).read()];
+                saved.bytes.clear();
+                for &node in &nodes {
+                    saved.bytes.extend_from_slice(std::slice::from_raw_parts(
+                        node as *const u8,
+                        TRIGGER_NODE_SIZE,
+                    ));
+                }
+                saved.nodes = nodes;
+            }
+        }
+    }
+
+    unsafe fn restore(&mut self, buffer: usize, bw: &BwScr) {
+        unsafe {
+            for player in 0..TRIGGER_LIST_PLAYERS {
+                let current = self.walk(player);
+                let head = self.head(player);
+                let saved = &mut self.saved[buffer][player];
+                if current == saved.nodes {
+                    for (i, &node) in saved.nodes.iter().enumerate() {
+                        std::ptr::copy_nonoverlapping(
+                            saved.bytes.as_ptr().add(i * TRIGGER_NODE_SIZE),
+                            node as *mut u8,
+                            TRIGGER_NODE_SIZE,
+                        );
+                    }
+                    continue;
+                }
+                // The list was freed since the snapshot: bring its nodes back in allocations of
+                // our own, pointing every link that pointed at an old node at its replacement.
+                for &node in &current {
+                    bw.free(node as *mut u8);
+                }
+                let replacements = saved
+                    .nodes
+                    .iter()
+                    .map(|_| bw.alloc(TRIGGER_NODE_SIZE) as usize)
+                    .collect::<Vec<_>>();
+                let translate = |link: usize| {
+                    saved
+                        .nodes
+                        .iter()
+                        .position(|&x| x == link)
+                        .map(|i| replacements[i])
+                        .unwrap_or(link)
+                };
+                for (i, &node) in replacements.iter().enumerate() {
+                    std::ptr::copy_nonoverlapping(
+                        saved.bytes.as_ptr().add(i * TRIGGER_NODE_SIZE),
+                        node as *mut u8,
+                        TRIGGER_NODE_SIZE,
+                    );
+                    let links = node as *mut usize;
+                    links.write(translate(links.read()));
+                    links.add(1).write(translate(links.add(1).read()));
+                }
+                head.write(translate(saved.header[0]));
+                head.add(1).write(translate(saved.header[1]));
+                head.add(2).write(saved.header[2]);
+                saved.nodes = replacements;
+            }
+        }
+    }
+}
+
+/// Environment variable naming a frame at which to write every snapshot range out, with or without
+/// the harness armed: with it, from the confirmed step that produces the frame for the last time;
+/// without it, from plain playback. Diffing the two dumps (pointers translated into range offsets)
+/// shows what synced state a harness run has wrong before a fingerprint notices.
+const DUMP_ENV_VAR: &str = "SB_ROLLBACK_DUMP_FRAME";
+
+/// The frame [`DUMP_ENV_VAR`] names, or 0 when no dump was asked for.
+static DUMP_FRAME: AtomicU32 = AtomicU32::new(0);
+
+/// Writes the snapshot ranges to `rollback-dump-<frame>-<pid>.bin`, with their layout in a `.csv`
+/// beside it, once the simulation is on the frame [`DUMP_ENV_VAR`] names.
+unsafe fn dump_if_due(bw: &BwScr) {
+    unsafe {
+        let target = DUMP_FRAME.load(Ordering::Relaxed);
+        if target == 0 || bw.probe_frame_count() != Some(target) {
+            return;
+        }
+        DUMP_FRAME.store(0, Ordering::Relaxed);
+        let Some(layout) = Harness::build(bw) else {
+            error!("{DUMP_ENV_VAR}: could not lay out the snapshot ranges");
+            return;
+        };
+        let exe_base = bw.rollback_exe_data_section().map(|x| x.0).unwrap_or(0);
+        let mut bytes = Vec::new();
+        let mut table = format!("exe_base,{exe_base:x},0\nname,start,len\n");
+        for range in &layout.ranges {
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                range.start as *const u8,
+                range.len,
+            ));
+            table.push_str(&format!(
+                "{},{:x},{:x}\n",
+                range.name, range.start, range.len
+            ));
+        }
+        let logs = crate::parse_args().user_data_path.join("logs");
+        let stem = format!("rollback-dump-{target}-{}", std::process::id());
+        let results = [
+            std::fs::write(logs.join(format!("{stem}.bin")), &bytes),
+            std::fs::write(logs.join(format!("{stem}.csv")), &table),
+        ];
+        match results.iter().find_map(|x| x.as_ref().err()) {
+            None => info!("{DUMP_ENV_VAR}: wrote {stem} ({} bytes)", bytes.len()),
+            Some(e) => error!("{DUMP_ENV_VAR}: could not write {stem}: {e}"),
+        }
+    }
+}
+
+fn audit_armed() -> bool {
+    AUDIT_FRAME.load(Ordering::Relaxed) != 0 && !AUDIT_DONE.load(Ordering::Relaxed)
+}
+
+/// Copies the executable's static data before the step that first simulates the audited frame,
+/// and diffs against that copy before the confirmed step that simulates it for the last time.
+unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
+    unsafe {
+        let target = AUDIT_FRAME.load(Ordering::Relaxed);
+        if bw.probe_frame_count().map(|x| x + 1) != Some(target) {
+            return;
+        }
+        let Some((exe_base, data, data_len)) = bw.rollback_exe_data_section() else {
+            return;
+        };
+        let current = std::slice::from_raw_parts(data as *const u8, data_len);
+        let mut stored = AUDIT_FIRST.lock();
+        let Some(first) = stored.as_ref() else {
+            *stored = Some(current.to_vec());
+            info!("Rollback audit captured static data before frame {target} was first simulated");
+            return;
+        };
+        if !confirmed {
+            return;
+        }
+        AUDIT_DONE.store(true, Ordering::Relaxed);
+        let covered = |address: usize| {
+            ranges
+                .iter()
+                .any(|x| address >= x.start && address < x.start + x.len)
+        };
+        let word = size_of::<usize>();
+        let mut lines = Vec::new();
+        for offset in (0..data_len.min(first.len()) - word + 1).step_by(word) {
+            let address = data + offset;
+            let before = &first[offset..offset + word];
+            let after = &current[offset..offset + word];
+            if before != after && !covered(address) {
+                let value = |bytes: &[u8]| {
+                    bytes
+                        .iter()
+                        .rev()
+                        .fold(0usize, |acc, &x| (acc << 8) | x as usize)
+                };
+                lines.push(format!(
+                    "{:x},{:x},{:x}",
+                    address - exe_base,
+                    value(before),
+                    value(after),
+                ));
+            }
+        }
+        write_audit(
+            &format!("rollback-audit-{target}.csv"),
+            "exe_offset,first,final",
+            &lines,
+        );
+    }
+}
+
+/// Copies the snapshot's ranges after the step that first simulates the audited frame, and diffs
+/// against that copy after the confirmed step that simulates it for the last time. The two steps
+/// start from the same snapshot state, so where their results differ is what the leftover state
+/// [`audit_before_step`] reports made the simulation do differently.
+unsafe fn audit_after_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
+    unsafe {
+        let target = AUDIT_FRAME.load(Ordering::Relaxed);
+        if bw.probe_frame_count() != Some(target) {
+            return;
+        }
+        let mut current = Vec::new();
+        for range in ranges {
+            current.extend_from_slice(std::slice::from_raw_parts(
+                range.start as *const u8,
+                range.len,
+            ));
+        }
+        let mut stored = AUDIT_FIRST_RESULT.lock();
+        let Some(first) = stored.as_ref() else {
+            *stored = Some(current);
+            return;
+        };
+        if !confirmed {
+            return;
+        }
+        let word = size_of::<usize>();
+        let mut lines = Vec::new();
+        let mut base = 0;
+        for (index, range) in ranges.iter().enumerate() {
+            for offset in (0..range.len).step_by(word) {
+                let end = (offset + word).min(range.len);
+                let before = &first[base + offset..base + end];
+                let after = &current[base + offset..base + end];
+                if before != after {
+                    let hex = |bytes: &[u8]| {
+                        bytes
+                            .iter()
+                            .rev()
+                            .map(|x| format!("{x:02x}"))
+                            .collect::<String>()
+                    };
+                    lines.push(format!(
+                        "{},{index},{:x},{offset:x},{},{}",
+                        range.name,
+                        range.start,
+                        hex(before),
+                        hex(after),
+                    ));
+                }
+            }
+            base += range.len;
+        }
+        write_audit(
+            &format!("rollback-audit-{target}-result.csv"),
+            "range,index,range_start,offset,first,final",
+            &lines,
+        );
+    }
+}
+
+fn write_audit(file_name: &str, header: &str, lines: &[String]) {
+    let path = crate::parse_args()
+        .user_data_path
+        .join("logs")
+        .join(file_name);
+    let contents = format!("{header}\n{}\n", lines.join("\n"));
+    match std::fs::write(&path, contents) {
+        Ok(()) => info!(
+            "Rollback audit: {} differing words written to {}",
+            lines.len(),
+            path.display(),
+        ),
+        Err(e) => error!("Rollback audit could not write {}: {e}", path.display()),
+    }
+}
+
+/// A change of depth and delays asked for while a game is running, waiting for the game thread's
+/// next logic step.
+struct Settings {
+    depth: u32,
+    delays: [u32; bw::MAX_STORM_PLAYERS],
+}
+
+static PENDING_SETTINGS: Mutex<Option<Settings>> = Mutex::new(None);
+
+/// Whether [`PENDING_SETTINGS`] holds a change, so a logic step can check without taking the lock.
+static SETTINGS_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// Asks for a new rollback depth and set of per-player delays (`(storm player, frames)`; players
+/// not listed get none) from the next logic step on. A depth of 0 stops rolling back; a nonzero
+/// depth below the largest delay is raised to it. Only takes effect in a game whose harness was
+/// armed at launch, since that is what makes analysis resolve the snapshot's ranges.
+pub fn request_settings(depth: u32, delays: &[(u8, u32)]) {
+    let mut per_player = [0; bw::MAX_STORM_PLAYERS];
+    for &(player, frames) in delays {
+        match per_player.get_mut(player as usize) {
+            Some(slot) => *slot = frames,
+            None => error!("Rollback settings: storm player {player} is out of range; ignoring it"),
+        }
+    }
+    info!("Rollback settings requested: depth {depth}, delays {per_player:?}");
+    *PENDING_SETTINGS.lock() = Some(Settings {
+        depth,
+        delays: per_player,
+    });
+    SETTINGS_PENDING.store(true, Ordering::Release);
+}
+
+/// Applies a pending change of depth and delays. The simulation goes back to the newest confirmed
+/// frame first: that state is right whatever the delays are, so the next tick can anchor there as
+/// if the game had just started, and the frame on screen moves once by the difference in depth.
+unsafe fn apply_pending_settings(bw: &BwScr) {
+    unsafe {
+        let Some(settings) = PENDING_SETTINGS.lock().take() else {
+            return;
+        };
+        if bw.rollback_range_specs().is_empty() {
+            error!("Rollback settings ignored: the harness was not armed when the game launched");
+            return;
+        }
+        let mut max_delay = 0;
+        for (slot, &frames) in DELAYS.iter().zip(settings.delays.iter()) {
+            slot.store(frames, Ordering::Release);
+            max_delay = max_delay.max(frames);
+        }
+        ANY_DELAY.store(max_delay != 0, Ordering::Release);
+        let depth = match settings.depth {
+            0 => 0,
+            depth => depth.max(max_delay),
+        };
+
+        let mut guard = HARNESS.lock();
+        if let Some(harness) = guard.as_mut()
+            && let Some(confirmed) = harness.confirmed
+        {
+            bw.rollback_clear_selection_visuals();
+            harness.restore(confirmed, bw);
+            harness.confirmed = None;
+            bw.rollback_rebuild_selection_visuals();
+        }
+        if depth == 0 {
+            // Rebuilt from scratch should rolling back be turned on again later, anchored wherever
+            // the game has got to by then.
+            *guard = None;
+            SOUND_LEDGER.lock().presented.clear();
+        }
+        drop(guard);
+        ROLLBACK_FRAMES.store(depth, Ordering::Release);
+        info!(
+            "Rollback settings applied: depth {depth}, delays {:?}",
+            settings.delays
+        );
+    }
 }
 
 /// Reads the per-player command delays out of the environment and stores them, returning the
@@ -399,10 +944,152 @@ pub fn replay_command_is_known(
     true
 }
 
-/// Whether the frame being simulated has already been played once, so its sounds must not be
-/// played again. Called from the `play_sound` hook.
-pub fn sounds_suppressed() -> bool {
-    SUPPRESS_SOUNDS.load(Ordering::Relaxed)
+/// Whether the step in progress produces a predicted frame, one that a later tick simulates again.
+///
+/// What the simulation announces as it happens (text lines such as chat, notifications to the
+/// observer UI) must be held back on such a step: the confirmed step that eventually produces the
+/// frame for the last time announces the same things, and each of them is meant to happen once.
+/// That puts them `R` frames behind the frames being shown, in exchange for never showing one that
+/// the late commands took back. Called from the hooks on those announcements.
+pub fn in_predicted_step() -> bool {
+    GATING_ACTIVE.load(Ordering::Relaxed) && !IN_CONFIRMED_STEP.load(Ordering::Relaxed)
+}
+
+/// Where the observer UI keeps each player's research and upgrade records: the UI object holds a
+/// vector of per-player records (`players`), each of which holds a vector of upgrade records keyed
+/// by the unique id of the unit doing the research, with a state that is 0 while it is in
+/// progress.
+#[cfg(target_arch = "x86_64")]
+mod observer_ui_layout {
+    pub const PLAYERS: usize = 0x8;
+    pub const PLAYER_COUNT: usize = 0x10;
+    pub const PLAYER_SIZE: usize = 0x90;
+    pub const PLAYER_UPGRADES: usize = 0x60;
+    pub const PLAYER_UPGRADE_COUNT: usize = 0x68;
+    pub const UNIT_PLAYER: usize = 0x68;
+}
+#[cfg(target_arch = "x86")]
+mod observer_ui_layout {
+    pub const PLAYERS: usize = 0x4;
+    pub const PLAYER_COUNT: usize = 0x8;
+    pub const PLAYER_SIZE: usize = 0x68;
+    pub const PLAYER_UPGRADES: usize = 0x50;
+    pub const PLAYER_UPGRADE_COUNT: usize = 0x54;
+    pub const UNIT_PLAYER: usize = 0x4c;
+}
+/// Bytes of one upgrade record, and where its in-progress state lives in it (after the `u32` key).
+const OBSERVER_UPGRADE_SIZE: usize = 0x14;
+const OBSERVER_UPGRADE_STATE: usize = 0xc;
+
+/// The `(key, state)` of every upgrade record the observer UI keeps for `unit`'s owner.
+unsafe fn observer_upgrade_records(ui: usize, unit: usize) -> Vec<(u32, i32)> {
+    use observer_ui_layout::*;
+    unsafe {
+        let player = ((unit + UNIT_PLAYER) as *const u8).read() as u32;
+        let players = ((ui + PLAYERS) as *const usize).read();
+        let count = ((ui + PLAYER_COUNT) as *const usize).read();
+        let mut out = Vec::new();
+        for i in 0..count {
+            let record = players + i * PLAYER_SIZE;
+            if (record as *const u32).read() != player {
+                continue;
+            }
+            let upgrades = ((record + PLAYER_UPGRADES) as *const usize).read();
+            let upgrade_count = ((record + PLAYER_UPGRADE_COUNT) as *const usize).read();
+            for j in 0..upgrade_count {
+                let entry = upgrades + j * OBSERVER_UPGRADE_SIZE;
+                out.push((
+                    (entry as *const u32).read(),
+                    ((entry + OBSERVER_UPGRADE_STATE) as *const i32).read(),
+                ));
+            }
+        }
+        out
+    }
+}
+
+/// The key of the in-progress observer UI record for each unit it was told started research or an
+/// upgrade, as the UI stored it.
+static OBSERVER_RESEARCH_KEYS: Mutex<Vec<(usize, u32)>> = Mutex::new(Vec::new());
+
+/// Notes the key the observer UI has just stored for `unit`'s research or upgrade, the newest of
+/// its owner's records. Called from the observer UI hook after a start notification has gone
+/// through.
+pub unsafe fn observer_research_started(ui: usize, unit: usize) {
+    unsafe {
+        let Some(&(key, _)) = observer_upgrade_records(ui, unit).last() else {
+            return;
+        };
+        let mut keys = OBSERVER_RESEARCH_KEYS.lock();
+        keys.retain(|&(x, _)| x != unit);
+        keys.push((unit, key));
+    }
+}
+
+/// Whether the observer UI can be told `unit`'s research or upgrade finished, which it only takes
+/// while it still holds the in-progress record: it dereferences the record it looks up without
+/// checking it was found. It retires a record on its own once the frames it shows have the unit
+/// gone, and those frames run ahead of the confirmed ones the notifications come from. Called from
+/// the observer UI hook for a finish notification it lets through.
+pub unsafe fn observer_research_finishing(ui: usize, unit: usize) -> bool {
+    unsafe {
+        let key = {
+            let mut keys = OBSERVER_RESEARCH_KEYS.lock();
+            keys.iter()
+                .position(|&(x, _)| x == unit)
+                .map(|index| keys.swap_remove(index).1)
+        };
+        let open = key.is_some_and(|key| {
+            observer_upgrade_records(ui, unit)
+                .iter()
+                .any(|&(id, state)| id == key && state == 0)
+        });
+        if !open {
+            let frame = bw::get_bw().probe_frame_count().unwrap_or(0);
+            debug!(
+                "Observer UI no longer holds unit {unit:x}'s research record on frame {frame}; \
+                 not telling it the research finished"
+            );
+        }
+        open
+    }
+}
+
+/// Records a sound request the simulation makes while a tick's steps run, returning what the
+/// `play_sound` hook should answer in place of playing it, or `None` outside a tick to let the
+/// request through. Called from the `play_sound` hook with its arguments.
+///
+/// A request tied to a unit is recorded at the unit's position: the sound is played only after the
+/// tick, by which point the unit may no longer exist.
+pub fn intercept_play_sound(
+    sound_id: u32,
+    volume: f32,
+    unit: *mut libc::c_void,
+    x: *mut i32,
+    y: *mut i32,
+) -> Option<u32> {
+    if !RECORD_SOUNDS.load(Ordering::Relaxed) {
+        return None;
+    }
+    unsafe {
+        let bw = bw::get_bw();
+        let position = if !x.is_null() {
+            Some((*x, if y.is_null() { 0 } else { *y }))
+        } else {
+            bw_dat::Unit::from_ptr(unit as *mut bw::Unit).map(|unit| {
+                let position = unit.position();
+                (position.x as i32, position.y as i32)
+            })
+        };
+        SOUND_LEDGER.lock().requested.push(SoundRequest {
+            frame: bw.probe_frame_count().unwrap_or(0),
+            sound_id,
+            position,
+            volume,
+        });
+    }
+    // The original reports whether a channel took the sound; nothing in the simulation reads it.
+    Some(1)
 }
 
 /// Drops the snapshot and its range list, so the next logic step rebuilds both. Called when the
@@ -412,6 +1099,10 @@ pub fn reset_for_game_init() {
     if HARNESS.lock().take().is_some() {
         debug!("Rollback harness snapshot dropped for game init");
     }
+    let mut ledger = SOUND_LEDGER.lock();
+    ledger.requested.clear();
+    ledger.presented.clear();
+    OBSERVER_RESEARCH_KEYS.lock().clear();
 }
 
 /// Resolves the operands the snapshot covers, onto the same context the rest of `BwScr`'s operands
@@ -424,9 +1115,9 @@ pub fn analyze_ranges(
     ctx: OperandCtx<'static>,
 ) -> Vec<RangeSpec> {
     // Most of these need an analysis pass nothing else in the game asks for, which adds up to a
-    // noticeable part of launch time, so a run that will not roll anything back does not pay for
-    // them.
-    if ROLLBACK_FRAMES.load(Ordering::Acquire) == 0 {
+    // noticeable part of launch time, so a run that will neither roll anything back nor dump the
+    // ranges does not pay for them.
+    if ROLLBACK_FRAMES.load(Ordering::Acquire) == 0 && DUMP_FRAME.load(Ordering::Acquire) == 0 {
         return Vec::new();
     }
     let word = size_of::<usize>();
@@ -504,6 +1195,18 @@ pub fn analyze_ranges(
             "trigger_execution_timer",
             analysis.trigger_execution_timer(),
         ),
+        // The trigger step's other per-frame countdowns. The first decides when the game's elapsed
+        // seconds tick up, which elapsed-time conditions and the melee victory checks read; left
+        // out, every re-simulated frame winds it down again and the game clock runs several
+        // times too fast.
+        (
+            "trigger_elapsed_time_tick_timer",
+            analysis.trigger_elapsed_time_tick_timer(),
+        ),
+        (
+            "leaderboard_refresh_timer",
+            analysis.leaderboard_refresh_timer(),
+        ),
         ("dcreep_next_update", analysis.dcreep_next_update()),
         (
             "dcreep_unit_next_update",
@@ -516,6 +1219,10 @@ pub fn analyze_ranges(
             analysis.ai_target_ignore_reset_counter(),
         ),
         ("step_ai_regions_player", analysis.step_ai_regions_player()),
+        (
+            "ai_expansion_player_cursor",
+            analysis.ai_expansion_player_cursor(),
+        ),
         // The cursors the sync checksum ring is written through, and the accumulators whose
         // value the next recorded checksum picks up. Each is a global of its own beside the
         // ring rather than a field of it.
@@ -583,11 +1290,9 @@ pub fn analyze_ranges(
             analysis.selections(),
             AI_PLAYERS * SELECTION_SIZE * word,
         ),
-        (
-            "local_selection",
-            analysis.local_selection(),
-            SELECTION_SIZE * word,
-        ),
+        // `local_selection` stays out: it is what the person watching has selected, which the
+        // simulation never reads (it only prunes units that die out of it), and restoring it would
+        // undo every selection made since the snapshot.
         (
             "selection_hotkey_last_used_frames",
             analysis.selection_hotkey_last_used_frames(),
@@ -668,10 +1373,37 @@ pub fn analyze_ranges(
             analysis.current_sync_vision_bytes(),
             SYNC_VISION_BYTES,
         ),
+        // Per-player trigger runtime state beside the trigger lists: waits in progress and their
+        // remaining time, the victory states a trigger pass decides, and whose triggers run.
+        (
+            "player_trigger_wait_active_flags",
+            analysis.player_trigger_wait_active_flags(),
+            TRIGGER_LIST_PLAYERS,
+        ),
+        (
+            "player_trigger_wait_timers",
+            analysis.player_trigger_wait_timers(),
+            TRIGGER_LIST_PLAYERS * size_of::<u32>(),
+        ),
+        (
+            "player_trigger_victory_states",
+            analysis.player_trigger_victory_states(),
+            TRIGGER_LIST_PLAYERS,
+        ),
+        (
+            "player_trigger_active_flags",
+            analysis.player_trigger_active_flags(),
+            TRIGGER_LIST_PLAYERS,
+        ),
     ];
     for (name, op, len) in blocks {
         add(name, op, RangeKind::Block { offset: 0, len });
     }
+    add(
+        "player_trigger_lists",
+        analysis.player_trigger_lists(),
+        RangeKind::TriggerLists,
+    );
 
     // Terrain arrays, one entry per map tile.
     let tile_arrays = [
@@ -987,6 +1719,7 @@ impl Harness {
                 ranges: Vec::new(),
                 omitted: Vec::new(),
             };
+            let mut trigger_lists = None;
             // The `game` and `players` globals are obfuscated operands, so they come from the
             // accessors that already know how to unpick them rather than from a range spec.
             // The camera's tile position is kept inside the game struct even though only local
@@ -1062,6 +1795,13 @@ impl Harness {
                             false => list.omit(spec.name),
                         }
                     }
+                    RangeKind::TriggerLists => {
+                        let heads = resolve_operand(op, &[]);
+                        match heads != 0 {
+                            true => trigger_lists = Some(TriggerLists::new(heads)),
+                            false => list.omit(spec.name),
+                        }
+                    }
                     RangeKind::AiRegions => {
                         let base = resolve_operand(op, &[]);
                         list.add(spec.name, base, AI_PLAYERS * size_of::<usize>());
@@ -1076,6 +1816,8 @@ impl Harness {
                     }
                 }
             }
+
+            add_extra_ranges_from_env(bw, &mut list);
 
             let RangeList { ranges, omitted } = list;
             for range in &ranges {
@@ -1101,6 +1843,7 @@ impl Harness {
             Some(Harness {
                 ranges,
                 buffers: [vec![0u8; total_bytes], vec![0u8; total_bytes]],
+                trigger_lists,
                 confirmed: None,
             })
         }
@@ -1114,16 +1857,22 @@ impl Harness {
                 std::ptr::copy_nonoverlapping(range.start as *const u8, out, range.len);
                 out = out.add(range.len);
             }
+            if let Some(trigger_lists) = &mut self.trigger_lists {
+                trigger_lists.take(buffer);
+            }
             self.confirmed = Some(buffer);
         }
     }
 
-    unsafe fn restore(&self, buffer: usize) {
+    unsafe fn restore(&mut self, buffer: usize, bw: &BwScr) {
         unsafe {
             let mut input = self.buffers[buffer].as_ptr();
             for range in &self.ranges {
                 std::ptr::copy_nonoverlapping(input, range.start as *mut u8, range.len);
                 input = input.add(range.len);
+            }
+            if let Some(trigger_lists) = &mut self.trigger_lists {
+                trigger_lists.restore(buffer, bw);
             }
         }
     }
@@ -1162,15 +1911,27 @@ pub unsafe fn run_game_logic_step(
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
     unsafe {
+        if SETTINGS_PENDING.swap(false, Ordering::AcqRel) {
+            apply_pending_settings(bw);
+        }
         let rollback_frames = ROLLBACK_FRAMES.load(Ordering::Acquire);
         if rollback_frames == 0 {
-            return crate::rollback_probe::run_game_logic_step(bw, param, orig);
+            let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
+            dump_if_due(bw);
+            return ret;
         }
         if !ELIGIBILITY_CHECKED.swap(true, Ordering::AcqRel) && !game_thread::is_replay() {
             // Rolling a live game back would re-send network turns that have already gone out, and
             // there would be nothing to compare the fingerprints against either.
             ROLLBACK_FRAMES.store(0, Ordering::Release);
             info!("{ENV_VAR} only runs during replay playback; leaving the simulation alone");
+            return crate::rollback_probe::run_game_logic_step(bw, param, orig);
+        }
+        if !bw.rollback_observer_ui_hooked() {
+            // Re-simulated frames would repeat the observer UI's notifications, and it
+            // dereferences records a repeated notification has already consumed.
+            ROLLBACK_FRAMES.store(0, Ordering::Release);
+            error!("{ENV_VAR} needs the observer UI hooks, which analysis could not resolve");
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         }
         run_tick(bw, param, orig, rollback_frames as usize)
@@ -1194,20 +1955,26 @@ unsafe fn run_tick(
 
         // `steps_after` is how many further steps the tick runs once this one is done, which is
         // what turns the frame a step reads commands for into the tick's newest frame.
-        let step = |suppress_sounds: bool, steps_after: usize, confirmed: bool| {
-            SUPPRESS_SOUNDS.store(suppress_sounds, Ordering::Release);
+        let audit_ranges = audit_armed().then(|| harness.ranges.clone());
+        let step = |steps_after: usize, confirmed: bool| {
+            if let Some(ranges) = &audit_ranges {
+                audit_before_step(bw, ranges, confirmed);
+            }
             STEPS_AFTER_CURRENT.store(steps_after as u32, Ordering::Relaxed);
             IN_CONFIRMED_STEP.store(confirmed, Ordering::Relaxed);
             let start = Instant::now();
             let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
             let elapsed = start.elapsed();
-            SUPPRESS_SOUNDS.store(false, Ordering::Release);
+            if let Some(ranges) = &audit_ranges {
+                audit_after_step(bw, ranges, confirmed);
+            }
+            if confirmed {
+                dump_if_due(bw);
+            }
             (ret, elapsed)
         };
 
-        let mut restore_micros = Duration::ZERO;
-        let mut steps_micros = Duration::ZERO;
-        let snapshot_micros;
+        let mut times = TickTimes::default();
         let mut ret = 0;
         // Every step pushes the tick the game loop paces itself against one frame further into the
         // future, so after a tick that simulates several frames it goes back to the value the
@@ -1220,49 +1987,53 @@ unsafe fn run_tick(
         SUPPRESSED_COMMANDS.store(0, Ordering::Relaxed);
         APPLIED_DELAYED_COMMANDS.store(0, Ordering::Relaxed);
         GATING_ACTIVE.store(true, Ordering::Relaxed);
+        RECORD_SOUNDS.store(true, Ordering::Relaxed);
         match harness.confirmed {
             // Steady state: the snapshot is `rollback_frames` frames behind the simulation, so
             // going back to it and simulating one frame re-derives the frame the snapshot moves on
             // to, and the remaining steps catch back up and add the one new frame.
             Some(confirmed) => {
                 let start = Instant::now();
-                harness.restore(confirmed);
-                restore_micros = start.elapsed();
+                // Selection circles come from a small pool of their own, outside the snapshot, so
+                // the ones on the frame being shown go back to it before the restore drops the
+                // sprites they are attached to; otherwise every tick would leak them until none
+                // are left to show.
+                bw.rollback_clear_selection_visuals();
+                harness.restore(confirmed, bw);
+                times.restore = start.elapsed();
 
-                let (step_ret, elapsed) = step(true, rollback_frames, true);
+                let (step_ret, elapsed) = step(rollback_frames, true);
                 ret = step_ret;
-                steps_micros += elapsed;
+                times.steps += elapsed;
                 paced_tick = Some(bw.probe_next_game_step_tick());
                 confirmed_fingerprint = bw.probe_fingerprint();
 
                 let start = Instant::now();
+                bw.rollback_clear_selection_visuals();
                 harness.take(1 - confirmed);
-                snapshot_micros = start.elapsed();
+                times.snapshot = start.elapsed();
 
                 for frame in 0..rollback_frames {
-                    // Only the last step reaches a frame the game has never simulated, so it is
-                    // the only one whose sounds belong to the present.
-                    let steps_after = rollback_frames - 1 - frame;
-                    let (step_ret, elapsed) =
-                        step(frame + 1 != rollback_frames, steps_after, false);
+                    let (step_ret, elapsed) = step(rollback_frames - 1 - frame, false);
                     ret = step_ret;
-                    steps_micros += elapsed;
+                    times.steps += elapsed;
                 }
             }
             // First tick of the game: anchor the snapshot here and run the simulation
             // `rollback_frames` frames past it, which is the distance every later tick keeps.
             None => {
                 let start = Instant::now();
+                bw.rollback_clear_selection_visuals();
                 harness.take(0);
-                snapshot_micros = start.elapsed();
+                times.snapshot = start.elapsed();
                 // No step of this tick re-derives a frame, so the state the snapshot just captured
                 // is the confirmed one and its fingerprint is already final.
                 confirmed_fingerprint = bw.probe_fingerprint();
 
                 for frame in 0..rollback_frames {
-                    let (step_ret, elapsed) = step(false, rollback_frames - 1 - frame, false);
+                    let (step_ret, elapsed) = step(rollback_frames - 1 - frame, false);
                     ret = step_ret;
-                    steps_micros += elapsed;
+                    times.steps += elapsed;
                     if frame == 0 {
                         paced_tick = Some(bw.probe_next_game_step_tick());
                     }
@@ -1272,23 +2043,76 @@ unsafe fn run_tick(
 
         GATING_ACTIVE.store(false, Ordering::Relaxed);
         IN_CONFIRMED_STEP.store(false, Ordering::Relaxed);
+        RECORD_SOUNDS.store(false, Ordering::Relaxed);
+        // Selection circles and health bars hang off the simulation's sprites but belong to what
+        // the person watching has selected. They come off before every restore and every
+        // snapshot, and go back on here for the frame about to be shown.
+        bw.rollback_rebuild_selection_visuals();
         if let Some(paced_tick) = paced_tick {
             bw.probe_set_next_game_step_tick(paced_tick);
         }
         drop(guard);
 
         if let (Some(present), Some(confirmed)) = (bw.probe_fingerprint(), confirmed_fingerprint) {
+            let sounds = reconcile_sounds(bw, confirmed.frame, present.frame);
             write_row(
                 &present,
                 &confirmed,
                 SUPPRESSED_COMMANDS.load(Ordering::Relaxed),
                 APPLIED_DELAYED_COMMANDS.load(Ordering::Relaxed),
-                restore_micros,
-                steps_micros,
-                snapshot_micros,
+                &sounds,
+                &times,
             );
+        } else {
+            SOUND_LEDGER.lock().requested.clear();
         }
         ret
+    }
+}
+
+/// Plays the sounds the tick's steps asked for that no earlier tick played, and counts the ones an
+/// earlier tick played that the re-simulation no longer asks for.
+///
+/// `final_frame` is the frame the tick's snapshot holds, which no later tick simulates again, and
+/// `present_frame` the newest frame the tick reached, the one about to be shown.
+unsafe fn reconcile_sounds(bw: &BwScr, final_frame: u32, present_frame: u32) -> SoundCounts {
+    unsafe {
+        let mut ledger = SOUND_LEDGER.lock();
+        let requested = std::mem::take(&mut ledger.requested);
+        let mut presented = std::mem::take(&mut ledger.presented);
+        let mut new_requests = Vec::new();
+        for request in &requested {
+            match presented.iter().position(|x| x.is_same_sound(request)) {
+                Some(index) => {
+                    presented.swap_remove(index);
+                }
+                None => new_requests.push(*request),
+            }
+        }
+        // Every frame the earlier ticks played sounds for was re-simulated by this one, so what is
+        // left over was only ever part of a prediction.
+        let mut counts = SoundCounts {
+            stale: presented.len() as u32,
+            ..SoundCounts::default()
+        };
+        ledger.presented = requested
+            .into_iter()
+            .filter(|x| x.frame > final_frame)
+            .collect();
+        drop(ledger);
+
+        for request in new_requests {
+            let lateness = present_frame.saturating_sub(request.frame);
+            match lateness {
+                0 => counts.on_time += 1,
+                _ => {
+                    counts.late += 1;
+                    counts.late_frames += lateness;
+                }
+            }
+            bw.probe_play_sound(request.sound_id, request.volume, request.position);
+        }
+        counts
     }
 }
 
@@ -1297,9 +2121,8 @@ fn write_row(
     confirmed: &Fingerprint,
     suppressed_commands: u32,
     applied_delayed_commands: u32,
-    restore: Duration,
-    steps: Duration,
-    snapshot: Duration,
+    sounds: &SoundCounts,
+    times: &TickTimes,
 ) {
     let mut log_file = LOG_FILE.lock();
     if log_file.is_none() {
@@ -1320,12 +2143,17 @@ fn write_row(
     };
     let result = writeln!(
         &mut log_file.file,
-        "{},{},{suppressed_commands},{applied_delayed_commands},{},{},{}",
+        "{},{},{},{suppressed_commands},{applied_delayed_commands},{},{},{},{},{},{},{}",
         fingerprint_columns(present),
         fingerprint_columns(confirmed),
-        restore.as_micros(),
-        steps.as_micros(),
-        snapshot.as_micros(),
+        ROLLBACK_FRAMES.load(Ordering::Relaxed),
+        sounds.on_time,
+        sounds.late,
+        sounds.late_frames,
+        sounds.stale,
+        times.restore.as_micros(),
+        times.steps.as_micros(),
+        times.snapshot.as_micros(),
     );
     if let Err(e) = result {
         // Give up on the file rather than logging once per frame for the rest of the game.
@@ -1341,7 +2169,7 @@ fn fingerprint_columns(fingerprint: &Fingerprint) -> String {
     let minerals = &fingerprint.minerals;
     let gas = &fingerprint.gas;
     format!(
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         fingerprint.frame,
         rng[0],
         rng[1],
@@ -1358,6 +2186,7 @@ fn fingerprint_columns(fingerprint: &Fingerprint) -> String {
         gas[2],
         gas[3],
         fingerprint.trigger_timer,
+        fingerprint.extra_columns(),
     )
 }
 
@@ -1378,9 +2207,12 @@ impl HarnessFile {
             &mut file,
             "frame,rng0,rng1,rng2,rng3,rng4,rng5,\
              minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,\
+             elapsed_seconds,player_types,\
              confirmed_frame,c_rng0,c_rng1,c_rng2,c_rng3,c_rng4,c_rng5,\
              c_minerals0,c_minerals1,c_minerals2,c_minerals3,c_gas0,c_gas1,c_gas2,c_gas3,\
-             c_trigger_timer,suppressed_commands,applied_delayed_commands,\
+             c_trigger_timer,c_elapsed_seconds,c_player_types,rollback_frames,\
+             suppressed_commands,applied_delayed_commands,\
+             sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
              restore_micros,steps_micros,snapshot_micros"
         )
         .map_err(|e| format!("{}: {e}", path.display()))?;

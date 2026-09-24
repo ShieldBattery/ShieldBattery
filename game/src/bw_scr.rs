@@ -314,6 +314,19 @@ pub struct BwScr {
     /// Deallocation function paired with `engine_alloc`, `free(ptr, tag, tag2, flags)`.
     #[cfg(debug_assertions)]
     engine_free: VirtualAddress,
+    /// The observer UI's entry points for notifications from the simulation, or `None` if analysis
+    /// could not find all of them.
+    #[cfg(debug_assertions)]
+    observer_ui_callbacks: Option<ObserverUiCallbacks>,
+    /// The pair of functions the game brackets a saved game write with, to take the selection
+    /// circles and health bars off every sprite and put them back from the local selection, or
+    /// `None` if analysis could not find both.
+    #[cfg(debug_assertions)]
+    selection_visuals: Option<SelectionVisuals>,
+    /// The function that shows a line of game information text (a player leaving or being
+    /// eliminated), or `None` if analysis could not find it.
+    #[cfg(debug_assertions)]
+    show_game_message: Option<VirtualAddress>,
     /// The synced simulation state the rollback harness snapshots, as resolved analysis results
     /// that still have to be turned into addresses once a game is running.
     #[cfg(debug_assertions)]
@@ -971,6 +984,78 @@ impl<T: BwValue> Value<T> {
 
 unsafe impl<T> Send for Value<T> {}
 unsafe impl<T> Sync for Value<T> {}
+
+/// Every function the simulation calls on the observer UI, the object behind replay and observer
+/// production panels. Each takes the observer UI object and the unit the notification is about,
+/// and returns nothing.
+#[cfg(debug_assertions)]
+struct ObserverUiCallbacks {
+    track_building_unit: VirtualAddress,
+    track_research_or_upgrade: VirtualAddress,
+    remove_building_unit_record: VirtualAddress,
+    finish_research_or_upgrade: VirtualAddress,
+}
+
+#[cfg(debug_assertions)]
+impl ObserverUiCallbacks {
+    /// Finds all four, or returns `None` (and says which is missing) if any of them is not found.
+    fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<ObserverUiCallbacks> {
+        let find = |name: &str, address: Option<VirtualAddress>| {
+            if address.is_none() {
+                warn!("Analysis could not find the observer UI's {name}");
+            }
+            address
+        };
+        Some(ObserverUiCallbacks {
+            track_building_unit: find(
+                "track_building_unit",
+                analysis.observer_ui_track_building_unit(),
+            )?,
+            track_research_or_upgrade: find(
+                "track_research_or_upgrade",
+                analysis.observer_ui_track_research_or_upgrade(),
+            )?,
+            remove_building_unit_record: find(
+                "remove_building_unit_record",
+                analysis.observer_ui_remove_building_unit_record(),
+            )?,
+            finish_research_or_upgrade: find(
+                "finish_research_or_upgrade",
+                analysis.observer_ui_finish_research_or_upgrade(),
+            )?,
+        })
+    }
+}
+
+/// The game's own way of getting selection circles and health bars, which are images in the same
+/// pool as the simulation's, out of a copy of the game state and back again.
+#[cfg(debug_assertions)]
+struct SelectionVisuals {
+    clear: unsafe extern "C" fn(),
+    rebuild: unsafe extern "C" fn(),
+}
+
+#[cfg(debug_assertions)]
+impl SelectionVisuals {
+    fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<SelectionVisuals> {
+        let clear = analysis.clear_transient_sprite_state_for_save();
+        let rebuild = analysis.rebuild_selection_visuals_after_save();
+        let (Some(clear), Some(rebuild)) = (clear, rebuild) else {
+            warn!(
+                "Analysis could not find the selection visual functions (clear: {}, rebuild: {})",
+                clear.is_some(),
+                rebuild.is_some(),
+            );
+            return None;
+        };
+        unsafe {
+            Some(SelectionVisuals {
+                clear: mem::transmute::<usize, unsafe extern "C" fn()>(clear.0 as usize),
+                rebuild: mem::transmute::<usize, unsafe extern "C" fn()>(rebuild.0 as usize),
+            })
+        }
+    }
+}
 
 /// (sfx.json ID, file name) of every iscript-played effect whose `rez/sfx.json` entry has
 /// `unitSpeech` set: the zealot, queen and critter deaths and the yamato cannon. Every other unit
@@ -1653,6 +1738,12 @@ impl BwScr {
         let engine_alloc = analysis.engine_alloc().ok_or("engine_alloc")?;
         #[cfg(debug_assertions)]
         let engine_free = analysis.engine_free().ok_or("engine_free")?;
+        #[cfg(debug_assertions)]
+        let observer_ui_callbacks = ObserverUiCallbacks::analyze(&mut analysis);
+        #[cfg(debug_assertions)]
+        let selection_visuals = SelectionVisuals::analyze(&mut analysis);
+        #[cfg(debug_assertions)]
+        let show_game_message = analysis.show_game_message();
         // Analysis failures here are not fatal: the harness reports whatever it could not resolve
         // as missing from its snapshot and runs with the rest.
         #[cfg(debug_assertions)]
@@ -1869,6 +1960,12 @@ impl BwScr {
             engine_alloc,
             #[cfg(debug_assertions)]
             engine_free,
+            #[cfg(debug_assertions)]
+            observer_ui_callbacks,
+            #[cfg(debug_assertions)]
+            selection_visuals,
+            #[cfg(debug_assertions)]
+            show_game_message,
             #[cfg(debug_assertions)]
             rollback_ranges,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
@@ -2594,11 +2691,12 @@ impl BwScr {
                     PlaySound,
                     |id, volume, unk, x, y, orig| {
                         crate::rollback_probe::note_play_sound();
-                        // A frame being re-simulated has already had its sounds played once;
-                        // playing them again would stutter every sound the game makes. The
-                        // original returns the channel it used, and 1 is a valid one.
-                        if crate::rollback_harness::sounds_suppressed() {
-                            return 1;
+                        // While the rollback harness is re-simulating, it decides which requests
+                        // are new once the whole tick has run, and plays those itself.
+                        if let Some(ret) =
+                            crate::rollback_harness::intercept_play_sound(id, volume, unk, x, y)
+                        {
+                            return ret;
                         }
                         orig(id, volume, unk, x, y)
                     },
@@ -2625,6 +2723,72 @@ impl BwScr {
                     },
                     address,
                 );
+
+                // Like the text the print_text hook handles, but without a player to attribute it
+                // to: a player leaving or being eliminated, the game pausing.
+                if let Some(address) = self.show_game_message {
+                    exe.hook_closure_address(
+                        ShowGameMessage,
+                        |text, duration, orig| {
+                            if !crate::rollback_harness::in_predicted_step() {
+                                orig(text, duration);
+                            }
+                        },
+                        address.0 as usize - base,
+                    );
+                }
+
+                // The observer UI keeps its own records of what the simulation tells it, outside
+                // the state the rollback harness snapshots, and would see a re-simulated frame's
+                // notifications once more for every time the frame is simulated.
+                if let Some(callbacks) = &self.observer_ui_callbacks {
+                    use crate::rollback_harness::in_predicted_step as suppressed;
+                    exe.hook_closure_address(
+                        ObserverUiTrackBuildingUnit,
+                        |ui, unit, force, orig| {
+                            if !suppressed() {
+                                orig(ui, unit, force);
+                            }
+                        },
+                        callbacks.track_building_unit.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        ObserverUiTrackResearchOrUpgrade,
+                        |ui, unit, orig| {
+                            if !suppressed() {
+                                orig(ui, unit);
+                                crate::rollback_harness::observer_research_started(
+                                    ui as usize,
+                                    unit as usize,
+                                );
+                            }
+                        },
+                        callbacks.track_research_or_upgrade.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        ObserverUiRemoveBuildingUnitRecord,
+                        |ui, unit, orig| {
+                            if !suppressed() {
+                                orig(ui, unit);
+                            }
+                        },
+                        callbacks.remove_building_unit_record.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        ObserverUiFinishResearchOrUpgrade,
+                        |ui, unit, completed, orig| {
+                            if !suppressed()
+                                && crate::rollback_harness::observer_research_finishing(
+                                    ui as usize,
+                                    unit as usize,
+                                )
+                            {
+                                orig(ui, unit, completed);
+                            }
+                        },
+                        callbacks.finish_research_or_upgrade.0 as usize - base,
+                    );
+                }
             }
 
             let address = self.decide_cursor_type.0 as usize - base;
@@ -2672,6 +2836,11 @@ impl BwScr {
                 PrintText,
                 move |text, player, unused, orig| {
                     if text.is_null() {
+                        return;
+                    }
+                    // A frame the rollback harness re-simulates prints its lines again each time.
+                    #[cfg(debug_assertions)]
+                    if crate::rollback_harness::in_predicted_step() {
                         return;
                     }
                     if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0
@@ -5794,6 +5963,71 @@ impl BwScr {
         unsafe { self.next_game_step_tick.write(value) }
     }
 
+    /// Whether the observer UI's notifications from the simulation are hooked, which re-simulating
+    /// frames during replay playback depends on.
+    pub(crate) fn rollback_observer_ui_hooked(&self) -> bool {
+        self.observer_ui_callbacks.is_some()
+    }
+
+    /// The executable's base address, and the address and size of its data section including the
+    /// zero-initialized part: the static memory the game's globals live in.
+    pub(crate) fn rollback_exe_data_section(&self) -> Option<(usize, usize, usize)> {
+        unsafe {
+            let base = GetModuleHandleW(null()) as *const u8;
+            let data = pe_image::get_section(base, b".data\0\0\0")?;
+            Some((
+                base as usize,
+                data.virtual_address.0 as usize,
+                data.virtual_size as usize,
+            ))
+        }
+    }
+
+    /// Takes the selection circles and health bars off every sprite.
+    pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
+        unsafe {
+            if let Some(visuals) = &self.selection_visuals {
+                (visuals.clear)();
+            }
+        }
+    }
+
+    /// Puts the selection circles and health bars back on the units the person watching has
+    /// selected.
+    pub(crate) unsafe fn rollback_rebuild_selection_visuals(&self) {
+        unsafe {
+            if let Some(visuals) = &self.selection_visuals {
+                (visuals.rebuild)();
+            }
+        }
+    }
+
+    /// The frame the simulation is on, or `None` when no game is loaded.
+    pub(crate) unsafe fn probe_frame_count(&self) -> Option<u32> {
+        unsafe {
+            let game = self.game();
+            (!game.is_null()).then(|| (*game).frame_count)
+        }
+    }
+
+    /// Asks BW to play a sound effect at a map position, or unpositioned when `position` is
+    /// `None`, through the same entry point the simulation's own sound requests take.
+    pub(crate) unsafe fn probe_play_sound(
+        &self,
+        sound_id: u32,
+        volume: f32,
+        position: Option<(i32, i32)>,
+    ) -> u32 {
+        unsafe {
+            let mut coords = position.unwrap_or_default();
+            let (x, y) = match position {
+                Some(_) => (&raw mut coords.0, &raw mut coords.1),
+                None => (std::ptr::null_mut(), std::ptr::null_mut()),
+            };
+            (self.play_sound)(sound_id, volume, std::ptr::null_mut(), x, y)
+        }
+    }
+
     /// Reads the synced-state fingerprint of the current frame, or `None` when no game is loaded.
     ///
     /// Same fields the low-rate sync probe logs: the words around the RNG seed operand (the seed
@@ -5823,6 +6057,8 @@ impl BwScr {
                 minerals,
                 gas,
                 trigger_timer: self.trigger_execution_timer.resolve(),
+                elapsed_seconds: (*game).elapsed_seconds,
+                player_types: std::array::from_fn(|i| (*self.players().add(i)).player_type),
             })
         }
     }
@@ -7299,6 +7535,19 @@ mod hooks {
         !0 => PlaySound(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32;
         !0 => EngineAlloc(usize, usize, u32, u32) -> *mut u8;
         !0 => EngineFree(*mut u8, usize, u32, u32) -> u32;
+        !0 => ShowGameMessage(*const u8, u32);
+    );
+
+    // The observer UI's notifications from the simulation, methods on the observer UI object that
+    // take the unit concerned. The trailing flag of the first is whether to track a unit that is
+    // already complete, and of the last whether the research or upgrade completed rather than
+    // being cancelled; both are C bools passed in a full argument slot.
+    #[cfg(debug_assertions)]
+    thiscall_hooks!(
+        !0 => ObserverUiTrackBuildingUnit(*mut c_void, *mut bw::Unit, u32);
+        !0 => ObserverUiTrackResearchOrUpgrade(*mut c_void, *mut bw::Unit);
+        !0 => ObserverUiRemoveBuildingUnitRecord(*mut c_void, *mut bw::Unit);
+        !0 => ObserverUiFinishResearchOrUpgrade(*mut c_void, *mut bw::Unit, u32);
     );
 
     system_hooks!(

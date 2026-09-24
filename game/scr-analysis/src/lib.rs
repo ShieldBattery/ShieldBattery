@@ -943,6 +943,89 @@ impl<'e> Analysis<'e> {
         self.0.engine_free()
     }
 
+    /// Base of the per-player trigger list headers, `{next, previous, count}` (three words) for each
+    /// of the 8 players.
+    pub fn player_trigger_lists(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_lists()
+    }
+
+    /// `Mem16` countdown the trigger step advances every frame; when it runs out, the game's
+    /// elapsed seconds tick up.
+    pub fn trigger_elapsed_time_tick_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_elapsed_time_tick_timer()
+    }
+
+    /// `Mem16` countdown the trigger step advances every frame to refresh the leaderboard.
+    pub fn leaderboard_refresh_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.leaderboard_refresh_timer()
+    }
+
+    /// Base of `u8[8]`: whether each player's triggers are paused in a wait action.
+    pub fn player_trigger_wait_active_flags(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_wait_active_flags()
+    }
+
+    /// Base of `u32[8]`: how much longer each player's wait action lasts.
+    pub fn player_trigger_wait_timers(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_wait_timers()
+    }
+
+    /// Base of `u8[8]`: each player's victory, defeat or draw as decided by triggers.
+    pub fn player_trigger_victory_states(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_victory_states()
+    }
+
+    /// Base of `u8[8]`: whether each player's triggers run.
+    pub fn player_trigger_active_flags(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_active_flags()
+    }
+
+    /// `void(text, duration)` (cdecl): shows a line of game information text such as a player
+    /// leaving or being eliminated.
+    pub fn show_game_message(&mut self) -> Option<VirtualAddress> {
+        self.0.show_game_message()
+    }
+
+    /// `Mem32` cursor the AI expansion planner rotates through the players, one per call.
+    pub fn ai_expansion_player_cursor(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_expansion_player_cursor()
+    }
+
+    /// `void()`: takes the selection circles and health bars off every sprite, as the game does
+    /// before writing a saved game.
+    pub fn clear_transient_sprite_state_for_save(&mut self) -> Option<VirtualAddress> {
+        self.0.clear_transient_sprite_state_for_save()
+    }
+
+    /// `void()`: puts the selection circles back on the locally selected units (and teammates'
+    /// shared ones in team games), as the game does after writing a saved game.
+    pub fn rebuild_selection_visuals_after_save(&mut self) -> Option<VirtualAddress> {
+        self.0.rebuild_selection_visuals_after_save()
+    }
+
+    /// `ObserverUI::track_building_unit(this, unit, force)`: the simulation telling the observer
+    /// production panels that a building, morph or archon merge has started.
+    pub fn observer_ui_track_building_unit(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_track_building_unit()
+    }
+
+    /// `ObserverUI::track_research_or_upgrade(this, unit)`: research or an upgrade has started.
+    pub fn observer_ui_track_research_or_upgrade(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_track_research_or_upgrade()
+    }
+
+    /// `ObserverUI::remove_building_unit_record(this, unit)`: a tracked building unit finished,
+    /// was cancelled or died.
+    pub fn observer_ui_remove_building_unit_record(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_remove_building_unit_record()
+    }
+
+    /// `ObserverUI::finish_research_or_upgrade(this, unit, completed)`: research or an upgrade
+    /// completed, or was cancelled when `completed` is false.
+    pub fn observer_ui_finish_research_or_upgrade(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_finish_research_or_upgrade()
+    }
+
     pub fn snet_local_player_list(&mut self) -> Option<Operand<'e>> {
         self.0.snet_local_player_list()
     }

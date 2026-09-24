@@ -76,6 +76,25 @@ pub enum DebugControlCommand {
     /// Drive the rollback probe (see [`crate::rollback_probe`]). Every action replies on
     /// `/game/debug/rollbackProbe` with a [`RollbackProbeResponse`].
     RollbackProbe { action: RollbackProbeAction },
+    /// Change the rollback harness's depth and per-player command delays mid-replay (see
+    /// [`crate::rollback_harness`]), from the next logic step on. `depth` 0 stops rolling back; a
+    /// depth below the largest delay is raised to it. `delays` replaces every player's delay, with
+    /// players it does not list getting none. Only works in a replay launched with the harness
+    /// armed. No reply — verify via the game log and the harness CSV's `rollback_frames` column.
+    SetRollback {
+        depth: u32,
+        #[serde(default)]
+        delays: Vec<DebugRollbackDelay>,
+    },
+}
+
+/// One player's command delay for [`DebugControlCommand::SetRollback`].
+#[derive(Debug, Deserialize, Clone, Copy, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugRollbackDelay {
+    /// Storm player id.
+    pub player: u8,
+    pub frames: u32,
 }
 
 /// The fault [`DebugControlCommand::Crash`] raises.
@@ -719,6 +738,36 @@ mod tests {
                 "framesLogged": 480,
                 "path": "C:/logs/rollback-probe-1.csv",
             })
+        );
+
+        let cmd: DebugControlCommand = serde_json::from_str(
+            r#"{"type":"setRollback","depth":6,"delays":[{"player":1,"frames":6},{"player":3,"frames":2}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SetRollback {
+                depth: 6,
+                delays: vec![
+                    DebugRollbackDelay {
+                        player: 1,
+                        frames: 6
+                    },
+                    DebugRollbackDelay {
+                        player: 3,
+                        frames: 2
+                    },
+                ],
+            }
+        );
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"setRollback","depth":0}"#).unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SetRollback {
+                depth: 0,
+                delays: Vec::new(),
+            }
         );
 
         let response = RollbackProbeResponse::Batch(RollbackProbeBatchResult {

@@ -152,6 +152,23 @@ pub struct Fingerprint {
     pub gas: [u32; 4],
     /// The trigger step's per-frame countdown; triggers run on the frame it reads as zero.
     pub trigger_timer: u16,
+    /// The game clock the trigger step advances, which elapsed-time conditions read.
+    pub elapsed_seconds: u32,
+    /// Every player slot's type, which changes when a player is defeated or leaves.
+    pub player_types: [u8; 12],
+}
+
+impl Fingerprint {
+    /// The columns after the trigger countdown: the game clock, and the player types as one hex
+    /// string.
+    pub fn extra_columns(&self) -> String {
+        let types = self
+            .player_types
+            .iter()
+            .map(|x| format!("{x:02x}"))
+            .collect::<String>();
+        format!("{},{types}", self.elapsed_seconds)
+    }
 }
 
 /// Which of the engine's two allocation paths a block came through.
@@ -222,7 +239,8 @@ impl ProbeFile {
             "frame,frames_simulated,step_micros,alloc_calls,free_calls,\
              flags_alloc_calls,flags_free_calls,sound_calls,\
              rng0,rng1,rng2,rng3,rng4,rng5,\
-             minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer"
+             minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,\
+             elapsed_seconds,player_types"
         )
         .map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(ProbeFile {
@@ -653,7 +671,7 @@ fn write_row(fingerprint: &Fingerprint, simulated: u32, elapsed: Duration) {
     let gas = &fingerprint.gas;
     let result = writeln!(
         &mut probe_file.file,
-        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         fingerprint.frame,
         simulated,
         elapsed.as_micros(),
@@ -677,6 +695,7 @@ fn write_row(fingerprint: &Fingerprint, simulated: u32, elapsed: Duration) {
         gas[2],
         gas[3],
         fingerprint.trigger_timer,
+        fingerprint.extra_columns(),
     );
     match result {
         Ok(()) => probe_file.rows = probe_file.rows.wrapping_add(1),

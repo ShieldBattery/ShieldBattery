@@ -1000,6 +1000,15 @@ impl GameState {
                         // Fire-and-forget, the same toggle the `/netstat` chat command makes. No
                         // reply — verify via queryState's `netStats.visible`.
                     }
+                    DebugControlCommand::SetRollback { depth, delays } => {
+                        let delays = delays
+                            .iter()
+                            .map(|x| (x.player, x.frames))
+                            .collect::<Vec<_>>();
+                        crate::rollback_harness::request_settings(depth, &delays);
+                        // Fire-and-forget: applied on the game thread's next logic step. No reply
+                        // — verify via the game log and the harness CSV.
+                    }
                     DebugControlCommand::Crash { kind } => {
                         // Faults right here on the async runtime thread; the process won't
                         // survive to reply.
