@@ -7,6 +7,7 @@ import Koa from 'koa'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaJwt from 'koa-jwt'
+import { setTimeout as sleep } from 'timers/promises'
 import { container } from 'tsyringe'
 import { internalRoutesMiddleware } from './internal-routes'
 import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
@@ -22,7 +23,7 @@ import { updateEmailTemplates } from './lib/mail/update-templates'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
-import { Redis } from './lib/redis/redis'
+import { Redis, RedisSubscriber } from './lib/redis/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
@@ -76,6 +77,8 @@ if (fileStoreSettings.filesystem) {
 container.register(DISCORD_WEBHOOK_URL_TOKEN, {
   useValue: process.env.SB_DISCORD_WEBHOOK_URL ?? '',
 })
+
+const REDIS_CONNECT_TIMEOUT_MS = 10_000
 
 const app = new Koa()
 const port = process.env.SB_HTTP_PORT
@@ -225,21 +228,31 @@ container.resolve(GameServerRegionsService)
     }
   }
 
-  log.info('Testing connection to redis.')
-  const redis = container.resolve(Redis)
+  log.info('Waiting for connection to redis.')
+  // The clients retry failed connections forever, so a misconfigured host/port would otherwise
+  // leave the server running without ever reaching Redis
+  const redisConnectTimeout = new AbortController()
   try {
-    await redis.ping()
+    await Promise.race([
+      Promise.all([
+        container.resolve(Redis).connected,
+        container.resolve(RedisSubscriber).connected,
+      ]),
+      sleep(REDIS_CONNECT_TIMEOUT_MS, undefined, { signal: redisConnectTimeout.signal }).then(
+        () => {
+          throw new Error(`timed out after ${REDIS_CONNECT_TIMEOUT_MS}ms`)
+        },
+      ),
+    ])
   } catch (err) {
     log.error(
       { err },
       'Could not connect to Redis instance, redis host/port configuration may be incorrect',
     )
     process.exit(1)
+  } finally {
+    redisConnectTimeout.abort()
   }
-
-  redis.on('error', err => {
-    log.error({ err }, 'redis error')
-  })
 
   try {
     await updateEmailTemplates()

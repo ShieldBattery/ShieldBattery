@@ -13,14 +13,14 @@ export async function updateLeaderboards(redis: Redis, changes: ReadonlyArray<Le
     return
   }
 
-  const pipeline = redis.pipeline()
+  const pipeline = redis.client.multi()
 
   for (const change of changes) {
     const key = leaderboardKey(change.leagueId)
-    pipeline.zadd(key, change.points, change.userId)
+    pipeline.zAdd(key, { score: change.points, value: String(change.userId) })
   }
 
-  await pipeline.exec()
+  await pipeline.execAsPipeline()
 }
 
 /**
@@ -33,6 +33,8 @@ export async function getLeaderboard(
   offset: number = 0,
 ): Promise<SbUserId[]> {
   const key = leaderboardKey(leagueId)
-  const entries = await redis.zrange(key, offset, limit !== 0 ? offset + limit - 1 : -1, 'REV')
+  const entries = await redis.client.zRange(key, offset, limit !== 0 ? offset + limit - 1 : -1, {
+    REV: true,
+  })
   return entries.map(entry => makeSbUserId(Number(entry)))
 }

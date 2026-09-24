@@ -117,7 +117,7 @@ describe('news/news-service', () => {
     userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
     publisher = new TypedPublisher(nydus)
     redisSubscriber = new FakeRedisSubscriber()
-    const redis = { get: vi.fn(async () => null) } as unknown as Redis
+    const redis = { client: { get: vi.fn(async () => null) } } as unknown as Redis
 
     service = new NewsService(
       redis,

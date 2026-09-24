@@ -59,27 +59,21 @@ export class BanEnacter {
     // to log in again and we don't need to ban check on every operation. This happens after the
     // ban is committed: if it fails partway, the checks on login and matchmaking still catch the
     // user (see the race condition note above).
-    const indexPipeline = this.redis.pipeline()
-    for (const userId of users) {
-      indexPipeline.smembers(userSessionsKey(userId))
-    }
-    const indexResults = (await indexPipeline.exec()) ?? []
+    // Commands issued in the same tick are written to Redis as a single pipeline
+    const sessionIdLists = await Promise.all(
+      users.map(userId => this.redis.client.sMembers(userSessionsKey(userId))),
+    )
 
-    const cleanupPipeline = this.redis.pipeline()
+    const cleanupPipeline = this.redis.client.multi()
     users.forEach((userId, i) => {
-      const [err, sessionIds] = indexResults[i] as [Error | null, string[] | undefined]
-      if (err) {
-        throw err
-      }
-
-      for (const sessionId of sessionIds ?? []) {
+      for (const sessionId of sessionIdLists[i]) {
         const key = sessionKey(userId, sessionId)
         this.deletedSessions.register(key)
         cleanupPipeline.del(key)
       }
       cleanupPipeline.del(userSessionsKey(userId))
     })
-    await cleanupPipeline.exec()
+    await cleanupPipeline.execAsPipeline()
 
     for (const userId of users) {
       this.userSocketsManager.getById(userId)?.closeAll()

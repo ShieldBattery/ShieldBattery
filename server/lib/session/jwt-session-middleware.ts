@@ -89,16 +89,16 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
         stayLoggedIn,
       }
 
-      await redis
-        .pipeline()
-        .setex(
+      await redis.client
+        .multi()
+        .setEx(
           sessionKey(userId, sessionData.sessionId),
           SESSION_TTL_SECONDS,
           JSON.stringify(sessionData),
         )
-        .sadd(userSessionsKey(userId), sessionData.sessionId)
+        .sAdd(userSessionsKey(userId), sessionData.sessionId)
         .expire(userSessionsKey(userId), SESSION_TTL_SECONDS)
-        .exec()
+        .execAsPipeline()
 
       ctx.state.jwtData = {
         iat: Math.floor(now / 1000),
@@ -113,7 +113,11 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
         const key = sessionKey(userId, sessionId)
 
         if (deletedSessions.register(key)) {
-          await redis.pipeline().del(key).srem(userSessionsKey(userId), sessionId).exec()
+          await redis.client
+            .multi()
+            .del(key)
+            .sRem(userSessionsKey(userId), sessionId)
+            .execAsPipeline()
         }
       }
 
@@ -124,7 +128,9 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
     if (ctx.state.jwtData) {
       // Make sure the session still exists
       const sessionExists =
-        (await redis.exists(sessionKey(ctx.state.jwtData.userId, ctx.state.jwtData.sessionId))) > 0
+        (await redis.client.exists(
+          sessionKey(ctx.state.jwtData.userId, ctx.state.jwtData.sessionId),
+        )) > 0
 
       if (sessionExists) {
         try {
@@ -152,12 +158,12 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
         try {
           // The SADD re-indexes the session on every request, so sessions created before this
           // set existed get picked up the next time they're used.
-          await redis
-            .pipeline()
+          await redis.client
+            .multi()
             .expire(sessionKey(jwtData.userId, jwtData.sessionId), SESSION_TTL_SECONDS)
-            .sadd(userSessionsKey(jwtData.userId), jwtData.sessionId)
+            .sAdd(userSessionsKey(jwtData.userId), jwtData.sessionId)
             .expire(userSessionsKey(jwtData.userId), SESSION_TTL_SECONDS)
-            .exec()
+            .execAsPipeline()
         } catch (err) {
           ctx.log.error({ err }, 'error setting session new expiration')
         }
