@@ -241,7 +241,7 @@
     "magic-string": "^1.4.1",
     "memoize-one": "^6.0.0",
     "mkdirp": "^3.0.1",
-    "motion": "^12.43.0",
+    "motion": "^13.4.0",
     "oxc-transform-react": "0.151.0",
     "oxfmt": "0.70.0",
     "oxlint": "1.85.0",
