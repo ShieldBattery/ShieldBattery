@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ALL_MATCHMAKING_TYPES,
   defaultPreferenceData,
+  getDivisionBeforeRatingChange,
   getMatchmakingTypesForFormat,
   hasVetoes,
   isSoloType,
@@ -242,6 +243,41 @@ describe('common/matchmaking', () => {
       expect(defaultPreferenceData(MatchmakingType.Match3v3Bgh)).toEqual({})
       expect(defaultPreferenceData(MatchmakingType.Match3v3Hunters)).toEqual({})
       expect(defaultPreferenceData(MatchmakingType.Match3v3Fastest)).toEqual({})
+    })
+  })
+
+  describe('getDivisionBeforeRatingChange', () => {
+    const change = {
+      matchmakingType: MatchmakingType.Match1v1,
+      points: 900,
+      pointsChange: 120,
+      lifetimeGames: 20,
+    }
+
+    it('places the points from before the change', () => {
+      // 900 after the game is Bronze 2, but the 780 going into it was still Bronze 1.
+      expect(getDivisionBeforeRatingChange(change, 0)).toBe(MatchmakingDivision.Bronze1)
+      expect(getDivisionBeforeRatingChange({ ...change, pointsChange: -20 }, 0)).toBe(
+        MatchmakingDivision.Bronze2,
+      )
+    })
+
+    it('uses the bonus pool it is given', () => {
+      expect(getDivisionBeforeRatingChange({ ...change, points: 3100 }, 0)).toBe(
+        MatchmakingDivision.Silver2,
+      )
+      expect(getDivisionBeforeRatingChange({ ...change, points: 3100 }, 2400)).toBe(
+        MatchmakingDivision.Silver1,
+      )
+    })
+
+    it('treats a player still in placements going into the game as unrated', () => {
+      expect(getDivisionBeforeRatingChange({ ...change, lifetimeGames: 5 }, 0)).toBe(
+        MatchmakingDivision.Unrated,
+      )
+      expect(getDivisionBeforeRatingChange({ ...change, lifetimeGames: 6 }, 0)).toBe(
+        MatchmakingDivision.Bronze1,
+      )
     })
   })
 })

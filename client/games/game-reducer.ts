@@ -11,6 +11,11 @@ export interface GameState {
   debugInfoById: Map<string, GameDebugInfoJson>
   /** A map of game ID -> replay info (if available and user has access). */
   replayInfoById: Map<string, GameReplayInfo>
+  /**
+   * A map of matchmaking game ID -> the season's bonus pool as of the game's start (see
+   * `GetGameResponse.rankBonusPool`).
+   */
+  rankBonusPoolById: Map<string, number>
 }
 
 const DEFAULT_STATE: ReadonlyDeep<GameState> = {
@@ -18,6 +23,7 @@ const DEFAULT_STATE: ReadonlyDeep<GameState> = {
   mmrChangesById: new Map(),
   debugInfoById: new Map(),
   replayInfoById: new Map(),
+  rankBonusPoolById: new Map(),
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -57,9 +63,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@games/getGameRecord'](state, { payload: { game, mmrChanges, replay, debugInfo } }) {
+  ['@games/getGameRecord'](
+    state,
+    { payload: { game, mmrChanges, rankBonusPool, replay, debugInfo } },
+  ) {
     state.byId.set(game.id, game)
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
+    if (rankBonusPool !== undefined) {
+      state.rankBonusPoolById.set(game.id, rankBonusPool)
+    }
     if (replay) {
       state.replayInfoById.set(replay.gameId, replay)
     }

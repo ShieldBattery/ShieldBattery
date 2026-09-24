@@ -156,6 +156,11 @@ export interface GetGameResponse {
   map: MapInfoJson | undefined
   users: SbUser[]
   mmrChanges: PublicMatchmakingRatingChangeJson[]
+  /**
+   * For a matchmaking game, the season's bonus pool as of the game's start, which places the points
+   * in `mmrChanges` into the divisions the players were in when the game was played.
+   */
+  rankBonusPool?: number
   /** Replay info for the best replay (if available and user has access). */
   replay?: GameReplayInfo
   debugInfo?: GameDebugInfoJson

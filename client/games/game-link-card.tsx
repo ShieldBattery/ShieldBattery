@@ -1,34 +1,34 @@
-import { TFunction } from 'i18next'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { GameSource } from '../../common/games/configuration'
 import { GameRecordJson, GetGameResponse, getGameTypeLabel } from '../../common/games/games'
 import { MapInfoJson } from '../../common/maps'
+import { getDivisionBeforeRatingChange, MatchmakingDivision } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { dispatch } from '../dispatch-registry'
+import { dispatch as globalDispatch } from '../dispatch-registry'
 import { longTimestamp } from '../i18n/date-formats'
 import { openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { OutlinedButton } from '../material/button'
 import {
-  getInlineCardHeight,
-  INLINE_CARD_INFO_GAP,
+  INLINE_CARD_BORDER_WIDTH,
+  INLINE_CARD_PADDING,
   INLINE_CARD_THUMBNAIL_SIZE,
+  inlineCardBase,
   InlineCardGone,
-  InlineCardInfoColumn,
   InlineCardLoading,
-  InlineCardRoot,
-  InlineCardSecondaryLine,
-  InlineCardTitle,
 } from '../messaging/inline-card'
 import { isShieldBatteryUrl } from '../navigation/external-link'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { bodySmall, singleLine } from '../styles/typography'
 import { navigateToGameResults } from './action-creators'
+import { GamePlayersDisplay } from './game-players-display'
 import { ResultsSubPage } from './results-sub-page'
 import { gameFromPath } from './route-game-id'
 
@@ -90,13 +90,6 @@ function takeGameFetchBudget(now: number): boolean {
   return true
 }
 
-/** Clears the shared fetch state and budget, so tests don't depend on each other. */
-export function resetGameLinkFetchesForTesting() {
-  gameLinkFetches.clear()
-  budgetWindowStart = 0
-  budgetUsed = 0
-}
-
 /**
  * Loads a game into the Redux store for a game link card, resolving to why it couldn't be, or
  * undefined once it has been. Every card for the same game shares one fetch. A 404 stays cached,
@@ -118,7 +111,7 @@ function loadGameForLink(gameId: string): Promise<GameLinkFailure | undefined> {
   const promise = fetchJson<GetGameResponse>(apiUrl`games/${gameId}`).then(
     (payload): GameLinkFailure | undefined => {
       gameLinkFetches.delete(gameId)
-      dispatch({ type: '@games/getGameRecord', payload })
+      globalDispatch({ type: '@games/getGameRecord', payload })
       return undefined
     },
     (err): GameLinkFailure => {
@@ -142,14 +135,17 @@ export type GameLinkLoadState =
       status: 'loaded'
       game: ReadonlyDeep<GameRecordJson>
       map: ReadonlyDeep<MapInfoJson> | undefined
+      /** For a matchmaking game, the division each player was in going into it. */
+      divisionById: ReadonlyMap<SbUserId, MatchmakingDivision> | undefined
     }
   | { status: 'notFound' }
   | { status: 'error' }
 
 /**
  * Reads a linked game from the Redux store, fetching it (see {@link loadGameForLink}) only when the
- * store doesn't already hold the game and its players, e.g. from the viewer's match history or an
- * earlier card. Returns undefined while that fetch is in flight.
+ * store doesn't already hold everything the card shows: the game, its players, and for a
+ * matchmaking game the bonus pool its ranks are placed with (which only a single-game fetch
+ * loads). Returns undefined while that fetch is in flight.
  */
 function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
   const game = useAppSelector(s => s.games.byId.get(gameId))
@@ -159,13 +155,17 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
       game !== undefined &&
       game.config.teams.flat().every(p => p.isComputer || s.users.byId.has(p.id)),
   )
-  // How this card's own fetch ended. A successful fetch counts as loaded even if some player is
-  // still unknown afterwards (e.g. a since-deleted account), so the card never waits on a user the
-  // server didn't return.
+  const mmrChanges = useAppSelector(s => s.games.mmrChangesById.get(gameId))
+  const rankBonusPool = useAppSelector(s => s.games.rankBonusPoolById.get(gameId))
+  const isRanked = game?.config.gameSource === GameSource.Matchmaking
+  const detailsKnown = playersKnown && (!isRanked || rankBonusPool !== undefined)
+  // How this card's own fetch ended. A successful fetch counts as loaded even if some detail is
+  // still missing afterwards (e.g. a since-deleted account), so the card never waits on something
+  // the server didn't return.
   const [settled, setSettled] = useState<{ gameId: string; failure: GameLinkFailure | undefined }>()
 
   useEffect(() => {
-    if (playersKnown) {
+    if (detailsKnown) {
       return undefined
     }
 
@@ -183,11 +183,21 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
     return () => {
       canceled = true
     }
-  }, [gameId, playersKnown])
+  }, [gameId, detailsKnown])
 
   const ownResult = settled?.gameId === gameId ? settled : undefined
-  if (game && (playersKnown || (ownResult && !ownResult.failure))) {
-    return { status: 'loaded', game, map }
+  if (game && (detailsKnown || (ownResult && !ownResult.failure))) {
+    const divisionById =
+      isRanked && mmrChanges && rankBonusPool !== undefined
+        ? new Map(
+            Array.from(
+              mmrChanges.values(),
+              change =>
+                [change.userId, getDivisionBeforeRatingChange(change, rankBonusPool)] as const,
+            ),
+          )
+        : undefined
+    return { status: 'loaded', game, map, divisionById }
   }
   if (ownResult?.failure === 'notFound') {
     return { status: 'notFound' }
@@ -195,14 +205,63 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
   return ownResult?.failure === 'error' ? { status: 'error' } : undefined
 }
 
-// The info column stacks 3 rows (players, game type/map, start time) separated by the shared info
-// gap; their combined height comes straight from the typography tokens those rows render with
-// (`titleSmall`/`bodySmall`'s `line-height`, see client/styles/typography.ts).
-const PLAYERS_LINE_HEIGHT = 20 // titleSmall
-const SECONDARY_LINE_HEIGHT = 16 // bodySmall
-const INFO_STACK_HEIGHT = PLAYERS_LINE_HEIGHT + SECONDARY_LINE_HEIGHT * 2 + INLINE_CARD_INFO_GAP * 2
+const CARD_GAP = 8
+const HEADER_LINE_HEIGHT = 16 // bodySmall
+// Row metrics of `PlayerTeamsDisplay` (client/games/player-teams-display.tsx).
+const ROSTER_ROW_HEIGHT = 20
+const ROSTER_ROW_GAP = 8
+const VIEW_BUTTON_HEIGHT = 40
+/**
+ * The most rows a roster renders: a game holds at most 8 players, which the roster lays out in at
+ * most two columns.
+ */
+const MAX_ROSTER_ROWS = 4
 
-const CARD_HEIGHT = getInlineCardHeight(INFO_STACK_HEIGHT)
+/**
+ * Returns the height a card renders at for a roster of `rows` rows: the header line over whichever
+ * is taller of the map thumbnail or the roster with the view button under it, plus the card's own
+ * padding and border. The loading placeholder reserves the tallest roster, so a loaded card only
+ * ever keeps or shrinks the space its placeholder took.
+ */
+function getCardHeight(rows: number): number {
+  const rosterHeight = rows * ROSTER_ROW_HEIGHT + (rows - 1) * ROSTER_ROW_GAP
+  const bodyHeight = Math.max(
+    INLINE_CARD_THUMBNAIL_SIZE,
+    rosterHeight + CARD_GAP + VIEW_BUTTON_HEIGHT,
+  )
+  return (
+    HEADER_LINE_HEIGHT +
+    CARD_GAP +
+    bodyHeight +
+    INLINE_CARD_PADDING * 2 +
+    INLINE_CARD_BORDER_WIDTH * 2
+  )
+}
+
+const GameCardRoot = styled.div<{ $height: number }>`
+  ${inlineCardBase};
+  height: ${props => props.$height}px;
+  padding: ${INLINE_CARD_PADDING}px;
+
+  display: flex;
+  flex-direction: column;
+  gap: ${CARD_GAP}px;
+`
+
+const Header = styled.div`
+  ${bodySmall};
+  ${singleLine};
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+`
+
+const Body = styled.div`
+  min-height: 0;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+`
 
 const ThumbnailContainer = styled.div`
   flex-shrink: 0;
@@ -214,60 +273,44 @@ const ThumbnailContainer = styled.div`
   overflow: hidden;
 `
 
-// A long players line gives the info column a large flex basis that would otherwise shrink the
-// button past its label; the players line is the one that truncates instead.
-const ViewButton = styled(OutlinedButton)`
-  flex-shrink: 0;
+const RosterColumn = styled.div`
+  min-width: 0;
+  flex-grow: 1;
+
+  display: flex;
+  flex-direction: column;
+  gap: ${CARD_GAP}px;
 `
 
-/**
- * Names a game's players, team by team: `A vs B` for a 1v1, `A, B vs C, D` for teams.
- */
-function getPlayersText(
-  game: ReadonlyDeep<GameRecordJson>,
-  usersById: ReadonlyMap<SbUserId, { name: string }>,
-  t: TFunction,
-): string {
-  const separator = ` ${t('game.filters.vs', 'vs')} `
-  return game.config.teams
-    .map(team =>
-      team
-        .map(p =>
-          p.isComputer
-            ? t('game.playerName.computer', 'Computer')
-            : (usersById.get(p.id)?.name ?? ''),
-        )
-        .join(', '),
-    )
-    .join(separator)
-}
+const ViewButton = styled(OutlinedButton)`
+  align-self: flex-end;
+`
 
 /**
  * The presentational part of {@link GameLinkCard}: renders the loading/notFound/error/loaded states
  * without fetching anything itself.
  *
- * The card deliberately leaves out the game's outcome and length: a link is often shared so that
- * someone can go watch the game, and either would spoil it for them.
+ * The card deliberately leaves out the game's outcome and length (and each player's points change):
+ * a link is often shared so that someone can go watch the game, and any of those would spoil it.
+ * The ranks shown are the ones players had going into the game, which give nothing away.
  *
- * The loading state renders a placeholder sized to match the loaded card so the message it's
- * attached to doesn't grow again once the game arrives. The error state renders nothing: the inline
- * link in the message text still works, and shrinking away is safe (only growth breaks the message
+ * The loading state renders a placeholder sized for the largest roster, so the message it's
+ * attached to never grows once the game arrives. The error state renders nothing: the inline link
+ * in the message text still works, and shrinking away is safe (only growth breaks the message
  * list's autoscroll).
  */
 export function GameLinkCardContent({
   state,
-  usersById,
   onViewClick,
 }: {
   state: GameLinkLoadState | undefined
-  usersById: ReadonlyMap<SbUserId, { name: string }>
   onViewClick: () => void
 }) {
   const { t } = useTranslation()
-  const reduxDispatch = useAppDispatch()
+  const dispatch = useAppDispatch()
 
   if (!state) {
-    return <InlineCardLoading $height={CARD_HEIGHT} aria-hidden={true} />
+    return <InlineCardLoading $height={getCardHeight(MAX_ROSTER_ROWS)} aria-hidden={true} />
   }
 
   if (state.status === 'error') {
@@ -280,50 +323,53 @@ export function GameLinkCardContent({
     )
   }
 
-  const { game, map } = state
-  const playersText = getPlayersText(game, usersById, t)
+  const { game, map, divisionById } = state
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
-  const gameTypeAndMap = `${getGameTypeLabel(game, t)} · ${mapName}`
-  const startTime = longTimestamp.format(game.startTime)
+  const header = [getGameTypeLabel(game, t), mapName, longTimestamp.format(game.startTime)].join(
+    ' · ',
+  )
+  // The roster deals players into at most two columns, so its longest column holds half of them.
+  const playerCount = game.config.teams.reduce((count, team) => count + team.length, 0)
+  const rows = Math.min(MAX_ROSTER_ROWS, Math.max(1, Math.ceil(playerCount / 2)))
 
   return (
-    <InlineCardRoot $height={CARD_HEIGHT}>
-      <ThumbnailContainer>
-        {map ? (
-          <MapThumbnail
-            map={map}
-            size={INLINE_CARD_THUMBNAIL_SIZE}
-            forceAspectRatio={1}
-            onPreview={() => reduxDispatch(openMapPreviewDialog(map.id))}
+    <GameCardRoot $height={getCardHeight(rows)}>
+      <Header title={header}>{header}</Header>
+      <Body>
+        <ThumbnailContainer>
+          {map ? (
+            <MapThumbnail
+              map={map}
+              size={INLINE_CARD_THUMBNAIL_SIZE}
+              forceAspectRatio={1}
+              onPreview={() => dispatch(openMapPreviewDialog(map.id))}
+            />
+          ) : null}
+        </ThumbnailContainer>
+        <RosterColumn>
+          <GamePlayersDisplay game={game} showTeamLabels={false} divisionById={divisionById} />
+          <ViewButton
+            label={t('games.linkCard.view', 'View game')}
+            onClick={onViewClick}
+            testName='game-link-card-view-button'
           />
-        ) : null}
-      </ThumbnailContainer>
-      <InlineCardInfoColumn>
-        <InlineCardTitle title={playersText}>{playersText}</InlineCardTitle>
-        <InlineCardSecondaryLine title={gameTypeAndMap}>{gameTypeAndMap}</InlineCardSecondaryLine>
-        <InlineCardSecondaryLine title={startTime}>{startTime}</InlineCardSecondaryLine>
-      </InlineCardInfoColumn>
-      <ViewButton
-        label={t('games.linkCard.view', 'View game')}
-        onClick={onViewClick}
-        testName='game-link-card-view-button'
-      />
-    </InlineCardRoot>
+        </RosterColumn>
+      </Body>
+    </GameCardRoot>
   )
 }
 
 /**
- * A rich preview for a game results link posted in chat: the game's map, players, type, and start
- * time, with a button to open its results page (on the tab the link points at).
+ * A rich preview for a game results link posted in chat: the game's type, map and start time, and
+ * its players with the ranks they had going into it, with a button to open its results page (on
+ * the tab the link points at).
  */
 export function GameLinkCard({ target }: { target: GameLinkTarget }) {
   const state = useGameLinkState(target.gameId)
-  const usersById = useAppSelector(s => s.users.byId)
 
   return (
     <GameLinkCardContent
       state={state}
-      usersById={usersById}
       onViewClick={() => navigateToGameResults(target.gameId, false, target.subPage)}
     />
   )

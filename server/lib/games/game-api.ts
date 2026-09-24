@@ -5,6 +5,7 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { GameSource } from '../../../common/games/configuration'
 import { decodeMatchup } from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
 import { GameType } from '../../../common/games/game-type'
@@ -32,7 +33,7 @@ import {
   SubmitGameReplayRequest,
 } from '../../../common/games/results'
 import { toMapInfoJson } from '../../../common/maps'
-import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
+import { getTotalBonusPool, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { parseReplay } from '../../workers/replays/replays'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
@@ -40,6 +41,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
+import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -238,6 +240,7 @@ export class GameApi {
     private netcodeV2Service: NetcodeV2Service,
     private activityStatusService: ActivityStatusService,
     private gameLifecycleEvents: GameLifecycleEvents,
+    private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -366,10 +369,17 @@ export class GameApi {
     const usersToRetrieve = game.config.teams.flatMap(t =>
       t.filter(p => !p.isComputer).map(p => p.id),
     )
-    const [mapArray, users, mmrChanges] = await Promise.all([
+    const [mapArray, users, mmrChanges, rankBonusPool] = await Promise.all([
       getMapInfos([game.mapId]),
       findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
+      game.config.gameSource === GameSource.Matchmaking
+        ? this.matchmakingSeasonsService
+            .getSeasonForDate(game.startTime)
+            .then(([season, seasonEnd]) =>
+              getTotalBonusPool(game.startTime, season.startDate, seasonEnd),
+            )
+        : undefined,
     ])
 
     const mapName = mapArray[0]?.name ?? 'Unknown Map'
@@ -452,6 +462,7 @@ export class GameApi {
       map: mapArray.length ? toMapInfoJson(mapArray[0]) : undefined,
       users: Array.from(users.values()),
       mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+      rankBonusPool,
       replay,
       debugInfo: debugInfo ? toGameDebugInfoJson(debugInfo) : undefined,
     }
