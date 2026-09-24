@@ -576,12 +576,20 @@ struct HarnessFile {
 /// the game thread exists.
 pub fn init_from_env() {
     if let Ok(spec) = std::env::var(DUMP_ENV_VAR) {
-        match spec.parse::<u32>() {
-            Ok(frame) if frame > 0 => {
-                DUMP_FRAME.store(frame, Ordering::Release);
-                info!("{DUMP_ENV_VAR}: dumping the snapshot ranges at frame {frame}");
+        match parse_frame_list(&spec) {
+            Some(frames) if !frames.is_empty() => {
+                info!(
+                    "{DUMP_ENV_VAR}: dumping the snapshot ranges at {} frames, {}..={}",
+                    frames.len(),
+                    frames[0],
+                    frames[frames.len() - 1],
+                );
+                *DUMP_FRAMES.lock() = frames;
+                DUMP_ARMED.store(true, Ordering::Release);
             }
-            _ => error!("{DUMP_ENV_VAR}={spec:?} is not a frame number; ignoring it"),
+            _ => error!(
+                "{DUMP_ENV_VAR}={spec:?} is not a comma-separated list of frames or                  <first>-<last>[/<step>] ranges; ignoring it"
+            ),
         }
     }
     let Ok(spec) = std::env::var(ENV_VAR) else {
@@ -797,24 +805,66 @@ impl TriggerLists {
     }
 }
 
-/// Environment variable naming a frame at which to write every snapshot range out, with or without
+/// Environment variable naming frames at which to write every snapshot range out, with or without
 /// the harness armed: with it, from the confirmed step that produces the frame for the last time;
 /// without it, from plain playback. Diffing the two dumps (pointers translated into range offsets)
-/// shows what synced state a harness run has wrong before a fingerprint notices.
+/// shows what synced state a harness run has wrong before a fingerprint notices. Takes a
+/// comma-separated list of frames and `<first>-<last>[/<step>]` ranges, so one run can bisect
+/// toward the first frame the two disagree on: `500-9500/500`, then a finer range between the
+/// last matching dump and the first differing one.
 const DUMP_ENV_VAR: &str = "SB_ROLLBACK_DUMP_FRAME";
 
-/// The frame [`DUMP_ENV_VAR`] names, or 0 when no dump was asked for.
-static DUMP_FRAME: AtomicU32 = AtomicU32::new(0);
+/// The frames [`DUMP_ENV_VAR`] names that have not been dumped yet, ascending.
+static DUMP_FRAMES: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+
+/// Whether [`DUMP_ENV_VAR`] asked for any dumps, so a step can check without taking the lock.
+static DUMP_ARMED: AtomicBool = AtomicBool::new(false);
+
+/// Parses a [`DUMP_ENV_VAR`] value into ascending, deduplicated frames, or `None` if any entry is
+/// malformed.
+fn parse_frame_list(spec: &str) -> Option<Vec<u32>> {
+    let mut frames = Vec::new();
+    for entry in spec.split(',').map(|x| x.trim()).filter(|x| !x.is_empty()) {
+        match entry.split_once('-') {
+            None => frames.push(entry.parse::<u32>().ok()?),
+            Some((first, rest)) => {
+                let (last, step) = match rest.split_once('/') {
+                    Some((last, step)) => (last, step.parse::<u32>().ok()?),
+                    None => (rest, 1),
+                };
+                let (first, last) = (first.parse::<u32>().ok()?, last.parse::<u32>().ok()?);
+                if step == 0 || first > last {
+                    return None;
+                }
+                frames.extend((first..=last).step_by(step as usize));
+            }
+        }
+    }
+    frames.retain(|&x| x > 0);
+    frames.sort_unstable();
+    frames.dedup();
+    Some(frames)
+}
 
 /// Writes the snapshot ranges to `rollback-dump-<frame>-<pid>.bin`, with their layout in a `.csv`
-/// beside it, once the simulation is on the frame [`DUMP_ENV_VAR`] names.
+/// beside it, when the simulation is on one of the frames [`DUMP_ENV_VAR`] names.
 unsafe fn dump_if_due(bw: &BwScr) {
     unsafe {
-        let target = DUMP_FRAME.load(Ordering::Relaxed);
-        if target == 0 || bw.probe_frame_count() != Some(target) {
+        if !DUMP_ARMED.load(Ordering::Relaxed) {
             return;
         }
-        DUMP_FRAME.store(0, Ordering::Relaxed);
+        let Some(target) = bw.probe_frame_count() else {
+            return;
+        };
+        {
+            let mut frames = DUMP_FRAMES.lock();
+            match frames.binary_search(&target) {
+                Ok(index) => {
+                    frames.remove(index);
+                }
+                Err(_) => return,
+            }
+        }
         let Some(layout) = Harness::build(bw) else {
             error!("{DUMP_ENV_VAR}: could not lay out the snapshot ranges");
             return;
@@ -1307,7 +1357,7 @@ pub fn analyze_ranges(
     // Most of these need an analysis pass nothing else in the game asks for, which adds up to a
     // noticeable part of launch time, so a run that will neither roll anything back nor dump the
     // ranges does not pay for them.
-    if ROLLBACK_FRAMES.load(Ordering::Acquire) == 0 && DUMP_FRAME.load(Ordering::Acquire) == 0 {
+    if ROLLBACK_FRAMES.load(Ordering::Acquire) == 0 && !DUMP_ARMED.load(Ordering::Acquire) {
         return Vec::new();
     }
     let word = size_of::<usize>();
