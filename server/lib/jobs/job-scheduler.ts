@@ -1,4 +1,4 @@
-import { exponentialBuckets, Histogram } from 'prom-client'
+import { exponentialBuckets, Histogram } from '@prometheus-io/client'
 import { singleton } from 'tsyringe'
 import logger from '../logging/logger'
 import { Clock } from '../time/clock'

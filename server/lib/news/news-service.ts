@@ -110,7 +110,7 @@ export class NewsService {
 
   async getUrgentMessage(): Promise<UrgentMessage | undefined> {
     try {
-      const message = await this.redis.get(REDIS_KEY)
+      const message = await this.redis.client.get(REDIS_KEY)
       if (message) {
         return JSON.parse(message)
       }

@@ -6,7 +6,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import { graphql } from '../../gql'
+import { graphql, useFragment } from '../../gql'
 import { AdminUserProfile_PermissionsFragment } from '../../gql/graphql'
 import { logger } from '../../logging/logger'
 import { TextButton } from '../../material/button'
@@ -72,11 +72,6 @@ const AdminUserProfileQuery = graphql(/* GraphQL */ `
   }
 `)
 
-// This fragment is spread by both the query and mutation below, so it must stay defined for
-// codegen. It isn't consumed via useFragment because client-preset v6 inlines the query's
-// conditional (@include) spread directly onto `user` rather than masking it (see
-// AdminPermissionsPage), which leaves this binding unreferenced.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PermissionsFragment = graphql(/* GraphQL */ `
   fragment AdminUserProfile_Permissions on SbUser {
     id
@@ -126,14 +121,12 @@ export function AdminPermissionsPage({ user }: AdminPermissionsPageProps) {
       includePermissions: !!selfPermissions?.editPermissions,
     },
   })
-  const userData = data?.user
+  const userData = useFragment(PermissionsFragment, data?.user)
 
   if (!selfPermissions?.editPermissions) {
     return <LoadingError>Access denied.</LoadingError>
   }
 
-  // The `...AdminUserProfile_Permissions` spread is conditional (`@include`), which client-preset
-  // v6 inlines onto `user`, so we read `permissions` directly rather than unmasking it.
   if (!userData?.permissions) {
     return <LoadingDotsArea />
   }

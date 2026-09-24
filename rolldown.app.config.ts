@@ -1,6 +1,6 @@
-import dotenv from 'dotenv'
 import path from 'node:path'
 import { defineConfig, type OutputOptions, type RolldownOptions } from 'rolldown'
+import { readEnvFile } from './build-plugins/env-file'
 import { nativeAddons } from './build-plugins/native-addons'
 import { securityImpl } from './build-plugins/security-impl'
 import { sidecarAssets } from './build-plugins/sidecar-assets'
@@ -27,8 +27,7 @@ const isProd = process.env.NODE_ENV !== 'development'
  * Build-only settings, read into a scratch object rather than `process.env`: these belong to the
  * build, not to the process running it.
  */
-const buildEnv: Record<string, string> = {}
-dotenv.config({ path: path.join(ROOT, '.env-build'), processEnv: buildEnv, quiet: true })
+const buildEnv = readEnvFile(path.join(ROOT, '.env-build'))
 
 const analyticsId = process.env.SB_ANALYTICS_ID ?? buildEnv.SB_ANALYTICS_ID ?? ''
 const securityImplPath =

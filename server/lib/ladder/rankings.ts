@@ -20,18 +20,18 @@ export async function updateRankings(redis: Redis, changes: ReadonlyArray<Matchm
     return
   }
 
-  const pipeline = redis.pipeline()
+  const pipeline = redis.client.multi()
   const locks = new Set<Promise<void>>()
 
   for (const change of changes) {
     const key = rankingsKey(change.matchmakingType, change.seasonId)
-    pipeline.zadd(key, change.points, change.userId)
+    pipeline.zAdd(key, { score: change.points, value: String(change.userId) })
     locks.add(rankingsUpdateLocks.get(change.matchmakingType)!)
   }
 
   await Promise.all(locks)
 
-  await pipeline.exec()
+  await pipeline.execAsPipeline()
 }
 
 /**
@@ -45,7 +45,7 @@ export async function seasonNeedsFullRankingsUpdate(
   season: SeasonId,
 ): Promise<boolean> {
   const key = rankingsKey(type, season)
-  const exists = await redis.exists(key)
+  const exists = await redis.client.exists(key)
   return !exists
 }
 
@@ -61,14 +61,14 @@ export async function doFullRankingsUpdate(
       .then(async () => {
         await lock
         const ratings = await getAllSeasonMatchmakingRatings(type, season)
-        const pipeline = redis.pipeline()
+        const pipeline = redis.client.multi()
 
         const key = rankingsKey(type, season)
         for (const rating of ratings) {
-          pipeline.zadd(key, rating.points, rating.userId)
+          pipeline.zAdd(key, { score: rating.points, value: String(rating.userId) })
         }
 
-        await pipeline.exec()
+        await pipeline.execAsPipeline()
       })
       .catch(err => {
         logger.error({ err }, `error doing full rankings update for ${type}:${season}`)
@@ -89,7 +89,9 @@ export async function getRankings(
   offset: number = 0,
 ): Promise<SbUserId[]> {
   const key = rankingsKey(matchmakingType, seasonId)
-  const entries = await redis.zrange(key, offset, limit !== 0 ? offset + limit - 1 : -1, 'REV')
+  const entries = await redis.client.zRange(key, offset, limit !== 0 ? offset + limit - 1 : -1, {
+    REV: true,
+  })
   return entries.map(entry => makeSbUserId(Number(entry)))
 }
 
@@ -102,22 +104,19 @@ export async function getRankingsForUser(
   userId: SbUserId,
   seasonId: SeasonId,
 ): Promise<Map<MatchmakingType, number>> {
-  const result = new Map<MatchmakingType, number>()
+  // Commands issued in the same tick are written to Redis as a single pipeline
+  const ranks = await Promise.all(
+    ALL_MATCHMAKING_TYPES.map(type =>
+      redis.client.zRevRank(rankingsKey(type, seasonId), String(userId)),
+    ),
+  )
 
-  await new Promise<void>((resolve, reject) => {
-    const pipeline = redis.pipeline()
-    for (const type of ALL_MATCHMAKING_TYPES) {
-      pipeline.zrevrank(rankingsKey(type, seasonId), userId, (err, rank) => {
-        if (err) {
-          reject(err)
-          return
-        }
-        if (rank !== null && rank !== undefined) {
-          result.set(type, rank + 1)
-        }
-      })
+  const result = new Map<MatchmakingType, number>()
+  ALL_MATCHMAKING_TYPES.forEach((type, i) => {
+    const rank = ranks[i]
+    if (rank !== null) {
+      result.set(type, rank + 1)
     }
-    pipeline.exec().then(() => resolve(), reject)
   })
 
   return result

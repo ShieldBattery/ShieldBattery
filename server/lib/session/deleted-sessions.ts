@@ -20,7 +20,7 @@ export class DeletedSessionRegistry {
       this.deletedSessions.add(sessionKey)
       setTimeout(() => {
         // Re-delete the key later just in case things interleaved such that it got refreshed
-        this.redis.del(sessionKey).catch(swallowNonBuiltins)
+        this.redis.client.del(sessionKey).catch(swallowNonBuiltins)
         this.deletedSessions.delete(sessionKey)
       }, 60 * 1000)
 

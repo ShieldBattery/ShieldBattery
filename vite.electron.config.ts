@@ -1,7 +1,6 @@
-import dotenv from 'dotenv'
-import { expand } from 'dotenv-expand'
 import { resolve } from 'node:path'
 import { defineConfig, type UserConfig } from 'vite'
+import { readEnvFile } from './build-plugins/env-file'
 import {
   ASSET_NAMING,
   NONCE_TOKEN,
@@ -54,9 +53,7 @@ function resolveServerUrl(isProd: boolean): string {
 
   // Read into a scratch object rather than `process.env`: this is the bundler's environment, and
   // the server config has no business in it.
-  const parsed: Record<string, string> = {}
-  expand(dotenv.config({ path: resolve(ROOT, '.env'), processEnv: parsed, quiet: true }))
-  return parsed.SB_CANONICAL_HOST || 'http://localhost:5555'
+  return readEnvFile(resolve(ROOT, '.env')).SB_CANONICAL_HOST || 'http://localhost:5555'
 }
 
 export default defineConfig(({ command, mode }): UserConfig => {

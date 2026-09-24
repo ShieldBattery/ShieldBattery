@@ -1,5 +1,5 @@
+import { Counter } from '@prometheus-io/client'
 import { Map as IMap, Set as ISet, Record } from 'immutable'
-import { Counter } from 'prom-client'
 import { singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'

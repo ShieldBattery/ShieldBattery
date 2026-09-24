@@ -91,7 +91,7 @@ export class UserService {
     cacheBehavior = CacheBehavior.AllowCached,
   ): Promise<SelfUserInfo> {
     if (cacheBehavior === CacheBehavior.AllowCached) {
-      const cachedStr = await this.redis.get(userDataKey(userId))
+      const cachedStr = await this.redis.client.get(userDataKey(userId))
       if (cachedStr) {
         const cached = JSON.parse(cachedStr)
         return { user: fromSelfUserJson(cached.user), permissions: cached.permissions }
@@ -107,7 +107,7 @@ export class UserService {
     // here so it can deserialize things properly.
     const result = { user, permissions: { id: user.id, ...permissions } }
     const json = JSON.stringify({ user: toSelfUserJson(user), permissions: result.permissions })
-    await this.redis.setex(userDataKey(userId), USER_CACHE_TIME_SECONDS, json)
+    await this.redis.client.setEx(userDataKey(userId), USER_CACHE_TIME_SECONDS, json)
 
     return result
   }

@@ -1,5 +1,5 @@
+import promClient from '@prometheus-io/client'
 import Koa from 'koa'
-import promClient from 'prom-client'
 import { getDbPoolStats } from '../db'
 
 function getMicroseconds() {

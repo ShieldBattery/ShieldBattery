@@ -6,11 +6,14 @@
 // entry's first import actually holds.
 import 'core-js/proposals/reflect-metadata'
 
-import dotenv from 'dotenv'
-import dotenvExpand from 'dotenv-expand'
-
-// Loads `.env` (with variable expansion) into `process.env`. This module must be the server
-// entry's first import so that every other module sees the resulting environment at load time --
-// several read `process.env` while initializing. Deployed environments generally have no `.env`
-// file and configure the environment directly, which dotenv treats as a quiet no-op.
-dotenvExpand.expand(dotenv.config({ quiet: true }))
+// Loads `.env` into `process.env`, without overriding variables the environment already sets. This
+// module must be the server entry's first import so that every other module sees the resulting
+// environment at load time -- several read `process.env` while initializing. Deployed environments
+// generally have no `.env` file and configure the environment directly, so a missing file is fine.
+try {
+  process.loadEnvFile()
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+    throw err
+  }
+}

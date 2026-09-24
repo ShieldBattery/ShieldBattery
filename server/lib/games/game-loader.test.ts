@@ -1,4 +1,4 @@
-import { register } from 'prom-client'
+import { register } from '@prometheus-io/client'
 import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'

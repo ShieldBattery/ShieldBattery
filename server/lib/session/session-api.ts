@@ -1,6 +1,6 @@
 import { RouterContext } from '@koa/router'
+import { Counter } from '@prometheus-io/client'
 import Joi from 'joi'
-import { Counter } from 'prom-client'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {

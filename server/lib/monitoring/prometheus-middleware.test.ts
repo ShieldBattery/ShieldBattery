@@ -1,4 +1,4 @@
-import { register } from 'prom-client'
+import { register } from '@prometheus-io/client'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { getDbPoolStats } from '../db'
