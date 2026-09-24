@@ -974,26 +974,8 @@ export type AdminUserProfileQueryVariables = Exact<{
 export type AdminUserProfileQuery = {
   user:
     | ({ id: Types.SbUserId } & {
-        id?: Types.SbUserId
-        permissions?: {
-          id: Types.SbUserId
-          editPermissions: boolean
-          debug: boolean
-          banUsers: boolean
-          manageLeagues: boolean
-          manageMaps: boolean
-          manageMapPools: boolean
-          manageMatchmaking: boolean
-          manageMatchmakingTimes: boolean
-          manageMatchmakingSeasons: boolean
-          massDeleteMaps: boolean
-          moderateChatChannels: boolean
-          manageNews: boolean
-          manageBugReports: boolean
-          manageGameReports: boolean
-          manageRestrictedNames: boolean
-          manageSignupCodes: boolean
-          manageLiveStreams: boolean
+        ' $fragmentRefs'?: {
+          AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
         }
       })
     | null
