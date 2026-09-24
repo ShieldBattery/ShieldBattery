@@ -209,7 +209,7 @@
     "concat-stream": "^2.0.0",
     "d3-time-format": "^4.1.0",
     "dedent": "^1.7.2",
-    "electron": "^43.7.1",
+    "electron": "^44.4.1",
     "electron-builder": "^26.16.1",
     "electron-is-dev": "^3.0.1",
     "engine.io": "^6.6.10",
