@@ -6,7 +6,6 @@ import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameType } from '../../common/games/game-type'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledPlayerResult } from '../../common/games/results'
-import { MatchmakingDivision } from '../../common/matchmaking'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
@@ -139,7 +138,6 @@ export function GamePlayersDisplay({
   showTeamLabels = true,
   showPlayerResults = false,
   interactiveNames = false,
-  divisionById,
   className,
 }: {
   game: ReadonlyDeep<GameRecordJson>
@@ -157,8 +155,6 @@ export function GamePlayersDisplay({
    * Computer opponents always render as plain text.
    */
   interactiveNames?: boolean
-  /** Divisions to show as rank icons beside the players they belong to. */
-  divisionById?: ReadonlyMap<SbUserId, MatchmakingDivision>
   className?: string
 }) {
   const { t } = useTranslation()
@@ -185,7 +181,6 @@ export function GamePlayersDisplay({
         : (nameById.get(player.id) ?? t('game.playerName.unknown', 'Unknown player')),
       userId: interactiveNames && !player.isComputer ? player.id : undefined,
       result: showPlayerResults ? playerResult?.result : undefined,
-      division: player.isComputer ? undefined : divisionById?.get(player.id),
     }
   }
 

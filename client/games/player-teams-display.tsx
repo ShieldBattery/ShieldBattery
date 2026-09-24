@@ -1,11 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getResultLabel, getResultShortLabel, ReconciledResult } from '../../common/games/results'
-import { MatchmakingDivision } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { RaceIcon } from '../lobbies/race-icon'
-import { DivisionIcon } from '../matchmaking/rank-icon'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { PlayerResultChip } from './result-chip'
@@ -87,13 +85,6 @@ const PlayerRandomIcon = styled(RaceIcon)`
   }
 `
 
-const PlayerDivisionIcon = styled(DivisionIcon)`
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  margin-right: 4px;
-`
-
 interface PlayerRaceProps {
   race: RaceChar
   isRandom: boolean
@@ -130,8 +121,6 @@ export interface PlayerTeamsDisplayPlayer {
    * win/loss/draw marker ahead of the race icon.
    */
   result?: ReconciledResult
-  /** The player's matchmaking division, rendered as a rank icon ahead of the race icon. */
-  division?: MatchmakingDivision
 }
 
 /**
@@ -168,9 +157,6 @@ export function PlayerTeamsDisplay({
                     title={getResultLabel(player.result, t)}>
                     {getResultShortLabel(player.result, t)}
                   </PlayerResultChip>
-                ) : null}
-                {player.division !== undefined ? (
-                  <PlayerDivisionIcon division={player.division} size={20} />
                 ) : null}
                 <PlayerRace race={player.race} isRandom={player.isRandom} />
                 {player.userId !== undefined ? (

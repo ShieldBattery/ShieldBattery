@@ -1087,6 +1087,7 @@
     "results": {
       "draw": "Draw",
       "drawShort": "D",
+      "hidden": "Result hidden",
       "loss": "Loss",
       "lossShort": "L",
       "unknown": "Unknown",
@@ -1265,6 +1266,9 @@
       "yesterday": "Yesterday"
     },
     "linkCard": {
+      "hideResults": "Hide results",
+      "showResults": "Show results",
+      "versus": "vs",
       "view": "View game"
     },
     "list": {
