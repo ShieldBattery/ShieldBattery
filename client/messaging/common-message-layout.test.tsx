@@ -7,6 +7,7 @@ import { encodePrettyId } from '../../common/pretty-id'
 import { RolledOutcome } from '../../common/rolled-outcomes'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
+import { gameFromMessageLink, GameLinkTarget } from '../games/game-link-card'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
 import { TextMessage } from './common-message-layout'
 
@@ -29,9 +30,21 @@ vi.mock('../lobbies/lobby-invite-card', async importOriginal => {
   }
 })
 
+vi.mock('../games/game-link-card', async importOriginal => {
+  const actual = await importOriginal<typeof import('../games/game-link-card')>()
+  return {
+    ...actual,
+    GameLinkCard: ({ target }: { target: GameLinkTarget }) => (
+      <div data-testid='game-link-card'>{`${target.gameId} ${target.subPage ?? ''}`}</div>
+    ),
+  }
+})
+
 const selfUserId = makeSbUserId(1)
 const userId = makeSbUserId(2)
 const LOBBY_ID = encodePrettyId('5eed0000-0000-0000-0000-000000000042')
+const GAME_ID = '9a3e0000-0000-0000-0000-000000000077'
+const ROUTE_GAME_ID = encodePrettyId(GAME_ID)
 
 describe('client/messaging/common-message-layout/TextMessage', () => {
   beforeEach(() => {
@@ -219,6 +232,63 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       time: -(LOBBY_INVITE_CARD_MAX_AGE_MS + 1),
     })
     expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
+  })
+
+  describe('game links', () => {
+    test('a game results link resolves to its game and tab', () => {
+      expect(
+        gameFromMessageLink(`https://shieldbattery.net/games/${ROUTE_GAME_ID}/build-orders`),
+      ).toEqual({ gameId: GAME_ID, subPage: 'build-orders' })
+      expect(gameFromMessageLink(`https://shieldbattery.net/games/${ROUTE_GAME_ID}`)).toEqual({
+        gameId: GAME_ID,
+        subPage: undefined,
+      })
+    })
+
+    test('non-game ShieldBattery paths resolve to no game', () => {
+      expect(gameFromMessageLink('https://shieldbattery.net/games/')).toBeUndefined()
+      expect(gameFromMessageLink('https://shieldbattery.net/games/not-a-game-id')).toBeUndefined()
+      expect(
+        gameFromMessageLink(`https://shieldbattery.net/games/${ROUTE_GAME_ID}/summary/extra`),
+      ).toBeUndefined()
+    })
+
+    test('message with a game link renders exactly one game card', () => {
+      doRender(`gg: https://shieldbattery.net/games/${ROUTE_GAME_ID}/summary`)
+      expect(screen.getByTestId('game-link-card').textContent).toBe(`${GAME_ID} summary`)
+    })
+
+    test('message with multiple game links renders only one game card', () => {
+      doRender(
+        `https://shieldbattery.net/games/${ROUTE_GAME_ID} and ` +
+          `https://shieldbattery.net/games/${encodePrettyId('9a3e0000-0000-0000-0000-000000000078')}`,
+      )
+      expect(screen.getAllByTestId('game-link-card')).toHaveLength(1)
+    })
+
+    test('game-shaped path on a foreign origin renders no game card', () => {
+      doRender(`https://example.com/games/${ROUTE_GAME_ID}`)
+      expect(screen.queryByTestId('game-link-card')).toBeNull()
+    })
+
+    test('a game link and a lobby link in one message render both cards', () => {
+      doRender(
+        `https://shieldbattery.net/games/${ROUTE_GAME_ID} rematch? ` +
+          `https://shieldbattery.net/lobbies/${LOBBY_ID}/my-cool-lobby`,
+      )
+      expect(screen.getAllByTestId('game-link-card')).toHaveLength(1)
+      expect(screen.getAllByTestId('lobby-invite-card')).toHaveLength(1)
+      expect(
+        screen.getByRole('link', { name: `https://shieldbattery.net/games/${ROUTE_GAME_ID}` }),
+      ).toBeTruthy()
+    })
+
+    test('an old game link still renders its game card', () => {
+      doRender(`https://shieldbattery.net/games/${ROUTE_GAME_ID}`, {
+        time: -(LOBBY_INVITE_CARD_MAX_AGE_MS + 1),
+      })
+      expect(screen.getAllByTestId('game-link-card')).toHaveLength(1)
+    })
   })
 
   describe('message links', () => {

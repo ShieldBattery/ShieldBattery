@@ -11,6 +11,7 @@ import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
+import { gameFromMessageLink, GameLinkCard, GameLinkTarget } from '../games/game-link-card'
 import { TransInterpolation } from '../i18n/i18next'
 import {
   LOBBY_INVITE_CARD_MAX_AGE_MS,
@@ -148,6 +149,8 @@ export interface ParsedMessageText {
   mentionsSelf: boolean
   /** The lobby the first lobby link in the text points at, if it holds one. */
   inviteLobbyId: SbLobbyId | undefined
+  /** The game the first game results link in the text points at, if it holds one. */
+  linkedGame: GameLinkTarget | undefined
 }
 
 /**
@@ -162,6 +165,7 @@ export function parseMessageText(
   const nodes: React.ReactNode[] = []
   let mentionsSelf = false
   let inviteLobbyId: SbLobbyId | undefined
+  let linkedGame: GameLinkTarget | undefined
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
   const jumboEmoji = isJumboEmojiMessage(text, sortedMatches)
@@ -209,6 +213,10 @@ export function parseMessageText(
         // Only the first lobby link in a message gets an invite card.
         inviteLobbyId = lobbyIdFromMessageLink(match.text)
       }
+      if (linkedGame === undefined) {
+        // Likewise, only the first game link in a message gets a game card.
+        linkedGame = gameFromMessageLink(match.text)
+      }
 
       const messageLink = messageLinkFromHref(match.text)
       if (messageLink) {
@@ -238,7 +246,7 @@ export function parseMessageText(
     nodes.push(text.substring(lastIndex))
   }
 
-  return { nodes, mentionsSelf, inviteLobbyId }
+  return { nodes, mentionsSelf, inviteLobbyId, linkedGame }
 }
 
 export interface TextMessageProps {
@@ -293,6 +301,7 @@ export function TextMessage({
       })
   const isHighlighted = parsed?.mentionsSelf ?? false
   const inviteLobbyId = parsed?.inviteLobbyId
+  const linkedGame = parsed?.linkedGame
 
   // An outcome is always announced as an action line, whatever flag the message carries.
   const isActionLine = emote === true || outcome !== undefined
@@ -323,6 +332,9 @@ export function TextMessage({
         !disallowMentionInteraction &&
         mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
           <LobbyInviteCard lobbyId={inviteLobbyId} />
+        ) : undefined}
+        {linkedGame !== undefined && !disallowMentionInteraction ? (
+          <GameLinkCard target={linkedGame} />
         ) : undefined}
       </TimestampMessageLayout>
 

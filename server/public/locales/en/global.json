@@ -1264,6 +1264,9 @@
       "today": "Today",
       "yesterday": "Yesterday"
     },
+    "linkCard": {
+      "view": "View game"
+    },
     "list": {
       "noMatchingGames": "No matching games.",
       "retrievingError": "There was an error retrieving the games."
