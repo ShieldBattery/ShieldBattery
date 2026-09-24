@@ -48,6 +48,7 @@ struct Snapshot {
     exhausted: bool,
     end_published: bool,
     end_acknowledged: bool,
+    last_frame: Option<u32>,
     known_races: [Option<u8>; 12],
     seen_players: [bool; 12],
     ids: HashMap<u32, usize>,
@@ -78,7 +79,8 @@ impl BwScr {
             return;
         }
         BRIDGE.with_borrow_mut(|bridge| {
-            if !ATTEMPTED.replace(true) {
+            let first_poll = !ATTEMPTED.replace(true);
+            if first_poll {
                 if !crate::game_thread::setup_info()
                     .is_some_and(|s| s.use_legacy_limits == Some(true))
                 {
@@ -101,26 +103,79 @@ impl BwScr {
                 }
             }
             let Some(active) = bridge else { return };
-            let result = active.server.poll(|data, connected| unsafe {
-                if connected {
-                    active.state = Snapshot::default();
-                    if matches!((*self.game()).victory_state[local as usize], 1..=3) {
-                        active.state.end_published = true;
-                        active.state.end_acknowledged = true;
+            let game = unsafe { bw_dat::Game::from_ptr(self.game()) };
+            if !active.state.needs_snapshot(game.frame_count(), unsafe {
+                (**game).victory_state[local as usize]
+            }) {
+                return;
+            }
+            // Assigned bot clients must observe the initial simulation state. Their startup
+            // callbacks can depend on frame zero, so hold only this first frame while the
+            // external process connects. Later exchanges remain nonblocking.
+            let deadline = (first_poll && instance.is_some())
+                .then(|| std::time::Instant::now() + std::time::Duration::from_secs(30));
+            loop {
+                let result = active.server.poll(|data, connected| unsafe {
+                    if connected {
+                        active.state = Snapshot::default();
+                        if matches!((*self.game()).victory_state[local as usize], 1..=3) {
+                            active.state.end_published = true;
+                            active.state.end_acknowledged = true;
+                        }
+                        data.is_in_game = 0;
+                        data.event_count = 1;
+                        data.events[0] = wire::Event {
+                            kind: 3,
+                            value1: 0,
+                            value2: 0,
+                        };
+                    } else {
+                        active.state.exchange(self, data, local as u8);
                     }
-                    data.is_in_game = 0;
-                    data.event_count = 1;
-                    data.events[0] = wire::Event {
-                        kind: 3,
-                        value1: 0,
-                        value2: 0,
-                    };
-                } else {
-                    active.state.exchange(self, data, local as u8);
+                });
+                if let Err(e) = result {
+                    warn!("BWAPI: client exchange failed: {e}");
+                    if deadline.is_some() {
+                        crate::game_exit::request_leave_game();
+                        *bridge = None;
+                        return;
+                    }
+                    break;
                 }
-            });
-            if let Err(e) = result {
-                warn!("BWAPI: client exchange failed: {e}");
+                if (matches!(result, Ok(crate::bwapi::transport::PollEvent::Exchange))
+                    && active.state.started)
+                    || active.state.end_acknowledged
+                    || active.state.exhausted
+                {
+                    break;
+                }
+                let Some(deadline) = deadline else { break };
+                if std::time::Instant::now() >= deadline {
+                    error!("BWAPI: assigned client did not connect before the startup deadline");
+                    crate::game_exit::request_leave_game();
+                    *bridge = None;
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            if deadline.is_some() && active.state.started && !active.state.exhausted {
+                // Map analysis often runs in onStart/onFrame(0). Keep its snapshot authoritative
+                // until the client finishes; leave the request queued for frame one's exchange.
+                let initialized_by = std::time::Instant::now() + std::time::Duration::from_secs(60);
+                loop {
+                    match active.server.has_pending_request() {
+                        Ok(true) => break,
+                        Ok(false) if std::time::Instant::now() < initialized_by => {
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        result => {
+                            error!("BWAPI: assigned client did not finish frame zero: {result:?}");
+                            crate::game_exit::request_leave_game();
+                            *bridge = None;
+                            return;
+                        }
+                    }
+                }
             }
             if active.state.exhausted {
                 error!("BWAPI: snapshot capacity exhausted; disabling bridge for this match");
@@ -171,6 +226,12 @@ impl BwScr {
 }
 
 impl Snapshot {
+    fn needs_snapshot(&self, frame: u32, victory: u8) -> bool {
+        // Native initialization can step frame zero more than once, and paused frames do not
+        // advance the simulation. Keep the client's request queued until there is new state.
+        self.last_frame != Some(frame) || self.end_published || matches!(victory, 1..=3)
+    }
+
     fn finish(&mut self, data: &mut wire::GameData, won: bool) {
         data.clear_inbound();
         data.event_count = 0;
@@ -236,6 +297,7 @@ impl Snapshot {
             data.flags.fill(0);
             data.flags[1] = 1; // UserInput; complete-map information is never enabled.
             data.frame_count = game.frame_count() as i32;
+            self.last_frame = Some(game.frame_count());
             data.elapsed_time = game.elapsed_seconds() as i32;
             data.fps = 24;
             data.average_fps = 24.0;
@@ -270,9 +332,10 @@ impl Snapshot {
                     data.map_width,
                     data.map_height
                 );
-            } else {
-                event(data, 2, 0);
             }
+            // MatchStart and the first MatchFrame describe the same snapshot, including frame
+            // zero. Both native BWAPI and JBWAPI dispatch these callbacks in event order.
+            event(data, 2, 0);
             if game.frame_count().is_multiple_of(240) {
                 info!(
                     "BWAPI: frame {} units {} accepted {} rejected {} minerals {}",
@@ -502,10 +565,11 @@ impl Snapshot {
                 }
                 for kind in 0..228 {
                     let id = UnitId(kind as u16);
-                    out.all_unit_count[kind] = game.unit_count(local, id) as i32;
-                    out.completed_unit_count[kind] = game.completed_count(local, id) as i32;
-                    out.dead_unit_count[kind] = game.unit_deaths(local, id) as i32;
-                    out.killed_unit_count[kind] = game.unit_kills(local, id) as i32;
+                    let public_kind = normalized_unit_kind(id.0) as usize;
+                    out.all_unit_count[public_kind] += game.unit_count(local, id) as i32;
+                    out.completed_unit_count[public_kind] += game.completed_count(local, id) as i32;
+                    out.dead_unit_count[public_kind] += game.unit_deaths(local, id) as i32;
+                    out.killed_unit_count[public_kind] += game.unit_kills(local, id) as i32;
                     out.is_unit_available[kind] = u8::from(game.unit_available(local, id));
                 }
                 for t in 0..44 {
@@ -570,7 +634,7 @@ impl Snapshot {
                     self.units.push(TrackedUnit {
                         native_id,
                         accessible: false,
-                        kind: unit.id().0,
+                        kind: normalized_unit_kind(unit.id().0),
                         owner: unit.player(),
                         completed: false,
                         visible: false,
@@ -600,13 +664,14 @@ impl Snapshot {
                 let hidden = !visible && old.visible;
                 old.announced = true;
                 old.visible = visible;
-                let morphed = old.kind != unit.id().0;
+                let kind = normalized_unit_kind(unit.id().0);
+                let morphed = old.kind != kind;
                 let renegade = old.owner != unit.player();
                 let morph_completion =
                     effective_morph_completion(unit.order().0, unit.is_completed(), detected);
                 let completed = morph_completion.just_completed(old.completed, morphed);
                 old.accessible = true;
-                old.kind = unit.id().0;
+                old.kind = kind;
                 old.owner = unit.player();
                 old.completed = morph_completion.completed;
                 let out = &mut data.units[id];
@@ -616,7 +681,7 @@ impl Snapshot {
                 *out = mem::zeroed();
                 out.id = id as i32;
                 out.player = i32::from(unit.player());
-                out.kind = i32::from(unit.id().0);
+                out.kind = i32::from(kind);
                 out.clearance_level = clearance_level(unit.player() == local, detected);
                 out.exists = 1;
                 out.is_visible[local as usize] = u8::from(visible);
@@ -859,11 +924,11 @@ impl Snapshot {
                 }
                 if accessible {
                     let player = &mut data.players[unit.player() as usize];
-                    player.visible_unit_count[unit.id().0 as usize] += i32::from(visible);
+                    let kind = normalized_unit_kind(unit.id().0) as usize;
+                    player.visible_unit_count[kind] += i32::from(visible);
                     if unit.player() != local {
-                        player.all_unit_count[unit.id().0 as usize] += 1;
-                        player.completed_unit_count[unit.id().0 as usize] +=
-                            i32::from(data.units[id].is_completed);
+                        player.all_unit_count[kind] += 1;
+                        player.completed_unit_count[kind] += i32::from(data.units[id].is_completed);
                     }
                     let native_index = native.to_index(unit) as usize;
                     if native_index < data.unit_array.len() {
@@ -1380,6 +1445,14 @@ fn redact_inside(unit: &mut wire::UnitData) {
     unit.interceptor_count = 0;
 }
 
+/// Mineral graphics variants share one public BWAPI type, including initial snapshots and counts.
+fn normalized_unit_kind(kind: u16) -> u16 {
+    match kind {
+        176..=178 => 176,
+        _ => kind,
+    }
+}
+
 /// Collapses engine-specific orders into BWAPI public order categories.
 fn normalized_order(order: u8) -> i32 {
     match order {
@@ -1425,6 +1498,30 @@ fn normalized_order(order: u8) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repeated_native_steps_do_not_duplicate_callbacks_or_hide_match_end() {
+        let mut state = Snapshot::default();
+        assert!(state.needs_snapshot(0, 0));
+        state.last_frame = Some(0);
+        assert!(!state.needs_snapshot(0, 0));
+        assert!(state.needs_snapshot(1, 0));
+        assert!(state.needs_snapshot(0, 3));
+        state.end_published = true;
+        assert!(state.needs_snapshot(0, 0));
+    }
+
+    #[test]
+    fn mineral_graphics_variants_share_one_public_type() {
+        for native in 0..228 {
+            let expected = if (176..=178).contains(&native) {
+                176
+            } else {
+                native
+            };
+            assert_eq!(normalized_unit_kind(native), expected);
+        }
+    }
 
     #[test]
     fn match_end_is_delivered_once_before_menu_and_discards_pending_commands() {

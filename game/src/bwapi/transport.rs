@@ -28,7 +28,7 @@ use winapi::{
         handleapi::{CloseHandle, INVALID_HANDLE_VALUE},
         memoryapi::{FILE_MAP_READ, FILE_MAP_WRITE, MapViewOfFile, UnmapViewOfFile},
         minwinbase::STILL_ACTIVE,
-        namedpipeapi::{ConnectNamedPipe, DisconnectNamedPipe},
+        namedpipeapi::{ConnectNamedPipe, DisconnectNamedPipe, PeekNamedPipe},
         processthreadsapi::{GetCurrentProcessId, GetExitCodeProcess, OpenProcess},
         sysinfoapi::GetTickCount,
         winbase::{
@@ -228,6 +228,45 @@ impl Server {
         }
     }
 
+    /// Checks whether the client has completed its callbacks without consuming the request.
+    /// The next poll must consume it and publish the next simulation frame.
+    pub fn has_pending_request(&mut self) -> io::Result<bool> {
+        if self.state != ConnectionState::AwaitRequest {
+            return Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "BWAPI client disconnected",
+            ));
+        }
+        self.refresh_game_table();
+        let mut bytes = [0_u8; size_of::<i32>()];
+        let mut read = 0;
+        let mut available = 0;
+        let mut remaining = 0;
+        let result = unsafe {
+            PeekNamedPipe(
+                self.pipe,
+                bytes.as_mut_ptr().cast(),
+                bytes.len() as DWORD,
+                &mut read,
+                &mut available,
+                &mut remaining,
+            )
+        };
+        if result == FALSE {
+            return Err(io::Error::last_os_error());
+        }
+        if available == 0 {
+            return Ok(false);
+        }
+        if remaining != 0 || !valid_request(bytes, read) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid BWAPI client request",
+            ));
+        }
+        Ok(true)
+    }
+
     fn game_data_mut(&mut self) -> &mut GameData {
         unsafe { self.game_data.as_mut() }
     }
@@ -298,9 +337,7 @@ impl Server {
                 _ => Err(io::Error::last_os_error()),
             };
         }
-        let valid_request = (read == 1 && bytes[0] == CLIENT_REQUEST as u8)
-            || (read == bytes.len() as DWORD && i32::from_le_bytes(bytes) == CLIENT_REQUEST);
-        if !valid_request {
+        if !valid_request(bytes, read) {
             return Ok(self.reset_connection());
         }
         Ok(RequestResult::Request)
@@ -336,6 +373,11 @@ impl Server {
         self.refresh_game_table();
         RequestResult::Disconnected
     }
+}
+
+fn valid_request(bytes: [u8; 4], read: DWORD) -> bool {
+    (read == 1 && bytes[0] == CLIENT_REQUEST as u8)
+        || (read == bytes.len() as DWORD && i32::from_le_bytes(bytes) == CLIENT_REQUEST)
 }
 
 fn game_table_mapping_name(instance: Option<&str>) -> io::Result<CString> {
@@ -704,7 +746,10 @@ mod tests {
         );
         assert_eq!(server.poll(|_, _| unreachable!()).unwrap(), PollEvent::Idle);
 
+        assert!(!server.has_pending_request().unwrap());
         client.write_message(&CLIENT_REQUEST.to_le_bytes()).unwrap();
+        assert!(server.has_pending_request().unwrap());
+        assert!(server.has_pending_request().unwrap());
         client.data_mut().command_count = 0;
         assert_eq!(
             server
@@ -718,7 +763,9 @@ mod tests {
         assert_eq!(client.read_snapshot().unwrap(), SERVER_SNAPSHOT);
         assert_eq!(client.data().frame_count, 8);
 
+        assert!(!server.has_pending_request().unwrap());
         drop(client);
+        assert!(server.has_pending_request().is_err());
         assert_eq!(
             server.poll(|_, _| unreachable!()).unwrap(),
             PollEvent::Disconnected
@@ -747,6 +794,7 @@ mod tests {
 
         // A message larger than the four-byte protocol code makes ReadFile return ERROR_MORE_DATA.
         client.write_message(&[1, 0, 0, 0, 0]).unwrap();
+        assert!(server.has_pending_request().is_err());
         assert_eq!(
             server.poll(|_, _| unreachable!()).unwrap(),
             PollEvent::Disconnected
@@ -792,7 +840,10 @@ mod tests {
         // The first response remains the native four-byte snapshot message.
         assert_eq!(client.read_snapshot().unwrap(), SERVER_SNAPSHOT);
 
+        assert!(!server.has_pending_request().unwrap());
         client.write_message(&[CLIENT_REQUEST as u8]).unwrap();
+        assert!(server.has_pending_request().unwrap());
+        assert!(server.has_pending_request().unwrap());
         assert_eq!(
             server
                 .poll(|data, initial| {
@@ -820,6 +871,7 @@ mod tests {
         assert_eq!(client.data().frame_count, 3);
 
         client.write_message(&[1, 0]).unwrap();
+        assert!(server.has_pending_request().is_err());
         assert_eq!(
             server.poll(|_, _| unreachable!()).unwrap(),
             PollEvent::Disconnected
