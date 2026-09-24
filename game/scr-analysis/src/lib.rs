@@ -1216,6 +1216,30 @@ impl<'e> Analysis<'e> {
         self.0.vision_updated()
     }
 
+    /// The unit that most recently spawned a bullet with launch spin. A bullet from the same unit
+    /// alternates its spin direction instead of drawing it from the synced RNG.
+    pub fn last_bullet_spawner(&mut self) -> Option<Operand<'e>> {
+        self.0.last_bullet_spawner()
+    }
+
+    /// How many bullets are in the active list; `create_bullet` counts it up, releasing a bullet
+    /// counts it down, and bullet creation for some weapons is refused past a limit.
+    pub fn active_bullet_count(&mut self) -> Option<Operand<'e>> {
+        self.0.active_bullet_count()
+    }
+
+    /// Which side the last bullet with launch spin was turned to, which the next one from
+    /// `last_bullet_spawner` flips.
+    pub fn last_bullet_spin_direction(&mut self) -> Option<Operand<'e>> {
+        self.0.last_bullet_spin_direction()
+    }
+
+    /// The countdown `advance_turn_timer_and_step_network` keeps toward the next network turn,
+    /// taking 1000 off every logic step and adding the turn duration back when a turn runs.
+    pub fn turn_timer_accumulator(&mut self) -> Option<Operand<'e>> {
+        self.0.turn_timer_accumulator()
+    }
+
     /// The player whose triggers the trigger step is currently running.
     pub fn trigger_current_player(&mut self) -> Option<Operand<'e>> {
         self.0.trigger_current_player()

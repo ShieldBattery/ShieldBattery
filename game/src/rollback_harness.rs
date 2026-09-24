@@ -1416,6 +1416,18 @@ pub fn analyze_ranges(
         ("last_free_image", analysis.last_free_image()),
         ("first_free_bullet", analysis.first_free_bullet()),
         ("last_free_bullet", analysis.last_free_bullet()),
+        // Which unit spawned the last spinning bullet, and which side that bullet was turned to.
+        // A bullet from that same unit takes the other side without drawing from the synced RNG,
+        // so a re-simulated frame that saw a later spawner here draws a different number of times.
+        ("last_bullet_spawner", analysis.last_bullet_spawner()),
+        (
+            "last_bullet_spin_direction",
+            analysis.last_bullet_spin_direction(),
+        ),
+        // Counted up and down as bullets are created and released, so every re-simulated frame
+        // moves it. Bullet creation for some weapons is refused once it reaches a limit, compared
+        // unsigned, so a count left to drift below zero refuses every one of them.
+        ("active_bullet_count", analysis.active_bullet_count()),
         ("first_active_bullet", analysis.first_active_bullet()),
         ("last_active_bullet", analysis.last_active_bullet()),
         ("first_free_order", analysis.first_free_order()),
@@ -1425,6 +1437,10 @@ pub fn analyze_ranges(
         ("lurker_hits_frame", analysis.lurker_hits_frame()),
         ("lurker_hits_pos", analysis.lurker_hits_pos()),
         ("game_frame_count", analysis.game_frame_count()),
+        // The countdown that decides which logic steps also run a network turn, the step that
+        // counts `game_frame_count` up and records a sync slot. Every step takes a fixed amount
+        // off it, so left out, each re-simulated step would move later turns to earlier frames.
+        ("turn_timer_accumulator", analysis.turn_timer_accumulator()),
         ("vision_update_counter", analysis.vision_update_counter()),
         ("vision_updated", analysis.vision_updated()),
         ("is_paused", analysis.is_paused()),
