@@ -347,21 +347,51 @@ struct SoundLedger {
     presented: Vec<SoundRequest>,
 }
 
-/// One unit as a frame shows it: which slot, which occupant of that slot, what it is, and where.
+/// One unit as a frame shows it: which slot, which occupant of that slot, whose, what it is, and
+/// where.
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct UnitView {
     unit: usize,
     /// Counts the times the slot has been handed out, so a slot that a unit died out of and a new
     /// one took over reads as two different units rather than as one that jumped across the map.
     unique_index: u8,
+    player: u8,
     id: u16,
     x: i16,
     y: i16,
 }
 
-/// The units the frame on screen showed, recorded at the end of each tick so the next tick can
-/// see how the late commands changed that same frame.
-static DISPLAYED_UNITS: Mutex<Option<(u32, Vec<UnitView>)>> = Mutex::new(None);
+impl UnitView {
+    fn key(&self) -> (usize, u8) {
+        (self.unit, self.unique_index)
+    }
+
+    /// Pixels between the two positions along whichever axis they are further apart on.
+    fn distance(&self, other: &UnitView) -> u32 {
+        (self.x as i32 - other.x as i32)
+            .unsigned_abs()
+            .max((self.y as i32 - other.y as i32).unsigned_abs())
+    }
+}
+
+/// The frame on screen as a tick left it, kept so the next tick can see how the late commands
+/// changed that same frame.
+struct DisplayedFrame {
+    frame: u32,
+    units: Vec<UnitView>,
+    /// The slot and unique index of every unit in the snapshot the next tick restores, sorted.
+    /// Both simulations of the frame grow from that snapshot, so a unit it holds is the same unit
+    /// wherever the two show its slot and index. A unit created after it is not: the two
+    /// simulations hand slots out in whatever order their commands made them, and can give one
+    /// slot and index to two different units.
+    anchored: Vec<(usize, u8)>,
+}
+
+static DISPLAYED_UNITS: Mutex<Option<DisplayedFrame>> = Mutex::new(None);
+
+/// The anchored units of the snapshot taken by the tick in progress, which become its
+/// [`DisplayedFrame::anchored`] once the tick ends.
+static SNAPSHOT_UNITS: Mutex<Vec<(usize, u8)>> = Mutex::new(Vec::new());
 
 /// How far the frame shown at the end of the previous tick turned out to be wrong, once this tick
 /// re-simulated it with the commands that had arrived since: what a player would see corrected.
@@ -399,6 +429,7 @@ unsafe fn capture_units(bw: &BwScr) -> Vec<UnitView> {
                 UnitView {
                     unit: *unit as usize,
                     unique_index: (**unit).minor_unique_index,
+                    player: unit.player(),
                     id: unit.id().0,
                     x: position.x,
                     y: position.y,
@@ -410,58 +441,78 @@ unsafe fn capture_units(bw: &BwScr) -> Vec<UnitView> {
     }
 }
 
-/// Compares the units the previous tick showed for frame `frame` with the same frame as this tick
-/// has just re-simulated it, if that is the frame the simulation is on now.
+/// Compares the units the previous tick showed for its frame with the same frame as this tick has
+/// just re-simulated it, if that is the frame the simulation is on now.
+///
+/// Units the snapshot both simulations started from holds are matched by slot and unique index.
+/// Units created since are matched to one of the same type and owner, nearest first, since
+/// nothing else about them carries over from one simulation to the other.
 unsafe fn compare_displayed_units(bw: &BwScr) {
     unsafe {
         let displayed = DISPLAYED_UNITS.lock();
-        let Some((frame, shown)) = displayed.as_ref() else {
+        let Some(displayed) = displayed.as_ref() else {
             return;
         };
-        if bw.probe_frame_count() != Some(*frame) {
+        if bw.probe_frame_count() != Some(displayed.frame) {
             return;
         }
         let now = capture_units(bw);
+        let is_anchored = |x: &&UnitView| displayed.anchored.binary_search(&x.key()).is_ok();
+        let (shown_anchored, shown_new): (Vec<&UnitView>, Vec<&UnitView>) =
+            displayed.units.iter().partition(is_anchored);
+        let (now_anchored, mut now_new): (Vec<&UnitView>, Vec<&UnitView>) =
+            now.iter().partition(is_anchored);
+
         let mut corrections = Corrections::default();
-        let (mut i, mut j) = (0, 0);
-        while i < shown.len() || j < now.len() {
-            let a = shown.get(i);
-            let b = now.get(j);
-            match (a, b) {
-                (Some(a), Some(b)) if a.unit == b.unit => {
-                    if a.unique_index != b.unique_index {
-                        corrections.popped_out += 1;
-                        corrections.popped_in += 1;
-                    } else {
-                        if a.id != b.id {
-                            corrections.morphed += 1;
-                        }
-                        if a.x != b.x || a.y != b.y {
-                            let distance = (a.x as i32 - b.x as i32)
-                                .unsigned_abs()
-                                .max((a.y as i32 - b.y as i32).unsigned_abs());
-                            corrections.moves.push(distance);
-                        }
+        let mut found = 0;
+        for a in &shown_anchored {
+            match now_anchored.binary_search_by_key(&a.unit, |x| x.unit) {
+                Ok(index) if now_anchored[index].key() == a.key() => {
+                    let b = now_anchored[index];
+                    found += 1;
+                    if a.id != b.id {
+                        corrections.morphed += 1;
                     }
-                    i += 1;
-                    j += 1;
+                    if (a.x, a.y) != (b.x, b.y) {
+                        corrections.moves.push(a.distance(b));
+                    }
                 }
-                (Some(a), Some(b)) if a.unit < b.unit => {
-                    corrections.popped_out += 1;
-                    i += 1;
-                }
-                (Some(_), Some(_)) | (None, Some(_)) => {
-                    corrections.popped_in += 1;
-                    j += 1;
-                }
-                (Some(_), None) => {
-                    corrections.popped_out += 1;
-                    i += 1;
-                }
-                (None, None) => break,
+                _ => corrections.popped_out += 1,
             }
         }
+        corrections.popped_in += (now_anchored.len() - found) as u32;
+
+        for a in &shown_new {
+            let nearest = now_new
+                .iter()
+                .enumerate()
+                .filter(|(_, b)| b.id == a.id && b.player == a.player)
+                .min_by_key(|(_, b)| a.distance(b))
+                .map(|(index, _)| index);
+            match nearest {
+                Some(index) => {
+                    let b = now_new.swap_remove(index);
+                    if (a.x, a.y) != (b.x, b.y) {
+                        corrections.moves.push(a.distance(b));
+                    }
+                }
+                None => corrections.popped_out += 1,
+            }
+        }
+        corrections.popped_in += now_new.len() as u32;
         *TICK_CORRECTIONS.lock() = corrections;
+    }
+}
+
+/// Notes which units the snapshot just taken holds. Called right after each snapshot.
+unsafe fn record_snapshot_units(bw: &BwScr) {
+    unsafe {
+        let mut keys = capture_units(bw)
+            .iter()
+            .map(|x| x.key())
+            .collect::<Vec<_>>();
+        keys.sort_unstable();
+        *SNAPSHOT_UNITS.lock() = keys;
     }
 }
 
@@ -2155,6 +2206,7 @@ unsafe fn run_tick(
                 bw.rollback_clear_selection_visuals();
                 harness.take(1 - confirmed);
                 times.snapshot = start.elapsed();
+                record_snapshot_units(bw);
 
                 for frame in 0..rollback_frames {
                     let (step_ret, elapsed) = step(rollback_frames - 1 - frame, false);
@@ -2169,6 +2221,7 @@ unsafe fn run_tick(
                 bw.rollback_clear_selection_visuals();
                 harness.take(0);
                 times.snapshot = start.elapsed();
+                record_snapshot_units(bw);
                 // No step of this tick re-derives a frame, so the state the snapshot just captured
                 // is the confirmed one and its fingerprint is already final.
                 confirmed_fingerprint = bw.probe_fingerprint();
@@ -2192,7 +2245,11 @@ unsafe fn run_tick(
         // snapshot, and go back on here for the frame about to be shown.
         bw.rollback_rebuild_selection_visuals();
         if let Some(frame) = bw.probe_frame_count() {
-            *DISPLAYED_UNITS.lock() = Some((frame, capture_units(bw)));
+            *DISPLAYED_UNITS.lock() = Some(DisplayedFrame {
+                frame,
+                units: capture_units(bw),
+                anchored: std::mem::take(&mut SNAPSHOT_UNITS.lock()),
+            });
         }
         if let Some(paced_tick) = paced_tick {
             bw.probe_set_next_game_step_tick(paced_tick);
