@@ -602,11 +602,13 @@ impl Snapshot {
                 old.visible = visible;
                 let morphed = old.kind != unit.id().0;
                 let renegade = old.owner != unit.player();
-                let completed = !old.completed && unit.is_completed();
+                let morph_completion =
+                    effective_morph_completion(unit.order().0, unit.is_completed(), detected);
+                let completed = morph_completion.just_completed(old.completed, morphed);
                 old.accessible = true;
                 old.kind = unit.id().0;
                 old.owner = unit.player();
-                old.completed = unit.is_completed();
+                old.completed = morph_completion.completed;
                 let out = &mut data.units[id];
                 let last_hp = out.hit_points;
                 let last_ground_cooldown = out.ground_weapon_cooldown;
@@ -638,7 +640,7 @@ impl Snapshot {
                 out.ground_weapon_cooldown = i32::from((**unit).ground_cooldown);
                 out.air_weapon_cooldown = i32::from((**unit).air_cooldown);
                 out.spell_cooldown = i32::from((**unit).spell_cooldown);
-                out.is_completed = u8::from(unit.is_completed());
+                out.is_completed = u8::from(morph_completion.completed);
                 out.is_detected = u8::from(detected);
                 out.is_powered = u8::from(
                     !(unit.id().is_building()
@@ -689,10 +691,7 @@ impl Snapshot {
                         && !unit.is_constructing_building(),
                 );
                 out.is_gathering = u8::from(matches!(unit.order().0, 79..=90));
-                out.is_morphing = u8::from(matches!(unit.order().0, 42 | 43 | 45));
-                if out.is_morphing != 0 && detected {
-                    out.is_completed = 0;
-                }
+                out.is_morphing = u8::from(morph_completion.morphing);
                 out.is_constructing = u8::from(
                     out.is_morphing != 0
                         || construction_order(unit.order().0)
@@ -864,7 +863,7 @@ impl Snapshot {
                     if unit.player() != local {
                         player.all_unit_count[unit.id().0 as usize] += 1;
                         player.completed_unit_count[unit.id().0 as usize] +=
-                            i32::from(unit.is_completed());
+                            i32::from(data.units[id].is_completed);
                     }
                     let native_index = native.to_index(unit) as usize;
                     if native_index < data.unit_array.len() {
@@ -1309,6 +1308,30 @@ fn observed_race(selected: Option<u8>, seen: bool, actual: u8) -> i32 {
         .unwrap_or_else(|| if seen { i32::from(actual) } else { 8 })
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct MorphCompletion {
+    morphing: bool,
+    completed: bool,
+}
+
+impl MorphCompletion {
+    fn just_completed(self, was_completed: bool, morphed: bool) -> bool {
+        self.completed && (!was_completed || morphed)
+    }
+}
+
+fn effective_morph_completion(
+    order: u8,
+    native_completed: bool,
+    detected: bool,
+) -> MorphCompletion {
+    let morphing = matches!(order, 41 | 42 | 43 | 45);
+    MorphCompletion {
+        morphing,
+        completed: native_completed && !(morphing && detected),
+    }
+}
+
 fn construction_order(order: u8) -> bool {
     matches!(normalized_order(order), 25 | 26 | 30..=33 | 37 | 44..=46 | 48 | 70)
 }
@@ -1442,6 +1465,49 @@ mod tests {
         assert_eq!(observed_race(None, false, 0), 8);
         assert_eq!(observed_race(None, true, 0), 0);
         assert_eq!(observed_race(Some(1), false, 1), 1);
+    }
+
+    #[test]
+    fn zerg_birth_stays_incomplete_until_the_morph_order_ends() {
+        let mut was_completed = false;
+        for order in [41, 42, 43, 45] {
+            let state = effective_morph_completion(order, true, true);
+            assert!(state.morphing, "order {order}");
+            assert!(!state.completed, "order {order}");
+            assert!(!state.just_completed(was_completed, true), "order {order}");
+            was_completed = state.completed;
+        }
+
+        let ready = effective_morph_completion(3, true, true);
+        assert!(!ready.morphing);
+        assert!(ready.completed);
+        assert!(ready.just_completed(was_completed, false));
+        assert!(!ready.just_completed(ready.completed, false));
+    }
+
+    #[test]
+    fn native_incompletion_and_completion_are_tracked_across_frames() {
+        let incomplete = effective_morph_completion(3, false, true);
+        assert!(!incomplete.morphing);
+        assert!(!incomplete.completed);
+        assert!(!incomplete.just_completed(false, false));
+
+        let completed = effective_morph_completion(3, true, true);
+        assert!(completed.just_completed(incomplete.completed, false));
+        assert!(!completed.just_completed(completed.completed, false));
+    }
+
+    #[test]
+    fn ordinary_completed_units_and_same_frame_morphs_emit_completion() {
+        let completed = effective_morph_completion(3, true, true);
+        assert!(completed.just_completed(false, false));
+        assert!(completed.just_completed(true, true));
+        assert!(!completed.just_completed(true, false));
+
+        // Morph orders only suppress completion for detected units.
+        let undetected = effective_morph_completion(41, true, false);
+        assert!(undetected.morphing);
+        assert!(undetected.completed);
     }
 
     #[test]
