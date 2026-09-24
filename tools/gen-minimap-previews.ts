@@ -33,8 +33,6 @@
  */
 
 import Chk from 'bw-chk'
-import dotenv from 'dotenv'
-import dotenvExpand from 'dotenv-expand'
 import fs from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
@@ -47,9 +45,8 @@ import {
   TILESET_PLACEHOLDER_COLORS,
   TilesetId,
 } from '../common/maps'
+import '../server/env'
 import { parseAndHashMap } from '../server/lib/maps/parse-map'
-
-dotenvExpand.expand(dotenv.config({ quiet: true }))
 
 const REPO_ROOT = path.resolve(__dirname, '..')
 const DEFAULT_OUT_DIR = path.join(REPO_ROOT, 'app', 'assets', 'minimaps')

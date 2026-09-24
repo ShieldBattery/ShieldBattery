@@ -91,8 +91,6 @@
     "bcrypt": "^6.0.0",
     "bw-chk": "^1.4.1",
     "core-js": "^3.50.0",
-    "dotenv": "^17.4.2",
-    "dotenv-expand": "^13.0.0",
     "emoji-picker-react": "4.19.1",
     "emojibase-data": "17.0.0",
     "form-data": "^4.0.6",

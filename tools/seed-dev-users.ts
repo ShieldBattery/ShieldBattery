@@ -1,10 +1,7 @@
-import dotenv from 'dotenv'
-import dotenvExpand from 'dotenv-expand'
 import got from 'got'
 import pg from 'pg'
-
 // Load the same env the servers use, so DATABASE_URL / SB_CANONICAL_HOST resolve identically.
-dotenvExpand.expand(dotenv.config({ quiet: true }))
+import '../server/env'
 
 /**
  * Seeds the local development database with known test accounts, so that verification flows
