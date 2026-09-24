@@ -174,3 +174,18 @@ index, 10000 unit identities per game). Extended SC:R limits need an explicit po
 The adapter provides a partial API; unsupported commands and query fields must be considered
 when choosing another bot. See the [research report](../../docs/bwapi-compatibility-research.md)
 for the project comparison, compatibility gaps, and follow-up work.
+
+Assigned bot clients receive `MatchStart`, initial unit events, and `MatchFrame` in
+one authoritative frame-zero snapshot. The bridge holds startup for up to 30 seconds
+for connection and up to 60 seconds for the first callback batch; subsequent frames
+remain nonblocking. Repeated native steps at the same simulation frame do not repeat
+callbacks. Startup failure requests normal game exit. App hard-stop remains available
+during the wait; native window messages wait until the game thread resumes. Legacy
+unassigned debug attachment remains nonblocking and does not replay missed frames.
+Disconnect/reconnect detection during a paused, already published frame resumes when
+the simulation advances or the end-of-game exchange runs.
+
+Mineral-field graphics variants 176, 177, and 178 all expose BWAPI type 176, including
+initial snapshots and player counts. This is required by bots that compare mineral
+patch types exactly, such as Steamhammer's worker allocator. Native simulation and
+command target identities retain their original values.
