@@ -23,31 +23,30 @@ import {
 import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { dispatch as globalDispatch } from '../dispatch-registry'
-import { useOverflowingElement } from '../dom/overflowing-element'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { DivisionIcon } from '../matchmaking/rank-icon'
-import { buttonReset } from '../material/button-reset'
-import { Tooltip } from '../material/tooltip'
 import {
-  INLINE_CARD_BORDER_WIDTH,
-  InlineCardGone,
-  InlineCardLoading,
-  inlineCardShell,
-} from '../messaging/inline-card'
+  BackdropCard,
+  BackdropCardAction,
+  BackdropCardGone,
+  BackdropCardHeader,
+  BackdropCardLoading,
+  BackdropCardMeta,
+  BackdropCardMetaKeyText,
+  BackdropCardMetaText,
+  BackdropCardTitle,
+  backdropTextShadow,
+  CardClickBoundary,
+  CardTooltip,
+  getBackdropCardHeight,
+} from '../messaging/backdrop-card'
 import { isShieldBatteryUrl } from '../navigation/external-link'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppSelector } from '../redux-hooks'
-import {
-  bodySmall,
-  labelLarge,
-  labelMedium,
-  singleLine,
-  titleMedium,
-  titleSmall,
-} from '../styles/typography'
+import { bodySmall, labelMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { navigateToGameResults } from './action-creators'
 import { PlayerResultMarker } from './result-chip'
@@ -152,7 +151,7 @@ function loadGameForLink(gameId: string): Promise<GameLinkFailure | undefined> {
  * The load state of a game link card: the game's data once it's in the store, or why it can't be
  * shown.
  */
-type GameLinkLoadState =
+export type GameLinkLoadState =
   | {
       status: 'loaded'
       game: ReadonlyDeep<GameRecordJson>
@@ -228,45 +227,6 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
 }
 
 /**
- * A tooltip for a card's content. Its trigger isn't a tab stop: card content is plain text and
- * images already exposed to assistive technology, and a chat full of cards would otherwise bury the
- * message list under tab stops.
- */
-function CardTooltip(props: Omit<React.ComponentProps<typeof Tooltip>, 'tabIndex'>) {
-  return <Tooltip {...props} tabIndex={-1} />
-}
-
-const TooltipTextSpan = styled.span`
-  ${singleLine};
-  /* Keeps the spaces around separators that texts start with, which would otherwise collapse. */
-  white-space: pre;
-`
-
-/**
- * A single line of text that ellipsizes when it doesn't fit, with a tooltip holding `tooltip` (shown
- * always) or else the full text (shown only while it's cut off).
- */
-function TooltipText({
-  text,
-  tooltip,
-  className,
-}: {
-  text: string
-  tooltip?: string
-  className?: string
-}) {
-  const [ref, isOverflowing] = useOverflowingElement<HTMLSpanElement>()
-  return (
-    <CardTooltip
-      className={className}
-      text={tooltip ?? text}
-      disabled={tooltip === undefined && !isOverflowing}>
-      <TooltipTextSpan ref={ref}>{text}</TooltipTextSpan>
-    </CardTooltip>
-  )
-}
-
-/**
  * Returns the label for a game's type on a card. Every non-custom game is ranked, so ranked games
  * leave that out and show just their matchmaking type.
  */
@@ -326,14 +286,11 @@ function GameLength({
 }
 
 /**
- * Returns whether a game has anything a results reveal would show: a reported outcome for some
- * player, or the game's length.
+ * Returns whether any player in a game has a recorded outcome. A game without one has nothing to
+ * spoil, so its length is shown from the start and it gets no results toggle.
  */
-function hasRevealableResults(game: ReadonlyDeep<GameRecordJson>): boolean {
-  return (
-    !!game.gameLength ||
-    (Array.isArray(game.results) && game.results.some(([, r]) => r.result !== 'unknown'))
-  )
+function hasRecordedResults(game: ReadonlyDeep<GameRecordJson>): boolean {
+  return Array.isArray(game.results) && game.results.some(([, r]) => r.result !== 'unknown')
 }
 
 const ToggleLabelSlot = styled.span`
@@ -341,68 +298,25 @@ const ToggleLabelSlot = styled.span`
   white-space: nowrap;
 `
 
-const ResultsToggleButton = styled.button`
-  ${buttonReset};
-  ${labelLarge};
-  flex-shrink: 0;
-  align-self: center;
-  height: 24px;
-  padding: 0 4px;
-
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  border-radius: 4px;
-  color: var(--theme-on-surface-variant);
-  cursor: pointer;
-  transition: color 150ms linear;
-
-  &:hover {
-    color: var(--theme-on-surface);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-amber);
-  }
-`
-
 /**
  * Shows or hides a game's results. Both forms of its label occupy the same cell, so toggling doesn't
- * change the button's width. Renders nothing for a game with no results to show.
+ * change the button's width.
  */
-function ResultsToggle({
-  game,
-  revealed,
-  onToggle,
-}: {
-  game: ReadonlyDeep<GameRecordJson>
-  revealed: boolean
-  onToggle: () => void
-}) {
+function ResultsToggle({ revealed, onToggle }: { revealed: boolean; onToggle: () => void }) {
   const { t } = useTranslation()
-  if (!hasRevealableResults(game)) {
-    return null
-  }
-
   const showLabel = t('games.linkCard.showResults', 'Show results')
   const hideLabel = t('games.linkCard.hideResults', 'Hide results')
   return (
-    <ResultsToggleButton
-      type='button'
-      aria-label={revealed ? hideLabel : showLabel}
-      onClick={event => {
-        // Toggling the results doesn't also open the game.
-        event.stopPropagation()
-        onToggle()
-      }}
-      data-testid='game-link-card-results-toggle'>
+    <BackdropCardAction
+      ariaLabel={revealed ? hideLabel : showLabel}
+      onClick={onToggle}
+      testName='game-link-card-results-toggle'>
       <MaterialIcon icon={revealed ? 'visibility_off' : 'visibility'} size={18} />
       <ToggleLabelSlot>
         <SwapLayer $visible={!revealed}>{showLabel}</SwapLayer>
         <SwapLayer $visible={revealed}>{hideLabel}</SwapLayer>
       </ToggleLabelSlot>
-    </ResultsToggleButton>
+    </BackdropCardAction>
   )
 }
 
@@ -529,15 +443,6 @@ const MatchupConnectedName = styled(ConnectedUsername)<{ $size: MatchupSize }>`
   ${matchupNameStyles};
 `
 
-/**
- * Keeps clicks inside it from reaching the card, whose whole surface opens the game, for content
- * that handles clicks itself. React events bubble through portals along the component tree, so this
- * also covers the menus and overlays such content opens.
- */
-const CardClickBoundary = styled.span`
-  display: contents;
-`
-
 const VersusLabel = styled.span`
   ${labelMedium};
   color: var(--theme-on-surface-variant);
@@ -562,7 +467,13 @@ const VersusStack = styled.div`
 `
 
 const VersusLength = styled(GameLength)`
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.7);
+  ${backdropTextShadow};
+`
+
+const GameCard = styled(BackdropCard)`
+  & ${MatchupName}, & ${MatchupConnectedName}, & ${VersusLabel} {
+    ${backdropTextShadow};
+  }
 `
 
 /**
@@ -644,7 +555,7 @@ function GameMatchup({
             {player.isComputer ? (
               <MatchupName $size={size}>{getName(player)}</MatchupName>
             ) : (
-              <CardClickBoundary onClick={event => event.stopPropagation()}>
+              <CardClickBoundary>
                 <MatchupConnectedName
                   userId={player.id}
                   $size={size}
@@ -679,49 +590,6 @@ function GameMatchup({
   )
 }
 
-const HEADER_ROW_HEIGHT = 20
-
-const CardHeader = styled.div`
-  height: ${HEADER_ROW_HEIGHT}px;
-  min-width: 0;
-  flex-shrink: 0;
-
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-`
-
-const GameTypeText = styled(TooltipText)`
-  ${titleSmall};
-  flex-shrink: 0;
-  color: var(--theme-on-surface);
-`
-
-/** Holds the header's meta text: the map, start time and (sometimes) length. */
-const HeaderMeta = styled.div`
-  ${bodySmall};
-  min-width: 0;
-  flex-grow: 1;
-
-  display: flex;
-  align-items: baseline;
-
-  color: var(--theme-on-surface-variant);
-`
-
-/**
- * The map's name in the header: it gives up its width only once everything after it (the date) has
- * none left to give, since the map is hard to pick out from the blurred image behind the card.
- */
-const HeaderMapName = styled(TooltipText)`
-  flex-shrink: 0;
-  max-width: 100%;
-`
-
-const HeaderDate = styled(TooltipText)`
-  min-width: 0;
-`
-
 /**
  * The card's header: the game's type (with its full label, e.g. "Ranked 1v1", in a tooltip when the
  * shown one leaves part of it out), its map, how long ago it was played (with the full start time in
@@ -744,160 +612,59 @@ function CardHeaderRow({
   const typeLabel = getCardGameTypeLabel(game, t)
   const fullTypeLabel = getGameTypeLabel(game, t)
   return (
-    <CardHeader>
-      <GameTypeText
+    <BackdropCardHeader>
+      <BackdropCardTitle
         text={typeLabel}
         tooltip={fullTypeLabel !== typeLabel ? fullTypeLabel : undefined}
       />
-      <HeaderMeta>
-        <HeaderMapName text={mapName} />
-        <HeaderDate
+      <BackdropCardMeta>
+        {/* The map is hard to pick out from the blurred image behind the card. */}
+        <BackdropCardMetaKeyText text={mapName} />
+        <BackdropCardMetaText
           text={' · ' + narrowDuration.format(game.startTime)}
           tooltip={longTimestamp.format(game.startTime)}
         />
         {showLength ? <GameLength game={game} revealed={resultsRevealed} prefix=' · ' /> : null}
-      </HeaderMeta>
-      <ResultsToggle game={game} revealed={resultsRevealed} onToggle={onToggleResults} />
-    </CardHeader>
+      </BackdropCardMeta>
+      {hasRecordedResults(game) ? (
+        <ResultsToggle revealed={resultsRevealed} onToggle={onToggleResults} />
+      ) : null}
+    </BackdropCardHeader>
   )
 }
 
-const CARD_PADDING_Y = 12
-const CARD_PADDING_X = 16
-const CARD_GAP = 16
 /**
- * Wider than the other inline cards: a head-to-head splits the card between two sides, each of which
- * needs room for a full player name beside its icons. The card still shrinks to fit narrower chats.
- */
-const CARD_WIDTH = 500
-
-const cardWidth = css`
-  width: ${CARD_WIDTH}px;
-`
-
-const CardLoading = styled(InlineCardLoading)`
-  ${cardWidth};
-`
-
-const CardGone = styled(InlineCardGone)`
-  ${cardWidth};
-`
-
-function getCardHeight(matchupHeight: number): number {
-  return (
-    INLINE_CARD_BORDER_WIDTH * 2 + CARD_PADDING_Y * 2 + HEADER_ROW_HEIGHT + CARD_GAP + matchupHeight
-  )
-}
-
-const BackdropImage = styled.img`
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  width: 100%;
-  height: 100%;
-
-  object-fit: cover;
-  filter: saturate(0.9) blur(1px);
-  /* Slightly oversized at rest so the blur never pulls the card's background in at the edges. */
-  transform: scale(1.03);
-  transition: transform 600ms cubic-bezier(0.2, 0, 0, 1);
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
-`
-
-const BackdropScrim = styled.div`
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-
-  /* Darkest behind the header line, easing off behind the matchup so the map reads through. */
-  background: linear-gradient(
-    180deg,
-    rgb(from var(--theme-container-low) r g b / 0.9) 0%,
-    rgb(from var(--theme-container-low) r g b / 0.52) 50%,
-    rgb(from var(--theme-container-low) r g b / 0.62) 100%
-  );
-  transition: opacity 300ms linear;
-`
-
-const CardRoot = styled.div<{ $height: number }>`
-  ${inlineCardShell};
-  ${cardWidth};
-  position: relative;
-  height: ${props => props.$height}px;
-  padding: ${CARD_PADDING_Y}px ${CARD_PADDING_X}px;
-  overflow: hidden;
-  isolation: isolate;
-
-  display: flex;
-  flex-direction: column;
-  gap: ${CARD_GAP}px;
-
-  background-color: var(--theme-container-low);
-  border: ${INLINE_CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
-  cursor: pointer;
-
-  & ${MatchupName}, & ${MatchupConnectedName}, & ${VersusLabel} {
-    text-shadow: 0 1px 3px rgb(0 0 0 / 0.7);
-  }
-
-  &:hover ${BackdropImage} {
-    transform: scale(1.07);
-  }
-
-  &:hover ${BackdropScrim} {
-    opacity: 0.9;
-  }
-`
-
-/**
- * The card's keyboard and assistive-technology entry point: a transparent button stretched over the
- * card that pointer events pass straight through, so the card's content stays hoverable. It has no
- * click handler of its own; activating it dispatches a click that bubbles to the card's, which does
- * the opening.
- */
-const CardLinkButton = styled.button`
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  margin: 0;
-  padding: 0;
-
-  background: transparent;
-  border: none;
-  border-radius: inherit;
-  pointer-events: none;
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-amber);
-    outline-offset: -2px;
-  }
-`
-
-/**
- * A rich preview for a game results link posted in chat, the whole of which opens the game's results
- * page (on the tab the link points at). It shows the game's type, map and start time over a blurred
- * image of the map, and its players with the ranks they had going into it, which give nothing away.
+ * The presentational part of {@link GameLinkCard}: renders the loading/error/notFound/loaded states
+ * without fetching anything itself, so it can be driven directly (e.g. from a devonly test page).
+ * It shows the game's type, map and start time over a blurred image of the map, and its players
+ * with the ranks they had going into it, which give nothing away.
  *
  * The card hides the game's outcome and length until the viewer reveals them with its results
  * toggle: a link is often shared so that someone can go watch the game, and either would spoil it.
- * A reveal lasts only while the card stays mounted. Until then placeholders hold the results'
- * places, so revealing swaps them in without moving anything else on the card.
+ * A game with no recorded outcome has nothing to spoil, so it shows its length from the start and
+ * has no toggle. A reveal lasts only while the card stays mounted. Until then placeholders hold the
+ * results' places, so revealing swaps them in without moving anything else on the card.
  *
  * The loading state renders a placeholder sized for the largest matchup, so the message it's
  * attached to never grows once the game arrives. The error state renders nothing: the inline link
  * in the message text still works, and shrinking away is safe (only growth breaks the message
  * list's autoscroll).
  */
-export function GameLinkCard({ target }: { target: GameLinkTarget }) {
+export function GameLinkCardContent({
+  state,
+  onClick,
+}: {
+  state: GameLinkLoadState | undefined
+  /** Opens the game's results page. */
+  onClick: () => void
+}) {
   const { t } = useTranslation()
-  const state = useGameLinkState(target.gameId)
   const [resultsRevealed, setResultsRevealed] = useState(false)
 
   if (!state) {
-    return <CardLoading $height={getCardHeight(MAX_MATCHUP_HEIGHT)} aria-hidden={true} />
+    return (
+      <BackdropCardLoading $height={getBackdropCardHeight(MAX_MATCHUP_HEIGHT)} aria-hidden={true} />
+    )
   }
 
   if (state.status === 'error') {
@@ -905,45 +672,54 @@ export function GameLinkCard({ target }: { target: GameLinkTarget }) {
   }
 
   if (state.status === 'notFound') {
-    return <CardGone>{t('gameDetails.notFound', 'This game could not be found.')}</CardGone>
+    return (
+      <BackdropCardGone>
+        {t('gameDetails.notFound', 'This game could not be found.')}
+      </BackdropCardGone>
+    )
   }
 
   const { game, map, divisionById } = state
   const size = getMatchupSize(game)
   const lengthUnderVersus = canShowLengthUnderVersus(game, size)
-  const imageUrl = map?.image512Url ?? map?.image256Url
+  const showResults = resultsRevealed || !hasRecordedResults(game)
 
   return (
-    <CardRoot
-      $height={getCardHeight(getMatchupHeight(game, size))}
-      onClick={() => {
-        // The click that ends a text selection is ignored, so the card's text can still be selected
-        // and copied.
-        if (window.getSelection()?.isCollapsed !== false) {
-          navigateToGameResults(target.gameId, false, target.subPage)
-        }
-      }}>
-      {imageUrl ? <BackdropImage src={imageUrl} alt='' draggable={false} /> : null}
-      <BackdropScrim />
+    <GameCard
+      imageUrl={map?.image512Url ?? map?.image256Url}
+      height={getBackdropCardHeight(getMatchupHeight(game, size))}
+      onClick={onClick}
+      actionLabel={t('games.linkCard.view', 'View game')}
+      testName='game-link-card-view-button'>
       <CardHeaderRow
         game={game}
         mapName={map?.name ?? t('game.mapName.unknown', 'Unknown map')}
         showLength={!lengthUnderVersus}
-        resultsRevealed={resultsRevealed}
+        resultsRevealed={showResults}
         onToggleResults={() => setResultsRevealed(!resultsRevealed)}
       />
       <GameMatchup
         game={game}
         divisionById={divisionById}
         size={size}
-        showResults={resultsRevealed}
+        showResults={showResults}
         showLength={lengthUnderVersus}
       />
-      <CardLinkButton
-        type='button'
-        aria-label={t('games.linkCard.view', 'View game')}
-        data-testid='game-link-card-view-button'
-      />
-    </CardRoot>
+    </GameCard>
+  )
+}
+
+/**
+ * A rich preview for a game results link posted in chat, the whole of which opens the game's results
+ * page (on the tab the link points at). Fetches the game itself (see {@link useGameLinkState}), so
+ * it can be rendered for any game id.
+ */
+export function GameLinkCard({ target }: { target: GameLinkTarget }) {
+  const state = useGameLinkState(target.gameId)
+  return (
+    <GameLinkCardContent
+      state={state}
+      onClick={() => navigateToGameResults(target.gameId, false, target.subPage)}
+    />
   )
 }

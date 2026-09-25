@@ -1,43 +1,15 @@
-import { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   getTotalBonusPoolForSeason,
   makeSeasonId,
-  MatchmakingDivision,
-  matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
   MatchmakingType,
-  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceStats } from '../../common/races'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
-import { getRankLine } from './user-card'
-
-// Answers with whatever default value the caller supplied (a second string argument, or a
-// `defaultValue` field on the options object), interpolating any `{{placeholder}}` in it from the
-// remaining option fields -- close enough to i18next's real behavior for the English strings this
-// module renders.
-const t = ((
-  key: string,
-  defaultValueOrOptions?: string | { defaultValue?: string; [option: string]: unknown },
-  maybeOptions?: { [option: string]: unknown },
-) => {
-  const isDefaultValueString = typeof defaultValueOrOptions === 'string'
-  const defaultValue = isDefaultValueString
-    ? defaultValueOrOptions
-    : (defaultValueOrOptions?.defaultValue ?? key)
-  const options = isDefaultValueString ? maybeOptions : defaultValueOrOptions
-
-  return Object.entries(options ?? {}).reduce(
-    (result, [placeholder, value]) =>
-      placeholder === 'defaultValue' || placeholder === 'defaultValue_one'
-        ? result
-        : result.replaceAll(`{{${placeholder}}}`, String(value)),
-    defaultValue,
-  )
-}) as unknown as TFunction
+import { getMainRace, getRankedModes } from './user-card'
 
 const MOCK_USER_ID = makeSbUserId(1)
 
@@ -96,51 +68,27 @@ function makeProfile(ladder: Partial<Record<MatchmakingType, LadderPlayer>>): Us
   }
 }
 
-describe('client/users/user-card getRankLine', () => {
-  test('ranked, season loaded: names the most-played mode regardless of ladder key order', () => {
+describe('client/users/user-card getRankedModes', () => {
+  test('season loaded: every played mode, most-played first, with its division', () => {
     // Match2v2 is listed first in the object but has fewer total games than Match1v1, which
-    // should still be the one the line names.
+    // should still come first.
     const ladder = {
       [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 18, 21),
       [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 74, 52),
     }
-    const profile = makeProfile(ladder)
     const bonusPool = getTotalBonusPoolForSeason(new Date(), MOCK_SEASON)
 
-    const result = getRankLine(profile, MOCK_SEASON, t)
-    if (result.kind !== 'ranked') {
-      throw new Error(`expected kind 'ranked', got '${result.kind}'`)
-    }
-
-    const expectedDivision = ladderPlayerToMatchmakingDivision(
-      ladder[MatchmakingType.Match1v1],
-      bonusPool,
-    )
-    const expectedDivisionLabel = matchmakingDivisionToLabel(expectedDivision, t)
-    const expectedModeLabel = matchmakingTypeToLabel(MatchmakingType.Match1v1, t)
-    const expectedPoints = Math.round(1840).toLocaleString()
-
-    expect(result.badge).toBe(expectedDivision)
-    expect(result.text).toBe(
-      `${expectedDivisionLabel} · ${expectedModeLabel} · ${expectedPoints} pts`,
-    )
-
-    const expected2v2Division = ladderPlayerToMatchmakingDivision(
-      ladder[MatchmakingType.Match2v2],
-      bonusPool,
-    )
-
-    expect(result.modes).toEqual([
+    expect(getRankedModes(makeProfile(ladder), MOCK_SEASON)).toEqual([
       {
         type: MatchmakingType.Match1v1,
-        division: expectedDivision,
+        division: ladderPlayerToMatchmakingDivision(ladder[MatchmakingType.Match1v1], bonusPool),
         points: 1840,
         wins: 74,
         losses: 52,
       },
       {
         type: MatchmakingType.Match2v2,
-        division: expected2v2Division,
+        division: ladderPlayerToMatchmakingDivision(ladder[MatchmakingType.Match2v2], bonusPool),
         points: 940,
         wins: 18,
         losses: 21,
@@ -148,32 +96,54 @@ describe('client/users/user-card getRankLine', () => {
     ])
   })
 
-  test('no ranked mode: unranked with the Unrated division badge', () => {
-    const profile = makeProfile({})
+  test('modes with fewer than the placement games: left out', () => {
+    const ladder = {
+      [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 3, 1),
+      [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 3, 2),
+    }
 
-    const result = getRankLine(profile, MOCK_SEASON, t)
-
-    expect(result).toEqual({
-      kind: 'unranked',
-      badge: MatchmakingDivision.Unrated,
-      text: 'Unranked',
-    })
+    expect(getRankedModes(makeProfile(ladder), MOCK_SEASON).map(m => m.type)).toEqual([
+      MatchmakingType.Match2v2,
+    ])
   })
 
-  test('season not loaded: mode labels only, most-played first', () => {
+  test('no ranked mode: nothing', () => {
+    expect(getRankedModes(makeProfile({}), MOCK_SEASON)).toEqual([])
+  })
+
+  test('season not loaded: modes without divisions', () => {
     const ladder = {
       [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 18, 21),
       [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 74, 52),
     }
-    const profile = makeProfile(ladder)
 
-    const result = getRankLine(profile, undefined, t)
+    const result = getRankedModes(makeProfile(ladder), undefined)
 
-    const expectedText = `${matchmakingTypeToLabel(MatchmakingType.Match1v1, t)} · ${matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}`
+    expect(result.map(m => [m.type, m.division])).toEqual([
+      [MatchmakingType.Match1v1, undefined],
+      [MatchmakingType.Match2v2, undefined],
+    ])
+  })
+})
 
-    expect(result).toEqual({
-      kind: 'seasonUnknown',
-      text: expectedText,
-    })
+describe('client/users/user-card getMainRace', () => {
+  const NONE = makeProfile({}).userStats
+
+  test('a race with at least 60% of the games is the main race', () => {
+    expect(getMainRace({ ...NONE, tWins: 4, tLosses: 2, pWins: 3, zLosses: 1 })).toBe('t')
+  })
+
+  test('random counts as its own race', () => {
+    expect(getMainRace({ ...NONE, rWins: 5, rLosses: 2, rPWins: 5, rTLosses: 2, zWins: 1 })).toBe(
+      'r',
+    )
+  })
+
+  test('no race with 60% of the games: undefined', () => {
+    expect(getMainRace({ ...NONE, pWins: 34, tWins: 33, zWins: 33 })).toBeUndefined()
+  })
+
+  test('no games: undefined', () => {
+    expect(getMainRace(NONE)).toBeUndefined()
   })
 })

@@ -48,10 +48,11 @@ import {
   startCountdown,
   swapTeams,
 } from './action-creators'
+import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
-import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
+import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 import { LobbyRoom } from './room/lobby-room'
 import { TeamArrangement } from './room/room-parts'
@@ -436,7 +437,7 @@ function BrowseLobbiesButton() {
 
 const JoinPreviewLayout = styled.div`
   width: 100%;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 16px 0;
 
@@ -559,8 +560,7 @@ export function JoinableLobbyContent({
 
   return (
     <JoinPreviewLayout>
-      <LobbySummaryDetails summary={summary.data} />
-      {joinButton}
+      <JoinPreview summary={summary.data} isJoining={isJoining} onJoinClick={onJoinClick} />
     </JoinPreviewLayout>
   )
 }

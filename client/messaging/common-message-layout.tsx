@@ -21,6 +21,7 @@ import {
 import { ExternalLink } from '../navigation/external-link'
 import { labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { userFromMessageLink, UserLinkCard, UserLinkTarget } from '../users/user-card'
 import { UserMenuComponent } from '../users/user-context-menu'
 import { ChatContext } from './chat-context'
 import { useMentionFilterClick } from './mention-hooks'
@@ -151,6 +152,8 @@ export interface ParsedMessageText {
   inviteLobbyId: SbLobbyId | undefined
   /** The game the first game results link in the text points at, if it holds one. */
   linkedGame: GameLinkTarget | undefined
+  /** The user the first profile link in the text points at, if it holds one. */
+  linkedUser: UserLinkTarget | undefined
 }
 
 /**
@@ -166,6 +169,7 @@ export function parseMessageText(
   let mentionsSelf = false
   let inviteLobbyId: SbLobbyId | undefined
   let linkedGame: GameLinkTarget | undefined
+  let linkedUser: UserLinkTarget | undefined
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
   const jumboEmoji = isJumboEmojiMessage(text, sortedMatches)
@@ -217,6 +221,10 @@ export function parseMessageText(
         // Likewise, only the first game link in a message gets a game card.
         linkedGame = gameFromMessageLink(match.text)
       }
+      if (linkedUser === undefined) {
+        // And only the first profile link gets a user card.
+        linkedUser = userFromMessageLink(match.text)
+      }
 
       const messageLink = messageLinkFromHref(match.text)
       if (messageLink) {
@@ -246,7 +254,7 @@ export function parseMessageText(
     nodes.push(text.substring(lastIndex))
   }
 
-  return { nodes, mentionsSelf, inviteLobbyId, linkedGame }
+  return { nodes, mentionsSelf, inviteLobbyId, linkedGame, linkedUser }
 }
 
 export interface TextMessageProps {
@@ -302,6 +310,7 @@ export function TextMessage({
   const isHighlighted = parsed?.mentionsSelf ?? false
   const inviteLobbyId = parsed?.inviteLobbyId
   const linkedGame = parsed?.linkedGame
+  const linkedUser = parsed?.linkedUser
 
   // An outcome is always announced as an action line, whatever flag the message carries.
   const isActionLine = emote === true || outcome !== undefined
@@ -335,6 +344,9 @@ export function TextMessage({
         ) : undefined}
         {linkedGame !== undefined && !disallowMentionInteraction ? (
           <GameLinkCard target={linkedGame} />
+        ) : undefined}
+        {linkedUser !== undefined && !disallowMentionInteraction ? (
+          <UserLinkCard target={linkedUser} />
         ) : undefined}
       </TimestampMessageLayout>
 

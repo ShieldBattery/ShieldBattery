@@ -312,18 +312,15 @@ describe('messaging/commands/commands/friend', () => {
     expect(cardProps.offlineIds).toEqual([CAROL_ID])
 
     // The online rows carry the names in order and only the friend in a game says what they are
-    // doing; the offline friend is behind the disclosure until it's clicked.
+    // doing; the offline friend is hidden until the header's action shows them.
     const { container } = render(<div>{card.content}</div>)
     expect(container.textContent).toContain('Alice')
     expect(container.textContent).toContain('bob')
     expect(container.textContent).toContain('In game')
-    expect(container.textContent).toContain('Online')
-    expect(container.textContent).toContain('(2)')
-    expect(container.textContent).toContain('Offline')
-    expect(container.textContent).toContain('(1)')
+    expect(container.textContent).toContain('2 online · 3 friends')
     expect(container.textContent).not.toContain('Carol')
 
-    const toggle = screen.getByRole('button', { name: /Offline/ })
+    const toggle = screen.getByRole('button', { name: 'Show offline' })
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.click(toggle)
@@ -352,11 +349,11 @@ describe('messaging/commands/commands/friend', () => {
     expect(emit).toHaveBeenCalledTimes(1)
     const text = renderLine(emit.mock.calls[0][0].content)
     expect(text).toContain('No friends online')
-    expect(text).toContain('Offline')
-    expect(text).toContain('(2)')
+    expect(text).toContain('0 online · 2 friends')
+    expect(text).toContain('Show offline')
   })
 
-  test('/f l with everyone online has no disclosure', () => {
+  test('/f l with everyone online has no show-offline action', () => {
     const { emit } = runInput(
       '/f l',
       makeState({
@@ -371,9 +368,8 @@ describe('messaging/commands/commands/friend', () => {
     asMockedFunction(getRelationshipsIfNeeded).mock.calls[0][0].onSuccess()
 
     const text = renderLine(emit.mock.calls[0][0].content)
-    expect(text).toContain('Online')
-    expect(text).toContain('(2)')
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(text).toContain('2 online · 2 friends')
+    expect(screen.queryByRole('button', { name: 'Show offline' })).toBeNull()
   })
 
   test('/f rejects an action it does not have', () => {

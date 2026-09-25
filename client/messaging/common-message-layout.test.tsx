@@ -9,6 +9,7 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
 import { gameFromMessageLink, GameLinkTarget } from '../games/game-link-card'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
+import { userFromMessageLink, UserLinkTarget } from '../users/user-card'
 import { TextMessage } from './common-message-layout'
 
 // The outcome line is built with `Trans`, which needs an i18next instance to render against.
@@ -36,6 +37,16 @@ vi.mock('../games/game-link-card', async importOriginal => {
     ...actual,
     GameLinkCard: ({ target }: { target: GameLinkTarget }) => (
       <div data-testid='game-link-card'>{`${target.gameId} ${target.subPage ?? ''}`}</div>
+    ),
+  }
+})
+
+vi.mock('../users/user-card', async importOriginal => {
+  const actual = await importOriginal<typeof import('../users/user-card')>()
+  return {
+    ...actual,
+    UserLinkCard: ({ target }: { target: UserLinkTarget }) => (
+      <div data-testid='user-link-card'>{`${target.userId} ${target.subPage ?? ''}`}</div>
     ),
   }
 })
@@ -288,6 +299,44 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         time: -(LOBBY_INVITE_CARD_MAX_AGE_MS + 1),
       })
       expect(screen.getAllByTestId('game-link-card')).toHaveLength(1)
+    })
+  })
+
+  describe('profile links', () => {
+    test('a profile link resolves to its user and tab', () => {
+      expect(userFromMessageLink('https://shieldbattery.net/users/42/tec27/match-history')).toEqual(
+        { userId: makeSbUserId(42), subPage: 'match-history' },
+      )
+      expect(userFromMessageLink('https://shieldbattery.net/users/42/tec27')).toEqual({
+        userId: makeSbUserId(42),
+        subPage: undefined,
+      })
+    })
+
+    test('non-profile ShieldBattery paths resolve to no user', () => {
+      expect(userFromMessageLink('https://shieldbattery.net/users/42')).toBeUndefined()
+      expect(userFromMessageLink('https://shieldbattery.net/users/tec27/42')).toBeUndefined()
+      expect(userFromMessageLink('https://shieldbattery.net/users/0/nobody')).toBeUndefined()
+      expect(
+        userFromMessageLink('https://shieldbattery.net/users/42/tec27/summary/extra'),
+      ).toBeUndefined()
+    })
+
+    test('message with a profile link renders exactly one user card', () => {
+      doRender('check him out https://shieldbattery.net/users/42/tec27/match-history')
+      expect(screen.getByTestId('user-link-card').textContent).toBe('42 match-history')
+    })
+
+    test('message with multiple profile links renders only one user card', () => {
+      doRender(
+        'https://shieldbattery.net/users/42/tec27 vs https://shieldbattery.net/users/43/pachi',
+      )
+      expect(screen.getAllByTestId('user-link-card')).toHaveLength(1)
+    })
+
+    test('profile-shaped path on a foreign origin renders no user card', () => {
+      doRender('https://example.com/users/42/tec27')
+      expect(screen.queryByTestId('user-link-card')).toBeNull()
     })
   })
 

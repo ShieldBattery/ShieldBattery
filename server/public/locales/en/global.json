@@ -414,8 +414,12 @@
         "description": "Manages your friends list: add, remove, or list them with their current activity.",
         "empty": "Your friends list is empty.",
         "list": {
+          "counts": "{{online}} online · {{total}} friends",
           "description": "Lists your friends and what they are doing.",
-          "noneOnline": "No friends online"
+          "hideOffline": "Hide offline",
+          "noneOnline": "No friends online",
+          "showOffline": "Show offline",
+          "title": "Friends"
         },
         "loadError": "Couldn't load your friends list: {{errorMessage}}",
         "remove": {
@@ -1560,6 +1564,15 @@
       "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
       "visibilityUnlistedDescription": "Only people with the link can join. Only people that were in the game can download the replay."
     },
+    "inviteCard": {
+      "goToLobby": "Go to lobby",
+      "hostedBy": "Hosted by <1></1>",
+      "join": "Join",
+      "joined": "You're in this lobby",
+      "seats": "{{taken}} of {{total}} seats filled",
+      "title": "Lobby",
+      "view": "View lobby"
+    },
     "joinCode": {
       "explainer": "Paste a lobby link, or enter the code shown when a link is opened in a browser.",
       "genericError": "Something went wrong. Please try again.",
@@ -1577,11 +1590,8 @@
       "errorFull": "This lobby is full.",
       "errorGeneric": "Something went wrong while joining the lobby. Please try again.",
       "errorObserversFull": "This lobby has no observer slots open. Try joining as a player instead.",
-      "joined": "Joined",
       "matchmakingActiveDialogText": "You cannot join lobbies while a matchmaking search is active.",
-      "matchmakingActiveDialogTitle": "Joining lobbies disabled",
-      "openSlotCount_one": "{{count}} slot open",
-      "openSlotCount_other": "{{count}} slots open"
+      "matchmakingActiveDialogTitle": "Joining lobbies disabled"
     },
     "landing": {
       "appLaunch": {
@@ -2894,17 +2904,17 @@
       "withMessage": "{{availability}}: {{message}}"
     },
     "card": {
+      "divisionUnknown": "Division unknown",
+      "gameCount_one": "{{total}} game",
+      "gameCount_other": "{{total}} games",
+      "joined": "Joined {{time}}",
       "loadError": "Couldn't load this user's profile.",
       "noGames": "No games played",
-      "rankLine": "{{division}} · {{mode}} · {{points}} pts",
-      "rankTooltip": {
-        "points": "{{points}} pts",
-        "winRate": "{{winRate}}% win rate"
-      },
-      "totalGames_one": "{{count}} game",
-      "totalGames_other": "{{count}} games",
-      "unranked": "Unranked",
-      "viewProfile": "Profile"
+      "notEnoughRankedGames": "Not enough ranked games this season",
+      "notFound": "This user could not be found.",
+      "openProfile": "View profile",
+      "title": "Player",
+      "unranked": "Unranked"
     },
     "contextMenu": {
       "addFriend": "Add friend",
