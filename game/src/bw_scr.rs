@@ -5949,6 +5949,20 @@ impl BwScr {
         &self.rollback_ranges
     }
 
+    /// The value the snapshot's analysis result `name` holds right now, which for a list head is
+    /// the list's first entry; 0 when analysis did not resolve it, or did not run because neither
+    /// the harness, a dump nor the probe was armed at launch.
+    pub(crate) unsafe fn rollback_list_head(&self, name: &str) -> usize {
+        unsafe {
+            self.rollback_ranges
+                .iter()
+                .find(|x| x.name() == name)
+                .and_then(|x| x.operand())
+                .map(|op| resolve_operand(op, &[]))
+                .unwrap_or(0)
+        }
+    }
+
     /// The current map's pathing state, or null before a map has been loaded.
     pub(crate) unsafe fn rollback_pathing(&self) -> *mut bw::Pathing {
         unsafe { self.pathing.resolve() }
@@ -6059,6 +6073,7 @@ impl BwScr {
                 trigger_timer: self.trigger_execution_timer.resolve(),
                 elapsed_seconds: (*game).elapsed_seconds,
                 player_types: std::array::from_fn(|i| (*self.players().add(i)).player_type),
+                state_hash: crate::rollback_probe::state_hash(self, game, &rng),
             })
         }
     }

@@ -278,6 +278,16 @@ pub struct RangeSpec {
     kind: RangeKind,
 }
 
+impl RangeSpec {
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
+    pub fn operand(&self) -> Option<Operand<'static>> {
+        self.op
+    }
+}
+
 // The operands are interned in a leaked context that outlives the process and are only ever read,
 // like the rest of the analysis results `BwScr` holds.
 unsafe impl Send for RangeSpec {}
@@ -1357,7 +1367,10 @@ pub fn analyze_ranges(
     // Most of these need an analysis pass nothing else in the game asks for, which adds up to a
     // noticeable part of launch time, so a run that will neither roll anything back nor dump the
     // ranges does not pay for them.
-    if ROLLBACK_FRAMES.load(Ordering::Acquire) == 0 && !DUMP_ARMED.load(Ordering::Acquire) {
+    if ROLLBACK_FRAMES.load(Ordering::Acquire) == 0
+        && !DUMP_ARMED.load(Ordering::Acquire)
+        && !crate::rollback_probe::is_active()
+    {
         return Vec::new();
     }
     let word = size_of::<usize>();
@@ -2500,10 +2513,10 @@ impl HarnessFile {
             &mut file,
             "frame,rng0,rng1,rng2,rng3,rng4,rng5,\
              minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,\
-             elapsed_seconds,player_types,\
+             elapsed_seconds,player_types,state_hash,\
              confirmed_frame,c_rng0,c_rng1,c_rng2,c_rng3,c_rng4,c_rng5,\
              c_minerals0,c_minerals1,c_minerals2,c_minerals3,c_gas0,c_gas1,c_gas2,c_gas3,\
-             c_trigger_timer,c_elapsed_seconds,c_player_types,rollback_frames,\
+             c_trigger_timer,c_elapsed_seconds,c_player_types,c_state_hash,rollback_frames,\
              suppressed_commands,applied_delayed_commands,\
              sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
              units_moved,max_move,units_morphed,units_popped_in,units_popped_out,move_distances,\
