@@ -2,6 +2,7 @@ import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import {
   AccountSettingsResponse,
+  ALL_CHAT_DISPLAY_MODES,
   UpdateAccountSettingsRequest,
 } from '../../../common/settings/account-settings'
 import { ALL_USER_AVAILABILITIES } from '../../../common/users/availability'
@@ -25,6 +26,7 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
   quietWhispersWhileInGame: Joi.boolean(),
   showWhispersEverywhere: Joi.boolean(),
   availability: Joi.valid(...ALL_USER_AVAILABILITIES),
+  chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),
 })
   .min(1)
   .required()

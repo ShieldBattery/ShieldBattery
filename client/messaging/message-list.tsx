@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { ServerChatMessageType } from '../../common/chat'
+import { ChatDisplayMode } from '../../common/settings/account-settings'
 import { UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
@@ -17,6 +18,7 @@ import {
   BlockedMessage,
   NewDayMessage,
   TextMessage,
+  TextMessageLayout,
   UNREAD_LINE_SELECTOR,
   UnreadLineMessage,
 } from './common-message-layout'
@@ -67,6 +69,80 @@ function isSameDay(d1: Date, d2: Date) {
   )
 }
 
+/** Whether the message at `index` starts a different day than the one before it. */
+function needsNewDayBefore(messages: ReadonlyArray<SbMessage>, index: number): boolean {
+  const prevMessage = index > 0 ? messages[index - 1] : undefined
+  return !!prevMessage && !isSameDay(new Date(prevMessage.time), new Date(messages[index].time))
+}
+
+/**
+ * The longest gap between two messages from one author that still lets the later one continue the
+ * earlier one's group in the cozy display mode.
+ */
+export const CHAT_GROUPING_WINDOW_MS = 5 * 60 * 1000
+
+/** The last message of a cozy group, which the next message may continue. */
+export interface CozyGroupTail {
+  userId: SbUserId
+  time: number
+}
+
+/**
+ * Decides how a message is laid out in the cozy display mode, given the tail of the group before
+ * it. Only plain text messages from unblocked authors take part in grouping: they continue the
+ * group before them when it's the same author's and the gap is within `CHAT_GROUPING_WINDOW_MS`,
+ * and start a new group otherwise. Everything else (action lines, blocked messages, system lines,
+ * lines only this user sees) gets no cozy layout and ends the group, as does a divider rendered in
+ * front of the message.
+ */
+export function cozyLayoutFor(
+  message: SbMessage,
+  prev: CozyGroupTail | undefined,
+  hasDividerBefore: boolean,
+  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
+): { layout: TextMessageLayout | undefined; next: CozyGroupTail | undefined } {
+  if (
+    message.type !== CommonMessageType.TextMessage &&
+    message.type !== ServerChatMessageType.TextMessage
+  ) {
+    return { layout: undefined, next: undefined }
+  }
+  const isActionLine =
+    ('emote' in message && message.emote === true) ||
+    ('outcome' in message && message.outcome !== undefined)
+  if (isActionLine || blockedUsers.has(message.from)) {
+    return { layout: undefined, next: undefined }
+  }
+
+  const continuesGroup =
+    !hasDividerBefore &&
+    prev !== undefined &&
+    prev.userId === message.from &&
+    message.time - prev.time <= CHAT_GROUPING_WINDOW_MS
+
+  return {
+    layout: continuesGroup ? 'cozyContinuation' : 'cozyHeader',
+    next: { userId: message.from, time: message.time },
+  }
+}
+
+/** The cozy layout of each message in a list, in the same order. */
+function cozyLayoutsFor(
+  messages: ReadonlyArray<SbMessage>,
+  unreadLineIndex: number,
+  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
+): Array<TextMessageLayout | undefined> {
+  const layouts: Array<TextMessageLayout | undefined> = []
+  let prev: CozyGroupTail | undefined
+  for (let i = 0; i < messages.length; i++) {
+    const hasDividerBefore = needsNewDayBefore(messages, i) || i === unreadLineIndex
+    const { layout, next } = cozyLayoutFor(messages[i], prev, hasDividerBefore, blockedUsers)
+    layouts.push(layout)
+    prev = next
+  }
+  return layouts
+}
+
 /**
  * How many pixels a user can be away from the bottom of the scrollable area and still be
  * considered "at the bottom" for the purposes of autoscrolling.
@@ -112,11 +188,14 @@ function CommonMessageOrFallback({
   selfUserId,
   blockedUsers,
   FallbackComponent,
+  layout,
 }: {
   message: SbMessage
   selfUserId: SbUserId
   blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>
   FallbackComponent?: MessageComponentType
+  /** How a text message is laid out, see `TextMessageLayout`. */
+  layout?: TextMessageLayout
 }) {
   switch (message.type) {
     case CommonMessageType.NewDayMessage:
@@ -155,6 +234,7 @@ function CommonMessageOrFallback({
           text={message.text}
           emote={emote}
           outcome={outcome}
+          layout={layout}
         />
       )
     }
@@ -180,6 +260,7 @@ interface PureMessageListProps {
   loading?: boolean
   /** Whether the older edge is showing an error for a history request that failed. */
   hasHistoryError: boolean
+  displayMode?: ChatDisplayMode
 }
 
 function PureMessageList({
@@ -190,10 +271,13 @@ function PureMessageList({
   hasMoreHistory,
   loading,
   hasHistoryError,
+  displayMode,
 }: PureMessageListProps) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
   const blocks = useAppSelector(s => s.relationships.blocks)
+  const accountDisplayMode = useAppSelector(s => s.settings.account.chatDisplayMode)
+  const effectiveDisplayMode = displayMode ?? accountDisplayMode
 
   // Message lists only exist behind a login in the real app, but /dev pages mount outside that
   // gate and can render one with no session — show nothing there rather than crash.
@@ -215,6 +299,8 @@ function PureMessageList({
   }
 
   const unreadLineIndex = findUnreadLineIndex(messages, unreadLineTime, hasMoreHistory)
+  const cozyLayouts =
+    effectiveDisplayMode === 'cozy' ? cozyLayoutsFor(messages, unreadLineIndex, blocks) : undefined
 
   return (
     <Messages>
@@ -226,12 +312,11 @@ function PureMessageList({
             selfUserId={selfUserId}
             blockedUsers={blocks}
             FallbackComponent={MessageComponent}
+            layout={cozyLayouts?.[index]}
           />
         )
 
-        const prevMessage = index > 0 ? messages[index - 1] : null
-        const needsNewDay =
-          !!prevMessage && !isSameDay(new Date(prevMessage.time), new Date(m.time))
+        const needsNewDay = needsNewDayBefore(messages, index)
         const needsUnreadLine = index === unreadLineIndex
 
         if (!needsNewDay && !needsUnreadLine) {
@@ -367,6 +452,11 @@ export interface MessageListProps {
    * one with a position the user never chose.
    */
   isRestorePending?: (viewStateKey: string) => boolean
+  /**
+   * How text messages are displayed, overriding the user's account setting. Surfaces that show
+   * chat for inspection rather than conversation (the admin channel viewer, say) pin this.
+   */
+  displayMode?: ChatDisplayMode
 }
 
 interface MessageListSnapshot {
@@ -623,6 +713,7 @@ export class MessageList extends React.Component<MessageListProps> {
       onLoadNewerMessages,
       showEmptyState = true,
       unreadLineTime,
+      displayMode,
     } = this.props
 
     return (
@@ -650,6 +741,7 @@ export class MessageList extends React.Component<MessageListProps> {
             hasMoreHistory={hasMoreHistory}
             loading={loading}
             hasHistoryError={!!historyError}
+            displayMode={displayMode}
           />
         </InfiniteScrollList>
       </Scrollable>
