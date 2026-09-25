@@ -3,7 +3,6 @@ import { Link, Route, Switch } from 'wouter'
 import { HostGameTest } from './host-game-test'
 import { JoinPreviewTest } from './join-preview-test'
 import { LobbyBrowserTest } from './lobby-browser-test'
-import { LobbyInviteCardTest } from './lobby-invite-card-test'
 import { LobbyLandingTest } from './lobby-landing-test'
 import { LobbyRoomTest } from './lobby-room-test'
 import RacePickerTest from './race-picker-test'
@@ -32,9 +31,6 @@ class DevLobbiesDashboard extends Component {
         <li>
           <Link href={`${BASE_URL}/join-preview`}>Lobby join preview</Link>
         </li>
-        <li>
-          <Link href={`${BASE_URL}/invite-card`}>Lobby invite card</Link>
-        </li>
       </ul>
     )
   }
@@ -49,7 +45,6 @@ export default () => {
       <Route path={`${BASE_URL}/race-picker`} component={RacePickerTest} />
       <Route path={`${BASE_URL}/lobby-landing`} component={LobbyLandingTest} />
       <Route path={`${BASE_URL}/join-preview`} component={JoinPreviewTest} />
-      <Route path={`${BASE_URL}/invite-card`} component={LobbyInviteCardTest} />
       <Route>
         <DevLobbiesDashboard />
       </Route>

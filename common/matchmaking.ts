@@ -787,6 +787,31 @@ export interface PublicMatchmakingRatingChange {
 
 export type PublicMatchmakingRatingChangeJson = Jsonify<PublicMatchmakingRatingChange>
 
+/**
+ * Returns the division a player was in going into the game a rating change came from: their points
+ * before the change, placed with the season's bonus pool as of that game. A player who was still in
+ * placement matches going into the game was unrated.
+ */
+export function getDivisionBeforeRatingChange(
+  change: Readonly<
+    Pick<
+      PublicMatchmakingRatingChangeJson,
+      'matchmakingType' | 'points' | 'pointsChange' | 'lifetimeGames'
+    >
+  >,
+  bonusPool: number,
+): MatchmakingDivision {
+  // `lifetimeGames` counts the game the change came from.
+  if (change.lifetimeGames - 1 < NUM_PLACEMENT_MATCHES) {
+    return MatchmakingDivision.Unrated
+  }
+  return pointsToMatchmakingDivision(
+    isSoloType(change.matchmakingType),
+    change.points - change.pointsChange,
+    bonusPool,
+  )
+}
+
 export function toPublicMatchmakingRatingChangeJson(
   input: Readonly<PublicMatchmakingRatingChange>,
 ): PublicMatchmakingRatingChangeJson {

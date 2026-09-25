@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReconciledResult } from '../../common/games/results'
+import { getResultLabel, getResultShortLabel, ReconciledResult } from '../../common/games/results'
 import { labelSmall } from '../styles/typography'
 
 /**
@@ -36,3 +37,44 @@ export const PlayerResultChip = styled.span<{ $result: ReconciledResult }>`
   }};
   background: color-mix(in srgb, currentColor 16%, transparent);
 `
+
+const MarkerLabels = styled.span`
+  display: grid;
+  justify-items: center;
+`
+
+const MarkerLabel = styled.span<{ $visible: boolean }>`
+  grid-area: 1 / 1;
+  visibility: ${props => (props.$visible ? 'visible' : 'hidden')};
+`
+
+/**
+ * A player's result marker. With `concealed`, a placeholder that gives nothing away takes its
+ * place, for views that hide results until asked and must not move anything when they appear: both
+ * labels always occupy the marker, so it's the same width either way.
+ */
+export function PlayerResultMarker({
+  result,
+  concealed = false,
+  className,
+}: {
+  result: ReconciledResult
+  concealed?: boolean
+  className?: string
+}) {
+  const { t } = useTranslation()
+  const label = concealed ? t('game.results.hidden', 'Result hidden') : getResultLabel(result, t)
+  return (
+    <PlayerResultChip
+      className={className}
+      $result={concealed ? 'unknown' : result}
+      role='img'
+      aria-label={label}
+      title={label}>
+      <MarkerLabels>
+        <MarkerLabel $visible={!concealed}>{getResultShortLabel(result, t)}</MarkerLabel>
+        <MarkerLabel $visible={concealed}>?</MarkerLabel>
+      </MarkerLabels>
+    </PlayerResultChip>
+  )
+}

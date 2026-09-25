@@ -1,43 +1,42 @@
-import { TFunction } from 'i18next'
-import { describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   getTotalBonusPoolForSeason,
   makeSeasonId,
-  MatchmakingDivision,
-  matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
   MatchmakingType,
-  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceStats } from '../../common/races'
+import { asMockedFunction } from '../../common/testing/mocks'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
-import { getRankLine } from './user-card'
+import { dispatch } from '../dispatch-registry'
+import { fetchJson } from '../network/fetch'
+import { FetchError } from '../network/fetch-errors'
+import {
+  getMainRace,
+  getRankedModes,
+  loadProfileForLink,
+  resetUserLinkFetchesForTesting,
+} from './user-card'
 
-// Answers with whatever default value the caller supplied (a second string argument, or a
-// `defaultValue` field on the options object), interpolating any `{{placeholder}}` in it from the
-// remaining option fields -- close enough to i18next's real behavior for the English strings this
-// module renders.
-const t = ((
-  key: string,
-  defaultValueOrOptions?: string | { defaultValue?: string; [option: string]: unknown },
-  maybeOptions?: { [option: string]: unknown },
-) => {
-  const isDefaultValueString = typeof defaultValueOrOptions === 'string'
-  const defaultValue = isDefaultValueString
-    ? defaultValueOrOptions
-    : (defaultValueOrOptions?.defaultValue ?? key)
-  const options = isDefaultValueString ? maybeOptions : defaultValueOrOptions
+vi.mock('../network/fetch', () => ({
+  fetchJson: vi.fn(),
+}))
+vi.mock('../dispatch-registry', () => ({
+  dispatch: vi.fn(),
+}))
 
-  return Object.entries(options ?? {}).reduce(
-    (result, [placeholder, value]) =>
-      placeholder === 'defaultValue' || placeholder === 'defaultValue_one'
-        ? result
-        : result.replaceAll(`{{${placeholder}}}`, String(value)),
-    defaultValue,
-  )
-}) as unknown as TFunction
+const fetchJsonMock = asMockedFunction(fetchJson)
+const dispatchMock = asMockedFunction(dispatch)
+
+function notFoundError(): FetchError {
+  return new FetchError(new Response('', { status: 404, statusText: 'Not Found' }), '')
+}
+
+function serverError(): FetchError {
+  return new FetchError(new Response('', { status: 500, statusText: 'Server Error' }), '')
+}
 
 const MOCK_USER_ID = makeSbUserId(1)
 
@@ -70,6 +69,8 @@ function makeLadderPlayer(
   points: number,
   wins: number,
   losses: number,
+  /** Games played in the mode over every season; defaults to this season's. */
+  lifetimeGames = wins + losses,
 ): LadderPlayer {
   return {
     ...NO_RACE_STATS,
@@ -80,7 +81,7 @@ function makeLadderPlayer(
     rating: 1750,
     points,
     bonusUsed: 0,
-    lifetimeGames: wins + losses,
+    lifetimeGames,
     wins,
     losses,
     lastPlayedDate: Date.now() - 1000 * 60 * 60 * 3,
@@ -96,51 +97,27 @@ function makeProfile(ladder: Partial<Record<MatchmakingType, LadderPlayer>>): Us
   }
 }
 
-describe('client/users/user-card getRankLine', () => {
-  test('ranked, season loaded: names the most-played mode regardless of ladder key order', () => {
+describe('client/users/user-card getRankedModes', () => {
+  test('season loaded: every played mode, most-played first, with its division', () => {
     // Match2v2 is listed first in the object but has fewer total games than Match1v1, which
-    // should still be the one the line names.
+    // should still come first.
     const ladder = {
       [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 18, 21),
       [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 74, 52),
     }
-    const profile = makeProfile(ladder)
     const bonusPool = getTotalBonusPoolForSeason(new Date(), MOCK_SEASON)
 
-    const result = getRankLine(profile, MOCK_SEASON, t)
-    if (result.kind !== 'ranked') {
-      throw new Error(`expected kind 'ranked', got '${result.kind}'`)
-    }
-
-    const expectedDivision = ladderPlayerToMatchmakingDivision(
-      ladder[MatchmakingType.Match1v1],
-      bonusPool,
-    )
-    const expectedDivisionLabel = matchmakingDivisionToLabel(expectedDivision, t)
-    const expectedModeLabel = matchmakingTypeToLabel(MatchmakingType.Match1v1, t)
-    const expectedPoints = Math.round(1840).toLocaleString()
-
-    expect(result.badge).toBe(expectedDivision)
-    expect(result.text).toBe(
-      `${expectedDivisionLabel} · ${expectedModeLabel} · ${expectedPoints} pts`,
-    )
-
-    const expected2v2Division = ladderPlayerToMatchmakingDivision(
-      ladder[MatchmakingType.Match2v2],
-      bonusPool,
-    )
-
-    expect(result.modes).toEqual([
+    expect(getRankedModes(makeProfile(ladder), MOCK_SEASON)).toEqual([
       {
         type: MatchmakingType.Match1v1,
-        division: expectedDivision,
+        division: ladderPlayerToMatchmakingDivision(ladder[MatchmakingType.Match1v1], bonusPool),
         points: 1840,
         wins: 74,
         losses: 52,
       },
       {
         type: MatchmakingType.Match2v2,
-        division: expected2v2Division,
+        division: ladderPlayerToMatchmakingDivision(ladder[MatchmakingType.Match2v2], bonusPool),
         points: 940,
         wins: 18,
         losses: 21,
@@ -148,32 +125,141 @@ describe('client/users/user-card getRankLine', () => {
     ])
   })
 
-  test('no ranked mode: unranked with the Unrated division badge', () => {
-    const profile = makeProfile({})
+  test('modes with fewer than the placement games: left out', () => {
+    const ladder = {
+      [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 3, 1),
+      [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 3, 2),
+    }
 
-    const result = getRankLine(profile, MOCK_SEASON, t)
-
-    expect(result).toEqual({
-      kind: 'unranked',
-      badge: MatchmakingDivision.Unrated,
-      text: 'Unranked',
-    })
+    expect(getRankedModes(makeProfile(ladder), MOCK_SEASON).map(m => m.type)).toEqual([
+      MatchmakingType.Match2v2,
+    ])
   })
 
-  test('season not loaded: mode labels only, most-played first', () => {
+  test("modes counted by lifetime games, not this season's", () => {
+    const ladder = {
+      // Few games this season, but rated from earlier ones.
+      [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 2, 1, 20),
+      [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 2, 1, 3),
+    }
+
+    expect(getRankedModes(makeProfile(ladder), MOCK_SEASON).map(m => m.type)).toEqual([
+      MatchmakingType.Match1v1,
+    ])
+  })
+
+  test('no ranked mode: nothing', () => {
+    expect(getRankedModes(makeProfile({}), MOCK_SEASON)).toEqual([])
+  })
+
+  test('season not loaded: modes without divisions', () => {
     const ladder = {
       [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 18, 21),
       [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 74, 52),
     }
-    const profile = makeProfile(ladder)
 
-    const result = getRankLine(profile, undefined, t)
+    const result = getRankedModes(makeProfile(ladder), undefined)
 
-    const expectedText = `${matchmakingTypeToLabel(MatchmakingType.Match1v1, t)} · ${matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}`
+    expect(result.map(m => [m.type, m.division])).toEqual([
+      [MatchmakingType.Match1v1, undefined],
+      [MatchmakingType.Match2v2, undefined],
+    ])
+  })
+})
 
-    expect(result).toEqual({
-      kind: 'seasonUnknown',
-      text: expectedText,
-    })
+describe('client/users/user-card getMainRace', () => {
+  const NONE = makeProfile({}).userStats
+
+  test('a race with at least 60% of the games is the main race', () => {
+    expect(getMainRace({ ...NONE, tWins: 4, tLosses: 2, pWins: 3, zLosses: 1 })).toBe('t')
+  })
+
+  test('random counts as its own race', () => {
+    expect(getMainRace({ ...NONE, rWins: 5, rLosses: 2, rPWins: 5, rTLosses: 2, zWins: 1 })).toBe(
+      'r',
+    )
+  })
+
+  test('no race with 60% of the games: undefined', () => {
+    expect(getMainRace({ ...NONE, pWins: 34, tWins: 33, zWins: 33 })).toBeUndefined()
+  })
+
+  test('no games: undefined', () => {
+    expect(getMainRace(NONE)).toBeUndefined()
+  })
+})
+
+describe('client/users/user-card loadProfileForLink', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    resetUserLinkFetchesForTesting()
+    fetchJsonMock.mockReset()
+    dispatchMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const USER_A = makeSbUserId(100)
+
+  test('shares one request across concurrent loads of the same user', async () => {
+    fetchJsonMock.mockResolvedValue({})
+
+    const results = await Promise.all([loadProfileForLink(USER_A), loadProfileForLink(USER_A)])
+
+    expect(results).toEqual([undefined, undefined])
+    expect(fetchJsonMock).toHaveBeenCalledTimes(1)
+    expect(dispatchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('caches a 404', async () => {
+    fetchJsonMock.mockRejectedValue(notFoundError())
+
+    expect(await loadProfileForLink(USER_A)).toBe('notFound')
+    expect(await loadProfileForLink(USER_A)).toBe('notFound')
+    expect(fetchJsonMock).toHaveBeenCalledTimes(1)
+    expect(dispatchMock).not.toHaveBeenCalled()
+  })
+
+  test('evicts other failures so a later load retries', async () => {
+    fetchJsonMock.mockRejectedValueOnce(serverError())
+    fetchJsonMock.mockResolvedValueOnce({})
+
+    expect(await loadProfileForLink(USER_A)).toBe('error')
+    expect(await loadProfileForLink(USER_A)).toBeUndefined()
+    expect(fetchJsonMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('denies loads past the budget without caching the denial', async () => {
+    fetchJsonMock.mockResolvedValue({})
+
+    for (let i = 0; i < 10; i++) {
+      expect(await loadProfileForLink(makeSbUserId(200 + i))).toBeUndefined()
+    }
+    const overBudget = makeSbUserId(300)
+    expect(await loadProfileForLink(overBudget)).toBe('error')
+    expect(fetchJsonMock).toHaveBeenCalledTimes(10)
+
+    vi.advanceTimersByTime(30 * 1000)
+    expect(await loadProfileForLink(overBudget)).toBeUndefined()
+    expect(fetchJsonMock).toHaveBeenCalledTimes(11)
+  })
+
+  test('joins an in-flight load without spending budget', async () => {
+    let resolve: (value: unknown) => void = () => {}
+    fetchJsonMock.mockReturnValueOnce(new Promise(r => (resolve = r)))
+    const pending = loadProfileForLink(USER_A)
+    fetchJsonMock.mockResolvedValue({})
+    for (let i = 0; i < 9; i++) {
+      await loadProfileForLink(makeSbUserId(200 + i))
+    }
+
+    const joined = loadProfileForLink(USER_A)
+    resolve({})
+
+    expect(await Promise.all([pending, joined])).toEqual([undefined, undefined])
+    expect(fetchJsonMock).toHaveBeenCalledTimes(10)
   })
 })
