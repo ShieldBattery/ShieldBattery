@@ -529,25 +529,20 @@ unsafe fn record_snapshot_units(bw: &BwScr) {
     }
 }
 
-/// Environment variable that turns on correction smoothing: a unit a rollback moved is drawn
-/// where the frame before showed it and eased into its corrected position over the next frames,
-/// instead of jumping there.
+/// Environment variable that turns on correction smoothing, holding the number of frames a
+/// correction is spread over: a unit a rollback moved is drawn part of the way back towards where
+/// the frame before showed it, and reaches its corrected position that many frames later instead
+/// of jumping there. With 2 it is drawn 2/3, then 1/3 of the way back.
 const SMOOTHING_ENV_VAR: &str = "SB_ROLLBACK_SMOOTHING";
 
-static SMOOTHING_ENABLED: AtomicBool = AtomicBool::new(false);
+/// The frames [`SMOOTHING_ENV_VAR`] spreads a correction over, or 0 when smoothing is off.
+static SMOOTHING_FRAMES: AtomicU32 = AtomicU32::new(0);
 
 /// Whether [`SMOOTHING_ENV_VAR`] asked for correction smoothing, which makes analysis resolve the
 /// sprite position functions it hooks.
 pub fn smoothing_enabled() -> bool {
-    SMOOTHING_ENABLED.load(Ordering::Acquire)
+    SMOOTHING_FRAMES.load(Ordering::Acquire) != 0
 }
-
-/// How much of a unit's remaining drawing offset is left for each further frame shown. At 0.6 a
-/// correction is under a pixel within six frames (a quarter second) whatever its size.
-const SMOOTHING_DECAY: f32 = 0.6;
-
-/// Offsets below this many pixels are dropped rather than drawn.
-const SMOOTHING_MIN_OFFSET: f32 = 0.5;
 
 /// How far each corrected unit is drawn from where the simulation has it.
 struct SmoothingOffsets {
@@ -559,13 +554,17 @@ struct UnitOffset {
     unique_index: u8,
     x: f32,
     y: f32,
+    /// Frames left until the unit is drawn at its true position, counting the one that gets
+    /// there.
+    frames_left: u32,
 }
 
 impl SmoothingOffsets {
     /// Keeps `now` drawn where `shown` was drawn: the frame about to be shown carries on from the
     /// frame the correction replaced rather than from the corrected one.
     fn note(&mut self, now: &UnitView, shown: &UnitView) {
-        if !SMOOTHING_ENABLED.load(Ordering::Relaxed) {
+        let frames = SMOOTHING_FRAMES.load(Ordering::Relaxed);
+        if frames == 0 {
             return;
         }
         let x = (shown.x - now.x) as f32;
@@ -578,12 +577,14 @@ impl SmoothingOffsets {
             Some(offset) => {
                 offset.x += x;
                 offset.y += y;
+                offset.frames_left = frames + 1;
             }
             None => self.units.push(UnitOffset {
                 unit: now.unit,
                 unique_index: now.unique_index,
                 x,
                 y,
+                frames_left: frames + 1,
             }),
         }
     }
@@ -609,7 +610,7 @@ pub fn set_drawing_game_layer(drawing: bool) {
 /// The offset to add to `sprite`'s position as the game layer draws it, if it has one. Called
 /// from the sprite position hooks.
 pub fn sprite_draw_offset(sprite: usize) -> Option<(i16, i16)> {
-    if !DRAWING_GAME_LAYER.load(Ordering::Relaxed) || !SMOOTHING_ENABLED.load(Ordering::Relaxed) {
+    if !DRAWING_GAME_LAYER.load(Ordering::Relaxed) || !smoothing_enabled() {
         return None;
     }
     let offsets = SPRITE_DRAW_OFFSETS.lock();
@@ -619,9 +620,10 @@ pub fn sprite_draw_offset(sprite: usize) -> Option<(i16, i16)> {
         .map(|index| (offsets[index].1, offsets[index].2))
 }
 
-/// Turns the units' offsets into the sprite offsets for the frame about to be shown, then decays
-/// them for the frame after. A unit that no longer exists, or whose slot has been handed to
-/// another unit, loses its offset; a unit's subunit (a turret) is drawn with the unit's offset.
+/// Steps every unit's offset one frame closer to zero, in equal steps over the frames it has left,
+/// and turns the result into the sprite offsets for the frame about to be shown. A unit that no
+/// longer exists, or whose slot has been handed to another unit, loses its offset; a unit's
+/// subunit (a turret) is drawn with the unit's offset.
 unsafe fn update_draw_offsets() {
     unsafe {
         let mut offsets = SMOOTHING_OFFSETS.lock();
@@ -630,9 +632,12 @@ unsafe fn update_draw_offsets() {
             let unit = offset.unit as *const bw::Unit;
             let alive = (*unit).flingy.sprite as usize != 0
                 && (*unit).minor_unique_index == offset.unique_index;
-            if !alive {
+            if !alive || offset.frames_left <= 1 {
                 return false;
             }
+            offset.x -= offset.x / offset.frames_left as f32;
+            offset.y -= offset.y / offset.frames_left as f32;
+            offset.frames_left -= 1;
             let x = offset.x.round() as i16;
             let y = offset.y.round() as i16;
             sprites.push(((*unit).flingy.sprite as usize, x, y));
@@ -640,9 +645,7 @@ unsafe fn update_draw_offsets() {
             if !subunit.is_null() && !(*subunit).flingy.sprite.is_null() {
                 sprites.push(((*subunit).flingy.sprite as usize, x, y));
             }
-            offset.x *= SMOOTHING_DECAY;
-            offset.y *= SMOOTHING_DECAY;
-            offset.x.abs() >= SMOOTHING_MIN_OFFSET || offset.y.abs() >= SMOOTHING_MIN_OFFSET
+            true
         });
         sprites.sort_unstable_by_key(|x| x.0);
         *SPRITE_DRAW_OFFSETS.lock() = sprites;
@@ -721,13 +724,22 @@ pub fn init_from_env() {
                 DUMP_ARMED.store(true, Ordering::Release);
             }
             _ => error!(
-                "{DUMP_ENV_VAR}={spec:?} is not a comma-separated list of frames or                  <first>-<last>[/<step>] ranges; ignoring it"
+                "{DUMP_ENV_VAR}={spec:?} is not a comma-separated list of frames or \
+                 <first>-<last>[/<step>] ranges; ignoring it"
             ),
         }
     }
-    if std::env::var(SMOOTHING_ENV_VAR).as_deref() == Ok("1") {
-        SMOOTHING_ENABLED.store(true, Ordering::Release);
-        info!("{SMOOTHING_ENV_VAR}=1: rollback corrections will be eased in rather than snapped");
+    if let Ok(spec) = std::env::var(SMOOTHING_ENV_VAR) {
+        match spec.parse::<u32>() {
+            Ok(frames) if frames > 0 => {
+                SMOOTHING_FRAMES.store(frames, Ordering::Release);
+                info!(
+                    "{SMOOTHING_ENV_VAR}: rollback corrections will be eased in over {frames} \
+                     frames rather than snapped"
+                );
+            }
+            _ => error!("{SMOOTHING_ENV_VAR}={spec:?} is not a frame count; ignoring it"),
+        }
     }
     let Ok(spec) = std::env::var(ENV_VAR) else {
         if std::env::var(DELAY_ENV_VAR).is_ok() {

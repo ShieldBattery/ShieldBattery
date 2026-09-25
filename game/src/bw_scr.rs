@@ -2778,7 +2778,8 @@ impl BwScr {
                     );
                 } else if crate::rollback_harness::smoothing_enabled() {
                     error!(
-                        "Rollback correction smoothing needs the sprite position accessors,                          which analysis could not resolve"
+                        "Rollback correction smoothing needs the sprite position accessors, \
+                         which analysis could not resolve"
                     );
                 }
 
