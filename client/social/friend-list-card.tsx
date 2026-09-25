@@ -162,6 +162,8 @@ export function FriendListCard({
             <BackdropCardMetaText
               text={t('chat.commands.friends.list.counts', {
                 defaultValue: '{{online}} online · {{total}} friends',
+                defaultValue_one: '{{online}} online · {{total}} friend',
+                count: onlineIds.length + offlineIds.length,
                 online: onlineIds.length,
                 total: onlineIds.length + offlineIds.length,
               })}

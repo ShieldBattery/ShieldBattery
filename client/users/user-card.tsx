@@ -42,8 +42,9 @@ import {
   CardTooltip,
   getBackdropCardHeight,
 } from '../messaging/backdrop-card'
-import { isShieldBatteryUrl } from '../navigation/external-link'
+import { shieldBatteryPathFromLink } from '../navigation/external-link'
 import { fetchJson } from '../network/fetch'
+import { FetchBudget } from '../network/fetch-budget'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getRaceColor } from '../styles/colors'
@@ -67,9 +68,10 @@ export interface RankedMode {
 }
 
 /**
- * Returns the ranked modes the user has played at least {@link NUM_PLACEMENT_MATCHES} games of this
- * season, most-played first. A mode with fewer games was more likely tried once than actually
- * played, and its rank says little about the user.
+ * Returns the ranked modes the user has a rating in, most-played first. A mode counts as rated once
+ * the user has played {@link NUM_PLACEMENT_MATCHES} games of it over all seasons, as on the ladder
+ * and the user's profile; with fewer games it was more likely tried once than actually played, and
+ * its rank says little about the user.
  */
 export function getRankedModes(
   profile: ReadonlyDeep<UserProfileJson>,
@@ -78,7 +80,7 @@ export function getRankedModes(
   const bonusPool = season ? getTotalBonusPoolForSeason(new Date(), season) : undefined
   return getRankedTypesByActivity(profile.ladder).flatMap((type): RankedMode[] => {
     const player = profile.ladder[type]!
-    if (player.wins + player.losses < NUM_PLACEMENT_MATCHES) {
+    if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
       return []
     }
     return [
@@ -436,7 +438,7 @@ function EmblemColumns({
       <EmblemRow>
         <CardTooltip
           position='top'
-          text={t('users.card.notEnoughRankedGames', 'Not enough ranked games this season')}>
+          text={t('users.card.notEnoughRankedGames', 'Not enough ranked games')}>
           <EmblemCell>
             <ModeEmblem division={MatchmakingDivision.Unrated} size={EMBLEM_SIZE} />
             <EmblemLabel>{t('users.card.unranked', 'Unranked')}</EmblemLabel>
@@ -636,14 +638,8 @@ export function userFromProfilePath(pathname: string): UserLinkTarget | undefine
  * profile link (an external URL, or a ShieldBattery URL for something other than a profile).
  */
 export function userFromMessageLink(href: string): UserLinkTarget | undefined {
-  let url: URL
-  try {
-    url = new URL(href)
-  } catch {
-    return undefined
-  }
-
-  return isShieldBatteryUrl(url) ? userFromProfilePath(url.pathname) : undefined
+  const pathname = shieldBatteryPathFromLink(href)
+  return pathname !== undefined ? userFromProfilePath(pathname) : undefined
 }
 
 /**
@@ -665,22 +661,11 @@ const userLinkFetches = new Map<SbUserId, Promise<UserLinkFailure | undefined>>(
  * own browsing of profiles. The budget covers a realistically link-heavy channel in one window
  * while leaving most of that throttle for direct views.
  */
-const PROFILE_FETCH_BUDGET = 10
-const PROFILE_FETCH_BUDGET_WINDOW_MS = 30 * 1000
+const profileFetchBudget = new FetchBudget(10, 30 * 1000)
 
-let budgetWindowStart = 0
-let budgetUsed = 0
-
-function takeProfileFetchBudget(now: number): boolean {
-  if (now - budgetWindowStart >= PROFILE_FETCH_BUDGET_WINDOW_MS) {
-    budgetWindowStart = now
-    budgetUsed = 0
-  }
-  if (budgetUsed >= PROFILE_FETCH_BUDGET) {
-    return false
-  }
-  budgetUsed += 1
-  return true
+export function resetUserLinkFetchesForTesting() {
+  userLinkFetches.clear()
+  profileFetchBudget.reset()
 }
 
 /**
@@ -689,13 +674,13 @@ function takeProfileFetchBudget(now: number): boolean {
  * cached, since a user that doesn't exist never will; any other failure is evicted so a later card
  * retries.
  */
-function loadProfileForLink(userId: SbUserId): Promise<UserLinkFailure | undefined> {
+export function loadProfileForLink(userId: SbUserId): Promise<UserLinkFailure | undefined> {
   const existing = userLinkFetches.get(userId)
   if (existing) {
     return existing
   }
 
-  if (!takeProfileFetchBudget(Date.now())) {
+  if (!profileFetchBudget.take()) {
     // Not cached, so a denied card that remounts (e.g. its channel is reopened) tries again against
     // whatever budget exists then. Until then it renders nothing, while its message's inline link
     // keeps working.
@@ -727,7 +712,9 @@ function loadProfileForLink(userId: SbUserId): Promise<UserLinkFailure | undefin
  * the store is missing (see {@link loadProfileForLink}).
  *
  * The error state renders nothing: the inline link in the message text still works, and shrinking
- * away is safe (only growth breaks the message list's autoscroll).
+ * away is safe (only growth breaks the message list's autoscroll). A failed load holds for as long as
+ * the card stays mounted, even if the profile later lands in the store through another surface,
+ * since growing back into a full card would break that autoscroll. A remount retries.
  */
 export function UserLinkCard({ target }: { target: UserLinkTarget }) {
   const { t } = useTranslation()
@@ -765,7 +752,7 @@ export function UserLinkCard({ target }: { target: UserLinkTarget }) {
     }
   }, [userId, hasProfile])
 
-  const failure = !profile && settled?.userId === userId ? settled.failure : undefined
+  const failure = settled?.userId === userId ? settled.failure : undefined
   if (failure === 'error') {
     return null
   }

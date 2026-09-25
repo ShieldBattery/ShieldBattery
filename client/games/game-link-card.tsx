@@ -1,17 +1,18 @@
 import { TFunction } from 'i18next'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { shallowEqual } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
-import { GameType } from '../../common/games/game-type'
+import { GameConfig, GameConfigPlayer, GameSource } from '../../common/games/configuration'
 import {
   GameRecordJson,
   getGameDurationString,
   GetGameResponse,
   getGameTypeLabel,
 } from '../../common/games/games'
+import { getTeamsFromConfig } from '../../common/games/matchups'
 import { ReconciledPlayerResult } from '../../common/games/results'
 import { MapInfoJson } from '../../common/maps'
 import {
@@ -45,8 +46,9 @@ import {
   CardTooltip,
   getBackdropCardHeight,
 } from '../messaging/backdrop-card'
-import { isShieldBatteryUrl } from '../navigation/external-link'
+import { shieldBatteryPathFromLink } from '../navigation/external-link'
 import { fetchJson } from '../network/fetch'
+import { FetchBudget } from '../network/fetch-budget'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppSelector } from '../redux-hooks'
 import { bodySmall, labelMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
@@ -67,14 +69,8 @@ export interface GameLinkTarget {
  * game results link (an external URL, or a ShieldBattery URL for something other than a game).
  */
 export function gameFromMessageLink(href: string): GameLinkTarget | undefined {
-  let url: URL
-  try {
-    url = new URL(href)
-  } catch {
-    return undefined
-  }
-
-  return isShieldBatteryUrl(url) ? gameFromPath(url.pathname) : undefined
+  const pathname = shieldBatteryPathFromLink(href)
+  return pathname !== undefined ? gameFromPath(pathname) : undefined
 }
 
 /**
@@ -96,29 +92,25 @@ const gameLinkFetches = new Map<string, Promise<GameLinkFailure | undefined>>()
  * browsing of results pages and the replay library. The budget covers a realistically link-heavy
  * channel in one window while leaving most of that throttle for direct views.
  */
-const GAME_FETCH_BUDGET = 10
-const GAME_FETCH_BUDGET_WINDOW_MS = 30 * 1000
+const gameFetchBudget = new FetchBudget(10, 30 * 1000)
 
-let budgetWindowStart = 0
-let budgetUsed = 0
+/**
+ * Games whose link fetch succeeded this session. The fetch returns everything a card shows, so
+ * anything such a game still lacks in the store (e.g. the name of a since-deleted player) won't
+ * arrive by fetching it again.
+ */
+const gamesLoadedForLink = new Set<string>()
 
 export function resetGameLinkFetchesForTesting() {
   gameLinkFetches.clear()
+  gamesLoadedForLink.clear()
   seasonsFetch = undefined
-  budgetWindowStart = 0
-  budgetUsed = 0
+  gameFetchBudget.reset()
 }
 
-function takeGameFetchBudget(now: number): boolean {
-  if (now - budgetWindowStart >= GAME_FETCH_BUDGET_WINDOW_MS) {
-    budgetWindowStart = now
-    budgetUsed = 0
-  }
-  if (budgetUsed >= GAME_FETCH_BUDGET) {
-    return false
-  }
-  budgetUsed += 1
-  return true
+/** Returns whether a link fetch for `gameId` (see {@link loadGameForLink}) succeeded this session. */
+export function hasLoadedGameForLink(gameId: string): boolean {
+  return gamesLoadedForLink.has(gameId)
 }
 
 /**
@@ -132,7 +124,7 @@ export function loadGameForLink(gameId: string): Promise<GameLinkFailure | undef
     return existing
   }
 
-  if (!takeGameFetchBudget(Date.now())) {
+  if (!gameFetchBudget.take()) {
     // Not cached, so a denied card that remounts (e.g. its channel is reopened) tries again against
     // whatever budget exists then. Until then it renders nothing, while its message's inline link
     // keeps working.
@@ -142,6 +134,7 @@ export function loadGameForLink(gameId: string): Promise<GameLinkFailure | undef
   const promise = fetchJson<GetGameResponse>(apiUrl`games/${gameId}`).then(
     (payload): GameLinkFailure | undefined => {
       gameLinkFetches.delete(gameId)
+      gamesLoadedForLink.add(gameId)
       globalDispatch({ type: '@games/getGameRecord', payload })
       return undefined
     },
@@ -218,6 +211,10 @@ export type GameLinkLoadState =
  * also needs the season it was played in, whose bonus pool places its players' points into
  * divisions, and loads the seasons (see {@link loadMatchmakingSeasons}) when the store lacks it.
  * Returns undefined while either fetch is in flight.
+ *
+ * A failed game fetch holds for as long as the card stays mounted, even if the game later lands in
+ * the store through another surface: a card that rendered nothing (or a single line) must not grow
+ * into a full card, since growth breaks the message list's autoscroll. A remount retries.
  */
 function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
   const game = useAppSelector(s => s.games.byId.get(gameId))
@@ -232,7 +229,10 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
   const season = useAppSelector(s =>
     game && isRanked ? findSeasonAt(s.matchmakingSeasons.byId.values(), game.startTime) : undefined,
   )
-  const detailsKnown = playersKnown && (!isRanked || mmrChanges !== undefined)
+  // A game whose link fetch already succeeded counts as known even if some detail is still missing
+  // (e.g. a since-deleted account), since fetching it again wouldn't return that detail either.
+  const detailsKnown =
+    hasLoadedGameForLink(gameId) || (playersKnown && (!isRanked || mmrChanges !== undefined))
   const needsSeasons = isRanked && season === undefined
   // How this card's own fetch ended. A successful fetch counts as loaded even if some detail is
   // still missing afterwards (e.g. a since-deleted account), so the card never waits on something
@@ -284,7 +284,10 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
   }, [gameId, needsSeasons])
 
   const ownResult = settled?.gameId === gameId ? settled : undefined
-  if (game && (detailsKnown || (ownResult && !ownResult.failure))) {
+  if (ownResult?.failure) {
+    return { status: ownResult.failure }
+  }
+  if (game && (detailsKnown || ownResult)) {
     if (needsSeasons && seasonsSettledFor !== gameId) {
       return undefined
     }
@@ -302,10 +305,7 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
         : undefined
     return { status: 'loaded', game, map, divisionById }
   }
-  if (ownResult?.failure === 'notFound') {
-    return { status: 'notFound' }
-  }
-  return ownResult?.failure === 'error' ? { status: 'error' } : undefined
+  return undefined
 }
 
 /**
@@ -391,6 +391,7 @@ function ResultsToggle({ revealed, onToggle }: { revealed: boolean; onToggle: ()
   return (
     <BackdropCardAction
       ariaLabel={revealed ? hideLabel : showLabel}
+      ariaExpanded={revealed}
       onClick={onToggle}
       testName='game-link-card-results-toggle'>
       <MaterialIcon icon={revealed ? 'visibility_off' : 'visibility'} size={18} />
@@ -413,8 +414,8 @@ const MATCHUP_ROW_GAP = 8
 const DIVISION_ICON_SIZE: Record<MatchupSize, number> = { medium: 20, large: 28 }
 /**
  * The most rows a matchup renders: a game holds at most 8 players, which a matchup lays out in two
- * columns. Only an uneven Top vs Bottom game (e.g. 5v3) has a side longer than this, and that side
- * collapses its overflow into a final "+N more" row (see {@link collapseMatchupSide}).
+ * columns. Only an uneven head-to-head (e.g. a 5v3 Top vs Bottom) has a side longer than this, and
+ * that side collapses its overflow into a final "+N more" row (see {@link collapseMatchupSide}).
  */
 const MAX_MATCHUP_ROWS = 4
 
@@ -434,18 +435,15 @@ export function collapseMatchupSide<T>(side: ReadonlyArray<T>): {
 }
 
 /**
- * Returns a game's two sides when it's a head-to-head (two teams facing each other, or exactly two
- * players), or undefined for games whose players can't honestly be split into two opposing sides.
+ * Returns a game's two sides when it's a head-to-head, or undefined otherwise. A head-to-head is any
+ * game whose config splits into exactly two sides the way the server's own result and registration
+ * logic splits it (see `getTeamsFromConfig`): two non-empty teams, or a lone team of two players.
  */
 export function getVersusSides(
   game: ReadonlyDeep<GameRecordJson>,
 ): ReadonlyArray<ReadonlyArray<ReadonlyDeep<GameConfigPlayer>>> | undefined {
-  const { gameType, teams } = game.config
-  if (gameType === GameType.TopVsBottom && teams.length === 2) {
-    return teams
-  }
-  const players = teams.flat()
-  return players.length === 2 ? [[players[0]], [players[1]]] : undefined
+  const teams = getTeamsFromConfig(game.config as GameConfig)
+  return teams?.length === 2 ? teams : undefined
 }
 
 function getPlayerCount(game: ReadonlyDeep<GameRecordJson>): number {
@@ -624,11 +622,18 @@ function GameMatchup({
   showLength: boolean
 }) {
   const { t } = useTranslation()
-  const usersById = useAppSelector(s => s.users.byId)
+  const players = game.config.teams.flat()
+  // Index-aligned with `players`, so the card rerenders only when one of its own players' names
+  // changes.
+  const names = useAppSelector(
+    s => players.map(p => (p.isComputer ? undefined : s.users.byId.get(p.id)?.name)),
+    shallowEqual,
+  )
+  const nameById = new Map(players.map((p, i) => [p.id, names[i]]))
   const getName = (player: ReadonlyDeep<GameConfigPlayer>) =>
     player.isComputer
       ? t('game.playerName.computer', 'Computer')
-      : (usersById.get(player.id)?.name ?? t('game.playerName.unknown', 'Unknown player'))
+      : (nameById.get(player.id) ?? t('game.playerName.unknown', 'Unknown player'))
   const isVersus = getVersusSides(game) !== undefined
   const columns = getMatchupColumns(game, getName)
 
@@ -640,11 +645,13 @@ function GameMatchup({
     const { shown, hiddenCount } = collapseMatchupSide(side)
     return (
       <MatchupSide $mirrored={mirrored}>
-        {shown.map(player => {
+        {shown.map((player, i) => {
           const division = player.isComputer ? undefined : divisionById?.get(player.id)
           const result = player.isComputer ? undefined : results.get(player.id)?.result
           return (
-            <MatchupPlayerRow key={player.id} $mirrored={mirrored} $size={size}>
+            // Keyed by position: every computer player in a game config shares the same id, so ids
+            // aren't unique within a side.
+            <MatchupPlayerRow key={i} $mirrored={mirrored} $size={size}>
               {result && result !== 'unknown' ? (
                 <MatchupResultMarker result={result} concealed={!showResults} />
               ) : null}

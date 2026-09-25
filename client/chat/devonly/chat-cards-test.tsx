@@ -102,7 +102,6 @@ const LOBBY_WITH_CLOSED = withSummary(LOBBY_LOADED, {
 })
 
 const LOBBY_JOINED_DISPLAY: LobbyInviteDisplayData = {
-  id: LOBBY_LOADED.summary.id,
   name: LOBBY_LOADED.summary.name,
   map: LOBBY_LOADED.summary.map,
   gameType: LOBBY_LOADED.summary.gameType,
@@ -367,16 +366,20 @@ const NO_RESULTS_GAME = makeGame({
 })
 
 const COMPUTER_SHUTTLE = makeSbUserId(940_051)
-const COMPUTER_AI = makeSbUserId(940_999)
+/** Every computer player in a game config has this id. */
+const COMPUTER_ID = makeSbUserId(0)
 
 const COMPUTER_GAME = makeGame({
   id: 'game-computer',
   mapId: BGH_MAP.id,
   config: {
     gameSource: GameSource.Lobby,
-    gameType: GameType.OneVsOne,
-    gameSubType: 0,
-    teams: [[player(COMPUTER_SHUTTLE, 'p')], [player(COMPUTER_AI, 'z', true)]],
+    gameType: GameType.TopVsBottom,
+    gameSubType: 1,
+    teams: [
+      [player(COMPUTER_SHUTTLE, 'p')],
+      [player(COMPUTER_ID, 'z', true), player(COMPUTER_ID, 't', true)],
+    ],
   },
   results: [[COMPUTER_SHUTTLE, { result: 'win', race: 'p', apm: 275 }]],
 })
@@ -463,7 +466,7 @@ const GAME_SCENARIOS: GameScenario[] = [
     state: { status: 'loaded', game: NO_RESULTS_GAME, map: ECLIPSE_MAP, divisionById: undefined },
   },
   {
-    label: 'Computer player',
+    label: 'Computer players',
     state: { status: 'loaded', game: COMPUTER_GAME, map: BGH_MAP, divisionById: undefined },
   },
   {

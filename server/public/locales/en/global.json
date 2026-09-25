@@ -414,7 +414,8 @@
         "description": "Manages your friends list: add, remove, or list them with their current activity.",
         "empty": "Your friends list is empty.",
         "list": {
-          "counts": "{{online}} online · {{total}} friends",
+          "counts_one": "{{online}} online · {{total}} friend",
+          "counts_other": "{{online}} online · {{total}} friends",
           "description": "Lists your friends and what they are doing.",
           "hideOffline": "Hide offline",
           "noneOnline": "No friends online",
@@ -2912,7 +2913,7 @@
       "joined": "Joined {{time}}",
       "loadError": "Couldn't load this user's profile.",
       "noGames": "No games played",
-      "notEnoughRankedGames": "Not enough ranked games this season",
+      "notEnoughRankedGames": "Not enough ranked games",
       "notFound": "This user could not be found.",
       "openProfile": "View profile",
       "title": "Player",

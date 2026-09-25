@@ -9,6 +9,7 @@ import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { apiUrl } from '../../common/urls'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { fetchJson } from '../network/fetch'
+import { FetchBudget } from '../network/fetch-budget'
 import { isFetchError } from '../network/fetch-errors'
 import { bodyLarge, HeadlineMedium, labelMedium } from '../styles/typography'
 
@@ -87,30 +88,12 @@ const summaryCache = new Map<
  * the rest of the endpoint's sustained per-IP rate (plus its burst allowance) as headroom for
  * direct, user-initiated summary views.
  */
-const SUMMARY_FETCH_BUDGET = 15
-const SUMMARY_FETCH_BUDGET_WINDOW_MS = 30 * 1000
-
-let budgetWindowStart = 0
-let budgetUsed = 0
-
-/** Consumes one unit of the cached-read fetch budget, returning whether any budget remained. */
-function takeSummaryFetchBudget(now: number): boolean {
-  if (now - budgetWindowStart >= SUMMARY_FETCH_BUDGET_WINDOW_MS) {
-    budgetWindowStart = now
-    budgetUsed = 0
-  }
-  if (budgetUsed >= SUMMARY_FETCH_BUDGET) {
-    return false
-  }
-  budgetUsed += 1
-  return true
-}
+const summaryFetchBudget = new FetchBudget(15, 30 * 1000)
 
 /** Clears the shared summary cache and fetch budget, so tests don't depend on each other. */
 export function resetSummaryCacheForTesting() {
   summaryCache.clear()
-  budgetWindowStart = 0
-  budgetUsed = 0
+  summaryFetchBudget.reset()
 }
 
 /**
@@ -153,7 +136,7 @@ export function fetchLobbySummary(
     }
   }
 
-  if (!takeSummaryFetchBudget(now)) {
+  if (!summaryFetchBudget.take(now)) {
     // Over-budget reads fail as transient errors without touching the network. The denial isn't
     // cached, so a denied card that remounts (e.g. its channel is reopened) reads again against
     // whatever budget exists at that point; until then it renders nothing, while its message's

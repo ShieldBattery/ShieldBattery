@@ -30,6 +30,21 @@ export function isShieldBatteryUrl(url: URL): boolean {
 }
 
 /**
+ * Returns the pathname of a link to a ShieldBattery page, or undefined if the link isn't a valid URL
+ * or points somewhere other than ShieldBattery.
+ */
+export function shieldBatteryPathFromLink(href: string): string | undefined {
+  let url: URL
+  try {
+    url = new URL(href)
+  } catch {
+    return undefined
+  }
+
+  return isShieldBatteryUrl(url) ? url.pathname : undefined
+}
+
+/**
  * Returns whether `url` points at stored content (uploaded files or public assets) rather than an
  * app page: either the server's own file store (mounted at `/files/` on the server origin), or the
  * public assets host when that's an origin of its own (e.g. a CDN). The app router has no routes

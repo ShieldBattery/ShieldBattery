@@ -22,11 +22,11 @@ import {
  * two sides of a game, each with full player names beside their icons). The card still shrinks to
  * fit narrower chats.
  */
-export const BACKDROP_CARD_WIDTH = 500
+const BACKDROP_CARD_WIDTH = 500
 const BACKDROP_CARD_PADDING_Y = 12
 const BACKDROP_CARD_PADDING_X = 16
 const BACKDROP_CARD_GAP = 16
-export const BACKDROP_CARD_HEADER_HEIGHT = 20
+const BACKDROP_CARD_HEADER_HEIGHT = 20
 
 /**
  * Returns the fixed height a backdrop card renders at for a body of `bodyHeight`: the header line
@@ -123,7 +123,8 @@ const BackdropCardRoot = styled.div<{ $height: number; $clickable: boolean }>`
  * The card's keyboard and assistive-technology entry point: a transparent button stretched over the
  * card that pointer events pass straight through, so the card's content stays hoverable. It has no
  * click handler of its own; activating it dispatches a click that bubbles to the card's, which
- * performs the action.
+ * performs the action. Being absolutely positioned, where it sits among the card's children only
+ * sets the tab order, and it comes first so the card's own action precedes its content's.
  */
 const CardLinkButton = styled.button`
   position: absolute;
@@ -186,16 +187,23 @@ export function BackdropCard({
       }>
       {imageUrl ? <BackdropImage src={imageUrl} alt='' draggable={false} /> : null}
       <BackdropScrim />
-      {children}
       {onClick ? (
         <CardLinkButton type='button' aria-label={actionLabel} data-testid={testName} />
       ) : null}
+      {children}
     </BackdropCardRoot>
   )
 }
 
+/**
+ * Needs a box of its own: a tooltip wrapped around content inside it inherits its display from the
+ * boundary and anchors to its own box, so a box-less boundary would leave the tooltip anchored to
+ * an empty rect at the viewport's corner.
+ */
 const CardClickBoundaryRoot = styled.span`
-  display: contents;
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
 `
 
 /**

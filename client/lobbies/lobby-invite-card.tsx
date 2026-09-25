@@ -30,7 +30,7 @@ import {
   getBackdropCardHeight,
   TooltipText,
 } from '../messaging/backdrop-card'
-import { isShieldBatteryUrl } from '../navigation/external-link'
+import { shieldBatteryPathFromLink } from '../navigation/external-link'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodySmall, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
@@ -54,14 +54,8 @@ export const LOBBY_INVITE_CARD_MAX_AGE_MS = 60 * 60 * 1000
  * lobby).
  */
 export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
-  let url: URL
-  try {
-    url = new URL(href)
-  } catch {
-    return undefined
-  }
-
-  return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
+  const pathname = shieldBatteryPathFromLink(href)
+  return pathname !== undefined ? lobbyIdFromPath(pathname) : undefined
 }
 
 /** The line heights of the typography tokens the card's body stacks, which set its height. */
@@ -82,7 +76,6 @@ const SEAT_TILES_PER_ROW = 4
  * regardless of whether it came from a summary fetch or the viewer's own live lobby state.
  */
 export interface LobbyInviteDisplayData {
-  id: SbLobbyId
   name: string
   map: ReadonlyDeep<MapImageInfo & { id: SbMapId }>
   gameType: GameType
@@ -435,7 +428,6 @@ export function LobbyInviteCardContent({
   return (
     <LobbyInviteCardBody
       display={{
-        id: lobby.id,
         name: lobby.name,
         map: lobby.map,
         gameType: lobby.gameType,
@@ -541,7 +533,6 @@ function OwnLobbyInviteCard() {
   return (
     <LobbyInviteJoinedCard
       display={{
-        id: info.id,
         name: info.name,
         map: info.map!,
         gameType: info.gameType,

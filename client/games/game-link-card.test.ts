@@ -14,6 +14,7 @@ import {
   getMatchupColumns,
   getMatchupHeight,
   getVersusSides,
+  hasLoadedGameForLink,
   loadGameForLink,
   loadMatchmakingSeasons,
   resetGameLinkFetchesForTesting,
@@ -89,13 +90,25 @@ describe('client/games/game-link-card/loadGameForLink', () => {
     expect(dispatchMock).toHaveBeenCalledTimes(1)
   })
 
-  test('refetches a game that loaded, since the store is its cache', async () => {
+  test("doesn't cache a loaded game's request, leaving cards to skip games already loaded", async () => {
     fetchJsonMock.mockResolvedValue({ game: { id: 'a' } })
 
     await loadGameForLink('a')
     await loadGameForLink('a')
 
     expect(fetchJsonMock).toHaveBeenCalledTimes(2)
+  })
+
+  test('records which games loaded this session', async () => {
+    fetchJsonMock.mockResolvedValueOnce({ game: { id: 'a' } })
+    fetchJsonMock.mockRejectedValueOnce(notFoundError())
+
+    expect(hasLoadedGameForLink('a')).toBe(false)
+    await loadGameForLink('a')
+    expect(hasLoadedGameForLink('a')).toBe(true)
+
+    await loadGameForLink('missing')
+    expect(hasLoadedGameForLink('missing')).toBe(false)
   })
 
   test('caches a 404', async () => {
@@ -168,6 +181,21 @@ describe('client/games/game-link-card/matchup layout', () => {
   test('keeps the teams of a Top vs Bottom game as its sides', () => {
     const game = makeGame(GameType.TopVsBottom, [players(1, 5), players(6, 8)])
     expect(getVersusSides(game)?.map(side => side.length)).toEqual([5, 3])
+  })
+
+  test('keeps the two sides of a Top vs Bottom game recorded with a trailing empty team', () => {
+    const game = makeGame(GameType.TopVsBottom, [players(1, 2), players(3, 4), []])
+    expect(getVersusSides(game)).toEqual([players(1, 2), players(3, 4)])
+  })
+
+  test('treats a Team Melee game with two teams as a head-to-head', () => {
+    const game = makeGame(GameType.TeamMelee, [players(1, 2), players(3, 4)])
+    expect(getVersusSides(game)).toEqual([players(1, 2), players(3, 4)])
+  })
+
+  test("doesn't treat a Team Melee game with three teams as a head-to-head", () => {
+    const game = makeGame(GameType.TeamMelee, [players(1, 2), players(3, 4), players(5, 6)])
+    expect(getVersusSides(game)).toBeUndefined()
   })
 
   test('sizes a Top vs Bottom game to its larger team', () => {
