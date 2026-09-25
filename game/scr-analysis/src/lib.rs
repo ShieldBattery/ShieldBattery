@@ -986,6 +986,18 @@ impl<'e> Analysis<'e> {
         self.0.show_game_message()
     }
 
+    /// `u16(sprite)`: decodes a sprite's x position. Fastcall with the sprite in ecx on 32-bit
+    /// builds, which for its one argument is the same as thiscall. Absent on builds that keep
+    /// sprite positions unencoded.
+    pub fn get_sprite_x(&mut self) -> Option<VirtualAddress> {
+        self.0.get_sprite_x()
+    }
+
+    /// `u16(sprite)`: decodes a sprite's y position, called the same way as `get_sprite_x`.
+    pub fn get_sprite_y(&mut self) -> Option<VirtualAddress> {
+        self.0.get_sprite_y()
+    }
+
     /// `Mem32` cursor the AI expansion planner rotates through the players, one per call.
     pub fn ai_expansion_player_cursor(&mut self) -> Option<Operand<'e>> {
         self.0.ai_expansion_player_cursor()
