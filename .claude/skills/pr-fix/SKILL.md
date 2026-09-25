@@ -13,16 +13,25 @@ description: Bring a ShieldBattery PR to green and work through its review (`/pr
   the claim in the tree before changing anything; a claim that doesn't hold is reported, not fixed.
 - **Flakes get reruns, regressions get fixes.** Never both for the same failure.
 - **Ordinary commits.** Fixes are new commits on the PR branch in the repo's message style. No
-  amend or force-push except when rebasing a stacked child (step 4).
+  amend or force-push except when rebasing onto the base to clear merge conflicts (step 1) or
+  rebasing a stacked child (step 4).
 
 ## Steps
 
 ### 1. Find the PR
 
 ```bash
-gh pr view [N] --json number,headRefName,baseRefName,headRefOid,isDraft,url
+gh pr view [N] --json number,headRefName,baseRefName,headRefOid,isDraft,url,mergeable,mergeStateStatus
 git checkout <headRefName> && git pull --ff-only
 ```
+
+If `mergeable` is `CONFLICTING` (`mergeStateStatus: DIRTY`), resolve that before reading CI:
+GitHub can't build a merge ref for a conflicting PR, so the `pull_request` runs never start and
+the `push` runs alone can look fully green. Rebase onto the base branch (never merge it in),
+resolve each stop, run the local gates from step 2 for the conflicted areas, and push with
+`--force-with-lease`. Conflicts in `__snapshots__/` files are regenerated, not hand-merged: take
+either side, rerun that test with `-u`, and `git add` the result. `UNKNOWN` means GitHub is still
+computing it; query again.
 
 Without a number, the PR is the current branch's. If there is none, ask which PR; don't guess from
 `gh pr list`.
@@ -114,7 +123,8 @@ parent, then each child is rebased onto its parent's new tip
 merge the parent into the child.
 
 After pushing, wait for the new runs (`gh pr checks N --watch`) and repeat step 2 until green or
-blocked on something only the user can decide.
+blocked on something only the user can decide. Before calling it green, re-check `mergeable`:
+master can move while you work.
 
 ### 5. Bookkeeping
 
@@ -128,6 +138,6 @@ that asks the user a question. Minimize a top-level comment once every point in 
 
 ### 6. Report
 
-In chat: CI per job, naming which failures were flakes rerun and which were regressions fixed; each
+In chat: mergeability (and any conflicts resolved), CI per job, naming which failures were flakes rerun and which were regressions fixed; each
 feedback item with how it was addressed or why it was skipped; what was resolved or minimized; and
 what is still open, with the reason.
