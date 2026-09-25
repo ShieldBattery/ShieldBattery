@@ -1,6 +1,9 @@
 import { NydusServer } from 'nydus'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { DEFAULT_ACCOUNT_SETTINGS } from '../../../common/settings/account-settings'
+import {
+  AccountSettings,
+  DEFAULT_ACCOUNT_SETTINGS,
+} from '../../../common/settings/account-settings'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { UserAvailability } from '../../../common/users/availability'
 import { SbUser } from '../../../common/users/sb-user'
@@ -47,6 +50,32 @@ describe('settings/account-settings-service', () => {
       expect(client.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
         action: 'update',
         settings: { ...DEFAULT_ACCOUNT_SETTINGS, quietChannelsWhileInGame: false },
+      })
+    })
+
+    test('returns a stored chat display mode', async () => {
+      asMockedFunction(getAccountSettings).mockResolvedValue({ chatDisplayMode: 'cozy' })
+
+      const client = connector.connectClient(user1, 'USER1_CLIENT_ID')
+      await new Promise(resolve => setTimeout(resolve, 20))
+
+      expect(client.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
+        action: 'update',
+        settings: { ...DEFAULT_ACCOUNT_SETTINGS, chatDisplayMode: 'cozy' },
+      })
+    })
+
+    test('falls back to the default chat display mode for a garbage stored value', async () => {
+      asMockedFunction(getAccountSettings).mockResolvedValue({
+        chatDisplayMode: 'compact',
+      } as unknown as Partial<AccountSettings>)
+
+      const client = connector.connectClient(user1, 'USER1_CLIENT_ID')
+      await new Promise(resolve => setTimeout(resolve, 20))
+
+      expect(client.publish).toHaveBeenCalledWith(getAccountSettingsPath(user1.id), {
+        action: 'update',
+        settings: DEFAULT_ACCOUNT_SETTINGS,
       })
     })
 

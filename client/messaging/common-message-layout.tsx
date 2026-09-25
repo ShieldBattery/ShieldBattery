@@ -12,15 +12,18 @@ import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { gameFromMessageLink, GameLinkCard, GameLinkTarget } from '../games/game-link-card'
+import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { TransInterpolation } from '../i18n/i18next'
 import {
   LOBBY_INVITE_CARD_MAX_AGE_MS,
   lobbyIdFromMessageLink,
   LobbyInviteCard,
 } from '../lobbies/lobby-invite-card'
+import { Tooltip } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
-import { labelSmall, titleSmall } from '../styles/typography'
+import { labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { StaffBadgedAvatar } from '../users/staff-badge'
 import { userFromMessageLink, UserLinkCard, UserLinkTarget } from '../users/user-card'
 import { UserMenuComponent } from '../users/user-context-menu'
 import { ChatContext } from './chat-context'
@@ -29,6 +32,7 @@ import { MessageContextMenu } from './message-context-menu'
 import { MessageEmoji } from './message-emoji'
 import {
   InfoImportant,
+  MessageTimestamp,
   SeparatedInfoMessage,
   Separator,
   TimestampMessageLayout,
@@ -91,6 +95,119 @@ const EmoteText = styled(Text)`
   color: var(--theme-on-surface-variant);
   font-style: italic;
 `
+
+/**
+ * How a plain text message is laid out:
+ *
+ * - `classic`: one line reading `[time] Name: text`, the time in the gutter.
+ * - `cozyHeader`: the first message of a group from one author, with their avatar in the gutter and
+ *   a row of name and time above the text.
+ * - `cozyContinuation`: a later message in that group, just its text, with its time revealed in the
+ *   gutter on hover.
+ *
+ * Action lines always read `classic`, whatever layout they're given.
+ */
+export type TextMessageLayout = 'classic' | 'cozyHeader' | 'cozyContinuation'
+
+/** The new-day divider, given a class of its own so a cozy header can tell it's directly below. */
+const NewDayRoot = styled(SeparatedInfoMessage)``
+
+/**
+ * A cozy header is spaced away from whatever it follows, so groups read apart from each other,
+ * except at the top of the list and under a divider, which already separate it.
+ */
+const CozyHeaderLayout = styled(TimestampMessageLayout)`
+  margin-top: 8px;
+  text-indent: 0;
+
+  &:first-child,
+  ${NewDayRoot} + &,
+  [data-unread-line] + & {
+    margin-top: 0;
+  }
+`
+
+/**
+ * The author's avatar, right-aligned in the gutter where a classic line's timestamp ends. It's
+ * decoration (the name next to it says who wrote the message), so it stays out of the accessibility
+ * tree and out of copied text. The doubled selectors outrank the list container's rule that makes
+ * all of its descendants selectable.
+ */
+const CozyAvatarSlot = styled.div.attrs({ 'aria-hidden': true })`
+  position: absolute;
+  top: 4px;
+  left: 24px;
+  width: 40px;
+  height: 40px;
+
+  &&,
+  && * {
+    user-select: none;
+  }
+`
+
+const CozyAvatar = styled(StaffBadgedAvatar)`
+  width: 100%;
+  height: 100%;
+`
+
+const CozyHeaderTime = styled.span`
+  ${labelMedium};
+  line-height: inherit;
+  color: var(--color-grey-blue70);
+`
+
+const InlineTooltip = styled(Tooltip)`
+  display: inline;
+`
+
+/** The block the text of a cozy message sits in, on its own line below any header. */
+const CozyText = styled(Text)`
+  display: block;
+`
+
+/**
+ * A continuation's timestamp, kept in the gutter without taking up any of the line, and only
+ * shown while the message is hovered or its context menu is open. Hidden times would otherwise end
+ * up in text copied out of the list, so it can't be selected at all.
+ */
+const ContinuationTimestamp = styled(MessageTimestamp)<{ $active: boolean }>`
+  position: absolute;
+  top: 4px;
+  left: 0;
+  opacity: ${props => (props.$active ? 1 : 0)};
+
+  &&,
+  && * {
+    user-select: none;
+  }
+`
+
+const CozyContinuationLayout = styled(TimestampMessageLayout)`
+  text-indent: 0;
+
+  /** Keyboard users reach the time by tabbing to it, so focus reveals it like hovering does. */
+  &:hover ${ContinuationTimestamp},
+  &:focus-within ${ContinuationTimestamp} {
+    opacity: 1;
+  }
+`
+
+/**
+ * The time shown next to the author's name in a cozy header. Its hidden separators make a copied
+ * header read `Name [9:58 PM]`.
+ */
+function CozyHeaderTimestamp({ time }: { time: number }) {
+  return (
+    <InlineTooltip text={longTimestamp.format(time)} position='top'>
+      <CozyHeaderTime>
+        <Separator>{' ['}</Separator>
+        {shortTimestamp.format(time)}
+        <Separator>]</Separator>
+      </CozyHeaderTime>
+    </InlineTooltip>
+  )
+}
 
 const MAX_JUMBO_EMOJI_COUNT = 10
 
@@ -274,6 +391,8 @@ export interface TextMessageProps {
    * composed from this instead of parsed out of `text`.
    */
   outcome?: RolledOutcome
+  /** How the message is laid out, see `TextMessageLayout`. Defaults to `classic`. */
+  layout?: TextMessageLayout
   testId?: string
 }
 
@@ -285,6 +404,7 @@ export function TextMessage({
   text,
   emote,
   outcome,
+  layout,
   testId,
 }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
@@ -316,13 +436,73 @@ export function TextMessage({
   const isActionLine = emote === true || outcome !== undefined
   const UsernameComponent = isActionLine ? EmoteUsername : Username
   const TextComponent = isActionLine ? EmoteText : Text
+  const effectiveLayout = isActionLine ? 'classic' : (layout ?? 'classic')
+  const isActive = contextMenuPopoverProps.open
 
-  return (
+  const linkCards = (
     <>
+      {inviteLobbyId !== undefined &&
+      !disallowMentionInteraction &&
+      mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
+        <LobbyInviteCard lobbyId={inviteLobbyId} />
+      ) : undefined}
+      {linkedGame !== undefined && !disallowMentionInteraction ? (
+        <GameLinkCard target={linkedGame} />
+      ) : undefined}
+      {linkedUser !== undefined && !disallowMentionInteraction ? (
+        <UserLinkCard target={linkedUser} />
+      ) : undefined}
+    </>
+  )
+
+  let messageLayout: React.ReactNode
+  if (effectiveLayout === 'cozyHeader') {
+    messageLayout = (
+      <CozyHeaderLayout
+        time={time}
+        gutter={
+          <CozyAvatarSlot>
+            <CozyAvatar userId={userId} />
+          </CozyAvatarSlot>
+        }
+        msgId={msgId}
+        active={isActive}
+        highlighted={isHighlighted}
+        onContextMenu={onContextMenu}
+        testId={testId}>
+        <div>
+          <Username
+            userId={userId}
+            filterClick={filterClick}
+            UserMenu={UserMenu}
+            interactive={!disallowMentionInteraction}
+          />
+          <CozyHeaderTimestamp time={time} />
+        </div>
+        <CozyText ref={textRef}>{parsed?.nodes}</CozyText>
+        {linkCards}
+      </CozyHeaderLayout>
+    )
+  } else if (effectiveLayout === 'cozyContinuation') {
+    messageLayout = (
+      <CozyContinuationLayout
+        time={time}
+        gutter={<ContinuationTimestamp time={time} $active={isActive} />}
+        msgId={msgId}
+        active={isActive}
+        highlighted={isHighlighted}
+        onContextMenu={onContextMenu}
+        testId={testId}>
+        <CozyText ref={textRef}>{parsed?.nodes}</CozyText>
+        {linkCards}
+      </CozyContinuationLayout>
+    )
+  } else {
+    messageLayout = (
       <TimestampMessageLayout
         time={time}
         msgId={msgId}
-        active={contextMenuPopoverProps.open}
+        active={isActive}
         highlighted={isHighlighted}
         onContextMenu={onContextMenu}
         testId={testId}>
@@ -337,18 +517,14 @@ export function TextMessage({
         <TextComponent ref={textRef}>
           {outcome ? <RolledOutcomeLine outcome={outcome} text={text} /> : parsed?.nodes}
         </TextComponent>
-        {inviteLobbyId !== undefined &&
-        !disallowMentionInteraction &&
-        mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
-          <LobbyInviteCard lobbyId={inviteLobbyId} />
-        ) : undefined}
-        {linkedGame !== undefined && !disallowMentionInteraction ? (
-          <GameLinkCard target={linkedGame} />
-        ) : undefined}
-        {linkedUser !== undefined && !disallowMentionInteraction ? (
-          <UserLinkCard target={linkedUser} />
-        ) : undefined}
+        {linkCards}
       </TimestampMessageLayout>
+    )
+  }
+
+  return (
+    <>
+      {messageLayout}
 
       <MessageContextMenu
         messageId={msgId}
@@ -432,14 +608,14 @@ export const NewDayMessage = React.memo<{ time: number }>(props => {
   const { time } = props
   const { t } = useTranslation()
   return (
-    <SeparatedInfoMessage>
+    <NewDayRoot>
       <span>
         <Trans t={t} i18nKey='messaging.newDayMessage'>
           Day changed to{' '}
           <InfoImportant>{{ day: newDayFormat.format(time) } as TransInterpolation}</InfoImportant>
         </Trans>
       </span>
-    </SeparatedInfoMessage>
+    </NewDayRoot>
   )
 })
 

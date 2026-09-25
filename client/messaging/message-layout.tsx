@@ -42,10 +42,11 @@ export const GutterLabel = styled.span`
 
 interface MessageTimestampProps {
   time: number
+  className?: string
 }
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
-  <StyledTooltip text={longTimestamp.format(props.time)} position='top'>
+  <StyledTooltip className={props.className} text={longTimestamp.format(props.time)} position='top'>
     <GutterLabel>
       <Separator>[</Separator>
       {shortTimestamp.format(props.time)}
