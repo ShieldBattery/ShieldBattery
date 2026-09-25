@@ -529,6 +529,7 @@ export function AdminChannelView({
                     hasMoreHistory={hasMoreChannelMessages}
                     refreshToken={channelInfo.id}
                     MessageComponent={ChannelMessage}
+                    displayMode='classic'
                   />
                   <StyledUserList active={sortedActiveUserIds} offline={[]} />
                 </ChannelContainer>

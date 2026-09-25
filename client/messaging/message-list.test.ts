@@ -1,12 +1,20 @@
 import { describe, expect, test } from 'vitest'
 import {
+  type ChannelTextMessage,
   type ChatMessage,
   ClientChatMessageType,
   makeSbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
-import { makeSbUserId } from '../../common/users/sb-user-id'
-import { findUnreadLineIndex, isScrolledToBottom } from './message-list'
+import { UserRelationshipJson } from '../../common/users/relationships'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import {
+  CHAT_GROUPING_WINDOW_MS,
+  type CozyGroupTail,
+  cozyLayoutFor,
+  findUnreadLineIndex,
+  isScrolledToBottom,
+} from './message-list'
 import { CommonMessageType, type CommonTextMessage, type SbMessage } from './message-records'
 
 const CHANNEL_ID = makeSbChannelId(1)
@@ -176,5 +184,115 @@ describe('client/messaging/message-list/isScrolledToBottom', () => {
 
   test('content that fits without scrolling is at the bottom', () => {
     expect(isScrolledToBottom(scroller(0, 500, 500))).toBe(true)
+  })
+})
+
+describe('client/messaging/message-list/cozyLayoutFor', () => {
+  const OTHER_USER_ID = makeSbUserId(3)
+  const NO_BLOCKS = new Map<SbUserId, UserRelationshipJson>()
+
+  function textFrom(
+    from: SbUserId,
+    time: number,
+    extra: Pick<ChannelTextMessage, 'emote' | 'outcome'> = {},
+  ): ChannelTextMessage {
+    return {
+      id: `m-${time}`,
+      type: ServerChatMessageType.TextMessage,
+      channelId: CHANNEL_ID,
+      time,
+      from,
+      text: 'hi',
+      ...extra,
+    }
+  }
+
+  /** Runs `cozyLayoutFor` over a list the way the message list does, with no dividers. */
+  function layoutsOf(
+    messages: ReadonlyArray<SbMessage>,
+    blocks: ReadonlyMap<SbUserId, UserRelationshipJson> = NO_BLOCKS,
+    dividerBeforeIndex = -1,
+  ) {
+    let prev: CozyGroupTail | undefined
+    return messages.map((m, i) => {
+      const { layout, next } = cozyLayoutFor(m, prev, i === dividerBeforeIndex, blocks)
+      prev = next
+      return layout
+    })
+  }
+
+  test('same author within the window continues the group', () => {
+    expect(
+      layoutsOf([
+        textFrom(USER_ID, 0),
+        textFrom(USER_ID, 30_000),
+        textFrom(USER_ID, 30_000 + CHAT_GROUPING_WINDOW_MS),
+      ]),
+    ).toEqual(['cozyHeader', 'cozyContinuation', 'cozyContinuation'])
+  })
+
+  test('same author beyond the window starts a new group', () => {
+    expect(
+      layoutsOf([textFrom(USER_ID, 0), textFrom(USER_ID, CHAT_GROUPING_WINDOW_MS + 1)]),
+    ).toEqual(['cozyHeader', 'cozyHeader'])
+  })
+
+  test('a different author starts a new group', () => {
+    expect(
+      layoutsOf([textFrom(USER_ID, 0), textFrom(OTHER_USER_ID, 1000), textFrom(USER_ID, 2000)]),
+    ).toEqual(['cozyHeader', 'cozyHeader', 'cozyHeader'])
+  })
+
+  test('an emote line gets no cozy layout and breaks the group', () => {
+    expect(
+      layoutsOf([
+        textFrom(USER_ID, 0),
+        textFrom(USER_ID, 1000, { emote: true }),
+        textFrom(USER_ID, 2000),
+      ]),
+    ).toEqual(['cozyHeader', undefined, 'cozyHeader'])
+  })
+
+  test('an outcome line gets no cozy layout and breaks the group', () => {
+    expect(
+      layoutsOf([
+        textFrom(USER_ID, 0),
+        textFrom(USER_ID, 1000, { emote: true, outcome: { kind: 'flip', result: 'heads' } }),
+        textFrom(USER_ID, 2000),
+      ]),
+    ).toEqual(['cozyHeader', undefined, 'cozyHeader'])
+  })
+
+  test('a system message breaks the group', () => {
+    expect(
+      layoutsOf([textFrom(USER_ID, 0), clientLeave('leave', 1000), textFrom(USER_ID, 2000)]),
+    ).toEqual(['cozyHeader', undefined, 'cozyHeader'])
+  })
+
+  test('a divider before the message starts a new group', () => {
+    expect(layoutsOf([textFrom(USER_ID, 0), textFrom(USER_ID, 1000)], NO_BLOCKS, 1)).toEqual([
+      'cozyHeader',
+      'cozyHeader',
+    ])
+  })
+
+  test('a blocked author gets no cozy layout and breaks the group', () => {
+    const blocks = new Map<SbUserId, UserRelationshipJson>([
+      [OTHER_USER_ID, {} as UserRelationshipJson],
+    ])
+
+    expect(
+      layoutsOf(
+        [textFrom(USER_ID, 0), textFrom(OTHER_USER_ID, 1000), textFrom(USER_ID, 2000)],
+        blocks,
+      ),
+    ).toEqual(['cozyHeader', undefined, 'cozyHeader'])
+  })
+
+  test('whisper text messages group too', () => {
+    expect(layoutsOf([whisperText('a', 0), whisperText('b', 1000)])).toEqual([
+      'cozyHeader',
+      'cozyContinuation',
+    ])
   })
 })

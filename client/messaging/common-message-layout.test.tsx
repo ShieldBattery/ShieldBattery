@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { Provider as ReduxProvider } from 'react-redux'
@@ -10,7 +10,7 @@ import createStore from '../create-store'
 import { gameFromMessageLink, GameLinkTarget } from '../games/game-link-card'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
 import { userFromMessageLink, UserLinkTarget } from '../users/user-card'
-import { TextMessage } from './common-message-layout'
+import { TextMessage, TextMessageLayout } from './common-message-layout'
 
 // The outcome line is built with `Trans`, which needs an i18next instance to render against.
 // `escapeValue` matches how the app initializes i18next: React escapes what it renders, so escaping
@@ -71,7 +71,17 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
   const store = createStore()
   const doRender = (
     text: string,
-    { time = 0, emote, outcome }: { time?: number; emote?: boolean; outcome?: RolledOutcome } = {},
+    {
+      time = 0,
+      emote,
+      outcome,
+      layout,
+    }: {
+      time?: number
+      emote?: boolean
+      outcome?: RolledOutcome
+      layout?: TextMessageLayout
+    } = {},
   ): HTMLElement => {
     render(
       <ReduxProvider store={store}>
@@ -84,6 +94,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             text={text}
             emote={emote}
             outcome={outcome}
+            layout={layout}
           />
         </div>
       </ReduxProvider>,
@@ -243,6 +254,41 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       time: -(LOBBY_INVITE_CARD_MAX_AGE_MS + 1),
     })
     expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
+  })
+
+  describe('cozy layouts', () => {
+    test('header with plain text', () => {
+      expect(doRender('This is test message', { layout: 'cozyHeader' })).toMatchSnapshot()
+    })
+
+    test('continuation with plain text', () => {
+      expect(doRender('This is test message', { layout: 'cozyContinuation' })).toMatchSnapshot()
+    })
+
+    test('header whose text mentions the self user', () => {
+      expect(doRender('Hey <@1>', { layout: 'cozyHeader' })).toMatchSnapshot()
+    })
+
+    test('header with a message-link chip', () => {
+      expect(
+        doRender(
+          'see this: https://shieldbattery.net/chat/1/some-channel?m=9b2e8d0e-5f3a-4a2b-8c1d-6f5e4d3c2b1a',
+          { layout: 'cozyHeader' },
+        ),
+      ).toMatchSnapshot()
+    })
+
+    test('continuation with an emoji-only message', () => {
+      expect(doRender('🔥🔥 🎉', { layout: 'cozyContinuation' })).toMatchSnapshot()
+    })
+
+    test('an action line ignores a cozy layout', () => {
+      const cozy = doRender('waves at everyone', { emote: true, layout: 'cozyHeader' }).innerHTML
+      cleanup()
+      const classic = doRender('waves at everyone', { emote: true }).innerHTML
+
+      expect(cozy).toBe(classic)
+    })
   })
 
   describe('game links', () => {

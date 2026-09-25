@@ -3,6 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import {
   AccountSettingsResponse,
+  ALL_CHAT_DISPLAY_MODES,
   UpdateAccountSettingsRequest,
 } from '../../../common/settings/account-settings'
 import {
@@ -36,6 +37,7 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
     .max(MAX_STATUS_MESSAGE_LENGTH)
     .pattern(/^[^\r\n]*$/)
     .allow(''),
+  chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),
 })
   .min(1)
   .required()

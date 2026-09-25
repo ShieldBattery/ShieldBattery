@@ -27,6 +27,21 @@ describe('settings/account-settings-api', () => {
       ).toBeDefined()
     })
 
+    test('accepts a known chat display mode', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ chatDisplayMode: 'cozy' }).error,
+      ).toBeUndefined()
+      expect(
+        updateAccountSettingsSchema.validate({ chatDisplayMode: 'classic' }).error,
+      ).toBeUndefined()
+    })
+
+    test('rejects an unknown chat display mode', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ chatDisplayMode: 'compact' }).error,
+      ).toBeDefined()
+    })
+
     test('rejects an over-long status message', () => {
       const statusMessage = 'a'.repeat(MAX_STATUS_MESSAGE_LENGTH + 1)
       expect(updateAccountSettingsSchema.validate({ statusMessage }).error).toBeDefined()

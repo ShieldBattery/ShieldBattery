@@ -2704,6 +2704,15 @@
         "rateLimited": "You can only change your login name once every 30 days.",
         "unknownError": "Something went wrong, please try again later."
       },
+      "chat": {
+        "displayMode": {
+          "classic": "Classic",
+          "cozy": "Cozy",
+          "description": "How messages are laid out in channels, whispers and lobby chat. Saved to your account and applies on every device you log in from.",
+          "title": "Display mode"
+        },
+        "title": "Chat"
+      },
       "connections": {
         "description": "Link external accounts to your ShieldBattery profile.",
         "title": "Connections",
