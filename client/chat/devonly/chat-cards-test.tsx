@@ -304,6 +304,20 @@ const CUSTOM_4V4_GAME = makeGame({
   ],
 })
 
+const CUSTOM_6V2_GAME = makeGame({
+  id: 'game-custom-6v2',
+  mapId: BGH_MAP.id,
+  config: {
+    ...CUSTOM_4V4_CONFIG,
+    gameSubType: 6,
+    teams: [
+      [...CUSTOM_4V4_CONFIG.teams[0], ...CUSTOM_4V4_CONFIG.teams[1].slice(0, 2)],
+      CUSTOM_4V4_CONFIG.teams[1].slice(2),
+    ],
+  },
+  results: CUSTOM_4V4_GAME.results,
+})
+
 const FFA_1 = makeSbUserId(940_031)
 const FFA_2 = makeSbUserId(940_032)
 const FFA_3 = makeSbUserId(940_033)
@@ -435,6 +449,10 @@ const GAME_SCENARIOS: GameScenario[] = [
   {
     label: 'Custom lobby 4v4',
     state: { status: 'loaded', game: CUSTOM_4V4_GAME, map: ECLIPSE_MAP, divisionById: undefined },
+  },
+  {
+    label: 'Custom lobby 6v2 (collapsed side)',
+    state: { status: 'loaded', game: CUSTOM_6V2_GAME, map: BGH_MAP, divisionById: undefined },
   },
   {
     label: 'Free for all',

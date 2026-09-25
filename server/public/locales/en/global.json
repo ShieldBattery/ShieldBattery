@@ -1271,6 +1271,8 @@
     },
     "linkCard": {
       "hideResults": "Hide results",
+      "morePlayers_one": "+{{count}} more",
+      "morePlayers_other": "+{{count}} more",
       "showResults": "Show results",
       "versus": "vs",
       "view": "View game"

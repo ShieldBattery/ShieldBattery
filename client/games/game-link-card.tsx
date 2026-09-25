@@ -99,6 +99,12 @@ const GAME_FETCH_BUDGET_WINDOW_MS = 30 * 1000
 let budgetWindowStart = 0
 let budgetUsed = 0
 
+export function resetGameLinkFetchesForTesting() {
+  gameLinkFetches.clear()
+  budgetWindowStart = 0
+  budgetUsed = 0
+}
+
 function takeGameFetchBudget(now: number): boolean {
   if (now - budgetWindowStart >= GAME_FETCH_BUDGET_WINDOW_MS) {
     budgetWindowStart = now
@@ -116,7 +122,7 @@ function takeGameFetchBudget(now: number): boolean {
  * undefined once it has been. Every card for the same game shares one fetch. A 404 stays cached,
  * since a game that doesn't exist never will; any other failure is evicted so a later card retries.
  */
-function loadGameForLink(gameId: string): Promise<GameLinkFailure | undefined> {
+export function loadGameForLink(gameId: string): Promise<GameLinkFailure | undefined> {
   const existing = gameLinkFetches.get(gameId)
   if (existing) {
     return existing
@@ -331,15 +337,31 @@ const MATCHUP_ROW_GAP = 8
 const DIVISION_ICON_SIZE: Record<MatchupSize, number> = { medium: 20, large: 28 }
 /**
  * The most rows a matchup renders: a game holds at most 8 players, which a matchup lays out in two
- * columns.
+ * columns. Only an uneven Top vs Bottom game (e.g. 5v3) has a side longer than this, and that side
+ * collapses its overflow into a final "+N more" row (see {@link collapseMatchupSide}).
  */
 const MAX_MATCHUP_ROWS = 4
+
+/**
+ * Splits a matchup side into the players it lists and how many more it summarizes in a final row,
+ * so the side never renders more than {@link MAX_MATCHUP_ROWS} rows.
+ */
+export function collapseMatchupSide<T>(side: ReadonlyArray<T>): {
+  shown: ReadonlyArray<T>
+  hiddenCount: number
+} {
+  if (side.length <= MAX_MATCHUP_ROWS) {
+    return { shown: side, hiddenCount: 0 }
+  }
+  const shown = side.slice(0, MAX_MATCHUP_ROWS - 1)
+  return { shown, hiddenCount: side.length - shown.length }
+}
 
 /**
  * Returns a game's two sides when it's a head-to-head (two teams facing each other, or exactly two
  * players), or undefined for games whose players can't honestly be split into two opposing sides.
  */
-function getVersusSides(
+export function getVersusSides(
   game: ReadonlyDeep<GameRecordJson>,
 ): ReadonlyArray<ReadonlyArray<ReadonlyDeep<GameConfigPlayer>>> | undefined {
   const { gameType, teams } = game.config
@@ -360,7 +382,7 @@ function getMatchupSize(game: ReadonlyDeep<GameRecordJson>): MatchupSize {
 }
 
 /** Returns the height a game's matchup renders at. */
-function getMatchupHeight(game: ReadonlyDeep<GameRecordJson>, size: MatchupSize): number {
+export function getMatchupHeight(game: ReadonlyDeep<GameRecordJson>, size: MatchupSize): number {
   const sides = getVersusSides(game)
   const rows = Math.min(
     MAX_MATCHUP_ROWS,
@@ -443,6 +465,12 @@ const MatchupConnectedName = styled(ConnectedUsername)<{ $size: MatchupSize }>`
   ${matchupNameStyles};
 `
 
+const MatchupMoreLabel = styled.span`
+  ${titleSmall};
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+`
+
 const VersusLabel = styled.span`
   ${labelMedium};
   color: var(--theme-on-surface-variant);
@@ -480,7 +508,7 @@ const GameCard = styled(BackdropCard)`
  * Returns a game's players split into the columns a matchup lays them out in: its two sides for a
  * head-to-head, or otherwise every player in name order, dealt alternately into two columns.
  */
-function getMatchupColumns(
+export function getMatchupColumns(
   game: ReadonlyDeep<GameRecordJson>,
   getName: (player: ReadonlyDeep<GameConfigPlayer>) => string,
 ): ReadonlyArray<ReadonlyArray<ReadonlyDeep<GameConfigPlayer>>> {
@@ -532,42 +560,57 @@ function GameMatchup({
     Array.isArray(game.results) ? game.results : [],
   )
 
-  const renderSide = (side: ReadonlyArray<ReadonlyDeep<GameConfigPlayer>>, mirrored: boolean) => (
-    <MatchupSide $mirrored={mirrored}>
-      {side.map(player => {
-        const division = player.isComputer ? undefined : divisionById?.get(player.id)
-        const result = player.isComputer ? undefined : results.get(player.id)?.result
-        return (
-          <MatchupPlayerRow key={player.id} $mirrored={mirrored} $size={size}>
-            {result && result !== 'unknown' ? (
-              <MatchupResultMarker result={result} concealed={!showResults} />
-            ) : null}
-            {division !== undefined ? (
-              <MatchupDivisionTooltip text={matchmakingDivisionToLabel(division, t)} position='top'>
-                <MatchupDivisionIcon
-                  division={division}
-                  size={DIVISION_ICON_SIZE[size]}
-                  $size={size}
-                />
-              </MatchupDivisionTooltip>
-            ) : null}
-            <MatchupRaceIcon race={results.get(player.id)?.race ?? player.race} $size={size} />
-            {player.isComputer ? (
-              <MatchupName $size={size}>{getName(player)}</MatchupName>
-            ) : (
-              <CardClickBoundary>
-                <MatchupConnectedName
-                  userId={player.id}
-                  $size={size}
-                  showTooltipForOverflow='top'
-                />
-              </CardClickBoundary>
-            )}
+  const renderSide = (side: ReadonlyArray<ReadonlyDeep<GameConfigPlayer>>, mirrored: boolean) => {
+    const { shown, hiddenCount } = collapseMatchupSide(side)
+    return (
+      <MatchupSide $mirrored={mirrored}>
+        {shown.map(player => {
+          const division = player.isComputer ? undefined : divisionById?.get(player.id)
+          const result = player.isComputer ? undefined : results.get(player.id)?.result
+          return (
+            <MatchupPlayerRow key={player.id} $mirrored={mirrored} $size={size}>
+              {result && result !== 'unknown' ? (
+                <MatchupResultMarker result={result} concealed={!showResults} />
+              ) : null}
+              {division !== undefined ? (
+                <MatchupDivisionTooltip
+                  text={matchmakingDivisionToLabel(division, t)}
+                  position='top'>
+                  <MatchupDivisionIcon
+                    division={division}
+                    size={DIVISION_ICON_SIZE[size]}
+                    $size={size}
+                  />
+                </MatchupDivisionTooltip>
+              ) : null}
+              <MatchupRaceIcon race={results.get(player.id)?.race ?? player.race} $size={size} />
+              {player.isComputer ? (
+                <MatchupName $size={size}>{getName(player)}</MatchupName>
+              ) : (
+                <CardClickBoundary>
+                  <MatchupConnectedName
+                    userId={player.id}
+                    $size={size}
+                    showTooltipForOverflow='top'
+                  />
+                </CardClickBoundary>
+              )}
+            </MatchupPlayerRow>
+          )
+        })}
+        {hiddenCount > 0 ? (
+          <MatchupPlayerRow $mirrored={mirrored} $size={size}>
+            <MatchupMoreLabel>
+              {t('games.linkCard.morePlayers', {
+                defaultValue: '+{{count}} more',
+                count: hiddenCount,
+              })}
+            </MatchupMoreLabel>
           </MatchupPlayerRow>
-        )
-      })}
-    </MatchupSide>
-  )
+        ) : null}
+      </MatchupSide>
+    )
+  }
 
   if (!isVersus) {
     return (
