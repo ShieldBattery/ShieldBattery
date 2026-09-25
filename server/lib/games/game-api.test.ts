@@ -50,7 +50,6 @@ function makeRehomeApi({
     netcodeV2Service as any,
     {} as any,
     new GameLifecycleEvents(),
-    {} as any,
   )
   return { api, netcodeV2Service }
 }
@@ -173,7 +172,6 @@ function makeStatusApi({
     {} as any,
     activityStatusService as any,
     gameLifecycleEvents,
-    {} as any,
   )
   return { api, gameLoader, activityStatusService, gameLifecycleEvents }
 }
@@ -319,7 +317,6 @@ function makeFlightApi({ isEnabled = true }: { isEnabled?: boolean } = {}) {
     netcodeV2Service as any,
     {} as any,
     new GameLifecycleEvents(),
-    {} as any,
   )
   return { api, netcodeV2Service }
 }

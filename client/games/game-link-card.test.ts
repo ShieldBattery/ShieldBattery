@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
 import { GameType } from '../../common/games/game-type'
 import { GameRecordJson } from '../../common/games/games'
+import { makeSeasonId, MatchmakingSeasonJson } from '../../common/matchmaking'
 import { asMockedFunction } from '../../common/testing/mocks'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { dispatch } from '../dispatch-registry'
@@ -9,10 +10,12 @@ import { fetchJson } from '../network/fetch'
 import { FetchError } from '../network/fetch-errors'
 import {
   collapseMatchupSide,
+  findSeasonAt,
   getMatchupColumns,
   getMatchupHeight,
   getVersusSides,
   loadGameForLink,
+  loadMatchmakingSeasons,
   resetGameLinkFetchesForTesting,
 } from './game-link-card'
 
@@ -187,5 +190,58 @@ describe('client/games/game-link-card/matchup layout', () => {
       shown: [1, 2, 3],
       hiddenCount: 4,
     })
+  })
+})
+
+describe('client/games/game-link-card/loadMatchmakingSeasons', () => {
+  beforeEach(() => {
+    resetGameLinkFetchesForTesting()
+    fetchJsonMock.mockReset()
+    dispatchMock.mockReset()
+  })
+
+  test('fetches the seasons once per session', async () => {
+    fetchJsonMock.mockResolvedValue({ seasons: [], current: makeSeasonId(1) })
+
+    await Promise.all([loadMatchmakingSeasons(), loadMatchmakingSeasons()])
+    await loadMatchmakingSeasons()
+
+    expect(fetchJsonMock).toHaveBeenCalledTimes(1)
+    expect(dispatchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('retries after a failure', async () => {
+    fetchJsonMock.mockRejectedValueOnce(serverError())
+    fetchJsonMock.mockResolvedValueOnce({ seasons: [], current: makeSeasonId(1) })
+
+    await loadMatchmakingSeasons()
+    expect(dispatchMock).not.toHaveBeenCalled()
+    await loadMatchmakingSeasons()
+
+    expect(fetchJsonMock).toHaveBeenCalledTimes(2)
+    expect(dispatchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('client/games/game-link-card/findSeasonAt', () => {
+  function season(id: number, startDate: number, endDate?: number): MatchmakingSeasonJson {
+    return { id: makeSeasonId(id), name: `Season ${id}`, startDate, endDate, resetMmr: false }
+  }
+
+  const SEASONS = [season(3, 3000), season(2, 2000, 3000), season(1, 1000, 2000)]
+
+  test('finds the season running at a time', () => {
+    expect(findSeasonAt(SEASONS, 2500)?.id).toBe(makeSeasonId(2))
+    expect(findSeasonAt(SEASONS, 9000)?.id).toBe(makeSeasonId(3))
+  })
+
+  test("places a season's end in the next season", () => {
+    expect(findSeasonAt(SEASONS, 2000)?.id).toBe(makeSeasonId(2))
+    expect(findSeasonAt(SEASONS, 3000)?.id).toBe(makeSeasonId(3))
+  })
+
+  test('finds nothing before the first season or when its season is missing', () => {
+    expect(findSeasonAt(SEASONS, 500)).toBeUndefined()
+    expect(findSeasonAt([season(3, 3000)], 2500)).toBeUndefined()
   })
 })

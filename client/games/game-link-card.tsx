@@ -16,8 +16,11 @@ import { ReconciledPlayerResult } from '../../common/games/results'
 import { MapInfoJson } from '../../common/maps'
 import {
   getDivisionBeforeRatingChange,
+  GetMatchmakingSeasonsResponse,
+  getTotalBonusPoolForSeason,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
+  MatchmakingSeasonJson,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
@@ -101,6 +104,7 @@ let budgetUsed = 0
 
 export function resetGameLinkFetchesForTesting() {
   gameLinkFetches.clear()
+  seasonsFetch = undefined
   budgetWindowStart = 0
   budgetUsed = 0
 }
@@ -154,6 +158,45 @@ export function loadGameForLink(gameId: string): Promise<GameLinkFailure | undef
 }
 
 /**
+ * The fetch of every matchmaking season, shared by every card that needs one. A success stays cached
+ * for the session, so a game that falls in no season can't make each card refetch the list; a
+ * failure is evicted so a later card retries.
+ */
+let seasonsFetch: Promise<void> | undefined
+
+/**
+ * Loads every matchmaking season into the Redux store, for placing a ranked game's players into the
+ * divisions they were in when it was played. Resolves once the fetch settles, whether or not it
+ * succeeded.
+ */
+export function loadMatchmakingSeasons(): Promise<void> {
+  if (!seasonsFetch) {
+    seasonsFetch = fetchJson<GetMatchmakingSeasonsResponse>(apiUrl`matchmaking/seasons`).then(
+      payload => {
+        globalDispatch({ type: '@matchmaking/getMatchmakingSeasons', payload })
+      },
+      () => {
+        seasonsFetch = undefined
+      },
+    )
+  }
+  return seasonsFetch
+}
+
+/** Returns the season that was running at `time`, if it's among `seasons`. */
+export function findSeasonAt(
+  seasons: Iterable<ReadonlyDeep<MatchmakingSeasonJson>>,
+  time: number,
+): ReadonlyDeep<MatchmakingSeasonJson> | undefined {
+  for (const season of seasons) {
+    if (season.startDate <= time && (season.endDate === undefined || time < season.endDate)) {
+      return season
+    }
+  }
+  return undefined
+}
+
+/**
  * The load state of a game link card: the game's data once it's in the store, or why it can't be
  * shown.
  */
@@ -171,8 +214,10 @@ export type GameLinkLoadState =
 /**
  * Reads a linked game from the Redux store, fetching it (see {@link loadGameForLink}) only when the
  * store doesn't already hold everything the card shows: the game, its players, and for a
- * matchmaking game the bonus pool its ranks are placed with (which only a single-game fetch
- * loads). Returns undefined while that fetch is in flight.
+ * matchmaking game its rating changes (which only a single-game fetch loads). A matchmaking game
+ * also needs the season it was played in, whose bonus pool places its players' points into
+ * divisions, and loads the seasons (see {@link loadMatchmakingSeasons}) when the store lacks it.
+ * Returns undefined while either fetch is in flight.
  */
 function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
   const game = useAppSelector(s => s.games.byId.get(gameId))
@@ -183,9 +228,12 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
       game.config.teams.flat().every(p => p.isComputer || s.users.byId.has(p.id)),
   )
   const mmrChanges = useAppSelector(s => s.games.mmrChangesById.get(gameId))
-  const rankBonusPool = useAppSelector(s => s.games.rankBonusPoolById.get(gameId))
   const isRanked = game?.config.gameSource === GameSource.Matchmaking
-  const detailsKnown = playersKnown && (!isRanked || rankBonusPool !== undefined)
+  const season = useAppSelector(s =>
+    game && isRanked ? findSeasonAt(s.matchmakingSeasons.byId.values(), game.startTime) : undefined,
+  )
+  const detailsKnown = playersKnown && (!isRanked || mmrChanges !== undefined)
+  const needsSeasons = isRanked && season === undefined
   // How this card's own fetch ended. A successful fetch counts as loaded even if some detail is
   // still missing afterwards (e.g. a since-deleted account), so the card never waits on something
   // the server didn't return.
@@ -212,15 +260,43 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
     }
   }, [gameId, detailsKnown])
 
+  // Whether this card's seasons fetch has settled. The card goes without ranks if it failed, or if
+  // the game predates every season.
+  const [seasonsSettledFor, setSeasonsSettledFor] = useState<string>()
+
+  useEffect(() => {
+    if (!needsSeasons) {
+      return undefined
+    }
+
+    let canceled = false
+    loadMatchmakingSeasons()
+      .then(() => {
+        if (!canceled) {
+          setSeasonsSettledFor(gameId)
+        }
+      })
+      .catch(swallowNonBuiltins)
+
+    return () => {
+      canceled = true
+    }
+  }, [gameId, needsSeasons])
+
   const ownResult = settled?.gameId === gameId ? settled : undefined
   if (game && (detailsKnown || (ownResult && !ownResult.failure))) {
+    if (needsSeasons && seasonsSettledFor !== gameId) {
+      return undefined
+    }
+
+    const bonusPool =
+      isRanked && season ? getTotalBonusPoolForSeason(new Date(game.startTime), season) : undefined
     const divisionById =
-      isRanked && mmrChanges && rankBonusPool !== undefined
+      mmrChanges && bonusPool !== undefined
         ? new Map(
             Array.from(
               mmrChanges.values(),
-              change =>
-                [change.userId, getDivisionBeforeRatingChange(change, rankBonusPool)] as const,
+              change => [change.userId, getDivisionBeforeRatingChange(change, bonusPool)] as const,
             ),
           )
         : undefined
