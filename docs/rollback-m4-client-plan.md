@@ -123,53 +123,66 @@ the replay each saves parses and plays back to the same final state.
 
 ### Slice 4: prediction and the delay/rollback split
 
-Built in four steps, each tested live before the next:
+Built and tested live in four commits (two clients on the staging relay, driven by the monkey):
 
-1. **Prediction core.** An input table keyed by turn index replaces the lockstep FIFOs and the
-   shadow mode's dispatch history (`netcode_v2/input_table.rs`). A step whose remote turn is
-   missing runs with a single no-op (what an idle turn holds once 0x37 is stripped); a turn that
-   arrives for a step that already ran asks for a rollback only if its bytes differ from that.
-   Input delay stays whatever the relay's buffer directives set. Debug knobs:
-   `SB_ROLLBACK_PREDICT=<limit>`, `SB_ROLLBACK_SHADOW=<depth>` (forced re-simulation on top),
-   `SB_ROLLBACK_LIVE_DELAY=<storm>:<steps>` (hold a slot's turns back locally) and
-   `SB_ROLLBACK_MONKEY=<apm>` (random selects and right clicks, so two clients can play
-   unattended). `game_frame_count` reads one past the frame count at the IN hook, so the turn
-   index is `game_frame_count - 1`.
+1. **Prediction core** (`netcode_v2/input_table.rs`). An input table keyed by turn index replaces
+   the lockstep FIFOs and the shadow mode's dispatch history. A step whose remote turn is missing
+   runs with an empty turn, which is what an idle turn holds once 0x37 is stripped; a turn of a
+   single no-op counts as the same, since the command hook stands one in for a turn without a sync
+   command. A turn that arrives for a step that already ran asks for a rollback only if it differs
+   from that. `game_frame_count` reads one past the frame count at the IN hook, so the turn index
+   is `game_frame_count - 1`. Stalls (and the stall overlay and `/netstat` attribution) happen only
+   past the limit, inside BW's own wait for turns.
 2. **Leaves as a fence.** A leave is applied only by its own step (`final_turn_count`), and only
-   once every earlier step's turns are known, since it can't be undone. Steps that ran before the
-   leave arrived ran without it; the fence then rolls back to the leave's step. An unfinalized drop
-   carries no count, so it goes to the first step this client has no turn for, which clients can
-   disagree on: rollback sessions should require finalized drops.
-3. **Game end.** Snapshot `trigger_result_check_timer` and keep the victory/defeat dialog and the
-   result report on confirmed frames.
-4. **The split and catch-up** (below).
+   once every earlier step's turns are known, since a leave can't be undone. Steps that ran before
+   the leave arrived ran without it, and the fence rolls back to the leave's step once it can apply.
+   A step that has never run takes its leaves only if it can run once they apply, so a stalled
+   attempt can't lose one to a later restore.
+3. **Game end.** `trigger_result_check_timer` is in the snapshot, and the victory and defeat dialog
+   openers (samase `open_defeat_mission_dialog` / `open_victory_mission_dialog`) are hooked: inside
+   a tick a step only notes the request against its frame, every simulation of the frame replaces
+   it, and the driver opens the dialog once the frame is confirmed. The dialog is what reports the
+   result and, on a victory, ends the session.
+4. **Lead and catch-up.** The relay's latency buffer stands in for the client's RTT until the relay
+   reports lead error: the client runs `lead = min(R_target, buffer − 1)` frames ahead of the
+   lockstep schedule and keeps `buffer − lead` of its own turns in flight. Its turns then leave
+   exactly when lockstep's would, so no other player sees a difference, while other players' turns
+   reach it `lead` frames later than lockstep's would. The first 24 steps run in lockstep with the
+   whole buffer, which lines the clients' game loops up (seed turns arrive before a peer's loop is
+   running, so a lockstep first step alone doesn't); each client then anchors its own schedule,
+   steps up to two extra frames a tick when it is behind it, and puts its next step off by a frame
+   when it is ahead.
 
-- The receive side never blocks while `present − confirmed ≤ R_max`. A frame whose remote turn
-  hasn't arrived runs with an empty turn for that slot.
-- A turn that arrives for a predicted frame and carries commands triggers a rollback to that frame.
-  A turn with no commands only moves the confirmed frame.
-- Leaves become frame events: a counted leave applies at the frame after the departed slot's last
-  turn (`final_turn_count`), and an unfinalized leave applies at its `apply_at_frame`. A leave that
-  arrives late rolls back like a late command.
-- Native 0x37 is off in rollback mode: no generation, no verification, and the one-per-turn check
-  can't drop anyone. In debug builds both clients opt in through the env. The real switch is the
-  session descriptor (rp2 step).
-- The stall overlay and `/netstat` stall attribution fire only when the cap stops the client, not
-  on every late turn.
-- **The split:** the client chooses its own delay D and lead X from its rollback target
-  (`X = R_target − steady download lateness`, D covering the rest of its RTT), with the sustain
-  window before adding delay. Until the relay reports lead error, the client estimates it from its
-  own RTT (upload leg ≈ RTT / 2) and anchors the session clock to the game's first frame.
-- **Catch-up:** when the client falls behind its target X it steps frames back to back through the
-  harness's pacing control (`probe_set_next_game_step_tick`) instead of waiting.
-- Debug knobs: `R_target`, `R_max`, and delaying a chosen remote slot's turns locally (the live
-  counterpart of `SB_ROLLBACK_DELAY`), so the settings can be feel-tested before any relay work.
+Debug knobs (`rollback_live.rs`): `SB_ROLLBACK_PREDICT=<limit>`, `SB_ROLLBACK_TARGET=<frames>`
+(default 3), `SB_ROLLBACK_SHADOW=<depth>` (forced re-simulation on top),
+`SB_ROLLBACK_LIVE_DELAY=<storm>:<frames>` (hold a slot's turns back locally, like extra latency on
+its link), `SB_ROLLBACK_MIN_BUFFER=<turns>` (act as if the relay asked for a deeper buffer, which it
+doesn't for two clients on one machine) and `SB_ROLLBACK_MONKEY=<apm>` (random selects and right
+clicks so two clients can play unattended). A plain client in the same game needs
+`SB_ROLLBACK_NATIVE_SYNC_OFF=1`.
 
-**Verify:** two loopback clients with a delayed slot on one side. Confirmed `state_hash` rows match
-across clients for the whole game, corrections look like the harness's at the same delay, the cap
-stalls cleanly past `R_max`, and a player with an artificially slow link carries the delay and
-rollback while the other sees its commands on time.
+**Verified** (every run compared both clients' `state_hash` by frame): 22,489 frames identical with
+turns held back 4 and 10 frames on the two sides (the 10-frame side past its limit of 8, so it
+stalled and caught up); 3,752 frames with lead 3 over a pipe of 1 and 4-frame holds both ways, with
+steady pacing (no catch-ups or hold-backs after the start); a 64-bit client against a 32-bit one;
+a mid-game drop applied through the fence (an 11-frame rollback) ending in a victory dialog opened
+for a confirmed frame and a clean result report, on both architectures; and the winner's uploaded
+replay played back to the same state hash as the live game on every one of its 2,083 frames. Tick
+cost stayed around 0.5 ms.
 
+**Open:**
+- The result report reads the present game state, which can be a few predicted frames past the
+  frame the dialog opened for. The local player's own outcome is confirmed, but other players'
+  victory states and alliances could still come from a prediction.
+- Unfinalized drops carry no turn count, so the leave goes to the first step this client has no
+  turn for, which clients can disagree on. Rollback sessions should require finalized drops.
+- The lead uses the relay's buffer as a stand-in for the client's own RTT; the deadline model's
+  per-player split needs the relay's lead report (rp2 step). Nothing yet adapts the lead to steady
+  versus burst lateness.
+- A stall at the limit happens inside BW's wait for turns, so clicks made during it aren't logged
+  for re-simulation, and chat that arrives during it waits for the step.
+- BW's pause runs network turns without advancing frames, which the turn index = frame count
+  mapping doesn't cover; pausing in a rollback game is untested.
 ### Latency readout (independent of the slices)
 
 Replace the `Lat: 208ms` text with a fighting-game style readout: `1D 3R`, the input delay and the
@@ -216,7 +229,6 @@ comparator (build step 3).
   missing from the snapshot, and restoring a trigger list that a defeat had freed left the saved
   copy's links pointing at freed nodes. A replay with two computer players now matches plain
   playback under forced rollback.
-- **Game end in live games.** `trigger_result_check_timer` (RVA 0x10b0e00 in 12310g x64) counts
-  down every frame outside replays and opens the local victory or defeat dialog when it expires;
-  it is not in the snapshot yet (needs a samase_scarf analysis). A mispredicted defeat of the
-  local player would open that dialog, so game end has to wait for the frame to be confirmed.
+- **Game end in live games.** Covered in slice 4: the result check timer is snapshotted and the
+  victory and defeat dialogs open only for confirmed frames. The result report still reads the
+  present game state (see slice 4's open items).
