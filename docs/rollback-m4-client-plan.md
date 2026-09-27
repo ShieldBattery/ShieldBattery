@@ -211,11 +211,56 @@ same machinery as `/netstat`) instead of formatting SC:R's own text through the
   `fonts[0]`; the egui readout can blank the native string in the same hook and treat the hook
   firing as its per-frame visibility signal.
 
-### Slice 5: confirmed-hash reports
+### Slice 5: confirmed-hash reports and rollback sessions (with rp2 build step 3)
 
-Hash the confirmed frame every 8 frames and carry `{frame, hash}` as an envelope field on outbound
-turns. This needs the rp2 client crate's `Payload` field, so it lands together with the relay
-comparator (build step 3).
+Not started. This is where the debug env vars become a real session mode, so it spans the DLL,
+rally-point2 (proto, relay, coordinator) and the app server. A survey of rp2 turned up how its
+native sync comparison and the `finalized_drops` session flag work today; the plan below follows
+those patterns.
+
+**Steps, not frames.** Every hash and deadline is keyed by step (turn index), which is also the
+payload `seq`: a paused game takes turns without advancing frames, and the relay only knows turn
+counts. The DLL already counts its rollback timeline in turns.
+
+1. **DLL: hash reports.** Every 8 steps, hash the state after the step (`state_hash`), record it per
+   step like the game-end outcomes (a step whose prediction held is never simulated again), and
+   once the step is confirmed put `{step, hash}` on the next outbound turn.
+2. **Wire (`proto/proto/wire.proto`):** `message StateHashReport { uint64 step = 1; fixed64 hash =
+   2; }` and `optional StateHashReport state_hash = 7` on `Payload` (the next free field). Every
+   `Payload { .. }` literal in rp2 (18 across 13 files, mostly tests and benches) gains the field;
+   `relay/src/validation.rs` keeps it, with a test next to the `sync_generation` one.
+3. **Don't forward reports to clients.** `routing::fan_out` and the client turn replay forward the
+   payload as is, so a modified client could copy the majority's hash before its own is due.
+   Strip `state_hash` on client-bound fan-out and client replay; keep it on mesh fan-out and mesh
+   resume replay.
+4. **Session flag.** `SessionDescriptor.rollback` (`#[serde(default)]`), set by the coordinator
+   the way `finalized_drops` is: a relay capability (`CAPABILITY_ROLLBACK_V1`), cohort placement and
+   re-homing that never mix builds, and `finalized_drops` forced on (an unfinalized drop has no
+   turn count, so clients could apply it at different steps). rp2 has no client capability input,
+   so the tenant asserts "every client supports it" on `SessionRequest`. `GAME_SYNC_SAFE_BUFFER_MAX`
+   (the 0x37 ring limit) shouldn't apply to rollback sessions.
+5. **Relay comparator** (`consensus/sync/rollback.rs`, fed from `deliver_turn_to_locals` next to
+   `observe_sync_with_generation`): reports by step from every required slot, the existing
+   majority rules (factor `evaluate` out of `sync/tracker.rs`), and a deadline 5 s after the step
+   became confirmable, meaning every live slot's forwarded count passed it. Those counts live in
+   `mesh/` (`MeshSeen::forwarded_count`), which `consensus/` can't import, so the forward path has
+   to hand them in (for example on `note_forward_advance`). Where counts are unknown (after a
+   re-home or a sparse-set collapse) there is no deadline. Reject steps that aren't multiples of 8
+   or are far past the frontier. Every relay keeps pending reports so a promoted authority can
+   carry on; only the authority emits.
+6. **Missing reports are a new verdict.** Today a missing checksum only logs. A live player missing
+   a deadline needs a failure verdict on `DesyncNotice` (an additive field), a policy in the app
+   server's `results.ts`, and care with the coordinator's dedupe key `(tenant, session,
+   sync_ordinal)`: a divergence and a missing report at the same step have to go out as one notice.
+7. **Native sync off per session.** `observe_sync_with_generation` returns early for rollback
+   sessions, and `sync_coverage` reports the new comparator. In the DLL the switch comes from the
+   session (through the app server's launch config, since rp2 doesn't tell clients session
+   parameters), replacing `SB_ROLLBACK_NATIVE_SYNC_OFF`, and it must flip for every client at once.
+
+**Decisions for Travis:** whether the tenant assertion on `SessionRequest` is the right mode
+switch (versus a per-player capability in the launch handoff); the policy for a missing-report
+verdict in 1v1 and team games; and whether the relay's lead report (the deadline model's session
+clock, which removes the anchor unfairness noted in slice 4) goes in with this step or after it.
 
 ## Risks
 
