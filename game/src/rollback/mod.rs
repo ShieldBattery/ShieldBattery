@@ -28,6 +28,7 @@ pub(crate) mod ranges;
 pub(crate) mod snapshot;
 pub(crate) mod sounds;
 pub(crate) mod tick;
+pub(crate) mod ui_writes;
 
 /// Whether a tick's steps are running right now. A step taken outside a tick applies every
 /// once-only effect immediately, since nothing will simulate its frame again.
@@ -96,4 +97,5 @@ pub(crate) fn reset_for_game_init() {
     sounds::reset();
     announcements::reset();
     observer_ui::reset();
+    ui_writes::reset();
 }

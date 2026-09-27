@@ -324,6 +324,11 @@ pub struct BwScr {
     /// `None` if analysis could not find both.
     #[cfg(debug_assertions)]
     selection_visuals: Option<SelectionVisuals>,
+    /// The functions a right click calls to place the order confirmation marker and to make the
+    /// target's selection circle blink, which write into the simulation's memory between logic
+    /// steps, or `None` if analysis could not find both.
+    #[cfg(debug_assertions)]
+    click_feedback: Option<ClickFeedback>,
     /// The function that shows a line of game information text (a player leaving or being
     /// eliminated), or `None` if analysis could not find it.
     #[cfg(debug_assertions)]
@@ -1041,6 +1046,34 @@ struct SelectionVisuals {
     rebuild: unsafe extern "C" fn(),
 }
 
+/// The functions a right click calls for its feedback: placing the order confirmation marker, and
+/// making the clicked target's selection circle blink.
+#[cfg(debug_assertions)]
+struct ClickFeedback {
+    show_cursor_marker_at: VirtualAddress,
+    set_selection_flash_timer: VirtualAddress,
+}
+
+#[cfg(debug_assertions)]
+impl ClickFeedback {
+    fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<ClickFeedback> {
+        let show = analysis.show_cursor_marker_at();
+        let flash = analysis.set_sprite_selection_flash_timer();
+        let (Some(show_cursor_marker_at), Some(set_selection_flash_timer)) = (show, flash) else {
+            warn!(
+                "Analysis could not find the click feedback functions (marker: {}, flash: {})",
+                show.is_some(),
+                flash.is_some(),
+            );
+            return None;
+        };
+        Some(ClickFeedback {
+            show_cursor_marker_at,
+            set_selection_flash_timer,
+        })
+    }
+}
+
 #[cfg(debug_assertions)]
 impl SelectionVisuals {
     fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<SelectionVisuals> {
@@ -1749,6 +1782,8 @@ impl BwScr {
         #[cfg(debug_assertions)]
         let selection_visuals = SelectionVisuals::analyze(&mut analysis);
         #[cfg(debug_assertions)]
+        let click_feedback = ClickFeedback::analyze(&mut analysis);
+        #[cfg(debug_assertions)]
         let show_game_message = analysis.show_game_message();
         #[cfg(debug_assertions)]
         let sprite_position_accessors = match crate::rollback_harness::smoothing_enabled() {
@@ -1983,6 +2018,8 @@ impl BwScr {
             observer_ui_callbacks,
             #[cfg(debug_assertions)]
             selection_visuals,
+            #[cfg(debug_assertions)]
+            click_feedback,
             #[cfg(debug_assertions)]
             show_game_message,
             #[cfg(debug_assertions)]
@@ -2809,6 +2846,35 @@ impl BwScr {
                     error!(
                         "Rollback correction smoothing needs the sprite position accessors, \
                          which analysis could not resolve"
+                    );
+                }
+
+                // A right click writes the order confirmation marker and the target's blink into
+                // sprites the rollback engine snapshots, so a restore to before the click undoes
+                // them; the engine logs them here to make them again when it re-simulates.
+                if let Some(feedback) = &self.click_feedback {
+                    use crate::rollback::ui_writes::{UiWrite, record};
+                    exe.hook_closure_address(
+                        ShowCursorMarkerAt,
+                        move |x, y, orig| {
+                            record(self, UiWrite::CursorMarker { x, y });
+                            orig(x, y);
+                        },
+                        feedback.show_cursor_marker_at.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        SetSpriteSelectionFlashTimer,
+                        move |object, timer, orig| {
+                            record(
+                                self,
+                                UiWrite::SelectionFlash {
+                                    object: object as usize,
+                                    timer,
+                                },
+                            );
+                            orig(object, timer);
+                        },
+                        feedback.set_selection_flash_timer.0 as usize - base,
                     );
                 }
 
@@ -6196,6 +6262,34 @@ impl BwScr {
         }
     }
 
+    /// Makes a write the UI made into the simulation's memory again, through the same function the
+    /// UI called.
+    pub(crate) unsafe fn rollback_replay_ui_write(
+        &self,
+        write: crate::rollback::ui_writes::UiWrite,
+    ) {
+        use crate::rollback::ui_writes::UiWrite;
+        unsafe {
+            let Some(feedback) = &self.click_feedback else {
+                return;
+            };
+            match write {
+                UiWrite::CursorMarker { x, y } => {
+                    let show = mem::transmute::<usize, unsafe extern "C" fn(i32, i32)>(
+                        feedback.show_cursor_marker_at.0 as usize,
+                    );
+                    show(x, y);
+                }
+                UiWrite::SelectionFlash { object, timer } => {
+                    let flash = Thiscall::<unsafe extern "C" fn(*mut c_void, u32)>::foreign(
+                        feedback.set_selection_flash_timer.0 as usize,
+                    );
+                    flash.call2(object as *mut c_void, timer);
+                }
+            }
+        }
+    }
+
     /// Takes the selection circles and health bars off every sprite.
     pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
         unsafe {
@@ -7750,6 +7844,8 @@ mod hooks {
         !0 => EngineAlloc(usize, usize, u32, u32) -> *mut u8;
         !0 => EngineFree(*mut u8, usize, u32, u32) -> u32;
         !0 => ShowGameMessage(*const u8, u32);
+        // Place the order confirmation marker at a map position.
+        !0 => ShowCursorMarkerAt(i32, i32);
     );
 
     // The observer UI's notifications from the simulation, methods on the observer UI object that
@@ -7766,6 +7862,8 @@ mod hooks {
         // thiscall for a single argument. The coordinate comes back zero-extended.
         !0 => GetSpriteX(*mut c_void) -> u32;
         !0 => GetSpriteY(*mut c_void) -> u32;
+        // Make a unit's (or fog sprite's) selection circle blink, the object in ecx on 32-bit.
+        !0 => SetSpriteSelectionFlashTimer(*mut c_void, u32);
     );
 
     system_hooks!(

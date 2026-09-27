@@ -647,6 +647,18 @@ impl<'e> Analysis<'e> {
         self.0.draw_cursor_marker()
     }
 
+    /// The function a click calls to place the order confirmation marker, `(x, y)`: cdecl on
+    /// 32-bit.
+    pub fn show_cursor_marker_at(&mut self) -> Option<VirtualAddress> {
+        self.0.show_cursor_marker_at()
+    }
+
+    /// The function that makes a unit's (or fog sprite's) selection circle blink, `(object,
+    /// timer)`: thiscall on 32-bit.
+    pub fn set_sprite_selection_flash_timer(&mut self) -> Option<VirtualAddress> {
+        self.0.set_sprite_selection_flash_timer()
+    }
+
     /// Built-in/proto turn latency (the pipe-depth floor, natively 2). We may override it. See
     /// guide §4 / §5.3.
     pub fn builtin_turn_latency(&mut self) -> Option<Operand<'e>> {

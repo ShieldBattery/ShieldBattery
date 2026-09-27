@@ -9,7 +9,7 @@ use crate::bw_scr::BwScr;
 use super::snapshot::Snapshots;
 use super::{
     FINAL_STEP, IRREVERSIBLE_STEP, RESIMULATING, STEP_FRAME, TICK_RUNNING, WINDOW_START,
-    announcements,
+    announcements, ui_writes,
 };
 
 /// What one tick should do. Frames are frame counts: frame `n` is the simulation state after `n`
@@ -89,7 +89,12 @@ pub(crate) unsafe fn run_tick(
             report.snapshot_time += start.elapsed();
             report.snapshots += 1;
         };
-        if snapshots.is_empty() {
+        // A frame due a snapshot that the previous tick ended on is snapshotted now, before
+        // anything runs. Taking it right after the step that produced it would strip the
+        // selection circles that step drew, and the frame would be shown without them: the
+        // rebuild at the end of a tick only puts back the local selection's, not those of a
+        // right-clicked target that is blinking.
+        if snapshots.is_empty() || (current.is_multiple_of(spacing) && !snapshots.has(current)) {
             take(snapshots, current, &mut report);
         }
         // Every frame up to the one the simulation is on now has been shown already.
@@ -125,6 +130,11 @@ pub(crate) unsafe fn run_tick(
             STEP_FRAME.store(info.frame, Ordering::Relaxed);
             FINAL_STEP.store(info.is_final, Ordering::Relaxed);
             RESIMULATING.store(info.is_resimulation, Ordering::Relaxed);
+            // What the UI wrote into the simulation between the steps the restore undid happened
+            // before the step from this frame, so it happens there again.
+            if report.restored.is_some() {
+                ui_writes::replay(bw, current);
+            }
             let start = Instant::now();
             ret = step(&info);
             report.step_time += start.elapsed();
@@ -140,7 +150,10 @@ pub(crate) unsafe fn run_tick(
             if IRREVERSIBLE_STEP.swap(false, Ordering::Relaxed) {
                 take(snapshots, current, &mut report);
                 snapshots.drop_older_than_needed_for(current);
-            } else if current.is_multiple_of(spacing) && !snapshots.has(current) {
+            } else if current < plan.present
+                && current.is_multiple_of(spacing)
+                && !snapshots.has(current)
+            {
                 take(snapshots, current, &mut report);
             }
         }
@@ -150,6 +163,7 @@ pub(crate) unsafe fn run_tick(
 
         snapshots.drop_older_than_needed_for(plan.confirmed);
         report.settled_through = snapshots.oldest_frame().unwrap_or(plan.confirmed);
+        ui_writes::prune(report.settled_through);
         report.retracted_announcements =
             announcements::finish_tick(report.window_start, report.settled_through);
         bw.rollback_rebuild_selection_visuals();
