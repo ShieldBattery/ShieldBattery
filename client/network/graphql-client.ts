@@ -78,6 +78,10 @@ const cacheUpdates: UpdatesConfig = {
       cache.invalidate('Query', 'liveStreams')
       cache.invalidate('Query', 'blockedStreams')
     },
+    // A report removes the reported player's commend and report options for that game.
+    reportGame: (_result, args, cache) => {
+      cache.invalidate({ __typename: 'GameFeedback', id: (args.input as any).gameId })
+    },
     newsUpdatePost: (_result, _args, cache) => invalidateNewsPostLists(cache),
     newsDeletePost: (result, args, cache) => {
       if (result.newsDeletePost) {
@@ -120,4 +124,9 @@ const cacheKeys: KeyingConfig = {
   UserRankedMode: NON_KEYED_EMBEDDED,
   UrgentMessageTranslation: NON_KEYED_EMBEDDED,
   ReconciledPlayerResultEntry: NON_KEYED_EMBEDDED,
+  // Pieces of a game's commend/report state, only ever read through their (keyed) GameFeedback or
+  // the mutation result that carries one.
+  CommendPlayerPayload: NON_KEYED_EMBEDDED,
+  GivenGameFeedback: NON_KEYED_EMBEDDED,
+  RecentCommend: NON_KEYED_EMBEDDED,
 }

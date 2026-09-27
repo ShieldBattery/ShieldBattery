@@ -109,6 +109,19 @@ export enum MapVisibility {
 }
 
 /**
+ * Messages published to Node (via Redis pub/sub) about commends. Node relays them to the
+ * commended player's client, which shows them as a local (never stored) notification.
+ */
+export type PublishedGameCommendMessage = {
+  type: 'commendReceived'
+  data: {
+    gameId: string
+    commenderId: TypeshareTypes.SbUserId
+    commendedUserId: TypeshareTypes.SbUserId
+  }
+}
+
+/**
  * Messages published to Node (via Redis pub/sub) about game-report events. Node turns these into
  * user-facing notifications (and later shares the same channel with the Discord webhook). This is
  * deliberately kept as pub/sub rather than a direct write so the notification/webhook machinery
@@ -162,6 +175,7 @@ export type PublishedMessage =
   | { type: 'user'; data: PublishedUserMessage }
   | { type: 'matchmaking'; data: PublishedMatchmakingMessage }
   | { type: 'gameReport'; data: PublishedGameReportMessage }
+  | { type: 'gameCommend'; data: PublishedGameCommendMessage }
 
 export type PublishedNewsMessage =
   | { type: 'urgentMessageChanged'; data: undefined }

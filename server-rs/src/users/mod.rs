@@ -82,6 +82,10 @@ impl SchemaBuilderModule for UsersModule {
                 PermissionsLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
+            .data(DataLoader::new(
+                CommendCountLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
             .data(CurrentUserRepo::new(
                 self.db_pool.clone(),
                 self.redis_pool.clone(),
@@ -122,6 +126,67 @@ impl SbUser {
         ctx.data::<DataLoader<LiveStreamLoader>>()?
             .load_one(self.id)
             .await
+    }
+
+    /// How many commends this user has received from other players, all time.
+    async fn commend_count(&self, ctx: &Context<'_>) -> Result<i32> {
+        Ok(ctx
+            .data::<DataLoader<CommendCountLoader>>()?
+            .load_one(self.id)
+            .await?
+            .unwrap_or(0))
+    }
+}
+
+/// Adds one to `user_id`'s received-commend count, returning the new count. Runs on the caller's
+/// connection so it commits (or rolls back) together with the commend it counts.
+pub(crate) async fn increment_commend_count(
+    conn: &mut sqlx::PgConnection,
+    user_id: SbUserId,
+) -> eyre::Result<i32> {
+    sqlx::query_scalar!(
+        r#"
+            UPDATE users
+            SET commend_count = commend_count + 1
+            WHERE id = $1
+            RETURNING commend_count
+        "#,
+        user_id.0,
+    )
+    .fetch_one(conn)
+    .await
+    .wrap_err("Failed to increment commend count")
+}
+
+/// Batches `SbUser.commendCount` so a list of users reads the column in one query. The count is kept
+/// on the users row (see [`increment_commend_count`]) rather than on `SbUser` itself, since
+/// `SbUser`s are also built from the cached `CurrentUser`, which would go stale.
+pub struct CommendCountLoader {
+    db: PgPool,
+}
+
+impl CommendCountLoader {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+impl Loader<SbUserId> for CommendCountLoader {
+    type Value = i32;
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, i32>, Self::Error> {
+        let rows = sqlx::query!(
+            r#"SELECT id as "id: SbUserId", commend_count FROM users WHERE id = ANY($1)"#,
+            keys as _,
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.id, row.commend_count))
+            .collect())
     }
 }
 

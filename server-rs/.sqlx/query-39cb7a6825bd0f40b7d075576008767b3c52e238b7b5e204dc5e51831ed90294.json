@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason, details)\n                VALUES ($1, $2, $3, $4, $5)\n                ON CONFLICT (reporter_id, game_id, reported_user_id) DO NOTHING\n                RETURNING id, game_id, reporter_id as \"reporter_id: _\",\n                    reported_user_id as \"reported_user_id: _\", reason, details, created_at,\n                    resolved_at, resolver_id as \"resolver_id: _\", resolution, resolution_notes\n            ",
+  "query": "\n            INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason, details)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (reporter_id, game_id, reported_user_id) DO NOTHING\n            RETURNING id, game_id, reporter_id as \"reporter_id: _\",\n                reported_user_id as \"reported_user_id: _\", reason, details, created_at,\n                resolved_at, resolver_id as \"resolver_id: _\", resolution, resolution_notes\n        ",
   "describe": {
     "columns": [
       {
@@ -148,5 +148,5 @@
       true
     ]
   },
-  "hash": "5abe2404a8561a4f14996ced12c6241ce923f8439793d77d0e2607ae96e417cd"
+  "hash": "39cb7a6825bd0f40b7d075576008767b3c52e238b7b5e204dc5e51831ed90294"
 }

@@ -35,6 +35,8 @@ type Documents = {
   '\n  query AdminGameReport($id: UUID!) {\n    gameReport(id: $id) {\n      id\n      reason\n      details\n      createdAt\n      resolvedAt\n      resolution\n      resolutionNotes\n      reporter {\n        id\n        name\n      }\n      reportedUser {\n        id\n        name\n      }\n      resolver {\n        id\n      }\n      game {\n        id\n        config {\n          __typename\n          ... on GameConfigDataLobby {\n            teams {\n              isComputer\n              user {\n                id\n                name\n              }\n            }\n          }\n          ... on GameConfigDataMatchmaking {\n            teams {\n              isComputer\n              user {\n                id\n                name\n              }\n            }\n          }\n        }\n      }\n      replay {\n        replayFileId\n        hash\n        url\n      }\n      reporterStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n      reportedUserStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n      siblingReports {\n        id\n        reason\n        details\n        createdAt\n        resolvedAt\n        resolution\n        reporter {\n          id\n        }\n      }\n    }\n  }\n': typeof types.AdminGameReportDocument
   '\n  mutation ResolveGameReport($id: UUID!, $resolution: GameReportResolution!, $notes: String) {\n    resolveGameReport(id: $id, resolution: $resolution, notes: $notes) {\n      id\n      resolvedAt\n      resolution\n      resolutionNotes\n      resolver {\n        id\n      }\n    }\n  }\n': typeof types.ResolveGameReportDocument
   '\n  mutation ResolveSiblingReports($id: UUID!, $resolution: GameReportResolution!, $notes: String) {\n    resolveSiblingReports(id: $id, resolution: $resolution, notes: $notes)\n  }\n': typeof types.ResolveSiblingReportsDocument
+  '\n  query GameFeedback($gameId: UUID!) {\n    gameFeedback(gameId: $gameId) {\n      id\n      closesAt\n      given {\n        userId\n        kind\n      }\n      commendsRemaining\n      commendsAvailableAt\n      recentCommends {\n        userId\n        availableAt\n      }\n    }\n  }\n': typeof types.GameFeedbackDocument
+  '\n  mutation CommendPlayer($gameId: UUID!, $userId: SbUserId!) {\n    commendPlayer(gameId: $gameId, userId: $userId) {\n      feedback {\n        id\n        closesAt\n        given {\n          userId\n          kind\n        }\n        commendsRemaining\n        commendsAvailableAt\n        recentCommends {\n          userId\n          availableAt\n        }\n      }\n      commendedUser {\n        id\n        commendCount\n      }\n    }\n  }\n': typeof types.CommendPlayerDocument
   '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n': typeof types.GamesPageContentDocument
   '\n  fragment LiveGames_FeedFragment on Query {\n    liveGames {\n      id\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n': typeof types.LiveGames_FeedFragmentFragmentDoc
   '\n  fragment LiveGames_FeedEntryFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n        image1024Url\n        image2048Url\n        width\n        height\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n          }\n          ...LiveGames_FeedEntryPlayersFragment\n        }\n      }\n    }\n\n    currentRanks {\n      id\n      userId\n      matchmakingType\n      seasonId\n      points\n      lifetimeGames\n    }\n\n    ...LiveGames_FeedEntryMapAndTypeFragment\n  }\n': typeof types.LiveGames_FeedEntryFragmentFragmentDoc
@@ -73,10 +75,10 @@ type Documents = {
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n      manageLiveStreams\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
-  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
+  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n': typeof types.UserRankedModesDocument
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n': typeof types.UserRatingHistoryDocument
-  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
+  '\n  query UserProfileHeader($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileHeaderDocument
 }
 const documents: Documents = {
   '\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
@@ -121,6 +123,10 @@ const documents: Documents = {
     types.ResolveGameReportDocument,
   '\n  mutation ResolveSiblingReports($id: UUID!, $resolution: GameReportResolution!, $notes: String) {\n    resolveSiblingReports(id: $id, resolution: $resolution, notes: $notes)\n  }\n':
     types.ResolveSiblingReportsDocument,
+  '\n  query GameFeedback($gameId: UUID!) {\n    gameFeedback(gameId: $gameId) {\n      id\n      closesAt\n      given {\n        userId\n        kind\n      }\n      commendsRemaining\n      commendsAvailableAt\n      recentCommends {\n        userId\n        availableAt\n      }\n    }\n  }\n':
+    types.GameFeedbackDocument,
+  '\n  mutation CommendPlayer($gameId: UUID!, $userId: SbUserId!) {\n    commendPlayer(gameId: $gameId, userId: $userId) {\n      feedback {\n        id\n        closesAt\n        given {\n          userId\n          kind\n        }\n        commendsRemaining\n        commendsAvailableAt\n        recentCommends {\n          userId\n          availableAt\n        }\n      }\n      commendedUser {\n        id\n        commendCount\n      }\n    }\n  }\n':
+    types.CommendPlayerDocument,
   '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n':
     types.GamesPageContentDocument,
   '\n  fragment LiveGames_FeedFragment on Query {\n    liveGames {\n      id\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n':
@@ -196,14 +202,14 @@ const documents: Documents = {
     types.AdminUserProfile_PermissionsFragmentDoc,
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n':
     types.AdminUpdateUserPermissionsDocument,
-  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n':
+  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n':
     types.UserProfileOverlayLiveDocument,
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n':
     types.UserRankedModesDocument,
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n':
     types.UserRatingHistoryDocument,
-  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
-    types.UserProfileTwitchDocument,
+  '\n  query UserProfileHeader($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
+    types.UserProfileHeaderDocument,
 }
 
 /**
@@ -346,6 +352,18 @@ export function graphql(
 export function graphql(
   source: '\n  mutation ResolveSiblingReports($id: UUID!, $resolution: GameReportResolution!, $notes: String) {\n    resolveSiblingReports(id: $id, resolution: $resolution, notes: $notes)\n  }\n',
 ): (typeof documents)['\n  mutation ResolveSiblingReports($id: UUID!, $resolution: GameReportResolution!, $notes: String) {\n    resolveSiblingReports(id: $id, resolution: $resolution, notes: $notes)\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query GameFeedback($gameId: UUID!) {\n    gameFeedback(gameId: $gameId) {\n      id\n      closesAt\n      given {\n        userId\n        kind\n      }\n      commendsRemaining\n      commendsAvailableAt\n      recentCommends {\n        userId\n        availableAt\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query GameFeedback($gameId: UUID!) {\n    gameFeedback(gameId: $gameId) {\n      id\n      closesAt\n      given {\n        userId\n        kind\n      }\n      commendsRemaining\n      commendsAvailableAt\n      recentCommends {\n        userId\n        availableAt\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation CommendPlayer($gameId: UUID!, $userId: SbUserId!) {\n    commendPlayer(gameId: $gameId, userId: $userId) {\n      feedback {\n        id\n        closesAt\n        given {\n          userId\n          kind\n        }\n        commendsRemaining\n        commendsAvailableAt\n        recentCommends {\n          userId\n          availableAt\n        }\n      }\n      commendedUser {\n        id\n        commendCount\n      }\n    }\n  }\n',
+): (typeof documents)['\n  mutation CommendPlayer($gameId: UUID!, $userId: SbUserId!) {\n    commendPlayer(gameId: $gameId, userId: $userId) {\n      feedback {\n        id\n        closesAt\n        given {\n          userId\n          kind\n        }\n        commendsRemaining\n        commendsAvailableAt\n        recentCommends {\n          userId\n          availableAt\n        }\n      }\n      commendedUser {\n        id\n        commendCount\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -578,8 +596,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n']
+  source: '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -596,8 +614,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n']
+  source: '\n  query UserProfileHeader($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileHeader($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n']
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {}

@@ -15,12 +15,14 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { useScrollMemory } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
@@ -32,6 +34,7 @@ import {
   bodyLarge,
   bodySmall,
   headlineLarge,
+  labelLarge,
   labelMedium,
   labelSmall,
   singleLine,
@@ -222,12 +225,48 @@ const LiveBadge = styled.div`
   white-space: nowrap;
 `
 
+/**
+ * One 24px row under the title, shared by the commend count and the Twitch link. `TopSection` is a
+ * fixed 100px tall, and the name row (48px, set by the copy-link button), the title (24px) and this
+ * row (4px + 24px) fill it exactly, so anything else added to the header needs to fit in here rather
+ * than go on a row of its own.
+ */
+const ProfileMetaRow = styled.div`
+  height: 24px;
+  margin-top: 4px;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const CommendBox = styled.div`
+  ${labelLarge};
+  height: 24px;
+  padding: 0 8px 0 6px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  background-color: var(--theme-container);
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+`
+
+const CommendBoxIcon = styled(CommendIcon).attrs({ size: 18 })`
+  color: var(--theme-amber);
+`
+
 const TwitchChannelLink = styled.a`
   ${bodyLarge};
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
 
   &,
   &:link,
@@ -240,6 +279,10 @@ const TwitchChannelLink = styled.a`
   }
 `
 
+const TwitchChannelName = styled.span`
+  ${singleLine};
+`
+
 const TwitchChannelIcon = styled(TwitchIcon)`
   width: 18px;
   height: 18px;
@@ -247,10 +290,11 @@ const TwitchChannelIcon = styled(TwitchIcon)`
   color: ${TWITCH_PURPLE};
 `
 
-const UserProfileTwitchQuery = graphql(/* GraphQL */ `
-  query UserProfileTwitch($userId: SbUserId!) {
+const UserProfileHeaderQuery = graphql(/* GraphQL */ `
+  query UserProfileHeader($userId: SbUserId!) {
     user(id: $userId) {
       id
+      commendCount
       twitchChannel {
         id
         twitchLogin
@@ -329,17 +373,23 @@ export function UserProfilePage({
   useScrollMemory(subPage === UserProfileSubPage.MatchHistory ? null : scrollerElem)
 
   // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
-  // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
-  // render in once they arrive. The poll below keeps the Live badge/banner consistent with the
-  // app-wide avatar badges, which refresh on their own interval.
-  const [{ data: twitchData }, reexecuteTwitchQuery] = useQuery({
-    query: UserProfileTwitchQuery,
+  // behind a loading fallback) just to resolve the commend count and the optional Twitch
+  // channel/live state -- these render in once they arrive. The poll below keeps the Live
+  // badge/banner consistent with the app-wide avatar badges, which refresh on their own interval.
+  const [{ data: headerData }, reexecuteHeaderQuery] = useQuery({
+    query: UserProfileHeaderQuery,
     variables: { userId: user.id },
     context: { suspense: false },
   })
-  useQueryPolling(reexecuteTwitchQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
-  const twitchChannel = twitchData?.user?.twitchChannel
-  const liveStream = twitchData?.user?.liveStream ?? undefined
+  useQueryPolling(reexecuteHeaderQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
+  const commendCount = headerData?.user?.commendCount
+  const commendCountLabel = t('users.profile.commendCount', {
+    defaultValue: '{{count}} commends',
+    defaultValue_one: '{{count}} commend',
+    count: commendCount ?? 0,
+  })
+  const twitchChannel = headerData?.user?.twitchChannel
+  const liveStream = headerData?.user?.liveStream ?? undefined
   const isLive = !!liveStream
 
   let content: React.ReactNode
@@ -399,15 +449,25 @@ export function UserProfilePage({
             />
           </UsernameRow>
           <TitleMedium>{title}</TitleMedium>
-          {twitchChannel ? (
-            <TwitchChannelLink
-              href={`https://twitch.tv/${twitchChannel.twitchLogin}`}
-              target='_blank'
-              rel='noopener'>
-              <TwitchChannelIcon />
-              <span>{twitchChannel.twitchDisplayName}</span>
-            </TwitchChannelLink>
-          ) : null}
+          <ProfileMetaRow>
+            {commendCount !== undefined ? (
+              <Tooltip text={commendCountLabel} position='bottom'>
+                <CommendBox aria-label={commendCountLabel}>
+                  <CommendBoxIcon />
+                  {commendCount}
+                </CommendBox>
+              </Tooltip>
+            ) : null}
+            {twitchChannel ? (
+              <TwitchChannelLink
+                href={`https://twitch.tv/${twitchChannel.twitchLogin}`}
+                target='_blank'
+                rel='noopener'>
+                <TwitchChannelIcon />
+                <TwitchChannelName>{twitchChannel.twitchDisplayName}</TwitchChannelName>
+              </TwitchChannelLink>
+            ) : null}
+          </ProfileMetaRow>
         </UsernameAndTitle>
       </TopSection>
 

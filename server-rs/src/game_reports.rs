@@ -9,11 +9,12 @@ use async_graphql::{
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr, eyre};
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::{PgConnection, PgPool, QueryBuilder};
 use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::file_store::FileStore;
+use crate::game_commends::lock_and_check_feedback;
 use crate::games::{Game, GamesLoader};
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
@@ -395,8 +396,10 @@ pub struct GameReportsMutation;
 
 #[Object]
 impl GameReportsMutation {
-    /// Files a report against another player from a game both users participated in. Any logged-in
-    /// user may call this (subject to the reporting restriction and the per-hour cap).
+    /// Files a report against another player from a game both users participated in, until the
+    /// game's feedback window closes. Any logged-in user may call this (subject to the reporting
+    /// restriction and the per-hour cap), but not for a player they already commended in that game.
+    /// Filed reports never expire; only the chance to file one does.
     async fn report_game(&self, ctx: &Context<'_>, input: ReportGameInput) -> Result<GameReport> {
         let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
@@ -435,38 +438,32 @@ impl GameReportsMutation {
             ));
         }
 
-        let (reporter_played, reported_played) = repo
-            .check_participation(input.game_id, reporter_id, input.reported_user_id)
+        let mut tx = repo
+            .db
+            .begin()
+            .await
+            .wrap_err("Failed to start transaction")?;
+        // Participation, the feedback window, and "commend or report, never both" are shared with
+        // commends; this also holds the reporter's feedback lock until the transaction ends.
+        lock_and_check_feedback(&mut tx, input.game_id, reporter_id, input.reported_user_id)
             .await?;
-        if !reporter_played {
-            return Err(graphql_error(
-                "FORBIDDEN",
-                "You can only report players from a game you participated in",
-            ));
-        }
-        if !reported_played {
-            return Err(graphql_error(
-                "BAD_REQUEST",
-                "The reported player wasn't in that game",
-            ));
-        }
 
-        if repo.recent_report_count(reporter_id).await? >= MAX_REPORTS_PER_HOUR {
+        if recent_report_count(&mut tx, reporter_id).await? >= MAX_REPORTS_PER_HOUR {
             return Err(graphql_error(
                 "RATE_LIMITED",
                 "You've filed too many reports recently. Please try again later.",
             ));
         }
 
-        let report = repo
-            .create_report(
-                input.game_id,
-                reporter_id,
-                input.reported_user_id,
-                input.reason,
-                details,
-            )
-            .await?;
+        let report = create_report(
+            &mut tx,
+            input.game_id,
+            reporter_id,
+            input.reported_user_id,
+            input.reason,
+            details,
+        )
+        .await?;
 
         let report = report.ok_or_else(|| {
             graphql_error(
@@ -474,6 +471,7 @@ impl GameReportsMutation {
                 "You've already reported this player for this game",
             )
         })?;
+        tx.commit().await.wrap_err("Failed to commit game report")?;
 
         // Let Node fire the moderation Discord webhook (the webhook notifier lives there). Best-
         // effort: a failed publish shouldn't fail the report.
@@ -625,6 +623,52 @@ struct DbGameReport {
     resolution_notes: Option<String>,
 }
 
+async fn recent_report_count(conn: &mut PgConnection, reporter_id: SbUserId) -> eyre::Result<i64> {
+    let count = sqlx::query_scalar!(
+        r#"
+            SELECT COUNT(*) AS "count!"
+            FROM game_reports
+            WHERE reporter_id = $1 AND created_at > NOW() - INTERVAL '1 hour'
+        "#,
+        reporter_id.0,
+    )
+    .fetch_one(conn)
+    .await
+    .wrap_err("Failed to count recent reports")?;
+    Ok(count)
+}
+
+async fn create_report(
+    conn: &mut PgConnection,
+    game_id: Uuid,
+    reporter_id: SbUserId,
+    reported_user_id: SbUserId,
+    reason: GameReportReason,
+    details: Option<String>,
+) -> eyre::Result<Option<GameReport>> {
+    let row = sqlx::query_as!(
+        DbGameReport,
+        r#"
+            INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason, details)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (reporter_id, game_id, reported_user_id) DO NOTHING
+            RETURNING id, game_id, reporter_id as "reporter_id: _",
+                reported_user_id as "reported_user_id: _", reason, details, created_at,
+                resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+        "#,
+        game_id,
+        reporter_id.0,
+        reported_user_id.0,
+        reason.to_db(),
+        details,
+    )
+    .fetch_optional(conn)
+    .await
+    .wrap_err("Failed to create game report")?;
+
+    row.map(GameReportsRepo::to_report).transpose()
+}
+
 pub struct GameReportsRepo {
     db: PgPool,
 }
@@ -669,78 +713,6 @@ impl GameReportsRepo {
         .await
         .wrap_err("Failed to check reporting restriction")?;
         Ok(row)
-    }
-
-    /// Returns `(reporter_played, reported_played)` for the given game in one query.
-    async fn check_participation(
-        &self,
-        game_id: Uuid,
-        reporter_id: SbUserId,
-        reported_user_id: SbUserId,
-    ) -> eyre::Result<(bool, bool)> {
-        let row = sqlx::query!(
-            r#"
-                SELECT
-                    COALESCE(bool_or(user_id = $2), false) AS "reporter_played!",
-                    COALESCE(bool_or(user_id = $3), false) AS "reported_played!"
-                FROM games_users gu
-                JOIN games g ON g.id = gu.game_id
-                WHERE game_id = $1 AND user_id IN ($2, $3) AND g.canceled_at IS NULL
-            "#,
-            game_id,
-            reporter_id.0,
-            reported_user_id.0,
-        )
-        .fetch_one(&self.db)
-        .await
-        .wrap_err("Failed to check game participation")?;
-        Ok((row.reporter_played, row.reported_played))
-    }
-
-    async fn recent_report_count(&self, reporter_id: SbUserId) -> eyre::Result<i64> {
-        let count = sqlx::query_scalar!(
-            r#"
-                SELECT COUNT(*) AS "count!"
-                FROM game_reports
-                WHERE reporter_id = $1 AND created_at > NOW() - INTERVAL '1 hour'
-            "#,
-            reporter_id.0,
-        )
-        .fetch_one(&self.db)
-        .await
-        .wrap_err("Failed to count recent reports")?;
-        Ok(count)
-    }
-
-    async fn create_report(
-        &self,
-        game_id: Uuid,
-        reporter_id: SbUserId,
-        reported_user_id: SbUserId,
-        reason: GameReportReason,
-        details: Option<String>,
-    ) -> eyre::Result<Option<GameReport>> {
-        let row = sqlx::query_as!(
-            DbGameReport,
-            r#"
-                INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason, details)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (reporter_id, game_id, reported_user_id) DO NOTHING
-                RETURNING id, game_id, reporter_id as "reporter_id: _",
-                    reported_user_id as "reported_user_id: _", reason, details, created_at,
-                    resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
-            "#,
-            game_id,
-            reporter_id.0,
-            reported_user_id.0,
-            reason.to_db(),
-            details,
-        )
-        .fetch_optional(&self.db)
-        .await
-        .wrap_err("Failed to create game report")?;
-
-        row.map(Self::to_report).transpose()
     }
 
     async fn resolve_report(

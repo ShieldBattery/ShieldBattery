@@ -2,12 +2,15 @@ import { NydusClient, RouteInfo } from 'nydus-client'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
+import { CommendEvent } from '../../common/games/commends'
 import { GameSubscriptionEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { CommendReceivedNotification, NotificationType } from '../../common/notifications'
 import { apiUrl } from '../../common/urls'
 import { dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
+import { addLocalNotification } from '../notifications/action-creators'
 
 export default function ({
   ipcRenderer,
@@ -74,6 +77,24 @@ export default function ({
         })
         .catch(swallowNonBuiltins)
     })
+
+  siteSocket.registerRoute('/commends/:userId', (_route: RouteInfo, event: CommendEvent) => {
+    if (event.type === 'commendReceived') {
+      // A local notification: shown and listed like any other, but never stored on the server.
+      // One commend per commender per game makes this id unique, so a repeated event replaces its
+      // entry instead of adding a second one.
+      dispatch(
+        addLocalNotification<CommendReceivedNotification>({
+          id: `commend:${event.gameId}:${event.commenderId}`,
+          type: NotificationType.CommendReceived,
+          commenderId: event.commenderId,
+          gameId: event.gameId,
+        }),
+      )
+    } else {
+      assertUnreachable(event.type)
+    }
+  })
 
   siteSocket.registerRoute('/games/:gameId', (route: RouteInfo, event: GameSubscriptionEvent) => {
     if (event.type === 'update') {

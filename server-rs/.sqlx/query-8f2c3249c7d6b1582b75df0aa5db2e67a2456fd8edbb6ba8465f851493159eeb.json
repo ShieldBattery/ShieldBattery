@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                g.start_time,\n                g.game_length,\n                EXISTS(\n                    SELECT 1 FROM games_users WHERE game_id = g.id AND user_id = $2\n                ) AS \"giver_played!\",\n                EXISTS(\n                    SELECT 1 FROM games_users WHERE game_id = g.id AND user_id = $3\n                ) AS \"target_played!\",\n                EXISTS(\n                    SELECT 1 FROM game_commends\n                    WHERE game_id = g.id AND commender_id = $2 AND commended_user_id = $3\n                ) AS \"commended!\",\n                EXISTS(\n                    SELECT 1 FROM game_reports\n                    WHERE game_id = g.id AND reporter_id = $2 AND reported_user_id = $3\n                ) AS \"reported!\"\n            FROM games g\n            WHERE g.id = $1 AND g.canceled_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "start_time",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "games",
+            "name": "start_time"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "game_length",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "games",
+            "name": "game_length"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "giver_played!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "target_played!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "commended!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "reported!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8f2c3249c7d6b1582b75df0aa5db2e67a2456fd8edbb6ba8465f851493159eeb"
+}
