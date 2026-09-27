@@ -1880,9 +1880,38 @@ impl TurnState {
         self.turns_in_flight
     }
 
-    /// The latency buffer (in turns) the pipe should currently maintain.
+    /// The latency buffer (in turns) the relay's buffer directives currently ask for.
     pub fn latency_turns(&self) -> u32 {
         self.latency_turns
+    }
+
+    /// How many frames ahead of the lockstep schedule this client runs, in a game that predicts
+    /// inputs. It hands that many frames of the relay's latency buffer from input delay to
+    /// rollback, up to its rollback target: its turns leave as many frames earlier as its pipe is
+    /// shorter, so they reach every other player exactly when lockstep's would, while other
+    /// players' turns reach it that many frames later than lockstep's would. The client pays for
+    /// the change alone. At least one turn always stays in the pipe. None while the game's start
+    /// runs in lockstep, which needs the whole buffer.
+    pub fn lead(&self) -> u32 {
+        match &self.inputs {
+            Some(inputs) if !inputs.in_lockstep_start() => inputs
+                .rollback_target()
+                .min(self.buffer_turns().saturating_sub(1)),
+            _ => 0,
+        }
+    }
+
+    /// How many of this client's own turns the pipe keeps in flight, which is its input delay:
+    /// the relay's latency buffer less the [`lead`](Self::lead).
+    pub fn pipe_depth(&self) -> u32 {
+        self.buffer_turns() - self.lead()
+    }
+
+    /// The latency buffer in force: the relay's, or the input table's floor on it when that is
+    /// deeper.
+    fn buffer_turns(&self) -> u32 {
+        let floor = self.inputs.as_ref().map_or(0, |x| x.min_buffer_turns());
+        self.latency_turns.max(floor)
     }
 
     /// Takes one local turn out of flight after the sim executes a network step.

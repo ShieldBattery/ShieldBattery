@@ -32,6 +32,16 @@ pub struct InputTable {
     /// How many steps a step whose turns are not all known may run past the newest one whose turns
     /// are, counting itself: 0 runs only steps with every turn known, which is lockstep.
     limit: u32,
+    /// How many frames of lateness this client means to absorb by rolling back rather than with
+    /// input delay, when nothing is going wrong. At most `limit`.
+    rollback_target: u32,
+    /// How many steps at the start of the game wait for every turn, as lockstep does. Clients start
+    /// their game loops at different moments, and running the first steps in lockstep lines their
+    /// simulations up before each keeps its own schedule.
+    lockstep_steps: u32,
+    /// The latency buffer this client acts as if the relay asked for at least, for testing a
+    /// deeper buffer than the one the relay chose.
+    min_buffer_turns: u32,
     slots: [SlotTurns; bw::MAX_STORM_PLAYERS],
     /// How long each slot's turns are held back after they arrive before a step may use them, for
     /// testing a slow link with a fast one.
@@ -85,9 +95,17 @@ struct ScheduledLeave {
 }
 
 impl InputTable {
-    pub fn new(limit: u32, held: [Duration; bw::MAX_STORM_PLAYERS]) -> Self {
+    pub fn new(
+        limit: u32,
+        rollback_target: u32,
+        lockstep_steps: u32,
+        held: [Duration; bw::MAX_STORM_PLAYERS],
+    ) -> Self {
         Self {
             limit,
+            rollback_target: rollback_target.min(limit),
+            lockstep_steps,
+            min_buffer_turns: 0,
             slots: std::array::from_fn(|_| SlotTurns::default()),
             held,
             frontier: 0,
@@ -159,9 +177,35 @@ impl InputTable {
             .unwrap_or(u32::MAX)
     }
 
-    /// Whether a step that has never run may run now, predicting whatever turns it lacks.
+    /// Whether a step that has never run may run now, predicting whatever turns it lacks. The
+    /// game's first `lockstep_steps` steps wait for every turn.
     pub fn can_run(&self, step: u32, required: &[bool; bw::MAX_STORM_PLAYERS]) -> bool {
-        step < self.known_until_for(required).saturating_add(self.limit)
+        let limit = match step < self.lockstep_steps {
+            true => 0,
+            false => self.limit,
+        };
+        step < self.known_until_for(required).saturating_add(limit)
+    }
+
+    /// How many frames of lateness this client means to absorb by rolling back rather than with
+    /// input delay.
+    pub fn rollback_target(&self) -> u32 {
+        self.rollback_target
+    }
+
+    /// Whether the game is still in the steps at its start that wait for every turn.
+    pub fn in_lockstep_start(&self) -> bool {
+        self.frontier < self.lockstep_steps
+    }
+
+    /// Makes this client act as if the relay asked for a latency buffer of at least `turns`.
+    pub fn set_min_buffer_turns(&mut self, turns: u32) {
+        self.min_buffer_turns = turns;
+    }
+
+    /// The latency buffer this client acts as if the relay asked for at least.
+    pub fn min_buffer_turns(&self) -> u32 {
+        self.min_buffer_turns
     }
 
     /// The slots of `required` that `step` has no usable turn for.
@@ -367,7 +411,7 @@ mod tests {
     }
 
     fn table(limit: u32) -> InputTable {
-        InputTable::new(limit, [Duration::ZERO; bw::MAX_STORM_PLAYERS])
+        InputTable::new(limit, 0, 1, [Duration::ZERO; bw::MAX_STORM_PLAYERS])
     }
 
     /// The instant every test turn arrives at.
@@ -393,16 +437,22 @@ mod tests {
     #[test]
     fn missing_turns_are_predicted_within_the_limit() {
         let mut t = table(2);
-        for _ in 0..3 {
+        for _ in 0..4 {
             t.push(A, idle(), start());
         }
-        assert!(t.can_run(0, &required()));
+        assert!(
+            !t.can_run(0, &required()),
+            "the first step waits for every turn"
+        );
+        t.push(B, idle(), start());
+        t.dispatch(0, &required());
         assert!(t.can_run(1, &required()));
-        assert!(!t.can_run(2, &required()));
-        let (turns, predicted) = t.dispatch(0, &required());
+        assert!(t.can_run(2, &required()));
+        assert!(!t.can_run(3, &required()));
+        let (turns, predicted) = t.dispatch(1, &required());
         assert_eq!(predicted, 1);
         assert_eq!(turns[1].as_deref(), Some(PREDICTED_TURN));
-        assert_eq!(t.missing(0, &required()).collect::<Vec<_>>(), vec![B]);
+        assert_eq!(t.missing(1, &required()).collect::<Vec<_>>(), vec![B]);
     }
 
     #[test]
@@ -450,7 +500,7 @@ mod tests {
     fn held_turns_become_usable_once_their_hold_runs_out() {
         let mut held = [Duration::ZERO; bw::MAX_STORM_PLAYERS];
         held[1] = Duration::from_millis(100);
-        let mut t = InputTable::new(8, held);
+        let mut t = InputTable::new(8, 0, 1, held);
         for step in 0..3 {
             t.push(A, idle(), start());
             t.push(B, command(step as u8), start());

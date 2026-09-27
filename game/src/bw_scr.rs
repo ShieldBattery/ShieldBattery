@@ -2484,12 +2484,12 @@ impl BwScr {
                         val => val,
                     };
                     // Under a live turn state the PIPE hook owns the latency pipeline, so the native
-                    // `2 + user_latency` builtin turns no longer describe the delay: `latency_turns()`
+                    // `2 + user_latency` builtin turns no longer describe the delay: `pipe_depth()`
                     // reports the current pipe depth (floor 1, retunable mid-game by a relay's buffer
                     // directive). Read it fresh each format call so the display tracks the live depth;
                     // fall back to native state when there is no turn state (a replay).
                     let v2_turns = if self.game_started.load(Ordering::Acquire) {
-                        netcode_v2::with_turn_state(|s| s.latency_turns())
+                        netcode_v2::with_turn_state(|s| s.pipe_depth())
                     } else {
                         None
                     };
@@ -3989,7 +3989,7 @@ impl BwScr {
             // Read the shortfall under the lock, then release before flushing — each flush re-enters
             // the OUT hook (which re-locks the turn state) and bumps the in-flight counter by one.
             let to_flush = netcode_v2::with_turn_state(|s| {
-                s.latency_turns().saturating_sub(s.outstanding_turns())
+                s.pipe_depth().saturating_sub(s.outstanding_turns())
             });
             match to_flush {
                 None => false,
