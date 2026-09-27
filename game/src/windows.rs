@@ -60,25 +60,21 @@ pub fn module_from_address(address: *mut c_void) -> Option<(OsString, HMODULE)> 
 
 pub fn module_name(handle: HMODULE) -> Option<OsString> {
     unsafe {
-        let mut buf_size = 128;
-        let mut buf = Vec::with_capacity(buf_size);
+        let mut buf = vec![0u16; 128];
         loop {
-            let result = GetModuleFileNameW(handle, buf.as_mut_ptr(), buf_size as u32);
+            let result = GetModuleFileNameW(handle, buf.as_mut_ptr(), buf.len() as u32);
             match result {
-                n if n == buf_size as u32 => {
-                    // reserve does not guarantee to reserve exactly specified size,
-                    // unline with_capacity
-                    let reserve_amt = buf.capacity();
-                    buf.reserve(reserve_amt);
-                    buf_size = buf.capacity();
+                // The name was truncated to fit
+                n if n as usize == buf.len() => {
+                    let new_len = buf.len() * 2;
+                    buf.resize(new_len, 0);
                 }
                 0 => {
                     // Error
                     return None;
                 }
                 n => {
-                    let winapi_str = ::std::slice::from_raw_parts(buf.as_ptr(), n as usize);
-                    return Some(os_string_from_winapi(winapi_str));
+                    return Some(os_string_from_winapi(&buf[..n as usize]));
                 }
             }
         }
