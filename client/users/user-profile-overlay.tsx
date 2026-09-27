@@ -18,6 +18,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
@@ -55,6 +56,7 @@ const UserProfileOverlayLiveQuery = graphql(/* GraphQL */ `
   query UserProfileOverlayLive($userId: SbUserId!) {
     user(id: $userId) {
       id
+      commendCount
       liveStream {
         id
         twitchLogin
@@ -202,6 +204,19 @@ const Title = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const CommendsLine = styled.div`
+  margin-top: 2px;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`
+
+const CommendsIcon = styled(CommendIcon).attrs({ size: 18 })`
+  flex-shrink: 0;
+  color: var(--theme-amber);
+`
+
 const SectionHeader = styled.div`
   ${labelMedium};
   ${singleLine};
@@ -247,6 +262,7 @@ export function UserProfileOverlayContents({
     context: { suspense: false },
   })
   const liveStream = liveData?.user?.liveStream ?? undefined
+  const commendCount = liveData?.user?.commendCount ?? 0
 
   const username = user?.name
 
@@ -323,6 +339,17 @@ export function UserProfileOverlayContents({
                 })}
               </BodyMedium>
             </Tooltip>
+            {commendCount > 0 ? (
+              <CommendsLine>
+                <CommendsIcon />
+                <BodyMedium>
+                  {t('users.profileOverlay.commends', {
+                    defaultValue: 'Commends: {{commends}}',
+                    commends: commendCount,
+                  })}
+                </BodyMedium>
+              </CommendsLine>
+            ) : null}
           </div>
 
           <div>

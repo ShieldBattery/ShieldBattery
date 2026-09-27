@@ -13,6 +13,11 @@ export type CreateSignupCodeInput = {
   notes?: string | null | undefined
 }
 
+export enum GameFeedbackKind {
+  Commend = 'COMMEND',
+  Report = 'REPORT',
+}
+
 export type GameReportFilter = {
   /** Include already-resolved reports. Defaults to false (unresolved queue only). */
   includeResolved?: boolean | null | undefined
@@ -543,6 +548,40 @@ export type ResolveSiblingReportsMutationVariables = Exact<{
 
 export type ResolveSiblingReportsMutation = { resolveSiblingReports: number }
 
+export type GameFeedbackQueryVariables = Exact<{
+  gameId: string
+}>
+
+export type GameFeedbackQuery = {
+  gameFeedback: {
+    id: string
+    closesAt: string | null
+    commendsRemaining: number
+    commendsAvailableAt: string | null
+    given: Array<{ userId: Types.SbUserId; kind: GameFeedbackKind }>
+    recentCommends: Array<{ userId: Types.SbUserId; availableAt: string }>
+  }
+}
+
+export type CommendPlayerMutationVariables = Exact<{
+  gameId: string
+  userId: Types.SbUserId
+}>
+
+export type CommendPlayerMutation = {
+  commendPlayer: {
+    feedback: {
+      id: string
+      closesAt: string | null
+      commendsRemaining: number
+      commendsAvailableAt: string | null
+      given: Array<{ userId: Types.SbUserId; kind: GameFeedbackKind }>
+      recentCommends: Array<{ userId: Types.SbUserId; availableAt: string }>
+    }
+    commendedUser: { id: Types.SbUserId; commendCount: number }
+  }
+}
+
 export type GamesPageContentQueryVariables = Exact<{ [key: string]: never }>
 
 export type GamesPageContentQuery = {
@@ -1025,6 +1064,7 @@ export type UserProfileOverlayLiveQueryVariables = Exact<{
 export type UserProfileOverlayLiveQuery = {
   user: {
     id: Types.SbUserId
+    commendCount: number
     liveStream: { id: string; twitchLogin: string; title: string; viewerCount: number } | null
   } | null
 }
@@ -1058,13 +1098,14 @@ export type UserRatingHistoryQuery = {
   }
 }
 
-export type UserProfileTwitchQueryVariables = Exact<{
+export type UserProfileHeaderQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
 
-export type UserProfileTwitchQuery = {
+export type UserProfileHeaderQuery = {
   user: {
     id: Types.SbUserId
+    commendCount: number
     twitchChannel: { id: string; twitchLogin: string; twitchDisplayName: string } | null
     liveStream: {
       id: string
@@ -3459,6 +3500,173 @@ export const ResolveSiblingReportsDocument = {
     },
   ],
 } as unknown as DocumentNode<ResolveSiblingReportsMutation, ResolveSiblingReportsMutationVariables>
+export const GameFeedbackDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'GameFeedback' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'gameId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'gameFeedback' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'gameId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'gameId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'closesAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'given' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'commendsRemaining' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'commendsAvailableAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'recentCommends' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'availableAt' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<GameFeedbackQuery, GameFeedbackQueryVariables>
+export const CommendPlayerDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'CommendPlayer' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'gameId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'commendPlayer' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'gameId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'gameId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'feedback' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'closesAt' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'given' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                          ],
+                        },
+                      },
+                      { kind: 'Field', name: { kind: 'Name', value: 'commendsRemaining' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'commendsAvailableAt' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'recentCommends' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'availableAt' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'commendedUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'commendCount' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CommendPlayerMutation, CommendPlayerMutationVariables>
 export const GamesPageContentDocument = {
   kind: 'Document',
   definitions: [
@@ -5567,6 +5775,7 @@ export const UserProfileOverlayLiveDocument = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'commendCount' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'liveStream' },
@@ -5705,13 +5914,13 @@ export const UserRatingHistoryDocument = {
     },
   ],
 } as unknown as DocumentNode<UserRatingHistoryQuery, UserRatingHistoryQueryVariables>
-export const UserProfileTwitchDocument = {
+export const UserProfileHeaderDocument = {
   kind: 'Document',
   definitions: [
     {
       kind: 'OperationDefinition',
       operation: 'query',
-      name: { kind: 'Name', value: 'UserProfileTwitch' },
+      name: { kind: 'Name', value: 'UserProfileHeader' },
       variableDefinitions: [
         {
           kind: 'VariableDefinition',
@@ -5739,6 +5948,7 @@ export const UserProfileTwitchDocument = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'commendCount' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'twitchChannel' },
@@ -5774,4 +5984,4 @@ export const UserProfileTwitchDocument = {
       },
     },
   ],
-} as unknown as DocumentNode<UserProfileTwitchQuery, UserProfileTwitchQueryVariables>
+} as unknown as DocumentNode<UserProfileHeaderQuery, UserProfileHeaderQueryVariables>

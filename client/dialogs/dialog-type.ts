@@ -370,6 +370,8 @@ type ReportGameDialogPayload = BaseDialogPayload<
   {
     gameId: string
     reportedUserCandidates: SbUserId[]
+    /** The player to start with selected, e.g. when reporting from that player's row or menu. */
+    initialReportedUserId?: SbUserId
   }
 >
 type ResolveGameResultsDialogPayload = BaseDialogPayload<

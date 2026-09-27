@@ -32,6 +32,8 @@ export enum NotificationType {
   GameReportActioned = 'gameReportActioned',
   /** Ranked points this user lost in a game were refunded after the game was nullified. */
   GamePointsRefunded = 'gamePointsRefunded',
+  /** Another player commended this user after a game. Only ever created locally, by the client. */
+  CommendReceived = 'commendReceived',
 }
 
 export type SbNotification =
@@ -47,6 +49,7 @@ export type SbNotification =
   | ChannelUnbanNotification
   | GameReportActionedNotification
   | GamePointsRefundedNotification
+  | CommendReceivedNotification
 
 export interface BaseNotification {
   /**
@@ -137,6 +140,17 @@ export interface GameReportActionedNotification extends BaseNotification {
  */
 export interface GamePointsRefundedNotification extends BaseNotification {
   type: NotificationType.GamePointsRefunded
+}
+
+/**
+ * Tells a player that another player commended them after a game. This is a local notification
+ * (created by the client from a socket event); the server never stores it, so it must never be
+ * passed to `NotificationService.addNotification`.
+ */
+export interface CommendReceivedNotification extends BaseNotification {
+  type: NotificationType.CommendReceived
+  commenderId: SbUserId
+  gameId: string
 }
 
 export type NotificationEvent =

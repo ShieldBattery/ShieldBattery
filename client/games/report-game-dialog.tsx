@@ -54,11 +54,14 @@ export interface ReportGameDialogProps extends CommonDialogProps {
   gameId: string
   /** The other (non-computer) players in the game — the candidates that can be reported. */
   reportedUserCandidates: SbUserId[]
+  /** The player to start with selected. Must be one of `reportedUserCandidates`. */
+  initialReportedUserId?: SbUserId
 }
 
 export function ReportGameDialog({
   gameId,
   reportedUserCandidates,
+  initialReportedUserId,
   onCancel,
   close,
 }: ReportGameDialogProps) {
@@ -68,11 +71,22 @@ export function ReportGameDialog({
   const [{ fetching }, reportGame] = useMutation(ReportGameMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
 
+  // Pre-select the player the report was started from, or the only candidate when there's just one
+  // (e.g. a 1v1).
+  let initialSelection: SbUserId | undefined
+  if (
+    initialReportedUserId !== undefined &&
+    reportedUserCandidates.includes(initialReportedUserId)
+  ) {
+    initialSelection = initialReportedUserId
+  } else if (reportedUserCandidates.length === 1) {
+    initialSelection = reportedUserCandidates[0]
+  }
+
   const { submit, bindCustom, bindInput, getInputValue, setInputValue, form } =
     useForm<ReportGameFormModel>(
       {
-        // Pre-select the only opponent when there's just one (e.g. a 1v1).
-        reportedUserId: reportedUserCandidates.length === 1 ? reportedUserCandidates[0] : undefined,
+        reportedUserId: initialSelection,
         reason: undefined,
         details: '',
       },
@@ -115,6 +129,21 @@ export function ReportGameDialog({
                 t(
                   'gameReport.alreadyReported',
                   "You've already reported this player for this game.",
+                ),
+              )
+            } else if (code === 'ALREADY_COMMENDED') {
+              setErrorMessage(
+                t(
+                  'gameReport.alreadyCommended',
+                  "You've already commended this player for this game, so you can't report them.",
+                ),
+              )
+            } else if (code === 'FEEDBACK_CLOSED') {
+              setErrorMessage(
+                t(
+                  'gameReport.closed',
+                  'Reports for this game are closed. Players can be reported for 24 hours after a ' +
+                    'game ends.',
                 ),
               )
             } else if (code === 'RESTRICTED') {

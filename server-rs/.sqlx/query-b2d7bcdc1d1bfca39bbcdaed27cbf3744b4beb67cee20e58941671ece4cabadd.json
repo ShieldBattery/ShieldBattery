@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO game_commends (game_id, commender_id, commended_user_id)\n                VALUES ($1, $2, $3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b2d7bcdc1d1bfca39bbcdaed27cbf3744b4beb67cee20e58941671ece4cabadd"
+}
