@@ -42,6 +42,7 @@ use crate::forge::window_client_center;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::netcode_v2;
+use crate::offline_cookie;
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::sync::DumbSpinLock;
@@ -6568,8 +6569,8 @@ fn create_file_hook(
         *mut c_void,
     ) -> *mut c_void,
 ) -> *mut c_void {
-    use winapi::um::fileapi::{CREATE_ALWAYS, CREATE_NEW};
-    use winapi::um::winnt::GENERIC_READ;
+    use winapi::um::fileapi::{CREATE_ALWAYS, CREATE_NEW, OPEN_EXISTING};
+    use winapi::um::winnt::{DELETE, GENERIC_READ, GENERIC_WRITE};
     unsafe {
         let mut is_replay = false;
         let mut access = access;
@@ -6649,8 +6650,40 @@ fn create_file_hook(
                         SetLastError(winapi::shared::winerror::ERROR_FILE_NOT_FOUND);
                         return -1isize as *mut c_void;
                     }
-                } else if check_filename(filename, b"cookie.bin") {
+                } else if check_filename(filename, b"cookie.bin")
+                    && !offline_cookie::is_inspecting()
+                {
                     needs_time_hook = true;
+                    debug!(
+                        "CreateFileW for cookie.bin with params {access:x} {share:x} \
+                            {creation_disposition:x} {flags:x}"
+                    );
+                    // Only plain reads are pointed elsewhere; anything that could write goes to
+                    // the SDK's own file.
+                    if access & (GENERIC_WRITE | DELETE) == 0
+                        && creation_disposition == OPEN_EXISTING
+                    {
+                        let real_path = PathBuf::from(windows::os_string_from_winapi(filename));
+                        if let Some(target) = offline_cookie::redirect_target(&real_path) {
+                            let handle = orig(
+                                windows::winapi_str(&target).as_ptr(),
+                                access,
+                                share,
+                                security,
+                                creation_disposition,
+                                flags,
+                                template,
+                            );
+                            if handle != -1isize as *mut c_void {
+                                start_precise_system_time_hook();
+                            } else {
+                                let error = GetLastError();
+                                warn!("Opening the offline cookie copy failed with code {error}");
+                                SetLastError(error);
+                            }
+                            return handle;
+                        }
+                    }
                 } else if check_filename(filename, b"Agent.dat") {
                     // Should happen earlier, but just in case
                     stop_precise_system_time_hook();

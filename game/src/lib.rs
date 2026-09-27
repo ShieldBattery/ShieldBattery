@@ -59,6 +59,7 @@ mod game_thread;
 mod http;
 mod http_proxy;
 mod netcode_v2;
+mod offline_cookie;
 mod recurse_checked_mutex;
 mod replay;
 mod snp;
