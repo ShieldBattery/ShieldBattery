@@ -332,10 +332,10 @@ pub struct BwScr {
     /// found both.
     #[cfg(debug_assertions)]
     sprite_position_accessors: Option<(VirtualAddress, VirtualAddress)>,
-    /// The synced simulation state the rollback harness snapshots, as resolved analysis results
+    /// The synced simulation state the rollback engine snapshots, as resolved analysis results
     /// that still have to be turned into addresses once a game is running.
     #[cfg(debug_assertions)]
-    rollback_ranges: Vec<crate::rollback_harness::RangeSpec>,
+    rollback_ranges: Vec<crate::rollback::ranges::RangeSpec>,
 
     // State
     exe_build: u32,
@@ -1757,7 +1757,7 @@ impl BwScr {
         // Analysis failures here are not fatal: the harness reports whatever it could not resolve
         // as missing from its snapshot and runs with the rest.
         #[cfg(debug_assertions)]
-        let rollback_ranges = crate::rollback_harness::analyze_ranges(&mut analysis, ctx);
+        let rollback_ranges = crate::rollback::ranges::analyze_ranges(&mut analysis, ctx);
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -2706,7 +2706,7 @@ impl BwScr {
                         // While the rollback harness is re-simulating, it decides which requests
                         // are new once the whole tick has run, and plays those itself.
                         if let Some(ret) =
-                            crate::rollback_harness::intercept_play_sound(id, volume, unk, x, y)
+                            crate::rollback::sounds::intercept_play_sound(id, volume, unk, x, y)
                         {
                             return ret;
                         }
@@ -2742,7 +2742,7 @@ impl BwScr {
                     exe.hook_closure_address(
                         ShowGameMessage,
                         |text, duration, orig| {
-                            if !crate::rollback_harness::in_predicted_step() {
+                            if !crate::rollback::in_predicted_step() {
                                 orig(text, duration);
                             }
                         },
@@ -2787,7 +2787,7 @@ impl BwScr {
                 // the state the rollback harness snapshots, and would see a re-simulated frame's
                 // notifications once more for every time the frame is simulated.
                 if let Some(callbacks) = &self.observer_ui_callbacks {
-                    use crate::rollback_harness::in_predicted_step as suppressed;
+                    use crate::rollback::in_predicted_step as suppressed;
                     exe.hook_closure_address(
                         ObserverUiTrackBuildingUnit,
                         |ui, unit, force, orig| {
@@ -2802,7 +2802,7 @@ impl BwScr {
                         |ui, unit, orig| {
                             if !suppressed() {
                                 orig(ui, unit);
-                                crate::rollback_harness::observer_research_started(
+                                crate::rollback::observer_ui::observer_research_started(
                                     ui as usize,
                                     unit as usize,
                                 );
@@ -2823,7 +2823,7 @@ impl BwScr {
                         ObserverUiFinishResearchOrUpgrade,
                         |ui, unit, completed, orig| {
                             if !suppressed()
-                                && crate::rollback_harness::observer_research_finishing(
+                                && crate::rollback::observer_ui::observer_research_finishing(
                                     ui as usize,
                                     unit as usize,
                                 )
@@ -2885,7 +2885,7 @@ impl BwScr {
                     }
                     // A frame the rollback harness re-simulates prints its lines again each time.
                     #[cfg(debug_assertions)]
-                    if crate::rollback_harness::in_predicted_step() {
+                    if crate::rollback::in_predicted_step() {
                         return;
                     }
                     if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0
@@ -5995,8 +5995,8 @@ impl BwScr {
         }
     }
 
-    /// The analysis results the rollback harness turns into snapshot ranges.
-    pub(crate) fn rollback_range_specs(&self) -> &[crate::rollback_harness::RangeSpec] {
+    /// The analysis results the rollback engine turns into snapshot ranges.
+    pub(crate) fn rollback_range_specs(&self) -> &[crate::rollback::ranges::RangeSpec] {
         &self.rollback_ranges
     }
 

@@ -65,6 +65,8 @@ mod recurse_checked_mutex;
 mod replay;
 mod replay_name;
 #[cfg(debug_assertions)]
+mod rollback;
+#[cfg(debug_assertions)]
 mod rollback_harness;
 #[cfg(debug_assertions)]
 mod rollback_probe;
