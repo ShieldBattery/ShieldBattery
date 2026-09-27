@@ -194,6 +194,11 @@ comparator (build step 3).
   cost is that a click's marker vanishes early when a rollback crosses it. Replaying clicks through
   re-simulation (log `show_cursor_marker_at(x, y)` per frame and call it again at the same point,
   as injected chat is replayed) removes that, but needs a samase_scarf analysis for the function.
-- **Computer players.** A replay with two computer players diverges under forced rollback at
-  frame 1987: some AI state is outside the snapshot. Rollback games exclude computer players until
-  the harness finds and covers it.
+- **Computer players.** Covered: the AI region cursor and the target-ignore counters were
+  missing from the snapshot, and restoring a trigger list that a defeat had freed left the saved
+  copy's links pointing at freed nodes. A replay with two computer players now matches plain
+  playback under forced rollback.
+- **Game end in live games.** `trigger_result_check_timer` (RVA 0x10b0e00 in 12310g x64) counts
+  down every frame outside replays and opens the local victory or defeat dialog when it expires;
+  it is not in the snapshot yet (needs a samase_scarf analysis). A mispredicted defeat of the
+  local player would open that dialog, so game end has to wait for the frame to be confirmed.

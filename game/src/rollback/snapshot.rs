@@ -134,28 +134,30 @@ impl TriggerLists {
                     .iter()
                     .map(|_| bw.alloc(TRIGGER_NODE_SIZE) as usize)
                     .collect::<Vec<_>>();
+                let old_nodes = std::mem::replace(&mut saved.nodes, replacements);
                 let translate = |link: usize| {
-                    saved
-                        .nodes
+                    old_nodes
                         .iter()
                         .position(|&x| x == link)
-                        .map(|i| replacements[i])
+                        .map(|i| saved.nodes[i])
                         .unwrap_or(link)
                 };
-                for (i, &node) in replacements.iter().enumerate() {
-                    std::ptr::copy_nonoverlapping(
-                        saved.bytes.as_ptr().add(i * TRIGGER_NODE_SIZE),
-                        node as *mut u8,
-                        TRIGGER_NODE_SIZE,
-                    );
-                    let links = node as *mut usize;
-                    links.write(translate(links.read()));
-                    links.add(1).write(translate(links.add(1).read()));
+                // The saved copy's links are translated as well as the live ones: this snapshot
+                // can be restored again, and its nodes are the replacements from now on.
+                let word = size_of::<usize>();
+                for (i, &node) in saved.nodes.iter().enumerate() {
+                    let saved_node = saved.bytes.as_mut_ptr().add(i * TRIGGER_NODE_SIZE);
+                    for link in 0..2 {
+                        let at = saved_node.add(link * word) as *mut usize;
+                        at.write_unaligned(translate(at.read_unaligned()));
+                    }
+                    std::ptr::copy_nonoverlapping(saved_node, node as *mut u8, TRIGGER_NODE_SIZE);
                 }
-                head.write(translate(saved.header[0]));
-                head.add(1).write(translate(saved.header[1]));
+                saved.header[0] = translate(saved.header[0]);
+                saved.header[1] = translate(saved.header[1]);
+                head.write(saved.header[0]);
+                head.add(1).write(saved.header[1]);
                 head.add(2).write(saved.header[2]);
-                saved.nodes = replacements;
             }
         }
     }
