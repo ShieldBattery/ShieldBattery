@@ -62,7 +62,10 @@ The client picks X and D from two lateness estimates:
   relay can see this, so the relay reports it per player (below).
 
 Each estimate has a steady level (a trailing median or high percentile over a few seconds) and
-bursts above it. The client sets `X = R_target - steady download lateness` and adds delay so its
+bursts above it. Download lateness is taken over the latest opponent: the rollback a client runs
+is `present - confirmed`, which the latest slot sets. When every opponent makes the deadline, they
+all arrive after the same download leg, so this is the same for all of them; it differs per
+opponent only for one homed on another relay (one mesh hop later) or one missing its deadlines. The client sets `X = R_target - steady download lateness` and adds delay so its
 steady lead error is zero with a small margin, raising D only after an increase has held for a
 sustain window (2 s to start) and lowering it when the estimate has settled back. Bursts are not
 chased: download bursts are rolled back up to the player's limit, and a short upload burst means a

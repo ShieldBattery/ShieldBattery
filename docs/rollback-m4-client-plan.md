@@ -149,6 +149,22 @@ across clients for the whole game, corrections look like the harness's at the sa
 stalls cleanly past `R_max`, and a player with an artificially slow link carries the delay and
 rollback while the other sees its commands on time.
 
+### Latency readout (independent of the slices)
+
+Replace the `Lat: 208ms` text with a fighting-game style readout: `1D 3R`, the input delay and the
+rollback this player is running with, in frames. Draw it with the egui overlay
+(`bw_scr/draw_overlay`, beside `/netstat`) instead of formatting SC:R's own text through the
+`NetFormatTurnRate` hook, so its look and placement are ours.
+
+- **Visibility:** the readout must show and hide exactly when SC:R would show its own latency text,
+  and SC:R's text must not draw. Needs RE: the callers of `net_format_turn_rate` and the option or
+  state that gates the display.
+- **Values:** D is the pipe depth in force (`latency_turns`). R is the steady rollback, a smoothed
+  `present − confirmed` rounded to a whole frame, so a burst doesn't make the number flicker. It is
+  set by the latest opponent; per-opponent lateness belongs in `/netstat`.
+- **Lockstep games:** the readout works today with R = 0 (`5D 0R`), so it can ship to master on
+  its own, before any rollback work lands.
+
 ### Slice 5: confirmed-hash reports
 
 Hash the confirmed frame every 8 frames and carry `{frame, hash}` as an envelope field on outbound
