@@ -2512,6 +2512,18 @@ impl BwScr {
                         }
                     };
                     let value = format!("Lat: {effective_latency:.0}ms");
+                    // A game that rolls back has two numbers to show: the input delay, and how many
+                    // frames of other players' turns it simulates past.
+                    #[cfg(debug_assertions)]
+                    let value = match v2_turns {
+                        Some(delay)
+                            if netcode_v2::with_turn_state(|s| s.predicts_inputs())
+                                == Some(true) =>
+                        {
+                            format!("{delay}D {}R", crate::rollback_live::shown_rollback())
+                        }
+                        _ => value,
+                    };
                     (*result).text.replace_all(value.as_str());
                     result
                 },

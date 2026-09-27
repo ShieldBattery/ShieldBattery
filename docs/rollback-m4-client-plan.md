@@ -204,6 +204,12 @@ same machinery as `/netstat`) instead of formatting SC:R's own text through the
   set by the latest opponent; per-opponent lateness belongs in `/netstat`.
 - **Lockstep games:** the readout works today with R = 0 (`5D 0R`), so it can ship to master on
   its own, before any rollback work lands.
+- **Interim (debug builds):** in a game that rolls back, the `NetFormatTurnRate` hook already puts
+  `{pipe depth}D {smoothed rollback}R` into SC:R's own latency text, which is enough to read the
+  split while feel-testing. SC:R draws that text only when the ShowTurnRate setting is on, in
+  multiplayer games that aren't replays, at a fixed (10, 10) in renderer output pixels with
+  `fonts[0]`; the egui readout can blank the native string in the same hook and treat the hook
+  firing as its per-frame visibility signal.
 
 ### Slice 5: confirmed-hash reports
 

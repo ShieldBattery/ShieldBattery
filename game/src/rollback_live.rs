@@ -137,6 +137,16 @@ impl Schedule {
 
 static SCHEDULE: Mutex<Option<Schedule>> = Mutex::new(None);
 
+/// The rollback this client runs, smoothed over about two seconds of ticks, for the latency
+/// readout.
+static SMOOTHED_ROLLBACK: Mutex<f32> = Mutex::new(0.0);
+
+/// The rollback the latency readout shows: the frames this client runs past the newest step whose
+/// turns are all known, smoothed so that a burst doesn't make the number flicker.
+pub fn shown_rollback() -> u32 {
+    SMOOTHED_ROLLBACK.lock().round() as u32
+}
+
 /// How many ticks the rollback a client runs has to stay clear of its target, all one way, before
 /// the client moves its lead: two seconds. A burst of lateness shorter than that is rolled back
 /// over, up to the prediction limit, and the lead only follows lateness that holds.
@@ -324,6 +334,7 @@ pub fn input_table() -> Option<InputTable> {
 pub fn reset_for_game_init() {
     *SUMMARY.lock() = None;
     *SCHEDULE.lock() = None;
+    *SMOOTHED_ROLLBACK.lock() = 0.0;
     *LEAD_WINDOW.lock() = LeadWindow {
         ticks: 0,
         lowest: u32::MAX,
@@ -388,6 +399,10 @@ pub unsafe fn run_game_logic_step(
         // the newest step whose turns are all known.
         if current >= LOCKSTEP_START_STEPS {
             let ahead = (current + 1).saturating_sub(known_until);
+            {
+                let mut smoothed = SMOOTHED_ROLLBACK.lock();
+                *smoothed += (ahead as f32 - *smoothed) / LEAD_WINDOW_TICKS as f32;
+            }
             let adjustment = lead_adjustment(ahead, rollback_target);
             if adjustment != 0 {
                 netcode_v2::with_turn_state(|s| s.adjust_lead(adjustment));
