@@ -1755,9 +1755,15 @@ impl BwScr {
             false => None,
         };
         // Analysis failures here are not fatal: the harness reports whatever it could not resolve
-        // as missing from its snapshot and runs with the rest.
+        // as missing from its snapshot and runs with the rest. Most of these need an analysis pass
+        // nothing else in the game asks for, which adds up to a noticeable part of launch time, so
+        // a run that will neither roll anything back nor dump the ranges does not pay for them.
         #[cfg(debug_assertions)]
-        let rollback_ranges = crate::rollback::ranges::analyze_ranges(&mut analysis, ctx);
+        let rollback_ranges =
+            match crate::rollback_harness::wants_ranges() || crate::rollback_probe::is_active() {
+                true => crate::rollback::ranges::analyze_ranges(&mut analysis, ctx),
+                false => Vec::new(),
+            };
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,

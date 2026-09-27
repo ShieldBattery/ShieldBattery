@@ -267,12 +267,6 @@ pub fn analyze_ranges(
     analysis: &mut scr_analysis::Analysis<'_>,
     ctx: OperandCtx<'static>,
 ) -> Vec<RangeSpec> {
-    // Most of these need an analysis pass nothing else in the game asks for, which adds up to a
-    // noticeable part of launch time, so a run that will neither roll anything back nor dump the
-    // ranges does not pay for them.
-    if !crate::rollback_harness::wants_ranges() && !crate::rollback_probe::is_active() {
-        return Vec::new();
-    }
     let word = size_of::<usize>();
     let sizes = analysis.state_block_sizes();
     let mut out = Vec::new();
