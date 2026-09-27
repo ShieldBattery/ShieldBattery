@@ -236,9 +236,11 @@ counts. The DLL already counts its rollback timeline in turns.
 4. **Session flag.** `SessionDescriptor.rollback` (`#[serde(default)]`), set by the coordinator
    the way `finalized_drops` is: a relay capability (`CAPABILITY_ROLLBACK_V1`), cohort placement and
    re-homing that never mix builds, and `finalized_drops` forced on (an unfinalized drop has no
-   turn count, so clients could apply it at different steps). rp2 has no client capability input,
-   so the tenant asserts "every client supports it" on `SessionRequest`. `GAME_SYNC_SAFE_BUFFER_MAX`
-   (the 0x37 ring limit) shouldn't apply to rollback sessions.
+   turn count, so clients could apply it at different steps). The tenant sets the mode on
+   `SessionRequest` (decided: not a per-player capability, since players, modified clients
+   included, must not be able to opt out, and the native path is meant to be removed once rollback
+   is fully rolled out). `GAME_SYNC_SAFE_BUFFER_MAX` (the 0x37 ring limit) shouldn't apply to
+   rollback sessions.
 5. **Relay comparator** (`consensus/sync/rollback.rs`, fed from `deliver_turn_to_locals` next to
    `observe_sync_with_generation`): reports by step from every required slot, the existing
    majority rules (factor `evaluate` out of `sync/tracker.rs`), and a deadline 5 s after the step
@@ -248,19 +250,27 @@ counts. The DLL already counts its rollback timeline in turns.
    re-home or a sparse-set collapse) there is no deadline. Reject steps that aren't multiples of 8
    or are far past the frontier. Every relay keeps pending reports so a promoted authority can
    carry on; only the authority emits.
-6. **Missing reports are a new verdict.** Today a missing checksum only logs. A live player missing
-   a deadline needs a failure verdict on `DesyncNotice` (an additive field), a policy in the app
-   server's `results.ts`, and care with the coordinator's dedupe key `(tenant, session,
-   sync_ordinal)`: a divergence and a missing report at the same step have to go out as one notice.
+6. **Verdicts name the player at fault** (decided). Whenever the relay can tell who the problem
+   is, that player gets a disconnect, which usually becomes a loss: the minority when the rest
+   agree, and a player who is still sending turns but misses a report's deadline, which the relay
+   observes itself (it forwarded their turns and got no hash). That holds in a 1v1 too. A player
+   whose link died goes through the leave machinery instead, and when nobody can be singled out
+   (a 1v1 that disagrees, an even split, every player missing a report) the game is voided as
+   today. Today a missing checksum only logs, so this needs an additive field on `DesyncNotice`,
+   the policy in the app server's `results.ts`, and care with the coordinator's dedupe key
+   `(tenant, session, sync_ordinal)`: a divergence and a missing report at the same step have to go
+   out as one notice.
 7. **Native sync off per session.** `observe_sync_with_generation` returns early for rollback
    sessions, and `sync_coverage` reports the new comparator. In the DLL the switch comes from the
    session (through the app server's launch config, since rp2 doesn't tell clients session
    parameters), replacing `SB_ROLLBACK_NATIVE_SYNC_OFF`, and it must flip for every client at once.
 
-**Decisions for Travis:** whether the tenant assertion on `SessionRequest` is the right mode
-switch (versus a per-player capability in the launch handoff); the policy for a missing-report
-verdict in 1v1 and team games; and whether the relay's lead report (the deadline model's session
-clock, which removes the anchor unfairness noted in slice 4) goes in with this step or after it.
+**After slice 5: the relay's lead report.** The relay keeps the session clock (step F due at
+`start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
+sends each player its own smoothed lead error. Clients then set their lead and delay against one
+shared clock instead of anchoring their own schedules, which removes the anchor unfairness noted
+in slice 4 and is the prerequisite for deadline enforcement. It doesn't affect correctness or
+verdicts, so it follows slice 5 as its own step.
 
 ## Risks
 
