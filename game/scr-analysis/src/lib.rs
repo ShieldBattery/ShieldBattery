@@ -1405,6 +1405,18 @@ impl<'e> Analysis<'e> {
         self.0.step_ai_regions_player()
     }
 
+    pub fn step_ai_regions_region(&mut self) -> Option<Operand<'e>> {
+        self.0.step_ai_regions_region()
+    }
+
+    pub fn ai_target_ignore_reset_counter2(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_target_ignore_reset_counter2()
+    }
+
+    pub fn ai_target_ignore_request_reset(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_target_ignore_request_reset()
+    }
+
     /// Base of the ring of recent sync checksums.
     pub fn sync_data(&mut self) -> Option<Operand<'e>> {
         self.0.sync_data()

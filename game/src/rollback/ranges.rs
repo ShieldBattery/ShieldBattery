@@ -377,11 +377,24 @@ pub fn analyze_ranges(
         ),
         ("first_ai_script", analysis.first_ai_script()),
         ("ai_military_update", analysis.ai_military_update_counter()),
+        // The three that decide when every unit's ignore-as-target flag is cleared: a countdown,
+        // a second countdown it reloads, and a pending request.
         (
             "ai_target_ignore_reset",
             analysis.ai_target_ignore_reset_counter(),
         ),
+        (
+            "ai_target_ignore_reset2",
+            analysis.ai_target_ignore_reset_counter2(),
+        ),
+        (
+            "ai_target_ignore_request_reset",
+            analysis.ai_target_ignore_request_reset(),
+        ),
+        // AI region stepping walks a fixed number of regions every frame from where the last frame
+        // stopped, so it needs both halves of its cursor: which player, and which region.
         ("step_ai_regions_player", analysis.step_ai_regions_player()),
+        ("step_ai_regions_region", analysis.step_ai_regions_region()),
         (
             "ai_expansion_player_cursor",
             analysis.ai_expansion_player_cursor(),

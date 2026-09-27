@@ -773,6 +773,12 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
             while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
                 if replay_command_is_known(storm_player, frame_data.frame, frame) {
                     bw.process_replay_commands(command, storm_player);
+                    // A player's departure changes game state the rollback snapshot does not
+                    // hold, and applying it a second time corrupts it.
+                    #[cfg(debug_assertions)]
+                    if command.first() == Some(&crate::bw::commands::id::LEAVE_GAME) {
+                        crate::rollback::mark_irreversible_step();
+                    }
                 }
             }
         }
