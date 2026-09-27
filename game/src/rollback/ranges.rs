@@ -344,6 +344,13 @@ pub fn analyze_ranges(
         ("lurker_hits_frame", analysis.lurker_hits_frame()),
         ("lurker_hits_pos", analysis.lurker_hits_pos()),
         ("game_frame_count", analysis.game_frame_count()),
+        // Counts down to the next check of whether the local player's game is decided. Left out,
+        // every re-simulated frame winds it down again, so the check runs at other frames than on
+        // clients that don't roll back.
+        (
+            "trigger_result_check_timer",
+            analysis.trigger_result_check_timer(),
+        ),
         // The countdown that decides which logic steps also run a network turn, the step that
         // counts `game_frame_count` up and records a sync slot. Every step takes a fixed amount
         // off it, so left out, each re-simulated step would move later turns to earlier frames.

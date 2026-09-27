@@ -41,8 +41,8 @@ use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::netcode_v2::{self, InputCounts, InputTable};
 use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
-use crate::rollback::sounds;
 use crate::rollback::tick::{self, TickPlan};
+use crate::rollback::{game_end, sounds};
 
 const PREDICT_ENV_VAR: &str = "SB_ROLLBACK_PREDICT";
 const SHADOW_ENV_VAR: &str = "SB_ROLLBACK_SHADOW";
@@ -393,6 +393,14 @@ pub unsafe fn run_game_logic_step(
             }
         }
         sounds::reconcile_sounds(bw, report.window_start, report.settled_through, present);
+        if let Some(dialog) = game_end::take_confirmed(plan.confirmed) {
+            info!(
+                "Opening the {dialog:?} dialog a step asked for, now that frames through {} are \
+                 confirmed",
+                plan.confirmed
+            );
+            bw.rollback_open_mission_dialog(dialog);
+        }
         let counts = netcode_v2::with_turn_state(|s| {
             s.forget_inputs_before(report.settled_through);
             s.take_input_counts()

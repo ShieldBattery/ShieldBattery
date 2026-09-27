@@ -329,6 +329,10 @@ pub struct BwScr {
     /// steps, or `None` if analysis could not find both.
     #[cfg(debug_assertions)]
     click_feedback: Option<ClickFeedback>,
+    /// The functions the trigger step calls to open the defeat and victory dialogs, or `None` if
+    /// analysis could not find both.
+    #[cfg(debug_assertions)]
+    mission_dialog_openers: Option<(VirtualAddress, VirtualAddress)>,
     /// The function that shows a line of game information text (a player leaving or being
     /// eliminated), or `None` if analysis could not find it.
     #[cfg(debug_assertions)]
@@ -1784,6 +1788,10 @@ impl BwScr {
         #[cfg(debug_assertions)]
         let click_feedback = ClickFeedback::analyze(&mut analysis);
         #[cfg(debug_assertions)]
+        let mission_dialog_openers = analysis
+            .open_defeat_mission_dialog()
+            .zip(analysis.open_victory_mission_dialog());
+        #[cfg(debug_assertions)]
         let show_game_message = analysis.show_game_message();
         #[cfg(debug_assertions)]
         let sprite_position_accessors = match crate::rollback_harness::smoothing_enabled() {
@@ -2020,6 +2028,8 @@ impl BwScr {
             selection_visuals,
             #[cfg(debug_assertions)]
             click_feedback,
+            #[cfg(debug_assertions)]
+            mission_dialog_openers,
             #[cfg(debug_assertions)]
             show_game_message,
             #[cfg(debug_assertions)]
@@ -2875,6 +2885,31 @@ impl BwScr {
                             orig(object, timer);
                         },
                         feedback.set_selection_flash_timer.0 as usize - base,
+                    );
+                }
+
+                // A frame simulated on predicted inputs can decide the game without the real ones
+                // doing so, so the engine holds the victory and defeat dialogs back until the frame
+                // that asked for one is confirmed.
+                if let Some((defeat, victory)) = self.mission_dialog_openers {
+                    use crate::rollback::game_end::{MissionDialog, defer};
+                    exe.hook_closure_address(
+                        OpenDefeatMissionDialog,
+                        |orig| {
+                            if !defer(MissionDialog::Defeat) {
+                                orig();
+                            }
+                        },
+                        defeat.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        OpenVictoryMissionDialog,
+                        |orig| {
+                            if !defer(MissionDialog::Victory) {
+                                orig();
+                            }
+                        },
+                        victory.0 as usize - base,
                     );
                 }
 
@@ -6404,6 +6439,26 @@ impl BwScr {
         }
     }
 
+    /// Opens the victory or defeat dialog the way the trigger step does, for a frame that asked for
+    /// it during a rollback tick and has since been confirmed.
+    pub(crate) unsafe fn rollback_open_mission_dialog(
+        &self,
+        dialog: crate::rollback::game_end::MissionDialog,
+    ) {
+        use crate::rollback::game_end::MissionDialog;
+        unsafe {
+            let Some((defeat, victory)) = self.mission_dialog_openers else {
+                return;
+            };
+            let opener = match dialog {
+                MissionDialog::Defeat => defeat,
+                MissionDialog::Victory => victory,
+            };
+            let open = mem::transmute::<usize, unsafe extern "C" fn()>(opener.0 as usize);
+            open();
+        }
+    }
+
     /// Takes the selection circles and health bars off every sprite.
     pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
         unsafe {
@@ -7960,6 +8015,9 @@ mod hooks {
         !0 => ShowGameMessage(*const u8, u32);
         // Place the order confirmation marker at a map position.
         !0 => ShowCursorMarkerAt(i32, i32);
+        // Open the defeat and victory dialogs.
+        !0 => OpenDefeatMissionDialog();
+        !0 => OpenVictoryMissionDialog();
     );
 
     // The observer UI's notifications from the simulation, methods on the observer UI object that

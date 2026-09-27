@@ -699,6 +699,25 @@ impl<'e> Analysis<'e> {
         self.0.trigger_execution_timer()
     }
 
+    /// `Mem16` countdown the trigger step decrements once per game frame outside replays; on the
+    /// frame it is read as zero it is reset to 0x2d and the local player's victory state is checked
+    /// to open the victory or defeat dialog.
+    pub fn trigger_result_check_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_result_check_timer()
+    }
+
+    /// Opens the defeat dialog, `()`, called from the trigger step. No arguments on either
+    /// architecture, and the caller ignores its return value.
+    pub fn open_defeat_mission_dialog(&mut self) -> Option<VirtualAddress> {
+        self.0.open_defeat_mission_dialog()
+    }
+
+    /// Opens the victory dialog, `()`, called from the trigger step. No arguments on either
+    /// architecture, and the caller ignores its return value.
+    pub fn open_victory_mission_dialog(&mut self) -> Option<VirtualAddress> {
+        self.0.open_victory_mission_dialog()
+    }
+
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
         self.0.net_format_turn_rate()
     }

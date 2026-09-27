@@ -23,6 +23,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 pub(crate) mod announcements;
+pub(crate) mod game_end;
 pub(crate) mod observer_ui;
 pub(crate) mod ranges;
 pub(crate) mod snapshot;
@@ -98,4 +99,5 @@ pub(crate) fn reset_for_game_init() {
     announcements::reset();
     observer_ui::reset();
     ui_writes::reset();
+    game_end::reset();
 }

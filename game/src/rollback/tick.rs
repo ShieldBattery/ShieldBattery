@@ -9,7 +9,7 @@ use crate::bw_scr::BwScr;
 use super::snapshot::Snapshots;
 use super::{
     FINAL_STEP, IRREVERSIBLE_STEP, RESIMULATING, STEP_FRAME, TICK_RUNNING, WINDOW_START,
-    announcements, ui_writes,
+    announcements, game_end, ui_writes,
 };
 
 /// What one tick should do. Frames are frame counts: frame `n` is the simulation state after `n`
@@ -130,6 +130,7 @@ pub(crate) unsafe fn run_tick(
             STEP_FRAME.store(info.frame, Ordering::Relaxed);
             FINAL_STEP.store(info.is_final, Ordering::Relaxed);
             RESIMULATING.store(info.is_resimulation, Ordering::Relaxed);
+            game_end::begin_step(info.frame);
             // What the UI wrote into the simulation between the steps the restore undid happened
             // before the step from this frame, so it happens there again.
             if report.restored.is_some() {
