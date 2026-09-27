@@ -142,7 +142,8 @@ Built and tested live in four commits (two clients on the staging relay, driven 
    openers (samase `open_defeat_mission_dialog` / `open_victory_mission_dialog`) are hooked: inside
    a tick a step only notes the request against its frame, every simulation of the frame replaces
    it, and the driver opens the dialog once the frame is confirmed. The dialog is what reports the
-   result and, on a victory, ends the session.
+   result and, on a victory, ends the session; the report reads victory states, alliances and drop
+   flags recorded for the newest confirmed frame, since the simulation has run on past it.
 4. **Lead and catch-up.** The relay's latency buffer stands in for the client's RTT until the relay
    reports lead error: the client runs `lead = min(R_target, buffer − 1)` frames ahead of the
    lockstep schedule and keeps `buffer − lead` of its own turns in flight. Its turns then leave
@@ -171,9 +172,6 @@ replay played back to the same state hash as the live game on every one of its 2
 cost stayed around 0.5 ms.
 
 **Open:**
-- The result report reads the present game state, which can be a few predicted frames past the
-  frame the dialog opened for. The local player's own outcome is confirmed, but other players'
-  victory states and alliances could still come from a prediction.
 - Unfinalized drops carry no turn count, so the leave goes to the first step this client has no
   turn for, which clients can disagree on. Rollback sessions should require finalized drops.
 - The lead uses the relay's buffer as a stand-in for the client's own RTT; the deadline model's
@@ -229,6 +227,6 @@ comparator (build step 3).
   missing from the snapshot, and restoring a trigger list that a defeat had freed left the saved
   copy's links pointing at freed nodes. A replay with two computer players now matches plain
   playback under forced rollback.
-- **Game end in live games.** Covered in slice 4: the result check timer is snapshotted and the
-  victory and defeat dialogs open only for confirmed frames. The result report still reads the
-  present game state (see slice 4's open items).
+- **Game end in live games.** Covered in slice 4: the result check timer is snapshotted, the
+  victory and defeat dialogs open only for confirmed frames, and the result report reads the
+  newest confirmed frame's outcome.

@@ -36,7 +36,7 @@ use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 
-use crate::bw;
+use crate::bw::{self, Bw};
 use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::netcode_v2::{self, InputCounts, InputTable};
@@ -367,8 +367,20 @@ pub unsafe fn run_game_logic_step(
             confirmed: known_until.min(present),
             spacing,
         };
-        let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |_| {
-            crate::rollback_probe::run_game_logic_step(bw, param, orig)
+        let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
+            let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
+            let game = bw.game();
+            if !game.is_null() {
+                game_end::record_outcome(
+                    step.frame,
+                    game_end::Outcome {
+                        victory_state: (*game).victory_state,
+                        alliances: (*game).alliances,
+                        player_was_dropped: (*game).player_was_dropped,
+                    },
+                );
+            }
+            ret
         });
         drop(guard);
         let reached = bw.probe_frame_count().unwrap_or(current);
@@ -393,6 +405,7 @@ pub unsafe fn run_game_logic_step(
             }
         }
         sounds::reconcile_sounds(bw, report.window_start, report.settled_through, present);
+        game_end::confirm_outcomes_through(plan.confirmed);
         if let Some(dialog) = game_end::take_confirmed(plan.confirmed) {
             info!(
                 "Opening the {dialog:?} dialog a step asked for, now that frames through {} are \

@@ -350,14 +350,32 @@ pub struct GameThreadResults {
     pub replay_path: Option<PathBuf>,
 }
 
+/// Who won and lost, the alliances and who was dropped, as a result report reads them: the
+/// game's current ones, except in a game that rolls back, which has simulated past its newest
+/// confirmed frame on predictions and reports that frame's instead.
+unsafe fn reported_outcome(game: *mut bw::Game) -> ([u8; 8], [[u8; 12]; 12], [u8; 8]) {
+    #[cfg(debug_assertions)]
+    if let Some(x) = crate::rollback::game_end::confirmed_outcome() {
+        return (x.victory_state, x.alliances, x.player_was_dropped);
+    }
+    unsafe {
+        (
+            (*game).victory_state,
+            (*game).alliances,
+            (*game).player_was_dropped,
+        )
+    }
+}
+
 unsafe fn game_results() -> GameThreadResults {
     unsafe {
         let bw = get_bw();
         let game = bw.game();
         let players = bw.players();
+        let (victory_states, all_alliances, player_was_dropped) = reported_outcome(game);
 
         let read_player_result = |id: BwPlayerId| {
-            let victory_state = (*game).victory_state[id.0 as usize]
+            let victory_state = victory_states[id.0 as usize]
                 .try_into()
                 .unwrap_or_else(|e| {
                     warn!("Failed to convert victory state for player {id:?}: {e:?}");
@@ -370,7 +388,7 @@ unsafe fn game_results() -> GameThreadResults {
                     warn!("Failed to convert race for player {id:?}: {e:?}");
                     AssignedRace::Zerg
                 });
-            let alliances = (&(*game).alliances)[id.0 as usize][0..8]
+            let alliances = all_alliances[id.0 as usize][0..8]
                 .iter()
                 .map(|&x| {
                     x.try_into().unwrap_or_else(|e| {
@@ -420,8 +438,7 @@ unsafe fn game_results() -> GameThreadResults {
                         // as "has quit" downstream. BW's drop flags only exist for the first 8
                         // ids, though; higher ids just report not-dropped, and the relay's own
                         // leave reporting stays the authoritative drop signal for those.
-                        was_dropped: (*game)
-                            .player_was_dropped
+                        was_dropped: player_was_dropped
                             .get(i)
                             .is_some_and(|&dropped| dropped != 0),
                         has_quit: storm_player_flags[i] == 0,
