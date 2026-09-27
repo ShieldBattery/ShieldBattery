@@ -2748,7 +2748,12 @@ impl BwScr {
                     exe.hook_closure_address(
                         ShowGameMessage,
                         |text, duration, orig| {
-                            if !crate::rollback::in_predicted_step() {
+                            use crate::rollback::announcements::{Kind, key, should_announce};
+                            let bytes = match text.is_null() {
+                                true => &[][..],
+                                false => CStr::from_ptr(text as *const std::ffi::c_char).to_bytes(),
+                            };
+                            if should_announce(Kind::GameMessage, key(bytes)) {
                                 orig(text, duration);
                             }
                         },
@@ -2790,14 +2795,20 @@ impl BwScr {
                 }
 
                 // The observer UI keeps its own records of what the simulation tells it, outside
-                // the state the rollback harness snapshots, and would see a re-simulated frame's
+                // the state the rollback engine snapshots, and would see a re-simulated frame's
                 // notifications once more for every time the frame is simulated.
                 if let Some(callbacks) = &self.observer_ui_callbacks {
-                    use crate::rollback::in_predicted_step as suppressed;
+                    use crate::rollback::announcements::{Kind, key, should_announce};
+                    // A unit slot is reused once its unit is gone, so the slot's occupant count
+                    // tells a new unit from the one a notification was about.
+                    let unit_key = |unit: *mut bw::Unit, extra: u32| match unit.is_null() {
+                        true => key((0usize, 0u8, extra)),
+                        false => key((unit as usize, (*unit).minor_unique_index, extra)),
+                    };
                     exe.hook_closure_address(
                         ObserverUiTrackBuildingUnit,
-                        |ui, unit, force, orig| {
-                            if !suppressed() {
+                        move |ui, unit, force, orig| {
+                            if should_announce(Kind::ObserverTrackBuilding, unit_key(unit, force)) {
                                 orig(ui, unit, force);
                             }
                         },
@@ -2805,8 +2816,8 @@ impl BwScr {
                     );
                     exe.hook_closure_address(
                         ObserverUiTrackResearchOrUpgrade,
-                        |ui, unit, orig| {
-                            if !suppressed() {
+                        move |ui, unit, orig| {
+                            if should_announce(Kind::ObserverTrackResearch, unit_key(unit, 0)) {
                                 orig(ui, unit);
                                 crate::rollback::observer_ui::observer_research_started(
                                     ui as usize,
@@ -2818,8 +2829,8 @@ impl BwScr {
                     );
                     exe.hook_closure_address(
                         ObserverUiRemoveBuildingUnitRecord,
-                        |ui, unit, orig| {
-                            if !suppressed() {
+                        move |ui, unit, orig| {
+                            if should_announce(Kind::ObserverRemoveBuilding, unit_key(unit, 0)) {
                                 orig(ui, unit);
                             }
                         },
@@ -2827,13 +2838,14 @@ impl BwScr {
                     );
                     exe.hook_closure_address(
                         ObserverUiFinishResearchOrUpgrade,
-                        |ui, unit, completed, orig| {
-                            if !suppressed()
-                                && crate::rollback::observer_ui::observer_research_finishing(
-                                    ui as usize,
-                                    unit as usize,
-                                )
-                            {
+                        move |ui, unit, completed, orig| {
+                            if should_announce(
+                                Kind::ObserverFinishResearch,
+                                unit_key(unit, completed),
+                            ) && crate::rollback::observer_ui::observer_research_finishing(
+                                ui as usize,
+                                unit as usize,
+                            ) {
                                 orig(ui, unit, completed);
                             }
                         },
@@ -2889,10 +2901,14 @@ impl BwScr {
                     if text.is_null() {
                         return;
                     }
-                    // A frame the rollback harness re-simulates prints its lines again each time.
+                    // A frame the rollback engine re-simulates prints its lines again each time.
                     #[cfg(debug_assertions)]
-                    if crate::rollback::in_predicted_step() {
-                        return;
+                    {
+                        use crate::rollback::announcements::{Kind, key, should_announce};
+                        let bytes = CStr::from_ptr(text).to_bytes();
+                        if !should_announce(Kind::PlayerText, key((bytes, player))) {
+                            return;
+                        }
                     }
                     if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0
                         && let Ok(text) = CStr::from_ptr(text).to_str()

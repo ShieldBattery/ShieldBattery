@@ -144,6 +144,7 @@ static PROBE_FILE: Mutex<Option<ProbeFile>> = Mutex::new(None);
 
 /// The per-frame synced-state read the probe records, so a resimulated frame can be compared
 /// against the frame it is supposed to reproduce.
+#[derive(Clone)]
 pub struct Fingerprint {
     pub frame: u32,
     /// The six `u32` words at the RNG seed operand: the seed itself plus the advancing draw

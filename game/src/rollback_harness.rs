@@ -2,28 +2,29 @@
 //! snapshot ranges capture the whole synced state and to measure how the game would look if it
 //! predicted ahead of some players' commands.
 //!
-//! Each tick restores the snapshot taken `R` frames ago, re-simulates those frames plus one, and
-//! takes a fresh snapshot one frame further along. If the range list covers the state completely,
-//! the per-frame fingerprint is identical to a plain playback of the same replay and the game
-//! plays on unchanged; state the list misses shows up as a fingerprint divergence against a plain
-//! playback's [`crate::rollback_probe`] rows, keyed by frame.
+//! It can hold chosen players' commands back: a player given a delay of `K` frames is only heard
+//! from `K` frames after the frame a command was issued for, so the frames simulated before then
+//! run without it and are a prediction. When the command becomes known, the next tick rolls back
+//! to the frame it was issued for and re-simulates with it, as a live game would when a late turn
+//! arrives. Once every delayed player has been heard from for a frame it is confirmed: it
+//! reproduces plain playback exactly, while the frames past it differ by however wrong the
+//! prediction was. Each row of the log carries both the present frame and the newest confirmed
+//! one, which is the measurement.
 //!
-//! On top of that it can hold chosen players' commands back, which is what makes the rollback do
-//! work instead of reproducing what it rolled back over. A player given a delay of `K` frames is
-//! only heard from `K` frames after the frame a command was issued for, so the re-simulated span
-//! runs without those commands and the frames it produces are a prediction. The confirmed step at
-//! the back of the span always has them, because `R` is held at or above every delay, so the
-//! confirmed frames still reproduce plain playback exactly while the present frames differ by
-//! however wrong the prediction was. Each row of the log carries both frames, which is the
-//! measurement.
+//! On top of that it can force a rollback of a fixed depth every tick, re-simulating frames whose
+//! inputs have not changed at all. If the snapshot's ranges cover the state completely, the
+//! per-frame fingerprint is identical to a plain playback of the same replay and the game plays on
+//! unchanged; state the ranges miss shows up as a fingerprint divergence against a plain
+//! playback's [`crate::rollback_probe`] rows, keyed by frame.
 //!
 //! Compiled out of release DLLs along with the engine it drives.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Write;
 use std::mem::size_of;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use parking_lot::Mutex;
@@ -36,12 +37,22 @@ use crate::rollback;
 use crate::rollback::ranges::Range;
 use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
 use crate::rollback::sounds::{self, SoundCounts};
+use crate::rollback::tick::{self, TickPlan};
 use crate::rollback_probe::Fingerprint;
 
-/// Environment variable that arms the harness, holding the rollback depth in frames: with
-/// `SB_ROLLBACK_HARNESS=8` every logic step rewinds eight frames and re-simulates them. Must be at
-/// least 1.
+/// Environment variable that arms the harness, holding a rollback depth in frames that every tick
+/// re-simulates whether or not any command came late: with `SB_ROLLBACK_HARNESS=8` every tick goes
+/// back at least eight frames. With 0 a tick rolls back only when a delayed player's command
+/// arrives, as a live game would.
 const ENV_VAR: &str = "SB_ROLLBACK_HARNESS";
+
+/// Environment variable holding the spacing of the snapshots in frames: with
+/// `SB_ROLLBACK_SNAPSHOT_SPACING=3` every third frame is snapshotted, and a rollback re-simulates
+/// from the newest snapshot at or before the frame it needs. Defaults to
+/// [`DEFAULT_SNAPSHOT_SPACING`].
+const SPACING_ENV_VAR: &str = "SB_ROLLBACK_SNAPSHOT_SPACING";
+
+const DEFAULT_SNAPSHOT_SPACING: u32 = 3;
 
 /// Environment variable that gives chosen players a command delay, holding a comma-separated list
 /// of `<storm player id>:<frames>`: with `SB_ROLLBACK_DELAY=1:3,2:2` storm player 1's commands are
@@ -50,10 +61,11 @@ const ENV_VAR: &str = "SB_ROLLBACK_HARNESS";
 const DELAY_ENV_VAR: &str = "SB_ROLLBACK_DELAY";
 
 /// Environment variable naming one frame whose simulations to audit: the executable's static data
-/// is copied just before the step that first simulates the frame and again before the confirmed
-/// step that simulates it for the last time, and every difference outside the snapshot's ranges is
-/// written out. The snapshot state both steps start from is the same, so with no delayed players a
+/// is copied just before the step that first simulates the frame and again before a step that
+/// simulates it once it is confirmed, and every difference outside the snapshot's ranges is written
+/// out. The snapshot state both steps start from is the same, so with no delayed players a
 /// difference there is state the earlier simulations left behind that the snapshot does not cover.
+/// Needs a forced depth, since otherwise nothing simulates a frame twice.
 const AUDIT_ENV_VAR: &str = "SB_ROLLBACK_AUDIT_FRAME";
 
 /// The frame [`AUDIT_ENV_VAR`] names, or 0 when no audit was asked for.
@@ -68,8 +80,42 @@ static AUDIT_FIRST_RESULT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 /// Whether the audit has been written, so a replay seek back past the frame does not write it again.
 static AUDIT_DONE: AtomicBool = AtomicBool::new(false);
 
-/// Rollback depth in frames, or 0 when the harness is not armed.
-static ROLLBACK_FRAMES: AtomicU32 = AtomicU32::new(0);
+/// Whether the harness is armed.
+static ARMED: AtomicBool = AtomicBool::new(false);
+
+/// The depth in frames every tick rolls back whether or not a command came late.
+static FORCED_DEPTH: AtomicU32 = AtomicU32::new(0);
+
+/// Frames between snapshots.
+static SNAPSHOT_SPACING: AtomicU32 = AtomicU32::new(DEFAULT_SNAPSHOT_SPACING);
+
+/// A delayed player's command that a step read before it was known, and so left unapplied.
+struct LateCommand {
+    storm_player: StormPlayerId,
+    /// The frame the replay records it for.
+    command_frame: u32,
+    /// The frame count the step that read it started from, which a rollback has to restore to (or
+    /// before) for the command to be applied on its own frame.
+    read_from: u32,
+}
+
+/// The commands left unapplied so far that are not known yet, each once.
+static LATE_COMMANDS: Mutex<Vec<LateCommand>> = Mutex::new(Vec::new());
+
+/// The newest confirmed frame count as of the last tick.
+static LAST_CONFIRMED: AtomicU32 = AtomicU32::new(0);
+
+/// A frame count the next tick has to re-simulate from, set when the delays change so the frames
+/// already predicted are simulated again with the new ones.
+static RESIMULATE_FROM: Mutex<Option<u32>> = Mutex::new(None);
+
+/// The fingerprint of each frame count's most recent simulation, from the newest confirmed one on
+/// (with some history, since a change of delays can move the confirmed frame back). A confirmed
+/// frame's entry is its final simulation, which is what a row reports as the confirmed state.
+static FINGERPRINTS: Mutex<BTreeMap<u32, Fingerprint>> = Mutex::new(BTreeMap::new());
+
+/// Fingerprints kept from before the newest confirmed frame.
+const FINGERPRINT_HISTORY: u32 = 256;
 
 /// Each storm player's command delay in frames; 0 for a player whose commands are known as soon as
 /// the frame they were issued for is simulated.
@@ -88,8 +134,13 @@ static STEPS_AFTER_CURRENT: AtomicU32 = AtomicU32::new(0);
 /// tick's newest frame has not reached them yet.
 static SUPPRESSED_COMMANDS: AtomicU32 = AtomicU32::new(0);
 
-/// Commands of delayed players that the current tick's confirmed step applied.
+/// Commands of delayed players that the current tick's steps applied on confirmed frames.
 static APPLIED_DELAYED_COMMANDS: AtomicU32 = AtomicU32::new(0);
+
+/// How far a tick's present is in the replay's frame numbering, which decides whether a command is
+/// known, from the same present as a frame count, which a tick is planned in. Observed by
+/// [`replay_command_is_known`] whenever it holds a command back; `i32::MIN` until it first has.
+static COMMAND_FRAME_OFFSET: AtomicI32 = AtomicI32::new(i32::MIN);
 
 /// Whether the run has already been checked against the "replay playback only" requirement.
 static ELIGIBILITY_CHECKED: AtomicBool = AtomicBool::new(false);
@@ -124,24 +175,21 @@ impl UnitView {
     }
 }
 
-/// The frame on screen as a tick left it, kept so the next tick can see how the late commands
-/// changed that same frame.
+/// The frame on screen as a tick left it, kept so a later tick that re-simulates it can see how
+/// the late commands changed it.
 struct DisplayedFrame {
     frame: u32,
     units: Vec<UnitView>,
-    /// The slot and unique index of every unit in the snapshot the next tick restores, sorted.
-    /// Both simulations of the frame grow from that snapshot, so a unit it holds is the same unit
-    /// wherever the two show its slot and index. A unit created after it is not: the two
-    /// simulations hand slots out in whatever order their commands made them, and can give one
-    /// slot and index to two different units.
-    anchored: Vec<(usize, u8)>,
 }
 
 static DISPLAYED_UNITS: Mutex<Option<DisplayedFrame>> = Mutex::new(None);
 
-/// The anchored units of the snapshot taken by the tick in progress, which become its
-/// [`DisplayedFrame::anchored`] once the tick ends.
-static SNAPSHOT_UNITS: Mutex<Vec<(usize, u8)>> = Mutex::new(Vec::new());
+/// The slot and unique index of every unit in the snapshot the tick in progress restored, sorted.
+/// Both simulations of the frame on screen grow from that snapshot, so a unit it holds is the same
+/// unit wherever the two show its slot and index. A unit created after it is not: the two
+/// simulations hand slots out in whatever order their commands made them, and can give one slot
+/// and index to two different units.
+static ANCHORED_UNITS: Mutex<Vec<(usize, u8)>> = Mutex::new(Vec::new());
 
 /// How far the frame shown at the end of the previous tick turned out to be wrong, once this tick
 /// re-simulated it with the commands that had arrived since: what a player would see corrected.
@@ -207,7 +255,8 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
             return;
         }
         let now = capture_units(bw);
-        let is_anchored = |x: &&UnitView| displayed.anchored.binary_search(&x.key()).is_ok();
+        let anchored = ANCHORED_UNITS.lock();
+        let is_anchored = |x: &&UnitView| anchored.binary_search(&x.key()).is_ok();
         let (shown_anchored, shown_new): (Vec<&UnitView>, Vec<&UnitView>) =
             displayed.units.iter().partition(is_anchored);
         let (now_anchored, mut now_new): (Vec<&UnitView>, Vec<&UnitView>) =
@@ -257,15 +306,16 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
     }
 }
 
-/// Notes which units the snapshot just taken holds. Called right after each snapshot.
-unsafe fn record_snapshot_units(bw: &BwScr) {
+/// Notes which units the snapshot just restored holds. Called before the first step after a
+/// restore.
+unsafe fn record_anchored_units(bw: &BwScr) {
     unsafe {
         let mut keys = capture_units(bw)
             .iter()
             .map(|x| x.key())
             .collect::<Vec<_>>();
         keys.sort_unstable();
-        *SNAPSHOT_UNITS.lock() = keys;
+        *ANCHORED_UNITS.lock() = keys;
     }
 }
 
@@ -462,37 +512,38 @@ pub fn init_from_env() {
         }
         return;
     };
-    let frames = match spec.parse::<u32>() {
-        Ok(frames) if frames >= 1 => frames,
+    let depth = match spec.parse::<u32>() {
+        Ok(depth) => depth,
         _ => {
-            error!("{ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it");
+            error!("{ENV_VAR}={spec:?} is not a frame count; ignoring it");
             return;
         }
     };
-    // A tick's confirmed step is `frames` behind its newest frame, and it has to stay at or behind
-    // every delayed player's known-through frame: a confirmed step that ran without commands the
-    // player has since sent would leave those unapplied for good, and the confirmed timeline would
-    // stop matching plain playback.
-    let max_delay = init_delays_from_env();
-    let frames = match frames < max_delay {
-        true => {
-            info!(
-                "{ENV_VAR}={frames} is shallower than the largest delay; rolling back \
-                 {max_delay} frames instead"
-            );
-            max_delay
+    init_delays_from_env();
+    FORCED_DEPTH.store(depth, Ordering::Release);
+    ARMED.store(true, Ordering::Release);
+    info!("{ENV_VAR} armed: every tick will roll back at least {depth} frames");
+    if let Ok(spec) = std::env::var(SPACING_ENV_VAR) {
+        match spec.parse::<u32>() {
+            Ok(spacing) if spacing >= 1 => {
+                SNAPSHOT_SPACING.store(spacing, Ordering::Release);
+                info!("{SPACING_ENV_VAR}: snapshotting every {spacing} frames");
+            }
+            _ => {
+                error!("{SPACING_ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it")
+            }
         }
-        false => frames,
-    };
-    ROLLBACK_FRAMES.store(frames, Ordering::Release);
-    info!("{ENV_VAR} armed: every logic step will roll back {frames} frames");
+    }
     if let Ok(spec) = std::env::var(AUDIT_ENV_VAR) {
         match spec.parse::<u32>() {
-            Ok(frame) if frame > frames => {
+            Ok(frame) if frame > depth && depth > 0 => {
                 AUDIT_FRAME.store(frame, Ordering::Release);
                 info!("{AUDIT_ENV_VAR}: auditing the simulations of frame {frame}");
             }
-            _ => error!("{AUDIT_ENV_VAR}={spec:?} is not a frame past the first tick; ignoring it"),
+            _ => error!(
+                "{AUDIT_ENV_VAR}={spec:?} is not a frame past the first tick, or {ENV_VAR} forces \
+                 no depth; ignoring it"
+            ),
         }
     }
 }
@@ -502,11 +553,11 @@ pub fn init_from_env() {
 /// them costs a noticeable part of launch time, so a run that wants none of these does not pay for
 /// it.
 pub(crate) fn wants_ranges() -> bool {
-    ROLLBACK_FRAMES.load(Ordering::Acquire) != 0 || DUMP_ARMED.load(Ordering::Acquire)
+    ARMED.load(Ordering::Acquire) || DUMP_ARMED.load(Ordering::Acquire)
 }
 
 /// Environment variable naming frames at which to write every snapshot range out, with or without
-/// the harness armed: with it, from the confirmed step that produces the frame for the last time;
+/// the harness armed: with it, from the first step that simulates the frame once it is confirmed;
 /// without it, from plain playback. Diffing the two dumps (pointers translated into range offsets)
 /// shows what synced state a harness run has wrong before a fingerprint notices. Takes a
 /// comma-separated list of frames and `<first>-<last>[/<step>]` ranges, so one run can bisect
@@ -602,7 +653,7 @@ fn audit_armed() -> bool {
 }
 
 /// Copies the executable's static data before the step that first simulates the audited frame,
-/// and diffs against that copy before the confirmed step that simulates it for the last time.
+/// and diffs against that copy before a step that simulates it once it is confirmed.
 unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
     unsafe {
         let target = AUDIT_FRAME.load(Ordering::Relaxed);
@@ -658,8 +709,8 @@ unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
 }
 
 /// Copies the snapshot's ranges after the step that first simulates the audited frame, and diffs
-/// against that copy after the confirmed step that simulates it for the last time. The two steps
-/// start from the same snapshot state, so where their results differ is what the leftover state
+/// against that copy after a step that simulates it once it is confirmed. The two steps start from
+/// the same snapshot state, so where their results differ is what the leftover state
 /// [`audit_before_step`] reports made the simulation do differently.
 unsafe fn audit_after_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
     unsafe {
@@ -745,10 +796,10 @@ static PENDING_SETTINGS: Mutex<Option<Settings>> = Mutex::new(None);
 /// Whether [`PENDING_SETTINGS`] holds a change, so a logic step can check without taking the lock.
 static SETTINGS_PENDING: AtomicBool = AtomicBool::new(false);
 
-/// Asks for a new rollback depth and set of per-player delays (`(storm player, frames)`; players
-/// not listed get none) from the next logic step on. A depth of 0 stops rolling back; a nonzero
-/// depth below the largest delay is raised to it. Only takes effect in a game whose harness was
-/// armed at launch, since that is what makes analysis resolve the snapshot's ranges.
+/// Asks for a new forced rollback depth and set of per-player delays (`(storm player, frames)`;
+/// players not listed get none) from the next logic step on. A depth of 0 with no delays stops
+/// rolling back. Only takes effect in a game whose harness was armed at launch, since that is what
+/// makes analysis resolve the snapshot's ranges.
 pub fn request_settings(depth: u32, delays: &[(u8, u32)]) {
     let mut per_player = [0; bw::MAX_STORM_PLAYERS];
     for &(player, frames) in delays {
@@ -765,9 +816,10 @@ pub fn request_settings(depth: u32, delays: &[(u8, u32)]) {
     SETTINGS_PENDING.store(true, Ordering::Release);
 }
 
-/// Applies a pending change of depth and delays. The simulation goes back to the newest confirmed
-/// frame first: that state is right whatever the delays are, so the next tick can anchor there as
-/// if the game had just started, and the frame on screen moves once by the difference in depth.
+/// Applies a pending change of depth and delays. The frames past the newest confirmed one were
+/// simulated with the old delays, so the next tick re-simulates them with the new ones, leaving the
+/// frame on screen where it is. Turning the harness off instead goes back to the confirmed frame,
+/// whose state is right whatever the delays were, and plays on from there.
 unsafe fn apply_pending_settings(bw: &BwScr) {
     unsafe {
         let Some(settings) = PENDING_SETTINGS.lock().take() else {
@@ -783,44 +835,42 @@ unsafe fn apply_pending_settings(bw: &BwScr) {
             max_delay = max_delay.max(frames);
         }
         ANY_DELAY.store(max_delay != 0, Ordering::Release);
-        let depth = match settings.depth {
-            0 => 0,
-            depth => depth.max(max_delay),
-        };
-
-        let mut guard = SNAPSHOTS.lock();
-        if let Some(snapshot) = guard.as_mut()
-            && let Some(confirmed) = snapshot.confirmed()
-        {
-            bw.rollback_clear_selection_visuals();
-            snapshot.restore(confirmed, bw);
-            snapshot.clear_confirmed();
-            bw.rollback_rebuild_selection_visuals();
-        }
-        if depth == 0 {
+        FORCED_DEPTH.store(settings.depth, Ordering::Release);
+        LATE_COMMANDS.lock().clear();
+        // The frame on screen is re-simulated with different delays; that is not a correction.
+        *DISPLAYED_UNITS.lock() = None;
+        let confirmed = LAST_CONFIRMED.load(Ordering::Relaxed);
+        if settings.depth == 0 && max_delay == 0 {
+            let mut guard = SNAPSHOTS.lock();
+            if let Some(snapshots) = guard.as_mut() {
+                bw.rollback_clear_selection_visuals();
+                snapshots.restore_at_or_before(confirmed, bw);
+                bw.rollback_rebuild_selection_visuals();
+            }
             // Rebuilt from scratch should rolling back be turned on again later, anchored wherever
             // the game has got to by then.
             *guard = None;
+            drop(guard);
             sounds::forget_presented();
+            rollback::announcements::forget();
+            FINGERPRINTS.lock().clear();
+            ARMED.store(false, Ordering::Release);
+        } else {
+            *RESIMULATE_FROM.lock() = Some(confirmed);
+            ARMED.store(true, Ordering::Release);
         }
-        drop(guard);
-        // The frame on screen jumps with the depth; that is not a correction.
-        *DISPLAYED_UNITS.lock() = None;
-        ROLLBACK_FRAMES.store(depth, Ordering::Release);
         info!(
-            "Rollback settings applied: depth {depth}, delays {:?}",
-            settings.delays
+            "Rollback settings applied: depth {}, delays {:?}",
+            settings.depth, settings.delays
         );
     }
 }
 
-/// Reads the per-player command delays out of the environment and stores them, returning the
-/// largest one so the caller can keep the rollback depth at or above it.
-fn init_delays_from_env() -> u32 {
+/// Reads the per-player command delays out of the environment and stores them.
+fn init_delays_from_env() {
     let Ok(spec) = std::env::var(DELAY_ENV_VAR) else {
-        return 0;
+        return;
     };
-    let mut max_delay = 0;
     for entry in spec.split(',').filter(|x| !x.trim().is_empty()) {
         let parsed = entry.split_once(':').and_then(|(player, delay)| {
             let player = player.trim().parse::<usize>().ok()?;
@@ -838,11 +888,18 @@ fn init_delays_from_env() -> u32 {
         DELAYS[player].store(delay, Ordering::Release);
         if delay != 0 {
             ANY_DELAY.store(true, Ordering::Release);
-            max_delay = max_delay.max(delay);
             info!("Storm player {player}'s commands will be known {delay} frames late");
         }
     }
-    max_delay
+}
+
+/// The largest delay any player has.
+fn max_delay() -> u32 {
+    DELAYS
+        .iter()
+        .map(|x| x.load(Ordering::Relaxed))
+        .max()
+        .unwrap_or(0)
 }
 
 /// Whether the command the replay records for `command_frame` from `storm_player` has been
@@ -854,11 +911,9 @@ fn init_delays_from_env() -> u32 {
 /// delay of `K` frames is heard from `K` frames after the frame a command was issued for, so the
 /// command counts as known once `present >= command_frame + K`, which is the test below.
 ///
-/// The confirmed step reads `step_frame = present - R`, and `R` is at least every delayed player's
-/// `K`, so `command_frame <= present - R <= present - K` holds for every command it reads and the
-/// confirmed timeline applies all of them on the frame the replay recorded them for. A command a
-/// predicted step skips is read again on a later tick, since restoring a snapshot rewinds the
-/// replay cursor along with the simulation.
+/// A command that is not known yet is noted, so the first tick that knows it rolls back to the
+/// step that read it and simulates its frame again with it. Restoring a snapshot rewinds the
+/// replay cursor along with the simulation, so that step reads it again.
 pub fn replay_command_is_known(
     storm_player: StormPlayerId,
     command_frame: u32,
@@ -877,12 +932,54 @@ pub fn replay_command_is_known(
     let present = step_frame.saturating_add(STEPS_AFTER_CURRENT.load(Ordering::Relaxed));
     if command_frame.saturating_add(delay) > present {
         SUPPRESSED_COMMANDS.fetch_add(1, Ordering::Relaxed);
+        // The step produces `rollback::step_frame()` and is followed by `steps_after_current`
+        // more, so the tick's present frame count is their sum; `present` is the same frame in the
+        // replay's numbering.
+        let present_count =
+            rollback::step_frame().saturating_add(STEPS_AFTER_CURRENT.load(Ordering::Relaxed));
+        COMMAND_FRAME_OFFSET.store(present as i32 - present_count as i32, Ordering::Relaxed);
+        let read_from = rollback::step_frame().saturating_sub(1);
+        let mut late = LATE_COMMANDS.lock();
+        match late
+            .iter_mut()
+            .find(|x| x.storm_player == storm_player && x.command_frame == command_frame)
+        {
+            Some(x) => x.read_from = x.read_from.min(read_from),
+            None => late.push(LateCommand {
+                storm_player,
+                command_frame,
+                read_from,
+            }),
+        }
         return false;
     }
-    if rollback::in_confirmed_step() {
+    if rollback::in_final_step() {
         APPLIED_DELAYED_COMMANDS.fetch_add(1, Ordering::Relaxed);
     }
     true
+}
+
+/// Takes the noted late commands that are known by the time a tick reaches `present`, returning
+/// the earliest frame count a rollback has to restore to so that every one of them is applied.
+fn take_arrived_commands(present: u32) -> Option<u32> {
+    let offset = COMMAND_FRAME_OFFSET.load(Ordering::Relaxed);
+    if offset == i32::MIN {
+        return None;
+    }
+    let present = (present as i64 + offset as i64).max(0) as u32;
+    let mut earliest = None::<u32>;
+    LATE_COMMANDS.lock().retain(|x| {
+        let delay = DELAYS
+            .get(x.storm_player.0 as usize)
+            .map(|x| x.load(Ordering::Relaxed))
+            .unwrap_or(0);
+        let known = x.command_frame.saturating_add(delay) <= present;
+        if known {
+            earliest = Some(earliest.map_or(x.read_from, |e| e.min(x.read_from)));
+        }
+        !known
+    });
+    earliest
 }
 
 /// Drops the snapshot and its range list, so the next logic step rebuilds both, and clears the
@@ -892,6 +989,10 @@ pub fn reset_for_game_init() {
     if SNAPSHOTS.lock().take().is_some() {
         debug!("Rollback harness snapshot dropped for game init");
     }
+    LATE_COMMANDS.lock().clear();
+    FINGERPRINTS.lock().clear();
+    *RESIMULATE_FROM.lock() = None;
+    LAST_CONFIRMED.store(0, Ordering::Relaxed);
     *DISPLAYED_UNITS.lock() = None;
     SMOOTHING_OFFSETS.lock().units.clear();
     SPRITE_DRAW_OFFSETS.lock().clear();
@@ -913,8 +1014,7 @@ pub unsafe fn run_game_logic_step(
         if SETTINGS_PENDING.swap(false, Ordering::AcqRel) {
             apply_pending_settings(bw);
         }
-        let rollback_frames = ROLLBACK_FRAMES.load(Ordering::Acquire);
-        if rollback_frames == 0 {
+        if !ARMED.load(Ordering::Acquire) {
             let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
             dump_if_due(bw);
             return ret;
@@ -922,18 +1022,18 @@ pub unsafe fn run_game_logic_step(
         if !ELIGIBILITY_CHECKED.swap(true, Ordering::AcqRel) && !game_thread::is_replay() {
             // Rolling a live game back would re-send network turns that have already gone out, and
             // there would be nothing to compare the fingerprints against either.
-            ROLLBACK_FRAMES.store(0, Ordering::Release);
+            ARMED.store(false, Ordering::Release);
             info!("{ENV_VAR} only runs during replay playback; leaving the simulation alone");
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         }
         if !bw.rollback_observer_ui_hooked() {
             // Re-simulated frames would repeat the observer UI's notifications, and it
             // dereferences records a repeated notification has already consumed.
-            ROLLBACK_FRAMES.store(0, Ordering::Release);
+            ARMED.store(false, Ordering::Release);
             error!("{ENV_VAR} needs the observer UI hooks, which analysis could not resolve");
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         }
-        run_tick(bw, param, orig, rollback_frames as usize)
+        run_tick(bw, param, orig)
     }
 }
 
@@ -941,7 +1041,6 @@ unsafe fn run_tick(
     bw: &'static BwScr,
     param: usize,
     orig: unsafe extern "C" fn(usize) -> usize,
-    rollback_frames: usize,
 ) -> usize {
     unsafe {
         let tick_start = Instant::now();
@@ -950,128 +1049,95 @@ unsafe fn run_tick(
         if guard.is_none() {
             *guard = Snapshots::build(bw);
         }
-        let Some(snapshot) = guard.as_mut() else {
+        let (Some(snapshots), Some(current)) = (guard.as_mut(), bw.probe_frame_count()) else {
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         };
 
-        // `steps_after` is how many further steps the tick runs once this one is done, which is
-        // what turns the frame a step reads commands for into the tick's newest frame.
-        let audit_ranges = audit_armed().then(|| snapshot.ranges().to_vec());
-        let step = |steps_after: usize, confirmed: bool| {
-            if let Some(ranges) = &audit_ranges {
-                audit_before_step(bw, ranges, confirmed);
-            }
-            STEPS_AFTER_CURRENT.store(steps_after as u32, Ordering::Relaxed);
-            rollback::set_step_confirmed(confirmed);
-            let start = Instant::now();
-            let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
-            let elapsed = start.elapsed();
-            if let Some(ranges) = &audit_ranges {
-                audit_after_step(bw, ranges, confirmed);
-            }
-            if confirmed {
-                dump_if_due(bw);
-            }
-            compare_displayed_units(bw);
-            (ret, elapsed)
+        // Each tick adds one frame. It is confirmed once every delayed player has been heard from
+        // for it, and at least the forced depth is re-simulated regardless.
+        let depth = FORCED_DEPTH.load(Ordering::Relaxed);
+        let present = current + 1;
+        let confirmed = present.saturating_sub(depth.max(max_delay()));
+        let forced = (depth > 0).then(|| present.saturating_sub(depth + 1));
+        let rollback_to = [
+            forced,
+            take_arrived_commands(present),
+            RESIMULATE_FROM.lock().take(),
+        ]
+        .into_iter()
+        .flatten()
+        .min();
+        let plan = TickPlan {
+            rollback_to,
+            present,
+            confirmed,
+            spacing: SNAPSHOT_SPACING.load(Ordering::Relaxed),
         };
 
-        let mut times = TickTimes::default();
-        let mut ret = 0;
-        // Every step pushes the tick the game loop paces itself against one frame further into the
-        // future, so after a tick that simulates several frames it goes back to the value the
-        // first step left it at, keeping real-time pacing at exactly one frame per tick.
-        let mut paced_tick = None;
-        // The fingerprint of the state the tick's snapshot holds: the newest frame that every
-        // command the replay records for it has been applied on.
-        let confirmed_fingerprint;
-
+        let audit_ranges = audit_armed().then(|| snapshots.ranges().to_vec());
         SUPPRESSED_COMMANDS.store(0, Ordering::Relaxed);
         APPLIED_DELAYED_COMMANDS.store(0, Ordering::Relaxed);
         *TICK_CORRECTIONS.lock() = Corrections::default();
-        rollback::begin_tick();
-        match snapshot.confirmed() {
-            // Steady state: the snapshot is `rollback_frames` frames behind the simulation, so
-            // going back to it and simulating one frame re-derives the frame the snapshot moves on
-            // to, and the remaining steps catch back up and add the one new frame.
-            Some(confirmed) => {
-                let start = Instant::now();
-                // Selection circles come from a small pool of their own, outside the snapshot, so
-                // the ones on the frame being shown go back to it before the restore drops the
-                // sprites they are attached to; otherwise every tick would leak them until none
-                // are left to show.
-                bw.rollback_clear_selection_visuals();
-                snapshot.restore(confirmed, bw);
-                times.restore = start.elapsed();
-
-                let (step_ret, elapsed) = step(rollback_frames, true);
-                ret = step_ret;
-                times.steps += elapsed;
-                paced_tick = Some(bw.probe_next_game_step_tick());
-                confirmed_fingerprint = bw.probe_fingerprint();
-
-                let start = Instant::now();
-                bw.rollback_clear_selection_visuals();
-                snapshot.take(1 - confirmed);
-                times.snapshot = start.elapsed();
-                record_snapshot_units(bw);
-
-                for frame in 0..rollback_frames {
-                    let (step_ret, elapsed) = step(rollback_frames - 1 - frame, false);
-                    ret = step_ret;
-                    times.steps += elapsed;
-                }
+        let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
+            if step.resumes_from_restore {
+                record_anchored_units(bw);
             }
-            // First tick of the game: anchor the snapshot here and run the simulation
-            // `rollback_frames` frames past it, which is the distance every later tick keeps.
-            None => {
-                let start = Instant::now();
-                bw.rollback_clear_selection_visuals();
-                snapshot.take(0);
-                times.snapshot = start.elapsed();
-                record_snapshot_units(bw);
-                // No step of this tick re-derives a frame, so the state the snapshot just captured
-                // is the confirmed one and its fingerprint is already final.
-                confirmed_fingerprint = bw.probe_fingerprint();
-
-                for frame in 0..rollback_frames {
-                    let (step_ret, elapsed) = step(rollback_frames - 1 - frame, false);
-                    ret = step_ret;
-                    times.steps += elapsed;
-                    if frame == 0 {
-                        paced_tick = Some(bw.probe_next_game_step_tick());
-                    }
-                }
+            if let Some(ranges) = &audit_ranges {
+                audit_before_step(bw, ranges, step.is_final);
             }
-        }
+            STEPS_AFTER_CURRENT.store(step.steps_after, Ordering::Relaxed);
+            let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
+            if let Some(ranges) = &audit_ranges {
+                audit_after_step(bw, ranges, step.is_final);
+            }
+            if step.is_final {
+                dump_if_due(bw);
+            }
+            if let Some(fingerprint) = bw.probe_fingerprint() {
+                FINGERPRINTS.lock().insert(fingerprint.frame, fingerprint);
+            }
+            compare_displayed_units(bw);
+            ret
+        });
+        drop(guard);
+        LAST_CONFIRMED.store(confirmed, Ordering::Relaxed);
 
-        rollback::end_tick();
-        // Selection circles and health bars hang off the simulation's sprites but belong to what
-        // the person watching has selected. They come off before every restore and every
-        // snapshot, and go back on here for the frame about to be shown.
-        bw.rollback_rebuild_selection_visuals();
         if let Some(frame) = bw.probe_frame_count() {
             *DISPLAYED_UNITS.lock() = Some(DisplayedFrame {
                 frame,
                 units: capture_units(bw),
-                anchored: std::mem::take(&mut SNAPSHOT_UNITS.lock()),
             });
             update_draw_offsets();
         }
-        if let Some(paced_tick) = paced_tick {
-            bw.probe_set_next_game_step_tick(paced_tick);
-        }
-        drop(guard);
 
+        let confirmed_fingerprint = {
+            let mut fingerprints = FINGERPRINTS.lock();
+            let kept = fingerprints.split_off(&confirmed.saturating_sub(FINGERPRINT_HISTORY));
+            *fingerprints = kept;
+            fingerprints.get(&confirmed).cloned()
+        };
         if let (Some(present), Some(confirmed)) = (bw.probe_fingerprint(), confirmed_fingerprint) {
-            let sound_counts = sounds::reconcile_sounds(bw, confirmed.frame, present.frame);
-            times.total = tick_start.elapsed();
-            times.cycles = thread_cycles().wrapping_sub(tick_start_cycles);
+            let sound_counts =
+                sounds::reconcile_sounds(bw, report.window_start, confirmed.frame, present.frame);
+            let times = TickTimes {
+                restore: report.restore_time,
+                steps: report.step_time,
+                snapshot: report.snapshot_time,
+                total: tick_start.elapsed(),
+                cycles: thread_cycles().wrapping_sub(tick_start_cycles),
+            };
+            let counts = TickCounts {
+                resimulated: report
+                    .restored
+                    .map_or(0, |x| present.frame.saturating_sub(x + 1)),
+                suppressed_commands: SUPPRESSED_COMMANDS.load(Ordering::Relaxed),
+                applied_delayed_commands: APPLIED_DELAYED_COMMANDS.load(Ordering::Relaxed),
+                retracted_announcements: report.retracted_announcements,
+            };
             write_row(
                 &present,
                 &confirmed,
-                SUPPRESSED_COMMANDS.load(Ordering::Relaxed),
-                APPLIED_DELAYED_COMMANDS.load(Ordering::Relaxed),
+                &counts,
                 &sound_counts,
                 &TICK_CORRECTIONS.lock(),
                 &times,
@@ -1083,11 +1149,21 @@ unsafe fn run_tick(
     }
 }
 
+/// What one tick re-simulated and did with delayed players' commands.
+struct TickCounts {
+    /// Frames before the present the tick simulated again.
+    resimulated: u32,
+    suppressed_commands: u32,
+    applied_delayed_commands: u32,
+    /// Text lines and observer UI notifications an earlier tick made for a frame this one
+    /// re-simulated without making them.
+    retracted_announcements: u32,
+}
+
 fn write_row(
     present: &Fingerprint,
     confirmed: &Fingerprint,
-    suppressed_commands: u32,
-    applied_delayed_commands: u32,
+    counts: &TickCounts,
     sounds: &SoundCounts,
     corrections: &Corrections,
     times: &TickTimes,
@@ -1101,7 +1177,7 @@ fn write_row(
             }
             Err(e) => {
                 error!("Rollback harness could not open its log file: {e}");
-                ROLLBACK_FRAMES.store(0, Ordering::Release);
+                ARMED.store(false, Ordering::Release);
                 return;
             }
         }
@@ -1119,11 +1195,14 @@ fn write_row(
         .join(";");
     let result = writeln!(
         &mut log_file.file,
-        "{},{},{},{suppressed_commands},{applied_delayed_commands},{},{},{},{},{},{},{},{},{},{moves},\
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{moves},\
          {},{},{},{},{}",
         fingerprint_columns(present),
         fingerprint_columns(confirmed),
-        ROLLBACK_FRAMES.load(Ordering::Relaxed),
+        counts.resimulated,
+        counts.suppressed_commands,
+        counts.applied_delayed_commands,
+        counts.retracted_announcements,
         sounds.on_time,
         sounds.late,
         sounds.late_frames,
@@ -1142,7 +1221,7 @@ fn write_row(
     if let Err(e) = result {
         // Give up on the file rather than logging once per frame for the rest of the game.
         error!("Rollback harness write failed, closing the log: {e}");
-        ROLLBACK_FRAMES.store(0, Ordering::Release);
+        ARMED.store(false, Ordering::Release);
     }
 }
 
@@ -1199,7 +1278,7 @@ impl HarnessFile {
              confirmed_frame,c_rng0,c_rng1,c_rng2,c_rng3,c_rng4,c_rng5,\
              c_minerals0,c_minerals1,c_minerals2,c_minerals3,c_gas0,c_gas1,c_gas2,c_gas3,\
              c_trigger_timer,c_elapsed_seconds,c_player_types,c_state_hash,rollback_frames,\
-             suppressed_commands,applied_delayed_commands,\
+             suppressed_commands,applied_delayed_commands,retracted_announcements,\
              sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
              units_moved,max_move,units_morphed,units_popped_in,units_popped_out,move_distances,\
              restore_micros,steps_micros,snapshot_micros,tick_micros,tick_kcycles"

@@ -1,6 +1,6 @@
-//! Sound requests made while a tick's steps are running, held back so a predicted step's sounds
-//! are not played until the frame they belong to is confirmed, and reconciled once it is: which
-//! are new, which came late, and which were only ever part of a prediction that did not happen.
+//! Sound requests made while a tick's steps are running, held back until the tick is done and
+//! then reconciled against what earlier ticks played for the same frames: which are new, which came
+//! late, and which were only ever part of a prediction that did not happen.
 
 use parking_lot::Mutex;
 
@@ -31,14 +31,14 @@ impl SoundRequest {
 
 /// Sound requests on either side of one tick.
 ///
-/// A tick re-simulates every frame an earlier tick already played sounds for, so reconciling the
-/// two lists once its steps have run tells which requests are new (the new frame's, and any that
-/// the late commands caused on a re-simulated frame) and which sounds were played for a prediction
-/// that did not happen.
+/// Reconciling what a tick's steps asked for against what earlier ticks played for the frames it
+/// re-simulated tells which requests are new (the new frame's, and any that the late commands
+/// caused on a re-simulated frame) and which sounds were played for a prediction that did not
+/// happen.
 struct SoundLedger {
     /// Requests the steps of the tick in progress have made, in the order they made them.
     requested: Vec<SoundRequest>,
-    /// Requests already played for the frames the next tick re-simulates.
+    /// Requests already played for frames that a later tick can still re-simulate.
     presented: Vec<SoundRequest>,
 }
 
@@ -78,7 +78,6 @@ pub(crate) fn intercept_play_sound(
         return None;
     }
     unsafe {
-        let bw = bw::get_bw();
         let position = if !x.is_null() {
             Some((*x, if y.is_null() { 0 } else { *y }))
         } else {
@@ -88,7 +87,7 @@ pub(crate) fn intercept_play_sound(
             })
         };
         SOUND_LEDGER.lock().requested.push(SoundRequest {
-            frame: bw.probe_frame_count().unwrap_or(0),
+            frame: super::step_frame(),
             sound_id,
             position,
             volume,
@@ -101,17 +100,23 @@ pub(crate) fn intercept_play_sound(
 /// Plays the sounds the tick's steps asked for that no earlier tick played, and counts the ones an
 /// earlier tick played that the re-simulation no longer asks for.
 ///
-/// `final_frame` is the frame the tick's snapshot holds, which no later tick simulates again, and
-/// `present_frame` the newest frame the tick reached, the one about to be shown.
+/// `window_start` is the first frame the tick's steps produced, `confirmed_frame` the newest frame
+/// no later tick simulates again, and `present_frame` the newest frame the tick reached, the one
+/// about to be shown.
 pub(crate) unsafe fn reconcile_sounds(
     bw: &BwScr,
-    final_frame: u32,
+    window_start: u32,
+    confirmed_frame: u32,
     present_frame: u32,
 ) -> SoundCounts {
     unsafe {
         let mut ledger = SOUND_LEDGER.lock();
         let requested = std::mem::take(&mut ledger.requested);
-        let mut presented = std::mem::take(&mut ledger.presented);
+        // Sounds of frames before the tick's first step were not simulated again, so they stand.
+        let (mut presented, kept): (Vec<SoundRequest>, Vec<SoundRequest>) =
+            std::mem::take(&mut ledger.presented)
+                .into_iter()
+                .partition(|x| x.frame >= window_start);
         let mut new_requests = Vec::new();
         for request in &requested {
             match presented.iter().position(|x| x.is_same_sound(request)) {
@@ -121,15 +126,16 @@ pub(crate) unsafe fn reconcile_sounds(
                 None => new_requests.push(*request),
             }
         }
-        // Every frame the earlier ticks played sounds for was re-simulated by this one, so what is
-        // left over was only ever part of a prediction.
+        // Every frame these were played for was simulated again by this tick, so what is left over
+        // was only ever part of a prediction.
         let mut counts = SoundCounts {
             stale: presented.len() as u32,
             ..SoundCounts::default()
         };
-        ledger.presented = requested
+        ledger.presented = kept
             .into_iter()
-            .filter(|x| x.frame > final_frame)
+            .chain(requested)
+            .filter(|x| x.frame > confirmed_frame)
             .collect();
         drop(ledger);
 

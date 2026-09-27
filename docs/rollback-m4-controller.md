@@ -167,9 +167,13 @@ a larger local buffer; either way they are not required to report hashes, as tod
   are small enough to leave alone.
 - **Sounds:** record requests above BW's camera and fog gating (two wrappers above `play_sound`)
   so re-simulation doesn't gain or lose sounds as the camera moves; decide audibility when playing.
-- **Announcements:** chat, game messages and the observer UI already follow the confirmed timeline
-  in the harness, R frames behind the screen. Chat could be shown on arrival instead, since its
-  content isn't predicted.
+- **Announcements:** text lines, game messages and observer UI notifications go out when their
+  frame is first simulated, like sounds. A re-simulation matches what it announces against what
+  earlier simulations of the same frames announced (by kind and arguments, not exact frame, so an
+  event a late command moved by a frame isn't repeated) and only lets new ones through. An
+  announcement from a prediction that didn't happen can't be taken back; the engine counts those.
+  Holding announcements until a frame is confirmed doesn't work with a snapshot ring: a frame whose
+  prediction held is never simulated again, so it would never announce anything.
 
 ## Open questions
 

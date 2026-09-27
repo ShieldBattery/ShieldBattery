@@ -2,9 +2,9 @@
 //!
 //! A snapshot is a memcpy of every range [`super::ranges`] resolves, plus the per-player trigger
 //! lists, which are heap nodes copied and relinked rather than flat ranges (see
-//! [`TriggerLists`]). [`Snapshots`] holds two buffers so that taking a fresh snapshot never
-//! overwrites the one a restore is still reading, and tracks which of the two is confirmed: the
-//! snapshot of a frame no later tick will simulate again.
+//! [`TriggerLists`]). [`Snapshots`] keeps several, each labelled with the frame count the
+//! simulation had reached when it was taken, so a rollback can restore the newest one at or before
+//! the frame it needs and re-simulate from there.
 
 use std::mem::size_of;
 
@@ -41,8 +41,8 @@ const TRIGGER_NODE_SIZE: usize = 2 * size_of::<usize>() + TRIGGER_SIZE;
 pub(crate) struct TriggerLists {
     /// The first of the [`TRIGGER_LIST_PLAYERS`] list headers, each `next, previous, count`.
     heads: usize,
-    /// For each snapshot buffer, every player's list.
-    saved: [Vec<SavedTriggerList>; 2],
+    /// For each snapshot slot, every player's list.
+    saved: Vec<Vec<SavedTriggerList>>,
 }
 
 #[derive(Default)]
@@ -57,14 +57,9 @@ struct SavedTriggerList {
 
 impl TriggerLists {
     fn new(heads: usize) -> TriggerLists {
-        let empty = || {
-            (0..TRIGGER_LIST_PLAYERS)
-                .map(|_| SavedTriggerList::default())
-                .collect()
-        };
         TriggerLists {
             heads,
-            saved: [empty(), empty()],
+            saved: Vec::new(),
         }
     }
 
@@ -87,12 +82,19 @@ impl TriggerLists {
         }
     }
 
-    unsafe fn take(&mut self, buffer: usize) {
+    unsafe fn take(&mut self, slot: usize) {
         unsafe {
+            while self.saved.len() <= slot {
+                self.saved.push(
+                    (0..TRIGGER_LIST_PLAYERS)
+                        .map(|_| SavedTriggerList::default())
+                        .collect(),
+                );
+            }
             for player in 0..TRIGGER_LIST_PLAYERS {
                 let nodes = self.walk(player);
                 let head = self.head(player);
-                let saved = &mut self.saved[buffer][player];
+                let saved = &mut self.saved[slot][player];
                 saved.header = [head.read(), head.add(1).read(), head.add(2).read()];
                 saved.bytes.clear();
                 for &node in &nodes {
@@ -106,12 +108,12 @@ impl TriggerLists {
         }
     }
 
-    unsafe fn restore(&mut self, buffer: usize, bw: &BwScr) {
+    unsafe fn restore(&mut self, slot: usize, bw: &BwScr) {
         unsafe {
             for player in 0..TRIGGER_LIST_PLAYERS {
                 let current = self.walk(player);
                 let head = self.head(player);
-                let saved = &mut self.saved[buffer][player];
+                let saved = &mut self.saved[slot][player];
                 if current == saved.nodes {
                     for (i, &node) in saved.nodes.iter().enumerate() {
                         std::ptr::copy_nonoverlapping(
@@ -159,17 +161,24 @@ impl TriggerLists {
     }
 }
 
-/// One snapshot of the simulation, and the ranges it was built from.
+/// The snapshots of the simulation a rollback can go back to, and the ranges they were built from.
+///
+/// Slots are allocated as they are first needed and reused once their snapshot is dropped, so the
+/// memory held follows how far back rollbacks actually reach rather than a fixed bound.
 pub(crate) struct Snapshots {
     ranges: Vec<Range>,
-    /// Two buffers of the layout's total size, so a fresh snapshot is never written into the one a
-    /// restore is reading from.
-    buffers: [Vec<u8>; 2],
+    /// Bytes one snapshot of the ranges takes.
+    total_bytes: usize,
+    slots: Vec<Slot>,
     /// The trigger lists, when analysis found their headers.
     trigger_lists: Option<TriggerLists>,
-    /// Index into `buffers` of the snapshot the next tick rolls back to, or `None` until the first
-    /// snapshot of the game has been taken.
-    confirmed: Option<usize>,
+}
+
+struct Slot {
+    /// The frame count of the simulation when this slot's snapshot was taken, or `None` for a slot
+    /// holding nothing that can be restored.
+    frame: Option<u32>,
+    bytes: Vec<u8>,
 }
 
 /// The current game's snapshot ranges and buffers, built at the first tick that needs them and
@@ -320,56 +329,118 @@ impl Snapshots {
             }
             Some(Snapshots {
                 ranges,
-                buffers: [vec![0u8; total_bytes], vec![0u8; total_bytes]],
+                total_bytes,
+                slots: Vec::new(),
                 trigger_lists,
-                confirmed: None,
             })
         }
     }
 
-    /// Copies every range into `buffer`, which becomes the snapshot the next restore reads from.
-    pub(crate) unsafe fn take(&mut self, buffer: usize) {
+    /// Snapshots the simulation as it is now, labelled with `frame`, its current frame count. Takes
+    /// the place of an earlier snapshot of the same frame.
+    pub(crate) unsafe fn take(&mut self, frame: u32) {
         unsafe {
-            let mut out = self.buffers[buffer].as_mut_ptr();
+            let slot = match self
+                .slots
+                .iter()
+                .position(|x| x.frame == Some(frame))
+                .or_else(|| self.slots.iter().position(|x| x.frame.is_none()))
+            {
+                Some(slot) => slot,
+                None => {
+                    self.slots.push(Slot {
+                        frame: None,
+                        bytes: vec![0u8; self.total_bytes],
+                    });
+                    self.slots.len() - 1
+                }
+            };
+            let mut out = self.slots[slot].bytes.as_mut_ptr();
             for range in &self.ranges {
                 std::ptr::copy_nonoverlapping(range.start() as *const u8, out, range.len());
                 out = out.add(range.len());
             }
             if let Some(trigger_lists) = &mut self.trigger_lists {
-                trigger_lists.take(buffer);
+                trigger_lists.take(slot);
             }
-            self.confirmed = Some(buffer);
+            self.slots[slot].frame = Some(frame);
         }
     }
 
-    pub(crate) unsafe fn restore(&mut self, buffer: usize, bw: &BwScr) {
+    /// Restores the newest snapshot taken at or before frame count `frame`, or the oldest one held
+    /// when every snapshot is newer, and drops every snapshot newer than the one restored: they
+    /// belong to a simulation that is about to be replaced. Returns the frame count restored, or
+    /// `None` when no snapshot is held.
+    pub(crate) unsafe fn restore_at_or_before(&mut self, frame: u32, bw: &BwScr) -> Option<u32> {
         unsafe {
-            let mut input = self.buffers[buffer].as_ptr();
+            let slot = self
+                .slot_at_or_before(frame)
+                .or_else(|| self.oldest_slot())?;
+            let restored = self.slots[slot].frame?;
+            let mut input = self.slots[slot].bytes.as_ptr();
             for range in &self.ranges {
                 std::ptr::copy_nonoverlapping(input, range.start() as *mut u8, range.len());
                 input = input.add(range.len());
             }
             if let Some(trigger_lists) = &mut self.trigger_lists {
-                trigger_lists.restore(buffer, bw);
+                trigger_lists.restore(slot, bw);
+            }
+            for x in &mut self.slots {
+                if x.frame.is_some_and(|x| x > restored) {
+                    x.frame = None;
+                }
+            }
+            Some(restored)
+        }
+    }
+
+    /// Drops the snapshots that a rollback to frame count `frame` or later can never need: every
+    /// one older than the newest taken at or before `frame`, which is kept.
+    pub(crate) fn drop_older_than_needed_for(&mut self, frame: u32) {
+        let Some(keep) = self
+            .slot_at_or_before(frame)
+            .and_then(|x| self.slots[x].frame)
+        else {
+            return;
+        };
+        for x in &mut self.slots {
+            if x.frame.is_some_and(|x| x < keep) {
+                x.frame = None;
             }
         }
     }
 
-    /// The ranges this snapshot copies, for code that inspects live memory alongside it (an
-    /// audit, a dump).
+    /// Whether a snapshot of frame count `frame` is held.
+    pub(crate) fn has(&self, frame: u32) -> bool {
+        self.slots.iter().any(|x| x.frame == Some(frame))
+    }
+
+    /// Whether no snapshot is held.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.slots.iter().all(|x| x.frame.is_none())
+    }
+
+    fn slot_at_or_before(&self, frame: u32) -> Option<usize> {
+        self.slots
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.frame.is_some_and(|x| x <= frame))
+            .max_by_key(|(_, x)| x.frame)
+            .map(|(index, _)| index)
+    }
+
+    fn oldest_slot(&self) -> Option<usize> {
+        self.slots
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.frame.is_some())
+            .min_by_key(|(_, x)| x.frame)
+            .map(|(index, _)| index)
+    }
+
+    /// The ranges a snapshot copies, for code that inspects live memory alongside it (an audit, a
+    /// dump).
     pub(crate) fn ranges(&self) -> &[Range] {
         &self.ranges
-    }
-
-    /// Index into the snapshot's buffers of the confirmed snapshot, or `None` until the first one
-    /// of the game has been taken.
-    pub(crate) fn confirmed(&self) -> Option<usize> {
-        self.confirmed
-    }
-
-    /// Forgets which buffer is confirmed, so the next tick anchors a fresh one as if the game had
-    /// just started.
-    pub(crate) fn clear_confirmed(&mut self) {
-        self.confirmed = None;
     }
 }
