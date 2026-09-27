@@ -125,18 +125,61 @@ impl Schedule {
         }
     }
 
-    /// The frame count a tick that starts at `tick_start` should end on, running `lead` frames
-    /// ahead of the schedule.
-    fn target(&self, tick_start: Instant, lead: u32) -> u32 {
+    /// The position a tick that starts at `tick_start` should end on, running `lead` frames ahead
+    /// of the schedule (behind it when negative).
+    fn target(&self, tick_start: Instant, lead: i32) -> u32 {
         let elapsed = tick_start.saturating_duration_since(self.start);
-        let frames = elapsed.as_micros() / FRAME_DURATION.as_micros();
-        self.frame
-            .saturating_add(frames.min(u32::MAX as u128) as u32)
-            .saturating_add(1 + lead)
+        let frames = (elapsed.as_micros() / FRAME_DURATION.as_micros()).min(u32::MAX as u128);
+        let target = self.frame as i64 + frames as i64 + 1 + lead as i64;
+        target.clamp(0, u32::MAX as i64) as u32
     }
 }
 
 static SCHEDULE: Mutex<Option<Schedule>> = Mutex::new(None);
+
+/// How many ticks the rollback a client runs has to stay clear of its target, all one way, before
+/// the client moves its lead: two seconds. A burst of lateness shorter than that is rolled back
+/// over, up to the prediction limit, and the lead only follows lateness that holds.
+const LEAD_WINDOW_TICKS: usize = 48;
+
+/// The lowest and highest rollback the ticks since the lead last moved ran with.
+struct LeadWindow {
+    ticks: usize,
+    lowest: u32,
+    highest: u32,
+}
+
+static LEAD_WINDOW: Mutex<LeadWindow> = Mutex::new(LeadWindow {
+    ticks: 0,
+    lowest: u32::MAX,
+    highest: 0,
+});
+
+/// Notes the rollback this tick runs with, `ahead` frames past the newest known turns, and returns
+/// how far to move the lead once a whole window has stayed above `target` (down by the smallest
+/// excess) or below it (up by the smallest shortfall).
+fn lead_adjustment(ahead: u32, target: u32) -> i32 {
+    let mut window = LEAD_WINDOW.lock();
+    window.ticks += 1;
+    window.lowest = window.lowest.min(ahead);
+    window.highest = window.highest.max(ahead);
+    if window.ticks < LEAD_WINDOW_TICKS {
+        return 0;
+    }
+    let adjustment = if window.lowest > target {
+        -((window.lowest - target) as i32)
+    } else if window.highest < target {
+        (target - window.highest) as i32
+    } else {
+        0
+    };
+    *window = LeadWindow {
+        ticks: 0,
+        lowest: u32::MAX,
+        highest: 0,
+    };
+    adjustment
+}
 
 /// What the ticks since the last summary did.
 #[derive(Default)]
@@ -157,7 +200,7 @@ struct Summary {
     /// schedule.
     held_back: u32,
     /// The lead in force at the end of the stretch.
-    lead: u32,
+    lead: i32,
     /// The pipe depth in force at the end of the stretch.
     pipe_depth: u32,
     inputs: InputCounts,
@@ -281,6 +324,11 @@ pub fn input_table() -> Option<InputTable> {
 pub fn reset_for_game_init() {
     *SUMMARY.lock() = None;
     *SCHEDULE.lock() = None;
+    *LEAD_WINDOW.lock() = LeadWindow {
+        ticks: 0,
+        lowest: u32::MAX,
+        highest: 0,
+    };
 }
 
 /// Runs one tick of a live game that rolls back, or returns `None` to leave the tick to the replay
@@ -302,10 +350,14 @@ pub unsafe fn run_game_logic_step(
             error!("Live rollback needs the observer UI hooks, which analysis could not resolve");
             return None;
         }
-        let (shadow_depth, monkey_interval) = {
+        let (shadow_depth, monkey_interval, rollback_target) = {
             let settings = SETTINGS.lock();
             let settings = settings.as_ref()?;
-            (settings.shadow_depth, settings.monkey_interval)
+            (
+                settings.shadow_depth,
+                settings.monkey_interval,
+                settings.rollback_target,
+            )
         };
         let tick_start = Instant::now();
         let spacing = SPACING.load(Ordering::Relaxed);
@@ -332,6 +384,15 @@ pub unsafe fn run_game_logic_step(
             })?;
         // A turn state without an input table is one that started before rollback was armed.
         let known_until = known_until?;
+        // The lead follows the rollback this client runs: how far the step about to run is past
+        // the newest step whose turns are all known.
+        if current >= LOCKSTEP_START_STEPS {
+            let ahead = (current + 1).saturating_sub(known_until);
+            let adjustment = lead_adjustment(ahead, rollback_target);
+            if adjustment != 0 {
+                netcode_v2::with_turn_state(|s| s.adjust_lead(adjustment));
+            }
+        }
 
         let mut guard = SNAPSHOTS.lock();
         if guard.is_none() {

@@ -413,6 +413,11 @@ impl DisconnectStatus {
     }
 }
 
+/// The furthest a client that predicts inputs runs behind the lockstep schedule: one second, as
+/// input delay on top of the relay's buffer. A peer that stops sending turns altogether would
+/// otherwise keep pushing the lead down.
+const MAX_LAG_FRAMES: i32 = 24;
+
 /// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
 /// turn index. `game_frame_count` reads one past the number of turns already dispatched when the IN
 /// hook runs, so the step that dispatches every slot's first in-game turn reads 1. It counts turns
@@ -639,6 +644,10 @@ pub struct TurnState {
     /// game that rolls back: injected between steps, an echo would belong to no step, and a
     /// rollback past it would take it out of the replay without putting it back.
     local_chat_echoes: Vec<String>,
+    /// How many frames ahead of the lockstep schedule this client means to run, before the
+    /// relay's buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
+    /// moved by the rollback driver as it measures how late other players' turns reach it.
+    lead: i32,
 }
 
 impl TurnState {
@@ -699,6 +708,7 @@ impl TurnState {
             net_stats_visible: false,
             inputs: None,
             local_chat_echoes: Vec::new(),
+            lead: 0,
         }
     }
 
@@ -1197,6 +1207,7 @@ impl TurnState {
     /// that have not arrived, instead of waiting for them. Must be called before any in-game turn
     /// is sent or received, since a turn's step is its position in its slot's sequence.
     pub fn predict_inputs(&mut self, inputs: InputTable) {
+        self.lead = inputs.rollback_target() as i32;
         self.inputs = Some(inputs);
     }
 
@@ -1887,25 +1898,38 @@ impl TurnState {
     }
 
     /// How many frames ahead of the lockstep schedule this client runs, in a game that predicts
-    /// inputs. It hands that many frames of the relay's latency buffer from input delay to
-    /// rollback, up to its rollback target: its turns leave as many frames earlier as its pipe is
-    /// shorter, so they reach every other player exactly when lockstep's would, while other
-    /// players' turns reach it that many frames later than lockstep's would. The client pays for
-    /// the change alone. At least one turn always stays in the pipe. None while the game's start
-    /// runs in lockstep, which needs the whole buffer.
-    pub fn lead(&self) -> u32 {
+    /// inputs; negative when it runs behind. The client simulates frame `n` `lead` frames before
+    /// lockstep would, and keeps `lead` fewer of its own turns in flight than the relay's latency
+    /// buffer (more when behind), so each of its turns still leaves exactly when lockstep's would
+    /// and reaches every other player at the same time whatever its lead. What the lead trades is
+    /// the client's own: a frame of lead is a frame less input delay and a frame more of other
+    /// players' turns arriving after it has simulated past them. At least one turn always stays in
+    /// the pipe. 0 while the game's start runs in lockstep, which needs the whole buffer.
+    pub fn lead(&self) -> i32 {
         match &self.inputs {
-            Some(inputs) if !inputs.in_lockstep_start() => inputs
-                .rollback_target()
-                .min(self.buffer_turns().saturating_sub(1)),
+            Some(inputs) if !inputs.in_lockstep_start() => self.lead.clamp(
+                -MAX_LAG_FRAMES,
+                self.buffer_turns().saturating_sub(1) as i32,
+            ),
             _ => 0,
         }
+    }
+
+    /// Moves the lead this client means to run with by `frames`, within what the relay's buffer
+    /// and [`MAX_LAG_FRAMES`] allow.
+    pub fn adjust_lead(&mut self, frames: i32) {
+        let max = self.buffer_turns().saturating_sub(1) as i32;
+        self.lead = self
+            .lead
+            .clamp(-MAX_LAG_FRAMES, max)
+            .saturating_add(frames)
+            .clamp(-MAX_LAG_FRAMES, max);
     }
 
     /// How many of this client's own turns the pipe keeps in flight, which is its input delay:
     /// the relay's latency buffer less the [`lead`](Self::lead).
     pub fn pipe_depth(&self) -> u32 {
-        self.buffer_turns() - self.lead()
+        (self.buffer_turns() as i32 - self.lead()).max(1) as u32
     }
 
     /// The latency buffer in force: the relay's, or the input table's floor on it when that is

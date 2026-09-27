@@ -147,11 +147,14 @@ Built and tested live in four commits (two clients on the staging relay, driven 
    it, and the driver opens the dialog once the frame is confirmed. The dialog is what reports the
    result and, on a victory, ends the session; the report reads victory states, alliances and drop
    flags recorded for the newest confirmed frame, since the simulation has run on past it.
-4. **Lead and catch-up.** The relay's latency buffer stands in for the client's RTT until the relay
-   reports lead error: the client runs `lead = min(R_target, buffer − 1)` frames ahead of the
-   lockstep schedule and keeps `buffer − lead` of its own turns in flight. Its turns then leave
-   exactly when lockstep's would, so no other player sees a difference, while other players' turns
-   reach it `lead` frames later than lockstep's would. The first 24 steps run in lockstep with the
+4. **Lead and catch-up.** The client runs `lead` frames ahead of the lockstep schedule (behind it
+   when negative) and keeps `buffer − lead` of its own turns in flight. Its turns then leave
+   exactly when lockstep's would whatever the lead, so no other player sees a difference: the lead
+   only trades the client's own input delay against the rollback it runs. It starts at
+   `min(R_target, buffer − 1)` and follows the rollback the client measures (how far each step is
+   past the newest fully known step): once that has stayed above the target for a whole 2 s window
+   the lead drops by the excess, and once it has stayed below it the lead rises by the shortfall,
+   down to 24 frames behind at most. The first 24 steps run in lockstep with the
    whole buffer, which lines the clients' game loops up (seed turns arrive before a peer's loop is
    running, so a lockstep first step alone doesn't); each client then anchors its own schedule,
    steps up to two extra frames a tick when it is behind it, and puts its next step off by a frame
@@ -177,9 +180,12 @@ cost stayed around 0.5 ms.
 **Open:**
 - Unfinalized drops carry no turn count, so the leave goes to the first step this client has no
   turn for, which clients can disagree on. Rollback sessions should require finalized drops.
-- The lead uses the relay's buffer as a stand-in for the client's own RTT; the deadline model's
-  per-player split needs the relay's lead report (rp2 step). Nothing yet adapts the lead to steady
-  versus burst lateness.
+- Each client anchors its schedule on its own clock when the lockstep start ends, so the anchors
+  differ by however late each client's start was, and part of one player's slow link can end up
+  as another player's input delay. With 4- and 10-frame holds the game ran at full speed with ~3-4
+  frames of rollback on both sides, but the 4-frame side settled at a pipe of 7, about 2 frames
+  more than its own link explains. The deadline model's session clock (the relay's lead report,
+  rp2 step) is what makes the split per player.
 - A stall at the limit happens inside BW's wait for turns, so clicks made during it aren't logged
   for re-simulation, and chat that arrives during it waits for the step.
 ### Latency readout (independent of the slices)
