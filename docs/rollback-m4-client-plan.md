@@ -152,9 +152,10 @@ rollback while the other sees its commands on time.
 ### Latency readout (independent of the slices)
 
 Replace the `Lat: 208ms` text with a fighting-game style readout: `1D 3R`, the input delay and the
-rollback this player is running with, in frames. Draw it with the egui overlay
-(`bw_scr/draw_overlay`, beside `/netstat`) instead of formatting SC:R's own text through the
-`NetFormatTurnRate` hook, so its look and placement are ours.
+rollback this player is running with, in frames. It goes where SC:R's latency text is today (the
+top left of the game screen). Draw it with the egui overlay system (`bw_scr/draw_overlay`, the
+same machinery as `/netstat`) instead of formatting SC:R's own text through the
+`NetFormatTurnRate` hook, so its look is ours.
 
 - **Visibility:** the readout must show and hide exactly when SC:R would show its own latency text,
   and SC:R's text must not draw. Needs RE: the callers of `net_format_turn_rate` and the option or
