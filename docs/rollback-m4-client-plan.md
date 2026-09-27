@@ -130,8 +130,11 @@ Built and tested live in four commits (two clients on the staging relay, driven 
    runs with an empty turn, which is what an idle turn holds once 0x37 is stripped; a turn of a
    single no-op counts as the same, since the command hook stands one in for a turn without a sync
    command. A turn that arrives for a step that already ran asks for a rollback only if it differs
-   from that. `game_frame_count` reads one past the frame count at the IN hook, so the turn index
-   is `game_frame_count - 1`. Stalls (and the stall overlay and `/netstat` attribution) happen only
+   from that. The turn index is `game_frame_count - 1` at the IN hook. It is not the frame count:
+   a paused game keeps taking turns without advancing frames, so live rollback counts its whole
+   timeline (snapshots, rollback targets, the schedule) in turns, which the snapshot rewinds along
+   with the simulation. A pause of about 120 turns in a predicting game kept both clients
+   identical. Stalls (and the stall overlay and `/netstat` attribution) happen only
    past the limit, inside BW's own wait for turns.
 2. **Leaves as a fence.** A leave is applied only by its own step (`final_turn_count`), and only
    once every earlier step's turns are known, since a leave can't be undone. Steps that ran before
@@ -179,8 +182,6 @@ cost stayed around 0.5 ms.
   versus burst lateness.
 - A stall at the limit happens inside BW's wait for turns, so clicks made during it aren't logged
   for re-simulation, and chat that arrives during it waits for the step.
-- BW's pause runs network turns without advancing frames, which the turn index = frame count
-  mapping doesn't cover; pausing in a rollback game is untested.
 ### Latency readout (independent of the slices)
 
 Replace the `Lat: 208ms` text with a fighting-game style readout: `1D 3R`, the input delay and the

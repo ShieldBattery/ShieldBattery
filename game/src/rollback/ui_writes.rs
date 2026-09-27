@@ -36,7 +36,7 @@ pub(crate) fn record(bw: &BwScr, write: UiWrite) {
     if super::tick_running() || SNAPSHOTS.lock().is_none() {
         return;
     }
-    let Some(frame) = (unsafe { bw.probe_frame_count() }) else {
+    let Some(frame) = (unsafe { super::position(bw) }) else {
         return;
     };
     LOG.lock().push((frame, write));

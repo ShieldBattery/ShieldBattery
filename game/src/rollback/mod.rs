@@ -22,6 +22,8 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+use crate::bw_scr::BwScr;
+
 pub(crate) mod announcements;
 pub(crate) mod game_end;
 pub(crate) mod observer_ui;
@@ -53,6 +55,30 @@ static STEP_FRAME: AtomicU32 = AtomicU32::new(0);
 /// the frames after it, and whatever they did on those frames is what this tick's steps are
 /// matched against.
 static WINDOW_START: AtomicU32 = AtomicU32::new(0);
+
+/// Whether the engine counts its timeline in network turns rather than simulation frames. A live
+/// game takes a turn every step, but a paused one takes turns without advancing a frame, and a
+/// rollback that simulates past the pause again has to take every one of those turns again. The
+/// turn counter is in the snapshot, so a restore rewinds it with the simulation. Replays have no
+/// turns and count frames.
+static COUNTS_TURNS: AtomicBool = AtomicBool::new(false);
+
+/// Makes the engine count its timeline in network turns (`true`) or simulation frames (`false`).
+/// Everything the engine calls a frame is then a position on that timeline.
+pub(crate) fn count_turns(turns: bool) {
+    COUNTS_TURNS.store(turns, Ordering::Relaxed);
+}
+
+/// Where the simulation is on the engine's timeline: the frame count, or when the engine counts
+/// turns, how many turns have been dispatched. `None` when no game is loaded.
+pub(crate) unsafe fn position(bw: &BwScr) -> Option<u32> {
+    unsafe {
+        match COUNTS_TURNS.load(Ordering::Relaxed) {
+            true => bw.rollback_turns_dispatched(),
+            false => bw.probe_frame_count(),
+        }
+    }
+}
 
 /// Whether a tick's steps are running right now.
 pub(crate) fn tick_running() -> bool {

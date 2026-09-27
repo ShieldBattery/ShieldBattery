@@ -309,9 +309,12 @@ pub unsafe fn run_game_logic_step(
         };
         let tick_start = Instant::now();
         let spacing = SPACING.load(Ordering::Relaxed);
-        let current = bw.probe_frame_count()?;
-        // What the turn state's receive will be given for the step from `current`: the turn
-        // counter reads one past the frame count while the step takes its turns.
+        // Positions on the rollback timeline are turns, which a paused game keeps taking without
+        // advancing frames; see `rollback::count_turns`.
+        crate::rollback::count_turns(true);
+        let current = crate::rollback::position(bw)?;
+        // What the turn state's receive will be given for the step from `current`: BW's turn
+        // counter, which reads one past the turns dispatched while a step takes its turns.
         let next_frame = current + 1;
         if monkey_interval != 0 && current.is_multiple_of(monkey_interval) {
             bw.rollback_issue_random_commands(next_random);
@@ -383,7 +386,7 @@ pub unsafe fn run_game_logic_step(
             ret
         });
         drop(guard);
-        let reached = bw.probe_frame_count().unwrap_or(current);
+        let reached = crate::rollback::position(bw).unwrap_or(current);
         let mut held_back = false;
         {
             let mut schedule = SCHEDULE.lock();
@@ -460,7 +463,7 @@ pub unsafe fn run_game_logic_step(
 fn log_summary(summary: &Summary, present: u32) {
     let per_tick = |x: Duration| x.as_secs_f64() * 1000.0 / summary.ticks as f64;
     info!(
-        "Live rollback over {} ticks to frame {present}: {} steps ran predicted, {} predicted \
+        "Live rollback over {} ticks to turn {present}: {} steps ran predicted, {} predicted \
          turns held and {} did not; {} rollbacks re-simulated {} frames (deepest {}); present \
          ahead of known turns by {:.2} frames on average (at most {}), {} ticks at the limit; lead \
          {} frames over a pipe of {}, {} frames caught up, {} ticks held back; per tick restore \

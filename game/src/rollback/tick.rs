@@ -143,7 +143,7 @@ pub(crate) unsafe fn run_tick(
             if paced_tick.is_none() {
                 paced_tick = Some(bw.probe_next_game_step_tick());
             }
-            match bw.probe_frame_count() {
+            match super::position(bw) {
                 // The simulation did not advance, which it does not once a replay has ended.
                 Some(after) if after > current => current = after,
                 _ => break,

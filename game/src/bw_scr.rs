@@ -3841,19 +3841,6 @@ impl BwScr {
     unsafe fn netcode_v2_receive_predicted(&self, nc: &NetcodeV2Bw) -> TurnReceiveOutcome {
         unsafe {
             let step = nc.game_frame_count.resolve();
-            #[cfg(debug_assertions)]
-            {
-                static MISMATCH_LOGGED: AtomicBool = AtomicBool::new(false);
-                let frame = self.probe_frame_count();
-                if frame != Some(step.saturating_sub(1))
-                    && !MISMATCH_LOGGED.swap(true, Ordering::Relaxed)
-                {
-                    error!(
-                        "netcode v2: turn counter {step} is not one past the frame count \
-                         {frame:?}; rollback targets will be off"
-                    );
-                }
-            }
             if live_rollback_resimulating() {
                 return self.netcode_v2_redispatch(nc, step);
             }
@@ -6383,6 +6370,16 @@ impl BwScr {
                     flash.call2(object as *mut c_void, timer);
                 }
             }
+        }
+    }
+
+    /// How many network turns the game has dispatched since its game loop started, or `None` when
+    /// no game is loaded. BW's turn counter reads one past that: it counts the turn being
+    /// dispatched as well while the IN hook runs, and between steps.
+    pub(crate) unsafe fn rollback_turns_dispatched(&self) -> Option<u32> {
+        unsafe {
+            (!self.game().is_null())
+                .then(|| self.netcode_v2.game_frame_count.resolve().saturating_sub(1))
         }
     }
 

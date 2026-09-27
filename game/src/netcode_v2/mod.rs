@@ -414,8 +414,9 @@ impl DisconnectStatus {
 }
 
 /// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
-/// turn index. `game_frame_count` reads one past the frame count when the IN hook runs, so the step
-/// that dispatches every slot's first in-game turn reads 1.
+/// turn index. `game_frame_count` reads one past the number of turns already dispatched when the IN
+/// hook runs, so the step that dispatches every slot's first in-game turn reads 1. It counts turns
+/// rather than frames: a paused game keeps taking turns without advancing a frame.
 fn input_step(next_frame: u32) -> u32 {
     next_frame.saturating_sub(1)
 }
