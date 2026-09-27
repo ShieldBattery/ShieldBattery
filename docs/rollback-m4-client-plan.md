@@ -186,14 +186,11 @@ comparator (build step 3).
   each restore, or re-simulated steps re-trigger renderer notifications (frame or animation
   changes) that restart it. Needs RE; the fix is to leave that state out of restores or keep
   re-simulated steps from notifying the renderer.
-- **Order confirmation marker.** Only UI clicks show the marker (`show_cursor_marker_at`); its
-  sprite and animation are in the snapshot's pools, and its animation clears the separate
-  `draw_cursor_marker` byte when it ends. With the byte outside the snapshot, a restore across a
-  click rewound the animation past its end but left the byte set, so the marker stayed drawn until
-  the next click. The byte is now in the snapshot, so the two always rewind together; the remaining
-  cost is that a click's marker vanishes early when a rollback crosses it. Replaying clicks through
-  re-simulation (log `show_cursor_marker_at(x, y)` per frame and call it again at the same point,
-  as injected chat is replayed) removes that, but needs a samase_scarf analysis for the function.
+- **Right-click feedback.** Covered: the order marker and a target's selection-circle blink are
+  UI writes into snapshotted sprites, logged per frame and made again during re-simulation, and the
+  marker's draw flag is snapshotted with its sprite. A tick's final frame is snapshotted at the
+  start of the next tick, since stripping selection circles to take it right after its step hid
+  them on the frame shown.
 - **Computer players.** Covered: the AI region cursor and the target-ignore counters were
   missing from the snapshot, and restoring a trigger list that a defeat had freed left the saved
   copy's links pointing at freed nodes. A replay with two computer players now matches plain
