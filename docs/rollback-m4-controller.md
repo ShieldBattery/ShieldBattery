@@ -1,6 +1,6 @@
 # Rollback in live games (M4): who decides the window, and how sync checks survive it
 
-Status: design agreed (open questions below are decided), client work not started. Background: the replay harness
+Status: design agreed; open questions 5-7 are for tuning and hardening. Client work not started. Background: the replay harness
 (`game/src/rollback_harness.rs`) proves the snapshot and re-simulation engine; a feel test on a
 high-APM 1v1 TvZ set the policy this document turns into mechanisms.
 
@@ -11,70 +11,113 @@ At Fastest, one turn is one frame (about 42 ms), so this document counts both in
 - Steady state: up to **3 frames** of remote lateness are hidden by rollback (R = 3). At R = 3
   corrections are barely visible (zergling chase: median 7 px, max 16 px); at R = 5 fast units
   visibly teleport (median 12 px, max 27 px).
-- Sustained lateness beyond that is covered by **input delay** (D, today's turn buffer).
-- Short bursts (loss, jitter) are covered by **rollback first**, up to **R_max = 8** frames, and
-  become delay only if they persist.
+- Sustained lateness beyond that is covered by **input delay** (D).
+- Short bursts (loss, jitter) are covered by **rollback first**, up to a limit (**R_max = 8** by
+  default), and become delay only if they persist.
+- **Each player pays for their own connection.** A player with a slow or lossy link gets more
+  delay and more rollback; the players they are playing against do not.
 
-## Two knobs, two owners
+## The model: one deadline, and each player's lead
 
-| | Rollback depth R | Input delay D |
-|---|---|---|
-| What it changes | how far past the confirmed frame one client lets itself predict | which frame every command executes on |
-| Needs agreement? | **No**: confirmed frames are identical whatever R each client uses | **Yes**: must apply on the same frame everywhere |
-| Owner | each client, locally | the authority relay (existing buffer directive) |
-| Cost of too much | visual corrections, CPU (one extra sim step ≈ 0.3–0.45 ms) | input lag on every command, all the time |
+A turn's index is the frame it executes on: every step consumes exactly one turn from every slot,
+so a slot's k-th turn runs on frame k on every client. A client's depth only decides how far ahead
+of that frame it sends its own turn. Nothing about it needs agreement, and each player can use a
+different depth (prod already does this briefly: when two relays seeded different depths at session
+start, players ran at different depths for the first ~10 frames without desyncing).
 
-That split keeps R out of consensus: no per-frame agreement, no directive, nothing a peer can
-influence. The one shared piece is the cap R_max, a session setting, because the relay's law
-decides how long to let rollback absorb a burst based on it.
+That makes the relay's job a deadline rather than a depth. The session has a clock: frame F is due
+at `S(F) = start + F × 41.7 ms`. **Every player's turn for frame F must reach the relay by S(F).**
+A turn that makes the deadline reaches every other player after that player's own download leg, so
+what each player sees depends only on their own connection.
 
-### Client: the prediction cap
+Each player meets the deadline with some mix of two things:
 
-The DLL steps the simulation whenever the game loop schedules a frame, even if some remote inputs
-for it are missing, as long as `next_frame - confirmed_frame <= R_max` (8, from the session
-descriptor so it matches what the relay's law assumes). Past that it stalls,
-exactly as lockstep does today. There is no "R = 3 target" on the client: the client never chooses
-how late inputs are, it only caps how far it will guess. The steady-state R = 3 is achieved by the
-relay choosing D so that typical lateness stays within 3 frames of it.
+- **Input delay D:** the player's commands go into a turn D frames after they are issued, so the
+  turn goes out D frames earlier relative to the frame it runs on.
+- **Running ahead X:** the player simulates frames X frames before the session clock (X can be
+  negative, running behind). Their turns go out earlier, and everyone else's turns reach them later
+  relative to their own frames, which is more rollback for them.
 
-Each tick is the harness loop: restore the confirmed snapshot, step the confirmed frames that
-now have all inputs (normally one), snapshot, then re-step to the present with the latest inputs.
-The harness measures this at about 1 ms of copying plus (frames re-stepped + 1) plain steps.
+With `u` and `d` a player's upload and download legs to their relay, in frames:
 
-### Relay: the delay law, made rollback-aware
+```
+deadline:        D + X >= u
+rollback seen:   R = d + X
+so:              D + R >= u + d     (their own RTT to the relay)
+```
 
-The existing law picks the depth that absorbs the network's lateness. In a rollback game it should
-pick a depth that leaves up to `R_steady` (3) frames of lateness uncovered, because rollback hides
-those:
+A player's RTT is theirs alone to spend, split between delay and rollback however they like.
+`X = u, D = 0` is zero input delay with all of the RTT as rollback; `X = -d, D = u + d` is no
+rollback at all, which is lockstep. Nothing one player chooses changes what anyone else sees.
+Running behind gains nothing either, because the deadline still makes that player send early: it
+just turns their cost into delay.
 
-- **Target:** `max(bounds.min, law_target - R_steady)`. The hop cushion, delivery-lag term and
-  arrival-stretch term stay as they are; only the result is offset.
-- **Raise side:** today a loss burst gets a fast raise within about a second. In a rollback game a
-  burst up to `R_max - R_steady` (5) extra frames is absorbed without any stall, so the fast raise
-  should require the lateness to hold for a sustain window (2–3 s is a reasonable start) unless it
-  already exceeds what `R_max` can hide, in which case raise immediately as today.
-- **Lower side:** unchanged (shrink floor, edge probation).
-- **Initial depth:** the pre-start seed gets the same `- R_steady` offset.
+### Client: choosing the split
+
+The client picks X and D from two lateness estimates:
+
+- **Download lateness:** how late other players' turns reach it relative to the session clock,
+  measured locally from arrival times.
+- **Lead error:** how early or late its own turns reached the relay against the deadline. Only the
+  relay can see this, so the relay reports it per player (below).
+
+Each estimate has a steady level (a trailing median or high percentile over a few seconds) and
+bursts above it. The client sets `X = R_target - steady download lateness` and adds delay so its
+steady lead error is zero with a small margin, raising D only after an increase has held for a
+sustain window (2 s to start) and lowering it when the estimate has settled back. Bursts are not
+chased: download bursts are rolled back up to the player's limit, and a short upload burst means a
+few of this player's turns miss the deadline, which other players roll back over.
+
+**Prediction cap:** the DLL steps the simulation whenever the game loop schedules a frame, even if
+some remote inputs are missing, as long as `present - confirmed <= R_max`. Past that it stalls, as
+lockstep does today. A stall is mostly the stalling player's own cost: while stalled its turns go
+out late, other players roll back over them up to their own limits, and its lead error rises until
+it adds delay.
+
+**Catch-up:** a client that falls behind the session clock (a hitch, or a stall at its cap) steps
+frames back to back until it is back on its target X, rather than asking anyone to wait for it.
+
+### Player settings (advanced)
+
+Two options, both only exposed under advanced settings:
+
+- **Rollback target** (the `R_target` above, steady-state rollback): a few values from 0 (no
+  steady-state rollback: all of the player's RTT becomes delay) to 4 frames, default 3.
+- **Rollback limit** (`R_max`): how large a burst is rolled back before the game pauses instead.
+  A few values up to 8, default 8, never below the target. A target and limit of 0 is lockstep for
+  that player.
+
+Both only change the player's own experience, so neither needs to match across the game. The
+tenant sets the defaults and the allowed range.
+
+### Relay: deadlines instead of a depth
+
+- **Session clock:** the authority relay fixes `start` at session start and each home relay
+  measures against it.
+- **Lead report:** for each player, the relay measures how early or late each of their turns
+  arrived against its deadline, and reports a smoothed value back to that player (on the turns it
+  forwards to them, or the control stream). This is send-phase alignment's measurement at whole-
+  frame scale. It is relay-authored: the arrival time is the relay's own observation, and the only
+  client input is the frame index, which the relay already tracks per slot.
+- **Nothing else to size:** the lockstep law's loss, burst, jitter and delivery-lag terms existed
+  so that no turn is ever late. Under rollback that margin becomes the client's own safety margin
+  on its lead, chosen by how many late turns it is willing to push onto other players' rollback.
 - **Ceiling:** `GAME_SYNC_SAFE_BUFFER_MAX` (14) exists only because of native 0x37's 16-slot ring.
   With native sync replaced (below), it stops applying to rollback games. Bounds still cap D, but
   from a latency budget rather than a correctness cliff.
 
-Evidence stays relay-authored as far as it goes today; nothing new is client-asserted. The
-delivery-lag input the law already folds is the same signal in different units: how many turns
-behind each destination is.
-
 ### What players get
 
-Today the depth absorbs all lateness, so a player's own commands take effect D + 1 frames after
-they're issued, sized to the worst pairwise path. In a rollback game a player's own commands take
-effect on the next frame, like single player, and extra delay is added only for lateness beyond
-`R_steady` (3 frames, ~125 ms one-way). Most same-region games would play with no added input delay
-at all; everyone sees everyone else's commands late by the network path, as small corrections.
+Today the depth absorbs all lateness for everyone, sized to the worst pairwise path, so a slow
+player's link sets the input delay of the whole game. In a rollback game each player's delay and
+rollback come from their own link and their own setting. At the default target of 3, a player
+within about 3 frames (~125 ms) of RTT to their relay plays with no added input delay: their own
+commands take effect on the next frame, like single player, and other players' commands show up as
+small corrections.
 
 A side effect worth noting: a client that predicts instead of stalling keeps producing turns on
 schedule, so the depth-one micro-stall ring that send-phase alignment exists to fix mostly
-disappears in rollback games. Alignment stays (it is harmless and still tightens arrival), but
-it stops carrying the weight it does in lockstep.
+disappears in rollback games.
 
 ## Sync checks: replacing 0x37
 
@@ -127,25 +170,23 @@ a larger local buffer; either way they are not required to report hashes, as tod
 
 ## Open questions
 
-1. ~~`R_max = 8`: fixed, or a tenant bound like the depth bounds?~~ **Decided:** R_max is a
-   tenant setting beside `R_steady` and `BufferBounds`, validated the same way and carried on the
-   session descriptor, so the relay's law and every client in the game use the same value. Any R
-   is safe for correctness (confirmed frames don't depend on it), but the law's raise side does
-   depend on it: it holds off raising for a burst only while the burst fits within R_max. A client
-   capped lower than the law assumes would stall through that sustain window, and a stalled client
-   stops producing turns, so every other client runs out of prediction and stalls with it. Debug
-   builds keep an env override for local experiments. Clients don't report their own R_max: the
-   relay would have to act on a client's claim, and it already sees a stalling client directly as
-   lateness in that client's turns.
+1. ~~`R_max = 8`: fixed, or a tenant bound like the depth bounds?~~ **Decided:** a per-player
+   setting (see Player settings) with a tenant default and range, plus an env override in debug
+   builds. Any R is safe for correctness, since confirmed frames don't depend on it. Under the
+   deadline model a low limit mostly costs the player who chose it: a stall at the cap makes that
+   player's turns late, which other players roll back over up to their own limits, and the relay's
+   lead report then pushes the stalled player to add delay. Clients never report their limit to the
+   relay; nothing on the relay depends on it.
 2. **What triggers a raise (answered by prod data, 453 games):** today's raises mostly answer tiny
    or passing events, not sustained lateness. The median loss-driven raise follows 1 lost packet
    out of ~2,600, and 43% of path-driven raises come from a path less than 5 ms past a turn
    boundary. Any raise then holds for at least ~22 s (the lowering side keeps a 525-frame trailing
    max). A 2 s sustain window on the current target would avoid only a few of these, because the
    target already smooths its inputs over several seconds. What removes them is a raise-side margin
-   (a loss-risk floor, and a path margin past the boundary like the 5.2 ms one lowering uses). In a
-   rollback game the `R_steady` offset does that automatically: anything rollback absorbs (3
-   frames, ~125 ms) never reaches the delay. Keep the immediate raise past `R_max`. Report:
+   (a loss-risk floor, and a path margin past the boundary like the 5.2 ms one lowering uses). The
+   lockstep law is left as is: its caution is the right trade when a late turn stalls. Rollback
+   games replace the law with per-player deadlines, where occasional loss and jitter cost a
+   correction rather than a raise (see the model above). Report:
    `.claude-scratch/flight-analysis/report.md`.
 3. **Hash cadence and deadline:**
    - A hash every 8 confirmed frames (~1/3 s). Per-frame reports add nothing, because a divergence
@@ -157,13 +198,22 @@ a larger local buffer; either way they are not required to report hashes, as tod
      no longer silently shrinks coverage. Disconnects stay with the leave machinery.
 4. **Zero added input delay:** in rp2 terms the effective input delay is depth + 1 turns. Rollback
    allows the true minimum: local commands execute on the next simulated frame (single-player
-   responsiveness), and remote commands roll in whenever they arrive. The law then only adds delay
-   beyond what rollback hides: `extra delay = max(0, lateness − R_steady)`. Games whose one-way
-   lateness is within ~3 frames (~125 ms, most same-region games) play with no added input delay;
-   the cost is corrections bounded by `R_steady`. Both ends are tenant configuration, to be tuned
-   from player feedback: `R_steady` sets how much correction players accept, and `BufferBounds.min`
-   sets a delay floor (e.g. always one turn) if single-player responsiveness turns out not to be
-   worth the corrections.
+   responsiveness), and remote commands roll in whenever they arrive. Under the deadline model a
+   player adds delay only for the part of their own RTT beyond their rollback target, so a player
+   within ~3 frames of RTT to their relay plays with none at the default target.
+5. **Steady versus burst:** the relay reports lead error and the client classifies it, since the
+   split between delay and rollback is the client's decision. The steady estimate's window and
+   percentile, and the sustain window before adding delay, are to be tuned in live tests.
+6. **Deadline enforcement:** without it, a modified client that ignores its lead report pushes
+   rollback onto other players (bounded by their limits). The strong fix: the relay replaces a turn
+   that misses its deadline by more than a grace period with an empty turn, forwards the empty turn
+   to every player including the sender, and the sender rolls back its own commands. Missing the
+   deadline then only ever hurts the player who missed it. Hardening for later, not needed for the
+   first live tests.
+7. **Multi-relay sessions:** every home relay measures against the one session clock, which needs
+   the relays' clock offsets (the mesh already measures RTT between them). A turn crossing the mesh
+   reaches the far relay's players one mesh hop later; that hop counts as download lateness for the
+   receiving players.
 
 ## Where the client cuts in (netcode v2 seams)
 
@@ -179,9 +229,9 @@ our receive hook for exactly the frame being stepped.
 - **Dispatch (`fill_turn_dispatch`):** stays the single place command bytes reach BW
   (`player_turns[]` and the flags), whatever the source.
 - **Send (`netcode_v2_send_turn` / `submit_local_turn`):** keeps the wire submission, but local
-  commands go straight into the input table for the next frame instead of being echoed into a
-  FIFO behind the delay pipe. The pipe (`latency_turns` / `outstanding_turns`) becomes the added
-  delay the relay asks for, often zero.
+  commands go straight into the input table for the frame they will run on. The pipe
+  (`latency_turns` / `outstanding_turns`) becomes the player's own delay D, chosen by the client
+  (see Client: choosing the split), often the minimum.
 - **Input table:** the per-slot FIFOs become frame-indexed, so a remote turn that arrives for an
   already-predicted frame lands in its slot, and the next tick re-simulates from the confirmed
   frame with it.
@@ -201,6 +251,6 @@ our receive hook for exactly the frame being stepped.
    plain playback).
 2. Client M4 core: drive the engine from the netcode v2 dispatch seam with the prediction cap,
    stalling beyond `R_max`; confirmed-frame hash reports; native sync off in rollback mode.
-3. rp2: session mode flag carrying `R_max` and `R_steady`; frame-keyed hash comparator with relay-set deadlines; rollback-aware law
-   (offset, sustained raise).
+3. rp2: session mode flag; session clock and per-player lead reports in place of the buffer law;
+   frame-keyed hash comparator with relay-set deadlines.
 4. Presentation: sound hook, chat on arrival.
