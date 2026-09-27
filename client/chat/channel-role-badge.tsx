@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
+import ModeratorIcon from '../icons/shieldbattery/moderator.svg?react'
 import { Tooltip } from '../material/tooltip'
 import { ChannelContext } from './channel-context'
 import { ChannelRole, useChannelRole } from './channel-role'
@@ -23,10 +24,10 @@ const BadgeRoot = styled(Tooltip)`
   */
   text-indent: 0;
   /*
-    The badge is chrome rather than text, and its glyph is a ligature whose text content is the
-    icon's name, so it must stay out of any text copied out of a container that makes its
-    descendants selectable (the message list does). The doubled selectors outrank that container's
-    rule.
+    The badge is chrome rather than text, and the owner's glyph is a font ligature whose text
+    content is the icon's name, so it must stay out of any text copied out of a container that
+    makes its descendants selectable (the message list does). The doubled selectors outrank that
+    container's rule.
   */
   &&,
   && * {
@@ -38,14 +39,19 @@ const BadgeGlyph = styled.span<{ $role: ChannelRole }>`
   display: inline-flex;
   align-items: center;
 
-  /* The shape carries the meaning (a crown for the owner, crossed swords for a moderator); the
-     colors only reinforce it. */
+  /* The shape carries the meaning (a crown for the owner, a sword for a moderator); the colors
+     only reinforce it. */
   color: ${props => (props.$role === 'owner' ? 'var(--color-amber80)' : 'var(--color-blue80)')};
+`
+
+const ModeratorGlyph = styled(ModeratorIcon)`
+  width: 16px;
+  height: 16px;
 `
 
 /**
  * A compact icon marking a user's standing in the chat channel currently being displayed: a crown
- * for its owner, crossed swords for a member holding moderation permissions in it. Renders nothing
+ * for its owner, a sword for a member holding moderation permissions in it. Renders nothing
  * for everyone else, and for a channel whose roles this client doesn't know.
  */
 export function ChannelRoleBadge({ userId, className }: { userId: SbUserId; className?: string }) {
@@ -67,7 +73,7 @@ export function ChannelRoleBadge({ userId, className }: { userId: SbUserId; clas
     // say nothing the name they sit beside doesn't already lead to.
     <BadgeRoot className={className} text={label} position='top' tabIndex={-1}>
       <BadgeGlyph $role={role} role='img' aria-label={label}>
-        <MaterialIcon icon={role === 'owner' ? 'crown' : 'swords'} size={16} />
+        {role === 'owner' ? <MaterialIcon icon='crown' size={16} /> : <ModeratorGlyph />}
       </BadgeGlyph>
     </BadgeRoot>
   )
