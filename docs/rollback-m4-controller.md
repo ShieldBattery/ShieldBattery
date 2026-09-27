@@ -159,8 +159,9 @@ a larger local buffer; either way they are not required to report hashes, as tod
 
 ## Presentation (client only, no consensus)
 
-- **Correction smoothing: tried and parked.** A render-only prototype (`SB_ROLLBACK_SMOOTHING=<frames>`)
-  draws a corrected unit part of the way back towards its previous position and eases it in. Both
+- **Correction smoothing: tried and dropped.** A render-only prototype, since removed, replaced
+  SC:R's sprite position accessors while the game layer drew, to draw a corrected unit part of the
+  way back towards its previous position and ease it in. Both
   variants read worse than a snap in the feel test. The slow ease showed the unit already facing
   and animating its new state while sliding; the 2-frame ease makes units visibly speed up for a
   moment. Blending facing or animation would need display-only iscript state. At R = 3 the snaps

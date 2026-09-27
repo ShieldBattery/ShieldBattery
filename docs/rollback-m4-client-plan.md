@@ -80,7 +80,7 @@ Move out of `rollback_harness.rs` into a `rollback` module that is compiled into
 - the step-pacing fix-up (`probe_next_game_step_tick`).
 
 The harness stays debug-only and becomes a driver over the module: replay input gating, CSV rows,
-audits, dumps, correction metrics, smoothing.
+audits, dumps, correction metrics.
 
 **Verify:** a harness run on the TvZ replay produces a CSV identical to one from the parent commit,
 at R = 3 with and without a delayed player.

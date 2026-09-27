@@ -337,11 +337,6 @@ pub struct BwScr {
     /// eliminated), or `None` if analysis could not find it.
     #[cfg(debug_assertions)]
     show_game_message: Option<VirtualAddress>,
-    /// The functions that decode a sprite's x and y position, which the rollback harness's
-    /// correction smoothing hooks; `None` unless smoothing was asked for at launch and analysis
-    /// found both.
-    #[cfg(debug_assertions)]
-    sprite_position_accessors: Option<(VirtualAddress, VirtualAddress)>,
     /// The synced simulation state the rollback engine snapshots, as resolved analysis results
     /// that still have to be turned into addresses once a game is running.
     #[cfg(debug_assertions)]
@@ -1793,11 +1788,6 @@ impl BwScr {
             .zip(analysis.open_victory_mission_dialog());
         #[cfg(debug_assertions)]
         let show_game_message = analysis.show_game_message();
-        #[cfg(debug_assertions)]
-        let sprite_position_accessors = match crate::rollback_harness::smoothing_enabled() {
-            true => analysis.get_sprite_x().zip(analysis.get_sprite_y()),
-            false => None,
-        };
         // Analysis failures here are not fatal: the harness reports whatever it could not resolve
         // as missing from its snapshot and runs with the rest. Most of these need an analysis pass
         // nothing else in the game asks for, which adds up to a noticeable part of launch time, so
@@ -2032,8 +2022,6 @@ impl BwScr {
             mission_dialog_openers,
             #[cfg(debug_assertions)]
             show_game_message,
-            #[cfg(debug_assertions)]
-            sprite_position_accessors,
             #[cfg(debug_assertions)]
             rollback_ranges,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
@@ -2838,39 +2826,6 @@ impl BwScr {
                     );
                 }
 
-                // Sprites are drawn where the harness's correction smoothing wants them only while
-                // the game layer is drawn; every other caller gets the true position. The
-                // accessors are replaced outright rather than wrapped: their entry is obfuscated
-                // code that does not survive being relocated into a trampoline, so the original is
-                // never called and the position is decoded from the analysed encoding instead.
-                if let Some((get_x, get_y)) = self.sprite_position_accessors {
-                    use crate::rollback_harness::sprite_draw_offset;
-                    let shift = |value: i16, offset: Option<i16>| {
-                        value.wrapping_add(offset.unwrap_or(0)) as u16 as u32
-                    };
-                    exe.hook_closure_address(
-                        GetSpriteX,
-                        move |sprite, _orig| {
-                            let x = self.sprite_x(sprite as *mut scr::Sprite);
-                            shift(x, sprite_draw_offset(sprite as usize).map(|x| x.0))
-                        },
-                        get_x.0 as usize - base,
-                    );
-                    exe.hook_closure_address(
-                        GetSpriteY,
-                        move |sprite, _orig| {
-                            let y = self.sprite_y(sprite as *mut scr::Sprite);
-                            shift(y, sprite_draw_offset(sprite as usize).map(|x| x.1))
-                        },
-                        get_y.0 as usize - base,
-                    );
-                } else if crate::rollback_harness::smoothing_enabled() {
-                    error!(
-                        "Rollback correction smoothing needs the sprite position accessors, \
-                         which analysis could not resolve"
-                    );
-                }
-
                 // A right click writes the order confirmation marker and the target's blink into
                 // sprites the rollback engine snapshots, so a restore to before the click undoes
                 // them; the engine logs them here to make them again when it re-simulates.
@@ -3230,10 +3185,6 @@ impl BwScr {
                     // separately.)
                     let graphic_layers =
                         self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
-                    // BW's own layers draw sprites where the rollback harness's smoothing wants
-                    // them; everything after this call reads true positions.
-                    #[cfg(debug_assertions)]
-                    crate::rollback_harness::set_drawing_game_layer(true);
                     if self.console_hidden() {
                         if let Some(layers) = graphic_layers {
                             // Don't draw tooltip layer if it was active.
@@ -3247,8 +3198,6 @@ impl BwScr {
                     } else {
                         orig(extra_funcs, extra_func_len, second_draw);
                     }
-                    #[cfg(debug_assertions)]
-                    crate::rollback_harness::set_drawing_game_layer(false);
                     let renderer = self.renderer.resolve();
                     let commands = self.draw_commands.resolve();
                     let vertex_buffer = self.vertex_buffer.resolve();
@@ -8039,10 +7988,6 @@ mod hooks {
         !0 => ObserverUiTrackResearchOrUpgrade(*mut c_void, *mut bw::Unit);
         !0 => ObserverUiRemoveBuildingUnitRecord(*mut c_void, *mut bw::Unit);
         !0 => ObserverUiFinishResearchOrUpgrade(*mut c_void, *mut bw::Unit, u32);
-        // Decode a sprite's position; fastcall with the sprite in ecx on 32-bit, which is
-        // thiscall for a single argument. The coordinate comes back zero-extended.
-        !0 => GetSpriteX(*mut c_void) -> u32;
-        !0 => GetSpriteY(*mut c_void) -> u32;
         // Make a unit's (or fog sprite's) selection circle blink, the object in ecx on 32-bit.
         !0 => SetSpriteSelectionFlashTimer(*mut c_void, u32);
     );

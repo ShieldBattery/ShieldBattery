@@ -278,7 +278,6 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
             now.iter().partition(is_anchored);
 
         let mut corrections = Corrections::default();
-        let mut smoothing = SMOOTHING_OFFSETS.lock();
         let mut found = 0;
         for a in &shown_anchored {
             match now_anchored.binary_search_by_key(&a.unit, |x| x.unit) {
@@ -290,7 +289,6 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
                     }
                     if (a.x, a.y) != (b.x, b.y) {
                         corrections.moves.push(a.distance(b));
-                        smoothing.note(b, a);
                     }
                 }
                 _ => corrections.popped_out += 1,
@@ -310,7 +308,6 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
                     let b = now_new.swap_remove(index);
                     if (a.x, a.y) != (b.x, b.y) {
                         corrections.moves.push(a.distance(b));
-                        smoothing.note(b, a);
                     }
                 }
                 None => corrections.popped_out += 1,
@@ -331,129 +328,6 @@ unsafe fn record_anchored_units(bw: &BwScr) {
             .collect::<Vec<_>>();
         keys.sort_unstable();
         *ANCHORED_UNITS.lock() = keys;
-    }
-}
-
-/// Environment variable that turns on correction smoothing, holding the number of frames a
-/// correction is spread over: a unit a rollback moved is drawn part of the way back towards where
-/// the frame before showed it, and reaches its corrected position that many frames later instead
-/// of jumping there. With 2 it is drawn 2/3, then 1/3 of the way back.
-const SMOOTHING_ENV_VAR: &str = "SB_ROLLBACK_SMOOTHING";
-
-/// The frames [`SMOOTHING_ENV_VAR`] spreads a correction over, or 0 when smoothing is off.
-static SMOOTHING_FRAMES: AtomicU32 = AtomicU32::new(0);
-
-/// Whether [`SMOOTHING_ENV_VAR`] asked for correction smoothing, which makes analysis resolve the
-/// sprite position functions it hooks.
-pub fn smoothing_enabled() -> bool {
-    SMOOTHING_FRAMES.load(Ordering::Acquire) != 0
-}
-
-/// How far each corrected unit is drawn from where the simulation has it.
-struct SmoothingOffsets {
-    units: Vec<UnitOffset>,
-}
-
-struct UnitOffset {
-    unit: usize,
-    unique_index: u8,
-    x: f32,
-    y: f32,
-    /// Frames left until the unit is drawn at its true position, counting the one that gets
-    /// there.
-    frames_left: u32,
-}
-
-impl SmoothingOffsets {
-    /// Keeps `now` drawn where `shown` was drawn: the frame about to be shown carries on from the
-    /// frame the correction replaced rather than from the corrected one.
-    fn note(&mut self, now: &UnitView, shown: &UnitView) {
-        let frames = SMOOTHING_FRAMES.load(Ordering::Relaxed);
-        if frames == 0 {
-            return;
-        }
-        let x = (shown.x - now.x) as f32;
-        let y = (shown.y - now.y) as f32;
-        match self
-            .units
-            .iter_mut()
-            .find(|o| o.unit == now.unit && o.unique_index == now.unique_index)
-        {
-            Some(offset) => {
-                offset.x += x;
-                offset.y += y;
-                offset.frames_left = frames + 1;
-            }
-            None => self.units.push(UnitOffset {
-                unit: now.unit,
-                unique_index: now.unique_index,
-                x,
-                y,
-                frames_left: frames + 1,
-            }),
-        }
-    }
-}
-
-static SMOOTHING_OFFSETS: Mutex<SmoothingOffsets> =
-    Mutex::new(SmoothingOffsets { units: Vec::new() });
-
-/// The drawing offset of each sprite for the frame being shown, sorted by sprite, which the
-/// sprite position hooks read while the game layer is drawn.
-static SPRITE_DRAW_OFFSETS: Mutex<Vec<(usize, i16, i16)>> = Mutex::new(Vec::new());
-
-/// Whether the game layer is being drawn, the only time a sprite's position is reported with its
-/// drawing offset. Everything else that reads sprite positions, the simulation and the vision
-/// and sync pass that runs before the game layer is drawn included, sees the true position.
-static DRAWING_GAME_LAYER: AtomicBool = AtomicBool::new(false);
-
-/// Marks the start and end of the game layer's drawing. Called from the graphic layers hook.
-pub fn set_drawing_game_layer(drawing: bool) {
-    DRAWING_GAME_LAYER.store(drawing, Ordering::Relaxed);
-}
-
-/// The offset to add to `sprite`'s position as the game layer draws it, if it has one. Called
-/// from the sprite position hooks.
-pub fn sprite_draw_offset(sprite: usize) -> Option<(i16, i16)> {
-    if !DRAWING_GAME_LAYER.load(Ordering::Relaxed) || !smoothing_enabled() {
-        return None;
-    }
-    let offsets = SPRITE_DRAW_OFFSETS.lock();
-    offsets
-        .binary_search_by_key(&sprite, |x| x.0)
-        .ok()
-        .map(|index| (offsets[index].1, offsets[index].2))
-}
-
-/// Steps every unit's offset one frame closer to zero, in equal steps over the frames it has left,
-/// and turns the result into the sprite offsets for the frame about to be shown. A unit that no
-/// longer exists, or whose slot has been handed to another unit, loses its offset; a unit's
-/// subunit (a turret) is drawn with the unit's offset.
-unsafe fn update_draw_offsets() {
-    unsafe {
-        let mut offsets = SMOOTHING_OFFSETS.lock();
-        let mut sprites = Vec::new();
-        offsets.units.retain_mut(|offset| {
-            let unit = offset.unit as *const bw::Unit;
-            let alive = (*unit).flingy.sprite as usize != 0
-                && (*unit).minor_unique_index == offset.unique_index;
-            if !alive || offset.frames_left <= 1 {
-                return false;
-            }
-            offset.x -= offset.x / offset.frames_left as f32;
-            offset.y -= offset.y / offset.frames_left as f32;
-            offset.frames_left -= 1;
-            let x = offset.x.round() as i16;
-            let y = offset.y.round() as i16;
-            sprites.push(((*unit).flingy.sprite as usize, x, y));
-            let subunit = (*unit).subunit;
-            if !subunit.is_null() && !(*subunit).flingy.sprite.is_null() {
-                sprites.push(((*subunit).flingy.sprite as usize, x, y));
-            }
-            true
-        });
-        sprites.sort_unstable_by_key(|x| x.0);
-        *SPRITE_DRAW_OFFSETS.lock() = sprites;
     }
 }
 
@@ -507,18 +381,6 @@ pub fn init_from_env() {
                 "{DUMP_ENV_VAR}={spec:?} is not a comma-separated list of frames or \
                  <first>-<last>[/<step>] ranges; ignoring it"
             ),
-        }
-    }
-    if let Ok(spec) = std::env::var(SMOOTHING_ENV_VAR) {
-        match spec.parse::<u32>() {
-            Ok(frames) if frames > 0 => {
-                SMOOTHING_FRAMES.store(frames, Ordering::Release);
-                info!(
-                    "{SMOOTHING_ENV_VAR}: rollback corrections will be eased in over {frames} \
-                     frames rather than snapped"
-                );
-            }
-            _ => error!("{SMOOTHING_ENV_VAR}={spec:?} is not a frame count; ignoring it"),
         }
     }
     let Ok(spec) = std::env::var(ENV_VAR) else {
@@ -990,7 +852,7 @@ fn take_arrived_commands(present: u32) -> Option<u32> {
 }
 
 /// Drops the snapshot and its range list, so the next logic step rebuilds both, and clears the
-/// display and smoothing state that only makes sense for the frame just shown. Called when the
+/// display state that only makes sense for the frame just shown. Called when the
 /// game loop (re-)enters game init (which is how a backwards replay seek restarts playback).
 pub fn reset_for_game_init() {
     if SNAPSHOTS.lock().take().is_some() {
@@ -1001,8 +863,6 @@ pub fn reset_for_game_init() {
     *RESIMULATE_FROM.lock() = None;
     LAST_CONFIRMED.store(0, Ordering::Relaxed);
     *DISPLAYED_UNITS.lock() = None;
-    SMOOTHING_OFFSETS.lock().units.clear();
-    SPRITE_DRAW_OFFSETS.lock().clear();
     rollback::reset_for_game_init();
 }
 
@@ -1114,7 +974,6 @@ unsafe fn run_tick(
                 frame,
                 units: capture_units(bw),
             });
-            update_draw_offsets();
         }
 
         let confirmed_fingerprint = {
