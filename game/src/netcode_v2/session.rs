@@ -228,6 +228,12 @@ pub async fn establish_session(
     // Storm ids come straight from the roster (storm id ≡ rp2 slot), so seed the slot→storm
     // identity map up front here rather than learning it from a Storm join.
     turn_state.populate_identity_slots();
+    // Before any in-game turn exists, since the input table places each turn at its step by
+    // counting its slot's turns.
+    #[cfg(debug_assertions)]
+    if let Some(inputs) = crate::rollback_live::input_table() {
+        turn_state.predict_inputs(inputs);
+    }
     // Seed the `/netstat` operator header and per-player home column from the launch handoff. The
     // header's own relay id starts at the home relay and advances live on a re-home; each slot's home
     // is the create-time assignment (peers' re-homes are not client-observable). Our own region is

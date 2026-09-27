@@ -123,6 +123,27 @@ the replay each saves parses and plays back to the same final state.
 
 ### Slice 4: prediction and the delay/rollback split
 
+Built in four steps, each tested live before the next:
+
+1. **Prediction core.** An input table keyed by turn index replaces the lockstep FIFOs and the
+   shadow mode's dispatch history (`netcode_v2/input_table.rs`). A step whose remote turn is
+   missing runs with a single no-op (what an idle turn holds once 0x37 is stripped); a turn that
+   arrives for a step that already ran asks for a rollback only if its bytes differ from that.
+   Input delay stays whatever the relay's buffer directives set. Debug knobs:
+   `SB_ROLLBACK_PREDICT=<limit>`, `SB_ROLLBACK_SHADOW=<depth>` (forced re-simulation on top),
+   `SB_ROLLBACK_LIVE_DELAY=<storm>:<steps>` (hold a slot's turns back locally) and
+   `SB_ROLLBACK_MONKEY=<apm>` (random selects and right clicks, so two clients can play
+   unattended). `game_frame_count` reads one past the frame count at the IN hook, so the turn
+   index is `game_frame_count - 1`.
+2. **Leaves as a fence.** A leave is applied only by its own step (`final_turn_count`), and only
+   once every earlier step's turns are known, since it can't be undone. Steps that ran before the
+   leave arrived ran without it; the fence then rolls back to the leave's step. An unfinalized drop
+   carries no count, so it goes to the first step this client has no turn for, which clients can
+   disagree on: rollback sessions should require finalized drops.
+3. **Game end.** Snapshot `trigger_result_check_timer` and keep the victory/defeat dialog and the
+   result report on confirmed frames.
+4. **The split and catch-up** (below).
+
 - The receive side never blocks while `present − confirmed ≤ R_max`. A frame whose remote turn
   hasn't arrived runs with an empty turn for that slot.
 - A turn that arrives for a predicted frame and carries commands triggers a rollback to that frame.

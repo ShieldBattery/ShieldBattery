@@ -57,10 +57,12 @@ use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use tokio::sync::mpsc;
 
+mod input_table;
 mod net_stats;
 mod rehome;
 mod session;
 
+pub use input_table::{InputCounts, InputTable};
 pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
@@ -411,26 +413,16 @@ impl DisconnectStatus {
     }
 }
 
+/// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
+/// turn index. `game_frame_count` reads one past the frame count when the IN hook runs, so the step
+/// that dispatches every slot's first in-game turn reads 1.
+fn input_step(next_frame: u32) -> u32 {
+    next_frame.saturating_sub(1)
+}
+
 /// How many rendered chat lines [`TurnState::record_chat`] keeps for `queryState` verification.
 #[cfg(debug_assertions)]
 const CHAT_LOG_CAPACITY: usize = 64;
-
-/// The turns one simulation step was given, the players whose leave it applied, and the chat it
-/// injected, kept so a rollback can give a re-simulation of the same frame exactly the same.
-struct DispatchedFrame {
-    /// The frame count the step brought the simulation to.
-    frame: u32,
-    turns: [Option<Bytes>; bw::MAX_STORM_PLAYERS],
-    leaves: Vec<(StormPlayerId, u32)>,
-    chat: Vec<(StormPlayerId, String)>,
-}
-
-/// What a re-simulated step has to apply besides its turns: the leaves and the injected chat of
-/// the frame's first simulation, in the order they happened.
-pub struct RedispatchedFrame {
-    pub leaves: Vec<(StormPlayerId, u32)>,
-    pub chat: Vec<(StormPlayerId, String)>,
-}
 
 /// One slot's home relay at session create, for the `/netstat` per-player home column. Both fields
 /// are `None` when the launch handoff carried no home data (an older server or a region-less dev
@@ -638,18 +630,13 @@ pub struct TurnState {
     /// Whether the `/netstat` overlay is currently toggled on (via the chat command or the debug
     /// command). Instrumentation is recorded regardless; this only gates whether the overlay draws.
     net_stats_visible: bool,
-    /// The most recent frames' dispatched turns, oldest first, for a rollback to dispatch again.
-    /// Holds at most `dispatch_history_len` frames, and nothing unless a rollback driver asked for
-    /// a history with [`keep_dispatch_history`](Self::keep_dispatch_history).
-    dispatch_history: VecDeque<DispatchedFrame>,
-    dispatch_history_len: usize,
-    /// Chat injected by the step in progress, recorded with its turns once they are dispatched.
-    /// Chat is injected into the simulation's command stream (which is what puts it in the
-    /// replay), so a re-simulation of the frame has to inject it again.
-    staged_chat: Vec<(StormPlayerId, String)>,
-    /// This client's own chat messages waiting for the next step to inject their local echo,
-    /// while a rollback driver keeps a dispatch history: injected between steps, an echo would
-    /// belong to no step's record and be lost from the replay when a rollback rewinds past it.
+    /// Every slot's turns by step, for a game that runs steps ahead of turns it has not received
+    /// yet and rolls back when they arrive (see [`predict_inputs`](Self::predict_inputs)). `None`
+    /// in lockstep, where `inbound_queues` holds the turns instead.
+    inputs: Option<InputTable>,
+    /// This client's own chat messages waiting for the next step to inject their local echo, in a
+    /// game that rolls back: injected between steps, an echo would belong to no step, and a
+    /// rollback past it would take it out of the replay without putting it back.
     local_chat_echoes: Vec<String>,
 }
 
@@ -709,9 +696,7 @@ impl TurnState {
             drop_requests: Vec::new(),
             net_stats: NetStats::new(initial_latency_turns.max(1), Instant::now()),
             net_stats_visible: false,
-            dispatch_history: VecDeque::new(),
-            dispatch_history_len: 0,
-            staged_chat: Vec::new(),
+            inputs: None,
             local_chat_echoes: Vec::new(),
         }
     }
@@ -945,10 +930,15 @@ impl TurnState {
     /// local sim — and it keeps them on the same latency delay as everyone else's (lockstep requires
     /// our own commands to execute on the same turn as our peers see them).
     fn echo_local_turn(&mut self, commands: Bytes) {
-        if let Some(local_storm) = self.storm_id_for_slot(self.local_slot)
-            && let Some(queue) = self.inbound_queues.get_mut(local_storm.0 as usize)
-        {
-            queue.push_back(commands);
+        if let Some(local_storm) = self.storm_id_for_slot(self.local_slot) {
+            match &mut self.inputs {
+                Some(inputs) => inputs.push(local_storm, commands, Instant::now()),
+                None => {
+                    if let Some(queue) = self.inbound_queues.get_mut(local_storm.0 as usize) {
+                        queue.push_back(commands);
+                    }
+                }
+            }
         }
         self.turns_in_flight = self.turns_in_flight.saturating_add(1);
     }
@@ -1095,8 +1085,16 @@ impl TurnState {
             };
             // Observation-only: record this slot's arrival pacing before queuing the turn.
             self.net_stats.record_arrival(storm, now);
-            if let Some(queue) = self.inbound_queues.get_mut(storm.0 as usize) {
-                queue.push_back(payload.commands);
+            match &mut self.inputs {
+                // A game that has gone local-only runs on predictions for good, so a turn still
+                // arriving could only ask for a rollback nothing needs.
+                Some(_) if self.local_only => {}
+                Some(inputs) => inputs.push(storm, payload.commands, now),
+                None => {
+                    if let Some(queue) = self.inbound_queues.get_mut(storm.0 as usize) {
+                        queue.push_back(payload.commands);
+                    }
+                }
             }
         }
         // The relay is phase-agnostic, so a hostile client can keep spraying lobby commands mid-game,
@@ -1105,6 +1103,9 @@ impl TurnState {
         // still draining `lobby_in`. An undrained channel would eventually fill and wedge the driver;
         // there's nothing useful to do with a lobby command mid-game, so it's discarded.
         while self.channels.lobby_in.try_recv().is_ok() {}
+        if let Some(inputs) = &mut self.inputs {
+            inputs.release_held(now);
+        }
     }
 
     /// IN-hook core: drain arrivals, then — if every required slot has a turn queued — pop exactly
@@ -1116,6 +1117,10 @@ impl TurnState {
     /// value is the all-players-present gate). After a `true`, read
     /// [`dispatch_buffers`](Self::dispatch_buffers) to fill `player_turns[]`, then call
     /// [`apply_due_directive`](Self::apply_due_directive).
+    ///
+    /// In a game that predicts inputs (see [`predict_inputs`](Self::predict_inputs)), the step runs
+    /// as long as it is within the prediction limit, with a no-op standing in for each turn that
+    /// has not arrived, and stalls only past the limit.
     pub fn receive_turns(&mut self, next_frame: u32) -> bool {
         let now = Instant::now();
         self.drain_inbound(next_frame, now);
@@ -1125,15 +1130,32 @@ impl TurnState {
         // spans every required slot including our own echo.
         let local_storm = self.storm_id_for_slot(self.local_slot);
         let mut blocking = [false; bw::MAX_STORM_PLAYERS];
-        let mut ready = true;
-        for (storm, blocked) in blocking.iter_mut().enumerate() {
-            if self.required[storm] && self.inbound_queues[storm].is_empty() {
-                ready = false;
-                if Some(StormPlayerId(storm as u8)) != local_storm {
-                    *blocked = true;
+        let ready = match &self.inputs {
+            Some(inputs) => {
+                let ready =
+                    self.local_only || inputs.can_run(input_step(next_frame), &self.required);
+                if !ready {
+                    for storm in inputs.missing(input_step(next_frame), &self.required) {
+                        if Some(storm) != local_storm {
+                            blocking[storm.0 as usize] = true;
+                        }
+                    }
                 }
+                ready
             }
-        }
+            None => {
+                let mut ready = true;
+                for (storm, blocked) in blocking.iter_mut().enumerate() {
+                    if self.required[storm] && self.inbound_queues[storm].is_empty() {
+                        ready = false;
+                        if Some(StormPlayerId(storm as u8)) != local_storm {
+                            *blocked = true;
+                        }
+                    }
+                }
+                ready
+            }
+        };
         // Observation-only: attribute the current poll's blocking set to those slots' stall episodes,
         // then take the once-a-second history-strip sample (self-gated, so calling it every poll is
         // cheap). This is the in-game per-poll cadence, so it keeps sampling through a stall.
@@ -1151,6 +1173,10 @@ impl TurnState {
         // A full step assembled: whatever brief gap there may have been is over, so the stall clock
         // resets and ordinary between-turn jitter never accumulates toward the stall tier.
         self.stall_start = None;
+        if let Some(inputs) = &mut self.inputs {
+            self.current_dispatch = inputs.dispatch(input_step(next_frame), &self.required).0;
+            return true;
+        }
         // Release one turn per required slot; non-required slots dispatch nothing this step.
         for storm in 0..bw::MAX_STORM_PLAYERS {
             self.current_dispatch[storm] = if self.required[storm] {
@@ -1166,57 +1192,75 @@ impl TurnState {
         true
     }
 
-    /// Takes whatever turns have arrived off the network, as the next receive would, and returns
-    /// whether every slot the next step needs a turn from now has one. `next_frame` is the frame
-    /// the game is about to simulate, as [`receive_turns`](Self::receive_turns) takes it.
-    pub fn next_turns_ready(&mut self, next_frame: u32) -> bool {
+    /// Makes this game keep every slot's turns in `inputs` from now on and run steps ahead of turns
+    /// that have not arrived, instead of waiting for them. Must be called before any in-game turn
+    /// is sent or received, since a turn's step is its position in its slot's sequence.
+    pub fn predict_inputs(&mut self, inputs: InputTable) {
+        self.inputs = Some(inputs);
+    }
+
+    /// Whether this game runs steps ahead of turns it has not received yet.
+    pub fn predicts_inputs(&self) -> bool {
+        self.inputs.is_some()
+    }
+
+    /// Takes whatever turns and leaves have arrived, as the next receive would, and returns the
+    /// earliest step a rollback has to simulate again, if any: one that ran on a prediction an
+    /// arrived turn contradicts, or one a leave now due belongs to. The caller is expected to roll
+    /// back to it. `None` as well when this game does not predict inputs.
+    ///
+    /// Steps here and in [`known_until`](Self::known_until) are turn indices, which are also frame
+    /// counts: the step that dispatches each slot's `n`-th in-game turn is the one that starts from
+    /// frame `n`.
+    pub fn take_rollback_target(&mut self, next_frame: u32) -> Option<u32> {
         self.drain_inbound(next_frame, Instant::now());
-        (0..bw::MAX_STORM_PLAYERS).all(|x| !self.required[x] || !self.inbound_queues[x].is_empty())
+        self.drain_leave_directives();
+        let required = self.required;
+        self.inputs.as_mut()?.take_rollback_target(&required)
     }
 
-    /// Keeps the turns dispatched on the most recent `frames` frames, so a rollback can dispatch
-    /// them again when it re-simulates those frames. 0 keeps none.
-    pub fn keep_dispatch_history(&mut self, frames: usize) {
-        self.dispatch_history_len = frames;
-        while self.dispatch_history.len() > frames {
-            self.dispatch_history.pop_front();
+    /// Whether the step `next_frame` can run now, which a step with a missing turn only can within
+    /// the prediction limit. Always `true` when this game does not predict inputs.
+    pub fn can_run(&self, next_frame: u32) -> bool {
+        match &self.inputs {
+            Some(inputs) => {
+                self.local_only || inputs.can_run(input_step(next_frame), &self.required)
+            }
+            None => true,
         }
     }
 
-    /// Records the turns [`receive_turns`](Self::receive_turns) just released as the ones frame
-    /// `frame` was simulated with. A no-op unless a history was asked for.
-    pub fn record_dispatch(&mut self, frame: u32) {
-        if self.dispatch_history_len == 0 {
-            return;
-        }
-        // A frame simulated again after a restore replaces what it was given before.
-        while self
-            .dispatch_history
-            .back()
-            .is_some_and(|x| x.frame >= frame)
-        {
-            self.dispatch_history.pop_back();
-        }
-        if self.dispatch_history.len() == self.dispatch_history_len {
-            self.dispatch_history.pop_front();
-        }
-        self.dispatch_history.push_back(DispatchedFrame {
-            frame,
-            turns: self.current_dispatch.clone(),
-            leaves: Vec::new(),
-            chat: std::mem::take(&mut self.staged_chat),
-        });
+    /// The first step whose turns are not all known yet, or `u32::MAX` once nothing is left to
+    /// arrive. Every step before it simulates the same on every client. `None` when this game does
+    /// not predict inputs.
+    pub fn known_until(&self) -> Option<u32> {
+        let inputs = self.inputs.as_ref()?;
+        Some(match self.local_only {
+            true => u32::MAX,
+            false => inputs.known_until_for(&self.required),
+        })
     }
 
-    /// Whether a rollback driver asked for a dispatch history.
-    pub fn keeps_dispatch_history(&self) -> bool {
-        self.dispatch_history_len != 0
+    /// Forgets the turns and chat of every step before `step`, which no rollback will simulate
+    /// again.
+    pub fn forget_inputs_before(&mut self, step: u32) {
+        if let Some(inputs) = &mut self.inputs {
+            inputs.forget_before(step);
+        }
     }
 
-    /// Notes a chat message the step in progress injected, to be recorded with the frame's turns.
-    pub fn note_injected_chat(&mut self, storm: StormPlayerId, text: &str) {
-        if self.dispatch_history_len != 0 {
-            self.staged_chat.push((storm, text.to_string()));
+    /// What the input table has seen since the last call, or `None` when this game does not
+    /// predict inputs.
+    pub fn take_input_counts(&mut self) -> Option<InputCounts> {
+        self.inputs.as_mut().map(|x| x.take_counts())
+    }
+
+    /// Notes a chat message injected into the simulation by the step in progress, which injects it
+    /// again whenever it is simulated again. `next_frame` is as [`receive_turns`](Self::receive_turns)
+    /// takes it.
+    pub fn note_injected_chat(&mut self, next_frame: u32, storm: StormPlayerId, text: &str) {
+        if let Some(inputs) = &mut self.inputs {
+            inputs.record_chat(input_step(next_frame), storm, text.to_string());
         }
     }
 
@@ -1230,28 +1274,18 @@ impl TurnState {
         std::mem::take(&mut self.local_chat_echoes)
     }
 
-    /// Records the players whose leave the step producing `frame` applied, with their reasons.
-    pub fn record_dispatched_leaves(&mut self, frame: u32, leaves: &[(StormPlayerId, u32)]) {
-        if let Some(entry) = self
-            .dispatch_history
-            .iter_mut()
-            .rev()
-            .find(|x| x.frame == frame)
-        {
-            entry.leaves = leaves.to_vec();
-        }
-    }
-
-    /// Makes the turns frame `frame` was first simulated with the ones
-    /// [`dispatch_buffers`](Self::dispatch_buffers) returns, and returns what else that step
-    /// applied, or `None` when the history no longer holds the frame.
-    pub fn redispatch(&mut self, frame: u32) -> Option<RedispatchedFrame> {
-        let entry = self.dispatch_history.iter().find(|x| x.frame == frame)?;
-        self.current_dispatch = entry.turns.clone();
-        Some(RedispatchedFrame {
-            leaves: entry.leaves.clone(),
-            chat: entry.chat.clone(),
-        })
+    /// Makes the turns the step in progress dispatches, one that is being simulated again, the
+    /// ones [`dispatch_buffers`](Self::dispatch_buffers) returns (every turn known by now,
+    /// predictions for the rest), and returns the chat the step injected when it first ran.
+    /// `next_frame` is as [`receive_turns`](Self::receive_turns) takes it.
+    pub fn redispatch(&mut self, next_frame: u32) -> Vec<(StormPlayerId, String)> {
+        let step = input_step(next_frame);
+        let required = self.required;
+        let Some(inputs) = &mut self.inputs else {
+            return Vec::new();
+        };
+        self.current_dispatch = inputs.dispatch(step, &required).0;
+        inputs.chat_at(step)
     }
 
     /// The command buffers to dispatch this step: `(storm id, command bytes)` for each ready slot.
@@ -1558,8 +1592,19 @@ impl TurnState {
     /// connectivity confirmation. A slot with no roster entry (should not occur) is skipped.
     fn stalled_peers(&self) -> Vec<StalledPeer> {
         let local_storm = self.storm_id_for_slot(self.local_slot);
-        (0..bw::MAX_STORM_PLAYERS)
-            .filter(|&storm| self.required[storm] && self.inbound_queues[storm].is_empty())
+        let missing: Vec<usize> = match &self.inputs {
+            // Only a step past the prediction limit waits, and it is always the next one to run.
+            Some(inputs) if !self.can_run(inputs.frontier()) => inputs
+                .missing(inputs.frontier(), &self.required)
+                .map(|storm| storm.0 as usize)
+                .collect(),
+            Some(_) => Vec::new(),
+            None => (0..bw::MAX_STORM_PLAYERS)
+                .filter(|&storm| self.required[storm] && self.inbound_queues[storm].is_empty())
+                .collect(),
+        };
+        missing
+            .into_iter()
             .filter(|&storm| Some(StormPlayerId(storm as u8)) != local_storm)
             .filter_map(|storm| {
                 let slot = self.slot_for_storm(StormPlayerId(storm as u8))?;
@@ -1691,50 +1736,32 @@ impl TurnState {
     /// A due leave for a slot with no storm id yet (unmapped — shouldn't happen in-game; slots map at
     /// join) is warned and skipped: it can't be written into `pending_leave_reason`, and the
     /// `LeaveTracker` has already marked it surfaced so it won't retry every step.
+    ///
+    /// In a game that predicts inputs, a leave is due only at its own step, once every earlier
+    /// step's turns are known (see [`InputTable::take_due_leaves`]); the step may be one being
+    /// simulated again, since steps that ran before the leave arrived ran without it.
     pub fn take_due_leaves(&mut self, next_frame: u32) -> Vec<(StormPlayerId, u32)> {
-        // Drain any leaves the driver surfaced from the reliable control stream
-        // into the tracker first. Leaves arrive here, off the turn path, because a
-        // drop stops turn flow — so this is the channel that still delivers the
-        // leave that must unstall us.
-        //
-        // Once local-only, the link is closing and every remote slot is already left or tracked
-        // (see `begin_local_only`), so a directive arriving now is redundant — and observing it
-        // is actively unsafe: a fabricated entry carries a synthetic apply frame/reason, so a real
-        // directive for the same slot would conflict with it and trip the tracker's per-slot
-        // consistency assert. Drain the channel so it doesn't back up, but throw the contents away.
-        if self.local_only {
-            while let Ok(leave) = self.channels.leaves.try_recv() {
-                info!(
-                    "netcode v2: received coordinated leave after local-only transition; \
-                     discarding: slot={} reason={:#010x} apply_frame={} leave_seq={} \
-                     finalized={} final_turn_count={:?}",
-                    leave.slot,
-                    leave.reason,
-                    leave.apply_at_frame,
-                    leave.leave_seq,
-                    leave.finalized,
-                    leave.final_turn_count,
-                );
-            }
-        } else {
-            while let Ok(leave) = self.channels.leaves.try_recv() {
-                let already_tracked = self.leaves.contains(leave.slot);
-                info!(
-                    "netcode v2: received coordinated leave directive: slot={} reason={:#010x} \
-                     apply_frame={} leave_seq={} finalized={} final_turn_count={:?} \
-                     already_tracked={}",
-                    leave.slot,
-                    leave.reason,
-                    leave.apply_at_frame,
-                    leave.leave_seq,
-                    leave.finalized,
-                    leave.final_turn_count,
-                    already_tracked,
-                );
-                self.leaves.observe(&leave);
-            }
-        }
+        self.drain_leave_directives();
         let mut out = Vec::new();
+        if !self.local_only
+            && let Some(inputs) = &mut self.inputs
+        {
+            let step = input_step(next_frame);
+            for (storm, reason) in inputs.take_due_leaves(step, &self.required) {
+                info!(
+                    "netcode v2: coordinated leave became due: storm_slot={} reason={:#010x} \
+                     step={step}",
+                    storm.0, reason,
+                );
+                out.push((storm, reason));
+            }
+            for &(storm, reason) in &out {
+                self.mark_slot_left(storm);
+                // Observation-only: tag the slot's net-stats row with how it departed.
+                self.net_stats.record_departure(storm, reason);
+            }
+            return out;
+        }
         // Copied out so the closure can read them while the tracker holds `&mut self.leaves`. A
         // slot with no storm id yet reports zero consumption: its counted leave stays pending
         // until the mapping exists (and a zero-count leave for it surfaces into the same
@@ -1750,6 +1777,10 @@ impl TurnState {
         };
         for (slot, reason) in self.leaves.take_due(next_frame, consumed) {
             match self.storm_id_for_slot(slot) {
+                // A game that predicts inputs applies the relay's leaves from its input table
+                // until it goes local-only, and a slot whose leave it already applied must not
+                // leave twice.
+                Some(storm) if self.inputs.is_some() && !self.required[storm.0 as usize] => {}
                 Some(storm) => {
                     info!(
                         "netcode v2: coordinated leave became due: slot={} storm_slot={} \
@@ -1767,6 +1798,82 @@ impl TurnState {
         out
     }
 
+    /// Drains the leaves the driver surfaced from the reliable control stream into the tracker,
+    /// and in a game that predicts inputs, schedules each at its step in the input table. Leaves
+    /// arrive here, off the turn path, because a drop stops turn flow — so this is the channel that
+    /// still delivers the leave that must unstall us.
+    ///
+    /// Once local-only, the link is closing and every remote slot is already left or tracked (see
+    /// `begin_local_only`), so a directive arriving now is redundant — and observing it is actively
+    /// unsafe: a fabricated entry carries a synthetic apply frame/reason, so a real directive for
+    /// the same slot would conflict with it and trip the tracker's per-slot consistency assert.
+    /// Drain the channel so it doesn't back up, but throw the contents away.
+    fn drain_leave_directives(&mut self) {
+        if self.local_only {
+            while let Ok(leave) = self.channels.leaves.try_recv() {
+                info!(
+                    "netcode v2: received coordinated leave after local-only transition; \
+                     discarding: slot={} reason={:#010x} apply_frame={} leave_seq={} \
+                     finalized={} final_turn_count={:?}",
+                    leave.slot,
+                    leave.reason,
+                    leave.apply_at_frame,
+                    leave.leave_seq,
+                    leave.finalized,
+                    leave.final_turn_count,
+                );
+            }
+            return;
+        }
+        while let Ok(leave) = self.channels.leaves.try_recv() {
+            let already_tracked = self.leaves.contains(leave.slot);
+            info!(
+                "netcode v2: received coordinated leave directive: slot={} reason={:#010x} \
+                 apply_frame={} leave_seq={} finalized={} final_turn_count={:?} \
+                 already_tracked={}",
+                leave.slot,
+                leave.reason,
+                leave.apply_at_frame,
+                leave.leave_seq,
+                leave.finalized,
+                leave.final_turn_count,
+                already_tracked,
+            );
+            self.leaves.observe(&leave);
+            self.schedule_leave(&leave);
+        }
+    }
+
+    /// Schedules a relay leave directive in the input table of a game that predicts inputs. The
+    /// leave belongs to the step that would dispatch the departed slot's turn past the count of its
+    /// turns the relay forwarded. A directive without that count (an unfinalized drop) only names
+    /// a frame from the departed player's own stamps, so the leave goes to the first step this
+    /// client received no turn for, which clients that received different numbers of the slot's
+    /// turns disagree on.
+    fn schedule_leave(&mut self, leave: &LeaveDirective) {
+        let Some(storm) = u8::try_from(leave.slot)
+            .ok()
+            .and_then(|slot| self.storm_id_for_slot(SlotId(slot)))
+        else {
+            return;
+        };
+        let Some(inputs) = &mut self.inputs else {
+            return;
+        };
+        let step = match leave.final_turn_count {
+            Some(count) => count.min(u32::MAX as u64) as u32,
+            None => {
+                let step = inputs.first_step_without_turn(storm);
+                warn!(
+                    "netcode v2: leave for slot {} carries no turn count; applying it at step \
+                     {step}, which other clients may not agree on",
+                    leave.slot,
+                );
+                step
+            }
+        };
+        inputs.schedule_leave(storm, leave.reason, step);
+    }
     /// PIPE hook input: local turns in flight. Replaces the native `get_outstanding_turn_count`,
     /// which goes degenerate once Storm's counters stop advancing.
     pub fn outstanding_turns(&self) -> u32 {
@@ -2055,7 +2162,10 @@ impl TurnState {
                         user_id,
                         storm_id: Some(storm as u8),
                         required: self.required.get(storm).copied().unwrap_or(false),
-                        queued_turns: self.inbound_queues.get(storm).map_or(0, |q| q.len()),
+                        queued_turns: match &self.inputs {
+                            Some(inputs) => inputs.queued(StormPlayerId(storm as u8)),
+                            None => self.inbound_queues.get(storm).map_or(0, |q| q.len()),
+                        },
                         has_dispatch: self
                             .current_dispatch
                             .get(storm)

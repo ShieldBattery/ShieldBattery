@@ -3694,10 +3694,8 @@ impl BwScr {
                 };
             }
             let nc = &self.netcode_v2;
-            if let Some((frame, true)) = rollback_step()
-                && netcode_v2::with_turn_state(|_| ()).is_some()
-            {
-                return self.netcode_v2_redispatch(nc, frame);
+            if netcode_v2::with_turn_state(|s| s.predicts_inputs()) == Some(true) {
+                return self.netcode_v2_receive_predicted(nc);
             }
             // Only BW's running game loop reaches this branch: the pre-loop pipe seed drives the
             // send side, and lobby init runs before the started flag flips. Its first pass is
@@ -3738,9 +3736,6 @@ impl BwScr {
             // the same path a human's own Enter keypress uses.
             #[cfg(debug_assertions)]
             self.apply_debug_chat();
-            // This client's own messages sent since the last step, when a rollback driver has
-            // them wait for a step so that the step's record includes them.
-            self.apply_local_chat_echoes();
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
@@ -3775,9 +3770,6 @@ impl BwScr {
                 // Exactly once per executed step (one local turn leaves the pipe), NOT per dispatched
                 // slot — see TurnState::mark_local_turn_executed.
                 s.mark_local_turn_executed();
-                if let Some((frame, false)) = rollback_step() {
-                    s.record_dispatch(frame);
-                }
                 true
             });
             match ready {
@@ -3790,15 +3782,6 @@ impl BwScr {
                     // Leave pass runs with the turn-state lock released: the leave handlers can issue
                     // commands that re-enter the OUT hook, which would re-lock the turn state.
                     let leaving = self.run_synced_leave_pass(nc);
-                    #[cfg(debug_assertions)]
-                    if !leaving.is_empty() {
-                        crate::rollback::mark_irreversible_step();
-                    }
-                    if let Some((frame, false)) = rollback_step() {
-                        netcode_v2::with_turn_state(|s| {
-                            s.record_dispatched_leaves(frame, &leaving)
-                        });
-                    }
                     for (storm, _) in leaving {
                         netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
                     }
@@ -3808,22 +3791,92 @@ impl BwScr {
         }
     }
 
-    /// IN hook body for a step that re-simulates a frame the game has already shown: dispatches the
-    /// turns the frame was first simulated with and applies the same leaves, from the turn state's
-    /// dispatch history. Everything else the receive does (taking turns off the network, due
-    /// leaves and directives, chat, skins, connectivity) happened when the frame was first
-    /// simulated, and its effects outside the simulation must not happen twice.
-    unsafe fn netcode_v2_redispatch(&self, nc: &NetcodeV2Bw, frame: u32) -> TurnReceiveOutcome {
+    /// IN hook body for an in-game step of a game that predicts inputs: the step runs ahead of the
+    /// turns it has not received, up to the prediction limit, and a rollback simulates it again
+    /// once they arrive (see [`TurnState::predict_inputs`]).
+    ///
+    /// The turn state keys every slot's turns by turn index, derived from `game_frame_count`, which
+    /// the rollback snapshot restores along with the rest of the simulation. A step simulated again
+    /// takes its turns from the same table and injects the chat its first run injected; everything
+    /// else the receive does (taking turns off the network, directives, skins, connectivity, the
+    /// local turn leaving the pipe) happened when the step first ran. Leaves are taken on either
+    /// kind of step, since a leave that arrives after its step ran is applied by the step's second
+    /// run. Chat is injected only once the step is known to run, so that no rollback between a
+    /// stalled attempt and the real one can drop it from the replay.
+    unsafe fn netcode_v2_receive_predicted(&self, nc: &NetcodeV2Bw) -> TurnReceiveOutcome {
         unsafe {
-            let recorded = netcode_v2::with_turn_state(|s| s.redispatch(frame)).flatten();
-            let Some(recorded) = recorded else {
-                // A rollback reached back past the history, so this frame can only be simulated
-                // with turns other than the ones it had. Nothing later can put that right.
-                error!("netcode v2: no dispatched turns recorded for re-simulated frame {frame}");
-                return TurnReceiveOutcome::Stall;
-            };
-            // The first simulation injected its chat before taking its turns.
-            for (storm, text) in &recorded.chat {
+            let step = nc.game_frame_count.resolve();
+            #[cfg(debug_assertions)]
+            {
+                static MISMATCH_LOGGED: AtomicBool = AtomicBool::new(false);
+                let frame = self.probe_frame_count();
+                if frame != Some(step.saturating_sub(1))
+                    && !MISMATCH_LOGGED.swap(true, Ordering::Relaxed)
+                {
+                    error!(
+                        "netcode v2: turn counter {step} is not one past the frame count \
+                         {frame:?}; rollback targets will be off"
+                    );
+                }
+            }
+            if live_rollback_resimulating() {
+                return self.netcode_v2_redispatch(nc, step);
+            }
+            netcode_v2::with_turn_state(|s| s.submit_game_started());
+            self.apply_due_leaves(nc, step);
+            if netcode_v2::with_turn_state(|s| s.should_self_close()).unwrap_or(false) {
+                netcode_v2::begin_local_only();
+            }
+            #[cfg(debug_assertions)]
+            self.apply_forced_unsynced_leaves(nc);
+            #[cfg(debug_assertions)]
+            self.apply_forced_desync();
+            #[cfg(debug_assertions)]
+            self.apply_debug_chat();
+            self.broadcast_local_skin_once();
+            self.apply_skins_inbound();
+            netcode_v2::with_turn_state(|s| {
+                s.pump_connectivity(true, Instant::now());
+                s.pump_region_labels();
+            });
+            let ready = netcode_v2::with_turn_state(|s| {
+                if !s.receive_turns(step) {
+                    return false;
+                }
+                Self::fill_turn_dispatch(
+                    nc.player_turns.resolve(),
+                    nc.player_turns_size.resolve(),
+                    self.storm_player_flags.resolve(),
+                    s.dispatch_buffers(),
+                );
+                s.apply_due_directive(step);
+                s.mark_local_turn_executed();
+                true
+            });
+            match ready {
+                None => TurnReceiveOutcome::Native,
+                Some(false) => {
+                    self.end_session_for_requested_exit(nc);
+                    TurnReceiveOutcome::Stall
+                }
+                Some(true) => {
+                    self.apply_local_chat_echoes();
+                    self.apply_chat_inbound();
+                    self.run_predicted_leave_pass(nc);
+                    TurnReceiveOutcome::Ready
+                }
+            }
+        }
+    }
+
+    /// IN hook body for a step that simulates again a step the game has already run, in a game that
+    /// predicts inputs: dispatches the turns the input table has for it now and injects the chat it
+    /// injected the first time. See [`netcode_v2_receive_predicted`](Self::netcode_v2_receive_predicted).
+    unsafe fn netcode_v2_redispatch(&self, nc: &NetcodeV2Bw, step: u32) -> TurnReceiveOutcome {
+        unsafe {
+            self.apply_due_leaves(nc, step);
+            let chat = netcode_v2::with_turn_state(|s| s.redispatch(step)).unwrap_or_default();
+            for (storm, text) in &chat {
                 self.inject_chat_message(*storm, text);
             }
             netcode_v2::with_turn_state(|s| {
@@ -3834,18 +3887,25 @@ impl BwScr {
                     s.dispatch_buffers(),
                 )
             });
-            for &(storm, reason) in &recorded.leaves {
-                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = reason as i32;
-            }
-            self.run_synced_leave_pass(nc);
+            self.run_predicted_leave_pass(nc);
             TurnReceiveOutcome::Ready
         }
     }
 
-    /// The frame the game is about to simulate, as netcode v2's receive takes it.
-    #[cfg(debug_assertions)]
-    pub(crate) unsafe fn netcode_v2_next_frame(&self) -> u32 {
-        unsafe { self.netcode_v2.game_frame_count.resolve() }
+    /// Runs the synced leave pass of a step in a game that predicts inputs. A step that applies a
+    /// leave changes state outside the rollback snapshot, and applying it a second time corrupts
+    /// that state, so the step becomes one no rollback reaches back past.
+    unsafe fn run_predicted_leave_pass(&self, nc: &NetcodeV2Bw) {
+        unsafe {
+            let leaving = self.run_synced_leave_pass(nc);
+            #[cfg(debug_assertions)]
+            if !leaving.is_empty() {
+                crate::rollback::mark_irreversible_step();
+            }
+            for (storm, _) in leaving {
+                netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
+            }
+        }
     }
 
     /// Lets a game that has been asked to exit actually leave a stalled lockstep step.
@@ -4332,7 +4392,7 @@ impl BwScr {
                 debug!("netcode v2: chat_out channel unavailable; message not queued for peers");
             }
             let deferred = netcode_v2::with_turn_state(|s| {
-                let deferred = s.keeps_dispatch_history();
+                let deferred = s.predicts_inputs();
                 if deferred {
                     s.queue_local_chat_echo(text.to_string());
                 }
@@ -4390,7 +4450,8 @@ impl BwScr {
             // see `process_injected_game_command`'s doc comment for the full reasoning.
             let injected = self.process_injected_game_command(&record, storm_player, 0);
             if injected && let Some((_, false)) = rollback_step() {
-                netcode_v2::with_turn_state(|s| s.note_injected_chat(storm_player, text));
+                let step = self.netcode_v2.game_frame_count.resolve();
+                netcode_v2::with_turn_state(|s| s.note_injected_chat(step, storm_player, text));
             }
             #[cfg(debug_assertions)]
             if injected && !rollback_resimulating() {
@@ -6287,6 +6348,59 @@ impl BwScr {
                     flash.call2(object as *mut c_void, timer);
                 }
             }
+        }
+    }
+
+    /// Issues commands the way a player's clicks would, through the local command buffer the
+    /// game's own UI fills: selects some of the local player's units and right-clicks a map
+    /// position with them. `random` picks the units and the position. Returns whether there was
+    /// anything to select.
+    pub(crate) unsafe fn rollback_issue_random_commands(
+        &self,
+        mut random: impl FnMut() -> u32,
+    ) -> bool {
+        unsafe {
+            let game = self.game();
+            let local_player = self.local_unique_player_id.resolve();
+            if game.is_null() || local_player >= 8 {
+                return false;
+            }
+            let units = self.units.resolve();
+            let unit_ptr = (*units).data as *mut bw::Unit;
+            let own: Vec<(usize, u8)> = (0..(*units).length)
+                .map(|i| (i, unit_ptr.add(i)))
+                .filter(|&(_, unit)| {
+                    !(*unit).flingy.sprite.is_null() && (*unit).player as u32 == local_player
+                })
+                .map(|(i, unit)| (i, (*unit).minor_unique_index))
+                .collect();
+            if own.is_empty() {
+                return false;
+            }
+            // A unit's tag is its one-based pool index in the low 11 bits and how many times the
+            // slot has been reused above them; the 1.21 select command pads each to 4 bytes.
+            let count = 1 + random() as usize % own.len().min(12);
+            let mut select = vec![0x63, count as u8];
+            for _ in 0..count {
+                let (index, reuse) = own[random() as usize % own.len()];
+                let tag = (index as u16 + 1) | ((reuse as u16 & 0x1f) << 11);
+                select.extend_from_slice(&tag.to_le_bytes());
+                select.extend_from_slice(&[0, 0]);
+            }
+            (self.send_command)(select.as_ptr(), select.len());
+            let width = (*game).map_width_tiles as u32 * 32;
+            let height = (*game).map_height_tiles as u32 * 32;
+            let x = (random() % width.max(1)) as u16;
+            let y = (random() % height.max(1)) as u16;
+            // The 1.21 right click: position, target tag (none) and its padding, the target's unit
+            // type (none), not queued.
+            let mut right_click = vec![0x60];
+            for value in [x, y, 0, 0, 0xe4] {
+                right_click.extend_from_slice(&value.to_le_bytes());
+            }
+            right_click.push(0);
+            (self.send_command)(right_click.as_ptr(), right_click.len());
+            true
         }
     }
 
