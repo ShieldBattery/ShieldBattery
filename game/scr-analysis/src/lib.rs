@@ -641,6 +641,12 @@ impl<'e> Analysis<'e> {
         self.0.sync_slot_index()
     }
 
+    /// The byte that decides whether the order confirmation marker is drawn. Clicks set it; the
+    /// marker's iscript clears it when its animation ends.
+    pub fn draw_cursor_marker(&mut self) -> Option<Operand<'e>> {
+        self.0.draw_cursor_marker()
+    }
+
     /// Built-in/proto turn latency (the pipe-depth floor, natively 2). We may override it. See
     /// guide §4 / §5.3.
     pub fn builtin_turn_latency(&mut self) -> Option<Operand<'e>> {

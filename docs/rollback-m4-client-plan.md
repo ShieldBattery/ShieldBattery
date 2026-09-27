@@ -186,12 +186,14 @@ comparator (build step 3).
   each restore, or re-simulated steps re-trigger renderer notifications (frame or animation
   changes) that restart it. Needs RE; the fix is to leave that state out of restores or keep
   re-simulated steps from notifying the renderer.
-- **Order confirmation marker.** With shadow rollback, the green order marker can stay on screen
-  after a shift-queued order queue finishes, until the next order clears it. The marker is a
-  sprite the UI owns in the simulation's sprite pool; the simulation shows it for the next queued
-  target, so a re-simulated step shows it again and a restore rewinds it. Needs RE of the marker
-  functions: likely handled like the other announcements (deduplicated across re-simulations)
-  with the marker's own state kept out of restores.
+- **Order confirmation marker.** Only UI clicks show the marker (`show_cursor_marker_at`); its
+  sprite and animation are in the snapshot's pools, and its animation clears the separate
+  `draw_cursor_marker` byte when it ends. With the byte outside the snapshot, a restore across a
+  click rewound the animation past its end but left the byte set, so the marker stayed drawn until
+  the next click. The byte is now in the snapshot, so the two always rewind together; the remaining
+  cost is that a click's marker vanishes early when a rollback crosses it. Replaying clicks through
+  re-simulation (log `show_cursor_marker_at(x, y)` per frame and call it again at the same point,
+  as injected chat is replayed) removes that, but needs a samase_scarf analysis for the function.
 - **Computer players.** A replay with two computer players diverges under forced rollback at
   frame 1987: some AI state is outside the snapshot. Rollback games exclude computer players until
   the harness finds and covers it.

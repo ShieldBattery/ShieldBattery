@@ -389,6 +389,10 @@ pub fn analyze_ranges(
         // The cursors the sync checksum ring is written through, and the accumulators whose
         // value the next recorded checksum picks up. Each is a global of its own beside the
         // ring rather than a field of it.
+        // Whether the order confirmation marker is drawn. Its sprite and animation are in the
+        // pools, and its animation clears this when it ends; restored apart from them, a marker
+        // whose animation a restore rewound past its end would stay drawn for good.
+        ("draw_cursor_marker", analysis.draw_cursor_marker()),
         ("sync_slot_index", analysis.sync_slot_index()),
         ("sync_check_kind_index", analysis.sync_check_kind_index()),
         ("sync_check_kind_count", analysis.sync_check_kind_count()),
