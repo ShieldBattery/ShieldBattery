@@ -78,17 +78,17 @@ pub(crate) fn should_announce(kind: Kind, key: u64) -> bool {
     }
 }
 
-/// Ends a tick: forgets the announcements of confirmed frames, which nothing will simulate again,
-/// and the ones the tick's re-simulation no longer made, which only ever belonged to a prediction.
-/// Returns how many of the latter there were.
-pub(super) fn finish_tick(window_start: u32, confirmed: u32) -> u32 {
+/// Ends a tick: forgets the announcements of frames up to `settled_through`, which nothing will
+/// simulate again, and the ones the tick's re-simulation no longer made, which only ever belonged
+/// to a prediction. Returns how many of the latter there were.
+pub(super) fn finish_tick(window_start: u32, settled_through: u32) -> u32 {
     let mut ledger = LEDGER.lock();
     let mut stale = 0;
     ledger.retain_mut(|x| {
         let retracted = !x.seen && x.frame >= window_start;
         stale += retracted as u32;
         x.seen = false;
-        !retracted && x.frame > confirmed
+        !retracted && x.frame > settled_through
     });
     stale
 }

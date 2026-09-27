@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::ffi::{CStr, CString, OsString};
 use std::marker::PhantomData;
@@ -1759,11 +1760,13 @@ impl BwScr {
         // nothing else in the game asks for, which adds up to a noticeable part of launch time, so
         // a run that will neither roll anything back nor dump the ranges does not pay for them.
         #[cfg(debug_assertions)]
-        let rollback_ranges =
-            match crate::rollback_harness::wants_ranges() || crate::rollback_probe::is_active() {
-                true => crate::rollback::ranges::analyze_ranges(&mut analysis, ctx),
-                false => Vec::new(),
-            };
+        let rollback_ranges = match crate::rollback_harness::wants_ranges()
+            || crate::rollback_live::wants_ranges()
+            || crate::rollback_probe::is_active()
+        {
+            true => crate::rollback::ranges::analyze_ranges(&mut analysis, ctx),
+            false => Vec::new(),
+        };
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -2107,6 +2110,14 @@ impl BwScr {
                         is_observer,
                         &self.game_command_lengths,
                     );
+                    let strip_sync = native_sync_disabled() && !is_replay;
+                    let slice: Cow<'_, [u8]> = match strip_sync {
+                        true => Cow::Owned(
+                            commands::strip_sync_commands(&slice, &self.game_command_lengths)
+                                .into_owned(),
+                        ),
+                        false => slice,
+                    };
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
@@ -2115,7 +2126,8 @@ impl BwScr {
                         let mut apm_state = self.apm_state.lock();
                         for command in commands::iter_commands(&slice, &self.game_command_lengths) {
                             if let Some(ref mut apm) = apm_state
-                                && (!is_replay || are_recorded_replay_commands != 0) {
+                                && (!is_replay || are_recorded_replay_commands != 0)
+                                && !rollback_resimulating() {
                                     apm.action(unique_command_user as u8, command);
                                 }
                             match command {
@@ -2151,6 +2163,7 @@ impl BwScr {
                     }
 
                     if !is_replay
+                        && !rollback_resimulating()
                         && let Some(players) = self.check_player_drops() {
                             let frame = (*self.game()).frame_count;
                             let turn_seq = self.snet_next_turn_sequence_number().wrapping_sub(1);
@@ -2184,7 +2197,9 @@ impl BwScr {
                     }
                     if !is_replay {
                         if !sync_seen {
-                            if is_observer {
+                            // With native sync off, no turn carries a sync command, and a no-op
+                            // stands in for it the same way it does for an observer.
+                            if is_observer || strip_sync {
                                 // Observers don't send sync commands correctly.
                                 // Send no-op command 0x05 which counts as a correct sync to
                                 // prevent them from dropping.
@@ -2297,7 +2312,9 @@ impl BwScr {
             exe.hook_closure_address(
                 StepGame,
                 move |orig| {
-                    if let Some(mut apm) = self.apm_state.lock() {
+                    if !rollback_resimulating()
+                        && let Some(mut apm) = self.apm_state.lock()
+                    {
                         apm.new_frame();
                     }
                     orig();
@@ -2382,6 +2399,7 @@ impl BwScr {
                         // observe the active ring, and never hold the turn-state lock over BW.
                         let before = if self.game_started.load(Ordering::Acquire)
                             && nc.sync_active.resolve() != 0
+                            && !rollback_resimulating()
                         {
                             Some(nc.sync_slot_index.resolve())
                         } else {
@@ -3521,10 +3539,21 @@ impl BwScr {
                     Some(false) => TurnSendOutcome::Failed,
                 };
             }
+            // A re-simulated frame's turn went out when the frame was first simulated.
+            if live_rollback_resimulating() {
+                return TurnSendOutcome::Submitted;
+            }
             let nc = &self.netcode_v2;
             let frame = nc.game_frame_count.resolve();
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
+            let filtered: Cow<'_, [u8]> = match native_sync_disabled() {
+                true => Cow::Owned(
+                    commands::strip_sync_commands(&filtered, &self.game_command_lengths)
+                        .into_owned(),
+                ),
+                false => filtered,
+            };
             let sync_ring = if nc.sync_active.resolve() != 0 {
                 Some(nc.sync_slot_index.resolve())
             } else {
@@ -3599,6 +3628,11 @@ impl BwScr {
                 };
             }
             let nc = &self.netcode_v2;
+            if let Some((frame, true)) = rollback_step()
+                && netcode_v2::with_turn_state(|_| ()).is_some()
+            {
+                return self.netcode_v2_redispatch(nc, frame);
+            }
             // Only BW's running game loop reaches this branch: the pre-loop pipe seed drives the
             // send side, and lobby init runs before the started flag flips. Its first pass is
             // therefore the proof the simulation is stepping, and the moment the relay (and through
@@ -3638,6 +3672,9 @@ impl BwScr {
             // the same path a human's own Enter keypress uses.
             #[cfg(debug_assertions)]
             self.apply_debug_chat();
+            // This client's own messages sent since the last step, when a rollback driver has
+            // them wait for a step so that the step's record includes them.
+            self.apply_local_chat_echoes();
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
@@ -3672,6 +3709,9 @@ impl BwScr {
                 // Exactly once per executed step (one local turn leaves the pipe), NOT per dispatched
                 // slot — see TurnState::mark_local_turn_executed.
                 s.mark_local_turn_executed();
+                if let Some((frame, false)) = rollback_step() {
+                    s.record_dispatch(frame);
+                }
                 true
             });
             match ready {
@@ -3684,6 +3724,15 @@ impl BwScr {
                     // Leave pass runs with the turn-state lock released: the leave handlers can issue
                     // commands that re-enter the OUT hook, which would re-lock the turn state.
                     let leaving = self.run_synced_leave_pass(nc);
+                    #[cfg(debug_assertions)]
+                    if !leaving.is_empty() {
+                        crate::rollback::mark_irreversible_step();
+                    }
+                    if let Some((frame, false)) = rollback_step() {
+                        netcode_v2::with_turn_state(|s| {
+                            s.record_dispatched_leaves(frame, &leaving)
+                        });
+                    }
                     for (storm, _) in leaving {
                         netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
                     }
@@ -3691,6 +3740,46 @@ impl BwScr {
                 }
             }
         }
+    }
+
+    /// IN hook body for a step that re-simulates a frame the game has already shown: dispatches the
+    /// turns the frame was first simulated with and applies the same leaves, from the turn state's
+    /// dispatch history. Everything else the receive does (taking turns off the network, due
+    /// leaves and directives, chat, skins, connectivity) happened when the frame was first
+    /// simulated, and its effects outside the simulation must not happen twice.
+    unsafe fn netcode_v2_redispatch(&self, nc: &NetcodeV2Bw, frame: u32) -> TurnReceiveOutcome {
+        unsafe {
+            let recorded = netcode_v2::with_turn_state(|s| s.redispatch(frame)).flatten();
+            let Some(recorded) = recorded else {
+                // A rollback reached back past the history, so this frame can only be simulated
+                // with turns other than the ones it had. Nothing later can put that right.
+                error!("netcode v2: no dispatched turns recorded for re-simulated frame {frame}");
+                return TurnReceiveOutcome::Stall;
+            };
+            // The first simulation injected its chat before taking its turns.
+            for (storm, text) in &recorded.chat {
+                self.inject_chat_message(*storm, text);
+            }
+            netcode_v2::with_turn_state(|s| {
+                Self::fill_turn_dispatch(
+                    nc.player_turns.resolve(),
+                    nc.player_turns_size.resolve(),
+                    self.storm_player_flags.resolve(),
+                    s.dispatch_buffers(),
+                )
+            });
+            for &(storm, reason) in &recorded.leaves {
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = reason as i32;
+            }
+            self.run_synced_leave_pass(nc);
+            TurnReceiveOutcome::Ready
+        }
+    }
+
+    /// The frame the game is about to simulate, as netcode v2's receive takes it.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn netcode_v2_next_frame(&self) -> u32 {
+        unsafe { self.netcode_v2.game_frame_count.resolve() }
     }
 
     /// Lets a game that has been asked to exit actually leave a stalled lockstep step.
@@ -3764,6 +3853,11 @@ impl BwScr {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
                 return false;
+            }
+            // A re-simulated frame's turns went out when the frame was first simulated, and the
+            // local commands issued since belong to the frame about to be stepped.
+            if live_rollback_resimulating() {
+                return true;
             }
             let nc = &self.netcode_v2;
             // Read the shortfall under the lock, then release before flushing — each flush re-enters
@@ -4171,11 +4265,38 @@ impl BwScr {
             if !sent {
                 debug!("netcode v2: chat_out channel unavailable; message not queued for peers");
             }
+            let deferred = netcode_v2::with_turn_state(|s| {
+                let deferred = s.keeps_dispatch_history();
+                if deferred {
+                    s.queue_local_chat_echo(text.to_string());
+                }
+                deferred
+            })
+            .unwrap_or(false);
+            if deferred {
+                return true;
+            }
             let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
             if !self.inject_chat_message(local_storm, text) {
                 debug!("netcode v2: local chat echo dropped; local storm id unresolved");
             }
             true
+        }
+    }
+
+    /// Injects the local echo of this client's own chat messages that
+    /// [`send_chat_message`](Self::send_chat_message) left for the next step.
+    unsafe fn apply_local_chat_echoes(&self) {
+        unsafe {
+            let Some(texts) = netcode_v2::with_turn_state(|s| s.take_local_chat_echoes()) else {
+                return;
+            };
+            let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
+            for text in texts {
+                if !self.inject_chat_message(local_storm, &text) {
+                    debug!("netcode v2: local chat echo dropped; local storm id unresolved");
+                }
+            }
         }
     }
 
@@ -4202,8 +4323,11 @@ impl BwScr {
             // processor appends it (`add_to_replay_data`) the same as any other in-game command —
             // see `process_injected_game_command`'s doc comment for the full reasoning.
             let injected = self.process_injected_game_command(&record, storm_player, 0);
+            if injected && let Some((_, false)) = rollback_step() {
+                netcode_v2::with_turn_state(|s| s.note_injected_chat(storm_player, text));
+            }
             #[cfg(debug_assertions)]
-            if injected {
+            if injected && !rollback_resimulating() {
                 let own = storm_player.0 as u32 == self.local_storm_id.resolve();
                 netcode_v2::with_turn_state(|s| {
                     s.record_chat(crate::debug_control::DebugChatLogEntry {
@@ -5315,6 +5439,8 @@ impl BwScr {
     fn reset_state_for_game_init(&self) {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
+        #[cfg(debug_assertions)]
+        crate::rollback_live::reset_for_game_init();
         self.detection_status_copy.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
@@ -7852,6 +7978,49 @@ unsafe fn step_game_logic_hook(
     ret
 }
 
+/// The frame the step in progress produces during a rollback tick, and whether it re-simulates a
+/// frame the game has already shown, or `None` outside a rollback tick (always, in release builds).
+#[cfg(debug_assertions)]
+fn rollback_step() -> Option<(u32, bool)> {
+    crate::rollback::tick_running().then(|| {
+        (
+            crate::rollback::step_frame(),
+            crate::rollback::in_resimulation(),
+        )
+    })
+}
+
+#[cfg(not(debug_assertions))]
+fn rollback_step() -> Option<(u32, bool)> {
+    None
+}
+
+/// Whether the step in progress re-simulates a frame the game has already shown, so what it does
+/// for the game's record-keeping rather than its simulation already happened.
+fn rollback_resimulating() -> bool {
+    rollback_step().is_some_and(|(_, resimulating)| resimulating)
+}
+
+/// Whether this client has native sync (0x37) turned off: it neither sends sync commands nor
+/// verifies peers' ones. Native sync hashes state that a rollback re-simulation does not
+/// reproduce, so a client that rolls back would otherwise report its peers as desynced.
+#[cfg(debug_assertions)]
+fn native_sync_disabled() -> bool {
+    crate::rollback_live::native_sync_off()
+}
+
+#[cfg(not(debug_assertions))]
+fn native_sync_disabled() -> bool {
+    false
+}
+
+/// Whether the step in progress re-simulates a frame of a live netcode v2 game, whose turns
+/// already went out and came in when the frame was first simulated. Replay playback re-simulates
+/// through the replay's own command stream instead, and has no session to take turns from.
+fn live_rollback_resimulating() -> bool {
+    rollback_resimulating() && netcode_v2::with_turn_state(|_| ()).is_some()
+}
+
 /// The single place [`step_game_logic_hook`] hands control to BW's own logic step, so anything
 /// that has to bracket the simulation only has to be attached here instead of at each of the
 /// hook's exit paths.
@@ -7862,7 +8031,10 @@ unsafe fn step_one_game_logic_step(
 ) -> usize {
     #[cfg(debug_assertions)]
     {
-        crate::rollback_harness::run_game_logic_step(bw, param, orig)
+        match crate::rollback_live::run_game_logic_step(bw, param, orig) {
+            Some(ret) => ret,
+            None => crate::rollback_harness::run_game_logic_step(bw, param, orig),
+        }
     }
     #[cfg(not(debug_assertions))]
     {

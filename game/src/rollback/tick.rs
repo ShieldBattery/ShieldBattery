@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use crate::bw_scr::BwScr;
 
 use super::snapshot::Snapshots;
-use super::{FINAL_STEP, STEP_FRAME, TICK_RUNNING, WINDOW_START, announcements};
+use super::{
+    FINAL_STEP, IRREVERSIBLE_STEP, RESIMULATING, STEP_FRAME, TICK_RUNNING, WINDOW_START,
+    announcements,
+};
 
 /// What one tick should do. Frames are frame counts: frame `n` is the simulation state after `n`
 /// logic steps, and the step that produces it is the step from `n - 1`.
@@ -36,6 +39,8 @@ pub(crate) struct StepInfo {
     /// Whether this is the first step after the tick restored a snapshot, so the simulation is
     /// still exactly as that snapshot holds it.
     pub(crate) resumes_from_restore: bool,
+    /// Whether the frame it produces was produced before, by the simulation the tick rolled back.
+    pub(crate) is_resimulation: bool,
 }
 
 /// What one tick did.
@@ -45,6 +50,10 @@ pub(crate) struct TickReport {
     pub(crate) restored: Option<u32>,
     /// The first frame the tick's steps produced.
     pub(crate) window_start: u32,
+    /// The newest frame no later tick can simulate again: the oldest snapshot kept. Confirmed
+    /// frames after it can still be re-simulated when a rollback restores it, which reproduces
+    /// them exactly but repeats whatever they announced unless the ledgers still hold it.
+    pub(crate) settled_through: u32,
     pub(crate) steps: u32,
     /// Snapshots taken.
     pub(crate) snapshots: u32,
@@ -83,6 +92,8 @@ pub(crate) unsafe fn run_tick(
         if snapshots.is_empty() {
             take(snapshots, current, &mut report);
         }
+        // Every frame up to the one the simulation is on now has been shown already.
+        let shown_through = current;
         if let Some(target) = plan.rollback_to
             && target < current
         {
@@ -109,9 +120,11 @@ pub(crate) unsafe fn run_tick(
                 steps_after: plan.present - current - 1,
                 is_final: current < plan.confirmed,
                 resumes_from_restore: report.restored.is_some() && report.steps == 0,
+                is_resimulation: current < shown_through,
             };
             STEP_FRAME.store(info.frame, Ordering::Relaxed);
             FINAL_STEP.store(info.is_final, Ordering::Relaxed);
+            RESIMULATING.store(info.is_resimulation, Ordering::Relaxed);
             let start = Instant::now();
             ret = step(&info);
             report.step_time += start.elapsed();
@@ -124,16 +137,21 @@ pub(crate) unsafe fn run_tick(
                 Some(after) if after > current => current = after,
                 _ => break,
             }
-            if current.is_multiple_of(spacing) && !snapshots.has(current) {
+            if IRREVERSIBLE_STEP.swap(false, Ordering::Relaxed) {
+                take(snapshots, current, &mut report);
+                snapshots.drop_older_than_needed_for(current);
+            } else if current.is_multiple_of(spacing) && !snapshots.has(current) {
                 take(snapshots, current, &mut report);
             }
         }
         TICK_RUNNING.store(false, Ordering::Relaxed);
         FINAL_STEP.store(false, Ordering::Relaxed);
+        RESIMULATING.store(false, Ordering::Relaxed);
 
         snapshots.drop_older_than_needed_for(plan.confirmed);
+        report.settled_through = snapshots.oldest_frame().unwrap_or(plan.confirmed);
         report.retracted_announcements =
-            announcements::finish_tick(report.window_start, plan.confirmed);
+            announcements::finish_tick(report.window_start, report.settled_through);
         bw.rollback_rebuild_selection_visuals();
         if let Some(paced_tick) = paced_tick {
             bw.probe_set_next_game_step_tick(paced_tick);

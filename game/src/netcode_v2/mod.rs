@@ -415,6 +415,23 @@ impl DisconnectStatus {
 #[cfg(debug_assertions)]
 const CHAT_LOG_CAPACITY: usize = 64;
 
+/// The turns one simulation step was given, the players whose leave it applied, and the chat it
+/// injected, kept so a rollback can give a re-simulation of the same frame exactly the same.
+struct DispatchedFrame {
+    /// The frame count the step brought the simulation to.
+    frame: u32,
+    turns: [Option<Bytes>; bw::MAX_STORM_PLAYERS],
+    leaves: Vec<(StormPlayerId, u32)>,
+    chat: Vec<(StormPlayerId, String)>,
+}
+
+/// What a re-simulated step has to apply besides its turns: the leaves and the injected chat of
+/// the frame's first simulation, in the order they happened.
+pub struct RedispatchedFrame {
+    pub leaves: Vec<(StormPlayerId, u32)>,
+    pub chat: Vec<(StormPlayerId, String)>,
+}
+
 /// One slot's home relay at session create, for the `/netstat` per-player home column. Both fields
 /// are `None` when the launch handoff carried no home data (an older server or a region-less dev
 /// setup), which renders as an em dash.
@@ -621,6 +638,19 @@ pub struct TurnState {
     /// Whether the `/netstat` overlay is currently toggled on (via the chat command or the debug
     /// command). Instrumentation is recorded regardless; this only gates whether the overlay draws.
     net_stats_visible: bool,
+    /// The most recent frames' dispatched turns, oldest first, for a rollback to dispatch again.
+    /// Holds at most `dispatch_history_len` frames, and nothing unless a rollback driver asked for
+    /// a history with [`keep_dispatch_history`](Self::keep_dispatch_history).
+    dispatch_history: VecDeque<DispatchedFrame>,
+    dispatch_history_len: usize,
+    /// Chat injected by the step in progress, recorded with its turns once they are dispatched.
+    /// Chat is injected into the simulation's command stream (which is what puts it in the
+    /// replay), so a re-simulation of the frame has to inject it again.
+    staged_chat: Vec<(StormPlayerId, String)>,
+    /// This client's own chat messages waiting for the next step to inject their local echo,
+    /// while a rollback driver keeps a dispatch history: injected between steps, an echo would
+    /// belong to no step's record and be lost from the replay when a rollback rewinds past it.
+    local_chat_echoes: Vec<String>,
 }
 
 impl TurnState {
@@ -679,6 +709,10 @@ impl TurnState {
             drop_requests: Vec::new(),
             net_stats: NetStats::new(initial_latency_turns.max(1), Instant::now()),
             net_stats_visible: false,
+            dispatch_history: VecDeque::new(),
+            dispatch_history_len: 0,
+            staged_chat: Vec::new(),
+            local_chat_echoes: Vec::new(),
         }
     }
 
@@ -1130,6 +1164,94 @@ impl TurnState {
             };
         }
         true
+    }
+
+    /// Takes whatever turns have arrived off the network, as the next receive would, and returns
+    /// whether every slot the next step needs a turn from now has one. `next_frame` is the frame
+    /// the game is about to simulate, as [`receive_turns`](Self::receive_turns) takes it.
+    pub fn next_turns_ready(&mut self, next_frame: u32) -> bool {
+        self.drain_inbound(next_frame, Instant::now());
+        (0..bw::MAX_STORM_PLAYERS).all(|x| !self.required[x] || !self.inbound_queues[x].is_empty())
+    }
+
+    /// Keeps the turns dispatched on the most recent `frames` frames, so a rollback can dispatch
+    /// them again when it re-simulates those frames. 0 keeps none.
+    pub fn keep_dispatch_history(&mut self, frames: usize) {
+        self.dispatch_history_len = frames;
+        while self.dispatch_history.len() > frames {
+            self.dispatch_history.pop_front();
+        }
+    }
+
+    /// Records the turns [`receive_turns`](Self::receive_turns) just released as the ones frame
+    /// `frame` was simulated with. A no-op unless a history was asked for.
+    pub fn record_dispatch(&mut self, frame: u32) {
+        if self.dispatch_history_len == 0 {
+            return;
+        }
+        // A frame simulated again after a restore replaces what it was given before.
+        while self
+            .dispatch_history
+            .back()
+            .is_some_and(|x| x.frame >= frame)
+        {
+            self.dispatch_history.pop_back();
+        }
+        if self.dispatch_history.len() == self.dispatch_history_len {
+            self.dispatch_history.pop_front();
+        }
+        self.dispatch_history.push_back(DispatchedFrame {
+            frame,
+            turns: self.current_dispatch.clone(),
+            leaves: Vec::new(),
+            chat: std::mem::take(&mut self.staged_chat),
+        });
+    }
+
+    /// Whether a rollback driver asked for a dispatch history.
+    pub fn keeps_dispatch_history(&self) -> bool {
+        self.dispatch_history_len != 0
+    }
+
+    /// Notes a chat message the step in progress injected, to be recorded with the frame's turns.
+    pub fn note_injected_chat(&mut self, storm: StormPlayerId, text: &str) {
+        if self.dispatch_history_len != 0 {
+            self.staged_chat.push((storm, text.to_string()));
+        }
+    }
+
+    /// Queues this client's own chat message for the next step to inject its local echo.
+    pub fn queue_local_chat_echo(&mut self, text: String) {
+        self.local_chat_echoes.push(text);
+    }
+
+    /// Takes this client's own chat messages waiting for their local echo.
+    pub fn take_local_chat_echoes(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.local_chat_echoes)
+    }
+
+    /// Records the players whose leave the step producing `frame` applied, with their reasons.
+    pub fn record_dispatched_leaves(&mut self, frame: u32, leaves: &[(StormPlayerId, u32)]) {
+        if let Some(entry) = self
+            .dispatch_history
+            .iter_mut()
+            .rev()
+            .find(|x| x.frame == frame)
+        {
+            entry.leaves = leaves.to_vec();
+        }
+    }
+
+    /// Makes the turns frame `frame` was first simulated with the ones
+    /// [`dispatch_buffers`](Self::dispatch_buffers) returns, and returns what else that step
+    /// applied, or `None` when the history no longer holds the frame.
+    pub fn redispatch(&mut self, frame: u32) -> Option<RedispatchedFrame> {
+        let entry = self.dispatch_history.iter().find(|x| x.frame == frame)?;
+        self.current_dispatch = entry.turns.clone();
+        Some(RedispatchedFrame {
+            leaves: entry.leaves.clone(),
+            chat: entry.chat.clone(),
+        })
     }
 
     /// The command buffers to dispatch this step: `(storm id, command bytes)` for each ready slot.

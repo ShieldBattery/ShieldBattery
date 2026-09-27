@@ -52,7 +52,22 @@ const ENV_VAR: &str = "SB_ROLLBACK_HARNESS";
 /// [`DEFAULT_SNAPSHOT_SPACING`].
 const SPACING_ENV_VAR: &str = "SB_ROLLBACK_SNAPSHOT_SPACING";
 
-const DEFAULT_SNAPSHOT_SPACING: u32 = 3;
+pub(crate) const DEFAULT_SNAPSHOT_SPACING: u32 = 3;
+
+/// The snapshot spacing [`SPACING_ENV_VAR`] asks for, if it is set to a valid one.
+pub(crate) fn snapshot_spacing_from_env() -> Option<u32> {
+    let spec = std::env::var(SPACING_ENV_VAR).ok()?;
+    match spec.parse::<u32>() {
+        Ok(spacing) if spacing >= 1 => {
+            info!("{SPACING_ENV_VAR}: snapshotting every {spacing} frames");
+            Some(spacing)
+        }
+        _ => {
+            error!("{SPACING_ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it");
+            None
+        }
+    }
+}
 
 /// Environment variable that gives chosen players a command delay, holding a comma-separated list
 /// of `<storm player id>:<frames>`: with `SB_ROLLBACK_DELAY=1:3,2:2` storm player 1's commands are
@@ -523,16 +538,8 @@ pub fn init_from_env() {
     FORCED_DEPTH.store(depth, Ordering::Release);
     ARMED.store(true, Ordering::Release);
     info!("{ENV_VAR} armed: every tick will roll back at least {depth} frames");
-    if let Ok(spec) = std::env::var(SPACING_ENV_VAR) {
-        match spec.parse::<u32>() {
-            Ok(spacing) if spacing >= 1 => {
-                SNAPSHOT_SPACING.store(spacing, Ordering::Release);
-                info!("{SPACING_ENV_VAR}: snapshotting every {spacing} frames");
-            }
-            _ => {
-                error!("{SPACING_ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it")
-            }
-        }
+    if let Some(spacing) = snapshot_spacing_from_env() {
+        SNAPSHOT_SPACING.store(spacing, Ordering::Release);
     }
     if let Ok(spec) = std::env::var(AUDIT_ENV_VAR) {
         match spec.parse::<u32>() {
@@ -1117,8 +1124,12 @@ unsafe fn run_tick(
             fingerprints.get(&confirmed).cloned()
         };
         if let (Some(present), Some(confirmed)) = (bw.probe_fingerprint(), confirmed_fingerprint) {
-            let sound_counts =
-                sounds::reconcile_sounds(bw, report.window_start, confirmed.frame, present.frame);
+            let sound_counts = sounds::reconcile_sounds(
+                bw,
+                report.window_start,
+                report.settled_through,
+                present.frame,
+            );
             let times = TickTimes {
                 restore: report.restore_time,
                 steps: report.step_time,

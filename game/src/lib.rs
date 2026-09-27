@@ -69,6 +69,8 @@ mod rollback;
 #[cfg(debug_assertions)]
 mod rollback_harness;
 #[cfg(debug_assertions)]
+mod rollback_live;
+#[cfg(debug_assertions)]
 mod rollback_probe;
 mod snp;
 mod sync;
@@ -267,6 +269,8 @@ pub extern "C" fn OnInject() {
     rollback_probe::init_from_env();
     #[cfg(debug_assertions)]
     rollback_harness::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_live::init_from_env();
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);

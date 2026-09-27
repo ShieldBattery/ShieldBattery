@@ -36,6 +36,14 @@ static TICK_RUNNING: AtomicBool = AtomicBool::new(false);
 /// Whether the step in progress simulates a confirmed frame, one no later tick simulates again.
 static FINAL_STEP: AtomicBool = AtomicBool::new(false);
 
+/// Whether the step in progress simulates a frame the game has already been shown: one before the
+/// frame the tick started on, which the tick rolled back past.
+static RESIMULATING: AtomicBool = AtomicBool::new(false);
+
+/// Whether the step in progress did something a re-simulation must not do again, set by
+/// [`mark_irreversible_step`].
+pub(super) static IRREVERSIBLE_STEP: AtomicBool = AtomicBool::new(false);
+
 /// The frame count the step in progress brings the simulation to: the frame it produces.
 static STEP_FRAME: AtomicU32 = AtomicU32::new(0);
 
@@ -52,6 +60,23 @@ pub(crate) fn tick_running() -> bool {
 /// Whether the step in progress simulates a confirmed frame, one no later tick simulates again.
 pub(crate) fn in_final_step() -> bool {
     FINAL_STEP.load(Ordering::Relaxed)
+}
+
+/// Whether the step in progress simulates a frame the game has already been shown, rather than
+/// stepping it forward for the first time. Everything the step does on behalf of the game's
+/// progress rather than its simulation (sending the local turn, taking peers' turns off the
+/// network) already happened when the frame was first simulated, and must not happen again.
+pub(crate) fn in_resimulation() -> bool {
+    RESIMULATING.load(Ordering::Relaxed)
+}
+
+/// Notes that the step in progress changed state outside the snapshot in a way that doing it again
+/// would break, such as applying a player's leave: the engine snapshots the frame the step produces
+/// and drops every older snapshot, so no rollback reaches back past it.
+pub(crate) fn mark_irreversible_step() {
+    if tick_running() {
+        IRREVERSIBLE_STEP.store(true, Ordering::Relaxed);
+    }
 }
 
 /// The frame the step in progress produces. Only meaningful while [`tick_running`].

@@ -181,3 +181,17 @@ comparator (build step 3).
   directly.
 - **Sounds and camera.** The ledger removes duplicates, but camera-gated sounds can still differ
   between simulations until the sound hook (build step 4) moves the gating to presentation.
+- **Render-side animation.** In shadow mode some HD lighting animations (SCV engine glow) visibly
+  restart every tick. Either renderer-owned state sits in the snapshot's memory and is rewound by
+  each restore, or re-simulated steps re-trigger renderer notifications (frame or animation
+  changes) that restart it. Needs RE; the fix is to leave that state out of restores or keep
+  re-simulated steps from notifying the renderer.
+- **Order confirmation marker.** With shadow rollback, the green order marker can stay on screen
+  after a shift-queued order queue finishes, until the next order clears it. The marker is a
+  sprite the UI owns in the simulation's sprite pool; the simulation shows it for the next queued
+  target, so a re-simulated step shows it again and a restore rewinds it. Needs RE of the marker
+  functions: likely handled like the other announcements (deduplicated across re-simulations)
+  with the marker's own state kept out of restores.
+- **Computer players.** A replay with two computer players diverges under forced rollback at
+  frame 1987: some AI state is outside the snapshot. Rollback games exclude computer players until
+  the harness finds and covers it.

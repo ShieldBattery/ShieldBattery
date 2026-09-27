@@ -172,13 +172,62 @@ pub(crate) struct Snapshots {
     slots: Vec<Slot>,
     /// The trigger lists, when analysis found their headers.
     trigger_lists: Option<TriggerLists>,
+    replay_data: *mut bw::ReplayData,
 }
+
+// The pointers are BW's own globals, only touched from the game thread that owns the snapshots.
+unsafe impl Send for Snapshots {}
 
 struct Slot {
     /// The frame count of the simulation when this slot's snapshot was taken, or `None` for a slot
     /// holding nothing that can be restored.
     frame: Option<u32>,
     bytes: Vec<u8>,
+    replay: ReplayCursor,
+}
+
+/// Where the replay's command stream was, as offsets into its buffer.
+///
+/// Playback reads each frame's commands through the replay data, and recording appends them to it,
+/// so a restore has to rewind it with the simulation. Its buffer is not part of the snapshot: in
+/// playback it never changes, and while recording it grows, possibly moving, so the pointers into
+/// it are kept as offsets and put back relative to wherever the buffer is now. Bytes past the
+/// restored length are overwritten as the re-simulated frames append their commands again.
+#[derive(Copy, Clone, Default)]
+struct ReplayCursor {
+    data_length: u32,
+    /// Offset of the open record's command bytes, or `None` when no record was open.
+    current_frame_data_start: Option<usize>,
+    current_frame: u32,
+    data_pos: usize,
+}
+
+impl ReplayCursor {
+    unsafe fn capture(replay: *const bw::ReplayData) -> ReplayCursor {
+        unsafe {
+            let start = (*replay).data_start as usize;
+            let open = (*replay).current_frame_data_start;
+            ReplayCursor {
+                data_length: (*replay).data_length,
+                current_frame_data_start: (!open.is_null()).then(|| open as usize - start),
+                current_frame: (*replay).current_frame,
+                data_pos: ((*replay).data_pos as usize).wrapping_sub(start),
+            }
+        }
+    }
+
+    unsafe fn restore(&self, replay: *mut bw::ReplayData) {
+        unsafe {
+            let start = (*replay).data_start;
+            (*replay).data_length = self.data_length;
+            (*replay).current_frame_data_start = match self.current_frame_data_start {
+                Some(offset) => start.add(offset),
+                None => std::ptr::null_mut(),
+            };
+            (*replay).current_frame = self.current_frame;
+            (*replay).data_pos = start.wrapping_add(self.data_pos);
+        }
+    }
 }
 
 /// The current game's snapshot ranges and buffers, built at the first tick that needs them and
@@ -225,13 +274,6 @@ impl Snapshots {
                 "players",
                 bw.players() as usize,
                 PLAYERS * size_of::<bw::Player>(),
-            );
-            // Replay playback reads each frame's commands through this cursor struct, so rewinding
-            // it rewinds the command stream alongside the simulation.
-            list.add(
-                "replay_data",
-                bw.replay_data() as usize,
-                size_of::<bw::ReplayData>(),
             );
 
             for spec in bw.rollback_range_specs() {
@@ -332,6 +374,7 @@ impl Snapshots {
                 total_bytes,
                 slots: Vec::new(),
                 trigger_lists,
+                replay_data: bw.replay_data(),
             })
         }
     }
@@ -351,6 +394,7 @@ impl Snapshots {
                     self.slots.push(Slot {
                         frame: None,
                         bytes: vec![0u8; self.total_bytes],
+                        replay: ReplayCursor::default(),
                     });
                     self.slots.len() - 1
                 }
@@ -362,6 +406,9 @@ impl Snapshots {
             }
             if let Some(trigger_lists) = &mut self.trigger_lists {
                 trigger_lists.take(slot);
+            }
+            if !self.replay_data.is_null() {
+                self.slots[slot].replay = ReplayCursor::capture(self.replay_data);
             }
             self.slots[slot].frame = Some(frame);
         }
@@ -384,6 +431,9 @@ impl Snapshots {
             }
             if let Some(trigger_lists) = &mut self.trigger_lists {
                 trigger_lists.restore(slot, bw);
+            }
+            if !self.replay_data.is_null() {
+                self.slots[slot].replay.restore(self.replay_data);
             }
             for x in &mut self.slots {
                 if x.frame.is_some_and(|x| x > restored) {
@@ -413,6 +463,11 @@ impl Snapshots {
     /// Whether a snapshot of frame count `frame` is held.
     pub(crate) fn has(&self, frame: u32) -> bool {
         self.slots.iter().any(|x| x.frame == Some(frame))
+    }
+
+    /// The frame count of the oldest snapshot held.
+    pub(crate) fn oldest_frame(&self) -> Option<u32> {
+        self.oldest_slot().and_then(|x| self.slots[x].frame)
     }
 
     /// Whether no snapshot is held.

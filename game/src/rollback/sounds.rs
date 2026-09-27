@@ -100,13 +100,13 @@ pub(crate) fn intercept_play_sound(
 /// Plays the sounds the tick's steps asked for that no earlier tick played, and counts the ones an
 /// earlier tick played that the re-simulation no longer asks for.
 ///
-/// `window_start` is the first frame the tick's steps produced, `confirmed_frame` the newest frame
+/// `window_start` is the first frame the tick's steps produced, `settled_through` the newest frame
 /// no later tick simulates again, and `present_frame` the newest frame the tick reached, the one
 /// about to be shown.
 pub(crate) unsafe fn reconcile_sounds(
     bw: &BwScr,
     window_start: u32,
-    confirmed_frame: u32,
+    settled_through: u32,
     present_frame: u32,
 ) -> SoundCounts {
     unsafe {
@@ -135,7 +135,7 @@ pub(crate) unsafe fn reconcile_sounds(
         ledger.presented = kept
             .into_iter()
             .chain(requested)
-            .filter(|x| x.frame > confirmed_frame)
+            .filter(|x| x.frame > settled_through)
             .collect();
         drop(ledger);
 
