@@ -589,6 +589,7 @@ export class NetcodeV2Service {
     gameId,
     seed,
     slots,
+    canRollBack = false,
     signal,
     onProvisioning,
   }: {
@@ -622,6 +623,11 @@ export class NetcodeV2Service {
        */
       pubkey?: string
     }>
+    /**
+     * Whether this game's simulation can be rolled back. Rollback is only asked for when this and
+     * the server's rollback config are both set; a game that can't roll back runs lockstep.
+     */
+    canRollBack?: boolean
     signal: AbortSignal
     /**
      * Called at most once, the first time the coordinator answers create with `202 provisioning`,
@@ -692,7 +698,7 @@ export class NetcodeV2Service {
         }
       }),
       ...latencyEstimateField,
-      ...(config.rollback ? { rollback: true } : {}),
+      ...(config.rollback && canRollBack ? { rollback: true } : {}),
     }
 
     // Records what every slot asked for, before the coordinator is asked for anything: a create that
@@ -722,7 +728,7 @@ export class NetcodeV2Service {
       `netcode v2 session ${session.session} created for game ${gameId} ` +
         `(home relay ${session.home_relay.relay_id}${rollback ? ', rollback' : ''})`,
     )
-    if (config.rollback && !rollback) {
+    if (config.rollback && canRollBack && !rollback) {
       log.warn(
         `netcode v2 session ${session.session} for game ${gameId} was created without rollback, ` +
           'since no relays that support it could take the session',

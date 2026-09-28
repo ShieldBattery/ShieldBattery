@@ -1089,6 +1089,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
         { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
         { slot: 1, userId: u2, observer: false, pubkey: PUBKEY },
       ],
+      canRollBack: true,
       signal: new AbortController().signal,
     })
 
@@ -1109,6 +1110,27 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const result = await service.createSessionForGame({
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
+      signal: new AbortController().signal,
+    })
+
+    const createCall = asMockedFunction(got.post).mock.calls.find(c =>
+      String(c[0]).endsWith('/session/create'),
+    )!
+    expect(JSON.parse((createCall[1] as any).body)).not.toHaveProperty('rollback')
+    expect(result.setups.get(u1)!.rollback).toBe(false)
+  })
+
+  test("runs lockstep when rollback is configured but the game can't roll back", async () => {
+    configureNetcodeV2()
+    vi.stubEnv('SB_RP2_ROLLBACK', 'true')
+    mockSessionResponse(sessionResponse([0]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+    const result = await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
+      canRollBack: false,
       signal: new AbortController().signal,
     })
 

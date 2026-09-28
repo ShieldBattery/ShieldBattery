@@ -132,6 +132,7 @@ describe('games/game-loader/GameLoader', () => {
           rttMs?: number
           pubkey?: string
         }>
+        canRollBack?: boolean
         signal: AbortSignal
         onProvisioning?: (regions: string[]) => void
       }) => Promise<{ session: number; setups: Map<SbUserId, unknown> }>
@@ -1203,6 +1204,63 @@ describe('games/game-loader/GameLoader', () => {
       ]),
     )
   })
+
+  test.each([
+    { gameType: GameType.UseMapSettings, isEud: true, canRollBack: false },
+    { gameType: GameType.UseMapSettings, isEud: false, canRollBack: true },
+    { gameType: GameType.Melee, isEud: true, canRollBack: true },
+  ])(
+    'passes canRollBack $canRollBack for a $gameType game on a map with isEud $isEud',
+    async ({ gameType, isEud, canRollBack }) => {
+      const player1 = makePlayer(p1)
+      const player2 = makePlayer(p2)
+      registerActiveClients([player1.player, player2.player])
+      asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+      asMockedFunction(getMapInfos).mockResolvedValue([
+        { ...makeMapInfo(), mapData: { isEud } as any },
+      ])
+      netcodeV2Service.isEnabled.mockReturnValue(true)
+      netcodeV2Service.createSessionForGame.mockResolvedValue({
+        session: 1,
+        setups: new Map([
+          [p1, {} as any],
+          [p2, {} as any],
+        ]),
+      })
+
+      asMockedFunction(registerGame).mockResolvedValue({
+        gameId: 'game-eud',
+        resultCodes: new Map([
+          [p1, 'code-1'],
+          [p2, 'code-2'],
+        ]),
+      } as any)
+
+      const request: GameLoadRequest = {
+        players: [player1.player, player2.player],
+        playerInfos: [player1.playerInfo, player2.playerInfo],
+        mapId,
+        gameConfig: {
+          ...lobbyConfig([
+            [{ id: p1, race: 't', isComputer: false }],
+            [{ id: p2, race: 'z', isComputer: false }],
+          ]),
+          gameType,
+        },
+      }
+
+      const resultPromise = gameLoader.loadGame(request)
+
+      await vi.waitFor(() => {
+        expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+      })
+      gameLoader.registerGameAsLoaded('game-eud', p1)
+      gameLoader.registerGameAsLoaded('game-eud', p2)
+      await resultPromise
+
+      expect(netcodeV2Service.createSessionForGame.mock.calls[0][0].canRollBack).toBe(canRollBack)
+    },
+  )
 
   test('threads each player measured rtt through to createSessionForGame', async () => {
     const player1 = makePlayer(p1)
