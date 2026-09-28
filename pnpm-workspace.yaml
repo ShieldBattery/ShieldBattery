@@ -5,6 +5,12 @@ minimumReleaseAge: 10080
 # first-party packages we publish ourselves don't need the quarantine
 minimumReleaseAgeExclude:
   - '@shieldbattery/broodrep'
+  - 'nydus'
+  - 'nydus-client'
+  # what nydus/nydus-client 5.4.0 require; single versions cleared by hand after reviewing their
+  # diffs (a server heartbeat fix, a client refactor merging its Socket classes)
+  - 'engine.io@6.6.11'
+  - 'engine.io-client@6.6.7'
   # dev-only translation extractor, exact-pinned; its releases are frequent and never reach
   # production
   - 'i18next-cli'
