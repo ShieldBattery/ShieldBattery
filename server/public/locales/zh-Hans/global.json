@@ -254,13 +254,17 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "频道设置",
+        "copyInviteLink": "复制邀请链接",
         "hideBanner": "隐藏横幅",
         "leaveChannel": "离开频道",
         "openAdminView": "打开管理者界面"
       },
       "errors": {
+        "copyInviteLink": "复制邀请链接时出了点问题",
+        "createInviteLink": "获取邀请链接时出了点问题",
         "toggleBannerVisibility": "切换横幅可见性时出错了"
       },
+      "inviteLinkCopied": "邀请链接已复制到剪贴板",
       "moreActions": "更多操作"
     },
     "channelInfo": {
@@ -273,7 +277,7 @@
       "joined": "已加入",
       "moreActions": "更多操作",
       "noDescription": "该频道没有简介。",
-      "private": "此频道是私人频道，需要得到邀请才能加入。",
+      "private": "此频道是私人频道，需要邀请链接才能加入。",
       "userCount_other": "{{count}} 成员"
     },
     "channelList": {
@@ -290,6 +294,10 @@
     "channelName": {
       "deletedChannel": "被删除的频道",
       "privateChannel": "私密频道"
+    },
+    "channelRole": {
+      "moderator": "频道版主",
+      "owner": "频道所有者"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -309,6 +317,10 @@
         "changeBanner": "更改横幅",
         "descriptionLabel": "描述",
         "inappropriateImageErrorMessage": "选的图片不合适，请换一张。",
+        "membersCanInviteDescription": "关闭后，只有频道所有者可以邀请他人。关闭时，成员已分享的邀请链接也会一并失效。",
+        "membersCanInviteLabel": "允许成员创建邀请链接",
+        "privateDescription": "私人频道不会出现在浏览和搜索结果中，只能通过邀请链接加入。",
+        "privateLabel": "私人频道",
         "removeBadge": "移除徽章",
         "removeBanner": "移除横幅",
         "saveErrorMessage": "保存设置时出错了",
@@ -319,8 +331,6 @@
       "permissions": {
         "ban": "可封禁用户",
         "banShort": "封禁",
-        "changeTopic": "可更改主题",
-        "changeTopicShort": "更改主题",
         "editPermissions": "可编辑权限",
         "editPermissionsShort": "编辑权限",
         "editTitle": "编辑 {{name}} 的权限",
@@ -332,8 +342,6 @@
         "noUsers": "此频道没有其他成员",
         "owner": "所有者",
         "saveError": "保存权限失败",
-        "togglePrivate": "可切换私密状态",
-        "togglePrivateShort": "切换私密",
         "transferOwnership": "转让所有权"
       },
       "tabs": {
@@ -582,10 +590,23 @@
     "errors": {
       "messageNotFound": "找不到该消息，它可能已被删除。"
     },
+    "inviteCard": {
+      "invalid": "此邀请链接无效或已过期。",
+      "join": "加入",
+      "memberCount_other": "{{count}} 名成员",
+      "open": "查看",
+      "title": "私人频道",
+      "view": "查看频道"
+    },
+    "invitePage": {
+      "title": "您被邀请加入一个私人频道"
+    },
     "joinChannel": {
       "bannedError": "您被 #{{channelName}} 封禁",
       "genericError": "加入 #{{channelName}} 时遇到错误",
-      "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。"
+      "inviteLinkInvalidError": "此邀请链接无效或已过期。",
+      "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。",
+      "privateError": "#{{channelName}} 是私人频道，需要邀请链接才能加入"
     },
     "kickUser": {
       "body": "{{user}} 将被移出频道并失去频道权限，之后可以随时重新加入。",
@@ -699,6 +720,7 @@
         "line": "掷出了 <1>{{value}}</1>（1-{{max}}）"
       }
     },
+    "privateChannelTitle": "私人频道",
     "transferOwnership": {
       "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
       "body": "将 #{{channelName}} 的所有权转让给 {{user}}？您将不再是频道所有者。",
@@ -2051,6 +2073,8 @@
       "showInExplorer": "在资源管理器中显示",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "在 Battle.net 上进行的对局",
+      "sourceTooltipSb": "在 ShieldBattery 上进行的对局",
       "unavailable": "录像库不可用",
       "unavailableBody": "暂时无法加载您的录像。重启 ShieldBattery 通常可以解决此问题。",
       "unreadableReplays": "无法读取的录像",
@@ -2518,6 +2542,15 @@
         "rateLimited": "你每 30 天只能修改一次登录名。",
         "unknownError": "遇到错误。请稍后再试。"
       },
+      "chat": {
+        "displayMode": {
+          "classic": "经典",
+          "cozy": "舒适",
+          "description": "消息在频道、私聊和房间聊天中的显示方式。保存在您的账户中，并在您登录的所有设备上生效。",
+          "title": "显示模式"
+        },
+        "title": "聊天"
+      },
       "connections": {
         "description": "将外部账号关联到您的 ShieldBattery 个人资料。",
         "title": "关联账号",
@@ -2714,6 +2747,7 @@
       "away": "离开",
       "doNotDisturb": "请勿打扰",
       "doNotDisturbDescription": "关闭消息提示音和通知",
+      "offline": "离线",
       "online": "在线",
       "pickerLabel": "在线状态"
     },
