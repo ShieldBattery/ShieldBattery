@@ -226,7 +226,7 @@ function initialChannelData(
   return {
     channelInfo: CHANNEL_BASIC_INFO,
     detailedChannelInfo: { id: CHANNEL_ID, userCount: 1 },
-    joinedChannelInfo: { id: CHANNEL_ID, ownerId: overrides.ownerId },
+    joinedChannelInfo: { id: CHANNEL_ID, ownerId: overrides.ownerId, membersCanInvite: false },
     selfPreferences: { ...DEFAULT_CHANNEL_PREFERENCES },
     selfPermissions: {
       kick: false,

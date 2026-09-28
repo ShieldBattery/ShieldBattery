@@ -319,6 +319,8 @@
         "changeBanner": "Change banner",
         "descriptionLabel": "Description",
         "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
+        "membersCanInviteDescription": "When this is off, only the channel owner can invite people. Turning it off also disables the invite links members have already shared.",
+        "membersCanInviteLabel": "Members can create invite links",
         "privateDescription": "Private channels are hidden from browse and search, and can only be joined through an invite link.",
         "privateLabel": "Private channel",
         "removeBadge": "Remove badge",

@@ -85,6 +85,11 @@ const PrivacyContainer = styled.div`
   margin-top: 16px;
 `
 
+const MembersCanInviteContainer = styled.div`
+  margin-top: 12px;
+  padding-left: 40px;
+`
+
 const PrivacyDescription = styled.div`
   ${bodyMedium};
   padding-left: 40px;
@@ -147,6 +152,7 @@ export interface ChannelSettingsModel {
   uploadedBannerPath?: string
   uploadedBadgePath?: string
   private?: boolean
+  membersCanInvite?: boolean
   banner?: File
   badge?: File
 }
@@ -186,6 +192,7 @@ function GeneralSettingsForm({
       uploadedBannerPath: detailedChannelInfo.bannerPath,
       uploadedBadgePath: detailedChannelInfo.badgePath,
       private: basicChannelInfo.private,
+      membersCanInvite: joinedChannelInfo.membersCanInvite,
     },
     {
       banner: maxFileSize(
@@ -214,6 +221,10 @@ function GeneralSettingsForm({
         deleteBanner: !model.uploadedBannerPath && !model.banner ? true : undefined,
         deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
         private: model.private !== basicChannelInfo.private ? model.private : undefined,
+        membersCanInvite:
+          model.membersCanInvite !== joinedChannelInfo.membersCanInvite
+            ? model.membersCanInvite
+            : undefined,
       }
 
       setIsSaving(true)
@@ -362,6 +373,26 @@ function GeneralSettingsForm({
                       'through an invite link.',
                   )}
                 </PrivacyDescription>
+                {getInputValue('private') ? (
+                  <MembersCanInviteContainer>
+                    <CheckBox
+                      {...bindCheckable('membersCanInvite')}
+                      label={t(
+                        'chat.channelSettings.general.membersCanInviteLabel',
+                        'Members can create invite links',
+                      )}
+                      disabled={isSaving}
+                      inputProps={{ tabIndex: 0 }}
+                    />
+                    <PrivacyDescription>
+                      {t(
+                        'chat.channelSettings.general.membersCanInviteDescription',
+                        'When this is off, only the channel owner can invite people. Turning it ' +
+                          'off also disables the invite links members have already shared.',
+                      )}
+                    </PrivacyDescription>
+                  </MembersCanInviteContainer>
+                ) : null}
               </PrivacyContainer>
             )}
 

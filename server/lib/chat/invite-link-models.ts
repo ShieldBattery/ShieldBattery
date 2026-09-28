@@ -67,12 +67,14 @@ export async function findReusableInviteLink(
 
 /**
  * Creates an invite link into a channel, but only while the channel is private and, unless
- * `requireMembership` is false, only while `createdBy` is a member of it. Returns `undefined` if
- * either doesn't hold.
+ * `asServerModerator` is set, only while `createdBy` is a member of it who may create links (its
+ * owner, or any member if the channel lets members invite). Returns `undefined` if that doesn't
+ * hold.
  *
  * The channel and membership rows are share-locked while the link is inserted, so a concurrent
- * change of the channel to public, or the creator leaving it, either waits for this insert (and
- * then deletes the new link along with the others) or wins, in which case nothing is inserted.
+ * change of the channel to public or to owner-only invites, or the creator leaving it, either waits
+ * for this insert (and then deletes the new link along with the others) or wins, in which case
+ * nothing is inserted.
  */
 export async function createInviteLink(
   {
@@ -81,14 +83,14 @@ export async function createInviteLink(
     createdAt,
     expiresAt,
     maxUses,
-    requireMembership,
+    asServerModerator,
   }: {
     channelId: SbChannelId
     createdBy: SbUserId
     createdAt: Date
     expiresAt: Date | undefined
     maxUses: number | undefined
-    requireMembership: boolean
+    asServerModerator: boolean
   },
   withClient?: DbClient,
 ): Promise<InviteLinkRecord | undefined> {
@@ -96,7 +98,7 @@ export async function createInviteLink(
   try {
     const result = await client.query<DbInviteLink>(sql`
       WITH private_channel AS (
-        SELECT id
+        SELECT id, owner_id, members_can_invite
         FROM channels
         WHERE id = ${channelId} AND private
         FOR SHARE
@@ -110,7 +112,10 @@ export async function createInviteLink(
       SELECT private_channel.id, ${createdBy}, ${createdAt}, ${expiresAt ?? null},
         ${maxUses ?? null}
       FROM private_channel
-      WHERE NOT ${requireMembership} OR EXISTS (SELECT 1 FROM membership)
+      WHERE ${asServerModerator} OR (
+        EXISTS (SELECT 1 FROM membership) AND
+        (private_channel.members_can_invite OR private_channel.owner_id = ${createdBy})
+      )
       RETURNING *;
     `)
     return result.rows.length ? convertInviteLinkFromDb(result.rows[0]) : undefined
@@ -187,6 +192,31 @@ export async function deleteInviteLinksForChannel(
     await client.query(sql`
       DELETE FROM channel_invite_links
       WHERE channel_id = ${channelId};
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Deletes every invite link into a channel except the ones its owner and server moderators created,
+ * which stay valid when the channel stops letting other members invite.
+ */
+export async function deleteMemberInviteLinks(
+  { channelId, ownerId }: { channelId: SbChannelId; ownerId: SbUserId | undefined },
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      DELETE FROM channel_invite_links l
+      WHERE l.channel_id = ${channelId}
+        AND l.created_by IS DISTINCT FROM ${ownerId ?? null}
+        AND NOT EXISTS (
+          SELECT 1
+          FROM permissions p
+          WHERE p.user_id = l.created_by AND p.moderate_chat_channels
+        );
     `)
   } finally {
     done()
