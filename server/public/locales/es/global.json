@@ -256,17 +256,14 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Configuración del canal",
-        "copyInviteLink": "Copiar enlace de invitación",
         "hideBanner": "Ocultar banner",
+        "invitePeople": "Invitar gente",
         "leaveChannel": "Salir del canal",
         "openAdminView": "Abrir vista de administrador"
       },
       "errors": {
-        "copyInviteLink": "Algo salió mal al copiar el enlace de invitación",
-        "createInviteLink": "Algo salió mal al obtener un enlace de invitación",
         "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
       },
-      "inviteLinkCopied": "Enlace de invitación copiado al portapapeles",
       "moreActions": "Más acciones"
     },
     "channelInfo": {
@@ -332,6 +329,15 @@
         "uploadBadge": "Subir insignia",
         "uploadBanner": "Subir banner"
       },
+      "inviteLinks": {
+        "loadError": "No se pudieron cargar los enlaces de invitación.",
+        "noLinks": "Este canal no tiene enlaces de invitación activos",
+        "noSearchResults": "Ningún usuario que coincida ha creado enlaces de invitación",
+        "revoke": "Revocar",
+        "revoked": "Enlace de invitación revocado",
+        "revokeError": "Algo salió mal al revocar el enlace de invitación",
+        "title": "Enlaces de invitación"
+      },
       "permissions": {
         "ban": "Puede banear usuarios",
         "banShort": "Banear",
@@ -351,6 +357,7 @@
       "tabs": {
         "bannedUsers": "Usuarios baneados",
         "general": "General",
+        "inviteLinks": "Enlaces de invitación",
         "permissions": "Permisos"
       },
       "users": {
@@ -607,6 +614,52 @@
       "open": "Ver",
       "title": "Canal privado",
       "view": "Ver canal"
+    },
+    "inviteLinkDialog": {
+      "copied": "Enlace de invitación copiado al portapapeles",
+      "copy": "Copiar",
+      "copyError": "Algo salió mal al copiar el enlace de invitación",
+      "description": "Cualquiera con este enlace puede unirse a #{{channelName}}.",
+      "descriptionNoName": "Cualquiera con este enlace puede unirse al canal.",
+      "editSettings": "Ajustes del enlace",
+      "expiryLabel": "Caduca en",
+      "generate": "Generar enlace nuevo",
+      "generateError": "Algo salió mal al generar un enlace de invitación nuevo",
+      "loadError": "Algo salió mal al obtener un enlace de invitación. Aún puedes generar uno nuevo abajo.",
+      "loading": "Obteniendo un enlace…",
+      "maxUsesLabel": "Usos máximos",
+      "noLink": "No hay ningún enlace disponible",
+      "title": "Enlace de invitación"
+    },
+    "inviteLinks": {
+      "created": "Creado {{timeAgo}}",
+      "expired": "Caducado",
+      "expiresIn": "Caduca {{timeLeft}}",
+      "expiryDays_one": "{{count}} día",
+      "expiryDays_many": "{{count}} días",
+      "expiryDays_other": "{{count}} días",
+      "expiryHours_one": "{{count}} hora",
+      "expiryHours_many": "{{count}} horas",
+      "expiryHours_other": "{{count}} horas",
+      "expiryMinutes_one": "{{count}} minuto",
+      "expiryMinutes_many": "{{count}} minutos",
+      "expiryMinutes_other": "{{count}} minutos",
+      "expiryNever": "Nunca",
+      "maxUsesCount_one": "{{count}} uso",
+      "maxUsesCount_many": "{{count}} usos",
+      "maxUsesCount_other": "{{count}} usos",
+      "maxUsesUnlimited": "Sin límite",
+      "neverExpires": "No caduca",
+      "noUseLimit": "Sin límite de usos",
+      "useLimit_one": "Limitado a {{count}} uso",
+      "useLimit_many": "Limitado a {{count}} usos",
+      "useLimit_other": "Limitado a {{count}} usos",
+      "uses_one": "{{count}} uso",
+      "uses_many": "{{count}} usos",
+      "uses_other": "{{count}} usos",
+      "usesOfMax_one": "{{count}} / {{maxUses}} usos",
+      "usesOfMax_many": "{{count}} / {{maxUses}} usos",
+      "usesOfMax_other": "{{count}} / {{maxUses}} usos"
     },
     "invitePage": {
       "title": "Te invitaron a un canal privado"
