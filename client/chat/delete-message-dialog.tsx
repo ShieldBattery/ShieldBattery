@@ -1,29 +1,29 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SbChannelId } from '../../../common/chat'
-import { closeDialog } from '../../dialogs/action-creators'
-import { CommonDialogProps } from '../../dialogs/common-dialog-props'
-import { DialogType } from '../../dialogs/dialog-type'
-import { TextButton } from '../../material/button'
-import { Dialog } from '../../material/dialog'
-import { useAppDispatch } from '../../redux-hooks'
-import { useSnackbarController } from '../../snackbars/snackbar-overlay'
-import { BodyLarge } from '../../styles/typography'
-import { deleteMessageAsAdmin } from '../action-creators'
+import { SbChannelId } from '../../common/chat'
+import { closeDialog } from '../dialogs/action-creators'
+import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
+import { TextButton } from '../material/button'
+import { Dialog } from '../material/dialog'
+import { useAppDispatch } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { BodyLarge } from '../styles/typography'
+import { deleteChannelMessage } from './action-creators'
 
-export interface AdminDeleteChatMessageDialogProps extends CommonDialogProps {
+export interface ChannelDeleteMessageDialogProps extends CommonDialogProps {
   channelId: SbChannelId
   messageId: string
   /** Called once the message has been deleted successfully. */
   onSuccess?: () => void
 }
 
-export function AdminDeleteChatMessageDialog({
+export function ChannelDeleteMessageDialog({
   onCancel,
   channelId,
   messageId,
   onSuccess,
-}: AdminDeleteChatMessageDialogProps) {
+}: ChannelDeleteMessageDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
@@ -33,10 +33,10 @@ export function AdminDeleteChatMessageDialog({
     setIsDeleting(true)
 
     dispatch(
-      deleteMessageAsAdmin(channelId, messageId, {
+      deleteChannelMessage(channelId, messageId, {
         onSuccess: () => {
           snackbarController.showSnackbar(t('chat.deleteMessage.successMessage', 'Message deleted'))
-          dispatch(closeDialog(DialogType.AdminDeleteChatMessage))
+          dispatch(closeDialog(DialogType.ChannelDeleteMessage))
           onSuccess?.()
         },
         onError: () => {

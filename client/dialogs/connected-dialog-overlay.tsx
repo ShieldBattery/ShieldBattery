@@ -28,8 +28,8 @@ const EmailVerificationDialog = React.lazy(async () => ({
 const BugReportDialog = React.lazy(async () => ({
   default: (await import('../bugs/bug-report-dialog')).BugReportDialog,
 }))
-const AdminDeleteChatMessageDialog = React.lazy(async () => ({
-  default: (await import('../chat/admin/delete-message-dialog')).AdminDeleteChatMessageDialog,
+const ChannelDeleteMessageDialog = React.lazy(async () => ({
+  default: (await import('../chat/delete-message-dialog')).ChannelDeleteMessageDialog,
 }))
 const ChannelBanUserDialog = React.lazy(async () => ({
   default: (await import('../chat/channel-ban-user-dialog')).ChannelBanUserDialog,
@@ -193,8 +193,6 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptMatchDialog }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
-    case DialogType.AdminDeleteChatMessage:
-      return { component: AdminDeleteChatMessageDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
     case DialogType.ChangeDisplayName:
@@ -209,6 +207,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelBanUserDialog }
     case DialogType.ChannelCreateConfirmation:
       return { component: ChannelCreateConfirmation }
+    case DialogType.ChannelDeleteMessage:
+      return { component: ChannelDeleteMessageDialog }
     case DialogType.ChannelKickUserConfirmation:
       return { component: ChannelKickUserConfirmation }
     case DialogType.ChannelLeaveConfirmation:

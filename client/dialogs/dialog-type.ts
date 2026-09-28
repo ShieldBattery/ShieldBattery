@@ -14,7 +14,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
-  AdminDeleteChatMessage = 'adminDeleteChatMessage',
   BugReport = 'bugReport',
   ChangeDisplayName = 'changeDisplayName',
   ChangeEmail = 'changeEmail',
@@ -23,6 +22,7 @@ export enum DialogType {
   ChatCommandHelp = 'chatCommandHelp',
   ChannelBanUser = 'channelBanUser',
   ChannelCreateConfirmation = 'channelCreateConfirmation',
+  ChannelDeleteMessage = 'channelDeleteMessage',
   ChannelInviteLink = 'channelInviteLink',
   ChannelKickUserConfirmation = 'channelKickUserConfirmation',
   ChannelLeaveConfirmation = 'channelLeaveConfirmation',
@@ -72,15 +72,6 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
-type AdminDeleteChatMessageDialogPayload = BaseDialogPayload<
-  typeof DialogType.AdminDeleteChatMessage,
-  {
-    channelId: SbChannelId
-    messageId: string
-    /** Called once the message has been deleted successfully. */
-    onSuccess?: () => void
-  }
->
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
 type ChangeDisplayNameDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeDisplayName,
@@ -118,6 +109,15 @@ type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
     channelName: string
     /** Performs the join that creates the channel once the user confirms. */
     onConfirm: () => void
+  }
+>
+type ChannelDeleteMessageDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelDeleteMessage,
+  {
+    channelId: SbChannelId
+    messageId: string
+    /** Called once the message has been deleted successfully. */
+    onSuccess?: () => void
   }
 >
 type ChannelInviteLinkDialogPayload = BaseDialogPayload<
@@ -410,7 +410,6 @@ type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
-  | AdminDeleteChatMessageDialogPayload
   | BugReportDialogPayload
   | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload
@@ -419,6 +418,7 @@ export type DialogPayload =
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
   | ChannelCreateConfirmationDialogPayload
+  | ChannelDeleteMessageDialogPayload
   | ChannelInviteLinkDialogPayload
   | ChatCommandHelpDialogPayload
   | ChannelKickUserConfirmationDialogPayload
