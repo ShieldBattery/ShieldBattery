@@ -35,8 +35,6 @@ export interface AccountSettings {
    * friends and everyone sharing a chat channel see it while the user is online.
    */
   availability: UserAvailability
-  /** A short message shown alongside `availability` to the same users. Empty if none is set. */
-  statusMessage: string
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
@@ -44,7 +42,6 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   quietWhispersWhileInGame: true,
   showWhispersEverywhere: true,
   availability: UserAvailability.Online,
-  statusMessage: '',
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(

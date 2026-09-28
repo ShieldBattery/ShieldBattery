@@ -2902,9 +2902,7 @@
       "doNotDisturb": "Do not disturb",
       "doNotDisturbDescription": "Mutes message sounds and alerts",
       "online": "Online",
-      "pickerLabel": "Availability",
-      "statusMessage": "Status message",
-      "withMessage": "{{availability}}: {{message}}"
+      "pickerLabel": "Availability"
     },
     "card": {
       "divisionUnknown": "Division unknown",

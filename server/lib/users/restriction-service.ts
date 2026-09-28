@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events'
 import { singleton } from 'tsyringe'
 import { NotificationType } from '../../../common/notifications'
 import { urlPath } from '../../../common/urls'
@@ -32,21 +31,14 @@ function getPath(userId: SbUserId) {
   return urlPath`/restrictions/${userId}`
 }
 
-type RestrictionServiceEvents = {
-  /** A restriction of `kind` was applied to the user. Restrictions expiring don't emit this. */
-  restrictionApplied: [userId: SbUserId, kind: RestrictionKind]
-}
-
 @singleton()
-export class RestrictionService extends EventEmitter<RestrictionServiceEvents> {
+export class RestrictionService {
   constructor(
     private userSockets: UserSocketsManager,
     private publisher: TypedPublisher<RestrictionEvent>,
     private clock: Clock,
     private notificationService: NotificationService,
   ) {
-    super()
-
     this.userSockets.on('newUser', user => {
       user.subscribe<RestrictionEvent>(getPath(user.userId), async () => {
         const restrictions = await getActiveUserRestrictions(user.userId)
@@ -232,7 +224,6 @@ export class RestrictionService extends EventEmitter<RestrictionServiceEvents> {
   private async notifyRestrictionChange(restrictions: UserRestriction[]) {
     const notificationPromises: Array<Promise<void>> = []
     for (const r of restrictions) {
-      this.emit('restrictionApplied', r.userId, r.kind)
       this.publisher.publish(getPath(r.userId), {
         type: 'restrictionsChanged',
         restrictions: [

@@ -12,7 +12,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
-import { bodyMedium, singleLine } from '../styles/typography'
 
 /**
  * Whether this client currently knows `userId` to be online: they're a friend reported online, or
@@ -43,7 +42,6 @@ function isKnownOnline(state: RootState, userId: SbUserId): boolean {
 export function useUserAvailability(userId: SbUserId): AvailabilityInfo | undefined {
   const isSelf = useAppSelector(s => s.auth.self?.user.id === userId)
   const selfAvailability = useAppSelector(s => s.settings.account.availability)
-  const selfStatusMessage = useAppSelector(s => s.settings.account.statusMessage)
   const knownOnline = useAppSelector(s => isKnownOnline(s, userId))
   const info = useAppSelector(s => s.availability.byUserId.get(userId))
 
@@ -54,7 +52,7 @@ export function useUserAvailability(userId: SbUserId): AvailabilityInfo | undefi
       selfAvailability === UserAvailability.Online && info?.availability === UserAvailability.Away
         ? UserAvailability.Away
         : selfAvailability
-    return { availability, statusMessage: selfStatusMessage }
+    return { availability }
   }
 
   return knownOnline ? (info ?? DEFAULT_AVAILABILITY_INFO) : undefined
@@ -117,9 +115,8 @@ const Dot = styled.div<{ $color: string }>`
 `
 
 /**
- * A dot anchored over the bottom-right corner of an avatar showing the user's availability, with
- * their status message as its tooltip. Must be placed inside the avatar's positioned root. Renders
- * nothing if the user's availability isn't known.
+ * A dot anchored over the bottom-right corner of an avatar showing the user's availability. Must
+ * be placed inside the avatar's positioned root. Renders nothing if availability isn't known.
  */
 export function AvailabilityDot({ userId }: { userId: SbUserId }) {
   const { t } = useTranslation()
@@ -129,40 +126,9 @@ export function AvailabilityDot({ userId }: { userId: SbUserId }) {
   }
 
   const label = getAvailabilityLabel(info.availability, t)
-  const text = info.statusMessage
-    ? t('users.availability.withMessage', {
-        defaultValue: '{{availability}}: {{message}}',
-        availability: label,
-        message: info.statusMessage,
-      })
-    : label
-
   return (
-    <DotTooltip text={text} position='bottom' tabIndex={-1}>
-      <Dot $color={getAvailabilityColor(info.availability)} role='img' aria-label={text} />
+    <DotTooltip text={label} position='bottom' tabIndex={-1}>
+      <Dot $color={getAvailabilityColor(info.availability)} role='img' aria-label={label} />
     </DotTooltip>
-  )
-}
-
-const StatusMessageText = styled.div`
-  ${bodyMedium};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-`
-
-/**
- * A user's status message as its own line, for surfaces with room for it. Renders nothing if the
- * user has no message or their availability isn't known.
- */
-export function StatusMessageLine({ userId, className }: { userId: SbUserId; className?: string }) {
-  const info = useUserAvailability(userId)
-  if (!info?.statusMessage) {
-    return null
-  }
-
-  return (
-    <StatusMessageText className={className} title={info.statusMessage}>
-      {info.statusMessage}
-    </StatusMessageText>
   )
 }

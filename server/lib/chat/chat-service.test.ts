@@ -111,7 +111,6 @@ vi.mock('../db/transaction', () => ({
 
 const AWAY_AVAILABILITY: AvailabilityInfo = {
   availability: UserAvailability.Away,
-  statusMessage: 'brb',
 }
 
 vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
