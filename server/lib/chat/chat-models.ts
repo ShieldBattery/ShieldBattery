@@ -413,17 +413,20 @@ export async function transferChannelOwnership(
 /**
  * Attempts to add a user to a channel. Returns user channel entry if it was successfully added, or
  * `undefined` if the user reached the limit of joined channels.
+ *
+ * `invitedBy` is the creator of the invite link the user joined through, if they joined through one.
  */
 export async function addUserToChannel(
   userId: SbUserId,
   channelId: SbChannelId,
   withClient?: DbClient,
+  invitedBy?: SbUserId,
 ): Promise<UserChannelEntry | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
-      INSERT INTO channel_users (user_id, channel_id, join_date)
-      SELECT ${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+      INSERT INTO channel_users (user_id, channel_id, join_date, invited_by)
+      SELECT ${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${invitedBy ?? null}
       WHERE (
         SELECT COUNT(*)
         FROM channel_users cu

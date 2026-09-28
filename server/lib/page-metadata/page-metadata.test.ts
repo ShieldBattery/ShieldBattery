@@ -199,6 +199,25 @@ describe('page-metadata/page-metadata', () => {
     })
   })
 
+  test('resolves a channel invite link to generic, noindexed metadata', async () => {
+    const result = await resolvePageMetadata('/chat/invite/Xu0AAAAAQACAAAAAAAAAAQ', CONTEXT)
+
+    expect(result).toEqual({
+      url: 'https://shieldbattery.net/chat/invite/Xu0AAAAAQACAAAAAAAAAAQ',
+      type: 'website',
+      title: "You've been invited to a private channel on ShieldBattery",
+      description: 'Join the conversation in a private chat channel on ShieldBattery.',
+      image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',
+      noindex: true,
+    })
+  })
+
+  test('falls back to the default metadata for a malformed channel invite link', async () => {
+    const result = await resolvePageMetadata('/chat/invite/not-a-token', CONTEXT)
+
+    expect(result).toEqual(DEFAULT_METADATA)
+  })
+
   test('matches a static route registered with a trailing wildcard', async () => {
     const result = await resolvePageMetadata('/ladder/1v1', CONTEXT)
 

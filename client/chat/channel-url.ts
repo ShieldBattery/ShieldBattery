@@ -1,4 +1,5 @@
 import { makeSbChannelId, SbChannelId } from '../../common/chat'
+import { isPrettyId } from '../../common/pretty-id'
 import { urlPath } from '../../common/urls'
 import { isMessageLinkId, MESSAGE_LINK_PARAM } from '../messaging/message-link'
 
@@ -57,4 +58,27 @@ export function channelMessageFromUrl(url: URL): ChannelMessageLinkTarget | unde
   }
 
   return { channelId: makeSbChannelId(channelId), messageId }
+}
+
+/** Returns the path of a private channel's invite link with the given token. */
+export function urlForChannelInvite(token: string): string {
+  return urlPath`/chat/invite/${token}`
+}
+
+/**
+ * Returns the token of the invite link `pathname` is the path of, or undefined if it isn't one: it
+ * must be exactly `/chat/invite/<token>`, with a token shaped like one.
+ */
+export function channelInviteTokenFromPath(pathname: string): string | undefined {
+  const segments = pathname.split('/').filter(segment => segment.length > 0)
+  if (
+    segments.length !== 3 ||
+    segments[0] !== 'chat' ||
+    segments[1] !== 'invite' ||
+    !isPrettyId(segments[2])
+  ) {
+    return undefined
+  }
+
+  return segments[2]
 }

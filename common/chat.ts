@@ -36,12 +36,19 @@ export enum ChatServiceErrorCode {
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateYourself = 'CannotModerateYourself',
   ChannelNotFound = 'ChannelNotFound',
+  /** The request only makes sense for a private channel, and the channel is public. */
+  ChannelNotPrivate = 'ChannelNotPrivate',
   /**
    * The channel exists and is private, and the requester is neither a member nor a server
    * moderator.
    */
   ChannelPrivate = 'ChannelPrivate',
   InappropriateImage = 'InappropriateImage',
+  /**
+   * The invite link doesn't exist, has expired, has been used up, or belongs to a channel that is
+   * no longer private. Which of those it is is deliberately not revealed.
+   */
+  InviteLinkInvalid = 'InviteLinkInvalid',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
   MessageNotFound = 'MessageNotFound',
@@ -173,7 +180,7 @@ export interface BasicChannelInfo {
   name: string
   /**
    * A flag indicating whether the chat channel is private or not. Private chat channels can only be
-   * joined through an invite.
+   * joined through an invite link.
    */
   private: boolean
   /**
@@ -481,6 +488,57 @@ export interface JoinChannelResponse {
   detailedChannelInfo: DetailedChannelInfo
   /** The channel information specific to user's joined channel. */
   joinedChannelInfo: JoinedChannelInfo
+}
+
+/**
+ * An invite link into a private channel. Holding the link is what lets someone join the channel, so
+ * its token must only ever be shown to the people it's meant for.
+ */
+export interface ChannelInviteLink {
+  /** The link's token, as it appears in the link's URL. */
+  token: string
+  channelId: SbChannelId
+  /** The user who created the link. Everyone who joins through it is recorded against them. */
+  createdBy: SbUserId
+  createdAt: Date
+  /** When the link stops working, or `undefined` if it never expires. */
+  expiresAt?: Date
+  /** How many joins the link allows in total, or `undefined` if it's unlimited. */
+  maxUses?: number
+  /** How many users have joined the channel through the link. */
+  uses: number
+}
+
+export type ChannelInviteLinkJson = Jsonify<ChannelInviteLink>
+
+export function toChannelInviteLinkJson(inviteLink: ChannelInviteLink): ChannelInviteLinkJson {
+  return {
+    token: inviteLink.token,
+    channelId: inviteLink.channelId,
+    createdBy: inviteLink.createdBy,
+    createdAt: Number(inviteLink.createdAt),
+    expiresAt: inviteLink.expiresAt ? Number(inviteLink.expiresAt) : undefined,
+    maxUses: inviteLink.maxUses,
+    uses: inviteLink.uses,
+  }
+}
+
+/** The response returned when getting an invite link for a private channel. */
+export interface CreateChannelInviteLinkResponse {
+  inviteLink: ChannelInviteLinkJson
+}
+
+/**
+ * The response returned when looking up the channel an invite link leads into. Anyone holding a
+ * valid link gets this, member or not.
+ */
+export interface GetChannelInviteLinkResponse {
+  channelInfo: BasicChannelInfo
+  detailedChannelInfo: DetailedChannelInfo
+  /** When the link stops working, or `undefined` if it never expires. */
+  expiresAt?: number
+  /** Whether the requester is already a member of the channel. */
+  isMember: boolean
 }
 
 /**

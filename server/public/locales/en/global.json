@@ -255,13 +255,17 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Channel settings",
+        "copyInviteLink": "Copy invite link",
         "hideBanner": "Hide banner",
         "leaveChannel": "Leave channel",
         "openAdminView": "Open admin view"
       },
       "errors": {
+        "copyInviteLink": "Something went wrong copying the invite link",
+        "createInviteLink": "Something went wrong getting an invite link",
         "toggleBannerVisibility": "Something went wrong toggling the banner visibility"
       },
+      "inviteLinkCopied": "Invite link copied to clipboard",
       "moreActions": "More actions"
     },
     "channelInfo": {
@@ -274,7 +278,7 @@
       "joined": "Joined",
       "moreActions": "More actions",
       "noDescription": "This channel has no description.",
-      "private": "This channel is private and requires an invite to join.",
+      "private": "This channel is private and requires an invite link to join.",
       "userCount_one": "{{count}} member",
       "userCount_other": "{{count}} members"
     },
@@ -588,11 +592,24 @@
     "errors": {
       "messageNotFound": "That message couldn't be found. It may have been deleted."
     },
+    "inviteCard": {
+      "invalid": "This invite link is invalid or has expired.",
+      "join": "Join",
+      "memberCount_one": "{{count}} member",
+      "memberCount_other": "{{count}} members",
+      "open": "View",
+      "title": "Private channel",
+      "view": "View channel"
+    },
+    "invitePage": {
+      "title": "You've been invited to a private channel"
+    },
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
       "genericError": "An error occurred while joining #{{channelName}}",
+      "inviteLinkInvalidError": "This invite link is invalid or has expired.",
       "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another.",
-      "privateError": "#{{channelName}} is private and requires an invite to join"
+      "privateError": "#{{channelName}} is private and requires an invite link to join"
     },
     "kickUser": {
       "body": "{{user}} will be removed from the channel and lose their channel permissions. They can rejoin at any time.",

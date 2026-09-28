@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vi
 import { encodePrettyId } from '../../common/pretty-id'
 import { RolledOutcome } from '../../common/rolled-outcomes'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { channelInviteTokenFromMessageLink } from '../chat/channel-invite-card'
 import createStore from '../create-store'
 import { gameFromMessageLink, GameLinkTarget } from '../games/game-link-card'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
@@ -39,6 +40,16 @@ vi.mock('../games/game-link-card', async importOriginal => {
     ...actual,
     GameLinkCard: ({ target }: { target: GameLinkTarget }) => (
       <div data-testid='game-link-card'>{`${target.gameId} ${target.subPage ?? ''}`}</div>
+    ),
+  }
+})
+
+vi.mock('../chat/channel-invite-card', async importOriginal => {
+  const actual = await importOriginal<typeof import('../chat/channel-invite-card')>()
+  return {
+    ...actual,
+    ChannelInviteCard: ({ token }: { token: string }) => (
+      <div data-testid='channel-invite-card'>{token}</div>
     ),
   }
 })
@@ -416,6 +427,64 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
 
     test('profile-shaped path on a foreign origin renders no user card', () => {
       doRender('https://example.com/users/42/tec27')
+      expect(screen.queryByTestId('user-link-card')).toBeNull()
+    })
+  })
+
+  describe('channel invite links', () => {
+    const INVITE_TOKEN = encodePrettyId('5eed0000-0000-4000-8000-000000000001')
+
+    test('an invite link resolves to its token', () => {
+      expect(
+        channelInviteTokenFromMessageLink(`https://shieldbattery.net/chat/invite/${INVITE_TOKEN}`),
+      ).toBe(INVITE_TOKEN)
+    })
+
+    test('non-invite ShieldBattery paths resolve to no token', () => {
+      expect(
+        channelInviteTokenFromMessageLink('https://shieldbattery.net/chat/invite/'),
+      ).toBeUndefined()
+      expect(
+        channelInviteTokenFromMessageLink('https://shieldbattery.net/chat/invite/not-a-token'),
+      ).toBeUndefined()
+      expect(
+        channelInviteTokenFromMessageLink(
+          `https://shieldbattery.net/chat/invite/${INVITE_TOKEN}/extra`,
+        ),
+      ).toBeUndefined()
+      expect(
+        channelInviteTokenFromMessageLink('https://shieldbattery.net/chat/7/invite'),
+      ).toBeUndefined()
+    })
+
+    test('message with an invite link renders exactly one invite card and keeps the link', () => {
+      const link = `https://shieldbattery.net/chat/invite/${INVITE_TOKEN}`
+      doRender(`come hang out: ${link}`)
+
+      expect(screen.getByTestId('channel-invite-card').textContent).toBe(INVITE_TOKEN)
+      expect(screen.getByRole('link', { name: link })).toBeTruthy()
+    })
+
+    test('message with multiple invite links renders only one invite card', () => {
+      const otherToken = encodePrettyId('5eed0000-0000-4000-8000-000000000002')
+      doRender(
+        `https://shieldbattery.net/chat/invite/${INVITE_TOKEN} or ` +
+          `https://shieldbattery.net/chat/invite/${otherToken}`,
+      )
+
+      expect(screen.getAllByTestId('channel-invite-card')).toHaveLength(1)
+      expect(screen.getByTestId('channel-invite-card').textContent).toBe(INVITE_TOKEN)
+    })
+
+    test('invite-shaped path on a foreign origin renders no invite card', () => {
+      doRender(`https://example.com/chat/invite/${INVITE_TOKEN}`)
+      expect(screen.queryByTestId('channel-invite-card')).toBeNull()
+    })
+
+    test('an invite link renders no other kind of link card', () => {
+      doRender(`https://shieldbattery.net/chat/invite/${INVITE_TOKEN}`)
+      expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
+      expect(screen.queryByTestId('game-link-card')).toBeNull()
       expect(screen.queryByTestId('user-link-card')).toBeNull()
     })
   })

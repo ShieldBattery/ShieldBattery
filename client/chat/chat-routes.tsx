@@ -5,6 +5,7 @@ import { useRequireLogin } from '../auth/auth-utils'
 import { NoPermissionsPage } from '../auth/no-permissions-page'
 import { LoadingDotsArea } from '../progress/dots'
 import { ConnectedChatChannel } from './channel'
+import { ChannelInvitePage } from './channel-invite-page'
 import { ChannelList } from './channel-list'
 import { ChannelRoute } from './channel-route'
 import { CreateChannel } from './create-channel'
@@ -29,6 +30,8 @@ export function ChannelRouteComponent(props: { params: any }) {
         </Route>
         <Route path='/chat/new' component={CreateChannel} />
         <Route path='/chat/list' component={ChannelList} />
+        {/* Must come before the channel route, which would otherwise take `invite` for an id. */}
+        <Route path='/chat/invite/:token' component={ChannelInvitePage} />
         <ChannelRoute path='/chat/:channelId/:channelName' component={ConnectedChatChannel} />
         <Route component={ChannelList} />
       </Switch>

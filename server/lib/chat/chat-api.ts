@@ -9,11 +9,13 @@ import {
   CHANNEL_USER_PERMISSIONS_LIMIT,
   ChannelPermissions,
   ChatServiceErrorCode,
+  CreateChannelInviteLinkResponse,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
+  GetChannelInviteLinkResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   InitialChannelData,
@@ -32,6 +34,7 @@ import {
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
+import { isPrettyId } from '../../../common/pretty-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { asHttpError } from '../errors/error-with-payload'
@@ -55,6 +58,27 @@ const getJoinedChannelsThrottle = createThrottle('chatgetjoinedchannels', {
 })
 
 const joinThrottle = createThrottle('chatjoin', {
+  rate: 3,
+  burst: 10,
+  window: 60000,
+})
+
+const createInviteLinkThrottle = createThrottle('chatcreateinvitelink', {
+  rate: 10,
+  burst: 20,
+  window: 60000,
+})
+
+// Invite link tokens are the only thing standing between a private channel and anyone who wants
+// in, so looking them up is kept slow enough that guessing at them gets nowhere. Chat messages can
+// hold invite links, which the client bounds with a fetch budget of its own well below this.
+const inviteLinkLookupThrottle = createThrottle('chatinvitelinklookup', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
+const inviteLinkJoinThrottle = createThrottle('chatinvitelinkjoin', {
   rate: 3,
   burst: 10,
   window: 60000,
@@ -175,6 +199,13 @@ const editChannelBodySchema = () =>
     }),
   })
 
+const inviteLinkParamsSchema = () =>
+  Joi.object<{ token: string }>({
+    token: Joi.string()
+      .custom((value, helpers) => (isPrettyId(value) ? value : helpers.error('any.invalid')))
+      .required(),
+  })
+
 const moderateChannelUserBodySchema = () =>
   Joi.object<ModerateChannelUserServerRequest>({
     moderationAction: Joi.string().valid('kick', 'ban').required(),
@@ -208,6 +239,7 @@ function convertChatServiceError(err: unknown) {
 
   switch (err.code) {
     case ChatServiceErrorCode.ChannelNotFound:
+    case ChatServiceErrorCode.InviteLinkInvalid:
     case ChatServiceErrorCode.MessageNotFound:
     case ChatServiceErrorCode.NotInChannel:
     case ChatServiceErrorCode.TargetNotBanned:
@@ -223,6 +255,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotEditChannel:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
+    case ChatServiceErrorCode.ChannelNotPrivate:
     case ChatServiceErrorCode.ChannelPrivate:
     case ChatServiceErrorCode.MaximumJoinedChannels:
     case ChatServiceErrorCode.MaximumOwnedChannels:
@@ -306,6 +339,42 @@ export class ChatApi {
 
     return await this.chatService.joinChannel(
       channelName,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
+    )
+  }
+
+  @httpGet('/invite-links/:token')
+  @httpBefore(throttleMiddleware(inviteLinkLookupThrottle, throttleByUser))
+  async getInviteLink(ctx: RouterContext): Promise<GetChannelInviteLinkResponse> {
+    const {
+      params: { token },
+    } = validateRequest(ctx, {
+      params: inviteLinkParamsSchema(),
+    })
+
+    return await this.chatService.getInviteLinkInfo(token, ctx.session!.user.id)
+  }
+
+  @httpPost('/invite-links/:token/join')
+  @httpBefore(throttleMiddleware(inviteLinkJoinThrottle, throttleByUser))
+  async joinWithInviteLink(ctx: RouterContext): Promise<JoinChannelResponse> {
+    const {
+      params: { token },
+    } = validateRequest(ctx, {
+      params: inviteLinkParamsSchema(),
+    })
+
+    return await this.chatService.joinChannelWithInviteLink(token, ctx.session!.user.id)
+  }
+
+  @httpPost('/:channelId/invite-links')
+  @httpBefore(throttleMiddleware(createInviteLinkThrottle, throttleByUser))
+  async createInviteLink(ctx: RouterContext): Promise<CreateChannelInviteLinkResponse> {
+    const channelId = getValidatedChannelId(ctx)
+
+    return await this.chatService.getOrCreateInviteLink(
+      channelId,
       ctx.session!.user.id,
       isServerModerator(ctx),
     )
