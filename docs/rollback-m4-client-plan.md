@@ -213,57 +213,49 @@ same machinery as `/netstat`) instead of formatting SC:R's own text through the
 
 ### Slice 5: confirmed-hash reports and rollback sessions (with rp2 build step 3)
 
-Not started. This is where the debug env vars become a real session mode, so it spans the DLL,
-rally-point2 (proto, relay, coordinator) and the app server. A survey of rp2 turned up how its
-native sync comparison and the `finalized_drops` session flag work today; the plan below follows
-those patterns.
+Done 2026-09-27 (rally-point2 `e4320e2` on main; ShieldBattery `69b874d88`, `21e238534`). Verified
+on a loopback coordinator and relay: a 1v1 where one client withheld its reports from step 1200
+had that client named at step 1200, evicted, and dropped at a finalized turn count. The other
+client got the victory, and the server scored it as a win and a loss with a desync event naming the
+evicted player.
 
-**Steps, not frames.** Every hash and deadline is keyed by step (turn index), which is also the
-payload `seq`: a paused game takes turns without advancing frames, and the relay only knows turn
-counts. The DLL already counts its rollback timeline in turns.
+**Steps, not frames.** Every hash and deadline is keyed by step (the turn index, also the payload
+`seq`). Step `n` is the state once every slot's first `n` turns have run, so the relay knows it is
+confirmable once it has forwarded `n` turns of every slot. A paused game takes turns without
+advancing frames.
 
-1. **DLL: hash reports.** Every 8 steps, hash the state after the step (`state_hash`), record it per
-   step like the game-end outcomes (a step whose prediction held is never simulated again), and
-   once the step is confirmed put `{step, hash}` on the next outbound turn.
-2. **Wire (`proto/proto/wire.proto`):** `message StateHashReport { uint64 step = 1; fixed64 hash =
-   2; }` and `optional StateHashReport state_hash = 7` on `Payload` (the next free field). Every
-   `Payload { .. }` literal in rp2 (18 across 13 files, mostly tests and benches) gains the field;
-   `relay/src/validation.rs` keeps it, with a test next to the `sync_generation` one.
-3. **Don't forward reports to clients.** `routing::fan_out` and the client turn replay forward the
-   payload as is, so a modified client could copy the majority's hash before its own is due.
-   Strip `state_hash` on client-bound fan-out and client replay; keep it on mesh fan-out and mesh
-   resume replay.
-4. **Session flag.** `SessionDescriptor.rollback` (`#[serde(default)]`), set by the coordinator
-   the way `finalized_drops` is: a relay capability (`CAPABILITY_ROLLBACK_V1`), cohort placement and
-   re-homing that never mix builds, and `finalized_drops` forced on (an unfinalized drop has no
-   turn count, so clients could apply it at different steps). The tenant sets the mode on
-   `SessionRequest` (decided: not a per-player capability, since players, modified clients
-   included, must not be able to opt out, and the native path is meant to be removed once rollback
-   is fully rolled out). `GAME_SYNC_SAFE_BUFFER_MAX` (the 0x37 ring limit) shouldn't apply to
-   rollback sessions.
-5. **Relay comparator** (`consensus/sync/rollback.rs`, fed from `deliver_turn_to_locals` next to
-   `observe_sync_with_generation`): reports by step from every required slot, the existing
-   majority rules (factor `evaluate` out of `sync/tracker.rs`), and a deadline 5 s after the step
-   became confirmable, meaning every live slot's forwarded count passed it. Those counts live in
-   `mesh/` (`MeshSeen::forwarded_count`), which `consensus/` can't import, so the forward path has
-   to hand them in (for example on `note_forward_advance`). Where counts are unknown (after a
-   re-home or a sparse-set collapse) there is no deadline. Reject steps that aren't multiples of 8
-   or are far past the frontier. Every relay keeps pending reports so a promoted authority can
-   carry on; only the authority emits.
-6. **Verdicts name the player at fault** (decided). Whenever the relay can tell who the problem
-   is, that player gets a disconnect, which usually becomes a loss: the minority when the rest
-   agree, and a player who is still sending turns but misses a report's deadline, which the relay
-   observes itself (it forwarded their turns and got no hash). That holds in a 1v1 too. A player
-   whose link died goes through the leave machinery instead, and when nobody can be singled out
-   (a 1v1 that disagrees, an even split, every player missing a report) the game is voided as
-   today. Today a missing checksum only logs, so this needs an additive field on `DesyncNotice`,
-   the policy in the app server's `results.ts`, and care with the coordinator's dedupe key
-   `(tenant, session, sync_ordinal)`: a divergence and a missing report at the same step have to go
-   out as one notice.
-7. **Native sync off per session.** `observe_sync_with_generation` returns early for rollback
-   sessions, and `sync_coverage` reports the new comparator. In the DLL the switch comes from the
-   session (through the app server's launch config, since rp2 doesn't tell clients session
-   parameters), replacing `SB_ROLLBACK_NATIVE_SYNC_OFF`, and it must flip for every client at once.
+- **Session mode.** The server sets `SB_RP2_ROLLBACK=true` for every game it loads (never per
+  player). `SessionRequest.rollback` asks; the coordinator grants it only on relays advertising
+  `rollback_v1`, keeps re-homes on them, and forces `finalized_drops` on. The granted
+  `SessionResponse.rollback` rides the player's setup to the DLL, which arms rollback from it (the
+  env knobs now only tune a rollback game). A DLL that can't roll back (release builds, or missing
+  analysis) refuses the session instead of running it as lockstep. Debug DLLs now always resolve
+  the snapshot ranges at launch, since the mode is only known once the session is set up.
+- **Reports** (`rollback/hash_reports.rs`). Every 8th position from 8 is hashed as it is
+  simulated; a re-simulation replaces the hash, and once the position is confirmed its report goes
+  out on the next local turn (`Payload.state_hash`). Relays keep reports on the mesh and strip them
+  from everything sent to clients. `SB_ROLLBACK_WITHHOLD_HASHES_FROM=<position>` stops reporting,
+  to exercise the missing verdict.
+- **Comparator** (rp2 `consensus/sync/hashes.rs`). The authority judges a step once every required
+  slot has reported, or 5 s after it became confirmable. Native sync is ignored in rollback
+  sessions. A verdict names the minority when the rest agree, and any slot that kept sending turns
+  (96 past the step) without its report. A slot whose turns stopped is left to the leave machinery.
+  With no majority it names nobody and goes dormant.
+- **Eviction** (rp2 `routing/state_hash.rs`, mesh `EvictSlot`). The authority tells the named
+  slot's home relay, which closes the link (`DESYNC_EVICTED`), refuses redials, and finalizes the
+  drop without waiting for a survivor's drop request. Survivors apply a finalized leave, so the
+  evicted player is disconnected, which usually scores as a loss.
+- **Server policy.** The desync webhook's `missing` slots count as at fault like `diverged`; a
+  no-majority event still voids the game.
+
+Left open:
+
+- The evicted client, like any client whose link can't come back, shows "Lost connection to the
+  server, reconnecting…" until the player leaves through the menu. The overlay has no terminal
+  state.
+- `GAME_SYNC_SAFE_BUFFER_MAX` still caps the relay buffer in rollback sessions. The client's lead
+  can add up to `MAX_LAG_FRAMES` (24) of input delay on top, and there is no cap on the total.
+- The rollback engine is compiled out of release DLLs, so rollback sessions need debug DLLs.
 
 **After slice 5: the relay's lead report.** The relay keeps the session clock (step F due at
 `start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
