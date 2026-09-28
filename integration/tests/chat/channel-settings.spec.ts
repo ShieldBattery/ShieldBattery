@@ -137,6 +137,8 @@ test('making a channel private', async ({ page }) => {
 
   await loginPage.navigateTo()
   await loginPage.loginWith('admin', 'admin1234')
+  // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
+  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
   await chatPage.createChannel(channelName)
 
   await chatPage.openChannelSettings()
