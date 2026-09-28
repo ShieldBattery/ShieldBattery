@@ -24,5 +24,20 @@ describe('settings/account-settings-api', () => {
         updateAccountSettingsSchema.validate({ availability: 'invisible' }).error,
       ).toBeDefined()
     })
+
+    test('accepts a known chat display mode', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ chatDisplayMode: 'cozy' }).error,
+      ).toBeUndefined()
+      expect(
+        updateAccountSettingsSchema.validate({ chatDisplayMode: 'classic' }).error,
+      ).toBeUndefined()
+    })
+
+    test('rejects an unknown chat display mode', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ chatDisplayMode: 'compact' }).error,
+      ).toBeDefined()
+    })
   })
 })

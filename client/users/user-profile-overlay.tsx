@@ -287,11 +287,12 @@ export function UserProfileOverlayContents({
           <AvatarCircle $isLive={!!liveStream}>
             <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
-          {user?.staffBadge ? <ProfileStaffBadge /> : null}
-          <AvailabilityDot userId={userId} />
           <ViewProfileHover>
             {t('users.profileOverlay.viewProfile', 'View profile')}
           </ViewProfileHover>
+          {/* After the hover scrim so they paint over it rather than being dimmed by it. */}
+          {user?.staffBadge ? <ProfileStaffBadge /> : null}
+          <AvailabilityDot userId={userId} showOffline={true} />
         </AvatarContainer>
         <UsernameAndTitle>
           {user ? (

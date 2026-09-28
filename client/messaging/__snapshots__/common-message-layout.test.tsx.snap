@@ -1,5 +1,352 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > continuation with an emoji-only message 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-hLVYED eNDQYm sc-hIaeua djfahW"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-fotPuT jrxelZ sc-hcuqqC dViPLZ sc-gLDjOb iSZVuK"
+      tabindex="0"
+    >
+      <span
+        class="sc-oXQqu kJjDrH"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-gfXvKD ichcPg"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-gfXvKD ichcPg"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-hUpmGu sc-iKMXcJ jgtjEU cxyeVy"
+    >
+      <div
+        class="sc-fotPuT jrxelZ sc-hxaJMQ kcSuXP"
+        tabindex="-1"
+      >
+        <span
+          class="sc-gA-DPgR cKSNVV"
+        >
+          🔥
+        </span>
+      </div>
+      <div
+        class="sc-fotPuT jrxelZ sc-hxaJMQ kcSuXP"
+        tabindex="-1"
+      >
+        <span
+          class="sc-gA-DPgR cKSNVV"
+        >
+          🔥
+        </span>
+      </div>
+       
+      <div
+        class="sc-fotPuT jrxelZ sc-hxaJMQ kcSuXP"
+        tabindex="-1"
+      >
+        <span
+          class="sc-gA-DPgR cKSNVV"
+        >
+          🎉
+        </span>
+      </div>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > continuation with plain text 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-hLVYED eNDQYm sc-hIaeua djfahW"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      class="sc-fotPuT jrxelZ sc-hcuqqC dViPLZ sc-gLDjOb iSZVuK"
+      tabindex="0"
+    >
+      <span
+        class="sc-oXQqu kJjDrH"
+      >
+        <i
+          aria-hidden="true"
+          class="sc-gfXvKD ichcPg"
+        >
+          [
+        </i>
+        12:00 AM
+        <i
+          aria-hidden="true"
+          class="sc-gfXvKD ichcPg"
+        >
+          ] 
+        </i>
+      </span>
+    </div>
+    <span
+      class="sc-hUpmGu sc-iKMXcJ jgtjEU cxyeVy"
+    >
+      This is test message
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > header whose text mentions the self user 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-hLVYED fsVWdh sc-gsFBvc gOIYaL"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      aria-hidden="true"
+      class="sc-cAiakp evesDv"
+    >
+      <div
+        class="sc-hAcEkO jEqTvx sc-gqtqYm kIbZlW"
+      >
+        <div
+          class="sc-eLwIaL igXWFU sc-kYHdiH bQvEgS"
+        />
+      </div>
+    </div>
+    <div>
+      <span
+        class="sc-fmcgDm TUWFW sc-kLnvaL dYCNnL"
+        tabindex="0"
+      >
+        <span
+          aria-label="Username loading…"
+          class="sc-eXlCAP dcsxdE"
+        >
+                     
+        </span>
+      </span>
+      <div
+        class="sc-fotPuT jrxelZ sc-bnOOOA dgQJTK"
+        tabindex="0"
+      >
+        <span
+          class="sc-cxVPNz dyXQf"
+        >
+          <i
+            aria-hidden="true"
+            class="sc-gfXvKD ichcPg"
+          >
+             [
+          </i>
+          12:00 AM
+          <i
+            aria-hidden="true"
+            class="sc-gfXvKD ichcPg"
+          >
+            ]
+          </i>
+        </span>
+      </div>
+    </div>
+    <span
+      class="sc-hUpmGu sc-iKMXcJ jgtjEU cxyeVy"
+    >
+      Hey
+       
+      <span
+        class="sc-fmcgDm TUWFW sc-fIISQZ ezPqtW"
+        tabindex="0"
+      >
+        @
+        <span
+          aria-label="Username loading…"
+          class="sc-eXlCAP dcsxdE"
+        >
+                     
+        </span>
+      </span>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > header with a message-link chip 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-hLVYED eNDQYm sc-gsFBvc gOIYaL"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      aria-hidden="true"
+      class="sc-cAiakp evesDv"
+    >
+      <div
+        class="sc-hAcEkO jEqTvx sc-gqtqYm kIbZlW"
+      >
+        <div
+          class="sc-eLwIaL igXWFU sc-kYHdiH bQvEgS"
+        />
+      </div>
+    </div>
+    <div>
+      <span
+        class="sc-fmcgDm TUWFW sc-kLnvaL dYCNnL"
+        tabindex="0"
+      >
+        <span
+          aria-label="Username loading…"
+          class="sc-eXlCAP dcsxdE"
+        >
+                     
+        </span>
+      </span>
+      <div
+        class="sc-fotPuT jrxelZ sc-bnOOOA dgQJTK"
+        tabindex="0"
+      >
+        <span
+          class="sc-cxVPNz dyXQf"
+        >
+          <i
+            aria-hidden="true"
+            class="sc-gfXvKD ichcPg"
+          >
+             [
+          </i>
+          12:00 AM
+          <i
+            aria-hidden="true"
+            class="sc-gfXvKD ichcPg"
+          >
+            ]
+          </i>
+        </span>
+      </div>
+    </div>
+    <span
+      class="sc-hUpmGu sc-iKMXcJ jgtjEU cxyeVy"
+    >
+      see this: 
+      <a
+        class="sc-emDrzp gVRjAO"
+        href="https://shieldbattery.net/chat/1/some-channel?m=9b2e8d0e-5f3a-4a2b-8c1d-6f5e4d3c2b1a"
+        rel="nofollow noreferrer noopener"
+        target="_blank"
+      >
+        <span
+          aria-hidden="true"
+          class="sc-dJjZnq ewhxOC sc-bvFjeY jrvgok"
+        >
+          chat
+        </span>
+        <span
+          aria-label="Channel name loading…"
+          class="sc-eVlYoy cdtBDT"
+        >
+                     
+        </span>
+        <span
+          class="sc-btsYIi kLlkcY"
+        >
+          ›
+        </span>
+        <span
+          class="sc-kNzFxB cvLusD"
+        >
+          message
+        </span>
+      </a>
+    </span>
+  </div>
+</div>
+`;
+
+exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > header with plain text 1`] = `
+<div
+  data-testid="message-container"
+>
+  <div
+    class="sc-hLVYED eNDQYm sc-gsFBvc gOIYaL"
+    data-message-id="MESSAGE_ID"
+    role="document"
+  >
+    <div
+      aria-hidden="true"
+      class="sc-cAiakp evesDv"
+    >
+      <div
+        class="sc-hAcEkO jEqTvx sc-gqtqYm kIbZlW"
+      >
+        <div
+          class="sc-eLwIaL igXWFU sc-kYHdiH bQvEgS"
+        />
+      </div>
+    </div>
+    <div>
+      <span
+        class="sc-fmcgDm TUWFW sc-kLnvaL dYCNnL"
+        tabindex="0"
+      >
+        <span
+          aria-label="Username loading…"
+          class="sc-eXlCAP dcsxdE"
+        >
+                     
+        </span>
+      </span>
+      <div
+        class="sc-fotPuT jrxelZ sc-bnOOOA dgQJTK"
+        tabindex="0"
+      >
+        <span
+          class="sc-cxVPNz dyXQf"
+        >
+          <i
+            aria-hidden="true"
+            class="sc-gfXvKD ichcPg"
+          >
+             [
+          </i>
+          12:00 AM
+          <i
+            aria-hidden="true"
+            class="sc-gfXvKD ichcPg"
+          >
+            ]
+          </i>
+        </span>
+      </div>
+    </div>
+    <span
+      class="sc-hUpmGu sc-iKMXcJ jgtjEU cxyeVy"
+    >
+      This is test message
+    </span>
+  </div>
+</div>
+`;
+
 exports[`client/messaging/common-message-layout/TextMessage > message as a normal text 1`] = `
 <div
   data-testid="message-container"

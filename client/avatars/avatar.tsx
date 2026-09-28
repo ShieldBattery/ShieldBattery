@@ -162,6 +162,11 @@ export interface ConnectedAvatarProps {
    * known. Meant for surfaces that present a user's presence (friends, channel members, profiles).
    */
   showAvailability?: boolean
+  /**
+   * Whether the availability dot also marks users known to be offline, for surfaces that list people
+   * regardless of whether they're online (friends, whispers, profiles). Requires `showAvailability`.
+   */
+  showOffline?: boolean
 }
 
 export function ConnectedAvatar({
@@ -169,6 +174,7 @@ export function ConnectedAvatar({
   className,
   showLiveIndicator = true,
   showAvailability = false,
+  showOffline = false,
 }: ConnectedAvatarProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -191,7 +197,7 @@ export function ConnectedAvatar({
         className={className}
         live={isLive}
         liveTitle={t('twitch.live.avatarTooltip', 'Live on Twitch')}>
-        {showAvailability ? <AvailabilityDot userId={userId} /> : null}
+        {showAvailability ? <AvailabilityDot userId={userId} showOffline={showOffline} /> : null}
       </Avatar>
     )
   }
