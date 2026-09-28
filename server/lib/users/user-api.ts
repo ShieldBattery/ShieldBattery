@@ -55,10 +55,14 @@ import {
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
+  AdminGetMatchmakingBanResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
+  AdminLiftMatchmakingBanRequest,
+  AdminLiftMatchmakingBanResponse,
   AdminLiftRestrictionRequest,
   AdminLiftRestrictionResponse,
+  AdminMatchmakingBanJson,
   AdminRemoveUserAvatarResponse,
   AdminSetStaffBadgeRequest,
   AdminSetStaffBadgeResponse,
@@ -99,6 +103,8 @@ import { joiLocale } from '../i18n/locale-validator'
 import { ImageService } from '../images/image-service'
 import { getRankingsForUser } from '../ladder/rankings'
 import { sendMailTemplate } from '../mail/mailer'
+import { MatchmakingBanRow } from '../matchmaking/matchmaking-ban-models'
+import { MatchmakingBanService } from '../matchmaking/matchmaking-ban-service'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
   getMatchmakingFinalizedRanksForUser,
@@ -1195,11 +1201,25 @@ export class UserApi {
   }
 }
 
+function toAdminMatchmakingBanJson(ban: MatchmakingBanRow): AdminMatchmakingBanJson {
+  return {
+    banLevel: ban.banLevel,
+    createdAt: Number(ban.createdAt),
+    expiresAt: Number(ban.expiresAt),
+    clearsAt: Number(ban.clearsAt),
+    triggeredBy: ban.triggeredBy,
+    liftedBy: ban.liftedBy,
+    liftedAt: ban.liftedAt !== undefined ? Number(ban.liftedAt) : undefined,
+    liftReason: ban.liftReason,
+  }
+}
+
 @httpApi('/admin/users')
 @httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
   constructor(
     private banEnacter: BanEnacter,
+    private matchmakingBanService: MatchmakingBanService,
     private restrictionService: RestrictionService,
     private userService: UserService,
   ) {}
@@ -1447,6 +1467,75 @@ export class AdminUserApi {
         .filter(r => r.userId === user.id)
         .map(r => toUserRestrictionHistoryJson(r)),
       users: [user, liftingUser],
+    }
+  }
+
+  @httpGet('/:id/matchmaking-ban')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async getMatchmakingBan(ctx: RouterContext): Promise<AdminGetMatchmakingBanResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }).required(),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    return await this.getMatchmakingBanState(user)
+  }
+
+  @httpPost('/:id/matchmaking-ban/lift')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async liftMatchmakingBan(ctx: RouterContext): Promise<AdminLiftMatchmakingBanResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<AdminLiftMatchmakingBanRequest>({
+        reason: Joi.string().max(500),
+      }).required(),
+    })
+
+    if (params.id === ctx.session!.user.id) {
+      throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't lift your own matchmaking ban")
+    }
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    await this.matchmakingBanService.liftBans({
+      userId: user.id,
+      liftedBy: ctx.session!.user.id,
+      reason: body.reason,
+    })
+
+    return await this.getMatchmakingBanState(user)
+  }
+
+  private async getMatchmakingBanState(user: SbUser): Promise<AdminGetMatchmakingBanResponse> {
+    const [ban, restrictionEndTime] = await Promise.all([
+      this.matchmakingBanService.getLatestBan(user.id),
+      this.restrictionService.getActiveRestrictionEndTime(user.id, RestrictionKind.Matchmaking),
+    ])
+
+    const otherUserIds = Array.from(
+      new Set(
+        [ban?.triggeredBy, ban?.liftedBy].filter(
+          (i): i is SbUserId => i !== undefined && i !== user.id,
+        ),
+      ),
+    )
+    const otherUsers = otherUserIds.length ? await findUsersById(otherUserIds) : []
+
+    return {
+      ban: ban ? toAdminMatchmakingBanJson(ban) : undefined,
+      restrictionEndTime,
+      users: otherUsers.concat(user),
     }
   }
 
