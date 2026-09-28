@@ -196,6 +196,11 @@ export function getJoinChannelErrorMessage(err: unknown, channelName: string): s
         defaultValue: '#{{channelName}} is private and requires an invite link to join',
         channelName,
       })
+    } else if (err.code === ChatServiceErrorCode.ChannelClosed) {
+      return i18n.t('chat.joinChannel.closedError', {
+        defaultValue: '#{{channelName}} has been closed by the server moderators',
+        channelName,
+      })
     } else if (err.code === ChatServiceErrorCode.UserBanned) {
       return i18n.t('chat.joinChannel.bannedError', {
         defaultValue: 'You are banned from #{{channelName}}',

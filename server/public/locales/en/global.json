@@ -654,6 +654,7 @@
     },
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
+      "closedError": "#{{channelName}} has been closed by the server moderators",
       "genericError": "An error occurred while joining #{{channelName}}",
       "inviteLinkInvalidError": "This invite link is invalid or has expired.",
       "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another.",
@@ -697,6 +698,8 @@
     },
     "notifications": {
       "ban": "You have been banned from <1>#{{channelName}}</1>.",
+      "channelClosed": "<0>#{{channelName}}</0> has been closed by the server moderators.",
+      "channelDeleted": "<0>#{{channelName}}</0> has been deleted by the server moderators.",
       "errors": {
         "updateFailed": "Something went wrong updating the notification settings"
       },

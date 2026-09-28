@@ -944,6 +944,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     removeSelfFromChannel(state, channelId)
   },
 
+  ['@chat/channelRemoved'](state, action) {
+    const { channelId } = action.meta
+
+    removeSelfFromChannel(state, channelId)
+  },
+
   ['@chat/ownerChanged'](state, action) {
     const { newOwnerId } = action.payload
     const { channelId, windowFocused } = action.meta

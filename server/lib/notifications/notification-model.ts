@@ -26,6 +26,8 @@ export type NotificationData =
   | ChannelKickNotificationData
   | ChannelBanNotificationData
   | ChannelUnbanNotificationData
+  | ChannelClosedNotificationData
+  | ChannelDeletedNotificationData
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
 
@@ -98,6 +100,22 @@ export interface ChannelUnbanNotificationData extends BaseNotificationData {
 
 type ChannelUnbanSearchNotificationData = MakeSearchable<ChannelUnbanNotificationData>
 
+export interface ChannelClosedNotificationData extends BaseNotificationData {
+  type: NotificationType.ChannelClosed
+  channelId: SbChannelId
+  channelName: string
+}
+
+type ChannelClosedSearchNotificationData = MakeSearchable<ChannelClosedNotificationData>
+
+export interface ChannelDeletedNotificationData extends BaseNotificationData {
+  type: NotificationType.ChannelDeleted
+  channelId: SbChannelId
+  channelName: string
+}
+
+type ChannelDeletedSearchNotificationData = MakeSearchable<ChannelDeletedNotificationData>
+
 export interface GameReportActionedNotificationData extends BaseNotificationData {
   type: NotificationType.GameReportActioned
 }
@@ -123,6 +141,8 @@ export type SearchNotificationData =
   | ChannelKickSearchNotificationData
   | ChannelBanSearchNotificationData
   | ChannelUnbanSearchNotificationData
+  | ChannelClosedSearchNotificationData
+  | ChannelDeletedSearchNotificationData
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | Record<string, never>
@@ -209,6 +229,40 @@ export async function addNotification({
     `)
 
     return fromDbNotification(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Creates the same notification for each of `userIds` in a single statement and persists them to
+ * the DB. Notifications are created as unread, but visible by default.
+ */
+export async function addNotificationForUsers({
+  userIds,
+  data,
+  createdAt = new Date(),
+}: {
+  userIds: ReadonlyArray<SbUserId>
+  data: NotificationData
+  createdAt?: Date
+}): Promise<Notification[]> {
+  if (!userIds.length) {
+    return []
+  }
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbNotification>(sql`
+      INSERT INTO notifications (user_id, created_at, data)
+      VALUES ${sqlConcat(
+        ', ',
+        userIds.map(userId => sql`(${userId}, ${createdAt}, ${data})`),
+      )}
+      RETURNING *;
+    `)
+
+    return result.rows.map(n => fromDbNotification(n))
   } finally {
     done()
   }

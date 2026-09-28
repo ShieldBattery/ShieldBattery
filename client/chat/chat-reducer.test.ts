@@ -210,6 +210,7 @@ const CHANNEL_BASIC_INFO: BasicChannelInfo = {
   name: 'test-channel',
   private: false,
   official: false,
+  closed: false,
 }
 
 const SENDER: SbUser = { id: USER_ID, name: 'sender', created: 0 }
@@ -1094,7 +1095,13 @@ describe('client/chat/chat-reducer', () => {
         withPrivate,
         getBatchChannelInfoAction({
           channelInfos: [
-            { id: PRIVATE_CHANNEL_ID, name: 'now-visible', private: false, official: false },
+            {
+              id: PRIVATE_CHANNEL_ID,
+              name: 'now-visible',
+              private: false,
+              official: false,
+              closed: false,
+            },
           ],
         }),
       )

@@ -5,6 +5,7 @@ import {
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
+  INITIAL_CHANNEL_ID,
   makeSbChannelId,
   SbChannelId,
 } from '../../../common/chat'
@@ -15,8 +16,11 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { ThunkAction } from '../../dispatch-registry'
-import { FilledButton } from '../../material/button'
+import { MaterialIcon } from '../../icons/material/material-icon'
+import { FilledButton, IconButton } from '../../material/button'
 import { DestructiveMenuItem, MenuItem } from '../../material/menu/item'
+import { MenuList } from '../../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../../material/popover'
 import { ChatContext } from '../../messaging/chat-context'
 import {
   MenuItemCategory as MessageMenuItemCategory,
@@ -44,6 +48,7 @@ import { getChannelUserPermissions } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
 import { UserList } from '../channel-user-list'
+import { reopenChannelAdmin } from './admin-action-creators'
 import { AdminChannelSettings } from './admin-channel-settings'
 
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -134,6 +139,24 @@ const AdminViewBadge = styled.div`
   border-radius: 4px;
   background-color: var(--theme-amber);
   color: var(--theme-on-amber);
+`
+
+const ClosedBadge = styled.div`
+  ${labelMedium};
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: var(--theme-grey-blue-container);
+  color: var(--theme-on-grey-blue-container);
+`
+
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const StyledMenuList = styled(MenuList)`
+  --sb-menu-min-width: 192px;
 `
 
 const ChannelContainer = styled.div`
@@ -347,6 +370,12 @@ export function AdminChannelView({
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
+  const [overflowAnchor, overflowAnchorX, overflowAnchorY, refreshOverflowAnchorPos] =
+    useRefAnchorPosition('right', 'bottom')
+  const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
+    refreshAnchorPos: refreshOverflowAnchorPos,
+  })
+
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
   const [isLoadingMoreChannelMessages, setIsLoadingMoreChannelMessages] = useState(false)
@@ -448,6 +477,76 @@ export function AdminChannelView({
     )
   })
 
+  const onRenameClick = () => {
+    closeOverflowMenu()
+    if (!channelInfo) {
+      return
+    }
+    dispatch(
+      openDialog({
+        type: DialogType.AdminRenameChannel,
+        initData: {
+          channelId: channelInfo.id,
+          channelName: channelInfo.name,
+          onSuccess: refreshChannelInfo,
+        },
+      }),
+    )
+  }
+
+  const onCloseChannelClick = () => {
+    closeOverflowMenu()
+    if (!channelInfo) {
+      return
+    }
+    dispatch(
+      openDialog({
+        type: DialogType.AdminCloseChannel,
+        initData: {
+          channelId: channelInfo.id,
+          channelName: channelInfo.name,
+          onSuccess: refreshChannelInfo,
+        },
+      }),
+    )
+  }
+
+  const onReopenChannelClick = () => {
+    closeOverflowMenu()
+    if (!channelInfo) {
+      return
+    }
+    dispatch(
+      reopenChannelAdmin(channelInfo.id, {
+        onSuccess: () => {
+          refreshChannelInfo()
+        },
+        onError: () => {
+          snackbarController.showSnackbar('Error reopening channel')
+        },
+      }),
+    )
+  }
+
+  const onDeleteChannelClick = () => {
+    closeOverflowMenu()
+    if (!channelInfo) {
+      return
+    }
+    dispatch(
+      openDialog({
+        type: DialogType.AdminDeleteChannel,
+        initData: {
+          channelId: channelInfo.id,
+          channelName: channelInfo.name,
+          onSuccess: () => {
+            replace('/chat/list')
+          },
+        },
+      }),
+    )
+  }
+
   if (error) {
     let errorText
     if (isFetchError(error)) {
@@ -475,6 +574,20 @@ export function AdminChannelView({
     )
   }
 
+  const canRemoveChannel = !!channelInfo && channelInfo.id !== INITIAL_CHANNEL_ID
+  const overflowMenuItems = [
+    <MenuItem key='rename' text='Rename channel' onClick={onRenameClick} />,
+    canRemoveChannel &&
+      (channelInfo.closed ? (
+        <MenuItem key='reopen' text='Reopen channel' onClick={onReopenChannelClick} />
+      ) : (
+        <MenuItem key='close' text='Close channel' onClick={onCloseChannelClick} />
+      )),
+    canRemoveChannel && (
+      <DestructiveMenuItem key='delete' text='Delete channel' onClick={onDeleteChannelClick} />
+    ),
+  ].filter(item => !!item)
+
   return (
     <Container>
       {channelInfo ? (
@@ -483,15 +596,33 @@ export function AdminChannelView({
             <ChannelHeadlineRow>
               <ChannelHeadline>#{channelInfo.name}</ChannelHeadline>
               <AdminViewBadge>Admin view</AdminViewBadge>
+              {channelInfo.closed ? <ClosedBadge>Closed</ClosedBadge> : null}
             </ChannelHeadlineRow>
 
             <FlexSpacer />
 
-            <FilledButton
-              label='Channel settings'
-              disabled={!detailedChannelInfo || !joinedChannelInfo}
-              onClick={() => setIsSettingsOpen(true)}
-            />
+            <HeaderActions>
+              <FilledButton
+                label='Channel settings'
+                disabled={!detailedChannelInfo || !joinedChannelInfo}
+                onClick={() => setIsSettingsOpen(true)}
+              />
+              <Popover
+                open={overflowMenuOpen}
+                onDismiss={closeOverflowMenu}
+                anchorX={overflowAnchorX ?? 0}
+                anchorY={overflowAnchorY ?? 0}
+                originX='right'
+                originY='top'>
+                <StyledMenuList dense={true}>{overflowMenuItems}</StyledMenuList>
+              </Popover>
+              <IconButton
+                ref={overflowAnchor}
+                icon={<MaterialIcon icon='more_vert' />}
+                title='More actions'
+                onClick={openOverflowMenu}
+              />
+            </HeaderActions>
           </ChannelHeaderContainer>
 
           <AdminChannelSettings

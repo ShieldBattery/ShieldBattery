@@ -6,6 +6,7 @@ import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addNotification,
+  addNotificationForUsers,
   clearBefore,
   clearById,
   markRead,
@@ -82,6 +83,30 @@ export default class NotificationService {
         ...notification.data,
       },
     })
+  }
+
+  /**
+   * Creates the same notification for each of the given users, saves them to the database, and
+   * notifies all of each user's connected clients.
+   */
+  async addNotificationForUsers(notificationProps: {
+    userIds: ReadonlyArray<SbUserId>
+    data: NotificationData
+    createdAt?: Date
+  }) {
+    const notifications = await addNotificationForUsers(notificationProps)
+
+    for (const notification of notifications) {
+      this.publisher.publish(getNotificationsPath(notification.userId), {
+        type: 'add',
+        notification: {
+          id: notification.id,
+          read: notification.read,
+          createdAt: Number(notification.createdAt),
+          ...notification.data,
+        },
+      })
+    }
   }
 
   /**

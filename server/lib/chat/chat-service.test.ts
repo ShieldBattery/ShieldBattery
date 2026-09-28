@@ -58,6 +58,7 @@ import {
   ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
+  deleteChannel,
   deleteChannelMessage,
   findChannelByName,
   findChannelsByName,
@@ -77,12 +78,14 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   JoinChannelData,
+  removeAllUsersFromChannel,
   removeBannedIdentifiersFromChannel,
   removeUserFromChannel,
   searchChannels,
   TextMessageData,
   toBasicChannelInfo,
   toDetailedChannelInfo,
+  toJoinedChannelInfo,
   transferChannelOwnership,
   unbanUserFromChannel,
   updateChannel,
@@ -182,6 +185,8 @@ vi.mock('./chat-models', async () => {
     getChannelMessageSentTime: vi.fn(),
     deleteChannelMessage: vi.fn(),
     removeUserFromChannel: vi.fn(),
+    removeAllUsersFromChannel: vi.fn().mockResolvedValue([]),
+    deleteChannel: vi.fn(),
     updateUserPreferences: vi.fn(),
     updateUserPermissions: vi.fn(),
     countBannedIdentifiersForChannel: vi.fn(),
@@ -259,6 +264,7 @@ describe('chat/chat-service', () => {
     name: 'ShieldBattery',
     private: false,
     official: true,
+    closed: false,
   }
   const shieldBatteryDetailedInfo: DetailedChannelInfo = {
     id: makeSbChannelId(1),
@@ -281,6 +287,7 @@ describe('chat/chat-service', () => {
     name: 'test',
     private: false,
     official: false,
+    closed: false,
   }
   const testDetailedInfo: DetailedChannelInfo = {
     id: makeSbChannelId(2),
@@ -934,6 +941,7 @@ describe('chat/chat-service', () => {
 
     beforeEach(async () => {
       asMockedFunction(findChannelByName).mockResolvedValue(shieldBatteryChannel)
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
       asMockedFunction(isUserBannedFromChannel).mockResolvedValue(false)
       asMockedFunction(countBannedIdentifiersForChannel).mockResolvedValue(0)
@@ -1082,6 +1090,26 @@ describe('chat/chat-service', () => {
       )
     })
 
+    test('creates the channel if it was deleted between the lookup and the join', async () => {
+      asMockedFunction(findChannelByName)
+        .mockResolvedValueOnce(testChannel)
+        .mockResolvedValueOnce(undefined)
+      asMockedFunction(getChannelInfo)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValue(testChannel)
+      createChannelMock.mockResolvedValue(testChannel)
+      addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
+      asMockedFunction(getUserChannelEntryForUser)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(user1TestChannelEntry)
+
+      await chatService.joinChannel(testChannel.name, user1.id, false)
+
+      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
+      expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
+    })
+
     test("creates a new channel when it doesn't exist", async () => {
       asMockedFunction(findChannelByName).mockResolvedValue(undefined)
       createChannelMock.mockResolvedValue(testChannel)
@@ -1145,6 +1173,7 @@ describe('chat/chat-service', () => {
 
     test('should throw if the channel is private and the user is not a member', async () => {
       asMockedFunction(findChannelByName).mockResolvedValue({ ...testChannel, private: true })
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
 
       await expect(
         chatService.joinChannel(testChannel.name, user1.id, false),
@@ -1158,6 +1187,7 @@ describe('chat/chat-service', () => {
     test('lets a member of a private channel rejoin it', async () => {
       const privateChannel = { ...testChannel, private: true }
       asMockedFunction(findChannelByName).mockResolvedValue(privateChannel)
+      asMockedFunction(getChannelInfo).mockResolvedValue(privateChannel)
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
 
       const result = await chatService.joinChannel(testChannel.name, user1.id, false)
@@ -1172,6 +1202,7 @@ describe('chat/chat-service', () => {
       addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
       addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
       asMockedFunction(getChannelInfo).mockResolvedValue(privateChannel)
+      asMockedFunction(updateChannel).mockResolvedValue({ ...privateChannel, ownerId: user1.id })
 
       await chatService.joinChannel(testChannel.name, user1.id, true)
 
@@ -1181,6 +1212,207 @@ describe('chat/chat-service', () => {
         dbClient,
         undefined,
       )
+    })
+
+    test('checks the channel under a lock, so it reflects a close that just happened', async () => {
+      asMockedFunction(findChannelByName).mockResolvedValue(testChannel)
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, closed: true })
+
+      await expect(
+        chatService.joinChannel(testChannel.name, user1.id, false),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelClosed })
+
+      expect(getChannelInfo).toHaveBeenCalledWith(testChannel.id, dbClient, { forUpdate: true })
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+      expect(createChannelMock).not.toHaveBeenCalled()
+    })
+
+    test("doesn't let even a server moderator join a closed channel", async () => {
+      const closedChannel = { ...testChannel, closed: true }
+      asMockedFunction(findChannelByName).mockResolvedValue(closedChannel)
+      asMockedFunction(getChannelInfo).mockResolvedValue(closedChannel)
+
+      await expect(chatService.joinChannel(testChannel.name, user1.id, true)).rejects.toMatchObject(
+        { code: ChatServiceErrorCode.ChannelClosed },
+      )
+
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('hands an ownerless non-official channel to the user who joins it', async () => {
+      const ownedChannel = { ...testChannel, ownerId: user1.id }
+      asMockedFunction(findChannelByName).mockResolvedValue(testChannel)
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(updateChannel).mockResolvedValue(ownedChannel)
+      addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
+
+      const result = await chatService.joinChannel(testChannel.name, user1.id, false)
+
+      expect(updateChannel).toHaveBeenCalledWith(testChannel.id, { ownerId: user1.id }, dbClient)
+      expect(result.joinedChannelInfo.ownerId).toBe(user1.id)
+    })
+
+    test("doesn't hand an official channel to the user who joins it", async () => {
+      addUserToChannelMock.mockResolvedValue(user1ShieldBatteryChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1ShieldBatteryChannelMessage)
+
+      await chatService.joinChannel(shieldBatteryChannel.name, user1.id, false)
+
+      expect(updateChannel).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('admin channel tools', () => {
+    const removeAllUsersFromChannelMock = asMockedFunction(removeAllUsersFromChannel)
+    const updateChannelMock = asMockedFunction(updateChannel)
+
+    beforeEach(async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+      await joinUserToChannel(
+        user2,
+        testChannel,
+        user2TestChannelEntry,
+        joinUser2TestChannelMessage,
+      )
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      removeAllUsersFromChannelMock.mockResolvedValue([user1.id, user2.id])
+    })
+
+    test('renames a channel and tells its members', async () => {
+      const renamedChannel = { ...testChannel, name: 'renamed' }
+      updateChannelMock.mockResolvedValue(renamedChannel)
+
+      const result = await chatService.renameChannel(testChannel.id, 'renamed')
+
+      expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { name: 'renamed' })
+      expect(result.channelInfo.name).toBe('renamed')
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'edit',
+        channelInfo: toBasicChannelInfo(renamedChannel),
+        detailedChannelInfo: toDetailedChannelInfo(renamedChannel),
+        joinedChannelInfo: toJoinedChannelInfo(renamedChannel),
+      })
+    })
+
+    test('refuses a name another channel already has', async () => {
+      updateChannelMock.mockRejectedValue(Object.assign(new Error('duplicate'), { code: '23505' }))
+
+      await expect(chatService.renameChannel(testChannel.id, 'taken')).rejects.toMatchObject({
+        code: ChatServiceErrorCode.ChannelNameTaken,
+      })
+    })
+
+    test("refuses to rename a channel that doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(chatService.renameChannel(testChannel.id, 'renamed')).rejects.toMatchObject({
+        code: ChatServiceErrorCode.ChannelNotFound,
+      })
+      expect(updateChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('closes a channel, removing its members and owner', async () => {
+      const closedChannel = { ...testChannel, closed: true, ownerId: undefined, userCount: 0 }
+      updateChannelMock.mockResolvedValue(closedChannel)
+
+      const result = await chatService.closeChannel(testChannel.id)
+
+      expect(deleteInviteLinksForChannel).toHaveBeenCalledWith(testChannel.id, dbClient)
+      expect(getChannelInfo).toHaveBeenCalledWith(testChannel.id, dbClient, { forUpdate: true })
+      expect(removeAllUsersFromChannelMock).toHaveBeenCalledWith(testChannel.id, dbClient)
+      expect(updateChannelMock).toHaveBeenCalledWith(
+        testChannel.id,
+        { closed: true, ownerId: null },
+        dbClient,
+      )
+      expect(result.channelInfo.closed).toBe(true)
+
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'channelRemoved',
+      })
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+      expect(client2.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
+      expect(notificationService.addNotificationForUsers).toHaveBeenCalledWith({
+        userIds: [user1.id, user2.id],
+        data: {
+          type: NotificationType.ChannelClosed,
+          channelId: testChannel.id,
+          channelName: testChannel.name,
+        },
+      })
+    })
+
+    test('leaves an already closed channel as it is', async () => {
+      const closedChannel = { ...testChannel, closed: true }
+      asMockedFunction(getChannelInfo).mockResolvedValue(closedChannel)
+
+      const result = await chatService.closeChannel(testChannel.id)
+
+      expect(removeAllUsersFromChannelMock).not.toHaveBeenCalled()
+      expect(updateChannelMock).not.toHaveBeenCalled()
+      expect(result.channelInfo.closed).toBe(true)
+    })
+
+    test('refuses to close or delete the channel new users join', async () => {
+      await expect(chatService.closeChannel(shieldBatteryChannel.id)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.CannotRemoveInitialChannel,
+      })
+      await expect(chatService.deleteChannel(shieldBatteryChannel.id)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.CannotRemoveInitialChannel,
+      })
+
+      expect(removeAllUsersFromChannelMock).not.toHaveBeenCalled()
+      expect(deleteChannel).not.toHaveBeenCalled()
+    })
+
+    test('reopens a closed channel', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, closed: true })
+      updateChannelMock.mockResolvedValue(testChannel)
+
+      const result = await chatService.reopenChannel(testChannel.id)
+
+      expect(deleteInviteLinksForChannel).toHaveBeenCalledWith(testChannel.id, dbClient)
+      expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { closed: false }, dbClient)
+      expect(result.channelInfo.closed).toBe(false)
+    })
+
+    test('deletes a channel, official or not, removing its members', async () => {
+      const officialChannel = { ...testChannel, official: true }
+      asMockedFunction(getChannelInfo).mockResolvedValue(officialChannel)
+
+      await chatService.deleteChannel(testChannel.id)
+
+      expect(deleteInviteLinksForChannel).toHaveBeenCalledWith(testChannel.id, dbClient)
+      expect(removeAllUsersFromChannelMock).toHaveBeenCalledWith(testChannel.id, dbClient)
+      expect(deleteChannel).toHaveBeenCalledWith(testChannel.id, dbClient)
+      expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'channelRemoved',
+      })
+      expect(client2.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+      expect(notificationService.addNotificationForUsers).toHaveBeenCalledWith({
+        userIds: [user1.id, user2.id],
+        data: {
+          type: NotificationType.ChannelDeleted,
+          channelId: testChannel.id,
+          channelName: testChannel.name,
+        },
+      })
+    })
+
+    test("refuses to delete a channel that doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(chatService.deleteChannel(testChannel.id)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.ChannelNotFound,
+      })
+      expect(deleteChannel).not.toHaveBeenCalled()
     })
   })
 

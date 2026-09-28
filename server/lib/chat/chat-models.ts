@@ -247,6 +247,7 @@ export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
     name: channel.name,
     private: channel.private,
     official: channel.official,
+    closed: channel.closed,
   }
 }
 
@@ -279,6 +280,7 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     name: props.name,
     private: props.private,
     official: props.official,
+    closed: props.closed,
     userCount: props.user_count,
     ownerId: props.owner_id ?? undefined,
     topic: props.topic ?? undefined,
@@ -350,6 +352,8 @@ export async function updateChannel(
               return sql`private = ${value}`
             case 'official':
               return sql`official = ${value}`
+            case 'closed':
+              return sql`closed = ${value}`
             case 'description':
               return sql`description = ${value}`
             case 'bannerPath':
@@ -834,6 +838,47 @@ export async function removeUserFromChannel(
   })
 }
 
+/**
+ * Removes every member from a channel, returning the IDs of the users that were removed. Unlike
+ * `removeUserFromChannel`, this never deletes the channel or hands its ownership to anyone.
+ */
+export async function removeAllUsersFromChannel(
+  channelId: SbChannelId,
+  withClient?: DbClient,
+): Promise<SbUserId[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ user_id: SbUserId }>(sql`
+      DELETE FROM channel_users
+      WHERE channel_id = ${channelId}
+      RETURNING user_id;
+    `)
+    return result.rows.map(row => row.user_id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Deletes a channel along with its messages and bans. Its members must have been removed first.
+ * Returns whether the channel existed.
+ */
+export async function deleteChannel(
+  channelId: SbChannelId,
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      DELETE FROM channels
+      WHERE id = ${channelId};
+    `)
+    return !!result.rowCount
+  } finally {
+    done()
+  }
+}
+
 export async function updateUserPreferences(
   channelId: SbChannelId,
   userId: SbUserId,
@@ -1301,18 +1346,32 @@ export async function removeBannedIdentifiersFromChannel(
   }
 }
 
-/** Returns a chat channel with the matching ID if it exists. */
+/**
+ * Returns a chat channel with the matching ID if it exists. With `forUpdate`, the channel's row
+ * stays locked until the surrounding transaction ends, which keeps it from being closed or deleted
+ * in the meantime.
+ */
 export async function getChannelInfo(
   channelId: SbChannelId,
   withClient?: DbClient,
+  { forUpdate = false }: { forUpdate?: boolean } = {},
 ): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query<DbChannel>(sql`
-      SELECT *
-      FROM channels
-      WHERE id = ${channelId};
-    `)
+    const result = await client.query<DbChannel>(
+      forUpdate
+        ? sql`
+            SELECT *
+            FROM channels
+            WHERE id = ${channelId}
+            FOR NO KEY UPDATE;
+          `
+        : sql`
+            SELECT *
+            FROM channels
+            WHERE id = ${channelId};
+          `,
+    )
 
     return result.rows.length ? convertChannelFromDb(result.rows[0]) : undefined
   } finally {
@@ -1385,7 +1444,8 @@ export async function findChannelsByName(
 
 /**
  * Returns a list of chat channels, optionally filtered by a `searchStr`. Private channels are only
- * included for their members (`userId`), or for everyone when `includePrivate` is set. This is done
+ * included for their members (`userId`), and closed channels for nobody, unless `includePrivate`
+ * is set. This is done
  * before paging so that `offset` and `limit` count only the channels the requester may see.
  */
 export async function searchChannels(
@@ -1417,6 +1477,7 @@ export async function searchChannels(
     }
     if (!includePrivate) {
       query = query.append(sql`
+        AND NOT c.closed
         AND (
           NOT c.private OR EXISTS (
             SELECT 1 FROM channel_users cu WHERE cu.channel_id = c.id AND cu.user_id = ${userId}
