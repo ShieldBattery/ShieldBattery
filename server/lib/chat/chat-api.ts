@@ -671,6 +671,7 @@ export class ChatApi {
 
     return await this.chatService.searchChannels({
       userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
       limit: SEARCH_CHANNELS_LIMIT,
       offset,
       searchStr: searchQuery,

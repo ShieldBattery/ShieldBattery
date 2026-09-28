@@ -1072,37 +1072,31 @@ export default class ChatService {
 
   async searchChannels({
     userId,
+    isServerModerator,
     limit,
     offset,
     searchStr,
   }: {
     userId: SbUserId
+    isServerModerator: boolean
     limit: number
     offset: number
     searchStr?: string
   }): Promise<SearchChannelsResponse> {
-    const [channels, joinedChannels] = await Promise.all([
-      searchChannels({ limit, offset, searchStr }),
-      getChannelsForUser(userId),
-    ])
-
-    const userJoinedChannelsSet = new global.Set(joinedChannels.map(c => c.channelId))
-    const detailedChannelInfos: DetailedChannelInfo[] = []
-    const joinedChannelInfos: JoinedChannelInfo[] = []
-
-    for (const channel of channels) {
-      if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
-        continue
-      }
-
-      detailedChannelInfos.push(toDetailedChannelInfo(channel))
-      joinedChannelInfos.push(toJoinedChannelInfo(channel))
-    }
+    // Private channels the requester may not see are filtered out by the query itself, so every
+    // channel returned here is fully visible to them.
+    const channels = await searchChannels({
+      userId,
+      includePrivate: isServerModerator,
+      limit,
+      offset,
+      searchStr,
+    })
 
     return {
       channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
-      detailedChannelInfos,
-      joinedChannelInfos,
+      detailedChannelInfos: channels.map(channel => toDetailedChannelInfo(channel)),
+      joinedChannelInfos: channels.map(channel => toJoinedChannelInfo(channel)),
       hasMoreChannels: channels.length >= limit,
     }
   }
