@@ -729,10 +729,6 @@ export async function getChannelMessageSentTime(
   }
 }
 
-/**
- * Returns the ID of the user who sent a channel message, or `undefined` if it doesn't exist in the
- * channel (deleted, never existed, or belongs to a different channel).
- */
 export interface ChannelMessageAuthor {
   userId: SbUserId
   messageType: ServerChatMessageType
