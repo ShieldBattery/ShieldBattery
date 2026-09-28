@@ -1,6 +1,7 @@
 import { SbChannelId } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
+import { escapeSearchString } from '../db/escape-search-string'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
 
@@ -32,8 +33,10 @@ function convertInviteLinkFromDb(row: DbInviteLink): InviteLinkRecord {
 }
 
 /**
- * Returns the newest link `createdBy` made for a channel that still has uses left and stays
- * unexpired past `usableUntil`, if there is one.
+ * Returns the newest link `createdBy` made for a channel with the default settings (an expiry and no
+ * use limit) that stays unexpired past `usableUntil`, if there is one. Links made with a use limit or
+ * without an expiry were asked for specifically, so they are never handed out in place of a default
+ * one.
  */
 export async function findReusableInviteLink(
   {
@@ -54,8 +57,8 @@ export async function findReusableInviteLink(
       FROM channel_invite_links
       WHERE channel_id = ${channelId}
         AND created_by = ${createdBy}
-        AND (expires_at IS NULL OR expires_at > ${usableUntil})
-        AND (max_uses IS NULL OR uses < max_uses)
+        AND expires_at > ${usableUntil}
+        AND max_uses IS NULL
       ORDER BY created_at DESC
       LIMIT 1;
     `)
@@ -218,6 +221,89 @@ export async function deleteMemberInviteLinks(
           WHERE p.user_id = l.created_by AND p.moderate_chat_channels
         );
     `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a page of a channel's invite links that still work at `now` (unexpired and with uses
+ * left), newest first, optionally only those whose creator's name matches `searchStr`.
+ */
+export async function listUsableInviteLinks(
+  {
+    channelId,
+    now,
+    searchStr,
+    limit,
+    offset,
+  }: {
+    channelId: SbChannelId
+    now: Date
+    searchStr?: string
+    limit: number
+    offset: number
+  },
+  withClient?: DbClient,
+): Promise<InviteLinkRecord[]> {
+  const { client, done } = await db(withClient)
+  try {
+    let query = sql`
+      SELECT l.*
+      FROM channel_invite_links l
+      INNER JOIN users u ON l.created_by = u.id
+      WHERE l.channel_id = ${channelId}
+        AND (l.expires_at IS NULL OR l.expires_at > ${now})
+        AND (l.max_uses IS NULL OR l.uses < l.max_uses)
+    `
+    if (searchStr) {
+      query = query.append(sql` AND u.name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+    }
+    query = query.append(sql`
+      ORDER BY l.created_at DESC, l.id ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `)
+
+    const result = await client.query<DbInviteLink>(query)
+    return result.rows.map(row => convertInviteLinkFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/** Deletes a channel's invite links that no longer work at `now`: expired or out of uses. */
+export async function deleteUnusableInviteLinks(
+  { channelId, now }: { channelId: SbChannelId; now: Date },
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      DELETE FROM channel_invite_links
+      WHERE channel_id = ${channelId}
+        AND (expires_at <= ${now} OR uses >= max_uses);
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Deletes a channel's invite link with the given id. Returns whether a link was deleted, which it
+ * isn't if the id names no link or a link into another channel.
+ */
+export async function deleteInviteLink(
+  { channelId, id }: { channelId: SbChannelId; id: string },
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      DELETE FROM channel_invite_links
+      WHERE channel_id = ${channelId} AND id = ${id};
+    `)
+    return (result.rowCount ?? 0) > 0
   } finally {
     done()
   }

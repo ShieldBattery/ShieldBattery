@@ -10,7 +10,8 @@ import { ConnectedUsername } from '../../users/connected-username'
 
 /*
  * Shared building blocks for channel settings tabs that show a searchable, infinitely-scrolled
- * list of users (the channel members on the permissions tab, the banned users on the bans tab).
+ * list of users (the channel members on the permissions tab, the banned users on the bans tab, the
+ * link creators on the invite links tab).
  */
 
 /** Date format for the secondary date line on user list cards (join date, ban date). */

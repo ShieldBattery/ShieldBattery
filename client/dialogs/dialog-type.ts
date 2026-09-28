@@ -23,6 +23,7 @@ export enum DialogType {
   ChatCommandHelp = 'chatCommandHelp',
   ChannelBanUser = 'channelBanUser',
   ChannelCreateConfirmation = 'channelCreateConfirmation',
+  ChannelInviteLink = 'channelInviteLink',
   ChannelKickUserConfirmation = 'channelKickUserConfirmation',
   ChannelLeaveConfirmation = 'channelLeaveConfirmation',
   ChannelTransferOwnership = 'channelTransferOwnership',
@@ -117,6 +118,12 @@ type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
     channelName: string
     /** Performs the join that creates the channel once the user confirms. */
     onConfirm: () => void
+  }
+>
+type ChannelInviteLinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelInviteLink,
+  {
+    channelId: SbChannelId
   }
 >
 type ChatCommandHelpDialogPayload = BaseDialogPayload<
@@ -412,6 +419,7 @@ export type DialogPayload =
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
   | ChannelCreateConfirmationDialogPayload
+  | ChannelInviteLinkDialogPayload
   | ChatCommandHelpDialogPayload
   | ChannelKickUserConfirmationDialogPayload
   | ChannelLeaveConfirmationDialogPayload

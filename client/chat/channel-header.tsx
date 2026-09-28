@@ -11,14 +11,14 @@ import {
   JoinedChannelInfo,
   SbChannelId,
 } from '../../common/chat'
-import { getErrorStack } from '../../common/errors'
 import { matchLinks } from '../../common/text/links'
 import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { CheckableMenuItem } from '../material/menu/checkable-item'
 import { Divider } from '../material/menu/divider'
@@ -28,16 +28,14 @@ import { Popover, usePopoverController, useRefAnchorPosition } from '../material
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
 import { push } from '../navigation/routing'
-import { getServerOrigin } from '../network/server-url'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
-import { getChannelInviteLink, updateChannelUserPreferences } from './action-creators'
+import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { useChannelNotificationMenuItems } from './channel-notification-menu-items'
 import { openChannelSettings } from './channel-settings/channel-settings-action-creators'
-import { urlForChannelInvite } from './channel-url'
 
 export const CHANNEL_HEADER_HEIGHT = 72
 
@@ -237,33 +235,9 @@ export function ChannelHeader({
   const onCopyInviteLinkClick = () => {
     closeOverflowMenu()
     dispatch(
-      getChannelInviteLink(basicChannelInfo.id, {
-        onSuccess: inviteLink => {
-          navigator.clipboard
-            .writeText(getServerOrigin() + urlForChannelInvite(inviteLink.token))
-            .then(() => {
-              snackbarController.showSnackbar(
-                t('chat.channelHeader.inviteLinkCopied', 'Invite link copied to clipboard'),
-              )
-            })
-            .catch(err => {
-              logger.error(`Error writing to clipboard: ${getErrorStack(err)}`)
-              snackbarController.showSnackbar(
-                t(
-                  'chat.channelHeader.errors.copyInviteLink',
-                  'Something went wrong copying the invite link',
-                ),
-              )
-            })
-        },
-        onError: () => {
-          snackbarController.showSnackbar(
-            t(
-              'chat.channelHeader.errors.createInviteLink',
-              'Something went wrong getting an invite link',
-            ),
-          )
-        },
+      openDialog({
+        type: DialogType.ChannelInviteLink,
+        initData: { channelId: basicChannelInfo.id },
       }),
     )
   }
@@ -309,8 +283,8 @@ export function ChannelHeader({
     actions.push(
       <MenuItem
         key='copy-invite-link'
-        text={t('chat.channelHeader.actionItems.copyInviteLink', 'Copy invite link')}
-        testName='channel-copy-invite-link-button'
+        text={t('chat.channelHeader.actionItems.invitePeople', 'Invite people')}
+        testName='channel-invite-people-button'
         onClick={onCopyInviteLinkClick}
       />,
     )

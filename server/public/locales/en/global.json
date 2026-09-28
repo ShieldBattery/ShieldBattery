@@ -255,17 +255,14 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Channel settings",
-        "copyInviteLink": "Copy invite link",
         "hideBanner": "Hide banner",
+        "invitePeople": "Invite people",
         "leaveChannel": "Leave channel",
         "openAdminView": "Open admin view"
       },
       "errors": {
-        "copyInviteLink": "Something went wrong copying the invite link",
-        "createInviteLink": "Something went wrong getting an invite link",
         "toggleBannerVisibility": "Something went wrong toggling the banner visibility"
       },
-      "inviteLinkCopied": "Invite link copied to clipboard",
       "moreActions": "More actions"
     },
     "channelInfo": {
@@ -330,6 +327,15 @@
         "uploadBadge": "Upload badge",
         "uploadBanner": "Upload banner"
       },
+      "inviteLinks": {
+        "loadError": "Failed to load invite links.",
+        "noLinks": "This channel has no working invite links",
+        "noSearchResults": "No invite links were created by a matching user",
+        "revoke": "Revoke",
+        "revoked": "Invite link revoked",
+        "revokeError": "Something went wrong revoking the invite link",
+        "title": "Invite links"
+      },
       "permissions": {
         "ban": "Can ban users",
         "banShort": "Ban",
@@ -349,6 +355,7 @@
       "tabs": {
         "bannedUsers": "Banned users",
         "general": "General",
+        "inviteLinks": "Invite links",
         "permissions": "Permissions"
       },
       "users": {
@@ -602,6 +609,45 @@
       "open": "View",
       "title": "Private channel",
       "view": "View channel"
+    },
+    "inviteLinkDialog": {
+      "copied": "Invite link copied to clipboard",
+      "copy": "Copy",
+      "copyError": "Something went wrong copying the invite link",
+      "description": "Anyone with this link can join #{{channelName}}.",
+      "descriptionNoName": "Anyone with this link can join the channel.",
+      "editSettings": "Edit link settings",
+      "expiryLabel": "Expire after",
+      "generate": "Generate new link",
+      "generateError": "Something went wrong generating a new invite link",
+      "loadError": "Something went wrong getting an invite link. You can still generate a new one below.",
+      "loading": "Getting a link…",
+      "maxUsesLabel": "Maximum uses",
+      "noLink": "No link available",
+      "title": "Invite link"
+    },
+    "inviteLinks": {
+      "created": "Created {{timeAgo}}",
+      "expired": "Expired",
+      "expiresIn": "Expires {{timeLeft}}",
+      "expiryDays_one": "{{count}} day",
+      "expiryDays_other": "{{count}} days",
+      "expiryHours_one": "{{count}} hour",
+      "expiryHours_other": "{{count}} hours",
+      "expiryMinutes_one": "{{count}} minute",
+      "expiryMinutes_other": "{{count}} minutes",
+      "expiryNever": "Never",
+      "maxUsesCount_one": "{{count}} use",
+      "maxUsesCount_other": "{{count}} uses",
+      "maxUsesUnlimited": "No limit",
+      "neverExpires": "Never expires",
+      "noUseLimit": "No use limit",
+      "useLimit_one": "Limited to {{count}} use",
+      "useLimit_other": "Limited to {{count}} uses",
+      "uses_one": "{{count}} use",
+      "uses_other": "{{count}} uses",
+      "usesOfMax_one": "{{count}} / {{maxUses}} uses",
+      "usesOfMax_other": "{{count}} / {{maxUses}} uses"
     },
     "invitePage": {
       "title": "You've been invited to a private channel"

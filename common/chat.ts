@@ -17,6 +17,7 @@ export const MAXIMUM_OWNED_CHANNELS = 20
 export const SEARCH_CHANNELS_LIMIT = 40
 export const CHANNEL_USER_PERMISSIONS_LIMIT = 40
 export const CHANNEL_BANS_LIMIT = 40
+export const CHANNEL_INVITE_LINKS_LIMIT = 40
 
 export type SbChannelId = Tagged<number, 'SbChannelId'>
 
@@ -528,9 +529,55 @@ export function toChannelInviteLinkJson(inviteLink: ChannelInviteLink): ChannelI
   }
 }
 
+/** The lifetimes, in seconds, an invite link can be created with (besides never expiring). */
+export const INVITE_LINK_EXPIRY_OPTIONS_SECONDS: ReadonlyArray<number> = [
+  30 * 60,
+  60 * 60,
+  6 * 60 * 60,
+  12 * 60 * 60,
+  24 * 60 * 60,
+  7 * 24 * 60 * 60,
+]
+/** The lifetime, in seconds, of an invite link created without choosing one. */
+export const DEFAULT_INVITE_LINK_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+
+/** The use limits an invite link can be created with (besides allowing unlimited uses). */
+export const INVITE_LINK_MAX_USES_OPTIONS: ReadonlyArray<number> = [1, 5, 10, 25, 50, 100]
+
+/**
+ * The body of a request to get an invite link for a private channel. Without either field, the
+ * requester's recent default link may be handed back instead of a new one; with any field set, a
+ * new link is always created, and a field left out takes its default.
+ */
+export interface CreateChannelInviteLinkRequest {
+  /**
+   * How long the link keeps working, one of `INVITE_LINK_EXPIRY_OPTIONS_SECONDS`, or `null` for a
+   * link that never expires.
+   */
+  expiresInSeconds?: number | null
+  /**
+   * How many joins the link allows, one of `INVITE_LINK_MAX_USES_OPTIONS`, or `null` for no limit.
+   */
+  maxUses?: number | null
+}
+
 /** The response returned when getting an invite link for a private channel. */
 export interface CreateChannelInviteLinkResponse {
   inviteLink: ChannelInviteLinkJson
+}
+
+/**
+ * The response returned when listing a channel's invite links. The tokens make every link usable
+ * by whoever sees them, so this goes only to the channel's owner and server moderators.
+ */
+export interface ListChannelInviteLinksResponse {
+  channelId: SbChannelId
+  /** The channel's links that still work, newest first. */
+  inviteLinks: ChannelInviteLinkJson[]
+  /** Whether more links are available past this page. */
+  hasMoreInviteLinks: boolean
+  /** User infos for the links' creators. */
+  users: SbUser[]
 }
 
 /**
