@@ -12,8 +12,6 @@ import {
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
-  AdminGetMatchmakingBanResponse,
-  AdminMatchmakingBanJson,
   AdminUnbanUserResponse,
   BanHistoryEntryJson,
   UserRestrictionHistoryJson,
@@ -34,10 +32,8 @@ import { bodyLarge, BodyMedium, bodyMedium, labelMedium, TitleLarge } from '../.
 import {
   adminApplyRestriction,
   adminBanUser,
-  adminGetMatchmakingBan,
   adminGetUserBanHistory,
   adminGetUserRestrictions,
-  adminLiftMatchmakingBan,
   adminLiftRestriction,
   adminUnbanUser,
 } from '../action-creators'
@@ -234,7 +230,6 @@ export function AdminPunishmentsPage({ user }: AdminPunishmentsPageProps) {
     <>
       <AdminAvatarSection user={user} />
       <BanHistory user={user} selfUser={selfUser} />
-      <MatchmakingBanSection user={user} selfUser={selfUser} />
       <RestrictionHistory user={user} selfUser={selfUser} />
     </>
   )
@@ -559,203 +554,6 @@ function UnbanUserForm({
         }}
       />
       <FilledButton label='Unban' tabIndex={0} onClick={submit} />
-    </form>
-  )
-}
-
-function MatchmakingBanSection({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }) {
-  const dispatch = useAppDispatch()
-  const [banState, setBanState] = useState<ReadonlyDeep<AdminGetMatchmakingBanResponse>>()
-
-  const [requestError, setRequestError] = useState<Error>()
-  const cancelLoadRef = useRef(new AbortController())
-
-  const userId = user.id
-  const isSelf = userId === selfUser.id
-
-  const now = useNow(60_000)
-
-  useEffect(() => {
-    cancelLoadRef.current.abort()
-    const abortController = new AbortController()
-    cancelLoadRef.current = abortController
-
-    dispatch(
-      adminGetMatchmakingBan(userId, {
-        signal: abortController.signal,
-        onStart: () => {
-          setBanState(undefined)
-        },
-        onSuccess: response => {
-          setRequestError(undefined)
-          setBanState(response)
-        },
-        onError: err => setRequestError(err),
-      }),
-    )
-
-    return () => {
-      abortController.abort()
-    }
-  }, [userId, dispatch])
-
-  const ban = banState?.ban
-  const canLift = !isSelf && ban !== undefined && ban.liftedAt === undefined && ban.clearsAt > now
-
-  return (
-    <AdminSection data-testid='matchmaking-ban-section'>
-      <TitleLarge>Matchmaking dodge ban</TitleLarge>
-      {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
-      {banState === undefined ? (
-        <LoadingDotsArea />
-      ) : (
-        <>
-          <MatchmakingBanTable ban={banState.ban} userId={userId} now={now} />
-          {banState.restrictionEndTime !== undefined && banState.restrictionEndTime > now ? (
-            <BodyMedium>
-              This user also has an active matchmaking restriction until{' '}
-              {banDateFormat.format(banState.restrictionEndTime)}. Lifting the dodge ban won't let
-              them queue until that restriction ends or is lifted under Restriction history.
-            </BodyMedium>
-          ) : null}
-        </>
-      )}
-      {canLift ? (
-        <LiftMatchmakingBanForm
-          key={`lift-mm-ban-form-${userId}`}
-          model={UNBAN_FORM_DEFAULTS}
-          onSubmit={model => {
-            dispatch(
-              adminLiftMatchmakingBan(
-                {
-                  userId,
-                  reason: model.reason?.length ? model.reason : undefined,
-                },
-                {
-                  onSuccess: response => {
-                    setBanState(response)
-                    setRequestError(undefined)
-                  },
-                  onError: err => setRequestError(err),
-                },
-              ),
-            )
-          }}
-        />
-      ) : null}
-    </AdminSection>
-  )
-}
-
-function matchmakingBanStatus(ban: ReadonlyDeep<AdminMatchmakingBanJson>, now: number): string {
-  if (ban.liftedAt !== undefined) {
-    return 'Lifted'
-  } else if (ban.expiresAt > now) {
-    return 'Active'
-  } else if (ban.clearsAt > now) {
-    return 'Expired, still counts towards escalation'
-  } else {
-    return 'Cleared'
-  }
-}
-
-function MatchmakingBanTable({
-  ban,
-  userId,
-  now,
-}: {
-  ban: ReadonlyDeep<AdminMatchmakingBanJson> | undefined
-  userId: SbUserId
-  now: number
-}) {
-  return (
-    <BanTable>
-      <thead>
-        <tr>
-          <th>Status</th>
-          <th>Level</th>
-          <TimeCell as='th'>Issued</TimeCell>
-          <TimeCell as='th'>Expires</TimeCell>
-          <TimeCell as='th'>Escalation clears</TimeCell>
-          <th>Lifted</th>
-        </tr>
-      </thead>
-      <tbody>
-        {ban ? (
-          <BanRow $expired={ban.expiresAt <= now}>
-            <td>
-              <div>{matchmakingBanStatus(ban, now)}</div>
-              {ban.triggeredBy !== undefined && ban.triggeredBy !== userId ? (
-                <div>
-                  {'Applies through identifiers shared with '}
-                  <ConnectedUsername userId={ban.triggeredBy} />
-                </div>
-              ) : null}
-            </td>
-            <td>{ban.banLevel === 0 ? '0 (warning)' : ban.banLevel}</td>
-            <TimeCell>{banDateFormat.format(ban.createdAt)}</TimeCell>
-            <TimeCell>{banDateFormat.format(ban.expiresAt)}</TimeCell>
-            <TimeCell>{banDateFormat.format(ban.clearsAt)}</TimeCell>
-            <td>
-              {ban.liftedAt !== undefined ? (
-                <>
-                  <div>
-                    {ban.liftedBy !== undefined ? (
-                      <ConnectedUsername userId={ban.liftedBy} />
-                    ) : (
-                      <span>- system -</span>
-                    )}
-                    {` ${banDateFormat.format(ban.liftedAt)}`}
-                  </div>
-                  {ban.liftReason !== undefined ? <div>{ban.liftReason}</div> : null}
-                </>
-              ) : null}
-            </td>
-          </BanRow>
-        ) : (
-          <BanRow>
-            <EmptyState colSpan={6}>No active or recent dodge ban</EmptyState>
-          </BanRow>
-        )}
-      </tbody>
-    </BanTable>
-  )
-}
-
-function LiftMatchmakingBanForm({
-  model,
-  onSubmit,
-}: {
-  model: UnbanFormModel
-  onSubmit: (model: ReadonlyDeep<UnbanFormModel>) => void
-}) {
-  const { submit, bindInput, form } = useForm<UnbanFormModel>(model, {})
-
-  useFormCallbacks(form, {
-    onSubmit,
-  })
-
-  return (
-    <form noValidate={true} onSubmit={submit}>
-      <TitleLarge>Lift dodge ban</TitleLarge>
-      <BodyMedium>
-        Ends the dodge ban now and resets escalation, so the next one starts at the first level. A
-        ban that applies through shared identifiers is lifted for the account that triggered it too.
-      </BodyMedium>
-      <TextField
-        {...bindInput('reason')}
-        label='Notes (optional, admin-only)'
-        floatingLabel={true}
-        maxLength={500}
-        inputProps={{
-          tabIndex: 0,
-          autoCapitalize: 'off',
-          autoComplete: 'off',
-          autoCorrect: 'off',
-          spellCheck: false,
-        }}
-      />
-      <FilledButton label='Lift dodge ban' tabIndex={0} onClick={submit} />
     </form>
   )
 }

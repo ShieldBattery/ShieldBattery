@@ -10,8 +10,6 @@ import {
   addMatchmakingBan,
   checkActiveMatchmakingBan,
   checkUnclearedMatchmakingBan,
-  getLatestMatchmakingBan,
-  liftMatchmakingBans,
   markClearedBans,
   MatchmakingBanRow,
 } from './matchmaking-ban-models'
@@ -76,36 +74,6 @@ export class MatchmakingBanService {
       userId,
       now: new Date(this.clock.now()),
       minSameIdentifiers: MIN_IDENTIFIER_MATCHES,
-    })
-  }
-
-  /**
-   * Returns the most recent ban that applies to a user (active, still counting towards escalation,
-   * or lifted), for display to admins.
-   */
-  async getLatestBan(userId: SbUserId): Promise<MatchmakingBanRow | undefined> {
-    return await getLatestMatchmakingBan({ userId, minSameIdentifiers: MIN_IDENTIFIER_MATCHES })
-  }
-
-  /**
-   * Lifts every ban that applies to a user, ending it immediately and resetting escalation so the
-   * user's next ban starts from the first level. Returns the lifted ban rows.
-   */
-  async liftBans({
-    userId,
-    liftedBy,
-    reason,
-  }: {
-    userId: SbUserId
-    liftedBy?: SbUserId
-    reason?: string
-  }): Promise<MatchmakingBanRow[]> {
-    return await liftMatchmakingBans({
-      userId,
-      minSameIdentifiers: MIN_IDENTIFIER_MATCHES,
-      liftedBy,
-      reason,
-      now: new Date(this.clock.now()),
     })
   }
 
