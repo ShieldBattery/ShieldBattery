@@ -111,8 +111,6 @@ function initialChannelData(moderatorIds: SbUserId[]): InitialChannelData {
     selfPermissions: {
       kick: false,
       ban: false,
-      changeTopic: false,
-      togglePrivate: false,
       editPermissions: false,
     },
     moderatorIds,

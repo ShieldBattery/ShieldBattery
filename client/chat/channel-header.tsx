@@ -230,9 +230,6 @@ export function ChannelHeader({
   })
 
   const actions: React.ReactNode[] = []
-  // TODO(2Pac): Users with `changeTopic` permission should also be able to access channel settings,
-  // but need to update the channel settings UI first to only allow them to change the topic (will
-  // probably need a new set of APIs as well).
   if (
     isServerModerator ||
     user?.id === joinedChannelInfo.ownerId ||
