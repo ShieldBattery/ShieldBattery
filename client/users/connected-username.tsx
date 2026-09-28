@@ -40,6 +40,8 @@ export interface ConnectedUsernameProps {
   userId: SbUserId
   /** A string to show before the username, e.g. '@' for mentions. */
   prefix?: string
+  /** Rendered inside the name element after the name, e.g. a channel role badge. */
+  badge?: React.ReactNode
   /**
    * An optional callback that will be called before the normal `onClick` handling. If the click
    * was handled by the callback, it should return `true` to indicate the normal behavior should
@@ -61,6 +63,7 @@ export function ConnectedUsername({
   className,
   userId,
   prefix = '',
+  badge,
   filterClick,
   UserMenu,
   interactive = true,
@@ -111,6 +114,7 @@ export function ConnectedUsername({
       tabIndex={interactive ? 0 : undefined}>
       {prefix}
       {username}
+      {badge}
     </Username>
   )
 
