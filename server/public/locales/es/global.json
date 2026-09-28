@@ -256,13 +256,17 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Configuración del canal",
+        "copyInviteLink": "Copiar enlace de invitación",
         "hideBanner": "Ocultar banner",
         "leaveChannel": "Salir del canal",
         "openAdminView": "Abrir vista de administrador"
       },
       "errors": {
+        "copyInviteLink": "Algo salió mal al copiar el enlace de invitación",
+        "createInviteLink": "Algo salió mal al obtener un enlace de invitación",
         "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
       },
+      "inviteLinkCopied": "Enlace de invitación copiado al portapapeles",
       "moreActions": "Más acciones"
     },
     "channelInfo": {
@@ -275,7 +279,7 @@
       "joined": "Unido",
       "moreActions": "Más acciones",
       "noDescription": "Este canal no tiene descripción.",
-      "private": "Este canal es privado y necesitas una invitación para unirte.",
+      "private": "Este canal es privado y necesitas un enlace de invitación para unirte.",
       "userCount_one": "{{count}} miembro",
       "userCount_many": "{{count}} de miembros",
       "userCount_other": "{{count}} miembros"
@@ -295,6 +299,10 @@
       "deletedChannel": "canal-borrado",
       "privateChannel": "canal-privado"
     },
+    "channelRole": {
+      "moderator": "Moderador del canal",
+      "owner": "Propietario del canal"
+    },
     "channelSettings": {
       "bannedUsers": {
         "automatedBadge": "Automático",
@@ -313,6 +321,10 @@
         "changeBanner": "Cambiar banner",
         "descriptionLabel": "Descripción",
         "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente.",
+        "membersCanInviteDescription": "Si está desactivado, solo el propietario del canal puede invitar gente. Al desactivarlo también dejan de funcionar los enlaces de invitación que los miembros ya compartieron.",
+        "membersCanInviteLabel": "Los miembros pueden crear enlaces de invitación",
+        "privateDescription": "Los canales privados no aparecen al explorar ni en las búsquedas, y solo se puede entrar con un enlace de invitación.",
+        "privateLabel": "Canal privado",
         "removeBadge": "Quitar insignia",
         "removeBanner": "Quitar banner",
         "saveErrorMessage": "Algo salió mal al guardar la configuración",
@@ -323,8 +335,6 @@
       "permissions": {
         "ban": "Puede banear usuarios",
         "banShort": "Banear",
-        "changeTopic": "Puede cambiar el tema",
-        "changeTopicShort": "Cambiar tema",
         "editPermissions": "Puede editar permisos",
         "editPermissionsShort": "Editar permisos",
         "editTitle": "Editar permisos de {{name}}",
@@ -336,8 +346,6 @@
         "noUsers": "Este canal no tiene otros miembros",
         "owner": "Propietario",
         "saveError": "No se pudieron guardar los permisos",
-        "togglePrivate": "Puede cambiar el estado privado",
-        "togglePrivateShort": "Cambiar privado",
         "transferOwnership": "Transferir la propiedad"
       },
       "tabs": {
@@ -590,10 +598,25 @@
     "errors": {
       "messageNotFound": "No se encontró ese mensaje. Puede que se haya eliminado."
     },
+    "inviteCard": {
+      "invalid": "Este enlace de invitación no es válido o ha caducado.",
+      "join": "Unirse",
+      "memberCount_one": "{{count}} miembro",
+      "memberCount_many": "{{count}} miembros",
+      "memberCount_other": "{{count}} miembros",
+      "open": "Ver",
+      "title": "Canal privado",
+      "view": "Ver canal"
+    },
+    "invitePage": {
+      "title": "Te invitaron a un canal privado"
+    },
     "joinChannel": {
       "bannedError": "Estás baneado de #{{channelName}}",
       "genericError": "Ocurrió un error al unirte a #{{channelName}}",
-      "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro."
+      "inviteLinkInvalidError": "Este enlace de invitación no es válido o ha caducado.",
+      "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro.",
+      "privateError": "#{{channelName}} es privado y necesitas un enlace de invitación para unirte"
     },
     "kickUser": {
       "body": "{{user}} será expulsado del canal y perderá sus permisos en él. Podrá volver a entrar cuando quiera.",
@@ -707,6 +730,7 @@
         "line": "saca <1>{{value}}</1> (1-{{max}})"
       }
     },
+    "privateChannelTitle": "Canal privado",
     "transferOwnership": {
       "adminBody": "¿Hacer a {{user}} el dueño de este canal? El dueño actual dejará de serlo.",
       "body": "¿Transferir la propiedad de #{{channelName}} a {{user}}? Dejarás de ser el dueño del canal.",
@@ -2093,6 +2117,8 @@
       "showInExplorer": "Mostrar en el Explorador",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "Se jugó en Battle.net",
+      "sourceTooltipSb": "Se jugó en ShieldBattery",
       "unavailable": "Biblioteca de replays no disponible",
       "unavailableBody": "No se pudieron cargar tus replays en este momento. Reiniciar ShieldBattery suele solucionarlo.",
       "unreadableReplays": "Replays ilegibles",
@@ -2566,6 +2592,15 @@
         "rateLimited": "Solo puedes cambiar tu nombre de inicio de sesión una vez cada 30 días.",
         "unknownError": "Algo salió mal, inténtalo de nuevo más tarde."
       },
+      "chat": {
+        "displayMode": {
+          "classic": "Clásico",
+          "cozy": "Cómodo",
+          "description": "Cómo se muestran los mensajes en canales, susurros y el chat del lobby. Se guarda en tu cuenta y se aplica en todos los dispositivos donde inicies sesión.",
+          "title": "Modo de visualización"
+        },
+        "title": "Chat"
+      },
       "connections": {
         "description": "Vincula cuentas externas a tu perfil de ShieldBattery.",
         "title": "Conexiones",
@@ -2764,6 +2799,7 @@
       "away": "Ausente",
       "doNotDisturb": "No molestar",
       "doNotDisturbDescription": "Silencia los sonidos y avisos de mensajes",
+      "offline": "Desconectado",
       "online": "Conectado",
       "pickerLabel": "Disponibilidad"
     },

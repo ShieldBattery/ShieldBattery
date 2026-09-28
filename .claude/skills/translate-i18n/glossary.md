@@ -146,6 +146,10 @@ consistent. (Seed — extend over time.)
   throughout, even for "the game couldn't start".
 - **User card emblem label** Unranked→**Sin rango** (60px box; "Sin clasificar" truncates there).
   Elsewhere Unranked stays Sin clasificar. "Hosted by <1></1>"→**Anfitrión: <1></1>**.
+- **Private channels:** private channel→**canal privado**, invite link→**enlace de invitación**,
+  channel owner→**propietario del canal** (matches /topic; the older ban error says dueño),
+  channel moderator→**moderador del canal**, member→**miembro**. Chat display modes
+  Classic/Cozy→**Clásico / Cómodo** (Discord's Spanish "Cómodo" for Cozy).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -221,6 +225,10 @@ consistent. (Seed — extend over time.)
   Пустыня / Лёд / Сумрак. They had been left in English.
 - **Known debt:** ~40 older keys (`auth.*`, `landing.*`, `users.errors.friendsList.*`, …) write
   lowercase вы/ваш; sweep them to Вы as their own pass.
+- **Private channels:** private channel→**приватный канал**, invite link→**ссылка-приглашение**
+  (hyphenated compound, declines both halves: по ссылке-приглашению), channel owner→**владелец
+  канала** (in-file), channel moderator→**модератор канала**, member (of a channel)→**участник**.
+  Chat display modes Classic/Cozy→**Классический / Уютный**.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -294,6 +302,10 @@ consistent. (Seed — extend over time.)
   `bugReport.*`, `leagues.*`, `ladder.*`, `settings.user.account.*` etc. were rewritten in 합니다체.
   Treat any …어/…야/…거야 or …어요/…에요 ending as a bug. Drop the subject rather than write 너/당신
   where a subject-less sentence works; "your machine"→사용자 컴퓨터; "ShieldBattery staff"→운영진.
+- **Private channels:** private channel→**비공개 채널**, invite link→**초대 링크**, channel
+  owner→**채널 소유자** (in-file), channel moderator→**채널 관리자** (matches the ban errors'
+  관리자), member→**멤버**; join a channel→**참가** (not 가입). Chat display modes
+  Classic/Cozy→**클래식 / 편안하게**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -355,3 +367,7 @@ consistent. (Seed — extend over time.)
   button→**资料**, Unranked→**未定级**, `{{count}} 场 · {{wins}}–{{losses}}`.
 - **Availability (user status):** Online/Away/Do not disturb→**在线 / 离开 / 请勿打扰** (picker
   label 在线状态). Name-change token→改名道具 (in-file); display name→显示名.
+- **Private channels:** private channel→**私人频道** (in-file), invite link→**邀请链接**, channel
+  owner→**频道所有者** (in-file), channel moderator→**频道版主** (版主 in-file), member→**成员**.
+  Register: the file is dominantly 您 (≈196 vs 29 你) — use 您. Chat display modes
+  Classic/Cozy→**经典 / 舒适**.
