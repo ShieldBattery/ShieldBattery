@@ -78,6 +78,13 @@ export interface NetcodeV2ServerSetup {
    * outstanding keypair has nothing to disambiguate anyway.
    */
   clientPubkey?: string
+  /**
+   * Whether the session rolls back instead of running lockstep. Every client in the session gets
+   * the same value and must run in that mode: a rollback client strips native sync commands and
+   * reports state hashes instead, which a lockstep session would treat as a desync. Optional so an
+   * older server that predates the field still interoperates (as lockstep).
+   */
+  rollback?: boolean
 }
 
 /**
@@ -280,7 +287,10 @@ export interface NetcodeV2DesyncNotification {
   session: number
   /** The `gameId` this session was created for, if the coordinator still has it on record. */
   externalId?: string
-  /** The per-slot sync ordinal (count of `0x37` commands) the comparator disagreed on. */
+  /**
+   * The per-slot sync ordinal (count of `0x37` commands) the comparator disagreed on, or in a
+   * rollback session, the step whose state hash reports it judged.
+   */
   syncOrdinal: number
   /** The closest observed `game_frame_count`, for human-meaningful correlation, if known. */
   gameFrame?: number
@@ -290,6 +300,12 @@ export interface NetcodeV2DesyncNotification {
   noMajority: boolean
   /** The diverged minority's slots, empty when `noMajority` is true. */
   diverged: NetcodeV2DivergedSlot[]
+  /**
+   * In a rollback session, the slots that kept sending turns without the state hash report they
+   * owed for the step. At fault like the diverged minority. Absent when empty, and always outside
+   * rollback sessions.
+   */
+  missing?: NetcodeV2DivergedSlot[]
 }
 
 /**

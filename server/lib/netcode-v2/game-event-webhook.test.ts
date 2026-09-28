@@ -52,6 +52,37 @@ describe('netcode-v2/GAME_EVENT_BODY_SCHEMA', () => {
     expect(error).toBeUndefined()
   })
 
+  test('accepts a rollback desync event naming slots missing their reports', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'desync',
+      tenant: 'sb-dev',
+      session: 1,
+      syncOrdinal: 16,
+      detectedAtMs: Date.now(),
+      noMajority: false,
+      diverged: [],
+      missing: [{ slot: 1, externalRef: '7' }],
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.missing).toEqual([{ slot: 1, externalRef: '7' }])
+  })
+
+  test('rejects a missing entry without a slot', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'desync',
+      tenant: 'sb-dev',
+      session: 1,
+      syncOrdinal: 16,
+      detectedAtMs: Date.now(),
+      noMajority: false,
+      diverged: [],
+      missing: [{ externalRef: '7' }],
+    })
+
+    expect(error).toBeDefined()
+  })
+
   test('rejects an unknown event discriminator', () => {
     const { error } = GAME_EVENT_BODY_SCHEMA.validate({
       event: 'something-else',

@@ -52,7 +52,10 @@ export interface GameDesyncEvent {
   detectedAt: Date
   gameFrame: number | null
   noMajority: boolean
-  /** The resolved user IDs the relay identified as diverging; empty exactly when `noMajority`. */
+  /**
+   * The resolved user IDs the relay found at fault: the diverged minority, and in a rollback
+   * session, players who kept playing without reporting their state hash. Empty when `noMajority`.
+   */
   divergedUserIds: SbUserId[]
 }
 

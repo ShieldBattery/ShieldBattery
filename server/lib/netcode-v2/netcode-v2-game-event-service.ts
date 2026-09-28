@@ -387,6 +387,10 @@ export async function recordDepartureNotification(
  * dropped, always responding 204 to the coordinator. A diverged entry whose `externalRef` is
  * missing or unparseable is itself skipped (logged) while the rest of the event is still recorded
  * — a partially-unparseable event is still evidence worth keeping.
+ *
+ * A rollback session's `missing` slots (players who kept playing without reporting a state hash)
+ * are recorded among the diverged: the relay names both at fault, and the result policy treats
+ * them alike. A no-majority event records none, since it is voided whoever it names.
  */
 export async function recordDesyncNotification(
   notification: NetcodeV2DesyncNotification,
@@ -397,14 +401,24 @@ export async function recordDesyncNotification(
   }
 
   const { syncOrdinal, gameFrame, detectedAtMs, noMajority, diverged } = notification
+  const missing = notification.missing ?? []
 
   const divergedUserIds: SbUserId[] = []
-  for (const entry of diverged) {
-    const userId = parseUserId(entry.externalRef, { gameId, syncOrdinal, slot: entry.slot })
-    if (userId !== undefined) {
-      divergedUserIds.push(userId)
+  const missingUserIds: SbUserId[] = []
+  for (const [entries, userIds] of [
+    [diverged, divergedUserIds],
+    [missing, missingUserIds],
+  ] as const) {
+    for (const entry of entries) {
+      const userId = parseUserId(entry.externalRef, { gameId, syncOrdinal, slot: entry.slot })
+      if (userId !== undefined) {
+        userIds.push(userId)
+      }
     }
   }
+  const atFaultUserIds = noMajority
+    ? []
+    : Array.from(new Set([...divergedUserIds, ...missingUserIds]))
 
   const recorded = await recordDesyncEvent({
     gameId,
@@ -412,11 +426,14 @@ export async function recordDesyncNotification(
     detectedAt: new Date(detectedAtMs),
     gameFrame,
     noMajority,
-    divergedUserIds,
+    divergedUserIds: atFaultUserIds,
   })
 
   if (recorded) {
-    log.info({ gameId, syncOrdinal, noMajority, divergedUserIds }, 'desync event recorded')
+    log.info(
+      { gameId, syncOrdinal, noMajority, divergedUserIds, missingUserIds },
+      'desync event recorded',
+    )
   } else {
     log.info({ gameId, syncOrdinal }, 'duplicate desync event ignored')
   }
