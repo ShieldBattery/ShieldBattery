@@ -10,6 +10,7 @@ import {
   toBugReportJson,
 } from '../../../common/bugs'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { AdminReportCountsService } from '../admin/admin-report-counts-service'
 import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
 import { deleteFile, getSignedUrl, writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
@@ -48,6 +49,7 @@ export class BugsApi {
     private clock: Clock,
     private webhookNotifier: DiscordWebhookNotifier,
     private jobScheduler: JobScheduler,
+    private adminReportCounts: AdminReportCountsService,
   ) {
     const jobStartTime = new Date(this.clock.now())
     jobStartTime.setMinutes(jobStartTime.getMinutes() + 60)
@@ -120,6 +122,8 @@ export class BugsApi {
       }
       throw err
     }
+
+    this.adminReportCounts.refresh('bugReports')
 
     // This is best-effort and doesn't affect the success of the request
     const sanitizedDetails = details.replace(/[\r\n]+/g, ' ')
@@ -222,6 +226,7 @@ export class BugsApi {
       resolvedAt: new Date(this.clock.now()),
       resolverId: ctx.session!.user.id,
     })
+    this.adminReportCounts.refresh('bugReports')
 
     ctx.status = 204
   }

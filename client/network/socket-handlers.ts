@@ -1,4 +1,5 @@
 import { TypedIpcRenderer } from '../../common/ipc'
+import admin from '../admin/socket-handlers'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
@@ -81,6 +82,7 @@ function networkStatusHandler({ siteSocket, ipcRenderer }: SocketHandlerParams) 
 }
 
 const handlers: SocketHandler[] = [
+  admin,
   auth,
   chat,
   games,

@@ -67,6 +67,28 @@ export async function listBugReports(
   }
 }
 
+/**
+ * Returns the creation times of unresolved bug reports created at or after `since`, newest first.
+ */
+export async function listRecentUnresolvedBugReportTimes(
+  { since, limit }: { since: Date; limit: number },
+  withClient?: DbClient,
+): Promise<Date[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ created_at: Date }>(sql`
+      SELECT created_at
+      FROM bug_reports
+      WHERE resolved_at IS NULL AND created_at >= ${since}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `)
+    return result.rows.map(row => row.created_at)
+  } finally {
+    done()
+  }
+}
+
 export async function getBugReport(
   reportId: string,
   withClient?: DbClient,

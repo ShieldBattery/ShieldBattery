@@ -157,6 +157,10 @@ pub enum PublishedGameReportMessage {
     /// the Node side (no names, no game link) as an anti-retaliation measure.
     #[serde(rename_all = "camelCase")]
     ReportActioned { reporter_ids: Vec<SbUserId> },
+    /// A report was resolved, with any resolution. Node uses this to refresh the unresolved-report
+    /// counts it pushes to admins.
+    #[serde(rename_all = "camelCase")]
+    ReportResolved { report_id: Uuid },
 }
 
 #[derive(SimpleObject)]
@@ -558,7 +562,8 @@ impl GameReportsMutation {
     }
 }
 
-/// Best-effort: after a report is resolved, tell the reporters whose report led to a punishment (see
+/// Best-effort: after a report is resolved, announce the resolution (so Node can refresh the admin
+/// unresolved-report counts) and tell the reporters whose report led to a punishment (see
 /// [`GameReportsRepo::reporters_to_notify`] for who that is — the actioned report's reporter plus any
 /// duplicate-of-actioned reporters). The resolution has already committed, so nothing here — neither
 /// computing recipients nor publishing — may surface as a mutation error, otherwise the client sees a
@@ -569,6 +574,23 @@ async fn publish_resolution_notifications(
     report: &GameReport,
     resolution: GameReportResolution,
 ) {
+    let redis = match ctx.data::<RedisPool>() {
+        Ok(redis) => redis,
+        Err(err) => {
+            tracing::error!("no RedisPool available to publish notification: {err:?}");
+            return;
+        }
+    };
+
+    if let Err(err) = redis
+        .publish(PublishedGameReportMessage::ReportResolved {
+            report_id: report.id,
+        })
+        .await
+    {
+        tracing::error!("failed to publish game report resolved message: {err:?}");
+    }
+
     let reporter_ids = match repo.reporters_to_notify(report, resolution).await {
         Ok(ids) if !ids.is_empty() => ids,
         Ok(_) => return,
@@ -578,16 +600,11 @@ async fn publish_resolution_notifications(
         }
     };
 
-    match ctx.data::<RedisPool>() {
-        Ok(redis) => {
-            if let Err(err) = redis
-                .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
-                .await
-            {
-                tracing::error!("failed to publish game report notification: {err:?}");
-            }
-        }
-        Err(err) => tracing::error!("no RedisPool available to publish notification: {err:?}"),
+    if let Err(err) = redis
+        .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
+        .await
+    {
+        tracing::error!("failed to publish game report notification: {err:?}");
     }
 }
 

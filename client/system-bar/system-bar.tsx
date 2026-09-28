@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect } from 'react'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
+import { AdminReportCounts } from '../admin/admin-report-counts'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Lockup from '../logos/lockup-system-bar-24px.svg?react'
 import { IconButton } from '../material/button'
@@ -120,6 +121,7 @@ export function SystemBar() {
             onClick={onAdminClick}
           />
         ) : null}
+        {isAdmin ? <AdminReportCounts /> : null}
       </LeftSide>
     </Container>
   )
