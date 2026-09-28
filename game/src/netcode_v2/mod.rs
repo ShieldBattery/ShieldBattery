@@ -413,10 +413,10 @@ impl DisconnectStatus {
     }
 }
 
-/// The furthest a client that predicts inputs runs behind the lockstep schedule: one second, as
-/// input delay on top of the relay's buffer. A peer that stops sending turns altogether would
-/// otherwise keep pushing the lead down.
-const MAX_LAG_FRAMES: i32 = 24;
+/// The deepest pipe a client that predicts inputs keeps, in turns: its most input delay. The same
+/// ceiling a lockstep game's relay buffer has, so running behind the lockstep schedule to absorb
+/// lateness never costs a player more input delay than lockstep could.
+const MAX_PIPE_TURNS: u32 = rally_point_client::proto::control::GAME_SYNC_SAFE_BUFFER_MAX;
 
 /// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
 /// turn index. `game_frame_count` reads one past the number of turns already dispatched when the IN
@@ -1918,26 +1918,34 @@ impl TurnState {
     /// and reaches every other player at the same time whatever its lead. What the lead trades is
     /// the client's own: a frame of lead is a frame less input delay and a frame more of other
     /// players' turns arriving after it has simulated past them. At least one turn always stays in
-    /// the pipe. 0 while the game's start runs in lockstep, which needs the whole buffer.
+    /// the pipe, and at most [`MAX_PIPE_TURNS`]. 0 while the game's start runs in lockstep, which
+    /// needs the whole buffer.
     pub fn lead(&self) -> i32 {
         match &self.inputs {
-            Some(inputs) if !inputs.in_lockstep_start() => self.lead.clamp(
-                -MAX_LAG_FRAMES,
-                self.buffer_turns().saturating_sub(1) as i32,
-            ),
+            Some(inputs) if !inputs.in_lockstep_start() => {
+                let (min, max) = self.lead_bounds();
+                self.lead.clamp(min, max)
+            }
             _ => 0,
         }
     }
 
     /// Moves the lead this client means to run with by `frames`, within what the relay's buffer
-    /// and [`MAX_LAG_FRAMES`] allow.
+    /// allows (see [`lead`](Self::lead)).
     pub fn adjust_lead(&mut self, frames: i32) {
-        let max = self.buffer_turns().saturating_sub(1) as i32;
+        let (min, max) = self.lead_bounds();
         self.lead = self
             .lead
-            .clamp(-MAX_LAG_FRAMES, max)
+            .clamp(min, max)
             .saturating_add(frames)
-            .clamp(-MAX_LAG_FRAMES, max);
+            .clamp(min, max);
+    }
+
+    /// The lowest and highest lead the relay's buffer allows: the ones that leave
+    /// [`MAX_PIPE_TURNS`] and a single turn in the pipe.
+    fn lead_bounds(&self) -> (i32, i32) {
+        let buffer = self.buffer_turns() as i32;
+        (buffer - MAX_PIPE_TURNS as i32, buffer - 1)
     }
 
     /// How many of this client's own turns the pipe keeps in flight, which is its input delay:
@@ -3613,6 +3621,25 @@ mod tests {
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
+    }
+
+    #[test]
+    fn the_pipe_stays_between_one_turn_and_the_lockstep_ceiling() {
+        let (mut state, _result_rx, _result_expected) = turn_state_with_result();
+        state.predict_inputs(InputTable::new(
+            8,
+            3,
+            0,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+        state.set_initial_latency_turns(2);
+        // A rollback target past what the buffer allows still leaves a turn in the pipe.
+        assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
+        state.adjust_lead(-100);
+        assert_eq!(state.pipe_depth(), MAX_PIPE_TURNS);
+        assert_eq!(state.lead(), 2 - MAX_PIPE_TURNS as i32);
+        state.adjust_lead(100);
+        assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
     }
 
     #[test]

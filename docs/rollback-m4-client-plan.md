@@ -253,8 +253,8 @@ Left open:
 - The evicted client, like any client whose link can't come back, shows "Lost connection to the
   server, reconnecting…" until the player leaves through the menu. The overlay has no terminal
   state.
-- `GAME_SYNC_SAFE_BUFFER_MAX` still caps the relay buffer in rollback sessions. The client's lead
-  can add up to `MAX_LAG_FRAMES` (24) of input delay on top, and there is no cap on the total.
+- The pipe is capped at `GAME_SYNC_SAFE_BUFFER_MAX` (14) turns, lockstep's ceiling, however far
+  behind the schedule the lead goes, so rollback never costs more input delay than lockstep could.
 - The rollback engine is compiled out of release DLLs, so rollback sessions need debug DLLs.
 
 **After slice 5: the relay's lead report.** The relay keeps the session clock (step F due at
