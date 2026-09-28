@@ -725,6 +725,28 @@ export async function getChannelMessageSentTime(
   }
 }
 
+/**
+ * Returns the ID of the user who sent a channel message, or `undefined` if it doesn't exist in the
+ * channel (deleted, never existed, or belongs to a different channel).
+ */
+export async function getChannelMessageAuthor(
+  channelId: SbChannelId,
+  messageId: string,
+  withClient?: DbClient,
+): Promise<SbUserId | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<Dbify<{ userId: SbUserId }>>(sql`
+      SELECT user_id
+      FROM channel_messages
+      WHERE id = ${messageId} AND channel_id = ${channelId};
+    `)
+    return result.rows[0]?.user_id
+  } finally {
+    done()
+  }
+}
+
 export interface LeaveChannelResult {
   /**
    * Whether the user's channel membership was actually removed. `false` when they were no longer

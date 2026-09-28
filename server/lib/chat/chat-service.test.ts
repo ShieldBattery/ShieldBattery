@@ -65,6 +65,7 @@ import {
   getChannelBans,
   getChannelInfo,
   getChannelInfos,
+  getChannelMessageAuthor,
   getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
@@ -177,6 +178,7 @@ vi.mock('./chat-models', async () => {
     getMessagesForChannel: vi
       .fn()
       .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
+    getChannelMessageAuthor: vi.fn(),
     getChannelMessageSentTime: vi.fn(),
     deleteChannelMessage: vi.fn(),
     removeUserFromChannel: vi.fn(),
@@ -3115,42 +3117,166 @@ describe('chat/chat-service', () => {
   })
 
   describe('deleteMessage', () => {
-    test('should throw if not an admin', async () => {
-      await expect(
-        chatService.deleteMessage({
-          channelId: testChannel.id,
-          messageId: 'MESSAGE_ID',
-          userId: user1.id,
-          isAdmin: false,
-        }),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(
-        `[Error: Not enough permissions to delete a message]`,
-      )
+    const messageId = 'MESSAGE_ID'
+    const ownerId = 3 as SbUserId
+    const ownedTestChannel: FullChannelInfo = { ...testChannel, ownerId }
+    const moderatorEntry = (entry: UserChannelEntry, permissions: Partial<ChannelPermissions>) => ({
+      ...entry,
+      channelPermissions: { ...channelPermissions, ...permissions },
     })
 
-    test('works when an admin', async () => {
+    const expectItWorks = () => {
+      expect(deleteChannelMessage).toHaveBeenCalledWith(messageId, testChannel.id)
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'messageDeleted',
+        messageId,
+      })
+    }
+    const expectNothingDeleted = () => {
+      expect(deleteChannelMessage).not.toHaveBeenCalled()
+      expect(client1.publish).not.toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'messageDeleted',
+        messageId,
+      })
+    }
+
+    beforeEach(async () => {
       await joinUserToChannel(
         user1,
         testChannel,
         user1TestChannelEntry,
         joinUser1TestChannelMessage,
       )
+      asMockedFunction(getChannelInfo).mockResolvedValue(ownedTestChannel)
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(user2.id)
+    })
 
-      const messageId = 'MESSAGE_ID'
-      const deleteChannelMessageMock = asMockedFunction(deleteChannelMessage)
-
-      await chatService.deleteMessage({
+    const deleteAs = (isServerModerator: boolean) =>
+      chatService.deleteMessage({
         channelId: testChannel.id,
         messageId,
         userId: user1.id,
-        isAdmin: true,
+        isServerModerator,
       })
 
-      expect(deleteChannelMessageMock).toHaveBeenCalledWith(messageId, testChannel.id)
-      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
-        action: 'messageDeleted',
-        messageId,
+    test('works for a server moderator without any channel checks', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(ownerId)
+
+      await deleteAs(SERVER_MODERATOR)
+
+      expectItWorks()
+    })
+
+    test('throws if not in channel', async () => {
+      mockChannelEntries(testChannel, [user2.id, user2TestChannelEntry])
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.NotInChannel,
       })
+      expectNothingDeleted()
+    })
+
+    test('throws for a member without moderation permissions', async () => {
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.NotEnoughPermissions,
+      })
+      expectNothingDeleted()
+    })
+
+    test("works for the channel owner, even on a moderator's message", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, moderatorEntry(user2TestChannelEntry, { editPermissions: true })],
+      )
+
+      await deleteAs(REGULAR_USER)
+
+      expectItWorks()
+    })
+
+    for (const permission of ['kick', 'ban', 'editPermissions'] as const) {
+      test(`works for a moderator holding \`${permission}\``, async () => {
+        mockChannelEntries(
+          testChannel,
+          [user1.id, moderatorEntry(user1TestChannelEntry, { [permission]: true })],
+          [user2.id, user2TestChannelEntry],
+        )
+
+        await deleteAs(REGULAR_USER)
+
+        expectItWorks()
+      })
+    }
+
+    test('works for a moderator on a message from a user who left the channel', async () => {
+      mockChannelEntries(testChannel, [
+        user1.id,
+        moderatorEntry(user1TestChannelEntry, { kick: true }),
+      ])
+
+      await deleteAs(REGULAR_USER)
+
+      expectItWorks()
+    })
+
+    test('works for a moderator on their own message', async () => {
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(user1.id)
+      mockChannelEntries(testChannel, [
+        user1.id,
+        moderatorEntry(user1TestChannelEntry, { kick: true }),
+      ])
+
+      await deleteAs(REGULAR_USER)
+
+      expectItWorks()
+    })
+
+    test("throws for a moderator on the channel owner's message", async () => {
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(ownerId)
+      mockChannelEntries(testChannel, [
+        user1.id,
+        moderatorEntry(user1TestChannelEntry, { editPermissions: true }),
+      ])
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.CannotModerateChannelOwner,
+      })
+      expectNothingDeleted()
+    })
+
+    test("throws for a moderator on another moderator's message", async () => {
+      mockChannelEntries(
+        testChannel,
+        [user1.id, moderatorEntry(user1TestChannelEntry, { editPermissions: true })],
+        [user2.id, moderatorEntry(user2TestChannelEntry, { ban: true })],
+      )
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.CannotModerateChannelModerator,
+      })
+      expectNothingDeleted()
+    })
+
+    test('throws if the message is not in the channel', async () => {
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(undefined)
+      mockChannelEntries(testChannel, [
+        user1.id,
+        moderatorEntry(user1TestChannelEntry, { kick: true }),
+      ])
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.MessageNotFound,
+      })
+      expectNothingDeleted()
     })
   })
 

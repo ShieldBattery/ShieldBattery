@@ -309,7 +309,7 @@ function AdminChannelMessageMenu({
       onClick={() => {
         dispatch(
           openDialog({
-            type: DialogType.AdminDeleteChatMessage,
+            type: DialogType.ChannelDeleteMessage,
             initData: { channelId, messageId, onSuccess: () => onMessageDeleted(messageId) },
           }),
         )

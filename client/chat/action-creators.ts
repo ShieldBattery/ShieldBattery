@@ -562,13 +562,13 @@ export function sendOutcome(
   })
 }
 
-export function deleteMessageAsAdmin(
+export function deleteChannelMessage(
   channelId: SbChannelId,
   messageId: string,
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    await fetchJson<void>(apiUrl`admin/chat/${channelId}/messages/${messageId}`, {
+    await fetchJson<void>(apiUrl`chat/${channelId}/messages/${messageId}`, {
       method: 'DELETE',
       signal: spec.signal,
     })

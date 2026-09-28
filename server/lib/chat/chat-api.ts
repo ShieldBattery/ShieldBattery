@@ -616,6 +616,28 @@ export class ChatApi {
     return await this.chatService.getChatUserProfile(channelId, ctx.session!.user.id, targetId)
   }
 
+  @httpDelete('/:channelId/messages/:messageId')
+  @httpBefore(throttleMiddleware(kickBanThrottle, throttleByUser))
+  async deleteMessage(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, messageId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId; messageId: string }>({
+        channelId: joiSerialId().required(),
+        messageId: Joi.string().required(),
+      }),
+    })
+
+    await this.chatService.deleteMessage({
+      channelId,
+      messageId,
+      userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
+    })
+
+    ctx.status = 204
+  }
+
   @httpPost('/:channelId/users/:targetId/remove')
   @httpBefore(throttleMiddleware(kickBanThrottle, throttleByUser))
   async moderateChannelUser(ctx: RouterContext): Promise<void> {
@@ -870,7 +892,7 @@ export class AdminChatApi {
       channelId,
       messageId,
       userId: ctx.session!.user.id,
-      isAdmin: true,
+      isServerModerator: true,
     })
 
     ctx.status = 204
