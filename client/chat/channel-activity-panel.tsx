@@ -12,6 +12,7 @@ import { getGameResultsUrl } from '../games/action-creators'
 import { graphql } from '../gql'
 import { UploadedMapImage } from '../maps/map-image'
 import { LinkButton } from '../material/link-button'
+import { Tooltip } from '../material/tooltip'
 import { useAppSelector } from '../redux-hooks'
 import { bodySmall, inter, labelMedium, singleLine } from '../styles/typography'
 import { useStreamUptime } from '../twitch/live-indicators'
@@ -240,6 +241,10 @@ const MatchMap = styled(UploadedMapImage)`
   }
 `
 
+const MatchMapTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+`
+
 const MatchMapFallback = styled.div`
   width: 48px;
   height: 48px;
@@ -268,7 +273,7 @@ const MatchMeta = styled.div`
 /**
  * A match, not a broadcast: map thumbnail + the members as an avatar stack (names in a tooltip,
  * +N if they don't all fit), then mode and elapsed time. No written map name — the thumbnail is
- * the map.
+ * the map, with its name in a tooltip.
  */
 function GameMatchRow({ entry }: { entry: GameActivityEntry }) {
   const { t } = useTranslation()
@@ -276,7 +281,14 @@ function GameMatchRow({ entry }: { entry: GameActivityEntry }) {
 
   return (
     <MatchRoot href={getGameResultsUrl(entry.gameId)}>
-      <MatchMap map={entry.map} size={48} forceAspectRatio={1} noImageElem={<MatchMapFallback />} />
+      <MatchMapTooltip text={entry.map.name} position='left' tabIndex={-1}>
+        <MatchMap
+          map={entry.map}
+          size={48}
+          forceAspectRatio={1}
+          noImageElem={<MatchMapFallback />}
+        />
+      </MatchMapTooltip>
       <MatchBody>
         <AvatarStack userIds={entry.members} size={24} max={4} showNamesTooltip />
         <MatchMeta>
