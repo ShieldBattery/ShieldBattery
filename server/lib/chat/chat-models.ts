@@ -733,19 +733,31 @@ export async function getChannelMessageSentTime(
  * Returns the ID of the user who sent a channel message, or `undefined` if it doesn't exist in the
  * channel (deleted, never existed, or belongs to a different channel).
  */
+export interface ChannelMessageAuthor {
+  userId: SbUserId
+  messageType: ServerChatMessageType
+}
+
+/**
+ * Returns the author of a message and the kind of message it is, or `undefined` if the message
+ * doesn't exist in the given channel.
+ */
 export async function getChannelMessageAuthor(
   channelId: SbChannelId,
   messageId: string,
   withClient?: DbClient,
-): Promise<SbUserId | undefined> {
+): Promise<ChannelMessageAuthor | undefined> {
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query<Dbify<{ userId: SbUserId }>>(sql`
-      SELECT user_id
+    const result = await client.query<
+      Dbify<{ userId: SbUserId; messageType: ServerChatMessageType }>
+    >(sql`
+      SELECT user_id, data->>'type' AS message_type
       FROM channel_messages
       WHERE id = ${messageId} AND channel_id = ${channelId};
     `)
-    return result.rows[0]?.user_id
+    const row = result.rows[0]
+    return row ? { userId: row.user_id, messageType: row.message_type } : undefined
   } finally {
     done()
   }
