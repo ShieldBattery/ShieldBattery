@@ -14,6 +14,9 @@ import { SbUserId } from '../../common/users/sb-user-id'
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
+  AdminCloseChannel = 'adminCloseChannel',
+  AdminDeleteChannel = 'adminDeleteChannel',
+  AdminRenameChannel = 'adminRenameChannel',
   BugReport = 'bugReport',
   ChangeDisplayName = 'changeDisplayName',
   ChangeEmail = 'changeEmail',
@@ -72,6 +75,33 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
+type AdminCloseChannelDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminCloseChannel,
+  {
+    channelId: SbChannelId
+    channelName: string
+    /** Called once the channel has been closed successfully. */
+    onSuccess?: () => void
+  }
+>
+type AdminDeleteChannelDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminDeleteChannel,
+  {
+    channelId: SbChannelId
+    channelName: string
+    /** Called once the channel has been deleted successfully. */
+    onSuccess?: () => void
+  }
+>
+type AdminRenameChannelDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminRenameChannel,
+  {
+    channelId: SbChannelId
+    channelName: string
+    /** Called once the channel has been renamed successfully. */
+    onSuccess?: () => void
+  }
+>
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
 type ChangeDisplayNameDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeDisplayName,
@@ -410,6 +440,9 @@ type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
+  | AdminCloseChannelDialogPayload
+  | AdminDeleteChannelDialogPayload
+  | AdminRenameChannelDialogPayload
   | BugReportDialogPayload
   | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload

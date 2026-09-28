@@ -25,6 +25,15 @@ const LaunchingGameDialog = React.lazy(async () => ({
 const EmailVerificationDialog = React.lazy(async () => ({
   default: (await import('../auth/email-verification-dialog')).EmailVerificationDialog,
 }))
+const AdminCloseChannelDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/admin-channel-dialogs')).AdminCloseChannelDialog,
+}))
+const AdminDeleteChannelDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/admin-channel-dialogs')).AdminDeleteChannelDialog,
+}))
+const AdminRenameChannelDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/admin-channel-dialogs')).AdminRenameChannelDialog,
+}))
 const BugReportDialog = React.lazy(async () => ({
   default: (await import('../bugs/bug-report-dialog')).BugReportDialog,
 }))
@@ -193,6 +202,12 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptMatchDialog }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
+    case DialogType.AdminCloseChannel:
+      return { component: AdminCloseChannelDialog }
+    case DialogType.AdminDeleteChannel:
+      return { component: AdminDeleteChannelDialog }
+    case DialogType.AdminRenameChannel:
+      return { component: AdminRenameChannelDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
     case DialogType.ChangeDisplayName:

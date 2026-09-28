@@ -2,6 +2,8 @@ import React from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import {
   ChannelBanNotification,
+  ChannelClosedNotification,
+  ChannelDeletedNotification,
   ChannelKickNotification,
   ChannelUnbanNotification,
 } from '../../common/notifications'
@@ -16,6 +18,16 @@ const KickIcon = styledWithAttrs(MaterialIcon, { icon: 'person_remove', size: 36
 `
 
 const BanIcon = styledWithAttrs(MaterialIcon, { icon: 'gavel', size: 36 })`
+  flex-shrink: 0;
+  color: var(--theme-negative);
+`
+
+const ChannelClosedIcon = styledWithAttrs(MaterialIcon, { icon: 'lock', size: 36 })`
+  flex-shrink: 0;
+  color: var(--theme-negative);
+`
+
+const ChannelDeletedIcon = styledWithAttrs(MaterialIcon, { icon: 'delete', size: 36 })`
   flex-shrink: 0;
   color: var(--theme-negative);
 `
@@ -117,6 +129,74 @@ export function ChannelUnbanNotificationUi({
         <span>
           <Trans t={t} i18nKey='chat.notifications.unban'>
             Your ban from <strong>#{{ channelName } as TransInterpolation}</strong> has been lifted.
+          </Trans>
+        </span>
+      }
+    />
+  )
+}
+
+export interface ChannelClosedNotificationUiProps {
+  ref?: React.Ref<HTMLDivElement>
+  showDivider: boolean
+  read: boolean
+  notification: ChannelClosedNotification
+}
+
+export function ChannelClosedNotificationUi({
+  ref,
+  showDivider,
+  read,
+  notification,
+}: ChannelClosedNotificationUiProps) {
+  const { t } = useTranslation()
+  const channelName = notification.channelName
+
+  return (
+    <ActionlessNotification
+      ref={ref}
+      showDivider={showDivider}
+      read={read}
+      icon={<ChannelClosedIcon />}
+      text={
+        <span>
+          <Trans t={t} i18nKey='chat.notifications.channelClosed'>
+            <strong>#{{ channelName } as TransInterpolation}</strong> has been closed by the server
+            moderators.
+          </Trans>
+        </span>
+      }
+    />
+  )
+}
+
+export interface ChannelDeletedNotificationUiProps {
+  ref?: React.Ref<HTMLDivElement>
+  showDivider: boolean
+  read: boolean
+  notification: ChannelDeletedNotification
+}
+
+export function ChannelDeletedNotificationUi({
+  ref,
+  showDivider,
+  read,
+  notification,
+}: ChannelDeletedNotificationUiProps) {
+  const { t } = useTranslation()
+  const channelName = notification.channelName
+
+  return (
+    <ActionlessNotification
+      ref={ref}
+      showDivider={showDivider}
+      read={read}
+      icon={<ChannelDeletedIcon />}
+      text={
+        <span>
+          <Trans t={t} i18nKey='chat.notifications.channelDeleted'>
+            <strong>#{{ channelName } as TransInterpolation}</strong> has been deleted by the server
+            moderators.
           </Trans>
         </span>
       }

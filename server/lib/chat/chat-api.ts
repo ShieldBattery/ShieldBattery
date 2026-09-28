@@ -27,6 +27,7 @@ import {
   ListUserChannelEntriesResponse,
   MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
+  RenameChannelRequest,
   SbChannelId,
   SEARCH_CHANNELS_LIMIT,
   SearchChannelsResponse,
@@ -261,6 +262,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserNotFound:
       throw asHttpError(404, err)
     case ChatServiceErrorCode.CannotModerateYourself:
+    case ChatServiceErrorCode.CannotRemoveInitialChannel:
     case ChatServiceErrorCode.InappropriateImage:
     case ChatServiceErrorCode.NoInitialChannelData:
       throw asHttpError(400, err)
@@ -268,6 +270,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotEditChannel:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
+    case ChatServiceErrorCode.ChannelClosed:
     case ChatServiceErrorCode.ChannelNotPrivate:
     case ChatServiceErrorCode.ChannelPrivate:
     case ChatServiceErrorCode.MaximumJoinedChannels:
@@ -276,6 +279,8 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserBanned:
     case ChatServiceErrorCode.UserChatRestricted:
       throw asHttpError(403, err)
+    case ChatServiceErrorCode.ChannelNameTaken:
+      throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
   }
@@ -895,6 +900,40 @@ export class AdminChatApi {
       isServerModerator: true,
     })
 
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/rename')
+  async renameChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const {
+      params: { channelId },
+      body: { name },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      body: Joi.object<RenameChannelRequest>({
+        name: channelNameSchema().required(),
+      }),
+    })
+
+    return await this.chatService.renameChannel(channelId, name)
+  }
+
+  @httpPost('/:channelId/close')
+  async closeChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    return await this.chatService.closeChannel(channelId)
+  }
+
+  @httpPost('/:channelId/reopen')
+  async reopenChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    return await this.chatService.reopenChannel(channelId)
+  }
+
+  @httpDelete('/:channelId')
+  async deleteChannel(ctx: RouterContext): Promise<void> {
+    const channelId = getValidatedChannelId(ctx)
+    await this.chatService.deleteChannel(channelId)
     ctx.status = 204
   }
 }

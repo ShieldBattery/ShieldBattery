@@ -104,7 +104,13 @@ function makeSelfUser(user: SbUser): SelfUserJson {
 
 function initialChannelData(moderatorIds: SbUserId[]): InitialChannelData {
   return {
-    channelInfo: { id: CHANNEL_ID, name: 'role-badges', private: false, official: false },
+    channelInfo: {
+      id: CHANNEL_ID,
+      name: 'role-badges',
+      private: false,
+      official: false,
+      closed: false,
+    },
     detailedChannelInfo: { id: CHANNEL_ID, userCount: USERS.length },
     joinedChannelInfo: { id: CHANNEL_ID, ownerId: OWNER, membersCanInvite: false },
     selfPreferences: { ...DEFAULT_CHANNEL_PREFERENCES },

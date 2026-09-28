@@ -30,12 +30,24 @@ export function makeSbChannelId(id: number): SbChannelId {
   return id as SbChannelId
 }
 
+/**
+ * The channel every new account is put into. Signing up depends on it existing and being open, so
+ * it can't be closed or deleted.
+ */
+export const INITIAL_CHANNEL_ID = makeSbChannelId(1)
+
 export enum ChatServiceErrorCode {
   CannotChangeChannelOwner = 'CannotChangeChannelOwner',
   CannotEditChannel = 'CannotEditChannel',
   CannotModerateChannelOwner = 'CannotModerateChannelOwner',
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateYourself = 'CannotModerateYourself',
+  /** The channel every new account is put into can't be closed or deleted. */
+  CannotRemoveInitialChannel = 'CannotRemoveInitialChannel',
+  /** Server moderators have closed the channel, so nobody can join it. */
+  ChannelClosed = 'ChannelClosed',
+  /** Another channel already has the requested name. */
+  ChannelNameTaken = 'ChannelNameTaken',
   ChannelNotFound = 'ChannelNotFound',
   /** The request only makes sense for a private channel, and the channel is public. */
   ChannelNotPrivate = 'ChannelNotPrivate',
@@ -190,6 +202,11 @@ export interface BasicChannelInfo {
    * get deleted if everyone leaves, etc.) that distinguish them from regular channels.
    */
   official: boolean
+  /**
+   * A flag indicating whether server moderators have closed the chat channel. A closed channel has
+   * no members and can't be joined until it's reopened.
+   */
+  closed: boolean
 }
 
 /**
@@ -376,6 +393,13 @@ export interface ChatBanEvent {
   newOwnerId?: SbUserId
 }
 
+/**
+ * Server moderators have closed or deleted the chat channel, which removed every member from it.
+ */
+export interface ChatChannelRemovedEvent {
+  action: 'channelRemoved'
+}
+
 export interface ChatOwnerChangedEvent {
   action: 'ownerChanged'
   /** The ID of a user that is the new owner of the chat channel. */
@@ -450,6 +474,7 @@ export type ChatEvent =
   | ChatLeaveEvent
   | ChatKickEvent
   | ChatBanEvent
+  | ChatChannelRemovedEvent
   | ChatOwnerChangedEvent
   | ChatMessageEvent
   | ChatMessageDeletedEvent
@@ -605,6 +630,11 @@ export interface EditChannelRequest {
   private?: boolean
   /** Lets members other than the owner create invite links into the channel, or stops them. */
   membersCanInvite?: boolean
+}
+
+/** The body data of the admin API route for renaming a channel. */
+export interface RenameChannelRequest {
+  name: string
 }
 
 /**

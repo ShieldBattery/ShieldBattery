@@ -95,6 +95,13 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
+  channelRemoved(channelId) {
+    return {
+      type: '@chat/channelRemoved',
+      meta: { channelId },
+    }
+  },
+
   ownerChanged(channelId, event) {
     return {
       type: '@chat/ownerChanged',

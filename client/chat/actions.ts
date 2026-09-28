@@ -65,6 +65,7 @@ export type ChatActions =
   | UpdateKickSelf
   | UpdateBan
   | UpdateBanSelf
+  | UpdateChannelRemoved
   | UpdateChannelOwner
   | UpdateMessage
   | UpdateMessageDeleted
@@ -523,6 +524,14 @@ export interface UpdateBan {
  */
 export interface UpdateBanSelf {
   type: '@chat/updateBanSelf'
+  meta: { channelId: SbChannelId }
+}
+
+/**
+ * Server moderators have closed or deleted a channel we were in, removing us from it.
+ */
+export interface UpdateChannelRemoved {
+  type: '@chat/channelRemoved'
   meta: { channelId: SbChannelId }
 }
 
