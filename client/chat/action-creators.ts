@@ -187,6 +187,11 @@ export function getJoinChannelErrorMessage(err: unknown, channelName: string): s
         'You have reached the limit of joined channels. ' +
           'You must leave one before you can join another.',
       )
+    } else if (err.code === ChatServiceErrorCode.ChannelPrivate) {
+      return i18n.t('chat.joinChannel.privateError', {
+        defaultValue: '#{{channelName}} is private and requires an invite to join',
+        channelName,
+      })
     } else if (err.code === ChatServiceErrorCode.UserBanned) {
       return i18n.t('chat.joinChannel.bannedError', {
         defaultValue: 'You are banned from #{{channelName}}',
