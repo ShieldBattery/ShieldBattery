@@ -2494,14 +2494,20 @@ impl BwScr {
                     };
                     let value = format!("Lat: {effective_latency:.0}ms");
                     // A game that rolls back has two numbers to show: the input delay, and how many
-                    // frames of other players' turns it simulates past.
+                    // frames of other players' turns it simulates past. The delay counts the turns
+                    // beyond the one every command waits for anyway (a command issued on one frame
+                    // runs on the next, as in single player), so a player with no added delay sees 0.
                     #[cfg(debug_assertions)]
                     let value = match v2_turns {
-                        Some(delay)
+                        Some(pipe)
                             if netcode_v2::with_turn_state(|s| s.predicts_inputs())
                                 == Some(true) =>
                         {
-                            format!("{delay}D {}R", crate::rollback_live::shown_rollback())
+                            format!(
+                                "{}D {}R",
+                                pipe.saturating_sub(1),
+                                crate::rollback_live::shown_rollback()
+                            )
                         }
                         _ => value,
                     };
