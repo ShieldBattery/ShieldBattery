@@ -10,12 +10,9 @@ import {
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
-  AdminGetMatchmakingBanResponse,
   AdminGetPermissionsResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
-  AdminLiftMatchmakingBanRequest,
-  AdminLiftMatchmakingBanResponse,
   AdminLiftRestrictionRequest,
   AdminLiftRestrictionResponse,
   AdminRemoveUserAvatarResponse,
@@ -409,42 +406,6 @@ export function adminLiftRestriction(
           kind,
           reason,
         }),
-        signal: spec.signal,
-      },
-    )
-    dispatch({ type: '@users/loadUsers', payload: res.users })
-
-    return res
-  })
-}
-
-export function adminGetMatchmakingBan(
-  userId: SbUserId,
-  spec: RequestHandlingSpec<AdminGetMatchmakingBanResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const res = await fetchJson<AdminGetMatchmakingBanResponse>(
-      apiUrl`admin/users/${userId}/matchmaking-ban`,
-      {
-        signal: spec.signal,
-      },
-    )
-    dispatch({ type: '@users/loadUsers', payload: res.users })
-
-    return res
-  })
-}
-
-export function adminLiftMatchmakingBan(
-  { userId, reason }: { userId: SbUserId } & AdminLiftMatchmakingBanRequest,
-  spec: RequestHandlingSpec<AdminLiftMatchmakingBanResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const res = await fetchJson<AdminLiftMatchmakingBanResponse>(
-      apiUrl`admin/users/${userId}/matchmaking-ban/lift`,
-      {
-        method: 'POST',
-        body: encodeBodyAsParams<AdminLiftMatchmakingBanRequest>({ reason }),
         signal: spec.signal,
       },
     )

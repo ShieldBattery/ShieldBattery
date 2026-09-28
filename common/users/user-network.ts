@@ -282,45 +282,6 @@ export interface AdminLiftRestrictionResponse {
   users: SbUser[]
 }
 
-/** An automatic matchmaking ban (issued for failing to accept or dropping a match). */
-export interface AdminMatchmakingBanJson {
-  /** Index into the escalation levels; level 0 is a warning with no ban time. */
-  banLevel: number
-  createdAt: number
-  expiresAt: number
-  /** When the ban stops counting towards the length of the user's next ban. */
-  clearsAt: number
-  /** The account whose missed match issued this ban. */
-  triggeredBy?: SbUserId
-  /** The admin who lifted this ban early, if it was lifted by an admin. */
-  liftedBy?: SbUserId
-  /** When this ban was lifted early. `expiresAt` and `clearsAt` are moved to this time on a lift. */
-  liftedAt?: number
-  /** Admin-only note about why the ban was lifted. */
-  liftReason?: string
-}
-
-export interface AdminGetMatchmakingBanResponse {
-  /**
-   * The most recent matchmaking ban that applies to the user, if one is active, still counting
-   * towards escalation, or was lifted.
-   */
-  ban?: AdminMatchmakingBanJson
-  /**
-   * The end time of the user's active manual matchmaking restriction, if they have one. The user
-   * can't queue until it ends, regardless of `ban`.
-   */
-  restrictionEndTime?: number
-  users: SbUser[]
-}
-
-export interface AdminLiftMatchmakingBanRequest {
-  /** Admin-only note about why the ban was lifted (never shown to the user). */
-  reason?: string
-}
-
-export type AdminLiftMatchmakingBanResponse = AdminGetMatchmakingBanResponse
-
 export interface UserIpInfo {
   userId: SbUserId
   ipAddress: string
