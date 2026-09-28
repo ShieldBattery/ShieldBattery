@@ -235,7 +235,7 @@ export function ConnectedChannelInfoCard({
   let action
   if (isUserInChannel) {
     action = <FilledButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
-  } else if (basicChannelInfo?.private || isUserBanned) {
+  } else if ((basicChannelInfo?.private && !isAdmin) || isUserBanned) {
     action = <FilledButton label={t('common.actions.join', 'Join')} disabled={true} />
   } else if (basicChannelInfo) {
     action = (

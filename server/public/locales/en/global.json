@@ -593,7 +593,8 @@
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
       "genericError": "An error occurred while joining #{{channelName}}",
-      "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another."
+      "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another.",
+      "privateError": "#{{channelName}} is private and requires an invite to join"
     },
     "kickUser": {
       "body": "{{user}} will be removed from the channel and lose their channel permissions. They can rejoin at any time.",

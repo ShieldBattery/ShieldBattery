@@ -385,7 +385,7 @@ describe('chat/chat-service', () => {
       },
     )
 
-    await chatService.joinChannel(testChannel.name, user.id)
+    await chatService.joinChannel(testChannel.name, user.id, false)
   }
 
   /**
@@ -911,7 +911,11 @@ describe('chat/chat-service', () => {
 
     test("should throw if user doesn't exist", async () => {
       await expect(
-        chatService.joinChannel(shieldBatteryChannel.name, makeSbUserId(Number.MAX_SAFE_INTEGER)),
+        chatService.joinChannel(
+          shieldBatteryChannel.name,
+          makeSbUserId(Number.MAX_SAFE_INTEGER),
+          false,
+        ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User doesn't exist]`)
     })
 
@@ -919,7 +923,7 @@ describe('chat/chat-service', () => {
       addUserToChannelMock.mockResolvedValue(undefined)
 
       await expect(
-        chatService.joinChannel(shieldBatteryChannel.name, user1.id),
+        chatService.joinChannel(shieldBatteryChannel.name, user1.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum joined channels reached]`)
     })
 
@@ -928,7 +932,7 @@ describe('chat/chat-service', () => {
       createChannelMock.mockResolvedValue(undefined)
 
       await expect(
-        chatService.joinChannel(shieldBatteryChannel.name, user1.id),
+        chatService.joinChannel(shieldBatteryChannel.name, user1.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum owned channels reached]`)
     })
 
@@ -938,7 +942,7 @@ describe('chat/chat-service', () => {
       addUserToChannelMock.mockResolvedValue(undefined)
 
       await expect(
-        chatService.joinChannel(testChannel.name, user1.id),
+        chatService.joinChannel(testChannel.name, user1.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum joined channels reached]`)
 
       // The error must reject the transaction itself (which rolls back the channel creation) —
@@ -952,7 +956,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(isUserBannedFromChannel).mockResolvedValue(true)
 
       await expect(
-        chatService.joinChannel(shieldBatteryChannel.name, user1.id),
+        chatService.joinChannel(shieldBatteryChannel.name, user1.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is banned]`)
     })
 
@@ -962,7 +966,7 @@ describe('chat/chat-service', () => {
       )
 
       await expect(
-        chatService.joinChannel(shieldBatteryChannel.name, user1.id),
+        chatService.joinChannel(shieldBatteryChannel.name, user1.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is banned]`)
     })
 
@@ -993,7 +997,7 @@ describe('chat/chat-service', () => {
       addMessageToChannelMock.mockResolvedValue(joinUser1ShieldBatteryChannelMessage)
       asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
 
-      await chatService.joinChannel(shieldBatteryChannel.name, user1.id)
+      await chatService.joinChannel(shieldBatteryChannel.name, user1.id, false)
 
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, shieldBatteryChannel.id, dbClient)
       expect(addMessageToChannelMock).toHaveBeenCalledWith(
@@ -1047,7 +1051,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
 
-      await chatService.joinChannel(testChannel.name, user1.id)
+      await chatService.joinChannel(testChannel.name, user1.id, false)
 
       expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
@@ -1093,11 +1097,46 @@ describe('chat/chat-service', () => {
       asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
 
       await expect(
-        chatService.joinChannel('new-channel', user1.id),
+        chatService.joinChannel('new-channel', user1.id, false),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is chat restricted]`)
 
       // Should not attempt to create the channel
       expect(createChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('should throw if the channel is private and the user is not a member', async () => {
+      asMockedFunction(findChannelByName).mockResolvedValue({ ...testChannel, private: true })
+
+      await expect(
+        chatService.joinChannel(testChannel.name, user1.id, false),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelPrivate })
+
+      expect(countBannedIdentifiersForChannel).not.toHaveBeenCalled()
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+      expect(createChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('lets a member of a private channel rejoin it', async () => {
+      const privateChannel = { ...testChannel, private: true }
+      asMockedFunction(findChannelByName).mockResolvedValue(privateChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+
+      const result = await chatService.joinChannel(testChannel.name, user1.id, false)
+
+      expect(result.channelInfo.id).toBe(testChannel.id)
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('lets a server moderator join a private channel', async () => {
+      const privateChannel = { ...testChannel, private: true }
+      asMockedFunction(findChannelByName).mockResolvedValue(privateChannel)
+      addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
+      asMockedFunction(getChannelInfo).mockResolvedValue(privateChannel)
+
+      await chatService.joinChannel(testChannel.name, user1.id, true)
+
+      expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
     })
   })
 

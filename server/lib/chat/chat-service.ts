@@ -116,6 +116,7 @@ class ChatState extends ImmutableRecord({
 }) {}
 
 enum JoinChannelExitCode {
+  ChannelPrivate = 'ChannelPrivate',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
   UserBanned = 'UserBanned',
@@ -346,8 +347,14 @@ export default class ChatService {
   /**
    * Joins `channelName` with account `userId`, allowing them to receive and send messages in it.
    * Handles the use case of two users attempting to join a channel at the same time.
+   *
+   * A private channel only admits users who are already members, plus server moderators.
    */
-  async joinChannel(channelName: string, userId: SbUserId): Promise<JoinChannelResponse> {
+  async joinChannel(
+    channelName: string,
+    userId: SbUserId,
+    isServerModerator: boolean,
+  ): Promise<JoinChannelResponse> {
     const userInfo = await findUserById(userId)
     if (!userInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
@@ -369,6 +376,13 @@ export default class ChatService {
             isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id, client))
             if (isUserInChannel) {
               succeeded = true
+              return
+            }
+
+            // Checked before bans so that joining a private channel can't trigger the automated
+            // identifier ban, and a non-member learns nothing beyond the channel being private.
+            if (channel.private && !isServerModerator) {
+              exitCode = JoinChannelExitCode.ChannelPrivate
               return
             }
 
@@ -456,6 +470,9 @@ export default class ChatService {
       }
     } while (!succeeded && !exitCode && attempts < MAX_JOIN_ATTEMPTS)
 
+    if (exitCode === JoinChannelExitCode.ChannelPrivate) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelPrivate, 'Channel is private')
+    }
     if (exitCode === JoinChannelExitCode.MaximumJoinedChannels) {
       throw new ChatServiceError(
         ChatServiceErrorCode.MaximumJoinedChannels,

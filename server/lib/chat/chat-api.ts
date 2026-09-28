@@ -305,7 +305,11 @@ export class ChatApi {
       }),
     })
 
-    return await this.chatService.joinChannel(channelName, ctx.session!.user.id)
+    return await this.chatService.joinChannel(
+      channelName,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
+    )
   }
 
   @httpPatch('/:channelId')
