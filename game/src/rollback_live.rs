@@ -12,7 +12,8 @@
 //! in the session alike ([`arm_for_session`]). Such a game sends no native sync commands; it reports
 //! hashes of confirmed positions for the relay to compare instead ([`hash_reports`]).
 //!
-//! Debug knobs, all read once at startup, which tune a game that rolls back:
+//! Debug builds read knobs from the environment once at startup, which tune a game that rolls
+//! back; release builds run the defaults:
 //!
 //! - `SB_ROLLBACK_PREDICT=<limit>` runs up to `limit` steps ahead of the known turns (8 unless
 //!   set). 0 predicts nothing and waits for every turn, like lockstep.
@@ -30,9 +31,6 @@
 //!   right-clicks random map positions with them, so a game can be tested without anyone playing.
 //! - `SB_ROLLBACK_WITHHOLD_HASHES_FROM=<position>` sends no state hash reports from that position
 //!   on while playing on, as a client hiding its state would, for the relay to name.
-//!
-//! Compiled out of release DLLs along with the engine it drives, so a release DLL refuses a session
-//! that rolls back.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -47,18 +45,25 @@ use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
 use crate::rollback::tick::{self, TickPlan};
 use crate::rollback::{game_end, hash_reports, sounds};
 
+#[cfg(debug_assertions)]
 const PREDICT_ENV_VAR: &str = "SB_ROLLBACK_PREDICT";
+#[cfg(debug_assertions)]
 const SHADOW_ENV_VAR: &str = "SB_ROLLBACK_SHADOW";
+#[cfg(debug_assertions)]
 const DELAY_ENV_VAR: &str = "SB_ROLLBACK_LIVE_DELAY";
+#[cfg(debug_assertions)]
 const MONKEY_ENV_VAR: &str = "SB_ROLLBACK_MONKEY";
+#[cfg(debug_assertions)]
 const WITHHOLD_HASHES_ENV_VAR: &str = "SB_ROLLBACK_WITHHOLD_HASHES_FROM";
+#[cfg(debug_assertions)]
 const TARGET_ENV_VAR: &str = "SB_ROLLBACK_TARGET";
+#[cfg(debug_assertions)]
 const MIN_BUFFER_ENV_VAR: &str = "SB_ROLLBACK_MIN_BUFFER";
 
-/// The prediction limit when the environment doesn't set one.
+/// The prediction limit unless a debug knob sets one.
 const DEFAULT_PREDICTION_LIMIT: u32 = 8;
 
-/// The rollback target when the environment doesn't set one.
+/// The rollback target unless a debug knob sets one.
 const DEFAULT_ROLLBACK_TARGET: u32 = 3;
 
 /// How many steps at the start of a game run in lockstep, lining the clients' simulations up
@@ -88,20 +93,31 @@ struct Settings {
     /// How long each storm slot's turns are held back after they arrive.
     held: [Duration; bw::MAX_STORM_PLAYERS],
     /// Frames between the monkey's commands, or 0 for no monkey.
+    #[cfg(debug_assertions)]
     monkey_interval: u32,
     /// The first position whose state hash report is not sent.
     withhold_hashes_from: u32,
 }
 
-static SETTINGS: Mutex<Option<Settings>> = Mutex::new(None);
+static SETTINGS: Mutex<Settings> = Mutex::new(Settings {
+    limit: DEFAULT_PREDICTION_LIMIT,
+    rollback_target: DEFAULT_ROLLBACK_TARGET,
+    min_buffer_turns: 0,
+    shadow_depth: 0,
+    held: [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+    #[cfg(debug_assertions)]
+    monkey_interval: 0,
+    withhold_hashes_from: u32::MAX,
+});
 
 /// Whether the current game rolls back.
 static ARMED: AtomicBool = AtomicBool::new(false);
 
 /// Frames between snapshots.
-static SPACING: AtomicU32 = AtomicU32::new(crate::rollback_harness::DEFAULT_SNAPSHOT_SPACING);
+static SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 
 /// State of the monkey's random number generator (xorshift32, never 0).
+#[cfg(debug_assertions)]
 static MONKEY_RANDOM: AtomicU32 = AtomicU32::new(0);
 
 /// The schedule the simulation keeps to, one step every [`FRAME_DURATION`]: the tick that starts
@@ -237,6 +253,7 @@ struct Summary {
 static SUMMARY: Mutex<Option<Summary>> = Mutex::new(None);
 
 /// Reads the debug knobs. Called once while the DLL initialises, before the game thread exists.
+#[cfg(debug_assertions)]
 pub fn init_from_env() {
     let mut held = [Duration::ZERO; bw::MAX_STORM_PLAYERS];
     if let Ok(spec) = std::env::var(DELAY_ENV_VAR) {
@@ -277,12 +294,13 @@ pub fn init_from_env() {
         monkey_interval,
         withhold_hashes_from: read_count(WITHHOLD_HASHES_ENV_VAR).unwrap_or(u32::MAX),
     };
-    *SETTINGS.lock() = Some(settings);
+    *SETTINGS.lock() = settings;
     if let Some(spacing) = crate::rollback_harness::snapshot_spacing_from_env() {
         SPACING.store(spacing, Ordering::Release);
     }
 }
 
+#[cfg(debug_assertions)]
 fn read_count(var: &str) -> Option<u32> {
     let spec = std::env::var(var).ok()?;
     match spec.parse::<u32>() {
@@ -302,12 +320,17 @@ pub(crate) fn native_sync_off() -> bool {
     ARMED.load(Ordering::Acquire)
 }
 
-/// Whether this DLL can run a game that rolls back: analysis resolved what the engine snapshots,
-/// and the observer UI hooks that keep re-simulated frames from repeating the observer UI's
-/// notifications, which dereference records a repeated notification has already consumed.
+/// Whether this DLL can run a game that rolls back: analysis resolved everything the engine
+/// snapshots and hooks. Rolling back without any one of them either diverges or shows the players
+/// something only a prediction did, so a DLL missing one refuses the session instead.
 pub fn supported() -> bool {
-    let bw = crate::bw::get_bw();
-    !bw.rollback_range_specs().is_empty() && bw.rollback_observer_ui_hooked()
+    match crate::bw::get_bw().rollback_missing_analysis() {
+        None => true,
+        Some(missing) => {
+            error!("Can't roll back: analysis did not find {missing}");
+            false
+        }
+    }
 }
 
 /// Sets whether the game about to start rolls back, as its session says, and returns the input
@@ -319,13 +342,14 @@ pub fn arm_for_session(rollback: bool) -> Option<InputTable> {
         return None;
     }
     let settings = SETTINGS.lock();
-    let settings = settings.as_ref()?;
     info!(
-        "This game rolls back, with native sync off: prediction limit {}, rollback target {}, \
-         minimum buffer {}, shadow depth {}, turns held back {:?}, monkey every {} frames, \
-         hash reports withheld from position {}",
-        settings.limit,
-        settings.rollback_target,
+        "This game rolls back, with native sync off: prediction limit {}, rollback target {}",
+        settings.limit, settings.rollback_target,
+    );
+    #[cfg(debug_assertions)]
+    info!(
+        "Rollback debug knobs: minimum buffer {}, shadow depth {}, turns held back {:?}, monkey \
+         every {} frames, hash reports withheld from position {}",
         settings.min_buffer_turns,
         settings.shadow_depth,
         settings.held,
@@ -342,8 +366,11 @@ pub fn arm_for_session(rollback: bool) -> Option<InputTable> {
     Some(table)
 }
 
-/// Forgets per-game state. Called when the game loop (re-)enters game init.
+/// Drops the snapshots and forgets per-game state. Called when the game loop (re-)enters game
+/// init.
 pub fn reset_for_game_init() {
+    SNAPSHOTS.lock().take();
+    crate::rollback::reset_for_game_init();
     *SUMMARY.lock() = None;
     *SCHEDULE.lock() = None;
     *SMOOTHED_ROLLBACK.lock() = 0.0;
@@ -367,12 +394,10 @@ pub unsafe fn run_game_logic_step(
         if !ARMED.load(Ordering::Relaxed) || game_thread::is_replay() || !bw.has_game_started() {
             return None;
         }
-        let (shadow_depth, monkey_interval, rollback_target, withhold_hashes_from) = {
+        let (shadow_depth, rollback_target, withhold_hashes_from) = {
             let settings = SETTINGS.lock();
-            let settings = settings.as_ref()?;
             (
                 settings.shadow_depth,
-                settings.monkey_interval,
                 settings.rollback_target,
                 settings.withhold_hashes_from,
             )
@@ -386,8 +411,12 @@ pub unsafe fn run_game_logic_step(
         // What the turn state's receive will be given for the step from `current`: BW's turn
         // counter, which reads one past the turns dispatched while a step takes its turns.
         let next_frame = current + 1;
-        if monkey_interval != 0 && current.is_multiple_of(monkey_interval) {
-            bw.rollback_issue_random_commands(next_random);
+        #[cfg(debug_assertions)]
+        {
+            let monkey_interval = SETTINGS.lock().monkey_interval;
+            if monkey_interval != 0 && current.is_multiple_of(monkey_interval) {
+                bw.rollback_issue_random_commands(next_random);
+            }
         }
         let (resimulate_from, known_until, can_run, lead, pipe_depth) =
             netcode_v2::with_turn_state(|s| {
@@ -441,7 +470,7 @@ pub unsafe fn run_game_logic_step(
             spacing,
         };
         let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
-            let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
+            let ret = step_game_logic(bw, param, orig);
             let game = bw.game();
             if !game.is_null() {
                 game_end::record_outcome(
@@ -454,9 +483,9 @@ pub unsafe fn run_game_logic_step(
                 );
             }
             if hash_reports::is_report_position(step.frame)
-                && let Some(fingerprint) = bw.probe_fingerprint()
+                && let Some(hash) = bw.rollback_state_hash()
             {
-                hash_reports::record(step.frame, fingerprint.state_hash);
+                hash_reports::record(step.frame, hash);
             }
             ret
         });
@@ -488,8 +517,8 @@ pub unsafe fn run_game_logic_step(
                 // schedule catches up.
                 Some(x) if reached > x.target(tick_start, lead) => {
                     let delay = FRAME_DURATION.as_millis() as u32;
-                    bw.probe_set_next_game_step_tick(
-                        bw.probe_next_game_step_tick().wrapping_add(delay),
+                    bw.rollback_set_next_game_step_tick(
+                        bw.rollback_next_game_step_tick().wrapping_add(delay),
                     );
                     held_back = true;
                 }
@@ -587,7 +616,27 @@ fn log_summary(summary: &Summary, present: u32) {
     );
 }
 
+/// Runs one of BW's logic steps, measured by the rollback probe when it is armed.
+unsafe fn step_game_logic(
+    bw: &BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    unsafe {
+        #[cfg(debug_assertions)]
+        {
+            crate::rollback_probe::run_game_logic_step(bw, param, orig)
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            let _ = bw;
+            orig(param)
+        }
+    }
+}
+
 /// The monkey's next random number.
+#[cfg(debug_assertions)]
 fn next_random() -> u32 {
     let mut x = MONKEY_RANDOM.load(Ordering::Relaxed);
     x ^= x << 13;

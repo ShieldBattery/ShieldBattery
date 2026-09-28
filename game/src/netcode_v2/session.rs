@@ -116,16 +116,9 @@ struct ParkedChannels {
 /// is to not hold it across such calls in the first place.
 static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 
-/// Whether this DLL can run a game that rolls back. The rollback engine is compiled out of release
-/// builds.
-#[cfg(debug_assertions)]
+/// Whether this DLL can run a game that rolls back.
 fn rollback_supported() -> bool {
     crate::rollback_live::supported()
-}
-
-#[cfg(not(debug_assertions))]
-fn rollback_supported() -> bool {
-    false
 }
 
 /// Builds the QUIC session from the launch handoff and stores it for the hooks. Call on the Tokio
@@ -251,7 +244,6 @@ pub async fn establish_session(
     turn_state.populate_identity_slots();
     // Before any in-game turn exists, since the input table places each turn at its step by
     // counting its slot's turns.
-    #[cfg(debug_assertions)]
     if let Some(inputs) = crate::rollback_live::arm_for_session(setup.rollback) {
         turn_state.predict_inputs(inputs);
     }

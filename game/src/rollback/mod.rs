@@ -17,8 +17,8 @@
 //! already did, so a re-simulation repeats none of it and only adds what the late inputs changed
 //! ([`announcements`], [`sounds`], [`observer_ui`]).
 //!
-//! This writes into live BW memory and is compiled out of release DLLs entirely, rather than
-//! merely declining to run.
+//! Only a game whose session rolls back runs through the engine; everything else steps BW's
+//! simulation directly.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
@@ -31,6 +31,7 @@ pub(crate) mod observer_ui;
 pub(crate) mod ranges;
 pub(crate) mod snapshot;
 pub(crate) mod sounds;
+pub(crate) mod state_hash;
 pub(crate) mod tick;
 pub(crate) mod ui_writes;
 
@@ -76,7 +77,7 @@ pub(crate) unsafe fn position(bw: &BwScr) -> Option<u32> {
     unsafe {
         match COUNTS_TURNS.load(Ordering::Relaxed) {
             true => bw.rollback_turns_dispatched(),
-            false => bw.probe_frame_count(),
+            false => bw.rollback_frame_count(),
         }
     }
 }
@@ -87,6 +88,7 @@ pub(crate) fn tick_running() -> bool {
 }
 
 /// Whether the step in progress simulates a confirmed frame, one no later tick simulates again.
+#[cfg(debug_assertions)]
 pub(crate) fn in_final_step() -> bool {
     FINAL_STEP.load(Ordering::Relaxed)
 }

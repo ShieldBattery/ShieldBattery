@@ -14,11 +14,14 @@ use scr_analysis::scarf::{MemAccessSize, Operand, OperandCtx, OperandType};
 use bw_dat::structs::Path as BwPath;
 
 use crate::bw;
-use crate::bw_scr::{BwScr, resolve_operand, scr};
+#[cfg(debug_assertions)]
+use crate::bw_scr::BwScr;
+use crate::bw_scr::{resolve_operand, scr};
 
 /// Environment variable adding static memory to the snapshot beyond what analysis resolves, as a
 /// comma-separated list of `<hex offset from the executable's base>+<hex length>`. Offsets are
 /// specific to one build of the game, so this is only for trying out candidates an audit turned up.
+#[cfg(debug_assertions)]
 const EXTRA_RANGES_ENV_VAR: &str = "SB_ROLLBACK_EXTRA_RANGES";
 
 // Element sizes the ranges below are derived from. A size that is too small silently leaves
@@ -189,12 +192,14 @@ unsafe impl Sync for RangeSpec {}
 /// One contiguous span of BW memory the snapshot copies.
 #[derive(Copy, Clone)]
 pub(crate) struct Range {
+    #[cfg(debug_assertions)]
     name: &'static str,
     start: usize,
     len: usize,
 }
 
 impl Range {
+    #[cfg(debug_assertions)]
     pub(crate) fn name(&self) -> &'static str {
         self.name
     }
@@ -220,7 +225,12 @@ impl RangeList {
     /// the rest.
     pub(super) fn add(&mut self, name: &'static str, start: usize, len: usize) {
         match start != 0 && len != 0 {
-            true => self.ranges.push(Range { name, start, len }),
+            true => self.ranges.push(Range {
+                #[cfg(debug_assertions)]
+                name,
+                start,
+                len,
+            }),
             false => self.omit(name),
         }
     }
@@ -232,6 +242,7 @@ impl RangeList {
 
 /// Adds the ranges [`EXTRA_RANGES_ENV_VAR`] names to the layout, for trying out whether some static
 /// memory the analysis does not cover yet is state the snapshot is missing.
+#[cfg(debug_assertions)]
 pub(super) fn add_extra_ranges_from_env(bw: &BwScr, list: &mut RangeList) {
     let Ok(spec) = std::env::var(EXTRA_RANGES_ENV_VAR) else {
         return;

@@ -12,6 +12,11 @@ use super::{
     announcements, game_end, ui_writes,
 };
 
+/// Frames between snapshots unless a debug knob says otherwise. A rollback re-simulates from the
+/// newest snapshot at or before the frame it needs, so a wider spacing snapshots less often and
+/// re-simulates more per rollback.
+pub(crate) const DEFAULT_SNAPSHOT_SPACING: u32 = 3;
+
 /// What one tick should do. Frames are frame counts: frame `n` is the simulation state after `n`
 /// logic steps, and the step that produces it is the step from `n - 1`.
 pub(crate) struct TickPlan {
@@ -33,11 +38,13 @@ pub(crate) struct StepInfo {
     /// The frame the step produces.
     pub(crate) frame: u32,
     /// How many steps the tick runs after this one.
+    #[cfg(debug_assertions)]
     pub(crate) steps_after: u32,
     /// Whether the frame it produces is confirmed, so no later tick simulates it again.
     pub(crate) is_final: bool,
     /// Whether this is the first step after the tick restored a snapshot, so the simulation is
     /// still exactly as that snapshot holds it.
+    #[cfg(debug_assertions)]
     pub(crate) resumes_from_restore: bool,
     /// Whether the frame it produces was produced before, by the simulation the tick rolled back.
     pub(crate) is_resimulation: bool,
@@ -60,6 +67,8 @@ pub(crate) struct TickReport {
     /// Announcements an earlier tick made for a frame this one re-simulated without making them:
     /// they belonged to a prediction that did not happen, and cannot be taken back.
     pub(crate) retracted_announcements: u32,
+    /// Whether the tick took the selection circles and health bars off to snapshot or restore.
+    cleared_selection_visuals: bool,
     pub(crate) restore_time: Duration,
     pub(crate) snapshot_time: Duration,
     pub(crate) step_time: Duration,
@@ -81,10 +90,12 @@ pub(crate) unsafe fn run_tick(
         // Selection circles come from a small pool of their own, outside the snapshot, so they go
         // back to it before a restore drops the sprites they are attached to and before a snapshot
         // would capture them; otherwise every tick would leak them until none are left to show.
-        // They are put back for the frame being shown once the steps are done.
+        // They are put back for the frame being shown once the steps are done, by a tick that took
+        // them off.
         let take = |snapshots: &mut Snapshots, frame: u32, report: &mut TickReport| {
             let start = Instant::now();
             bw.rollback_clear_selection_visuals();
+            report.cleared_selection_visuals = true;
             snapshots.take(frame);
             report.snapshot_time += start.elapsed();
             report.snapshots += 1;
@@ -104,6 +115,7 @@ pub(crate) unsafe fn run_tick(
         {
             let start = Instant::now();
             bw.rollback_clear_selection_visuals();
+            report.cleared_selection_visuals = true;
             if let Some(restored) = snapshots.restore_at_or_before(target, bw) {
                 current = restored;
                 report.restored = Some(restored);
@@ -122,8 +134,10 @@ pub(crate) unsafe fn run_tick(
         while current < plan.present {
             let info = StepInfo {
                 frame: current + 1,
+                #[cfg(debug_assertions)]
                 steps_after: plan.present - current - 1,
                 is_final: current < plan.confirmed,
+                #[cfg(debug_assertions)]
                 resumes_from_restore: report.restored.is_some() && report.steps == 0,
                 is_resimulation: current < shown_through,
             };
@@ -141,7 +155,7 @@ pub(crate) unsafe fn run_tick(
             report.step_time += start.elapsed();
             report.steps += 1;
             if paced_tick.is_none() {
-                paced_tick = Some(bw.probe_next_game_step_tick());
+                paced_tick = Some(bw.rollback_next_game_step_tick());
             }
             match super::position(bw) {
                 // The simulation did not advance, which it does not once a replay has ended.
@@ -167,9 +181,11 @@ pub(crate) unsafe fn run_tick(
         ui_writes::prune(report.settled_through);
         report.retracted_announcements =
             announcements::finish_tick(report.window_start, report.settled_through);
-        bw.rollback_rebuild_selection_visuals();
+        if report.cleared_selection_visuals {
+            bw.rollback_rebuild_selection_visuals();
+        }
         if let Some(paced_tick) = paced_tick {
-            bw.probe_set_next_game_step_tick(paced_tick);
+            bw.rollback_set_next_game_step_tick(paced_tick);
         }
         (ret, report)
     }

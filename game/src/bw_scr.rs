@@ -118,9 +118,9 @@ pub struct BwScr {
     trigger_execution_timer: Value<u16>,
     /// The tick at which the game loop wants its next logic step. `step_game_logic` adds the
     /// frame delay to it once per simulated frame, so anything that makes one call simulate extra
-    /// frames also pushes real-time pacing that far ahead unless the value is restored.
-    #[cfg(debug_assertions)]
-    next_game_step_tick: Value<u32>,
+    /// frames also pushes real-time pacing that far ahead unless the value is restored. `None` if
+    /// analysis could not find it, which only a game that rolls back needs.
+    next_game_step_tick: Option<Value<u32>>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     local_visions: Value<u8>,
@@ -317,29 +317,23 @@ pub struct BwScr {
     engine_free: VirtualAddress,
     /// The observer UI's entry points for notifications from the simulation, or `None` if analysis
     /// could not find all of them.
-    #[cfg(debug_assertions)]
     observer_ui_callbacks: Option<ObserverUiCallbacks>,
     /// The pair of functions the game brackets a saved game write with, to take the selection
     /// circles and health bars off every sprite and put them back from the local selection, or
     /// `None` if analysis could not find both.
-    #[cfg(debug_assertions)]
     selection_visuals: Option<SelectionVisuals>,
     /// The functions a right click calls to place the order confirmation marker and to make the
     /// target's selection circle blink, which write into the simulation's memory between logic
     /// steps, or `None` if analysis could not find both.
-    #[cfg(debug_assertions)]
     click_feedback: Option<ClickFeedback>,
     /// The functions the trigger step calls to open the defeat and victory dialogs, or `None` if
     /// analysis could not find both.
-    #[cfg(debug_assertions)]
     mission_dialog_openers: Option<(VirtualAddress, VirtualAddress)>,
     /// The function that shows a line of game information text (a player leaving or being
     /// eliminated), or `None` if analysis could not find it.
-    #[cfg(debug_assertions)]
     show_game_message: Option<VirtualAddress>,
     /// The synced simulation state the rollback engine snapshots, as resolved analysis results
     /// that still have to be turned into addresses once a game is running.
-    #[cfg(debug_assertions)]
     rollback_ranges: Vec<crate::rollback::ranges::RangeSpec>,
 
     // State
@@ -998,7 +992,6 @@ unsafe impl<T> Sync for Value<T> {}
 /// Every function the simulation calls on the observer UI, the object behind replay and observer
 /// production panels. Each takes the observer UI object and the unit the notification is about,
 /// and returns nothing.
-#[cfg(debug_assertions)]
 struct ObserverUiCallbacks {
     track_building_unit: VirtualAddress,
     track_research_or_upgrade: VirtualAddress,
@@ -1006,7 +999,6 @@ struct ObserverUiCallbacks {
     finish_research_or_upgrade: VirtualAddress,
 }
 
-#[cfg(debug_assertions)]
 impl ObserverUiCallbacks {
     /// Finds all four, or returns `None` (and says which is missing) if any of them is not found.
     fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<ObserverUiCallbacks> {
@@ -1039,7 +1031,6 @@ impl ObserverUiCallbacks {
 
 /// The game's own way of getting selection circles and health bars, which are images in the same
 /// pool as the simulation's, out of a copy of the game state and back again.
-#[cfg(debug_assertions)]
 struct SelectionVisuals {
     clear: unsafe extern "C" fn(),
     rebuild: unsafe extern "C" fn(),
@@ -1047,13 +1038,11 @@ struct SelectionVisuals {
 
 /// The functions a right click calls for its feedback: placing the order confirmation marker, and
 /// making the clicked target's selection circle blink.
-#[cfg(debug_assertions)]
 struct ClickFeedback {
     show_cursor_marker_at: VirtualAddress,
     set_selection_flash_timer: VirtualAddress,
 }
 
-#[cfg(debug_assertions)]
 impl ClickFeedback {
     fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<ClickFeedback> {
         let show = analysis.show_cursor_marker_at();
@@ -1073,7 +1062,6 @@ impl ClickFeedback {
     }
 }
 
-#[cfg(debug_assertions)]
 impl SelectionVisuals {
     fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<SelectionVisuals> {
         let clear = analysis.clear_transient_sprite_state_for_save();
@@ -1580,10 +1568,7 @@ impl BwScr {
         let trigger_execution_timer = analysis
             .trigger_execution_timer()
             .ok_or("trigger_execution_timer")?;
-        #[cfg(debug_assertions)]
-        let next_game_step_tick = analysis
-            .next_game_step_tick()
-            .ok_or("next_game_step_tick")?;
+        let next_game_step_tick = analysis.next_game_step_tick();
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let local_visions = analysis.local_visions().ok_or("local_visions")?;
@@ -1776,22 +1761,17 @@ impl BwScr {
         let engine_alloc = analysis.engine_alloc().ok_or("engine_alloc")?;
         #[cfg(debug_assertions)]
         let engine_free = analysis.engine_free().ok_or("engine_free")?;
-        #[cfg(debug_assertions)]
+        // Everything from here to the snapshot ranges is only needed by a game that rolls back,
+        // so none of it failing to resolve is fatal: this DLL just can't roll back (see
+        // `rollback_missing_analysis`). Whether a game rolls back is only known once its session
+        // is set up, long after analysis, so these are always resolved.
         let observer_ui_callbacks = ObserverUiCallbacks::analyze(&mut analysis);
-        #[cfg(debug_assertions)]
         let selection_visuals = SelectionVisuals::analyze(&mut analysis);
-        #[cfg(debug_assertions)]
         let click_feedback = ClickFeedback::analyze(&mut analysis);
-        #[cfg(debug_assertions)]
         let mission_dialog_openers = analysis
             .open_defeat_mission_dialog()
             .zip(analysis.open_victory_mission_dialog());
-        #[cfg(debug_assertions)]
         let show_game_message = analysis.show_game_message();
-        // Analysis failures here are not fatal: the harness reports whatever it could not resolve
-        // as missing from its snapshot and runs with the rest. Whether a game rolls back is only
-        // known once its session is set up, long after analysis, so these are always resolved.
-        #[cfg(debug_assertions)]
         let rollback_ranges = crate::rollback::ranges::analyze_ranges(&mut analysis, ctx);
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
@@ -1870,8 +1850,7 @@ impl BwScr {
             replay_data: Value::new(ctx, replay_data),
             replay_header: Value::new(ctx, replay_header),
             trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
-            #[cfg(debug_assertions)]
-            next_game_step_tick: Value::new(ctx, next_game_step_tick),
+            next_game_step_tick: next_game_step_tick.map(|x| Value::new(ctx, x)),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             local_visions: Value::new(ctx, local_visions),
@@ -2005,17 +1984,11 @@ impl BwScr {
             engine_alloc,
             #[cfg(debug_assertions)]
             engine_free,
-            #[cfg(debug_assertions)]
             observer_ui_callbacks,
-            #[cfg(debug_assertions)]
             selection_visuals,
-            #[cfg(debug_assertions)]
             click_feedback,
-            #[cfg(debug_assertions)]
             mission_dialog_openers,
-            #[cfg(debug_assertions)]
             show_game_message,
-            #[cfg(debug_assertions)]
             rollback_ranges,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
@@ -2497,7 +2470,6 @@ impl BwScr {
                     // frames of other players' turns it simulates past. The delay counts the turns
                     // beyond the one every command waits for anyway (a command issued on one frame
                     // runs on the next, as in single player), so a player with no added delay sees 0.
-                    #[cfg(debug_assertions)]
                     let value = match v2_turns {
                         Some(pipe)
                             if netcode_v2::with_turn_state(|s| s.predicts_inputs())
@@ -2766,15 +2738,15 @@ impl BwScr {
                 address,
             );
 
-            #[cfg(debug_assertions)]
             {
                 let address = self.play_sound as usize - base;
                 exe.hook_closure_address(
                     PlaySound,
                     |id, volume, unk, x, y, orig| {
+                        #[cfg(debug_assertions)]
                         crate::rollback_probe::note_play_sound();
-                        // While the rollback harness is re-simulating, it decides which requests
-                        // are new once the whole tick has run, and plays those itself.
+                        // During a rollback tick the engine decides which requests are new once
+                        // the whole tick has run, and plays those itself.
                         if let Some(ret) =
                             crate::rollback::sounds::intercept_play_sound(id, volume, unk, x, y)
                         {
@@ -2784,7 +2756,10 @@ impl BwScr {
                     },
                     address,
                 );
+            }
 
+            #[cfg(debug_assertions)]
+            {
                 let address = self.engine_alloc.0 as usize - base;
                 exe.hook_closure_address(
                     EngineAlloc,
@@ -2805,7 +2780,9 @@ impl BwScr {
                     },
                     address,
                 );
+            }
 
+            {
                 // Like the text the print_text hook handles, but without a player to attribute it
                 // to: a player leaving or being eliminated, the game pausing.
                 if let Some(address) = self.show_game_message {
@@ -2987,7 +2964,6 @@ impl BwScr {
                         return;
                     }
                     // A frame the rollback engine re-simulates prints its lines again each time.
-                    #[cfg(debug_assertions)]
                     {
                         use crate::rollback::announcements::{Kind, key, should_announce};
                         let bytes = CStr::from_ptr(text).to_bytes();
@@ -3886,7 +3862,6 @@ impl BwScr {
     unsafe fn run_predicted_leave_pass(&self, nc: &NetcodeV2Bw) {
         unsafe {
             let leaving = self.run_synced_leave_pass(nc);
-            #[cfg(debug_assertions)]
             if !leaving.is_empty() {
                 crate::rollback::mark_irreversible_step();
             }
@@ -5554,7 +5529,6 @@ impl BwScr {
     fn reset_state_for_game_init(&self) {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
-        #[cfg(debug_assertions)]
         crate::rollback_live::reset_for_game_init();
         self.detection_status_copy.lock().clear();
         self.first_game_logic_frame_done
@@ -6243,19 +6217,36 @@ pub enum BwCursorType {
     ScrollUpLeft = 18,
 }
 
-/// Accessors the rollback probe needs into BW state. Kept apart from the rest of `BwScr` because
-/// they exist solely for debug instrumentation and are compiled out of release DLLs along with it.
-#[cfg(debug_assertions)]
+/// Accessors the rollback engine needs into BW state.
 impl BwScr {
-    /// The vtable shared by the game allocator instances, so instrumentation can swap slots in it.
-    pub(crate) unsafe fn probe_allocator_vtable(&self) -> *mut scr::AllocatorVtable {
-        unsafe {
-            let allocator = self.allocator.resolve();
-            if allocator.is_null() {
-                return null_mut();
-            }
-            (*allocator).vtable
+    /// The first analysis result a game that rolls back needs and this build of the game didn't
+    /// yield, or `None` when there is none and this DLL can roll back.
+    pub(crate) fn rollback_missing_analysis(&self) -> Option<&'static str> {
+        if self.next_game_step_tick.is_none() {
+            return Some("next_game_step_tick");
         }
+        if self.observer_ui_callbacks.is_none() {
+            return Some("observer UI callbacks");
+        }
+        if self.selection_visuals.is_none() {
+            return Some("selection visuals");
+        }
+        if self.click_feedback.is_none() {
+            return Some("click feedback");
+        }
+        if self.mission_dialog_openers.is_none() {
+            return Some("mission dialog openers");
+        }
+        if self.show_game_message.is_none() {
+            return Some("show_game_message");
+        }
+        if self.rollback_ranges.is_empty() {
+            return Some("snapshot ranges");
+        }
+        self.rollback_ranges
+            .iter()
+            .find(|x| x.operand().is_none())
+            .map(|x| x.name())
     }
 
     /// The analysis results the rollback engine turns into snapshot ranges.
@@ -6281,32 +6272,16 @@ impl BwScr {
         unsafe { self.pathing.resolve() }
     }
 
-    /// The tick the game loop schedules its next logic step for.
-    pub(crate) unsafe fn probe_next_game_step_tick(&self) -> u32 {
-        unsafe { self.next_game_step_tick.resolve() }
+    /// The tick the game loop schedules its next logic step for, or 0 if analysis didn't find it.
+    pub(crate) unsafe fn rollback_next_game_step_tick(&self) -> u32 {
+        unsafe { self.next_game_step_tick.as_ref().map_or(0, |x| x.resolve()) }
     }
 
-    pub(crate) unsafe fn probe_set_next_game_step_tick(&self, value: u32) {
-        unsafe { self.next_game_step_tick.write(value) }
-    }
-
-    /// Whether the observer UI's notifications from the simulation are hooked, which re-simulating
-    /// frames during replay playback depends on.
-    pub(crate) fn rollback_observer_ui_hooked(&self) -> bool {
-        self.observer_ui_callbacks.is_some()
-    }
-
-    /// The executable's base address, and the address and size of its data section including the
-    /// zero-initialized part: the static memory the game's globals live in.
-    pub(crate) fn rollback_exe_data_section(&self) -> Option<(usize, usize, usize)> {
+    pub(crate) unsafe fn rollback_set_next_game_step_tick(&self, value: u32) {
         unsafe {
-            let base = GetModuleHandleW(null()) as *const u8;
-            let data = pe_image::get_section(base, b".data\0\0\0")?;
-            Some((
-                base as usize,
-                data.virtual_address.0 as usize,
-                data.virtual_size as usize,
-            ))
+            if let Some(tick) = &self.next_game_step_tick {
+                tick.write(value);
+            }
         }
     }
 
@@ -6345,6 +6320,129 @@ impl BwScr {
         unsafe {
             (!self.game().is_null())
                 .then(|| self.netcode_v2.game_frame_count.resolve().saturating_sub(1))
+        }
+    }
+
+    /// Opens the victory or defeat dialog the way the trigger step does, for a frame that asked for
+    /// it during a rollback tick and has since been confirmed.
+    pub(crate) unsafe fn rollback_open_mission_dialog(
+        &self,
+        dialog: crate::rollback::game_end::MissionDialog,
+    ) {
+        use crate::rollback::game_end::MissionDialog;
+        unsafe {
+            let Some((defeat, victory)) = self.mission_dialog_openers else {
+                return;
+            };
+            let opener = match dialog {
+                MissionDialog::Defeat => defeat,
+                MissionDialog::Victory => victory,
+            };
+            let open = mem::transmute::<usize, unsafe extern "C" fn()>(opener.0 as usize);
+            open();
+        }
+    }
+
+    /// Takes the selection circles and health bars off every sprite.
+    pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
+        unsafe {
+            if let Some(visuals) = &self.selection_visuals {
+                (visuals.clear)();
+            }
+        }
+    }
+
+    /// Puts the selection circles and health bars back on the units the person watching has
+    /// selected.
+    pub(crate) unsafe fn rollback_rebuild_selection_visuals(&self) {
+        unsafe {
+            if let Some(visuals) = &self.selection_visuals {
+                (visuals.rebuild)();
+            }
+        }
+    }
+
+    /// The frame the simulation is on, or `None` when no game is loaded.
+    pub(crate) unsafe fn rollback_frame_count(&self) -> Option<u32> {
+        unsafe {
+            let game = self.game();
+            (!game.is_null()).then(|| (*game).frame_count)
+        }
+    }
+
+    /// Asks BW to play a sound effect at a map position, or unpositioned when `position` is
+    /// `None`, through the same entry point the simulation's own sound requests take.
+    pub(crate) unsafe fn rollback_play_sound(
+        &self,
+        sound_id: u32,
+        volume: f32,
+        position: Option<(i32, i32)>,
+    ) -> u32 {
+        unsafe {
+            let mut coords = position.unwrap_or_default();
+            let (x, y) = match position {
+                Some(_) => (&raw mut coords.0, &raw mut coords.1),
+                None => (std::ptr::null_mut(), std::ptr::null_mut()),
+            };
+            (self.play_sound)(sound_id, volume, std::ptr::null_mut(), x, y)
+        }
+    }
+
+    /// The [`state_hash`](crate::rollback::state_hash::state_hash) of the current frame, or `None`
+    /// when no game is loaded.
+    pub(crate) unsafe fn rollback_state_hash(&self) -> Option<u64> {
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return None;
+            }
+            Some(crate::rollback::state_hash::state_hash(
+                self,
+                game,
+                &self.rng_words(),
+            ))
+        }
+    }
+
+    /// The words around the RNG seed operand: the seed plus the advancing draw state.
+    unsafe fn rng_words(&self) -> [u32; 6] {
+        unsafe {
+            let seed_ptr = self.rng_seed.resolve_as_ptr();
+            let mut rng = [0u32; 6];
+            for (i, out) in rng.iter_mut().enumerate() {
+                *out = seed_ptr.add(i).read_unaligned();
+            }
+            rng
+        }
+    }
+}
+
+/// Accessors only the debug instrumentation (the rollback probe, the replay harness and the live
+/// monkey) needs into BW state, compiled out of release DLLs along with it.
+#[cfg(debug_assertions)]
+impl BwScr {
+    /// The vtable shared by the game allocator instances, so instrumentation can swap slots in it.
+    pub(crate) unsafe fn probe_allocator_vtable(&self) -> *mut scr::AllocatorVtable {
+        unsafe {
+            let allocator = self.allocator.resolve();
+            if allocator.is_null() {
+                return null_mut();
+            }
+            (*allocator).vtable
+        }
+    }
+
+    /// The executable's base address, and the address and size of its data section including the
+    /// zero-initialized part: the static memory the game's globals live in.
+    pub(crate) fn rollback_exe_data_section(&self) -> Option<(usize, usize, usize)> {
+        unsafe {
+            let base = GetModuleHandleW(null()) as *const u8;
+            let data = pe_image::get_section(base, b".data\0\0\0")?;
+            Some((
+                base as usize,
+                data.virtual_address.0 as usize,
+                data.virtual_size as usize,
+            ))
         }
     }
 
@@ -6401,71 +6499,6 @@ impl BwScr {
         }
     }
 
-    /// Opens the victory or defeat dialog the way the trigger step does, for a frame that asked for
-    /// it during a rollback tick and has since been confirmed.
-    pub(crate) unsafe fn rollback_open_mission_dialog(
-        &self,
-        dialog: crate::rollback::game_end::MissionDialog,
-    ) {
-        use crate::rollback::game_end::MissionDialog;
-        unsafe {
-            let Some((defeat, victory)) = self.mission_dialog_openers else {
-                return;
-            };
-            let opener = match dialog {
-                MissionDialog::Defeat => defeat,
-                MissionDialog::Victory => victory,
-            };
-            let open = mem::transmute::<usize, unsafe extern "C" fn()>(opener.0 as usize);
-            open();
-        }
-    }
-
-    /// Takes the selection circles and health bars off every sprite.
-    pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
-        unsafe {
-            if let Some(visuals) = &self.selection_visuals {
-                (visuals.clear)();
-            }
-        }
-    }
-
-    /// Puts the selection circles and health bars back on the units the person watching has
-    /// selected.
-    pub(crate) unsafe fn rollback_rebuild_selection_visuals(&self) {
-        unsafe {
-            if let Some(visuals) = &self.selection_visuals {
-                (visuals.rebuild)();
-            }
-        }
-    }
-
-    /// The frame the simulation is on, or `None` when no game is loaded.
-    pub(crate) unsafe fn probe_frame_count(&self) -> Option<u32> {
-        unsafe {
-            let game = self.game();
-            (!game.is_null()).then(|| (*game).frame_count)
-        }
-    }
-
-    /// Asks BW to play a sound effect at a map position, or unpositioned when `position` is
-    /// `None`, through the same entry point the simulation's own sound requests take.
-    pub(crate) unsafe fn probe_play_sound(
-        &self,
-        sound_id: u32,
-        volume: f32,
-        position: Option<(i32, i32)>,
-    ) -> u32 {
-        unsafe {
-            let mut coords = position.unwrap_or_default();
-            let (x, y) = match position {
-                Some(_) => (&raw mut coords.0, &raw mut coords.1),
-                None => (std::ptr::null_mut(), std::ptr::null_mut()),
-            };
-            (self.play_sound)(sound_id, volume, std::ptr::null_mut(), x, y)
-        }
-    }
-
     /// Reads the synced-state fingerprint of the current frame, or `None` when no game is loaded.
     ///
     /// Same fields the low-rate sync probe logs: the words around the RNG seed operand (the seed
@@ -6478,11 +6511,7 @@ impl BwScr {
             if game.is_null() {
                 return None;
             }
-            let seed_ptr = self.rng_seed.resolve_as_ptr();
-            let mut rng = [0u32; 6];
-            for (i, out) in rng.iter_mut().enumerate() {
-                *out = seed_ptr.add(i).read_unaligned();
-            }
+            let rng = self.rng_words();
             let all_minerals = (*game).minerals;
             let all_gas = (*game).gas;
             let mut minerals = [0u32; 4];
@@ -6497,7 +6526,7 @@ impl BwScr {
                 trigger_timer: self.trigger_execution_timer.resolve(),
                 elapsed_seconds: (*game).elapsed_seconds,
                 player_types: std::array::from_fn(|i| (*self.players().add(i)).player_type),
-                state_hash: crate::rollback_probe::state_hash(self, game, &rng),
+                state_hash: crate::rollback::state_hash::state_hash(self, game, &rng),
             })
         }
     }
@@ -7962,18 +7991,23 @@ mod hooks {
 
     // Instrumentation-only hooks, all cdecl.
     //
-    // PlaySound counts how many sounds a simulation step asks for; its signature matches the
-    // `play_sound` function pointer BwScr calls directly: (sound id, volume, unknown, x, y).
-    //
     // EngineAlloc / EngineFree are the engine's second allocation path over the OS heap, counted
     // per simulation step alongside the allocator vtable object's own traffic. Both take (size or
     // pointer, allocation tag pointer, tag, flags); the free's boolean result comes back in the
     // low byte of the return register, so the whole register value is passed through.
     #[cfg(debug_assertions)]
     whack_hooks!(0, // cdecl
-        !0 => PlaySound(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32;
         !0 => EngineAlloc(usize, usize, u32, u32) -> *mut u8;
         !0 => EngineFree(*mut u8, usize, u32, u32) -> u32;
+    );
+
+    // Hooks the rollback engine keeps once-per-frame effects in step with its re-simulation
+    // through, all cdecl.
+    //
+    // PlaySound's signature matches the `play_sound` function pointer BwScr calls directly:
+    // (sound id, volume, unknown, x, y).
+    whack_hooks!(0, // cdecl
+        !0 => PlaySound(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32;
         !0 => ShowGameMessage(*const u8, u32);
         // Place the order confirmation marker at a map position.
         !0 => ShowCursorMarkerAt(i32, i32);
@@ -7986,7 +8020,6 @@ mod hooks {
     // take the unit concerned. The trailing flag of the first is whether to track a unit that is
     // already complete, and of the last whether the research or upgrade completed rather than
     // being cancelled; both are C bools passed in a full argument slot.
-    #[cfg(debug_assertions)]
     thiscall_hooks!(
         !0 => ObserverUiTrackBuildingUnit(*mut c_void, *mut bw::Unit, u32);
         !0 => ObserverUiTrackResearchOrUpgrade(*mut c_void, *mut bw::Unit);
@@ -8207,8 +8240,7 @@ unsafe fn step_game_logic_hook(
 }
 
 /// The frame the step in progress produces during a rollback tick, and whether it re-simulates a
-/// frame the game has already shown, or `None` outside a rollback tick (always, in release builds).
-#[cfg(debug_assertions)]
+/// frame the game has already shown, or `None` outside a rollback tick.
 fn rollback_step() -> Option<(u32, bool)> {
     crate::rollback::tick_running().then(|| {
         (
@@ -8216,11 +8248,6 @@ fn rollback_step() -> Option<(u32, bool)> {
             crate::rollback::in_resimulation(),
         )
     })
-}
-
-#[cfg(not(debug_assertions))]
-fn rollback_step() -> Option<(u32, bool)> {
-    None
 }
 
 /// Whether the step in progress re-simulates a frame the game has already shown, so what it does
@@ -8232,14 +8259,8 @@ fn rollback_resimulating() -> bool {
 /// Whether this client has native sync (0x37) turned off: it neither sends sync commands nor
 /// verifies peers' ones. Native sync hashes state that a rollback re-simulation does not
 /// reproduce, so a client that rolls back would otherwise report its peers as desynced.
-#[cfg(debug_assertions)]
 fn native_sync_disabled() -> bool {
     crate::rollback_live::native_sync_off()
-}
-
-#[cfg(not(debug_assertions))]
-fn native_sync_disabled() -> bool {
-    false
 }
 
 /// Whether the step in progress re-simulates a frame of a live netcode v2 game, whose turns
@@ -8257,17 +8278,14 @@ unsafe fn step_one_game_logic_step(
     param: usize,
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
-    #[cfg(debug_assertions)]
-    {
+    unsafe {
         match crate::rollback_live::run_game_logic_step(bw, param, orig) {
             Some(ret) => ret,
+            #[cfg(debug_assertions)]
             None => crate::rollback_harness::run_game_logic_step(bw, param, orig),
+            #[cfg(not(debug_assertions))]
+            None => orig(param),
         }
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        let _ = bw;
-        unsafe { orig(param) }
     }
 }
 

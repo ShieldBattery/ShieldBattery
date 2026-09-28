@@ -58,6 +58,7 @@ pub(crate) struct SoundCounts {
     /// Frames the late requests were played behind the frame they were made on, summed.
     pub(crate) late_frames: u32,
     /// Sounds an earlier tick played for a re-simulated frame that no longer asks for them.
+    #[cfg(debug_assertions)]
     pub(crate) stale: u32,
 }
 
@@ -129,6 +130,7 @@ pub(crate) unsafe fn reconcile_sounds(
         // Every frame these were played for was simulated again by this tick, so what is left over
         // was only ever part of a prediction.
         let mut counts = SoundCounts {
+            #[cfg(debug_assertions)]
             stale: presented.len() as u32,
             ..SoundCounts::default()
         };
@@ -148,7 +150,7 @@ pub(crate) unsafe fn reconcile_sounds(
                     counts.late_frames += lateness;
                 }
             }
-            bw.probe_play_sound(request.sound_id, request.volume, request.position);
+            bw.rollback_play_sound(request.sound_id, request.volume, request.position);
         }
         counts
     }
@@ -156,12 +158,14 @@ pub(crate) unsafe fn reconcile_sounds(
 
 /// Forgets which sounds have already been played for frames a snapshot no longer holds, so a
 /// fresh run of ticks does not treat anything as already presented.
+#[cfg(debug_assertions)]
 pub(crate) fn forget_presented() {
     SOUND_LEDGER.lock().presented.clear();
 }
 
 /// Forgets which sounds the tick in progress requested, for a tick that ends without a fingerprint
 /// to reconcile them against.
+#[cfg(debug_assertions)]
 pub(crate) fn forget_requested() {
     SOUND_LEDGER.lock().requested.clear();
 }

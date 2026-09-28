@@ -161,6 +161,7 @@ unsafe fn set_memory_protection(
 
 /// Describes the page containing `addr` (state, protection, type) for diagnostics, or the error
 /// `VirtualQuery` returned.
+#[cfg(debug_assertions)]
 pub unsafe fn describe_page(addr: *const c_void) -> String {
     use winapi::um::memoryapi::VirtualQuery;
     use winapi::um::winnt::MEMORY_BASIC_INFORMATION;

@@ -348,6 +348,7 @@ impl Snapshots {
                 }
             }
 
+            #[cfg(debug_assertions)]
             ranges::add_extra_ranges_from_env(bw, &mut list);
 
             let RangeList { ranges, omitted } = list;
@@ -497,6 +498,7 @@ impl Snapshots {
 
     /// The ranges a snapshot copies, for code that inspects live memory alongside it (an audit, a
     /// dump).
+    #[cfg(debug_assertions)]
     pub(crate) fn ranges(&self) -> &[Range] {
         &self.ranges
     }

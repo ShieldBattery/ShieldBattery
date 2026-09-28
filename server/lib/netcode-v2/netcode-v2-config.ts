@@ -11,7 +11,7 @@ export interface NetcodeV2Config {
    * turns it hasn't received and the relays compare state hash reports instead of native sync
    * checksums. Set for the whole server, never per player: no player (or modified client) may opt
    * out. Games whose simulation can't be rolled back (UMS games on EUD maps) run lockstep
-   * regardless. The game DLL only supports rollback in debug builds for now.
+   * regardless.
    */
   rollback: boolean
 }

@@ -49,10 +49,8 @@ const ENV_VAR: &str = "SB_ROLLBACK_HARNESS";
 /// Environment variable holding the spacing of the snapshots in frames: with
 /// `SB_ROLLBACK_SNAPSHOT_SPACING=3` every third frame is snapshotted, and a rollback re-simulates
 /// from the newest snapshot at or before the frame it needs. Defaults to
-/// [`DEFAULT_SNAPSHOT_SPACING`].
+/// [`tick::DEFAULT_SNAPSHOT_SPACING`].
 const SPACING_ENV_VAR: &str = "SB_ROLLBACK_SNAPSHOT_SPACING";
-
-pub(crate) const DEFAULT_SNAPSHOT_SPACING: u32 = 3;
 
 /// The snapshot spacing [`SPACING_ENV_VAR`] asks for, if it is set to a valid one.
 pub(crate) fn snapshot_spacing_from_env() -> Option<u32> {
@@ -102,7 +100,7 @@ static ARMED: AtomicBool = AtomicBool::new(false);
 static FORCED_DEPTH: AtomicU32 = AtomicU32::new(0);
 
 /// Frames between snapshots.
-static SNAPSHOT_SPACING: AtomicU32 = AtomicU32::new(DEFAULT_SNAPSHOT_SPACING);
+static SNAPSHOT_SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 
 /// A delayed player's command that a step read before it was known, and so left unapplied.
 struct LateCommand {
@@ -266,7 +264,7 @@ unsafe fn compare_displayed_units(bw: &BwScr) {
         let Some(displayed) = displayed.as_ref() else {
             return;
         };
-        if bw.probe_frame_count() != Some(displayed.frame) {
+        if bw.rollback_frame_count() != Some(displayed.frame) {
             return;
         }
         let now = capture_units(bw);
@@ -465,7 +463,7 @@ unsafe fn dump_if_due(bw: &BwScr) {
         if !DUMP_ARMED.load(Ordering::Relaxed) {
             return;
         }
-        let Some(target) = bw.probe_frame_count() else {
+        let Some(target) = bw.rollback_frame_count() else {
             return;
         };
         {
@@ -518,7 +516,7 @@ fn audit_armed() -> bool {
 unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
     unsafe {
         let target = AUDIT_FRAME.load(Ordering::Relaxed);
-        if bw.probe_frame_count().map(|x| x + 1) != Some(target) {
+        if bw.rollback_frame_count().map(|x| x + 1) != Some(target) {
             return;
         }
         let Some((exe_base, data, data_len)) = bw.rollback_exe_data_section() else {
@@ -576,7 +574,7 @@ unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
 unsafe fn audit_after_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
     unsafe {
         let target = AUDIT_FRAME.load(Ordering::Relaxed);
-        if bw.probe_frame_count() != Some(target) {
+        if bw.rollback_frame_count() != Some(target) {
             return;
         }
         let mut current = Vec::new();
@@ -885,11 +883,9 @@ pub unsafe fn run_game_logic_step(
             info!("{ENV_VAR} only runs during replay playback; leaving the simulation alone");
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         }
-        if !bw.rollback_observer_ui_hooked() {
-            // Re-simulated frames would repeat the observer UI's notifications, and it
-            // dereferences records a repeated notification has already consumed.
+        if let Some(missing) = bw.rollback_missing_analysis() {
             ARMED.store(false, Ordering::Release);
-            error!("{ENV_VAR} needs the observer UI hooks, which analysis could not resolve");
+            error!("{ENV_VAR} can't roll back: analysis did not find {missing}");
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         }
         run_tick(bw, param, orig)
@@ -908,7 +904,7 @@ unsafe fn run_tick(
         if guard.is_none() {
             *guard = Snapshots::build(bw);
         }
-        let (Some(snapshots), Some(current)) = (guard.as_mut(), bw.probe_frame_count()) else {
+        let (Some(snapshots), Some(current)) = (guard.as_mut(), bw.rollback_frame_count()) else {
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         };
 
@@ -961,7 +957,7 @@ unsafe fn run_tick(
         drop(guard);
         LAST_CONFIRMED.store(confirmed, Ordering::Relaxed);
 
-        if let Some(frame) = bw.probe_frame_count() {
+        if let Some(frame) = bw.rollback_frame_count() {
             *DISPLAYED_UNITS.lock() = Some(DisplayedFrame {
                 frame,
                 units: capture_units(bw),

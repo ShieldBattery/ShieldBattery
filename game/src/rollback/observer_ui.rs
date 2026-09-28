@@ -65,8 +65,11 @@ static OBSERVER_RESEARCH_KEYS: Mutex<Vec<(usize, u32)>> = Mutex::new(Vec::new())
 
 /// Notes the key the observer UI has just stored for `unit`'s research or upgrade, the newest of
 /// its owner's records. Called from the observer UI hook after a start notification has gone
-/// through.
+/// through. Only steps a rollback tick runs are tracked; see [`observer_research_finishing`].
 pub(crate) unsafe fn observer_research_started(ui: usize, unit: usize) {
+    if !super::tick_running() {
+        return;
+    }
     unsafe {
         let Some(&(key, _)) = observer_upgrade_records(ui, unit).last() else {
             return;
@@ -82,7 +85,13 @@ pub(crate) unsafe fn observer_research_started(ui: usize, unit: usize) {
 /// checking it was found. It retires a record on its own once the frames it shows have the unit
 /// gone, and those frames run ahead of the confirmed ones the notifications come from. Called from
 /// the observer UI hook for a finish notification it lets through.
+///
+/// A step outside a rollback tick is always let through: every step of a game that rolls back runs
+/// in a tick, and a game that doesn't shows the frames its notifications come from.
 pub(crate) unsafe fn observer_research_finishing(ui: usize, unit: usize) -> bool {
+    if !super::tick_running() {
+        return true;
+    }
     unsafe {
         let key = {
             let mut keys = OBSERVER_RESEARCH_KEYS.lock();
@@ -96,7 +105,7 @@ pub(crate) unsafe fn observer_research_finishing(ui: usize, unit: usize) -> bool
                 .any(|&(id, state)| id == key && state == 0)
         });
         if !open {
-            let frame = crate::bw::get_bw().probe_frame_count().unwrap_or(0);
+            let frame = crate::bw::get_bw().rollback_frame_count().unwrap_or(0);
             debug!(
                 "Observer UI no longer holds unit {unit:x}'s research record on frame {frame}; \
                  not telling it the research finished"

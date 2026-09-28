@@ -254,7 +254,14 @@ Since then, and still open:
   game" with a Leave button, which ends the game the way the menu's End Game does.
 - The pipe is capped at `GAME_SYNC_SAFE_BUFFER_MAX` (14) turns, lockstep's ceiling, however far
   behind the schedule the lead goes, so rollback never costs more input delay than lockstep could.
-- The rollback engine is compiled out of release DLLs, so rollback sessions need debug DLLs.
+- Release DLLs run rollback sessions. They carry the engine, the live driver and the hooks with
+  the defaults (prediction limit 8, target 3, a snapshot every 3 frames), and none of the debug
+  knobs, the replay harness, the probe or the monkey. Every analysis only rollback needs is
+  optional, and a DLL missing any of them refuses rollback sessions rather than failing to start.
+  Verified on staging relays with a Korea client against a US West one, in both pairings of a
+  release DLL on one architecture against a debug DLL on the other: steady rollbacks on the
+  release side and no hash verdicts.
+- UMS games on EUD maps run lockstep: EUD triggers can write memory the snapshot doesn't cover.
 
 **After slice 5: the relay's lead report.** The relay keeps the session clock (step F due at
 `start + F × 42 ms`), measures how early or late each player's turns reach it against that, and

@@ -354,7 +354,6 @@ pub struct GameThreadResults {
 /// game's current ones, except in a game that rolls back, which has simulated past its newest
 /// confirmed frame on predictions and reports that frame's instead.
 unsafe fn reported_outcome(game: *mut bw::Game) -> ([u8; 8], [[u8; 12]; 12], [u8; 8]) {
-    #[cfg(debug_assertions)]
     if let Some(x) = crate::rollback::game_end::confirmed_outcome() {
         return (x.victory_state, x.alliances, x.player_was_dropped);
     }
@@ -792,7 +791,6 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
                     bw.process_replay_commands(command, storm_player);
                     // A player's departure changes game state the rollback snapshot does not
                     // hold, and applying it a second time corrupts it.
-                    #[cfg(debug_assertions)]
                     if command.first() == Some(&crate::bw::commands::id::LEAVE_GAME) {
                         crate::rollback::mark_irreversible_step();
                     }
