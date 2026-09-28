@@ -257,17 +257,14 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Настройки канала",
-        "copyInviteLink": "Скопировать ссылку-приглашение",
         "hideBanner": "Скрыть баннер",
+        "invitePeople": "Пригласить",
         "leaveChannel": "Покинуть канал",
         "openAdminView": "Открыть вид администратора"
       },
       "errors": {
-        "copyInviteLink": "Не удалось скопировать ссылку-приглашение",
-        "createInviteLink": "Не удалось получить ссылку-приглашение",
         "toggleBannerVisibility": "Что-то пошло не так с переключением видимости баннера"
       },
-      "inviteLinkCopied": "Ссылка-приглашение скопирована в буфер обмена",
       "moreActions": "Больше действий"
     },
     "channelInfo": {
@@ -334,6 +331,15 @@
         "uploadBadge": "Загрузить значок",
         "uploadBanner": "Загрузить баннер"
       },
+      "inviteLinks": {
+        "loadError": "Не удалось загрузить ссылки-приглашения.",
+        "noLinks": "У этого канала нет действующих ссылок-приглашений",
+        "noSearchResults": "Подходящие пользователи не создавали ссылок-приглашений",
+        "revoke": "Отозвать",
+        "revoked": "Ссылка-приглашение отозвана",
+        "revokeError": "Не удалось отозвать ссылку-приглашение",
+        "title": "Ссылки-приглашения"
+      },
       "permissions": {
         "ban": "Может банить пользователей",
         "banShort": "Забанить",
@@ -353,6 +359,7 @@
       "tabs": {
         "bannedUsers": "Забаненные",
         "general": "Общие",
+        "inviteLinks": "Ссылки-приглашения",
         "permissions": "Права"
       },
       "users": {
@@ -612,6 +619,59 @@
       "open": "Открыть",
       "title": "Приватный канал",
       "view": "Открыть канал"
+    },
+    "inviteLinkDialog": {
+      "copied": "Ссылка-приглашение скопирована в буфер обмена",
+      "copy": "Копировать",
+      "copyError": "Не удалось скопировать ссылку-приглашение",
+      "description": "Любой, у кого есть эта ссылка, может войти в #{{channelName}}.",
+      "descriptionNoName": "Любой, у кого есть эта ссылка, может войти в канал.",
+      "editSettings": "Настройки ссылки",
+      "expiryLabel": "Срок действия",
+      "generate": "Создать новую ссылку",
+      "generateError": "Не удалось создать новую ссылку-приглашение",
+      "loadError": "Не удалось получить ссылку-приглашение. Вы можете создать новую ниже.",
+      "loading": "Получаем ссылку…",
+      "maxUsesLabel": "Лимит использований",
+      "noLink": "Ссылка недоступна",
+      "title": "Ссылка-приглашение"
+    },
+    "inviteLinks": {
+      "created": "Создана {{timeAgo}}",
+      "expired": "Истекла",
+      "expiresIn": "Истекает {{timeLeft}}",
+      "expiryDays_one": "{{count}} день",
+      "expiryDays_few": "{{count}} дня",
+      "expiryDays_many": "{{count}} дней",
+      "expiryDays_other": "{{count}} дня",
+      "expiryHours_one": "{{count}} час",
+      "expiryHours_few": "{{count}} часа",
+      "expiryHours_many": "{{count}} часов",
+      "expiryHours_other": "{{count}} часа",
+      "expiryMinutes_one": "{{count}} минута",
+      "expiryMinutes_few": "{{count}} минуты",
+      "expiryMinutes_many": "{{count}} минут",
+      "expiryMinutes_other": "{{count}} минуты",
+      "expiryNever": "Бессрочно",
+      "maxUsesCount_one": "{{count}} использование",
+      "maxUsesCount_few": "{{count}} использования",
+      "maxUsesCount_many": "{{count}} использований",
+      "maxUsesCount_other": "{{count}} использования",
+      "maxUsesUnlimited": "Без ограничений",
+      "neverExpires": "Бессрочная",
+      "noUseLimit": "Без лимита использований",
+      "useLimit_one": "Не более {{count}} использования",
+      "useLimit_few": "Не более {{count}} использований",
+      "useLimit_many": "Не более {{count}} использований",
+      "useLimit_other": "Не более {{count}} использований",
+      "uses_one": "{{count}} использование",
+      "uses_few": "{{count}} использования",
+      "uses_many": "{{count}} использований",
+      "uses_other": "{{count}} использования",
+      "usesOfMax_one": "Использовано: {{count}} из {{maxUses}}",
+      "usesOfMax_few": "Использовано: {{count}} из {{maxUses}}",
+      "usesOfMax_many": "Использовано: {{count}} из {{maxUses}}",
+      "usesOfMax_other": "Использовано: {{count}} из {{maxUses}}"
     },
     "invitePage": {
       "title": "Вас пригласили в приватный канал"

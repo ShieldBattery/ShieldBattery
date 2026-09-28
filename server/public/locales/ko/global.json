@@ -254,17 +254,14 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "채널 설정",
-        "copyInviteLink": "초대 링크 복사",
         "hideBanner": "배너 숨기기",
+        "invitePeople": "초대하기",
         "leaveChannel": "채널 나가기",
         "openAdminView": "관리자 보기 열기"
       },
       "errors": {
-        "copyInviteLink": "초대 링크를 복사하는 중 문제가 발생했습니다",
-        "createInviteLink": "초대 링크를 가져오는 중 문제가 발생했습니다",
         "toggleBannerVisibility": "배너 표시를 전환하는 중 문제가 발생했습니다"
       },
-      "inviteLinkCopied": "초대 링크를 클립보드에 복사했습니다",
       "moreActions": "추가 작업"
     },
     "channelInfo": {
@@ -328,6 +325,15 @@
         "uploadBadge": "배지 업로드",
         "uploadBanner": "배너 업로드"
       },
+      "inviteLinks": {
+        "loadError": "초대 링크를 불러오지 못했습니다.",
+        "noLinks": "이 채널에는 사용 가능한 초대 링크가 없습니다",
+        "noSearchResults": "일치하는 사용자가 만든 초대 링크가 없습니다",
+        "revoke": "취소",
+        "revoked": "초대 링크를 취소했습니다",
+        "revokeError": "초대 링크를 취소하는 중 문제가 발생했습니다",
+        "title": "초대 링크"
+      },
       "permissions": {
         "ban": "사용자 차단 가능",
         "banShort": "차단",
@@ -347,6 +353,7 @@
       "tabs": {
         "bannedUsers": "차단된 사용자",
         "general": "일반",
+        "inviteLinks": "초대 링크",
         "permissions": "권한"
       },
       "users": {
@@ -597,6 +604,38 @@
       "open": "보기",
       "title": "비공개 채널",
       "view": "채널 보기"
+    },
+    "inviteLinkDialog": {
+      "copied": "초대 링크를 클립보드에 복사했습니다",
+      "copy": "복사",
+      "copyError": "초대 링크를 복사하는 중 문제가 발생했습니다",
+      "description": "이 링크가 있으면 누구나 #{{channelName}}에 참가할 수 있습니다.",
+      "descriptionNoName": "이 링크가 있으면 누구나 채널에 참가할 수 있습니다.",
+      "editSettings": "링크 설정",
+      "expiryLabel": "만료 기간",
+      "generate": "새 링크 만들기",
+      "generateError": "새 초대 링크를 만드는 중 문제가 발생했습니다",
+      "loadError": "초대 링크를 가져오는 중 문제가 발생했습니다. 아래에서 새 링크를 만들 수 있습니다.",
+      "loading": "링크를 가져오는 중…",
+      "maxUsesLabel": "최대 사용 횟수",
+      "noLink": "사용 가능한 링크가 없습니다",
+      "title": "초대 링크"
+    },
+    "inviteLinks": {
+      "created": "{{timeAgo}} 생성",
+      "expired": "만료됨",
+      "expiresIn": "{{timeLeft}} 만료",
+      "expiryDays_other": "{{count}}일",
+      "expiryHours_other": "{{count}}시간",
+      "expiryMinutes_other": "{{count}}분",
+      "expiryNever": "만료 없음",
+      "maxUsesCount_other": "{{count}}회",
+      "maxUsesUnlimited": "제한 없음",
+      "neverExpires": "만료 없음",
+      "noUseLimit": "사용 횟수 제한 없음",
+      "useLimit_other": "최대 {{count}}회 사용",
+      "uses_other": "{{count}}회 사용됨",
+      "usesOfMax_other": "{{count}} / {{maxUses}}회 사용됨"
     },
     "invitePage": {
       "title": "비공개 채널에 초대되었습니다"
