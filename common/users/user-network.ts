@@ -224,6 +224,12 @@ export interface UserRestrictionHistoryEntry {
   endTime: Date
   reason?: RestrictionReason
   adminNotes?: string
+  /** The admin who lifted this restriction early, if it was lifted by an admin. */
+  liftedBy?: SbUserId
+  /** When this restriction was lifted early. `endTime` is moved to this time on a lift. */
+  liftedAt?: Date
+  /** Admin-only note about why the restriction was lifted (never shown to the user). */
+  liftReason?: string
 }
 
 export type UserRestrictionHistoryJson = Jsonify<UserRestrictionHistoryEntry>
@@ -240,6 +246,9 @@ export function toUserRestrictionHistoryJson(
     endTime: Number(entry.endTime),
     reason: entry.reason,
     adminNotes: entry.adminNotes,
+    liftedBy: entry.liftedBy,
+    liftedAt: entry.liftedAt !== undefined ? Number(entry.liftedAt) : undefined,
+    liftReason: entry.liftReason,
   }
 }
 
@@ -258,6 +267,18 @@ export interface AdminApplyRestrictionRequest {
 
 export interface AdminApplyRestrictionResponse {
   restriction: UserRestrictionHistoryJson
+  users: SbUser[]
+}
+
+export interface AdminLiftRestrictionRequest {
+  kind: RestrictionKind
+  /** Admin-only note about why the restriction was lifted (never shown to the user). */
+  reason?: string
+}
+
+export interface AdminLiftRestrictionResponse {
+  /** The target user's restrictions that were lifted (empty if none of that kind were active). */
+  restrictions: UserRestrictionHistoryJson[]
   users: SbUser[]
 }
 

@@ -13,6 +13,8 @@ import {
   AdminGetPermissionsResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
+  AdminLiftRestrictionRequest,
+  AdminLiftRestrictionResponse,
   AdminRemoveUserAvatarResponse,
   AdminSetStaffBadgeRequest,
   AdminSetStaffBadgeResponse,
@@ -381,6 +383,28 @@ export function adminApplyRestriction(
           endTime,
           reason,
           adminNotes,
+        }),
+        signal: spec.signal,
+      },
+    )
+    dispatch({ type: '@users/loadUsers', payload: res.users })
+
+    return res
+  })
+}
+
+export function adminLiftRestriction(
+  { userId, kind, reason }: { userId: SbUserId } & AdminLiftRestrictionRequest,
+  spec: RequestHandlingSpec<AdminLiftRestrictionResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminLiftRestrictionResponse>(
+      apiUrl`admin/users/${userId}/restrictions/lift`,
+      {
+        method: 'POST',
+        body: encodeBodyAsParams<AdminLiftRestrictionRequest>({
+          kind,
+          reason,
         }),
         signal: spec.signal,
       },
