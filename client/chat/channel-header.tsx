@@ -283,8 +283,8 @@ export function ChannelHeader({
     actions.push(
       <MenuItem
         key='copy-invite-link'
-        text={t('chat.channelHeader.actionItems.copyInviteLink', 'Copy invite link')}
-        testName='channel-copy-invite-link-button'
+        text={t('chat.channelHeader.actionItems.invitePeople', 'Invite people')}
+        testName='channel-invite-people-button'
         onClick={onCopyInviteLinkClick}
       />,
     )

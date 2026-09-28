@@ -80,7 +80,7 @@ export class ChatPage extends SocialSidebar {
   /** Opens the invite link dialog from the header and waits for it to show a link. */
   async openInviteLinkDialog(): Promise<void> {
     await this.buttonHeaderActions.click()
-    await this.page.locator('[data-testid="channel-copy-invite-link-button"]').click()
+    await this.page.locator('[data-testid="channel-invite-people-button"]').click()
     await this.page
       .locator('[data-testid="channel-invite-link-dialog-url"]', { hasText: '/chat/invite/' })
       .waitFor()

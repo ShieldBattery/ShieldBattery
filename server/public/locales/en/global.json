@@ -255,8 +255,8 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Channel settings",
-        "copyInviteLink": "Copy invite link",
         "hideBanner": "Hide banner",
+        "invitePeople": "Invite people",
         "leaveChannel": "Leave channel",
         "openAdminView": "Open admin view"
       },
