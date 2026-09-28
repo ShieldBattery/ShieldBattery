@@ -2916,6 +2916,7 @@
       "away": "Away",
       "doNotDisturb": "Do not disturb",
       "doNotDisturbDescription": "Mutes message sounds and alerts",
+      "offline": "Offline",
       "online": "Online",
       "pickerLabel": "Availability"
     },

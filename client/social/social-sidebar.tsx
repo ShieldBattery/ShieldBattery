@@ -685,7 +685,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
       <Entry
         link={urlForWhisper(userId, username ?? '')}
         button={button}
-        icon={<ConnectedAvatar userId={userId} showAvailability={true} />}
+        icon={<ConnectedAvatar userId={userId} showAvailability={true} showOffline={true} />}
         trailing={<WhisperActivityGlyph userId={userId} />}
         needsAttention={hasUnread}
         urgentAttention={hasUnread}

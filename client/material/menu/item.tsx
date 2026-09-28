@@ -82,7 +82,12 @@ const ItemIcon = styled.span`
   align-items: center;
   width: 24px;
   margin-right: 12px;
-  overflow: hidden;
+  /*
+    Clips oversized icons, but leaves room for things that deliberately hang off an icon's edge,
+    like the availability dot on an avatar's corner.
+  */
+  overflow: clip;
+  overflow-clip-margin: 4px;
 `
 
 export interface MenuItemProps extends BaseMenuItemProps {

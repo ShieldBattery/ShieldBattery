@@ -34,6 +34,24 @@ function isKnownOnline(state: RootState, userId: SbUserId): boolean {
 }
 
 /**
+ * Whether this client currently knows `userId` to be offline: they're a friend reported offline, or
+ * they're in the offline list of a channel we share. Only meaningful once `isKnownOnline` is false.
+ */
+function isKnownOffline(state: RootState, userId: SbUserId): boolean {
+  if (state.relationships.friendActivityStatus.get(userId) === FriendActivityStatus.Offline) {
+    return true
+  }
+
+  for (const users of state.chat.idToUsers.values()) {
+    if (users.offline.has(userId)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
  * Reads a user's current availability, or `undefined` if they're offline or this client has no
  * way of knowing it (they're not a friend and share no channel with us). The current user always
  * has one, taken from their own account settings, except that while they're set to Online it shows
@@ -118,17 +136,38 @@ const Dot = styled.div<{ $color: string }>`
  * A dot anchored over the bottom-right corner of an avatar showing the user's availability. Must
  * be placed inside the avatar's positioned root. Renders nothing if availability isn't known.
  */
-export function AvailabilityDot({ userId }: { userId: SbUserId }) {
+export function AvailabilityDot({
+  userId,
+  showOffline = false,
+  className,
+}: {
+  userId: SbUserId
+  /**
+   * Whether a user this client knows to be offline gets a grey dot saying so. Users whose
+   * presence this client can't see get no dot either way.
+   */
+  showOffline?: boolean
+  className?: string
+}) {
   const { t } = useTranslation()
   const info = useUserAvailability(userId)
-  if (!info) {
+  const knownOffline = useAppSelector(s => showOffline && !info && isKnownOffline(s, userId))
+
+  if (info) {
+    const label = getAvailabilityLabel(info.availability, t)
+    return (
+      <DotTooltip className={className} text={label} position='bottom' tabIndex={-1}>
+        <Dot $color={getAvailabilityColor(info.availability)} role='img' aria-label={label} />
+      </DotTooltip>
+    )
+  } else if (knownOffline) {
+    const label = t('users.availability.offline', 'Offline')
+    return (
+      <DotTooltip className={className} text={label} position='bottom' tabIndex={-1}>
+        <Dot $color='var(--theme-outline)' role='img' aria-label={label} />
+      </DotTooltip>
+    )
+  } else {
     return null
   }
-
-  const label = getAvailabilityLabel(info.availability, t)
-  return (
-    <DotTooltip text={label} position='bottom' tabIndex={-1}>
-      <Dot $color={getAvailabilityColor(info.availability)} role='img' aria-label={label} />
-    </DotTooltip>
-  )
 }

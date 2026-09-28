@@ -125,7 +125,14 @@ const EmoteSuggestionIcon = styled.span`
 function suggestionIcon(visual: TypeaheadVisual): React.ReactNode {
   switch (visual.kind) {
     case 'user':
-      return <StyledAvatar userId={visual.userId} $faded={visual.online === false} />
+      return (
+        <StyledAvatar
+          userId={visual.userId}
+          showAvailability={true}
+          showOffline={true}
+          $faded={visual.online === false}
+        />
+      )
     case 'emoji':
       return <EmoteSuggestionIcon>{visual.emoji}</EmoteSuggestionIcon>
     case 'command':
