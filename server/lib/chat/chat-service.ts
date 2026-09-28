@@ -546,6 +546,14 @@ export default class ChatService {
       )
     }
 
+    // Official channels have no owner, so a private one would have nobody to let anyone in.
+    if (updates.private && originalChannel.official) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotEditChannel,
+        'Official channels cannot be made private',
+      )
+    }
+
     if (bannerFile && !(await this.imageService.isImageSafe(bannerFile.filepath))) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InappropriateImage,

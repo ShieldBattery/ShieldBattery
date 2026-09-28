@@ -83,6 +83,15 @@ const NameAndTopicContainer = styled.div`
 const ChannelName = styled.div`
   ${titleLarge};
   flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const PrivateGlyph = styled.span`
+  display: flex;
+  color: var(--theme-on-surface-variant);
 `
 
 const StyledTooltipContent = styled(TooltipContent)`
@@ -295,7 +304,16 @@ export function ChannelHeader({
           channelName={basicChannelInfo.name}
         />
         <NameAndTopicContainer>
-          <ChannelName>#{basicChannelInfo.name}</ChannelName>
+          <ChannelName>
+            #{basicChannelInfo.name}
+            {basicChannelInfo.private ? (
+              <PrivateGlyph
+                title={t('chat.privateChannelTitle', 'Private channel')}
+                data-testid='channel-header-private-glyph'>
+                <MaterialIcon icon='lock' size={20} />
+              </PrivateGlyph>
+            ) : null}
+          </ChannelName>
           {parsedChannelTopic ? (
             <Tooltip
               text={parsedChannelTopic}

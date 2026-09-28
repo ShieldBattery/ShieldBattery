@@ -1239,6 +1239,110 @@ describe('chat/chat-service', () => {
       expect(result).toEqual(channelInfo)
     })
 
+    test('lets the owner make the channel private and publishes the change', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
+      asMockedFunction(updateChannel).mockResolvedValue({ ...testChannel, private: true })
+
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        updates: { private: true },
+      })
+
+      expect(updateChannel).toHaveBeenCalledWith(testChannel.id, { private: true })
+      expect(client1.publish).toHaveBeenCalledWith(
+        getChannelPath(testChannel.id),
+        expect.objectContaining({
+          action: 'edit',
+          channelInfo: { ...testBasicInfo, private: true },
+        }),
+      )
+      expect(result.channelInfo.private).toBe(true)
+    })
+
+    test('lets the owner make a private channel public', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        private: true,
+        ownerId: user1.id,
+      })
+      asMockedFunction(updateChannel).mockResolvedValue({ ...testChannel, private: false })
+
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        updates: { private: false },
+      })
+
+      expect(updateChannel).toHaveBeenCalledWith(testChannel.id, { private: false })
+      expect(result.channelInfo.private).toBe(false)
+    })
+
+    test('lets a server moderator make the channel private', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(updateChannel).mockResolvedValue({ ...testChannel, private: true })
+
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: SERVER_MODERATOR,
+        updates: { private: true },
+      })
+
+      expect(result.channelInfo.private).toBe(true)
+    })
+
+    test("doesn't let anyone else make the channel private", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+
+      await expect(
+        chatService.editChannel({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isServerModerator: REGULAR_USER,
+          updates: { private: true },
+        }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.CannotEditChannel })
+      expect(updateChannel).not.toHaveBeenCalled()
+    })
+
+    test("doesn't let an official channel be made private", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+
+      await expect(
+        chatService.editChannel({
+          channelId: shieldBatteryChannel.id,
+          userId: user1.id,
+          isServerModerator: SERVER_MODERATOR,
+          updates: { private: true },
+        }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.CannotEditChannel })
+      expect(updateChannel).not.toHaveBeenCalled()
+    })
+
+    test('accepts making an official channel public', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+      asMockedFunction(updateChannel).mockResolvedValue(shieldBatteryChannel)
+
+      const result = await chatService.editChannel({
+        channelId: shieldBatteryChannel.id,
+        userId: user1.id,
+        isServerModerator: SERVER_MODERATOR,
+        updates: { private: false },
+      })
+
+      expect(result.channelInfo.private).toBe(false)
+    })
+
     test('works when updating topic', async () => {
       await joinUserToChannel(
         user1,

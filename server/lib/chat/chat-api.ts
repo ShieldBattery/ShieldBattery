@@ -171,6 +171,7 @@ const editChannelBodySchema = () =>
       topic: Joi.string().allow(null),
       deleteBanner: Joi.boolean(),
       deleteBadge: Joi.boolean(),
+      private: Joi.boolean(),
     }),
   })
 

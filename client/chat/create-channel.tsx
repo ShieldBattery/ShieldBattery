@@ -108,12 +108,14 @@ export function CreateChannel() {
             spellCheck: false,
             tabIndex: 0,
           }}
+          testName='create-channel-name-input'
         />
 
         <FilledButton
           type='submit'
           label={t('chat.createChannel.createAction', 'Create channel')}
           onClick={submit}
+          testName='create-channel-button'
         />
       </form>
     </CreateChannelRoot>

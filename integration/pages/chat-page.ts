@@ -11,6 +11,11 @@ export class ChatPage extends SocialSidebar {
   private readonly inputChannelBadge: Locator
   private readonly inputChannelDescription: Locator
   private readonly inputChannelTopic: Locator
+  private readonly inputChannelPrivate: Locator
+
+  private readonly inputCreateChannelName: Locator
+  private readonly buttonCreateChannel: Locator
+  private readonly channelHeaderPrivateGlyph: Locator
 
   private readonly imageChannelBanner: Locator
   private readonly imageChannelBadge: Locator
@@ -33,6 +38,11 @@ export class ChatPage extends SocialSidebar {
       'textarea[data-testid="channel-settings-description-input"]',
     )
     this.inputChannelTopic = page.locator('input[data-testid="channel-settings-topic-input"]')
+    this.inputChannelPrivate = page.locator('input[type="checkbox"][name="private"]')
+
+    this.inputCreateChannelName = page.locator('input[data-testid="create-channel-name-input"]')
+    this.buttonCreateChannel = page.locator('button[data-testid="create-channel-button"]')
+    this.channelHeaderPrivateGlyph = page.locator('[data-testid="channel-header-private-glyph"]')
 
     this.imageChannelBanner = page.locator('img[data-testid="channel-settings-banner-image"]')
     this.imageChannelBadge = page.locator('img[data-testid="channel-settings-badge-image"]')
@@ -40,6 +50,26 @@ export class ChatPage extends SocialSidebar {
     this.channelSettingsErrorMessage = page.locator(
       '[data-testid="channel-settings-error-message"]',
     )
+  }
+
+  /** Creates a new (non-official) channel owned by the current user and navigates to it. */
+  async createChannel(channelName: string): Promise<void> {
+    await this.page.goto('/chat/new')
+    await this.inputCreateChannelName.fill(channelName)
+    await this.buttonCreateChannel.click()
+    await this.page.waitForURL(url => url.pathname.endsWith(`/${channelName}`))
+  }
+
+  async setChannelPrivate(isPrivate: boolean): Promise<void> {
+    await this.inputChannelPrivate.setChecked(isPrivate)
+  }
+
+  async isChannelPrivateChecked(): Promise<boolean> {
+    return await this.inputChannelPrivate.isChecked()
+  }
+
+  channelPrivateGlyphLocator(): Locator {
+    return this.channelHeaderPrivateGlyph
   }
 
   async openChannelSettings(): Promise<void> {
