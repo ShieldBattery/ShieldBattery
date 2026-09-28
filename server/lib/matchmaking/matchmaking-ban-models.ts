@@ -40,10 +40,13 @@ function convertMatchmakingBanRowFromDb(dbRow: DbMatchmakingBanRow): Matchmaking
 }
 
 /**
- * Selects the `(ban_level, created_at)` of every ban that applies to `userId` (the same way
- * `checkActiveMatchmakingBan` decides applicability), considering only rows that match
- * `rowFilter`. Each `addMatchmakingBan` call writes its rows with a single level and creation time,
- * so this pair identifies one ban across all of its identifier rows.
+ * Selects the `(ban_level, created_at, triggered_by)` of every ban that applies to `userId` (the
+ * same way `checkActiveMatchmakingBan` decides applicability), considering only rows that match
+ * `rowFilter`. Each `addMatchmakingBan` call writes its rows with a single level, creation time and
+ * triggering user, so this triple identifies one ban across all of its identifier rows. The
+ * triggering user is required: several players who miss the same accept are banned at the same
+ * moment, possibly at the same level. Compare it with `IS NOT DISTINCT FROM`, since deleting the
+ * triggering user nulls it.
  */
 function applicableBans({
   userId,
@@ -55,18 +58,18 @@ function applicableBans({
   rowFilter: SqlTemplate
 }): SqlTemplate {
   return sql`
-    SELECT mb.ban_level, mb.created_at
+    SELECT mb.ban_level, mb.created_at, mb.triggered_by
     FROM matchmaking_bans mb
     WHERE mb.triggered_by = ${userId} AND ${rowFilter}
     UNION
-      SELECT mb.ban_level, mb.created_at
+      SELECT mb.ban_level, mb.created_at, mb.triggered_by
       FROM matchmaking_bans mb
       JOIN user_identifiers ui ON
         (ui.identifier_type, ui.identifier_hash) = (mb.identifier_type, mb.identifier_hash)
       WHERE ui.user_id = ${userId} AND
         ui.identifier_type != 0 AND
         ${rowFilter}
-      GROUP BY mb.ban_level, mb.created_at
+      GROUP BY mb.ban_level, mb.created_at, mb.triggered_by
       HAVING COUNT(*) >= ${minSameIdentifiers}
   `
 }
@@ -282,7 +285,9 @@ export async function getLatestMatchmakingBan(
       SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by, mb.ban_level,
         mb.created_at, mb.expires_at, mb.clears_at, mb.lifted_by, mb.lifted_at, mb.lift_reason
       FROM matchmaking_bans mb
-      JOIN applicable a ON (a.ban_level, a.created_at) = (mb.ban_level, mb.created_at)
+      JOIN applicable a ON
+        (a.ban_level, a.created_at, a.triggered_by) IS NOT DISTINCT FROM
+          (mb.ban_level, mb.created_at, mb.triggered_by)
       WHERE mb.cleared = false OR mb.lifted_at IS NOT NULL
       ORDER BY mb.created_at DESC
       LIMIT 1
@@ -329,7 +334,8 @@ export async function liftMatchmakingBans(
       SET expires_at = LEAST(mb.expires_at, ${now}), clears_at = ${now},
         lifted_by = ${liftedBy ?? null}, lifted_at = ${now}, lift_reason = ${reason ?? null}
       FROM applicable a
-      WHERE (a.ban_level, a.created_at) = (mb.ban_level, mb.created_at) AND
+      WHERE (a.ban_level, a.created_at, a.triggered_by) IS NOT DISTINCT FROM
+          (mb.ban_level, mb.created_at, mb.triggered_by) AND
         mb.cleared = false AND
         mb.clears_at > ${now}
       RETURNING mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by, mb.ban_level,
