@@ -1363,14 +1363,20 @@ export async function findChannelsByName(
 }
 
 /**
- * Returns a list of chat channels, optionally filtered by a `searchStr`.
+ * Returns a list of chat channels, optionally filtered by a `searchStr`. Private channels are only
+ * included for their members (`userId`), or for everyone when `includePrivate` is set. This is done
+ * before paging so that `offset` and `limit` count only the channels the requester may see.
  */
 export async function searchChannels(
   {
+    userId,
+    includePrivate,
     limit,
     offset,
     searchStr,
   }: {
+    userId: SbUserId
+    includePrivate: boolean
     limit: number
     offset: number
     searchStr?: string
@@ -1380,12 +1386,22 @@ export async function searchChannels(
   const { client, done } = await db(withClient)
   try {
     let query = sql`
-      SELECT *
-      FROM channels
+      SELECT c.*
+      FROM channels c
+      WHERE TRUE
     `
 
     if (searchStr) {
-      query = query.append(sql`WHERE name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+      query = query.append(sql` AND c.name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+    }
+    if (!includePrivate) {
+      query = query.append(sql`
+        AND (
+          NOT c.private OR EXISTS (
+            SELECT 1 FROM channel_users cu WHERE cu.channel_id = c.id AND cu.user_id = ${userId}
+          )
+        )
+      `)
     }
 
     query = query.append(sql`
