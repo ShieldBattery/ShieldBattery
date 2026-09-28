@@ -128,15 +128,15 @@ const CozyHeaderLayout = styled(TimestampMessageLayout)`
 `
 
 /**
- * The author's avatar, right-aligned in the gutter where a classic line's timestamp ends. It's
- * decoration (the name next to it says who wrote the message), so it stays out of the accessibility
- * tree and out of copied text. The doubled selectors outrank the list container's rule that makes
- * all of its descendants selectable.
+ * The author's avatar in the gutter, inset from the text far enough that a staff badge on its
+ * top-right corner still clears the name. It's decoration (the name next to it says who wrote the
+ * message), so it stays out of the accessibility tree and out of copied text. The doubled selectors
+ * outrank the list container's rule that makes all of its descendants selectable.
  */
 const CozyAvatarSlot = styled.div.attrs({ 'aria-hidden': true })`
   position: absolute;
   top: 4px;
-  left: 24px;
+  left: 16px;
   width: 40px;
   height: 40px;
 
