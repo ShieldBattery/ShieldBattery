@@ -15,6 +15,7 @@ import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { maxFileSize } from '../../forms/validators'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { FilledButton, TextButton } from '../../material/button'
+import { CheckBox } from '../../material/check-box'
 import { SingleFileInput } from '../../material/file-input'
 import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
@@ -22,7 +23,7 @@ import { useRefreshToken } from '../../network/refresh-token'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
 import { FlexSpacer } from '../../styles/flex-spacer'
-import { bodyLarge } from '../../styles/typography'
+import { bodyLarge, bodyMedium } from '../../styles/typography'
 import { updateChannel } from '../action-creators'
 import { ChannelBadge } from '../channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from '../channel-banner'
@@ -80,6 +81,16 @@ const TextFieldContainer = styled.div`
   gap: 20px;
 `
 
+const PrivacyContainer = styled.div`
+  margin-top: 16px;
+`
+
+const PrivacyDescription = styled.div`
+  ${bodyMedium};
+  padding-left: 40px;
+  color: var(--theme-on-surface-variant);
+`
+
 const DisabledOverlay = styled.div`
   position: absolute;
   left: 0;
@@ -135,6 +146,7 @@ export interface ChannelSettingsModel {
   topic?: string
   uploadedBannerPath?: string
   uploadedBadgePath?: string
+  private?: boolean
   banner?: File
   badge?: File
 }
@@ -158,31 +170,40 @@ function GeneralSettingsForm({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<Error>()
 
-  const { submit, bindCustom, bindInput, getInputValue, setInputValue, hasChanges, form } =
-    useForm<ChannelSettingsModel>(
-      {
-        description: detailedChannelInfo.description,
-        topic: joinedChannelInfo.topic,
-        uploadedBannerPath: detailedChannelInfo.bannerPath,
-        uploadedBadgePath: detailedChannelInfo.badgePath,
-      },
-      {
-        banner: maxFileSize(
-          MAX_IMAGE_SIZE_BYTES,
-          t('chat.channelSettings.general.bannerMaxFileSizeErrorMessage', {
-            defaultValue: 'The maximum banner file size is {{fileSize}}.',
-            fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
-          }),
-        ),
-        badge: maxFileSize(
-          MAX_IMAGE_SIZE_BYTES,
-          t('chat.channelSettings.general.badgeMaxFileSizeErrorMessage', {
-            defaultValue: 'The maximum badge file size is {{fileSize}}.',
-            fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
-          }),
-        ),
-      },
-    )
+  const {
+    submit,
+    bindCheckable,
+    bindCustom,
+    bindInput,
+    getInputValue,
+    setInputValue,
+    hasChanges,
+    form,
+  } = useForm<ChannelSettingsModel>(
+    {
+      description: detailedChannelInfo.description,
+      topic: joinedChannelInfo.topic,
+      uploadedBannerPath: detailedChannelInfo.bannerPath,
+      uploadedBadgePath: detailedChannelInfo.badgePath,
+      private: basicChannelInfo.private,
+    },
+    {
+      banner: maxFileSize(
+        MAX_IMAGE_SIZE_BYTES,
+        t('chat.channelSettings.general.bannerMaxFileSizeErrorMessage', {
+          defaultValue: 'The maximum banner file size is {{fileSize}}.',
+          fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
+        }),
+      ),
+      badge: maxFileSize(
+        MAX_IMAGE_SIZE_BYTES,
+        t('chat.channelSettings.general.badgeMaxFileSizeErrorMessage', {
+          defaultValue: 'The maximum badge file size is {{fileSize}}.',
+          fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
+        }),
+      ),
+    },
+  )
 
   useFormCallbacks(form, {
     onSubmit: model => {
@@ -192,6 +213,7 @@ function GeneralSettingsForm({
         topic: model.topic !== joinedChannelInfo.topic ? model.topic : undefined,
         deleteBanner: !model.uploadedBannerPath && !model.banner ? true : undefined,
         deleteBadge: !model.uploadedBadgePath && !model.badge ? true : undefined,
+        private: model.private !== basicChannelInfo.private ? model.private : undefined,
       }
 
       setIsSaving(true)
@@ -324,6 +346,24 @@ function GeneralSettingsForm({
                 testName='channel-settings-topic-input'
               />
             </TextFieldContainer>
+
+            {basicChannelInfo.official ? null : (
+              <PrivacyContainer>
+                <CheckBox
+                  {...bindCheckable('private')}
+                  label={t('chat.channelSettings.general.privateLabel', 'Private channel')}
+                  disabled={isSaving}
+                  inputProps={{ tabIndex: 0 }}
+                />
+                <PrivacyDescription>
+                  {t(
+                    'chat.channelSettings.general.privateDescription',
+                    'Private channels are hidden from browse and search, and can only be joined ' +
+                      'through an invite link.',
+                  )}
+                </PrivacyDescription>
+              </PrivacyContainer>
+            )}
 
             {hasChanges && !isSaving ? (
               <ActionButtonsContainer>

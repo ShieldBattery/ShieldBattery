@@ -315,6 +315,8 @@
         "changeBanner": "Change banner",
         "descriptionLabel": "Description",
         "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
+        "privateDescription": "Private channels are hidden from browse and search, and can only be joined through an invite link.",
+        "privateLabel": "Private channel",
         "removeBadge": "Remove badge",
         "removeBanner": "Remove banner",
         "saveErrorMessage": "Something went wrong while saving the settings",
@@ -870,6 +872,7 @@
         "line": "rolls <1>{{value}}</1> (1-{{max}})"
       }
     },
+    "privateChannelTitle": "Private channel",
     "transferOwnership": {
       "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
       "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",

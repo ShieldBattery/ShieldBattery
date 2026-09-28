@@ -495,6 +495,8 @@ export interface EditChannelRequest {
   topic?: string | null
   deleteBanner?: boolean
   deleteBadge?: boolean
+  /** Makes the channel private or public. Official channels can't be made private. */
+  private?: boolean
 }
 
 /**
