@@ -60,6 +60,8 @@ export class GameReportNotificationService {
               logger.error({ err }, 'failed to create game report actioned notifications')
             })
             break
+          case 'reportResolved':
+            break
           default:
             message satisfies never
             logger.warn(`received an unknown gameReport message type: ${(message as any).type}`)

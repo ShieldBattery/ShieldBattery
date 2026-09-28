@@ -137,6 +137,16 @@ export type PublishedGameReportMessage =
         reporterIds: TypeshareTypes.SbUserId[]
       }
     }
+  /**
+   * A report was resolved, with any resolution. Node uses this to refresh the unresolved-report
+   * counts it pushes to admins.
+   */
+  | {
+      type: 'reportResolved'
+      data: {
+        reportId: string
+      }
+    }
 
 /** Messages published to the Redis `"matchmaking"` channel. */
 export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }
