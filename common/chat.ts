@@ -267,10 +267,6 @@ export interface ChannelPermissions {
    * user forbids them from rejoining the channel until they've been unbanned.
    */
   ban: boolean
-  /** A flag indicating whether the user has a permission to change the channel's topic. */
-  changeTopic: boolean
-  /** A flag indicating whether the user has a permission to change the channel's private status. */
-  togglePrivate: boolean
   /** A flag indicating whether the user has a permission to edit other user's permissions. */
   editPermissions: boolean
 }

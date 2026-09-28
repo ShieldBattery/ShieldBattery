@@ -275,8 +275,6 @@ describe('chat/chat-service', () => {
   const channelPermissions: ChannelPermissions = {
     kick: false,
     ban: false,
-    changeTopic: false,
-    togglePrivate: false,
     editPermissions: false,
   }
   const user1ShieldBatteryChannelEntry: UserChannelEntry = {
@@ -4083,7 +4081,7 @@ describe('chat/chat-service', () => {
         [user2.id, user2TestChannelEntry],
       )
 
-      const newPermissions = { ...channelPermissions, changeTopic: true }
+      const newPermissions = { ...channelPermissions }
 
       await chatService.updateUserPermissions(
         testChannel.id,

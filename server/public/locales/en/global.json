@@ -325,8 +325,6 @@
       "permissions": {
         "ban": "Can ban users",
         "banShort": "Ban",
-        "changeTopic": "Can change topic",
-        "changeTopicShort": "Change topic",
         "editPermissions": "Can edit permissions",
         "editPermissionsShort": "Edit permissions",
         "editTitle": "Edit permissions for {{name}}",
@@ -338,8 +336,6 @@
         "noUsers": "This channel has no other members",
         "owner": "Owner",
         "saveError": "Failed to save permissions",
-        "togglePrivate": "Can toggle private status",
-        "togglePrivateShort": "Toggle private",
         "transferOwnership": "Transfer ownership"
       },
       "tabs": {

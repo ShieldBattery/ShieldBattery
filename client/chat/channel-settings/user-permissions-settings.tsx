@@ -334,12 +334,6 @@ function PermissionBadges({
         label: t('chat.channelSettings.permissions.editPermissionsShort', 'Edit permissions'),
       })
     }
-    if (permissions.togglePrivate) {
-      badges.push({
-        key: 'private',
-        label: t('chat.channelSettings.permissions.togglePrivateShort', 'Toggle private'),
-      })
-    }
     if (permissions.ban) {
       badges.push({
         key: 'ban',
@@ -350,12 +344,6 @@ function PermissionBadges({
       badges.push({
         key: 'kick',
         label: t('chat.channelSettings.permissions.kickShort', 'Kick'),
-      })
-    }
-    if (permissions.changeTopic) {
-      badges.push({
-        key: 'topic',
-        label: t('chat.channelSettings.permissions.changeTopicShort', 'Change topic'),
       })
     }
   }
@@ -450,11 +438,6 @@ export function ChannelUserPermissionsDialog({
           disabled={selfUser?.id === userId || isSaving}
         />
         <CheckBox
-          {...bindCheckable('togglePrivate')}
-          label={t('chat.channelSettings.permissions.togglePrivate', 'Can toggle private status')}
-          disabled={isSaving}
-        />
-        <CheckBox
           {...bindCheckable('ban')}
           label={t('chat.channelSettings.permissions.ban', 'Can ban users')}
           disabled={isSaving}
@@ -462,11 +445,6 @@ export function ChannelUserPermissionsDialog({
         <CheckBox
           {...bindCheckable('kick')}
           label={t('chat.channelSettings.permissions.kick', 'Can kick users')}
-          disabled={isSaving}
-        />
-        <CheckBox
-          {...bindCheckable('changeTopic')}
-          label={t('chat.channelSettings.permissions.changeTopic', 'Can change topic')}
           disabled={isSaving}
         />
       </PermissionsForm>

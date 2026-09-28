@@ -190,8 +190,6 @@ const channelUserPermissionsBodySchema = () =>
     permissions: Joi.object<ChannelPermissions>({
       kick: Joi.boolean().required(),
       ban: Joi.boolean().required(),
-      changeTopic: Joi.boolean().required(),
-      togglePrivate: Joi.boolean().required(),
       editPermissions: Joi.boolean().required(),
     }).required(),
   })

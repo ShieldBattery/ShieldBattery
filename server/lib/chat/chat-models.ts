@@ -41,8 +41,6 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
     channelPermissions: {
       kick: props.kick,
       ban: props.ban,
-      changeTopic: props.change_topic,
-      togglePrivate: props.toggle_private,
       editPermissions: props.edit_permissions,
     },
   }
@@ -213,7 +211,7 @@ export async function getUserChannelEntriesForChannel(
     query = query.append(sql`
       ORDER BY
         (cu.user_id = c.owner_id) DESC,
-        (cu.kick::int + cu.ban::int + cu.change_topic::int + cu.toggle_private::int + cu.edit_permissions::int) DESC,
+        (cu.kick::int + cu.ban::int + cu.edit_permissions::int) DESC,
         cu.join_date ASC,
         cu.user_id ASC
       LIMIT ${limit}
@@ -779,8 +777,6 @@ export async function removeUserFromChannel(
     //   - `edit_permissions`
     //   - `ban`
     //   - `kick`
-    //   - `toggle_private`
-    //   - `change_topic`
     // If there's no such user, then the user who has joined the channel earliest is chosen.
     const newOwnerResult = await client.query<{ owner_id: SbUserId }>(sql`
       WITH own AS (
@@ -791,8 +787,6 @@ export async function removeUserFromChannel(
           edit_permissions DESC,
           ban DESC,
           kick DESC,
-          toggle_private DESC,
-          change_topic DESC,
           join_date
         LIMIT 1
       )
@@ -871,8 +865,6 @@ export async function updateUserPermissions(
       SET
         kick = ${perms.kick},
         ban = ${perms.ban},
-        change_topic = ${perms.changeTopic},
-        toggle_private = ${perms.togglePrivate},
         edit_permissions = ${perms.editPermissions}
       WHERE channel_id = ${channelId} AND user_id = ${userId};
     `)
