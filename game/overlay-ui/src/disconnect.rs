@@ -62,8 +62,11 @@ const COL_MIN_WIDTH: f32 = 110.0;
 const COLUMN_SPACING: f32 = 20.0;
 /// Vertical gap between grid rows — enough that stacked rows read as a table, not a cramped block.
 const ROW_SPACING: f32 = 12.0;
-/// Vertical gap between the "Waiting for players" header and the first row.
+/// Vertical gap between the "Waiting for players" header and the first row, and between the
+/// self notice and its Leave button.
 const HEADER_GAP: f32 = 12.0;
+/// Size of the Leave button under the disconnected self notice.
+const LEAVE_BUTTON_SIZE: Vec2 = Vec2 { x: 180.0, y: 36.0 };
 
 /// Which of the two disconnect tiers a row is in — the presentation-side mirror of the turn-state
 /// enum of the same name. The caller maps its own tier onto this when building the view.
@@ -83,9 +86,12 @@ pub enum DisconnectTier {
 pub enum SelfState {
     /// Our link is fine; any rows are about peers.
     Healthy,
-    /// The relay confirmed our own link is down (or the session ended); show the prominent self
-    /// notice.
+    /// The relay confirmed our own link is down; show the prominent self notice while the client
+    /// re-dials.
     Reconnecting,
+    /// Our link is down for good: the relay refused to take us back, or reconnecting became
+    /// impossible. Show the self notice with a button to leave the game.
+    Disconnected,
 }
 
 /// One display-ready disconnect row: a logical row from the turn state with its player name
@@ -123,30 +129,42 @@ impl DisconnectView {
         self.rows.is_empty() && self.self_state == SelfState::Healthy
     }
 
-    /// Whether any row shows a Drop button (enabled or still counting down) — the only thing that
-    /// makes the overlay interactable. Keyed on the tier rather than `drop_unlocked`: the button
-    /// itself is present (just disabled) before the unlock threshold, so the overlay's input rect
-    /// must be registered from the moment a row goes confirmed, not only once the button is
-    /// clickable.
+    /// Whether the view shows a button: the Leave button of a [`Disconnected`](SelfState::Disconnected)
+    /// notice, or any row's Drop button (enabled or still counting down). Buttons are the only thing
+    /// that makes the overlay interactable. A row's is keyed on the tier rather than
+    /// `drop_unlocked`: the button itself is present (just disabled) before the unlock threshold,
+    /// so the overlay's input rect must be registered from the moment a row goes confirmed, not
+    /// only once the button is clickable.
     pub fn has_button(&self) -> bool {
-        self.rows
-            .iter()
-            .any(|row| row.tier == DisconnectTier::Confirmed)
+        self.self_state == SelfState::Disconnected
+            || self
+                .rows
+                .iter()
+                .any(|row| row.tier == DisconnectTier::Confirmed)
     }
 }
 
-/// Renders the disconnect view and returns the slots whose Drop button was clicked this frame. The
-/// area is interactable only while a Drop button is present, so ordinary rows never capture input.
+/// What the player clicked in the disconnect overlay this frame.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct DisconnectClicks {
+    /// The slots whose Drop button was clicked.
+    pub drops: Vec<u8>,
+    /// Whether the Leave button was clicked.
+    pub leave: bool,
+}
+
+/// Renders the disconnect view and returns what was clicked this frame. The area is interactable
+/// only while a button is present, so ordinary rows never capture input.
 pub fn render_disconnect_view(
     view: &DisconnectView,
     ctx: &egui::Context,
-) -> InnerResponse<Vec<u8>> {
+) -> InnerResponse<DisconnectClicks> {
     egui::Area::new("sb_disconnect_overlay".into())
         .anchor(Align2::CENTER_TOP, vec2(0.0, 72.0))
         .order(egui::Order::Foreground)
         .interactable(view.has_button())
         .show(ctx, |ui| {
-            let mut clicked = Vec::new();
+            let mut clicked = DisconnectClicks::default();
             Frame::default()
                 .fill(colors::CONTAINER_HIGH.gamma_multiply(0.85))
                 // A subtle 1px outline so the panel separates cleanly from the game behind it.
@@ -164,7 +182,20 @@ pub fn render_disconnect_view(
                         SelfState::Reconnecting => {
                             draw_self_notice(ui, "Lost connection to the server, reconnecting…")
                         }
-                        SelfState::Healthy => draw_peers_panel(ui, &view.rows, &mut clicked),
+                        SelfState::Disconnected => {
+                            // TODO(tec27): Translate this
+                            draw_self_notice(ui, "Disconnected from the game");
+                            ui.add_space(HEADER_GAP);
+                            ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                                // TODO(tec27): Translate this
+                                if draw_action_button(ui, "Leave game", true, LEAVE_BUTTON_SIZE)
+                                    .clicked()
+                                {
+                                    clicked.leave = true;
+                                }
+                            });
+                        }
+                        SelfState::Healthy => draw_peers_panel(ui, &view.rows, &mut clicked.drops),
                     });
                 });
             clicked
@@ -305,6 +336,14 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
         let remaining = DROP_UNLOCK_UI.as_secs().saturating_sub(row.seconds);
         format!("Drop ({remaining}s)")
     };
+    if draw_action_button(ui, &label, enabled, DROP_BUTTON_SIZE).clicked() {
+        clicked.push(row.slot);
+    }
+}
+
+/// Draws one of the overlay's action buttons at exactly `size`: amber when `enabled`, greyed out and
+/// unclickable otherwise.
+fn draw_action_button(ui: &mut egui::Ui, label: &str, enabled: bool, size: Vec2) -> egui::Response {
     let (fill, border, text_color) = if enabled {
         (DROP_BUTTON_FILL, DROP_BUTTON_BORDER, DROP_BUTTON_TEXT)
     } else {
@@ -329,7 +368,7 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
     // resize this is meant to prevent. Sizing the button explicitly keeps its footprint identical
     // across every label the countdown produces.
     let response = ui
-        .add_enabled_ui(enabled, |ui| ui.add_sized(DROP_BUTTON_SIZE, button))
+        .add_enabled_ui(enabled, |ui| ui.add_sized(size, button))
         .inner;
     if enabled && response.hovered() {
         // egui doesn't vary an explicit `.fill()` on hover, so paint a subtle highlight over the
@@ -340,9 +379,7 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
             Color32::from_white_alpha(28),
         );
     }
-    if response.clicked() {
-        clicked.push(row.slot);
-    }
+    response
 }
 
 /// Paints three ascending signal bars with a diagonal slash through them, in `color`, sized to sit

@@ -42,8 +42,10 @@ export interface GameChatLogEntry {
 export type GameDisconnectSelfState =
   /** Our link is fine; any rows are about peers. */
   | 'ok'
-  /** The relay confirmed our own link is down (or the session ended); the driver auto-reconnects. */
+  /** The relay confirmed our own link is down; the driver auto-reconnects. */
   | 'reconnecting'
+  /** Our link is down for good; the notice offers to leave the game. */
+  | 'disconnected'
 
 /** Which disconnect tier a {@link GameDisconnectRow} is in. */
 export type GameDisconnectTier =

@@ -228,6 +228,9 @@ pub struct DisconnectStatus {
     /// this can go back to `false` once the link is re-established — it only becomes permanent once
     /// the session ends for good.
     pub self_lost: bool,
+    /// Whether this client's own link is down for good: the session ended without being closed on
+    /// purpose, so no reconnect is coming.
+    pub self_ended: bool,
     /// Remote participants the local simulation is blocked on right now: mapped session members
     /// other than ourselves whose next turn has not arrived, so the IN hook can't assemble a step.
     /// Read straight from the readiness set the IN hook itself uses, so it names who the sim is
@@ -286,9 +289,13 @@ pub enum DisconnectTier {
 pub enum SelfState {
     /// Our link is fine; any rows are about peers.
     Healthy,
-    /// The relay confirmed our own link is down (or the session ended). The driver auto-reconnects;
-    /// this is the prominent self notice.
+    /// The relay confirmed our own link is down. The driver auto-reconnects; this is the prominent
+    /// self notice.
     Reconnecting,
+    /// Our link is down for good: the driver ended without the session having been closed on
+    /// purpose, so no reconnect is coming (the relay refused us, or reconnecting became impossible).
+    /// The self notice offers to leave the game.
+    Disconnected,
 }
 
 /// One display-ready disconnect row, derived from a [`DisconnectStatus`] at a given instant. Carries
@@ -323,6 +330,7 @@ impl DisconnectStatus {
         DisconnectStatus {
             peers: Vec::new(),
             self_lost: false,
+            self_ended: false,
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: Vec::new(),
@@ -346,7 +354,9 @@ impl DisconnectStatus {
     /// the real self-link signal — never by a guess from the remote roster's behavior (see
     /// [`SelfState`]'s doc comment for why).
     pub fn self_state(&self, _now: Instant) -> SelfState {
-        if self.self_lost {
+        if self.self_ended {
+            SelfState::Disconnected
+        } else if self.self_lost {
             SelfState::Reconnecting
         } else {
             SelfState::Healthy
@@ -620,6 +630,9 @@ pub struct TurnState {
     /// rest of the game. Informational for the overlay only; never set for a deliberately-closed
     /// [`local_only`](Self::local_only) session.
     self_link_lost: bool,
+    /// Whether the turn channels closed outright in game, without the session having been closed on
+    /// purpose: our link is down for good and [`self_link_lost`](Self::self_link_lost) with it.
+    self_link_ended: bool,
     /// When the current sustained turn-stream stall began, or `None` when a full step last assembled.
     /// Set by [`receive_turns`](Self::receive_turns) the first poll it can't gather every required
     /// slot's turn, and cleared the first poll it can — so it measures one continuous stall, and a
@@ -706,6 +719,7 @@ impl TurnState {
             chat_log: VecDeque::new(),
             disconnected: Vec::new(),
             self_link_lost: false,
+            self_link_ended: false,
             stall_start: None,
             drop_requests: Vec::new(),
             net_stats: NetStats::new(initial_latency_turns.max(1), Instant::now()),
@@ -1574,6 +1588,7 @@ impl TurnState {
                 Err(mpsc::error::TryRecvError::Disconnected) => {
                     if game_started && !self.local_only {
                         self.self_link_lost = true;
+                        self.self_link_ended = true;
                     }
                     break;
                 }
@@ -1605,6 +1620,7 @@ impl TurnState {
         DisconnectStatus {
             peers,
             self_lost: self.self_link_lost,
+            self_ended: self.self_link_ended,
             stalled,
             stalled_since: self.stall_start,
             drop_requests: self.drop_requests.clone(),
@@ -2323,6 +2339,7 @@ impl TurnState {
         let self_state = match status.self_state(now) {
             SelfState::Healthy => DisconnectSelfState::Ok,
             SelfState::Reconnecting => DisconnectSelfState::Reconnecting,
+            SelfState::Disconnected => DisconnectSelfState::Disconnected,
         };
         let rows = status
             .rows(now)
@@ -4407,6 +4424,8 @@ mod tests {
         let status = state.disconnect_status();
         assert!(status.self_lost);
         assert!(status.peers.is_empty());
+        // The driver is still re-dialing, so the notice waits for it rather than offering to leave.
+        assert_eq!(status.self_state(Instant::now()), SelfState::Reconnecting);
     }
 
     #[test]
@@ -4438,9 +4457,12 @@ mod tests {
         state.pump_connectivity(false, Instant::now());
         assert!(!state.disconnect_status().self_lost);
 
-        // In-game, it latches the self-disconnect notice.
+        // In-game, it latches the self-disconnect notice, as the terminal state that offers to
+        // leave rather than the one that waits for a reconnect.
         state.pump_connectivity(true, Instant::now());
-        assert!(state.disconnect_status().self_lost);
+        let status = state.disconnect_status();
+        assert!(status.self_lost);
+        assert_eq!(status.self_state(Instant::now()), SelfState::Disconnected);
     }
 
     #[test]
@@ -4504,6 +4526,7 @@ mod tests {
         let status = DisconnectStatus {
             peers: Vec::new(),
             self_lost: false,
+            self_ended: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
@@ -4535,6 +4558,7 @@ mod tests {
                 since: now - elapsed,
             }],
             self_lost: false,
+            self_ended: false,
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: Vec::new(),
@@ -4562,6 +4586,7 @@ mod tests {
                 since: now - Duration::from_secs(10),
             }],
             self_lost: false,
+            self_ended: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
@@ -4584,6 +4609,7 @@ mod tests {
         let status = DisconnectStatus {
             peers: Vec::new(),
             self_lost: false,
+            self_ended: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
@@ -4624,6 +4650,7 @@ mod tests {
                 since: now - DROP_UNLOCK_UI,
             }],
             self_lost: false,
+            self_ended: false,
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: vec![(PEER_SLOT, now - ago)],

@@ -3309,6 +3309,12 @@ impl BwScr {
                                 // forward a step.
                                 game_thread::add_fow_sprites_for_replay_vision_change(self);
                             }
+                            if overlay_out.leave_game {
+                                // What the in-game menu's End Game does: the step loop exits
+                                // once it sees the flag, and a stalled step lets it go too (see
+                                // `end_session_for_requested_exit`).
+                                self.netcode_v2.continue_game_loop.write(0);
+                            }
                             if let Some(unit) = overlay_out.select_unit {
                                 let units = [*unit];
                                 (self.select_units)(units.len(), units.as_ptr(), 1, 1);

@@ -248,11 +248,10 @@ advancing frames.
 - **Server policy.** The desync webhook's `missing` slots count as at fault like `diverged`; a
   no-majority event still voids the game.
 
-Left open:
+Since then, and still open:
 
-- The evicted client, like any client whose link can't come back, shows "Lost connection to the
-  server, reconnecting…" until the player leaves through the menu. The overlay has no terminal
-  state.
+- A client whose link can't come back (an evicted one included) shows "Disconnected from the
+  game" with a Leave button, which ends the game the way the menu's End Game does.
 - The pipe is capped at `GAME_SYNC_SAFE_BUFFER_MAX` (14) turns, lockstep's ceiling, however far
   behind the schedule the lead goes, so rollback never costs more input delay than lockstep could.
 - The rollback engine is compiled out of release DLLs, so rollback sessions need debug DLLs.

@@ -79,6 +79,10 @@ fn run_smoke() {
             self_state: SelfState::Reconnecting,
         },
         DisconnectView {
+            rows: Vec::new(),
+            self_state: SelfState::Disconnected,
+        },
+        DisconnectView {
             rows: vec![
                 DisconnectRowView {
                     slot: 0,
@@ -510,6 +514,8 @@ struct Knobs {
     rows: Vec<RowKnob>,
     /// `true` => the prominent self-reconnecting notice replaces the peers panel.
     self_reconnecting: bool,
+    /// `true` => the disconnected self notice and its Leave button replace everything else.
+    self_disconnected: bool,
     /// egui pixels-per-point; the game derives this from render-target height, so it is the main
     /// knob for matching the game's on-screen scale.
     pixels_per_point: f32,
@@ -543,6 +549,7 @@ impl Default for Knobs {
                 },
             ],
             self_reconnecting: false,
+            self_disconnected: false,
             pixels_per_point: 1.5,
             auto_tick: false,
             backdrop_path: None,
@@ -597,6 +604,8 @@ struct PreviewApp {
     backdrop_error: Option<String>,
     /// The slots clicked in the most recent frame that had any, for feedback.
     last_clicked: Vec<u8>,
+    /// How many times the Leave button has been clicked.
+    leave_clicks: u32,
     next_slot: u8,
 }
 
@@ -615,6 +624,7 @@ impl PreviewApp {
             backdrop_tex: None,
             backdrop_error: None,
             last_clicked: Vec::new(),
+            leave_clicks: 0,
             next_slot,
         }
     }
@@ -643,7 +653,9 @@ impl PreviewApp {
             .collect();
         DisconnectView {
             rows,
-            self_state: if self.knobs.self_reconnecting {
+            self_state: if self.knobs.self_disconnected {
+                SelfState::Disconnected
+            } else if self.knobs.self_reconnecting {
                 SelfState::Reconnecting
             } else {
                 SelfState::Healthy
@@ -803,6 +815,11 @@ impl PreviewApp {
                 self.dirty |= sr.changed();
                 ui.end_row();
 
+                ui.label("Self disconnected");
+                let sd = ui.checkbox(&mut self.knobs.self_disconnected, "show Leave button");
+                self.dirty |= sd.changed();
+                ui.end_row();
+
                 ui.label("Auto-tick counters");
                 let at = ui.checkbox(&mut self.knobs.auto_tick, "advance seconds live");
                 if at.changed() {
@@ -892,6 +909,7 @@ impl PreviewApp {
         } else {
             ui.label(format!("Last Drop click: slots {:?}", self.last_clicked));
         }
+        ui.label(format!("Leave clicks: {}", self.leave_clicks));
     }
 
     /// The network-stats overlay's knobs section.
@@ -1074,8 +1092,11 @@ impl eframe::App for PreviewApp {
         // The overlay draws itself as its own top-center Area in the `Foreground` layer, over the
         // full-window backdrop — the same anchoring it uses in-game.
         let clicked = render_disconnect_view(&view, &ctx).inner;
-        if !clicked.is_empty() {
-            self.last_clicked = clicked;
+        if !clicked.drops.is_empty() {
+            self.last_clicked = clicked.drops;
+        }
+        if clicked.leave {
+            self.leave_clicks += 1;
         }
 
         // The network-stats overlay anchors itself top-right, exactly as it does in-game.

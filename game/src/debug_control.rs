@@ -243,13 +243,12 @@ pub struct DisconnectViewSnapshot {
     /// real self-link signal, never by a guess from the remote roster's behavior — see
     /// [`DisconnectSelfState`]'s doc comment.
     pub self_state: DisconnectSelfState,
-    /// One entry per blocking or relay-confirmed remote player. Empty while `selfState` is
-    /// `reconnecting`.
+    /// One entry per blocking or relay-confirmed remote player. Empty unless `selfState` is `ok`.
     pub rows: Vec<DisconnectRowSnapshot>,
 }
 
-/// This client's own connection state within a [`DisconnectViewSnapshot`]. Only ever `ok` or
-/// `reconnecting`: an unconfirmed stall — even one covering every remaining remote participant, as
+/// This client's own connection state within a [`DisconnectViewSnapshot`]. Never a guess: an
+/// unconfirmed stall — even one covering every remaining remote participant, as
 /// in a 1v1 the instant the lone opponent drops — is exactly as likely to be their link as ours, so
 /// it is never asserted as a self-connection problem; it shows as a per-peer stall row instead (see
 /// `DisconnectTier::Stall`).
@@ -258,8 +257,10 @@ pub struct DisconnectViewSnapshot {
 pub enum DisconnectSelfState {
     /// Our link is fine; any rows are about peers.
     Ok,
-    /// The relay confirmed our own link is down (or the session ended); the driver auto-reconnects.
+    /// The relay confirmed our own link is down; the driver auto-reconnects.
     Reconnecting,
+    /// Our link is down for good; the notice offers to leave the game.
+    Disconnected,
 }
 
 /// Which disconnect tier a [`DisconnectRowSnapshot`] is in.
