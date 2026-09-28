@@ -668,7 +668,13 @@ export default class ChatService {
                 client,
               )
             } catch (err: any) {
-              if (err.code === FOREIGN_KEY_VIOLATION) {
+              // The channel was deleted after it was looked up (its last member left), so the next
+              // attempt creates it instead.
+              if (
+                err.code === FOREIGN_KEY_VIOLATION ||
+                (err instanceof ChatServiceError &&
+                  err.code === ChatServiceErrorCode.ChannelNotFound)
+              ) {
                 throw new RetryableError()
               } else {
                 throw err

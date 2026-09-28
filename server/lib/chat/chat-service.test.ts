@@ -1090,6 +1090,26 @@ describe('chat/chat-service', () => {
       )
     })
 
+    test('creates the channel if it was deleted between the lookup and the join', async () => {
+      asMockedFunction(findChannelByName)
+        .mockResolvedValueOnce(testChannel)
+        .mockResolvedValueOnce(undefined)
+      asMockedFunction(getChannelInfo)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValue(testChannel)
+      createChannelMock.mockResolvedValue(testChannel)
+      addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
+      asMockedFunction(getUserChannelEntryForUser)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(user1TestChannelEntry)
+
+      await chatService.joinChannel(testChannel.name, user1.id, false)
+
+      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
+      expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
+    })
+
     test("creates a new channel when it doesn't exist", async () => {
       asMockedFunction(findChannelByName).mockResolvedValue(undefined)
       createChannelMock.mockResolvedValue(testChannel)
