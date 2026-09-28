@@ -43,6 +43,9 @@ const ChannelKickUserConfirmation = React.lazy(async () => ({
 const ChannelLeaveConfirmation = React.lazy(async () => ({
   default: (await import('../chat/channel-leave-dialog')).ChannelLeaveConfirmation,
 }))
+const ChannelInviteLinkDialog = React.lazy(async () => ({
+  default: (await import('../chat/channel-invite-link-dialog')).ChannelInviteLinkDialog,
+}))
 const ChannelUserPermissionsDialog = React.lazy(async () => ({
   default: (await import('../chat/channel-settings/user-permissions-settings'))
     .ChannelUserPermissionsDialog,
@@ -212,6 +215,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelLeaveConfirmation }
     case DialogType.ChannelTransferOwnership:
       return { component: ChannelTransferOwnershipDialog }
+    case DialogType.ChannelInviteLink:
+      return { component: ChannelInviteLinkDialog }
     case DialogType.ChannelUnbanUser:
       return { component: ChannelUnbanUserConfirmation }
     case DialogType.ChannelUserPermissions:

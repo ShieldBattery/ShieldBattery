@@ -18,6 +18,7 @@ import {
   ChatServiceErrorCode,
   ChatUserEvent,
   CreateChannelInviteLinkResponse,
+  DEFAULT_INVITE_LINK_EXPIRY_SECONDS,
   DetailedChannelInfo,
   EditChannelRequest,
   EditChannelResponse,
@@ -29,6 +30,7 @@ import {
   JoinChannelResponse,
   JoinedChannelInfo,
   ListChannelBansResponse,
+  ListChannelInviteLinksResponse,
   ListUserChannelEntriesResponse,
   makeSbChannelId,
   SbChannelId,
@@ -113,13 +115,16 @@ import {
 } from './chat-models'
 import {
   createInviteLink,
+  deleteInviteLink,
   deleteInviteLinksCreatedBy,
   deleteInviteLinksForChannel,
   deleteMemberInviteLinks,
+  deleteUnusableInviteLinks,
   findReusableInviteLink,
   getInviteLink,
   incrementInviteLinkUses,
   InviteLinkRecord,
+  listUsableInviteLinks,
 } from './invite-link-models'
 
 class ChatState extends ImmutableRecord({
@@ -149,7 +154,7 @@ type JoinOutcome =
   | { kind: 'refused'; exitCode: JoinChannelExitCode }
 
 /** How long an invite link created without an explicit expiry keeps working. */
-const INVITE_LINK_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000
+const INVITE_LINK_LIFETIME_MS = DEFAULT_INVITE_LINK_EXPIRY_SECONDS * 1000
 /**
  * How much time an existing invite link must have left to be handed out again instead of creating a
  * new one, so a link someone copies doesn't expire shortly after they share it.
@@ -170,6 +175,27 @@ function isInviteLinkUsable(link: InviteLinkRecord, now: Date): boolean {
 /** Returns the id of the invite link an invite link token names, or undefined if it names none. */
 function inviteLinkIdFromToken(token: string): string | undefined {
   return isPrettyId(token) ? decodePrettyId(token) : undefined
+}
+
+/**
+ * Settings chosen for a new invite link. `null` means the link never expires or has no use limit.
+ * The values are expected to be among the options offered in `common/chat.ts`.
+ */
+export interface InviteLinkSettings {
+  expiresInSeconds: number | null
+  maxUses: number | null
+}
+
+function toInviteLinkJson(link: InviteLinkRecord) {
+  return toChannelInviteLinkJson({
+    token: encodePrettyId(link.id),
+    channelId: link.channelId,
+    createdBy: link.createdBy,
+    createdAt: link.createdAt,
+    expiresAt: link.expiresAt,
+    maxUses: link.maxUses,
+    uses: link.uses,
+  })
 }
 
 function inviteLinkInvalidError(): ChatServiceError {
@@ -210,6 +236,26 @@ function ensureCanGetInviteLink(
     throw new ChatServiceError(
       ChatServiceErrorCode.NotEnoughPermissions,
       'Only the channel owner can invite people to this channel',
+    )
+  }
+}
+
+/**
+ * Throws if a user may not see or revoke a channel's invite links, which only its owner and server
+ * moderators may.
+ */
+function ensureCanManageInviteLinks(
+  channel: FullChannelInfo | undefined,
+  userId: SbUserId,
+  isServerModerator: boolean,
+): asserts channel is FullChannelInfo {
+  if (!channel) {
+    throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+  }
+  if (!isServerModerator && channel.ownerId !== userId) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.NotEnoughPermissions,
+      "You don't have enough permissions to manage this channel's invite links",
     )
   }
 }
@@ -732,13 +778,15 @@ export default class ChatService {
 
   /**
    * Returns an invite link into a private channel for one of its members (or a server moderator)
-   * to share. Hands back the user's newest link while it has enough time left, so copying a link
-   * repeatedly doesn't pile up new ones, and creates a new one otherwise.
+   * to share. Without `settings`, hands back the user's newest default link while it has enough
+   * time left, so copying a link repeatedly doesn't pile up new ones, and creates a new default
+   * link otherwise. With `settings`, always creates a new link with them.
    */
   async getOrCreateInviteLink(
     channelId: SbChannelId,
     userId: SbUserId,
     isServerModerator: boolean,
+    settings?: InviteLinkSettings,
   ): Promise<CreateChannelInviteLinkResponse> {
     const [channel, userChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
@@ -747,18 +795,26 @@ export default class ChatService {
     ensureCanGetInviteLink(channel, userId, userChannelEntry, isServerModerator)
 
     const now = new Date()
-    let link = await findReusableInviteLink({
-      channelId,
-      createdBy: userId,
-      usableUntil: new Date(now.getTime() + INVITE_LINK_REUSE_MIN_REMAINING_MS),
-    })
+    let link = settings
+      ? undefined
+      : await findReusableInviteLink({
+          channelId,
+          createdBy: userId,
+          usableUntil: new Date(now.getTime() + INVITE_LINK_REUSE_MIN_REMAINING_MS),
+        })
     if (!link) {
+      let expiresAt: Date | undefined
+      if (!settings) {
+        expiresAt = new Date(now.getTime() + INVITE_LINK_LIFETIME_MS)
+      } else if (settings.expiresInSeconds !== null) {
+        expiresAt = new Date(now.getTime() + settings.expiresInSeconds * 1000)
+      }
       link = await createInviteLink({
         channelId,
         createdBy: userId,
         createdAt: now,
-        expiresAt: new Date(now.getTime() + INVITE_LINK_LIFETIME_MS),
-        maxUses: undefined,
+        expiresAt,
+        maxUses: settings?.maxUses ?? undefined,
         asServerModerator: isServerModerator,
       })
     }
@@ -772,16 +828,66 @@ export default class ChatService {
       throw new Error('Invite link could not be created')
     }
 
+    return { inviteLink: toInviteLinkJson(link) }
+  }
+
+  /**
+   * Returns a page of a channel's invite links that still work, newest first, to its owner or a
+   * server moderator. Links that no longer work are deleted along the way, which is what keeps
+   * them from piling up.
+   */
+  async listInviteLinks({
+    channelId,
+    userId,
+    isServerModerator,
+    limit,
+    offset,
+    searchStr,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    isServerModerator: boolean
+    limit: number
+    offset: number
+    searchStr?: string
+  }): Promise<ListChannelInviteLinksResponse> {
+    const channel = await getChannelInfo(channelId)
+    ensureCanManageInviteLinks(channel, userId, isServerModerator)
+
+    const now = new Date()
+    await deleteUnusableInviteLinks({ channelId, now })
+    const links = await listUsableInviteLinks({ channelId, now, searchStr, limit, offset })
+    const users = await findUsersById(Array.from(new global.Set(links.map(l => l.createdBy))))
+
     return {
-      inviteLink: toChannelInviteLinkJson({
-        token: encodePrettyId(link.id),
-        channelId: link.channelId,
-        createdBy: link.createdBy,
-        createdAt: link.createdAt,
-        expiresAt: link.expiresAt,
-        maxUses: link.maxUses,
-        uses: link.uses,
-      }),
+      channelId,
+      inviteLinks: links.map(l => toInviteLinkJson(l)),
+      hasMoreInviteLinks: links.length >= limit,
+      users,
+    }
+  }
+
+  /**
+   * Deletes one of a channel's invite links for its owner or a server moderator, after which the
+   * link no longer resolves.
+   */
+  async revokeInviteLink({
+    channelId,
+    token,
+    userId,
+    isServerModerator,
+  }: {
+    channelId: SbChannelId
+    token: string
+    userId: SbUserId
+    isServerModerator: boolean
+  }): Promise<void> {
+    const channel = await getChannelInfo(channelId)
+    ensureCanManageInviteLinks(channel, userId, isServerModerator)
+
+    const linkId = inviteLinkIdFromToken(token)
+    if (!linkId || !(await deleteInviteLink({ channelId, id: linkId }))) {
+      throw inviteLinkInvalidError()
     }
   }
 

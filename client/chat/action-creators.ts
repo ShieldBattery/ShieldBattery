@@ -4,6 +4,7 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   ChatServiceErrorCode,
+  CreateChannelInviteLinkRequest,
   CreateChannelInviteLinkResponse,
   EditChannelRequest,
   EditChannelResponse,
@@ -15,6 +16,7 @@ import {
   InitialChannelData,
   JoinChannelResponse,
   ListChannelBansResponse,
+  ListChannelInviteLinksResponse,
   ListUserChannelEntriesResponse,
   MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
@@ -239,11 +241,13 @@ export function joinChannelWithErrorHandling(
 }
 
 /**
- * Gets an invite link into a private channel for the current user to share, which may be one they
- * got before. The caller is expected to handle errors.
+ * Gets an invite link into a private channel for the current user to share. Without `settings`
+ * this may be a default link they got before; with them, a new link is always created. The caller
+ * is expected to handle errors.
  */
 export function getChannelInviteLink(
   channelId: SbChannelId,
+  settings: CreateChannelInviteLinkRequest | undefined,
   spec: RequestHandlingSpec<ChannelInviteLinkJson>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -251,10 +255,56 @@ export function getChannelInviteLink(
       apiUrl`chat/${channelId}/invite-links`,
       {
         method: 'POST',
+        body: settings ? JSON.stringify(settings) : undefined,
         signal: spec.signal,
       },
     )
     return result.inviteLink
+  })
+}
+
+/**
+ * Lists a page of a channel's working invite links, loading their creators into the user store.
+ * The caller is expected to handle errors.
+ */
+export function listChannelInviteLinks(
+  channelId: SbChannelId,
+  searchQuery: string,
+  offset: number,
+  spec: RequestHandlingSpec<ListChannelInviteLinksResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = new URLSearchParams()
+    if (searchQuery) {
+      queryParams.set('q', searchQuery)
+    }
+    queryParams.set('offset', offset.toString())
+
+    const result = await fetchJson<ListChannelInviteLinksResponse>(
+      apiUrl`chat/${channelId}/invite-links?${queryParams}`,
+      { signal: spec.signal },
+    )
+
+    dispatch({
+      type: '@users/loadUsers',
+      payload: result.users,
+    })
+
+    return result
+  })
+}
+
+/** Revokes one of a channel's invite links. The caller is expected to handle errors. */
+export function revokeChannelInviteLink(
+  channelId: SbChannelId,
+  token: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/invite-links/${token}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
   })
 }
 

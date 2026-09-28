@@ -38,6 +38,7 @@ import {
   UsersChannelSettingsPage,
 } from './channel-settings-page'
 import { GeneralSettings } from './general-settings'
+import { InviteLinksSettings } from './invite-links-settings'
 import { UserPermissionsSettings } from './user-permissions-settings'
 
 const ESCAPE = 'Escape'
@@ -122,6 +123,7 @@ function ChannelSettingsFromStore({
       canAccessGeneralPage={!!(isOwner || isServerModerator)}
       canAccessPermissionsPage={!!(isOwner || hasEditPermissions || isServerModerator)}
       canAccessBannedUsersPage={canAccessBannedUsersPage}
+      canAccessInviteLinksPage={!!(basicChannelInfo?.private && (isOwner || isServerModerator))}
       onCloseSettings={onCloseSettings}
     />
   )
@@ -139,6 +141,7 @@ export function ChannelSettings({
   canAccessGeneralPage,
   canAccessPermissionsPage,
   canAccessBannedUsersPage,
+  canAccessInviteLinksPage,
   onCloseSettings,
 }: {
   basicChannelInfo?: BasicChannelInfo
@@ -147,6 +150,8 @@ export function ChannelSettings({
   canAccessGeneralPage: boolean
   canAccessPermissionsPage: boolean
   canAccessBannedUsersPage: boolean
+  /** Only meaningful for private channels, since only those have invite links. */
+  canAccessInviteLinksPage: boolean
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
@@ -197,7 +202,7 @@ export function ChannelSettings({
             />
           </>
         )}
-        {(canAccessPermissionsPage || canAccessBannedUsersPage) && (
+        {(canAccessPermissionsPage || canAccessBannedUsersPage || canAccessInviteLinksPage) && (
           <>
             {canAccessGeneralPage && <NavSectionSeparator />}
             <NavSectionTitle>{t('chat.channelSettings.users.title', 'Users')}</NavSectionTitle>
@@ -215,6 +220,14 @@ export function ChannelSettings({
                 isActive={activePage === UsersChannelSettingsPage.BannedUsers}
                 onChangePage={setActivePage}
                 testName='banned-users-nav-entry'
+              />
+            )}
+            {canAccessInviteLinksPage && (
+              <NavEntry
+                page={UsersChannelSettingsPage.InviteLinks}
+                isActive={activePage === UsersChannelSettingsPage.InviteLinks}
+                onChangePage={setActivePage}
+                testName='invite-links-nav-entry'
               />
             )}
           </>
@@ -266,6 +279,8 @@ function NavEntry({
         return t('chat.channelSettings.tabs.permissions', 'Permissions')
       case UsersChannelSettingsPage.BannedUsers:
         return t('chat.channelSettings.tabs.bannedUsers', 'Banned users')
+      case UsersChannelSettingsPage.InviteLinks:
+        return t('chat.channelSettings.tabs.inviteLinks', 'Invite links')
       default:
         return page satisfies never
     }
@@ -320,6 +335,15 @@ function ChannelSettingsPageDisplay({
           onCloseSettings={onCloseSettings}
         />
       )
+    case UsersChannelSettingsPage.InviteLinks:
+      return (
+        <InviteLinksSettings
+          basicChannelInfo={basicChannelInfo}
+          detailedChannelInfo={detailedChannelInfo}
+          joinedChannelInfo={joinedChannelInfo}
+          onCloseSettings={onCloseSettings}
+        />
+      )
     default:
       return page satisfies never
   }
@@ -341,6 +365,8 @@ function getChannelSettingsPageTitle({
       return t('chat.channelSettings.users.title', 'Users')
     case UsersChannelSettingsPage.BannedUsers:
       return t('chat.channelSettings.bannedUsers.title', 'Banned users')
+    case UsersChannelSettingsPage.InviteLinks:
+      return t('chat.channelSettings.inviteLinks.title', 'Invite links')
     default:
       return page satisfies never
   }

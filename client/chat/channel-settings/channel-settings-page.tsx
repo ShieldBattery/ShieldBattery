@@ -5,6 +5,7 @@ export enum GeneralChannelSettingsPage {
 export enum UsersChannelSettingsPage {
   Permissions = 'UsersPermissions',
   BannedUsers = 'UsersBannedUsers',
+  InviteLinks = 'UsersInviteLinks',
 }
 
 export type ChannelSettingsPage = GeneralChannelSettingsPage | UsersChannelSettingsPage
