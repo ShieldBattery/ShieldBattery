@@ -354,6 +354,13 @@
       "required": "Ingresa un nombre de canal"
     },
     "commands": {
+      "availability": {
+        "error": "No se pudo cambiar tu estado: {{errorMessage}}",
+        "set": "Tu estado ahora es <1>{{label}}</1>."
+      },
+      "away": {
+        "description": "Cambia tu estado a Ausente, o de vuelta a Conectado si ya estás ausente."
+      },
       "ban": {
         "description": "Banea a un usuario de este canal.",
         "noPermission": "No tienes permiso para banear usuarios de este canal.",
@@ -375,6 +382,9 @@
       "close": {
         "description": "Cierra esta conversación de susurros.",
         "error": "No se pudo cerrar la conversación: {{errorMessage}}"
+      },
+      "dnd": {
+        "description": "Cambia tu estado a No molestar (silencia los sonidos y avisos de mensajes), o de vuelta a Conectado."
       },
       "eightBall": {
         "description": "Le hace una pregunta a la bola 8 mágica, que responde el servidor."
@@ -406,8 +416,14 @@
         "description": "Gestiona tu lista de amigos: añade, quita o míralos con su actividad actual.",
         "empty": "Tu lista de amigos está vacía.",
         "list": {
+          "counts_one": "Conectados: {{online}} · {{total}} amigo",
+          "counts_many": "Conectados: {{online}} · {{total}} de amigos",
+          "counts_other": "Conectados: {{online}} · {{total}} amigos",
           "description": "Muestra tus amigos y lo que están haciendo.",
-          "noneOnline": "No hay amigos conectados"
+          "hideOffline": "Ocultar desconectados",
+          "noneOnline": "No hay amigos conectados",
+          "showOffline": "Mostrar desconectados",
+          "title": "Amigos"
         },
         "loadError": "No se pudo cargar tu lista de amigos: {{errorMessage}}",
         "remove": {
@@ -484,7 +500,7 @@
         "description": "Añade ¯\\_(ツ)_/¯ a tu mensaje."
       },
       "stats": {
-        "description": "Muestra las victorias, las derrotas y los rangos de un usuario."
+        "description": "Muestra la tarjeta de perfil de un usuario: su rango y sus victorias y derrotas."
       },
       "surfaces": {
         "channel": "canales",
@@ -546,7 +562,6 @@
         "online": "<0><0></0></0> está conectado.",
         "presence": {
           "active": "activo",
-          "idle": "ausente",
           "offline": "desconectado"
         },
         "self": "Eres <2><0></0></2>.",
@@ -709,7 +724,6 @@
     },
     "userList": {
       "active": "Activo",
-      "idle": "Inactivo",
       "loadFailed": "No se pudo cargar la lista de usuarios",
       "offline": "Desconectado"
     },
@@ -922,6 +936,7 @@
     "results": {
       "draw": "Empate",
       "drawShort": "E",
+      "hidden": "Resultado oculto",
       "loss": "Derrota",
       "lossShort": "D",
       "unknown": "Desconocido",
@@ -1098,6 +1113,15 @@
     "dayHeader": {
       "today": "Hoy",
       "yesterday": "Ayer"
+    },
+    "linkCard": {
+      "hideResults": "Ocultar resultados",
+      "morePlayers_one": "+{{count}} más",
+      "morePlayers_many": "+{{count}} más",
+      "morePlayers_other": "+{{count}} más",
+      "showResults": "Mostrar resultados",
+      "versus": "vs",
+      "view": "Ver partida"
     },
     "list": {
       "noMatchingGames": "No hay partidas que coincidan.",
@@ -1398,6 +1422,15 @@
       "visibilityListedDescription": "Cualquiera puede unirse desde la lista de lobbies. Las partidas y los replays son públicos.",
       "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Solo quienes estuvieron en la partida pueden descargar el replay."
     },
+    "inviteCard": {
+      "goToLobby": "Ir al lobby",
+      "hostedBy": "Anfitrión: <1></1>",
+      "join": "Unirse",
+      "joined": "Ya estás en este lobby",
+      "seats": "{{taken}} de {{total}} espacios ocupados",
+      "title": "Lobby",
+      "view": "Ver lobby"
+    },
     "joinCode": {
       "explainer": "Pega un enlace de lobby o introduce el código que se muestra al abrir un enlace en el navegador.",
       "genericError": "Algo salió mal. Inténtalo de nuevo.",
@@ -1415,12 +1448,8 @@
       "errorFull": "Este lobby está lleno.",
       "errorGeneric": "Algo salió mal al unirte al lobby. Intenta de nuevo.",
       "errorObserversFull": "Este lobby no tiene espacios de observador libres. Prueba a unirte como jugador.",
-      "joined": "Unido",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
-      "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
-      "openSlotCount_one": "{{count}} espacio abierto",
-      "openSlotCount_many": "{{count}} espacios abiertos",
-      "openSlotCount_other": "{{count}} espacios abiertos"
+      "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado"
     },
     "landing": {
       "appLaunch": {
@@ -1847,6 +1876,17 @@
     },
     "match": {
       "gameFailedToLoad": "El juego no se ha podido cargar."
+    },
+    "matchCanceled": {
+      "backInQueue": "Volviste a la cola de emparejamiento para buscar un nuevo partido.",
+      "draftError": "La selección de razas se canceló por un error del servidor.",
+      "draftPlayerLeft": "Un jugador se fue durante la selección de razas, así que se canceló el partido.",
+      "loadError": "El partido no pudo empezar por un error del servidor.",
+      "loadPlayerLeft": "Un jugador se fue antes de que empezara el partido, así que se canceló.",
+      "loadTimeout": "Un jugador tardó demasiado en cargar, así que el partido no pudo empezar.",
+      "notYourFault": "No fue tu culpa. Quien lo provocó ya fue retirado de la cola.",
+      "playerFailedToLoad": "Un jugador se desconectó o no pudo cargar, así que el partido no pudo empezar.",
+      "title": "Partido cancelado"
     },
     "postMatchDialog": {
       "leagues": "Ligas",
@@ -2690,6 +2730,21 @@
         "title": "Direcciones IP"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "Cambia el nombre de este usuario al instante y registra el cambio en el historial de abajo. Si le das un token de cambio de nombre, podrá elegir su propio nombre enseguida, sin esperar el plazo habitual.",
+          "error": "Algo salió mal al cambiar el nombre para mostrar. Inténtalo de nuevo más tarde.",
+          "grantToken": "Dar un token de cambio de nombre",
+          "nameInvalid": "Ese nombre para mostrar no es válido.",
+          "nameLabel": "Nuevo nombre para mostrar",
+          "nameUnavailable": "Ese nombre para mostrar no está disponible.",
+          "nameUnchanged": "Este usuario ya tiene ese nombre para mostrar.",
+          "randomize": "Sugerir otro nombre",
+          "reasonHint": "El motivo se guarda con la entrada de auditoría que aparece en el historial de abajo.",
+          "reasonLabel": "Motivo (opcional)",
+          "submit": "Cambiar nombre",
+          "success": "Nombre para mostrar cambiado",
+          "title": "Cambiar nombre para mostrar"
+        },
         "displayNameChanges": "Cambios de nombre para mostrar",
         "loginNameChanges": "Cambios de nombre de inicio de sesión",
         "noDisplayNameHistory": "No se encontraron cambios de nombre para mostrar.",
@@ -2705,19 +2760,26 @@
         "title": "Sanciones"
       }
     },
+    "availability": {
+      "away": "Ausente",
+      "doNotDisturb": "No molestar",
+      "doNotDisturbDescription": "Silencia los sonidos y avisos de mensajes",
+      "online": "Conectado",
+      "pickerLabel": "Disponibilidad"
+    },
     "card": {
+      "divisionUnknown": "División desconocida",
+      "gameCount_one": "{{total}} partida",
+      "gameCount_many": "{{total}} de partidas",
+      "gameCount_other": "{{total}} partidas",
+      "joined": "Se unió {{time}}",
       "loadError": "No se pudo cargar el perfil de este usuario.",
       "noGames": "Sin partidas jugadas",
-      "rankLine": "{{division}} · {{mode}} · {{points}} pts",
-      "rankTooltip": {
-        "points": "{{points}} pts",
-        "winRate": "{{winRate}}% de victorias"
-      },
-      "totalGames_one": "{{count}} partida",
-      "totalGames_many": "{{count}} de partidas",
-      "totalGames_other": "{{count}} partidas",
-      "unranked": "Sin clasificar",
-      "viewProfile": "Perfil"
+      "notEnoughRankedGames": "Faltan partidas clasificatorias",
+      "notFound": "No se encontró a este usuario.",
+      "openProfile": "Ver perfil",
+      "title": "Jugador",
+      "unranked": "Sin rango"
     },
     "contextMenu": {
       "addFriend": "Agregar amigo",

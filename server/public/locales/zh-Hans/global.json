@@ -350,6 +350,13 @@
       "required": "请输入频道名称"
     },
     "commands": {
+      "availability": {
+        "error": "无法更改状态：{{errorMessage}}",
+        "set": "您的状态已设为<1>{{label}}</1>。"
+      },
+      "away": {
+        "description": "将您的状态设为“离开”，如果已经是“离开”则恢复为“在线”。"
+      },
       "ban": {
         "description": "将某个用户封禁出此频道。",
         "noPermission": "您没有权限在此频道封禁用户。",
@@ -371,6 +378,9 @@
       "close": {
         "description": "关闭此私聊会话。",
         "error": "无法关闭会话：{{errorMessage}}"
+      },
+      "dnd": {
+        "description": "将您的状态设为“请勿打扰”（关闭消息提示音和通知），或恢复为“在线”。"
       },
       "eightBall": {
         "description": "向神奇8号球提问，由服务器给出答案。"
@@ -402,8 +412,12 @@
         "description": "管理您的好友列表：添加、移除，或查看好友及其当前动态。",
         "empty": "您的好友列表是空的。",
         "list": {
+          "counts_other": "{{online}} 人在线 · 共 {{total}} 位好友",
           "description": "列出您的好友以及他们正在做什么。",
-          "noneOnline": "没有在线好友"
+          "hideOffline": "隐藏离线",
+          "noneOnline": "没有在线好友",
+          "showOffline": "显示离线",
+          "title": "好友"
         },
         "loadError": "无法加载您的好友列表：{{errorMessage}}",
         "remove": {
@@ -480,7 +494,7 @@
         "description": "在您的消息后附加 ¯\\_(ツ)_/¯。"
       },
       "stats": {
-        "description": "显示某个用户的胜负战绩和排名。"
+        "description": "显示某个用户的资料卡：排名和胜负战绩。"
       },
       "surfaces": {
         "channel": "频道",
@@ -540,7 +554,6 @@
         "online": "<0><0></0></0> 当前在线。",
         "presence": {
           "active": "活跃",
-          "idle": "空闲",
           "offline": "离线"
         },
         "self": "您是 <2><0></0></2>。",
@@ -703,7 +716,6 @@
     },
     "userList": {
       "active": "活跃用户",
-      "idle": "空闲用户",
       "loadFailed": "无法加载用户列表",
       "offline": "离线用户"
     },
@@ -912,6 +924,7 @@
     "results": {
       "draw": "平局",
       "drawShort": "平",
+      "hidden": "结果已隐藏",
       "loss": "失败",
       "lossShort": "败",
       "unknown": "不明",
@@ -1088,6 +1101,13 @@
     "dayHeader": {
       "today": "今天",
       "yesterday": "昨天"
+    },
+    "linkCard": {
+      "hideResults": "隐藏结果",
+      "morePlayers_other": "+{{count}} 人",
+      "showResults": "显示结果",
+      "versus": "vs",
+      "view": "查看游戏"
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
@@ -1368,6 +1388,15 @@
       "visibilityListedDescription": "任何人都可以从房间列表加入。游戏和录像公开可见。",
       "visibilityUnlistedDescription": "只有拥有链接的人才能加入。只有参与过游戏的人才能下载录像。"
     },
+    "inviteCard": {
+      "goToLobby": "前往房间",
+      "hostedBy": "房主：<1></1>",
+      "join": "加入",
+      "joined": "您已在此房间中",
+      "seats": "已占 {{taken}}/{{total}} 个座位",
+      "title": "房间",
+      "view": "查看房间"
+    },
     "joinCode": {
       "explainer": "粘贴房间链接，或输入在浏览器中打开链接时显示的房间码。",
       "genericError": "出了点问题，请重试。",
@@ -1385,10 +1414,8 @@
       "errorFull": "该房间已满。",
       "errorGeneric": "加入房间时出了点问题。请重试。",
       "errorObserversFull": "该房间没有空余的观战位，请尝试以玩家身份加入。",
-      "joined": "已加入",
       "matchmakingActiveDialogText": "正在进行匹配时无法加入房间。",
-      "matchmakingActiveDialogTitle": "加入房间已禁用",
-      "openSlotCount_other": "有{{count}}个空位"
+      "matchmakingActiveDialogTitle": "加入房间已禁用"
     },
     "landing": {
       "appLaunch": {
@@ -1807,6 +1834,17 @@
     },
     "match": {
       "gameFailedToLoad": "游戏加载失败。"
+    },
+    "matchCanceled": {
+      "backInQueue": "您已重新进入匹配队列，正在寻找新的比赛。",
+      "draftError": "由于服务器错误，种族选择已取消。",
+      "draftPlayerLeft": "有玩家在种族选择期间离开，比赛已取消。",
+      "loadError": "由于服务器错误，游戏无法开始。",
+      "loadPlayerLeft": "有玩家在游戏开始前离开，比赛已取消。",
+      "loadTimeout": "有玩家加载时间过长，游戏无法开始。",
+      "notYourFault": "这不是您的责任。导致取消的玩家已被移出队列。",
+      "playerFailedToLoad": "有玩家断开连接或加载失败，游戏无法开始。",
+      "title": "比赛已取消"
     },
     "postMatchDialog": {
       "leagues": "联赛",
@@ -2642,6 +2680,21 @@
         "title": "IP地址"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "立即为该用户改名，并将此次更改记录在下方的历史中。发放改名道具后，对方可以立即自行选择名称，无需等待通常的冷却时间。",
+          "error": "更改显示名时出错。请稍后再试。",
+          "grantToken": "发放改名道具",
+          "nameInvalid": "该显示名无效。",
+          "nameLabel": "新显示名",
+          "nameUnavailable": "该显示名不可用。",
+          "nameUnchanged": "该用户已在使用此显示名。",
+          "randomize": "推荐其他名称",
+          "reasonHint": "原因会随审计记录一起保存，并显示在下方的历史中。",
+          "reasonLabel": "原因（可选）",
+          "submit": "更改名称",
+          "success": "显示名已更改",
+          "title": "更改显示名"
+        },
         "displayNameChanges": "显示名更改记录",
         "loginNameChanges": "登录名更改记录",
         "noDisplayNameHistory": "未找到显示名更改记录。",
@@ -2657,17 +2710,24 @@
         "title": "惩罚"
       }
     },
+    "availability": {
+      "away": "离开",
+      "doNotDisturb": "请勿打扰",
+      "doNotDisturbDescription": "关闭消息提示音和通知",
+      "online": "在线",
+      "pickerLabel": "在线状态"
+    },
     "card": {
+      "divisionUnknown": "分级未知",
+      "gameCount_other": "{{total}} 场",
+      "joined": "{{time}}加入",
       "loadError": "无法加载该用户的资料。",
       "noGames": "暂无对局",
-      "rankLine": "{{division}} · {{mode}} · {{points}} 分",
-      "rankTooltip": {
-        "points": "{{points}} 分",
-        "winRate": "胜率 {{winRate}}%"
-      },
-      "totalGames_other": "{{count}} 场",
-      "unranked": "未定级",
-      "viewProfile": "资料"
+      "notEnoughRankedGames": "排位赛场次不足",
+      "notFound": "找不到该用户。",
+      "openProfile": "查看资料",
+      "title": "玩家",
+      "unranked": "未定级"
     },
     "contextMenu": {
       "addFriend": "添加好友",

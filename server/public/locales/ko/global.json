@@ -350,6 +350,13 @@
       "required": "채널 이름을 입력하세요"
     },
     "commands": {
+      "availability": {
+        "error": "상태를 변경하지 못했습니다: {{errorMessage}}",
+        "set": "상태가 <1>{{label}}</1>(으)로 바뀌었습니다."
+      },
+      "away": {
+        "description": "상태를 자리 비움으로 바꾸거나, 이미 자리 비움이면 온라인으로 되돌립니다."
+      },
       "ban": {
         "description": "이 채널에서 사용자를 차단합니다.",
         "noPermission": "이 채널에서 사용자를 차단할 권한이 없습니다.",
@@ -371,6 +378,9 @@
       "close": {
         "description": "이 귓속말 대화를 닫습니다.",
         "error": "대화를 닫지 못했습니다: {{errorMessage}}"
+      },
+      "dnd": {
+        "description": "상태를 방해 금지(메시지 알림음과 알림 끔)로 바꾸거나 온라인으로 되돌립니다."
       },
       "eightBall": {
         "description": "매직 8볼에게 질문합니다. 답은 서버가 정합니다."
@@ -402,8 +412,12 @@
         "description": "친구 목록을 관리합니다: 추가, 삭제, 현재 활동과 함께 목록 보기.",
         "empty": "친구 목록이 비어 있습니다.",
         "list": {
+          "counts_other": "온라인 {{online}}명 · 친구 {{total}}명",
           "description": "친구 목록과 각자 무엇을 하고 있는지 보여줍니다.",
-          "noneOnline": "온라인 친구 없음"
+          "hideOffline": "오프라인 숨기기",
+          "noneOnline": "온라인 친구 없음",
+          "showOffline": "오프라인 표시",
+          "title": "친구"
         },
         "loadError": "친구 목록을 불러오지 못했습니다: {{errorMessage}}",
         "remove": {
@@ -480,7 +494,7 @@
         "description": "메시지 끝에 ¯\\_(ツ)_/¯를 붙입니다."
       },
       "stats": {
-        "description": "사용자의 전적과 순위를 보여줍니다."
+        "description": "사용자의 프로필 카드(순위와 전적)를 보여줍니다."
       },
       "surfaces": {
         "channel": "채널",
@@ -540,7 +554,6 @@
         "online": "<0><0></0></0>님은 온라인입니다.",
         "presence": {
           "active": "활동 중",
-          "idle": "자리 비움",
           "offline": "오프라인"
         },
         "self": "당신은 <2><0></0></2>님입니다.",
@@ -703,7 +716,6 @@
     },
     "userList": {
       "active": "활동 중",
-      "idle": "자리 비움",
       "loadFailed": "사용자 목록을 불러오지 못했습니다",
       "offline": "오프라인"
     },
@@ -912,6 +924,7 @@
     "results": {
       "draw": "무승부",
       "drawShort": "D",
+      "hidden": "결과 숨김",
       "loss": "패배",
       "lossShort": "L",
       "unknown": "언노운",
@@ -1088,6 +1101,13 @@
     "dayHeader": {
       "today": "오늘",
       "yesterday": "어제"
+    },
+    "linkCard": {
+      "hideResults": "결과 숨기기",
+      "morePlayers_other": "+{{count}}명",
+      "showResults": "결과 보기",
+      "versus": "vs",
+      "view": "게임 보기"
     },
     "list": {
       "noMatchingGames": "일치하는 게임이 없습니다.",
@@ -1368,6 +1388,15 @@
       "visibilityListedDescription": "누구나 로비 목록에서 참가할 수 있습니다. 게임과 리플레이가 공개됩니다.",
       "visibilityUnlistedDescription": "링크가 있는 사람만 참가할 수 있습니다. 리플레이는 게임에 참여했던 사람만 다운로드할 수 있습니다."
     },
+    "inviteCard": {
+      "goToLobby": "로비로 이동",
+      "hostedBy": "호스트: <1></1>",
+      "join": "참가",
+      "joined": "참가 중인 로비입니다",
+      "seats": "슬롯 {{total}}개 중 {{taken}}개 사용 중",
+      "title": "로비",
+      "view": "로비 보기"
+    },
     "joinCode": {
       "explainer": "로비 링크를 붙여넣거나, 링크를 브라우저에서 열었을 때 표시되는 코드를 입력하세요.",
       "genericError": "문제가 발생했습니다. 다시 시도해 주세요.",
@@ -1385,10 +1414,8 @@
       "errorFull": "로비가 가득 찼습니다.",
       "errorGeneric": "로비에 참가하는 중 문제가 발생했습니다. 다시 시도해 주세요.",
       "errorObserversFull": "이 로비에는 비어 있는 관전자 자리가 없습니다. 플레이어로 참여해 보세요.",
-      "joined": "참가 중",
       "matchmakingActiveDialogText": "매치메이킹이 진행 중일 때는 로비에 참여할 수 없습니다.",
-      "matchmakingActiveDialogTitle": "로비 참가 비활성화됨",
-      "openSlotCount_other": "{{count}} 슬롯 열림"
+      "matchmakingActiveDialogTitle": "로비 참가 비활성화됨"
     },
     "landing": {
       "appLaunch": {
@@ -1807,6 +1834,17 @@
     },
     "match": {
       "gameFailedToLoad": "게임 로딩에 실패했습니다."
+    },
+    "matchCanceled": {
+      "backInQueue": "매치메이킹 대기열로 돌아가 새 상대를 찾고 있습니다.",
+      "draftError": "서버 오류로 종족 선택이 취소되었습니다.",
+      "draftPlayerLeft": "종족 선택 중에 플레이어가 나가서 경기가 취소되었습니다.",
+      "loadError": "서버 오류로 게임을 시작하지 못했습니다.",
+      "loadPlayerLeft": "게임이 시작되기 전에 플레이어가 나가서 경기가 취소되었습니다.",
+      "loadTimeout": "로딩이 너무 오래 걸린 플레이어가 있어 게임을 시작하지 못했습니다.",
+      "notYourFault": "본인의 잘못이 아닙니다. 원인이 된 플레이어는 대기열에서 제외되었습니다.",
+      "playerFailedToLoad": "플레이어의 연결이 끊기거나 로딩에 실패해 게임을 시작하지 못했습니다.",
+      "title": "경기가 취소되었습니다"
     },
     "postMatchDialog": {
       "leagues": "리그",
@@ -2540,7 +2578,7 @@
         "errorAcceptingFriendRequest": "친구 요청 수락 중 오류가 발생했습니다",
         "errorDecliningFriendRequest": "친구 요청 거절 중 오류가 발생했습니다",
         "errorRemovingFriendRequest": "친구 요청 삭제 중 오류가 발생했습니다",
-        "load": "친구 목록 불러오기 실패했습니다"
+        "load": "친구 목록을 불러오지 못했습니다"
       }
     },
     "friends": {
@@ -2642,6 +2680,21 @@
         "title": "IP 주소"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "이 사용자의 이름을 즉시 변경하고 아래 기록에 변경 내역을 남깁니다. 이름 변경 토큰을 지급하면 평소의 대기 기간 없이 바로 원하는 이름을 고를 수 있습니다.",
+          "error": "표시 이름을 변경하는 중 문제가 발생했습니다. 나중에 다시 시도하세요.",
+          "grantToken": "이름 변경 토큰 지급",
+          "nameInvalid": "유효하지 않은 표시 이름입니다.",
+          "nameLabel": "새 표시 이름",
+          "nameUnavailable": "사용할 수 없는 표시 이름입니다.",
+          "nameUnchanged": "이 사용자는 이미 해당 표시 이름을 사용하고 있습니다.",
+          "randomize": "다른 이름 추천",
+          "reasonHint": "사유는 아래 기록에 표시되는 감사 항목과 함께 저장됩니다.",
+          "reasonLabel": "사유 (선택)",
+          "submit": "이름 변경",
+          "success": "표시 이름을 변경했습니다",
+          "title": "표시 이름 변경"
+        },
         "displayNameChanges": "표시 이름 변경 내역",
         "loginNameChanges": "로그인 이름 변경 내역",
         "noDisplayNameHistory": "표시 이름 변경 내역이 없습니다.",
@@ -2657,17 +2710,24 @@
         "title": "제재"
       }
     },
+    "availability": {
+      "away": "자리 비움",
+      "doNotDisturb": "방해 금지",
+      "doNotDisturbDescription": "메시지 알림음과 알림을 끕니다",
+      "online": "온라인",
+      "pickerLabel": "상태"
+    },
     "card": {
+      "divisionUnknown": "디비전 알 수 없음",
+      "gameCount_other": "{{total}}전",
+      "joined": "{{time}} 가입",
       "loadError": "이 사용자의 프로필을 불러오지 못했습니다.",
       "noGames": "플레이한 게임 없음",
-      "rankLine": "{{division}} · {{mode}} · {{points}}점",
-      "rankTooltip": {
-        "points": "{{points}}점",
-        "winRate": "승률 {{winRate}}%"
-      },
-      "totalGames_other": "{{count}}전",
-      "unranked": "랭크 없음",
-      "viewProfile": "프로필"
+      "notEnoughRankedGames": "랭크전 게임 수 부족",
+      "notFound": "이 사용자를 찾을 수 없습니다.",
+      "openProfile": "프로필 보기",
+      "title": "플레이어",
+      "unranked": "랭크 없음"
     },
     "contextMenu": {
       "addFriend": "친구 추가",
