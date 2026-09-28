@@ -1789,17 +1789,10 @@ impl BwScr {
         #[cfg(debug_assertions)]
         let show_game_message = analysis.show_game_message();
         // Analysis failures here are not fatal: the harness reports whatever it could not resolve
-        // as missing from its snapshot and runs with the rest. Most of these need an analysis pass
-        // nothing else in the game asks for, which adds up to a noticeable part of launch time, so
-        // a run that will neither roll anything back nor dump the ranges does not pay for them.
+        // as missing from its snapshot and runs with the rest. Whether a game rolls back is only
+        // known once its session is set up, long after analysis, so these are always resolved.
         #[cfg(debug_assertions)]
-        let rollback_ranges = match crate::rollback_harness::wants_ranges()
-            || crate::rollback_live::wants_ranges()
-            || crate::rollback_probe::is_active()
-        {
-            true => crate::rollback::ranges::analyze_ranges(&mut analysis, ctx),
-            false => Vec::new(),
-        };
+        let rollback_ranges = crate::rollback::ranges::analyze_ranges(&mut analysis, ctx);
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -6259,8 +6252,7 @@ impl BwScr {
     }
 
     /// The value the snapshot's analysis result `name` holds right now, which for a list head is
-    /// the list's first entry; 0 when analysis did not resolve it, or did not run because neither
-    /// the harness, a dump nor the probe was armed at launch.
+    /// the list's first entry; 0 when analysis did not resolve it.
     pub(crate) unsafe fn rollback_list_head(&self, name: &str) -> usize {
         unsafe {
             self.rollback_ranges

@@ -54,7 +54,7 @@ use rally_point_client::LeaveTracker;
 use rally_point_client::SyncGenerationTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::{LeaveDirective, Payload};
+use rally_point_client::proto::messages::{LeaveDirective, Payload, StateHashReport};
 use tokio::sync::mpsc;
 
 mod input_table;
@@ -521,6 +521,9 @@ pub struct TurnState {
     /// Which storm slots must supply a turn before a step is ready to dispatch. Set as slots are
     /// mapped during join; a synced leave clears one (so the sim stops waiting on a departed peer).
     required: [bool; bw::MAX_STORM_PLAYERS],
+    /// State hash reports of confirmed positions, in a game that rolls back, waiting for the next
+    /// local turn to carry them. Positions are reported every few steps, so one turn carries one.
+    state_hash_reports: VecDeque<StateHashReport>,
     /// Set by [`enable_lobby_seam`](Self::enable_lobby_seam) once the lobby seam is active, at which
     /// point [`submit_local_lobby_turn`](Self::submit_local_lobby_turn) and
     /// [`lobby_receive_turns`](Self::lobby_receive_turns) carry BW's lobby-phase command traffic over
@@ -681,6 +684,7 @@ impl TurnState {
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
+            state_hash_reports: VecDeque::new(),
             lobby_seam: None,
             lobby_drop_warned: [false; bw::MAX_STORM_PLAYERS],
             lobby_echo: VecDeque::new(),
@@ -923,6 +927,7 @@ impl TurnState {
             // it forwards, so our own outbound turn carries none.
             buffer_directive: None,
             sync_generation,
+            state_hash: self.state_hash_reports.pop_front(),
         };
         match self.channels.outbound.try_send(payload) {
             Ok(()) => {
@@ -952,6 +957,15 @@ impl TurnState {
             }
         }
         self.turns_in_flight = self.turns_in_flight.saturating_add(1);
+    }
+
+    /// Queues the state hash of confirmed `position` in a game that rolls back, for the next local
+    /// turn to carry to the relay.
+    pub fn queue_state_hash(&mut self, position: u32, hash: u64) {
+        self.state_hash_reports.push_back(StateHashReport {
+            step: position.into(),
+            hash,
+        });
     }
 
     /// Records one active native sync-slot write. Inactive native sync must not report a stale ring.
@@ -2438,6 +2452,7 @@ mod tests {
             game_frame_count: Some(0),
             sync_generation: None,
             buffer_directive: None,
+            state_hash: None,
         }
     }
 

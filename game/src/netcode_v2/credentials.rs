@@ -296,6 +296,7 @@ mod tests {
             home_relay: home,
             roster: Vec::new(),
             initial_buffer_turns: 2,
+            rollback: false,
         }
     }
 

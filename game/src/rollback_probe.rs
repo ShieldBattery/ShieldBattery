@@ -454,12 +454,6 @@ pub fn init_from_env() {
     }
 }
 
-/// Whether the probe is recording, which makes analysis resolve the object lists
-/// [`state_hash`] walks.
-pub fn is_active() -> bool {
-    ACTIVE.load(Ordering::Acquire)
-}
-
 /// Arms the probe. The counters attach to BW on the game thread's next logic step.
 pub fn start() -> RollbackProbeStatus {
     {

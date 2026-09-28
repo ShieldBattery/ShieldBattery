@@ -749,6 +749,12 @@ pub struct NetcodeV2Setup {
     /// its computed depth moves off that starting point, so a client that seeded some other
     /// default would disagree with the relay until the first such directive arrived.
     pub initial_buffer_turns: u32,
+    /// Whether the session rolls back instead of running lockstep. The server sets it for every
+    /// client in the session alike, and each must run in that mode: a rollback client strips
+    /// native sync commands and reports state hashes instead, which a lockstep session's relays
+    /// would treat as a desync. Absent (false) from a server that predates it.
+    #[serde(default)]
+    pub rollback: bool,
 }
 
 #[cfg(test)]

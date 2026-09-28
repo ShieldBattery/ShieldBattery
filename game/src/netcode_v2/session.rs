@@ -49,6 +49,12 @@ quick_error! {
             display("netcode v2 relay could not be dialed: {}", err)
             source(err)
         }
+        /// The session rolls back, which this DLL can't: a release build, or one whose analysis
+        /// missed something the rollback engine needs. Running it as lockstep instead would desync
+        /// from every client that does roll back.
+        RollbackUnsupported {
+            display("netcode v2 session rolls back, which this build of the game DLL can't do")
+        }
     }
 }
 
@@ -110,6 +116,18 @@ struct ParkedChannels {
 /// is to not hold it across such calls in the first place.
 static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 
+/// Whether this DLL can run a game that rolls back. The rollback engine is compiled out of release
+/// builds.
+#[cfg(debug_assertions)]
+fn rollback_supported() -> bool {
+    crate::rollback_live::supported()
+}
+
+#[cfg(not(debug_assertions))]
+fn rollback_supported() -> bool {
+    false
+}
+
 /// Builds the QUIC session from the launch handoff and stores it for the hooks. Call on the Tokio
 /// runtime (it dials and spawns the driver). Replaces any previous session.
 ///
@@ -126,6 +144,9 @@ pub async fn establish_session(
     has_computers: bool,
     rehome_context: RehomeContext,
 ) -> Result<mpsc::Receiver<Option<u32>>, SessionError> {
+    if setup.rollback && !rollback_supported() {
+        return Err(SessionError::RollbackUnsupported);
+    }
     let SessionCredentials {
         identity,
         home,
@@ -231,7 +252,7 @@ pub async fn establish_session(
     // Before any in-game turn exists, since the input table places each turn at its step by
     // counting its slot's turns.
     #[cfg(debug_assertions)]
-    if let Some(inputs) = crate::rollback_live::input_table() {
+    if let Some(inputs) = crate::rollback_live::arm_for_session(setup.rollback) {
         turn_state.predict_inputs(inputs);
     }
     // Seed the `/netstat` operator header and per-player home column from the launch handoff. The

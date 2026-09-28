@@ -417,14 +417,6 @@ pub fn init_from_env() {
     }
 }
 
-/// Whether anything currently wants the snapshot's ranges resolved: the harness is armed, a range
-/// dump was asked for, or (checked by the caller) the rollback probe is active. Analysis resolving
-/// them costs a noticeable part of launch time, so a run that wants none of these does not pay for
-/// it.
-pub(crate) fn wants_ranges() -> bool {
-    ARMED.load(Ordering::Acquire) || DUMP_ARMED.load(Ordering::Acquire)
-}
-
 /// Environment variable naming frames at which to write every snapshot range out, with or without
 /// the harness armed: with it, from the first step that simulates the frame once it is confirmed;
 /// without it, from plain playback. Diffing the two dumps (pointers translated into range offsets)

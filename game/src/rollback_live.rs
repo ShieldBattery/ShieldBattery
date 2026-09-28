@@ -8,10 +8,14 @@
 //! forward to the present again. Steps that are simulated again take their turns from the same
 //! table and send nothing.
 //!
-//! Debug knobs, all read once at startup:
+//! A game rolls back when its netcode v2 session does, which the server decides for every client
+//! in the session alike ([`arm_for_session`]). Such a game sends no native sync commands; it reports
+//! hashes of confirmed positions for the relay to compare instead ([`hash_reports`]).
 //!
-//! - `SB_ROLLBACK_PREDICT=<limit>` runs up to `limit` steps ahead of the known turns. 0 predicts
-//!   nothing and waits for every turn, like lockstep.
+//! Debug knobs, all read once at startup, which tune a game that rolls back:
+//!
+//! - `SB_ROLLBACK_PREDICT=<limit>` runs up to `limit` steps ahead of the known turns (8 unless
+//!   set). 0 predicts nothing and waits for every turn, like lockstep.
 //! - `SB_ROLLBACK_TARGET=<frames>` is the rollback this client takes on in place of input delay
 //!   (3 unless set, and never more than the limit): it runs that many frames ahead of the
 //!   lockstep schedule and keeps that many fewer of its own turns in flight. See
@@ -24,12 +28,11 @@
 //!   that many frames' worth of time after they arrive, as if their link were that much slower.
 //! - `SB_ROLLBACK_MONKEY=<actions per minute>` selects random units of the local player and
 //!   right-clicks random map positions with them, so a game can be tested without anyone playing.
+//! - `SB_ROLLBACK_WITHHOLD_HASHES_FROM=<position>` sends no state hash reports from that position
+//!   on while playing on, as a client hiding its state would, for the relay to name.
 //!
-//! Arming any of the first two turns native sync (0x37) off for this client. Every client in the
-//! game has to agree on that, so a plain client in the same game needs
-//! `SB_ROLLBACK_NATIVE_SYNC_OFF=1`.
-//!
-//! Compiled out of release DLLs along with the engine it drives.
+//! Compiled out of release DLLs along with the engine it drives, so a release DLL refuses a session
+//! that rolls back.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -42,14 +45,18 @@ use crate::game_thread;
 use crate::netcode_v2::{self, InputCounts, InputTable};
 use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
 use crate::rollback::tick::{self, TickPlan};
-use crate::rollback::{game_end, sounds};
+use crate::rollback::{game_end, hash_reports, sounds};
 
 const PREDICT_ENV_VAR: &str = "SB_ROLLBACK_PREDICT";
 const SHADOW_ENV_VAR: &str = "SB_ROLLBACK_SHADOW";
 const DELAY_ENV_VAR: &str = "SB_ROLLBACK_LIVE_DELAY";
 const MONKEY_ENV_VAR: &str = "SB_ROLLBACK_MONKEY";
+const WITHHOLD_HASHES_ENV_VAR: &str = "SB_ROLLBACK_WITHHOLD_HASHES_FROM";
 const TARGET_ENV_VAR: &str = "SB_ROLLBACK_TARGET";
 const MIN_BUFFER_ENV_VAR: &str = "SB_ROLLBACK_MIN_BUFFER";
+
+/// The prediction limit when the environment doesn't set one.
+const DEFAULT_PREDICTION_LIMIT: u32 = 8;
 
 /// The rollback target when the environment doesn't set one.
 const DEFAULT_ROLLBACK_TARGET: u32 = 3;
@@ -62,18 +69,13 @@ const LOCKSTEP_START_STEPS: u32 = 24;
 /// behind its schedule.
 const MAX_CATCH_UP_PER_TICK: u32 = 2;
 
-/// Environment variable that turns native sync (0x37) off without arming rollback, with
-/// `SB_ROLLBACK_NATIVE_SYNC_OFF=1`. Every client in a game has to agree on it: a client with it on
-/// stops sending sync commands, which one with it off drops it for.
-const NATIVE_SYNC_OFF_ENV_VAR: &str = "SB_ROLLBACK_NATIVE_SYNC_OFF";
-
 /// The game loop's interval between logic steps at the Fastest game speed.
 const FRAME_DURATION: Duration = Duration::from_millis(42);
 
 /// How many ticks go between the summaries logged.
 const SUMMARY_TICKS: u32 = 720;
 
-/// The debug knobs, as read from the environment.
+/// How a game that rolls back runs: the defaults, with whatever the debug knobs change.
 struct Settings {
     /// Steps a step may run past the newest one whose turns are all known.
     limit: u32,
@@ -87,18 +89,17 @@ struct Settings {
     held: [Duration; bw::MAX_STORM_PLAYERS],
     /// Frames between the monkey's commands, or 0 for no monkey.
     monkey_interval: u32,
+    /// The first position whose state hash report is not sent.
+    withhold_hashes_from: u32,
 }
 
 static SETTINGS: Mutex<Option<Settings>> = Mutex::new(None);
 
-/// Whether rollback is armed for live games.
+/// Whether the current game rolls back.
 static ARMED: AtomicBool = AtomicBool::new(false);
 
 /// Frames between snapshots.
 static SPACING: AtomicU32 = AtomicU32::new(crate::rollback_harness::DEFAULT_SNAPSHOT_SPACING);
-
-/// Whether native sync is off for this client.
-static NATIVE_SYNC_OFF: AtomicBool = AtomicBool::new(false);
 
 /// State of the monkey's random number generator (xorshift32, never 0).
 static MONKEY_RANDOM: AtomicU32 = AtomicU32::new(0);
@@ -157,19 +158,31 @@ struct LeadWindow {
     ticks: usize,
     lowest: u32,
     highest: u32,
+    /// The newest step whose turns were all known as of the last tick noted.
+    known_until: u32,
 }
 
 static LEAD_WINDOW: Mutex<LeadWindow> = Mutex::new(LeadWindow {
     ticks: 0,
     lowest: u32::MAX,
     highest: 0,
+    known_until: 0,
 });
 
-/// Notes the rollback this tick runs with, `ahead` frames past the newest known turns, and returns
-/// how far to move the lead once a whole window has stayed above `target` (down by the smallest
-/// excess) or below it (up by the smallest shortfall).
-fn lead_adjustment(ahead: u32, target: u32) -> i32 {
+/// Notes the rollback a tick ran with, `ahead` frames past `known_until`, the newest step whose
+/// turns were all known, and returns how far to move the lead once a whole window has stayed above
+/// `target` (down by the smallest excess) or below it (up by the smallest shortfall).
+///
+/// Only ticks by which more turns became known count. The lead follows how late turns arrive, and
+/// while none arrive at all (a peer that stopped sending, or a lost link) the rollback just sits at
+/// the prediction limit, which says nothing about lateness: following it would pile input delay on
+/// for when turns resume.
+fn lead_adjustment(ahead: u32, known_until: u32, target: u32) -> i32 {
     let mut window = LEAD_WINDOW.lock();
+    if known_until <= window.known_until {
+        return 0;
+    }
+    window.known_until = known_until;
     window.ticks += 1;
     window.lowest = window.lowest.min(ahead);
     window.highest = window.highest.max(ahead);
@@ -187,6 +200,7 @@ fn lead_adjustment(ahead: u32, target: u32) -> i32 {
         ticks: 0,
         lowest: u32::MAX,
         highest: 0,
+        known_until,
     };
     adjustment
 }
@@ -222,19 +236,8 @@ struct Summary {
 
 static SUMMARY: Mutex<Option<Summary>> = Mutex::new(None);
 
-/// Arms rollback in live games if the environment asks for it. Called once while the DLL
-/// initialises, before the game thread exists.
+/// Reads the debug knobs. Called once while the DLL initialises, before the game thread exists.
 pub fn init_from_env() {
-    if std::env::var(NATIVE_SYNC_OFF_ENV_VAR).as_deref() == Ok("1") {
-        NATIVE_SYNC_OFF.store(true, Ordering::Release);
-        info!("{NATIVE_SYNC_OFF_ENV_VAR}=1: native sync commands will be neither sent nor checked");
-    }
-    let limit = read_count(PREDICT_ENV_VAR);
-    let shadow_depth = read_count(SHADOW_ENV_VAR);
-    let rollback_target = read_count(TARGET_ENV_VAR);
-    if limit.is_none() && shadow_depth.is_none() {
-        return;
-    }
     let mut held = [Duration::ZERO; bw::MAX_STORM_PLAYERS];
     if let Ok(spec) = std::env::var(DELAY_ENV_VAR) {
         for entry in spec.split(',').filter(|x| !x.is_empty()) {
@@ -262,32 +265,19 @@ pub fn init_from_env() {
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |x| x.subsec_nanos());
     MONKEY_RANDOM.store(seed | 1, Ordering::Relaxed);
-    let limit = limit.unwrap_or(0);
+    let limit = read_count(PREDICT_ENV_VAR).unwrap_or(DEFAULT_PREDICTION_LIMIT);
     let settings = Settings {
         limit,
-        rollback_target: rollback_target
+        rollback_target: read_count(TARGET_ENV_VAR)
             .unwrap_or(DEFAULT_ROLLBACK_TARGET)
             .min(limit),
         min_buffer_turns: read_count(MIN_BUFFER_ENV_VAR).unwrap_or(0),
-        shadow_depth: shadow_depth.unwrap_or(0),
+        shadow_depth: read_count(SHADOW_ENV_VAR).unwrap_or(0),
         held,
         monkey_interval,
+        withhold_hashes_from: read_count(WITHHOLD_HASHES_ENV_VAR).unwrap_or(u32::MAX),
     };
-    info!(
-        "Live rollback armed with native sync off: prediction limit {}, rollback target {}, \
-         minimum buffer {}, shadow depth {}, turns held back {:?}, monkey every {} frames",
-        settings.limit,
-        settings.rollback_target,
-        settings.min_buffer_turns,
-        settings.shadow_depth,
-        settings.held,
-        settings.monkey_interval,
-    );
     *SETTINGS.lock() = Some(settings);
-    ARMED.store(true, Ordering::Release);
-    // Native sync hashes state that a re-simulation does not reproduce, and a predicted step would
-    // hash state its peers never had.
-    NATIVE_SYNC_OFF.store(true, Ordering::Release);
     if let Some(spacing) = crate::rollback_harness::snapshot_spacing_from_env() {
         SPACING.store(spacing, Ordering::Release);
     }
@@ -304,22 +294,44 @@ fn read_count(var: &str) -> Option<u32> {
     }
 }
 
-/// Whether live rollback is armed, which needs the snapshot's ranges resolved.
-pub(crate) fn wants_ranges() -> bool {
+/// Whether native sync (0x37) is off for this client: it neither sends sync commands nor checks
+/// its peers' ones, and a no-op stands in for each turn's sync command. Off exactly in a game that
+/// rolls back, since native sync hashes state that a re-simulation does not reproduce, and a
+/// predicted step would hash state its peers never had.
+pub(crate) fn native_sync_off() -> bool {
     ARMED.load(Ordering::Acquire)
 }
 
-/// Whether native sync (0x37) is off for this client: it neither sends sync commands nor checks
-/// its peers' ones, and a no-op stands in for each turn's sync command.
-pub(crate) fn native_sync_off() -> bool {
-    NATIVE_SYNC_OFF.load(Ordering::Acquire)
+/// Whether this DLL can run a game that rolls back: analysis resolved what the engine snapshots,
+/// and the observer UI hooks that keep re-simulated frames from repeating the observer UI's
+/// notifications, which dereference records a repeated notification has already consumed.
+pub fn supported() -> bool {
+    let bw = crate::bw::get_bw();
+    !bw.rollback_range_specs().is_empty() && bw.rollback_observer_ui_hooked()
 }
 
-/// The input table a new game's turn state keeps its turns in, or `None` when live rollback is
-/// not armed.
-pub fn input_table() -> Option<InputTable> {
+/// Sets whether the game about to start rolls back, as its session says, and returns the input
+/// table its turn state keeps its turns in when it does. The server tells every client in the
+/// session the same, which matters because a game that rolls back turns native sync off.
+pub fn arm_for_session(rollback: bool) -> Option<InputTable> {
+    ARMED.store(rollback, Ordering::Release);
+    if !rollback {
+        return None;
+    }
     let settings = SETTINGS.lock();
     let settings = settings.as_ref()?;
+    info!(
+        "This game rolls back, with native sync off: prediction limit {}, rollback target {}, \
+         minimum buffer {}, shadow depth {}, turns held back {:?}, monkey every {} frames, \
+         hash reports withheld from position {}",
+        settings.limit,
+        settings.rollback_target,
+        settings.min_buffer_turns,
+        settings.shadow_depth,
+        settings.held,
+        settings.monkey_interval,
+        settings.withhold_hashes_from,
+    );
     let mut table = InputTable::new(
         settings.limit,
         settings.rollback_target,
@@ -339,6 +351,7 @@ pub fn reset_for_game_init() {
         ticks: 0,
         lowest: u32::MAX,
         highest: 0,
+        known_until: 0,
     };
 }
 
@@ -354,20 +367,14 @@ pub unsafe fn run_game_logic_step(
         if !ARMED.load(Ordering::Relaxed) || game_thread::is_replay() || !bw.has_game_started() {
             return None;
         }
-        if !bw.rollback_observer_ui_hooked() {
-            // Re-simulated frames would repeat the observer UI's notifications, and it
-            // dereferences records a repeated notification has already consumed.
-            ARMED.store(false, Ordering::Release);
-            error!("Live rollback needs the observer UI hooks, which analysis could not resolve");
-            return None;
-        }
-        let (shadow_depth, monkey_interval, rollback_target) = {
+        let (shadow_depth, monkey_interval, rollback_target, withhold_hashes_from) = {
             let settings = SETTINGS.lock();
             let settings = settings.as_ref()?;
             (
                 settings.shadow_depth,
                 settings.monkey_interval,
                 settings.rollback_target,
+                settings.withhold_hashes_from,
             )
         };
         let tick_start = Instant::now();
@@ -395,19 +402,6 @@ pub unsafe fn run_game_logic_step(
             })?;
         // A turn state without an input table is one that started before rollback was armed.
         let known_until = known_until?;
-        // The lead follows the rollback this client runs: how far the step about to run is past
-        // the newest step whose turns are all known.
-        if current >= LOCKSTEP_START_STEPS {
-            let ahead = (current + 1).saturating_sub(known_until);
-            {
-                let mut smoothed = SMOOTHED_ROLLBACK.lock();
-                *smoothed += (ahead as f32 - *smoothed) / LEAD_WINDOW_TICKS as f32;
-            }
-            let adjustment = lead_adjustment(ahead, rollback_target);
-            if adjustment != 0 {
-                netcode_v2::with_turn_state(|s| s.adjust_lead(adjustment));
-            }
-        }
 
         let mut guard = SNAPSHOTS.lock();
         if guard.is_none() {
@@ -459,10 +453,29 @@ pub unsafe fn run_game_logic_step(
                     },
                 );
             }
+            if hash_reports::is_report_position(step.frame)
+                && let Some(fingerprint) = bw.probe_fingerprint()
+            {
+                hash_reports::record(step.frame, fingerprint.state_hash);
+            }
             ret
         });
         drop(guard);
         let reached = crate::rollback::position(bw).unwrap_or(current);
+        // The rollback this client runs: how far the frame it now shows is past the newest frame
+        // whose turns are all known. A tick stalled at the prediction limit shows the frame it was
+        // already on, exactly the limit past them.
+        let ahead = reached.saturating_sub(known_until);
+        if current >= LOCKSTEP_START_STEPS {
+            {
+                let mut smoothed = SMOOTHED_ROLLBACK.lock();
+                *smoothed += (ahead as f32 - *smoothed) / LEAD_WINDOW_TICKS as f32;
+            }
+            let adjustment = lead_adjustment(ahead, known_until, rollback_target);
+            if adjustment != 0 {
+                netcode_v2::with_turn_state(|s| s.adjust_lead(adjustment));
+            }
+        }
         let mut held_back = false;
         {
             let mut schedule = SCHEDULE.lock();
@@ -485,6 +498,16 @@ pub unsafe fn run_game_logic_step(
         }
         sounds::reconcile_sounds(bw, report.window_start, report.settled_through, present);
         game_end::confirm_outcomes_through(plan.confirmed);
+        let reports = hash_reports::take_confirmed(plan.confirmed);
+        if !reports.is_empty() {
+            netcode_v2::with_turn_state(|s| {
+                for &(position, hash) in &reports {
+                    if position < withhold_hashes_from {
+                        s.queue_state_hash(position, hash);
+                    }
+                }
+            });
+        }
         if let Some(dialog) = game_end::take_confirmed(plan.confirmed) {
             info!(
                 "Opening the {dialog:?} dialog a step asked for, now that frames through {} are \
@@ -509,7 +532,6 @@ pub unsafe fn run_game_logic_step(
             summary.resimulated += resimulated;
             summary.deepest = summary.deepest.max(resimulated);
         }
-        let ahead = present.saturating_sub(known_until.min(present));
         summary.predicted_depth += ahead as u64;
         summary.deepest_prediction = summary.deepest_prediction.max(ahead);
         if !can_run {
