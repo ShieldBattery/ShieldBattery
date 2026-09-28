@@ -102,7 +102,7 @@ export function PrivateChannelNotice() {
       <PrivateChannelDescriptionText>
         {t(
           'chat.channelInfoCard.private',
-          'This channel is private and requires an invite to join.',
+          'This channel is private and requires an invite link to join.',
         )}
       </PrivateChannelDescriptionText>
     </PrivateChannelDescriptionContainer>

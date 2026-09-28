@@ -1,8 +1,10 @@
 import { Immutable } from 'immer'
 import {
+  ChannelInviteLinkJson,
   ChannelModerationAction,
   ChannelPermissions,
   ChatServiceErrorCode,
+  CreateChannelInviteLinkResponse,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
@@ -189,7 +191,7 @@ export function getJoinChannelErrorMessage(err: unknown, channelName: string): s
       )
     } else if (err.code === ChatServiceErrorCode.ChannelPrivate) {
       return i18n.t('chat.joinChannel.privateError', {
-        defaultValue: '#{{channelName}} is private and requires an invite to join',
+        defaultValue: '#{{channelName}} is private and requires an invite link to join',
         channelName,
       })
     } else if (err.code === ChatServiceErrorCode.UserBanned) {
@@ -197,6 +199,11 @@ export function getJoinChannelErrorMessage(err: unknown, channelName: string): s
         defaultValue: 'You are banned from #{{channelName}}',
         channelName,
       })
+    } else if (err.code === ChatServiceErrorCode.InviteLinkInvalid) {
+      return i18n.t(
+        'chat.joinChannel.inviteLinkInvalidError',
+        'This invite link is invalid or has expired.',
+      )
     }
 
     logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
@@ -228,6 +235,51 @@ export function joinChannelWithErrorHandling(
 
         throw err
       })
+  })
+}
+
+/**
+ * Gets an invite link into a private channel for the current user to share, which may be one they
+ * got before. The caller is expected to handle errors.
+ */
+export function getChannelInviteLink(
+  channelId: SbChannelId,
+  spec: RequestHandlingSpec<ChannelInviteLinkJson>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const result = await fetchJson<CreateChannelInviteLinkResponse>(
+      apiUrl`chat/${channelId}/invite-links`,
+      {
+        method: 'POST',
+        signal: spec.signal,
+      },
+    )
+    return result.inviteLink
+  })
+}
+
+/**
+ * Joins the private channel an invite link leads into, then moves the user into it. The caller is
+ * expected to handle errors (see `getJoinChannelErrorMessage`).
+ */
+export function joinChannelWithInviteLink(
+  token: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<JoinChannelResponse>(apiUrl`chat/invite-links/${token}/join`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+
+    // The joined channel's info is known now, so it stops counting as a private channel the user
+    // can't see before the socket's own update about the join arrives.
+    dispatch({
+      type: '@chat/getChannelInfo',
+      payload: result,
+      meta: { channelId: result.channelInfo.id },
+    })
+    navigateToChannel(result.channelInfo.id, result.channelInfo.name)
   })
 }
 

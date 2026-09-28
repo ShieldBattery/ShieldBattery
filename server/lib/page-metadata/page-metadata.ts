@@ -1,4 +1,5 @@
 import { parse } from 'regexparam'
+import { channelInvitePageMetadata } from '../chat/channel-invite-page-meta'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
 import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
@@ -45,6 +46,7 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/users/:id/*?', resolver: userPageMetadata },
   { pattern: '/games/:id/*?', resolver: gamePageMetadata },
   { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
+  { pattern: '/chat/invite/:token', resolver: channelInvitePageMetadata },
 
   staticRoute(
     '/download',
