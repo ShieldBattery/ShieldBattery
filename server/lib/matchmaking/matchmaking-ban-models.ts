@@ -1,7 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
-import { sql, sqlConcat } from '../db/sql'
+import { sql, sqlConcat, SqlTemplate } from '../db/sql'
 import { Dbify } from '../db/types'
 import { ClientIdentifierBuffer } from '../users/client-ids'
 
@@ -14,6 +14,9 @@ export interface MatchmakingBanRow {
   createdAt: Date
   expiresAt: Date
   clearsAt: Date
+  liftedBy?: SbUserId
+  liftedAt?: Date
+  liftReason?: string
   // NOTE(tec27): `cleared` is excluded as it is not safe to use for logic, since it is only set
   // periodically and not automatically when `clearsAt` passes. Any logic should simply use
   // `clearsAt` instead.
@@ -30,7 +33,45 @@ function convertMatchmakingBanRowFromDb(dbRow: DbMatchmakingBanRow): Matchmaking
     createdAt: dbRow.created_at,
     expiresAt: dbRow.expires_at,
     clearsAt: dbRow.clears_at,
+    liftedBy: dbRow.lifted_by ?? undefined,
+    liftedAt: dbRow.lifted_at ?? undefined,
+    liftReason: dbRow.lift_reason ?? undefined,
   }
+}
+
+/**
+ * Selects the `(ban_level, created_at, triggered_by)` of every ban that applies to `userId` (the
+ * same way `checkActiveMatchmakingBan` decides applicability), considering only rows that match
+ * `rowFilter`. Each `addMatchmakingBan` call writes its rows with a single level, creation time and
+ * triggering user, so this triple identifies one ban across all of its identifier rows. The
+ * triggering user is required: several players who miss the same accept are banned at the same
+ * moment, possibly at the same level. Compare it with `IS NOT DISTINCT FROM`, since deleting the
+ * triggering user nulls it.
+ */
+function applicableBans({
+  userId,
+  minSameIdentifiers,
+  rowFilter,
+}: {
+  userId: SbUserId
+  minSameIdentifiers: number
+  rowFilter: SqlTemplate
+}): SqlTemplate {
+  return sql`
+    SELECT mb.ban_level, mb.created_at, mb.triggered_by
+    FROM matchmaking_bans mb
+    WHERE mb.triggered_by = ${userId} AND ${rowFilter}
+    UNION
+      SELECT mb.ban_level, mb.created_at, mb.triggered_by
+      FROM matchmaking_bans mb
+      JOIN user_identifiers ui ON
+        (ui.identifier_type, ui.identifier_hash) = (mb.identifier_type, mb.identifier_hash)
+      WHERE ui.user_id = ${userId} AND
+        ui.identifier_type != 0 AND
+        ${rowFilter}
+      GROUP BY mb.ban_level, mb.created_at, mb.triggered_by
+      HAVING COUNT(*) >= ${minSameIdentifiers}
+  `
 }
 
 /**
@@ -217,6 +258,90 @@ export async function addMatchmakingBan(
           ),
         )}
     `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the most recent matchmaking ban that applies to `userId`, whether it is active, expired
+ * but still counting towards escalation, or lifted by an admin. Bans that cleared without being
+ * lifted aren't considered. Returns `undefined` if there is no such ban.
+ */
+export async function getLatestMatchmakingBan(
+  { userId, minSameIdentifiers }: { userId: SbUserId; minSameIdentifiers: number },
+  withClient?: DbClient,
+): Promise<MatchmakingBanRow | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingBanRow>(sql`
+      WITH applicable AS (
+        ${applicableBans({
+          userId,
+          minSameIdentifiers,
+          rowFilter: sql`(mb.cleared = false OR mb.lifted_at IS NOT NULL)`,
+        })}
+      )
+      SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by, mb.ban_level,
+        mb.created_at, mb.expires_at, mb.clears_at, mb.lifted_by, mb.lifted_at, mb.lift_reason
+      FROM matchmaking_bans mb
+      JOIN applicable a ON
+        (a.ban_level, a.created_at, a.triggered_by) IS NOT DISTINCT FROM
+          (mb.ban_level, mb.created_at, mb.triggered_by)
+      WHERE mb.cleared = false OR mb.lifted_at IS NOT NULL
+      ORDER BY mb.created_at DESC
+      LIMIT 1
+    `)
+    return result.rows.length > 0 ? convertMatchmakingBanRowFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Lifts every uncleared matchmaking ban that applies to `userId`: bans it triggered, and bans that
+ * apply to it through shared identifiers (which ends them for the account that triggered them as
+ * well, since it's the same ban). Each lifted ban stops being active and stops counting towards
+ * escalation at `now`. Returns the rows that were lifted.
+ */
+export async function liftMatchmakingBans(
+  {
+    userId,
+    minSameIdentifiers,
+    liftedBy,
+    reason,
+    now,
+  }: {
+    userId: SbUserId
+    minSameIdentifiers: number
+    liftedBy?: SbUserId
+    reason?: string
+    now: Date
+  },
+  withClient?: DbClient,
+): Promise<MatchmakingBanRow[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingBanRow>(sql`
+      WITH applicable AS (
+        ${applicableBans({
+          userId,
+          minSameIdentifiers,
+          rowFilter: sql`mb.cleared = false AND mb.clears_at > ${now}`,
+        })}
+      )
+      UPDATE matchmaking_bans mb
+      SET expires_at = LEAST(mb.expires_at, ${now}), clears_at = ${now},
+        lifted_by = ${liftedBy ?? null}, lifted_at = ${now}, lift_reason = ${reason ?? null}
+      FROM applicable a
+      WHERE (a.ban_level, a.created_at, a.triggered_by) IS NOT DISTINCT FROM
+          (mb.ban_level, mb.created_at, mb.triggered_by) AND
+        mb.cleared = false AND
+        mb.clears_at > ${now}
+      RETURNING mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by, mb.ban_level,
+        mb.created_at, mb.expires_at, mb.clears_at, mb.lifted_by, mb.lifted_at, mb.lift_reason
+    `)
+    return result.rows.map(r => convertMatchmakingBanRowFromDb(r))
   } finally {
     done()
   }
