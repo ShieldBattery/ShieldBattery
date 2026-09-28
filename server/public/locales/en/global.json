@@ -2238,6 +2238,8 @@
       "showInExplorer": "Show in Explorer",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "Played on Battle.net",
+      "sourceTooltipSb": "Played on ShieldBattery",
       "unavailable": "Replay library unavailable",
       "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
       "unreadableReplays": "Unreadable replays",

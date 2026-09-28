@@ -29,6 +29,7 @@ import { IconButton } from '../material/button'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
+import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyMedium, labelMedium } from '../styles/typography'
@@ -413,12 +414,16 @@ export function ReplayInspector({
   const chips = (
     <GameSidePanelChipsRow>
       {entry.sbGameId ? (
-        <SourceBadgeSb>
-          <SbSourceLogo />
-          {t('replays.library.sourceTagSb', 'SB')}
-        </SourceBadgeSb>
+        <Tooltip text={t('replays.library.sourceTooltipSb', 'Played on ShieldBattery')}>
+          <SourceBadgeSb>
+            <SbSourceLogo />
+            {t('replays.library.sourceTagSb', 'SB')}
+          </SourceBadgeSb>
+        </Tooltip>
       ) : (
-        <SourceBadgeBnet>{t('replays.library.sourceTagBnet', 'B.NET')}</SourceBadgeBnet>
+        <Tooltip text={t('replays.library.sourceTooltipBnet', 'Played on Battle.net')}>
+          <SourceBadgeBnet>{t('replays.library.sourceTagBnet', 'B.NET')}</SourceBadgeBnet>
+        </Tooltip>
       )}
     </GameSidePanelChipsRow>
   )
