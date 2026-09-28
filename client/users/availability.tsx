@@ -88,8 +88,10 @@ export function getAvailabilityLabel(availability: UserAvailability, t: TFunctio
 
 const DotTooltip = styled(Tooltip)`
   position: absolute;
-  right: 0;
+  /* Anchor the center so the dot's size limits don't shift it relative to the corner badge. */
+  right: 14%;
   bottom: 0;
+  transform: translateX(50%);
   /* Sized relative to the avatar so it works at any avatar size, within readable bounds. */
   width: 30%;
   height: 30%;
