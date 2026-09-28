@@ -3357,6 +3357,11 @@ describe('chat/chat-service', () => {
       channelPermissions: { ...channelPermissions, ...permissions },
     })
 
+    const textMessageBy = (userId: SbUserId) => ({
+      userId,
+      messageType: ServerChatMessageType.TextMessage,
+    })
+
     const expectItWorks = () => {
       expect(deleteChannelMessage).toHaveBeenCalledWith(messageId, testChannel.id)
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
@@ -3380,7 +3385,7 @@ describe('chat/chat-service', () => {
         joinUser1TestChannelMessage,
       )
       asMockedFunction(getChannelInfo).mockResolvedValue(ownedTestChannel)
-      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(user2.id)
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(textMessageBy(user2.id))
     })
 
     const deleteAs = (isServerModerator: boolean) =>
@@ -3393,7 +3398,7 @@ describe('chat/chat-service', () => {
 
     test('works for a server moderator without any channel checks', async () => {
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
-      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(ownerId)
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(textMessageBy(ownerId))
 
       await deleteAs(SERVER_MODERATOR)
 
@@ -3418,6 +3423,38 @@ describe('chat/chat-service', () => {
 
       await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
         code: ChatServiceErrorCode.NotEnoughPermissions,
+      })
+      expectNothingDeleted()
+    })
+
+    test('works for a member without moderation permissions on their own text message', async () => {
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(textMessageBy(user1.id))
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
+
+      await deleteAs(REGULAR_USER)
+
+      expectItWorks()
+    })
+
+    test('throws for a member without moderation permissions on their own join message', async () => {
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue({
+        userId: user1.id,
+        messageType: ServerChatMessageType.JoinChannel,
+      })
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.NotEnoughPermissions,
+      })
+      expectNothingDeleted()
+    })
+
+    test('throws for a former member on their own text message', async () => {
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(textMessageBy(user1.id))
+      mockChannelEntries(testChannel, [user2.id, user2TestChannelEntry])
+
+      await expect(deleteAs(REGULAR_USER)).rejects.toMatchObject({
+        code: ChatServiceErrorCode.NotInChannel,
       })
       expectNothingDeleted()
     })
@@ -3461,7 +3498,7 @@ describe('chat/chat-service', () => {
     })
 
     test('works for a moderator on their own message', async () => {
-      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(user1.id)
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(textMessageBy(user1.id))
       mockChannelEntries(testChannel, [
         user1.id,
         moderatorEntry(user1TestChannelEntry, { kick: true }),
@@ -3473,7 +3510,7 @@ describe('chat/chat-service', () => {
     })
 
     test("throws for a moderator on the channel owner's message", async () => {
-      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(ownerId)
+      asMockedFunction(getChannelMessageAuthor).mockResolvedValue(textMessageBy(ownerId))
       mockChannelEntries(testChannel, [
         user1.id,
         moderatorEntry(user1TestChannelEntry, { editPermissions: true }),

@@ -1524,9 +1524,10 @@ export default class ChatService {
 
   /**
    * Deletes a message from a channel. Server moderators can delete any message. Otherwise the user
-   * must be the channel's owner or hold any moderation permission in it (`kick`, `ban` or
-   * `editPermissions`), and a moderator who isn't the owner can't delete messages sent by the owner
-   * or by another moderator, the same as they can't kick or ban them.
+   * must be in the channel, and any member can delete a text message they sent. Deleting anything
+   * else requires being the channel's owner or holding any moderation permission in it (`kick`,
+   * `ban` or `editPermissions`), and a moderator who isn't the owner can't delete messages sent by
+   * the owner or by another moderator, the same as they can't kick or ban them.
    */
   async deleteMessage({
     channelId,
@@ -1539,10 +1540,8 @@ export default class ChatService {
     userId: SbUserId
     isServerModerator: boolean
   }): Promise<void> {
-    // TODO(2Pac): Update this method to allow users to delete their own message.
-
     if (!isServerModerator) {
-      const [channelInfo, userChannelEntry, authorId] = await Promise.all([
+      const [channelInfo, userChannelEntry, author] = await Promise.all([
         getChannelInfo(channelId),
         getUserChannelEntryForUser(userId, channelId),
         getChannelMessageAuthor(channelId, messageId),
@@ -1557,25 +1556,31 @@ export default class ChatService {
         )
       }
 
+      const isOwnTextMessage =
+        author?.userId === userId && author.messageType === ServerChatMessageType.TextMessage
       const isUserChannelOwner = channelInfo.ownerId === userId
-      if (!isUserChannelOwner && !holdsModerationPermission(userChannelEntry.channelPermissions)) {
+      if (
+        !isOwnTextMessage &&
+        !isUserChannelOwner &&
+        !holdsModerationPermission(userChannelEntry.channelPermissions)
+      ) {
         throw new ChatServiceError(
           ChatServiceErrorCode.NotEnoughPermissions,
           'Not enough permissions to delete a message',
         )
       }
-      if (authorId === undefined) {
+      if (author === undefined) {
         throw new ChatServiceError(ChatServiceErrorCode.MessageNotFound, 'Message not found')
       }
 
-      if (!isUserChannelOwner && authorId !== userId) {
-        if (authorId === channelInfo.ownerId) {
+      if (!isUserChannelOwner && author.userId !== userId) {
+        if (author.userId === channelInfo.ownerId) {
           throw new ChatServiceError(
             ChatServiceErrorCode.CannotModerateChannelOwner,
             "Only server moderators can delete the channel owner's messages",
           )
         }
-        const authorChannelEntry = await getUserChannelEntryForUser(authorId, channelId)
+        const authorChannelEntry = await getUserChannelEntryForUser(author.userId, channelId)
         if (
           authorChannelEntry &&
           holdsModerationPermission(authorChannelEntry.channelPermissions)

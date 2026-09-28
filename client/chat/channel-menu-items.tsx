@@ -154,14 +154,14 @@ export function ChannelMessageMenu({
     (channelSelfPermissions.editPermissions ||
       channelSelfPermissions.kick ||
       channelSelfPermissions.ban)
-  // A moderator who isn't the owner can't delete the owner's or another moderator's messages, the
-  // same as they can't kick or ban them.
+  // Anyone can delete their own text messages. A moderator who isn't the owner can't delete the
+  // owner's or another moderator's messages, the same as they can't kick or ban them.
   const canDeleteMessage =
     isServerModerator ||
     isSelfChannelOwner ||
-    (isSelfChannelModerator &&
-      authorId !== undefined &&
-      (authorId === selfUserId || !getChannelRole(ownerId, moderatorIds, authorId)))
+    (authorId !== undefined &&
+      (authorId === selfUserId ||
+        (isSelfChannelModerator && !getChannelRole(ownerId, moderatorIds, authorId))))
 
   const menuItems = new Map(items)
   appendToMultimap(
