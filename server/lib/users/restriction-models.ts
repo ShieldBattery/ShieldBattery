@@ -48,6 +48,9 @@ export interface UserRestriction {
   restrictedBy?: SbUserId
   reason?: RestrictionReason
   adminNotes?: string
+  liftedBy?: SbUserId
+  liftedAt?: Date
+  liftReason?: string
 }
 
 type DbUserRestriction = Dbify<UserRestriction>
@@ -62,6 +65,9 @@ function toUserRestriction(fromDb: DbUserRestriction): UserRestriction {
     restrictedBy: fromDb.restricted_by ?? undefined,
     reason: fromDb.reason ?? undefined,
     adminNotes: fromDb.admin_notes ?? undefined,
+    liftedBy: fromDb.lifted_by ?? undefined,
+    liftedAt: fromDb.lifted_at ?? undefined,
+    liftReason: fromDb.lift_reason ?? undefined,
   }
 }
 
@@ -305,6 +311,105 @@ export async function getActiveUserRestrictions(
     `)
 
     return result.rows.map(r => toUserRestriction(r))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the active restrictions for each of `users`, the last-expiring one per kind (see
+ * `getActiveUserRestrictions`). Users with no active restrictions are absent from the result.
+ */
+export async function getActiveRestrictionsForUsers(
+  users: ReadonlyArray<SbUserId>,
+  withClient?: DbClient,
+): Promise<Map<SbUserId, UserRestriction[]>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUserRestriction>(sql`
+      SELECT DISTINCT ON (user_id, kind) *
+      FROM user_restrictions
+      WHERE user_id = ANY(${users}) AND
+        end_time > NOW() AND
+        start_time <= NOW()
+      ORDER BY user_id, kind, end_time DESC
+    `)
+
+    const byUser = new Map<SbUserId, UserRestriction[]>()
+    for (const row of result.rows) {
+      const restriction = toUserRestriction(row)
+      const list = byUser.get(restriction.userId)
+      if (list) {
+        list.push(restriction)
+      } else {
+        byUser.set(restriction.userId, [restriction])
+      }
+    }
+    return byUser
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Ends every currently active restriction of `kind` for the given users at `now`, recording who
+ * lifted them and why. Returns the restrictions that were lifted.
+ */
+export async function liftUserRestrictions(
+  {
+    users,
+    kind,
+    liftedBy,
+    reason,
+    now,
+  }: {
+    users: ReadonlyArray<SbUserId>
+    kind: RestrictionKind
+    liftedBy?: SbUserId
+    reason?: string
+    now: Date
+  },
+  withClient?: DbClient,
+): Promise<UserRestriction[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUserRestriction>(sql`
+      UPDATE user_restrictions
+      SET end_time = ${now}, lifted_by = ${liftedBy ?? null}, lifted_at = ${now},
+          lift_reason = ${reason ?? null}
+      WHERE user_id = ANY(${users}) AND kind = ${kind} AND end_time > ${now}
+      RETURNING *
+    `)
+
+    return result.rows.map(r => toUserRestriction(r))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Expires every active identifier restriction of `kind` on any identifier belonging to the given
+ * users, so the restriction isn't re-applied when one of them (or a new account on the same
+ * machine) next reports its identifiers. Returns the number of identifier restrictions expired.
+ */
+export async function liftIdentifierRestrictions(
+  { users, kind, now }: { users: ReadonlyArray<SbUserId>; kind: RestrictionKind; now: Date },
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      UPDATE user_identifier_restrictions uir
+      SET end_time = ${now}
+      WHERE uir.kind = ${kind} AND uir.end_time > ${now}
+      AND (uir.identifier_type, uir.identifier_hash) IN (
+        SELECT identifier_type, identifier_hash
+        FROM user_identifiers
+        WHERE user_id = ANY(${users})
+      )
+    `)
+
+    return result.rowCount ?? 0
   } finally {
     done()
   }

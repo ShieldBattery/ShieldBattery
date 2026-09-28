@@ -57,6 +57,8 @@ import {
   AdminGetBansResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
+  AdminLiftRestrictionRequest,
+  AdminLiftRestrictionResponse,
   AdminRemoveUserAvatarResponse,
   AdminSetStaffBadgeRequest,
   AdminSetStaffBadgeResponse,
@@ -1333,7 +1335,9 @@ export class AdminUserApi {
 
     const restrictingUserIds = Array.from(
       new Set(
-        restrictionHistory.map(r => r.restrictedBy).filter((i): i is SbUserId => i !== undefined),
+        restrictionHistory
+          .flatMap(r => [r.restrictedBy, r.liftedBy])
+          .filter((i): i is SbUserId => i !== undefined),
       ),
     )
 
@@ -1399,6 +1403,50 @@ export class AdminUserApi {
     return {
       restriction: toUserRestrictionHistoryJson(restriction),
       users: [user, restrictingUser],
+    }
+  }
+
+  @httpPost('/:id/restrictions/lift')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async liftRestriction(ctx: RouterContext): Promise<AdminLiftRestrictionResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<AdminLiftRestrictionRequest>({
+        kind: Joi.string()
+          .valid(...ALL_RESTRICTION_KINDS)
+          .required(),
+        reason: Joi.string().max(500),
+      }).required(),
+    })
+
+    if (params.id === ctx.session!.user.id) {
+      throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't lift your own restrictions")
+    }
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const liftedRestrictions = await this.restrictionService.liftRestriction({
+      targetId: user.id,
+      kind: body.kind,
+      liftedBy: ctx.session!.user.id,
+      reason: body.reason,
+    })
+
+    const liftingUser = await findUserById(ctx.session!.user.id)
+    if (!liftingUser) {
+      throw new Error("couldn't find current user")
+    }
+
+    return {
+      restrictions: liftedRestrictions
+        .filter(r => r.userId === user.id)
+        .map(r => toUserRestrictionHistoryJson(r)),
+      users: [user, liftingUser],
     }
   }
 
