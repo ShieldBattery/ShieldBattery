@@ -19,6 +19,9 @@ const options = {
   // Makes disconnecting more reliable (less dependent on heartbeats). If we ever do unload
   // confirmation, we will probably need to implement this ourselves instead.
   closeOnBeforeunload: true,
+  // A handshake that hasn't finished in this long is stuck on a dead connection, and the reconnect
+  // loop can't try again until the attempt ends.
+  connectTimeout: 10000,
 } satisfies Partial<NydusClientOptions>
 
 const siteSocket = createNydus(`${protocol}://${location.hostname}:${location.port}`, options)
