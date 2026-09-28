@@ -28,6 +28,7 @@ type Documents = {
   '\n  mutation TestRestrictedName($name: String!) {\n    userTestRestrictedName(name: $name) {\n      id\n      pattern\n      kind\n      reason\n    }\n  }\n': typeof types.TestRestrictedNameDocument
   '\n  query SignupCodes($includeExhausted: Boolean) {\n    signupCodes(includeExhausted: $includeExhausted) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n        name\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n': typeof types.SignupCodesDocument
   '\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n': typeof types.CreateSignupCodeDocument
+  '\n  query CurrentUrgentMessage {\n    urgentMessage {\n      id\n      title\n      message\n      translations {\n        language\n        title\n        message\n      }\n    }\n  }\n': typeof types.CurrentUrgentMessageDocument
   '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n': typeof types.SetUrgentMessageDocument
   '\n  query ChannelActivity {\n    liveStreams {\n      id\n      twitchLogin\n      viewerCount\n      user {\n        id\n      }\n      ...LiveStreams_FeedEntryFragment\n    }\n    liveGames {\n      id\n      startTime\n      map {\n        id\n        name\n        mapFile {\n          id\n          image256Url\n          image512Url\n          image1024Url\n          image2048Url\n          width\n          height\n        }\n      }\n      config {\n        __typename\n        ... on GameConfigDataMatchmaking {\n          gameSourceExtra {\n            matchmakingType\n          }\n          teams {\n            user {\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n': typeof types.ChannelActivityDocument
   '\n  query AdminGameReportsList($filter: GameReportFilter, $first: Int, $after: String) {\n    gameReports(filter: $filter, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          reason\n          details\n          createdAt\n          resolvedAt\n          resolution\n          reporter {\n            id\n          }\n          reportedUser {\n            id\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.AdminGameReportsListDocument
@@ -42,7 +43,7 @@ type Documents = {
   '\n  mutation ReportGame($input: ReportGameInput!) {\n    reportGame(input: $input) {\n      id\n    }\n  }\n': typeof types.ReportGameDocument
   '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
   '\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n': typeof types.HomePageLiveContentDocument
-  '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n': typeof types.UrgentMessage_HomeDisplayFragmentFragmentDoc
+  '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n    translations {\n      language\n      title\n      message\n    }\n  }\n': typeof types.UrgentMessage_HomeDisplayFragmentFragmentDoc
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
@@ -106,6 +107,8 @@ const documents: Documents = {
     types.SignupCodesDocument,
   '\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n':
     types.CreateSignupCodeDocument,
+  '\n  query CurrentUrgentMessage {\n    urgentMessage {\n      id\n      title\n      message\n      translations {\n        language\n        title\n        message\n      }\n    }\n  }\n':
+    types.CurrentUrgentMessageDocument,
   '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n':
     types.SetUrgentMessageDocument,
   '\n  query ChannelActivity {\n    liveStreams {\n      id\n      twitchLogin\n      viewerCount\n      user {\n        id\n      }\n      ...LiveStreams_FeedEntryFragment\n    }\n    liveGames {\n      id\n      startTime\n      map {\n        id\n        name\n        mapFile {\n          id\n          image256Url\n          image512Url\n          image1024Url\n          image2048Url\n          width\n          height\n        }\n      }\n      config {\n        __typename\n        ... on GameConfigDataMatchmaking {\n          gameSourceExtra {\n            matchmakingType\n          }\n          teams {\n            user {\n              id\n            }\n          }\n        }\n      }\n    }\n  }\n':
@@ -134,7 +137,7 @@ const documents: Documents = {
     types.HomePageContentDocument,
   '\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n':
     types.HomePageLiveContentDocument,
-  '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n':
+  '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n    translations {\n      language\n      title\n      message\n    }\n  }\n':
     types.UrgentMessage_HomeDisplayFragmentFragmentDoc,
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n':
     types.Leagues_LeagueBadgeFragmentFragmentDoc,
@@ -305,6 +308,12 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
+  source: '\n  query CurrentUrgentMessage {\n    urgentMessage {\n      id\n      title\n      message\n      translations {\n        language\n        title\n        message\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query CurrentUrgentMessage {\n    urgentMessage {\n      id\n      title\n      message\n      translations {\n        language\n        title\n        message\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
   source: '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n',
 ): (typeof documents)['\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n']
 /**
@@ -389,8 +398,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n',
-): (typeof documents)['\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n']
+  source: '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n    translations {\n      language\n      title\n      message\n    }\n  }\n',
+): (typeof documents)['\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n    translations {\n      language\n      title\n      message\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -152,6 +152,13 @@ export type SbPermissionsInput = {
 export type UrgentMessageInput = {
   message: string
   title: string
+  translations?: Array<UrgentMessageTranslationInput> | null | undefined
+}
+
+export type UrgentMessageTranslationInput = {
+  language: string
+  message: string
+  title: string
 }
 
 export type AdminNewsListQueryVariables = Exact<{
@@ -376,6 +383,17 @@ export type CreateSignupCodeMutation = {
     notes: string | null
     createdByUser: { id: Types.SbUserId } | null
   }
+}
+
+export type CurrentUrgentMessageQueryVariables = Exact<{ [key: string]: never }>
+
+export type CurrentUrgentMessageQuery = {
+  urgentMessage: {
+    id: string
+    title: string
+    message: string
+    translations: Array<{ language: string; title: string; message: string }>
+  } | null
 }
 
 export type SetUrgentMessageMutationVariables = Exact<{
@@ -676,6 +694,7 @@ export type UrgentMessage_HomeDisplayFragmentFragment = {
   id: string
   title: string
   message: string
+  translations: Array<{ language: string; title: string; message: string }>
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
 export type Leagues_LeagueBadgeFragmentFragment = { name: string; badgeUrl: string | null } & {
@@ -1607,6 +1626,18 @@ export const UrgentMessage_HomeDisplayFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
           { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+              ],
+            },
+          },
         ],
       },
     },
@@ -2772,6 +2803,45 @@ export const CreateSignupCodeDocument = {
     },
   ],
 } as unknown as DocumentNode<CreateSignupCodeMutation, CreateSignupCodeMutationVariables>
+export const CurrentUrgentMessageDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'CurrentUrgentMessage' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'urgentMessage' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'translations' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CurrentUrgentMessageQuery, CurrentUrgentMessageQueryVariables>
 export const SetUrgentMessageDocument = {
   kind: 'Document',
   definitions: [
@@ -3795,6 +3865,18 @@ export const HomePageContentDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'id' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
           { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'translations' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'language' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+              ],
+            },
+          },
         ],
       },
     },

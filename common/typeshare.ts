@@ -80,10 +80,17 @@ export interface SbPermissions {
   manageLiveStreams: boolean
 }
 
+export interface UrgentMessageTranslation {
+  language: string
+  title: string
+  message: string
+}
+
 export interface UrgentMessage {
   id: string
   title: string
   message: string
+  translations?: UrgentMessageTranslation[]
   /** The time the message was published (in UTC). This will serialize as an RFC 3339 string. */
   publishedAt: string
 }
