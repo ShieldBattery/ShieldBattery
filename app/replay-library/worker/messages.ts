@@ -31,8 +31,8 @@ export interface ReplayQueryResult {
 export interface ReplayDbCalls {
   query: (filters: ReplayLibraryFilters) => ReplayQueryResult
   status: () => ReplayLibraryStatus
-  /** Returns whether the bookmark state actually changed (false if already in that state). */
-  setBookmarked: (replayId: number, bookmarked: boolean) => boolean
+  /** Returns the ids whose bookmark state actually changed (not already in that state). */
+  setBookmarked: (replayIds: number[], bookmarked: boolean) => number[]
   listPlaylists: () => ReplayPlaylist[]
   createPlaylist: (name: string) => number
   renamePlaylist: (playlistId: number, name: string) => void

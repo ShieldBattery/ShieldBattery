@@ -89,6 +89,7 @@ export class ReplayDb {
 
   private readonly upsertTxn: (record: IndexedReplay) => void
   private readonly deleteTxn: (paths: string[]) => void
+  private readonly setBookmarkedTxn: (replayIds: number[], bookmarked: boolean) => number[]
   private readonly addToPlaylistTxn: (playlistId: number, replayIds: number[]) => number[]
   private readonly removeFromPlaylistTxn: (playlistId: number, replayIds: number[]) => void
   private readonly movePlaylistEntryTxn: (
@@ -263,6 +264,16 @@ export class ReplayDb {
           this.deleteReplayByIdStmt.run(row.id)
         }
       }
+    }).immediate
+
+    this.setBookmarkedTxn = this.db.transaction((replayIds: number[], bookmarked: boolean) => {
+      const now = Date.now()
+      return [...new Set(replayIds)].filter(replayId => {
+        const info = bookmarked
+          ? this.bookmarkStmt.run(now, replayId)
+          : this.unbookmarkStmt.run(replayId)
+        return info.changes > 0
+      })
     }).immediate
 
     this.addToPlaylistTxn = this.db.transaction((playlistId: number, replayIds: number[]) => {
@@ -531,14 +542,11 @@ export class ReplayDb {
   }
 
   /**
-   * Bookmarks or unbookmarks a replay. Returns whether the state actually changed (false when the
-   * replay was already in the requested state, or doesn't exist).
+   * Bookmarks or unbookmarks replays in one transaction. Returns the ids whose state actually
+   * changed (ones already in the requested state, or that don't exist, are left out).
    */
-  setBookmarked(replayId: number, bookmarked: boolean): boolean {
-    const info = bookmarked
-      ? this.bookmarkStmt.run(Date.now(), replayId)
-      : this.unbookmarkStmt.run(replayId)
-    return info.changes > 0
+  setBookmarked(replayIds: number[], bookmarked: boolean): number[] {
+    return this.setBookmarkedTxn(replayIds, bookmarked)
   }
 
   /** The id of the indexed replay produced by a ShieldBattery game, if one has been indexed. */

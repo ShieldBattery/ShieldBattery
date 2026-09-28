@@ -206,14 +206,14 @@ export function saveReplayToLibrary(
       } else if (destination.kind === 'bookmarks') {
         // Only offer undo when the call actually set the flag -- un-bookmarking after a save that
         // was a no-op (the replay was already bookmarked) would strip state the user had before.
-        const changed = await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, true)
+        const changed = await ipcRenderer.invoke('replayLibrarySetBookmarked', [existingId], true)
         return {
           alreadySaved: true,
           destination,
           organized: true,
-          undo: changed
+          undo: changed?.length
             ? async () => {
-                await ipcRenderer.invoke('replayLibrarySetBookmarked', existingId, false)
+                await ipcRenderer.invoke('replayLibrarySetBookmarked', [existingId], false)
               }
             : undefined,
         }
@@ -289,7 +289,7 @@ export function saveReplayToLibrary(
     } else if (organized && organizeChanged && replayId !== undefined) {
       if (destination.kind === 'bookmarks') {
         undo = async () => {
-          await ipcRenderer.invoke('replayLibrarySetBookmarked', replayId, false)
+          await ipcRenderer.invoke('replayLibrarySetBookmarked', [replayId], false)
         }
       } else if (destination.kind === 'playlist') {
         const playlistId = destination.playlistId
