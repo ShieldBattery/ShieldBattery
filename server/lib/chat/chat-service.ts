@@ -115,6 +115,7 @@ import {
   createInviteLink,
   deleteInviteLinksCreatedBy,
   deleteInviteLinksForChannel,
+  deleteMemberInviteLinks,
   findReusableInviteLink,
   getInviteLink,
   incrementInviteLinkUses,
@@ -180,11 +181,13 @@ function inviteLinkInvalidError(): ChatServiceError {
 
 /**
  * Throws if a user may not get an invite link for a channel: the channel must exist and be private,
- * and the user must be a member of it or a server moderator. Membership is checked before privacy,
- * so a non-member learns nothing about a channel beyond it existing.
+ * and the user must be a server moderator, its owner, or a member of a channel that lets members
+ * invite. Membership is checked before privacy, so a non-member learns nothing about a channel
+ * beyond it existing.
  */
 function ensureCanGetInviteLink(
   channel: FullChannelInfo | undefined,
+  userId: SbUserId,
   userChannelEntry: UserChannelEntry | null,
   isServerModerator: boolean,
 ): asserts channel is FullChannelInfo {
@@ -201,6 +204,12 @@ function ensureCanGetInviteLink(
     throw new ChatServiceError(
       ChatServiceErrorCode.ChannelNotPrivate,
       'Only private channels have invite links',
+    )
+  }
+  if (!isServerModerator && !channel.membersCanInvite && channel.ownerId !== userId) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.NotEnoughPermissions,
+      'Only the channel owner can invite people to this channel',
     )
   }
 }
@@ -735,7 +744,7 @@ export default class ChatService {
       getChannelInfo(channelId),
       getUserChannelEntryForUser(userId, channelId),
     ])
-    ensureCanGetInviteLink(channel, userChannelEntry, isServerModerator)
+    ensureCanGetInviteLink(channel, userId, userChannelEntry, isServerModerator)
 
     const now = new Date()
     let link = await findReusableInviteLink({
@@ -750,7 +759,7 @@ export default class ChatService {
         createdAt: now,
         expiresAt: new Date(now.getTime() + INVITE_LINK_LIFETIME_MS),
         maxUses: undefined,
-        requireMembership: !isServerModerator,
+        asServerModerator: isServerModerator,
       })
     }
     if (!link) {
@@ -759,7 +768,7 @@ export default class ChatService {
         getChannelInfo(channelId),
         getUserChannelEntryForUser(userId, channelId),
       ])
-      ensureCanGetInviteLink(channelNow, userChannelEntryNow, isServerModerator)
+      ensureCanGetInviteLink(channelNow, userId, userChannelEntryNow, isServerModerator)
       throw new Error('Invite link could not be created')
     }
 
@@ -889,12 +898,18 @@ export default class ChatService {
     }
 
     const channel =
-      updates.private === false
+      updates.private === false || updates.membersCanInvite === false
         ? await transact(async client => {
             const updated = await updateChannel(channelId, updatedChannel, client)
-            // Invite links only work while their channel is private. Deleting them here keeps the
-            // ones handed out before from working again if the channel is made private later.
-            await deleteInviteLinksForChannel(channelId, client)
+            if (updates.private === false) {
+              // Invite links only work while their channel is private. Deleting them here keeps
+              // the ones handed out before from working again if the channel is made private later.
+              await deleteInviteLinksForChannel(channelId, client)
+            } else {
+              // Links members already handed out would otherwise keep letting people in after the
+              // owner has taken inviting back.
+              await deleteMemberInviteLinks({ channelId, ownerId: updated.ownerId }, client)
+            }
             return updated
           })
         : await updateChannel(channelId, updatedChannel)
@@ -1108,6 +1123,11 @@ export default class ChatService {
         ChatServiceErrorCode.TargetNotInChannel,
         'User must be in channel to transfer the ownership to them',
       )
+    }
+
+    if (!channelInfo.membersCanInvite) {
+      // The previous owner is now a member who can't invite, so their links stop working too.
+      await deleteMemberInviteLinks({ channelId, ownerId: targetId })
     }
 
     this.publisher.publish(getChannelPath(channelId), {

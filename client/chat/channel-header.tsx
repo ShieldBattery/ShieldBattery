@@ -300,7 +300,12 @@ export function ChannelHeader({
       />,
     )
   }
-  if (basicChannelInfo.private) {
+  if (
+    basicChannelInfo.private &&
+    (joinedChannelInfo.membersCanInvite ||
+      user?.id === joinedChannelInfo.ownerId ||
+      isServerModerator)
+  ) {
     actions.push(
       <MenuItem
         key='copy-invite-link'

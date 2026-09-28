@@ -196,6 +196,7 @@ const editChannelBodySchema = () =>
       deleteBanner: Joi.boolean(),
       deleteBadge: Joi.boolean(),
       private: Joi.boolean(),
+      membersCanInvite: Joi.boolean(),
     }),
   })
 

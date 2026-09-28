@@ -106,7 +106,7 @@ function initialChannelData(moderatorIds: SbUserId[]): InitialChannelData {
   return {
     channelInfo: { id: CHANNEL_ID, name: 'role-badges', private: false, official: false },
     detailedChannelInfo: { id: CHANNEL_ID, userCount: USERS.length },
-    joinedChannelInfo: { id: CHANNEL_ID, ownerId: OWNER },
+    joinedChannelInfo: { id: CHANNEL_ID, ownerId: OWNER, membersCanInvite: false },
     selfPreferences: { ...DEFAULT_CHANNEL_PREFERENCES },
     selfPermissions: {
       kick: false,

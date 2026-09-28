@@ -222,6 +222,11 @@ export interface JoinedChannelInfo {
   ownerId?: SbUserId
   /** An optional short message to describe the current topic of the channel. */
   topic?: string
+  /**
+   * Whether members other than the owner may create invite links into the channel. Only meaningful
+   * for private channels; the owner and server moderators can always create them.
+   */
+  membersCanInvite: boolean
 }
 
 /**
@@ -551,6 +556,8 @@ export interface EditChannelRequest {
   deleteBadge?: boolean
   /** Makes the channel private or public. Official channels can't be made private. */
   private?: boolean
+  /** Lets members other than the owner create invite links into the channel, or stops them. */
+  membersCanInvite?: boolean
 }
 
 /**

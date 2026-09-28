@@ -267,6 +267,7 @@ export function toJoinedChannelInfo(channel: FullChannelInfo): JoinedChannelInfo
     id: channel.id,
     ownerId: channel.ownerId,
     topic: channel.topic,
+    membersCanInvite: channel.membersCanInvite,
   }
 }
 
@@ -281,6 +282,7 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     userCount: props.user_count,
     ownerId: props.owner_id ?? undefined,
     topic: props.topic ?? undefined,
+    membersCanInvite: props.members_can_invite,
     description: props.description ?? undefined,
     bannerPath: props.banner_path ? getUrl(props.banner_path) : undefined,
     badgePath: props.badge_path ? getUrl(props.badge_path) : undefined,
@@ -358,6 +360,8 @@ export async function updateChannel(
               return sql`owner_id = ${value}`
             case 'topic':
               return sql`topic = ${value}`
+            case 'membersCanInvite':
+              return sql`members_can_invite = ${value}`
 
             default:
               return assertUnreachable(key)

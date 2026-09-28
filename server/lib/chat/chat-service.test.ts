@@ -94,6 +94,7 @@ import {
   createInviteLink,
   deleteInviteLinksCreatedBy,
   deleteInviteLinksForChannel,
+  deleteMemberInviteLinks,
   findReusableInviteLink,
   getInviteLink,
   incrementInviteLinkUses,
@@ -201,6 +202,7 @@ vi.mock('./invite-link-models', () => ({
   createInviteLink: vi.fn(),
   deleteInviteLinksCreatedBy: vi.fn(),
   deleteInviteLinksForChannel: vi.fn(),
+  deleteMemberInviteLinks: vi.fn(),
   findReusableInviteLink: vi.fn(),
   getInviteLink: vi.fn(),
   incrementInviteLinkUses: vi.fn(),
@@ -259,6 +261,7 @@ describe('chat/chat-service', () => {
     id: makeSbChannelId(1),
     ownerId: undefined,
     topic: 'SHIELDBATTERY_TOPIC',
+    membersCanInvite: false,
   }
   const shieldBatteryChannel: FullChannelInfo = {
     ...shieldBatteryBasicInfo,
@@ -280,6 +283,7 @@ describe('chat/chat-service', () => {
     id: makeSbChannelId(2),
     ownerId: undefined,
     topic: 'TEST_TOPIC',
+    membersCanInvite: false,
   }
   const testChannel: FullChannelInfo = {
     ...testBasicInfo,
@@ -1177,7 +1181,12 @@ describe('chat/chat-service', () => {
     const LINK_ID = '5eed0000-0000-4000-8000-000000000001'
     const TOKEN = encodePrettyId(LINK_ID)
 
-    const privateChannel: FullChannelInfo = { ...testChannel, private: true, ownerId: user2.id }
+    const privateChannel: FullChannelInfo = {
+      ...testChannel,
+      private: true,
+      ownerId: user2.id,
+      membersCanInvite: true,
+    }
 
     function makeLink(overrides: Partial<InviteLinkRecord> = {}): InviteLinkRecord {
       return {
@@ -1233,6 +1242,50 @@ describe('chat/chat-service', () => {
         expect(createInviteLink).not.toHaveBeenCalled()
       })
 
+      test('should throw for a member when only the owner may invite', async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue({
+          ...privateChannel,
+          membersCanInvite: false,
+        })
+
+        await expect(
+          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER),
+        ).rejects.toMatchObject({ code: ChatServiceErrorCode.NotEnoughPermissions })
+        expect(findReusableInviteLink).not.toHaveBeenCalled()
+        expect(createInviteLink).not.toHaveBeenCalled()
+      })
+
+      test('lets the owner create a link when only the owner may invite', async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue({
+          ...privateChannel,
+          ownerId: user1.id,
+          membersCanInvite: false,
+        })
+
+        const result = await chatService.getOrCreateInviteLink(
+          testChannel.id,
+          user1.id,
+          REGULAR_USER,
+        )
+
+        expect(result.inviteLink.token).toBe(TOKEN)
+      })
+
+      test('lets a server moderator create a link when only the owner may invite', async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue({
+          ...privateChannel,
+          membersCanInvite: false,
+        })
+
+        const result = await chatService.getOrCreateInviteLink(
+          testChannel.id,
+          user1.id,
+          SERVER_MODERATOR,
+        )
+
+        expect(result.inviteLink.token).toBe(TOKEN)
+      })
+
       test('should throw for a public channel', async () => {
         asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
 
@@ -1282,7 +1335,7 @@ describe('chat/chat-service', () => {
           createdAt: NOW,
           expiresAt: new Date(NOW.getTime() + 7 * DAY_MS),
           maxUses: undefined,
-          requireMembership: true,
+          asServerModerator: false,
         })
         expect(result.inviteLink.token).toBe(TOKEN)
         expect(result.inviteLink.expiresAt).toBe(NOW.getTime() + 7 * DAY_MS)
@@ -1294,7 +1347,7 @@ describe('chat/chat-service', () => {
         await chatService.getOrCreateInviteLink(testChannel.id, user1.id, SERVER_MODERATOR)
 
         expect(createInviteLink).toHaveBeenCalledWith(
-          expect.objectContaining({ requireMembership: false }),
+          expect.objectContaining({ asServerModerator: true }),
         )
       })
 
@@ -1671,6 +1724,78 @@ describe('chat/chat-service', () => {
       })
 
       expect(deleteInviteLinksForChannel).not.toHaveBeenCalled()
+    })
+
+    test("deletes members' invite links when the owner stops members inviting", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        private: true,
+        ownerId: user1.id,
+        membersCanInvite: true,
+      })
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...testChannel,
+        private: true,
+        ownerId: user1.id,
+        membersCanInvite: false,
+      })
+
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        updates: { membersCanInvite: false },
+      })
+
+      expect(updateChannel).toHaveBeenCalledWith(
+        testChannel.id,
+        { membersCanInvite: false },
+        dbClient,
+      )
+      expect(deleteMemberInviteLinks).toHaveBeenCalledWith(
+        { channelId: testChannel.id, ownerId: user1.id },
+        dbClient,
+      )
+      expect(deleteInviteLinksForChannel).not.toHaveBeenCalled()
+      expect(result.joinedChannelInfo.membersCanInvite).toBe(false)
+    })
+
+    test("keeps members' invite links when the owner lets members invite", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        private: true,
+        ownerId: user1.id,
+      })
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...testChannel,
+        private: true,
+        ownerId: user1.id,
+        membersCanInvite: true,
+      })
+
+      const result = await chatService.editChannel({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        updates: { membersCanInvite: true },
+      })
+
+      expect(deleteMemberInviteLinks).not.toHaveBeenCalled()
+      expect(result.joinedChannelInfo.membersCanInvite).toBe(true)
+    })
+
+    test("doesn't let anyone else change who may invite", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
+
+      await expect(
+        chatService.editChannel({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isServerModerator: REGULAR_USER,
+          updates: { membersCanInvite: true },
+        }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.CannotEditChannel })
+      expect(updateChannel).not.toHaveBeenCalled()
     })
 
     test('lets a server moderator make the channel private', async () => {
@@ -2291,6 +2416,38 @@ describe('chat/chat-service', () => {
     beforeEach(async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
       transferChannelOwnershipMock.mockResolvedValue(true)
+    })
+
+    test("deletes the previous owner's invite links when only the owner may invite", async () => {
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
+
+      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, REGULAR_USER)
+
+      expect(deleteMemberInviteLinks).toHaveBeenCalledWith({
+        channelId: testChannel.id,
+        ownerId: user2.id,
+      })
+    })
+
+    test('keeps invite links when members may invite', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+        membersCanInvite: true,
+      })
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
+
+      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, REGULAR_USER)
+
+      expect(deleteMemberInviteLinks).not.toHaveBeenCalled()
     })
 
     test("should throw if channel doesn't exist", async () => {
