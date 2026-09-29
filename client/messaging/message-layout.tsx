@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useContext } from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { Tooltip } from '../material/tooltip'
 import { bodyMedium, labelMedium, titleSmall } from '../styles/typography'
 import { ChatContext } from './chat-context'
@@ -45,15 +46,22 @@ interface MessageTimestampProps {
   className?: string
 }
 
-export const MessageTimestamp = (props: MessageTimestampProps) => (
-  <StyledTooltip className={props.className} text={longTimestamp.format(props.time)} position='top'>
-    <GutterLabel>
-      <Separator>[</Separator>
-      {shortTimestamp.format(props.time)}
-      <Separator>] </Separator>
-    </GutterLabel>
-  </StyledTooltip>
-)
+export const MessageTimestamp = (props: MessageTimestampProps) => {
+  const longTimestampFormat = useFormat(longTimestamp)
+  const shortTimestampFormat = useFormat(shortTimestamp)
+  return (
+    <StyledTooltip
+      className={props.className}
+      text={longTimestampFormat.format(props.time)}
+      position='top'>
+      <GutterLabel>
+        <Separator>[</Separator>
+        {shortTimestampFormat.format(props.time)}
+        <Separator>] </Separator>
+      </GutterLabel>
+    </StyledTooltip>
+  )
+}
 
 const messageContainerBase = css`
   ${bodyMedium};

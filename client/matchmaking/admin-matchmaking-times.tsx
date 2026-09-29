@@ -12,6 +12,7 @@ import {
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -300,6 +301,7 @@ export function AdminMatchmakingTimes() {
 
 function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
   const dispatch = useAppDispatch()
+  const longTimestampFormat = useFormat(longTimestamp)
   const snackbarController = useSnackbarController()
 
   const [startDate, setStartDate] = useState('')
@@ -413,7 +415,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
           {futureTimes.map(time => (
             <HistoryCard key={time.id}>
               <HistoryInfo>
-                <HistoryDate>{longTimestamp.format(time.startDate)}</HistoryDate>
+                <HistoryDate>{longTimestampFormat.format(time.startDate)}</HistoryDate>
                 <HistoryStatus>
                   <MatchmakingStatus isEnabled={time.enabled} />
                 </HistoryStatus>
@@ -475,6 +477,7 @@ function FutureMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
 
 function CurrentMatchmakingTime({ activeTab }: { activeTab: MatchmakingType }) {
   const dispatch = useAppDispatch()
+  const longTimestampFormat = useFormat(longTimestamp)
 
   const [currentTime, setCurrentTime] = useState<MatchmakingTimeJson | undefined>(undefined)
 
@@ -530,7 +533,7 @@ function CurrentMatchmakingTime({ activeTab }: { activeTab: MatchmakingType }) {
       <CurrentMatchmakingCard>
         <HistoryInfo>
           <HistoryDate>
-            {longTimestamp.format(currentTime.startDate)} <CurrentText>(Current)</CurrentText>
+            {longTimestampFormat.format(currentTime.startDate)} <CurrentText>(Current)</CurrentText>
           </HistoryDate>
           <HistoryStatus>
             <MatchmakingStatus isEnabled={currentTime.enabled} />
@@ -543,6 +546,7 @@ function CurrentMatchmakingTime({ activeTab }: { activeTab: MatchmakingType }) {
 
 function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
   const dispatch = useAppDispatch()
+  const longTimestampFormat = useFormat(longTimestamp)
 
   const [pastTimes, setPastTimes] = useState<MatchmakingTimeJson[]>([])
 
@@ -599,7 +603,7 @@ function PastMatchmakingTimes({ activeTab }: { activeTab: MatchmakingType }) {
       {pastTimes.map(time => (
         <HistoryCard key={time.id}>
           <HistoryInfo>
-            <HistoryDate>{longTimestamp.format(time.startDate)} (Finished)</HistoryDate>
+            <HistoryDate>{longTimestampFormat.format(time.startDate)} (Finished)</HistoryDate>
             <HistoryStatus>
               <MatchmakingStatus isEnabled={time.enabled} />
             </HistoryStatus>

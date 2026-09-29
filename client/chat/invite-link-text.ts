@@ -1,13 +1,13 @@
 import { TFunction } from 'i18next'
 import { ChannelInviteLinkJson } from '../../common/chat'
-import { RelativeTimeFormatter } from '../i18n/relative-time'
+import { relativeTimeFormat } from '../i18n/locale-formats'
 
 const MINUTE_SECONDS = 60
 const HOUR_SECONDS = 60 * MINUTE_SECONDS
 const DAY_SECONDS = 24 * HOUR_SECONDS
 
-const timeLeftFormat = new RelativeTimeFormatter(navigator.language, { numeric: 'always' })
-const createdAgoFormat = new RelativeTimeFormatter(navigator.language, { numeric: 'auto' })
+const timeLeftFormat = relativeTimeFormat({ numeric: 'always' })
+const createdAgoFormat = relativeTimeFormat({ numeric: 'auto' })
 
 /** Returns the label for one of the offered invite link lifetimes, `null` being never expiring. */
 export function getInviteLinkExpiryOptionLabel(expiresInSeconds: number | null, t: TFunction) {
@@ -49,6 +49,7 @@ export function getInviteLinkMaxUsesOptionLabel(maxUses: number | null, t: TFunc
 export function describeInviteLinkExpiry(
   inviteLink: Pick<ChannelInviteLinkJson, 'expiresAt'>,
   now: number,
+  locale: string,
   t: TFunction,
 ) {
   if (inviteLink.expiresAt === undefined) {
@@ -61,7 +62,9 @@ export function describeInviteLinkExpiry(
   // ("in 1 hour") rather than one unit less, which rounding down to whole units would show.
   return t('chat.inviteLinks.expiresIn', {
     defaultValue: 'Expires {{timeLeft}}',
-    timeLeft: timeLeftFormat.format(inviteLink.expiresAt, now - MINUTE_SECONDS * 1000),
+    timeLeft: timeLeftFormat
+      .forLocale(locale)
+      .format(inviteLink.expiresAt, now - MINUTE_SECONDS * 1000),
   })
 }
 
@@ -83,11 +86,12 @@ export function describeInviteLinkUseLimit(
 export function describeInviteLinkCreated(
   inviteLink: Pick<ChannelInviteLinkJson, 'createdAt'>,
   now: number,
+  locale: string,
   t: TFunction,
 ) {
   return t('chat.inviteLinks.created', {
     defaultValue: 'Created {{timeAgo}}',
-    timeAgo: createdAgoFormat.format(Math.min(inviteLink.createdAt, now), now),
+    timeAgo: createdAgoFormat.forLocale(locale).format(Math.min(inviteLink.createdAt, now), now),
   })
 }
 

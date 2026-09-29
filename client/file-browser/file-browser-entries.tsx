@@ -1,6 +1,7 @@
 import * as React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../react/state-hooks'
@@ -138,6 +139,7 @@ export const FileEntry = React.memo(
     onFocusedPathChange: (path: string) => void
   }) => {
     const { icon, ExpansionPanelComponent, onSelect, onSelectTitle } = fileEntryConfig
+    const longTimestampFormat = useFormat(longTimestamp)
 
     const onSelectClick = useStableCallback((event: React.MouseEvent) => {
       event.stopPropagation()
@@ -151,7 +153,7 @@ export const FileEntry = React.memo(
           <EntryIcon>{icon}</EntryIcon>
           <InfoContainer>
             <BodyLarge>{file.name}</BodyLarge>
-            <BodySmall>{longTimestamp.format(file.date)}</BodySmall>
+            <BodySmall>{longTimestampFormat.format(file.date)}</BodySmall>
           </InfoContainer>
           {ExpansionPanelComponent ? (
             <SelectButton $focused={isFocused} label={onSelectTitle} onClick={onSelectClick} />

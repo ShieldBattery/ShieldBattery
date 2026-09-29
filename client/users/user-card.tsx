@@ -27,6 +27,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { dispatch as globalDispatch } from '../dispatch-registry'
 import { PlayerResultChip } from '../games/result-chip'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
+import { useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { DivisionIcon } from '../matchmaking/rank-icon'
 import {
@@ -209,6 +210,8 @@ function UserCardHeader({
   season: ReadonlyDeep<MatchmakingSeasonJson> | undefined
 }) {
   const { t } = useTranslation()
+  const narrowDurationFormat = useFormat(narrowDuration)
+  const longTimestampFormat = useFormat(longTimestamp)
   return (
     <BackdropCardHeader>
       <BackdropCardTitle text={season?.name ?? t('users.card.title', 'Player')} />
@@ -216,9 +219,9 @@ function UserCardHeader({
         {user ? (
           <BackdropCardMetaText
             text={t('users.card.joined', 'Joined {{time}}', {
-              time: narrowDuration.format(user.created),
+              time: narrowDurationFormat.format(user.created),
             })}
-            tooltip={longTimestamp.format(user.created)}
+            tooltip={longTimestampFormat.format(user.created)}
           />
         ) : null}
       </BackdropCardMeta>
@@ -258,6 +261,7 @@ const RecordChip = styled(PlayerResultChip)`
 /** The user's all-time win/loss record across every game they've played. */
 function UserRecord({ profile }: { profile: ReadonlyDeep<UserProfileJson> }) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const { pWins, tWins, zWins, rWins, pLosses, tLosses, zLosses, rLosses } = profile.userStats
   const wins = pWins + tWins + zWins + rWins
   const losses = pLosses + tLosses + zLosses + rLosses
@@ -276,7 +280,7 @@ function UserRecord({ profile }: { profile: ReadonlyDeep<UserProfileJson> }) {
               {getResultShortLabel(result, t)}
             </RecordChip>
           </CardTooltip>
-          <RecordCount>{(result === 'win' ? wins : losses).toLocaleString()}</RecordCount>
+          <RecordCount>{(result === 'win' ? wins : losses).toLocaleString(locale)}</RecordCount>
         </Fragment>
       ))}
       <RecordTotal>
@@ -284,7 +288,7 @@ function UserRecord({ profile }: { profile: ReadonlyDeep<UserProfileJson> }) {
           defaultValue: '{{total}} games',
           defaultValue_one: '{{total}} game',
           count: total,
-          total: total.toLocaleString(),
+          total: total.toLocaleString(locale),
         })}
       </RecordTotal>
     </RecordRoot>

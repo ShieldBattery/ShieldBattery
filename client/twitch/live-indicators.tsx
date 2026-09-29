@@ -1,6 +1,7 @@
 import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
+import { numberFormat, useFormatLocale } from '../i18n/locale-formats'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useNow } from '../react/date-hooks'
@@ -119,22 +120,23 @@ const OverlayPill = styled.div`
   white-space: nowrap;
 `
 
-const compactNumber = new Intl.NumberFormat(navigator.language, {
+const compactNumber = numberFormat({
   notation: 'compact',
   maximumFractionDigits: 1,
 })
 
 /** Formats a viewer count compactly for tight spaces (e.g. 1240 -> "1.2K"). */
-export function formatViewerCount(count: number): string {
-  return compactNumber.format(count)
+export function formatViewerCount(count: number, locale: string): string {
+  return compactNumber.forLocale(locale).format(count)
 }
 
 /** A viewer-count pill (e.g. "1.2K"), designed to overlay a stream thumbnail. */
 export function ViewerCountPill({ count, className }: { count: number; className?: string }) {
+  const locale = useFormatLocale()
   return (
     <OverlayPill className={className}>
       <LiveDot $size={6} $pulse={false} />
-      {formatViewerCount(count)}
+      {formatViewerCount(count, locale)}
     </OverlayPill>
   )
 }

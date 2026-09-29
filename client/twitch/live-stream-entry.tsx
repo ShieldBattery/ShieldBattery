@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { FragmentType, graphql, useFragment } from '../gql'
+import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { EllipsizedText } from '../material/ellipsized-text'
 import { bodyMedium, bodySmall, labelSmall, singleLine, titleSmall } from '../styles/typography'
@@ -453,6 +454,7 @@ export function MiniLiveStreamEntry({
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
 }) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const stream = useLiveStream(query)
   const { sbName } = getIdentity(stream)
   const uptime = useStreamUptime(stream.startedAt)
@@ -473,7 +475,7 @@ export function MiniLiveStreamEntry({
               count: stream.viewerCount,
             })}>
             <MiniViewersIcon />
-            {formatViewerCount(stream.viewerCount)}
+            {formatViewerCount(stream.viewerCount, locale)}
           </MiniViewers>
         </MiniLine>
         <MiniLine>

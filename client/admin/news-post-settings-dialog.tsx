@@ -8,6 +8,7 @@ import { apiUrl } from '../../common/urls'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { OutlinedButton, TextButton } from '../material/button'
@@ -161,6 +162,7 @@ export function NewsPostSettingsDialog({
   close,
 }: NewsPostSettingsDialogProps) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
 
   const coverFileInputRef = useRef<HTMLInputElement>(null)
   const [coverImagePath, setCoverImagePath] = useState<string | null>(settings.coverImagePath)
@@ -337,7 +339,7 @@ export function NewsPostSettingsDialog({
               <RadioButton
                 value={PUBLISH_MODE_PUBLISHED}
                 label={t('admin.news.form.publishPublished', 'Published ({{date}})', {
-                  date: longTimestamp.format(savedStatus.date),
+                  date: longTimestampFormat.format(savedStatus.date),
                 })}
               />
             ) : null}

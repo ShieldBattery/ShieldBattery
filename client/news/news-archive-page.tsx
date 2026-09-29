@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { graphql } from '../gql'
+import { useFormat } from '../i18n/locale-formats'
 import { OutlinedButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
@@ -17,7 +18,7 @@ import {
   titleMedium,
   titleSmall,
 } from '../styles/typography'
-import { newsDateFormatter } from './news-image'
+import { newsDateFormat } from './news-image'
 import { urlForNewsPost } from './news-url'
 
 const NewsArchiveQuery = graphql(/* GraphQL */ `
@@ -164,6 +165,7 @@ function NewsArchiveChunk({
 
 function NewsArchiveEntry({ post }: { post: NewsArchivePost }) {
   const [buttonProps, rippleRef] = useButtonState({})
+  const newsDateFormatter = useFormat(newsDateFormat)
 
   return (
     <EntryRoot {...buttonProps} href={urlForNewsPost(post.id, post.title)}>

@@ -9,6 +9,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { navigateToGameResults } from '../games/action-creators'
 import { GameRecordSidePanel } from '../games/game-record-side-panel'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { LinkButton } from '../material/link-button'
@@ -161,6 +162,8 @@ export function ConnectedGameListEntry({
   active,
 }: ConnectedGameListEntryProps) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const narrowDurationFormat = useFormat(narrowDuration)
 
   const { id } = game
   const onClick = useCallback(() => {
@@ -200,8 +203,8 @@ export function ConnectedGameListEntry({
 
       <GameListEntryTextRow $color='secondary'>
         <BodyMedium>{matchType}</BodyMedium>
-        <Tooltip text={longTimestamp.format(startTime)} position='left'>
-          <BodyMedium>{narrowDuration.format(startTime)}</BodyMedium>
+        <Tooltip text={longTimestampFormat.format(startTime)} position='left'>
+          <BodyMedium>{narrowDurationFormat.format(startTime)}</BodyMedium>
         </Tooltip>
       </GameListEntryTextRow>
 

@@ -3,12 +3,13 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { TransInterpolation } from '../i18n/i18next'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { Card } from '../material/card'
 import { elevationPlus3 } from '../material/shadows'
 import { useAppSelector } from '../redux-hooks'
 import { bodyMedium, DisplaySmall, labelMedium, TitleLarge, titleLarge } from '../styles/typography'
 
-const dateFormat = new Intl.DateTimeFormat(navigator.language, {
+const dateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'long',
   day: '2-digit',
@@ -73,6 +74,7 @@ export function ConnectedMatchmakingDisabledCard({
   type,
 }: ConnectedMatchmakingDisabledCardProps) {
   const { t } = useTranslation()
+  const dateFormatter = useFormat(dateFormat)
   const status = useAppSelector(s => s.matchmakingStatus.byType.get(type))
 
   const [now, setNow] = useState(() => Date.now())
@@ -134,15 +136,15 @@ export function ConnectedMatchmakingDisabledCard({
           {nextEndDate && nextEndDate > nextStartDate ? (
             <Trans t={t} i18nKey='matchmaking.disabledCard.nextDateRange'>
               <TitleLarge>
-                {{ nextStartDate: dateFormat.format(nextStartDate) } as TransInterpolation}
+                {{ nextStartDate: dateFormatter.format(nextStartDate) } as TransInterpolation}
               </TitleLarge>
               <ToText>to</ToText>
               <TitleLarge>
-                {{ nextEndDate: dateFormat.format(nextEndDate) } as TransInterpolation}
+                {{ nextEndDate: dateFormatter.format(nextEndDate) } as TransInterpolation}
               </TitleLarge>
             </Trans>
           ) : (
-            <TitleLarge>{dateFormat.format(nextStartDate)}</TitleLarge>
+            <TitleLarge>{dateFormatter.format(nextStartDate)}</TitleLarge>
           )}
           <CountdownContainer>
             <CountdownItemContainer>

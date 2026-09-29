@@ -41,6 +41,7 @@ import { ComingSoon } from '../coming-soon/coming-soon'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
@@ -183,7 +184,7 @@ const StatusChip = styled.div<{ $color: string }>`
   color: ${props => props.$color};
 `
 
-const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const gameDateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'short',
   day: '2-digit',
@@ -202,6 +203,8 @@ export function ConnectedGameResultsPage({
 }: ConnectedGameResultsPageProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const gameDateFormatter = useFormat(gameDateFormat)
 
   const isPostGame = location.search === '?post-game'
   const onTabChange = useCallback(
@@ -444,8 +447,8 @@ export function ConnectedGameResultsPage({
               </HeaderInfoItem>
               <HeaderInfoItem>
                 <HeaderInfoLabel>{t('gameDetails.infoDate', 'Date')}</HeaderInfoLabel>
-                <HeaderInfoValue title={longTimestamp.format(game.startTime)}>
-                  {gameDateFormat.format(game.startTime)}
+                <HeaderInfoValue title={longTimestampFormat.format(game.startTime)}>
+                  {gameDateFormatter.format(game.startTime)}
                 </HeaderInfoValue>
               </HeaderInfoItem>
               <HeaderInfoItem>
@@ -1210,6 +1213,8 @@ function DebugInfoDisplay({
   debugInfo: ReadonlyDeep<GameDebugInfoJson>
 }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const longTimestampWithSecondsFormat = useFormat(longTimestampWithSeconds)
   const [open, setOpen] = useState(false)
 
   const transition = open ? DEBUG_OPEN_TRANSITION : DEBUG_CLOSE_TRANSITION
@@ -1284,9 +1289,9 @@ function DebugInfoDisplay({
                         <td>
                           {report.reportedAt ? (
                             <Tooltip
-                              text={longTimestampWithSeconds.format(report.reportedAt)}
+                              text={longTimestampWithSecondsFormat.format(report.reportedAt)}
                               position='top'>
-                              {longTimestamp.format(report.reportedAt)}
+                              {longTimestampFormat.format(report.reportedAt)}
                             </Tooltip>
                           ) : (
                             '—'
@@ -1467,9 +1472,9 @@ function DebugInfoDisplay({
                             )}
                             <td>
                               <Tooltip
-                                text={longTimestampWithSeconds.format(event.at)}
+                                text={longTimestampWithSecondsFormat.format(event.at)}
                                 position='top'>
-                                {longTimestamp.format(event.at)}
+                                {longTimestampFormat.format(event.at)}
                               </Tooltip>
                             </td>
                           </tr>
@@ -1504,6 +1509,8 @@ type FlightBlobListState =
  */
 function FlightRecordingsSection({ gameId, session }: { gameId: string; session: number }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const longTimestampWithSecondsFormat = useFormat(longTimestampWithSeconds)
   const [listState, setListState] = useState<FlightBlobListState>({ status: 'idle' })
   const [downloadingRelayId, setDownloadingRelayId] = useState<number>()
 
@@ -1610,8 +1617,10 @@ function FlightRecordingsSection({ gameId, session }: { gameId: string; session:
                     </Tooltip>
                   </td>
                   <td>
-                    <Tooltip text={longTimestampWithSeconds.format(lastModifiedMs)} position='top'>
-                      {longTimestamp.format(lastModifiedMs)}
+                    <Tooltip
+                      text={longTimestampWithSecondsFormat.format(lastModifiedMs)}
+                      position='top'>
+                      {longTimestampFormat.format(lastModifiedMs)}
                     </Tooltip>
                   </td>
                   <td>

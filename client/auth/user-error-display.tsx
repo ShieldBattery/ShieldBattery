@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { UserErrorCode } from '../../common/users/user-network'
 import { longTimestamp } from '../i18n/date-formats'
 import { TransInterpolation } from '../i18n/i18next'
+import { useFormat } from '../i18n/locale-formats'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { TitleMedium } from '../styles/typography'
 
@@ -22,6 +23,7 @@ export interface UserErrorDisplayProps {
 
 function UserError({ error }: { error: FetchError }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
 
   // Cast is just for checking we've handle all the cases
   const _error = error as FetchError & { code: UserErrorCode }
@@ -49,7 +51,7 @@ function UserError({ error }: { error: FetchError }) {
               The ban will expire at{' '}
               {
                 {
-                  expireTime: longTimestamp.format((error.body as any).expiration),
+                  expireTime: longTimestampFormat.format((error.body as any).expiration),
                 } as TransInterpolation
               }
               .

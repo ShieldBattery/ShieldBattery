@@ -21,6 +21,7 @@ import { useTrackPageView } from '../analytics/analytics'
 import { redirectToLogin, useIsLoggedIn, useSelfPermissions } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
@@ -428,16 +429,18 @@ export interface LeagueDetailsHeaderProps {
 
 export function LeagueDetailsHeader({ league, previewBadgeUrl }: LeagueDetailsHeaderProps) {
   const { t } = useTranslation()
+  const monthDayFormat = useFormat(monthDay)
+  const longTimestampFormat = useFormat(longTimestamp)
   // TODO(tec27): Handle cases where year differs to smartly show that info
   const dateText = t('leagues.leagueDetails.dateText', {
     defaultValue: `{{startDate}} to {{endDate}}`,
-    startDate: monthDay.format(league.startAt),
-    endDate: monthDay.format(league.endAt),
+    startDate: monthDayFormat.format(league.startAt),
+    endDate: monthDayFormat.format(league.endAt),
   })
   const dateTooltip = t('leagues.leagueDetails.dateText', {
     defaultValue: `{{startDate}} to {{endDate}}`,
-    startDate: longTimestamp.format(league.startAt),
-    endDate: longTimestamp.format(league.endAt),
+    startDate: longTimestampFormat.format(league.startAt),
+    endDate: longTimestampFormat.format(league.endAt),
   })
 
   return (
@@ -886,6 +889,8 @@ const LeaderboardRow = React.memo(
     onUnbanUserClick: (userId: SbUserId) => void
   }) => {
     const { t } = useTranslation()
+    const longTimestampFormat = useFormat(longTimestamp)
+    const narrowDurationFormat = useFormat(narrowDuration)
 
     const user = useAppSelector(s => s.users.byId.get(leagueUser.userId))!
     const selfPermissions = useSelfPermissions()
@@ -921,9 +926,9 @@ const LeaderboardRow = React.memo(
             {leagueUser.wins} &ndash; {leagueUser.losses}
           </WinLossCell>
           <LastPlayedCell>
-            <Tooltip text={longTimestamp.format(leagueUser.lastPlayedDate)}>
+            <Tooltip text={longTimestampFormat.format(leagueUser.lastPlayedDate)}>
               {leagueUser.lastPlayedDate
-                ? narrowDuration.format(leagueUser.lastPlayedDate, curTime)
+                ? narrowDurationFormat.format(leagueUser.lastPlayedDate, curTime)
                 : undefined}
             </Tooltip>
           </LastPlayedCell>

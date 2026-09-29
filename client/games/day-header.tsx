@@ -4,14 +4,15 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameSortOption } from '../../common/games/game-filters'
 import { GameRecordJson } from '../../common/games/games'
+import { dateTimeFormat } from '../i18n/locale-formats'
 import { labelMedium, titleSmall } from '../styles/typography'
 
-const dayHeaderDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const dayHeaderDateFormat = dateTimeFormat({
   weekday: 'long',
   month: 'long',
   day: 'numeric',
 })
-const dayHeaderDateFormatWithYear = new Intl.DateTimeFormat(navigator.language, {
+const dayHeaderDateFormatWithYear = dateTimeFormat({
   weekday: 'long',
   month: 'long',
   day: 'numeric',
@@ -90,6 +91,7 @@ export function formatDayHeaderLabel(
   dayStartMs: number,
   todayStartMs: number,
   yesterdayStartMs: number,
+  locale: string,
   t: TFunction,
 ): string {
   if (dayStartMs === todayStartMs) {
@@ -100,8 +102,8 @@ export function formatDayHeaderLabel(
   }
   // Older entries can span years, so include the year whenever it isn't the current one.
   return new Date(dayStartMs).getFullYear() === new Date(todayStartMs).getFullYear()
-    ? dayHeaderDateFormat.format(dayStartMs)
-    : dayHeaderDateFormatWithYear.format(dayStartMs)
+    ? dayHeaderDateFormat.forLocale(locale).format(dayStartMs)
+    : dayHeaderDateFormatWithYear.forLocale(locale).format(dayStartMs)
 }
 
 const DayHeaderRoot = styled.div`
@@ -167,6 +169,7 @@ function isDateSort(sort: GameSortOption): boolean {
 export function renderGamesWithDayHeaders(
   games: ReadonlyArray<ReadonlyDeep<GameRecordJson>>,
   sort: GameSortOption,
+  locale: string,
   t: TFunction,
   renderGame: (game: ReadonlyDeep<GameRecordJson>) => ReactNode,
 ): ReactNode[] {
@@ -183,7 +186,7 @@ export function renderGamesWithDayHeaders(
       items.push(
         <DayHeader
           key={`day-${dayStartMs}`}
-          label={formatDayHeaderLabel(dayStartMs, todayStartMs, yesterdayStartMs, t)}
+          label={formatDayHeaderLabel(dayStartMs, todayStartMs, yesterdayStartMs, locale, t)}
         />,
       )
       lastDayStartMs = dayStartMs

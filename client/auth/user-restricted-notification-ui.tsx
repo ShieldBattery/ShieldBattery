@@ -6,6 +6,7 @@ import {
   restrictionReasonToLabel,
 } from '../../common/users/restrictions'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ActionlessNotification } from '../notifications/notifications'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -58,9 +59,10 @@ export function UserRestrictedNotificationUi({
   reason,
 }: UserRestrictedNotificationUiProps) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
 
   const reasonLabel = reason !== undefined ? restrictionReasonToLabel(reason, t) : undefined
-  const endText = longTimestamp.format(endTime)
+  const endText = longTimestampFormat.format(endTime)
 
   let intro: string
   switch (kind) {

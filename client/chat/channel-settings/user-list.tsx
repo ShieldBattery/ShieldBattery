@@ -1,6 +1,7 @@
 import { debounce } from 'lodash-es'
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { dateTimeFormat } from '../../i18n/locale-formats'
 import { elevationPlus1 } from '../../material/shadows'
 import { useRefreshToken } from '../../network/refresh-token'
 import { SearchInput } from '../../search/search-input'
@@ -15,7 +16,7 @@ import { ConnectedUsername } from '../../users/connected-username'
  */
 
 /** Date format for the secondary date line on user list cards (join date, ban date). */
-export const userListDateFormat = new Intl.DateTimeFormat(navigator.language, {
+export const userListDateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'short',
   day: 'numeric',

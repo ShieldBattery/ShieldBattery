@@ -17,6 +17,7 @@ import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { SubmitOnEnter } from '../../forms/submit-on-enter'
+import { useFormat } from '../../i18n/locale-formats'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
 import { IconButton, TextButton, useButtonState } from '../../material/button'
@@ -266,6 +267,7 @@ function UserChannelEntryRow({
   onTransferOwnershipClick: () => void
 }) {
   const { t } = useTranslation()
+  const userListDateFormatter = useFormat(userListDateFormat)
   const [buttonProps, rippleRef] = useButtonState({
     disabled: !canEdit,
     onClick: onEditClick,
@@ -287,7 +289,7 @@ function UserChannelEntryRow({
           </UsernameRow>
           <UserListCardSubtitle>
             {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
-              date: userListDateFormat.format(user.joinDate),
+              date: userListDateFormatter.format(user.joinDate),
             })}
           </UserListCardSubtitle>
           <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />

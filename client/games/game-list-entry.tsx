@@ -5,6 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { ButtonStateStyleProps, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
@@ -255,6 +256,8 @@ export interface GameRelativeTimeProps {
  */
 export function GameRelativeTime({ timestampMs, className }: GameRelativeTimeProps) {
   const { t } = useTranslation()
+  const narrowDurationFormat = useFormat(narrowDuration)
+  const longTimestampFormat = useFormat(longTimestamp)
   const currentMinuteMs = useCurrentMinuteMs()
 
   // Intl's relative-time units bottom out at seconds, which reads as false precision when the
@@ -262,10 +265,10 @@ export function GameRelativeTime({ timestampMs, className }: GameRelativeTimePro
   const label =
     currentMinuteMs - timestampMs < 60_000
       ? t('game.time.justNow', 'Just now')
-      : narrowDuration.format(timestampMs, currentMinuteMs)
+      : narrowDurationFormat.format(timestampMs, currentMinuteMs)
 
   return (
-    <Tooltip text={longTimestamp.format(timestampMs)} className={className}>
+    <Tooltip text={longTimestampFormat.format(timestampMs)} className={className}>
       {label}
     </Tooltip>
   )

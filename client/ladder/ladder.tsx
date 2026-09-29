@@ -35,6 +35,7 @@ import { Avatar } from '../avatars/avatar'
 import { useMediaQuery } from '../dom/use-media-query'
 import { useTargetVisibleInScrollParent } from '../dom/visibility-hooks'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
+import { useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { getMatchmakingSeasons } from '../matchmaking/action-creators'
@@ -311,6 +312,8 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     (savedType && ALL_MATCHMAKING_TYPES.includes(savedType) ? savedType : MatchmakingType.Match1v1)
   useTrackPageView(urlPath`/ladder/${matchmakingType}`)
   const { t } = useTranslation()
+  const shortTimestampFormat = useFormat(shortTimestamp)
+  const longTimestampFormat = useFormat(longTimestamp)
   const compactNav = useMediaQuery(COMPACT_NAV_QUERY)
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
@@ -514,7 +517,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     t('ladder.playerCount', '{{total}} players', { total: rankingsData.totalCount }),
     rankingsData.lastUpdated
       ? t('ladder.updatedText', 'Updated: {{timestamp}}', {
-          timestamp: shortTimestamp.format(rankingsData.lastUpdated),
+          timestamp: shortTimestampFormat.format(rankingsData.lastUpdated),
         })
       : undefined,
   ]
@@ -563,7 +566,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
             <ModeSubtitle
               title={
                 rankingsData.lastUpdated
-                  ? longTimestamp.format(rankingsData.lastUpdated)
+                  ? longTimestampFormat.format(rankingsData.lastUpdated)
                   : undefined
               }>
               {subtitle}
@@ -1443,6 +1446,7 @@ const SpotlightIconTooltip = styled(PodiumIconTooltip)`
 
 function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlayerProps) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
   const race = getMostPlayedRace(player)
@@ -1469,13 +1473,13 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
       <SpotlightSpacer />
       <SpotlightPoints>
         <SpotlightPointsValue>
-          {Math.round(player.points).toLocaleString()}{' '}
+          {Math.round(player.points).toLocaleString(locale)}{' '}
           <SpotlightPointsLabel>{t('ladder.pointsAbbrev', 'pts')}</SpotlightPointsLabel>
         </SpotlightPointsValue>
         {isRated ? (
           <SpotlightMmr>
             {t('ladder.mmrValue', '{{mmr}} MMR', {
-              mmr: Math.round(player.rating).toLocaleString(),
+              mmr: Math.round(player.rating).toLocaleString(locale),
             })}
           </SpotlightMmr>
         ) : null}
@@ -1494,6 +1498,7 @@ function RunnerUpPlayer({
   onSelected,
 }: PodiumPlayerProps & { place: number }) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
   const medalColor = MEDAL_COLORS[place - 1] ?? MEDAL_COLORS[2]
@@ -1510,11 +1515,13 @@ function RunnerUpPlayer({
         <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
       </RunnerUpInfo>
       <RunnerUpPoints>
-        <RunnerUpPointsValue>{Math.round(player.points).toLocaleString()}</RunnerUpPointsValue>
+        <RunnerUpPointsValue>
+          {Math.round(player.points).toLocaleString(locale)}
+        </RunnerUpPointsValue>
         {isRated ? (
           <RunnerUpMmr>
             {t('ladder.mmrValue', '{{mmr}} MMR', {
-              mmr: Math.round(player.rating).toLocaleString(),
+              mmr: Math.round(player.rating).toLocaleString(locale),
             })}
           </RunnerUpMmr>
         ) : null}
@@ -1587,6 +1594,7 @@ interface RowProps {
 const Row = React.memo(
   ({ isEven, isSelf, player, username, avatarUrl, curTime, bonusPool, onSelected }: RowProps) => {
     const { t } = useTranslation()
+    const narrowDurationFormat = useFormat(narrowDuration)
     const onClick = useCallback(() => {
       if (onSelected) {
         onSelected(player.userId, username)
@@ -1635,7 +1643,9 @@ const Row = React.memo(
         <WinLossCell>
           {player.wins} &ndash; {player.losses}
         </WinLossCell>
-        <LastPlayedCell>{narrowDuration.format(player.lastPlayedDate, curTime)}</LastPlayedCell>
+        <LastPlayedCell>
+          {narrowDurationFormat.format(player.lastPlayedDate, curTime)}
+        </LastPlayedCell>
         <Ripple ref={rippleRef} />
       </RowContainer>
     )
