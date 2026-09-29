@@ -2,12 +2,21 @@ import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/bro
 import { init, parseReplay } from '@shieldbattery/broodrep'
 import { createHash } from 'node:crypto'
 import { open, readFile } from 'node:fs/promises'
+import { inflateSync } from 'node:zlib'
 import { computeMatchupString } from '../../common/games/matchups'
 import { filterColorCodes } from '../../common/maps'
 import { RaceChar } from '../../common/races'
-import { NON_EXISTING_USER_ID, replayGameTypeToNumber } from '../../common/replays'
+import {
+  NON_EXISTING_USER_ID,
+  ReplayChat,
+  ReplayChatMessage,
+  ReplayChatPlayer,
+  replayGameTypeToNumber,
+  ReplayLeave,
+} from '../../common/replays'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
-import { makeSbUserId } from '../../common/users/sb-user-id'
+import { SC_COLORS } from '../../common/settings/team-colors'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 
 init()
 
@@ -101,6 +110,19 @@ export function deriveTeamLayout(players: ReadonlyArray<ReplayLibraryPlayer>): {
   return { teamSize, matchup }
 }
 
+/** The ShieldBattery user recorded in `slotId` of a replay's ShieldBattery section, if any. */
+function getSbUserIdForSlot(
+  sbData: ShieldBatteryData | undefined,
+  slotId: number,
+): SbUserId | undefined {
+  const sbUserId = sbData?.userIds?.[slotId]
+  // Empty/observer slots are recorded as NON_EXISTING_USER_ID in current replays, but old ones
+  // used 0; neither is a real user id.
+  return sbUserId !== undefined && sbUserId !== NON_EXISTING_USER_ID && sbUserId !== 0
+    ? makeSbUserId(sbUserId)
+    : undefined
+}
+
 /**
  * Maps a parsed replay header (plus its players and optional ShieldBattery section) into an
  * `IndexedReplay`. Pure: no file access, no side effects.
@@ -111,21 +133,14 @@ export function mapReplayHeaderToRecord(
   headerPlayers: ReadonlyArray<Player>,
   sbData: ShieldBatteryData | undefined,
 ): IndexedReplay {
-  const players = headerPlayers.map<ReplayLibraryPlayer>(p => {
-    const sbUserId = sbData?.userIds?.[p.slotId]
-    // Empty/observer slots are recorded as NON_EXISTING_USER_ID in current replays, but old ones
-    // used 0; neither is a real user id.
-    const hasSbUserId =
-      sbUserId !== undefined && sbUserId !== NON_EXISTING_USER_ID && sbUserId !== 0
-    return {
-      slot: p.slotId,
-      team: p.team,
-      name: p.name,
-      race: p.race,
-      isComputer: p.playerType === 'computer',
-      sbUserId: hasSbUserId ? makeSbUserId(sbUserId) : undefined,
-    }
-  })
+  const players = headerPlayers.map<ReplayLibraryPlayer>(p => ({
+    slot: p.slotId,
+    team: p.team,
+    name: p.name,
+    race: p.race,
+    isComputer: p.playerType === 'computer',
+    sbUserId: getSbUserIdForSlot(sbData, p.slotId),
+  }))
   const { teamSize, matchup } = deriveTeamLayout(players)
 
   return {
@@ -176,8 +191,7 @@ export async function computeContentHash(filePath: string): Promise<string> {
 
 /**
  * Reads and parses a replay's header, players, and ShieldBattery section. Rejects if the file
- * can't be parsed. This is the app's single broodrep entry point, shared by the library indexer
- * and the `replayParseMetadata` IPC handler.
+ * can't be parsed. Shared by the library indexer and the `replayParseMetadata` IPC handler.
  */
 export async function parseReplayMetadata(filePath: string): Promise<{
   headerData: ReplayHeader
@@ -206,4 +220,139 @@ export async function parseReplayMetadata(filePath: string): Promise<{
 export async function parseReplayFile(fileInfo: ReplayFileInfo): Promise<IndexedReplay> {
   const { headerData, players, shieldBatteryData } = await parseReplayMetadata(fileInfo.path)
   return mapReplayHeaderToRecord(fileInfo, headerData, players, shieldBatteryData)
+}
+
+/**
+ * BW's leave reason for a player who was dropped (stopped responding); any other reason is a
+ * deliberate exit. The replay's leave command stores the low byte of the in-game reason
+ * (`0x4000_0006`).
+ */
+const DROPPED_LEAVE_REASON = 6
+
+/**
+ * Reads a replay's recorded chat and leaves, along with the players (and their colors) needed to
+ * attribute them. Rejects if the file can't be parsed.
+ */
+export async function parseReplayChat(filePath: string): Promise<ReplayChat> {
+  const buffer = await readFile(filePath)
+  try {
+    const replay = parseReplay(buffer)
+    try {
+      const sbData = replay.getShieldBatterySection()
+      const colorsSection = replay.getRawSection('customColors')
+      const colors = colorsSection ? decodeReplayColors(colorsSection) : []
+      const replayPlayers = [...replay.players(), ...replay.observers()]
+      const players = replayPlayers.map<ReplayChatPlayer>(p => ({
+        slotId: p.slotId,
+        name: p.name,
+        isObserver: p.isObserver,
+        userId: getSbUserIdForSlot(sbData, p.slotId),
+        // Without a recorded color a slot keeps BW's default, which is its slot's standard color.
+        color: colors[p.slotId] ?? (p.isObserver ? undefined : SC_COLORS[p.slotId]?.hex),
+      }))
+      const messages: ReplayChatMessage[] = []
+      const leaves: ReplayLeave[] = []
+      for (const { frame, playerId, command } of replay.queryCommands({
+        includeKinds: ['chat', 'leaveGame'],
+      }) ?? []) {
+        if (command.type === 'chat') {
+          messages.push({ frame, senderSlot: command.senderSlot, text: command.message })
+        } else if (command.type === 'leaveGame') {
+          // Unlike chat, which names its sender, a leave is attributed to the leaving player's
+          // network id.
+          const leaver = replayPlayers.find(p => p.networkId === playerId)
+          if (leaver) {
+            leaves.push({
+              frame,
+              slotId: leaver.slotId,
+              dropped: command.reason === DROPPED_LEAVE_REASON,
+            })
+          }
+        }
+      }
+      return { frames: replay.header.frames, players, messages, leaves }
+    } finally {
+      replay.free()
+    }
+  } catch (err) {
+    // broodrep's WASM bindings throw plain strings for parse errors
+    throw err instanceof Error ? err : new Error(String(err))
+  }
+}
+
+/** The most bytes a single chunk of a BW replay section decompresses to. */
+const MAX_SECTION_CHUNK_SIZE = 8192
+
+/**
+ * Decodes the per-slot player colors (as `#rrggbb` strings, indexed by slot id) from a replay's
+ * `customColors` section. Slots with no recorded color are left empty.
+ *
+ * broodrep returns this section as stored, which is BW's chunked section format: a checksum, a
+ * chunk count, then length-prefixed chunks that are zlib-compressed when that made them smaller.
+ * The decompressed data is an RGBA quad of 0-1 floats per slot. A malformed section decodes to no
+ * colors rather than failing the whole parse.
+ */
+export function decodeReplayColors(section: Uint8Array): Array<string | undefined> {
+  const data = decompressSection(section)
+  if (!data) {
+    return []
+  }
+
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+  const colors: Array<string | undefined> = []
+  for (let offset = 0; offset + 16 <= data.byteLength; offset += 16) {
+    const alpha = view.getFloat32(offset + 12, true)
+    if (!(alpha > 0)) {
+      colors.push(undefined)
+      continue
+    }
+    let hex = '#'
+    for (let i = 0; i < 3; i++) {
+      const channel = view.getFloat32(offset + i * 4, true)
+      const byte = Number.isFinite(channel)
+        ? Math.round(Math.min(Math.max(channel, 0), 1) * 255)
+        : 0
+      hex += byte.toString(16).padStart(2, '0')
+    }
+    colors.push(hex)
+  }
+  return colors
+}
+
+function decompressSection(section: Uint8Array): Uint8Array | undefined {
+  const view = new DataView(section.buffer, section.byteOffset, section.byteLength)
+  if (section.byteLength < 8) {
+    return undefined
+  }
+  // The first u32 is a checksum, which isn't verified here.
+  const chunkCount = view.getUint32(4, true)
+  const chunks: Uint8Array[] = []
+  let offset = 8
+  for (let i = 0; i < chunkCount; i++) {
+    if (offset + 4 > section.byteLength) {
+      return undefined
+    }
+    const length = view.getUint32(offset, true)
+    offset += 4
+    if (offset + length > section.byteLength) {
+      return undefined
+    }
+    const chunk = section.subarray(offset, offset + length)
+    offset += length
+    if (isZlibHeader(chunk)) {
+      try {
+        chunks.push(inflateSync(chunk, { maxOutputLength: MAX_SECTION_CHUNK_SIZE }))
+        continue
+      } catch {
+        // A stored chunk can happen to start with bytes that look like a zlib header; the
+        // checksum inflate verifies rules out treating one as compressed, so use it as-is.
+      }
+    }
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks)
+}
+
+function isZlibHeader(chunk: Uint8Array): boolean {
+  return chunk.length >= 2 && (chunk[0] & 0x0f) === 8 && ((chunk[0] << 8) | chunk[1]) % 31 === 0
 }
