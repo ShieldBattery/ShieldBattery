@@ -106,7 +106,7 @@ async function indexFile(path: string): Promise<number | undefined> {
 const calls: ReplayDbCalls = {
   query: filters => db.query(filters),
   status: () => getStatus(),
-  setBookmarked: (replayId, bookmarked) => db.setBookmarked(replayId, bookmarked),
+  setBookmarked: (replayIds, bookmarked) => db.setBookmarked(replayIds, bookmarked),
   listPlaylists: () => db.listPlaylists(),
   createPlaylist: name => db.createPlaylist(name),
   renamePlaylist: (playlistId, name) => db.renamePlaylist(playlistId, name),

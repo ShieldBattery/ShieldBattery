@@ -21,6 +21,7 @@ import {
   ReplayLibraryFilters,
   ReplayLibraryStatus,
   ReplayPlaylist,
+  ReplayTrashResult,
 } from './replays-library'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
@@ -220,10 +221,10 @@ interface IpcInvokeables {
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
   /**
-   * Bookmarks or unbookmarks a replay. Resolves to whether the state actually changed (false when
-   * the replay was already in the requested state).
+   * Bookmarks or unbookmarks replays in a single transaction. Resolves to the ids whose state
+   * actually changed (replays already in the requested state are left out).
    */
-  replayLibrarySetBookmarked: (replayId: number, bookmarked: boolean) => Promise<boolean>
+  replayLibrarySetBookmarked: (replayIds: number[], bookmarked: boolean) => Promise<number[]>
   /** Lists the local playlists, ordered per their manual arrangement. */
   replayLibraryListPlaylists: () => Promise<ReplayPlaylist[]>
   /** Creates a new, empty playlist, appended after the existing ones. Returns its new id. */
@@ -287,13 +288,14 @@ interface IpcInvokeables {
    */
   replayLibraryRemoveSavedReplay: (path: string, expectedHash: string) => Promise<boolean>
   /**
-   * Moves an already-indexed replay file to the Recycle Bin, recoverable unlike
-   * `replayLibraryRemoveSavedReplay`'s hard delete. Refuses (rejecting) unless `path` resolves
-   * inside one of the watched replay folders -- so this can never be used to trash an arbitrary
-   * file. Resolves to whether a file was actually trashed (`false` if it was already gone); the
-   * index (and any playlist membership) is reconciled by the watcher afterward, not by this call.
+   * Moves already-indexed replay files to the Recycle Bin, recoverable unlike
+   * `replayLibraryRemoveSavedReplay`'s hard delete. A path that doesn't resolve inside one of the
+   * watched replay folders is refused (reported `failed`) -- so this can never be used to trash an
+   * arbitrary file. Every path is attempted even if an earlier one fails, and the result reports
+   * each path's outcome in order. The index (and any playlist membership) is reconciled by the
+   * watcher afterward, not by this call.
    */
-  replayLibraryTrashReplay: (path: string) => Promise<boolean>
+  replayLibraryTrashReplays: (paths: string[]) => Promise<ReplayTrashResult[]>
 
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.

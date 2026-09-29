@@ -53,6 +53,18 @@ export interface ReplayLibraryEntry {
   bookmarkedAt?: number
 }
 
+/**
+ * What happened to one path passed to `replayLibraryTrashReplays`: `trashed` moved it to the Recycle
+ * Bin, `missing` means the file was already gone (nothing to do), and `failed` means it's still on
+ * disk (it was outside the watched folders, or the move itself errored).
+ */
+export type ReplayTrashOutcome = 'trashed' | 'missing' | 'failed'
+
+export interface ReplayTrashResult {
+  path: string
+  outcome: ReplayTrashOutcome
+}
+
 /** A local playlist grouping replays in manual order, as exposed to the renderer. */
 export interface ReplayPlaylist {
   id: number

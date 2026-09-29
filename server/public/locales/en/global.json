@@ -2261,6 +2261,20 @@
       "bookmark": "Bookmark",
       "bookmarkedEmpty": "No bookmarked replays",
       "bookmarkedEmptyBody": "Bookmark replays to keep them handy here.",
+      "bulk": {
+        "addedToPlaylist_one": "Added {{count}} replay to {{playlist}}",
+        "addedToPlaylist_other": "Added {{count}} replays to {{playlist}}",
+        "bookmarked_one": "Bookmarked {{count}} replay",
+        "bookmarked_other": "Bookmarked {{count}} replays",
+        "movedToRecycleBin_one": "Moved {{count}} replay to Recycle Bin",
+        "movedToRecycleBin_other": "Moved {{count}} replays to Recycle Bin",
+        "movedToRecycleBinPartial_one": "Moved {{moved}} of {{count}} replay to Recycle Bin",
+        "movedToRecycleBinPartial_other": "Moved {{moved}} of {{count}} replays to Recycle Bin",
+        "removedBookmark_one": "Removed the bookmark from {{count}} replay",
+        "removedBookmark_other": "Removed the bookmark from {{count}} replays",
+        "removedFromPlaylist_one": "Removed {{count}} replay from {{playlist}}",
+        "removedFromPlaylist_other": "Removed {{count}} replays from {{playlist}}"
+      },
       "clearFilters": "Clear filters",
       "empty": "No replays yet",
       "emptyBody": "Replays you watch and play will show up here automatically.",
@@ -2303,6 +2317,10 @@
       "removeBookmark": "Remove bookmark",
       "removeFromPlaylist": "Remove from playlist",
       "scanningTitle": "Scanning your replay folder…",
+      "selection": {
+        "count_one": "{{count}} replay selected",
+        "count_other": "{{count}} replays selected"
+      },
       "showInExplorer": "Show in Explorer",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
