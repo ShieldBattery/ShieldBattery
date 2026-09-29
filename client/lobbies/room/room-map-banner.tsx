@@ -415,6 +415,7 @@ const SeriesList = styled.div`
   gap: 12px;
 
   overflow-y: auto;
+  overscroll-behavior: contain;
 `
 
 const SeriesSection = styled.div`
@@ -424,18 +425,10 @@ const SeriesSection = styled.div`
   gap: 4px;
 `
 
-const SeriesGames = styled.div`
-  /* Five 44px game rows and the four gaps between them. */
-  max-height: 236px;
-  padding-inline-end: 8px;
-
+const SeriesRows = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 `
 
 /** `SectionLabel` carries a 4px horizontal padding meant for the roster rail; the popover's
@@ -444,8 +437,14 @@ const PopoverSectionLabel = styled(SectionLabel)`
   padding: 0;
 `
 
+/**
+ * Rows bleed 8px into the list's side padding so their hover highlight has room around the text
+ * while the text itself stays flush with the section labels.
+ */
 const SeriesRow = styled.div`
   min-height: 44px;
+  margin-inline: -8px;
+  padding-inline: 8px;
   gap: 10px;
 
   display: flex;
@@ -999,10 +998,7 @@ export function RoomMapBanner({
                       <PopoverSectionLabel>
                         {t('lobbies.room.series.gamesLabel', 'Games')}
                       </PopoverSectionLabel>
-                      <SeriesGames
-                        role='region'
-                        aria-label={t('lobbies.room.series.gamesLabel', 'Games')}
-                        tabIndex={0}>
+                      <SeriesRows>
                         {series.map((game, index) => (
                           <SeriesGameRow
                             key={game.gameId}
@@ -1012,7 +1008,7 @@ export function RoomMapBanner({
                             onViewGameSummary={onViewGameSummary}
                           />
                         ))}
-                      </SeriesGames>
+                      </SeriesRows>
                     </SeriesSection>
                   </>
                 ) : null}
@@ -1021,10 +1017,7 @@ export function RoomMapBanner({
                     <PopoverSectionLabel>
                       {t('lobbies.room.series.upNext', 'Up next')}
                     </PopoverSectionLabel>
-                    <SeriesGames
-                      role='region'
-                      aria-label={t('lobbies.room.series.upNext', 'Up next')}
-                      tabIndex={0}>
+                    <SeriesRows>
                       {mapQueue.map((map, index) => (
                         <QueuedMapRow
                           key={index}
@@ -1032,7 +1025,7 @@ export function RoomMapBanner({
                           gameNumber={nextGameNumber + 1 + index}
                         />
                       ))}
-                    </SeriesGames>
+                    </SeriesRows>
                   </SeriesSection>
                 ) : null}
               </SeriesList>
