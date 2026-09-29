@@ -28,6 +28,7 @@ import {
 } from '../../../common/lobbies'
 import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
+  changesGameSettings,
   LobbyBenchRemoveEvent,
   LobbyChangedSetting,
   LobbyInitEvent,
@@ -1117,13 +1118,15 @@ export class LobbyService {
    *
    * Settings that aren't named are left as they are. Since reconciliation can rearrange the whole
    * lobby, the occupants receive the result as a complete lobby rather than as a set of changes,
-   * alongside the list of settings the host actually changed. Renaming the lobby is the one setting
-   * that never reconciles slots: it applies as a plain field update, leaving every seat untouched.
+   * alongside the list of settings the host actually changed. Renaming the lobby and changing its
+   * visibility never reconcile slots: they apply as plain field updates, leaving every seat
+   * untouched.
    */
   async updateSettings({
     client,
     lobbyId,
     name,
+    visibility,
     map,
     gameType,
     gameSubType,
@@ -1133,6 +1136,7 @@ export class LobbyService {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
     name?: string
+    visibility?: LobbyVisibility
     map?: SbMapId
     gameType?: GameType
     gameSubType?: number
@@ -1161,6 +1165,7 @@ export class LobbyService {
     this.ensureLobbyNotTransient(current)
 
     const nextName = name ?? current.name
+    const nextVisibility = visibility ?? current.visibility
     const mapInfo = fetchedMap ?? current.map!
     const nextGameType = gameType ?? current.gameType
     // Only team game types are configured by a sub-type, so carrying one over from a type that had
@@ -1194,6 +1199,7 @@ export class LobbyService {
 
     const changedSettings: LobbyChangedSetting[] = []
     if (nextName !== current.name) changedSettings.push('name')
+    if (nextVisibility !== current.visibility) changedSettings.push('visibility')
     if (mapInfo.id !== current.map!.id) changedSettings.push('map')
     if (nextGameType !== current.gameType) changedSettings.push('gameType')
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
@@ -1205,9 +1211,10 @@ export class LobbyService {
       return
     }
 
-    // The name carries no slot layout of its own, so a rename alone must leave every seat exactly
-    // as it was -- reconciliation only runs when some other setting is also changing.
-    const needsReconciliation = changedSettings.some(setting => setting !== 'name')
+    // The name and visibility carry no slot layout of their own, so changing only those must leave
+    // every seat exactly as it was -- reconciliation only runs when some other setting is also
+    // changing.
+    const needsReconciliation = changesGameSettings(changedSettings)
 
     let updated: Lobby = current
     if (needsReconciliation) {
@@ -1232,10 +1239,13 @@ export class LobbyService {
     if (nextName !== current.name) {
       updated = { ...updated, name: nextName }
     }
+    if (nextVisibility !== current.visibility) {
+      updated = { ...updated, visibility: nextVisibility }
+    }
     if (needsReconciliation) {
       // Everyone was ready for a different game than the one they are now looking at, so the lobby
-      // gathers its ready marks again from scratch. A rename changes nothing about the game, so it
-      // leaves them alone.
+      // gathers its ready marks again from scratch. A rename or visibility change changes nothing
+      // about the game, so it leaves them alone.
       this.readyUsers.delete(updated.id)
     }
 
@@ -1248,7 +1258,15 @@ export class LobbyService {
     // A settings change can rearrange every seat in the lobby, so the people previewing it need the
     // new layout just as much as the people in it do.
     this._publishPreview(updated)
-    this._publishListChange('update', updated)
+    if (current.visibility === updated.visibility) {
+      this._publishListChange('update', updated)
+    } else if (updated.visibility === 'listed') {
+      this._publishListChange('add', updated)
+    } else {
+      // Published as the lobby was while it was still listed, since the list only ever hears about
+      // listed lobbies. Its id is all the public channel learns, and it already had that.
+      this._publishListChange('delete', current)
+    }
   }
 
   /**
