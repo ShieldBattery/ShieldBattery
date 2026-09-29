@@ -652,20 +652,21 @@ struct MinimapDrawHooks {
     draw_minimap_main_player_units: VirtualAddress,
 }
 
-/// RAII guard for the minimap-only team-color swap. Holds `rgb_colors`'s contents and the
-/// `use_rgb_colors` switch from just before the swap and restores both on drop, after the bracketed
-/// minimap draw has read the assignment. Forcing the switch on makes the dot-draw sites read
-/// `rgb_colors` even when the game ran in palette-index mode, without disturbing unit draws (which
-/// happen outside these guards). Created only by [`BwScr::begin_minimap_team_colors`], which
-/// validated the pointer in the same game frame on the same thread.
-struct MinimapColorSwap {
+/// RAII guard for a temporary `rgb_colors` / `use_rgb_colors` swap. Holds the array's contents and
+/// the switch from just before the swap and restores both on drop, after the bracketed native call
+/// has read the swapped-in state. Created only by [`BwScr::swap_rgb_colors`], which validated the
+/// pointer on the same thread just before the swap.
+///
+/// Used by the minimap-only team-color mode (see [`BwScr::begin_minimap_team_colors`]) and by
+/// replay saving (see [`BwScr::begin_replay_save_colors`]).
+struct RgbColorSwap {
     rgb_ptr: *mut [[f32; 4]; 8],
     saved_rgb: [[f32; 4]; 8],
     use_rgb_colors: Value<u8>,
     saved_use_rgb: u8,
 }
 
-impl Drop for MinimapColorSwap {
+impl Drop for RgbColorSwap {
     fn drop(&mut self) {
         unsafe {
             *self.rgb_ptr = self.saved_rgb;
@@ -2431,6 +2432,19 @@ impl BwScr {
                 StepReplayCommands,
                 |orig| {
                     game_thread::step_replay_commands(orig);
+                },
+                address,
+            );
+            // Every replay save funnels through this function: SC:R's own LastReplay autosave (via
+            // the wrapper that builds the full path) and `BwScr::save_replay`. The team-color
+            // feature may have a local-only palette in `rgb_colors`, which SC:R would otherwise
+            // serialize into the replay, so the real colors are put back for the span of the save.
+            let address = self.save_replay as usize - base;
+            exe.hook_closure_address(
+                SaveReplay,
+                move |path, orig| {
+                    let _colors = self.begin_replay_save_colors();
+                    orig(path)
                 },
                 address,
             );
@@ -5338,9 +5352,8 @@ impl BwScr {
     /// makes the dot-draw sites read `rgb_colors` even when the game ran in palette-index mode. The
     /// swap is confined to the draw — outside it the array and switch hold their originals, so unit
     /// colors stay untouched and only the minimap dots read the assignment. The runtime lock is
-    /// released before the guard is returned, so the nested draws can re-acquire it. No heap
-    /// allocation: the saved copy lives in the returned guard on the caller's stack.
-    fn begin_minimap_team_colors(&self) -> Option<MinimapColorSwap> {
+    /// released before the guard is returned, so the nested draws can re-acquire it.
+    fn begin_minimap_team_colors(&self) -> Option<RgbColorSwap> {
         let assignment = {
             let guard = self.team_color_runtime.lock();
             let runtime = guard.as_ref()?;
@@ -5355,16 +5368,42 @@ impl BwScr {
             }
             out
         };
+        self.swap_rgb_colors(assignment, 1)
+    }
+
+    /// Installs BW's original player colors and `use_rgb_colors` switch (the init snapshot) for the
+    /// span of one native replay save, returning an RAII guard that restores the current state
+    /// when dropped. SC:R serializes the live `rgb_colors` array into the replay when saving, so
+    /// without this a save made while the
+    /// [`Preset`](MinimapColorMode::Preset) mode has the local player's personal assignment in
+    /// that array would record that assignment instead of the game's real colors, and everyone
+    /// watching the replay would see it. Returns `None` (nothing to restore) when the feature is
+    /// inactive, as the array then already holds the real colors.
+    fn begin_replay_save_colors(&self) -> Option<RgbColorSwap> {
+        let (colors, use_rgb) = {
+            let guard = self.team_color_runtime.lock();
+            let runtime = guard.as_ref()?;
+            (runtime.original_rgb_colors, runtime.original_use_rgb_colors)
+        };
+        self.swap_rgb_colors(colors, use_rgb)
+    }
+
+    /// Writes `colors` into `rgb_colors` and `use_rgb` into the `use_rgb_colors` switch, returning
+    /// a guard that puts back the previous contents of both when dropped. Guards nest: each one
+    /// restores exactly the state that was current when it was created. Returns `None` without
+    /// writing anything when the `rgb_colors` pointer is null. No heap allocation: the saved copy
+    /// lives in the returned guard on the caller's stack.
+    fn swap_rgb_colors(&self, colors: [[f32; 4]; 8], use_rgb: u8) -> Option<RgbColorSwap> {
         unsafe {
             let rgb_ptr = self.rgb_colors.resolve();
             if rgb_ptr.is_null() {
                 return None;
             }
             let saved_rgb = *rgb_ptr;
-            *rgb_ptr = assignment;
+            *rgb_ptr = colors;
             let saved_use_rgb = self.use_rgb_colors.resolve();
-            self.use_rgb_colors.write(1);
-            Some(MinimapColorSwap {
+            self.use_rgb_colors.write(use_rgb);
+            Some(RgbColorSwap {
                 rgb_ptr,
                 saved_rgb,
                 use_rgb_colors: self.use_rgb_colors,
@@ -5422,7 +5461,10 @@ impl BwScr {
     }
 
     /// Saves a replay to the specified path. The path should be a valid filesystem path.
-    /// Returns true if the replay was saved successfully.
+    /// Returns true if the replay was saved successfully. The native save function is hooked to
+    /// record the game's real player colors (see
+    /// [`begin_replay_save_colors`](Self::begin_replay_save_colors)), so calling it here goes
+    /// through that hook too.
     pub fn save_replay(&self, path: &str) -> bool {
         let Ok(path) = CString::new(path) else {
             error!("Replay path contained null byte");
@@ -7029,6 +7071,8 @@ mod hooks {
         !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepReplayCommands();
+        // Takes the full replay file path; returns nonzero on success.
+        !0 => SaveReplay(*const i8) -> u32;
         !0 => CreateGameMultiplayer(
             *mut bw::BwGameData, // Note: 1.16.1 struct, not scr::JoinableGameInfo
             *const u8, // Game name
