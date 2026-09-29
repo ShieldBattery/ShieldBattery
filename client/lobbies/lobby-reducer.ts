@@ -2,7 +2,11 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType, isTeamType } from '../../common/games/game-type'
 import { isUms, Lobby } from '../../common/lobbies'
-import { LobbyRunStateJson, LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
+import {
+  changesGameSettings,
+  LobbyRunStateJson,
+  LobbySeriesGameJson,
+} from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -286,9 +290,9 @@ const lobbyHandlers = {
     const previousBenchIds = new Set(draft.info.bench.map(benched => benched.userId))
 
     draft.info = castDraft(action.payload.lobby)
-    // A rename leaves the game the lobby is about to play exactly as it was, so it's the one change
-    // people don't have to answer for again.
-    if (action.payload.changedSettings.some(setting => setting !== 'name')) {
+    // A rename or visibility change leaves the game the lobby is about to play exactly as it was, so
+    // those are the changes people don't have to answer for again.
+    if (changesGameSettings(action.payload.changedSettings)) {
       clearReady(draft)
     }
     pushChat(draft, {

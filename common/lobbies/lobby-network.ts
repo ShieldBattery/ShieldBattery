@@ -568,6 +568,7 @@ export interface LobbyStatusEvent {
 export interface UpdateLobbySettingsRequest {
   clientId: string
   name?: string
+  visibility?: LobbyVisibility
   map?: SbMapId
   gameType?: GameType
   gameSubType?: number
@@ -578,11 +579,26 @@ export interface UpdateLobbySettingsRequest {
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
   | 'name'
+  | 'visibility'
   | 'map'
   | 'gameType'
   | 'gameSubType'
   | 'useLegacyLimits'
   | 'allowObservers'
+
+/**
+ * Settings that describe the lobby rather than the game it will play. Changing only these leaves
+ * every seat where it was and nobody has to ready up again.
+ */
+const LOBBY_ONLY_SETTINGS: ReadonlySet<LobbyChangedSetting> = new Set(['name', 'visibility'])
+
+/**
+ * Whether a settings change touches the game being set up (and so rearranges slots and resets
+ * everyone's ready marks), rather than only the lobby's name or visibility.
+ */
+export function changesGameSettings(changedSettings: ReadonlyArray<LobbyChangedSetting>): boolean {
+  return changedSettings.some(setting => !LOBBY_ONLY_SETTINGS.has(setting))
+}
 
 /**
  * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the

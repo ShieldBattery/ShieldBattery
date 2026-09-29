@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
-import { hasObservers } from '../../../common/lobbies'
+import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
   LobbyServiceErrorCode,
   UpdateLobbySettingsRequest,
@@ -14,12 +14,19 @@ import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { getLobbyPreferences, updateLobbySettings } from '../action-creators'
-import { GameSetupForm, GameSetupFormHandle, GameSetupModel } from '../create/game-setup-form'
+import {
+  GameSetupForm,
+  GameSetupFormHandle,
+  GameSetupModel,
+  Section,
+  SectionHeader,
+} from '../create/game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from '../create/game-setup-page'
+import { VisibilityPicker } from '../create/visibility-picker'
 
 /**
- * The host-only in-page surface for editing a gathering lobby's settings (name, map, game
- * type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`. Only fields that
+ * The host-only in-page surface for editing a gathering lobby's settings (name, visibility, map,
+ * game type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`. Only fields that
  * actually changed from the lobby's current values are sent to the server on save.
  */
 export function RoomGameSetup({ onClose }: { onClose: () => void }) {
@@ -44,6 +51,8 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   }))
   const [initialName] = useState(lobby.name)
   const [name, setName] = useState(initialName)
+  const [initialVisibility] = useState(lobby.visibility)
+  const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
 
   const selectedMapInfo = useAppSelector(s =>
@@ -59,7 +68,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   }
 
   const summary = formatGameSetupSummary(t, {
-    visibility: lobby.visibility,
+    visibility,
     setup,
     mapInfo: selectedMapInfo,
   })
@@ -101,6 +110,12 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             }}
           />
         }
+        visibilitySection={
+          <Section>
+            <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+            <VisibilityPicker value={visibility} onChange={setVisibility} />
+          </Section>
+        }
         onChangeMap={() => setBrowseState(MapBrowseState.Server)}
         onValidatedChange={model => setSetup(model)}
         onSubmit={model => {
@@ -108,6 +123,9 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           const trimmedName = name.trim()
           if (trimmedName && trimmedName !== initialName) {
             settings.name = trimmedName
+          }
+          if (visibility !== initialVisibility) {
+            settings.visibility = visibility
           }
           if (model.mapId !== initialModel.mapId) {
             settings.map = model.mapId
@@ -125,9 +143,11 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             settings.allowObservers = model.allowObservers
           }
 
-          // A rename touches nothing about the game being set up, so it can't fail for any of the
-          // reasons a reconfiguration can.
-          const isRenameOnly = settings.name !== undefined && Object.keys(settings).length === 1
+          // A rename or visibility change touches nothing about the game being set up, so it can't
+          // fail for any of the reasons a reconfiguration can.
+          const isLobbyOnly = Object.keys(settings).every(
+            key => key === 'name' || key === 'visibility',
+          )
 
           if (Object.keys(settings).length > 0) {
             dispatch(
@@ -146,10 +166,10 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
                       'lobbies.lobbySettings.errorTransient',
                       'The lobby is starting or playing a game. Try again once it regroups.',
                     )
-                  } else if (isRenameOnly) {
+                  } else if (isLobbyOnly) {
                     message = t(
-                      'lobbies.lobbySettings.errorRename',
-                      'The lobby could not be renamed. Please try again.',
+                      'lobbies.lobbySettings.errorLobbyOnly',
+                      'The lobby settings could not be updated. Please try again.',
                     )
                   } else {
                     message = t(

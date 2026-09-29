@@ -1714,7 +1714,7 @@
     "lobbySettings": {
       "errorDialogTitle": "Error updating settings",
       "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration.",
-      "errorRename": "The lobby could not be renamed. Please try again.",
+      "errorLobbyOnly": "The lobby settings could not be updated. Please try again.",
       "errorTransient": "The lobby is starting or playing a game. Try again once it regroups."
     },
     "messageLayout": {
@@ -1724,7 +1724,8 @@
       "settingsChangeMap": "map",
       "settingsChangeName": "lobby name",
       "settingsChangeObservers": "observers",
-      "settingsChangeUnitLimit": "unit limit"
+      "settingsChangeUnitLimit": "unit limit",
+      "settingsChangeVisibility": "visibility"
     },
     "room": {
       "banner": {

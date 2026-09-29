@@ -545,6 +545,119 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyService.getListedSummaries().map(l => l.name)).toEqual(['Listed lobby'])
     })
+
+    test('making an unlisted lobby public adds it to the list and counts it', async () => {
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, visibility: 'listed' })
+
+      expect(lobbyService.lobbies.get(id)!.visibility).toBe('listed')
+      // It's new to everyone browsing the list, so an update would have nothing to apply to
+      expect(listPublishes()).toEqual([
+        { action: 'add', payload: expect.objectContaining({ id, name: 'Unlisted lobby' }) },
+      ])
+      expect(countPublishes()).toEqual([{ count: 1 }])
+    })
+
+    test('making a public lobby unlisted removes it from the list by id alone', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        visibility: 'unlisted',
+      })
+
+      expect(lobbyService.lobbies.get(id)!.visibility).toBe('unlisted')
+      expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
+      expect(countPublishes()).toEqual([{ count: 0 }])
+    })
+
+    test('a visibility change reaches the members without touching any seat', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const before = lobbyService.lobbies.get(id)!
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        visibility: 'unlisted',
+      })
+
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.teams).toEqual(before.teams)
+      expect(after.bench).toEqual(before.bench)
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'settingsChange', changedSettings: ['visibility'], lobby: after },
+      ])
+    })
+
+    test('a visibility change leaves who is ready alone', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        visibility: 'unlisted',
+      })
+
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
+    })
+
+    test('a rename made while going public reaches the list under the new name', async () => {
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        name: 'Renamed lobby',
+        visibility: 'listed',
+      })
+
+      expect(listPublishes()).toEqual([
+        { action: 'add', payload: expect.objectContaining({ name: 'Renamed lobby' }) },
+      ])
+      expect(lobbyPublishes(id).map(data => data.changedSettings)).toEqual([['name', 'visibility']])
+    })
+
+    test('a rename made while going unlisted does not reach the list', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        name: 'Secret name',
+        visibility: 'unlisted',
+      })
+
+      expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
+    })
+
+    test('naming the current visibility changes nothing', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, visibility: 'listed' })
+
+      expect(listPublishes()).toEqual([])
+      expect(countPublishes()).toEqual([])
+    })
+
+    test('only the host can change the visibility', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await expect(
+        lobbyService.updateSettings({ client: joiner.client, lobbyId: id, visibility: 'unlisted' }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotHost })
+    })
   })
 
   describe('list and preview publishing', () => {

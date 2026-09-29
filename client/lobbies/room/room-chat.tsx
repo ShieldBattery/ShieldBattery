@@ -4,7 +4,11 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { getGameDurationString } from '../../../common/games/games'
-import { LobbyChangedSetting, LobbySeriesPlayerJson } from '../../../common/lobbies/lobby-network'
+import {
+  changesGameSettings,
+  LobbyChangedSetting,
+  LobbySeriesPlayerJson,
+} from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
@@ -311,6 +315,8 @@ function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string
   switch (setting) {
     case 'name':
       return t('lobbies.messageLayout.settingsChangeName', 'lobby name')
+    case 'visibility':
+      return t('lobbies.messageLayout.settingsChangeVisibility', 'visibility')
     case 'map':
       return t('lobbies.messageLayout.settingsChangeMap', 'map')
     case 'gameType':
@@ -339,9 +345,9 @@ function SettingsNoticeCard({
 }) {
   const { t } = useTranslation()
   const settings = changedSettings.map(setting => changedSettingLabel(setting, t)).join(', ')
-  // A rename touches nothing about the game being set up, so it never resets readiness; any other
-  // setting can, so its notice calls that out.
-  const resetsReady = changedSettings.some(setting => setting !== 'name')
+  // A rename or visibility change touches nothing about the game being set up, so neither resets
+  // readiness; any other setting can, so its notice calls that out.
+  const resetsReady = changesGameSettings(changedSettings)
 
   return (
     <NoticeCard>

@@ -132,13 +132,14 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   name: Joi.string().custom((value, helpers) =>
     isValidLobbyName(value) ? value : helpers.error('any.invalid'),
   ),
+  visibility: Joi.string().valid(...ALL_LOBBY_VISIBILITIES),
   map: Joi.string(),
   gameType: Joi.string().valid(...ALL_GAME_TYPES),
   gameSubType: Joi.number().min(1).max(7),
   allowObservers: Joi.boolean(),
   useLegacyLimits: Joi.boolean(),
 })
-  .or('name', 'map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
+  .or('name', 'visibility', 'map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
   .required()
 
 /** The body of a request to move a slot's occupant somewhere else. */
@@ -375,6 +376,7 @@ export class LobbyApi {
       client,
       lobbyId: params.lobbyId,
       name: body.name,
+      visibility: body.visibility,
       map: body.map,
       gameType: body.gameType,
       gameSubType: body.gameSubType,
