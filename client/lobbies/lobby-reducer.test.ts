@@ -3,7 +3,7 @@ import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
 import { LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import { SbMapId } from '../../common/maps'
+import { MapInfo, SbMapId } from '../../common/maps'
 import { RolledOutcome } from '../../common/rolled-outcomes'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { MessagingActions } from '../messaging/actions'
@@ -13,6 +13,7 @@ import {
   BenchJoinMessage,
   JoinLobbyMessage,
   KickLobbyPlayerMessage,
+  LobbyMapQueueAdvanceMessage,
   LobbyMemberGameEndedMessage,
   LobbyMessageType,
   LobbyRegroupMessage,
@@ -64,6 +65,7 @@ const LOBBY: Lobby = {
   id: 'lobby-1' as any,
   name: 'Test Lobby',
   map: undefined,
+  mapQueue: [],
   gameType: GameType.Melee,
   gameSubType: 0,
   teams: [
@@ -727,6 +729,75 @@ describe('client/lobbies/lobby-reducer', () => {
     const lastMessage = state.chat[state.chat.length - 1]
     expect(lastMessage.type).toBe(LobbyMessageType.LobbyRegroup)
     expect((lastMessage as LobbyRegroupMessage).gameId).toBe('game-1')
+  })
+
+  describe('map queue advance', () => {
+    const FIGHTING_SPIRIT = { id: 'fighting-spirit' as SbMapId, name: 'Fighting Spirit' } as MapInfo
+    const CIRCUIT_BREAKER = { id: 'circuit-breaker' as SbMapId, name: 'Circuit Breaker' } as MapInfo
+    const POLYPOID = { id: 'polypoid' as SbMapId, name: 'Polypoid' } as MapInfo
+
+    const QUEUED_LOBBY: Lobby = {
+      ...LOBBY,
+      map: FIGHTING_SPIRIT,
+      mapQueue: [POLYPOID, CIRCUIT_BREAKER, FIGHTING_SPIRIT],
+    }
+
+    test('takes the new lobby and names the map it moved on to and the ones it skipped', () => {
+      let state = lobbyReducer(undefined, initAction({}, QUEUED_LOBBY))
+      const advanced: Lobby = { ...QUEUED_LOBBY, map: CIRCUIT_BREAKER, mapQueue: [FIGHTING_SPIRIT] }
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateMapQueueAdvance',
+        payload: { type: 'mapQueueAdvance', skippedMapIds: [POLYPOID.id], lobby: advanced },
+      })
+
+      expect(state.info).toBe(advanced)
+      const lastMessage = state.chat[state.chat.length - 1] as LobbyMapQueueAdvanceMessage
+      expect(lastMessage.type).toBe(LobbyMessageType.LobbyMapQueueAdvance)
+      expect(lastMessage.mapName).toBe('Circuit Breaker')
+      expect(lastMessage.skippedMapNames).toEqual(['Polypoid'])
+    })
+
+    test('names no map when every queued map was skipped', () => {
+      const lobby: Lobby = { ...QUEUED_LOBBY, mapQueue: [POLYPOID] }
+      let state = lobbyReducer(undefined, initAction({}, lobby))
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateMapQueueAdvance',
+        payload: {
+          type: 'mapQueueAdvance',
+          skippedMapIds: [POLYPOID.id],
+          lobby: { ...lobby, mapQueue: [] },
+        },
+      })
+
+      const lastMessage = state.chat[state.chat.length - 1] as LobbyMapQueueAdvanceMessage
+      expect(lastMessage.mapName).toBeUndefined()
+      expect(lastMessage.skippedMapNames).toEqual(['Polypoid'])
+    })
+
+    test('announces the members a smaller map puts on the bench', () => {
+      let state = lobbyReducer(undefined, initAction({}, QUEUED_LOBBY))
+      const benched: BenchedUser = { userId: SLOT_B.userId!, race: 'r', joinedAt: 0 }
+
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateMapQueueAdvance',
+        payload: {
+          type: 'mapQueueAdvance',
+          skippedMapIds: [],
+          lobby: {
+            ...QUEUED_LOBBY,
+            map: POLYPOID,
+            mapQueue: [CIRCUIT_BREAKER, FIGHTING_SPIRIT],
+            bench: [benched],
+          },
+        },
+      })
+
+      const lastMessage = state.chat[state.chat.length - 1] as BenchJoinMessage
+      expect(lastMessage.type).toBe(LobbyMessageType.LobbyBenchJoin)
+      expect(lastMessage.userId).toBe(SLOT_B.userId)
+    })
   })
 
   test('init stores runState when the event carries one (e.g. joining an in-game lobby)', () => {

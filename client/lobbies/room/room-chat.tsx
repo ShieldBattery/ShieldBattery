@@ -25,7 +25,7 @@ import { SystemImportant, SystemMessage } from '../../messaging/message-layout'
 import { MessageComponentProps } from '../../messaging/message-list'
 import { SbMessage } from '../../messaging/message-records'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyMedium, labelMedium, labelSmall, singleLine } from '../../styles/typography'
+import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
@@ -73,6 +73,11 @@ const NoticeCard = styled.div`
 
 const NoticeCardText = styled.div`
   align-self: baseline;
+`
+
+const NoticeCardDetail = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
 `
 
 const JoinCard = styled.div`
@@ -327,6 +332,8 @@ function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string
       return t('lobbies.messageLayout.settingsChangeUnitLimit', 'unit limit')
     case 'allowObservers':
       return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
+    case 'mapQueue':
+      return t('lobbies.messageLayout.settingsChangeMapQueue', 'map queue')
     default:
       return assertUnreachable(setting)
   }
@@ -357,6 +364,51 @@ function SettingsNoticeCard({
           <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation}
         </Trans>
         {resetsReady ? ` · ${t('lobbies.room.chat.readyReset', 'ready reset')}` : ''}
+      </NoticeCardText>
+    </NoticeCard>
+  )
+}
+
+/**
+ * The card announcing that the lobby moved on to the next map in its queue once its game ended.
+ * The map is what everyone is about to play, so it gets the same weight as a settings change.
+ */
+function MapQueueAdvanceCard({
+  mapName,
+  skippedMapNames,
+}: {
+  mapName?: string
+  skippedMapNames: ReadonlyArray<string>
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <NoticeCard>
+      <MaterialIcon icon='playlist_play' size={20} />
+      <NoticeCardText>
+        {mapName !== undefined ? (
+          <Trans t={t} i18nKey='lobbies.room.chat.mapQueueAdvanced'>
+            Next map from the queue:{' '}
+            <SystemImportant>{{ map: mapName } as TransInterpolation}</SystemImportant>
+          </Trans>
+        ) : (
+          t('lobbies.room.chat.mapQueueNoneFit', "None of the queued maps fit the lobby's settings")
+        )}
+        {skippedMapNames.length ? (
+          <NoticeCardDetail>
+            {mapName !== undefined
+              ? t('lobbies.room.chat.mapQueueSkippedUnfit', {
+                  defaultValue_one: "Skipped {{maps}}, which doesn't fit the lobby's settings",
+                  defaultValue_other: "Skipped {{maps}}, which don't fit the lobby's settings",
+                  count: skippedMapNames.length,
+                  maps: skippedMapNames.join(', '),
+                })
+              : t('lobbies.room.chat.mapQueueSkipped', {
+                  defaultValue: 'Skipped {{maps}}',
+                  maps: skippedMapNames.join(', '),
+                })}
+          </NoticeCardDetail>
+        ) : null}
       </NoticeCardText>
     </NoticeCard>
   )
@@ -581,6 +633,12 @@ function RoomChatMessage({ message }: MessageComponentProps) {
       return (
         <SystemMessage time={msg.time}>
           <GameSummaryCard gameId={msg.gameId} />
+        </SystemMessage>
+      )
+    case LobbyMessageType.LobbyMapQueueAdvance:
+      return (
+        <SystemMessage time={msg.time}>
+          <MapQueueAdvanceCard mapName={msg.mapName} skippedMapNames={msg.skippedMapNames} />
         </SystemMessage>
       )
     case LobbyMessageType.SelfJoinLobby:

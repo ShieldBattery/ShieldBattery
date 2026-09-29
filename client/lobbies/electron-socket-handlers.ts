@@ -1,5 +1,6 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { Lobby } from '../../common/lobbies'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
@@ -52,6 +53,19 @@ type EventToActionMap = {
     lobbyId: SbLobbyId,
     event: Extract<LobbyEvent, { type: E }>,
   ) => Dispatchable | void
+}
+
+/**
+ * Starts downloading a lobby's new map right away (like joining does), so that game loading isn't
+ * left to fetch it from scratch once the countdown completes.
+ */
+function downloadLobbyMap(lobby: Lobby) {
+  const { hash, mapData, mapUrl } = lobby.map!
+  ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
+    // This is already logged to our file by the map store, so we just log it to the console for
+    // easy visibility during development
+    console.error('Error downloading map: ' + err.stack)
+  })
 }
 
 const eventToAction: EventToActionMap = {
@@ -267,6 +281,16 @@ const eventToAction: EventToActionMap = {
     payload: event,
   }),
 
+  mapQueueAdvance: (lobbyId, event) => (dispatch, getState) => {
+    if (getState().lobby.info.map?.id !== event.lobby.map!.id) {
+      downloadLobbyMap(event.lobby)
+    }
+    dispatch({
+      type: '@lobbies/updateMapQueueAdvance',
+      payload: event,
+    })
+  },
+
   seriesGameUpdated: (lobbyId, event) => ({
     type: '@lobbies/updateSeriesGameUpdated',
     payload: event,
@@ -279,14 +303,7 @@ const eventToAction: EventToActionMap = {
 
   settingsChange: (lobbyId, event) => {
     if (event.changedSettings.includes('map')) {
-      // Start downloading the new map right away (like joining does), so that game loading isn't
-      // left to fetch it from scratch once the countdown completes
-      const { hash, mapData, mapUrl } = event.lobby.map!
-      ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
-        // This is already logged to our file by the map store, so we just log it to the console for
-        // easy visibility during development
-        console.error('Error downloading map: ' + err.stack)
-      })
+      downloadLobbyMap(event.lobby)
     }
 
     return {

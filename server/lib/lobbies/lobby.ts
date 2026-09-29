@@ -398,6 +398,7 @@ export function createLobby({
     id: makeSbLobbyId(encodePrettyId(randomUUID())),
     name,
     map,
+    mapQueue: [],
     gameType,
     gameSubType: +gameSubType,
     teams,

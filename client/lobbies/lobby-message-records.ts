@@ -18,6 +18,7 @@ export enum LobbyMessageType {
   LobbyGameStarted = 'lobbyGameStarted',
   LobbyMemberGameEnded = 'lobbyMemberGameEnded',
   LobbyRegroup = 'lobbyRegroup',
+  LobbyMapQueueAdvance = 'lobbyMapQueueAdvance',
 }
 
 export interface JoinLobbyMessage extends BaseMessage {
@@ -99,6 +100,18 @@ export interface LobbyRegroupMessage extends BaseMessage {
   readonly gameId: string
 }
 
+/**
+ * The lobby moved on to the next map in its queue after a game. Map names are captured when this
+ * happens, since the queue that named them is gone by the time the message is shown.
+ */
+export interface LobbyMapQueueAdvanceMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyMapQueueAdvance
+  /** The map the lobby moved on to, or `undefined` if none of the queued maps fit. */
+  readonly mapName?: string
+  /** Queued maps that were dropped without being played, since they didn't fit the settings. */
+  readonly skippedMapNames: ReadonlyArray<string>
+}
+
 export type LobbyMessage =
   | JoinLobbyMessage
   | LeaveLobbyMessage
@@ -115,3 +128,4 @@ export type LobbyMessage =
   | LobbyGameStartedMessage
   | LobbyMemberGameEndedMessage
   | LobbyRegroupMessage
+  | LobbyMapQueueAdvanceMessage

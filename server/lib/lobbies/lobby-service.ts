@@ -6,6 +6,7 @@ import { GameServerRegion, GameServerRegionId } from '../../../common/game-serve
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
+  adjustedGameSubType,
   BenchedUser,
   findBenchedUser,
   findSlotById,
@@ -306,6 +307,107 @@ function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSl
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidGameSubType, 'Invalid game sub-type')
     }
   }
+}
+
+/**
+ * Describes the game a lobby's settings set up, checked against what its map can support. Throws a
+ * `LobbyServiceError` for a combination the map can't be played with.
+ */
+function validatedLobbySettings({
+  map,
+  gameType,
+  gameSubType,
+  allowObservers,
+  useLegacyLimits,
+}: Omit<Lobbies.LobbySettings, 'numSlots'>): Lobbies.LobbySettings {
+  if (isUms(gameType) && !hasUmsPlayerSlots(map)) {
+    throw new LobbyServiceError(
+      LobbyServiceErrorCode.InvalidGameType,
+      'map defines no player slots to use its settings from',
+    )
+  }
+
+  let numSlots
+  switch (gameType) {
+    case 'oneVOne':
+      numSlots = 2
+      break
+    case 'teamMelee':
+    case 'teamFfa':
+      numSlots = 8
+      break
+    default:
+      numSlots = map.mapData.slots
+  }
+  // Validated against the map's own slot count (not the derived team-type slot total), the same
+  // way creating a lobby validates it
+  checkSubTypeValidity(gameType, gameSubType, map.mapData.slots)
+
+  return { map, gameType, gameSubType, numSlots, allowObservers, useLegacyLimits }
+}
+
+/**
+ * Looks up the maps a host lined up for a lobby, keeping the order (and any repeats) they were
+ * given in. Throws if any of them doesn't exist.
+ */
+async function fetchMapQueue(mapIds: ReadonlyArray<SbMapId>): Promise<MapInfo[]> {
+  if (!mapIds.length) {
+    return []
+  }
+
+  const found = await reparseMapsAsNeeded(await getMapInfos([...new Set(mapIds)]))
+  const byId = new Map(found.map(map => [map.id, map]))
+  return mapIds.map(id => {
+    const map = byId.get(id)
+    if (!map) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
+    }
+    return map
+  })
+}
+
+/**
+ * Moves a lobby on to the first map in its queue that its current settings can be played on,
+ * dropping that map and any unplayable ones before it from the queue. A map that would have to
+ * change the game type to be played is skipped rather than having the lobby's settings bent to fit
+ * it; a team sub-type is only carried over to the new map's slot count, the way picking a map by
+ * hand carries it over. If no queued map fits, the lobby keeps its map and the queue is emptied.
+ */
+function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[] } {
+  const skippedMapIds: SbMapId[] = []
+  for (const [i, map] of lobby.mapQueue.entries()) {
+    try {
+      const settings = validatedLobbySettings({
+        map,
+        gameType: lobby.gameType,
+        gameSubType: isTeamType(lobby.gameType)
+          ? adjustedGameSubType({
+              gameType: lobby.gameType,
+              subType: lobby.gameSubType,
+              prevSlots: lobby.map!.mapData.slots,
+              slots: map.mapData.slots,
+            })
+          : 0,
+        allowObservers: hasObservers(lobby),
+        useLegacyLimits: lobby.useLegacyLimits,
+      })
+      const updated = Lobbies.applySettingsChange(lobby, settings)
+      return {
+        lobby: { ...updated, mapQueue: lobby.mapQueue.slice(i + 1) },
+        skippedMapIds,
+      }
+    } catch (err) {
+      logger.info({ err, lobbyId: lobby.id, mapId: map.id }, 'skipping unplayable queued map')
+      skippedMapIds.push(map.id)
+    }
+  }
+
+  return { lobby: { ...lobby, mapQueue: [] }, skippedMapIds }
+}
+
+/** Whether two lists of maps name the same maps in the same order. */
+function sameMaps(a: ReadonlyArray<MapInfo>, b: ReadonlyArray<MapInfo>): boolean {
+  return a.length === b.length && a.every((map, i) => map.id === b[i].id)
 }
 
 class CountdownCanceledError extends Error {}
@@ -1118,9 +1220,9 @@ export class LobbyService {
    *
    * Settings that aren't named are left as they are. Since reconciliation can rearrange the whole
    * lobby, the occupants receive the result as a complete lobby rather than as a set of changes,
-   * alongside the list of settings the host actually changed. Renaming the lobby and changing its
-   * visibility never reconcile slots: they apply as plain field updates, leaving every seat
-   * untouched.
+   * alongside the list of settings the host actually changed. Renaming the lobby, changing its
+   * visibility, and lining up maps for its later games never reconcile slots: they apply as plain
+   * field updates, leaving every seat untouched.
    */
   async updateSettings({
     client,
@@ -1132,6 +1234,7 @@ export class LobbyService {
     gameSubType,
     allowObservers,
     useLegacyLimits,
+    mapQueue,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
@@ -1142,6 +1245,7 @@ export class LobbyService {
     gameSubType?: number
     allowObservers?: boolean
     useLegacyLimits?: boolean
+    mapQueue?: SbMapId[]
   }): Promise<void> {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
@@ -1155,6 +1259,10 @@ export class LobbyService {
         throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
       }
       ;[fetchedMap] = await reparseMapsAsNeeded([found])
+    }
+    let fetchedQueue: MapInfo[] | undefined
+    if (mapQueue !== undefined) {
+      fetchedQueue = await fetchMapQueue(mapQueue)
     }
 
     // Fetching the map info gives other operations on this lobby a chance to run, so everything
@@ -1173,29 +1281,15 @@ export class LobbyService {
     const nextGameSubType = isTeamType(nextGameType) ? (gameSubType ?? current.gameSubType) : 0
     const nextAllowObservers = allowObservers ?? hasObservers(current)
     const nextUseLegacyLimits = useLegacyLimits ?? current.useLegacyLimits
+    const nextMapQueue = fetchedQueue ?? current.mapQueue
 
-    if (isUms(nextGameType) && !hasUmsPlayerSlots(mapInfo)) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.InvalidGameType,
-        'map defines no player slots to use its settings from',
-      )
-    }
-
-    let numSlots
-    switch (nextGameType) {
-      case 'oneVOne':
-        numSlots = 2
-        break
-      case 'teamMelee':
-      case 'teamFfa':
-        numSlots = 8
-        break
-      default:
-        numSlots = mapInfo.mapData.slots
-    }
-    // Validated against the map's own slot count (not the derived team-type slot total), the same
-    // way creating a lobby validates it
-    checkSubTypeValidity(nextGameType, nextGameSubType, mapInfo.mapData.slots)
+    const nextSettings = validatedLobbySettings({
+      map: mapInfo,
+      gameType: nextGameType,
+      gameSubType: nextGameSubType,
+      allowObservers: nextAllowObservers,
+      useLegacyLimits: nextUseLegacyLimits,
+    })
 
     const changedSettings: LobbyChangedSetting[] = []
     if (nextName !== current.name) changedSettings.push('name')
@@ -1205,28 +1299,22 @@ export class LobbyService {
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
     if (nextAllowObservers !== hasObservers(current)) changedSettings.push('allowObservers')
     if (nextUseLegacyLimits !== current.useLegacyLimits) changedSettings.push('useLegacyLimits')
+    if (!sameMaps(nextMapQueue, current.mapQueue)) changedSettings.push('mapQueue')
     if (!changedSettings.length) {
       // Every requested value matches what the lobby already has, so there is nothing to apply or
       // to announce
       return
     }
 
-    // The name and visibility carry no slot layout of their own, so changing only those must leave
-    // every seat exactly as it was -- reconciliation only runs when some other setting is also
-    // changing.
+    // The name, visibility, and map queue carry no slot layout of their own, so changing only those
+    // must leave every seat exactly as it was -- reconciliation only runs when some other setting is
+    // also changing.
     const needsReconciliation = changesGameSettings(changedSettings)
 
     let updated: Lobby = current
     if (needsReconciliation) {
       try {
-        updated = Lobbies.applySettingsChange(current, {
-          map: mapInfo,
-          gameType: nextGameType,
-          gameSubType: nextGameSubType,
-          numSlots,
-          allowObservers: nextAllowObservers,
-          useLegacyLimits: nextUseLegacyLimits,
-        })
+        updated = Lobbies.applySettingsChange(current, nextSettings)
       } catch (err) {
         throw new LobbyServiceError(
           LobbyServiceErrorCode.InvalidSlotOperation,
@@ -1242,6 +1330,9 @@ export class LobbyService {
     if (nextVisibility !== current.visibility) {
       updated = { ...updated, visibility: nextVisibility }
     }
+    if (changedSettings.includes('mapQueue')) {
+      updated = { ...updated, mapQueue: nextMapQueue }
+    }
     if (needsReconciliation) {
       // Everyone was ready for a different game than the one they are now looking at, so the lobby
       // gathers its ready marks again from scratch. A rename or visibility change changes nothing
@@ -1255,6 +1346,10 @@ export class LobbyService {
       changedSettings,
       lobby: updated,
     })
+    if (changedSettings.every(setting => setting === 'mapQueue')) {
+      // Neither the list nor a preview shows what the lobby will play after its current game
+      return
+    }
     // A settings change can rearrange every seat in the lobby, so the people previewing it need the
     // new layout just as much as the people in it do.
     this._publishPreview(updated)
@@ -2454,15 +2549,29 @@ export class LobbyService {
       this.series.set(lobbyId, [game])
     }
 
-    const updated = this._seatBenchOverflow(lobby)
-    this.lobbies.set(lobbyId, updated)
-    this._publishTo(updated, { type: 'regroup', game })
-    if (updated === lobby) {
-      // The lobby itself is unchanged, but its list entry still has to be refreshed: what changed is
-      // its lifecycle.
+    if (lobby.mapQueue.length) {
+      const advanced = advanceMapQueue(lobby)
+      const updated = this._seatBenchOverflow(advanced.lobby)
+      this.lobbies.set(lobbyId, updated)
+      this._publishTo(updated, { type: 'regroup', game })
+      this._publishTo(updated, {
+        type: 'mapQueueAdvance',
+        skippedMapIds: advanced.skippedMapIds,
+        lobby: updated,
+      })
+      this._publishPreview(updated)
       this._publishListChange('update', updated)
     } else {
-      this._publishLobbyDiff(lobby, updated)
+      const updated = this._seatBenchOverflow(lobby)
+      this.lobbies.set(lobbyId, updated)
+      this._publishTo(updated, { type: 'regroup', game })
+      if (updated === lobby) {
+        // The lobby itself is unchanged, but its list entry still has to be refreshed: what changed
+        // is its lifecycle.
+        this._publishListChange('update', updated)
+      } else {
+        this._publishLobbyDiff(lobby, updated)
+      }
     }
 
     // Results are usually still being settled at this point, but a game that ended long enough ago

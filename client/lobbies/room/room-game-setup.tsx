@@ -1,9 +1,12 @@
+import { nanoid } from 'nanoid'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
+  changesGameSettings,
+  LobbyChangedSetting,
   LobbyServiceErrorCode,
   UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
@@ -23,11 +26,20 @@ import {
 } from '../create/game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from '../create/game-setup-page'
 import { VisibilityPicker } from '../create/visibility-picker'
+import { MapQueueSection, QueuedMapEntry } from './room-map-queue'
+
+/** Which map a pick from the map browser is for. */
+enum MapPickTarget {
+  /** The map the lobby's next game is played on. */
+  Current,
+  /** A map added to the end of the queue for the games after that. */
+  Queue,
+}
 
 /**
  * The host-only in-page surface for editing a gathering lobby's settings (name, visibility, map,
- * game type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`. Only fields that
- * actually changed from the lobby's current values are sent to the server on save.
+ * map queue, game type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`.
+ * Only fields that actually changed from the lobby's current values are sent to the server on save.
  */
 export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
@@ -54,6 +66,10 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const [initialVisibility] = useState(lobby.visibility)
   const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
+  const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
+  const [queue, setQueue] = useState<QueuedMapEntry[]>(() =>
+    initialQueue.map(mapId => ({ key: nanoid(), mapId })),
+  )
 
   const selectedMapInfo = useAppSelector(s =>
     setup.mapId ? s.maps.byId.get(setup.mapId) : undefined,
@@ -61,9 +77,19 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
 
   const formRef = useRef<GameSetupFormHandle>(null)
   const [browseState, setBrowseState] = useState(MapBrowseState.None)
+  const [pickTarget, setPickTarget] = useState(MapPickTarget.Current)
+
+  const browseFor = (target: MapPickTarget) => {
+    setPickTarget(target)
+    setBrowseState(MapBrowseState.Server)
+  }
 
   const pick = (mapId: SbMapId) => {
-    formRef.current?.setMap(mapId)
+    if (pickTarget === MapPickTarget.Queue) {
+      setQueue([...queue, { key: nanoid(), mapId }])
+    } else {
+      formRef.current?.setMap(mapId)
+    }
     setBrowseState(MapBrowseState.None)
   }
 
@@ -116,7 +142,14 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             <VisibilityPicker value={visibility} onChange={setVisibility} />
           </Section>
         }
-        onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+        mapQueueSection={
+          <MapQueueSection
+            queue={queue}
+            onChange={setQueue}
+            onAddMap={() => browseFor(MapPickTarget.Queue)}
+          />
+        }
+        onChangeMap={() => browseFor(MapPickTarget.Current)}
         onValidatedChange={model => setSetup(model)}
         onSubmit={model => {
           const settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>> = {}
@@ -142,12 +175,17 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers
           }
+          const queueIds = queue.map(entry => entry.mapId)
+          if (
+            queueIds.length !== initialQueue.length ||
+            queueIds.some((id, i) => id !== initialQueue[i])
+          ) {
+            settings.mapQueue = queueIds
+          }
 
-          // A rename or visibility change touches nothing about the game being set up, so it can't
-          // fail for any of the reasons a reconfiguration can.
-          const isLobbyOnly = Object.keys(settings).every(
-            key => key === 'name' || key === 'visibility',
-          )
+          // A rename, visibility change, or new map queue touches nothing about the game being set
+          // up, so it can't fail for any of the reasons a reconfiguration can.
+          const isLobbyOnly = !changesGameSettings(Object.keys(settings) as LobbyChangedSetting[])
 
           if (Object.keys(settings).length > 0) {
             dispatch(
