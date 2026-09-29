@@ -982,9 +982,17 @@ function SummaryPage({
       {hasDebugPermission && debugInfo ? (
         <DebugInfoDisplay gameId={gameId} debugInfo={debugInfo} />
       ) : null}
-      {/* Replays are read by the app's parser, which only exists in Electron. */}
+      {/*
+        Replays are read by the app's parser, which only exists in Electron. Keyed by game because
+        this page instance is reused across game navigations, and a transcript must never carry
+        over to (or finish loading into) another game's page.
+      */}
       {IS_ELECTRON && hasDebugPermission && debugInfo ? (
-        <ChatTranscriptSection config={game.config} replays={debugInfo.replays ?? []} />
+        <ChatTranscriptSection
+          key={gameId}
+          config={game.config}
+          replays={debugInfo.replays ?? []}
+        />
       ) : null}
     </SummaryRoot>
   )
