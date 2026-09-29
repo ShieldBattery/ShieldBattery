@@ -26,6 +26,10 @@ pub struct Settings {
     /// resolved colors.
     #[serde(default)]
     pub team_colors: Option<TeamColorsSettings>,
+    /// The filename template for this game's auto-saved replay (see [`crate::replay_name`]), or
+    /// `None` to use the default.
+    #[serde(default)]
+    pub replay_name_template: Option<String>,
 }
 
 /// Fully-resolved custom team-color scheme, as sent by the app. Colors are `#RRGGBB` strings; the

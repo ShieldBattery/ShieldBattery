@@ -95,7 +95,8 @@ impl IncompleteInit {
 
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
-    SetSettings(Settings),
+    /// Boxed because it is large and sent once per game, like `SetNetcodeV2Setup` below.
+    SetSettings(Box<Settings>),
     /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app.
     /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
     SetNetcodeV2Setup(Box<NetcodeV2Setup>),
@@ -172,6 +173,7 @@ impl GameState {
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             forge::init(&settings.local, &settings.scr, settings.monitor_bounds);
+            crate::replay_name::set_template(settings.replay_name_template.clone());
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {
@@ -1079,7 +1081,7 @@ impl GameState {
                             sb_user_id: player.sb_user_id,
                         })
                         .collect();
-                    game_thread::set_player_id_mapping(mapping);
+                    game_thread::set_player_id_mapping(mapping, state.local_user.id);
                 } else {
                     warn!("Player randomization received too early");
                 }

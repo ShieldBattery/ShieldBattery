@@ -44,5 +44,17 @@ describe('common/settings/account-settings', () => {
     test('a wrong-typed chat display mode falls back to the default', () => {
       expect(fillAccountSettingsDefaults({ chatDisplayMode: 7 }).chatDisplayMode).toBe('classic')
     })
+
+    test('a stored replay name template is kept', () => {
+      expect(
+        fillAccountSettingsDefaults({ replayNameTemplate: '{matchup}' }).replayNameTemplate,
+      ).toBe('{matchup}')
+    })
+
+    test('an overlong replay name template falls back to the default', () => {
+      expect(
+        fillAccountSettingsDefaults({ replayNameTemplate: 'x'.repeat(201) }).replayNameTemplate,
+      ).toBe(DEFAULT_ACCOUNT_SETTINGS.replayNameTemplate)
+    })
   })
 })

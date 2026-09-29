@@ -1,5 +1,6 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
+import { MAX_REPLAY_NAME_TEMPLATE_LENGTH } from '../../../common/replay-name-template'
 import {
   AccountSettingsResponse,
   ALL_CHAT_DISPLAY_MODES,
@@ -27,6 +28,7 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
   showWhispersEverywhere: Joi.boolean(),
   availability: Joi.valid(...ALL_USER_AVAILABILITIES),
   chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),
+  replayNameTemplate: Joi.string().allow('').max(MAX_REPLAY_NAME_TEMPLATE_LENGTH),
 })
   .min(1)
   .required()

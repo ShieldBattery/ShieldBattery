@@ -34,6 +34,7 @@ import {
   SettingsSectionDescription,
   SettingsSectionHeader,
 } from '../settings-content'
+import { ReplayNameTemplateEditor } from './replay-name-template-editor'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -350,6 +351,9 @@ export function AppSystemSettings() {
             iconStart={<MaterialIcon icon='add' />}
             onClick={onAddFolderClick}
           />
+        </SectionContainer>
+        <SectionContainer>
+          <ReplayNameTemplateEditor />
         </SectionContainer>
         <SectionContainer>
           <SettingsSectionHeader>

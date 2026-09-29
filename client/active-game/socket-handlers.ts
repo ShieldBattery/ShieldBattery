@@ -61,6 +61,7 @@ export default function ({
               created: self!.user.created,
             },
             blockedUsers: Array.from(getState().relationships.blocks.keys()),
+            replayNameTemplate: getState().settings.account.replayNameTemplate,
             serverConfig: {
               serverUrl: makeServerUrl(''),
             },
