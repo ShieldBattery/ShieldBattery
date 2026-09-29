@@ -5,6 +5,7 @@ import { NON_EXISTING_USER_ID } from '../../common/replays'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import {
+  decodeReplayColors,
   getReplayTeamRaces,
   makeParseErrorRecord,
   mapReplayHeaderToRecord,
@@ -265,5 +266,64 @@ describe('app/replay-library/replay-parser/getReplayTeamRaces', () => {
       ['p', 't'],
       ['z', 'z'],
     ])
+  })
+})
+
+/** Builds a `customColors` section holding `chunks` as stored (uncompressed) chunks. */
+function makeStoredSection(chunks: ReadonlyArray<Uint8Array>): Uint8Array {
+  const header = Buffer.alloc(8)
+  header.writeUInt32LE(chunks.length, 4)
+  return Buffer.concat([
+    header,
+    ...chunks.flatMap(chunk => {
+      const length = Buffer.alloc(4)
+      length.writeUInt32LE(chunk.length)
+      return [length, chunk]
+    }),
+  ])
+}
+
+function rgba(...values: number[]): Uint8Array {
+  const data = Buffer.alloc(values.length * 4)
+  values.forEach((v, i) => data.writeFloatLE(v, i * 4))
+  return data
+}
+
+describe('app/replay-library/replay-parser/decodeReplayColors', () => {
+  test('decodes a zlib-compressed section from a real replay', () => {
+    const section = Buffer.from(
+      '3a083b4a0100000056000000789cfbfaa5c4beb1a1c1068419181a806c063806f141f8e81117fba74f52a07c08' +
+        '80c9fffd5303c63f7ffcb003f1cf9ef1b17ff820c1fee285007ba879b650f36c41fcce0e0e907d7673e7c8a0' +
+        '98472e00002fc32df0',
+      'hex',
+    )
+
+    expect(decodeReplayColors(section)).toEqual([
+      '#f40404',
+      '#808080',
+      '#ffc4e4',
+      '#000080',
+      '#fcfc7c',
+      '#cce0d0',
+      '#088008',
+      '#88409c',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ])
+  })
+
+  test('decodes stored chunks, clamping out-of-range channels', () => {
+    const section = makeStoredSection([rgba(1, 0, 0.5, 1, 0, 0, 0, 0), rgba(2, -1, NaN, 1)])
+
+    expect(decodeReplayColors(section)).toEqual(['#ff0080', undefined, '#ff0000'])
+  })
+
+  test('decodes a truncated section to no colors', () => {
+    const section = makeStoredSection([rgba(1, 0, 0, 1)])
+
+    expect(decodeReplayColors(section.subarray(0, section.length - 1))).toEqual([])
+    expect(decodeReplayColors(section.subarray(0, 4))).toEqual([])
   })
 })

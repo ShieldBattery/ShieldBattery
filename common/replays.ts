@@ -1,5 +1,6 @@
 import type { GameType } from '@shieldbattery/broodrep'
 import { TFunction } from 'i18next'
+import { SbUserId } from './users/sb-user-id'
 
 export enum SupportedReplayGameType {
   Melee = 2,
@@ -87,3 +88,51 @@ export const replayGameTypeToNumber: Record<GameType, number> = {
  * every non-human slot.
  */
 export const NON_EXISTING_USER_ID = 0xffffffff
+
+/** A chat message recorded in a replay's command stream. */
+export interface ReplayChatMessage {
+  frame: number
+  /**
+   * The sender's game player id: their `players[]` slot for a player, or 128-131 for an observer.
+   * Matches `ReplayChatPlayer.slotId`.
+   */
+  senderSlot: number
+  text: string
+}
+
+/** A player leaving the game, as recorded in a replay's command stream. */
+export interface ReplayLeave {
+  frame: number
+  /** The leaving player's slot. Matches `ReplayChatPlayer.slotId`. */
+  slotId: number
+  /** Whether the player was dropped (stopped responding) rather than leaving deliberately. */
+  dropped: boolean
+}
+
+export interface ReplayChatPlayer {
+  slotId: number
+  name: string
+  isObserver: boolean
+  /** The player's ShieldBattery user id, if the replay's ShieldBattery section records one. */
+  userId?: SbUserId
+  /** The player's in-game color as a `#rrggbb` string, if the replay records one for their slot. */
+  color?: string
+}
+
+/**
+ * The chat recorded in a single replay. A replay holds only the chat its recording player saw (what
+ * they sent plus what was sent to them), so different players' replays of the same game can hold
+ * different messages.
+ */
+export interface ReplayChat {
+  /** The replay's length in frames. */
+  frames: number
+  players: ReplayChatPlayer[]
+  /** The chat messages, in the order they were recorded. */
+  messages: ReplayChatMessage[]
+  /**
+   * The players who left while the replay was recording, in the order they left. Never includes
+   * the recording player, whose leaving ends the replay.
+   */
+  leaves: ReplayLeave[]
+}
