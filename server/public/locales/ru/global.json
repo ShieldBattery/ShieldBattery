@@ -817,10 +817,15 @@
       "noMatches": "Здесь нет никого с таким именем.",
       "offline": "Офлайн",
       "showFewerGames": "Показать меньше игр",
+      "showFewerStreams": "Показать меньше трансляций",
       "showMoreGames_one": "Показать ещё {{count}} игру",
       "showMoreGames_few": "Показать ещё {{count}} игры",
       "showMoreGames_many": "Показать ещё {{count}} игр",
-      "showMoreGames_other": "Показать ещё {{count}} игры"
+      "showMoreGames_other": "Показать ещё {{count}} игры",
+      "showMoreStreams_one": "Показать ещё {{count}} трансляцию",
+      "showMoreStreams_few": "Показать ещё {{count}} трансляции",
+      "showMoreStreams_many": "Показать ещё {{count}} трансляций",
+      "showMoreStreams_other": "Показать ещё {{count}} трансляции"
     },
     "whispers": {
       "startWhisperButton": "Отправить личное сообщение"

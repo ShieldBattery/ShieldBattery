@@ -51,6 +51,16 @@ const streams = [
     thumbnailUrl: placeholderImage('#2a4a2f', '#14202e'),
     user: { id: makeSbUserId(3), name: 'Jaedong' },
   },
+  {
+    id: 'stream:4',
+    twitchLogin: 'stork',
+    twitchDisplayName: 'Stork',
+    title: 'PvZ build orders',
+    viewerCount: 204,
+    startedAt: new Date(now - 18 * 60_000).toISOString(),
+    thumbnailUrl: placeholderImage('#4a2c2c', '#14202e'),
+    user: { id: makeSbUserId(4), name: 'Stork' },
+  },
 ]
 
 function mockMap(name: string, from: string, to: string): GameActivityEntry['map'] {
@@ -191,7 +201,7 @@ export function PresenceListTest() {
           <Column height={800} streams={streams.slice(0, 1)} games={games.slice(0, 1)} />
         </Columns>
 
-        <SectionTitle>Three streams and four games, tall and short</SectionTitle>
+        <SectionTitle>Four streams and four games, tall and short</SectionTitle>
         <Columns>
           <Column height={800} streams={streams} games={games} />
           <Column height={560} streams={streams} games={games} />

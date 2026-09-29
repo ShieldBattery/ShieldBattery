@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useContext, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -210,15 +211,17 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
 })
 
 type SectionKey = 'live' | 'games' | 'active' | 'offline'
+/** The sections whose entries fold behind a "Show N more" button past the first few. */
+type FoldableSectionKey = 'live' | 'games'
 
-/** How many games show before the rest fold behind a "Show N more" button. */
-const GAMES_SHOWN = 3
+/** How many entries a foldable section shows before the rest fold away. */
+const FOLDED_ENTRIES_SHOWN = 3
 
 enum UserListRowType {
   Header,
   Stream,
   Game,
-  MoreGames,
+  More,
   Active,
   Faded,
   NoMatches,
@@ -242,9 +245,10 @@ interface GameRowData {
   entry: GameActivityEntry
 }
 
-interface MoreGamesRowData {
-  type: UserListRowType.MoreGames
-  /** How many games are folded away, or 0 when every game shows and the button folds them. */
+interface MoreRowData {
+  type: UserListRowType.More
+  section: FoldableSectionKey
+  /** How many entries are folded away, or 0 when every entry shows and the button folds them. */
   hidden: number
 }
 
@@ -268,7 +272,7 @@ type UserListRowData =
   | HeaderRowData
   | StreamRowData
   | GameRowData
-  | MoreGamesRowData
+  | MoreRowData
   | ActiveRowData
   | FadedRowData
   | NoMatchesRowData
@@ -285,8 +289,8 @@ function computeRowKey(_index: number, row: UserListRowData): React.Key {
       return `stream:${row.stream.id}`
     case UserListRowType.Game:
       return `game:${row.entry.gameId}`
-    case UserListRowType.MoreGames:
-      return 'more-games'
+    case UserListRowType.More:
+      return `more:${row.section}`
     case UserListRowType.NoMatches:
       return 'no-matches'
     default:
@@ -342,7 +346,7 @@ const StreamSlot = styled.div`
   margin: 0 8px;
 `
 
-const MoreGamesButton = styled.button`
+const MoreButton = styled.button`
   ${buttonReset};
   ${labelLarge};
   height: 32px;
@@ -364,6 +368,26 @@ const NoMatches = styled.div`
   padding: 16px;
   color: var(--theme-on-surface-variant);
 `
+
+function moreButtonLabel(row: MoreRowData, t: TFunction): string {
+  if (row.section === 'live') {
+    return row.hidden
+      ? t('chat.userList.showMoreStreams', {
+          defaultValue_one: 'Show {{count}} more stream',
+          defaultValue_other: 'Show {{count}} more streams',
+          count: row.hidden,
+        })
+      : t('chat.userList.showFewerStreams', 'Show fewer streams')
+  }
+
+  return row.hidden
+    ? t('chat.userList.showMoreGames', {
+        defaultValue_one: 'Show {{count}} more game',
+        defaultValue_other: 'Show {{count}} more games',
+        count: row.hidden,
+      })
+    : t('chat.userList.showFewerGames', 'Show fewer games')
+}
 
 function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   const result = new Set(set)
@@ -414,7 +438,7 @@ export const UserList = React.memo((props: UserListProps) => {
   const [filter, setFilter] = useState('')
   const [collapsed, setCollapsed] = useState<ReadonlySet<SectionKey>>(() => new Set())
   const [expandedGames, setExpandedGames] = useState<ReadonlySet<string>>(() => new Set())
-  const [showAllGames, setShowAllGames] = useState(false)
+  const [unfolded, setUnfolded] = useState<ReadonlySet<FoldableSectionKey>>(() => new Set())
 
   const needle = filter.trim().toLowerCase()
   const filtering = needle.length > 0
@@ -429,7 +453,7 @@ export const UserList = React.memo((props: UserListProps) => {
   const shownActive = filtering ? active.filter(id => matches(usersById.get(id)?.name)) : active
   const shownOffline = filtering ? offline.filter(id => matches(usersById.get(id)?.name)) : offline
 
-  // While filtering, every match shows: a collapsed section or folded game would hide the very
+  // While filtering, every match shows: a collapsed section or folded entry would hide the very
   // thing being looked for.
   const isCollapsed = (section: SectionKey) => !filtering && collapsed.has(section)
 
@@ -444,29 +468,43 @@ export const UserList = React.memo((props: UserListProps) => {
     })
   }
 
+  /** The entries of a foldable section to show, pushing its "Show N more" row when it folds. */
+  const unfoldedEntries = <T,>(section: FoldableSectionKey, entries: ReadonlyArray<T>) => {
+    if (filtering || entries.length <= FOLDED_ENTRIES_SHOWN) {
+      return { visible: entries, pushMore: () => {} }
+    }
+    const visible = unfolded.has(section) ? entries : entries.slice(0, FOLDED_ENTRIES_SHOWN)
+    return {
+      visible,
+      pushMore: () => {
+        rowData.push({
+          type: UserListRowType.More,
+          section,
+          hidden: entries.length - visible.length,
+        })
+      },
+    }
+  }
+
   if (shownStreams.length) {
     pushHeader('live', t('chat.userList.liveNow', 'Live now'), shownStreams.length)
     if (!isCollapsed('live')) {
-      for (const stream of shownStreams) {
+      const { visible, pushMore } = unfoldedEntries('live', shownStreams)
+      for (const stream of visible) {
         rowData.push({ type: UserListRowType.Stream, stream })
       }
+      pushMore()
     }
   }
 
   if (shownGames.length) {
     pushHeader('games', t('chat.userList.inGame', 'In game'), shownGames.length)
     if (!isCollapsed('games')) {
-      const foldable = !filtering && shownGames.length > GAMES_SHOWN
-      const visibleGames = foldable && !showAllGames ? shownGames.slice(0, GAMES_SHOWN) : shownGames
-      for (const entry of visibleGames) {
+      const { visible, pushMore } = unfoldedEntries('games', shownGames)
+      for (const entry of visible) {
         rowData.push({ type: UserListRowType.Game, entry })
       }
-      if (foldable) {
-        rowData.push({
-          type: UserListRowType.MoreGames,
-          hidden: shownGames.length - visibleGames.length,
-        })
-      }
+      pushMore()
     }
   }
 
@@ -521,17 +559,11 @@ export const UserList = React.memo((props: UserListProps) => {
             onToggle={() => setExpandedGames(g => toggled(g, row.entry.gameId))}
           />
         )
-      case UserListRowType.MoreGames:
+      case UserListRowType.More:
         return (
-          <MoreGamesButton type='button' onClick={() => setShowAllGames(s => !s)}>
-            {row.hidden
-              ? t('chat.userList.showMoreGames', {
-                  defaultValue_one: 'Show {{count}} more game',
-                  defaultValue_other: 'Show {{count}} more games',
-                  count: row.hidden,
-                })
-              : t('chat.userList.showFewerGames', 'Show fewer games')}
-          </MoreGamesButton>
+          <MoreButton type='button' onClick={() => setUnfolded(u => toggled(u, row.section))}>
+            {moreButtonLabel(row, t)}
+          </MoreButton>
         )
       case UserListRowType.NoMatches:
         return (

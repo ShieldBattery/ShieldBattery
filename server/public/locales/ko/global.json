@@ -784,7 +784,9 @@
       "noMatches": "이 이름과 일치하는 멤버가 없습니다.",
       "offline": "오프라인",
       "showFewerGames": "간략히 보기",
-      "showMoreGames_other": "게임 {{count}}개 더 보기"
+      "showFewerStreams": "간략히 보기",
+      "showMoreGames_other": "게임 {{count}}개 더 보기",
+      "showMoreStreams_other": "방송 {{count}}개 더 보기"
     },
     "whispers": {
       "startWhisperButton": "귓속말 시작하기"

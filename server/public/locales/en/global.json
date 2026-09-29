@@ -960,8 +960,11 @@
       "noMatches": "Nobody here matches that name.",
       "offline": "Offline",
       "showFewerGames": "Show fewer games",
+      "showFewerStreams": "Show fewer streams",
       "showMoreGames_one": "Show {{count}} more game",
-      "showMoreGames_other": "Show {{count}} more games"
+      "showMoreGames_other": "Show {{count}} more games",
+      "showMoreStreams_one": "Show {{count}} more stream",
+      "showMoreStreams_other": "Show {{count}} more streams"
     },
     "whispers": {
       "startWhisperButton": "Start a whisper"

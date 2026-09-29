@@ -806,9 +806,13 @@
       "noMatches": "Nadie aquí coincide con ese nombre.",
       "offline": "Desconectado",
       "showFewerGames": "Mostrar menos partidas",
+      "showFewerStreams": "Mostrar menos transmisiones",
       "showMoreGames_one": "Mostrar {{count}} partida más",
       "showMoreGames_many": "Mostrar {{count}} de partidas más",
-      "showMoreGames_other": "Mostrar {{count}} partidas más"
+      "showMoreGames_other": "Mostrar {{count}} partidas más",
+      "showMoreStreams_one": "Mostrar {{count}} transmisión más",
+      "showMoreStreams_many": "Mostrar {{count}} de transmisiones más",
+      "showMoreStreams_other": "Mostrar {{count}} transmisiones más"
     },
     "whispers": {
       "startWhisperButton": "Iniciar un susurro"

@@ -784,7 +784,9 @@
       "noMatches": "没有找到匹配该名称的成员。",
       "offline": "离线用户",
       "showFewerGames": "收起",
-      "showMoreGames_other": "再显示 {{count}} 场游戏"
+      "showFewerStreams": "收起",
+      "showMoreGames_other": "再显示 {{count}} 场游戏",
+      "showMoreStreams_other": "再显示 {{count}} 个直播"
     },
     "whispers": {
       "startWhisperButton": "开始私聊"
