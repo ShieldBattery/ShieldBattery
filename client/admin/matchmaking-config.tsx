@@ -108,6 +108,11 @@ const MODE_KNOBS: KnobField[] = [
   },
   { key: 'uncertaintyK', label: 'Uncertainty K', hint: 'σ multiplier for effective rating (0…3)' },
   {
+    key: 'winProbScale',
+    label: 'Win-prob scale',
+    hint: 'Rating gap that gives 10:1 win odds (100…1000)',
+  },
+  {
     key: 'adaptiveComfortableMultiplier',
     label: 'Comfortable multiplier',
     hint: '× mode size = comfortable population (1…10)',
@@ -151,6 +156,7 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
         weightWinProb
         weightLatency
         uncertaintyK
+        winProbScale
         minQuality
         adaptiveComfortableMultiplier
         adaptiveDecayPerMissing
@@ -163,6 +169,7 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
           weightWinProb
           weightLatency
           uncertaintyK
+          winProbScale
           minQuality
           adaptiveComfortableMultiplier
           adaptiveDecayPerMissing
@@ -176,10 +183,25 @@ const MatchmakingConfigQuery = graphql(/* GraphQL */ `
         weightWinProb
         weightLatency
         uncertaintyK
+        winProbScale
         minQuality
         adaptiveComfortableMultiplier
         adaptiveDecayPerMissing
         populationHalfLifeSeconds
+      }
+      modeDefaults {
+        matchmakingType
+        config {
+          weightRatingVariance
+          weightWinProb
+          weightLatency
+          uncertaintyK
+          winProbScale
+          minQuality
+          adaptiveComfortableMultiplier
+          adaptiveDecayPerMissing
+          populationHalfLifeSeconds
+        }
       }
     }
   }
@@ -241,6 +263,7 @@ function fromInputs(inputs: KnobInputs): MatchmakerModeConfigOverridesInput {
     weightWinProb: num('weightWinProb'),
     weightLatency: num('weightLatency'),
     uncertaintyK: num('uncertaintyK'),
+    winProbScale: num('winProbScale'),
     minQuality: num('minQuality'),
     adaptiveComfortableMultiplier: num('adaptiveComfortableMultiplier', true),
     adaptiveDecayPerMissing: num('adaptiveDecayPerMissing'),
@@ -387,6 +410,14 @@ function ConfigForm({
   onReset: () => void
 }) {
   const defaults = config.defaults as unknown as Record<string, number>
+  // Built-in per-mode adjustments, which a mode inherits in place of `defaults` unless a global
+  // override is set.
+  const modeDefaults = new Map(
+    config.modeDefaults.map(({ matchmakingType, config: modeConfig }) => [
+      matchmakingType as MatchmakingType,
+      modeConfig as unknown as Record<string, number | null | undefined>,
+    ]),
+  )
 
   const [operational, setOperational] = useState<KnobInputs>(() => ({
     searchIntervalSeconds: numToStr(config.searchIntervalSeconds),
@@ -466,8 +497,8 @@ function ConfigForm({
 
       <SectionTitle>Per-mode overrides</SectionTitle>
       <HelpText>
-        Blank fields inherit the global value above. A mode is only overridden for the fields you
-        fill in.
+        Blank fields inherit the global value above, or the mode's built-in default when the global
+        field is blank too. A mode is only overridden for the fields you fill in.
       </HelpText>
       {ALL_MATCHMAKING_TYPES.map(type => {
         const values = perMode.get(type) ?? {}
@@ -481,7 +512,10 @@ function ConfigForm({
             <FieldGrid>
               {MODE_KNOBS.map(field => {
                 const globalValue = global[field.key]?.trim() ?? ''
-                const inherited = globalValue !== '' ? Number(globalValue) : defaults[field.key]
+                const inherited =
+                  globalValue !== ''
+                    ? Number(globalValue)
+                    : (modeDefaults.get(type)?.[field.key] ?? defaults[field.key])
                 return (
                   <KnobInput
                     key={field.key}

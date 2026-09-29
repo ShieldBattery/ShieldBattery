@@ -94,24 +94,22 @@ export function matchmakingRatingToPlayerData({
 }
 
 /**
- * Calculates the effective rating of a team, as if they were a single player. Attempts to weight
- * things such that more skilled players influence the resulting rating more than less skilled ones.
+ * Calculates the effective rating of a team, as if they were a single player: the arithmetic mean of
+ * its players' ratings. This matches how the matchmaker balances teams and how the rating update
+ * rates the opposing team. Outcomes don't support weighting stronger players more heavily: a team
+ * with widely spread ratings wins about as often as an even team with the same average.
  */
 export function calcEffectiveRating(team: ReadonlyArray<Readonly<MatchmakingEntity>>): number {
-  // Calculate the root mean square of the team's ratings. Using this formula means that players
-  // with higher rating effectively count for more in the output, so a [2500 + 500] team has a
-  // higher effective rating than a [1500 + 1500] team.
   let sum = 0
   let playerCount = 0
   for (const entity of team) {
     for (const players of getPlayersFromEntity(entity)) {
       playerCount += 1
-      sum += players.rating * players.rating
+      sum += players.rating
     }
   }
 
-  // TODO(tec27): Determine what the proper exponent is for this from win/loss data
-  return Math.pow(sum / playerCount, 1 / 2)
+  return sum / playerCount
 }
 
 export function* getPlayersFromEntity(entity: Immutable<MatchmakingEntity>) {

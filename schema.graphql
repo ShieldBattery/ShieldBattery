@@ -429,6 +429,7 @@ type MatchmakerConfigDefaults {
 	weightWinProb: Float!
 	weightLatency: Float!
 	uncertaintyK: Float!
+	winProbScale: Float!
 	minQuality: Float!
 	adaptiveComfortableMultiplier: Int!
 	adaptiveDecayPerMissing: Float!
@@ -451,6 +452,12 @@ type MatchmakerConfigView {
 	global: MatchmakerModeConfigOverrides!
 	perMode: [MatchmakerPerModeOverride!]!
 	defaults: MatchmakerConfigDefaults!
+	"""
+	Built-in per-mode adjustments to `defaults`, for the modes that have any. A mode's effective
+	default for a field is its adjustment here if set, otherwise the value in `defaults`; stored
+	global and per-mode overrides take precedence over both.
+	"""
+	modeDefaults: [MatchmakerPerModeOverride!]!
 }
 
 """
@@ -463,6 +470,7 @@ type MatchmakerModeConfigOverrides {
 	weightWinProb: Float
 	weightLatency: Float
 	uncertaintyK: Float
+	winProbScale: Float
 	minQuality: Float
 	adaptiveComfortableMultiplier: Int
 	adaptiveDecayPerMissing: Float
@@ -479,6 +487,7 @@ input MatchmakerModeConfigOverridesInput {
 	weightWinProb: Float
 	weightLatency: Float
 	uncertaintyK: Float
+	winProbScale: Float
 	minQuality: Float
 	adaptiveComfortableMultiplier: Int
 	adaptiveDecayPerMissing: Float
