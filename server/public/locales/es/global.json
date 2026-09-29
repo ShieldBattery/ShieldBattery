@@ -234,10 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_one": "En partida ({{count}})",
-      "inGame_many": "En partida ({{count}})",
-      "inGame_other": "En partida ({{count}})",
-      "title": "Actividad"
+      "gameLabel": "{{mode}} en {{map}}, {{elapsed}}",
+      "viewGame": "Ver partida"
     },
     "banUser": {
       "banAction": "Prohíbe {{user}}",
@@ -801,8 +799,16 @@
     },
     "userList": {
       "active": "Activo",
+      "filter": "Filtrar miembros",
+      "inGame": "En partida",
+      "liveNow": "En vivo ahora",
       "loadFailed": "No se pudo cargar la lista de usuarios",
-      "offline": "Desconectado"
+      "noMatches": "Nadie aquí coincide con ese nombre.",
+      "offline": "Desconectado",
+      "showFewerGames": "Mostrar menos partidas",
+      "showMoreGames_one": "Mostrar {{count}} partida más",
+      "showMoreGames_many": "Mostrar {{count}} de partidas más",
+      "showMoreGames_other": "Mostrar {{count}} partidas más"
     },
     "whispers": {
       "startWhisperButton": "Iniciar un susurro"
@@ -2767,6 +2773,9 @@
       "badge": "En vivo",
       "uptimeHoursMinutes": "{{hours}} h {{minutes}} min",
       "uptimeMinutes": "{{minutes}} min",
+      "viewerCount_one": "{{count}} espectador",
+      "viewerCount_many": "{{count}} de espectadores",
+      "viewerCount_other": "{{count}} espectadores",
       "watch": "Ver stream"
     },
     "liveStreams": {

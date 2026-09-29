@@ -234,9 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_one": "In game ({{count}})",
-      "inGame_other": "In game ({{count}})",
-      "title": "Activity"
+      "gameLabel": "{{mode}} on {{map}}, {{elapsed}}",
+      "viewGame": "View game"
     },
     "banUser": {
       "banAction": "Ban {{user}}",
@@ -954,8 +953,15 @@
     },
     "userList": {
       "active": "Active",
+      "filter": "Filter people",
+      "inGame": "In game",
+      "liveNow": "Live now",
       "loadFailed": "Couldn't load the user list",
-      "offline": "Offline"
+      "noMatches": "Nobody here matches that name.",
+      "offline": "Offline",
+      "showFewerGames": "Show fewer games",
+      "showMoreGames_one": "Show {{count}} more game",
+      "showMoreGames_other": "Show {{count}} more games"
     },
     "whispers": {
       "startWhisperButton": "Start a whisper"
@@ -2937,6 +2943,8 @@
       "badge": "Live",
       "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
       "uptimeMinutes": "{{minutes}}m",
+      "viewerCount_one": "{{count}} viewer",
+      "viewerCount_other": "{{count}} viewers",
       "watch": "Watch stream"
     },
     "liveStreams": {

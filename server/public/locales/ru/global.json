@@ -234,11 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_one": "В игре ({{count}})",
-      "inGame_few": "В игре ({{count}})",
-      "inGame_many": "В игре ({{count}})",
-      "inGame_other": "В игре ({{count}})",
-      "title": "Активность"
+      "gameLabel": "{{mode}} на карте {{map}}, {{elapsed}}",
+      "viewGame": "Открыть игру"
     },
     "banUser": {
       "banAction": "Забаньте {{user}}",
@@ -813,8 +810,17 @@
     },
     "userList": {
       "active": "Активен",
+      "filter": "Поиск участников",
+      "inGame": "В игре",
+      "liveNow": "Сейчас в эфире",
       "loadFailed": "Не удалось загрузить список пользователей",
-      "offline": "Офлайн"
+      "noMatches": "Здесь нет никого с таким именем.",
+      "offline": "Офлайн",
+      "showFewerGames": "Показать меньше игр",
+      "showMoreGames_one": "Показать ещё {{count}} игру",
+      "showMoreGames_few": "Показать ещё {{count}} игры",
+      "showMoreGames_many": "Показать ещё {{count}} игр",
+      "showMoreGames_other": "Показать ещё {{count}} игры"
     },
     "whispers": {
       "startWhisperButton": "Отправить личное сообщение"
@@ -2799,6 +2805,10 @@
       "badge": "В эфире",
       "uptimeHoursMinutes": "{{hours}} ч {{minutes}} мин",
       "uptimeMinutes": "{{minutes}} мин",
+      "viewerCount_one": "{{count}} зритель",
+      "viewerCount_few": "{{count}} зрителя",
+      "viewerCount_many": "{{count}} зрителей",
+      "viewerCount_other": "{{count}} зрителя",
       "watch": "Смотреть стрим"
     },
     "liveStreams": {
