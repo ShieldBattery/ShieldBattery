@@ -160,6 +160,10 @@ interface MatchFormationTelemetry {
   winProbability: number
   teamARating: number
   teamBRating: number
+  teamAUserIds: SbUserId[]
+  teamBUserIds: SbUserId[]
+  teamAPlayerRatings: number[]
+  teamBPlayerRatings: number[]
   maxLatency: number
 }
 
@@ -1693,6 +1697,10 @@ export class MatchmakingService {
         winProbability: event.winProbability,
         teamARating: event.teamARating,
         teamBRating: event.teamBRating,
+        teamAUserIds: teamA.map(p => p.id),
+        teamBUserIds: teamB.map(p => p.id),
+        teamAPlayerRatings: teamA.map(p => p.rating),
+        teamBPlayerRatings: teamB.map(p => p.rating),
         maxLatency: event.maxLatency,
       },
       this.publisher,

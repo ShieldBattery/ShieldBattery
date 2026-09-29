@@ -570,6 +570,10 @@ describe('matchmaking/matchmaking-service', () => {
       winProbability: 0.42,
       teamARating: 1500,
       teamBRating: 1600,
+      teamAUserIds: [USER_A],
+      teamBUserIds: [USER_B],
+      teamAPlayerRatings: [1500],
+      teamBPlayerRatings: [1500],
       maxLatency: 1,
     })
   })
@@ -874,6 +878,10 @@ describe('matchmaking/matchmaking-service', () => {
       winProbability: 0.42,
       teamARating: 1500,
       teamBRating: 1600,
+      teamAUserIds: [USER_A],
+      teamBUserIds: [USER_B],
+      teamAPlayerRatings: [1500],
+      teamBPlayerRatings: [1500],
       maxLatency: 1,
     })
   })

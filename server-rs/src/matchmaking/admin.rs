@@ -10,13 +10,14 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
 use sqlx::PgPool;
+use strum::IntoEnumIterator;
 use tokio::sync::Mutex;
 
 use crate::graphql::errors::graphql_error;
 use crate::matchmaking::MatchmakingType;
 use crate::matchmaking::config::{
     MAX_PLAYERS_EXAMINED, MIN_PLAYERS_EXAMINED, MatchmakerConfig, ModeConfig, ModeConfigOverrides,
-    StoredConfig, load_stored_config, parse_mode_key,
+    StoredConfig, builtin_mode_overrides, load_stored_config, parse_mode_key,
 };
 use crate::users::CurrentUser;
 use crate::users::permissions::RequiredPermission;
@@ -38,6 +39,7 @@ struct MatchmakerConfigDefaults {
     weight_win_prob: f32,
     weight_latency: f32,
     uncertainty_k: f32,
+    win_prob_scale: f32,
     min_quality: f32,
     adaptive_comfortable_multiplier: i32,
     adaptive_decay_per_missing: f32,
@@ -55,6 +57,7 @@ impl Default for MatchmakerConfigDefaults {
             weight_win_prob: mode.weight_win_prob,
             weight_latency: mode.weight_latency,
             uncertainty_k: mode.uncertainty_k,
+            win_prob_scale: mode.win_prob_scale,
             min_quality: mode.min_quality,
             adaptive_comfortable_multiplier: mode.adaptive_comfortable_multiplier as i32,
             adaptive_decay_per_missing: mode.adaptive_decay_per_missing,
@@ -85,6 +88,10 @@ struct MatchmakerConfigView {
     global: ModeConfigOverrides,
     per_mode: Vec<MatchmakerPerModeOverride>,
     defaults: MatchmakerConfigDefaults,
+    /// Built-in per-mode adjustments to `defaults`, for the modes that have any. A mode's effective
+    /// default for a field is its adjustment here if set, otherwise the value in `defaults`; stored
+    /// global and per-mode overrides take precedence over both.
+    mode_defaults: Vec<MatchmakerPerModeOverride>,
 }
 
 #[derive(InputObject)]
@@ -117,7 +124,18 @@ fn view_from_stored(mut stored: StoredConfig) -> MatchmakerConfigView {
         global: stored.global,
         per_mode,
         defaults: MatchmakerConfigDefaults::default(),
+        mode_defaults: builtin_mode_defaults(),
     }
+}
+
+fn builtin_mode_defaults() -> Vec<MatchmakerPerModeOverride> {
+    MatchmakingType::iter()
+        .map(|matchmaking_type| MatchmakerPerModeOverride {
+            matchmaking_type,
+            config: builtin_mode_overrides(matchmaking_type),
+        })
+        .filter(|entry| entry.config != ModeConfigOverrides::default())
+        .collect()
 }
 
 fn stored_from_input(input: MatchmakerConfigInput) -> StoredConfig {
@@ -282,6 +300,35 @@ mod tests {
         let stored = stored_from_input(input);
 
         assert_eq!(stored.max_players_examined, Some(MAX_PLAYERS_EXAMINED));
+    }
+
+    #[test]
+    fn view_lists_builtin_mode_defaults() {
+        let view = view_from_stored(StoredConfig::default());
+        let find = |mode| {
+            view.mode_defaults
+                .iter()
+                .find(|entry| entry.matchmaking_type == mode)
+                .map(|entry| &entry.config)
+        };
+        assert_eq!(
+            find(MatchmakingType::Match2v2).and_then(|c| c.win_prob_scale),
+            Some(210.0)
+        );
+        assert_eq!(
+            find(MatchmakingType::Match3v3Bgh).and_then(|c| c.uncertainty_k),
+            Some(0.0)
+        );
+        assert_eq!(
+            find(MatchmakingType::Match1v1).and_then(|c| c.weight_latency),
+            Some(60.0)
+        );
+        // Every listed entry carries at least one adjustment.
+        assert!(
+            view.mode_defaults
+                .iter()
+                .all(|entry| entry.config != ModeConfigOverrides::default())
+        );
     }
 
     #[test]

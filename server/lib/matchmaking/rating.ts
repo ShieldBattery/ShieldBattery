@@ -130,9 +130,9 @@ export function calculateChangedRatings({
 }
 
 /**
- * Calculates the rating for a team as a whole, to be used as the "opponent" in team matches. Note
- * that this differs from the effective rating using during matchmaking because we want to ensure
- * that rating inflation doesn't occur.
+ * Calculates the rating for a team as a whole, to be used as the "opponent" in team matches: the
+ * arithmetic mean of its players' ratings and uncertainties. The matchmaker balances teams on the
+ * same mean, so the two agree on which team is favored.
  */
 function calcTeamRating(
   ratings: ReadonlyArray<MatchmakingRating>,
