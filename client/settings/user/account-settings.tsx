@@ -36,6 +36,7 @@ import {
 } from '../../forms/validators'
 import { graphql, useFragment } from '../../gql'
 import { longTimestamp } from '../../i18n/date-formats'
+import { useFormat } from '../../i18n/locale-formats'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { useAutoFocusRef } from '../../material/auto-focus'
@@ -172,6 +173,7 @@ const AccountSettingsQuery = graphql(/* GraphQL */ `
 
 export function UserAccountSettings() {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
   const dispatch = useAppDispatch()
   const [{ data }, refreshQuery] = useQuery({
     query: AccountSettingsQuery,
@@ -315,7 +317,7 @@ export function UserAccountSettings() {
               <AvatarRestrictionText data-testid='avatar-upload-restricted-text'>
                 {t('settings.user.account.avatar.uploadRestricted', {
                   defaultValue: 'Restricted from uploading avatars until {{date}}',
-                  date: longTimestamp.format(avatarRestriction.endTime),
+                  date: longTimestampFormat.format(avatarRestriction.endTime),
                 })}
               </AvatarRestrictionText>
             ) : null}

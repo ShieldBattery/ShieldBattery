@@ -9,6 +9,7 @@ import {
   SbChannelId,
 } from '../../../common/chat'
 import { ConnectedAvatar } from '../../avatars/avatar'
+import { useFormatLocale } from '../../i18n/locale-formats'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
 import { TextButton } from '../../material/button'
 import { useAppDispatch } from '../../redux-hooks'
@@ -172,6 +173,7 @@ function InviteLinkRow({
   onRevoked: (token: string) => void
 }) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const [isRevoking, setIsRevoking] = useState(false)
@@ -207,10 +209,10 @@ function InviteLinkRow({
         <UserListCardInfo>
           <UserListCardUsername userId={inviteLink.createdBy} interactive={false} />
           <UserListCardSubtitle>
-            {describeInviteLinkCreated(inviteLink, loadedAt, t)}
+            {describeInviteLinkCreated(inviteLink, loadedAt, locale, t)}
           </UserListCardSubtitle>
           <UserListCardSubtitle>
-            {`${describeInviteLinkUses(inviteLink, t)} · ${describeInviteLinkExpiry(inviteLink, loadedAt, t)}`}
+            {`${describeInviteLinkUses(inviteLink, t)} · ${describeInviteLinkExpiry(inviteLink, loadedAt, locale, t)}`}
           </UserListCardSubtitle>
         </UserListCardInfo>
       </LinkCardContent>

@@ -28,6 +28,7 @@ import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { dispatch as globalDispatch } from '../dispatch-registry'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { DivisionIcon } from '../matchmaking/rank-icon'
@@ -735,6 +736,8 @@ function CardHeaderRow({
   onToggleResults: () => void
 }) {
   const { t } = useTranslation()
+  const narrowDurationFormat = useFormat(narrowDuration)
+  const longTimestampFormat = useFormat(longTimestamp)
   const typeLabel = getCardGameTypeLabel(game, t)
   const fullTypeLabel = getGameTypeLabel(game, t)
   return (
@@ -747,8 +750,8 @@ function CardHeaderRow({
         {/* The map is hard to pick out from the blurred image behind the card. */}
         <BackdropCardMetaKeyText text={mapName} />
         <BackdropCardMetaText
-          text={' · ' + narrowDuration.format(game.startTime)}
-          tooltip={longTimestamp.format(game.startTime)}
+          text={' · ' + narrowDurationFormat.format(game.startTime)}
+          tooltip={longTimestampFormat.format(game.startTime)}
         />
         {showLength ? <GameLength game={game} revealed={resultsRevealed} prefix=' · ' /> : null}
       </BackdropCardMeta>

@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 import * as React from 'react'
 import { Trans } from 'react-i18next'
 import { SbUserId } from '../../../../common/users/sb-user-id'
+import { collator } from '../../../i18n/locale-formats'
 import { blockUser, unblockUser } from '../../../social/action-creators'
 import { ConnectedUsername } from '../../../users/connected-username'
 import {
@@ -16,7 +17,7 @@ import { UndoLine } from '../undo-line'
 import { resolveTarget } from './user-card'
 
 /** Orders names the way a reader looks for them, rather than putting every capital first. */
-const nameCollator = new Intl.Collator(navigator.language, { sensitivity: 'base' })
+const nameCollator = collator({ sensitivity: 'base' })
 
 /**
  * Only a blocked user can be unblocked, so the block list is the whole of what the argument takes.
@@ -32,8 +33,9 @@ function getBlockSuggestions({ getState }: ArgSuggestDeps): ArgSuggestion[] {
     }
   }
 
+  const collate = nameCollator.current()
   return entries
-    .sort((a, b) => nameCollator.compare(a.name, b.name))
+    .sort((a, b) => collate.compare(a.name, b.name))
     .map(entry => ({ value: entry.name, user: { id: entry.id } }))
 }
 

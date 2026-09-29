@@ -11,6 +11,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
 import { useMediaQuery } from '../dom/use-media-query'
+import { useFormatLocale } from '../i18n/locale-formats'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { Popover, usePopoverController } from '../material/popover'
@@ -161,6 +162,7 @@ export function GameListView({
   errorText,
 }: GameListViewProps) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const compactLayout = useMediaQuery(COMPACT_LAYOUT_QUERY)
 
   const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
@@ -438,7 +440,7 @@ export function GameListView({
   } else if (confirmedEmpty) {
     listBody = <NoResults>{noResultsText}</NoResults>
   } else {
-    const gameItems = renderGamesWithDayHeaders(games, sort, t, game => (
+    const gameItems = renderGamesWithDayHeaders(games, sort, locale, t, game => (
       <GameListEntry
         key={game.id}
         game={game}

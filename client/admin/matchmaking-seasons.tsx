@@ -10,6 +10,7 @@ import {
 import { apiUrl } from '../../common/urls'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -87,10 +88,11 @@ function SeasonRow({
   onDeleteClick: (id: SeasonId) => void
 }) {
   const now = useNow(60_000)
+  const longTimestampFormat = useFormat(longTimestamp)
 
   return (
     <Row $current={isCurrent}>
-      <StartDate>{longTimestamp.format(season.startDate)}</StartDate>
+      <StartDate>{longTimestampFormat.format(season.startDate)}</StartDate>
       <SeasonName>
         {season.name}
         {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}

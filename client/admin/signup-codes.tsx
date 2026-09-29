@@ -7,6 +7,7 @@ import { required } from '../forms/validators'
 import { graphql } from '../gql'
 import { CreateSignupCodeInput } from '../gql/graphql'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import logger from '../logging/logger'
 import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -178,6 +179,7 @@ const CreateSignupCodeMutation = graphql(`
 
 function SignupCodesList() {
   const [includeExhausted, setIncludeExhausted] = useState(false)
+  const longTimestampFormat = useFormat(longTimestamp)
   const [{ data, fetching, error }] = useQuery({
     query: SignupCodesQuery,
     variables: { includeExhausted },
@@ -229,8 +231,8 @@ function SignupCodesList() {
                     <SystemLabel>System</SystemLabel>
                   )}
                 </CreatedByCell>
-                <DateCell>{longTimestamp.format(new Date(code.createdAt))}</DateCell>
-                <DateCell>{longTimestamp.format(new Date(code.expiresAt))}</DateCell>
+                <DateCell>{longTimestampFormat.format(new Date(code.createdAt))}</DateCell>
+                <DateCell>{longTimestampFormat.format(new Date(code.expiresAt))}</DateCell>
                 <div>
                   {code.uses} {code.maxUses ? `/ ${code.maxUses}` : '/ ∞'}
                 </div>

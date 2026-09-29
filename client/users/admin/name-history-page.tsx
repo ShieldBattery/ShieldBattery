@@ -13,6 +13,7 @@ import { SubmitOnEnter } from '../../forms/submit-on-enter'
 import { composeValidators } from '../../forms/validators'
 import { graphql } from '../../gql'
 import { longTimestamp } from '../../i18n/date-formats'
+import { useFormat } from '../../i18n/locale-formats'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { IconButton, TextButton } from '../../material/button'
@@ -406,6 +407,7 @@ export interface AdminNameHistoryPageProps {
 
 export function AdminNameHistoryPage({ user }: AdminNameHistoryPageProps) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
 
   const [{ data: historyData, fetching: historyFetching }, reexecuteHistoryQuery] = useQuery({
     query: NameHistoryQuery,
@@ -465,7 +467,9 @@ export function AdminNameHistoryPage({ user }: AdminNameHistoryPageProps) {
                           </Tooltip>
                         )}
                       </NameChange>
-                      <BodyMedium>{longTimestamp.format(new Date(entry.changedAt))}</BodyMedium>
+                      <BodyMedium>
+                        {longTimestampFormat.format(new Date(entry.changedAt))}
+                      </BodyMedium>
                     </HistoryHeader>
 
                     <MetadataRows>
@@ -521,7 +525,9 @@ export function AdminNameHistoryPage({ user }: AdminNameHistoryPageProps) {
                         <ArrowIcon>→</ArrowIcon>
                         <BodyLarge>{entry.newLoginName}</BodyLarge>
                       </NameChange>
-                      <BodyMedium>{longTimestamp.format(new Date(entry.changedAt))}</BodyMedium>
+                      <BodyMedium>
+                        {longTimestampFormat.format(new Date(entry.changedAt))}
+                      </BodyMedium>
                     </HistoryHeader>
 
                     <MetadataRows>

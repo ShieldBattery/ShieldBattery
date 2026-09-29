@@ -10,6 +10,7 @@ import {
 } from '../../common/chat'
 import { getErrorStack } from '../../common/errors'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { useFormatLocale } from '../i18n/locale-formats'
 import logger from '../logging/logger'
 import { FilledTonalButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -104,6 +105,7 @@ export interface ChannelInviteLinkDialogProps extends CommonDialogProps {
  */
 export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLinkDialogProps) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const channelName = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)?.name)
@@ -196,7 +198,7 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
 
   let details: string | undefined
   if (shownLink) {
-    details = `${describeInviteLinkExpiry(shownLink.inviteLink, shownLink.receivedAt, t)} · ${describeInviteLinkUseLimit(shownLink.inviteLink, t)}`
+    details = `${describeInviteLinkExpiry(shownLink.inviteLink, shownLink.receivedAt, locale, t)} · ${describeInviteLinkUseLimit(shownLink.inviteLink, t)}`
   } else if (loadFailed) {
     details = t(
       'chat.inviteLinkDialog.loadError',

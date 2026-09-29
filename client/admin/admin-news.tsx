@@ -21,6 +21,7 @@ import { required } from '../forms/validators'
 import { graphql } from '../gql'
 import { NewsPostCreation, NewsPostUpdates } from '../gql/graphql'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import {
@@ -323,6 +324,7 @@ function StatusDisplay({
   now: number
 }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
   const status = getPostStatus(publishedAt, now)
 
   let label: string
@@ -344,7 +346,7 @@ function StatusDisplay({
     <StatusCellRoot>
       <StatusChip $kind={status.kind}>{label}</StatusChip>
       {status.kind !== 'draft' ? (
-        <StatusDate>{longTimestamp.format(status.date)}</StatusDate>
+        <StatusDate>{longTimestampFormat.format(status.date)}</StatusDate>
       ) : null}
     </StatusCellRoot>
   )
@@ -552,6 +554,7 @@ function NewsPostRow({
   onDelete: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -596,7 +599,7 @@ function NewsPostRow({
       <AuthorCell>
         {post.author ? <ConnectedUsername userId={post.author.id} /> : <EmDash>—</EmDash>}
       </AuthorCell>
-      <UpdatedCell>{longTimestamp.format(new Date(post.updatedAt))}</UpdatedCell>
+      <UpdatedCell>{longTimestampFormat.format(new Date(post.updatedAt))}</UpdatedCell>
       <ActionsCell>
         <IconButton
           ref={anchorRef}
@@ -1435,6 +1438,7 @@ function publishStateLabel(
   publishedAt: string | null | undefined,
   now: number,
   t: ReturnType<typeof useTranslation>['t'],
+  longTimestampFormat: Intl.DateTimeFormat,
 ): string {
   const status = getPostStatus(publishedAt, now)
   switch (status.kind) {
@@ -1442,11 +1446,11 @@ function publishStateLabel(
       return t('admin.news.status.draft', 'Draft')
     case 'scheduled':
       return t('admin.news.historyScheduled', 'Scheduled for {{date}}', {
-        date: longTimestamp.format(status.date),
+        date: longTimestampFormat.format(status.date),
       })
     case 'published':
       return t('admin.news.historyPublished', 'Published {{date}}', {
-        date: longTimestamp.format(status.date),
+        date: longTimestampFormat.format(status.date),
       })
     default:
       return status satisfies never
@@ -1455,6 +1459,7 @@ function publishStateLabel(
 
 function AdminNewsHistory({ params: { id } }: { params: { id: string } }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
   const now = useNow(30_000)
   const [{ data, fetching, error }] = useQuery({
     query: AdminNewsHistoryQuery,
@@ -1509,7 +1514,7 @@ function AdminNewsHistory({ params: { id } }: { params: { id: string } }) {
               <HistoryEntryRoot key={i}>
                 <HistoryEntryHeader>
                   <HistoryEntryWhen>
-                    {longTimestamp.format(new Date(edit.editedAt))}
+                    {longTimestampFormat.format(new Date(edit.editedAt))}
                   </HistoryEntryWhen>
                   <HistoryEntryChangeKind>
                     {isCreation
@@ -1519,7 +1524,7 @@ function AdminNewsHistory({ params: { id } }: { params: { id: string } }) {
                 </HistoryEntryHeader>
                 <HistoryEntryTitle>{edit.title}</HistoryEntryTitle>
                 <HistoryEntryMeta>
-                  {publishStateLabel(edit.publishedAt, now, t)}
+                  {publishStateLabel(edit.publishedAt, now, t, longTimestampFormat)}
                   {' · '}
                   {edit.editor ? (
                     <>

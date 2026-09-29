@@ -19,6 +19,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
@@ -289,6 +290,7 @@ export function MessageInput({
   ref,
 }: MessageInputProps) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
   const dispatch = useAppDispatch()
   const store = useAppStore()
   const user = useSelfUser()
@@ -664,7 +666,7 @@ export function MessageInput({
   let label = t('messaging.sendMessage', 'Send a message')
   if (chatRestriction) {
     // TODO(tec27): Once RelativeDuration has been out longer than a few months, use that instead
-    const date = longTimestamp.format(chatRestriction.endTime)
+    const date = longTimestampFormat.format(chatRestriction.endTime)
     label = t('messaging.sendMessageChatRestricted', {
       defaultValue: 'Restricted from sending messages until {{date}}',
       date,

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { durationFormat, useFormat } from '../i18n/locale-formats'
 import { logger } from '../logging/logger'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -31,12 +32,12 @@ const ONE_MINUTE = 60 * 1000
 const ONE_HOUR = 60 * ONE_MINUTE
 const ONE_DAY = 24 * ONE_HOUR
 
-// TODO(tec27): Once this is in the typings, remove the any cast
-const durationFormat = new (Intl as any).DurationFormat(navigator.language, { style: 'narrow' })
+const bannedDurationFormat = durationFormat({ style: 'narrow' })
 
 export function MatchmakingBannedDialog({ onCancel }: CommonDialogProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
+  const bannedDurationFormatter = useFormat(bannedDurationFormat)
 
   const [bannedUntil, setBannedUntil] = useState<number>()
   const [bannedUntilStr, setBannedUntilStr] = useState<string>('')
@@ -88,7 +89,7 @@ export function MatchmakingBannedDialog({ onCancel }: CommonDialogProps) {
         duration = { seconds }
       }
 
-      setBannedUntilStr(durationFormat.format(duration))
+      setBannedUntilStr(bannedDurationFormatter.format(duration))
     }
 
     updateString()
@@ -96,7 +97,7 @@ export function MatchmakingBannedDialog({ onCancel }: CommonDialogProps) {
     return () => {
       clearInterval(timer)
     }
-  }, [bannedUntil, onCancel])
+  }, [bannedUntil, onCancel, bannedDurationFormatter])
 
   return (
     <StyledDialog

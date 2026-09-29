@@ -4,6 +4,7 @@ import { Route, Switch } from 'wouter'
 import { BugReportJson, GetBugReportResponseJson } from '../../common/bugs'
 import { urlPath } from '../../common/urls'
 import { longTimestamp, NarrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -230,6 +231,7 @@ const DetailsValue = styled.pre`
 
 function AdminBugReportView({ params: { reportId } }: { params: { reportId: string } }) {
   const dispatch = useAppDispatch()
+  const longTimestampFormat = useFormat(longTimestamp)
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const [loading, setLoading] = useState(false)
   const [bugReport, setBugReport] = useState<GetBugReportResponseJson>()
@@ -304,7 +306,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
           </Item>
           <Item>
             <ItemLabel>Submitted at:</ItemLabel>
-            <ItemValue>{longTimestamp.format(bugReport.report.createdAt)}</ItemValue>
+            <ItemValue>{longTimestampFormat.format(bugReport.report.createdAt)}</ItemValue>
           </Item>
           <Item>
             <ItemLabel>Log files:</ItemLabel>
@@ -326,7 +328,7 @@ function AdminBugReportView({ params: { reportId } }: { params: { reportId: stri
             <>
               <Item>
                 <ItemLabel>Resolved at:</ItemLabel>
-                <ItemValue>{longTimestamp.format(bugReport.report.resolvedAt)}</ItemValue>
+                <ItemValue>{longTimestampFormat.format(bugReport.report.resolvedAt)}</ItemValue>
               </Item>
               <Item>
                 <ItemLabel>Resolved by:</ItemLabel>

@@ -15,6 +15,7 @@ import { useContextMenu } from '../dom/use-context-menu'
 import { gameFromMessageLink, GameLinkCard, GameLinkTarget } from '../games/game-link-card'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { TransInterpolation } from '../i18n/i18next'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import {
   LOBBY_INVITE_CARD_MAX_AGE_MS,
   lobbyIdFromMessageLink,
@@ -41,7 +42,7 @@ import {
 import { MessageLinkChip, messageLinkFromHref } from './message-link-chip'
 import { RolledOutcomeLine } from './rolled-outcome-line'
 
-const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
+const newDayFormat = dateTimeFormat({
   year: 'numeric',
   month: 'long',
   day: '2-digit',
@@ -199,11 +200,13 @@ const CozyContinuationLayout = styled(TimestampMessageLayout)`
  * header read `Name [9:58 PM]`.
  */
 function CozyHeaderTimestamp({ time }: { time: number }) {
+  const longTimestampFormat = useFormat(longTimestamp)
+  const shortTimestampFormat = useFormat(shortTimestamp)
   return (
-    <InlineTooltip text={longTimestamp.format(time)} position='top'>
+    <InlineTooltip text={longTimestampFormat.format(time)} position='top'>
       <CozyHeaderTime>
         <Separator>{' ['}</Separator>
-        {shortTimestamp.format(time)}
+        {shortTimestampFormat.format(time)}
         <Separator>]</Separator>
       </CozyHeaderTime>
     </InlineTooltip>
@@ -621,12 +624,15 @@ export const BlockedMessage = React.memo<{
 export const NewDayMessage = React.memo<{ time: number }>(props => {
   const { time } = props
   const { t } = useTranslation()
+  const newDayFormatter = useFormat(newDayFormat)
   return (
     <NewDayRoot>
       <span>
         <Trans t={t} i18nKey='messaging.newDayMessage'>
           Day changed to{' '}
-          <InfoImportant>{{ day: newDayFormat.format(time) } as TransInterpolation}</InfoImportant>
+          <InfoImportant>
+            {{ day: newDayFormatter.format(time) } as TransInterpolation}
+          </InfoImportant>
         </Trans>
       </span>
     </NewDayRoot>

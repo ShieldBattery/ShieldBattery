@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { CHAT_MESSAGE_MAXLENGTH } from '../../../common/constants'
 import { UserErrorCode } from '../../../common/users/user-network'
 import { TransInterpolation } from '../../i18n/i18next'
+import { listFormat } from '../../i18n/locale-formats'
 import { isFetchError } from '../../network/fetch-errors'
 import { CommandSurface } from './command-context'
 import { ParseArgsFailure } from './command-parser'
@@ -12,7 +13,7 @@ import { ALL_COMMAND_SURFACES, ChatCommand } from './command-schema'
 import { LocalStrong } from './local-strong'
 
 /** Joins the surfaces a command works in into a list of alternatives, e.g. `channels or lobbies`. */
-const surfaceListFormat = new Intl.ListFormat(navigator.language, { type: 'disjunction' })
+const surfaceListFormat = listFormat({ type: 'disjunction' })
 
 /** The line a name that reaches no command answers with. */
 export function unknownCommandLine(name: string, t: TFunction): React.ReactNode {
@@ -44,11 +45,13 @@ export function wrongSurfaceLine(command: ChatCommand, t: TFunction): React.Reac
   const name = `/${command.name}`
   // Ordered as the surfaces themselves are rather than as this command happens to list them, so
   // that the same pair of surfaces always reads the same way.
-  const surfaces = surfaceListFormat.format(
-    ALL_COMMAND_SURFACES.filter(surface => command.surfaces.includes(surface)).map(surface =>
-      getSurfaceNoun(surface, t),
-    ),
-  )
+  const surfaces = surfaceListFormat
+    .current()
+    .format(
+      ALL_COMMAND_SURFACES.filter(surface => command.surfaces.includes(surface)).map(surface =>
+        getSurfaceNoun(surface, t),
+      ),
+    )
 
   return (
     <Trans t={t} i18nKey='chat.commands.errors.wrongSurface'>

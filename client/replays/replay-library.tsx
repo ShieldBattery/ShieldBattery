@@ -44,6 +44,7 @@ import {
 } from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { useRememberedFilters } from '../games/use-remembered-filters'
+import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
@@ -437,6 +438,7 @@ export interface ReplayLibraryProps {
 
 export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
 
@@ -1283,7 +1285,13 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
               label={
                 group.unreadable
                   ? t('replays.library.unreadableReplays', 'Unreadable replays')
-                  : formatDayHeaderLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)
+                  : formatDayHeaderLabel(
+                      group.dayStartMs,
+                      todayStartMs,
+                      yesterdayStartMs,
+                      locale,
+                      t,
+                    )
               }
             />
           )

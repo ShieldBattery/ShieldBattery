@@ -11,6 +11,7 @@ import { openSimpleDialog } from '../dialogs/action-creators'
 import { graphql } from '../gql'
 import { GameReportReason, GameReportResolution } from '../gql/graphql'
 import { longTimestamp, NarrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { FilledButton, OutlinedButton } from '../material/button'
@@ -785,6 +786,7 @@ function GameReportDetails({
   onResolveSiblings: (resolution: GameReportResolution) => void
 }) {
   const dispatch = useAppDispatch()
+  const longTimestampFormat = useFormat(longTimestamp)
   const [notes, setNotes] = useState('')
   const { game, replay, reporter, siblingReports } = report
   const pendingSiblings = siblingReports.filter(s => !s.resolvedAt)
@@ -888,7 +890,7 @@ function GameReportDetails({
             <div>
               <ReasonTitle>{reasonToLabel(report.reason)}</ReasonTitle>
               <SubmittedAt>
-                Submitted {longTimestamp.format(new Date(report.createdAt))}
+                Submitted {longTimestampFormat.format(new Date(report.createdAt))}
               </SubmittedAt>
             </div>
             <StatusChip $resolved={!!report.resolvedAt}>
@@ -959,7 +961,7 @@ function GameReportDetails({
                     ) : (
                       'unknown user'
                     )}{' '}
-                    · {longTimestamp.format(new Date(report.resolvedAt))}
+                    · {longTimestampFormat.format(new Date(report.resolvedAt))}
                   </MutedText>
                 </div>
               </ResolvedHeader>

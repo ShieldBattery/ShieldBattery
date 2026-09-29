@@ -4,12 +4,13 @@ import {
   newsStockImageIndex,
 } from '../../common/news'
 import { AutoSizeImage } from '../dom/auto-size-image'
+import { dateTimeFormat } from '../i18n/locale-formats'
 import { makePublicAssetUrl } from '../network/server-url'
 
 const LARGE_IMAGE_WIDTH = 1600
 const SMALL_IMAGE_WIDTH = 800
 
-export const newsDateFormatter = new Intl.DateTimeFormat(navigator.language, {
+export const newsDateFormat = dateTimeFormat({
   month: 'short',
   day: 'numeric',
   year: 'numeric',

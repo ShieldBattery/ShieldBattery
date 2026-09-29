@@ -20,6 +20,7 @@ import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
+import { dateTimeFormat, useFormat } from '../../i18n/locale-formats'
 import { FilledButton, TextButton } from '../../material/button'
 import { DateTimeTextField } from '../../material/datetime-text-field'
 import { SelectOption } from '../../material/select/option'
@@ -98,7 +99,7 @@ const EmptyState = styled.td`
   color: var(--theme-on-surface-variant);
 `
 
-const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const banDateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'short',
   day: '2-digit',
@@ -194,6 +195,7 @@ function DurationPicker({
   endTimeInput: ReactNode
 }) {
   const now = useNow(15_000)
+  const banDateFormatter = useFormat(banDateFormat)
 
   return (
     <>
@@ -210,7 +212,7 @@ function DurationPicker({
         </DurationSelect>
         {duration !== PunishmentDuration.Custom ? (
           <DurationEndPreview>
-            Ends {banDateFormat.format(presetEndTime(duration, now))}
+            Ends {banDateFormatter.format(presetEndTime(duration, now))}
           </DurationEndPreview>
         ) : null}
       </DurationRow>
@@ -420,6 +422,7 @@ function BanHistoryList({
   banHistory: ReadonlyDeep<BanHistoryEntryJson[]>
   now: number
 }) {
+  const banDateFormatter = useFormat(banDateFormat)
   return (
     <BanTable>
       <thead>
@@ -435,8 +438,8 @@ function BanHistoryList({
         {banHistory.length ? (
           banHistory.map((b, i) => (
             <BanRow key={i} $expired={b.startTime <= now && b.endTime <= now}>
-              <TimeCell>{banDateFormat.format(b.startTime)}</TimeCell>
-              <TimeCell>{banDateFormat.format(b.endTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(b.startTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(b.endTime)}</TimeCell>
               <UsernameCell>
                 {b.bannedBy !== undefined ? (
                   <ConnectedUsername userId={b.bannedBy} />
@@ -454,7 +457,9 @@ function BanHistoryList({
                       ) : (
                         <span>- system -</span>
                       )}
-                      {b.unbannedAt !== undefined ? ` ${banDateFormat.format(b.unbannedAt)}` : ''}
+                      {b.unbannedAt !== undefined
+                        ? ` ${banDateFormatter.format(b.unbannedAt)}`
+                        : ''}
                     </div>
                     {b.unbanReason !== undefined ? <div>{b.unbanReason}</div> : null}
                   </>
@@ -691,6 +696,7 @@ function RestrictionHistoryList({
   onLift?: LiftRestrictionHandler
 }) {
   const { t } = useTranslation()
+  const banDateFormatter = useFormat(banDateFormat)
   return (
     <BanTable>
       <thead>
@@ -709,8 +715,8 @@ function RestrictionHistoryList({
           restrictionHistory.map(r => (
             <BanRow key={r.id} $expired={r.startTime <= now && r.endTime <= now}>
               <RestrictionKindCell>{r.kind}</RestrictionKindCell>
-              <TimeCell>{banDateFormat.format(r.startTime)}</TimeCell>
-              <TimeCell>{banDateFormat.format(r.endTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(r.startTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(r.endTime)}</TimeCell>
               <UsernameCell>
                 {r.restrictedBy !== undefined ? (
                   <ConnectedUsername userId={r.restrictedBy} />
@@ -746,6 +752,7 @@ function RestrictionLiftCell({
   now: number
   onLift?: LiftRestrictionHandler
 }) {
+  const banDateFormatter = useFormat(banDateFormat)
   if (r.liftedAt !== undefined) {
     return (
       <>
@@ -755,7 +762,7 @@ function RestrictionLiftCell({
           ) : (
             <span>- system -</span>
           )}
-          {` ${banDateFormat.format(r.liftedAt)}`}
+          {` ${banDateFormatter.format(r.liftedAt)}`}
         </div>
         {r.liftReason !== undefined ? <div>{r.liftReason}</div> : null}
       </>

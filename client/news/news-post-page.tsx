@@ -6,13 +6,14 @@ import { useQuery } from 'urql'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { BottomLinks } from '../home/bottom-links'
+import { useFormat } from '../i18n/locale-formats'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, headlineLarge, headlineSmall, labelMedium } from '../styles/typography'
-import { newsDateFormatter, NewsImage } from './news-image'
+import { newsDateFormat, NewsImage } from './news-image'
 import { NewsMarkdown } from './news-markdown'
 import { NewsPostAdminMenu } from './news-post-admin-menu'
 import { getPostStatus } from './news-post-status'
@@ -165,6 +166,7 @@ const ROUTE_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
 
 export function NewsPostPage({ params }: { params: { id: string; '*'?: string } }) {
   const { t } = useTranslation()
+  const newsDateFormatter = useFormat(newsDateFormat)
   const perms = useSelfPermissions()
   // After a publish mutation the server-assigned `publishedAt` can be later than the last
   // `useNow` tick, which would show a just-published post as a draft until the next tick, so a

@@ -20,6 +20,7 @@ import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
@@ -46,7 +47,7 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { StaffBadge } from './staff-badge'
 
-const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const joinDateFormat = dateTimeFormat({
   month: 'long',
   year: 'numeric',
 })
@@ -227,6 +228,8 @@ export function UserProfileOverlayContents({
   onDismiss?: () => void
 }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const joinDateFormatter = useFormat(joinDateFormat)
   const dispatch = useAppDispatch()
   const cancelLoadRef = useRef(new AbortController())
   const [loadingError, setLoadingError] = useState<Error>()
@@ -269,7 +272,7 @@ export function UserProfileOverlayContents({
   }, [dispatch, userId])
 
   const hasAnyRanks = getRankedTypesByActivity(profile?.ladder ?? {}).length > 0
-  const longFormattedDate = longTimestamp.format(user?.created)
+  const longFormattedDate = longTimestampFormat.format(user?.created)
 
   return (
     <PopoverContents>
@@ -319,7 +322,7 @@ export function UserProfileOverlayContents({
               <BodyMedium>
                 {t('users.profileOverlay.joined', {
                   defaultValue: 'Joined {{date}}',
-                  date: joinDateFormat.format(user?.created),
+                  date: joinDateFormatter.format(user?.created),
                 })}
               </BodyMedium>
             </Tooltip>

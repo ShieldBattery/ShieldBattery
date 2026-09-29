@@ -6,13 +6,14 @@ import { Link } from 'wouter'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { HomeSection, HomeSectionTitle } from '../home/home-section'
+import { useFormat } from '../i18n/locale-formats'
 import { useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { useLastSeenNewsPost } from './last-seen-news-post'
-import { newsDateFormatter, NewsImage } from './news-image'
+import { newsDateFormat, NewsImage } from './news-image'
 import { urlForNewsPost } from './news-url'
 
 export const News_HomeFeedFragment = graphql(/* GraphQL */ `
@@ -309,6 +310,7 @@ function NewsPreview({
   'data-testid'?: string
 }) {
   const [buttonProps, rippleRef] = useButtonState({})
+  const newsDateFormatter = useFormat(newsDateFormat)
 
   return (
     <LinkButton
@@ -370,6 +372,7 @@ const RemainingEntryTitle = styled.div`
 
 function RemainingEntry({ post }: { post: NewsFeedPost }) {
   const [buttonProps, rippleRef] = useButtonState({})
+  const newsDateFormatter = useFormat(newsDateFormat)
 
   return (
     <RemainingEntryRoot {...buttonProps} href={urlForNewsPost(post.id, post.title)}>

@@ -6,6 +6,7 @@ import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { HomeSection, HomeSectionTitle } from '../home/home-section'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { OutlinedButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
@@ -179,11 +180,13 @@ const RunningText = styled.div`
 
 function RunningLeagueDate({ curDate, endAt }: { curDate: number; endAt: number }) {
   const { t } = useTranslation()
+  const narrowDurationFormat = useFormat(narrowDuration)
+  const longTimestampFormat = useFormat(longTimestamp)
   const text = t('leagues.list.ends', {
     defaultValue: 'Ends {{endDate}}',
-    endDate: narrowDuration.format(endAt, curDate),
+    endDate: narrowDurationFormat.format(endAt, curDate),
   })
-  const tooltip = longTimestamp.format(endAt)
+  const tooltip = longTimestampFormat.format(endAt)
   return (
     <>
       <RunningText>{t('leagues.list.runningNow', 'Running now!')}</RunningText>
@@ -197,11 +200,13 @@ function RunningLeagueDate({ curDate, endAt }: { curDate: number; endAt: number 
 
 function FutureLeagueDate({ curDate, startAt }: { curDate: number; startAt: number }) {
   const { t } = useTranslation()
+  const narrowDurationFormat = useFormat(narrowDuration)
+  const longTimestampFormat = useFormat(longTimestamp)
   const text = t('leagues.list.starts', {
     defaultValue: 'Starts {{startDate}}',
-    startDate: narrowDuration.format(startAt, curDate),
+    startDate: narrowDurationFormat.format(startAt, curDate),
   })
-  const tooltip = longTimestamp.format(startAt)
+  const tooltip = longTimestampFormat.format(startAt)
   return (
     <Tooltip text={tooltip} position='top'>
       <NoWrapSpan>{text}</NoWrapSpan>
