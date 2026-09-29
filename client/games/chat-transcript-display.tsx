@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -165,14 +165,23 @@ export function ChatTranscriptSection({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [state, setState] = useState<TranscriptState>({ status: 'idle' })
+  const abortControllerRef = useRef<AbortController>(undefined)
+
+  useEffect(() => {
+    return () => abortControllerRef.current?.abort()
+  }, [])
 
   const sides = getChatSides(config)
   const selectedReplays = selectChatTranscriptReplays(sides, replays)
 
   const onView = () => {
     setState({ status: 'loading' })
+    abortControllerRef.current?.abort()
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
     dispatch(
       loadGameChatTranscript(sides, selectedReplays, {
+        signal: abortController.signal,
         onSuccess: transcript => setState({ status: 'loaded', transcript }),
         onError: err => {
           logger.error(`Error loading chat transcript: ${getErrorStack(err)}`)
