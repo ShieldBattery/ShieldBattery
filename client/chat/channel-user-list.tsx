@@ -434,7 +434,6 @@ export const UserList = React.memo((props: UserListProps) => {
   } = props
   const { t } = useTranslation()
   const liveUserIds = useLiveUserIds()
-  const usersById = useAppSelector(s => s.users.byId)
   const [filter, setFilter] = useState('')
   const [collapsed, setCollapsed] = useState<ReadonlySet<SectionKey>>(() => new Set())
   const [expandedGames, setExpandedGames] = useState<ReadonlySet<string>>(() => new Set())
@@ -443,6 +442,9 @@ export const UserList = React.memo((props: UserListProps) => {
   const needle = filter.trim().toLowerCase()
   const filtering = needle.length > 0
   const matches = (name: string | undefined) => !!name && name.toLowerCase().includes(needle)
+  // Only read while filtering: the map changes whenever any user becomes known, and rebuilding a
+  // roster that can run to thousands of rows for each of those changes would be wasted work.
+  const usersById = useAppSelector(s => (filtering ? s.users.byId : undefined))
 
   const shownStreams = filtering
     ? streams.filter(s => matches(s.user?.name) || matches(s.twitchLogin))
@@ -450,8 +452,8 @@ export const UserList = React.memo((props: UserListProps) => {
   const shownGames = filtering
     ? games.filter(g => g.teams.some(team => team.some(p => matches(p.name))))
     : games
-  const shownActive = filtering ? active.filter(id => matches(usersById.get(id)?.name)) : active
-  const shownOffline = filtering ? offline.filter(id => matches(usersById.get(id)?.name)) : offline
+  const shownActive = filtering ? active.filter(id => matches(usersById?.get(id)?.name)) : active
+  const shownOffline = filtering ? offline.filter(id => matches(usersById?.get(id)?.name)) : offline
 
   // While filtering, every match shows: a collapsed section or folded entry would hide the very
   // thing being looked for.
