@@ -3,7 +3,7 @@ import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
-import { ALL_LOBBY_VISIBILITIES } from '../../../common/lobbies'
+import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
   CreateLobbyRequest,
   CreateLobbyResponse,
@@ -138,8 +138,18 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   gameSubType: Joi.number().min(1).max(7),
   allowObservers: Joi.boolean(),
   useLegacyLimits: Joi.boolean(),
+  mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
 })
-  .or('name', 'visibility', 'map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
+  .or(
+    'name',
+    'visibility',
+    'map',
+    'gameType',
+    'gameSubType',
+    'allowObservers',
+    'useLegacyLimits',
+    'mapQueue',
+  )
   .required()
 
 /** The body of a request to move a slot's occupant somewhere else. */
@@ -382,6 +392,7 @@ export class LobbyApi {
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
+      mapQueue: body.mapQueue,
     })
   }
 

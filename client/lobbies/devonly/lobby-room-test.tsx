@@ -60,6 +60,10 @@ const MOCK_USERS: SbUser[] = [
 ]
 
 const MOCK_MAP: MapInfo = { ...BigGameHunters, uploadDate: new Date(BigGameHunters.uploadDate) }
+const MOCK_QUEUED_MAP: MapInfo = {
+  ...FightingSpirit,
+  uploadDate: new Date(FightingSpirit.uploadDate),
+}
 
 type ScenarioId = 'gathering' | 'full' | 'settingsChanged' | 'countingDown' | 'inGame' | 'regroup'
 type ViewpointId = 'host' | 'member' | 'benched'
@@ -142,6 +146,7 @@ function makeLobby(topSlots: Slot[], bottomSlots: Slot[], observers: Slot[]): Lo
     id: makeSbLobbyId('mock-room-lobby'),
     name: 'BGH no-rush 20',
     map: MOCK_MAP,
+    mapQueue: [MOCK_QUEUED_MAP, MOCK_MAP],
     createdAt: 1722500000000,
     gameType: GameType.TopVsBottom,
     gameSubType: 4,
@@ -384,6 +389,15 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
         })
       }
     }
+    // The last game's regroup moves the lobby on to the first map it had queued.
+    dispatch({
+      type: '@lobbies/updateMapQueueAdvance',
+      payload: {
+        type: 'mapQueueAdvance',
+        skippedMapIds: [],
+        lobby: { ...lobby, map: MOCK_QUEUED_MAP, mapQueue: [MOCK_MAP] },
+      },
+    })
     sendMockChat(dispatch, DRONEBRO, 'gg wp. that recall was criminal')
     sendMockChat(dispatch, PACHI, 'one more, loser buys the server a coffee')
     return

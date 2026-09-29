@@ -12,17 +12,9 @@ import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyUserMenu } from '../lobby-menu-items'
 
 const ScoreboardRoot = styled.div`
-  /* Column labels plus three 32px player rows and their gaps. */
-  max-height: 123px;
-  padding-inline-end: 8px;
-
   display: flex;
   flex-direction: column;
   gap: 2px;
-
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 `
 
 const ScoreboardHeader = styled.div`

@@ -7,6 +7,7 @@ import {
   LobbyInitEvent,
   LobbyKickEvent,
   LobbyLeaveEvent,
+  LobbyMapQueueAdvanceEvent,
   LobbyMemberGameEndedEvent,
   LobbyPreferencesResponse,
   LobbyPreviewJson,
@@ -53,6 +54,7 @@ export type LobbyActions =
   | LobbyUpdateMemberGameEnded
   | LobbyUpdateReadyChange
   | LobbyUpdateRegroup
+  | LobbyUpdateMapQueueAdvance
   | LobbyUpdateRaceChange
   | LobbyUpdateSeriesGameUpdated
   | LobbyUpdateSettingsChange
@@ -214,6 +216,12 @@ export interface LobbyUpdateReadyChange {
 export interface LobbyUpdateRegroup {
   type: '@lobbies/updateRegroup'
   payload: LobbyRegroupEvent
+}
+
+/** Our lobby moved on to the next map in its queue after regrouping. */
+export interface LobbyUpdateMapQueueAdvance {
+  type: '@lobbies/updateMapQueueAdvance'
+  payload: LobbyMapQueueAdvanceEvent
 }
 
 /** The results of a game in our lobby's series have settled. */
