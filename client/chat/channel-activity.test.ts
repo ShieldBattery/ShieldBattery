@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { makeSbMapId } from '../../common/maps'
 import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId } from '../../common/users/sb-user-id'
-import { deriveActivityEntries } from './channel-activity-panel'
+import { deriveActivityEntries } from './channel-activity'
 
 const [flash, bisu, jaedong, stork, outsider, self] = [1, 2, 3, 4, 5, 6].map(makeSbUserId)
 
@@ -44,12 +44,17 @@ function game(id: string, minutesAgo: number, teams: number[][], type = Matchmak
     config: {
       __typename: 'GameConfigDataMatchmaking' as const,
       gameSourceExtra: { matchmakingType: type },
-      teams: teams.map(team => team.map(userId => ({ user: { id: makeSbUserId(userId) } }))),
+      teams: teams.map(team =>
+        team.map(userId => ({
+          race: 'p' as const,
+          user: { id: makeSbUserId(userId), name: `user${userId}` },
+        })),
+      ),
     },
   }
 }
 
-describe('client/chat/channel-activity-panel', () => {
+describe('client/chat/channel-activity', () => {
   test('keeps only members streams, most watched first, and never the viewer own', () => {
     const { streams, games } = deriveActivityEntries(
       {
@@ -70,7 +75,7 @@ describe('client/chat/channel-activity-panel', () => {
     expect(games).toEqual([])
   })
 
-  test('keeps games with at least one member, newest first, listing only the members', () => {
+  test('keeps games with at least one member, newest first, listing the members and every player', () => {
     const { streams, games } = deriveActivityEntries(
       {
         liveStreams: [],
@@ -104,6 +109,10 @@ describe('client/chat/channel-activity-panel', () => {
       matchmakingType: MatchmakingType.Match2v2,
       map: { name: 'mapteam' },
     })
+    expect(games[0].teams.map(team => team.map(p => p.userId))).toEqual([
+      [outsider, bisu],
+      [jaedong, outsider],
+    ])
   })
 
   test('lists streams and games as separate groups', () => {

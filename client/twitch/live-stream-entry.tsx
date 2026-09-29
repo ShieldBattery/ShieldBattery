@@ -1,8 +1,12 @@
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { EllipsizedText } from '../material/ellipsized-text'
+import { bodyMedium, bodySmall, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import {
+  formatViewerCount,
   LiveDot,
   LivePill,
   TwitchMark,
@@ -319,6 +323,165 @@ export function LiveStreamEntry({
         <RowMeta>{uptime}</RowMeta>
       </RowInfo>
     </RowRoot>
+  )
+
+  return stream.user ? (
+    <LiveStreamModeration userId={stream.user.id} name={sbName}>
+      {entry}
+    </LiveStreamModeration>
+  ) : (
+    entry
+  )
+}
+
+// --- Mini row entry --------------------------------------------------------------------------
+
+const MiniRoot = styled.a`
+  height: 52px;
+  padding: 0 8px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+  contain: content;
+
+  &:link,
+  &:visited {
+    color: inherit;
+  }
+
+  &:hover,
+  &:focus-visible,
+  ${ModerationContainer}:hover & {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+    text-decoration: none;
+    outline: none;
+  }
+`
+
+const MiniThumb = styled.div`
+  position: relative;
+  width: 64px;
+  height: 36px;
+  flex-shrink: 0;
+
+  border-radius: 4px;
+  overflow: hidden;
+`
+
+const MiniLiveBadge = styled.div`
+  ${labelSmall};
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  height: 12px;
+  padding: 0 3px;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 3px;
+  background-color: var(--theme-live);
+  color: #fff;
+  font-size: 9px;
+  line-height: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`
+
+const MiniInfo = styled.div`
+  min-width: 0;
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+`
+
+const MiniLine = styled.div`
+  height: 20px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const MiniName = styled(EllipsizedText)`
+  ${titleSmall};
+  flex: 1;
+`
+
+const MiniTitle = styled(EllipsizedText)`
+  ${bodySmall};
+  flex: 1;
+  color: var(--theme-on-surface-variant);
+`
+
+const MiniUptime = styled.span`
+  ${bodySmall};
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+const MiniViewers = styled.div`
+  ${bodySmall};
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+const MiniViewersIcon = styled(MaterialIcon).attrs({ icon: 'visibility', size: 14 })`
+  color: var(--theme-live);
+`
+
+/**
+ * The smallest stream entry, for narrow side columns: a small thumbnail, then the streamer and
+ * viewer count over the stream title and uptime.
+ */
+export function MiniLiveStreamEntry({
+  query,
+}: {
+  query: FragmentType<typeof LiveStreams_FeedEntryFragment>
+}) {
+  const { t } = useTranslation()
+  const stream = useLiveStream(query)
+  const { sbName } = getIdentity(stream)
+  const uptime = useStreamUptime(stream.startedAt)
+
+  const entry = (
+    <MiniRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
+      <MiniThumb>
+        <Thumbnail src={stream.thumbnailUrl} alt='' width={64} height={36} loading='lazy' />
+        <MiniLiveBadge>{t('twitch.live.badge', 'Live')}</MiniLiveBadge>
+      </MiniThumb>
+      <MiniInfo>
+        <MiniLine>
+          <MiniName text={sbName} />
+          <MiniViewers
+            aria-label={t('twitch.live.viewerCount', {
+              defaultValue_one: '{{count}} viewer',
+              defaultValue_other: '{{count}} viewers',
+              count: stream.viewerCount,
+            })}>
+            <MiniViewersIcon />
+            {formatViewerCount(stream.viewerCount)}
+          </MiniViewers>
+        </MiniLine>
+        <MiniLine>
+          <MiniTitle text={stream.title} />
+          <MiniUptime>{uptime}</MiniUptime>
+        </MiniLine>
+      </MiniInfo>
+    </MiniRoot>
   )
 
   return stream.user ? (

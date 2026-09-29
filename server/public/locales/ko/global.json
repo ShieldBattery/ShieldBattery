@@ -234,8 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_other": "게임 중 ({{count}})",
-      "title": "활동"
+      "gameLabel": "{{map}}에서 {{mode}}, {{elapsed}} 경과",
+      "viewGame": "게임 보기"
     },
     "banUser": {
       "banAction": "차단 {{user}}",
@@ -777,8 +777,16 @@
     },
     "userList": {
       "active": "활동 중",
+      "filter": "멤버 검색",
+      "inGame": "게임 중",
+      "liveNow": "라이브 중",
       "loadFailed": "사용자 목록을 불러오지 못했습니다",
-      "offline": "오프라인"
+      "noMatches": "이 이름과 일치하는 멤버가 없습니다.",
+      "offline": "오프라인",
+      "showFewerGames": "간략히 보기",
+      "showFewerStreams": "간략히 보기",
+      "showMoreGames_other": "게임 {{count}}개 더 보기",
+      "showMoreStreams_other": "방송 {{count}}개 더 보기"
     },
     "whispers": {
       "startWhisperButton": "귓속말 시작하기"
@@ -2703,6 +2711,7 @@
       "badge": "라이브",
       "uptimeHoursMinutes": "{{hours}}시간 {{minutes}}분",
       "uptimeMinutes": "{{minutes}}분",
+      "viewerCount_other": "시청자 {{count}}명",
       "watch": "방송 보기"
     },
     "liveStreams": {

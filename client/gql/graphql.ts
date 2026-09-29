@@ -410,7 +410,7 @@ export type ChannelActivityQuery = {
       id: string
       twitchLogin: string
       viewerCount: number
-      user: { id: Types.SbUserId } | null
+      user: { id: Types.SbUserId; name: string } | null
     } & {
       ' $fragmentRefs'?: {
         LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
@@ -447,7 +447,9 @@ export type ChannelActivityQuery = {
             | { matchmakingType: Types.MatchmakingType }
             | { matchmakingType: Types.MatchmakingType }
             | { matchmakingType: Types.MatchmakingType }
-          teams: Array<Array<{ user: { id: Types.SbUserId } | null }>>
+          teams: Array<
+            Array<{ race: Types.RaceChar; user: { id: Types.SbUserId; name: string } | null }>
+          >
         }
   }>
 }
@@ -2899,7 +2901,10 @@ export const ChannelActivityDocument = {
                   name: { kind: 'Name', value: 'user' },
                   selectionSet: {
                     kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
                   },
                 },
                 {
@@ -2979,6 +2984,7 @@ export const ChannelActivityDocument = {
                               selectionSet: {
                                 kind: 'SelectionSet',
                                 selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'race' } },
                                   {
                                     kind: 'Field',
                                     name: { kind: 'Name', value: 'user' },
@@ -2986,6 +2992,7 @@ export const ChannelActivityDocument = {
                                       kind: 'SelectionSet',
                                       selections: [
                                         { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                        { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                                       ],
                                     },
                                   },

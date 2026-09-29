@@ -234,8 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_other": "游戏中 ({{count}})",
-      "title": "活动"
+      "gameLabel": "{{mode}}，地图：{{map}}，已进行 {{elapsed}}",
+      "viewGame": "查看游戏"
     },
     "banUser": {
       "banAction": "封禁 {{user}}",
@@ -777,8 +777,16 @@
     },
     "userList": {
       "active": "活跃用户",
+      "filter": "筛选成员",
+      "inGame": "游戏中",
+      "liveNow": "正在直播",
       "loadFailed": "无法加载用户列表",
-      "offline": "离线用户"
+      "noMatches": "没有找到匹配该名称的成员。",
+      "offline": "离线用户",
+      "showFewerGames": "收起",
+      "showFewerStreams": "收起",
+      "showMoreGames_other": "再显示 {{count}} 场游戏",
+      "showMoreStreams_other": "再显示 {{count}} 个直播"
     },
     "whispers": {
       "startWhisperButton": "开始私聊"
@@ -2703,6 +2711,7 @@
       "badge": "直播中",
       "uptimeHoursMinutes": "{{hours}}小时{{minutes}}分钟",
       "uptimeMinutes": "{{minutes}}分钟",
+      "viewerCount_other": "{{count}} 人观看",
       "watch": "观看直播"
     },
     "liveStreams": {

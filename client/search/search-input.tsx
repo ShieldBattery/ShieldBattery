@@ -17,11 +17,13 @@ export interface SearchInputHandle {
 interface SearchInputProps {
   searchQuery: string
   onSearchChange: (value: string) => void
+  /** The field's label. Defaults to "Search". */
+  label?: string
   className?: string
 }
 
 export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>(
-  ({ searchQuery, onSearchChange, className }, ref) => {
+  ({ searchQuery, onSearchChange, label, className }, ref) => {
     const { t } = useTranslation()
     const [inputValue, setInputValue] = useState(searchQuery)
     const [searchFocused, setInputFocused] = useState(false)
@@ -80,7 +82,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
         className={className}
         ref={inputRef}
         value={inputValue}
-        label={t('common.actions.search', 'Search')}
+        label={label ?? t('common.actions.search', 'Search')}
         dense={true}
         allowErrors={false}
         onChange={onInputChange}
