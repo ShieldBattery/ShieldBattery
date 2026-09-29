@@ -8,10 +8,10 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
 import { LoadErrorRow } from '../lists/load-error-row'
 import { buttonReset } from '../material/button-reset'
-import { TextField } from '../material/text-field'
 import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
+import { SearchInput } from '../search/search-input'
 import { FriendActivityStatusLine, NameBlock, NameLine } from '../social/friend-activity-status'
 import {
   bodyMedium,
@@ -551,20 +551,10 @@ export const UserList = React.memo((props: UserListProps) => {
   return (
     <UserListContainer className={className}>
       <FilterContainer>
-        <TextField
-          value={filter}
+        <SearchInput
+          searchQuery={filter}
+          onSearchChange={setFilter}
           label={t('chat.userList.filter', 'Filter people')}
-          dense={true}
-          allowErrors={false}
-          hasClearButton={true}
-          leadingIcons={[<MaterialIcon icon='search' key='search' />]}
-          onChange={e => setFilter(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Escape' && filter) {
-              e.stopPropagation()
-              setFilter('')
-            }
-          }}
         />
       </FilterContainer>
       {loadError ? (

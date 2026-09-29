@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { bodyMedium, bodySmall, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import {
   formatViewerCount,
@@ -400,15 +401,30 @@ const MiniInfo = styled.div`
   flex-direction: column;
 `
 
-const MiniName = styled.div`
-  ${titleSmall};
-  ${singleLine};
+const MiniLine = styled.div`
+  height: 20px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `
 
-const MiniMeta = styled.div`
+const MiniName = styled(EllipsizedText)`
+  ${titleSmall};
+  flex: 1;
+`
+
+const MiniTitle = styled(EllipsizedText)`
   ${bodySmall};
-  ${singleLine};
+  flex: 1;
   color: var(--theme-on-surface-variant);
+`
+
+const MiniUptime = styled.span`
+  ${bodySmall};
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
 `
 
 const MiniViewers = styled.div`
@@ -428,8 +444,8 @@ const MiniViewersIcon = styled(MaterialIcon).attrs({ icon: 'visibility', size: 1
 `
 
 /**
- * The smallest stream entry, for narrow side columns: a small thumbnail, the streamer, the stream
- * title with its uptime, and the viewer count.
+ * The smallest stream entry, for narrow side columns: a small thumbnail, then the streamer and
+ * viewer count over the stream title and uptime.
  */
 export function MiniLiveStreamEntry({
   query,
@@ -442,30 +458,29 @@ export function MiniLiveStreamEntry({
   const uptime = useStreamUptime(stream.startedAt)
 
   const entry = (
-    <MiniRoot
-      href={streamUrl(stream.twitchLogin)}
-      target='_blank'
-      rel='noopener'
-      title={stream.title}>
+    <MiniRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
       <MiniThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' width={64} height={36} loading='lazy' />
         <MiniLiveBadge>{t('twitch.live.badge', 'Live')}</MiniLiveBadge>
       </MiniThumb>
       <MiniInfo>
-        <MiniName>{sbName}</MiniName>
-        <MiniMeta>
-          {stream.title} · {uptime}
-        </MiniMeta>
+        <MiniLine>
+          <MiniName text={sbName} />
+          <MiniViewers
+            aria-label={t('twitch.live.viewerCount', {
+              defaultValue_one: '{{count}} viewer',
+              defaultValue_other: '{{count}} viewers',
+              count: stream.viewerCount,
+            })}>
+            <MiniViewersIcon />
+            {formatViewerCount(stream.viewerCount)}
+          </MiniViewers>
+        </MiniLine>
+        <MiniLine>
+          <MiniTitle text={stream.title} />
+          <MiniUptime>{uptime}</MiniUptime>
+        </MiniLine>
       </MiniInfo>
-      <MiniViewers
-        aria-label={t('twitch.live.viewerCount', {
-          defaultValue_one: '{{count}} viewer',
-          defaultValue_other: '{{count}} viewers',
-          count: stream.viewerCount,
-        })}>
-        <MiniViewersIcon />
-        {formatViewerCount(stream.viewerCount)}
-      </MiniViewers>
     </MiniRoot>
   )
 

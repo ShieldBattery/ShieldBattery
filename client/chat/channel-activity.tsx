@@ -17,16 +17,15 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { UploadedMapImage } from '../maps/map-image'
 import { buttonReset } from '../material/button-reset'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
 import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
-import { bodySmall, singleLine, titleSmall } from '../styles/typography'
+import { bodySmall, labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { useStreamUptime } from '../twitch/live-indicators'
 import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
-import { ConnectedUserContextMenu } from '../users/user-context-menu'
-import { useUserOverlays } from '../users/user-overlays'
-import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
+import { ConnectedUsername } from '../users/connected-username'
 import { UsersState } from './chat-reducer'
 
 /**
@@ -197,12 +196,12 @@ const GameRoot = styled.div`
 const GameHeader = styled.button`
   ${buttonReset};
   width: 100%;
-  height: 48px;
+  height: 56px;
   padding: 0 4px 0 8px;
 
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 
   border-radius: 4px;
   text-align: left;
@@ -215,8 +214,8 @@ const GameHeader = styled.button`
 `
 
 const GameMap = styled(UploadedMapImage)`
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 
   border-radius: 4px;
@@ -231,33 +230,46 @@ const GameMap = styled(UploadedMapImage)`
 `
 
 const GameMapFallback = styled.div`
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 
   border-radius: 4px;
   background-color: var(--theme-container-highest);
 `
 
-const GameSummary = styled.div`
+const GameText = styled.div`
   flex: 1;
   min-width: 0;
 
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  gap: 2px;
 `
 
-/** Takes the ellipsizing, so a long mode name shortens rather than pushing out the time. */
-const GameMode = styled.span`
+const GameLine = styled.div`
+  height: 20px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const GameMode = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
-  min-width: 0;
+  flex: 1;
 `
 
 const GameElapsed = styled.span`
   ${bodySmall};
   flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+const GameMapName = styled(EllipsizedText)`
+  ${bodySmall};
+  flex: 1;
   color: var(--theme-on-surface-variant);
 `
 
@@ -266,59 +278,48 @@ const Chevron = styled(MaterialIcon).attrs({ size: 20 })`
   color: var(--theme-on-surface-variant);
 `
 
+// Lines the players and the link up under the row's text, past the map thumbnail.
 const GameDetails = styled.div`
-  padding: 0 0 8px 40px;
+  padding: 0 8px 8px 58px;
 
   display: flex;
   flex-direction: column;
 `
 
+const TeamDivider = styled.div`
+  height: 1px;
+  margin: 4px 0;
+  background-color: var(--theme-outline-variant);
+`
+
 const GameLink = styled(LinkButton)`
-  ${bodySmall};
-  ${singleLine};
-  height: 24px;
-  padding: 0 8px;
+  ${labelMedium};
+  align-self: flex-start;
+  height: 28px;
+  margin-top: 4px;
 
   display: flex;
   align-items: center;
 
-  border-radius: 4px;
   text-decoration: none;
 
   &:link,
   &:visited {
-    color: var(--theme-on-surface-variant);
+    color: var(--theme-amber);
   }
 
   &:hover,
   &:focus-visible {
-    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
-    text-decoration: none;
+    text-decoration: underline;
     outline: none;
   }
 `
 
-const GameMapName = styled.span`
-  ${singleLine};
-  min-width: 0;
-`
-
-const GameLinkAction = styled.span`
-  flex-shrink: 0;
-  color: var(--theme-amber);
-`
-
-const TeamDivider = styled.div`
-  height: 1px;
-  margin: 4px 8px;
-  background-color: var(--theme-outline-variant);
-`
-
 /**
- * A live game with at least one channel member in it. Collapsed, it's the map, mode, elapsed time
- * and the members as an avatar stack; expanded, it adds a link to the game and everyone playing,
- * by team, with their races. Whether it's expanded is up to the caller, since the list this sits
- * in unmounts rows that scroll out of view.
+ * A live game with at least one channel member in it. Collapsed, it's the map, mode, elapsed time,
+ * map name and the members as an avatar stack; expanded, it adds everyone playing, by team, with
+ * their races, and a link to the game. Whether it's expanded is up to the caller, since the list
+ * this sits in unmounts rows that scroll out of view.
  */
 export function ActivityGameEntry({
   entry,
@@ -344,21 +345,21 @@ export function ActivityGameEntry({
           elapsed,
         })}
         onClick={onToggle}>
-        <GameMap map={entry.map} size={32} forceAspectRatio={1} noImageElem={<GameMapFallback />} />
-        <GameSummary>
-          <GameMode>{mode}</GameMode>
-          <GameElapsed>{elapsed}</GameElapsed>
-        </GameSummary>
-        <AvatarStack userIds={entry.members} size={22} max={3} />
+        <GameMap map={entry.map} size={40} forceAspectRatio={1} noImageElem={<GameMapFallback />} />
+        <GameText>
+          <GameLine>
+            <GameMode text={mode} />
+            <GameElapsed>{elapsed}</GameElapsed>
+          </GameLine>
+          <GameLine>
+            <GameMapName text={entry.map.name} />
+            <AvatarStack userIds={entry.members} size={20} max={3} />
+          </GameLine>
+        </GameText>
         <Chevron icon={expanded ? 'expand_less' : 'chevron_right'} />
       </GameHeader>
       {expanded ? (
         <GameDetails>
-          <GameLink href={getGameResultsUrl(entry.gameId)}>
-            <GameMapName>{entry.map.name}</GameMapName>
-            &nbsp;·&nbsp;
-            <GameLinkAction>{t('chat.activity.viewGame', 'View game')}</GameLinkAction>
-          </GameLink>
           {entry.teams.map((team, i) => (
             <div key={i}>
               {i > 0 ? <TeamDivider /> : null}
@@ -367,28 +368,21 @@ export function ActivityGameEntry({
               ))}
             </div>
           ))}
+          <GameLink href={getGameResultsUrl(entry.gameId)}>
+            {t('chat.activity.viewGame', 'View game')}
+          </GameLink>
         </GameDetails>
       ) : null}
     </GameRoot>
   )
 }
 
-const PlayerRoot = styled.div<{ $isOverlayOpen: boolean }>`
+const PlayerRoot = styled.div`
   height: 28px;
-  padding: 0 8px;
 
   display: flex;
   align-items: center;
   gap: 8px;
-
-  border-radius: 4px;
-  cursor: pointer;
-  background-color: ${props =>
-    props.$isOverlayOpen ? 'rgb(from var(--theme-on-surface) r g b / 0.08)' : 'transparent'};
-
-  &:hover {
-    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
-  }
 `
 
 const PlayerAvatar = styled(ConnectedAvatar)`
@@ -397,10 +391,10 @@ const PlayerAvatar = styled(ConnectedAvatar)`
   flex-shrink: 0;
 `
 
-const PlayerName = styled.span`
+const PlayerName = styled(ConnectedUsername)`
   ${bodySmall};
   ${singleLine};
-  flex: 1;
+  display: block;
   min-width: 0;
 `
 
@@ -408,33 +402,25 @@ const PlayerRace = styled(RaceIcon)`
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+  margin-left: auto;
 `
 
-/** One player in an expanded game: opens their profile and context menu like a roster entry. */
+/** One player in an expanded game: their name opens their profile and context menu. */
 function GamePlayerEntry({ player }: { player: GameActivityPlayer }) {
   const filterClick = useMentionFilterClick()
   const { UserMenu } = useContext(ChatContext)
-  const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
-    useUserOverlays({
-      userId: player.userId,
-      profileAnchorX: 'left',
-      profileAnchorY: 'top',
-      profileOriginX: 'right',
-      profileOriginY: 'top',
-      profileOffsetX: -4,
-      filterClick,
-      UserMenu,
-    })
 
   return (
-    <>
-      <ConnectedUserProfileOverlay {...profileOverlayProps} />
-      <ConnectedUserContextMenu {...contextMenuProps} />
-      <PlayerRoot $isOverlayOpen={isOverlayOpen} onClick={onClick} onContextMenu={onContextMenu}>
-        <PlayerAvatar userId={player.userId} showLiveIndicator={false} />
-        <PlayerName>{player.name}</PlayerName>
-        <PlayerRace race={player.race} />
-      </PlayerRoot>
-    </>
+    <PlayerRoot>
+      <PlayerAvatar userId={player.userId} showLiveIndicator={false} />
+      <PlayerName
+        userId={player.userId}
+        filterClick={filterClick}
+        UserMenu={UserMenu}
+        showTooltipForOverflow='top'
+        profileSide='left'
+      />
+      <PlayerRace race={player.race} />
+    </PlayerRoot>
   )
 }
