@@ -234,8 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_other": "게임 중 ({{count}})",
-      "title": "활동"
+      "gameLabel": "{{map}}에서 {{mode}}, {{elapsed}} 경과",
+      "viewGame": "게임 보기"
     },
     "banUser": {
       "banAction": "차단 {{user}}",
@@ -255,7 +255,8 @@
       "actionItems": {
         "channelSettings": "채널 설정",
         "hideBanner": "배너 숨기기",
-        "leaveChannel": "채널 나가세요",
+        "invitePeople": "초대하기",
+        "leaveChannel": "채널 나가기",
         "openAdminView": "관리자 보기 열기"
       },
       "errors": {
@@ -273,7 +274,7 @@
       "joined": "참가",
       "moreActions": "추가 작업",
       "noDescription": "해당 채널은 설명이 없습니다.",
-      "private": "이 채널은 비공개이므로 가입하려면 초대가 필요합니다.",
+      "private": "비공개 채널입니다. 참가하려면 초대 링크가 필요합니다.",
       "userCount_other": "{{count}} 멤버"
     },
     "channelList": {
@@ -290,6 +291,10 @@
     "channelName": {
       "deletedChannel": "삭제된 채널",
       "privateChannel": "비공개-채널"
+    },
+    "channelRole": {
+      "moderator": "채널 관리자",
+      "owner": "채널 소유자"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -309,6 +314,10 @@
         "changeBanner": "배너 변경",
         "descriptionLabel": "설명",
         "inappropriateImageErrorMessage": "선택한 이미지는 부적절해요. 다른 이미지를 선택해 주세요.",
+        "membersCanInviteDescription": "끄면 채널 소유자만 초대할 수 있습니다. 끄면 멤버들이 이미 공유한 초대 링크도 더 이상 사용할 수 없습니다.",
+        "membersCanInviteLabel": "멤버의 초대 링크 생성 허용",
+        "privateDescription": "비공개 채널은 채널 둘러보기와 검색에 표시되지 않으며, 초대 링크로만 참가할 수 있습니다.",
+        "privateLabel": "비공개 채널",
         "removeBadge": "배지 제거",
         "removeBanner": "배너 제거",
         "saveErrorMessage": "설정을 저장하는 중 문제가 발생했습니다",
@@ -316,11 +325,18 @@
         "uploadBadge": "배지 업로드",
         "uploadBanner": "배너 업로드"
       },
+      "inviteLinks": {
+        "loadError": "초대 링크를 불러오지 못했습니다.",
+        "noLinks": "이 채널에는 사용 가능한 초대 링크가 없습니다",
+        "noSearchResults": "일치하는 사용자가 만든 초대 링크가 없습니다",
+        "revoke": "취소",
+        "revoked": "초대 링크를 취소했습니다",
+        "revokeError": "초대 링크를 취소하는 중 문제가 발생했습니다",
+        "title": "초대 링크"
+      },
       "permissions": {
         "ban": "사용자 차단 가능",
         "banShort": "차단",
-        "changeTopic": "주제 변경 가능",
-        "changeTopicShort": "주제 변경",
         "editPermissions": "권한 편집 가능",
         "editPermissionsShort": "권한 편집",
         "editTitle": "{{name}}의 권한 편집",
@@ -332,13 +348,12 @@
         "noUsers": "이 채널에는 다른 멤버가 없습니다",
         "owner": "소유자",
         "saveError": "권한을 저장하지 못했습니다",
-        "togglePrivate": "비공개 상태 전환 가능",
-        "togglePrivateShort": "비공개 전환",
         "transferOwnership": "소유권 이전"
       },
       "tabs": {
         "bannedUsers": "차단된 사용자",
         "general": "일반",
+        "inviteLinks": "초대 링크",
         "permissions": "권한"
       },
       "users": {
@@ -350,6 +365,13 @@
       "required": "채널 이름을 입력하세요"
     },
     "commands": {
+      "availability": {
+        "error": "상태를 변경하지 못했습니다: {{errorMessage}}",
+        "set": "상태가 <1>{{label}}</1>(으)로 바뀌었습니다."
+      },
+      "away": {
+        "description": "상태를 자리 비움으로 바꾸거나, 이미 자리 비움이면 온라인으로 되돌립니다."
+      },
       "ban": {
         "description": "이 채널에서 사용자를 차단합니다.",
         "noPermission": "이 채널에서 사용자를 차단할 권한이 없습니다.",
@@ -371,6 +393,9 @@
       "close": {
         "description": "이 귓속말 대화를 닫습니다.",
         "error": "대화를 닫지 못했습니다: {{errorMessage}}"
+      },
+      "dnd": {
+        "description": "상태를 방해 금지(메시지 알림음과 알림 끔)로 바꾸거나 온라인으로 되돌립니다."
       },
       "eightBall": {
         "description": "매직 8볼에게 질문합니다. 답은 서버가 정합니다."
@@ -402,8 +427,12 @@
         "description": "친구 목록을 관리합니다: 추가, 삭제, 현재 활동과 함께 목록 보기.",
         "empty": "친구 목록이 비어 있습니다.",
         "list": {
+          "counts_other": "온라인 {{online}}명 · 친구 {{total}}명",
           "description": "친구 목록과 각자 무엇을 하고 있는지 보여줍니다.",
-          "noneOnline": "온라인 친구 없음"
+          "hideOffline": "오프라인 숨기기",
+          "noneOnline": "온라인 친구 없음",
+          "showOffline": "오프라인 표시",
+          "title": "친구"
         },
         "loadError": "친구 목록을 불러오지 못했습니다: {{errorMessage}}",
         "remove": {
@@ -480,7 +509,7 @@
         "description": "메시지 끝에 ¯\\_(ツ)_/¯를 붙입니다."
       },
       "stats": {
-        "description": "사용자의 전적과 순위를 보여줍니다."
+        "description": "사용자의 프로필 카드(순위와 전적)를 보여줍니다."
       },
       "surfaces": {
         "channel": "채널",
@@ -540,7 +569,6 @@
         "online": "<0><0></0></0>님은 온라인입니다.",
         "presence": {
           "active": "활동 중",
-          "idle": "자리 비움",
           "offline": "오프라인"
         },
         "self": "당신은 <2><0></0></2>님입니다.",
@@ -569,10 +597,55 @@
     "errors": {
       "messageNotFound": "해당 메시지를 찾을 수 없습니다. 삭제되었을 수 있습니다."
     },
+    "inviteCard": {
+      "invalid": "유효하지 않거나 만료된 초대 링크입니다.",
+      "join": "참가",
+      "memberCount_other": "멤버 {{count}}명",
+      "open": "보기",
+      "title": "비공개 채널",
+      "view": "채널 보기"
+    },
+    "inviteLinkDialog": {
+      "copied": "초대 링크를 클립보드에 복사했습니다",
+      "copy": "복사",
+      "copyError": "초대 링크를 복사하는 중 문제가 발생했습니다",
+      "description": "이 링크가 있으면 누구나 #{{channelName}}에 참가할 수 있습니다.",
+      "descriptionNoName": "이 링크가 있으면 누구나 채널에 참가할 수 있습니다.",
+      "editSettings": "링크 설정",
+      "expiryLabel": "만료 기간",
+      "generate": "새 링크 만들기",
+      "generateError": "새 초대 링크를 만드는 중 문제가 발생했습니다",
+      "loadError": "초대 링크를 가져오는 중 문제가 발생했습니다. 아래에서 새 링크를 만들 수 있습니다.",
+      "loading": "링크를 가져오는 중…",
+      "maxUsesLabel": "최대 사용 횟수",
+      "noLink": "사용 가능한 링크가 없습니다",
+      "title": "초대 링크"
+    },
+    "inviteLinks": {
+      "created": "{{timeAgo}} 생성",
+      "expired": "만료됨",
+      "expiresIn": "{{timeLeft}} 만료",
+      "expiryDays_other": "{{count}}일",
+      "expiryHours_other": "{{count}}시간",
+      "expiryMinutes_other": "{{count}}분",
+      "expiryNever": "만료 없음",
+      "maxUsesCount_other": "{{count}}회",
+      "maxUsesUnlimited": "제한 없음",
+      "neverExpires": "만료 없음",
+      "noUseLimit": "사용 횟수 제한 없음",
+      "useLimit_other": "최대 {{count}}회 사용",
+      "uses_other": "{{count}}회 사용됨",
+      "usesOfMax_other": "{{count}} / {{maxUses}}회 사용됨"
+    },
+    "invitePage": {
+      "title": "비공개 채널에 초대되었습니다"
+    },
     "joinChannel": {
       "bannedError": "#{{channelName}}에서 차단되었습니다",
       "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다",
-      "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다."
+      "inviteLinkInvalidError": "유효하지 않거나 만료된 초대 링크입니다.",
+      "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다.",
+      "privateError": "#{{channelName}}은(는) 비공개 채널이라 참가하려면 초대 링크가 필요합니다"
     },
     "kickUser": {
       "body": "{{user}}을(를) 채널에서 내보내고 채널 권한을 회수합니다. 언제든 다시 입장할 수 있습니다.",
@@ -608,7 +681,7 @@
       "deleteMessage": "메시지 삭제"
     },
     "navEntry": {
-      "leaveChannel": "채널 나가세요"
+      "leaveChannel": "채널 나가기"
     },
     "notifications": {
       "ban": "<1>#{{channelName}}</1>에서 차단되었습니다.",
@@ -686,6 +759,7 @@
         "line": "님이 주사위를 굴렸습니다: <1>{{value}}</1> (1-{{max}})"
       }
     },
+    "privateChannelTitle": "비공개 채널",
     "transferOwnership": {
       "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",
       "body": "#{{channelName}} 채널의 소유권을 {{user}}에게 이전하시겠습니까? 이전하면 더 이상 채널 소유자가 아닙니다.",
@@ -703,9 +777,16 @@
     },
     "userList": {
       "active": "활동 중",
-      "idle": "자리 비움",
+      "filter": "멤버 검색",
+      "inGame": "게임 중",
+      "liveNow": "라이브 중",
       "loadFailed": "사용자 목록을 불러오지 못했습니다",
-      "offline": "오프라인"
+      "noMatches": "이 이름과 일치하는 멤버가 없습니다.",
+      "offline": "오프라인",
+      "showFewerGames": "간략히 보기",
+      "showFewerStreams": "간략히 보기",
+      "showMoreGames_other": "게임 {{count}}개 더 보기",
+      "showMoreStreams_other": "방송 {{count}}개 더 보기"
     },
     "whispers": {
       "startWhisperButton": "귓속말 시작하기"
@@ -912,6 +993,7 @@
     "results": {
       "draw": "무승부",
       "drawShort": "D",
+      "hidden": "결과 숨김",
       "loss": "패배",
       "lossShort": "L",
       "unknown": "언노운",
@@ -1088,6 +1170,13 @@
     "dayHeader": {
       "today": "오늘",
       "yesterday": "어제"
+    },
+    "linkCard": {
+      "hideResults": "결과 숨기기",
+      "morePlayers_other": "+{{count}}명",
+      "showResults": "결과 보기",
+      "versus": "vs",
+      "view": "게임 보기"
     },
     "list": {
       "noMatchingGames": "일치하는 게임이 없습니다.",
@@ -1368,6 +1457,15 @@
       "visibilityListedDescription": "누구나 로비 목록에서 참가할 수 있습니다. 게임과 리플레이가 공개됩니다.",
       "visibilityUnlistedDescription": "링크가 있는 사람만 참가할 수 있습니다. 리플레이는 게임에 참여했던 사람만 다운로드할 수 있습니다."
     },
+    "inviteCard": {
+      "goToLobby": "로비로 이동",
+      "hostedBy": "호스트: <1></1>",
+      "join": "참가",
+      "joined": "참가 중인 로비입니다",
+      "seats": "슬롯 {{total}}개 중 {{taken}}개 사용 중",
+      "title": "로비",
+      "view": "로비 보기"
+    },
     "joinCode": {
       "explainer": "로비 링크를 붙여넣거나, 링크를 브라우저에서 열었을 때 표시되는 코드를 입력하세요.",
       "genericError": "문제가 발생했습니다. 다시 시도해 주세요.",
@@ -1385,10 +1483,8 @@
       "errorFull": "로비가 가득 찼습니다.",
       "errorGeneric": "로비에 참가하는 중 문제가 발생했습니다. 다시 시도해 주세요.",
       "errorObserversFull": "이 로비에는 비어 있는 관전자 자리가 없습니다. 플레이어로 참여해 보세요.",
-      "joined": "참가 중",
       "matchmakingActiveDialogText": "매치메이킹이 진행 중일 때는 로비에 참여할 수 없습니다.",
-      "matchmakingActiveDialogTitle": "로비 참가 비활성화됨",
-      "openSlotCount_other": "{{count}} 슬롯 열림"
+      "matchmakingActiveDialogTitle": "로비 참가 비활성화됨"
     },
     "landing": {
       "appLaunch": {
@@ -1808,6 +1904,17 @@
     "match": {
       "gameFailedToLoad": "게임 로딩에 실패했습니다."
     },
+    "matchCanceled": {
+      "backInQueue": "매치메이킹 대기열로 돌아가 새 상대를 찾고 있습니다.",
+      "draftError": "서버 오류로 종족 선택이 취소되었습니다.",
+      "draftPlayerLeft": "종족 선택 중에 플레이어가 나가서 경기가 취소되었습니다.",
+      "loadError": "서버 오류로 게임을 시작하지 못했습니다.",
+      "loadPlayerLeft": "게임이 시작되기 전에 플레이어가 나가서 경기가 취소되었습니다.",
+      "loadTimeout": "로딩이 너무 오래 걸린 플레이어가 있어 게임을 시작하지 못했습니다.",
+      "notYourFault": "본인의 잘못이 아닙니다. 원인이 된 플레이어는 대기열에서 제외되었습니다.",
+      "playerFailedToLoad": "플레이어의 연결이 끊기거나 로딩에 실패해 게임을 시작하지 못했습니다.",
+      "title": "경기가 취소되었습니다"
+    },
     "postMatchDialog": {
       "leagues": "리그",
       "matchmaking": "매치메이킹",
@@ -2013,6 +2120,8 @@
       "showInExplorer": "탐색기에서 보기",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "Battle.net에서 플레이한 게임",
+      "sourceTooltipSb": "ShieldBattery에서 플레이한 게임",
       "unavailable": "리플레이 라이브러리를 사용할 수 없습니다",
       "unavailableBody": "지금은 리플레이를 불러올 수 없습니다. ShieldBattery를 다시 시작하면 대부분 해결됩니다.",
       "unreadableReplays": "읽을 수 없는 리플레이",
@@ -2480,6 +2589,15 @@
         "rateLimited": "로그인 이름은 30일에 한 번만 변경할 수 있습니다.",
         "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요."
       },
+      "chat": {
+        "displayMode": {
+          "classic": "클래식",
+          "cozy": "편안하게",
+          "description": "채널, 귓속말, 로비 채팅에서 메시지를 표시하는 방식입니다. 계정에 저장되며 로그인하는 모든 기기에 적용됩니다.",
+          "title": "표시 모드"
+        },
+        "title": "채팅"
+      },
       "connections": {
         "description": "외부 계정을 ShieldBattery 프로필에 연동합니다.",
         "title": "연동",
@@ -2540,7 +2658,7 @@
         "errorAcceptingFriendRequest": "친구 요청 수락 중 오류가 발생했습니다",
         "errorDecliningFriendRequest": "친구 요청 거절 중 오류가 발생했습니다",
         "errorRemovingFriendRequest": "친구 요청 삭제 중 오류가 발생했습니다",
-        "load": "친구 목록 불러오기 실패했습니다"
+        "load": "친구 목록을 불러오지 못했습니다"
       }
     },
     "friends": {
@@ -2593,6 +2711,7 @@
       "badge": "라이브",
       "uptimeHoursMinutes": "{{hours}}시간 {{minutes}}분",
       "uptimeMinutes": "{{minutes}}분",
+      "viewerCount_other": "시청자 {{count}}명",
       "watch": "방송 보기"
     },
     "liveStreams": {
@@ -2642,6 +2761,21 @@
         "title": "IP 주소"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "이 사용자의 이름을 즉시 변경하고 아래 기록에 변경 내역을 남깁니다. 이름 변경 토큰을 지급하면 평소의 대기 기간 없이 바로 원하는 이름을 고를 수 있습니다.",
+          "error": "표시 이름을 변경하는 중 문제가 발생했습니다. 나중에 다시 시도하세요.",
+          "grantToken": "이름 변경 토큰 지급",
+          "nameInvalid": "유효하지 않은 표시 이름입니다.",
+          "nameLabel": "새 표시 이름",
+          "nameUnavailable": "사용할 수 없는 표시 이름입니다.",
+          "nameUnchanged": "이 사용자는 이미 해당 표시 이름을 사용하고 있습니다.",
+          "randomize": "다른 이름 추천",
+          "reasonHint": "사유는 아래 기록에 표시되는 감사 항목과 함께 저장됩니다.",
+          "reasonLabel": "사유 (선택)",
+          "submit": "이름 변경",
+          "success": "표시 이름을 변경했습니다",
+          "title": "표시 이름 변경"
+        },
         "displayNameChanges": "표시 이름 변경 내역",
         "loginNameChanges": "로그인 이름 변경 내역",
         "noDisplayNameHistory": "표시 이름 변경 내역이 없습니다.",
@@ -2657,17 +2791,25 @@
         "title": "제재"
       }
     },
+    "availability": {
+      "away": "자리 비움",
+      "doNotDisturb": "방해 금지",
+      "doNotDisturbDescription": "메시지 알림음과 알림을 끕니다",
+      "offline": "오프라인",
+      "online": "온라인",
+      "pickerLabel": "상태"
+    },
     "card": {
+      "divisionUnknown": "디비전 알 수 없음",
+      "gameCount_other": "{{total}}전",
+      "joined": "{{time}} 가입",
       "loadError": "이 사용자의 프로필을 불러오지 못했습니다.",
       "noGames": "플레이한 게임 없음",
-      "rankLine": "{{division}} · {{mode}} · {{points}}점",
-      "rankTooltip": {
-        "points": "{{points}}점",
-        "winRate": "승률 {{winRate}}%"
-      },
-      "totalGames_other": "{{count}}전",
-      "unranked": "랭크 없음",
-      "viewProfile": "프로필"
+      "notEnoughRankedGames": "랭크전 게임 수 부족",
+      "notFound": "이 사용자를 찾을 수 없습니다.",
+      "openProfile": "프로필 보기",
+      "title": "플레이어",
+      "unranked": "랭크 없음"
     },
     "contextMenu": {
       "addFriend": "친구 추가",

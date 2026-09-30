@@ -25,11 +25,20 @@ const LaunchingGameDialog = React.lazy(async () => ({
 const EmailVerificationDialog = React.lazy(async () => ({
   default: (await import('../auth/email-verification-dialog')).EmailVerificationDialog,
 }))
+const AdminCloseChannelDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/admin-channel-dialogs')).AdminCloseChannelDialog,
+}))
+const AdminDeleteChannelDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/admin-channel-dialogs')).AdminDeleteChannelDialog,
+}))
+const AdminRenameChannelDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/admin-channel-dialogs')).AdminRenameChannelDialog,
+}))
 const BugReportDialog = React.lazy(async () => ({
   default: (await import('../bugs/bug-report-dialog')).BugReportDialog,
 }))
-const AdminDeleteChatMessageDialog = React.lazy(async () => ({
-  default: (await import('../chat/admin/delete-message-dialog')).AdminDeleteChatMessageDialog,
+const ChannelDeleteMessageDialog = React.lazy(async () => ({
+  default: (await import('../chat/delete-message-dialog')).ChannelDeleteMessageDialog,
 }))
 const ChannelBanUserDialog = React.lazy(async () => ({
   default: (await import('../chat/channel-ban-user-dialog')).ChannelBanUserDialog,
@@ -42,6 +51,9 @@ const ChannelKickUserConfirmation = React.lazy(async () => ({
 }))
 const ChannelLeaveConfirmation = React.lazy(async () => ({
   default: (await import('../chat/channel-leave-dialog')).ChannelLeaveConfirmation,
+}))
+const ChannelInviteLinkDialog = React.lazy(async () => ({
+  default: (await import('../chat/channel-invite-link-dialog')).ChannelInviteLinkDialog,
 }))
 const ChannelUserPermissionsDialog = React.lazy(async () => ({
   default: (await import('../chat/channel-settings/user-permissions-settings'))
@@ -190,8 +202,12 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptMatchDialog }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
-    case DialogType.AdminDeleteChatMessage:
-      return { component: AdminDeleteChatMessageDialog }
+    case DialogType.AdminCloseChannel:
+      return { component: AdminCloseChannelDialog }
+    case DialogType.AdminDeleteChannel:
+      return { component: AdminDeleteChannelDialog }
+    case DialogType.AdminRenameChannel:
+      return { component: AdminRenameChannelDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
     case DialogType.ChangeDisplayName:
@@ -206,12 +222,16 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelBanUserDialog }
     case DialogType.ChannelCreateConfirmation:
       return { component: ChannelCreateConfirmation }
+    case DialogType.ChannelDeleteMessage:
+      return { component: ChannelDeleteMessageDialog }
     case DialogType.ChannelKickUserConfirmation:
       return { component: ChannelKickUserConfirmation }
     case DialogType.ChannelLeaveConfirmation:
       return { component: ChannelLeaveConfirmation }
     case DialogType.ChannelTransferOwnership:
       return { component: ChannelTransferOwnershipDialog }
+    case DialogType.ChannelInviteLink:
+      return { component: ChannelInviteLinkDialog }
     case DialogType.ChannelUnbanUser:
       return { component: ChannelUnbanUserConfirmation }
     case DialogType.ChannelUserPermissions:

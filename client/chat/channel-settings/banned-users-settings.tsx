@@ -12,6 +12,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
+import { useFormat } from '../../i18n/locale-formats'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
 import { TextButton } from '../../material/button'
 import { Tooltip } from '../../material/tooltip'
@@ -172,6 +173,7 @@ function BannedUserRow({
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const userListDateFormatter = useFormat(userListDateFormat)
   // The ban list response includes the banning moderators in its user data, so this resolves for
   // any manually placed ban; automated bans have no moderator to show.
   const bannedByName = useAppSelector(s =>
@@ -188,11 +190,11 @@ function BannedUserRow({
           <UserListCardSubtitle>
             {bannedByName
               ? t('chat.channelSettings.bannedUsers.bannedDateBy', 'Banned {{date}} by {{name}}', {
-                  date: userListDateFormat.format(ban.banTime),
+                  date: userListDateFormatter.format(ban.banTime),
                   name: bannedByName,
                 })
               : t('chat.channelSettings.bannedUsers.bannedDate', 'Banned {{date}}', {
-                  date: userListDateFormat.format(ban.banTime),
+                  date: userListDateFormatter.format(ban.banTime),
                 })}
           </UserListCardSubtitle>
           {ban.reason ? (

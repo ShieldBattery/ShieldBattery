@@ -21,6 +21,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
@@ -43,11 +44,11 @@ import {
   navigateToUserProfileWithExpandedRanks,
   viewUserProfile,
 } from './action-creators'
-import { AvailabilityDot, StatusMessageLine } from './availability'
+import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { StaffBadge } from './staff-badge'
 
-const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const joinDateFormat = dateTimeFormat({
   month: 'long',
   year: 'numeric',
 })
@@ -242,6 +243,8 @@ export function UserProfileOverlayContents({
   onDismiss?: () => void
 }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const joinDateFormatter = useFormat(joinDateFormat)
   const dispatch = useAppDispatch()
   const cancelLoadRef = useRef(new AbortController())
   const [loadingError, setLoadingError] = useState<Error>()
@@ -285,7 +288,7 @@ export function UserProfileOverlayContents({
   }, [dispatch, userId])
 
   const hasAnyRanks = getRankedTypesByActivity(profile?.ladder ?? {}).length > 0
-  const longFormattedDate = longTimestamp.format(user?.created)
+  const longFormattedDate = longTimestampFormat.format(user?.created)
 
   return (
     <PopoverContents>
@@ -303,11 +306,12 @@ export function UserProfileOverlayContents({
           <AvatarCircle $isLive={!!liveStream}>
             <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
-          {user?.staffBadge ? <ProfileStaffBadge /> : null}
-          <AvailabilityDot userId={userId} />
           <ViewProfileHover>
             {t('users.profileOverlay.viewProfile', 'View profile')}
           </ViewProfileHover>
+          {/* After the hover scrim so they paint over it rather than being dimmed by it. */}
+          {user?.staffBadge ? <ProfileStaffBadge /> : null}
+          <AvailabilityDot userId={userId} showOffline={true} />
         </AvatarContainer>
         <UsernameAndTitle>
           {user ? (
@@ -319,7 +323,6 @@ export function UserProfileOverlayContents({
         </UsernameAndTitle>
       </IdentityArea>
       <FriendActivityStatusLine userId={userId} />
-      <StatusMessageLine userId={userId} />
       {liveStream ? (
         <LiveWatchRow
           twitchLogin={liveStream.twitchLogin}
@@ -335,7 +338,7 @@ export function UserProfileOverlayContents({
               <BodyMedium>
                 {t('users.profileOverlay.joined', {
                   defaultValue: 'Joined {{date}}',
-                  date: joinDateFormat.format(user?.created),
+                  date: joinDateFormatter.format(user?.created),
                 })}
               </BodyMedium>
             </Tooltip>

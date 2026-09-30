@@ -7,6 +7,7 @@ export class FakeNotificationService implements Omit<
 > {
   retrieveNotifications = vi.fn().mockResolvedValue([])
   addNotification = vi.fn().mockResolvedValue(undefined)
+  addNotificationForUsers = vi.fn().mockResolvedValue(undefined)
   clearBefore = vi.fn().mockResolvedValue(undefined)
   clearById = vi.fn().mockResolvedValue(undefined)
   clearFirstMatching = vi.fn().mockResolvedValue(undefined)

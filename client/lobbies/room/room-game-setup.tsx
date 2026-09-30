@@ -1,9 +1,12 @@
+import { nanoid } from 'nanoid'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
-import { hasObservers } from '../../../common/lobbies'
+import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
+  changesGameSettings,
+  LobbyChangedSetting,
   LobbyServiceErrorCode,
   UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
@@ -14,13 +17,29 @@ import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { getLobbyPreferences, updateLobbySettings } from '../action-creators'
-import { GameSetupForm, GameSetupFormHandle, GameSetupModel } from '../create/game-setup-form'
+import {
+  GameSetupForm,
+  GameSetupFormHandle,
+  GameSetupModel,
+  Section,
+  SectionHeader,
+} from '../create/game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from '../create/game-setup-page'
+import { VisibilityPicker } from '../create/visibility-picker'
+import { MapQueueSection, QueuedMapEntry } from './room-map-queue'
+
+/** Which map a pick from the map browser is for. */
+enum MapPickTarget {
+  /** The map the lobby's next game is played on. */
+  Current,
+  /** A map added to the end of the queue for the games after that. */
+  Queue,
+}
 
 /**
- * The host-only in-page surface for editing a gathering lobby's settings (name, map, game
- * type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`. Only fields that
- * actually changed from the lobby's current values are sent to the server on save.
+ * The host-only in-page surface for editing a gathering lobby's settings (name, visibility, map,
+ * map queue, game type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`.
+ * Only fields that actually changed from the lobby's current values are sent to the server on save.
  */
 export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
@@ -44,7 +63,13 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   }))
   const [initialName] = useState(lobby.name)
   const [name, setName] = useState(initialName)
+  const [initialVisibility] = useState(lobby.visibility)
+  const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
+  const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
+  const [queue, setQueue] = useState<QueuedMapEntry[]>(() =>
+    initialQueue.map(mapId => ({ key: nanoid(), mapId })),
+  )
 
   const selectedMapInfo = useAppSelector(s =>
     setup.mapId ? s.maps.byId.get(setup.mapId) : undefined,
@@ -52,14 +77,24 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
 
   const formRef = useRef<GameSetupFormHandle>(null)
   const [browseState, setBrowseState] = useState(MapBrowseState.None)
+  const [pickTarget, setPickTarget] = useState(MapPickTarget.Current)
+
+  const browseFor = (target: MapPickTarget) => {
+    setPickTarget(target)
+    setBrowseState(MapBrowseState.Server)
+  }
 
   const pick = (mapId: SbMapId) => {
-    formRef.current?.setMap(mapId)
+    if (pickTarget === MapPickTarget.Queue) {
+      setQueue([...queue, { key: nanoid(), mapId }])
+    } else {
+      formRef.current?.setMap(mapId)
+    }
     setBrowseState(MapBrowseState.None)
   }
 
   const summary = formatGameSetupSummary(t, {
-    visibility: lobby.visibility,
+    visibility,
     setup,
     mapInfo: selectedMapInfo,
   })
@@ -101,13 +136,29 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             }}
           />
         }
-        onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+        visibilitySection={
+          <Section>
+            <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+            <VisibilityPicker value={visibility} onChange={setVisibility} />
+          </Section>
+        }
+        mapQueueSection={
+          <MapQueueSection
+            queue={queue}
+            onChange={setQueue}
+            onAddMap={() => browseFor(MapPickTarget.Queue)}
+          />
+        }
+        onChangeMap={() => browseFor(MapPickTarget.Current)}
         onValidatedChange={model => setSetup(model)}
         onSubmit={model => {
           const settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>> = {}
           const trimmedName = name.trim()
           if (trimmedName && trimmedName !== initialName) {
             settings.name = trimmedName
+          }
+          if (visibility !== initialVisibility) {
+            settings.visibility = visibility
           }
           if (model.mapId !== initialModel.mapId) {
             settings.map = model.mapId
@@ -124,10 +175,17 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers
           }
+          const queueIds = queue.map(entry => entry.mapId)
+          if (
+            queueIds.length !== initialQueue.length ||
+            queueIds.some((id, i) => id !== initialQueue[i])
+          ) {
+            settings.mapQueue = queueIds
+          }
 
-          // A rename touches nothing about the game being set up, so it can't fail for any of the
-          // reasons a reconfiguration can.
-          const isRenameOnly = settings.name !== undefined && Object.keys(settings).length === 1
+          // A rename, visibility change, or new map queue touches nothing about the game being set
+          // up, so it can't fail for any of the reasons a reconfiguration can.
+          const isLobbyOnly = !changesGameSettings(Object.keys(settings) as LobbyChangedSetting[])
 
           if (Object.keys(settings).length > 0) {
             dispatch(
@@ -146,10 +204,10 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
                       'lobbies.lobbySettings.errorTransient',
                       'The lobby is starting or playing a game. Try again once it regroups.',
                     )
-                  } else if (isRenameOnly) {
+                  } else if (isLobbyOnly) {
                     message = t(
-                      'lobbies.lobbySettings.errorRename',
-                      'The lobby could not be renamed. Please try again.',
+                      'lobbies.lobbySettings.errorLobbyOnly',
+                      'The lobby settings could not be updated. Please try again.',
                     )
                   } else {
                     message = t(

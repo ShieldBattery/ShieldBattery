@@ -44,6 +44,7 @@ import {
 } from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { useRememberedFilters } from '../games/use-remembered-filters'
+import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
@@ -81,6 +82,16 @@ import {
   playersToDisplayTeams,
 } from './replay-library-helpers'
 import { ReplayLibraryRail } from './replay-library-rail'
+import {
+  collapseSelection,
+  findNeighborOutside,
+  getSelectedIds,
+  LibrarySelection,
+  selectOnly,
+  selectRangeTo,
+  toggleInSelection,
+} from './replay-library-selection'
+import { getBulkReplayActionMenuItems, ReplaySelectionSummary } from './replay-selection-summary'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -332,7 +343,8 @@ interface ReplayListEntryProps {
   removeBookmarkTitle: string
   /** When true, hides the game length (a spoiler) from the row. */
   spoilerFree: boolean
-  onSelect: (id: number) => void
+  /** Called on a row click; the event's modifier keys decide how the selection changes. */
+  onSelect: (id: number, event: React.MouseEvent) => void
   onWatch: (entry: ReplayLibraryEntry) => void
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
   onContextMenu: (entry: ReplayLibraryEntry, event: React.MouseEvent) => void
@@ -352,8 +364,14 @@ function ReplayListEntry({
 }: ReplayListEntryProps) {
   const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({
-    onClick: () => onSelect(entry.id),
+    onClick: event => onSelect(entry.id, event),
     onDoubleClick: () => onWatch(entry),
+    onMouseDown: event => {
+      // Shift-click extends the row selection; without this it would also select the rows' text.
+      if (event.shiftKey) {
+        event.preventDefault()
+      }
+    },
   })
 
   const bookmarked = entry.bookmarkedAt !== undefined
@@ -420,6 +438,7 @@ export interface ReplayLibraryProps {
 
 export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const { t } = useTranslation()
+  const locale = useFormatLocale()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
 
@@ -451,9 +470,11 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const [changeToken, setChangeToken] = useState(0)
   const [observerToken, restartObserver] = useRefreshToken()
 
-  const [focusedId, setFocusedId] = useState<number | undefined>(() =>
-    entryKey !== undefined ? focusedIdCache.get(entryKey) : undefined,
+  // Only the focused row persists across visits; a multi-selection is dropped on leaving.
+  const [selection, setSelection] = useState<LibrarySelection>(() =>
+    selectOnly(entryKey !== undefined ? focusedIdCache.get(entryKey) : undefined),
   )
+  const focusedId = selection.focusedId
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
   const groupedRef = useRef<GroupedVirtuosoHandle>(null)
   const flatRef = useRef<VirtuosoHandle>(null)
@@ -568,6 +589,8 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     setIsLoadingNext(false)
     setSnapshotInvalidated(true)
     restartObserver()
+    // The selected rows may not match the new filters, and the list reloads from the top anyway.
+    setSelection(collapseSelection)
   }
 
   // Fetches the index status. Called once on mount and again (debounced) on every index change.
@@ -701,7 +724,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   }, [initialWindow])
 
   // Mirrored on every change (rather than written through in each setter) so functional updates —
-  // e.g. the optimistic bookmark-count bump in `toggleBookmark` — are captured too.
+  // e.g. the optimistic bookmark-count bump in `setBookmarked` — are captured too.
   useEffect(() => {
     railSnapshot = { status, backfill, playlists }
   }, [status, backfill, playlists])
@@ -744,6 +767,14 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const loadedEntries = entries ?? []
   const focusedEntry = loadedEntries.find(e => e.id === focusedId) ?? loadedEntries[0]
   const focusedIndex = focusedEntry ? loadedEntries.findIndex(e => e.id === focusedEntry.id) : -1
+  const orderedIds = loadedEntries.map(e => e.id)
+  const selectedIds = new Set(getSelectedIds(selection, orderedIds, focusedEntry?.id))
+  const isMultiSelection = selectedIds.size > 1
+  // What the row context menu, Delete and the selection summary act on: every selected row, which
+  // for a single selection is just the focused one.
+  const selectedEntries = loadedEntries.filter(e => selectedIds.has(e.id))
+  const currentPlaylistName =
+    view.kind === 'playlist' ? (playlists.find(p => p.id === view.id)?.name ?? '') : ''
 
   const watchEntry = (entry: ReplayLibraryEntry) => {
     dispatch(startReplay({ path: entry.path, name: entry.fileName }))
@@ -752,81 +783,211 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
   }
 
-  const trashEntry = (entry: ReplayLibraryEntry) => {
-    const wasBookmarked = entry.bookmarkedAt !== undefined
-    // Hand focus to a neighboring row before the entry disappears — otherwise the stale
-    // `focusedId` would make the focused-entry fallback jump the selection (and the inspector) to
-    // the first row.
-    if (entry.id === focusedEntry?.id) {
-      const index = loadedEntries.findIndex(e => e.id === entry.id)
-      const neighbor = loadedEntries[index + 1] ?? loadedEntries[index - 1]
-      setFocusedId(neighbor?.id)
+  // Hands focus to a neighboring row before `targets` leave the list -- otherwise the stale
+  // `focusedId` would make the focused-entry fallback jump the selection (and the inspector) to the
+  // first row. Any multi-selection is dropped either way, since its rows are the ones leaving.
+  const moveSelectionOffOf = (targets: ReadonlyArray<ReplayLibraryEntry>) => {
+    const targetIds = new Set(targets.map(e => e.id))
+    if (focusedEntry && targetIds.has(focusedEntry.id)) {
+      setSelection(selectOnly(findNeighborOutside(orderedIds, targetIds)))
+    } else {
+      setSelection(collapseSelection)
     }
-    // Update optimistically, same as `toggleBookmark`: the watcher notices the file's removal on
-    // its own and its resulting index-changed event will confirm this shortly. A rejection means
-    // nothing actually changed on disk, so it's corrected via the same refresh that event uses.
-    setEntries(prev => prev?.filter(e => e.id !== entry.id))
-    setTotal(prev => (prev !== undefined ? Math.max(0, prev - 1) : prev))
-    if (wasBookmarked) {
+  }
+
+  const trashEntries = (targets: ReadonlyArray<ReplayLibraryEntry>) => {
+    if (targets.length === 0) return
+    const isBulk = targets.length > 1
+    const targetIds = new Set(targets.map(e => e.id))
+    const bookmarkedCount = targets.filter(e => e.bookmarkedAt !== undefined).length
+    moveSelectionOffOf(targets)
+    // Update optimistically, same as `setBookmarked`: the watcher notices the files' removal on
+    // its own and its resulting index-changed event will confirm this shortly. Anything that
+    // didn't actually leave the disk is corrected via the same refresh that event uses.
+    setEntries(prev => prev?.filter(e => !targetIds.has(e.id)))
+    setTotal(prev => (prev !== undefined ? Math.max(0, prev - targets.length) : prev))
+    if (bookmarkedCount > 0) {
       setStatus(prev =>
-        prev ? { ...prev, bookmarkedCount: Math.max(0, prev.bookmarkedCount - 1) } : prev,
+        prev
+          ? { ...prev, bookmarkedCount: Math.max(0, prev.bookmarkedCount - bookmarkedCount) }
+          : prev,
+      )
+    }
+
+    const showError = () => {
+      snackbarController.showSnackbar(
+        t('replays.library.moveToRecycleBinError', 'Something went wrong removing the replay'),
       )
     }
 
     ipcRenderer
-      .invoke('replayLibraryTrashReplay', entry.path)
-      ?.then(trashed => {
-        if (trashed) {
+      .invoke(
+        'replayLibraryTrashReplays',
+        targets.map(e => e.path),
+      )
+      ?.then(results => {
+        if (!results) return
+        // A `missing` file was already gone, which the optimistic removal above already reflects
+        // correctly -- only `trashed` counts as moved, and only `failed` needs correcting.
+        const moved = results.filter(r => r.outcome === 'trashed').length
+        const failed = results.some(r => r.outcome === 'failed')
+        if (failed) {
+          triggerCorrection()
+        }
+
+        if (!isBulk) {
+          if (failed) {
+            showError()
+          } else if (moved > 0) {
+            snackbarController.showSnackbar(
+              t('replays.library.movedToRecycleBin', 'Replay moved to Recycle Bin'),
+            )
+          }
+        } else if (failed) {
           snackbarController.showSnackbar(
-            t('replays.library.movedToRecycleBin', 'Replay moved to Recycle Bin'),
+            t('replays.library.bulk.movedToRecycleBinPartial', {
+              defaultValue_one: 'Moved {{moved}} of {{count}} replay to Recycle Bin',
+              defaultValue_other: 'Moved {{moved}} of {{count}} replays to Recycle Bin',
+              count: targets.length,
+              moved,
+            }),
+          )
+        } else if (moved > 0) {
+          snackbarController.showSnackbar(
+            t('replays.library.bulk.movedToRecycleBin', {
+              defaultValue_one: 'Moved {{count}} replay to Recycle Bin',
+              defaultValue_other: 'Moved {{count}} replays to Recycle Bin',
+              count: moved,
+            }),
           )
         }
-        // `trashed: false` means the file was already gone, which the optimistic removal above
-        // already reflects correctly -- nothing further to do.
       })
       .catch(err => {
-        logger.error(`Error moving replay to Recycle Bin: ${getErrorStack(err)}`)
-        snackbarController.showSnackbar(
-          t('replays.library.moveToRecycleBinError', 'Something went wrong removing the replay'),
-        )
+        logger.error(`Error moving replays to Recycle Bin: ${getErrorStack(err)}`)
+        showError()
         triggerCorrection()
       })
   }
 
+  const handleRowSelect = (id: number, event: React.MouseEvent) => {
+    const toggle = event.ctrlKey || event.metaKey
+    if (event.shiftKey) {
+      setSelection(selectRangeTo(selection, orderedIds, focusedEntry?.id, id, toggle))
+    } else if (toggle) {
+      setSelection(toggleInSelection(selection, orderedIds, focusedEntry?.id, id))
+    } else {
+      setSelection(selectOnly(id))
+    }
+  }
+
   const handleRowContextMenu = (entry: ReplayLibraryEntry, event: React.MouseEvent) => {
-    setFocusedId(entry.id)
+    // Right-clicking inside a multi-selection acts on all of it; anywhere else it starts over from
+    // the clicked row alone.
+    if (!isMultiSelection || !selectedIds.has(entry.id)) {
+      setSelection(selectOnly(entry.id))
+    }
     openRowContextMenu(event)
   }
 
-  const toggleBookmark = (entry: ReplayLibraryEntry) => {
-    const bookmarked = entry.bookmarkedAt === undefined
+  const setBookmarked = (targets: ReadonlyArray<ReplayLibraryEntry>, bookmarked: boolean) => {
+    const isBulk = targets.length > 1
+    // Unreadable replays aren't bookmarkable, and rows already in the requested state stay put.
+    const changing = targets.filter(
+      e => !e.parseError && (e.bookmarkedAt !== undefined) !== bookmarked,
+    )
+    if (changing.length === 0) return
+    const changingIds = new Set(changing.map(e => e.id))
+    const now = Date.now()
     // Update optimistically; the resulting index-changed event will confirm (or correct) shortly.
     setEntries(prev =>
       prev?.map(e =>
-        e.id === entry.id ? { ...e, bookmarkedAt: bookmarked ? Date.now() : undefined } : e,
+        changingIds.has(e.id) ? { ...e, bookmarkedAt: bookmarked ? now : undefined } : e,
       ),
     )
     setStatus(prev =>
       prev
-        ? { ...prev, bookmarkedCount: Math.max(0, prev.bookmarkedCount + (bookmarked ? 1 : -1)) }
+        ? {
+            ...prev,
+            bookmarkedCount: Math.max(
+              0,
+              prev.bookmarkedCount + (bookmarked ? changing.length : -changing.length),
+            ),
+          }
         : prev,
     )
     ipcRenderer
-      .invoke('replayLibrarySetBookmarked', entry.id, bookmarked)
-      ?.catch(swallowNonBuiltins)
+      .invoke('replayLibrarySetBookmarked', [...changingIds], bookmarked)
+      ?.then(changed => {
+        if (!isBulk || !changed) return
+        snackbarController.showSnackbar(
+          bookmarked
+            ? t('replays.library.bulk.bookmarked', {
+                defaultValue_one: 'Bookmarked {{count}} replay',
+                defaultValue_other: 'Bookmarked {{count}} replays',
+                count: changed.length,
+              })
+            : t('replays.library.bulk.removedBookmark', {
+                defaultValue_one: 'Removed the bookmark from {{count}} replay',
+                defaultValue_other: 'Removed the bookmark from {{count}} replays',
+                count: changed.length,
+              }),
+        )
+      })
+      .catch(swallowNonBuiltins)
   }
 
-  const addToPlaylist = (playlistId: number, entry: ReplayLibraryEntry) => {
-    ipcRenderer
-      .invoke('replayLibraryAddToPlaylist', playlistId, [entry.id])
-      ?.catch(swallowNonBuiltins)
+  const toggleBookmark = (entry: ReplayLibraryEntry) => {
+    setBookmarked([entry], entry.bookmarkedAt === undefined)
   }
 
-  const removeFromCurrentPlaylist = (entry: ReplayLibraryEntry) => {
-    if (view.kind !== 'playlist') return
+  const addToPlaylist = (
+    playlistId: number,
+    playlistName: string,
+    targets: ReadonlyArray<ReplayLibraryEntry>,
+  ) => {
+    if (targets.length === 0) return
     ipcRenderer
-      .invoke('replayLibraryRemoveFromPlaylist', view.id, [entry.id])
-      ?.catch(swallowNonBuiltins)
+      .invoke(
+        'replayLibraryAddToPlaylist',
+        playlistId,
+        targets.map(e => e.id),
+      )
+      ?.then(added => {
+        if (targets.length <= 1 || !added) return
+        snackbarController.showSnackbar(
+          t('replays.library.bulk.addedToPlaylist', {
+            defaultValue_one: 'Added {{count}} replay to {{playlist}}',
+            defaultValue_other: 'Added {{count}} replays to {{playlist}}',
+            count: added.length,
+            playlist: playlistName,
+          }),
+        )
+      })
+      .catch(swallowNonBuiltins)
+  }
+
+  const removeFromCurrentPlaylist = (targets: ReadonlyArray<ReplayLibraryEntry>) => {
+    if (view.kind !== 'playlist' || targets.length === 0) return
+    const playlistName = currentPlaylistName
+    moveSelectionOffOf(targets)
+    ipcRenderer
+      .invoke(
+        'replayLibraryRemoveFromPlaylist',
+        view.id,
+        targets.map(e => e.id),
+      )
+      ?.then(() => {
+        if (targets.length <= 1) return
+        snackbarController.showSnackbar(
+          t('replays.library.bulk.removedFromPlaylist', {
+            defaultValue_one: 'Removed {{count}} replay from {{playlist}}',
+            defaultValue_other: 'Removed {{count}} replays from {{playlist}}',
+            count: targets.length,
+            playlist: playlistName,
+          }),
+        )
+      })
+      .catch(swallowNonBuiltins)
   }
 
   // Move up/down sends the loaded index directly as an absolute playlist position, which is only
@@ -854,14 +1015,23 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   }
   const focusIndex = (index: number) => {
     if (index < 0 || index >= loadedEntries.length) return
-    setFocusedId(loadedEntries[index].id)
+    setSelection(selectOnly(loadedEntries[index].id))
     scrollToIndex(index)
+  }
+  const getIndexAfterMove = (delta: number) => {
+    const base = focusedIndex < 0 ? 0 : focusedIndex
+    return Math.min(Math.max(base + delta, 0), loadedEntries.length - 1)
   }
   const moveFocus = (delta: number) => {
     if (loadedEntries.length === 0) return
-    const base = focusedIndex < 0 ? 0 : focusedIndex
-    const next = Math.min(Math.max(base + delta, 0), loadedEntries.length - 1)
-    focusIndex(next)
+    focusIndex(getIndexAfterMove(delta))
+  }
+  // Shift+Up/Down: moves focus while selecting everything between it and the range anchor.
+  const extendSelection = (delta: number) => {
+    if (loadedEntries.length === 0) return
+    const next = getIndexAfterMove(delta)
+    setSelection(selectRangeTo(selection, orderedIds, focusedEntry?.id, loadedEntries[next].id))
+    scrollToIndex(next)
   }
 
   const onLoadNextData = () => {
@@ -942,10 +1112,18 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
 
       switch (event.code) {
         case 'ArrowUp':
-          moveFocus(-1)
+          if (event.shiftKey) {
+            extendSelection(-1)
+          } else {
+            moveFocus(-1)
+          }
           return true
         case 'ArrowDown':
-          moveFocus(1)
+          if (event.shiftKey) {
+            extendSelection(1)
+          } else {
+            moveFocus(1)
+          }
           return true
         case 'PageUp':
           moveFocus(-10)
@@ -960,9 +1138,10 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           focusIndex(loadedEntries.length - 1)
           return true
         case 'Delete':
-          // Removes from the current playlist only; replay files on disk are never touched.
-          if (view.kind === 'playlist' && focusedEntry) {
-            removeFromCurrentPlaylist(focusedEntry)
+          // Removes the selection from the current playlist only; replay files on disk are never
+          // touched.
+          if (view.kind === 'playlist' && selectedEntries.length > 0) {
+            removeFromCurrentPlaylist(selectedEntries)
             return true
           }
           return false
@@ -995,12 +1174,12 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
     return (
       <ReplayListEntry
         entry={entry}
-        selected={entry.id === focusedEntry?.id}
+        selected={selectedIds.has(entry.id)}
         computerLabel={computerLabel}
         bookmarkTitle={bookmarkTitle}
         removeBookmarkTitle={removeBookmarkTitle}
         spoilerFree={spoilerFree}
-        onSelect={setFocusedId}
+        onSelect={handleRowSelect}
         onWatch={watchEntry}
         onToggleBookmark={toggleBookmark}
         onContextMenu={handleRowContextMenu}
@@ -1106,7 +1285,13 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
               label={
                 group.unreadable
                   ? t('replays.library.unreadableReplays', 'Unreadable replays')
-                  : formatDayHeaderLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)
+                  : formatDayHeaderLabel(
+                      group.dayStartMs,
+                      todayStartMs,
+                      yesterdayStartMs,
+                      locale,
+                      t,
+                    )
               }
             />
           )
@@ -1127,6 +1312,102 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   // empty-state message. It's kept while the query is still in flight (`entries === undefined`) so
   // it doesn't flicker out and back in on filter/view changes, which briefly clear the entries.
   const showInspector = entries === undefined || loadedEntries.length > 0
+
+  let sidePanel: React.ReactNode = null
+  if (showInspector && isMultiSelection) {
+    sidePanel = (
+      <ReplaySelectionSummary
+        entries={selectedEntries}
+        alignWithFirstRow={!useFlatList}
+        playlists={playlists}
+        inPlaylistView={view.kind === 'playlist'}
+        onAddToPlaylist={(playlistId, playlistName) =>
+          addToPlaylist(playlistId, playlistName, selectedEntries)
+        }
+        onRemoveFromPlaylist={() => removeFromCurrentPlaylist(selectedEntries)}
+        onSetBookmarked={bookmarked => setBookmarked(selectedEntries, bookmarked)}
+        onMoveToRecycleBin={() => trashEntries(selectedEntries)}
+      />
+    )
+  } else if (showInspector) {
+    sidePanel = (
+      <ReplayInspector
+        entry={focusedEntry}
+        alignWithFirstRow={!useFlatList}
+        playlists={playlists}
+        changeToken={changeToken}
+        inPlaylistView={view.kind === 'playlist'}
+        canReorder={canReorder}
+        canMoveUp={canMoveUp}
+        canMoveDown={canMoveDown}
+        onWatch={watchEntry}
+        onReveal={revealEntry}
+        onToggleBookmark={toggleBookmark}
+        onAddToPlaylist={(playlistId, playlistName, entry) =>
+          addToPlaylist(playlistId, playlistName, [entry])
+        }
+        onRemoveFromPlaylist={() => {
+          if (focusedEntry) removeFromCurrentPlaylist([focusedEntry])
+        }}
+        onMoveToRecycleBin={entry => trashEntries([entry])}
+        onMoveUp={() => moveFocusedBy(-1)}
+        onMoveDown={() => moveFocusedBy(1)}
+      />
+    )
+  }
+
+  let rowMenu: React.ReactNode = null
+  if (isMultiSelection) {
+    rowMenu = (
+      <MenuList dense={true}>
+        {getBulkReplayActionMenuItems({
+          entries: selectedEntries,
+          inPlaylistView: view.kind === 'playlist',
+          closeMenu: contextMenuPopoverProps.onDismiss,
+          onOpenAddToPlaylist: openAddToPlaylistMenu,
+          onRemoveFromPlaylist: () => removeFromCurrentPlaylist(selectedEntries),
+          onSetBookmarked: bookmarked => setBookmarked(selectedEntries, bookmarked),
+          onMoveToRecycleBin: () => trashEntries(selectedEntries),
+          t,
+        })}
+      </MenuList>
+    )
+  } else if (focusedEntry) {
+    rowMenu = (
+      <MenuList dense={true}>
+        <MenuItem
+          icon={<MaterialIcon icon='play_arrow' />}
+          text={t('replays.library.watchReplay', 'Watch replay')}
+          onClick={() => {
+            contextMenuPopoverProps.onDismiss()
+            watchEntry(focusedEntry)
+          }}
+        />
+        <MenuItem
+          icon={<MaterialIcon icon='bookmark' filled={focusedEntry.bookmarkedAt !== undefined} />}
+          text={
+            focusedEntry.bookmarkedAt !== undefined
+              ? t('replays.library.removeBookmark', 'Remove bookmark')
+              : t('replays.library.bookmark', 'Bookmark')
+          }
+          onClick={() => {
+            contextMenuPopoverProps.onDismiss()
+            toggleBookmark(focusedEntry)
+          }}
+        />
+        {getReplayActionMenuItems({
+          entry: focusedEntry,
+          inPlaylistView: view.kind === 'playlist',
+          closeMenu: contextMenuPopoverProps.onDismiss,
+          onOpenAddToPlaylist: openAddToPlaylistMenu,
+          onRemoveFromPlaylist: () => removeFromCurrentPlaylist([focusedEntry]),
+          onReveal: revealEntry,
+          onMoveToRecycleBin: entry => trashEntries([entry]),
+          t,
+        })}
+      </MenuList>
+    )
+  }
 
   if (unavailable) {
     // The whole feature depends on the main-process service, so when it's down there's nothing to
@@ -1242,68 +1523,10 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
             </InfiniteScrollList>
           </ListColumn>
 
-          {showInspector ? (
-            <ReplayInspector
-              entry={focusedEntry}
-              alignWithFirstRow={!useFlatList}
-              playlists={playlists}
-              changeToken={changeToken}
-              inPlaylistView={view.kind === 'playlist'}
-              canReorder={canReorder}
-              canMoveUp={canMoveUp}
-              canMoveDown={canMoveDown}
-              onWatch={watchEntry}
-              onReveal={revealEntry}
-              onToggleBookmark={toggleBookmark}
-              onAddToPlaylist={addToPlaylist}
-              onRemoveFromPlaylist={() => {
-                if (focusedEntry) removeFromCurrentPlaylist(focusedEntry)
-              }}
-              onMoveToRecycleBin={trashEntry}
-              onMoveUp={() => moveFocusedBy(-1)}
-              onMoveDown={() => moveFocusedBy(1)}
-            />
-          ) : null}
+          {sidePanel}
         </BodyRow>
 
-        <Popover {...contextMenuPopoverProps}>
-          {focusedEntry ? (
-            <MenuList dense={true}>
-              <MenuItem
-                icon={<MaterialIcon icon='play_arrow' />}
-                text={t('replays.library.watchReplay', 'Watch replay')}
-                onClick={() => {
-                  contextMenuPopoverProps.onDismiss()
-                  watchEntry(focusedEntry)
-                }}
-              />
-              <MenuItem
-                icon={
-                  <MaterialIcon icon='bookmark' filled={focusedEntry.bookmarkedAt !== undefined} />
-                }
-                text={
-                  focusedEntry.bookmarkedAt !== undefined
-                    ? t('replays.library.removeBookmark', 'Remove bookmark')
-                    : t('replays.library.bookmark', 'Bookmark')
-                }
-                onClick={() => {
-                  contextMenuPopoverProps.onDismiss()
-                  toggleBookmark(focusedEntry)
-                }}
-              />
-              {getReplayActionMenuItems({
-                entry: focusedEntry,
-                inPlaylistView: view.kind === 'playlist',
-                closeMenu: contextMenuPopoverProps.onDismiss,
-                onOpenAddToPlaylist: openAddToPlaylistMenu,
-                onRemoveFromPlaylist: () => removeFromCurrentPlaylist(focusedEntry),
-                onReveal: revealEntry,
-                onMoveToRecycleBin: trashEntry,
-                t,
-              })}
-            </MenuList>
-          ) : null}
-        </Popover>
+        <Popover {...contextMenuPopoverProps}>{rowMenu}</Popover>
         <Popover
           open={addToPlaylistMenuOpen}
           onDismiss={closeAddToPlaylistMenu}
@@ -1311,13 +1534,13 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           anchorY={contextMenuPopoverProps.anchorY}
           originX={contextMenuPopoverProps.originX}
           originY={contextMenuPopoverProps.originY}>
-          {focusedEntry ? (
+          {selectedEntries.length > 0 ? (
             <MenuList dense={true}>
               {getAddToPlaylistMenuItems({
-                entry: focusedEntry,
                 playlists,
                 closeMenu: closeAddToPlaylistMenu,
-                onAddToPlaylist: addToPlaylist,
+                onAddToPlaylist: (playlistId, playlistName) =>
+                  addToPlaylist(playlistId, playlistName, selectedEntries),
                 t,
                 dispatch,
               })}

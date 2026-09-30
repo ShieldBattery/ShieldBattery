@@ -3,6 +3,8 @@ import { NotificationType, SbNotification } from '../../common/notifications'
 import { UserRestrictedNotificationUi } from '../auth/user-restricted-notification-ui'
 import {
   ChannelBanNotificationUi,
+  ChannelClosedNotificationUi,
+  ChannelDeletedNotificationUi,
   ChannelKickNotificationUi,
   ChannelUnbanNotificationUi,
 } from '../chat/channel-moderation-notification-ui'
@@ -36,6 +38,8 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.ChannelKick:
     case NotificationType.ChannelBan:
     case NotificationType.ChannelUnban:
+    case NotificationType.ChannelClosed:
+    case NotificationType.ChannelDeleted:
     case NotificationType.GameReportActioned:
     case NotificationType.GamePointsRefunded:
     case NotificationType.CommendReceived:
@@ -141,6 +145,24 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
     case NotificationType.ChannelUnban:
       return (
         <ChannelUnbanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.ChannelClosed:
+      return (
+        <ChannelClosedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.ChannelDeleted:
+      return (
+        <ChannelDeletedNotificationUi
           ref={ref}
           showDivider={showDivider}
           read={notification.read}

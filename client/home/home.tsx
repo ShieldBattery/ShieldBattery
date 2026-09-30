@@ -16,6 +16,7 @@ import { LinkButton } from '../material/link-button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { NewsFeed } from '../news/news-feed'
+import { localizeUrgentMessage } from '../news/urgent-message'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -247,16 +248,24 @@ const UrgentMessage_HomeDisplayFragment = graphql(/* GraphQL */ `
     id
     title
     message
+    translations {
+      language
+      title
+      message
+    }
   }
 `)
 
 function UrgentMessageView(props: {
   urgentMessage?: FragmentType<typeof UrgentMessage_HomeDisplayFragment>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
   const urgentMessage = useFragment(UrgentMessage_HomeDisplayFragment, props.urgentMessage)
   const [lastSeenId, markSeen] = useLastSeenUrgentMessage()
+  const localizedMessage = urgentMessage
+    ? localizeUrgentMessage(urgentMessage, i18n.language)
+    : undefined
 
   useEffect(() => {
     if (urgentMessage && urgentMessage.id !== lastSeenId) {
@@ -264,17 +273,20 @@ function UrgentMessageView(props: {
     }
   }, [lastSeenId, markSeen, urgentMessage])
 
-  return urgentMessage ? (
+  return localizedMessage ? (
     <UrgentMessageRoot>
       <MaterialIcon icon='priority_high' />
-      <UrgentMessageText>{urgentMessage.title}</UrgentMessageText>
+      <UrgentMessageText>{localizedMessage.title}</UrgentMessageText>
       <TextButton
         label={t('common.actions.read', 'Read')}
         onClick={() => {
           dispatch(
             openDialog({
               type: DialogType.Markdown,
-              initData: { title: urgentMessage.title, markdownContent: urgentMessage.message },
+              initData: {
+                title: localizedMessage.title,
+                markdownContent: localizedMessage.message,
+              },
             }),
           )
         }}

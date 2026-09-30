@@ -611,10 +611,19 @@ function ChannelEntry({
         button={button}
         icon={<ConnectedChannelBadge channelId={channelId} />}
         trailing={
-          isMuted ? (
-            <MutedGlyph title={t('chat.notifications.mutedTitle', 'Muted')}>
-              <MaterialIcon icon='notifications_off' size={20} />
-            </MutedGlyph>
+          basicInfo?.private || isMuted ? (
+            <>
+              {basicInfo?.private ? (
+                <TrailingGlyph title={t('chat.privateChannelTitle', 'Private channel')}>
+                  <MaterialIcon icon='lock' size={20} />
+                </TrailingGlyph>
+              ) : null}
+              {isMuted ? (
+                <TrailingGlyph title={t('chat.notifications.mutedTitle', 'Muted')}>
+                  <MaterialIcon icon='notifications_off' size={20} />
+                </TrailingGlyph>
+              ) : null}
+            </>
           ) : undefined
         }
         isActive={contextMenuPopoverProps.open}
@@ -685,7 +694,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
       <Entry
         link={urlForWhisper(userId, username ?? '')}
         button={button}
-        icon={<ConnectedAvatar userId={userId} showAvailability={true} />}
+        icon={<ConnectedAvatar userId={userId} showAvailability={true} showOffline={true} />}
         trailing={<WhisperActivityGlyph userId={userId} />}
         needsAttention={hasUnread}
         urgentAttention={hasUnread}
@@ -742,7 +751,7 @@ const WhisperActivityGlyph = styled(FriendActivityStatusGlyph)`
   margin-left: 8px;
 `
 
-const MutedGlyph = styled.div`
+const TrailingGlyph = styled.div`
   margin-left: 8px;
   flex-shrink: 0;
 

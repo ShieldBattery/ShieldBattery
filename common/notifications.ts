@@ -28,6 +28,10 @@ export enum NotificationType {
   ChannelBan = 'channelBan',
   /** A user has been unbanned from a chat channel. */
   ChannelUnban = 'channelUnban',
+  /** Server moderators have closed a chat channel the user was in. */
+  ChannelClosed = 'channelClosed',
+  /** Server moderators have deleted a chat channel the user was in. */
+  ChannelDeleted = 'channelDeleted',
   /** Action was taken against a player this user reported. */
   GameReportActioned = 'gameReportActioned',
   /** Ranked points this user lost in a game were refunded after the game was nullified. */
@@ -47,6 +51,8 @@ export type SbNotification =
   | ChannelKickNotification
   | ChannelBanNotification
   | ChannelUnbanNotification
+  | ChannelClosedNotification
+  | ChannelDeletedNotification
   | GameReportActionedNotification
   | GamePointsRefundedNotification
   | CommendReceivedNotification
@@ -122,6 +128,18 @@ export interface ChannelBanNotification extends BaseNotification {
 
 export interface ChannelUnbanNotification extends BaseNotification {
   type: NotificationType.ChannelUnban
+  channelId: SbChannelId
+  channelName: string
+}
+
+export interface ChannelClosedNotification extends BaseNotification {
+  type: NotificationType.ChannelClosed
+  channelId: SbChannelId
+  channelName: string
+}
+
+export interface ChannelDeletedNotification extends BaseNotification {
+  type: NotificationType.ChannelDeleted
   channelId: SbChannelId
   channelName: string
 }

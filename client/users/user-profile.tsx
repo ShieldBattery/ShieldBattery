@@ -57,6 +57,7 @@ import {
   useIsExpandedRanksRequested,
   viewUserProfile,
 } from './action-creators'
+import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
@@ -193,6 +194,14 @@ const StyledAvatar = styled(ConnectedAvatar)`
   height: 56px;
   top: calc(50% - 28px);
   left: calc(50% - 28px);
+`
+
+/** Sized up from the default so it stays in proportion with this page's larger avatar. */
+const ProfileAvailabilityDot = styled(AvailabilityDot)`
+  width: 20px;
+  height: 20px;
+  max-width: 20px;
+  max-height: 20px;
 `
 
 const LiveBadge = styled.div`
@@ -426,6 +435,7 @@ export function UserProfilePage({
       <TopSection>
         <AvatarCircle $isLive={isLive}>
           <StyledAvatar userId={user.id} showLiveIndicator={false} />
+          <ProfileAvailabilityDot userId={user.id} showOffline={true} />
           {isLive ? <LiveBadge>{t('users.profile.twitch.liveBadge', 'Live')}</LiveBadge> : null}
         </AvatarCircle>
         <UsernameAndTitle>

@@ -1,5 +1,6 @@
 import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ServerChatMessageType } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
 import { useHasAnyPermission } from '../admin/admin-permissions'
@@ -16,6 +17,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { getChatUserProfile } from './action-creators'
 import { ChannelContext } from './channel-context'
+import { getChannelRole } from './channel-role'
 import { urlForChannelMessage } from './channel-url'
 
 export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
@@ -137,6 +139,29 @@ export function ChannelMessageMenu({
   const { channelId } = useContext(ChannelContext)
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const isServerModerator = useHasAnyPermission('moderateChatChannels')
+  const selfUserId = useAppSelector(s => s.auth.self!.user.id)
+  const ownerId = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId)?.ownerId)
+  const moderatorIds = useAppSelector(s => s.chat.idToModeratorIds.get(channelId))
+  const channelSelfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
+  const authorId = useAppSelector(s => {
+    const message = s.chat.idToMessages.get(channelId)?.messages.find(m => m.id === messageId)
+    return message?.type === ServerChatMessageType.TextMessage ? message.from : undefined
+  })
+
+  const isSelfChannelOwner = ownerId === selfUserId
+  const isSelfChannelModerator =
+    !!channelSelfPermissions &&
+    (channelSelfPermissions.editPermissions ||
+      channelSelfPermissions.kick ||
+      channelSelfPermissions.ban)
+  // Anyone can delete their own text messages. A moderator who isn't the owner can't delete the
+  // owner's or another moderator's messages, the same as they can't kick or ban them.
+  const canDeleteMessage =
+    isServerModerator ||
+    isSelfChannelOwner ||
+    (authorId !== undefined &&
+      (authorId === selfUserId ||
+        (isSelfChannelModerator && !getChannelRole(ownerId, moderatorIds, authorId))))
 
   const menuItems = new Map(items)
   appendToMultimap(
@@ -158,7 +183,7 @@ export function ChannelMessageMenu({
     />,
   )
 
-  if (isServerModerator) {
+  if (canDeleteMessage) {
     appendToMultimap(
       menuItems,
       MessageMenuItemCategory.Destructive,
@@ -168,7 +193,7 @@ export function ChannelMessageMenu({
         onClick={() => {
           dispatch(
             openDialog({
-              type: DialogType.AdminDeleteChatMessage,
+              type: DialogType.ChannelDeleteMessage,
               initData: { channelId, messageId },
             }),
           )

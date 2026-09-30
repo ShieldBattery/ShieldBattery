@@ -17,23 +17,28 @@ import {
   ChatInitActiveUsersEvent,
   ChatServiceErrorCode,
   ChatUserEvent,
+  CreateChannelInviteLinkResponse,
+  DEFAULT_INVITE_LINK_EXPIRY_SECONDS,
   DetailedChannelInfo,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
+  GetChannelInviteLinkResponse,
+  INITIAL_CHANNEL_ID,
   InitialChannelData,
   JoinChannelResponse,
   JoinedChannelInfo,
   ListChannelBansResponse,
+  ListChannelInviteLinksResponse,
   ListUserChannelEntriesResponse,
-  makeSbChannelId,
   SbChannelId,
   SearchChannelsResponse,
   ServerChatMessage,
   ServerChatMessageType,
   toChannelBanEntryJson,
+  toChannelInviteLinkJson,
   toChatUserProfileJson,
   toUserChannelEntryJson,
   UserChannelEntry,
@@ -41,6 +46,7 @@ import {
 import { subtract } from '../../../common/data-structures/sets'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
+import { decodePrettyId, encodePrettyId, isPrettyId } from '../../../common/pretty-id'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { AvailabilityInfo, isDefaultAvailabilityInfo } from '../../../common/users/availability'
 import { RestrictionKind } from '../../../common/users/restrictions'
@@ -75,6 +81,7 @@ import {
   ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
+  deleteChannel,
   deleteChannelMessage,
   EditableChannelFields,
   findChannelByName,
@@ -82,9 +89,11 @@ import {
   getChannelBans,
   getChannelInfo,
   getChannelInfos,
+  getChannelMessageAuthor,
   getChannelMessageSentTime,
   getChannelsForUser,
   getMessagesForChannel,
+  getModeratorIdsForChannels,
   getUnreadChannelInfo,
   getUserChannelEntriesForChannel,
   getUserChannelEntriesForUser,
@@ -93,6 +102,7 @@ import {
   HistoryCursor,
   isUserBannedFromChannel,
   LeaveChannelResult,
+  removeAllUsersFromChannel,
   removeBannedIdentifiersFromChannel,
   removeUserFromChannel,
   searchChannels,
@@ -106,6 +116,19 @@ import {
   updateUserPermissions,
   updateUserPreferences,
 } from './chat-models'
+import {
+  createInviteLink,
+  deleteInviteLink,
+  deleteInviteLinksCreatedBy,
+  deleteInviteLinksForChannel,
+  deleteMemberInviteLinks,
+  deleteUnusableInviteLinks,
+  findReusableInviteLink,
+  getInviteLink,
+  incrementInviteLinkUses,
+  InviteLinkRecord,
+  listUsableInviteLinks,
+} from './invite-link-models'
 
 class ChatState extends ImmutableRecord({
   /** Maps channel id -> Set of IDs of users in that channel. */
@@ -115,15 +138,148 @@ class ChatState extends ImmutableRecord({
 }) {}
 
 enum JoinChannelExitCode {
+  ChannelClosed = 'ChannelClosed',
+  ChannelPrivate = 'ChannelPrivate',
+  InviteLinkInvalid = 'InviteLinkInvalid',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
   UserBanned = 'UserBanned',
   UserChatRestricted = 'UserChatRestricted',
 }
 
+/**
+ * What an attempt to put a user into a channel came to. A refusal is carried as a value rather than
+ * thrown, so the transaction it happened in still commits anything recorded along the way (e.g. an
+ * automated ban).
+ */
+type JoinOutcome =
+  | { kind: 'alreadyMember'; channel: FullChannelInfo }
+  | {
+      kind: 'joined'
+      channel: FullChannelInfo
+      userChannelEntry: UserChannelEntry
+      message: ChatMessage
+    }
+  | { kind: 'refused'; exitCode: JoinChannelExitCode }
+
+/** How long an invite link created without an explicit expiry keeps working. */
+const INVITE_LINK_LIFETIME_MS = DEFAULT_INVITE_LINK_EXPIRY_SECONDS * 1000
+/**
+ * How much time an existing invite link must have left to be handed out again instead of creating a
+ * new one, so a link someone copies doesn't expire shortly after they share it.
+ */
+const INVITE_LINK_REUSE_MIN_REMAINING_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Returns whether an invite link still lets people in, as far as the link itself goes: it hasn't
+ * expired and has uses left. The link also stops working once its channel isn't private.
+ */
+function isInviteLinkUsable(link: InviteLinkRecord, now: Date): boolean {
+  return (
+    (link.expiresAt === undefined || link.expiresAt > now) &&
+    (link.maxUses === undefined || link.uses < link.maxUses)
+  )
+}
+
+/** Returns the id of the invite link an invite link token names, or undefined if it names none. */
+function inviteLinkIdFromToken(token: string): string | undefined {
+  return isPrettyId(token) ? decodePrettyId(token) : undefined
+}
+
+/**
+ * Settings chosen for a new invite link. `null` means the link never expires or has no use limit.
+ * The values are expected to be among the options offered in `common/chat.ts`.
+ */
+export interface InviteLinkSettings {
+  expiresInSeconds: number | null
+  maxUses: number | null
+}
+
+function toInviteLinkJson(link: InviteLinkRecord) {
+  return toChannelInviteLinkJson({
+    token: encodePrettyId(link.id),
+    channelId: link.channelId,
+    createdBy: link.createdBy,
+    createdAt: link.createdAt,
+    expiresAt: link.expiresAt,
+    maxUses: link.maxUses,
+    uses: link.uses,
+  })
+}
+
+function inviteLinkInvalidError(): ChatServiceError {
+  return new ChatServiceError(
+    ChatServiceErrorCode.InviteLinkInvalid,
+    'Invite link is invalid or has expired',
+  )
+}
+
+/**
+ * Throws if a user may not get an invite link for a channel: the channel must exist and be private,
+ * and the user must be a server moderator, its owner, or a member of a channel that lets members
+ * invite. Membership is checked before privacy, so a non-member learns nothing about a channel
+ * beyond it existing.
+ */
+function ensureCanGetInviteLink(
+  channel: FullChannelInfo | undefined,
+  userId: SbUserId,
+  userChannelEntry: UserChannelEntry | null,
+  isServerModerator: boolean,
+): asserts channel is FullChannelInfo {
+  if (!channel) {
+    throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+  }
+  if (!userChannelEntry && !isServerModerator) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.NotInChannel,
+      'Must be in channel to invite people to it',
+    )
+  }
+  if (!channel.private) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.ChannelNotPrivate,
+      'Only private channels have invite links',
+    )
+  }
+  if (!isServerModerator && !channel.membersCanInvite && channel.ownerId !== userId) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.NotEnoughPermissions,
+      'Only the channel owner can invite people to this channel',
+    )
+  }
+}
+
+/**
+ * Throws if a user may not see or revoke a channel's invite links, which only its owner and server
+ * moderators may.
+ */
+function ensureCanManageInviteLinks(
+  channel: FullChannelInfo | undefined,
+  userId: SbUserId,
+  isServerModerator: boolean,
+): asserts channel is FullChannelInfo {
+  if (!channel) {
+    throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+  }
+  if (!isServerModerator && channel.ownerId !== userId) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.NotEnoughPermissions,
+      "You don't have enough permissions to manage this channel's invite links",
+    )
+  }
+}
+
 export class ChatServiceError extends CodedError<ChatServiceErrorCode> {}
 
 class RetryableError extends Error {}
+
+/**
+ * Returns whether channel permissions make their holder a channel moderator: holding any of them
+ * grants moderation authority in the channel, and is what the moderator badge reflects.
+ */
+function holdsModerationPermission(permissions: ChannelPermissions): boolean {
+  return permissions.editPermissions || permissions.ban || permissions.kick
+}
 
 export function getChannelPath(channelId: SbChannelId): string {
   return `/chat3/${channelId}`
@@ -139,6 +295,15 @@ export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): st
  * time, they'll both attempt to create it, but only one will succeed.
  */
 const MAX_JOIN_ATTEMPTS = 3
+
+function ensureRemovableChannel(channelId: SbChannelId) {
+  if (channelId === INITIAL_CHANNEL_ID) {
+    throw new ChatServiceError(
+      ChatServiceErrorCode.CannotRemoveInitialChannel,
+      "The channel new users join can't be closed or deleted",
+    )
+  }
+}
 
 @singleton()
 export default class ChatService {
@@ -184,7 +349,11 @@ export default class ChatService {
       getChannelsForUser(userId),
       getUnreadChannelInfo(userId),
     ])
-    const channelInfos = await getChannelInfos(joinedChannels.map(c => c.channelId))
+    const channelIds = joinedChannels.map(c => c.channelId)
+    const [channelInfos, moderatorIdsByChannel] = await Promise.all([
+      getChannelInfos(channelIds),
+      getModeratorIdsForChannels(channelIds),
+    ])
 
     const channelInfosMap = new global.Map(channelInfos.map(c => [c.id, c]))
     const unreadChannelsMap = new global.Map(unreadChannelInfo.map(c => [c.channelId, c]))
@@ -199,6 +368,7 @@ export default class ChatService {
         joinedChannelInfo: toJoinedChannelInfo(channelInfo),
         selfPreferences: c.channelPreferences,
         selfPermissions: c.channelPermissions,
+        moderatorIds: moderatorIdsByChannel.get(c.channelId) ?? [],
         latestUnreadTime: unreadInfo?.latestUnreadTime.getTime(),
         // The unread queries treat everything from others since `joinDate` as unread when no read
         // position has been recorded, and the divider goes before the first message *after* the
@@ -240,9 +410,10 @@ export default class ChatService {
     if (userSockets) {
       this.subscribeUserToChannel(userSockets, channelId)
 
-      const [channelInfo, userChannelEntry] = await Promise.all([
+      const [channelInfo, userChannelEntry, moderatorIdsByChannel] = await Promise.all([
         getChannelInfo(channelId),
         getUserChannelEntryForUser(userSockets.userId, channelId),
+        getModeratorIdsForChannels([channelId]),
       ])
 
       if (channelInfo && userChannelEntry) {
@@ -256,6 +427,7 @@ export default class ChatService {
           joinedChannelInfo: toJoinedChannelInfo(channelInfo),
           selfPreferences: userChannelEntry.channelPreferences,
           selfPermissions: userChannelEntry.channelPermissions,
+          moderatorIds: moderatorIdsByChannel.get(channelId) ?? [],
           lastReadTime: userChannelEntry.joinDate.getTime() - 1,
         })
       }
@@ -286,7 +458,7 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
     }
 
-    const channelId = makeSbChannelId(1)
+    const channelId = INITIAL_CHANNEL_ID
     const channelInfo = await getChannelInfo(channelId, client)
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
@@ -329,6 +501,8 @@ export default class ChatService {
       const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
       await banUserFromChannel({ channelId, targetId, automated: true, connectedUsers }, client)
       await banAllIdentifiersFromChannel({ channelId, targetId }, client)
+      // A banned user must not be able to bring others in either.
+      await deleteInviteLinksCreatedBy({ channelId, userId: targetId }, client)
       return true
     }
 
@@ -336,58 +510,171 @@ export default class ChatService {
   }
 
   /**
+   * Puts a user into an existing channel, inside the transaction `client` belongs to. An existing
+   * member is left as they are. Otherwise the user is refused if the channel is closed, if it's
+   * private and `admitPrivate` isn't set, if they're banned from it (which includes being caught by
+   * the automated identifier ban here), or if they've reached the joined-channel cap; anyone else
+   * becomes a member, recorded as invited by `invitedBy`, and gets a join message. A non-official
+   * channel without an owner (one that was closed and then reopened) is handed to whoever joins it.
+   *
+   * The channel's row stays locked for the rest of the transaction, so the channel can't be closed
+   * or deleted between the checks here and the membership being stored.
+   */
+  private async admitToChannel(
+    {
+      channelId,
+      userId,
+      admitPrivate,
+      invitedBy,
+    }: {
+      channelId: SbChannelId
+      userId: SbUserId
+      admitPrivate: boolean
+      invitedBy?: SbUserId
+    },
+    client: DbClient,
+  ): Promise<JoinOutcome> {
+    let channel = await getChannelInfo(channelId, client, { forUpdate: true })
+    if (!channel) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
+    if (await getUserChannelEntryForUser(userId, channel.id, client)) {
+      return { kind: 'alreadyMember', channel }
+    }
+
+    if (channel.closed) {
+      return { kind: 'refused', exitCode: JoinChannelExitCode.ChannelClosed }
+    }
+
+    // Checked before bans so that joining a private channel can't trigger the automated identifier
+    // ban, and a non-member learns nothing beyond the channel being private.
+    if (channel.private && !admitPrivate) {
+      return { kind: 'refused', exitCode: JoinChannelExitCode.ChannelPrivate }
+    }
+
+    const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
+    if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
+      return { kind: 'refused', exitCode: JoinChannelExitCode.UserBanned }
+    }
+
+    const userChannelEntry = await addUserToChannel(userId, channel.id, client, invitedBy)
+    if (!userChannelEntry) {
+      return { kind: 'refused', exitCode: JoinChannelExitCode.MaximumJoinedChannels }
+    }
+
+    if (!channel.official && channel.ownerId === undefined) {
+      channel = await updateChannel(channel.id, { ownerId: userId }, client)
+    }
+
+    const message = await addMessageToChannel(
+      userId,
+      channel.id,
+      {
+        type: ServerChatMessageType.JoinChannel,
+      },
+      client,
+    )
+    return { kind: 'joined', channel, userChannelEntry, message }
+  }
+
+  /**
+   * Finishes a join after its transaction has committed: a refusal becomes the matching error, and
+   * a new member's join is announced to the channel and their sockets are subscribed to it.
+   */
+  private async completeJoin(userInfo: SbUser, outcome: JoinOutcome): Promise<JoinChannelResponse> {
+    if (outcome.kind === 'refused') {
+      switch (outcome.exitCode) {
+        case JoinChannelExitCode.ChannelClosed:
+          throw new ChatServiceError(ChatServiceErrorCode.ChannelClosed, 'Channel is closed')
+        case JoinChannelExitCode.ChannelPrivate:
+          throw new ChatServiceError(ChatServiceErrorCode.ChannelPrivate, 'Channel is private')
+        case JoinChannelExitCode.InviteLinkInvalid:
+          throw inviteLinkInvalidError()
+        case JoinChannelExitCode.MaximumJoinedChannels:
+          throw new ChatServiceError(
+            ChatServiceErrorCode.MaximumJoinedChannels,
+            'Maximum joined channels reached',
+          )
+        case JoinChannelExitCode.MaximumOwnedChannels:
+          throw new ChatServiceError(
+            ChatServiceErrorCode.MaximumOwnedChannels,
+            'Maximum owned channels reached',
+          )
+        case JoinChannelExitCode.UserBanned:
+          throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
+        case JoinChannelExitCode.UserChatRestricted:
+          throw new ChatServiceError(
+            ChatServiceErrorCode.UserChatRestricted,
+            'User is chat restricted',
+          )
+        default:
+          return assertUnreachable(outcome.exitCode)
+      }
+    }
+
+    const { channel } = outcome
+    if (outcome.kind === 'joined') {
+      try {
+        await this.updateUserAfterJoining(
+          userInfo,
+          channel.id,
+          outcome.userChannelEntry,
+          outcome.message,
+        )
+      } catch (err) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.NoInitialChannelData,
+          'Error retrieving the initial channel data for the user',
+          { cause: err },
+        )
+      }
+    }
+
+    return {
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    }
+  }
+
+  /**
    * Joins `channelName` with account `userId`, allowing them to receive and send messages in it.
    * Handles the use case of two users attempting to join a channel at the same time.
+   *
+   * A private channel only admits users who are already members, plus server moderators.
    */
-  async joinChannel(channelName: string, userId: SbUserId): Promise<JoinChannelResponse> {
+  async joinChannel(
+    channelName: string,
+    userId: SbUserId,
+    isServerModerator: boolean,
+  ): Promise<JoinChannelResponse> {
     const userInfo = await findUserById(userId)
     if (!userInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
     }
 
-    let succeeded = false
-    let isUserInChannel = false
-    let exitCode: JoinChannelExitCode | undefined
     let attempts = 0
-    let channel: FullChannelInfo | undefined
-    let userChannelEntry: UserChannelEntry | undefined
-    let message: ChatMessage
+    let outcome: JoinOutcome | undefined
     do {
       attempts += 1
       try {
         await transact(async client => {
-          channel = await findChannelByName(channelName, client)
-          if (channel) {
-            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id, client))
-            if (isUserInChannel) {
-              succeeded = true
-              return
-            }
-
-            const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
-            if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
-              exitCode = JoinChannelExitCode.UserBanned
-              return
-            }
-
+          const existingChannel = await findChannelByName(channelName, client)
+          if (existingChannel) {
             try {
-              userChannelEntry = await addUserToChannel(userId, channel.id, client)
-              if (!userChannelEntry) {
-                exitCode = JoinChannelExitCode.MaximumJoinedChannels
-                return
-              }
-
-              message = await addMessageToChannel(
-                userId,
-                channel.id,
-                {
-                  type: ServerChatMessageType.JoinChannel,
-                },
+              outcome = await this.admitToChannel(
+                { channelId: existingChannel.id, userId, admitPrivate: isServerModerator },
                 client,
               )
-              succeeded = true
             } catch (err: any) {
-              if (err.code === FOREIGN_KEY_VIOLATION) {
+              // The channel was deleted after it was looked up (its last member left), so the next
+              // attempt creates it instead.
+              if (
+                err.code === FOREIGN_KEY_VIOLATION ||
+                (err instanceof ChatServiceError &&
+                  err.code === ChatServiceErrorCode.ChannelNotFound)
+              ) {
                 throw new RetryableError()
               } else {
                 throw err
@@ -401,18 +688,18 @@ export default class ChatService {
               RestrictionKind.Chat,
             )
             if (isChatRestricted) {
-              exitCode = JoinChannelExitCode.UserChatRestricted
+              outcome = { kind: 'refused', exitCode: JoinChannelExitCode.UserChatRestricted }
               return
             }
 
             try {
-              channel = await createChannel(userId, channelName, client)
+              const channel = await createChannel(userId, channelName, client)
               if (!channel) {
-                exitCode = JoinChannelExitCode.MaximumOwnedChannels
+                outcome = { kind: 'refused', exitCode: JoinChannelExitCode.MaximumOwnedChannels }
                 return
               }
 
-              userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              const userChannelEntry = await addUserToChannel(userId, channel.id, client)
               if (!userChannelEntry) {
                 // Thrown (rather than handled through an exit code, which commits) so the
                 // transaction rolls the creation back: committing here would leave a zero-member
@@ -423,7 +710,7 @@ export default class ChatService {
                 )
               }
 
-              message = await addMessageToChannel(
+              const message = await addMessageToChannel(
                 userId,
                 channel.id,
                 {
@@ -431,7 +718,7 @@ export default class ChatService {
                 },
                 client,
               )
-              succeeded = true
+              outcome = { kind: 'joined', channel, userChannelEntry, message }
             } catch (err: any) {
               if (err.code === UNIQUE_VIOLATION) {
                 throw new RetryableError()
@@ -446,50 +733,202 @@ export default class ChatService {
           throw err
         }
       }
-    } while (!succeeded && !exitCode && attempts < MAX_JOIN_ATTEMPTS)
+    } while (!outcome && attempts < MAX_JOIN_ATTEMPTS)
 
-    if (exitCode === JoinChannelExitCode.MaximumJoinedChannels) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.MaximumJoinedChannels,
-        'Maximum joined channels reached',
-      )
-    }
-    if (exitCode === JoinChannelExitCode.MaximumOwnedChannels) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.MaximumOwnedChannels,
-        'Maximum owned channels reached',
-      )
-    }
-    if (exitCode === JoinChannelExitCode.UserBanned) {
-      throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
-    }
-    if (exitCode === JoinChannelExitCode.UserChatRestricted) {
-      throw new ChatServiceError(ChatServiceErrorCode.UserChatRestricted, 'User is chat restricted')
-    }
-    if (exitCode !== undefined) {
-      assertUnreachable(exitCode)
+    if (!outcome) {
+      throw new Error(`Failed to join ${channelName} after ${attempts} attempts`)
     }
 
-    // NOTE(2Pac): This is just to silence the TS compiler since it can't figure out on its own that
-    // `channel` will be defined here.
-    channel = channel!
+    return await this.completeJoin(userInfo, outcome)
+  }
 
-    if (!isUserInChannel) {
-      try {
-        await this.updateUserAfterJoining(userInfo, channel.id, userChannelEntry!, message!)
-      } catch (err) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.NoInitialChannelData,
-          'Error retrieving the initial channel data for the user',
-          { cause: err },
+  /**
+   * Joins a user to the private channel an invite link leads into. The link is locked for the
+   * whole join, so it's checked and its use counted without a concurrent join slipping in between:
+   * a join either consumes one use or changes nothing. A user who is already a member succeeds
+   * without consuming a use.
+   */
+  async joinChannelWithInviteLink(token: string, userId: SbUserId): Promise<JoinChannelResponse> {
+    const userInfo = await findUserById(userId)
+    if (!userInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
+    }
+    const linkId = inviteLinkIdFromToken(token)
+    if (!linkId) {
+      throw inviteLinkInvalidError()
+    }
+
+    let outcome: JoinOutcome
+    try {
+      outcome = await transact<JoinOutcome>(async client => {
+        const link = await getInviteLink(linkId, { forUpdate: true }, client)
+        if (!link || !isInviteLinkUsable(link, new Date())) {
+          return { kind: 'refused', exitCode: JoinChannelExitCode.InviteLinkInvalid }
+        }
+        const channel = await getChannelInfo(link.channelId, client)
+        if (!channel?.private) {
+          return { kind: 'refused', exitCode: JoinChannelExitCode.InviteLinkInvalid }
+        }
+
+        const result = await this.admitToChannel(
+          { channelId: channel.id, userId, admitPrivate: true, invitedBy: link.createdBy },
+          client,
         )
+        if (result.kind === 'joined') {
+          await incrementInviteLinkUses(link.id, client)
+        }
+        return result
+      })
+    } catch (err: any) {
+      // The channel was deleted while the user was being added to it.
+      if (err.code === FOREIGN_KEY_VIOLATION) {
+        throw inviteLinkInvalidError()
       }
+      throw err
+    }
+
+    return await this.completeJoin(userInfo, outcome)
+  }
+
+  /**
+   * Returns what an invite link leads into, to anyone holding a valid one. This is the only way a
+   * non-member can see a private channel's info.
+   */
+  async getInviteLinkInfo(token: string, userId: SbUserId): Promise<GetChannelInviteLinkResponse> {
+    const linkId = inviteLinkIdFromToken(token)
+    const link = linkId ? await getInviteLink(linkId) : undefined
+    if (!link || !isInviteLinkUsable(link, new Date())) {
+      throw inviteLinkInvalidError()
+    }
+
+    const [channel, userChannelEntry] = await Promise.all([
+      getChannelInfo(link.channelId),
+      getUserChannelEntryForUser(userId, link.channelId),
+    ])
+    if (!channel?.private) {
+      throw inviteLinkInvalidError()
     }
 
     return {
       channelInfo: toBasicChannelInfo(channel),
       detailedChannelInfo: toDetailedChannelInfo(channel),
-      joinedChannelInfo: toJoinedChannelInfo(channel),
+      expiresAt: link.expiresAt?.getTime(),
+      isMember: Boolean(userChannelEntry),
+    }
+  }
+
+  /**
+   * Returns an invite link into a private channel for one of its members (or a server moderator)
+   * to share. Without `settings`, hands back the user's newest default link while it has enough
+   * time left, so copying a link repeatedly doesn't pile up new ones, and creates a new default
+   * link otherwise. With `settings`, always creates a new link with them.
+   */
+  async getOrCreateInviteLink(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    isServerModerator: boolean,
+    settings?: InviteLinkSettings,
+  ): Promise<CreateChannelInviteLinkResponse> {
+    const [channel, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+    ensureCanGetInviteLink(channel, userId, userChannelEntry, isServerModerator)
+
+    const now = new Date()
+    let link = settings
+      ? undefined
+      : await findReusableInviteLink({
+          channelId,
+          createdBy: userId,
+          usableUntil: new Date(now.getTime() + INVITE_LINK_REUSE_MIN_REMAINING_MS),
+        })
+    if (!link) {
+      let expiresAt: Date | undefined
+      if (!settings) {
+        expiresAt = new Date(now.getTime() + INVITE_LINK_LIFETIME_MS)
+      } else if (settings.expiresInSeconds !== null) {
+        expiresAt = new Date(now.getTime() + settings.expiresInSeconds * 1000)
+      }
+      link = await createInviteLink({
+        channelId,
+        createdBy: userId,
+        createdAt: now,
+        expiresAt,
+        maxUses: settings?.maxUses ?? undefined,
+        asServerModerator: isServerModerator,
+      })
+    }
+    if (!link) {
+      // The channel was made public, or the user left it, after the checks above.
+      const [channelNow, userChannelEntryNow] = await Promise.all([
+        getChannelInfo(channelId),
+        getUserChannelEntryForUser(userId, channelId),
+      ])
+      ensureCanGetInviteLink(channelNow, userId, userChannelEntryNow, isServerModerator)
+      throw new Error('Invite link could not be created')
+    }
+
+    return { inviteLink: toInviteLinkJson(link) }
+  }
+
+  /**
+   * Returns a page of a channel's invite links that still work, newest first, to its owner or a
+   * server moderator. Links that no longer work are deleted along the way, which is what keeps
+   * them from piling up.
+   */
+  async listInviteLinks({
+    channelId,
+    userId,
+    isServerModerator,
+    limit,
+    offset,
+    searchStr,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    isServerModerator: boolean
+    limit: number
+    offset: number
+    searchStr?: string
+  }): Promise<ListChannelInviteLinksResponse> {
+    const channel = await getChannelInfo(channelId)
+    ensureCanManageInviteLinks(channel, userId, isServerModerator)
+
+    const now = new Date()
+    await deleteUnusableInviteLinks({ channelId, now })
+    const links = await listUsableInviteLinks({ channelId, now, searchStr, limit, offset })
+    const users = await findUsersById(Array.from(new global.Set(links.map(l => l.createdBy))))
+
+    return {
+      channelId,
+      inviteLinks: links.map(l => toInviteLinkJson(l)),
+      hasMoreInviteLinks: links.length >= limit,
+      users,
+    }
+  }
+
+  /**
+   * Deletes one of a channel's invite links for its owner or a server moderator, after which the
+   * link no longer resolves.
+   */
+  async revokeInviteLink({
+    channelId,
+    token,
+    userId,
+    isServerModerator,
+  }: {
+    channelId: SbChannelId
+    token: string
+    userId: SbUserId
+    isServerModerator: boolean
+  }): Promise<void> {
+    const channel = await getChannelInfo(channelId)
+    ensureCanManageInviteLinks(channel, userId, isServerModerator)
+
+    const linkId = inviteLinkIdFromToken(token)
+    if (!linkId || !(await deleteInviteLink({ channelId, id: linkId }))) {
+      throw inviteLinkInvalidError()
     }
   }
 
@@ -518,6 +957,14 @@ export default class ChatService {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotEditChannel,
         'Only channel owner and admins can edit the channel',
+      )
+    }
+
+    // Official channels have no owner, so a private one would have nobody to let anyone in.
+    if (updates.private && originalChannel.official) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotEditChannel,
+        'Official channels cannot be made private',
       )
     }
 
@@ -597,20 +1044,153 @@ export default class ChatService {
       updatedChannel.badgePath = badgePath
     }
 
-    const channel = await updateChannel(channelId, updatedChannel)
+    const channel =
+      updates.private === false || updates.membersCanInvite === false
+        ? await transact(async client => {
+            const updated = await updateChannel(channelId, updatedChannel, client)
+            if (updates.private === false) {
+              // Invite links only work while their channel is private. Deleting them here keeps
+              // the ones handed out before from working again if the channel is made private later.
+              await deleteInviteLinksForChannel(channelId, client)
+            } else {
+              // Links members already handed out would otherwise keep letting people in after the
+              // owner has taken inviting back.
+              await deleteMemberInviteLinks({ channelId, ownerId: updated.ownerId }, client)
+            }
+            return updated
+          })
+        : await updateChannel(channelId, updatedChannel)
 
-    this.publisher.publish(getChannelPath(channelId), {
-      action: 'edit',
-      channelInfo: toBasicChannelInfo(channel),
-      detailedChannelInfo: toDetailedChannelInfo(channel),
-      joinedChannelInfo: toJoinedChannelInfo(channel),
-    })
+    return this.publishChannelEdit(channel)
+  }
 
-    return {
+  /** Tells the channel's members about its updated info, and returns that info. */
+  private publishChannelEdit(channel: FullChannelInfo): EditChannelResponse {
+    const response = {
       channelInfo: toBasicChannelInfo(channel),
       detailedChannelInfo: toDetailedChannelInfo(channel),
       joinedChannelInfo: toJoinedChannelInfo(channel),
     }
+    this.publisher.publish(getChannelPath(channel.id), { action: 'edit', ...response })
+    return response
+  }
+
+  /** Renames a channel. Only server moderators can rename channels. */
+  async renameChannel(channelId: SbChannelId, name: string): Promise<EditChannelResponse> {
+    if (!(await getChannelInfo(channelId))) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
+    let channel: FullChannelInfo
+    try {
+      channel = await updateChannel(channelId, { name })
+    } catch (err: any) {
+      if (err.code === UNIQUE_VIOLATION) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.ChannelNameTaken,
+          'A channel with that name already exists',
+        )
+      }
+      throw err
+    }
+
+    return this.publishChannelEdit(channel)
+  }
+
+  /**
+   * Closes a channel: every member is removed from it and nobody can join it until it's reopened.
+   * The channel keeps its name, history and bans, and loses its owner, so the owner isn't left
+   * owning a channel they're no longer in. Only server moderators can close channels.
+   */
+  async closeChannel(channelId: SbChannelId): Promise<EditChannelResponse> {
+    ensureRemovableChannel(channelId)
+
+    const { channel, removedUserIds } = await transact(async client => {
+      // Invite links are locked before the channel, the same order a join through one takes them.
+      await deleteInviteLinksForChannel(channelId, client)
+      const channel = await getChannelInfo(channelId, client, { forUpdate: true })
+      if (!channel) {
+        throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+      }
+      if (channel.closed) {
+        return { channel, removedUserIds: [] }
+      }
+
+      const removedUserIds = await removeAllUsersFromChannel(channelId, client)
+      const closedChannel = await updateChannel(channelId, { closed: true, ownerId: null }, client)
+      return { channel: closedChannel, removedUserIds }
+    })
+
+    await this.evictChannelMembers(channel, removedUserIds, NotificationType.ChannelClosed)
+    return this.publishChannelEdit(channel)
+  }
+
+  /** Lets people join a closed channel again. Only server moderators can reopen channels. */
+  async reopenChannel(channelId: SbChannelId): Promise<EditChannelResponse> {
+    const channel = await transact(async client => {
+      // A link that was being created while the channel was closed would otherwise start working.
+      await deleteInviteLinksForChannel(channelId, client)
+      const channel = await getChannelInfo(channelId, client, { forUpdate: true })
+      if (!channel) {
+        throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+      }
+
+      return channel.closed ? await updateChannel(channelId, { closed: false }, client) : channel
+    })
+
+    return this.publishChannelEdit(channel)
+  }
+
+  /**
+   * Deletes a channel outright, along with its messages and bans, removing every member from it.
+   * Official channels can be deleted too. Only server moderators can delete channels.
+   */
+  async deleteChannel(channelId: SbChannelId): Promise<void> {
+    ensureRemovableChannel(channelId)
+
+    const { channel, removedUserIds } = await transact(async client => {
+      // Invite links are locked before the channel, the same order a join through one takes them.
+      await deleteInviteLinksForChannel(channelId, client)
+      const channel = await getChannelInfo(channelId, client, { forUpdate: true })
+      if (!channel) {
+        throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+      }
+
+      const removedUserIds = await removeAllUsersFromChannel(channelId, client)
+      await deleteChannel(channelId, client)
+      return { channel, removedUserIds }
+    })
+
+    await this.evictChannelMembers(channel, removedUserIds, NotificationType.ChannelDeleted)
+  }
+
+  /**
+   * Tells the members that were just removed from a closed or deleted channel about it, and stops
+   * sending them anything from the channel.
+   */
+  private async evictChannelMembers(
+    channel: FullChannelInfo,
+    removedUserIds: ReadonlyArray<SbUserId>,
+    notificationType: NotificationType.ChannelClosed | NotificationType.ChannelDeleted,
+  ) {
+    this.publisher.publish(getChannelPath(channel.id), { action: 'channelRemoved' })
+
+    for (const userId of removedUserIds) {
+      const userSockets = this.userSocketsManager.getById(userId)
+      if (userSockets) {
+        this.unsubscribeUserFromChannel(userSockets, channel.id)
+      }
+      if (this.state.users.get(userId)?.has(channel.id)) {
+        // TODO(tec27): Remove `any` cast once Immutable properly types this call again
+        this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channel.id))
+      }
+    }
+    this.state = this.state.deleteIn(['channels', channel.id])
+
+    await this.notificationService.addNotificationForUsers({
+      userIds: removedUserIds,
+      data: { type: notificationType, channelId: channel.id, channelName: channel.name },
+    })
   }
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
@@ -684,10 +1264,9 @@ export default class ChatService {
     const isUserChannelModerator =
       userChannelEntry?.channelPermissions.editPermissions ||
       userChannelEntry?.channelPermissions[moderationAction]
-    const isTargetChannelModerator =
-      targetChannelEntry.channelPermissions.editPermissions ||
-      targetChannelEntry.channelPermissions.ban ||
-      targetChannelEntry.channelPermissions.kick
+    const isTargetChannelModerator = holdsModerationPermission(
+      targetChannelEntry.channelPermissions,
+    )
 
     if (isTargetChannelOwner && !isServerModerator) {
       throw new ChatServiceError(
@@ -808,6 +1387,11 @@ export default class ChatService {
         ChatServiceErrorCode.TargetNotInChannel,
         'User must be in channel to transfer the ownership to them',
       )
+    }
+
+    if (!channelInfo.membersCanInvite) {
+      // The previous owner is now a member who can't invite, so their links stop working too.
+      await deleteMemberInviteLinks({ channelId, ownerId: targetId })
     }
 
     this.publisher.publish(getChannelPath(channelId), {
@@ -938,25 +1522,75 @@ export default class ChatService {
     })
   }
 
+  /**
+   * Deletes a message from a channel. Server moderators can delete any message. Otherwise the user
+   * must be in the channel, and any member can delete a text message they sent. Deleting anything
+   * else requires being the channel's owner or holding any moderation permission in it (`kick`,
+   * `ban` or `editPermissions`), and a moderator who isn't the owner can't delete messages sent by
+   * the owner or by another moderator, the same as they can't kick or ban them.
+   */
   async deleteMessage({
     channelId,
     messageId,
     userId,
-    isAdmin,
+    isServerModerator,
   }: {
     channelId: SbChannelId
     messageId: string
     userId: SbUserId
-    isAdmin: boolean
+    isServerModerator: boolean
   }): Promise<void> {
-    // TODO(2Pac): Update this method to allow channel moderators to delete messages from the
-    // channels they moderate, and for users to delete their own message.
+    if (!isServerModerator) {
+      const [channelInfo, userChannelEntry, author] = await Promise.all([
+        getChannelInfo(channelId),
+        getUserChannelEntryForUser(userId, channelId),
+        getChannelMessageAuthor(channelId, messageId),
+      ])
+      if (!channelInfo) {
+        throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+      }
+      if (!userChannelEntry) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.NotInChannel,
+          'Must be in channel to delete messages',
+        )
+      }
 
-    if (!isAdmin) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.NotEnoughPermissions,
-        'Not enough permissions to delete a message',
-      )
+      const isOwnTextMessage =
+        author?.userId === userId && author.messageType === ServerChatMessageType.TextMessage
+      const isUserChannelOwner = channelInfo.ownerId === userId
+      if (
+        !isOwnTextMessage &&
+        !isUserChannelOwner &&
+        !holdsModerationPermission(userChannelEntry.channelPermissions)
+      ) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.NotEnoughPermissions,
+          'Not enough permissions to delete a message',
+        )
+      }
+      if (author === undefined) {
+        throw new ChatServiceError(ChatServiceErrorCode.MessageNotFound, 'Message not found')
+      }
+
+      if (!isUserChannelOwner && author.userId !== userId) {
+        if (author.userId === channelInfo.ownerId) {
+          throw new ChatServiceError(
+            ChatServiceErrorCode.CannotModerateChannelOwner,
+            "Only server moderators can delete the channel owner's messages",
+          )
+        }
+        const authorChannelEntry = await getUserChannelEntryForUser(author.userId, channelId)
+        if (
+          authorChannelEntry &&
+          holdsModerationPermission(authorChannelEntry.channelPermissions)
+        ) {
+          throw new ChatServiceError(
+            ChatServiceErrorCode.CannotModerateChannelModerator,
+            "Only server moderators and channel owners can delete channel moderators' messages",
+          )
+        }
+      }
     }
 
     await deleteChannelMessage(messageId, channelId)
@@ -1047,37 +1681,31 @@ export default class ChatService {
 
   async searchChannels({
     userId,
+    isServerModerator,
     limit,
     offset,
     searchStr,
   }: {
     userId: SbUserId
+    isServerModerator: boolean
     limit: number
     offset: number
     searchStr?: string
   }): Promise<SearchChannelsResponse> {
-    const [channels, joinedChannels] = await Promise.all([
-      searchChannels({ limit, offset, searchStr }),
-      getChannelsForUser(userId),
-    ])
-
-    const userJoinedChannelsSet = new global.Set(joinedChannels.map(c => c.channelId))
-    const detailedChannelInfos: DetailedChannelInfo[] = []
-    const joinedChannelInfos: JoinedChannelInfo[] = []
-
-    for (const channel of channels) {
-      if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
-        continue
-      }
-
-      detailedChannelInfos.push(toDetailedChannelInfo(channel))
-      joinedChannelInfos.push(toJoinedChannelInfo(channel))
-    }
+    // Private channels the requester may not see are filtered out by the query itself, so every
+    // channel returned here is fully visible to them.
+    const channels = await searchChannels({
+      userId,
+      includePrivate: isServerModerator,
+      limit,
+      offset,
+      searchStr,
+    })
 
     return {
       channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
-      detailedChannelInfos,
-      joinedChannelInfos,
+      detailedChannelInfos: channels.map(channel => toDetailedChannelInfo(channel)),
+      joinedChannelInfos: channels.map(channel => toJoinedChannelInfo(channel)),
       hasMoreChannels: channels.length >= limit,
     }
   }
@@ -1257,7 +1885,6 @@ export default class ChatService {
 
     const isOwner = channelInfo.ownerId === chatUser.userId
 
-    const { channelPermissions: perms } = chatUser
     return {
       userId: chatUser.userId,
       channelId: chatUser.channelId,
@@ -1265,7 +1892,7 @@ export default class ChatService {
         userId: chatUser.userId,
         channelId: chatUser.channelId,
         joinDate: chatUser.joinDate,
-        isModerator: isOwner || perms.editPermissions || perms.ban || perms.kick,
+        isModerator: isOwner || holdsModerationPermission(chatUser.channelPermissions),
       }),
     }
   }
@@ -1600,10 +2227,9 @@ export default class ChatService {
     // laundering around the restrictions in `moderateUser`. Editing your own permissions is still
     // allowed.
     const isTargetChannelOwner = channelInfo.ownerId === targetId
-    const isTargetChannelModerator =
-      targetChannelEntry.channelPermissions.editPermissions ||
-      targetChannelEntry.channelPermissions.ban ||
-      targetChannelEntry.channelPermissions.kick
+    const isTargetChannelModerator = holdsModerationPermission(
+      targetChannelEntry.channelPermissions,
+    )
 
     if (isTargetChannelOwner) {
       // The owner's authority derives from being the owner rather than from these flags, so editing
@@ -1696,6 +2322,10 @@ export default class ChatService {
     userId: SbUserId,
   ): Promise<LeaveChannelResult> {
     const result = await removeUserFromChannel(userId, channelId)
+    // The invite links a member created stop working once they're out of the channel, whether they
+    // left or were kicked or banned. A link being created concurrently holds the membership row
+    // until it's stored, so it's already stored by the time this runs.
+    await deleteInviteLinksCreatedBy({ channelId, userId })
 
     if (this.state.channels.has(channelId)) {
       const updated = this.state.channels.get(channelId)!.delete(userId)

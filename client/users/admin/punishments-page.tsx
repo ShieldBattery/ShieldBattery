@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -20,7 +20,8 @@ import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import { FilledButton } from '../../material/button'
+import { dateTimeFormat, useFormat } from '../../i18n/locale-formats'
+import { FilledButton, TextButton } from '../../material/button'
 import { DateTimeTextField } from '../../material/datetime-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
@@ -34,9 +35,16 @@ import {
   adminBanUser,
   adminGetUserBanHistory,
   adminGetUserRestrictions,
+  adminLiftRestriction,
   adminUnbanUser,
 } from '../action-creators'
 import { ConnectedUsername } from '../connected-username'
+import {
+  ALL_PUNISHMENT_DURATIONS,
+  presetEndTime,
+  PunishmentDuration,
+  punishmentDurationToLabel,
+} from './punishment-durations'
 
 const AdminSection = styled.div`
   block-size: min-content;
@@ -91,7 +99,7 @@ const EmptyState = styled.td`
   color: var(--theme-on-surface-variant);
 `
 
-const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const banDateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'short',
   day: '2-digit',
@@ -99,8 +107,13 @@ const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
-interface BanFormModel {
+interface DurationFormModel {
+  duration: PunishmentDuration
+  /** Only used when `duration` is `Custom`. */
   endTime: string
+}
+
+interface BanFormModel extends DurationFormModel {
   reason?: string
 }
 
@@ -108,14 +121,14 @@ interface UnbanFormModel {
   reason?: string
 }
 
-interface RestrictionFormModel {
+interface RestrictionFormModel extends DurationFormModel {
   kind: RestrictionKind
-  endTime: string
   reason?: RestrictionReason
   adminNotes?: string
 }
 
 const BAN_FORM_DEFAULTS: BanFormModel = {
+  duration: PunishmentDuration.OneDay,
   endTime: '',
   reason: '',
 }
@@ -126,9 +139,86 @@ const UNBAN_FORM_DEFAULTS: UnbanFormModel = {
 
 const RESTRICTION_FORM_DEFAULTS: RestrictionFormModel = {
   kind: RestrictionKind.Chat,
+  duration: PunishmentDuration.OneDay,
   endTime: '',
   reason: RESTRICTION_REASONS_BY_KIND[RestrictionKind.Chat][0],
   adminNotes: '',
+}
+
+/**
+ * Returns the end time (in ms) to submit for a form's chosen duration. Presets are measured from
+ * the moment this is called, so it should be called at submit time.
+ */
+function resolveEndTime({ duration, endTime }: ReadonlyDeep<DurationFormModel>): number {
+  return duration === PunishmentDuration.Custom
+    ? Date.parse(endTime)
+    : presetEndTime(duration, Date.now())
+}
+
+function validateCustomEndTime(
+  value: string,
+  model: ReadonlyDeep<DurationFormModel>,
+): string | undefined {
+  if (model.duration !== PunishmentDuration.Custom) {
+    return undefined
+  }
+  if (!value || Date.parse(value) <= Date.now()) {
+    return 'End time must be in the future'
+  }
+  return undefined
+}
+
+const DurationRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+`
+
+const DurationSelect = styled(Select)`
+  width: 200px;
+  flex-shrink: 0;
+`
+
+const DurationEndPreview = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+function DurationPicker({
+  duration,
+  onDurationChange,
+  endTimeInput,
+}: {
+  duration: PunishmentDuration
+  onDurationChange: (duration: PunishmentDuration) => void
+  endTimeInput: ReactNode
+}) {
+  const now = useNow(15_000)
+  const banDateFormatter = useFormat(banDateFormat)
+
+  return (
+    <>
+      <DurationRow>
+        <DurationSelect
+          value={duration}
+          onChange={onDurationChange}
+          label='Length'
+          allowErrors={false}
+          tabIndex={0}>
+          {ALL_PUNISHMENT_DURATIONS.map(d => (
+            <SelectOption key={d} value={d} text={punishmentDurationToLabel(d)} />
+          ))}
+        </DurationSelect>
+        {duration !== PunishmentDuration.Custom ? (
+          <DurationEndPreview>
+            Ends {banDateFormatter.format(presetEndTime(duration, now))}
+          </DurationEndPreview>
+        ) : null}
+      </DurationRow>
+      {duration === PunishmentDuration.Custom ? endTimeInput : null}
+    </>
+  )
 }
 
 export interface AdminPunishmentsPageProps {
@@ -237,7 +327,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
                 adminBanUser(
                   {
                     userId,
-                    endTime: Date.parse(model.endTime),
+                    endTime: resolveEndTime(model),
                     reason: model.reason?.length ? model.reason : undefined,
                   },
                   {
@@ -332,6 +422,7 @@ function BanHistoryList({
   banHistory: ReadonlyDeep<BanHistoryEntryJson[]>
   now: number
 }) {
+  const banDateFormatter = useFormat(banDateFormat)
   return (
     <BanTable>
       <thead>
@@ -347,8 +438,8 @@ function BanHistoryList({
         {banHistory.length ? (
           banHistory.map((b, i) => (
             <BanRow key={i} $expired={b.startTime <= now && b.endTime <= now}>
-              <TimeCell>{banDateFormat.format(b.startTime)}</TimeCell>
-              <TimeCell>{banDateFormat.format(b.endTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(b.startTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(b.endTime)}</TimeCell>
               <UsernameCell>
                 {b.bannedBy !== undefined ? (
                   <ConnectedUsername userId={b.bannedBy} />
@@ -366,7 +457,9 @@ function BanHistoryList({
                       ) : (
                         <span>- system -</span>
                       )}
-                      {b.unbannedAt !== undefined ? ` ${banDateFormat.format(b.unbannedAt)}` : ''}
+                      {b.unbannedAt !== undefined
+                        ? ` ${banDateFormatter.format(b.unbannedAt)}`
+                        : ''}
                     </div>
                     {b.unbanReason !== undefined ? <div>{b.unbanReason}</div> : null}
                   </>
@@ -391,13 +484,8 @@ function BanUserForm({
   model: BanFormModel
   onSubmit: (model: ReadonlyDeep<BanFormModel>) => void
 }) {
-  const { submit, bindInput, form } = useForm<BanFormModel>(model, {
-    endTime: value => {
-      if (!value || Date.parse(value) <= Date.now()) {
-        return 'End time must be in the future'
-      }
-      return undefined
-    },
+  const { submit, bindInput, bindCustom, getInputValue, form } = useForm<BanFormModel>(model, {
+    endTime: validateCustomEndTime,
   })
 
   useFormCallbacks(form, {
@@ -407,11 +495,17 @@ function BanUserForm({
   return (
     <form noValidate={true} onSubmit={submit}>
       <TitleLarge>Ban user</TitleLarge>
-      <DateTimeTextField
-        {...bindInput('endTime')}
-        label='End time'
-        floatingLabel={true}
-        inputProps={{ tabIndex: 0 }}
+      <DurationPicker
+        duration={getInputValue('duration')}
+        onDurationChange={bindCustom('duration').onChange}
+        endTimeInput={
+          <DateTimeTextField
+            {...bindInput('endTime')}
+            label='End time'
+            floatingLabel={true}
+            inputProps={{ tabIndex: 0 }}
+          />
+        }
       />
       <BodyMedium>This reason will be visible to the user!</BodyMedium>
       <TextField
@@ -513,7 +607,33 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
       {restrictionHistory === undefined ? (
         <LoadingDotsArea />
       ) : (
-        <RestrictionHistoryList restrictionHistory={restrictionHistory} now={now} />
+        <RestrictionHistoryList
+          restrictionHistory={restrictionHistory}
+          now={now}
+          onLift={
+            isSelf
+              ? undefined
+              : (kind, reason, onDone) => {
+                  dispatch(
+                    adminLiftRestriction(
+                      { userId, kind, reason },
+                      {
+                        onSuccess: response => {
+                          const lifted = new Map(response.restrictions.map(r => [r.id, r]))
+                          setRestrictionHistory(history => history?.map(r => lifted.get(r.id) ?? r))
+                          setRequestError(undefined)
+                          onDone()
+                        },
+                        onError: err => {
+                          setRequestError(err)
+                          onDone()
+                        },
+                      },
+                    ),
+                  )
+                }
+          }
+        />
       )}
       {!isSelf ? (
         <RestrictUserForm
@@ -525,7 +645,7 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
                 {
                   userId,
                   kind: model.kind,
-                  endTime: Date.parse(model.endTime),
+                  endTime: resolveEndTime(model),
                   reason: model.reason,
                   adminNotes: model.adminNotes?.length ? model.adminNotes.slice(0, 500) : undefined,
                 },
@@ -559,14 +679,24 @@ const RestrictionReasonCell = styled.td`
   width: 112px;
 `
 
+type LiftRestrictionHandler = (
+  kind: RestrictionKind,
+  reason: string | undefined,
+  onDone: () => void,
+) => void
+
 function RestrictionHistoryList({
   restrictionHistory,
   now,
+  onLift,
 }: {
   restrictionHistory: ReadonlyDeep<UserRestrictionHistoryJson[]>
   now: number
+  /** Called to lift a restriction kind. Lift actions are hidden when this is undefined. */
+  onLift?: LiftRestrictionHandler
 }) {
   const { t } = useTranslation()
+  const banDateFormatter = useFormat(banDateFormat)
   return (
     <BanTable>
       <thead>
@@ -577,15 +707,16 @@ function RestrictionHistoryList({
           <UsernameCell as='th'>Restricted by</UsernameCell>
           <RestrictionReasonCell as='th'>Reason</RestrictionReasonCell>
           <th>Admin notes</th>
+          <th>Lifted</th>
         </tr>
       </thead>
       <tbody>
         {restrictionHistory.length ? (
-          restrictionHistory.map((r, i) => (
-            <BanRow key={i} $expired={r.startTime <= now && r.endTime <= now}>
+          restrictionHistory.map(r => (
+            <BanRow key={r.id} $expired={r.startTime <= now && r.endTime <= now}>
               <RestrictionKindCell>{r.kind}</RestrictionKindCell>
-              <TimeCell>{banDateFormat.format(r.startTime)}</TimeCell>
-              <TimeCell>{banDateFormat.format(r.endTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(r.startTime)}</TimeCell>
+              <TimeCell>{banDateFormatter.format(r.endTime)}</TimeCell>
               <UsernameCell>
                 {r.restrictedBy !== undefined ? (
                   <ConnectedUsername userId={r.restrictedBy} />
@@ -597,15 +728,109 @@ function RestrictionHistoryList({
                 {r.reason !== undefined ? restrictionReasonToLabel(r.reason, t) : ''}
               </RestrictionReasonCell>
               <td>{r.adminNotes ?? ''}</td>
+              <td>
+                <RestrictionLiftCell restriction={r} now={now} onLift={onLift} />
+              </td>
             </BanRow>
           ))
         ) : (
           <BanRow>
-            <EmptyState colSpan={6}>No restrictions found</EmptyState>
+            <EmptyState colSpan={7}>No restrictions found</EmptyState>
           </BanRow>
         )}
       </tbody>
     </BanTable>
+  )
+}
+
+function RestrictionLiftCell({
+  restriction: r,
+  now,
+  onLift,
+}: {
+  restriction: ReadonlyDeep<UserRestrictionHistoryJson>
+  now: number
+  onLift?: LiftRestrictionHandler
+}) {
+  const banDateFormatter = useFormat(banDateFormat)
+  if (r.liftedAt !== undefined) {
+    return (
+      <>
+        <div>
+          {r.liftedBy !== undefined ? (
+            <ConnectedUsername userId={r.liftedBy} />
+          ) : (
+            <span>- system -</span>
+          )}
+          {` ${banDateFormatter.format(r.liftedAt)}`}
+        </div>
+        {r.liftReason !== undefined ? <div>{r.liftReason}</div> : null}
+      </>
+    )
+  }
+
+  return onLift && r.endTime > now ? <LiftRestrictionAction kind={r.kind} onLift={onLift} /> : null
+}
+
+const LiftForm = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+`
+
+const LiftButtons = styled.div`
+  display: flex;
+  gap: 4px;
+`
+
+function LiftRestrictionAction({
+  kind,
+  onLift,
+}: {
+  kind: RestrictionKind
+  onLift: LiftRestrictionHandler
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [note, setNote] = useState('')
+  const [lifting, setLifting] = useState(false)
+
+  if (!expanded) {
+    return <TextButton label='Lift' onClick={() => setExpanded(true)} />
+  }
+
+  return (
+    <LiftForm>
+      <div>
+        Ends every active {kind} restriction on this account and on accounts connected to it.
+      </div>
+      <TextField
+        value={note}
+        onChange={event => setNote(event.target.value)}
+        label='Notes (optional, admin-only)'
+        dense={true}
+        allowErrors={false}
+        maxLength={500}
+        disabled={lifting}
+        inputProps={{
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+        }}
+      />
+      <LiftButtons>
+        <TextButton
+          label='Lift'
+          disabled={lifting}
+          onClick={() => {
+            setLifting(true)
+            onLift(kind, note.trim().length ? note.trim() : undefined, () => setLifting(false))
+          }}
+        />
+        <TextButton label='Cancel' disabled={lifting} onClick={() => setExpanded(false)} />
+      </LiftButtons>
+    </LiftForm>
   )
 }
 
@@ -619,12 +844,7 @@ function RestrictUserForm({
   const { t } = useTranslation()
   const { submit, bindInput, bindCustom, getInputValue, setInputValue, form } =
     useForm<RestrictionFormModel>(model, {
-      endTime: value => {
-        if (!value || Date.parse(value) <= Date.now()) {
-          return 'End time must be in the future'
-        }
-        return undefined
-      },
+      endTime: validateCustomEndTime,
     })
 
   useFormCallbacks(form, {
@@ -652,11 +872,17 @@ function RestrictUserForm({
           <SelectOption key={kind} value={kind} text={kind} />
         ))}
       </Select>
-      <DateTimeTextField
-        {...bindInput('endTime')}
-        label='End time'
-        floatingLabel={true}
-        inputProps={{ tabIndex: 0 }}
+      <DurationPicker
+        duration={getInputValue('duration')}
+        onDurationChange={bindCustom('duration').onChange}
+        endTimeInput={
+          <DateTimeTextField
+            {...bindInput('endTime')}
+            label='End time'
+            floatingLabel={true}
+            inputProps={{ tabIndex: 0 }}
+          />
+        }
       />
       {reasonOptions.length ? (
         <Select {...bindCustom('reason')} label='Reason' tabIndex={0}>

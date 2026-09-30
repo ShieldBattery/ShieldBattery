@@ -137,11 +137,11 @@ importers:
         specifier: ^2.1.2
         version: 2.1.2
       nydus:
-        specifier: ^5.3.2
-        version: 5.3.2(supports-color@8.1.1)
+        specifier: ^5.4.0
+        version: 5.4.0(supports-color@8.1.1)
       nydus-client:
-        specifier: ^5.3.1
-        version: 5.3.1(supports-color@8.1.1)
+        specifier: ^5.4.0
+        version: 5.4.0(supports-color@8.1.1)
       pg:
         specifier: ^8.23.0
         version: 8.23.0
@@ -408,8 +408,8 @@ importers:
         specifier: ^3.0.1
         version: 3.0.1
       engine.io:
-        specifier: ^6.6.10
-        version: 6.6.10(supports-color@8.1.1)
+        specifier: ^6.6.11
+        version: 6.6.11(supports-color@8.1.1)
       eslint:
         specifier: ^10.10.0
         version: 10.10.0(jiti@2.7.0)(supports-color@8.1.1)
@@ -5031,15 +5031,15 @@ packages:
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
 
-  engine.io-client@6.6.6:
-    resolution: {integrity: sha512-iY6QdftLQ9pyiPoX082bpf/u1UewnOaJrtJIF9T0++QB34lZrj0uP+Q/bj8AlUsAxqhnkTV2BS8SBZSxOmoV5Q==}
+  engine.io-client@6.6.7:
+    resolution: {integrity: sha512-GyAvmPA7gnRCpDQbYACAy79Lg4ewevrmaPzySZz0OVvgyZc3gEfLLqPTYk8wVBScjOEpM9ZO4KryyFpVItjGEA==}
 
   engine.io-parser@5.2.3:
     resolution: {integrity: sha512-HqD3yTBfnBxIrbnM1DoD6Pcq8NECnh8d4As1Qgh0z5Gg3jRRIqijury0CL3ghu/edArpUYiYqQiDUQBIs4np3Q==}
     engines: {node: '>=10.0.0'}
 
-  engine.io@6.6.10:
-    resolution: {integrity: sha512-9/lX2bdlizlCXMHRMOIm03VBQHQYC7VvydcxtTAUJRxNW1QzM/2PMFSmr6h/lCiMHcyCP6abK+t9Q+j4vekk8Q==}
+  engine.io@6.6.11:
+    resolution: {integrity: sha512-z34mGpLoY/82ZbkX1LqGMIaf3wjVMPL6gVC681QDqnmzJ26synI8qAE32P+a7UazmpJZ8UGrFIeAavgRfXzYrg==}
     engines: {node: '>=10.2.0'}
 
   enhanced-resolve@5.25.1:
@@ -6591,11 +6591,6 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nanoid@5.1.16:
-    resolution: {integrity: sha512-kVrnsrJqMR8+oLJnGEmSWw9BivK5mt7H3FZatVRjrc5wGqFYuBxX1yG7+A7Gi5AefkX6t/oCkizcQgpu0cY1dQ==}
-    engines: {node: ^18 || >=20}
-    hasBin: true
-
   nanoid@6.0.1:
     resolution: {integrity: sha512-3wVS3i51pE2pi1k5FFL/95BGfVS0kSsvDVuGXHOtxox/TywUmtgq+3qiTOTbs9J7KfHaXPiN171k/A6dBnaXFw==}
     engines: {node: ^22 || ^24 || >=26}
@@ -6639,8 +6634,8 @@ packages:
   no-case@3.0.4:
     resolution: {integrity: sha512-fgAN3jGAh+RoxUGZHTSOLJIqUc2wmoBwGR4tbpNAKmmovFoWq0OdRkb0VkldReO2a2iBT/OEulG9XSUc10r3zg==}
 
-  node-abi@4.31.0:
-    resolution: {integrity: sha512-Erq5w/t3syw3s4sDsUaX4QttIdBPsGKTT1DTRsCkTonGggczhlDKm/wDX3o+HPJpQ41EjXCbcmXf0tgr5YZJXw==}
+  node-abi@4.35.0:
+    resolution: {integrity: sha512-ymk4aIzxdPopw2giv8Fs1Ec6vybGkjmyxUwVqhkI4MCy2tVfXdkOGGWieWVjL0THgH+7a8lRdevyupoYj3Js/Q==}
     engines: {node: '>=22.12.0'}
 
   node-addon-api@7.1.1:
@@ -6726,16 +6721,17 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
-  nydus-client@5.3.1:
-    resolution: {integrity: sha512-+Dx0JDy1xcuOjqLdkL6ifnh4ZtTzcOmqFFDY7bLhyf1NM5Hqd4LUn3CW+b8YolrpGFa8s0/b/EezZ/xclSOK6Q==}
+  nydus-client@5.4.0:
+    resolution: {integrity: sha512-ZcZmOEKcr/UPycwTq7BcRx3I0TB7XiuuydZ+NTR7U/YWTDWCg3GT97rcmPG94Z4EOm/6Jp4j4mEkGnXBqULkcw==}
     engines: {node: '>=22.12'}
 
   nydus-protocol@3.0.0:
     resolution: {integrity: sha512-Nsu57sI4Ntlx1crWWm1bpkWsJXzoaHJNYbZ/CC4eGn8/K5ss9SH+zLCyOH8yWd2LXui01HOMCZ9L0GQkaQrptQ==}
     engines: {node: '>=22.0.0'}
 
-  nydus@5.3.2:
-    resolution: {integrity: sha512-9BTYWRKmW2dKR0LATyq3YxV1baGz6lCr1W36trtDKSVcs3yvwOsSN0ri5DTMS62uXGoqPmisPLuBSD+Up1vzoA==}
+  nydus@5.4.0:
+    resolution: {integrity: sha512-J9qkWnUghRz97//0mS638Zt4fv8tposbTWhMyX8ydNU+BiJqRz3wf5tRTAb6TsQnAtpftKv8F/TvIIVyVWkuqw==}
+    engines: {node: '>=22.12'}
 
   nypm@0.6.6:
     resolution: {integrity: sha512-vRyr0r4cbBapw07Xw8xrj9Teq3o7MUD35rSaTcanDbW+aK2XHDgJFiU6ZTj2GBw7Q12ysdsyFss+Vdz4hQ0Y6Q==}
@@ -9096,7 +9092,7 @@ snapshots:
     dependencies:
       '@malept/cross-spawn-promise': 2.0.0
       debug: 4.4.3(supports-color@8.1.1)
-      node-abi: 4.31.0
+      node-abi: 4.35.0
       node-api-version: 0.2.1
       node-gyp: 12.4.0
       read-binary-file-arch: 1.0.6(supports-color@8.1.1)
@@ -12874,7 +12870,7 @@ snapshots:
     dependencies:
       once: 1.4.0
 
-  engine.io-client@6.6.6(supports-color@8.1.1):
+  engine.io-client@6.6.7(supports-color@8.1.1):
     dependencies:
       '@socket.io/component-emitter': 3.1.2
       debug: 4.4.3(supports-color@8.1.1)
@@ -12888,7 +12884,7 @@ snapshots:
 
   engine.io-parser@5.2.3: {}
 
-  engine.io@6.6.10(supports-color@8.1.1):
+  engine.io@6.6.11(supports-color@8.1.1):
     dependencies:
       '@types/cors': 2.8.19
       '@types/node': 24.13.3
@@ -14690,8 +14686,6 @@ snapshots:
 
   nanoid@3.3.19: {}
 
-  nanoid@5.1.16: {}
-
   nanoid@6.0.1: {}
 
   natural-compare@1.4.0: {}
@@ -14737,7 +14731,7 @@ snapshots:
       lower-case: 2.0.2
       tslib: 2.8.1
 
-  node-abi@4.31.0:
+  node-abi@4.35.0:
     dependencies:
       semver: 7.8.5
 
@@ -14815,11 +14809,11 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
-  nydus-client@5.3.1(supports-color@8.1.1):
+  nydus-client@5.4.0(supports-color@8.1.1):
     dependencies:
       backo2: 1.0.2
-      engine.io-client: 6.6.6(supports-color@8.1.1)
-      nanoid: 5.1.16
+      engine.io-client: 6.6.7(supports-color@8.1.1)
+      nanoid: 6.0.1
       nydus-protocol: 3.0.0(supports-color@8.1.1)
       ruta3: 2.0.1
     transitivePeerDependencies:
@@ -14833,12 +14827,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  nydus@5.3.2(supports-color@8.1.1):
+  nydus@5.4.0(supports-color@8.1.1):
     dependencies:
       backo2: 1.0.2
-      engine.io: 6.6.10(supports-color@8.1.1)
+      engine.io: 6.6.11(supports-color@8.1.1)
       immutable: 5.1.9
-      nanoid: 5.1.16
+      nanoid: 6.0.1
       nydus-protocol: 3.0.0(supports-color@8.1.1)
       ruta3: 2.0.1
     transitivePeerDependencies:
@@ -16069,7 +16063,7 @@ snapshots:
       base64id: 2.0.0
       cors: 2.8.6
       debug: 4.4.3(supports-color@8.1.1)
-      engine.io: 6.6.10(supports-color@8.1.1)
+      engine.io: 6.6.11(supports-color@8.1.1)
       socket.io-adapter: 2.5.8(supports-color@8.1.1)
       socket.io-parser: 4.2.7(supports-color@8.1.1)
     transitivePeerDependencies:

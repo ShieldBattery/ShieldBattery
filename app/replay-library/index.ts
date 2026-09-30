@@ -1,12 +1,11 @@
 import { shell } from 'electron'
-import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Worker } from 'node:worker_threads'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcMain, TypedIpcSender } from '../../common/ipc'
 import log from '../logger'
-import { isWithinWatchedFolders, removeSavedReplay } from './replay-remove'
+import { removeSavedReplay, trashReplays } from './replay-remove'
 import { saveReplayToLibrary } from './replay-save'
 import {
   CallRequest,
@@ -57,8 +56,8 @@ export class ReplayLibraryService {
     ipcMain.handle('replayLibraryQuery', async (_event, filters) => this.call('query', filters))
     ipcMain.handle('replayLibraryStatus', async () => this.call('status'))
 
-    ipcMain.handle('replayLibrarySetBookmarked', async (_event, replayId, bookmarked) => {
-      const changed = await this.call('setBookmarked', replayId, bookmarked)
+    ipcMain.handle('replayLibrarySetBookmarked', async (_event, replayIds, bookmarked) => {
+      const changed = await this.call('setBookmarked', replayIds, bookmarked)
       this.notifyChanged()
       return changed
     })
@@ -132,8 +131,8 @@ export class ReplayLibraryService {
         if (replayId !== undefined && organize) {
           try {
             if (organize.bookmark) {
-              const changed = await this.call('setBookmarked', replayId, true)
-              organizeChanged = organizeChanged || changed
+              const changed = await this.call('setBookmarked', [replayId], true)
+              organizeChanged = organizeChanged || changed.length > 0
             }
             if (organize.playlistId !== undefined) {
               const added = await this.call('addToPlaylist', organize.playlistId, [replayId])
@@ -152,27 +151,16 @@ export class ReplayLibraryService {
     ipcMain.handle('replayLibraryRemoveSavedReplay', async (_event, filePath, expectedHash) =>
       removeSavedReplay(filePath, expectedHash, this.watchedFolders),
     )
-    ipcMain.handle('replayLibraryTrashReplay', async (_event, filePath) => {
-      if (!isWithinWatchedFolders(filePath, this.watchedFolders)) {
-        throw new Error(
-          `Refusing to trash a replay outside the watched replay folders: ${filePath}`,
-        )
-      }
-
-      try {
-        await stat(filePath)
-      } catch (err: any) {
-        if (err?.code === 'ENOENT') {
-          return false
-        }
-        throw err
-      }
-
-      // The index isn't touched here: the watcher's own reconcile un-indexes the row (cascading
-      // any playlist membership) once it notices the file is gone.
-      await shell.trashItem(filePath)
-      return true
-    })
+    ipcMain.handle('replayLibraryTrashReplays', async (_event, filePaths) =>
+      trashReplays(
+        filePaths,
+        this.watchedFolders,
+        filePath => shell.trashItem(filePath),
+        (filePath, err) => {
+          log.error(`Error moving replay '${filePath}' to Recycle Bin: ${getErrorStack(err)}`)
+        },
+      ),
+    )
 
     this.startWorker()
   }

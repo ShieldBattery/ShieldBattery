@@ -18,7 +18,7 @@ const reducer = reducerImport as unknown as (
 const CHANNEL_ID = makeSbChannelId(1)
 const USER_A = makeSbUserId(1)
 const USER_B = makeSbUserId(2)
-const AWAY: AvailabilityInfo = { availability: UserAvailability.Away, statusMessage: 'brb' }
+const AWAY: AvailabilityInfo = { availability: UserAvailability.Away }
 
 function initialState(): AvailabilityState {
   return reducer(undefined, { type: '@network/connect' })

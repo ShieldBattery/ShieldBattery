@@ -96,7 +96,7 @@ describe('client/messaging/whisper-echo-message', () => {
     const line = doRender(makeEcho({ direction: 'incoming' }))
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.format(SENT_TIME)}] ← ${COUNTERPART_NAME}: how goes it`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] ← ${COUNTERPART_NAME}: how goes it`,
     )
   })
 
@@ -104,7 +104,7 @@ describe('client/messaging/whisper-echo-message', () => {
     const line = doRender(makeEcho({ direction: 'outgoing' }))
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.format(SENT_TIME)}] → ${COUNTERPART_NAME}: how goes it`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] → ${COUNTERPART_NAME}: how goes it`,
     )
   })
 
@@ -112,7 +112,7 @@ describe('client/messaging/whisper-echo-message', () => {
     const line = doRender(makeEcho({ direction: 'incoming', emote: true, text: 'waves' }))
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.format(SENT_TIME)}] ← * ${COUNTERPART_NAME} waves`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] ← * ${COUNTERPART_NAME} waves`,
     )
     expect(line.textContent).not.toContain(': ')
   })
@@ -128,7 +128,7 @@ describe('client/messaging/whisper-echo-message', () => {
     )
 
     expect(line.textContent).toBe(
-      `[${shortTimestamp.format(SENT_TIME)}] ← * ${COUNTERPART_NAME} rolls 42 (1-100)`,
+      `[${shortTimestamp.current().format(SENT_TIME)}] ← * ${COUNTERPART_NAME} rolls 42 (1-100)`,
     )
     expect(screen.getByTestId('outcome-chip').textContent).toBe('42')
   })

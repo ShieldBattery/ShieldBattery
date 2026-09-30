@@ -43,6 +43,7 @@ import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useContextMenu } from '../dom/use-context-menu'
 import { longTimestamp, longTimestampWithSeconds, shortTimestamp } from '../i18n/date-formats'
+import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
@@ -193,7 +194,7 @@ const StatusChip = styled.div<{ $color: string }>`
   color: ${props => props.$color};
 `
 
-const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
+const gameDateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'short',
   day: '2-digit',
@@ -212,6 +213,8 @@ export function ConnectedGameResultsPage({
 }: ConnectedGameResultsPageProps) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const gameDateFormatter = useFormat(gameDateFormat)
 
   const isPostGame = location.search === '?post-game'
   const onTabChange = useCallback(
@@ -470,8 +473,8 @@ export function ConnectedGameResultsPage({
               </HeaderInfoItem>
               <HeaderInfoItem>
                 <HeaderInfoLabel>{t('gameDetails.infoDate', 'Date')}</HeaderInfoLabel>
-                <HeaderInfoValue title={longTimestamp.format(game.startTime)}>
-                  {gameDateFormat.format(game.startTime)}
+                <HeaderInfoValue title={longTimestampFormat.format(game.startTime)}>
+                  {gameDateFormatter.format(game.startTime)}
                 </HeaderInfoValue>
               </HeaderInfoItem>
               <HeaderInfoItem>
@@ -896,12 +899,20 @@ const CommendMenuItem = styled(MenuItem)`
   color: var(--theme-amber);
 `
 
-/** The tooltip for a commend that isn't available right now, naming when it will be. */
-function commendBlockedText(availability: CommendAvailability, name: string, t: TFunction) {
+/**
+ * The tooltip for a commend that isn't available right now, naming when it will be. `timeFormat` is
+ * the caller's `useFormat(shortTimestamp)`, so the time is in the app's language.
+ */
+function commendBlockedText(
+  availability: CommendAvailability,
+  name: string,
+  t: TFunction,
+  timeFormat: Intl.DateTimeFormat,
+) {
   if (availability.kind !== 'blocked') {
     return undefined
   }
-  const time = availability.until ? shortTimestamp.format(availability.until) : undefined
+  const time = availability.until ? timeFormat.format(availability.until) : undefined
   if (availability.reason === 'recent') {
     return time
       ? t('gameCommend.blocked.recent', {
@@ -944,6 +955,7 @@ const ResultsFeedbackContext = React.createContext<ResultsFeedbackContextValue>(
 function ResultsUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const { t } = useTranslation()
   const { feedback, onReport } = useContext(ResultsFeedbackContext)
+  const shortTimestampFormat = useFormat(shortTimestamp)
   const name = useAppSelector(s => s.users.byId.get(userId)?.name) ?? ''
 
   const menuItems = new Map(items)
@@ -965,7 +977,7 @@ function ResultsUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenu
         <MenuItem
           key='commend'
           text={t('gameCommend.menu.commend', 'Commend')}
-          secondaryText={commendBlockedText(availability, name, t)}
+          secondaryText={commendBlockedText(availability, name, t, shortTimestampFormat)}
           disabled={true}
         />
       ),
@@ -1072,6 +1084,7 @@ export interface PlayerResultProps {
 export function PlayerResult({ className, config, result, mmrChange }: PlayerResultProps) {
   const { t } = useTranslation()
   const { feedback, onReport } = useContext(ResultsFeedbackContext)
+  const shortTimestampFormat = useFormat(shortTimestamp)
   // Reserved on every row while any player can still be commended or reported, so columns align
   const showFeedbackColumn = feedback.candidates.length > 0
   const user = useAppSelector(s => (config.isComputer ? undefined : s.users.byId.get(config.id)))
@@ -1084,7 +1097,7 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
   const name = user?.name ?? ''
   const commendAvailability = isCandidate ? feedback.commendAvailability(config.id) : undefined
   const commendBlocked = commendAvailability
-    ? commendBlockedText(commendAvailability, name, t)
+    ? commendBlockedText(commendAvailability, name, t, shortTimestampFormat)
     : undefined
   const commendLabel = t('gameCommend.action', 'Commend')
   const reportLabel = t('gameReport.action', 'Report')
@@ -1436,6 +1449,8 @@ function DebugInfoDisplay({
   debugInfo: ReadonlyDeep<GameDebugInfoJson>
 }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const longTimestampWithSecondsFormat = useFormat(longTimestampWithSeconds)
   const [open, setOpen] = useState(false)
 
   const transition = open ? DEBUG_OPEN_TRANSITION : DEBUG_CLOSE_TRANSITION
@@ -1510,9 +1525,9 @@ function DebugInfoDisplay({
                         <td>
                           {report.reportedAt ? (
                             <Tooltip
-                              text={longTimestampWithSeconds.format(report.reportedAt)}
+                              text={longTimestampWithSecondsFormat.format(report.reportedAt)}
                               position='top'>
-                              {longTimestamp.format(report.reportedAt)}
+                              {longTimestampFormat.format(report.reportedAt)}
                             </Tooltip>
                           ) : (
                             '—'
@@ -1693,9 +1708,9 @@ function DebugInfoDisplay({
                             )}
                             <td>
                               <Tooltip
-                                text={longTimestampWithSeconds.format(event.at)}
+                                text={longTimestampWithSecondsFormat.format(event.at)}
                                 position='top'>
-                                {longTimestamp.format(event.at)}
+                                {longTimestampFormat.format(event.at)}
                               </Tooltip>
                             </td>
                           </tr>
@@ -1730,6 +1745,8 @@ type FlightBlobListState =
  */
 function FlightRecordingsSection({ gameId, session }: { gameId: string; session: number }) {
   const { t } = useTranslation()
+  const longTimestampFormat = useFormat(longTimestamp)
+  const longTimestampWithSecondsFormat = useFormat(longTimestampWithSeconds)
   const [listState, setListState] = useState<FlightBlobListState>({ status: 'idle' })
   const [downloadingRelayId, setDownloadingRelayId] = useState<number>()
 
@@ -1836,8 +1853,10 @@ function FlightRecordingsSection({ gameId, session }: { gameId: string; session:
                     </Tooltip>
                   </td>
                   <td>
-                    <Tooltip text={longTimestampWithSeconds.format(lastModifiedMs)} position='top'>
-                      {longTimestamp.format(lastModifiedMs)}
+                    <Tooltip
+                      text={longTimestampWithSecondsFormat.format(lastModifiedMs)}
+                      position='top'>
+                      {longTimestampFormat.format(lastModifiedMs)}
                     </Tooltip>
                   </td>
                   <td>

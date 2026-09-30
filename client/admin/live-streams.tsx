@@ -5,6 +5,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { logger } from '../logging/logger'
 import { TextButton } from '../material/button'
 import { LoadingDotsArea } from '../progress/dots'
@@ -101,6 +102,7 @@ const Meta = styled.div`
 
 export function AdminLiveStreams() {
   const selfPermissions = useSelfPermissions()
+  const longTimestampFormat = useFormat(longTimestamp)
   const snackbarController = useSnackbarController()
   const [{ data, error }, reexecuteQuery] = useQuery({ query: BlockedStreamsQuery })
   const [, unblockStream] = useMutation(AdminUnblockStreamMutation)
@@ -150,7 +152,7 @@ export function AdminLiveStreams() {
                 <Name>{name}</Name>
                 {entry.twitchLogin ? <Handle>twitch.tv/{entry.twitchLogin}</Handle> : null}
                 <Meta>
-                  Blocked {longTimestamp.format(new Date(entry.createdAt))}
+                  Blocked {longTimestampFormat.format(new Date(entry.createdAt))}
                   {entry.blockedBy ? ` by ${entry.blockedBy.name}` : ''}
                 </Meta>
               </BlockInfo>

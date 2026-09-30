@@ -35,8 +35,21 @@ export interface AccountSettings {
    * friends and everyone sharing a chat channel see it while the user is online.
    */
   availability: UserAvailability
-  /** A short message shown alongside `availability` to the same users. Empty if none is set. */
-  statusMessage: string
+  /** How text messages are laid out in every chat surface that shares the message list. */
+  chatDisplayMode: ChatDisplayMode
+}
+
+/**
+ * How chat renders text messages. `classic` is one dense IRC-style line per message with the
+ * author's name on every line. `cozy` groups consecutive messages from one author under a header
+ * with their avatar, name and time, with the following messages showing only their text.
+ */
+export type ChatDisplayMode = 'classic' | 'cozy'
+
+export const ALL_CHAT_DISPLAY_MODES: ReadonlyArray<ChatDisplayMode> = ['classic', 'cozy']
+
+export function isChatDisplayMode(value: unknown): value is ChatDisplayMode {
+  return ALL_CHAT_DISPLAY_MODES.includes(value as ChatDisplayMode)
 }
 
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
@@ -44,7 +57,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   quietWhispersWhileInGame: true,
   showWhispersEverywhere: true,
   availability: UserAvailability.Online,
-  statusMessage: '',
+  chatDisplayMode: 'classic',
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(
@@ -73,6 +86,9 @@ export function fillAccountSettingsDefaults(stored: unknown): AccountSettings {
   }
   if (!isUserAvailability(result.availability)) {
     result.availability = DEFAULT_ACCOUNT_SETTINGS.availability
+  }
+  if (!isChatDisplayMode(result.chatDisplayMode)) {
+    result.chatDisplayMode = DEFAULT_ACCOUNT_SETTINGS.chatDisplayMode
   }
 
   return result

@@ -1,8 +1,11 @@
 import { Immutable } from 'immer'
 import {
+  ChannelInviteLinkJson,
   ChannelModerationAction,
   ChannelPermissions,
   ChatServiceErrorCode,
+  CreateChannelInviteLinkRequest,
+  CreateChannelInviteLinkResponse,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
@@ -13,6 +16,7 @@ import {
   InitialChannelData,
   JoinChannelResponse,
   ListChannelBansResponse,
+  ListChannelInviteLinksResponse,
   ListUserChannelEntriesResponse,
   MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
@@ -187,11 +191,26 @@ export function getJoinChannelErrorMessage(err: unknown, channelName: string): s
         'You have reached the limit of joined channels. ' +
           'You must leave one before you can join another.',
       )
+    } else if (err.code === ChatServiceErrorCode.ChannelPrivate) {
+      return i18n.t('chat.joinChannel.privateError', {
+        defaultValue: '#{{channelName}} is private and requires an invite link to join',
+        channelName,
+      })
+    } else if (err.code === ChatServiceErrorCode.ChannelClosed) {
+      return i18n.t('chat.joinChannel.closedError', {
+        defaultValue: '#{{channelName}} has been closed by the server moderators',
+        channelName,
+      })
     } else if (err.code === ChatServiceErrorCode.UserBanned) {
       return i18n.t('chat.joinChannel.bannedError', {
         defaultValue: 'You are banned from #{{channelName}}',
         channelName,
       })
+    } else if (err.code === ChatServiceErrorCode.InviteLinkInvalid) {
+      return i18n.t(
+        'chat.joinChannel.inviteLinkInvalidError',
+        'This invite link is invalid or has expired.',
+      )
     }
 
     logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
@@ -223,6 +242,99 @@ export function joinChannelWithErrorHandling(
 
         throw err
       })
+  })
+}
+
+/**
+ * Gets an invite link into a private channel for the current user to share. Without `settings`
+ * this may be a default link they got before; with them, a new link is always created. The caller
+ * is expected to handle errors.
+ */
+export function getChannelInviteLink(
+  channelId: SbChannelId,
+  settings: CreateChannelInviteLinkRequest | undefined,
+  spec: RequestHandlingSpec<ChannelInviteLinkJson>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const result = await fetchJson<CreateChannelInviteLinkResponse>(
+      apiUrl`chat/${channelId}/invite-links`,
+      {
+        method: 'POST',
+        body: settings ? JSON.stringify(settings) : undefined,
+        signal: spec.signal,
+      },
+    )
+    return result.inviteLink
+  })
+}
+
+/**
+ * Lists a page of a channel's working invite links, loading their creators into the user store.
+ * The caller is expected to handle errors.
+ */
+export function listChannelInviteLinks(
+  channelId: SbChannelId,
+  searchQuery: string,
+  offset: number,
+  spec: RequestHandlingSpec<ListChannelInviteLinksResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = new URLSearchParams()
+    if (searchQuery) {
+      queryParams.set('q', searchQuery)
+    }
+    queryParams.set('offset', offset.toString())
+
+    const result = await fetchJson<ListChannelInviteLinksResponse>(
+      apiUrl`chat/${channelId}/invite-links?${queryParams}`,
+      { signal: spec.signal },
+    )
+
+    dispatch({
+      type: '@users/loadUsers',
+      payload: result.users,
+    })
+
+    return result
+  })
+}
+
+/** Revokes one of a channel's invite links. The caller is expected to handle errors. */
+export function revokeChannelInviteLink(
+  channelId: SbChannelId,
+  token: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/invite-links/${token}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
+  })
+}
+
+/**
+ * Joins the private channel an invite link leads into, then moves the user into it. The caller is
+ * expected to handle errors (see `getJoinChannelErrorMessage`).
+ */
+export function joinChannelWithInviteLink(
+  token: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<JoinChannelResponse>(apiUrl`chat/invite-links/${token}/join`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+
+    // The joined channel's info is known now, so it stops counting as a private channel the user
+    // can't see before the socket's own update about the join arrives.
+    dispatch({
+      type: '@chat/getChannelInfo',
+      payload: result,
+      meta: { channelId: result.channelInfo.id },
+    })
+    navigateToChannel(result.channelInfo.id, result.channelInfo.name)
   })
 }
 
@@ -455,13 +567,13 @@ export function sendOutcome(
   })
 }
 
-export function deleteMessageAsAdmin(
+export function deleteChannelMessage(
   channelId: SbChannelId,
   messageId: string,
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    await fetchJson<void>(apiUrl`admin/chat/${channelId}/messages/${messageId}`, {
+    await fetchJson<void>(apiUrl`chat/${channelId}/messages/${messageId}`, {
       method: 'DELETE',
       signal: spec.signal,
     })

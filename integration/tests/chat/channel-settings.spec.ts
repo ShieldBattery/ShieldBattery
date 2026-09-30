@@ -130,3 +130,60 @@ test('changing channel topic', async ({ page }) => {
   const actualChannelTopic = await chatPage.getChannelTopic()
   expect(actualChannelTopic).toBe(expectedChannelTopic)
 })
+
+test('making a channel private', async ({ page }) => {
+  // The seeded ShieldBattery channel is official, and official channels can't be made private.
+  const channelName = `private-${Date.now()}`
+
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
+  // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
+  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+  await chatPage.createChannel(channelName)
+
+  await chatPage.openChannelSettings()
+  expect(await chatPage.isChannelPrivateChecked()).toBe(false)
+
+  await chatPage.setChannelPrivate(true)
+  await chatPage.clickChannelSettingsSaveButton()
+
+  await expect(chatPage.channelPrivateGlyphLocator()).toBeVisible()
+
+  await chatPage.openChannelSettings()
+  expect(await chatPage.isChannelPrivateChecked()).toBe(true)
+})
+
+test('viewing the invite links of a private channel', async ({ page }) => {
+  // The seeded ShieldBattery channel is official, and official channels can't be made private.
+  const channelName = `invites-${Date.now()}`
+
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
+  // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
+  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+  await chatPage.createChannel(channelName)
+
+  await chatPage.openChannelSettings()
+  await chatPage.setChannelPrivate(true)
+  await chatPage.clickChannelSettingsSaveButton()
+  await expect(chatPage.channelPrivateGlyphLocator()).toBeVisible()
+
+  await chatPage.openInviteLinkDialog()
+  await chatPage.closeInviteLinkDialog()
+
+  await chatPage.openChannelSettings()
+  await chatPage.openInviteLinksSettingsPage()
+
+  await expect(chatPage.inviteLinkRowsLocator()).toHaveCount(1)
+  await expect(chatPage.inviteLinkRowsLocator().first()).toContainText('admin')
+})
+
+test("official channels can't be made private", async ({ page }) => {
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
+  await homePage.goToJoinedChatChannel('ShieldBattery')
+
+  await chatPage.openChannelSettings()
+
+  await expect(page.locator('input[type="checkbox"][name="private"]')).toHaveCount(0)
+})

@@ -4,7 +4,7 @@ import { MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { bodyMedium, titleLarge } from '../../styles/typography'
 import { LiveUsersContext } from '../../twitch/live-state'
-import { ActivityPanel, GameActivityEntry } from '../channel-activity-panel'
+import { GameActivityEntry, GameActivityPlayer } from '../channel-activity'
 import { UserList } from '../channel-user-list'
 
 /** Builds a gradient placeholder image as a data URI (no remote images in dev). */
@@ -51,6 +51,16 @@ const streams = [
     thumbnailUrl: placeholderImage('#2a4a2f', '#14202e'),
     user: { id: makeSbUserId(3), name: 'Jaedong' },
   },
+  {
+    id: 'stream:4',
+    twitchLogin: 'stork',
+    twitchDisplayName: 'Stork',
+    title: 'PvZ build orders',
+    viewerCount: 204,
+    startedAt: new Date(now - 18 * 60_000).toISOString(),
+    thumbnailUrl: placeholderImage('#4a2c2c', '#14202e'),
+    user: { id: makeSbUserId(4), name: 'Stork' },
+  },
 ]
 
 function mockMap(name: string, from: string, to: string): GameActivityEntry['map'] {
@@ -70,10 +80,15 @@ function mockMap(name: string, from: string, to: string): GameActivityEntry['map
   }
 }
 
+function player(id: number, race: GameActivityPlayer['race']): GameActivityPlayer {
+  return { userId: makeSbUserId(id), name: `Player ${id}`, race }
+}
+
 const games: GameActivityEntry[] = [
   {
     gameId: '11111111-1111-4111-8111-111111111111',
     members: [makeSbUserId(7)],
+    teams: [[player(7, 'z'), player(101, 'p')]],
     matchmakingType: MatchmakingType.Match1v1,
     startTime: now - 7 * 60_000,
     map: mockMap('Fighting Spirit', '#3b4d2c', '#1a2418'),
@@ -81,6 +96,10 @@ const games: GameActivityEntry[] = [
   {
     gameId: '22222222-2222-4222-8222-222222222222',
     members: [makeSbUserId(4), makeSbUserId(5)],
+    teams: [
+      [player(4, 't'), player(102, 'p')],
+      [player(5, 'z'), player(103, 'r')],
+    ],
     matchmakingType: MatchmakingType.Match2v2,
     startTime: now - 23 * 60_000,
     map: mockMap('Neo Sylphid', '#4a3a2c', '#241c14'),
@@ -88,20 +107,19 @@ const games: GameActivityEntry[] = [
   {
     gameId: '33333333-3333-4333-8333-333333333333',
     members: [makeSbUserId(6)],
+    teams: [[player(6, 'p'), player(104, 't')]],
     matchmakingType: MatchmakingType.Match1v1Fastest,
     startTime: now - 71 * 60_000,
     map: mockMap('Big Game Hunters', '#2c4a4a', '#14201f'),
   },
   {
     gameId: '44444444-4444-4444-8444-444444444444',
-    members: [
-      makeSbUserId(8),
-      makeSbUserId(9),
-      makeSbUserId(10),
-      makeSbUserId(11),
-      makeSbUserId(12),
+    members: [makeSbUserId(8), makeSbUserId(9), makeSbUserId(10), makeSbUserId(11)],
+    teams: [
+      [player(8, 'z'), player(9, 'p')],
+      [player(10, 't'), player(11, 'z')],
     ],
-    matchmakingType: MatchmakingType.Match2v2,
+    matchmakingType: MatchmakingType.Match2v2Hunters,
     startTime: now - 12 * 60_000,
     map: mockMap('Circuit Breaker', '#3a2c4a', '#1c1424'),
   },
@@ -140,18 +158,10 @@ const Columns = styled.div`
 `
 
 const MemberColumn = styled.div<{ $height: number }>`
-  width: 256px;
   height: ${props => props.$height}px;
   flex-shrink: 0;
 
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const FillingUserList = styled(UserList)`
-  flex: 1 1 0;
-  min-height: 0;
 `
 
 function Column({
@@ -165,23 +175,22 @@ function Column({
 }) {
   return (
     <MemberColumn $height={height}>
-      <ActivityPanel streams={streams} games={games} />
-      <FillingUserList active={roster.active} offline={roster.offline} />
+      <UserList active={roster.active} offline={roster.offline} streams={streams} games={games} />
     </MemberColumn>
   )
 }
 
-export function ActivityPanelTest() {
+export function PresenceListTest() {
   return (
     <LiveUsersContext.Provider value={liveUsers}>
       <Root>
         <Note>
-          Each column is the channel page's 256px member column. Stream cards are the home page's
-          featured + compact rows; games are map + avatar stack. Thumbnails are gradient
+          Each column is the channel page's 256px user list. Live streams and games are sections
+          above the roster; game rows expand to show everyone playing. Thumbnails are gradient
           placeholders. Avatars and roster names resolve through the store.
         </Note>
 
-        <SectionTitle>No entries (panel hidden), tall and short</SectionTitle>
+        <SectionTitle>No activity, tall and short</SectionTitle>
         <Columns>
           <Column height={800} streams={[]} games={[]} />
           <Column height={560} streams={[]} games={[]} />
@@ -192,7 +201,7 @@ export function ActivityPanelTest() {
           <Column height={800} streams={streams.slice(0, 1)} games={games.slice(0, 1)} />
         </Columns>
 
-        <SectionTitle>Three streams and four games, tall and short</SectionTitle>
+        <SectionTitle>Four streams and four games, tall and short</SectionTitle>
         <Columns>
           <Column height={800} streams={streams} games={games} />
           <Column height={560} streams={streams} games={games} />

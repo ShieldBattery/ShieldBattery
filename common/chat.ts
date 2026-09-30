@@ -17,6 +17,7 @@ export const MAXIMUM_OWNED_CHANNELS = 20
 export const SEARCH_CHANNELS_LIMIT = 40
 export const CHANNEL_USER_PERMISSIONS_LIMIT = 40
 export const CHANNEL_BANS_LIMIT = 40
+export const CHANNEL_INVITE_LINKS_LIMIT = 40
 
 export type SbChannelId = Tagged<number, 'SbChannelId'>
 
@@ -29,19 +30,38 @@ export function makeSbChannelId(id: number): SbChannelId {
   return id as SbChannelId
 }
 
+/**
+ * The channel every new account is put into. Signing up depends on it existing and being open, so
+ * it can't be closed or deleted.
+ */
+export const INITIAL_CHANNEL_ID = makeSbChannelId(1)
+
 export enum ChatServiceErrorCode {
   CannotChangeChannelOwner = 'CannotChangeChannelOwner',
   CannotEditChannel = 'CannotEditChannel',
   CannotModerateChannelOwner = 'CannotModerateChannelOwner',
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateYourself = 'CannotModerateYourself',
+  /** The channel every new account is put into can't be closed or deleted. */
+  CannotRemoveInitialChannel = 'CannotRemoveInitialChannel',
+  /** Server moderators have closed the channel, so nobody can join it. */
+  ChannelClosed = 'ChannelClosed',
+  /** Another channel already has the requested name. */
+  ChannelNameTaken = 'ChannelNameTaken',
   ChannelNotFound = 'ChannelNotFound',
+  /** The request only makes sense for a private channel, and the channel is public. */
+  ChannelNotPrivate = 'ChannelNotPrivate',
   /**
    * The channel exists and is private, and the requester is neither a member nor a server
    * moderator.
    */
   ChannelPrivate = 'ChannelPrivate',
   InappropriateImage = 'InappropriateImage',
+  /**
+   * The invite link doesn't exist, has expired, has been used up, or belongs to a channel that is
+   * no longer private. Which of those it is is deliberately not revealed.
+   */
+  InviteLinkInvalid = 'InviteLinkInvalid',
   MaximumJoinedChannels = 'MaximumJoinedChannels',
   MaximumOwnedChannels = 'MaximumOwnedChannels',
   MessageNotFound = 'MessageNotFound',
@@ -173,7 +193,7 @@ export interface BasicChannelInfo {
   name: string
   /**
    * A flag indicating whether the chat channel is private or not. Private chat channels can only be
-   * joined through an invite.
+   * joined through an invite link.
    */
   private: boolean
   /**
@@ -182,6 +202,11 @@ export interface BasicChannelInfo {
    * get deleted if everyone leaves, etc.) that distinguish them from regular channels.
    */
   official: boolean
+  /**
+   * A flag indicating whether server moderators have closed the chat channel. A closed channel has
+   * no members and can't be joined until it's reopened.
+   */
+  closed: boolean
 }
 
 /**
@@ -215,6 +240,11 @@ export interface JoinedChannelInfo {
   ownerId?: SbUserId
   /** An optional short message to describe the current topic of the channel. */
   topic?: string
+  /**
+   * Whether members other than the owner may create invite links into the channel. Only meaningful
+   * for private channels; the owner and server moderators can always create them.
+   */
+  membersCanInvite: boolean
 }
 
 /**
@@ -267,10 +297,6 @@ export interface ChannelPermissions {
    * user forbids them from rejoining the channel until they've been unbanned.
    */
   ban: boolean
-  /** A flag indicating whether the user has a permission to change the channel's topic. */
-  changeTopic: boolean
-  /** A flag indicating whether the user has a permission to change the channel's private status. */
-  togglePrivate: boolean
   /** A flag indicating whether the user has a permission to edit other user's permissions. */
   editPermissions: boolean
 }
@@ -286,6 +312,11 @@ export interface InitialChannelData {
   selfPreferences: ChannelPreferences
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
+  /**
+   * IDs of the channel members holding a moderation permission (kick, ban or editPermissions).
+   * Listed regardless of ownership; the owner is named by `joinedChannelInfo.ownerId`.
+   */
+  moderatorIds: SbUserId[]
   /**
    * Epoch millis of the newest message in the channel that sits past the user's read position and
    * counts toward unreadness. Omitted when there is none, which is what marks the channel read.
@@ -362,6 +393,13 @@ export interface ChatBanEvent {
   newOwnerId?: SbUserId
 }
 
+/**
+ * Server moderators have closed or deleted the chat channel, which removed every member from it.
+ */
+export interface ChatChannelRemovedEvent {
+  action: 'channelRemoved'
+}
+
 export interface ChatOwnerChangedEvent {
   action: 'ownerChanged'
   /** The ID of a user that is the new owner of the chat channel. */
@@ -436,6 +474,7 @@ export type ChatEvent =
   | ChatLeaveEvent
   | ChatKickEvent
   | ChatBanEvent
+  | ChatChannelRemovedEvent
   | ChatOwnerChangedEvent
   | ChatMessageEvent
   | ChatMessageDeletedEvent
@@ -483,6 +522,103 @@ export interface JoinChannelResponse {
 }
 
 /**
+ * An invite link into a private channel. Holding the link is what lets someone join the channel, so
+ * its token must only ever be shown to the people it's meant for.
+ */
+export interface ChannelInviteLink {
+  /** The link's token, as it appears in the link's URL. */
+  token: string
+  channelId: SbChannelId
+  /** The user who created the link. Everyone who joins through it is recorded against them. */
+  createdBy: SbUserId
+  createdAt: Date
+  /** When the link stops working, or `undefined` if it never expires. */
+  expiresAt?: Date
+  /** How many joins the link allows in total, or `undefined` if it's unlimited. */
+  maxUses?: number
+  /** How many users have joined the channel through the link. */
+  uses: number
+}
+
+export type ChannelInviteLinkJson = Jsonify<ChannelInviteLink>
+
+export function toChannelInviteLinkJson(inviteLink: ChannelInviteLink): ChannelInviteLinkJson {
+  return {
+    token: inviteLink.token,
+    channelId: inviteLink.channelId,
+    createdBy: inviteLink.createdBy,
+    createdAt: Number(inviteLink.createdAt),
+    expiresAt: inviteLink.expiresAt ? Number(inviteLink.expiresAt) : undefined,
+    maxUses: inviteLink.maxUses,
+    uses: inviteLink.uses,
+  }
+}
+
+/** The lifetimes, in seconds, an invite link can be created with (besides never expiring). */
+export const INVITE_LINK_EXPIRY_OPTIONS_SECONDS: ReadonlyArray<number> = [
+  30 * 60,
+  60 * 60,
+  6 * 60 * 60,
+  12 * 60 * 60,
+  24 * 60 * 60,
+  7 * 24 * 60 * 60,
+]
+/** The lifetime, in seconds, of an invite link created without choosing one. */
+export const DEFAULT_INVITE_LINK_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+
+/** The use limits an invite link can be created with (besides allowing unlimited uses). */
+export const INVITE_LINK_MAX_USES_OPTIONS: ReadonlyArray<number> = [1, 5, 10, 25, 50, 100]
+
+/**
+ * The body of a request to get an invite link for a private channel. Without either field, the
+ * requester's recent default link may be handed back instead of a new one; with any field set, a
+ * new link is always created, and a field left out takes its default.
+ */
+export interface CreateChannelInviteLinkRequest {
+  /**
+   * How long the link keeps working, one of `INVITE_LINK_EXPIRY_OPTIONS_SECONDS`, or `null` for a
+   * link that never expires.
+   */
+  expiresInSeconds?: number | null
+  /**
+   * How many joins the link allows, one of `INVITE_LINK_MAX_USES_OPTIONS`, or `null` for no limit.
+   */
+  maxUses?: number | null
+}
+
+/** The response returned when getting an invite link for a private channel. */
+export interface CreateChannelInviteLinkResponse {
+  inviteLink: ChannelInviteLinkJson
+}
+
+/**
+ * The response returned when listing a channel's invite links. The tokens make every link usable
+ * by whoever sees them, so this goes only to the channel's owner and server moderators.
+ */
+export interface ListChannelInviteLinksResponse {
+  channelId: SbChannelId
+  /** The channel's links that still work, newest first. */
+  inviteLinks: ChannelInviteLinkJson[]
+  /** Whether more links are available past this page. */
+  hasMoreInviteLinks: boolean
+  /** User infos for the links' creators. */
+  users: SbUser[]
+}
+
+/**
+ * The response returned when looking up the channel an invite link leads into. Anyone holding a
+ * valid link gets this, member or not.
+ */
+export interface GetChannelInviteLinkResponse {
+  channelInfo: BasicChannelInfo
+  detailedChannelInfo: DetailedChannelInfo
+  /** When the link stops working, or `undefined` if it never expires. */
+  expiresAt?: number
+  /** Whether the requester is already a member of the channel. */
+  isMember: boolean
+}
+
+/**
  * The body data of the API route for editing the channel info.
  */
 export interface EditChannelRequest {
@@ -490,6 +626,15 @@ export interface EditChannelRequest {
   topic?: string | null
   deleteBanner?: boolean
   deleteBadge?: boolean
+  /** Makes the channel private or public. Official channels can't be made private. */
+  private?: boolean
+  /** Lets members other than the owner create invite links into the channel, or stops them. */
+  membersCanInvite?: boolean
+}
+
+/** The body data of the admin API route for renaming a channel. */
+export interface RenameChannelRequest {
+  name: string
 }
 
 /**

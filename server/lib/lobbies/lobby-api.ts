@@ -3,7 +3,7 @@ import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
-import { ALL_LOBBY_VISIBILITIES } from '../../../common/lobbies'
+import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
   CreateLobbyRequest,
   CreateLobbyResponse,
@@ -132,13 +132,24 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   name: Joi.string().custom((value, helpers) =>
     isValidLobbyName(value) ? value : helpers.error('any.invalid'),
   ),
+  visibility: Joi.string().valid(...ALL_LOBBY_VISIBILITIES),
   map: Joi.string(),
   gameType: Joi.string().valid(...ALL_GAME_TYPES),
   gameSubType: Joi.number().min(1).max(7),
   allowObservers: Joi.boolean(),
   useLegacyLimits: Joi.boolean(),
+  mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
 })
-  .or('name', 'map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
+  .or(
+    'name',
+    'visibility',
+    'map',
+    'gameType',
+    'gameSubType',
+    'allowObservers',
+    'useLegacyLimits',
+    'mapQueue',
+  )
   .required()
 
 /** The body of a request to move a slot's occupant somewhere else. */
@@ -375,11 +386,13 @@ export class LobbyApi {
       client,
       lobbyId: params.lobbyId,
       name: body.name,
+      visibility: body.visibility,
       map: body.map,
       gameType: body.gameType,
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
+      mapQueue: body.mapQueue,
     })
   }
 

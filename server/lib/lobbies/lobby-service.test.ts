@@ -545,6 +545,119 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyService.getListedSummaries().map(l => l.name)).toEqual(['Listed lobby'])
     })
+
+    test('making an unlisted lobby public adds it to the list and counts it', async () => {
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, visibility: 'listed' })
+
+      expect(lobbyService.lobbies.get(id)!.visibility).toBe('listed')
+      // It's new to everyone browsing the list, so an update would have nothing to apply to
+      expect(listPublishes()).toEqual([
+        { action: 'add', payload: expect.objectContaining({ id, name: 'Unlisted lobby' }) },
+      ])
+      expect(countPublishes()).toEqual([{ count: 1 }])
+    })
+
+    test('making a public lobby unlisted removes it from the list by id alone', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        visibility: 'unlisted',
+      })
+
+      expect(lobbyService.lobbies.get(id)!.visibility).toBe('unlisted')
+      expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
+      expect(countPublishes()).toEqual([{ count: 0 }])
+    })
+
+    test('a visibility change reaches the members without touching any seat', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const before = lobbyService.lobbies.get(id)!
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        visibility: 'unlisted',
+      })
+
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.teams).toEqual(before.teams)
+      expect(after.bench).toEqual(before.bench)
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'settingsChange', changedSettings: ['visibility'], lobby: after },
+      ])
+    })
+
+    test('a visibility change leaves who is ready alone', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        visibility: 'unlisted',
+      })
+
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
+    })
+
+    test('a rename made while going public reaches the list under the new name', async () => {
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        name: 'Renamed lobby',
+        visibility: 'listed',
+      })
+
+      expect(listPublishes()).toEqual([
+        { action: 'add', payload: expect.objectContaining({ name: 'Renamed lobby' }) },
+      ])
+      expect(lobbyPublishes(id).map(data => data.changedSettings)).toEqual([['name', 'visibility']])
+    })
+
+    test('a rename made while going unlisted does not reach the list', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        name: 'Secret name',
+        visibility: 'unlisted',
+      })
+
+      expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
+    })
+
+    test('naming the current visibility changes nothing', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, visibility: 'listed' })
+
+      expect(listPublishes()).toEqual([])
+      expect(countPublishes()).toEqual([])
+    })
+
+    test('only the host can change the visibility', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await expect(
+        lobbyService.updateSettings({ client: joiner.client, lobbyId: id, visibility: 'unlisted' }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotHost })
+    })
   })
 
   describe('list and preview publishing', () => {
@@ -1704,6 +1817,245 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyPublishes(id)).toEqual([])
       expect(listPublishes()).toEqual([])
+    })
+  })
+
+  describe('map queue', () => {
+    /** Makes map lookups find exactly the maps asked for, out of `maps`. */
+    function mockMaps(...maps: MapInfo[]) {
+      asMockedFunction(getMapInfos).mockImplementation(async ids =>
+        maps.filter(map => ids.includes(map.id)),
+      )
+      asMockedFunction(reparseMapsAsNeeded).mockImplementation(async found => [...found])
+    }
+
+    /** Ends the lobby's game for everyone, regrouping it. */
+    function endGame() {
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+    }
+
+    /** Creates a UMS lobby on `UMS_MAP` with `host` and `joiner` in it. */
+    async function createUmsLobby() {
+      const { id } = await lobbyService.createLobby({
+        name: 'UMS lobby',
+        map: UMS_MAP.id,
+        gameType: GameType.UseMapSettings,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      return id
+    }
+
+    test('queueing maps leaves every seat and ready mark alone', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+      const before = lobbyService.lobbies.get(id)!
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id],
+      })
+
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.mapQueue.map(map => map.id)).toEqual([TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id])
+      expect(after.map!.id).toBe(BIG_GAME_HUNTERS.id)
+      expect(after.teams).toEqual(before.teams)
+      expect([...lobbyService.readyUsers.get(id)!]).toEqual([JOINER_USER.id])
+      expect(lobbyPublishes(id)).toEqual([
+        { type: 'settingsChange', changedSettings: ['mapQueue'], lobby: after },
+      ])
+      // Neither the list nor a preview shows what the lobby plays after its next game
+      expect(listPublishes()).toEqual([])
+      expect(previewPublishes(id)).toEqual([])
+    })
+
+    test('a map can be queued more than once, in the order given', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id, TWO_SLOT_MAP.id],
+      })
+
+      expect(lobbyService.lobbies.get(id)!.mapQueue.map(map => map.id)).toEqual([
+        TWO_SLOT_MAP.id,
+        BIG_GAME_HUNTERS.id,
+        TWO_SLOT_MAP.id,
+      ])
+    })
+
+    test('queueing a map that does not exist is rejected', async () => {
+      mockMaps(BIG_GAME_HUNTERS)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      await expect(
+        lobbyService.updateSettings({
+          client: host.client,
+          lobbyId: id,
+          mapQueue: [BIG_GAME_HUNTERS.id, makeSbMapId('no-such-map')],
+        }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidMap })
+      expect(lobbyService.lobbies.get(id)!.mapQueue).toEqual([])
+    })
+
+    test('only the host can queue maps', async () => {
+      mockMaps(BIG_GAME_HUNTERS)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await expect(
+        lobbyService.updateSettings({
+          client: joiner.client,
+          lobbyId: id,
+          mapQueue: [BIG_GAME_HUNTERS.id],
+        }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotHost })
+    })
+
+    test('an empty list clears the queue', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+      })
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, mapQueue: [] })
+
+      expect(lobbyService.lobbies.get(id)!.mapQueue).toEqual([])
+    })
+
+    test('a regrouping lobby moves on to the next queued map', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id],
+      })
+      await runCountdown(host)
+      fakeNydus.publish.mockClear()
+
+      endGame()
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(TWO_SLOT_MAP.id)
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id])
+      expect(lobby.teams[0].slots).toHaveLength(2)
+      // The finished game is recorded on the map it was actually played on
+      expect(lobbyPublishes(id)).toEqual([
+        {
+          type: 'regroup',
+          game: expect.objectContaining({ gameId: 'test-game-id', mapId: BIG_GAME_HUNTERS.id }),
+        },
+        { type: 'mapQueueAdvance', skippedMapIds: [], lobby },
+      ])
+      expect(listPublishes().at(-1)).toEqual({
+        action: 'update',
+        payload: expect.objectContaining({
+          lifecycle: 'gathering',
+          map: expect.objectContaining({ id: TWO_SLOT_MAP.id }),
+        }),
+      })
+      expect(previewPublishes(id).at(-1)!.payload.map.id).toBe(TWO_SLOT_MAP.id)
+    })
+
+    test('a regrouping lobby with nothing queued keeps its map', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const before = lobbyService.lobbies.get(id)!
+      await runCountdown(host)
+      fakeNydus.publish.mockClear()
+
+      endGame()
+
+      expect(lobbyService.lobbies.get(id)).toEqual(before)
+      expect(lobbyPublishes(id).map(event => event.type)).toEqual(['regroup'])
+    })
+
+    test('a queued map the lobby cannot be played on is skipped', async () => {
+      mockMaps(UMS_MAP, BIG_GAME_HUNTERS)
+      const id = await createUmsLobby()
+      // Big Game Hunters has no UMS forces for a UMS lobby to take its settings from
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [BIG_GAME_HUNTERS.id, UMS_MAP.id, BIG_GAME_HUNTERS.id],
+      })
+      await runCountdown(host)
+      fakeNydus.publish.mockClear()
+
+      endGame()
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.gameType).toBe(GameType.UseMapSettings)
+      expect(lobby.map!.id).toBe(UMS_MAP.id)
+      expect(lobby.mapQueue.map(map => map.id)).toEqual([BIG_GAME_HUNTERS.id])
+      expect(lobbyPublishes(id).at(-1)).toEqual({
+        type: 'mapQueueAdvance',
+        skippedMapIds: [BIG_GAME_HUNTERS.id],
+        lobby,
+      })
+    })
+
+    test('a lobby keeps its map when none of the queued maps fit', async () => {
+      mockMaps(UMS_MAP, BIG_GAME_HUNTERS)
+      const id = await createUmsLobby()
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [BIG_GAME_HUNTERS.id],
+      })
+      const before = lobbyService.lobbies.get(id)!
+      await runCountdown(host)
+
+      endGame()
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(UMS_MAP.id)
+      expect(lobby.teams).toEqual(before.teams)
+      expect(lobby.mapQueue).toEqual([])
+      expect(lobbyPublishes(id).at(-1)).toEqual({
+        type: 'mapQueueAdvance',
+        skippedMapIds: [BIG_GAME_HUNTERS.id],
+        lobby,
+      })
+    })
+
+    test("a balanced team split stays balanced on the queued map's slot count", async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await lobbyService.createLobby({
+        name: 'Top vs bottom lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TopVsBottom,
+        gameSubType: 4,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+      })
+      await runCountdown(host)
+
+      endGame()
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.map!.id).toBe(TWO_SLOT_MAP.id)
+      expect(lobby.gameSubType).toBe(1)
     })
   })
 

@@ -15,6 +15,8 @@ import { matchLinks } from '../../common/text/links'
 import { urlPath } from '../../common/urls'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -83,6 +85,15 @@ const NameAndTopicContainer = styled.div`
 const ChannelName = styled.div`
   ${titleLarge};
   flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const PrivateGlyph = styled.span`
+  display: flex;
+  color: var(--theme-on-surface-variant);
 `
 
 const StyledTooltipContent = styled(TooltipContent)`
@@ -221,6 +232,15 @@ export function ChannelHeader({
       ),
     )
   })
+  const onCopyInviteLinkClick = () => {
+    closeOverflowMenu()
+    dispatch(
+      openDialog({
+        type: DialogType.ChannelInviteLink,
+        initData: { channelId: basicChannelInfo.id },
+      }),
+    )
+  }
   const onLeaveChannelClick = useStableCallback(() => {
     onLeaveChannel(basicChannelInfo.id)
   })
@@ -230,9 +250,6 @@ export function ChannelHeader({
   })
 
   const actions: React.ReactNode[] = []
-  // TODO(2Pac): Users with `changeTopic` permission should also be able to access channel settings,
-  // but need to update the channel settings UI first to only allow them to change the topic (will
-  // probably need a new set of APIs as well).
   if (
     isServerModerator ||
     user?.id === joinedChannelInfo.ownerId ||
@@ -254,6 +271,21 @@ export function ChannelHeader({
         key='open-admin-view'
         text={t('chat.channelHeader.actionItems.openAdminView', 'Open admin view')}
         onClick={onOpenAdminViewClick}
+      />,
+    )
+  }
+  if (
+    basicChannelInfo.private &&
+    (joinedChannelInfo.membersCanInvite ||
+      user?.id === joinedChannelInfo.ownerId ||
+      isServerModerator)
+  ) {
+    actions.push(
+      <MenuItem
+        key='copy-invite-link'
+        text={t('chat.channelHeader.actionItems.invitePeople', 'Invite people')}
+        testName='channel-invite-people-button'
+        onClick={onCopyInviteLinkClick}
       />,
     )
   }
@@ -298,7 +330,16 @@ export function ChannelHeader({
           channelName={basicChannelInfo.name}
         />
         <NameAndTopicContainer>
-          <ChannelName>#{basicChannelInfo.name}</ChannelName>
+          <ChannelName>
+            #{basicChannelInfo.name}
+            {basicChannelInfo.private ? (
+              <PrivateGlyph
+                title={t('chat.privateChannelTitle', 'Private channel')}
+                data-testid='channel-header-private-glyph'>
+                <MaterialIcon icon='lock' size={20} />
+              </PrivateGlyph>
+            ) : null}
+          </ChannelName>
           {parsedChannelTopic ? (
             <Tooltip
               text={parsedChannelTopic}

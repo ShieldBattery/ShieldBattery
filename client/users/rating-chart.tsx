@@ -13,6 +13,7 @@ import {
 import styled from 'styled-components'
 import { getDivisionColor } from '../../common/matchmaking'
 import { longTimestamp, monthDay } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { bodyMedium } from '../styles/typography'
 import {
   bandOpacity,
@@ -53,6 +54,8 @@ export function RatingChart({
   showSeasonBoundaries: boolean
 }) {
   const { t } = useTranslation()
+  const monthDayFormat = useFormat(monthDay)
+  const longTimestampFormat = useFormat(longTimestamp)
 
   // The rating view drops placement games entirely -- their rating is hidden -- so
   // everything below (runs, extent, axis, boundaries) works from the plotted subset.
@@ -120,7 +123,7 @@ export function RatingChart({
             scale='time'
             domain={[first, last]}
             ticks={ticks?.map(tick => tick.value)}
-            tickFormatter={value => tickLabels.get(value) ?? monthDay.format(value)}
+            tickFormatter={value => tickLabels.get(value) ?? monthDayFormat.format(value)}
             stroke='var(--theme-on-surface-variant)'
             tick={{ fontSize: 12 }}
             tickLine={false}
@@ -140,7 +143,7 @@ export function RatingChart({
             }}
             // Down to the minute: a busy day is dozens of games, and a date alone labels
             // every one of them identically.
-            labelFormatter={value => longTimestamp.format(Number(value))}
+            labelFormatter={value => longTimestampFormat.format(Number(value))}
             formatter={value => [
               Math.round(Number(value)),
               metric === 'points'

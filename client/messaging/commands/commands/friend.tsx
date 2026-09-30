@@ -4,6 +4,7 @@ import { Trans } from 'react-i18next'
 import { assertUnreachable } from '../../../../common/assert-unreachable'
 import { FriendActivityStatus } from '../../../../common/users/relationships'
 import { SbUserId } from '../../../../common/users/sb-user-id'
+import { collator } from '../../../i18n/locale-formats'
 import {
   acceptFriendRequest,
   getRelationshipsIfNeeded,
@@ -25,7 +26,7 @@ import { UndoLine } from '../undo-line'
 import { resolveTarget } from './user-card'
 
 /** Orders names the way a reader looks for them, rather than putting every capital first. */
-const nameCollator = new Intl.Collator(navigator.language, { sensitivity: 'base' })
+const nameCollator = collator({ sensitivity: 'base' })
 
 /** What the friend routines need from the invocation they run in. */
 type FriendDeps = Pick<CommandInvocation, 'context' | 'dispatch' | 't' | 'emit'>
@@ -39,7 +40,7 @@ interface FriendEntry {
 }
 
 function byName(a: FriendEntry, b: FriendEntry): number {
-  return nameCollator.compare(a.name, b.name)
+  return nameCollator.current().compare(a.name, b.name)
 }
 
 /**

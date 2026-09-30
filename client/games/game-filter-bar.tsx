@@ -23,6 +23,7 @@ import {
   SupportedReplayGameType,
 } from '../../common/replays'
 import { monthDay } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextButton } from '../material/button'
@@ -206,24 +207,29 @@ function getDatePresetLabel(preset: DatePreset, t: TFunction): string {
  * the active bound(s) otherwise (an open start or end reads as "From X"/"Until X", a full range as
  * "X – Y").
  */
-function getDateFilterChipLabel(startDate: string, endDate: string, t: TFunction): string {
+function getDateFilterChipLabel(
+  startDate: string,
+  endDate: string,
+  t: TFunction,
+  monthDayFormat: Intl.DateTimeFormat,
+): string {
   const { startMs, endMs } = resolveDateRangeMs(startDate, endDate)
 
   if (startMs !== undefined && endMs !== undefined) {
     return t('game.filters.dateRangeBetween', {
       defaultValue: '{{start}} – {{end}}',
-      start: monthDay.format(startMs),
-      end: monthDay.format(endMs),
+      start: monthDayFormat.format(startMs),
+      end: monthDayFormat.format(endMs),
     })
   } else if (startMs !== undefined) {
     return t('game.filters.dateRangeFrom', {
       defaultValue: 'From {{date}}',
-      date: monthDay.format(startMs),
+      date: monthDayFormat.format(startMs),
     })
   } else if (endMs !== undefined) {
     return t('game.filters.dateRangeUntil', {
       defaultValue: 'Until {{date}}',
-      date: monthDay.format(endMs),
+      date: monthDayFormat.format(endMs),
     })
   }
 
@@ -319,6 +325,7 @@ export function GameFilterBar({
   className,
 }: GameFilterBarProps) {
   const { t } = useTranslation()
+  const monthDayFormat = useFormat(monthDay)
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'bottom')
   const [opened, openPopover, closePopover] = usePopoverController({ refreshAnchorPos })
   const [dateAnchorRef, dateAnchorX, dateAnchorY, refreshDateAnchorPos] = useRefAnchorPosition(
@@ -423,7 +430,7 @@ export function GameFilterBar({
         {setStartDate && (
           <FilterChip
             ref={dateAnchorRef}
-            label={getDateFilterChipLabel(startDate, endDate, t)}
+            label={getDateFilterChipLabel(startDate, endDate, t, monthDayFormat)}
             icon={<MaterialIcon icon='calendar_month' size={18} />}
             selected={hasDateRange || dateOpened}
             onClick={e => (dateOpened ? closeDatePopover() : openDatePopover(e))}

@@ -20,7 +20,8 @@ import { GameRelativeTime } from './game-list-entry'
 // row instead of the day separator above it, when the list is day-grouped.
 const DAY_HEADER_HEIGHT_PX = 44
 
-const GameSidePanelRoot = styled.div<{ $alignWithFirstRow: boolean }>`
+/** The panel's bare frame, for panels that show something other than a single game. */
+export const GameSidePanelRoot = styled.div<{ $alignWithFirstRow: boolean }>`
   ${containerStyles(ContainerLevel.Low)};
 
   flex-shrink: 0;

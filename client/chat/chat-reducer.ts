@@ -107,6 +107,13 @@ export interface ChatState {
   idToDetailedInfo: Map<SbChannelId, DetailedChannelInfo>
   /** A map of channel ID -> joined channel info (used in user's joined channel page, etc.) */
   idToJoinedInfo: Map<SbChannelId, JoinedChannelInfo>
+  /**
+   * A map of channel ID -> the members of that channel holding a moderation permission (kick, ban
+   * or editPermissions). A channel absent from the map has unknown roles, that is, its
+   * initialization data hasn't arrived; that is not the same as a channel with no moderators,
+   * which maps to an empty set.
+   */
+  idToModeratorIds: Map<SbChannelId, Set<SbUserId>>
   /** A map of channel ID -> channel users */
   idToUsers: Map<SbChannelId, UsersState>
   /** A map of channel ID -> channel messages */
@@ -181,6 +188,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   idToBasicInfo: new Map(),
   idToDetailedInfo: new Map(),
   idToJoinedInfo: new Map(),
+  idToModeratorIds: new Map(),
   idToUsers: new Map(),
   idToMessages: new Map(),
   idToUserProfiles: new Map(),
@@ -265,6 +273,7 @@ function removeUserFromChannel(
   channelUsers.active.delete(userId)
   channelUsers.offline.delete(userId)
   channelUserProfiles.delete(userId)
+  state.idToModeratorIds.get(channelId)?.delete(userId)
   detailedChannelInfo.userCount -= 1
 
   let messageType:
@@ -321,6 +330,7 @@ function setChannelOwner(
 function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.joinedChannels.delete(channelId)
   state.idToJoinedInfo.delete(channelId)
+  state.idToModeratorIds.delete(channelId)
   state.idToUsers.delete(channelId)
   state.idToMessages.delete(channelId)
   state.idToUserProfiles.delete(channelId)
@@ -775,6 +785,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     joinedChannelInfo,
     selfPreferences,
     selfPermissions,
+    moderatorIds,
     latestUnreadTime,
     lastReadTime,
     latestMentionTime,
@@ -794,6 +805,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   }
   state.joinedChannels.add(channelId)
   updateChannelInfos(state, [channelInfo], [detailedChannelInfo], [joinedChannelInfo])
+  state.idToModeratorIds.set(channelId, new Set(moderatorIds))
   initChannelUsers(state, channelId)
   state.idToMessages.set(channelId, messagesState)
   state.idToUserProfiles.set(channelId, new Map())
@@ -927,6 +939,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateBanSelf'](state, action) {
+    const { channelId } = action.meta
+
+    removeSelfFromChannel(state, channelId)
+  },
+
+  ['@chat/channelRemoved'](state, action) {
     const { channelId } = action.meta
 
     removeSelfFromChannel(state, channelId)
@@ -1558,16 +1576,25 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { userId, isModerator } = action.payload
 
     const channelUserProfiles = state.idToUserProfiles.get(channelId)
-    if (!channelUserProfiles) {
-      return
+    if (channelUserProfiles) {
+      const existingProfile = channelUserProfiles.get(userId)
+      if (existingProfile) {
+        channelUserProfiles.set(userId, {
+          ...existingProfile,
+          isModerator,
+        })
+      }
     }
 
-    const existingProfile = channelUserProfiles.get(userId)
-    if (existingProfile) {
-      channelUserProfiles.set(userId, {
-        ...existingProfile,
-        isModerator,
-      })
+    // Only members who aren't the channel's owner are reported here, an owner's moderation standing
+    // being a consequence of ownership rather than of the permissions this carries.
+    const moderatorIds = state.idToModeratorIds.get(channelId)
+    if (moderatorIds) {
+      if (isModerator) {
+        moderatorIds.add(userId)
+      } else {
+        moderatorIds.delete(userId)
+      }
     }
   },
 

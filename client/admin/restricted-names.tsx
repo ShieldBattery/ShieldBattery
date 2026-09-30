@@ -7,6 +7,7 @@ import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { graphql } from '../gql'
 import { RestrictedNameKind, RestrictedNameReason, RestrictedNamesQuery } from '../gql/graphql'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton, IconButton, TextButton } from '../material/button'
 import { RadioButton, RadioGroup } from '../material/radio'
@@ -236,6 +237,7 @@ function RestrictedNameEntry({
   onConfirmDelete: () => void
   fetching: boolean
 }) {
+  const longTimestampFormat = useFormat(longTimestamp)
   return (
     <RestrictedNameEntryRoot data-testid='restricted-name-row' data-pattern={pattern}>
       {confirmDelete ? (
@@ -257,7 +259,7 @@ function RestrictedNameEntry({
           <Spacer />
           <CreationInfo>
             {createdBy ? <ConnectedUsername userId={createdBy.id} /> : <div />}
-            <div>{longTimestamp.format(new Date(createdAt))}</div>
+            <div>{longTimestampFormat.format(new Date(createdAt))}</div>
           </CreationInfo>
           <DeleteButton
             icon={<MaterialIcon icon='delete' />}

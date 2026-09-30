@@ -281,6 +281,7 @@ export type LobbyEvent =
   | LobbyBenchRemoveEvent
   | LobbyMemberGameEndedEvent
   | LobbyRegroupEvent
+  | LobbyMapQueueAdvanceEvent
   | LobbySeriesGameUpdatedEvent
   | LobbyReadyChangeEvent
 
@@ -508,6 +509,23 @@ export interface LobbyRegroupEvent {
   game: LobbySeriesGameJson
 }
 
+/**
+ * The lobby, having just regrouped, moved on to the next map in its queue. Published right after
+ * the {@link LobbyRegroupEvent} it follows from. Changing the map can rearrange every seat, so the
+ * event carries the complete new lobby, as a {@link LobbySettingsChangeEvent} does.
+ *
+ * Queued maps that didn't fit the lobby's settings when their turn came (e.g. a map with no UMS
+ * forces in a UMS lobby) were dropped from the queue without being played, and are named in
+ * `skippedMapIds`. If every queued map was skipped, the lobby kept the map it had.
+ */
+export interface LobbyMapQueueAdvanceEvent {
+  type: 'mapQueueAdvance'
+  skippedMapIds: SbMapId[]
+  // TODO(tec27): actually type this. This is the lobby as the server JSON-serialized it, so e.g.
+  // `map` is really a `MapInfoJson` rather than the full `MapInfo` that `Lobby` declares.
+  lobby: Lobby
+}
+
 /** The results of a game in the lobby's series have settled. */
 export interface LobbySeriesGameUpdatedEvent {
   type: 'seriesGameUpdated'
@@ -520,7 +538,8 @@ export interface LobbySeriesGameUpdatedEvent {
  * counts as ready independently of these marks; a host change clears the outgoing host's mark.
  *
  * The lobby also drops everyone's ready mark at once, without an event of its own: it happens
- * whenever the host changes a setting other than the lobby's name, and when a game starts (the
+ * whenever the host changes a setting that alters the game being set up (see
+ * `changesGameSettings`), and when a game starts (the
  * launch is what the marks were for). Both of those are described by events of their own, so a
  * client applies the same rule when it handles them.
  */
@@ -568,21 +587,47 @@ export interface LobbyStatusEvent {
 export interface UpdateLobbySettingsRequest {
   clientId: string
   name?: string
+  visibility?: LobbyVisibility
   map?: SbMapId
   gameType?: GameType
   gameSubType?: number
   useLegacyLimits?: boolean
   allowObservers?: boolean
+  /**
+   * The maps to play after the current one, in order, replacing whatever was queued before. An
+   * empty list clears the queue.
+   */
+  mapQueue?: SbMapId[]
 }
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
   | 'name'
+  | 'visibility'
   | 'map'
   | 'gameType'
   | 'gameSubType'
   | 'useLegacyLimits'
   | 'allowObservers'
+  | 'mapQueue'
+
+/**
+ * Settings that describe the lobby rather than the game it will play next. Changing only these
+ * leaves every seat where it was and nobody has to ready up again.
+ */
+const LOBBY_ONLY_SETTINGS: ReadonlySet<LobbyChangedSetting> = new Set([
+  'name',
+  'visibility',
+  'mapQueue',
+])
+
+/**
+ * Whether a settings change touches the game being set up (and so rearranges slots and resets
+ * everyone's ready marks), rather than only the lobby's name, visibility, or map queue.
+ */
+export function changesGameSettings(changedSettings: ReadonlyArray<LobbyChangedSetting>): boolean {
+  return changedSettings.some(setting => !LOBBY_ONLY_SETTINGS.has(setting))
+}
 
 /**
  * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the

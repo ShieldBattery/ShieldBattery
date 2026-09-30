@@ -17,6 +17,7 @@ import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { SubmitOnEnter } from '../../forms/submit-on-enter'
+import { useFormat } from '../../i18n/locale-formats'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
 import { IconButton, TextButton, useButtonState } from '../../material/button'
@@ -266,6 +267,7 @@ function UserChannelEntryRow({
   onTransferOwnershipClick: () => void
 }) {
   const { t } = useTranslation()
+  const userListDateFormatter = useFormat(userListDateFormat)
   const [buttonProps, rippleRef] = useButtonState({
     disabled: !canEdit,
     onClick: onEditClick,
@@ -287,7 +289,7 @@ function UserChannelEntryRow({
           </UsernameRow>
           <UserListCardSubtitle>
             {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
-              date: userListDateFormat.format(user.joinDate),
+              date: userListDateFormatter.format(user.joinDate),
             })}
           </UserListCardSubtitle>
           <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
@@ -334,12 +336,6 @@ function PermissionBadges({
         label: t('chat.channelSettings.permissions.editPermissionsShort', 'Edit permissions'),
       })
     }
-    if (permissions.togglePrivate) {
-      badges.push({
-        key: 'private',
-        label: t('chat.channelSettings.permissions.togglePrivateShort', 'Toggle private'),
-      })
-    }
     if (permissions.ban) {
       badges.push({
         key: 'ban',
@@ -350,12 +346,6 @@ function PermissionBadges({
       badges.push({
         key: 'kick',
         label: t('chat.channelSettings.permissions.kickShort', 'Kick'),
-      })
-    }
-    if (permissions.changeTopic) {
-      badges.push({
-        key: 'topic',
-        label: t('chat.channelSettings.permissions.changeTopicShort', 'Change topic'),
       })
     }
   }
@@ -450,11 +440,6 @@ export function ChannelUserPermissionsDialog({
           disabled={selfUser?.id === userId || isSaving}
         />
         <CheckBox
-          {...bindCheckable('togglePrivate')}
-          label={t('chat.channelSettings.permissions.togglePrivate', 'Can toggle private status')}
-          disabled={isSaving}
-        />
-        <CheckBox
           {...bindCheckable('ban')}
           label={t('chat.channelSettings.permissions.ban', 'Can ban users')}
           disabled={isSaving}
@@ -462,11 +447,6 @@ export function ChannelUserPermissionsDialog({
         <CheckBox
           {...bindCheckable('kick')}
           label={t('chat.channelSettings.permissions.kick', 'Can kick users')}
-          disabled={isSaving}
-        />
-        <CheckBox
-          {...bindCheckable('changeTopic')}
-          label={t('chat.channelSettings.permissions.changeTopic', 'Can change topic')}
           disabled={isSaving}
         />
       </PermissionsForm>

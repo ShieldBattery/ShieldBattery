@@ -14,7 +14,9 @@ import { SbUserId } from '../../common/users/sb-user-id'
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
-  AdminDeleteChatMessage = 'adminDeleteChatMessage',
+  AdminCloseChannel = 'adminCloseChannel',
+  AdminDeleteChannel = 'adminDeleteChannel',
+  AdminRenameChannel = 'adminRenameChannel',
   BugReport = 'bugReport',
   ChangeDisplayName = 'changeDisplayName',
   ChangeEmail = 'changeEmail',
@@ -23,6 +25,8 @@ export enum DialogType {
   ChatCommandHelp = 'chatCommandHelp',
   ChannelBanUser = 'channelBanUser',
   ChannelCreateConfirmation = 'channelCreateConfirmation',
+  ChannelDeleteMessage = 'channelDeleteMessage',
+  ChannelInviteLink = 'channelInviteLink',
   ChannelKickUserConfirmation = 'channelKickUserConfirmation',
   ChannelLeaveConfirmation = 'channelLeaveConfirmation',
   ChannelTransferOwnership = 'channelTransferOwnership',
@@ -71,12 +75,30 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
-type AdminDeleteChatMessageDialogPayload = BaseDialogPayload<
-  typeof DialogType.AdminDeleteChatMessage,
+type AdminCloseChannelDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminCloseChannel,
   {
     channelId: SbChannelId
-    messageId: string
-    /** Called once the message has been deleted successfully. */
+    channelName: string
+    /** Called once the channel has been closed successfully. */
+    onSuccess?: () => void
+  }
+>
+type AdminDeleteChannelDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminDeleteChannel,
+  {
+    channelId: SbChannelId
+    channelName: string
+    /** Called once the channel has been deleted successfully. */
+    onSuccess?: () => void
+  }
+>
+type AdminRenameChannelDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminRenameChannel,
+  {
+    channelId: SbChannelId
+    channelName: string
+    /** Called once the channel has been renamed successfully. */
     onSuccess?: () => void
   }
 >
@@ -117,6 +139,21 @@ type ChannelCreateConfirmationDialogPayload = BaseDialogPayload<
     channelName: string
     /** Performs the join that creates the channel once the user confirms. */
     onConfirm: () => void
+  }
+>
+type ChannelDeleteMessageDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelDeleteMessage,
+  {
+    channelId: SbChannelId
+    messageId: string
+    /** Called once the message has been deleted successfully. */
+    onSuccess?: () => void
+  }
+>
+type ChannelInviteLinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelInviteLink,
+  {
+    channelId: SbChannelId
   }
 >
 type ChatCommandHelpDialogPayload = BaseDialogPayload<
@@ -405,7 +442,9 @@ type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
-  | AdminDeleteChatMessageDialogPayload
+  | AdminCloseChannelDialogPayload
+  | AdminDeleteChannelDialogPayload
+  | AdminRenameChannelDialogPayload
   | BugReportDialogPayload
   | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload
@@ -414,6 +453,8 @@ export type DialogPayload =
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
   | ChannelCreateConfirmationDialogPayload
+  | ChannelDeleteMessageDialogPayload
+  | ChannelInviteLinkDialogPayload
   | ChatCommandHelpDialogPayload
   | ChannelKickUserConfirmationDialogPayload
   | ChannelLeaveConfirmationDialogPayload

@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { SbUser } from '../../../common/users/sb-user'
 import { UserIpInfoJson } from '../../../common/users/user-network'
+import { dateTimeFormat, useFormat } from '../../i18n/locale-formats'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
 import { bodyLarge, bodyMedium, TitleLarge } from '../../styles/typography'
@@ -62,7 +63,7 @@ const RelatedUsers = styled.div`
   gap: 16px;
 `
 
-const dateRangeFormat = new Intl.DateTimeFormat(navigator.language, {
+const dateRangeFormat = dateTimeFormat({
   dateStyle: 'short',
   timeStyle: 'short',
 })
@@ -122,6 +123,7 @@ function IpList({
   ips: ReadonlyDeep<UserIpInfoJson[]>
   relatedUsers: ReadonlyDeep<Map<string, UserIpInfoJson[]>>
 }) {
+  const dateRangeFormatter = useFormat(dateRangeFormat)
   return (
     <IpListRoot>
       {ips.map(info => {
@@ -130,8 +132,8 @@ function IpList({
           <IpEntry key={info.ipAddress}>
             <IpAddress>{info.ipAddress}</IpAddress>
             <IpDateRange>
-              {dateRangeFormat.format(info.firstUsed)} &ndash;{' '}
-              {dateRangeFormat.format(info.lastUsed)}
+              {dateRangeFormatter.format(info.firstUsed)} &ndash;{' '}
+              {dateRangeFormatter.format(info.lastUsed)}
             </IpDateRange>
             <SeenCount>Seen {info.timesSeen} times</SeenCount>
             <RelatedUsers>
@@ -139,8 +141,8 @@ function IpList({
                 <IpEntry key={r.userId}>
                   <ConnectedUsername userId={r.userId} />
                   <IpDateRange>
-                    {dateRangeFormat.format(r.firstUsed)} &ndash;{' '}
-                    {dateRangeFormat.format(r.lastUsed)}
+                    {dateRangeFormatter.format(r.firstUsed)} &ndash;{' '}
+                    {dateRangeFormatter.format(r.lastUsed)}
                   </IpDateRange>
                   <SeenCount>Seen {r.timesSeen} times</SeenCount>
                 </IpEntry>

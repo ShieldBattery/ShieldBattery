@@ -47,8 +47,6 @@ const OTHER_ID = makeSbUserId(2)
 const NO_PERMISSIONS: ChannelPermissions = {
   kick: false,
   ban: false,
-  changeTopic: false,
-  togglePrivate: false,
   editPermissions: false,
 }
 
@@ -105,8 +103,6 @@ describe('chat/action-creators/getChannelLeaveSeverity', () => {
       selfPermissions: {
         kick: true,
         ban: true,
-        changeTopic: true,
-        togglePrivate: true,
         editPermissions: true,
       },
     })
@@ -150,7 +146,7 @@ describe('chat/action-creators/getChannelLeaveSeverity', () => {
         makeState({
           official: true,
           userCount: 1,
-          selfPermissions: { ...NO_PERMISSIONS, changeTopic: true },
+          selfPermissions: { ...NO_PERMISSIONS, kick: true },
         }),
         CHANNEL_ID,
         SELF_ID,

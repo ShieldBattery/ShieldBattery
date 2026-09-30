@@ -43,6 +43,7 @@ import {
   UserSettingsPage,
 } from './settings-page'
 import { UserAccountSettings } from './user/account-settings'
+import { UserChatSettings } from './user/chat-settings'
 import { ConnectionSettings } from './user/connection-settings'
 import { UserLanguageSettings } from './user/language-settings'
 import { UserNotificationSettings } from './user/notification-settings'
@@ -150,6 +151,7 @@ function Settings({
               UserSettingsPage.Account,
               UserSettingsPage.Social,
               UserSettingsPage.Notifications,
+              UserSettingsPage.Chat,
               UserSettingsPage.Connections,
             ]
           : []
@@ -231,6 +233,8 @@ function SettingsPageDisplay({ page }: { page: SettingsPage }) {
       return <UserSocialSettings />
     case UserSettingsPage.Notifications:
       return <UserNotificationSettings />
+    case UserSettingsPage.Chat:
+      return <UserChatSettings />
     case UserSettingsPage.Connections:
       return <ConnectionSettings />
     case UserSettingsPage.Language:
@@ -274,6 +278,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
       break
     case UserSettingsPage.Notifications:
       title = t('settings.user.notifications.title', 'Notifications')
+      break
+    case UserSettingsPage.Chat:
+      title = t('settings.user.chat.title', 'Chat')
       break
     case UserSettingsPage.Connections:
       title = t('settings.user.connections.title', 'Connections')

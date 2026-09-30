@@ -2,7 +2,11 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType, isTeamType } from '../../common/games/game-type'
 import { isUms, Lobby } from '../../common/lobbies'
-import { LobbyRunStateJson, LobbySeriesGameJson } from '../../common/lobbies/lobby-network'
+import {
+  changesGameSettings,
+  LobbyRunStateJson,
+  LobbySeriesGameJson,
+} from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -37,6 +41,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   id: '' as SbLobbyId,
   name: '',
   map: undefined,
+  mapQueue: [],
   gameType: GameType.Melee,
   gameSubType: 0,
   teams: [],
@@ -140,6 +145,25 @@ function clearLobby(draft: LobbyDraft): void {
  */
 function clearReady(draft: LobbyDraft): void {
   draft.readyUserIds = []
+}
+
+/**
+ * Announces the members that a whole-lobby replacement put on the bench. The server sends only the
+ * complete new lobby for those (with no accompanying benchAdd diffs), so a layout change that
+ * displaces seated members onto the bench needs its own bench-join lines here or nobody in the lobby
+ * sees that those members are now waiting.
+ */
+function pushNewBenchJoins(draft: LobbyDraft, previousBenchIds: ReadonlySet<SbUserId>): void {
+  for (const benched of draft.info.bench) {
+    if (!previousBenchIds.has(benched.userId)) {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.LobbyBenchJoin,
+        time: Date.now(),
+        userId: benched.userId,
+      })
+    }
+  }
 }
 
 /** Drops one member's explicit ready mark. */
@@ -286,9 +310,9 @@ const lobbyHandlers = {
     const previousBenchIds = new Set(draft.info.bench.map(benched => benched.userId))
 
     draft.info = castDraft(action.payload.lobby)
-    // A rename leaves the game the lobby is about to play exactly as it was, so it's the one change
-    // people don't have to answer for again.
-    if (action.payload.changedSettings.some(setting => setting !== 'name')) {
+    // A rename, visibility change, or new map queue leaves the game the lobby is about to play
+    // exactly as it was, so those are the changes people don't have to answer for again.
+    if (changesGameSettings(action.payload.changedSettings)) {
       clearReady(draft)
     }
     pushChat(draft, {
@@ -298,20 +322,29 @@ const lobbyHandlers = {
       changedSettings: action.payload.changedSettings,
       changedBy: draft.info.host.userId!,
     })
+    pushNewBenchJoins(draft, previousBenchIds)
+  },
 
-    // The server sends only the settings-change event for this transition, with no accompanying
-    // benchAdd diffs, so a layout shrink that displaces seated members onto the bench needs its
-    // own bench-join lines here or nobody in the lobby sees that those members are now waiting.
-    for (const benched of draft.info.bench) {
-      if (!previousBenchIds.has(benched.userId)) {
-        pushChat(draft, {
-          id: nanoid(),
-          type: LobbyMessageType.LobbyBenchJoin,
-          time: Date.now(),
-          userId: benched.userId,
-        })
-      }
+  '@lobbies/updateMapQueueAdvance'(draft, action) {
+    if (!draft.info.name) {
+      return
     }
+
+    const previousBenchIds = new Set(draft.info.bench.map(benched => benched.userId))
+    // Skipped maps are always the ones at the front of the queue, but they're matched up by id
+    // rather than by position so a queue this client has a stale copy of can't misname them.
+    const previousQueue = new Map(draft.info.mapQueue.map(map => [map.id, map.name]))
+    const advanced = draft.info.mapQueue.length > action.payload.skippedMapIds.length
+
+    draft.info = castDraft(action.payload.lobby)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyMapQueueAdvance,
+      time: Date.now(),
+      mapName: advanced ? draft.info.map?.name : undefined,
+      skippedMapNames: action.payload.skippedMapIds.flatMap(id => previousQueue.get(id) ?? []),
+    })
+    pushNewBenchJoins(draft, previousBenchIds)
   },
 
   '@lobbies/updateBenchAdd'(draft, action) {

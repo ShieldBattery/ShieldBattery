@@ -1,22 +1,22 @@
 ---
 name: issue
-description: File a GitHub issue for ShieldBattery the way this repo wants them - read the code first, dedupe against the whole backlog, draft seven fixed sections pinned to a commit, show the draft, then create it with type, area label, parent and milestone set at creation. Use whenever asked to file, open, create or write up an issue or ticket; to turn a roadmap item, review finding, design decision or Discord thread into an issue; or to raise a side-issue discovered while working on something else (spin-off mode). Creates issues and keeps their metadata honest (labels, assignee, board column); may edit the body of an issue it filed itself, but never comments and never edits a body a person wrote, since those would read as the user's words.
+description: File a GitHub issue for ShieldBattery the way this repo wants them - read the code first, dedupe against the whole backlog, draft seven fixed sections pinned to a commit, show the draft, then create it with type, area label, parent and milestone set at creation. Use whenever asked to file, open, create or write up an issue or ticket; to turn a roadmap item, review finding, design decision or Discord thread into an issue; or to raise a side-issue discovered while working on something else (spin-off mode). Creates issues and keeps their metadata honest (labels, assignee); may edit the body of an issue it filed itself, but never comments and never edits a body a person wrote, since those would read as the user's words.
 ---
 
 # Filing an issue
 
-GitHub Issues is the tracker (org Project board "ShieldBattery" #1 is fed automatically by area
-labels; its columns are Todo, Ready, In Progress, Done, and Ready means every decision is locked,
-no `needs-*` label remains, dependencies are on master and the issue is not a parent). An issue is
-a self-contained brief: someone with the repo and the issue, and nothing else,
-can do the work. The shape is fixed by `template.md` in this directory; #1460, #1461 and #1457 are
-filed examples of it.
+GitHub Issues is the tracker, and the open issue list is the queue: there is no project board,
+the maintainers pick work straight from `gh issue list`, and readiness is carried by the labels
+(an issue is ready when no `needs-*` label remains, its dependencies are on master and it is not
+a parent). An issue is a self-contained brief: someone with the repo and the issue, and nothing
+else, can do the work. The shape is fixed by `template.md` in this directory; #1460, #1461 and
+#1457 are filed examples of it.
 
 ## Write rules (non-negotiable)
 
 - You may **create** issues, with type, labels, parent and milestone set at creation, and create
-  a milestone when filing a multi-phase plan. Metadata is yours to keep accurate: labels, assignee
-  and board column are state, not speech. An issue you filed is your own text: you may edit its
+  a milestone when filing a multi-phase plan. Metadata is yours to keep accurate: labels and
+  assignee are state, not speech. An issue you filed is your own text: you may edit its
   body later (a stale pointer, a decision the user made in chat). What you never do is speak as
   the user: no comments, and no body edits on an issue a person wrote. Closing or reopening an
   issue waits for the user to ask. Comments are for humans.
@@ -69,7 +69,7 @@ gh issue list --state open --label <area> --limit 100
 | Axis | Rule |
 | --- | --- |
 | Type | `Bug` (wrong behavior today), `Feature` (new user-facing behavior), `Task` (design, cleanup, infra). Org-level issue types; the legacy `bug`/`enhancement` labels are not used. |
-| Area label | One of `chat`, `lobbies`, `matchmaking`, `replays`, `game` (game DLL, game launch, netcode, in-game UI): a long-running area, never a feature. The label puts the issue on the board (labeling is the triage act). If none fits, file with no area label and say in chat that it lands in the inbox. |
+| Area label | One of `chat`, `lobbies`, `matchmaking`, `replays`, `game` (game DLL, game launch, netcode, in-game UI): a long-running area, never a feature. Labeling is the triage act: `gh issue list --label <area>` is how work gets picked. If none fits, file with no area label and say in chat that it lands in the inbox. |
 | `needs-design` | Add when a visual or interaction design gates implementation: options must be proposed and one picked before code. |
 | `needs-decision` | Add when Decisions has an open item only the maintainers can settle and there is nothing to explore, just a call to make. Both labels may apply. Either is a soft gate for the `implement` skill: it asks once, then builds on its own recommendation if told to go. |
 | Parent | Native sub-issue of a parent when the issue is one phase of a multi-phase plan or one PR of a stacked chain. Design docs live in the parent's body (`docs/` only when they outgrow it). |
@@ -124,9 +124,9 @@ python .claude/skills/issue/file_issues.py <draft-dir>            # dry run
 python .claude/skills/issue/file_issues.py --create <draft-dir>
 ```
 
-Report the URLs. An issue with an area label lands on the board in Todo by itself. Ready means the
-maintainers have read Decisions and locked everything, so that move is theirs; the `implement`
-skill moves it to In Progress once a branch exists.
+Report the URLs. A filed issue is ready to pick up once no `needs-*` label remains, its
+dependencies are on master and it is not a parent; removing a `needs-*` label is the maintainers'
+call after they have read Decisions. The `implement` skill assigns the issue once a branch exists.
 
 ## Spin-off mode
 
@@ -140,8 +140,8 @@ spin-offs this session).
 ## Don'ts
 
 - Don't speak as the user: no comments anywhere, no body edits on an issue a person wrote, no
-  closing or reopening unless asked. Labels, assignee and board column are metadata, not speech;
-  keep them accurate.
+  closing or reopening unless asked. Labels and assignee are metadata, not speech; keep
+  them accurate.
 - Don't add "raised by Claude" or any attribution lines; the account filing it is the author.
 - Don't put Discord text, links or message ids anywhere in an issue.
 - Don't describe branches, memory files, chat transcripts or "the plan doc"; the issue stands on

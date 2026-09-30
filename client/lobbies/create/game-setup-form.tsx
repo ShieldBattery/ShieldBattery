@@ -9,7 +9,7 @@ import {
   gameTypeToLabel,
   isTeamType,
 } from '../../../common/games/game-type'
-import { MAX_OBSERVERS } from '../../../common/lobbies'
+import { adjustedGameSubType, MAX_OBSERVERS } from '../../../common/lobbies'
 import { SbMapId, tilesetToName } from '../../../common/maps'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -251,43 +251,6 @@ const mapIdValidator: Validator<SbMapId | undefined, GameSetupModel> = (
   return undefined
 }
 
-/**
- * Returns `subType` adjusted to be valid for a team-based `gameType` on a map with `slots` player
- * slots. The lower bound matters when the sub-type has never been set for a team type (its value
- * is 0, below every team type's options); with no prior split to preserve, the most balanced one
- * is the natural starting point.
- *
- * For top-vs-bottom, `prevSlots` is the slot count the sub-type was valid for before the change
- * being applied: a sub-type that was the balanced split for it carries over as "balanced" rather
- * than as a literal seat count (4v4 on 8 slots becomes 2v2 on 4 slots), while a deliberately
- * lopsided split preserves its top team size, clamped to the new map.
- */
-function adjustedGameSubType({
-  gameType,
-  subType,
-  prevSlots,
-  slots,
-}: {
-  gameType: GameType
-  subType: number
-  prevSlots?: number
-  slots: number
-}): number {
-  if (gameType === GameType.TopVsBottom) {
-    const balanced = Math.floor(slots / 2)
-    if (subType < 1) {
-      return balanced
-    }
-    if (prevSlots !== undefined && subType === Math.floor(prevSlots / 2)) {
-      return balanced
-    }
-    return Math.min(subType, slots - 1)
-  } else {
-    const maxTeams = Math.min(4, slots)
-    return Math.min(maxTeams, Math.max(2, subType))
-  }
-}
-
 function RecentMapEntry({
   mapId,
   selected,
@@ -333,6 +296,8 @@ export interface GameSetupFormProps {
   nameSection?: React.ReactNode
   /** Host-page-owned content rendered between the Slots and Options sections. */
   visibilitySection?: React.ReactNode
+  /** Host-page-owned content rendered in the map column, below the selected map. */
+  mapQueueSection?: React.ReactNode
   /** Maps to offer as one-click picks below the map card, in display order. */
   recentMaps?: ReadonlyArray<SbMapId>
   ref?: React.Ref<GameSetupFormHandle>
@@ -343,7 +308,8 @@ export interface GameSetupFormProps {
  * lobby and when a host is changing an existing one's settings. Owns its own form state (seeded
  * from `model` at mount) and reports validated changes and submissions through the callback props.
  * The settings column can also host caller-owned content (`nameSection`, `visibilitySection`)
- * alongside its own fields, and the map column can offer `recentMaps` as one-click picks.
+ * alongside its own fields, and the map column can offer `recentMaps` as one-click picks below any
+ * caller-owned `mapQueueSection`.
  */
 export function GameSetupForm({
   disabled,
@@ -353,6 +319,7 @@ export function GameSetupForm({
   onChangeMap,
   nameSection,
   visibilitySection,
+  mapQueueSection,
   recentMaps,
   ref,
 }: GameSetupFormProps) {
@@ -570,6 +537,8 @@ export function GameSetupForm({
             </EmptyMapPlaceholder>
           )}
           {mapIdError ? <InputError error={mapIdError} /> : null}
+
+          {mapQueueSection}
 
           {recentMaps?.length ? (
             <Section>

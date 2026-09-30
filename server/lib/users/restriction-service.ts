@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events'
 import { singleton } from 'tsyringe'
 import { NotificationType } from '../../../common/notifications'
 import { urlPath } from '../../../common/urls'
@@ -19,7 +18,10 @@ import {
   checkMultipleRestrictions,
   checkRestriction,
   countRestrictedUserIdentifiers,
+  getActiveRestrictionsForUsers,
   getActiveUserRestrictions,
+  liftIdentifierRestrictions,
+  liftUserRestrictions,
   mirrorRestrictionsToIdentifiers,
   restrictAllIdentifiers,
   restrictUsers,
@@ -32,32 +34,30 @@ function getPath(userId: SbUserId) {
   return urlPath`/restrictions/${userId}`
 }
 
-type RestrictionServiceEvents = {
-  /** A restriction of `kind` was applied to the user. Restrictions expiring don't emit this. */
-  restrictionApplied: [userId: SbUserId, kind: RestrictionKind]
+function toRestrictionsChangedEvent(
+  activeRestrictions: ReadonlyArray<UserRestriction>,
+): RestrictionEvent {
+  return {
+    type: 'restrictionsChanged',
+    restrictions: activeRestrictions.map(r => ({
+      kind: r.kind,
+      endTime: Number(r.endTime),
+      reason: r.reason,
+    })),
+  }
 }
 
 @singleton()
-export class RestrictionService extends EventEmitter<RestrictionServiceEvents> {
+export class RestrictionService {
   constructor(
     private userSockets: UserSocketsManager,
     private publisher: TypedPublisher<RestrictionEvent>,
     private clock: Clock,
     private notificationService: NotificationService,
   ) {
-    super()
-
     this.userSockets.on('newUser', user => {
       user.subscribe<RestrictionEvent>(getPath(user.userId), async () => {
-        const restrictions = await getActiveUserRestrictions(user.userId)
-        return {
-          type: 'restrictionsChanged',
-          restrictions: restrictions.map(r => ({
-            kind: r.kind,
-            endTime: Number(r.endTime),
-            reason: r.reason,
-          })),
-        }
+        return toRestrictionsChangedEvent(await getActiveUserRestrictions(user.userId))
       })
     })
   }
@@ -148,6 +148,40 @@ export class RestrictionService extends EventEmitter<RestrictionServiceEvents> {
     return result
   }
 
+  /**
+   * Lifts the target's restriction of `kind`. Mirrors `applyRestriction`: the accounts connected to
+   * the target by shared identifiers are lifted alongside it (the restriction was applied to them as
+   * a group), and every identifier restriction of that kind on their identifiers is expired so it
+   * isn't re-applied on their next login. Other restriction kinds are left alone. Returns the
+   * restrictions that were lifted, for the target and any connected accounts.
+   */
+  async liftRestriction({
+    targetId,
+    kind,
+    liftedBy,
+    reason,
+  }: {
+    targetId: SbUserId
+    kind: RestrictionKind
+    liftedBy?: SbUserId
+    reason?: string
+  }): Promise<UserRestriction[]> {
+    const liftedRestrictions = await transact(async client => {
+      const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES, client)
+      const users = connectedUsers.concat(targetId)
+      const now = new Date(this.clock.now())
+
+      const lifted = await liftUserRestrictions({ users, kind, liftedBy, reason, now }, client)
+      await liftIdentifierRestrictions({ users, kind, now }, client)
+
+      return lifted
+    })
+
+    await this.publishActiveRestrictions(liftedRestrictions.map(r => r.userId))
+
+    return liftedRestrictions
+  }
+
   async getUserRestrictionHistory({
     userId,
     limit,
@@ -229,21 +263,29 @@ export class RestrictionService extends EventEmitter<RestrictionServiceEvents> {
     }
   }
 
+  /**
+   * Sends each of `users` their full set of active restrictions. Clients replace their restrictions
+   * with the set in the event, so it must never be a partial set.
+   */
+  private async publishActiveRestrictions(users: ReadonlyArray<SbUserId>) {
+    const uniqueUsers = Array.from(new Set(users))
+    if (!uniqueUsers.length) {
+      return
+    }
+
+    const activeByUser = await getActiveRestrictionsForUsers(uniqueUsers)
+    for (const userId of uniqueUsers) {
+      this.publisher.publish(
+        getPath(userId),
+        toRestrictionsChangedEvent(activeByUser.get(userId) ?? []),
+      )
+    }
+  }
+
   private async notifyRestrictionChange(restrictions: UserRestriction[]) {
-    const notificationPromises: Array<Promise<void>> = []
-    for (const r of restrictions) {
-      this.emit('restrictionApplied', r.userId, r.kind)
-      this.publisher.publish(getPath(r.userId), {
-        type: 'restrictionsChanged',
-        restrictions: [
-          {
-            kind: r.kind,
-            endTime: Number(r.endTime),
-            reason: r.reason,
-          },
-        ],
-      })
-      notificationPromises.push(
+    await this.publishActiveRestrictions(restrictions.map(r => r.userId))
+    await Promise.all(
+      restrictions.map(r =>
         this.notificationService.addNotification({
           userId: r.userId,
           data: {
@@ -253,9 +295,7 @@ export class RestrictionService extends EventEmitter<RestrictionServiceEvents> {
             reason: r.reason,
           },
         }),
-      )
-    }
-
-    await Promise.all(notificationPromises)
+      ),
+    )
   }
 }

@@ -6,6 +6,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { LeagueJson } from '../../common/leagues/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton, useButtonState } from '../material/button'
 import { Card } from '../material/card'
@@ -113,6 +114,9 @@ export function LeagueCard({
   href: string
 }) {
   const { t } = useTranslation()
+  const narrowDurationFormat = useFormat(narrowDuration)
+  const longTimestampFormat = useFormat(longTimestamp)
+  const monthDayFormat = useFormat(monthDay)
   const [buttonProps, rippleRef] = useButtonState({})
 
   let dateText: string
@@ -121,20 +125,20 @@ export function LeagueCard({
     case LeagueSectionType.Current:
       dateText = t('leagues.list.ends', {
         defaultValue: 'Ends {{endDate}}',
-        endDate: narrowDuration.format(league.endAt, curDate),
+        endDate: narrowDurationFormat.format(league.endAt, curDate),
       })
-      dateTooltip = longTimestamp.format(league.endAt)
+      dateTooltip = longTimestampFormat.format(league.endAt)
       break
     case LeagueSectionType.Future:
       dateText = t('leagues.list.starts', {
         defaultValue: 'Starts {{startDate}}',
-        startDate: narrowDuration.format(league.startAt, curDate),
+        startDate: narrowDurationFormat.format(league.startAt, curDate),
       })
-      dateTooltip = longTimestamp.format(league.startAt)
+      dateTooltip = longTimestampFormat.format(league.startAt)
       break
     case LeagueSectionType.Past:
-      dateText = `${monthDay.format(league.startAt)}\u2013${monthDay.format(league.endAt)}`
-      dateTooltip = `${longTimestamp.format(league.startAt)}\u2013${longTimestamp.format(
+      dateText = `${monthDayFormat.format(league.startAt)}\u2013${monthDayFormat.format(league.endAt)}`
+      dateTooltip = `${longTimestampFormat.format(league.startAt)}\u2013${longTimestampFormat.format(
         league.endAt,
       )}`
       break

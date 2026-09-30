@@ -33,8 +33,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     for (const userId of activeUserIds) {
       state.byUserId.set(userId, DEFAULT_AVAILABILITY_INFO)
     }
-    for (const { userId, availability, statusMessage } of availabilities) {
-      state.byUserId.set(userId, { availability, statusMessage })
+    for (const { userId, availability } of availabilities) {
+      state.byUserId.set(userId, { availability })
     }
   },
 

@@ -41,8 +41,6 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
     channelPermissions: {
       kick: props.kick,
       ban: props.ban,
-      changeTopic: props.change_topic,
-      togglePrivate: props.toggle_private,
       editPermissions: props.edit_permissions,
     },
   }
@@ -80,6 +78,41 @@ export async function getChannelsForUser(userId: SbUserId): Promise<JoinedChanne
       ORDER BY join_date;
     `)
     return result.rows.map(row => convertJoinedChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Gets the IDs of the members holding a moderation permission (kick, ban or edit permissions) in
+ * each of the given channels, keyed by channel ID. Channel owners are not listed by virtue of
+ * owning the channel; they appear only if they also hold one of those permissions. A channel with
+ * no such members is absent from the result rather than mapped to an empty array.
+ */
+export async function getModeratorIdsForChannels(
+  channelIds: ReadonlyArray<SbChannelId>,
+  withClient?: DbClient,
+): Promise<Map<SbChannelId, SbUserId[]>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<Dbify<{ channelId: SbChannelId; userId: SbUserId }>>(sql`
+      SELECT channel_id, user_id
+      FROM channel_users
+      WHERE channel_id = ANY(${channelIds}) AND (kick OR ban OR edit_permissions)
+      ORDER BY channel_id, join_date, user_id;
+    `)
+
+    const moderatorIds = new Map<SbChannelId, SbUserId[]>()
+    for (const row of result.rows) {
+      const forChannel = moderatorIds.get(row.channel_id)
+      if (forChannel) {
+        forChannel.push(row.user_id)
+      } else {
+        moderatorIds.set(row.channel_id, [row.user_id])
+      }
+    }
+
+    return moderatorIds
   } finally {
     done()
   }
@@ -178,7 +211,7 @@ export async function getUserChannelEntriesForChannel(
     query = query.append(sql`
       ORDER BY
         (cu.user_id = c.owner_id) DESC,
-        (cu.kick::int + cu.ban::int + cu.change_topic::int + cu.toggle_private::int + cu.edit_permissions::int) DESC,
+        (cu.kick::int + cu.ban::int + cu.edit_permissions::int) DESC,
         cu.join_date ASC,
         cu.user_id ASC
       LIMIT ${limit}
@@ -214,6 +247,7 @@ export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
     name: channel.name,
     private: channel.private,
     official: channel.official,
+    closed: channel.closed,
   }
 }
 
@@ -234,6 +268,7 @@ export function toJoinedChannelInfo(channel: FullChannelInfo): JoinedChannelInfo
     id: channel.id,
     ownerId: channel.ownerId,
     topic: channel.topic,
+    membersCanInvite: channel.membersCanInvite,
   }
 }
 
@@ -245,9 +280,11 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
     name: props.name,
     private: props.private,
     official: props.official,
+    closed: props.closed,
     userCount: props.user_count,
     ownerId: props.owner_id ?? undefined,
     topic: props.topic ?? undefined,
+    membersCanInvite: props.members_can_invite,
     description: props.description ?? undefined,
     bannerPath: props.banner_path ? getUrl(props.banner_path) : undefined,
     badgePath: props.badge_path ? getUrl(props.badge_path) : undefined,
@@ -315,6 +352,8 @@ export async function updateChannel(
               return sql`private = ${value}`
             case 'official':
               return sql`official = ${value}`
+            case 'closed':
+              return sql`closed = ${value}`
             case 'description':
               return sql`description = ${value}`
             case 'bannerPath':
@@ -325,6 +364,8 @@ export async function updateChannel(
               return sql`owner_id = ${value}`
             case 'topic':
               return sql`topic = ${value}`
+            case 'membersCanInvite':
+              return sql`members_can_invite = ${value}`
 
             default:
               return assertUnreachable(key)
@@ -380,17 +421,20 @@ export async function transferChannelOwnership(
 /**
  * Attempts to add a user to a channel. Returns user channel entry if it was successfully added, or
  * `undefined` if the user reached the limit of joined channels.
+ *
+ * `invitedBy` is the creator of the invite link the user joined through, if they joined through one.
  */
 export async function addUserToChannel(
   userId: SbUserId,
   channelId: SbChannelId,
   withClient?: DbClient,
+  invitedBy?: SbUserId,
 ): Promise<UserChannelEntry | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
-      INSERT INTO channel_users (user_id, channel_id, join_date)
-      SELECT ${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+      INSERT INTO channel_users (user_id, channel_id, join_date, invited_by)
+      SELECT ${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${invitedBy ?? null}
       WHERE (
         SELECT COUNT(*)
         FROM channel_users cu
@@ -685,6 +729,36 @@ export async function getChannelMessageSentTime(
   }
 }
 
+export interface ChannelMessageAuthor {
+  userId: SbUserId
+  messageType: ServerChatMessageType
+}
+
+/**
+ * Returns the author of a message and the kind of message it is, or `undefined` if the message
+ * doesn't exist in the given channel.
+ */
+export async function getChannelMessageAuthor(
+  channelId: SbChannelId,
+  messageId: string,
+  withClient?: DbClient,
+): Promise<ChannelMessageAuthor | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<
+      Dbify<{ userId: SbUserId; messageType: ServerChatMessageType }>
+    >(sql`
+      SELECT user_id, data->>'type' AS message_type
+      FROM channel_messages
+      WHERE id = ${messageId} AND channel_id = ${channelId};
+    `)
+    const row = result.rows[0]
+    return row ? { userId: row.user_id, messageType: row.message_type } : undefined
+  } finally {
+    done()
+  }
+}
+
 export interface LeaveChannelResult {
   /**
    * Whether the user's channel membership was actually removed. `false` when they were no longer
@@ -744,8 +818,6 @@ export async function removeUserFromChannel(
     //   - `edit_permissions`
     //   - `ban`
     //   - `kick`
-    //   - `toggle_private`
-    //   - `change_topic`
     // If there's no such user, then the user who has joined the channel earliest is chosen.
     const newOwnerResult = await client.query<{ owner_id: SbUserId }>(sql`
       WITH own AS (
@@ -756,8 +828,6 @@ export async function removeUserFromChannel(
           edit_permissions DESC,
           ban DESC,
           kick DESC,
-          toggle_private DESC,
-          change_topic DESC,
           join_date
         LIMIT 1
       )
@@ -774,6 +844,47 @@ export async function removeUserFromChannel(
 
     return { userWasRemoved: true, newOwnerId: newOwnerResult.rows[0].owner_id }
   })
+}
+
+/**
+ * Removes every member from a channel, returning the IDs of the users that were removed. Unlike
+ * `removeUserFromChannel`, this never deletes the channel or hands its ownership to anyone.
+ */
+export async function removeAllUsersFromChannel(
+  channelId: SbChannelId,
+  withClient?: DbClient,
+): Promise<SbUserId[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ user_id: SbUserId }>(sql`
+      DELETE FROM channel_users
+      WHERE channel_id = ${channelId}
+      RETURNING user_id;
+    `)
+    return result.rows.map(row => row.user_id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Deletes a channel along with its messages and bans. Its members must have been removed first.
+ * Returns whether the channel existed.
+ */
+export async function deleteChannel(
+  channelId: SbChannelId,
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      DELETE FROM channels
+      WHERE id = ${channelId};
+    `)
+    return !!result.rowCount
+  } finally {
+    done()
+  }
 }
 
 export async function updateUserPreferences(
@@ -836,8 +947,6 @@ export async function updateUserPermissions(
       SET
         kick = ${perms.kick},
         ban = ${perms.ban},
-        change_topic = ${perms.changeTopic},
-        toggle_private = ${perms.togglePrivate},
         edit_permissions = ${perms.editPermissions}
       WHERE channel_id = ${channelId} AND user_id = ${userId};
     `)
@@ -1245,18 +1354,32 @@ export async function removeBannedIdentifiersFromChannel(
   }
 }
 
-/** Returns a chat channel with the matching ID if it exists. */
+/**
+ * Returns a chat channel with the matching ID if it exists. With `forUpdate`, the channel's row
+ * stays locked until the surrounding transaction ends, which keeps it from being closed or deleted
+ * in the meantime.
+ */
 export async function getChannelInfo(
   channelId: SbChannelId,
   withClient?: DbClient,
+  { forUpdate = false }: { forUpdate?: boolean } = {},
 ): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query<DbChannel>(sql`
-      SELECT *
-      FROM channels
-      WHERE id = ${channelId};
-    `)
+    const result = await client.query<DbChannel>(
+      forUpdate
+        ? sql`
+            SELECT *
+            FROM channels
+            WHERE id = ${channelId}
+            FOR NO KEY UPDATE;
+          `
+        : sql`
+            SELECT *
+            FROM channels
+            WHERE id = ${channelId};
+          `,
+    )
 
     return result.rows.length ? convertChannelFromDb(result.rows[0]) : undefined
   } finally {
@@ -1328,14 +1451,21 @@ export async function findChannelsByName(
 }
 
 /**
- * Returns a list of chat channels, optionally filtered by a `searchStr`.
+ * Returns a list of chat channels, optionally filtered by a `searchStr`. Private channels are only
+ * included for their members (`userId`), and closed channels for nobody, unless `includePrivate`
+ * is set. This is done
+ * before paging so that `offset` and `limit` count only the channels the requester may see.
  */
 export async function searchChannels(
   {
+    userId,
+    includePrivate,
     limit,
     offset,
     searchStr,
   }: {
+    userId: SbUserId
+    includePrivate: boolean
     limit: number
     offset: number
     searchStr?: string
@@ -1345,12 +1475,23 @@ export async function searchChannels(
   const { client, done } = await db(withClient)
   try {
     let query = sql`
-      SELECT *
-      FROM channels
+      SELECT c.*
+      FROM channels c
+      WHERE TRUE
     `
 
     if (searchStr) {
-      query = query.append(sql`WHERE name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+      query = query.append(sql` AND c.name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+    }
+    if (!includePrivate) {
+      query = query.append(sql`
+        AND NOT c.closed
+        AND (
+          NOT c.private OR EXISTS (
+            SELECT 1 FROM channel_users cu WHERE cu.channel_id = c.id AND cu.user_id = ${userId}
+          )
+        )
+      `)
     }
 
     query = query.append(sql`

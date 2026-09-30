@@ -54,6 +54,11 @@ function invalidateNewsPostLists(cache: Cache) {
 // TODO(tec27): Devise a way to split this between the different feature areas
 const cacheUpdates: UpdatesConfig = {
   Mutation: {
+    newsSetUrgentMessage: (result, _args, cache) => {
+      if (result.newsSetUrgentMessage) {
+        cache.invalidate('Query', 'urgentMessage')
+      }
+    },
     userDeleteRestrictedName: (result, args, cache) => {
       if (result.userDeleteRestrictedName) {
         cache.invalidate({
@@ -117,6 +122,7 @@ const cacheKeys: KeyingConfig = {
   RatingHistory: NON_KEYED_EMBEDDED,
   RatingHistoryPoint: NON_KEYED_EMBEDDED,
   UserRankedMode: NON_KEYED_EMBEDDED,
+  UrgentMessageTranslation: NON_KEYED_EMBEDDED,
   ReconciledPlayerResultEntry: NON_KEYED_EMBEDDED,
   // Pieces of a game's commend/report state, only ever read through their (keyed) GameFeedback or
   // the mutation result that carries one.

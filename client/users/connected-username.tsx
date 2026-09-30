@@ -40,6 +40,8 @@ export interface ConnectedUsernameProps {
   userId: SbUserId
   /** A string to show before the username, e.g. '@' for mentions. */
   prefix?: string
+  /** Rendered inside the name element after the name, e.g. a channel role badge. */
+  badge?: React.ReactNode
   /**
    * An optional callback that will be called before the normal `onClick` handling. If the click
    * was handled by the callback, it should return `true` to indicate the normal behavior should
@@ -51,6 +53,11 @@ export interface ConnectedUsernameProps {
   interactive?: boolean
   /** If set, shows a Tooltip containing the players name if the name is ellipsized. */
   showTooltipForOverflow?: TooltipPosition
+  /**
+   * Which side of the name the profile overlay opens on. Defaults to `'right'`; names near the
+   * window's right edge want `'left'`.
+   */
+  profileSide?: 'left' | 'right'
 }
 
 /**
@@ -61,11 +68,13 @@ export function ConnectedUsername({
   className,
   userId,
   prefix = '',
+  badge,
   filterClick,
   UserMenu,
   interactive = true,
   // TODO(tec27): We could probably make this true? Just not sure what layouts it might break
   showTooltipForOverflow,
+  profileSide = 'right',
 }: ConnectedUsernameProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -78,11 +87,11 @@ export function ConnectedUsername({
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu } = useUserOverlays({
     userId,
-    profileAnchorX: 'right',
+    profileAnchorX: profileSide,
     profileAnchorY: 'top',
-    profileOriginX: 'left',
+    profileOriginX: profileSide === 'right' ? 'left' : 'right',
     profileOriginY: 'top',
-    profileOffsetX: 4,
+    profileOffsetX: profileSide === 'right' ? 4 : -4,
     filterClick,
     UserMenu,
   })
@@ -111,6 +120,7 @@ export function ConnectedUsername({
       tabIndex={interactive ? 0 : undefined}>
       {prefix}
       {username}
+      {badge}
     </Username>
   )
 

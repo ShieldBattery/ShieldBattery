@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::redis::RedisPool;
@@ -219,12 +221,7 @@ impl NewsMutation {
         // Save the urgent message to redis
         let redis = ctx.data::<RedisPool>()?;
 
-        let message = message.map(|msg| UrgentMessage {
-            id: Uuid::new_v4(),
-            title: msg.title,
-            message: msg.message,
-            published_at: Utc::now(),
-        });
+        let message = message.map(UrgentMessage::new).transpose()?;
 
         {
             let mut redis = redis.get().await.wrap_err("Could not connect to Redis")?;
@@ -740,14 +737,109 @@ pub struct UrgentMessage {
     pub id: Uuid,
     pub title: String,
     pub message: String,
+    #[serde(default)]
+    pub translations: Vec<UrgentMessageTranslation>,
     /// The time the message was published (in UTC). This will serialize as an RFC 3339 string.
     pub published_at: DateTime<Utc>,
+}
+
+#[typeshare]
+#[derive(SimpleObject, Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UrgentMessageTranslation {
+    pub language: String,
+    pub title: String,
+    pub message: String,
 }
 
 #[derive(InputObject, Clone, Debug)]
 pub struct UrgentMessageInput {
     pub title: String,
     pub message: String,
+    pub translations: Option<Vec<UrgentMessageTranslationInput>>,
+}
+
+#[derive(InputObject, Clone, Debug)]
+pub struct UrgentMessageTranslationInput {
+    pub language: String,
+    pub title: String,
+    pub message: String,
+}
+
+impl UrgentMessage {
+    fn new(input: UrgentMessageInput) -> Result<Self> {
+        if input.title.trim().is_empty() {
+            return Err(graphql_error("BAD_REQUEST", "title must not be blank"));
+        }
+        if input.message.trim().is_empty() {
+            return Err(graphql_error("BAD_REQUEST", "message must not be blank"));
+        }
+
+        Ok(Self {
+            id: Uuid::new_v4(),
+            title: input.title,
+            message: input.message,
+            translations: validate_urgent_message_translations(input.translations)?,
+            published_at: Utc::now(),
+        })
+    }
+}
+
+fn validate_urgent_message_translations(
+    translations: Option<Vec<UrgentMessageTranslationInput>>,
+) -> Result<Vec<UrgentMessageTranslation>> {
+    let mut languages = HashSet::new();
+
+    translations
+        .unwrap_or_default()
+        .into_iter()
+        .map(|translation| {
+            if !is_supported_urgent_message_translation_language(&translation.language) {
+                return Err(graphql_error(
+                    "BAD_REQUEST",
+                    format!(
+                        "unsupported urgent message translation language: {}",
+                        translation.language
+                    ),
+                ));
+            }
+            if !languages.insert(translation.language.clone()) {
+                return Err(graphql_error(
+                    "BAD_REQUEST",
+                    format!(
+                        "duplicate urgent message translation language: {}",
+                        translation.language
+                    ),
+                ));
+            }
+
+            Ok(UrgentMessageTranslation {
+                language: translation.language,
+                title: normalize_urgent_message_translation_field(translation.title),
+                message: normalize_urgent_message_translation_field(translation.message),
+            })
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(|translations| {
+            translations
+                .into_iter()
+                .filter(|translation| {
+                    !translation.title.is_empty() || !translation.message.is_empty()
+                })
+                .collect()
+        })
+}
+
+fn is_supported_urgent_message_translation_language(language: &str) -> bool {
+    matches!(language, "zh-Hans" | "ko" | "ru" | "es")
+}
+
+fn normalize_urgent_message_translation_field(value: String) -> String {
+    if value.trim().is_empty() {
+        String::new()
+    } else {
+        value
+    }
 }
 
 #[typeshare]
@@ -762,6 +854,35 @@ pub enum PublishedNewsMessage {
 mod tests {
     use super::*;
     use async_graphql::{EmptyMutation, EmptySubscription, Schema};
+
+    fn urgent_message_input(
+        title: impl Into<String>,
+        message: impl Into<String>,
+        translations: Option<Vec<UrgentMessageTranslationInput>>,
+    ) -> UrgentMessageInput {
+        UrgentMessageInput {
+            title: title.into(),
+            message: message.into(),
+            translations,
+        }
+    }
+
+    fn translation(
+        language: impl Into<String>,
+        title: impl Into<String>,
+        message: impl Into<String>,
+    ) -> UrgentMessageTranslationInput {
+        UrgentMessageTranslationInput {
+            language: language.into(),
+            title: title.into(),
+            message: message.into(),
+        }
+    }
+
+    fn assert_bad_request(input: UrgentMessageInput, expected_message: &str) {
+        let error = UrgentMessage::new(input).unwrap_err();
+        assert_eq!(error.message, expected_message);
+    }
 
     #[derive(SimpleObject)]
     struct LookaheadPost {
@@ -889,5 +1010,115 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(small_variant_path(input), expected, "input: {input}");
         }
+    }
+
+    #[test]
+    fn urgent_message_deserializes_legacy_redis_payload_without_translations() {
+        let message: UrgentMessage = serde_json::from_value(serde_json::json!({
+            "id": "00000000-0000-0000-0000-000000000000",
+            "title": "Maintenance",
+            "message": "The service will restart shortly.",
+            "publishedAt": "2026-09-27T00:00:00Z",
+        }))
+        .unwrap();
+
+        assert!(message.translations.is_empty());
+    }
+
+    #[test]
+    fn urgent_message_serialization_round_trips_translations() {
+        let message = UrgentMessage {
+            id: Uuid::nil(),
+            title: "Maintenance".into(),
+            message: "The service will restart shortly.".into(),
+            translations: vec![UrgentMessageTranslation {
+                language: "ko".into(),
+                title: "점검".into(),
+                message: "서비스가 곧 재시작됩니다.".into(),
+            }],
+            published_at: "2026-09-27T00:00:00Z".parse().unwrap(),
+        };
+
+        let decoded: UrgentMessage =
+            serde_json::from_str(&serde_json::to_string(&message).unwrap()).unwrap();
+        assert_eq!(decoded.id, message.id);
+        assert_eq!(decoded.title, message.title);
+        assert_eq!(decoded.message, message.message);
+        assert_eq!(decoded.published_at, message.published_at);
+        assert_eq!(decoded.translations.len(), 1);
+        assert_eq!(decoded.translations[0].language, "ko");
+        assert_eq!(decoded.translations[0].title, "점검");
+        assert_eq!(decoded.translations[0].message, "서비스가 곧 재시작됩니다.");
+    }
+
+    #[test]
+    fn urgent_message_input_requires_english_content_and_valid_translation_languages() {
+        assert_bad_request(
+            urgent_message_input(" \t", "English body", None),
+            "title must not be blank",
+        );
+        assert_bad_request(
+            urgent_message_input("English title", "\n  \t", None),
+            "message must not be blank",
+        );
+
+        for language in ["en", "fr"] {
+            assert_bad_request(
+                urgent_message_input(
+                    "English title",
+                    "English body",
+                    Some(vec![translation(language, "Title", "Body")]),
+                ),
+                &format!("unsupported urgent message translation language: {language}"),
+            );
+        }
+
+        assert_bad_request(
+            urgent_message_input(
+                "English title",
+                "English body",
+                Some(vec![
+                    translation("es", "Título", "Cuerpo"),
+                    translation("es", "Otro título", "Otro cuerpo"),
+                ]),
+            ),
+            "duplicate urgent message translation language: es",
+        );
+    }
+
+    #[test]
+    fn urgent_message_omits_empty_translations_and_preserves_meaningful_markdown_whitespace() {
+        let message = UrgentMessage::new(urgent_message_input(
+            "  English title  ",
+            "\n# English body\n\nWith spacing.\n",
+            Some(vec![
+                translation("zh-Hans", " \t", "\n  "),
+                translation("ko", "\n\t", "\nKorean body\n"),
+                translation("ru", "Русский заголовок", " \n\t"),
+                translation("es", "  **Título**  ", "\nCuerpo\n"),
+            ]),
+        ))
+        .unwrap();
+
+        assert_eq!(message.title, "  English title  ");
+        assert_eq!(message.message, "\n# English body\n\nWith spacing.\n");
+        assert_eq!(message.translations.len(), 3);
+
+        assert_eq!(message.translations[0].language, "ko");
+        assert_eq!(message.translations[0].title, "");
+        assert_eq!(message.translations[0].message, "\nKorean body\n");
+
+        assert_eq!(message.translations[1].language, "ru");
+        assert_eq!(message.translations[1].title, "Русский заголовок");
+        assert_eq!(message.translations[1].message, "");
+
+        assert_eq!(message.translations[2].language, "es");
+        assert_eq!(message.translations[2].title, "  **Título**  ");
+        assert_eq!(message.translations[2].message, "\nCuerpo\n");
+
+        let subsequent_message =
+            UrgentMessage::new(urgent_message_input("English title", "English body", None))
+                .unwrap();
+        assert_ne!(message.id, subsequent_message.id);
     }
 }

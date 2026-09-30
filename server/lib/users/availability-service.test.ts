@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events'
 import { NydusServer } from 'nydus'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import {
@@ -8,7 +7,6 @@ import {
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { UserAvailability } from '../../../common/users/availability'
 import { FriendActivityStatus } from '../../../common/users/relationships'
-import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { getAccountSettings, updateAccountSettings } from '../settings/account-settings-model'
 import { AccountSettingsService } from '../settings/account-settings-service'
@@ -23,7 +21,6 @@ import {
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { ActivityStatusService } from './activity-status-service'
 import { AvailabilityService, getAvailabilityPath } from './availability-service'
-import { RestrictionService } from './restriction-service'
 import { FakeActivityStatusService } from './testing/activity-status-service'
 
 vi.mock('../settings/account-settings-model', () => ({
@@ -32,14 +29,10 @@ vi.mock('../settings/account-settings-model', () => ({
 }))
 
 const USER = makeSbUserId(1)
-const AWAY = { availability: UserAvailability.Away, statusMessage: 'brb' }
-const DND = { availability: UserAvailability.DoNotDisturb, statusMessage: '' }
-const ONLINE = { availability: UserAvailability.Online, statusMessage: '' }
-const AUTO_AWAY = { availability: UserAvailability.Away, statusMessage: '' }
-
-class FakeRestrictionService extends EventEmitter {
-  isRestricted = vi.fn().mockResolvedValue(false)
-}
+const AWAY = { availability: UserAvailability.Away }
+const DND = { availability: UserAvailability.DoNotDisturb }
+const ONLINE = { availability: UserAvailability.Online }
+const AUTO_AWAY = { availability: UserAvailability.Away }
 
 function flushPromises() {
   return new Promise(resolve => setTimeout(resolve, 0))
@@ -50,7 +43,6 @@ describe('users/availability-service', () => {
   let fakeNydus: FakeNydusServer
   let connector: NydusConnector
   let accountSettingsService: AccountSettingsService
-  let restrictionService: FakeRestrictionService
   let activityStatusService: FakeActivityStatusService
   let service: AvailabilityService
 
@@ -66,7 +58,6 @@ describe('users/availability-service', () => {
     const publisher = new TypedPublisher(nydus)
 
     accountSettingsService = new AccountSettingsService(publisher, userSocketsManager)
-    restrictionService = new FakeRestrictionService()
     activityStatusService = new FakeActivityStatusService()
     service = new AvailabilityService(
       publisher,
@@ -74,7 +65,6 @@ describe('users/availability-service', () => {
       clientSocketsManager,
       activityStatusService as any as ActivityStatusService,
       accountSettingsService,
-      restrictionService as any as RestrictionService,
     )
     connector = new NydusConnector(nydus, sessionLookup)
   })
@@ -107,10 +97,7 @@ describe('users/availability-service', () => {
     connect()
     await flushPromises()
 
-    expect(service.get(USER)).toEqual({
-      availability: UserAvailability.Online,
-      statusMessage: '',
-    })
+    expect(service.get(USER)).toEqual(ONLINE)
   })
 
   test('publishes a change made while online', async () => {
@@ -127,10 +114,7 @@ describe('users/availability-service', () => {
       userId: USER,
       info: DND,
     })
-    expect(onChange).toHaveBeenCalledExactlyOnceWith(USER, DND, {
-      availability: UserAvailability.Online,
-      statusMessage: '',
-    })
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(USER, DND, ONLINE)
   })
 
   test("doesn't publish a settings change that leaves availability as it was", async () => {
@@ -203,62 +187,6 @@ describe('users/availability-service', () => {
     expect(service.get(USER)).toBeUndefined()
   })
 
-  test("withholds a chat-restricted user's status message", async () => {
-    asMockedFunction(getAccountSettings).mockResolvedValue(AWAY)
-    restrictionService.isRestricted.mockResolvedValue(true)
-
-    connect()
-    await flushPromises()
-
-    expect(restrictionService.isRestricted).toHaveBeenCalledWith(USER, RestrictionKind.Chat)
-    expect(service.get(USER)).toEqual({ ...AWAY, statusMessage: '' })
-  })
-
-  test('withholds the status message once a chat restriction is applied', async () => {
-    asMockedFunction(getAccountSettings).mockResolvedValue(AWAY)
-    connect()
-    await flushPromises()
-    const onChange = vi.fn()
-    service.on('change', onChange)
-
-    restrictionService.emit('restrictionApplied', USER, RestrictionKind.Chat)
-
-    const withheld = { ...AWAY, statusMessage: '' }
-    expect(service.get(USER)).toEqual(withheld)
-    expect(fakeNydus.publish).toHaveBeenCalledWith(getAvailabilityPath(USER), {
-      userId: USER,
-      info: withheld,
-    })
-    expect(onChange).toHaveBeenCalledExactlyOnceWith(USER, withheld, AWAY)
-  })
-
-  test('keeps the status message when a different restriction is applied', async () => {
-    asMockedFunction(getAccountSettings).mockResolvedValue(AWAY)
-    connect()
-    await flushPromises()
-
-    restrictionService.emit('restrictionApplied', USER, RestrictionKind.AvatarUpload)
-
-    expect(service.get(USER)).toEqual(AWAY)
-  })
-
-  test('withholds a status message set while the chat restriction was still loading', async () => {
-    let resolveRestricted!: (value: boolean) => void
-    restrictionService.isRestricted.mockReturnValue(
-      new Promise(resolve => {
-        resolveRestricted = resolve
-      }),
-    )
-    connect()
-    asMockedFunction(updateAccountSettings).mockResolvedValue(AWAY)
-    await accountSettingsService.updateSettings(USER, AWAY)
-
-    resolveRestricted(true)
-    await flushPromises()
-
-    expect(service.get(USER)).toEqual({ ...AWAY, statusMessage: '' })
-  })
-
   test("subscribes the user's own sessions to their published availability", async () => {
     const client = connect()
     await flushPromises()
@@ -300,19 +228,6 @@ describe('users/availability-service', () => {
       service.setClientIdle(USER, 'one', false)
 
       expect(service.get(USER)).toEqual(ONLINE)
-    })
-
-    test('keeps the status message while showing the user as Away', async () => {
-      asMockedFunction(getAccountSettings).mockResolvedValue({ statusMessage: 'hi' })
-      connect('one')
-      await flushPromises()
-
-      service.setClientIdle(USER, 'one', true)
-
-      expect(service.get(USER)).toEqual({
-        availability: UserAvailability.Away,
-        statusMessage: 'hi',
-      })
     })
 
     test('stays Online while any other client is active', async () => {

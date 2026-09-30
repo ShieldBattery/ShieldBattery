@@ -234,11 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_one": "В игре ({{count}})",
-      "inGame_few": "В игре ({{count}})",
-      "inGame_many": "В игре ({{count}})",
-      "inGame_other": "В игре ({{count}})",
-      "title": "Активность"
+      "gameLabel": "{{mode}} на карте {{map}}, {{elapsed}}",
+      "viewGame": "Открыть игру"
     },
     "banUser": {
       "banAction": "Забаньте {{user}}",
@@ -258,7 +255,8 @@
       "actionItems": {
         "channelSettings": "Настройки канала",
         "hideBanner": "Скрыть баннер",
-        "leaveChannel": "Покинь канал",
+        "invitePeople": "Пригласить",
+        "leaveChannel": "Покинуть канал",
         "openAdminView": "Открыть вид администратора"
       },
       "errors": {
@@ -276,7 +274,7 @@
       "joined": "Присоединился",
       "moreActions": "Больше действий",
       "noDescription": "У этого канала нет описания.",
-      "private": "Этот канал приватный, для входа требуется приглашение.",
+      "private": "Этот канал приватный, для входа нужна ссылка-приглашение.",
       "userCount_one": "{{count}} участник",
       "userCount_few": "{{count}} участника",
       "userCount_many": "{{count}} участников",
@@ -297,6 +295,10 @@
       "deletedChannel": "удалённый-канал",
       "privateChannel": "приватный-канал"
     },
+    "channelRole": {
+      "moderator": "Модератор канала",
+      "owner": "Владелец канала"
+    },
     "channelSettings": {
       "bannedUsers": {
         "automatedBadge": "Автоматический",
@@ -315,6 +317,10 @@
         "changeBanner": "Изменить баннер",
         "descriptionLabel": "Описание",
         "inappropriateImageErrorMessage": "Выбранное изображение неприемлемо. Пожалуйста, выберите другое.",
+        "membersCanInviteDescription": "Если выключено, приглашать может только владелец канала. При выключении перестают работать и ссылки-приглашения, которыми участники уже поделились.",
+        "membersCanInviteLabel": "Участники могут создавать ссылки-приглашения",
+        "privateDescription": "Приватные каналы не видны в обзоре и поиске, и войти в них можно только по ссылке-приглашению.",
+        "privateLabel": "Приватный канал",
         "removeBadge": "Удалить значок",
         "removeBanner": "Удалить баннер",
         "saveErrorMessage": "Что-то пошло не так при сохранении настроек",
@@ -322,11 +328,18 @@
         "uploadBadge": "Загрузить значок",
         "uploadBanner": "Загрузить баннер"
       },
+      "inviteLinks": {
+        "loadError": "Не удалось загрузить ссылки-приглашения.",
+        "noLinks": "У этого канала нет действующих ссылок-приглашений",
+        "noSearchResults": "Подходящие пользователи не создавали ссылок-приглашений",
+        "revoke": "Отозвать",
+        "revoked": "Ссылка-приглашение отозвана",
+        "revokeError": "Не удалось отозвать ссылку-приглашение",
+        "title": "Ссылки-приглашения"
+      },
       "permissions": {
         "ban": "Может банить пользователей",
         "banShort": "Забанить",
-        "changeTopic": "Может изменять тему",
-        "changeTopicShort": "Изменить тему",
         "editPermissions": "Может изменять права",
         "editPermissionsShort": "Изменить права",
         "editTitle": "Изменить права для {{name}}",
@@ -338,13 +351,12 @@
         "noUsers": "В этом канале нет других участников",
         "owner": "Владелец",
         "saveError": "Не удалось сохранить права",
-        "togglePrivate": "Может переключать приватный статус",
-        "togglePrivateShort": "Переключить приватность",
         "transferOwnership": "Передать владение"
       },
       "tabs": {
         "bannedUsers": "Забаненные",
         "general": "Общие",
+        "inviteLinks": "Ссылки-приглашения",
         "permissions": "Права"
       },
       "users": {
@@ -356,6 +368,13 @@
       "required": "Введите название канала"
     },
     "commands": {
+      "availability": {
+        "error": "Не удалось изменить статус: {{errorMessage}}",
+        "set": "Ваш статус: <1>{{label}}</1>."
+      },
+      "away": {
+        "description": "Устанавливает статус «Нет на месте» или возвращает «В сети», если он уже установлен."
+      },
       "ban": {
         "description": "Банит пользователя в этом канале.",
         "noPermission": "У Вас нет прав банить пользователей в этом канале.",
@@ -377,6 +396,9 @@
       "close": {
         "description": "Закрывает этот приватный диалог.",
         "error": "Не удалось закрыть диалог: {{errorMessage}}"
+      },
+      "dnd": {
+        "description": "Устанавливает статус «Не беспокоить» (без звуков и оповещений о сообщениях) или возвращает «В сети»."
       },
       "eightBall": {
         "description": "Задаёт вопрос магическому шару, ответ даёт сервер."
@@ -408,8 +430,15 @@
         "description": "Управляет списком друзей: добавляет, удаляет и показывает, кто чем занят.",
         "empty": "Ваш список друзей пуст.",
         "list": {
+          "counts_one": "{{online}} в сети · {{total}} друг",
+          "counts_few": "{{online}} в сети · {{total}} друга",
+          "counts_many": "{{online}} в сети · {{total}} друзей",
+          "counts_other": "{{online}} в сети · {{total}} друга",
           "description": "Показывает Ваших друзей и чем они заняты.",
-          "noneOnline": "Нет друзей онлайн"
+          "hideOffline": "Скрыть офлайн",
+          "noneOnline": "Нет друзей онлайн",
+          "showOffline": "Показать офлайн",
+          "title": "Друзья"
         },
         "loadError": "Не удалось загрузить список друзей: {{errorMessage}}",
         "remove": {
@@ -486,7 +515,7 @@
         "description": "Добавляет ¯\\_(ツ)_/¯ в конец сообщения."
       },
       "stats": {
-        "description": "Показывает счёт побед и поражений пользователя и его ранги."
+        "description": "Показывает карточку профиля пользователя: его ранг и счёт побед и поражений."
       },
       "surfaces": {
         "channel": "каналах",
@@ -549,7 +578,6 @@
         "online": "Пользователь <0><0></0></0> в сети.",
         "presence": {
           "active": "активен",
-          "idle": "бездействует",
           "offline": "офлайн"
         },
         "self": "Вы <2><0></0></2>.",
@@ -578,10 +606,79 @@
     "errors": {
       "messageNotFound": "Сообщение не найдено. Возможно, оно было удалено."
     },
+    "inviteCard": {
+      "invalid": "Ссылка-приглашение недействительна или устарела.",
+      "join": "Присоединиться",
+      "memberCount_one": "{{count}} участник",
+      "memberCount_few": "{{count}} участника",
+      "memberCount_many": "{{count}} участников",
+      "memberCount_other": "{{count}} участника",
+      "open": "Открыть",
+      "title": "Приватный канал",
+      "view": "Открыть канал"
+    },
+    "inviteLinkDialog": {
+      "copied": "Ссылка-приглашение скопирована в буфер обмена",
+      "copy": "Копировать",
+      "copyError": "Не удалось скопировать ссылку-приглашение",
+      "description": "Любой, у кого есть эта ссылка, может войти в #{{channelName}}.",
+      "descriptionNoName": "Любой, у кого есть эта ссылка, может войти в канал.",
+      "editSettings": "Настройки ссылки",
+      "expiryLabel": "Срок действия",
+      "generate": "Создать новую ссылку",
+      "generateError": "Не удалось создать новую ссылку-приглашение",
+      "loadError": "Не удалось получить ссылку-приглашение. Вы можете создать новую ниже.",
+      "loading": "Получаем ссылку…",
+      "maxUsesLabel": "Лимит использований",
+      "noLink": "Ссылка недоступна",
+      "title": "Ссылка-приглашение"
+    },
+    "inviteLinks": {
+      "created": "Создана {{timeAgo}}",
+      "expired": "Истекла",
+      "expiresIn": "Истекает {{timeLeft}}",
+      "expiryDays_one": "{{count}} день",
+      "expiryDays_few": "{{count}} дня",
+      "expiryDays_many": "{{count}} дней",
+      "expiryDays_other": "{{count}} дня",
+      "expiryHours_one": "{{count}} час",
+      "expiryHours_few": "{{count}} часа",
+      "expiryHours_many": "{{count}} часов",
+      "expiryHours_other": "{{count}} часа",
+      "expiryMinutes_one": "{{count}} минута",
+      "expiryMinutes_few": "{{count}} минуты",
+      "expiryMinutes_many": "{{count}} минут",
+      "expiryMinutes_other": "{{count}} минуты",
+      "expiryNever": "Бессрочно",
+      "maxUsesCount_one": "{{count}} использование",
+      "maxUsesCount_few": "{{count}} использования",
+      "maxUsesCount_many": "{{count}} использований",
+      "maxUsesCount_other": "{{count}} использования",
+      "maxUsesUnlimited": "Без ограничений",
+      "neverExpires": "Бессрочная",
+      "noUseLimit": "Без лимита использований",
+      "useLimit_one": "Не более {{count}} использования",
+      "useLimit_few": "Не более {{count}} использований",
+      "useLimit_many": "Не более {{count}} использований",
+      "useLimit_other": "Не более {{count}} использований",
+      "uses_one": "{{count}} использование",
+      "uses_few": "{{count}} использования",
+      "uses_many": "{{count}} использований",
+      "uses_other": "{{count}} использования",
+      "usesOfMax_one": "Использовано: {{count}} из {{maxUses}}",
+      "usesOfMax_few": "Использовано: {{count}} из {{maxUses}}",
+      "usesOfMax_many": "Использовано: {{count}} из {{maxUses}}",
+      "usesOfMax_other": "Использовано: {{count}} из {{maxUses}}"
+    },
+    "invitePage": {
+      "title": "Вас пригласили в приватный канал"
+    },
     "joinChannel": {
       "bannedError": "Вам запрещен доступ к #{{channelName}}",
       "genericError": "Произошла ошибка при присоединении к #{{channelName}}",
-      "maximumChannelsError": "Вы достигли лимита присоединенных каналов. Вам нужно покинуть один, прежде чем присоединиться к другому."
+      "inviteLinkInvalidError": "Ссылка-приглашение недействительна или устарела.",
+      "maximumChannelsError": "Вы достигли лимита присоединенных каналов. Вам нужно покинуть один, прежде чем присоединиться к другому.",
+      "privateError": "Канал #{{channelName}} приватный, для входа нужна ссылка-приглашение"
     },
     "kickUser": {
       "body": "{{user}} потеряет свои права в канале и покинет его. Вернуться в канал можно в любой момент.",
@@ -695,6 +792,7 @@
         "line": "бросает кубик: <1>{{value}}</1> (1-{{max}})"
       }
     },
+    "privateChannelTitle": "Приватный канал",
     "transferOwnership": {
       "adminBody": "Сделать {{user}} владельцем этого канала? Текущий владелец лишится прав владельца.",
       "body": "Передать владение каналом #{{channelName}} пользователю {{user}}? Вы больше не будете владельцем.",
@@ -712,9 +810,22 @@
     },
     "userList": {
       "active": "Активен",
-      "idle": "Бездействие",
+      "filter": "Поиск участников",
+      "inGame": "В игре",
+      "liveNow": "Сейчас в эфире",
       "loadFailed": "Не удалось загрузить список пользователей",
-      "offline": "Офлайн"
+      "noMatches": "Здесь нет никого с таким именем.",
+      "offline": "Офлайн",
+      "showFewerGames": "Показать меньше игр",
+      "showFewerStreams": "Показать меньше трансляций",
+      "showMoreGames_one": "Показать ещё {{count}} игру",
+      "showMoreGames_few": "Показать ещё {{count}} игры",
+      "showMoreGames_many": "Показать ещё {{count}} игр",
+      "showMoreGames_other": "Показать ещё {{count}} игры",
+      "showMoreStreams_one": "Показать ещё {{count}} трансляцию",
+      "showMoreStreams_few": "Показать ещё {{count}} трансляции",
+      "showMoreStreams_many": "Показать ещё {{count}} трансляций",
+      "showMoreStreams_other": "Показать ещё {{count}} трансляции"
     },
     "whispers": {
       "startWhisperButton": "Отправить личное сообщение"
@@ -776,7 +887,7 @@
       "download": "Скачать",
       "edit": "Редактировать",
       "hide": "Спрятать",
-      "join": "Присоединяйся",
+      "join": "Присоединиться",
       "markAsRead": "Отметить как прочитанное",
       "next": "Далее",
       "okay": "Хорошо",
@@ -927,6 +1038,7 @@
     "results": {
       "draw": "Ничья",
       "drawShort": "Нич.",
+      "hidden": "Результат скрыт",
       "loss": "Поражение",
       "lossShort": "Пор.",
       "unknown": "Неизвестно",
@@ -1103,6 +1215,16 @@
     "dayHeader": {
       "today": "Сегодня",
       "yesterday": "Вчера"
+    },
+    "linkCard": {
+      "hideResults": "Скрыть итоги",
+      "morePlayers_one": "+{{count}} ещё",
+      "morePlayers_few": "+{{count}} ещё",
+      "morePlayers_many": "+{{count}} ещё",
+      "morePlayers_other": "+{{count}} ещё",
+      "showResults": "Показать итоги",
+      "versus": "vs",
+      "view": "Открыть игру"
     },
     "list": {
       "noMatchingGames": "Нет подходящих игр.",
@@ -1413,6 +1535,15 @@
       "visibilityListedDescription": "Любой может присоединиться из списка лобби. Игры и реплеи общедоступны.",
       "visibilityUnlistedDescription": "Присоединиться могут только те, у кого есть ссылка. Скачать реплей могут только участники игры."
     },
+    "inviteCard": {
+      "goToLobby": "Перейти в лобби",
+      "hostedBy": "Хост: <1></1>",
+      "join": "Войти",
+      "joined": "Вы в этом лобби",
+      "seats": "Занято мест: {{taken}} из {{total}}",
+      "title": "Лобби",
+      "view": "Открыть лобби"
+    },
     "joinCode": {
       "explainer": "Вставьте ссылку на лобби или введите код, который показывается при открытии ссылки в браузере.",
       "genericError": "Что-то пошло не так. Попробуйте ещё раз.",
@@ -1430,13 +1561,8 @@
       "errorFull": "Это лобби заполнено.",
       "errorGeneric": "Что-то пошло не так при присоединении к лобби. Пожалуйста, попробуйте ещё раз.",
       "errorObserversFull": "В этом лобби нет свободных мест для зрителей. Попробуйте присоединиться как игрок.",
-      "joined": "Вы в лобби",
       "matchmakingActiveDialogText": "Вы не можете присоединяться к лобби, пока активен поиск матчей.",
-      "matchmakingActiveDialogTitle": "Присоединение к лобби отключено",
-      "openSlotCount_one": "{{count}} слот открыт",
-      "openSlotCount_few": "{{count}} слота открыты",
-      "openSlotCount_many": "{{count}} слотов открыто",
-      "openSlotCount_other": "{{count}} слота открыто"
+      "matchmakingActiveDialogTitle": "Присоединение к лобби отключено"
     },
     "landing": {
       "appLaunch": {
@@ -1868,6 +1994,17 @@
     "match": {
       "gameFailedToLoad": "Не удалось загрузить игру."
     },
+    "matchCanceled": {
+      "backInQueue": "Вы снова в очереди матчмейкинга, идёт поиск нового матча.",
+      "draftError": "Выбор рас отменён из-за ошибки сервера.",
+      "draftPlayerLeft": "Игрок вышел во время выбора рас, поэтому матч отменён.",
+      "loadError": "Не удалось начать игру из-за ошибки сервера.",
+      "loadPlayerLeft": "Игрок вышел до начала игры, поэтому матч отменён.",
+      "loadTimeout": "Один из игроков слишком долго загружался, поэтому игра не началась.",
+      "notYourFault": "Это не Ваша вина. Виновник удалён из очереди.",
+      "playerFailedToLoad": "Игрок отключился или не смог загрузиться, поэтому игра не началась.",
+      "title": "Матч отменён"
+    },
     "postMatchDialog": {
       "leagues": "Лиги",
       "matchmaking": "Матчмейкинг",
@@ -2073,6 +2210,8 @@
       "showInExplorer": "Показать в проводнике",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "Сыграно в Battle.net",
+      "sourceTooltipSb": "Сыграно в ShieldBattery",
       "unavailable": "Библиотека реплеев недоступна",
       "unavailableBody": "Не удалось загрузить реплеи. Обычно это исправляет перезапуск ShieldBattery.",
       "unreadableReplays": "Нечитаемые реплеи",
@@ -2549,6 +2688,15 @@
         "rateLimited": "Вы можете менять имя для входа только раз в 30 дней.",
         "unknownError": "Что-то пошло не так. Пожалуйста, повторите попытку позже."
       },
+      "chat": {
+        "displayMode": {
+          "classic": "Классический",
+          "cozy": "Уютный",
+          "description": "Как отображаются сообщения в каналах, личных сообщениях и чате лобби. Сохраняется в Вашей учётной записи и действует на всех устройствах, с которых Вы входите.",
+          "title": "Режим отображения"
+        },
+        "title": "Чат"
+      },
       "connections": {
         "description": "Привяжите внешние аккаунты к своему профилю ShieldBattery.",
         "title": "Подключения",
@@ -2662,6 +2810,10 @@
       "badge": "В эфире",
       "uptimeHoursMinutes": "{{hours}} ч {{minutes}} мин",
       "uptimeMinutes": "{{minutes}} мин",
+      "viewerCount_one": "{{count}} зритель",
+      "viewerCount_few": "{{count}} зрителя",
+      "viewerCount_many": "{{count}} зрителей",
+      "viewerCount_other": "{{count}} зрителя",
       "watch": "Смотреть стрим"
     },
     "liveStreams": {
@@ -2714,6 +2866,21 @@
         "title": "IP-адреса"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "Сразу переименовывает пользователя и записывает изменение в историю ниже. Если выдать жетон смены имени, пользователь сможет сразу выбрать себе имя, без обычного ожидания.",
+          "error": "Не удалось изменить отображаемое имя. Попробуйте позже.",
+          "grantToken": "Выдать жетон смены имени",
+          "nameInvalid": "Недопустимое отображаемое имя.",
+          "nameLabel": "Новое отображаемое имя",
+          "nameUnavailable": "Это отображаемое имя недоступно.",
+          "nameUnchanged": "У этого пользователя уже такое отображаемое имя.",
+          "randomize": "Предложить другое имя",
+          "reasonHint": "Причина сохраняется вместе с записью аудита, показанной в истории ниже.",
+          "reasonLabel": "Причина (необязательно)",
+          "submit": "Изменить имя",
+          "success": "Отображаемое имя изменено",
+          "title": "Изменить отображаемое имя"
+        },
         "displayNameChanges": "Смена отображаемого имени",
         "loginNameChanges": "Смена имени для входа",
         "noDisplayNameHistory": "Смен отображаемого имени не найдено.",
@@ -2729,20 +2896,28 @@
         "title": "Наказания"
       }
     },
+    "availability": {
+      "away": "Нет на месте",
+      "doNotDisturb": "Не беспокоить",
+      "doNotDisturbDescription": "Отключает звуки и оповещения о сообщениях",
+      "offline": "Офлайн",
+      "online": "В сети",
+      "pickerLabel": "Статус"
+    },
     "card": {
+      "divisionUnknown": "Дивизион неизвестен",
+      "gameCount_one": "{{total}} игра",
+      "gameCount_few": "{{total}} игры",
+      "gameCount_many": "{{total}} игр",
+      "gameCount_other": "{{total}} игры",
+      "joined": "Регистрация: {{time}}",
       "loadError": "Не удалось загрузить профиль этого пользователя.",
       "noGames": "Нет сыгранных игр",
-      "rankLine": "{{division}} · {{mode}} · {{points}} очк.",
-      "rankTooltip": {
-        "points": "{{points}} очк.",
-        "winRate": "{{winRate}}% побед"
-      },
-      "totalGames_one": "{{count}} игра",
-      "totalGames_few": "{{count}} игры",
-      "totalGames_many": "{{count}} игр",
-      "totalGames_other": "{{count}} игры",
-      "unranked": "Без рейтинга",
-      "viewProfile": "Профиль"
+      "notEnoughRankedGames": "Недостаточно рейтинговых игр",
+      "notFound": "Этот пользователь не найден.",
+      "openProfile": "Открыть профиль",
+      "title": "Игрок",
+      "unranked": "Без ранга"
     },
     "contextMenu": {
       "addFriend": "Добавить в друзья",

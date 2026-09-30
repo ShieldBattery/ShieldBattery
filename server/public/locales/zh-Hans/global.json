@@ -234,8 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_other": "游戏中 ({{count}})",
-      "title": "活动"
+      "gameLabel": "{{mode}}，地图：{{map}}，已进行 {{elapsed}}",
+      "viewGame": "查看游戏"
     },
     "banUser": {
       "banAction": "封禁 {{user}}",
@@ -255,6 +255,7 @@
       "actionItems": {
         "channelSettings": "频道设置",
         "hideBanner": "隐藏横幅",
+        "invitePeople": "邀请他人",
         "leaveChannel": "离开频道",
         "openAdminView": "打开管理者界面"
       },
@@ -273,7 +274,7 @@
       "joined": "已加入",
       "moreActions": "更多操作",
       "noDescription": "该频道没有简介。",
-      "private": "此频道是私人频道，需要得到邀请才能加入。",
+      "private": "此频道是私人频道，需要邀请链接才能加入。",
       "userCount_other": "{{count}} 成员"
     },
     "channelList": {
@@ -290,6 +291,10 @@
     "channelName": {
       "deletedChannel": "被删除的频道",
       "privateChannel": "私密频道"
+    },
+    "channelRole": {
+      "moderator": "频道版主",
+      "owner": "频道所有者"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -309,6 +314,10 @@
         "changeBanner": "更改横幅",
         "descriptionLabel": "描述",
         "inappropriateImageErrorMessage": "选的图片不合适，请换一张。",
+        "membersCanInviteDescription": "关闭后，只有频道所有者可以邀请他人。关闭时，成员已分享的邀请链接也会一并失效。",
+        "membersCanInviteLabel": "允许成员创建邀请链接",
+        "privateDescription": "私人频道不会出现在浏览和搜索结果中，只能通过邀请链接加入。",
+        "privateLabel": "私人频道",
         "removeBadge": "移除徽章",
         "removeBanner": "移除横幅",
         "saveErrorMessage": "保存设置时出错了",
@@ -316,11 +325,18 @@
         "uploadBadge": "上传徽章",
         "uploadBanner": "上传横幅"
       },
+      "inviteLinks": {
+        "loadError": "无法加载邀请链接。",
+        "noLinks": "此频道没有可用的邀请链接",
+        "noSearchResults": "没有匹配的用户创建过邀请链接",
+        "revoke": "撤销",
+        "revoked": "邀请链接已撤销",
+        "revokeError": "撤销邀请链接时出了点问题",
+        "title": "邀请链接"
+      },
       "permissions": {
         "ban": "可封禁用户",
         "banShort": "封禁",
-        "changeTopic": "可更改主题",
-        "changeTopicShort": "更改主题",
         "editPermissions": "可编辑权限",
         "editPermissionsShort": "编辑权限",
         "editTitle": "编辑 {{name}} 的权限",
@@ -332,13 +348,12 @@
         "noUsers": "此频道没有其他成员",
         "owner": "所有者",
         "saveError": "保存权限失败",
-        "togglePrivate": "可切换私密状态",
-        "togglePrivateShort": "切换私密",
         "transferOwnership": "转让所有权"
       },
       "tabs": {
         "bannedUsers": "封禁名单",
         "general": "常规",
+        "inviteLinks": "邀请链接",
         "permissions": "权限"
       },
       "users": {
@@ -350,6 +365,13 @@
       "required": "请输入频道名称"
     },
     "commands": {
+      "availability": {
+        "error": "无法更改状态：{{errorMessage}}",
+        "set": "您的状态已设为<1>{{label}}</1>。"
+      },
+      "away": {
+        "description": "将您的状态设为“离开”，如果已经是“离开”则恢复为“在线”。"
+      },
       "ban": {
         "description": "将某个用户封禁出此频道。",
         "noPermission": "您没有权限在此频道封禁用户。",
@@ -371,6 +393,9 @@
       "close": {
         "description": "关闭此私聊会话。",
         "error": "无法关闭会话：{{errorMessage}}"
+      },
+      "dnd": {
+        "description": "将您的状态设为“请勿打扰”（关闭消息提示音和通知），或恢复为“在线”。"
       },
       "eightBall": {
         "description": "向神奇8号球提问，由服务器给出答案。"
@@ -402,8 +427,12 @@
         "description": "管理您的好友列表：添加、移除，或查看好友及其当前动态。",
         "empty": "您的好友列表是空的。",
         "list": {
+          "counts_other": "{{online}} 人在线 · 共 {{total}} 位好友",
           "description": "列出您的好友以及他们正在做什么。",
-          "noneOnline": "没有在线好友"
+          "hideOffline": "隐藏离线",
+          "noneOnline": "没有在线好友",
+          "showOffline": "显示离线",
+          "title": "好友"
         },
         "loadError": "无法加载您的好友列表：{{errorMessage}}",
         "remove": {
@@ -480,7 +509,7 @@
         "description": "在您的消息后附加 ¯\\_(ツ)_/¯。"
       },
       "stats": {
-        "description": "显示某个用户的胜负战绩和排名。"
+        "description": "显示某个用户的资料卡：排名和胜负战绩。"
       },
       "surfaces": {
         "channel": "频道",
@@ -540,7 +569,6 @@
         "online": "<0><0></0></0> 当前在线。",
         "presence": {
           "active": "活跃",
-          "idle": "空闲",
           "offline": "离线"
         },
         "self": "您是 <2><0></0></2>。",
@@ -569,10 +597,55 @@
     "errors": {
       "messageNotFound": "找不到该消息，它可能已被删除。"
     },
+    "inviteCard": {
+      "invalid": "此邀请链接无效或已过期。",
+      "join": "加入",
+      "memberCount_other": "{{count}} 名成员",
+      "open": "查看",
+      "title": "私人频道",
+      "view": "查看频道"
+    },
+    "inviteLinkDialog": {
+      "copied": "邀请链接已复制到剪贴板",
+      "copy": "复制",
+      "copyError": "复制邀请链接时出了点问题",
+      "description": "任何拥有此链接的人都可以加入 #{{channelName}}。",
+      "descriptionNoName": "任何拥有此链接的人都可以加入该频道。",
+      "editSettings": "链接设置",
+      "expiryLabel": "有效期",
+      "generate": "生成新链接",
+      "generateError": "生成新邀请链接时出了点问题",
+      "loadError": "获取邀请链接时出了点问题。您仍可以在下方生成新链接。",
+      "loading": "正在获取链接…",
+      "maxUsesLabel": "最多使用次数",
+      "noLink": "没有可用的链接",
+      "title": "邀请链接"
+    },
+    "inviteLinks": {
+      "created": "创建于{{timeAgo}}",
+      "expired": "已过期",
+      "expiresIn": "{{timeLeft}}过期",
+      "expiryDays_other": "{{count}} 天",
+      "expiryHours_other": "{{count}} 小时",
+      "expiryMinutes_other": "{{count}} 分钟",
+      "expiryNever": "永不过期",
+      "maxUsesCount_other": "{{count}} 次",
+      "maxUsesUnlimited": "不限",
+      "neverExpires": "永不过期",
+      "noUseLimit": "不限使用次数",
+      "useLimit_other": "限用 {{count}} 次",
+      "uses_other": "已使用 {{count}} 次",
+      "usesOfMax_other": "已使用 {{count}} / {{maxUses}} 次"
+    },
+    "invitePage": {
+      "title": "您被邀请加入一个私人频道"
+    },
     "joinChannel": {
       "bannedError": "您被 #{{channelName}} 封禁",
       "genericError": "加入 #{{channelName}} 时遇到错误",
-      "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。"
+      "inviteLinkInvalidError": "此邀请链接无效或已过期。",
+      "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。",
+      "privateError": "#{{channelName}} 是私人频道，需要邀请链接才能加入"
     },
     "kickUser": {
       "body": "{{user}} 将被移出频道并失去频道权限，之后可以随时重新加入。",
@@ -686,6 +759,7 @@
         "line": "掷出了 <1>{{value}}</1>（1-{{max}}）"
       }
     },
+    "privateChannelTitle": "私人频道",
     "transferOwnership": {
       "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
       "body": "将 #{{channelName}} 的所有权转让给 {{user}}？您将不再是频道所有者。",
@@ -703,9 +777,16 @@
     },
     "userList": {
       "active": "活跃用户",
-      "idle": "空闲用户",
+      "filter": "筛选成员",
+      "inGame": "游戏中",
+      "liveNow": "正在直播",
       "loadFailed": "无法加载用户列表",
-      "offline": "离线用户"
+      "noMatches": "没有找到匹配该名称的成员。",
+      "offline": "离线用户",
+      "showFewerGames": "收起",
+      "showFewerStreams": "收起",
+      "showMoreGames_other": "再显示 {{count}} 场游戏",
+      "showMoreStreams_other": "再显示 {{count}} 个直播"
     },
     "whispers": {
       "startWhisperButton": "开始私聊"
@@ -912,6 +993,7 @@
     "results": {
       "draw": "平局",
       "drawShort": "平",
+      "hidden": "结果已隐藏",
       "loss": "失败",
       "lossShort": "败",
       "unknown": "不明",
@@ -1088,6 +1170,13 @@
     "dayHeader": {
       "today": "今天",
       "yesterday": "昨天"
+    },
+    "linkCard": {
+      "hideResults": "隐藏结果",
+      "morePlayers_other": "+{{count}} 人",
+      "showResults": "显示结果",
+      "versus": "vs",
+      "view": "查看游戏"
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
@@ -1368,6 +1457,15 @@
       "visibilityListedDescription": "任何人都可以从房间列表加入。游戏和录像公开可见。",
       "visibilityUnlistedDescription": "只有拥有链接的人才能加入。只有参与过游戏的人才能下载录像。"
     },
+    "inviteCard": {
+      "goToLobby": "前往房间",
+      "hostedBy": "房主：<1></1>",
+      "join": "加入",
+      "joined": "您已在此房间中",
+      "seats": "已占 {{taken}}/{{total}} 个座位",
+      "title": "房间",
+      "view": "查看房间"
+    },
     "joinCode": {
       "explainer": "粘贴房间链接，或输入在浏览器中打开链接时显示的房间码。",
       "genericError": "出了点问题，请重试。",
@@ -1385,10 +1483,8 @@
       "errorFull": "该房间已满。",
       "errorGeneric": "加入房间时出了点问题。请重试。",
       "errorObserversFull": "该房间没有空余的观战位，请尝试以玩家身份加入。",
-      "joined": "已加入",
       "matchmakingActiveDialogText": "正在进行匹配时无法加入房间。",
-      "matchmakingActiveDialogTitle": "加入房间已禁用",
-      "openSlotCount_other": "有{{count}}个空位"
+      "matchmakingActiveDialogTitle": "加入房间已禁用"
     },
     "landing": {
       "appLaunch": {
@@ -1808,6 +1904,17 @@
     "match": {
       "gameFailedToLoad": "游戏加载失败。"
     },
+    "matchCanceled": {
+      "backInQueue": "您已重新进入匹配队列，正在寻找新的比赛。",
+      "draftError": "由于服务器错误，种族选择已取消。",
+      "draftPlayerLeft": "有玩家在种族选择期间离开，比赛已取消。",
+      "loadError": "由于服务器错误，游戏无法开始。",
+      "loadPlayerLeft": "有玩家在游戏开始前离开，比赛已取消。",
+      "loadTimeout": "有玩家加载时间过长，游戏无法开始。",
+      "notYourFault": "这不是您的责任。导致取消的玩家已被移出队列。",
+      "playerFailedToLoad": "有玩家断开连接或加载失败，游戏无法开始。",
+      "title": "比赛已取消"
+    },
     "postMatchDialog": {
       "leagues": "联赛",
       "matchmaking": "匹配",
@@ -2013,6 +2120,8 @@
       "showInExplorer": "在资源管理器中显示",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "在 Battle.net 上进行的对局",
+      "sourceTooltipSb": "在 ShieldBattery 上进行的对局",
       "unavailable": "录像库不可用",
       "unavailableBody": "暂时无法加载您的录像。重启 ShieldBattery 通常可以解决此问题。",
       "unreadableReplays": "无法读取的录像",
@@ -2480,6 +2589,15 @@
         "rateLimited": "你每 30 天只能修改一次登录名。",
         "unknownError": "遇到错误。请稍后再试。"
       },
+      "chat": {
+        "displayMode": {
+          "classic": "经典",
+          "cozy": "舒适",
+          "description": "消息在频道、私聊和房间聊天中的显示方式。保存在您的账户中，并在您登录的所有设备上生效。",
+          "title": "显示模式"
+        },
+        "title": "聊天"
+      },
       "connections": {
         "description": "将外部账号关联到您的 ShieldBattery 个人资料。",
         "title": "关联账号",
@@ -2593,6 +2711,7 @@
       "badge": "直播中",
       "uptimeHoursMinutes": "{{hours}}小时{{minutes}}分钟",
       "uptimeMinutes": "{{minutes}}分钟",
+      "viewerCount_other": "{{count}} 人观看",
       "watch": "观看直播"
     },
     "liveStreams": {
@@ -2642,6 +2761,21 @@
         "title": "IP地址"
       },
       "nameHistory": {
+        "changeName": {
+          "description": "立即为该用户改名，并将此次更改记录在下方的历史中。发放改名道具后，对方可以立即自行选择名称，无需等待通常的冷却时间。",
+          "error": "更改显示名时出错。请稍后再试。",
+          "grantToken": "发放改名道具",
+          "nameInvalid": "该显示名无效。",
+          "nameLabel": "新显示名",
+          "nameUnavailable": "该显示名不可用。",
+          "nameUnchanged": "该用户已在使用此显示名。",
+          "randomize": "推荐其他名称",
+          "reasonHint": "原因会随审计记录一起保存，并显示在下方的历史中。",
+          "reasonLabel": "原因（可选）",
+          "submit": "更改名称",
+          "success": "显示名已更改",
+          "title": "更改显示名"
+        },
         "displayNameChanges": "显示名更改记录",
         "loginNameChanges": "登录名更改记录",
         "noDisplayNameHistory": "未找到显示名更改记录。",
@@ -2657,17 +2791,25 @@
         "title": "惩罚"
       }
     },
+    "availability": {
+      "away": "离开",
+      "doNotDisturb": "请勿打扰",
+      "doNotDisturbDescription": "关闭消息提示音和通知",
+      "offline": "离线",
+      "online": "在线",
+      "pickerLabel": "在线状态"
+    },
     "card": {
+      "divisionUnknown": "分级未知",
+      "gameCount_other": "{{total}} 场",
+      "joined": "{{time}}加入",
       "loadError": "无法加载该用户的资料。",
       "noGames": "暂无对局",
-      "rankLine": "{{division}} · {{mode}} · {{points}} 分",
-      "rankTooltip": {
-        "points": "{{points}} 分",
-        "winRate": "胜率 {{winRate}}%"
-      },
-      "totalGames_other": "{{count}} 场",
-      "unranked": "未定级",
-      "viewProfile": "资料"
+      "notEnoughRankedGames": "排位赛场次不足",
+      "notFound": "找不到该用户。",
+      "openProfile": "查看资料",
+      "title": "玩家",
+      "unranked": "未定级"
     },
     "contextMenu": {
       "addFriend": "添加好友",

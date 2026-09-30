@@ -8,7 +8,6 @@ import {
   UserAvailability,
 } from '../../../common/users/availability'
 import { FriendActivityStatus } from '../../../common/users/relationships'
-import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 import { AccountSettingsService } from '../settings/account-settings-service'
@@ -19,7 +18,6 @@ import {
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { ActivityStatusService } from './activity-status-service'
-import { RestrictionService } from './restriction-service'
 
 export function getAvailabilityPath(userId: SbUserId): string {
   return urlPath`/availability/${userId}`
@@ -46,9 +44,6 @@ type AvailabilityServiceEvents = {
  * A user counts as online here for exactly as long as `UserSocketsManager` has sockets for them, the
  * same condition `ActivityStatusService` uses, so the two never disagree about whether a user is
  * offline.
- *
- * A chat-restricted user's status message is withheld from everyone else, since it's text they'd be
- * showing to other users. Their own sessions still see it through their account settings.
  */
 @singleton()
 export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents> {
@@ -63,11 +58,6 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
    * connected and keep their user from being shown as Away.
    */
   private clientIdle = new Map<SbUserId, Map<string, boolean>>()
-  /**
-   * Online users known to be chat restricted. Checked when they connect and added to when a
-   * restriction is applied; a restriction expiring takes effect on their next connection.
-   */
-  private chatRestricted = new Set<SbUserId>()
 
   constructor(
     private publisher: TypedPublisher<AvailabilityUpdateEvent>,
@@ -75,7 +65,6 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
     clientSocketsManager: ClientSocketsManager,
     private activityStatusService: ActivityStatusService,
     accountSettingsService: AccountSettingsService,
-    restrictionService: RestrictionService,
   ) {
     super()
 
@@ -113,7 +102,7 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
           const info = this.published.get(userId)
           return info ? { userId, info } : undefined
         })
-        this.loadStored(userSockets, accountSettingsService, restrictionService).catch(err => {
+        this.loadStored(userSockets, accountSettingsService).catch(err => {
           logger.error({ err }, 'error loading availability for new user')
         })
       })
@@ -121,7 +110,6 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
         this.stored.delete(userId)
         this.published.delete(userId)
         this.clientIdle.delete(userId)
-        this.chatRestricted.delete(userId)
         this.publisher.publish(getAvailabilityPath(userId), { userId, info: null })
       })
 
@@ -131,15 +119,6 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
         this.stored.set(userId, toAvailabilityInfo(settings))
         this.refresh(userId)
       }
-    })
-
-    restrictionService.on('restrictionApplied', (userId, kind) => {
-      if (kind !== RestrictionKind.Chat || !this.userSocketsManager.getById(userId)) {
-        return
-      }
-
-      this.chatRestricted.add(userId)
-      this.refresh(userId)
     })
 
     // A user playing a game is never shown as Away: they're often not giving any input the idle
@@ -175,23 +154,14 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
   private async loadStored(
     userSockets: UserSocketsGroup,
     accountSettingsService: AccountSettingsService,
-    restrictionService: RestrictionService,
   ): Promise<void> {
     const { userId } = userSockets
-    const [settings, isChatRestricted] = await Promise.all([
-      accountSettingsService.getSettings(userId),
-      restrictionService.isRestricted(userId, RestrictionKind.Chat),
-    ])
+    const settings = await accountSettingsService.getSettings(userId)
     // Skip the result if the user disconnected meanwhile (a later connection does its own load).
     if (this.userSocketsManager.getById(userId) !== userSockets) {
       return
     }
-    // Only ever added here: a restriction applied during the load has already been recorded.
-    if (isChatRestricted) {
-      this.chatRestricted.add(userId)
-    }
-    // A change made during the load is newer than what was loaded, so it's kept (and published
-    // again below if the restriction now withholds its status message).
+    // A change made during the load is newer than what was loaded, so it's kept.
     if (!this.stored.has(userId)) {
       this.stored.set(userId, toAvailabilityInfo(settings))
     }
@@ -225,14 +195,9 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
         stored.availability === UserAvailability.Online && this.isIdle(userId)
           ? UserAvailability.Away
           : stored.availability,
-      statusMessage: this.chatRestricted.has(userId) ? '' : stored.statusMessage,
     }
     const prev = this.published.get(userId)
-    if (
-      prev &&
-      prev.availability === info.availability &&
-      prev.statusMessage === info.statusMessage
-    ) {
+    if (prev && prev.availability === info.availability) {
       return
     }
 
@@ -243,5 +208,5 @@ export class AvailabilityService extends EventEmitter<AvailabilityServiceEvents>
 }
 
 function toAvailabilityInfo(settings: Readonly<AccountSettings>): AvailabilityInfo {
-  return { availability: settings.availability, statusMessage: settings.statusMessage }
+  return { availability: settings.availability }
 }

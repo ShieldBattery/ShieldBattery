@@ -92,12 +92,13 @@ export function sharedOxc(isProd: boolean): UserConfig['oxc'] {
       styledComponents: {
         displayName: true,
         fileName: true,
-        // Bakes a componentId into every component so class names agree between a server render
-        // and the client one. There is no server render here, and leaving it off is only safe
-        // because `displayName`/`fileName` are on: styled-components then derives the id from
-        // the (file-qualified, therefore unique) display name instead of a creation counter, so
-        // ids stay stable anyway. Turning either of those off means turning this back on.
-        ssr: false,
+        // Bakes a componentId into every component. It exists for server rendering, which this
+        // app never does, but it is also what keeps ids stable across a Vite hot update: without
+        // it styled-components numbers each display name with a creation counter, so a
+        // re-evaluated module gets fresh ids and its rules land after every rule already in the
+        // sheet. A `styled(Foo)` override that won on source order then loses to Foo's own
+        // defaults until the page is reloaded.
+        ssr: true,
         minify: isProd,
       },
     },

@@ -15,6 +15,7 @@ import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { longTimestamp } from '../i18n/date-formats'
+import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { Carousel, CarouselInfiniteListProps } from '../lists/carousel'
 import { getMaps } from '../maps/action-creators'
@@ -258,6 +259,7 @@ export function AdminMatchmakingMapPools() {
 
 function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
   const dispatch = useAppDispatch()
+  const longTimestampFormat = useFormat(longTimestamp)
   const snackbarController = useSnackbarController()
 
   const [creatingMapPoolError, setCreatingMapPoolError] = useState<Error>()
@@ -332,7 +334,7 @@ function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
           {pools.map(pool => (
             <HistoryCard key={pool.id}>
               <HistoryInfo>
-                <HistoryInfoText>{longTimestamp.format(pool.startDate)}</HistoryInfoText>
+                <HistoryInfoText>{longTimestampFormat.format(pool.startDate)}</HistoryInfoText>
 
                 <HistoryInfoText>|</HistoryInfoText>
 

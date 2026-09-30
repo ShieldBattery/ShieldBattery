@@ -234,9 +234,8 @@
   },
   "chat": {
     "activity": {
-      "inGame_one": "In game ({{count}})",
-      "inGame_other": "In game ({{count}})",
-      "title": "Activity"
+      "gameLabel": "{{mode}} on {{map}}, {{elapsed}}",
+      "viewGame": "View game"
     },
     "banUser": {
       "banAction": "Ban {{user}}",
@@ -256,6 +255,7 @@
       "actionItems": {
         "channelSettings": "Channel settings",
         "hideBanner": "Hide banner",
+        "invitePeople": "Invite people",
         "leaveChannel": "Leave channel",
         "openAdminView": "Open admin view"
       },
@@ -274,7 +274,7 @@
       "joined": "Joined",
       "moreActions": "More actions",
       "noDescription": "This channel has no description.",
-      "private": "This channel is private and requires an invite to join.",
+      "private": "This channel is private and requires an invite link to join.",
       "userCount_one": "{{count}} member",
       "userCount_other": "{{count}} members"
     },
@@ -292,6 +292,10 @@
     "channelName": {
       "deletedChannel": "deleted-channel",
       "privateChannel": "private-channel"
+    },
+    "channelRole": {
+      "moderator": "Channel moderator",
+      "owner": "Channel owner"
     },
     "channelSettings": {
       "bannedUsers": {
@@ -311,6 +315,10 @@
         "changeBanner": "Change banner",
         "descriptionLabel": "Description",
         "inappropriateImageErrorMessage": "The selected image is inappropriate. Please select a different image.",
+        "membersCanInviteDescription": "When this is off, only the channel owner can invite people. Turning it off also disables the invite links members have already shared.",
+        "membersCanInviteLabel": "Members can create invite links",
+        "privateDescription": "Private channels are hidden from browse and search, and can only be joined through an invite link.",
+        "privateLabel": "Private channel",
         "removeBadge": "Remove badge",
         "removeBanner": "Remove banner",
         "saveErrorMessage": "Something went wrong while saving the settings",
@@ -318,11 +326,18 @@
         "uploadBadge": "Upload badge",
         "uploadBanner": "Upload banner"
       },
+      "inviteLinks": {
+        "loadError": "Failed to load invite links.",
+        "noLinks": "This channel has no working invite links",
+        "noSearchResults": "No invite links were created by a matching user",
+        "revoke": "Revoke",
+        "revoked": "Invite link revoked",
+        "revokeError": "Something went wrong revoking the invite link",
+        "title": "Invite links"
+      },
       "permissions": {
         "ban": "Can ban users",
         "banShort": "Ban",
-        "changeTopic": "Can change topic",
-        "changeTopicShort": "Change topic",
         "editPermissions": "Can edit permissions",
         "editPermissionsShort": "Edit permissions",
         "editTitle": "Edit permissions for {{name}}",
@@ -334,13 +349,12 @@
         "noUsers": "This channel has no other members",
         "owner": "Owner",
         "saveError": "Failed to save permissions",
-        "togglePrivate": "Can toggle private status",
-        "togglePrivateShort": "Toggle private",
         "transferOwnership": "Transfer ownership"
       },
       "tabs": {
         "bannedUsers": "Banned users",
         "general": "General",
+        "inviteLinks": "Invite links",
         "permissions": "Permissions"
       },
       "users": {
@@ -586,10 +600,64 @@
     "errors": {
       "messageNotFound": "That message couldn't be found. It may have been deleted."
     },
+    "inviteCard": {
+      "invalid": "This invite link is invalid or has expired.",
+      "join": "Join",
+      "memberCount_one": "{{count}} member",
+      "memberCount_other": "{{count}} members",
+      "open": "View",
+      "title": "Private channel",
+      "view": "View channel"
+    },
+    "inviteLinkDialog": {
+      "copied": "Invite link copied to clipboard",
+      "copy": "Copy",
+      "copyError": "Something went wrong copying the invite link",
+      "description": "Anyone with this link can join #{{channelName}}.",
+      "descriptionNoName": "Anyone with this link can join the channel.",
+      "editSettings": "Edit link settings",
+      "expiryLabel": "Expire after",
+      "generate": "Generate new link",
+      "generateError": "Something went wrong generating a new invite link",
+      "loadError": "Something went wrong getting an invite link. You can still generate a new one below.",
+      "loading": "Getting a link…",
+      "maxUsesLabel": "Maximum uses",
+      "noLink": "No link available",
+      "title": "Invite link"
+    },
+    "inviteLinks": {
+      "created": "Created {{timeAgo}}",
+      "expired": "Expired",
+      "expiresIn": "Expires {{timeLeft}}",
+      "expiryDays_one": "{{count}} day",
+      "expiryDays_other": "{{count}} days",
+      "expiryHours_one": "{{count}} hour",
+      "expiryHours_other": "{{count}} hours",
+      "expiryMinutes_one": "{{count}} minute",
+      "expiryMinutes_other": "{{count}} minutes",
+      "expiryNever": "Never",
+      "maxUsesCount_one": "{{count}} use",
+      "maxUsesCount_other": "{{count}} uses",
+      "maxUsesUnlimited": "No limit",
+      "neverExpires": "Never expires",
+      "noUseLimit": "No use limit",
+      "useLimit_one": "Limited to {{count}} use",
+      "useLimit_other": "Limited to {{count}} uses",
+      "uses_one": "{{count}} use",
+      "uses_other": "{{count}} uses",
+      "usesOfMax_one": "{{count}} / {{maxUses}} uses",
+      "usesOfMax_other": "{{count}} / {{maxUses}} uses"
+    },
+    "invitePage": {
+      "title": "You've been invited to a private channel"
+    },
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
+      "closedError": "#{{channelName}} has been closed by the server moderators",
       "genericError": "An error occurred while joining #{{channelName}}",
-      "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another."
+      "inviteLinkInvalidError": "This invite link is invalid or has expired.",
+      "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another.",
+      "privateError": "#{{channelName}} is private and requires an invite link to join"
     },
     "kickUser": {
       "body": "{{user}} will be removed from the channel and lose their channel permissions. They can rejoin at any time.",
@@ -629,6 +697,8 @@
     },
     "notifications": {
       "ban": "You have been banned from <1>#{{channelName}}</1>.",
+      "channelClosed": "<0>#{{channelName}}</0> has been closed by the server moderators.",
+      "channelDeleted": "<0>#{{channelName}}</0> has been deleted by the server moderators.",
       "errors": {
         "updateFailed": "Something went wrong updating the notification settings"
       },
@@ -865,6 +935,7 @@
         "line": "rolls <1>{{value}}</1> (1-{{max}})"
       }
     },
+    "privateChannelTitle": "Private channel",
     "transferOwnership": {
       "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
       "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",
@@ -882,8 +953,18 @@
     },
     "userList": {
       "active": "Active",
+      "filter": "Filter people",
+      "inGame": "In game",
+      "liveNow": "Live now",
       "loadFailed": "Couldn't load the user list",
-      "offline": "Offline"
+      "noMatches": "Nobody here matches that name.",
+      "offline": "Offline",
+      "showFewerGames": "Show fewer games",
+      "showFewerStreams": "Show fewer streams",
+      "showMoreGames_one": "Show {{count}} more game",
+      "showMoreGames_other": "Show {{count}} more games",
+      "showMoreStreams_one": "Show {{count}} more stream",
+      "showMoreStreams_other": "Show {{count}} more streams"
     },
     "whispers": {
       "startWhisperButton": "Start a whisper"
@@ -1670,17 +1751,27 @@
     "lobbySettings": {
       "errorDialogTitle": "Error updating settings",
       "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration.",
-      "errorRename": "The lobby could not be renamed. Please try again.",
+      "errorLobbyOnly": "The lobby settings could not be updated. Please try again.",
       "errorTransient": "The lobby is starting or playing a game. Try again once it regroups."
+    },
+    "mapQueue": {
+      "addMap": "Add map",
+      "empty": "Queue maps to play after this one. The lobby moves on to the next one whenever a game ends.",
+      "header": "Up next",
+      "moveDown": "Move down",
+      "moveUp": "Move up",
+      "remove": "Remove from queue"
     },
     "messageLayout": {
       "gameStarted": "The game has started",
       "settingsChangeGameSubType": "teams",
       "settingsChangeGameType": "game type",
       "settingsChangeMap": "map",
+      "settingsChangeMapQueue": "map queue",
       "settingsChangeName": "lobby name",
       "settingsChangeObservers": "observers",
-      "settingsChangeUnitLimit": "unit limit"
+      "settingsChangeUnitLimit": "unit limit",
+      "settingsChangeVisibility": "visibility"
     },
     "room": {
       "banner": {
@@ -1701,6 +1792,11 @@
         "loadFailedNoUsers": "The game couldn't start",
         "loadFailedPrefix": "The game couldn't start because",
         "loadFailedSuffix": "failed to load",
+        "mapQueueAdvanced": "Next map from the queue: <2>{{map}}</2>",
+        "mapQueueNoneFit": "None of the queued maps fit the lobby's settings",
+        "mapQueueSkipped": "Skipped {{maps}}",
+        "mapQueueSkippedUnfit_one": "Skipped {{maps}}, which doesn't fit the lobby's settings",
+        "mapQueueSkippedUnfit_other": "Skipped {{maps}}, which don't fit the lobby's settings",
         "memberBack": "<0></0> is back in the lobby",
         "readyReset": "ready reset",
         "seatedOn": "seated on {{seat}}",
@@ -1763,11 +1859,15 @@
         "next": "Next",
         "noRecordedWinner": "No recorded winner",
         "playing": "Playing",
+        "queuedThen": "Then",
+        "queuedThenMore_one": "Then · +{{count}} more",
+        "queuedThenMore_other": "Then · +{{count}} more",
         "standings": "Standings",
         "starting": "Starting",
         "tileNoWinner": "No winner",
         "tilePending": "Pending",
         "unknownMap": "unknown map",
+        "upNext": "Up next",
         "waitingForResults": "Waiting for results",
         "watchReplay": "Watch replay"
       },
@@ -2217,6 +2317,20 @@
       "bookmark": "Bookmark",
       "bookmarkedEmpty": "No bookmarked replays",
       "bookmarkedEmptyBody": "Bookmark replays to keep them handy here.",
+      "bulk": {
+        "addedToPlaylist_one": "Added {{count}} replay to {{playlist}}",
+        "addedToPlaylist_other": "Added {{count}} replays to {{playlist}}",
+        "bookmarked_one": "Bookmarked {{count}} replay",
+        "bookmarked_other": "Bookmarked {{count}} replays",
+        "movedToRecycleBin_one": "Moved {{count}} replay to Recycle Bin",
+        "movedToRecycleBin_other": "Moved {{count}} replays to Recycle Bin",
+        "movedToRecycleBinPartial_one": "Moved {{moved}} of {{count}} replay to Recycle Bin",
+        "movedToRecycleBinPartial_other": "Moved {{moved}} of {{count}} replays to Recycle Bin",
+        "removedBookmark_one": "Removed the bookmark from {{count}} replay",
+        "removedBookmark_other": "Removed the bookmark from {{count}} replays",
+        "removedFromPlaylist_one": "Removed {{count}} replay from {{playlist}}",
+        "removedFromPlaylist_other": "Removed {{count}} replays from {{playlist}}"
+      },
       "clearFilters": "Clear filters",
       "empty": "No replays yet",
       "emptyBody": "Replays you watch and play will show up here automatically.",
@@ -2259,9 +2373,15 @@
       "removeBookmark": "Remove bookmark",
       "removeFromPlaylist": "Remove from playlist",
       "scanningTitle": "Scanning your replay folder…",
+      "selection": {
+        "count_one": "{{count}} replay selected",
+        "count_other": "{{count}} replays selected"
+      },
       "showInExplorer": "Show in Explorer",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
+      "sourceTooltipBnet": "Played on Battle.net",
+      "sourceTooltipSb": "Played on ShieldBattery",
       "unavailable": "Replay library unavailable",
       "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
       "unreadableReplays": "Unreadable replays",
@@ -2732,6 +2852,15 @@
         "rateLimited": "You can only change your login name once every 30 days.",
         "unknownError": "Something went wrong, please try again later."
       },
+      "chat": {
+        "displayMode": {
+          "classic": "Classic",
+          "cozy": "Cozy",
+          "description": "How messages are laid out in channels, whispers and lobby chat. Saved to your account and applies on every device you log in from.",
+          "title": "Display mode"
+        },
+        "title": "Chat"
+      },
       "connections": {
         "description": "Link external accounts to your ShieldBattery profile.",
         "title": "Connections",
@@ -2845,6 +2974,8 @@
       "badge": "Live",
       "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
       "uptimeMinutes": "{{minutes}}m",
+      "viewerCount_one": "{{count}} viewer",
+      "viewerCount_other": "{{count}} viewers",
       "watch": "Watch stream"
     },
     "liveStreams": {
@@ -2929,10 +3060,9 @@
       "away": "Away",
       "doNotDisturb": "Do not disturb",
       "doNotDisturbDescription": "Mutes message sounds and alerts",
+      "offline": "Offline",
       "online": "Online",
-      "pickerLabel": "Availability",
-      "statusMessage": "Status message",
-      "withMessage": "{{availability}}: {{message}}"
+      "pickerLabel": "Availability"
     },
     "card": {
       "divisionUnknown": "Division unknown",

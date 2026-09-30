@@ -29,6 +29,7 @@ import { IconButton } from '../material/button'
 import { Divider } from '../material/menu/divider'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
+import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyMedium, labelMedium } from '../styles/typography'
@@ -246,17 +247,15 @@ export function getReplayActionMenuItems({
  * reach, its direct `MenuItem` children.
  */
 export function getAddToPlaylistMenuItems({
-  entry,
   playlists,
   closeMenu,
   onAddToPlaylist,
   t,
   dispatch,
 }: {
-  entry: ReplayLibraryEntry
   playlists: ReadonlyArray<ReplayPlaylist>
   closeMenu: () => void
-  onAddToPlaylist: (playlistId: number, entry: ReplayLibraryEntry) => void
+  onAddToPlaylist: (playlistId: number, playlistName: string) => void
   t: TFunction
   dispatch: ReturnType<typeof useAppDispatch>
 }): React.ReactNode[] {
@@ -268,7 +267,7 @@ export function getAddToPlaylistMenuItems({
         text={p.name}
         onClick={() => {
           closeMenu()
-          onAddToPlaylist(p.id, entry)
+          onAddToPlaylist(p.id, p.name)
         }}
       />
     )),
@@ -282,7 +281,7 @@ export function getAddToPlaylistMenuItems({
           openDialog({
             type: DialogType.CreatePlaylist,
             initData: {
-              onCreated: id => onAddToPlaylist(id, entry),
+              onCreated: (id, name) => onAddToPlaylist(id, name),
             },
           }),
         )
@@ -307,7 +306,7 @@ export interface ReplayInspectorProps {
   onWatch: (entry: ReplayLibraryEntry) => void
   onReveal: (entry: ReplayLibraryEntry) => void
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
-  onAddToPlaylist: (playlistId: number, entry: ReplayLibraryEntry) => void
+  onAddToPlaylist: (playlistId: number, playlistName: string, entry: ReplayLibraryEntry) => void
   onRemoveFromPlaylist: () => void
   onMoveToRecycleBin: (entry: ReplayLibraryEntry) => void
   onMoveUp: () => void
@@ -413,12 +412,16 @@ export function ReplayInspector({
   const chips = (
     <GameSidePanelChipsRow>
       {entry.sbGameId ? (
-        <SourceBadgeSb>
-          <SbSourceLogo />
-          {t('replays.library.sourceTagSb', 'SB')}
-        </SourceBadgeSb>
+        <Tooltip text={t('replays.library.sourceTooltipSb', 'Played on ShieldBattery')}>
+          <SourceBadgeSb>
+            <SbSourceLogo />
+            {t('replays.library.sourceTagSb', 'SB')}
+          </SourceBadgeSb>
+        </Tooltip>
       ) : (
-        <SourceBadgeBnet>{t('replays.library.sourceTagBnet', 'B.NET')}</SourceBadgeBnet>
+        <Tooltip text={t('replays.library.sourceTooltipBnet', 'Played on Battle.net')}>
+          <SourceBadgeBnet>{t('replays.library.sourceTagBnet', 'B.NET')}</SourceBadgeBnet>
+        </Tooltip>
       )}
     </GameSidePanelChipsRow>
   )
@@ -475,10 +478,10 @@ export function ReplayInspector({
         renderSubmenu={({ closeSubmenu }) => (
           <MenuList dense={true}>
             {getAddToPlaylistMenuItems({
-              entry,
               playlists,
               closeMenu: closeSubmenu,
-              onAddToPlaylist,
+              onAddToPlaylist: (playlistId, playlistName) =>
+                onAddToPlaylist(playlistId, playlistName, entry),
               t,
               dispatch,
             })}

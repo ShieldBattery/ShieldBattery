@@ -6,22 +6,28 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ALL_CHANNEL_NOTIFICATION_LEVELS,
   CHANNEL_BANS_LIMIT,
+  CHANNEL_INVITE_LINKS_LIMIT,
   CHANNEL_USER_PERMISSIONS_LIMIT,
   ChannelPermissions,
   ChatServiceErrorCode,
+  CreateChannelInviteLinkResponse,
+  DEFAULT_INVITE_LINK_EXPIRY_SECONDS,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
+  GetChannelInviteLinkResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   InitialChannelData,
   JoinChannelResponse,
   ListChannelBansResponse,
+  ListChannelInviteLinksResponse,
   ListUserChannelEntriesResponse,
   MarkChannelReadRequest,
   ModerateChannelUserServerRequest,
+  RenameChannelRequest,
   SbChannelId,
   SEARCH_CHANNELS_LIMIT,
   SearchChannelsResponse,
@@ -32,6 +38,7 @@ import {
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
+import { isPrettyId } from '../../../common/pretty-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { asHttpError } from '../errors/error-with-payload'
@@ -47,6 +54,7 @@ import { joiTimestampMillis } from '../validation/joi-timestamp'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
 import ChatService, { ChatServiceError } from './chat-service'
+import { createInviteLinkBodySchema } from './invite-link-settings-schema'
 
 const getJoinedChannelsThrottle = createThrottle('chatgetjoinedchannels', {
   rate: 10,
@@ -55,6 +63,27 @@ const getJoinedChannelsThrottle = createThrottle('chatgetjoinedchannels', {
 })
 
 const joinThrottle = createThrottle('chatjoin', {
+  rate: 3,
+  burst: 10,
+  window: 60000,
+})
+
+const createInviteLinkThrottle = createThrottle('chatcreateinvitelink', {
+  rate: 10,
+  burst: 20,
+  window: 60000,
+})
+
+// Invite link tokens are the only thing standing between a private channel and anyone who wants
+// in, so looking them up is kept slow enough that guessing at them gets nowhere. Chat messages can
+// hold invite links, which the client bounds with a fetch budget of its own well below this.
+const inviteLinkLookupThrottle = createThrottle('chatinvitelinklookup', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
+const inviteLinkJoinThrottle = createThrottle('chatinvitelinkjoin', {
   rate: 3,
   burst: 10,
   window: 60000,
@@ -171,7 +200,24 @@ const editChannelBodySchema = () =>
       topic: Joi.string().allow(null),
       deleteBanner: Joi.boolean(),
       deleteBadge: Joi.boolean(),
+      private: Joi.boolean(),
+      membersCanInvite: Joi.boolean(),
     }),
+  })
+
+const channelInviteLinkParamsSchema = () =>
+  Joi.object<{ channelId: SbChannelId; token: string }>({
+    channelId: joiSerialId().required(),
+    token: Joi.string()
+      .custom((value, helpers) => (isPrettyId(value) ? value : helpers.error('any.invalid')))
+      .required(),
+  })
+
+const inviteLinkParamsSchema = () =>
+  Joi.object<{ token: string }>({
+    token: Joi.string()
+      .custom((value, helpers) => (isPrettyId(value) ? value : helpers.error('any.invalid')))
+      .required(),
   })
 
 const moderateChannelUserBodySchema = () =>
@@ -190,8 +236,6 @@ const channelUserPermissionsBodySchema = () =>
     permissions: Joi.object<ChannelPermissions>({
       kick: Joi.boolean().required(),
       ban: Joi.boolean().required(),
-      changeTopic: Joi.boolean().required(),
-      togglePrivate: Joi.boolean().required(),
       editPermissions: Joi.boolean().required(),
     }).required(),
   })
@@ -209,6 +253,7 @@ function convertChatServiceError(err: unknown) {
 
   switch (err.code) {
     case ChatServiceErrorCode.ChannelNotFound:
+    case ChatServiceErrorCode.InviteLinkInvalid:
     case ChatServiceErrorCode.MessageNotFound:
     case ChatServiceErrorCode.NotInChannel:
     case ChatServiceErrorCode.TargetNotBanned:
@@ -217,6 +262,7 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserNotFound:
       throw asHttpError(404, err)
     case ChatServiceErrorCode.CannotModerateYourself:
+    case ChatServiceErrorCode.CannotRemoveInitialChannel:
     case ChatServiceErrorCode.InappropriateImage:
     case ChatServiceErrorCode.NoInitialChannelData:
       throw asHttpError(400, err)
@@ -224,6 +270,8 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotEditChannel:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
+    case ChatServiceErrorCode.ChannelClosed:
+    case ChatServiceErrorCode.ChannelNotPrivate:
     case ChatServiceErrorCode.ChannelPrivate:
     case ChatServiceErrorCode.MaximumJoinedChannels:
     case ChatServiceErrorCode.MaximumOwnedChannels:
@@ -231,6 +279,8 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserBanned:
     case ChatServiceErrorCode.UserChatRestricted:
       throw asHttpError(403, err)
+    case ChatServiceErrorCode.ChannelNameTaken:
+      throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
   }
@@ -305,7 +355,102 @@ export class ChatApi {
       }),
     })
 
-    return await this.chatService.joinChannel(channelName, ctx.session!.user.id)
+    return await this.chatService.joinChannel(
+      channelName,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
+    )
+  }
+
+  @httpGet('/invite-links/:token')
+  @httpBefore(throttleMiddleware(inviteLinkLookupThrottle, throttleByUser))
+  async getInviteLink(ctx: RouterContext): Promise<GetChannelInviteLinkResponse> {
+    const {
+      params: { token },
+    } = validateRequest(ctx, {
+      params: inviteLinkParamsSchema(),
+    })
+
+    return await this.chatService.getInviteLinkInfo(token, ctx.session!.user.id)
+  }
+
+  @httpPost('/invite-links/:token/join')
+  @httpBefore(throttleMiddleware(inviteLinkJoinThrottle, throttleByUser))
+  async joinWithInviteLink(ctx: RouterContext): Promise<JoinChannelResponse> {
+    const {
+      params: { token },
+    } = validateRequest(ctx, {
+      params: inviteLinkParamsSchema(),
+    })
+
+    return await this.chatService.joinChannelWithInviteLink(token, ctx.session!.user.id)
+  }
+
+  @httpPost('/:channelId/invite-links')
+  @httpBefore(throttleMiddleware(createInviteLinkThrottle, throttleByUser))
+  async createInviteLink(ctx: RouterContext): Promise<CreateChannelInviteLinkResponse> {
+    const {
+      params: { channelId },
+      body: { expiresInSeconds, maxUses },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      body: createInviteLinkBodySchema(),
+    })
+
+    return await this.chatService.getOrCreateInviteLink(
+      channelId,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
+      expiresInSeconds !== undefined || maxUses !== undefined
+        ? {
+            expiresInSeconds:
+              expiresInSeconds === undefined
+                ? DEFAULT_INVITE_LINK_EXPIRY_SECONDS
+                : expiresInSeconds,
+            maxUses: maxUses ?? null,
+          }
+        : undefined,
+    )
+  }
+
+  @httpGet('/:channelId/invite-links')
+  @httpBefore(throttleMiddleware(channelBansThrottle, throttleByUser))
+  async listInviteLinks(ctx: RouterContext): Promise<ListChannelInviteLinksResponse> {
+    const {
+      params: { channelId },
+      query: { q: searchQuery, offset },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      query: searchListQuerySchema(),
+    })
+
+    return await this.chatService.listInviteLinks({
+      channelId,
+      userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
+      limit: CHANNEL_INVITE_LINKS_LIMIT,
+      offset,
+      searchStr: searchQuery,
+    })
+  }
+
+  @httpDelete('/:channelId/invite-links/:token')
+  @httpBefore(throttleMiddleware(kickBanThrottle, throttleByUser))
+  async revokeInviteLink(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, token },
+    } = validateRequest(ctx, {
+      params: channelInviteLinkParamsSchema(),
+    })
+
+    await this.chatService.revokeInviteLink({
+      channelId,
+      token,
+      userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
+    })
+
+    ctx.status = 204
   }
 
   @httpPatch('/:channelId')
@@ -474,6 +619,28 @@ export class ChatApi {
     })
 
     return await this.chatService.getChatUserProfile(channelId, ctx.session!.user.id, targetId)
+  }
+
+  @httpDelete('/:channelId/messages/:messageId')
+  @httpBefore(throttleMiddleware(kickBanThrottle, throttleByUser))
+  async deleteMessage(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, messageId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId; messageId: string }>({
+        channelId: joiSerialId().required(),
+        messageId: Joi.string().required(),
+      }),
+    })
+
+    await this.chatService.deleteMessage({
+      channelId,
+      messageId,
+      userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
+    })
+
+    ctx.status = 204
   }
 
   @httpPost('/:channelId/users/:targetId/remove')
@@ -667,6 +834,7 @@ export class ChatApi {
 
     return await this.chatService.searchChannels({
       userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
       limit: SEARCH_CHANNELS_LIMIT,
       offset,
       searchStr: searchQuery,
@@ -729,9 +897,43 @@ export class AdminChatApi {
       channelId,
       messageId,
       userId: ctx.session!.user.id,
-      isAdmin: true,
+      isServerModerator: true,
     })
 
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/rename')
+  async renameChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const {
+      params: { channelId },
+      body: { name },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      body: Joi.object<RenameChannelRequest>({
+        name: channelNameSchema().required(),
+      }),
+    })
+
+    return await this.chatService.renameChannel(channelId, name)
+  }
+
+  @httpPost('/:channelId/close')
+  async closeChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    return await this.chatService.closeChannel(channelId)
+  }
+
+  @httpPost('/:channelId/reopen')
+  async reopenChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    return await this.chatService.reopenChannel(channelId)
+  }
+
+  @httpDelete('/:channelId')
+  async deleteChannel(ctx: RouterContext): Promise<void> {
+    const channelId = getValidatedChannelId(ctx)
+    await this.chatService.deleteChannel(channelId)
     ctx.status = 204
   }
 }

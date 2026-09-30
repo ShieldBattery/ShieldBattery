@@ -10,7 +10,7 @@ import { getLobbySlots, hasControlledOpens, isUms, Lobby, slotCount } from '../.
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
-import { tilesetToName } from '../../../common/maps'
+import { MapInfo, tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useObservedDimensions } from '../../dom/dimension-hooks'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -365,6 +365,41 @@ const NextSlotValue = styled.div`
   ${singleLine};
 `
 
+/**
+ * The timeline's tile for the maps queued up after the next game. Dashed like the next-game slot,
+ * since these are games still to come, but without its breathing, since only the next game is
+ * actually on its way.
+ */
+const QueuedMapsTile = styled.button`
+  ${buttonReset};
+  flex: 0 1 144px;
+  min-width: 80px;
+  padding: 8px 12px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+
+  border-radius: 8px;
+  border: 1px dashed var(--theme-outline-variant);
+  text-align: left;
+
+  &:hover,
+  &:focus-visible {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+  }
+`
+
+const QueuedMapsLabel = styled(NextSlotLabel)`
+  ${singleLine};
+`
+
+const QueuedMapsName = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+`
+
 const SeriesList = styled.div`
   min-width: 360px;
   /**
@@ -380,6 +415,7 @@ const SeriesList = styled.div`
   gap: 12px;
 
   overflow-y: auto;
+  overscroll-behavior: contain;
 `
 
 const SeriesSection = styled.div`
@@ -389,18 +425,10 @@ const SeriesSection = styled.div`
   gap: 4px;
 `
 
-const SeriesGames = styled.div`
-  /* Five 44px game rows and the four gaps between them. */
-  max-height: 236px;
-  padding-inline-end: 8px;
-
+const SeriesRows = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 `
 
 /** `SectionLabel` carries a 4px horizontal padding meant for the roster rail; the popover's
@@ -409,8 +437,14 @@ const PopoverSectionLabel = styled(SectionLabel)`
   padding: 0;
 `
 
+/**
+ * Rows bleed 8px into the list's side padding so their hover highlight has room around the text
+ * while the text itself stays flush with the section labels.
+ */
 const SeriesRow = styled.div`
   min-height: 44px;
+  margin-inline: -8px;
+  padding-inline: 8px;
   gap: 10px;
 
   display: flex;
@@ -662,6 +696,28 @@ function GameTile({
   )
 }
 
+/** A map the lobby has queued up for a game after its next one, as listed in the series popover. */
+function QueuedMapRow({ map, gameNumber }: { map: MapInfo; gameNumber: number }) {
+  const { t } = useTranslation()
+
+  return (
+    <SeriesRow>
+      <SeriesGameNumber>
+        {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
+      </SeriesGameNumber>
+      <SeriesMain>
+        <SeriesMapName title={map.name}>{map.name}</SeriesMapName>
+        <SeriesFactRow>
+          {[
+            tilesetToName(map.mapData.tileset, t),
+            `${map.mapData.width}×${map.mapData.height}`,
+          ].join(' · ')}
+        </SeriesFactRow>
+      </SeriesMain>
+    </SeriesRow>
+  )
+}
+
 /**
  * The timeline's trailing slot: the game the lobby is headed into. It counts down once the host has
  * started one, follows the load as the game launches, and stands in for the game while it runs,
@@ -787,9 +843,13 @@ export function RoomMapBanner({
     ],
   )
 
+  const mapQueue = lobby.mapQueue
+  const nextGameNumber = series.length + 1
+
   const [timelineRef, timelineSize] = useObservedDimensions<HTMLDivElement>()
-  // Reserve room for readable winner names alongside the earlier-games chip and next game.
-  const recentGameLimit = (timelineSize?.width ?? 0) >= 480 ? 2 : 1
+  // Reserve room for readable winner names alongside the earlier-games chip, the next game, and the
+  // maps queued after it.
+  const recentGameLimit = (timelineSize?.width ?? 0) >= (mapQueue.length ? 620 : 480) ? 2 : 1
   const recentStartIndex = Math.max(0, series.length - recentGameLimit)
   const recentGames = series
     .slice(recentStartIndex)
@@ -867,7 +927,7 @@ export function RoomMapBanner({
             <TimelineLabelRow>
               <SectionLabel>{t('lobbies.room.series.gamesLabel', 'Games')}</SectionLabel>
               <TimelineSpacer />
-              {series.length > 0 ? (
+              {series.length > 0 || mapQueue.length > 0 ? (
                 <AllGamesButton
                   ref={allGamesAnchorRef}
                   type='button'
@@ -899,7 +959,24 @@ export function RoomMapBanner({
                   onViewGameSummary={onViewGameSummary}
                 />
               ))}
-              <NextGameSlot nextGameNumber={series.length + 1} />
+              <NextGameSlot nextGameNumber={nextGameNumber} />
+              {mapQueue.length > 0 ? (
+                <QueuedMapsTile
+                  type='button'
+                  aria-haspopup='dialog'
+                  aria-expanded={allGamesOpen}
+                  onClick={openAllGames}>
+                  <QueuedMapsLabel>
+                    {mapQueue.length > 1
+                      ? t('lobbies.room.series.queuedThenMore', {
+                          defaultValue: 'Then · +{{count}} more',
+                          count: mapQueue.length - 1,
+                        })
+                      : t('lobbies.room.series.queuedThen', 'Then')}
+                  </QueuedMapsLabel>
+                  <QueuedMapsName title={mapQueue[0].name}>{mapQueue[0].name}</QueuedMapsName>
+                </QueuedMapsTile>
+              ) : null}
             </TimelineStrip>
             <Popover
               open={allGamesOpen}
@@ -909,31 +986,48 @@ export function RoomMapBanner({
               originX='right'
               originY='top'>
               <SeriesList>
-                <SeriesSection>
-                  <PopoverSectionLabel>
-                    {t('lobbies.room.series.standings', 'Standings')}
-                  </PopoverSectionLabel>
-                  <LobbyScoreboard />
-                </SeriesSection>
-                <SeriesSection>
-                  <PopoverSectionLabel>
-                    {t('lobbies.room.series.gamesLabel', 'Games')}
-                  </PopoverSectionLabel>
-                  <SeriesGames
-                    role='region'
-                    aria-label={t('lobbies.room.series.gamesLabel', 'Games')}
-                    tabIndex={0}>
-                    {series.map((game, index) => (
-                      <SeriesGameRow
-                        key={game.gameId}
-                        game={game}
-                        gameNumber={index + 1}
-                        onWatchReplay={onWatchReplay}
-                        onViewGameSummary={onViewGameSummary}
-                      />
-                    ))}
-                  </SeriesGames>
-                </SeriesSection>
+                {series.length > 0 ? (
+                  <>
+                    <SeriesSection>
+                      <PopoverSectionLabel>
+                        {t('lobbies.room.series.standings', 'Standings')}
+                      </PopoverSectionLabel>
+                      <LobbyScoreboard />
+                    </SeriesSection>
+                    <SeriesSection>
+                      <PopoverSectionLabel>
+                        {t('lobbies.room.series.gamesLabel', 'Games')}
+                      </PopoverSectionLabel>
+                      <SeriesRows>
+                        {series.map((game, index) => (
+                          <SeriesGameRow
+                            key={game.gameId}
+                            game={game}
+                            gameNumber={index + 1}
+                            onWatchReplay={onWatchReplay}
+                            onViewGameSummary={onViewGameSummary}
+                          />
+                        ))}
+                      </SeriesRows>
+                    </SeriesSection>
+                  </>
+                ) : null}
+                {mapQueue.length > 0 ? (
+                  <SeriesSection>
+                    <PopoverSectionLabel>
+                      {t('lobbies.room.series.upNext', 'Up next')}
+                    </PopoverSectionLabel>
+                    <SeriesRows>
+                      {mapQueue.map((map, index) => (
+                        <QueuedMapRow
+                          key={index}
+                          map={map}
+                          gameNumber={nextGameNumber + 1 + index}
+                        />
+                      ))}
+                    </SeriesRows>
+                  </SeriesSection>
+                ) : null}
               </SeriesList>
             </Popover>
           </TimelineSection>

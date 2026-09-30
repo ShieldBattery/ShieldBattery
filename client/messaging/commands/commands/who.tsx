@@ -6,6 +6,7 @@ import { SbUserId } from '../../../../common/users/sb-user-id'
 import { retrieveUserList } from '../../../chat/action-creators'
 import { ConnectedChannelName } from '../../../chat/connected-channel-name'
 import { TransInterpolation } from '../../../i18n/i18next'
+import { collator } from '../../../i18n/locale-formats'
 import { ConnectedUsername } from '../../../users/connected-username'
 import {
   ALL_COMMAND_SURFACES,
@@ -16,7 +17,7 @@ import {
 import { LocalStrong } from '../local-strong'
 
 /** Orders names the way a reader looks for them, rather than putting every capital first. */
-const nameCollator = new Intl.Collator(navigator.language, { sensitivity: 'base' })
+const nameCollator = collator({ sensitivity: 'base' })
 
 /**
  * The answer is a glance, not a roster: naming every online member would swamp a busy channel.
@@ -172,8 +173,9 @@ export const whoCommand = defineCommand({
             // Only the first MAX_NAMED_ONLINE by name are named and the rest are counted, so a large
             // channel that everyone stays joined to answers with a line rather than hundreds of
             // names.
+            const collate = nameCollator.current()
             const byName = (a: { name: string }, b: { name: string }) =>
-              nameCollator.compare(a.name, b.name)
+              collate.compare(a.name, b.name)
             const onlineUsers = namesOf(users?.active).sort(byName)
             const namedOnlineUsers = onlineUsers.slice(0, MAX_NAMED_ONLINE)
             const moreCount = onlineUsers.length - namedOnlineUsers.length

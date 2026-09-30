@@ -1141,6 +1141,7 @@ type UrgentMessage {
 	id: UUID!
 	title: String!
 	message: String!
+	translations: [UrgentMessageTranslation!]!
 	"""
 	The time the message was published (in UTC). This will serialize as an RFC 3339 string.
 	"""
@@ -1148,6 +1149,19 @@ type UrgentMessage {
 }
 
 input UrgentMessageInput {
+	title: String!
+	message: String!
+	translations: [UrgentMessageTranslationInput!]
+}
+
+type UrgentMessageTranslation {
+	language: String!
+	title: String!
+	message: String!
+}
+
+input UrgentMessageTranslationInput {
+	language: String!
 	title: String!
 	message: String!
 }

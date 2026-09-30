@@ -52,11 +52,12 @@ import {
   sendMessage,
   updateChannelAtBottom,
 } from './action-creators'
-import { ChannelActivityPanel } from './channel-activity-panel'
+import { useChannelActivity } from './channel-activity'
 import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard, PrivateChannelNotice } from './channel-info-card'
 import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
+import { MessageRoleBadge } from './channel-role-badge'
 import { ConnectedChannelSettings } from './channel-settings/channel-settings'
 import { UserList } from './channel-user-list'
 import {
@@ -90,24 +91,19 @@ const StyledChat = styled(Chat)`
   flex-grow: 1;
 `
 
-// The member column: the Activity panel (when the channel has any) stacked above the user list,
-// which takes whatever height the panel leaves.
-const MemberColumn = styled.div`
-  width: 256px;
-  flex-grow: 0;
-  flex-shrink: 0;
+const StyledUserList = styled(UserList)`
   min-height: 0;
   margin-bottom: 8px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 `
 
-const StyledUserList = styled(UserList)`
-  flex: 1 1 0;
-  min-height: 0;
-`
+/** The channel's user list, with what its members are streaming and playing right now. */
+function ChannelUserList({
+  channelId,
+  ...props
+}: { channelId: SbChannelId } & Omit<React.ComponentProps<typeof UserList>, 'streams' | 'games'>) {
+  const { streams, games } = useChannelActivity(channelId)
+  return <StyledUserList {...props} streams={streams} games={games} />
+}
 
 const BackgroundImage = styled.img`
   position: absolute;
@@ -631,18 +627,19 @@ export function ConnectedChatChannel({
               ) : undefined
             }
             extraContent={
-              <MemberColumn>
-                <ChannelActivityPanel channelId={channelId} />
-                <StyledUserList
-                  active={sortedActiveUserIds}
-                  offline={sortedOfflineUserIds}
-                  loadError={channelUsers?.userListError ?? false}
-                  onRetryLoad={onRetryUserList}
-                />
-              </MemberColumn>
+              <ChannelUserList
+                // Its collapsed sections, expanded games and filter belong to one channel.
+                key={channelId}
+                channelId={channelId}
+                active={sortedActiveUserIds}
+                offline={sortedOfflineUserIds}
+                loadError={channelUsers?.userListError ?? false}
+                onRetryLoad={onRetryUserList}
+              />
             }
             UserMenu={ChannelUserMenu}
             MessageMenu={ChannelMessageMenu}
+            NameBadge={MessageRoleBadge}
           />
         ) : (
           <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />

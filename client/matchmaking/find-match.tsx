@@ -21,6 +21,7 @@ import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
+import { dateTimeFormat, useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
@@ -664,6 +665,7 @@ interface ModeStatsProps {
 }
 
 export function ModeStats({ stats, t }: ModeStatsProps) {
+  const locale = useFormatLocale()
   const unranked = stats.mmr === null
   return (
     <StatsBlock>
@@ -682,7 +684,7 @@ export function ModeStats({ stats, t }: ModeStatsProps) {
             —
           </StatUnrankedValue>
         ) : (
-          <StatValue>{stats.mmr!.toLocaleString()}</StatValue>
+          <StatValue>{stats.mmr!.toLocaleString(locale)}</StatValue>
         )}
       </StatCell>
 
@@ -723,7 +725,7 @@ function formatCountdown(nextStartDate: Date | undefined, now: number): string {
   return parts.join(' ')
 }
 
-const dateRangeFormat = new Intl.DateTimeFormat(navigator.language, {
+const dateRangeFormat = dateTimeFormat({
   month: 'short',
   day: 'numeric',
   hour: 'numeric',
@@ -737,6 +739,7 @@ interface UnavailableInfoProps {
 
 function UnavailableInfo({ nextStartDate, nextEndDate }: UnavailableInfoProps) {
   const { t } = useTranslation()
+  const dateRangeFormatter = useFormat(dateRangeFormat)
   const now = useNow()
 
   const hasSchedule = nextStartDate !== undefined && Number(nextStartDate) > now
@@ -748,9 +751,9 @@ function UnavailableInfo({ nextStartDate, nextEndDate }: UnavailableInfoProps) {
       {hasSchedule ? (
         <>
           <UnavailableDetail>
-            {dateRangeFormat.format(nextStartDate)}
+            {dateRangeFormatter.format(nextStartDate)}
             {nextEndDate && nextEndDate > nextStartDate!
-              ? ` – ${dateRangeFormat.format(nextEndDate)}`
+              ? ` – ${dateRangeFormatter.format(nextEndDate)}`
               : ''}
           </UnavailableDetail>
           {countdown ? <UnavailableCountdown>{countdown}</UnavailableCountdown> : null}

@@ -275,7 +275,9 @@ export function updateLobbySettings(
   return currentLobbyRequest(spec, lobbyId =>
     fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
       method: 'POST',
-      body: encodeBodyAsParams<UpdateLobbySettingsRequest>({ clientId, ...settings }),
+      // Sent as JSON rather than form params so that an emptied map queue arrives as an empty list
+      // instead of being left out.
+      body: JSON.stringify({ clientId, ...settings } satisfies UpdateLobbySettingsRequest),
       signal: spec.signal,
     }),
   )

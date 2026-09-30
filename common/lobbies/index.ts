@@ -17,6 +17,9 @@ export const MAX_OBSERVERS = 4
 /** The most recent maps kept in a user's lobby preferences, newest first. */
 export const NUM_RECENT_MAPS = 5
 
+/** The most maps a lobby can have queued up for the games after its current one. */
+export const MAX_MAP_QUEUE = 10
+
 /**
  * States that a lobby can be in. These are the possible return values of `getLobbyState`.
  *
@@ -67,6 +70,12 @@ export interface Lobby {
   readonly id: SbLobbyId
   readonly name: string
   readonly map?: MapInfo
+  /**
+   * Maps the host has lined up for the lobby's next games, in the order they'll be played. Each time
+   * a game ends and the lobby regroups, the first of these that fits the lobby's settings becomes
+   * its map.
+   */
+  readonly mapQueue: ReadonlyArray<MapInfo>
   readonly gameType: GameType
   readonly gameSubType: number
   /** All lobbies have at least one team (even Melee and FFA). */
@@ -90,6 +99,43 @@ export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {
  */
 export function hasControlledOpens(gameType: GameType): boolean {
   return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll
+}
+
+/**
+ * Returns `subType` adjusted to be valid for a team-based `gameType` on a map with `slots` player
+ * slots. The lower bound matters when the sub-type has never been set for a team type (its value
+ * is 0, below every team type's options); with no prior split to preserve, the most balanced one
+ * is the natural starting point.
+ *
+ * For top-vs-bottom, `prevSlots` is the slot count the sub-type was valid for before the change
+ * being applied: a sub-type that was the balanced split for it carries over as "balanced" rather
+ * than as a literal seat count (4v4 on 8 slots becomes 2v2 on 4 slots), while a deliberately
+ * lopsided split preserves its top team size, clamped to the new map.
+ */
+export function adjustedGameSubType({
+  gameType,
+  subType,
+  prevSlots,
+  slots,
+}: {
+  gameType: GameType
+  subType: number
+  prevSlots?: number
+  slots: number
+}): number {
+  if (gameType === GameType.TopVsBottom) {
+    const balanced = Math.floor(slots / 2)
+    if (subType < 1) {
+      return balanced
+    }
+    if (prevSlots !== undefined && subType === Math.floor(prevSlots / 2)) {
+      return balanced
+    }
+    return Math.min(subType, slots - 1)
+  } else {
+    const maxTeams = Math.min(4, slots)
+    return Math.min(maxTeams, Math.max(2, subType))
+  }
 }
 
 /**

@@ -139,6 +139,17 @@ consistent. (Seed — extend over time.)
 - **Day divider (`messaging.newDayMessage`) is just the date** ("<2>{{day}}</2>"): it renders
   between two rules, so "Día cambiado a" was redundant. The channel-join divider is "Te uniste a
   <2><0></0></2>" (the old MT dropped the "a").
+- **Availability (user status):** Online/Away/Do not disturb→**Conectado / Ausente / No molestar**;
+  picker label→Disponibilidad; "status"→estado.
+- **Matchmaking match→partido** (in-file ~10×: Partido encontrado, Buscando un partido); a played
+  game→partida. Don't put both in one sentence or dialog: the match-canceled dialog says "partido"
+  throughout, even for "the game couldn't start".
+- **User card emblem label** Unranked→**Sin rango** (60px box; "Sin clasificar" truncates there).
+  Elsewhere Unranked stays Sin clasificar. "Hosted by <1></1>"→**Anfitrión: <1></1>**.
+- **Private channels:** private channel→**canal privado**, invite link→**enlace de invitación**,
+  channel owner→**propietario del canal** (matches /topic; the older ban error says dueño),
+  channel moderator→**moderador del canal**, member→**miembro**. Chat display modes
+  Classic/Cozy→**Clásico / Cómodo** (Discord's Spanish "Cómodo" for Cozy).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -196,8 +207,16 @@ consistent. (Seed — extend over time.)
 - **reply (message):** Ответить / «Ответ пользователю <1>{{name}}</1>» / Отменить ответ.
 - **User card:** Unranked→**Без рейтинга** (now also `matchmaking.division.unrated`), Profile
   button→**Профиль**, «{{count}} игра/игры/игр · {{wins}}–{{losses}}».
-- **Plural `other` is the fraction case (genitive singular), not a copy of `few`** — for animate
-  nouns they differ: `few` «{{count}} друзей» vs `other` «{{count}} друга».
+- **Plural `other` is the fraction case (genitive singular).** For a bare noun it usually matches
+  `few` (2 друга / 1,5 друга; `many` is 5 друзей); it can differ when an adjective agrees
+  (2 открытых слота vs 1,5 открытого слота), so derive it rather than copying `few`.
+- **Availability (user status):** Online/Away/Do not disturb→**В сети / Нет на месте / Не
+  беспокоить** (the ICQ/Skype-era set; no gendered participles); picker label→Статус.
+- **Game card results toggle→Показать итоги / Скрыть итоги** (both labels share one cell, and
+  «результаты» crowded the header meta). User card emblem Unranked→**Без ранга** (60px box;
+  «Без рейтинга» truncates there, elsewhere it stays). "Hosted by"→**Хост: <1></1>**.
+- CLDR's `narrow` relative time for ru renders as «−6 л.» / «−30 мин» (no «назад»); this comes
+  from `narrowDuration`, not the translation files.
 - **Day divider carries no verb** («<2>{{day}}</2>»): the date starts with a numeral, so any verb
   would need an unguaranteeable gender agreement. Dialog titles avoid gendered participles about the
   reader («Бан в матчмейкинге», not «Забанен …»).
@@ -206,6 +225,10 @@ consistent. (Seed — extend over time.)
   Пустыня / Лёд / Сумрак. They had been left in English.
 - **Known debt:** ~40 older keys (`auth.*`, `landing.*`, `users.errors.friendsList.*`, …) write
   lowercase вы/ваш; sweep them to Вы as their own pass.
+- **Private channels:** private channel→**приватный канал**, invite link→**ссылка-приглашение**
+  (hyphenated compound, declines both halves: по ссылке-приглашению), channel owner→**владелец
+  канала** (in-file), channel moderator→**модератор канала**, member (of a channel)→**участник**.
+  Chat display modes Classic/Cozy→**Классический / Уютный**.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -273,10 +296,16 @@ consistent. (Seed — extend over time.)
 - **User card:** Unranked→**랭크 없음** (≠ 배치 전, which means "still in placements"),
   `{{count}}전 · {{wins}}–{{losses}}`, Profile button→**프로필**.
 - **스타크래프트: 리마스터**, never 리마스터드.
+- **Availability (user status):** Online/Away/Do not disturb→**온라인 / 자리 비움 / 방해 금지**
+  (picker label 상태); the set line hedges `<1>{{label}}</1>(으)로`. "Hosted by"→**호스트: <1></1>**.
 - **Register cleanup (2026-09-16):** the old-MT 반말 / 해요체 leftovers across `auth.*`,
   `bugReport.*`, `leagues.*`, `ladder.*`, `settings.user.account.*` etc. were rewritten in 합니다체.
   Treat any …어/…야/…거야 or …어요/…에요 ending as a bug. Drop the subject rather than write 너/당신
   where a subject-less sentence works; "your machine"→사용자 컴퓨터; "ShieldBattery staff"→운영진.
+- **Private channels:** private channel→**비공개 채널**, invite link→**초대 링크**, channel
+  owner→**채널 소유자** (in-file), channel moderator→**채널 관리자** (matches the ban errors'
+  관리자), member→**멤버**; join a channel→**참가** (not 가입). Chat display modes
+  Classic/Cozy→**클래식 / 편안하게**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -336,3 +365,9 @@ consistent. (Seed — extend over time.)
   队 themselves because `getTeamNames` returns finished labels alongside `1队`/`2队`.
 - **reply (message)→回复** (回复 / 正在回复 X / 取消回复), distinct from 私聊. **User card:** Profile
   button→**资料**, Unranked→**未定级**, `{{count}} 场 · {{wins}}–{{losses}}`.
+- **Availability (user status):** Online/Away/Do not disturb→**在线 / 离开 / 请勿打扰** (picker
+  label 在线状态). Name-change token→改名道具 (in-file); display name→显示名.
+- **Private channels:** private channel→**私人频道** (in-file), invite link→**邀请链接**, channel
+  owner→**频道所有者** (in-file), channel moderator→**频道版主** (版主 in-file), member→**成员**.
+  Register: the file is dominantly 您 (≈196 vs 29 你) — use 您. Chat display modes
+  Classic/Cozy→**经典 / 舒适**.
