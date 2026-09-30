@@ -19,7 +19,6 @@ import {
   ChatUserEvent,
   CreateChannelInviteLinkResponse,
   CreateChannelRequest,
-  DEFAULT_INVITE_LINK_EXPIRY_SECONDS,
   DetailedChannelInfo,
   EditChannelRequest,
   EditChannelResponse,
@@ -27,6 +26,7 @@ import {
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
   GetChannelInviteLinkResponse,
+  GetOwnChannelInviteLinkResponse,
   INITIAL_CHANNEL_ID,
   InitialChannelData,
   JoinChannelResponse,
@@ -124,12 +124,11 @@ import {
   deleteInviteLinksForChannel,
   deleteMemberInviteLinks,
   deleteUnusableInviteLinks,
-  findReusableInviteLink,
+  findNewestUsableInviteLink,
   getInviteLink,
   incrementInviteLinkUses,
   InviteLinkRecord,
   listUsableInviteLinks,
-  lockDefaultInviteLinkCreation,
 } from './invite-link-models'
 
 class ChatState extends ImmutableRecord({
@@ -163,14 +162,6 @@ type JoinOutcome =
       message: ChatMessage
     }
   | { kind: 'refused'; exitCode: JoinChannelExitCode }
-
-/** How long an invite link created without an explicit expiry keeps working. */
-const INVITE_LINK_LIFETIME_MS = DEFAULT_INVITE_LINK_EXPIRY_SECONDS * 1000
-/**
- * How much time an existing invite link must have left to be handed out again instead of creating a
- * new one, so a link someone copies doesn't expire shortly after they share it.
- */
-const INVITE_LINK_REUSE_MIN_REMAINING_MS = 24 * 60 * 60 * 1000
 
 /**
  * Returns whether an invite link still lets people in, as far as the link itself goes: it hasn't
@@ -910,16 +901,33 @@ export default class ChatService {
   }
 
   /**
-   * Returns an invite link into a private channel for one of its members (or a server moderator)
-   * to share. Without `settings`, hands back the user's newest default link while it has enough
-   * time left, so copying a link repeatedly doesn't pile up new ones, and creates a new default
-   * link otherwise. With `settings`, always creates a new link with them.
+   * Returns the newest invite link a member of a private channel (or a server moderator) created for
+   * it that still works, if there is one, so they can copy it again without creating another.
    */
-  async getOrCreateInviteLink(
+  async getOwnInviteLink(
     channelId: SbChannelId,
     userId: SbUserId,
     isServerModerator: boolean,
-    settings?: InviteLinkSettings,
+  ): Promise<GetOwnChannelInviteLinkResponse> {
+    const [channel, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+    ensureCanGetInviteLink(channel, userId, userChannelEntry, isServerModerator)
+
+    const link = await findNewestUsableInviteLink({ channelId, createdBy: userId, now: new Date() })
+    return { inviteLink: link ? toInviteLinkJson(link) : undefined }
+  }
+
+  /**
+   * Creates an invite link into a private channel with the given settings, for one of its members
+   * (or a server moderator) to share.
+   */
+  async createChannelInviteLink(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    isServerModerator: boolean,
+    settings: InviteLinkSettings,
   ): Promise<CreateChannelInviteLinkResponse> {
     const [channel, userChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
@@ -928,46 +936,17 @@ export default class ChatService {
     ensureCanGetInviteLink(channel, userId, userChannelEntry, isServerModerator)
 
     const now = new Date()
-    let link: InviteLinkRecord | undefined
-    if (settings) {
-      link = await createInviteLink({
-        channelId,
-        createdBy: userId,
-        createdAt: now,
-        expiresAt:
-          settings.expiresInSeconds !== null
-            ? new Date(now.getTime() + settings.expiresInSeconds * 1000)
-            : undefined,
-        maxUses: settings.maxUses ?? undefined,
-        asServerModerator: isServerModerator,
-      })
-    } else {
-      link = await transact(async client => {
-        await lockDefaultInviteLinkCreation({ channelId, createdBy: userId }, client)
-        const reusable = await findReusableInviteLink(
-          {
-            channelId,
-            createdBy: userId,
-            usableUntil: new Date(now.getTime() + INVITE_LINK_REUSE_MIN_REMAINING_MS),
-          },
-          client,
-        )
-        return (
-          reusable ??
-          (await createInviteLink(
-            {
-              channelId,
-              createdBy: userId,
-              createdAt: now,
-              expiresAt: new Date(now.getTime() + INVITE_LINK_LIFETIME_MS),
-              maxUses: undefined,
-              asServerModerator: isServerModerator,
-            },
-            client,
-          ))
-        )
-      })
-    }
+    const link = await createInviteLink({
+      channelId,
+      createdBy: userId,
+      createdAt: now,
+      expiresAt:
+        settings.expiresInSeconds !== null
+          ? new Date(now.getTime() + settings.expiresInSeconds * 1000)
+          : undefined,
+      maxUses: settings.maxUses ?? undefined,
+      asServerModerator: isServerModerator,
+    })
     if (!link) {
       // The channel was made public, or the user left it, after the checks above.
       const [channelNow, userChannelEntryNow] = await Promise.all([

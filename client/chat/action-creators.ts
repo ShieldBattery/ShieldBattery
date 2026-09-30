@@ -14,6 +14,7 @@ import {
   GetChannelInfoResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
+  GetOwnChannelInviteLinkResponse,
   InitialChannelData,
   JoinChannelResponse,
   ListChannelBansResponse,
@@ -292,13 +293,29 @@ export function joinChannelWithErrorHandling(
 }
 
 /**
- * Gets an invite link into a private channel for the current user to share. Without `settings`
- * this may be a default link they got before; with them, a new link is always created. The caller
- * is expected to handle errors.
+ * Gets the newest invite link the current user created for a private channel that still works, if
+ * there is one. The caller is expected to handle errors.
  */
-export function getChannelInviteLink(
+export function getOwnChannelInviteLink(
   channelId: SbChannelId,
-  settings: CreateChannelInviteLinkRequest | undefined,
+  spec: RequestHandlingSpec<ChannelInviteLinkJson | undefined>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const result = await fetchJson<GetOwnChannelInviteLinkResponse>(
+      apiUrl`chat/${channelId}/invite-links/mine`,
+      { signal: spec.signal },
+    )
+    return result.inviteLink
+  })
+}
+
+/**
+ * Creates an invite link into a private channel for the current user to share. The caller is
+ * expected to handle errors.
+ */
+export function createChannelInviteLink(
+  channelId: SbChannelId,
+  settings: CreateChannelInviteLinkRequest,
   spec: RequestHandlingSpec<ChannelInviteLinkJson>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -306,7 +323,7 @@ export function getChannelInviteLink(
       apiUrl`chat/${channelId}/invite-links`,
       {
         method: 'POST',
-        body: settings ? JSON.stringify(settings) : undefined,
+        body: JSON.stringify(settings),
         signal: spec.signal,
       },
     )

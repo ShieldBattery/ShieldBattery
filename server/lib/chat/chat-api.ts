@@ -21,6 +21,7 @@ import {
   GetChannelInviteLinkResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
+  GetOwnChannelInviteLinkResponse,
   InitialChannelData,
   JoinChannelResponse,
   ListChannelBansResponse,
@@ -436,19 +437,31 @@ export class ChatApi {
       body: createInviteLinkBodySchema(),
     })
 
-    return await this.chatService.getOrCreateInviteLink(
+    return await this.chatService.createChannelInviteLink(
       channelId,
       ctx.session!.user.id,
       isServerModerator(ctx),
-      expiresInSeconds !== undefined || maxUses !== undefined
-        ? {
-            expiresInSeconds:
-              expiresInSeconds === undefined
-                ? DEFAULT_INVITE_LINK_EXPIRY_SECONDS
-                : expiresInSeconds,
-            maxUses: maxUses ?? null,
-          }
-        : undefined,
+      {
+        expiresInSeconds:
+          expiresInSeconds === undefined ? DEFAULT_INVITE_LINK_EXPIRY_SECONDS : expiresInSeconds,
+        maxUses: maxUses ?? null,
+      },
+    )
+  }
+
+  @httpGet('/:channelId/invite-links/mine')
+  @httpBefore(throttleMiddleware(channelRetrievalThrottle, throttleByUser))
+  async getOwnInviteLink(ctx: RouterContext): Promise<GetOwnChannelInviteLinkResponse> {
+    const {
+      params: { channelId },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+    })
+
+    return await this.chatService.getOwnInviteLink(
+      channelId,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
     )
   }
 

@@ -620,10 +620,12 @@
       "expiryLabel": "Expire after",
       "generate": "Generate new link",
       "generateError": "Something went wrong generating a new invite link",
+      "generatePrompt": "Generate a link below to invite people.",
       "loadError": "Something went wrong getting an invite link. You can still generate a new one below.",
       "loading": "Getting a link…",
       "maxUsesLabel": "Maximum uses",
       "noLink": "No link available",
+      "noLinkYet": "No invite link yet",
       "title": "Invite link"
     },
     "inviteLinks": {

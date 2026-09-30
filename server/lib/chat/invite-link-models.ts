@@ -33,20 +33,18 @@ function convertInviteLinkFromDb(row: DbInviteLink): InviteLinkRecord {
 }
 
 /**
- * Returns the newest link `createdBy` made for a channel with the default settings (an expiry and no
- * use limit) that stays unexpired past `usableUntil`, if there is one. Links made with a use limit or
- * without an expiry were asked for specifically, so they are never handed out in place of a default
- * one.
+ * Returns the newest link `createdBy` made for a channel that still works at `now` (unexpired and
+ * with uses left), if there is one.
  */
-export async function findReusableInviteLink(
+export async function findNewestUsableInviteLink(
   {
     channelId,
     createdBy,
-    usableUntil,
+    now,
   }: {
     channelId: SbChannelId
     createdBy: SbUserId
-    usableUntil: Date
+    now: Date
   },
   withClient?: DbClient,
 ): Promise<InviteLinkRecord | undefined> {
@@ -57,8 +55,8 @@ export async function findReusableInviteLink(
       FROM channel_invite_links
       WHERE channel_id = ${channelId}
         AND created_by = ${createdBy}
-        AND expires_at > ${usableUntil}
-        AND max_uses IS NULL
+        AND (expires_at IS NULL OR expires_at > ${now})
+        AND (max_uses IS NULL OR uses < max_uses)
       ORDER BY created_at DESC
       LIMIT 1;
     `)
@@ -66,23 +64,6 @@ export async function findReusableInviteLink(
   } finally {
     done()
   }
-}
-
-/**
- * Holds off any other transaction taking this same lock for `createdBy` in the channel until the
- * transaction `client` belongs to ends, so looking for a reusable default link and creating one
- * when there's none happens once at a time. Without it, concurrent requests all find no link and
- * each create their own.
- */
-export async function lockDefaultInviteLinkCreation(
-  { channelId, createdBy }: { channelId: SbChannelId; createdBy: SbUserId },
-  client: DbClient,
-): Promise<void> {
-  await client.query(sql`
-    SELECT pg_advisory_xact_lock(
-      hashtext('channel_invite_link:' || ${channelId}::text || ':' || ${createdBy}::text)
-    );
-  `)
 }
 
 /**

@@ -570,9 +570,8 @@ export const DEFAULT_INVITE_LINK_EXPIRY_SECONDS = 7 * 24 * 60 * 60
 export const INVITE_LINK_MAX_USES_OPTIONS: ReadonlyArray<number> = [1, 5, 10, 25, 50, 100]
 
 /**
- * The body of a request to get an invite link for a private channel. Without either field, the
- * requester's recent default link may be handed back instead of a new one; with any field set, a
- * new link is always created, and a field left out takes its default.
+ * The body of a request to create an invite link for a private channel. A field left out takes its
+ * default.
  */
 export interface CreateChannelInviteLinkRequest {
   /**
@@ -586,9 +585,15 @@ export interface CreateChannelInviteLinkRequest {
   maxUses?: number | null
 }
 
-/** The response returned when getting an invite link for a private channel. */
+/** The response returned when creating an invite link for a private channel. */
 export interface CreateChannelInviteLinkResponse {
   inviteLink: ChannelInviteLinkJson
+}
+
+/** The response returned when getting the requester's own invite link for a private channel. */
+export interface GetOwnChannelInviteLinkResponse {
+  /** The newest link the requester created that still works, if there is one. */
+  inviteLink?: ChannelInviteLinkJson
 }
 
 /**

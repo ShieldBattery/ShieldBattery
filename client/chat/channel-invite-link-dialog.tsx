@@ -20,7 +20,7 @@ import { getServerOrigin } from '../network/server-url'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge, BodyMedium, bodyMedium, singleLine, titleSmall } from '../styles/typography'
-import { getChannelInviteLink } from './action-creators'
+import { createChannelInviteLink, getOwnChannelInviteLink } from './action-creators'
 import { urlForChannelInvite } from './channel-url'
 import {
   describeInviteLinkExpiry,
@@ -100,8 +100,9 @@ export interface ChannelInviteLinkDialogProps extends CommonDialogProps {
 }
 
 /**
- * Shows an invite link into a private channel for the user to copy, starting with their default
- * link, and lets them generate a new one with a different expiry or use limit instead.
+ * Shows the newest invite link into a private channel the user created that still works, for them
+ * to copy, and lets them generate a new one with the expiry and use limit they choose. No link is
+ * created until they ask for one.
  */
 export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLinkDialogProps) {
   const { t } = useTranslation()
@@ -111,7 +112,7 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
   const channelName = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)?.name)
 
   const [shownLink, setShownLink] = useState<ShownLink>()
-  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading')
   const [isGenerating, setIsGenerating] = useState(false)
   const [expiry, setExpiry] = useState<ExpiryChoice>(DEFAULT_INVITE_LINK_EXPIRY_SECONDS)
   const [maxUses, setMaxUses] = useState<MaxUsesChoice>('unlimited')
@@ -120,13 +121,16 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
     const abortController = new AbortController()
 
     dispatch(
-      getChannelInviteLink(channelId, undefined, {
+      getOwnChannelInviteLink(channelId, {
         signal: abortController.signal,
         onSuccess: inviteLink => {
-          setShownLink({ inviteLink, receivedAt: Date.now() })
+          if (inviteLink) {
+            setShownLink({ inviteLink, receivedAt: Date.now() })
+          }
+          setLoadState('loaded')
         },
         onError: () => {
-          setLoadFailed(true)
+          setLoadState('failed')
         },
       }),
     )
@@ -161,7 +165,7 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
   const onGenerateClick = () => {
     setIsGenerating(true)
     dispatch(
-      getChannelInviteLink(
+      createChannelInviteLink(
         channelId,
         {
           expiresInSeconds: expiry === 'never' ? null : expiry,
@@ -170,7 +174,7 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
         {
           onSuccess: inviteLink => {
             setIsGenerating(false)
-            setLoadFailed(false)
+            setLoadState('loaded')
             setShownLink({ inviteLink, receivedAt: Date.now() })
           },
           onError: () => {
@@ -190,8 +194,10 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
   let linkText: string
   if (url) {
     linkText = url
-  } else if (loadFailed) {
+  } else if (loadState === 'failed') {
     linkText = t('chat.inviteLinkDialog.noLink', 'No link available')
+  } else if (loadState === 'loaded') {
+    linkText = t('chat.inviteLinkDialog.noLinkYet', 'No invite link yet')
   } else {
     linkText = t('chat.inviteLinkDialog.loading', 'Getting a link…')
   }
@@ -199,11 +205,13 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
   let details: string | undefined
   if (shownLink) {
     details = `${describeInviteLinkExpiry(shownLink.inviteLink, shownLink.receivedAt, locale, t)} · ${describeInviteLinkUseLimit(shownLink.inviteLink, t)}`
-  } else if (loadFailed) {
+  } else if (loadState === 'failed') {
     details = t(
       'chat.inviteLinkDialog.loadError',
       'Something went wrong getting an invite link. You can still generate a new one below.',
     )
+  } else if (loadState === 'loaded') {
+    details = t('chat.inviteLinkDialog.generatePrompt', 'Generate a link below to invite people.')
   }
 
   return (
@@ -243,7 +251,9 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
             testName='channel-invite-link-dialog-copy-button'
           />
         </LinkBox>
-        {details ? <LinkDetails $error={!shownLink}>{details}</LinkDetails> : null}
+        {details ? (
+          <LinkDetails $error={!shownLink && loadState === 'failed'}>{details}</LinkDetails>
+        ) : null}
 
         <SectionTitle>{t('chat.inviteLinkDialog.editSettings', 'Edit link settings')}</SectionTitle>
         <SettingsRow>
