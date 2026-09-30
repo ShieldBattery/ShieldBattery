@@ -1,6 +1,7 @@
 import type { Display } from 'electron'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 import { getErrorStack } from '../../../common/errors'
 import { TypedIpcRenderer } from '../../../common/ipc'
 import {
@@ -12,6 +13,7 @@ import {
 } from '../../../common/settings/blizz-settings'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import logger from '../../logging/logger'
+import { OutlinedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
@@ -21,6 +23,11 @@ import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer, SectionContainer } from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+const ResetWindowPositionButton = styled(OutlinedButton)`
+  align-self: flex-start;
+  margin-bottom: 20px;
+`
 
 const GAMMA_SLIDER_MIN = 0
 const GAMMA_SLIDER_MAX = 100
@@ -88,6 +95,12 @@ export function GameVideoSettings() {
   const localSettings = useAppSelector(s => s.settings.local)
 
   const [monitors, setMonitors] = useState<Display[]>([])
+
+  const hasSavedWindowPosition =
+    localSettings.gameWinX !== undefined ||
+    localSettings.gameWinY !== undefined ||
+    localSettings.gameWinWidth !== undefined ||
+    localSettings.gameWinHeight !== undefined
 
   const initialModel: GameVideoSettingsModel = {
     displayMode: scrSettings.displayMode,
@@ -194,7 +207,29 @@ export function GameVideoSettings() {
                 />
               ))}
             </Select>
-          ) : null}
+          ) : (
+            <ResetWindowPositionButton
+              label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
+              disabled={!hasSavedWindowPosition}
+              onClick={() => {
+                dispatch(
+                  mergeLocalSettings(
+                    {
+                      gameWinX: undefined,
+                      gameWinY: undefined,
+                      gameWinWidth: undefined,
+                      gameWinHeight: undefined,
+                    },
+                    {
+                      onSuccess: () => {},
+                      onError: () => {},
+                    },
+                  ),
+                )
+              }}
+              testName='reset-game-window-position'
+            />
+          )}
           <Slider
             {...bindCustom('gamma')}
             label={t('settings.game.video.brightness', 'Brightness')}
