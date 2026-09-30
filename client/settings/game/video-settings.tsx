@@ -96,12 +96,6 @@ export function GameVideoSettings() {
 
   const [monitors, setMonitors] = useState<Display[]>([])
 
-  const hasSavedWindowPosition =
-    localSettings.gameWinX !== undefined ||
-    localSettings.gameWinY !== undefined ||
-    localSettings.gameWinWidth !== undefined ||
-    localSettings.gameWinHeight !== undefined
-
   const initialModel: GameVideoSettingsModel = {
     displayMode: scrSettings.displayMode,
     monitorId: localSettings.monitorId ?? null,
@@ -162,6 +156,23 @@ export function GameVideoSettings() {
     },
   })
 
+  const resetWindowPosition = () => {
+    dispatch(
+      mergeLocalSettings(
+        {
+          gameWinX: undefined,
+          gameWinY: undefined,
+          gameWinWidth: undefined,
+          gameWinHeight: undefined,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  }
+
   useEffect(() => {
     ipcRenderer
       .invoke('settingsGetMonitorInfo')
@@ -210,23 +221,8 @@ export function GameVideoSettings() {
           ) : (
             <ResetWindowPositionButton
               label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
-              disabled={!hasSavedWindowPosition}
-              onClick={() => {
-                dispatch(
-                  mergeLocalSettings(
-                    {
-                      gameWinX: undefined,
-                      gameWinY: undefined,
-                      gameWinWidth: undefined,
-                      gameWinHeight: undefined,
-                    },
-                    {
-                      onSuccess: () => {},
-                      onError: () => {},
-                    },
-                  ),
-                )
-              }}
+              disabled={localSettings.gameWinX === undefined}
+              onClick={resetWindowPosition}
               testName='reset-game-window-position'
             />
           )}
