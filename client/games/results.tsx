@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useSearch } from 'wouter/use-browser-location'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { getErrorStack } from '../../common/errors'
 import { GameConfigPlayer } from '../../common/games/configuration'
@@ -206,7 +207,7 @@ export function ConnectedGameResultsPage({
   const longTimestampFormat = useFormat(longTimestamp)
   const gameDateFormatter = useFormat(gameDateFormat)
 
-  const isPostGame = location.search === '?post-game'
+  const isPostGame = useSearch() === '?post-game'
   const onTabChange = useCallback(
     (tab: ResultsSubPage) => {
       navigateToGameResults(gameId, isPostGame, tab)
