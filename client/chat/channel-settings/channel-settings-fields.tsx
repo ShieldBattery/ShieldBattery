@@ -62,16 +62,16 @@ const TextFieldContainer = styled.div`
 
 const PrivacyContainer = styled.div`
   margin-top: 16px;
-`
-
-const MembersCanInviteContainer = styled.div`
-  margin-top: 12px;
-  padding-left: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 `
 
 const PrivacyDescription = styled.div`
   ${bodyMedium};
-  padding-left: 40px;
+  /* Lines up with the checkbox label, tucked into the checkbox's bottom padding. */
+  margin-top: -4px;
+  padding-left: 30px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -225,21 +225,23 @@ export function ChannelSettingsFields({
 
       {canBePrivate ? (
         <PrivacyContainer>
-          <CheckBox
-            {...bindCheckable('private')}
-            label={t('chat.channelSettings.general.privateLabel', 'Private channel')}
-            disabled={disabled}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <PrivacyDescription>
-            {t(
-              'chat.channelSettings.general.privateDescription',
-              'Private channels are hidden from browse and search, and can only be joined ' +
-                'through an invite link.',
-            )}
-          </PrivacyDescription>
+          <div>
+            <CheckBox
+              {...bindCheckable('private')}
+              label={t('chat.channelSettings.general.privateLabel', 'Private channel')}
+              disabled={disabled}
+              inputProps={{ tabIndex: 0 }}
+            />
+            <PrivacyDescription>
+              {t(
+                'chat.channelSettings.general.privateDescription',
+                'Private channels are hidden from browse and search, and can only be joined ' +
+                  'through an invite link.',
+              )}
+            </PrivacyDescription>
+          </div>
           {getInputValue('private') ? (
-            <MembersCanInviteContainer>
+            <div>
               <CheckBox
                 {...bindCheckable('membersCanInvite')}
                 label={t(
@@ -256,7 +258,7 @@ export function ChannelSettingsFields({
                     'off also disables the invite links members have already shared.',
                 )}
               </PrivacyDescription>
-            </MembersCanInviteContainer>
+            </div>
           ) : null}
         </PrivacyContainer>
       ) : null}

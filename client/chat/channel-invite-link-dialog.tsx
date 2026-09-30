@@ -12,7 +12,7 @@ import { getErrorStack } from '../../common/errors'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useFormatLocale } from '../i18n/locale-formats'
 import logger from '../logging/logger'
-import { FilledTonalButton, TextButton } from '../material/button'
+import { FilledButton, OutlinedButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
@@ -82,7 +82,7 @@ const SettingsRow = styled.div`
   }
 `
 
-const GenerateButton = styled(FilledTonalButton)`
+const GenerateButton = styled(OutlinedButton)`
   align-self: flex-start;
 `
 
@@ -236,7 +236,7 @@ export function ChannelInviteLinkDialog({ onCancel, channelId }: ChannelInviteLi
           <LinkText $placeholder={!url} data-testid='channel-invite-link-dialog-url'>
             {linkText}
           </LinkText>
-          <FilledTonalButton
+          <FilledButton
             label={t('chat.inviteLinkDialog.copy', 'Copy')}
             disabled={!url}
             onClick={onCopyClick}
