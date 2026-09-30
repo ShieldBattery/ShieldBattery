@@ -41,23 +41,23 @@ function serializeEditorParts(parts: ReadonlyArray<EditorPart>): string {
 function getTokenLabel(token: ReplayNameToken, t: TFunction): string {
   switch (token) {
     case 'date':
-      return t('settings.app.system.replayName.token.date', 'Date')
+      return t('settings.app.replays.name.token.date', 'Date')
     case 'time':
-      return t('settings.app.system.replayName.token.time', 'Time')
+      return t('settings.app.replays.name.token.time', 'Time')
     case 'map':
-      return t('settings.app.system.replayName.token.map', 'Map')
+      return t('settings.app.replays.name.token.map', 'Map')
     case 'name':
-      return t('settings.app.system.replayName.token.name', 'Your name')
+      return t('settings.app.replays.name.token.name', 'Your name')
     case 'opponents':
-      return t('settings.app.system.replayName.token.opponents', 'Opponents')
+      return t('settings.app.replays.name.token.opponents', 'Opponents')
     case 'race':
-      return t('settings.app.system.replayName.token.race', 'Your race')
+      return t('settings.app.replays.name.token.race', 'Your race')
     case 'opponentRaces':
-      return t('settings.app.system.replayName.token.opponentRaces', 'Opponent races')
+      return t('settings.app.replays.name.token.opponentRaces', 'Opponent races')
     case 'format':
-      return t('settings.app.system.replayName.token.format', 'Format')
+      return t('settings.app.replays.name.token.format', 'Format')
     case 'matchup':
-      return t('settings.app.system.replayName.token.matchup', 'Matchup')
+      return t('settings.app.replays.name.token.matchup', 'Matchup')
     default:
       return token satisfies never
   }
@@ -402,16 +402,16 @@ export function ReplayNameTemplateEditor() {
     templateLength + serializeReplayNameTemplate([part]).length <= MAX_REPLAY_NAME_TEMPLATE_LENGTH
 
   const previewValues = makePreviewValues(previewTime, selfUser?.name ?? 'Player')
-  const removeLabel = t('settings.app.system.replayName.remove', 'Remove')
+  const removeLabel = t('settings.app.replays.name.remove', 'Remove')
 
   return (
     <>
       <SettingsSectionHeader>
-        {t('settings.app.system.replayName.title', 'Replay names')}
+        {t('settings.app.replays.name.title', 'Replay names')}
       </SettingsSectionHeader>
       <SettingsSectionDescription>
         {t(
-          'settings.app.system.replayName.description',
+          'settings.app.replays.name.description',
           'How replays are named when they are saved automatically after each game. Drag the ' +
             'pieces to reorder them. Saved to your account.',
         )}
@@ -427,7 +427,7 @@ export function ReplayNameTemplateEditor() {
         {parts.length === 0 ? (
           <EmptySequence>
             {t(
-              'settings.app.system.replayName.empty',
+              'settings.app.replays.name.empty',
               'Add pieces below. An empty name uses the default.',
             )}
           </EmptySequence>
@@ -450,8 +450,8 @@ export function ReplayNameTemplateEditor() {
               <TextInput
                 value={part.text}
                 autoFocus={id === focusPartId}
-                aria-label={t('settings.app.system.replayName.textLabel', 'Text')}
-                placeholder={t('settings.app.system.replayName.textPlaceholder', 'Text')}
+                aria-label={t('settings.app.replays.name.textLabel', 'Text')}
+                placeholder={t('settings.app.replays.name.textPlaceholder', 'Text')}
                 onPointerDown={() => {
                   pointerOnInputRef.current = true
                 }}
@@ -484,7 +484,7 @@ export function ReplayNameTemplateEditor() {
         )}
       </Sequence>
 
-      <PaletteLabel>{t('settings.app.system.replayName.add', 'Add a piece')}</PaletteLabel>
+      <PaletteLabel>{t('settings.app.replays.name.add', 'Add a piece')}</PaletteLabel>
       <Palette>
         {ALL_REPLAY_NAME_TOKENS.map(token => (
           <PaletteChip
@@ -501,23 +501,23 @@ export function ReplayNameTemplateEditor() {
           disabled={!canAdd({ kind: 'text', text: '' })}
           onClick={() => addPart({ kind: 'text', text: '' })}>
           <MaterialIcon icon='add' size={18} />
-          {t('settings.app.system.replayName.token.text', 'Text')}
+          {t('settings.app.replays.name.token.text', 'Text')}
         </PaletteChip>
       </Palette>
 
       <Preview>
-        <PreviewLabel>{t('settings.app.system.replayName.preview1v1', '1v1')}</PreviewLabel>
+        <PreviewLabel>{t('settings.app.replays.name.preview1v1', '1v1')}</PreviewLabel>
         <PreviewName>
           {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.oneVOne)}.rep
         </PreviewName>
-        <PreviewLabel>{t('settings.app.system.replayName.preview2v2', '2v2')}</PreviewLabel>
+        <PreviewLabel>{t('settings.app.replays.name.preview2v2', '2v2')}</PreviewLabel>
         <PreviewName>
           {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.twoVTwo)}.rep
         </PreviewName>
       </Preview>
 
       <ResetButton
-        label={t('settings.app.system.replayName.reset', 'Reset to default')}
+        label={t('settings.app.replays.name.reset', 'Reset to default')}
         disabled={template === DEFAULT_REPLAY_NAME_TEMPLATE}
         onClick={() => {
           const next = toEditorParts(DEFAULT_REPLAY_NAME_TEMPLATE)
