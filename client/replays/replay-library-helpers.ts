@@ -1,4 +1,6 @@
+import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { GameRecordJson } from '../../common/games/games'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -132,13 +134,33 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
 }
 
 /**
+ * The SB user ids a game record lists as taking part in the game (players and observers), or an
+ * empty set when there's no record. A replay's embedded user ids only identify accounts on the
+ * server that hosted its game: SB user ids are small sequential integers, so a replay from another
+ * server (e.g. a dev server) carries ids that belong to unrelated accounts here. Only ids this set
+ * confirms should be resolved to accounts.
+ */
+export function getGameRecordUserIds(
+  game: ReadonlyDeep<GameRecordJson> | undefined,
+): ReadonlySet<SbUserId> {
+  if (!game) {
+    return new Set()
+  }
+  return new Set([
+    ...game.config.teams.flatMap(team => team.filter(p => !p.isComputer).map(p => p.id)),
+    ...(game.config.observers ?? []),
+  ])
+}
+
+/**
  * Converts a display layout into `PlayerTeamsDisplay` props. `name` is always the raw in-replay
  * name (the fallback for players without an SB identity). Non-computer players whose `sbUserId`
  * is in `linkedUserIds` also get a `userId`, letting the display component render them as
- * connected, interactive usernames instead of the raw name. Callers should pass only ids that are
- * already resolvable from the user store: an `sbUserId` comes from untrusted replay file contents
- * and can reference an account that doesn't exist, which a connected username would render as a
- * permanently-loading placeholder.
+ * connected, interactive usernames instead of the raw name. Callers should pass only ids that the
+ * replay's game record on this server confirms (see `getGameRecordUserIds`) and that are already
+ * resolvable from the user store: an `sbUserId` comes from untrusted replay file contents and can
+ * belong to an unrelated account, or to none (which a connected username would render as a
+ * permanently-loading placeholder).
  */
 export function playersToDisplayTeams(
   layout: ReplayTeamLayout,

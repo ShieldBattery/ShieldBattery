@@ -23,6 +23,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { startReplay } from './action-creators'
+import { getGameRecordUserIds } from './replay-library-helpers'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -214,9 +215,16 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
     const gameTypeLabel = replayGameTypeToLabel(replayGameTypeToNumber[replayHeader.gameType], t)
     const mapName = filterColorCodes(mapInfo?.name ?? replayHeader.mapName)
 
+    // A replay's user ids are only trusted once this server's record of its game confirms them, so a
+    // replay from another server keeps its in-replay names.
+    const gameUserIds = getGameRecordUserIds(gameInfo)
     const teams = players.reduce((acc, p) => {
       const team = acc.get(p.team)
-      const sbUser = usersById.get((replayUserIds?.[p.slotId] ?? -1) as SbUserId)
+      const replayUserId = replayUserIds?.[p.slotId] as SbUserId | undefined
+      const sbUser =
+        replayUserId !== undefined && gameUserIds.has(replayUserId)
+          ? usersById.get(replayUserId)
+          : undefined
       const player = sbUser ? { ...p, name: sbUser.name } : p
       if (team) {
         team.push(player)
@@ -256,6 +264,7 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
 
     return [durationStr, gameTypeLabel, mapName, playerListItems]
   }, [
+    gameInfo,
     mapInfo?.name,
     replayMetadata?.headerData,
     replayMetadata?.players,

@@ -68,6 +68,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { startReplay } from './action-creators'
+import { useIsSbGameMissing } from './replay-hooks'
 import {
   getAddToPlaylistMenuItems,
   getReplayActionMenuItems,
@@ -767,6 +768,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const loadedEntries = entries ?? []
   const focusedEntry = loadedEntries.find(e => e.id === focusedId) ?? loadedEntries[0]
   const focusedIndex = focusedEntry ? loadedEntries.findIndex(e => e.id === focusedEntry.id) : -1
+  const focusedSbGameMissing = useIsSbGameMissing(focusedEntry?.sbGameId)
   const orderedIds = loadedEntries.map(e => e.id)
   const selectedIds = new Set(getSelectedIds(selection, orderedIds, focusedEntry?.id))
   const isMultiSelection = selectedIds.size > 1
@@ -1403,6 +1405,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           onRemoveFromPlaylist: () => removeFromCurrentPlaylist([focusedEntry]),
           onReveal: revealEntry,
           onMoveToRecycleBin: entry => trashEntries([entry]),
+          sbGameMissing: focusedSbGameMissing,
           t,
         })}
       </MenuList>
