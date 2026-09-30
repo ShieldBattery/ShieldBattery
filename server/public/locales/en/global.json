@@ -2793,6 +2793,11 @@
       "video": {
         "brightness": "Brightness",
         "customFpsLimit": "Custom FPS limit",
+        "customWindowAspectRatio": "Must be between 4:3 and 16:9",
+        "customWindowHeight": "Height",
+        "customWindowSize": "Custom",
+        "customWindowSizeRange": "Enter a whole number from {{min}} to {{max}}",
+        "customWindowWidth": "Width",
         "displayMode": {
           "fullscreen": "Fullscreen",
           "title": "Display mode",
@@ -2813,7 +2818,15 @@
         "shadowStacking": "Shadow stacking",
         "showFps": "Show FPS",
         "smoothUnitTurning": "Smooth unit turning",
-        "title": "Video"
+        "title": "Video",
+        "windowPlacement": {
+          "remember": "Remember position and size",
+          "rememberSize": "Remember size, centered",
+          "setSize": "Set size, centered",
+          "title": "Window placement"
+        },
+        "windowSize": "Window size",
+        "windowSizeOption": "{{width}} × {{height}}"
       }
     },
     "user": {

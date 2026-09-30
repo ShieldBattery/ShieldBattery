@@ -2,6 +2,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { Announcer, ConsoleSkin, IngameSkin, SCR_GAMMA_DEFAULT } from './blizz-settings'
 import {
   FfaColorPreset,
+  GameWindowPlacement,
   LocalSettings,
   MinimapColorMode,
   ScrSettings,
@@ -23,6 +24,8 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinY: undefined,
   gameWinWidth: undefined,
   gameWinHeight: undefined,
+  gameWinPlacement: GameWindowPlacement.Remember,
+  gameWinSetSize: { width: 1280, height: 960 },
   quickOpenReplays: false,
   gameDefaultsPreset: undefined,
   startingFog: StartingFog.ShowTerrainAndResources,

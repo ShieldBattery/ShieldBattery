@@ -37,6 +37,64 @@ export enum GameDefaultsPreset {
 export const ALL_GAME_DEFAULTS_PRESETS: Readonly<GameDefaultsPreset[]> =
   Object.values(GameDefaultsPreset)
 
+/** How a windowed game places its window when it opens. */
+export enum GameWindowPlacement {
+  /** Where the window was last, at the size it was last. */
+  Remember = 'remember',
+  /** At the size the window was last, centered on its monitor. */
+  RememberSize = 'rememberSize',
+  /** With a play area of `gameWinSetSize`, centered on its monitor. */
+  SetSize = 'setSize',
+}
+
+export const ALL_GAME_WINDOW_PLACEMENTS: Readonly<GameWindowPlacement[]> =
+  Object.values(GameWindowPlacement)
+
+export function getGameWindowPlacementLabel(placement: GameWindowPlacement, t: TFunction): string {
+  switch (placement) {
+    case GameWindowPlacement.Remember:
+      return t('settings.game.video.windowPlacement.remember', 'Remember position and size')
+    case GameWindowPlacement.RememberSize:
+      return t('settings.game.video.windowPlacement.rememberSize', 'Remember size, centered')
+    case GameWindowPlacement.SetSize:
+      return t('settings.game.video.windowPlacement.setSize', 'Set size, centered')
+    default:
+      return assertUnreachable(placement)
+  }
+}
+
+/** The size of the game's play area, not counting the window's title bar and borders. */
+export interface GameWindowSize {
+  width: number
+  height: number
+}
+
+/** 4:3 sizes first since that's the game's native aspect ratio, then common 16:9 ones. */
+export const GAME_WINDOW_PRESET_SIZES: ReadonlyArray<Readonly<GameWindowSize>> = [
+  { width: 1024, height: 768 },
+  { width: 1280, height: 960 },
+  { width: 1440, height: 1080 },
+  { width: 1280, height: 720 },
+  { width: 1600, height: 900 },
+  { width: 1920, height: 1080 },
+]
+
+/** The game's native resolution. Anything smaller is too small to play on. */
+export const MIN_GAME_WINDOW_SIZE: Readonly<GameWindowSize> = { width: 640, height: 480 }
+/** 8K. The game also shrinks the window to fit its monitor, so this only rejects typos. */
+export const MAX_GAME_WINDOW_SIZE: Readonly<GameWindowSize> = { width: 7680, height: 4320 }
+
+/**
+ * Whether a play area is between 4:3 and 16:9. The game resizes its window to stay in that range,
+ * so it wouldn't open at a size outside of it.
+ */
+export function hasSupportedGameWindowAspectRatio({
+  width,
+  height,
+}: Readonly<GameWindowSize>): boolean {
+  return width * 3 >= height * 4 && width * 9 <= height * 16
+}
+
 export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
   switch (fog) {
     case StartingFog.ShowTerrainAndResources:
@@ -159,6 +217,8 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinY?: number
   gameWinWidth?: number
   gameWinHeight?: number
+  gameWinPlacement: GameWindowPlacement
+  gameWinSetSize: GameWindowSize
   monitorId?: number
   quickOpenReplays: boolean
   /**

@@ -11,10 +11,21 @@ import {
   SCR_GAMMA_MAX,
   SCR_GAMMA_MIN,
 } from '../../../common/settings/blizz-settings'
-import { useForm, useFormCallbacks } from '../../forms/form-hook'
+import {
+  ALL_GAME_WINDOW_PLACEMENTS,
+  GAME_WINDOW_PRESET_SIZES,
+  GameWindowPlacement,
+  GameWindowSize,
+  getGameWindowPlacementLabel,
+  hasSupportedGameWindowAspectRatio,
+  MAX_GAME_WINDOW_SIZE,
+  MIN_GAME_WINDOW_SIZE,
+} from '../../../common/settings/local-settings'
+import { FormHook, useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import logger from '../../logging/logger'
 import { OutlinedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
+import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
@@ -27,6 +38,12 @@ const ipcRenderer = new TypedIpcRenderer()
 const ResetWindowPositionButton = styled(OutlinedButton)`
   align-self: flex-start;
   margin-bottom: 20px;
+`
+
+const CustomWindowSizeRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 `
 
 const GAMMA_SLIDER_MIN = 0
@@ -86,6 +103,145 @@ interface GameVideoSettingsModel {
   shadowStackingOn: boolean
   pillarboxOn: boolean
   showFps: boolean
+  windowPlacement: GameWindowPlacement
+  /** One of `GAME_WINDOW_PRESET_SIZES`, or `null` when the size is entered by hand. */
+  windowSizePreset: Readonly<GameWindowSize> | null
+  customWindowWidth: number
+  customWindowHeight: number
+}
+
+/** The set size only applies (and is only shown) in windowed mode with the set size placement. */
+function usesSetWindowSize(model: Readonly<GameVideoSettingsModel>): boolean {
+  return (
+    model.displayMode === DisplayMode.Windowed &&
+    model.windowPlacement === GameWindowPlacement.SetSize
+  )
+}
+
+function isValidWindowDimension(dimension: keyof GameWindowSize, value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= MIN_GAME_WINDOW_SIZE[dimension] &&
+    value <= MAX_GAME_WINDOW_SIZE[dimension]
+  )
+}
+
+function isValidCustomWindowSize(size: Readonly<GameWindowSize>): boolean {
+  return (
+    isValidWindowDimension('width', size.width) &&
+    isValidWindowDimension('height', size.height) &&
+    hasSupportedGameWindowAspectRatio(size)
+  )
+}
+
+function getCustomWindowSize(model: Readonly<GameVideoSettingsModel>): GameWindowSize {
+  return { width: model.customWindowWidth, height: model.customWindowHeight }
+}
+
+/**
+ * Checks the range of one dimension, then the shape of the whole size. The shape is checked from
+ * both fields so that whichever one was just edited shows the error.
+ */
+function validateCustomWindowDimension(
+  dimension: keyof GameWindowSize,
+): Validator<number, GameVideoSettingsModel> {
+  return (value, model, _dirty, t) => {
+    if (!usesSetWindowSize(model) || model.windowSizePreset !== null) {
+      return undefined
+    }
+    if (!isValidWindowDimension(dimension, value)) {
+      return t('settings.game.video.customWindowSizeRange', {
+        defaultValue: 'Enter a whole number from {{min}} to {{max}}',
+        min: MIN_GAME_WINDOW_SIZE[dimension],
+        max: MAX_GAME_WINDOW_SIZE[dimension],
+      })
+    }
+
+    const size = getCustomWindowSize(model)
+    const otherDimension = dimension === 'width' ? 'height' : 'width'
+    return isValidWindowDimension(otherDimension, size[otherDimension]) &&
+      !hasSupportedGameWindowAspectRatio(size)
+      ? t('settings.game.video.customWindowAspectRatio', 'Must be between 4:3 and 16:9')
+      : undefined
+  }
+}
+
+/**
+ * The set size to save, or `undefined` if it doesn't apply or isn't valid. `onValidatedChange` can
+ * run before a newly entered value has been validated, so the custom size is checked here too.
+ */
+function getSetWindowSize(
+  model: Readonly<GameVideoSettingsModel>,
+): Readonly<GameWindowSize> | undefined {
+  if (!usesSetWindowSize(model)) {
+    return undefined
+  }
+  if (model.windowSizePreset) {
+    return model.windowSizePreset
+  }
+
+  const size = getCustomWindowSize(model)
+  return isValidCustomWindowSize(size) ? size : undefined
+}
+
+/** The preset size picker, plus width and height fields when the size is custom. */
+function SetWindowSizeFields({
+  bindCustom,
+  getInputValue,
+}: Pick<FormHook<GameVideoSettingsModel>, 'bindCustom' | 'getInputValue'>) {
+  const { t } = useTranslation()
+
+  return (
+    <>
+      <Select
+        {...bindCustom('windowSizePreset')}
+        label={t('settings.game.video.windowSize', 'Window size')}
+        tabIndex={0}>
+        {GAME_WINDOW_PRESET_SIZES.map(size => (
+          <SelectOption
+            key={`${size.width}x${size.height}`}
+            value={size}
+            text={t('settings.game.video.windowSizeOption', {
+              defaultValue: '{{width}} × {{height}}',
+              width: size.width,
+              height: size.height,
+            })}
+          />
+        ))}
+        <SelectOption
+          key='custom'
+          value={null}
+          text={t('settings.game.video.customWindowSize', 'Custom')}
+        />
+      </Select>
+      {getInputValue('windowSizePreset') === null ? (
+        <CustomWindowSizeRow>
+          <NumberTextField
+            {...bindCustom('customWindowWidth')}
+            label={t('settings.game.video.customWindowWidth', 'Width')}
+            floatingLabel={true}
+            inputProps={{
+              tabIndex: 0,
+              min: MIN_GAME_WINDOW_SIZE.width,
+              max: MAX_GAME_WINDOW_SIZE.width,
+              step: 1,
+            }}
+          />
+          <NumberTextField
+            {...bindCustom('customWindowHeight')}
+            label={t('settings.game.video.customWindowHeight', 'Height')}
+            floatingLabel={true}
+            inputProps={{
+              tabIndex: 0,
+              min: MIN_GAME_WINDOW_SIZE.height,
+              max: MAX_GAME_WINDOW_SIZE.height,
+              step: 1,
+            }}
+          />
+        </CustomWindowSizeRow>
+      ) : null}
+    </>
+  )
 }
 
 export function GameVideoSettings() {
@@ -96,6 +252,7 @@ export function GameVideoSettings() {
 
   const [monitors, setMonitors] = useState<Display[]>([])
 
+  const setSize = localSettings.gameWinSetSize
   const initialModel: GameVideoSettingsModel = {
     displayMode: scrSettings.displayMode,
     monitorId: localSettings.monitorId ?? null,
@@ -111,13 +268,25 @@ export function GameVideoSettings() {
     shadowStackingOn: scrSettings.shadowStackingOn,
     pillarboxOn: scrSettings.pillarboxOn,
     showFps: scrSettings.showFps,
+    windowPlacement: localSettings.gameWinPlacement,
+    windowSizePreset:
+      GAME_WINDOW_PRESET_SIZES.find(
+        preset => preset.width === setSize.width && preset.height === setSize.height,
+      ) ?? null,
+    customWindowWidth: setSize.width,
+    customWindowHeight: setSize.height,
   }
 
   const { bindCustom, bindCheckable, getInputValue, submit, form } =
-    useForm<GameVideoSettingsModel>(initialModel, {})
+    useForm<GameVideoSettingsModel>(initialModel, {
+      customWindowWidth: validateCustomWindowDimension('width'),
+      customWindowHeight: validateCustomWindowDimension('height'),
+    })
 
   useFormCallbacks(form, {
     onValidatedChange: model => {
+      const setWindowSize = getSetWindowSize(model)
+
       dispatch(
         mergeScrSettings(
           {
@@ -146,6 +315,8 @@ export function GameVideoSettings() {
         mergeLocalSettings(
           {
             monitorId: model.monitorId === null ? undefined : model.monitorId,
+            gameWinPlacement: model.windowPlacement,
+            ...(setWindowSize ? { gameWinSetSize: setWindowSize } : {}),
           },
           {
             onSuccess: () => {},
@@ -219,12 +390,30 @@ export function GameVideoSettings() {
               ))}
             </Select>
           ) : (
-            <ResetWindowPositionButton
-              label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
-              disabled={localSettings.gameWinX === undefined}
-              onClick={resetWindowPosition}
-              testName='reset-game-window-position'
-            />
+            <>
+              <Select
+                {...bindCustom('windowPlacement')}
+                label={t('settings.game.video.windowPlacement.title', 'Window placement')}
+                tabIndex={0}>
+                {ALL_GAME_WINDOW_PLACEMENTS.map(placement => (
+                  <SelectOption
+                    key={placement}
+                    value={placement}
+                    text={getGameWindowPlacementLabel(placement, t)}
+                  />
+                ))}
+              </Select>
+              {getInputValue('windowPlacement') === GameWindowPlacement.SetSize ? (
+                <SetWindowSizeFields bindCustom={bindCustom} getInputValue={getInputValue} />
+              ) : (
+                <ResetWindowPositionButton
+                  label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
+                  disabled={localSettings.gameWinX === undefined}
+                  onClick={resetWindowPosition}
+                  testName='reset-game-window-position'
+                />
+              )}
+            </>
           )}
           <Slider
             {...bindCustom('gamma')}

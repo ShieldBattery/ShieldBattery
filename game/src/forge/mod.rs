@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
 use libc::c_void;
+use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
 use winapi::shared::windef::{HDC, HMENU, HMONITOR, HWND, POINT, RECT};
@@ -437,12 +438,35 @@ enum DisplayMode {
     Fullscreen = 2,
 }
 
+/// How a windowed game places its window when it opens. Matches `GameWindowPlacement` in
+/// `common/settings/local-settings.ts`.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum WindowPlacement {
+    /// Where the window was last, at the size it was last.
+    #[default]
+    Remember,
+    /// At the size the window was last, centered on its monitor.
+    RememberSize,
+    /// With a play area of [`Settings::set_size`], centered on its monitor.
+    SetSize,
+}
+
+/// The size of the game's play area, not counting the window's title bar and borders.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]
+struct ClientSize {
+    width: i32,
+    height: i32,
+}
+
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Settings {
     window_x: Option<i32>,
     window_y: Option<i32>,
     width: Option<i32>,
     height: Option<i32>,
+    window_placement: WindowPlacement,
+    set_size: Option<ClientSize>,
 
     display_mode: DisplayMode,
 
@@ -757,6 +781,14 @@ pub fn init(
         .and_then(|x| x.as_i64())
         .filter(|&x| x > 0 && x < 100_000)
         .map(|x| x as i32);
+    let window_placement = local_settings
+        .get("gameWinPlacement")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let set_size = local_settings
+        .get("gameWinSetSize")
+        .and_then(|v| serde_json::from_value::<ClientSize>(v.clone()).ok())
+        .filter(|s| (1..100_000).contains(&s.width) && (1..100_000).contains(&s.height));
 
     let display_mode = scr_settings
         .get("displayMode")
@@ -780,6 +812,8 @@ pub fn init(
         window_y,
         width,
         height,
+        window_placement,
+        set_size,
 
         display_mode,
 
@@ -1031,35 +1065,106 @@ pub fn restore_saved_window_pos() {
         return;
     };
 
-    // Only restore the position if all the values are set
-    if let (Some(x), Some(y), Some(width), Some(height)) = (
-        settings.window_x,
-        settings.window_y,
-        settings.width,
-        settings.height,
-    ) {
-        unsafe {
+    let bounds = match settings.window_placement {
+        WindowPlacement::Remember => {
+            // Only restore the position if all the values are set
+            let (Some(x), Some(y), Some(width), Some(height)) = (
+                settings.window_x,
+                settings.window_y,
+                settings.width,
+                settings.height,
+            ) else {
+                return;
+            };
             debug!("Restoring window position to ({x},{y}) {width}x{height} [{display_mode:?}]");
-            let WindowBounds {
+            Some(ensure_window_is_visible(x, y, width, height, display_mode))
+        }
+        WindowPlacement::RememberSize => {
+            let (Some(width), Some(height)) = (settings.width, settings.height) else {
+                return;
+            };
+            debug!("Restoring window size to {width}x{height}, centered");
+            center_on_monitor(handle, width, height)
+        }
+        WindowPlacement::SetSize => {
+            let Some(size) = settings.set_size else {
+                return;
+            };
+            debug!(
+                "Setting play area to {}x{}, centered",
+                size.width, size.height
+            );
+            window_size_for_client_size(handle, size)
+                .and_then(|(width, height)| center_on_monitor(handle, width, height))
+        }
+    };
+    let Some(WindowBounds {
+        x,
+        y,
+        width,
+        height,
+    }) = bounds
+    else {
+        error!("Couldn't measure the window or its monitor, leaving the window where it is");
+        return;
+    };
+    debug!("Placing window at ({x},{y}) {width}x{height}");
+
+    unsafe {
+        with_scr_hooks_disabled(|| {
+            SetWindowPos(
+                handle,
+                null_mut(),
                 x,
                 y,
                 width,
                 height,
-            } = ensure_window_is_visible(x, y, width, height, display_mode);
-            debug!("After ensuring window is visible: ({x},{y}) {width}x{height}");
+                SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+        });
+    }
+}
 
-            with_scr_hooks_disabled(|| {
-                SetWindowPos(
-                    handle,
-                    null_mut(),
-                    x,
-                    y,
-                    width,
-                    height,
-                    SWP_NOZORDER | SWP_NOACTIVATE,
-                );
-            });
+/// The outer size of `window` if its play area were `size`, keeping its current title bar and
+/// borders.
+fn window_size_for_client_size(window: HWND, size: ClientSize) -> Option<(i32, i32)> {
+    unsafe {
+        let mut outer = mem::zeroed::<RECT>();
+        let mut client = mem::zeroed::<RECT>();
+        if GetWindowRect(window, &mut outer) == 0 || GetClientRect(window, &mut client) == 0 {
+            return None;
         }
+        let border_width = (outer.right - outer.left) - (client.right - client.left);
+        let border_height = (outer.bottom - outer.top) - (client.bottom - client.top);
+        Some((size.width + border_width, size.height + border_height))
+    }
+}
+
+/// Centers a window of the given outer size in the work area of the monitor `window` is on.
+fn center_on_monitor(window: HWND, width: i32, height: i32) -> Option<WindowBounds> {
+    let work_area = unsafe {
+        let monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+        let mut monitor_info = mem::zeroed::<MONITORINFO>();
+        monitor_info.cbSize = mem::size_of::<MONITORINFO>() as u32;
+        if GetMonitorInfoA(monitor, &mut monitor_info) == 0 {
+            return None;
+        }
+        monitor_info.rcWork
+    };
+    Some(center_in(&work_area, width, height))
+}
+
+/// Centers a `width` by `height` rect in `area`, shrinking it to fit if it's larger.
+fn center_in(area: &RECT, width: i32, height: i32) -> WindowBounds {
+    let area_width = area.right - area.left;
+    let area_height = area.bottom - area.top;
+    let width = width.min(area_width);
+    let height = height.min(area_height);
+    WindowBounds {
+        x: area.left + (area_width - width) / 2,
+        y: area.top + (area_height - height) / 2,
+        width,
+        height,
     }
 }
 
@@ -1136,5 +1241,61 @@ fn ensure_window_is_visible(
                 height,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rect(left: i32, top: i32, right: i32, bottom: i32) -> RECT {
+        RECT {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
+
+    #[test]
+    fn center_in_centers_a_smaller_window() {
+        let bounds = center_in(&rect(0, 0, 1920, 1040), 1296, 1000);
+        assert_eq!(
+            bounds,
+            WindowBounds {
+                x: 312,
+                y: 20,
+                width: 1296,
+                height: 1000,
+            }
+        );
+    }
+
+    #[test]
+    fn center_in_accounts_for_the_area_offset() {
+        let bounds = center_in(&rect(-1920, 100, 0, 1180), 1000, 800);
+        assert_eq!(
+            bounds,
+            WindowBounds {
+                x: -1460,
+                y: 240,
+                width: 1000,
+                height: 800,
+            }
+        );
+    }
+
+    #[test]
+    fn center_in_shrinks_a_window_larger_than_the_area() {
+        let bounds = center_in(&rect(0, 0, 1280, 720), 1936, 1119);
+        assert_eq!(
+            bounds,
+            WindowBounds {
+                x: 0,
+                y: 0,
+                width: 1280,
+                height: 720,
+            }
+        );
     }
 }

@@ -18,7 +18,7 @@ import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/te
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 23
+const VERSION = 24
 const SCR_VERSION = 6
 
 /**
@@ -201,6 +201,7 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       ...DEFAULT_LOCAL_SETTINGS,
       customTeamColors: cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
       customFfaColors: [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
+      gameWinSetSize: { ...DEFAULT_LOCAL_SETTINGS.gameWinSetSize },
       version: VERSION,
       starcraftPath: await findStarcraftPath(),
       winX: -1,
@@ -389,6 +390,12 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       // Installs that predate the game defaults preset have been running on the recommended
       // defaults all along, so they keep them rather than being prompted to choose.
       newSettings.gameDefaultsPreset = GameDefaultsPreset.Recommended
+    }
+
+    if (!settings.version || settings.version < 24) {
+      log.verbose('Found settings version 23, migrating to version 24')
+      newSettings.gameWinPlacement = DEFAULT_LOCAL_SETTINGS.gameWinPlacement
+      newSettings.gameWinSetSize = { ...DEFAULT_LOCAL_SETTINGS.gameWinSetSize }
     }
 
     newSettings.version = VERSION
