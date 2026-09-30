@@ -159,6 +159,10 @@ interface MatchFormationTelemetry {
   winProbability: number
   teamARating: number
   teamBRating: number
+  teamAUserIds: SbUserId[]
+  teamBUserIds: SbUserId[]
+  teamAPlayerRatings: number[]
+  teamBPlayerRatings: number[]
   maxLatency: number
 }
 
@@ -1448,6 +1452,9 @@ export class MatchmakingService {
       this.requeueTickets.set(userId, entry.ticket)
     }
 
+    const [teamAPlayers, teamBPlayers] = [teamA, teamB].map(team =>
+      team.flatMap(entity => Array.from(getPlayersFromEntity(entity))),
+    )
     const matchInfo = new Match(
       nanoid(),
       event.mode,
@@ -1458,6 +1465,10 @@ export class MatchmakingService {
         winProbability: event.winProbability,
         teamARating: event.teamARating,
         teamBRating: event.teamBRating,
+        teamAUserIds: teamAPlayers.map(p => p.id),
+        teamBUserIds: teamBPlayers.map(p => p.id),
+        teamAPlayerRatings: teamAPlayers.map(p => p.rating),
+        teamBPlayerRatings: teamBPlayers.map(p => p.rating),
         maxLatency: event.maxLatency,
       },
       this.publisher,

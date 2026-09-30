@@ -783,6 +783,15 @@ export type MatchmakingMatchFormation = {
   /** Effective team ratings used to compute `winProbability`. */
   teamARating: number
   teamBRating: number
+  /** The players on each team (team A is the match's first team). */
+  teamAUserIds: ReadonlyArray<SbUserId>
+  teamBUserIds: ReadonlyArray<SbUserId>
+  /**
+   * Each player's rating in the mode when the match formed, index-aligned with the matching
+   * `team*UserIds` array. These are plain ratings, before any uncertainty adjustment.
+   */
+  teamAPlayerRatings: ReadonlyArray<number>
+  teamBPlayerRatings: ReadonlyArray<number>
   /**
    * Estimated one-way latency (ms) of the match's worst pairwise link, computed from each player's
    * measured RTT to their desired game server region plus the region-to-region backbone RTT (raw
@@ -808,11 +817,14 @@ export async function insertMatchmakingMatchFormation(
     await client.query(sql`
       INSERT INTO matchmaking_match_formations
         (game_id, fail_phase, matchmaking_type, quality, skill_variance, win_probability,
-          team_a_rating, team_b_rating, max_latency)
+          team_a_rating, team_b_rating, max_latency, team_a_user_ids, team_b_user_ids,
+          team_a_player_ratings, team_b_player_ratings)
       VALUES
         (${formation.gameId ?? null}, ${formation.failPhase ?? null}, ${formation.matchmakingType},
           ${formation.quality}, ${formation.skillVariance}, ${formation.winProbability},
-          ${formation.teamARating}, ${formation.teamBRating}, ${formation.maxLatency})
+          ${formation.teamARating}, ${formation.teamBRating}, ${formation.maxLatency},
+          ${formation.teamAUserIds}, ${formation.teamBUserIds}, ${formation.teamAPlayerRatings},
+          ${formation.teamBPlayerRatings})
     `)
   } finally {
     done()

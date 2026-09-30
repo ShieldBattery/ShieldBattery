@@ -165,7 +165,7 @@ pub struct Match {
     pub team_b: Vec<QueueEntry>,
     pub quality: f32,
     /// Variance of the matched players' effective ratings — the raw skill-spread input to the
-    /// quality score, before `WEIGHT_RATING_VARIANCE` is applied. Persisted as match-formation
+    /// quality score, before `weight_rating_variance` is applied. Persisted as match-formation
     /// telemetry so the weights can later be calibrated against real game outcomes.
     pub skill_variance: f32,
     /// Win probability of team A vs team B from the matchmaker's logistic, computed over effective
@@ -181,7 +181,7 @@ pub struct Match {
     /// Estimated one-way latency (ms) of the match's worst pairwise link (see
     /// [`prepared_match_latency`]).
     /// Recorded in raw milliseconds for calibration; the quality score itself penalizes
-    /// `latency_value(max_latency)` weighted by `WEIGHT_LATENCY`, not these raw ms.
+    /// `latency_value(max_latency)` weighted by `weight_latency`, not these raw ms.
     pub max_latency: f32,
 }
 
@@ -386,20 +386,17 @@ impl TeamIds {
     }
 }
 
+/// A team's rating for balancing and win probability: the arithmetic mean of its players' effective
+/// ratings. Outcomes don't support weighting stronger players more heavily: a team with widely
+/// spread ratings wins about as often as an even team with the same average (slightly less, if
+/// anything). The mean is also what the rating update uses for the opposing team, so the matchmaker
+/// and the rating system agree on which team is favored.
 fn team_rating_for_indices(entries: &[&PreparedPlayer<'_>], indices: &[usize]) -> f32 {
-    if indices.len() == 1 {
-        entries[indices[0]].effective_rating
-    } else {
-        let sum = indices
-            .iter()
-            .map(|&index| {
-                let rating = entries[index].effective_rating;
-                rating * rating
-            })
-            .sum::<f32>();
-        // TODO(tec27): Determine what the proper exponent is for this from win/loss data
-        (sum / indices.len() as f32).sqrt()
-    }
+    let sum = indices
+        .iter()
+        .map(|&index| entries[index].effective_rating)
+        .sum::<f32>();
+    sum / indices.len() as f32
 }
 
 fn best_team_partition(entries: &[&PreparedPlayer<'_>]) -> (TeamIds, TeamIds, f32, f32) {
@@ -580,10 +577,10 @@ impl Matchmaker<RandomQueueSelector> {
 }
 
 /// Returns the win probability for player A vs player B (or effective team rating A vs effective
-/// team rating B). This is only an approximation as we don't have the uncertainty values for either
-/// side.
-fn get_win_probability(rating_a: f32, rating_b: f32) -> f32 {
-    1.0 / (1.0 + 10.0f32.powf((rating_b - rating_a) / 400.0))
+/// team rating B), on a logistic where a rating difference of `scale` gives 10:1 odds (see
+/// [`crate::matchmaking::config::ModeConfig::win_prob_scale`]).
+fn get_win_probability(rating_a: f32, rating_b: f32, scale: f32) -> f32 {
+    1.0 / (1.0 + 10.0f32.powf((rating_b - rating_a) / scale))
 }
 
 impl<T: QueueSelector> Matchmaker<T> {
@@ -1001,7 +998,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let (team_a, team_b, rating_a, rating_b) = best_team_partition(&queue_entries);
 
                     // Calculate the win probability for team_a vs team_b
-                    let win_prob = get_win_probability(rating_a, rating_b);
+                    let win_prob = get_win_probability(rating_a, rating_b, mode_cfg.win_prob_scale);
                     let win_prob_diff = (0.5 - win_prob).abs();
 
                     let quality = wait_seconds
@@ -1066,14 +1063,6 @@ mod tests {
         }))
     }
 
-    /// A config with a specific global `min_quality` and defaults otherwise.
-    fn config_with_min_quality(min_quality: f32) -> Arc<MatchmakerConfig> {
-        Arc::new(MatchmakerConfig::from_global(ModeConfig {
-            min_quality,
-            ..Default::default()
-        }))
-    }
-
     /// A [QueueSelector] that just takes the front `amount` players from the queue.
     pub struct TestQueueSelector;
 
@@ -1133,12 +1122,9 @@ mod tests {
     ) -> f32 {
         let sum = team
             .iter()
-            .map(|entry| {
-                let rating = effective_rating(&entry.player, mode, uncertainty_k);
-                rating * rating
-            })
+            .map(|entry| effective_rating(&entry.player, mode, uncertainty_k))
             .sum::<f32>();
-        (sum / team.len() as f32).sqrt()
+        sum / team.len() as f32
     }
 
     fn reference_best_team_ids(
@@ -1929,8 +1915,15 @@ mod tests {
 
     #[test]
     fn find_matches_with_latency_penalty() {
-        let mut matchmaker =
-            Matchmaker::with_queue_selector(config_with_min_quality(-85.0), TestQueueSelector);
+        // Pins the latency weight so the arithmetic below doesn't depend on the built-in default.
+        let config = |min_quality| {
+            Arc::new(MatchmakerConfig::from_global(ModeConfig {
+                min_quality,
+                weight_latency: 30.0,
+                ..Default::default()
+            }))
+        };
+        let mut matchmaker = Matchmaker::with_queue_selector(config(-85.0), TestQueueSelector);
         matchmaker.set_backbone(BackboneRttTable::new([(
             "eu-west|us-east".to_string(),
             200.0,
@@ -1962,7 +1955,7 @@ mod tests {
 
         // At t=0 with no wait time: quality = 0 - (variance_penalty + win_prob_penalty + latency_penalty)
         // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0.
-        // max_latency = 200ms (one-way). latency_value(200) = 3, WEIGHT_LATENCY = 30.0, so the
+        // max_latency = 200ms (one-way). latency_value(200) = 3 and weight_latency = 30.0, so the
         // latency penalty = 30.0 * 3 = 90.0. Quality ≈ 0 - 90.0 = -90.0.
         //
         // min_quality = -85.0 → quality (-90.0) < effective_min (-85.0) → match rejected.
@@ -1974,7 +1967,7 @@ mod tests {
         );
 
         // min_quality = -95.0 → quality (-90.0) >= effective_min (-95.0) → match forms.
-        matchmaker.set_config(config_with_min_quality(-95.0));
+        matchmaker.set_config(config(-95.0));
         let result_lenient =
             matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result_lenient.len(), 1);

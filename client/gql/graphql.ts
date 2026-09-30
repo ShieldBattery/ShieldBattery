@@ -77,6 +77,7 @@ export type MatchmakerModeConfigOverridesInput = {
   weightLatency?: number | null | undefined
   weightRatingVariance?: number | null | undefined
   weightWinProb?: number | null | undefined
+  winProbScale?: number | null | undefined
 }
 
 export type MatchmakerPerModeOverrideInput = {
@@ -255,6 +256,7 @@ export type AdminMatchmakingConfigQuery = {
       weightWinProb: number | null
       weightLatency: number | null
       uncertaintyK: number | null
+      winProbScale: number | null
       minQuality: number | null
       adaptiveComfortableMultiplier: number | null
       adaptiveDecayPerMissing: number | null
@@ -267,6 +269,7 @@ export type AdminMatchmakingConfigQuery = {
         weightWinProb: number | null
         weightLatency: number | null
         uncertaintyK: number | null
+        winProbScale: number | null
         minQuality: number | null
         adaptiveComfortableMultiplier: number | null
         adaptiveDecayPerMissing: number | null
@@ -280,11 +283,26 @@ export type AdminMatchmakingConfigQuery = {
       weightWinProb: number
       weightLatency: number
       uncertaintyK: number
+      winProbScale: number
       minQuality: number
       adaptiveComfortableMultiplier: number
       adaptiveDecayPerMissing: number
       populationHalfLifeSeconds: number
     }
+    modeDefaults: Array<{
+      matchmakingType: Types.MatchmakingType
+      config: {
+        weightRatingVariance: number | null
+        weightWinProb: number | null
+        weightLatency: number | null
+        uncertaintyK: number | null
+        winProbScale: number | null
+        minQuality: number | null
+        adaptiveComfortableMultiplier: number | null
+        adaptiveDecayPerMissing: number | null
+        populationHalfLifeSeconds: number | null
+      }
+    }>
   }
 }
 
@@ -2360,6 +2378,7 @@ export const AdminMatchmakingConfigDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                       {
                         kind: 'Field',
@@ -2390,6 +2409,7 @@ export const AdminMatchmakingConfigDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                             {
                               kind: 'Field',
@@ -2421,6 +2441,7 @@ export const AdminMatchmakingConfigDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
                       {
                         kind: 'Field',
@@ -2428,6 +2449,46 @@ export const AdminMatchmakingConfigDocument = {
                       },
                       { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'modeDefaults' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'config' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'weightRatingVariance' },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'winProbScale' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'adaptiveComfortableMultiplier' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'adaptiveDecayPerMissing' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'populationHalfLifeSeconds' },
+                            },
+                          ],
+                        },
+                      },
                     ],
                   },
                 },
