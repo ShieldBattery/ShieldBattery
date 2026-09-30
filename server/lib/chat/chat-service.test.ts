@@ -32,6 +32,7 @@ import {
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { ImageService } from '../images/image-service'
 import { rollOutcome } from '../messaging/roll-outcome'
@@ -101,7 +102,7 @@ import {
   deleteInviteLinksForChannel,
   deleteMemberInviteLinks,
   deleteUnusableInviteLinks,
-  findReusableInviteLink,
+  findNewestUsableInviteLink,
   getInviteLink,
   incrementInviteLinkUses,
   InviteLinkRecord,
@@ -215,7 +216,7 @@ vi.mock('./invite-link-models', () => ({
   deleteInviteLinksForChannel: vi.fn(),
   deleteMemberInviteLinks: vi.fn(),
   deleteUnusableInviteLinks: vi.fn(),
-  findReusableInviteLink: vi.fn(),
+  findNewestUsableInviteLink: vi.fn(),
   getInviteLink: vi.fn(),
   incrementInviteLinkUses: vi.fn(),
   listUsableInviteLinks: vi.fn(),
@@ -1106,7 +1107,10 @@ describe('chat/chat-service', () => {
 
       await chatService.joinChannel(testChannel.name, user1.id, false)
 
-      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
+      expect(createChannelMock).toHaveBeenCalledWith(
+        { ownerId: user1.id, name: testChannel.name },
+        dbClient,
+      )
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
     })
 
@@ -1120,7 +1124,10 @@ describe('chat/chat-service', () => {
 
       await chatService.joinChannel(testChannel.name, user1.id, false)
 
-      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
+      expect(createChannelMock).toHaveBeenCalledWith(
+        { ownerId: user1.id, name: testChannel.name },
+        dbClient,
+      )
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
       expect(addMessageToChannelMock).toHaveBeenCalledWith(
         user1.id,
@@ -1263,6 +1270,146 @@ describe('chat/chat-service', () => {
     })
   })
 
+  describe('createChannel', () => {
+    const addUserToChannelMock = asMockedFunction(addUserToChannel)
+    const addMessageToChannelMock = asMockedFunction(addMessageToChannel)
+    const createChannelMock = asMockedFunction(createChannel)
+
+    beforeEach(() => {
+      asMockedFunction(findChannelByName).mockResolvedValue(undefined)
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+      addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
+    })
+
+    test('creates the channel with its settings and joins the creator to it', async () => {
+      const privateChannel = {
+        ...testChannel,
+        ownerId: user1.id,
+        private: true,
+        membersCanInvite: true,
+        description: 'DESCRIPTION',
+        topic: 'TOPIC',
+      }
+      createChannelMock.mockResolvedValue(privateChannel)
+
+      const result = await chatService.createChannel({
+        userId: user1.id,
+        settings: {
+          name: testChannel.name,
+          description: 'DESCRIPTION',
+          topic: 'TOPIC',
+          private: true,
+          membersCanInvite: true,
+        },
+      })
+
+      expect(createChannelMock).toHaveBeenCalledWith(
+        {
+          ownerId: user1.id,
+          name: testChannel.name,
+          description: 'DESCRIPTION',
+          topic: 'TOPIC',
+          bannerPath: undefined,
+          badgePath: undefined,
+          private: true,
+          membersCanInvite: true,
+        },
+        dbClient,
+      )
+      expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
+      expect(addMessageToChannelMock).toHaveBeenCalledWith(
+        user1.id,
+        testChannel.id,
+        { type: ServerChatMessageType.JoinChannel },
+        dbClient,
+      )
+      expect(result.channelInfo).toEqual({ ...testBasicInfo, private: true })
+      expect(result.joinedChannelInfo).toMatchObject({
+        ownerId: user1.id,
+        topic: 'TOPIC',
+        membersCanInvite: true,
+      })
+    })
+
+    test('ignores empty text and member invites for a public channel', async () => {
+      createChannelMock.mockResolvedValue(testChannel)
+
+      await chatService.createChannel({
+        userId: user1.id,
+        settings: { name: testChannel.name, description: '', topic: '', membersCanInvite: true },
+      })
+
+      expect(createChannelMock).toHaveBeenCalledWith(
+        {
+          ownerId: user1.id,
+          name: testChannel.name,
+          description: undefined,
+          topic: undefined,
+          bannerPath: undefined,
+          badgePath: undefined,
+          private: undefined,
+          membersCanInvite: undefined,
+        },
+        dbClient,
+      )
+    })
+
+    test('refuses a name that is already taken instead of joining that channel', async () => {
+      asMockedFunction(findChannelByName).mockResolvedValue(testChannel)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNameTaken })
+
+      expect(createChannelMock).not.toHaveBeenCalled()
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('refuses a name that gets taken while the channel is being created', async () => {
+      createChannelMock.mockRejectedValue(
+        Object.assign(new Error('duplicate'), { code: UNIQUE_VIOLATION }),
+      )
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNameTaken })
+
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('refuses chat restricted users', async () => {
+      asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.UserChatRestricted })
+
+      expect(createChannelMock).not.toHaveBeenCalled()
+    })
+
+    test("refuses when the user can't own any more channels", async () => {
+      createChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.MaximumOwnedChannels })
+    })
+
+    test("rolls the channel back when the creator can't join any more channels", async () => {
+      createChannelMock.mockResolvedValue(testChannel)
+      addUserToChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.MaximumJoinedChannels })
+
+      const transactionResult = asMockedFunction(transact).mock.results.at(-1)!.value
+      await expect(transactionResult).rejects.toThrow('Maximum joined channels reached')
+    })
+  })
+
   describe('admin channel tools', () => {
     const removeAllUsersFromChannelMock = asMockedFunction(removeAllUsersFromChannel)
     const updateChannelMock = asMockedFunction(updateChannel)
@@ -1301,7 +1448,9 @@ describe('chat/chat-service', () => {
     })
 
     test('refuses a name another channel already has', async () => {
-      updateChannelMock.mockRejectedValue(Object.assign(new Error('duplicate'), { code: '23505' }))
+      updateChannelMock.mockRejectedValue(
+        Object.assign(new Error('duplicate'), { code: UNIQUE_VIOLATION }),
+      )
 
       await expect(chatService.renameChannel(testChannel.id, 'taken')).rejects.toMatchObject({
         code: ChatServiceErrorCode.ChannelNameTaken,
@@ -1441,7 +1590,7 @@ describe('chat/chat-service', () => {
       }
     }
 
-    describe('getOrCreateInviteLink', () => {
+    describe('getOwnInviteLink', () => {
       const NOW = new Date('2026-09-28T12:00:00.000Z')
 
       beforeEach(() => {
@@ -1449,7 +1598,81 @@ describe('chat/chat-service', () => {
         vi.setSystemTime(NOW)
         asMockedFunction(getChannelInfo).mockResolvedValue(privateChannel)
         asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
-        asMockedFunction(findReusableInviteLink).mockResolvedValue(undefined)
+        asMockedFunction(findNewestUsableInviteLink).mockResolvedValue(undefined)
+      })
+
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      test("returns the user's newest link that still works", async () => {
+        const existing = makeLink({ createdBy: user1.id, uses: 3, maxUses: 5 })
+        asMockedFunction(findNewestUsableInviteLink).mockResolvedValue(existing)
+
+        const result = await chatService.getOwnInviteLink(testChannel.id, user1.id, REGULAR_USER)
+
+        expect(findNewestUsableInviteLink).toHaveBeenCalledWith({
+          channelId: testChannel.id,
+          createdBy: user1.id,
+          now: NOW,
+        })
+        expect(result.inviteLink).toEqual({
+          token: TOKEN,
+          channelId: testChannel.id,
+          createdBy: user1.id,
+          createdAt: existing.createdAt.getTime(),
+          expiresAt: existing.expiresAt!.getTime(),
+          maxUses: 5,
+          uses: 3,
+        })
+      })
+
+      test('returns no link, without creating one, when the user has none', async () => {
+        const result = await chatService.getOwnInviteLink(testChannel.id, user1.id, REGULAR_USER)
+
+        expect(result.inviteLink).toBeUndefined()
+        expect(createInviteLink).not.toHaveBeenCalled()
+      })
+
+      test('should throw for a non-member who is not a server moderator', async () => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
+        await expect(
+          chatService.getOwnInviteLink(testChannel.id, user1.id, REGULAR_USER),
+        ).rejects.toMatchObject({ code: ChatServiceErrorCode.NotInChannel })
+        expect(findNewestUsableInviteLink).not.toHaveBeenCalled()
+      })
+
+      test('should throw for a member when only the owner may invite', async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue({
+          ...privateChannel,
+          membersCanInvite: false,
+        })
+
+        await expect(
+          chatService.getOwnInviteLink(testChannel.id, user1.id, REGULAR_USER),
+        ).rejects.toMatchObject({ code: ChatServiceErrorCode.NotEnoughPermissions })
+        expect(findNewestUsableInviteLink).not.toHaveBeenCalled()
+      })
+
+      test('should throw for a public channel', async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+
+        await expect(
+          chatService.getOwnInviteLink(testChannel.id, user1.id, REGULAR_USER),
+        ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNotPrivate })
+      })
+    })
+
+    describe('createChannelInviteLink', () => {
+      const NOW = new Date('2026-09-28T12:00:00.000Z')
+      const DEFAULT_SETTINGS = { expiresInSeconds: 7 * 24 * 60 * 60, maxUses: null }
+
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(NOW)
+        asMockedFunction(getChannelInfo).mockResolvedValue(privateChannel)
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
         asMockedFunction(createInviteLink).mockImplementation(async args => ({
           id: LINK_ID,
           channelId: args.channelId,
@@ -1469,7 +1692,12 @@ describe('chat/chat-service', () => {
         asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
         await expect(
-          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER),
+          chatService.createChannelInviteLink(
+            testChannel.id,
+            user1.id,
+            REGULAR_USER,
+            DEFAULT_SETTINGS,
+          ),
         ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNotFound })
       })
 
@@ -1477,7 +1705,12 @@ describe('chat/chat-service', () => {
         asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
 
         await expect(
-          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER),
+          chatService.createChannelInviteLink(
+            testChannel.id,
+            user1.id,
+            REGULAR_USER,
+            DEFAULT_SETTINGS,
+          ),
         ).rejects.toMatchObject({ code: ChatServiceErrorCode.NotInChannel })
         expect(createInviteLink).not.toHaveBeenCalled()
       })
@@ -1489,9 +1722,11 @@ describe('chat/chat-service', () => {
         })
 
         await expect(
-          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER),
+          chatService.createChannelInviteLink(testChannel.id, user1.id, REGULAR_USER, {
+            expiresInSeconds: null,
+            maxUses: 1,
+          }),
         ).rejects.toMatchObject({ code: ChatServiceErrorCode.NotEnoughPermissions })
-        expect(findReusableInviteLink).not.toHaveBeenCalled()
         expect(createInviteLink).not.toHaveBeenCalled()
       })
 
@@ -1502,10 +1737,11 @@ describe('chat/chat-service', () => {
           membersCanInvite: false,
         })
 
-        const result = await chatService.getOrCreateInviteLink(
+        const result = await chatService.createChannelInviteLink(
           testChannel.id,
           user1.id,
           REGULAR_USER,
+          DEFAULT_SETTINGS,
         )
 
         expect(result.inviteLink.token).toBe(TOKEN)
@@ -1517,10 +1753,11 @@ describe('chat/chat-service', () => {
           membersCanInvite: false,
         })
 
-        const result = await chatService.getOrCreateInviteLink(
+        const result = await chatService.createChannelInviteLink(
           testChannel.id,
           user1.id,
           SERVER_MODERATOR,
+          DEFAULT_SETTINGS,
         )
 
         expect(result.inviteLink.token).toBe(TOKEN)
@@ -1530,70 +1767,24 @@ describe('chat/chat-service', () => {
         asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
 
         await expect(
-          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER),
+          chatService.createChannelInviteLink(
+            testChannel.id,
+            user1.id,
+            REGULAR_USER,
+            DEFAULT_SETTINGS,
+          ),
         ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNotPrivate })
         expect(createInviteLink).not.toHaveBeenCalled()
       })
 
-      test("reuses the user's newest link while it has more than a day left", async () => {
-        const existing = makeLink({ createdBy: user1.id, uses: 3 })
-        asMockedFunction(findReusableInviteLink).mockResolvedValue(existing)
-
-        const result = await chatService.getOrCreateInviteLink(
-          testChannel.id,
-          user1.id,
-          REGULAR_USER,
-        )
-
-        expect(findReusableInviteLink).toHaveBeenCalledWith({
-          channelId: testChannel.id,
-          createdBy: user1.id,
-          usableUntil: new Date(NOW.getTime() + DAY_MS),
-        })
-        expect(createInviteLink).not.toHaveBeenCalled()
-        expect(result.inviteLink).toEqual({
-          token: TOKEN,
-          channelId: testChannel.id,
-          createdBy: user1.id,
-          createdAt: existing.createdAt.getTime(),
-          expiresAt: existing.expiresAt!.getTime(),
-          maxUses: undefined,
-          uses: 3,
-        })
-      })
-
-      test('creates a link that expires in seven days when none can be reused', async () => {
-        const result = await chatService.getOrCreateInviteLink(
-          testChannel.id,
-          user1.id,
-          REGULAR_USER,
-        )
-
-        expect(createInviteLink).toHaveBeenCalledWith({
-          channelId: testChannel.id,
-          createdBy: user1.id,
-          createdAt: NOW,
-          expiresAt: new Date(NOW.getTime() + 7 * DAY_MS),
-          maxUses: undefined,
-          asServerModerator: false,
-        })
-        expect(result.inviteLink.token).toBe(TOKEN)
-        expect(result.inviteLink.expiresAt).toBe(NOW.getTime() + 7 * DAY_MS)
-      })
-
-      test('always creates a new link when settings are given', async () => {
-        asMockedFunction(findReusableInviteLink).mockResolvedValue(
-          makeLink({ createdBy: user1.id }),
-        )
-
-        const result = await chatService.getOrCreateInviteLink(
+      test('creates a link with the given expiry and use limit', async () => {
+        const result = await chatService.createChannelInviteLink(
           testChannel.id,
           user1.id,
           REGULAR_USER,
           { expiresInSeconds: 30 * 60, maxUses: 5 },
         )
 
-        expect(findReusableInviteLink).not.toHaveBeenCalled()
         expect(createInviteLink).toHaveBeenCalledWith({
           channelId: testChannel.id,
           createdBy: user1.id,
@@ -1602,18 +1793,19 @@ describe('chat/chat-service', () => {
           maxUses: 5,
           asServerModerator: false,
         })
+        expect(result.inviteLink.token).toBe(TOKEN)
+        expect(result.inviteLink.expiresAt).toBe(NOW.getTime() + 30 * 60 * 1000)
         expect(result.inviteLink.maxUses).toBe(5)
       })
 
       test('creates a link that never expires and has no use limit when asked to', async () => {
-        const result = await chatService.getOrCreateInviteLink(
+        const result = await chatService.createChannelInviteLink(
           testChannel.id,
           user1.id,
           REGULAR_USER,
           { expiresInSeconds: null, maxUses: null },
         )
 
-        expect(findReusableInviteLink).not.toHaveBeenCalled()
         expect(createInviteLink).toHaveBeenCalledWith(
           expect.objectContaining({ expiresAt: undefined, maxUses: undefined }),
         )
@@ -1621,25 +1813,15 @@ describe('chat/chat-service', () => {
         expect(result.inviteLink.maxUses).toBeUndefined()
       })
 
-      test('refuses settings from a member when only the owner may invite', async () => {
-        asMockedFunction(getChannelInfo).mockResolvedValue({
-          ...privateChannel,
-          membersCanInvite: false,
-        })
-
-        await expect(
-          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER, {
-            expiresInSeconds: null,
-            maxUses: 1,
-          }),
-        ).rejects.toMatchObject({ code: ChatServiceErrorCode.NotEnoughPermissions })
-        expect(createInviteLink).not.toHaveBeenCalled()
-      })
-
       test('lets a server moderator who is not a member create a link', async () => {
         asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
 
-        await chatService.getOrCreateInviteLink(testChannel.id, user1.id, SERVER_MODERATOR)
+        await chatService.createChannelInviteLink(
+          testChannel.id,
+          user1.id,
+          SERVER_MODERATOR,
+          DEFAULT_SETTINGS,
+        )
 
         expect(createInviteLink).toHaveBeenCalledWith(
           expect.objectContaining({ asServerModerator: true }),
@@ -1653,7 +1835,12 @@ describe('chat/chat-service', () => {
         asMockedFunction(createInviteLink).mockResolvedValue(undefined)
 
         await expect(
-          chatService.getOrCreateInviteLink(testChannel.id, user1.id, REGULAR_USER),
+          chatService.createChannelInviteLink(
+            testChannel.id,
+            user1.id,
+            REGULAR_USER,
+            DEFAULT_SETTINGS,
+          ),
         ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNotPrivate })
       })
     })

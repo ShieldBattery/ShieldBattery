@@ -169,6 +169,7 @@ test('viewing the invite links of a private channel', async ({ page }) => {
   await expect(chatPage.channelPrivateGlyphLocator()).toBeVisible()
 
   await chatPage.openInviteLinkDialog()
+  await chatPage.generateInviteLink()
   await chatPage.closeInviteLinkDialog()
 
   await chatPage.openChannelSettings()
@@ -176,6 +177,48 @@ test('viewing the invite links of a private channel', async ({ page }) => {
 
   await expect(chatPage.inviteLinkRowsLocator()).toHaveCount(1)
   await expect(chatPage.inviteLinkRowsLocator().first()).toContainText('admin')
+})
+
+test('creating a private channel with its settings', async ({ page }) => {
+  const channelName = `created-${Date.now()}`
+  const description = 'Made with everything set up front.'
+  const topic = 'Invite only'
+
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
+  // Wait for the logged-in shell before navigating, so the navigation doesn't race the login.
+  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+
+  await chatPage.submitCreateChannelForm({
+    name: channelName,
+    description,
+    topic,
+    bannerPath: TEST_IMAGE_PATH,
+    isPrivate: true,
+  })
+  await page.waitForURL(url => url.pathname.endsWith(`/${channelName}`))
+
+  // A private channel's invite link dialog opens as soon as it's created, without making a link.
+  await expect(chatPage.inviteLinkDialogUrlLocator()).toHaveText('No invite link yet')
+  await chatPage.closeInviteLinkDialog()
+  await expect(chatPage.channelPrivateGlyphLocator()).toBeVisible()
+
+  await chatPage.openChannelSettings()
+  expect(await chatPage.isChannelPrivateChecked()).toBe(true)
+  expect(await chatPage.getChannelDescription()).toBe(description)
+  expect(await chatPage.getChannelTopic()).toBe(topic)
+  expect(await chatPage.getChannelBannerUrl()).toContain('/files/channel-images/')
+})
+
+test("creating a channel with a taken name doesn't join that channel", async ({ page }) => {
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
+  await expect(homePage.channelLinkLocator('ShieldBattery')).toBeVisible()
+
+  await chatPage.submitCreateChannelForm({ name: 'ShieldBattery', topic: 'Not my channel' })
+
+  await expect(page.getByText('A channel with this name already exists.')).toBeVisible()
+  expect(new URL(page.url()).pathname).toBe('/chat/new')
 })
 
 test("official channels can't be made private", async ({ page }) => {

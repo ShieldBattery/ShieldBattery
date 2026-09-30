@@ -6,6 +6,7 @@ import {
   ChatServiceErrorCode,
   CreateChannelInviteLinkRequest,
   CreateChannelInviteLinkResponse,
+  CreateChannelRequest,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
@@ -13,6 +14,7 @@ import {
   GetChannelInfoResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
+  GetOwnChannelInviteLinkResponse,
   InitialChannelData,
   JoinChannelResponse,
   ListChannelBansResponse,
@@ -180,6 +182,51 @@ export function joinChannel(
 }
 
 /**
+ * Creates a channel with the given settings, then takes the user into it. A private channel is
+ * useless until someone is invited, so its invite link dialog opens right away. The caller is
+ * expected to handle errors.
+ */
+export function createChannel({
+  settings,
+  banner,
+  badge,
+  spec,
+}: {
+  settings: CreateChannelRequest
+  banner?: File
+  badge?: File
+  spec: RequestHandlingSpec<void>
+}): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const formData = new FormData()
+    formData.append('channelSettings', JSON.stringify(settings))
+    if (banner) {
+      formData.append('banner', banner)
+    }
+    if (badge) {
+      formData.append('badge', badge)
+    }
+
+    const result = await fetchJson<JoinChannelResponse>(apiUrl`chat`, {
+      method: 'POST',
+      body: formData,
+      signal: spec.signal,
+    })
+
+    navigateToChannel(result.channelInfo.id, result.channelInfo.name)
+
+    if (result.channelInfo.private) {
+      dispatch(
+        openDialog({
+          type: DialogType.ChannelInviteLink,
+          initData: { channelId: result.channelInfo.id },
+        }),
+      )
+    }
+  })
+}
+
+/**
  * Returns a message explaining why an attempt to join a channel failed, and logs the failures that
  * nothing more specific can be said about.
  */
@@ -246,13 +293,29 @@ export function joinChannelWithErrorHandling(
 }
 
 /**
- * Gets an invite link into a private channel for the current user to share. Without `settings`
- * this may be a default link they got before; with them, a new link is always created. The caller
- * is expected to handle errors.
+ * Gets the newest invite link the current user created for a private channel that still works, if
+ * there is one. The caller is expected to handle errors.
  */
-export function getChannelInviteLink(
+export function getOwnChannelInviteLink(
   channelId: SbChannelId,
-  settings: CreateChannelInviteLinkRequest | undefined,
+  spec: RequestHandlingSpec<ChannelInviteLinkJson | undefined>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const result = await fetchJson<GetOwnChannelInviteLinkResponse>(
+      apiUrl`chat/${channelId}/invite-links/mine`,
+      { signal: spec.signal },
+    )
+    return result.inviteLink
+  })
+}
+
+/**
+ * Creates an invite link into a private channel for the current user to share. The caller is
+ * expected to handle errors.
+ */
+export function createChannelInviteLink(
+  channelId: SbChannelId,
+  settings: CreateChannelInviteLinkRequest,
   spec: RequestHandlingSpec<ChannelInviteLinkJson>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -260,7 +323,7 @@ export function getChannelInviteLink(
       apiUrl`chat/${channelId}/invite-links`,
       {
         method: 'POST',
-        body: settings ? JSON.stringify(settings) : undefined,
+        body: JSON.stringify(settings),
         signal: spec.signal,
       },
     )

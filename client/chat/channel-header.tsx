@@ -333,11 +333,11 @@ export function ChannelHeader({
           <ChannelName>
             #{basicChannelInfo.name}
             {basicChannelInfo.private ? (
-              <PrivateGlyph
-                title={t('chat.privateChannelTitle', 'Private channel')}
-                data-testid='channel-header-private-glyph'>
-                <MaterialIcon icon='lock' size={20} />
-              </PrivateGlyph>
+              <Tooltip text={t('chat.privateChannelTitle', 'Private channel')} position='bottom'>
+                <PrivateGlyph data-testid='channel-header-private-glyph'>
+                  <MaterialIcon icon='lock' size={20} />
+                </PrivateGlyph>
+              </Tooltip>
             ) : null}
           </ChannelName>
           {parsedChannelTopic ? (

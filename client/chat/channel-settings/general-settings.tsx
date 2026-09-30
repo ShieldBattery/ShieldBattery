@@ -1,4 +1,3 @@
-import prettyBytes from 'pretty-bytes'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -9,32 +8,21 @@ import {
   EditChannelRequest,
   JoinedChannelInfo,
 } from '../../../common/chat'
-import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
-import { useObjectUrl } from '../../dom/use-object-url'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import { maxFileSize } from '../../forms/validators'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { FilledButton, TextButton } from '../../material/button'
-import { CheckBox } from '../../material/check-box'
-import { SingleFileInput } from '../../material/file-input'
-import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
 import { useRefreshToken } from '../../network/refresh-token'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
-import { FlexSpacer } from '../../styles/flex-spacer'
-import { bodyLarge, bodyMedium } from '../../styles/typography'
+import { bodyLarge } from '../../styles/typography'
 import { updateChannel } from '../action-creators'
-import { ChannelBadge } from '../channel-badge'
-import { ChannelBanner, ChannelBannerPlaceholderImage } from '../channel-banner'
 import {
-  ChannelActions,
-  ChannelBannerAndBadge,
-  ChannelCardBadge,
-  ChannelCardRoot,
-  ChannelDescriptionContainer,
-  ChannelName,
-} from '../channel-info-card'
+  ChannelCardPreview,
+  ChannelSettingsFields,
+  ChannelSettingsModel,
+  useChannelImageUrls,
+  useChannelImageValidators,
+} from './channel-settings-fields'
 
 const Root = styled.div`
   display: flex;
@@ -65,37 +53,6 @@ const StyledForm = styled.form`
   gap: 4px;
 `
 
-const BannerButtonsContainer = styled.div`
-  width: fit-content;
-  display: grid;
-  grid-template-columns: min-content min-content;
-  grid-column-gap: 16px;
-  grid-row-gap: 4px;
-  align-items: flex-start;
-  justify-content: space-between;
-`
-
-const TextFieldContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-`
-
-const PrivacyContainer = styled.div`
-  margin-top: 16px;
-`
-
-const MembersCanInviteContainer = styled.div`
-  margin-top: 12px;
-  padding-left: 40px;
-`
-
-const PrivacyDescription = styled.div`
-  ${bodyMedium};
-  padding-left: 40px;
-  color: var(--theme-on-surface-variant);
-`
-
 const DisabledOverlay = styled.div`
   position: absolute;
   left: 0;
@@ -107,10 +64,6 @@ const DisabledOverlay = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-`
-
-const StyledChannelCardRoot = styled(ChannelCardRoot)`
-  flex-shrink: 0;
 `
 
 const ActionButtonsContainer = styled.div`
@@ -146,17 +99,6 @@ export function GeneralSettings({
   )
 }
 
-export interface ChannelSettingsModel {
-  description?: string
-  topic?: string
-  uploadedBannerPath?: string
-  uploadedBadgePath?: string
-  private?: boolean
-  membersCanInvite?: boolean
-  banner?: File
-  badge?: File
-}
-
 function GeneralSettingsForm({
   basicChannelInfo,
   detailedChannelInfo,
@@ -176,16 +118,8 @@ function GeneralSettingsForm({
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<Error>()
 
-  const {
-    submit,
-    bindCheckable,
-    bindCustom,
-    bindInput,
-    getInputValue,
-    setInputValue,
-    hasChanges,
-    form,
-  } = useForm<ChannelSettingsModel>(
+  const imageValidators = useChannelImageValidators()
+  const settingsForm = useForm<ChannelSettingsModel>(
     {
       description: detailedChannelInfo.description,
       topic: joinedChannelInfo.topic,
@@ -194,23 +128,9 @@ function GeneralSettingsForm({
       private: basicChannelInfo.private,
       membersCanInvite: joinedChannelInfo.membersCanInvite,
     },
-    {
-      banner: maxFileSize(
-        MAX_IMAGE_SIZE_BYTES,
-        t('chat.channelSettings.general.bannerMaxFileSizeErrorMessage', {
-          defaultValue: 'The maximum banner file size is {{fileSize}}.',
-          fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
-        }),
-      ),
-      badge: maxFileSize(
-        MAX_IMAGE_SIZE_BYTES,
-        t('chat.channelSettings.general.badgeMaxFileSizeErrorMessage', {
-          defaultValue: 'The maximum badge file size is {{fileSize}}.',
-          fileSize: prettyBytes(MAX_IMAGE_SIZE_BYTES),
-        }),
-      ),
-    },
+    imageValidators,
   )
+  const { submit, getInputValue, hasChanges, form } = settingsForm
 
   useFormCallbacks(form, {
     onSubmit: model => {
@@ -251,8 +171,7 @@ function GeneralSettingsForm({
     },
   })
 
-  const bannerUrl = useObjectUrl(getInputValue('banner')) ?? getInputValue('uploadedBannerPath')
-  const badgeUrl = useObjectUrl(getInputValue('badge')) ?? getInputValue('uploadedBadgePath')
+  const { bannerUrl, badgeUrl } = useChannelImageUrls(settingsForm)
 
   let errorMessage
   if (error) {
@@ -278,123 +197,14 @@ function GeneralSettingsForm({
       <Content>
         <FormContainer>
           <StyledForm noValidate={true} onSubmit={submit}>
-            <BannerButtonsContainer>
-              <SingleFileInput
-                {...bindCustom('banner')}
-                label={
-                  bannerUrl
-                    ? t('chat.channelSettings.general.changeBanner', 'Change banner')
-                    : t('chat.channelSettings.general.uploadBanner', 'Upload banner')
-                }
-                allowErrors={true}
-                disabled={isSaving}
-                inputProps={{ accept: 'image/*' }}
-                testName='channel-settings-banner-input'
-              />
-
-              {bannerUrl ? (
-                <TextButton
-                  label={t('chat.channelSettings.general.removeBanner', 'Remove banner')}
-                  disabled={isSaving}
-                  iconStart={<MaterialIcon icon='clear' />}
-                  onClick={() => {
-                    setInputValue('uploadedBannerPath', undefined)
-                    setInputValue('banner', undefined)
-                  }}
-                />
-              ) : (
-                <div></div>
-              )}
-
-              <SingleFileInput
-                {...bindCustom('badge')}
-                label={
-                  badgeUrl
-                    ? t('chat.channelSettings.general.changeBadge', 'Change badge')
-                    : t('chat.channelSettings.general.uploadBadge', 'Upload badge')
-                }
-                allowErrors={true}
-                disabled={isSaving}
-                inputProps={{ accept: 'image/*' }}
-                testName='channel-settings-badge-input'
-              />
-
-              {badgeUrl ? (
-                <TextButton
-                  label={t('chat.channelSettings.general.removeBadge', 'Remove badge')}
-                  disabled={isSaving}
-                  iconStart={<MaterialIcon icon='clear' />}
-                  onClick={() => {
-                    setInputValue('uploadedBadgePath', undefined)
-                    setInputValue('badge', undefined)
-                  }}
-                />
-              ) : (
-                <div></div>
-              )}
-            </BannerButtonsContainer>
-
-            <TextFieldContainer>
-              <TextField
-                {...bindInput('description')}
-                label={t('chat.channelSettings.general.descriptionLabel', 'Description')}
-                disabled={isSaving}
-                allowErrors={false}
-                floatingLabel={true}
-                multiline={true}
-                rows={4}
-                maxRows={4}
-                inputProps={{ tabIndex: 0 }}
-                testName='channel-settings-description-input'
-              />
-              <TextField
-                {...bindInput('topic')}
-                label={t('chat.channelSettings.general.topicLabel', 'Topic')}
-                disabled={isSaving}
-                allowErrors={false}
-                floatingLabel={true}
-                inputProps={{ tabIndex: 0 }}
-                testName='channel-settings-topic-input'
-              />
-            </TextFieldContainer>
-
-            {basicChannelInfo.official ? null : (
-              <PrivacyContainer>
-                <CheckBox
-                  {...bindCheckable('private')}
-                  label={t('chat.channelSettings.general.privateLabel', 'Private channel')}
-                  disabled={isSaving}
-                  inputProps={{ tabIndex: 0 }}
-                />
-                <PrivacyDescription>
-                  {t(
-                    'chat.channelSettings.general.privateDescription',
-                    'Private channels are hidden from browse and search, and can only be joined ' +
-                      'through an invite link.',
-                  )}
-                </PrivacyDescription>
-                {getInputValue('private') ? (
-                  <MembersCanInviteContainer>
-                    <CheckBox
-                      {...bindCheckable('membersCanInvite')}
-                      label={t(
-                        'chat.channelSettings.general.membersCanInviteLabel',
-                        'Members can create invite links',
-                      )}
-                      disabled={isSaving}
-                      inputProps={{ tabIndex: 0 }}
-                    />
-                    <PrivacyDescription>
-                      {t(
-                        'chat.channelSettings.general.membersCanInviteDescription',
-                        'When this is off, only the channel owner can invite people. Turning it ' +
-                          'off also disables the invite links members have already shared.',
-                      )}
-                    </PrivacyDescription>
-                  </MembersCanInviteContainer>
-                ) : null}
-              </PrivacyContainer>
-            )}
+            <ChannelSettingsFields
+              form={settingsForm}
+              bannerUrl={bannerUrl}
+              badgeUrl={badgeUrl}
+              disabled={isSaving}
+              canBePrivate={!basicChannelInfo.official}
+              testNamePrefix='channel-settings'
+            />
 
             {hasChanges && !isSaving ? (
               <ActionButtonsContainer>
@@ -421,33 +231,13 @@ function GeneralSettingsForm({
           ) : null}
         </FormContainer>
 
-        <StyledChannelCardRoot>
-          <ChannelBannerAndBadge>
-            {bannerUrl ? (
-              <ChannelBanner src={bannerUrl} testName='channel-settings-banner-image' />
-            ) : (
-              <ChannelBannerPlaceholderImage />
-            )}
-            <ChannelCardBadge>
-              <ChannelBadge
-                src={badgeUrl}
-                channelName={basicChannelInfo.name}
-                testName='channel-settings-badge-image'
-              />
-            </ChannelCardBadge>
-          </ChannelBannerAndBadge>
-          <ChannelName>{basicChannelInfo.name}</ChannelName>
-
-          <ChannelDescriptionContainer>
-            <span>{getInputValue('description')}</span>
-          </ChannelDescriptionContainer>
-
-          <FlexSpacer />
-
-          <ChannelActions>
-            <div />
-          </ChannelActions>
-        </StyledChannelCardRoot>
+        <ChannelCardPreview
+          name={basicChannelInfo.name}
+          bannerUrl={bannerUrl}
+          badgeUrl={badgeUrl}
+          description={getInputValue('description')}
+          testNamePrefix='channel-settings'
+        />
       </Content>
     </Root>
   )

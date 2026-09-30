@@ -6,9 +6,9 @@ import {
 } from '../../../common/chat'
 
 /**
- * The body of a request to get an invite link. Only the settings the client offers are accepted,
- * so nobody can make a link that lasts longer or admits more people than the offered choices allow.
- * A request without a body gets the default settings.
+ * The body of a request to create an invite link. Only the settings the client offers are
+ * accepted, so nobody can make a link that lasts longer or admits more people than the offered
+ * choices allow. A request without a body gets the default settings.
  */
 export const createInviteLinkBodySchema = () =>
   Joi.object<CreateChannelInviteLinkRequest>({
