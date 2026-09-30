@@ -60,6 +60,44 @@ export class ChatPage extends SocialSidebar {
     await this.page.waitForURL(url => url.pathname.endsWith(`/${channelName}`))
   }
 
+  /**
+   * Fills in the create channel page and submits it, without waiting for the result. The settings
+   * inputs on that page share their layout with the channel settings page, but not their test ids.
+   */
+  async submitCreateChannelForm({
+    name,
+    description,
+    topic,
+    bannerPath,
+    isPrivate,
+  }: {
+    name: string
+    description?: string
+    topic?: string
+    bannerPath?: string
+    isPrivate?: boolean
+  }): Promise<void> {
+    await this.page.goto('/chat/new')
+    await this.inputCreateChannelName.fill(name)
+    if (bannerPath) {
+      await this.page
+        .locator('input[data-testid="create-channel-banner-input"]')
+        .setInputFiles(bannerPath)
+    }
+    if (description) {
+      await this.page
+        .locator('textarea[data-testid="create-channel-description-input"]')
+        .fill(description)
+    }
+    if (topic) {
+      await this.page.locator('input[data-testid="create-channel-topic-input"]').fill(topic)
+    }
+    if (isPrivate) {
+      await this.inputChannelPrivate.setChecked(true)
+    }
+    await this.buttonCreateChannel.click()
+  }
+
   async setChannelPrivate(isPrivate: boolean): Promise<void> {
     await this.inputChannelPrivate.setChecked(isPrivate)
   }

@@ -6,6 +6,7 @@ import {
   ChatServiceErrorCode,
   CreateChannelInviteLinkRequest,
   CreateChannelInviteLinkResponse,
+  CreateChannelRequest,
   EditChannelRequest,
   EditChannelResponse,
   GetBatchedChannelInfosResponse,
@@ -176,6 +177,51 @@ export function joinChannel(
       method: 'POST',
       signal: spec.signal,
     })
+  })
+}
+
+/**
+ * Creates a channel with the given settings, then takes the user into it. A private channel is
+ * useless until someone is invited, so its invite link dialog opens right away. The caller is
+ * expected to handle errors.
+ */
+export function createChannel({
+  settings,
+  banner,
+  badge,
+  spec,
+}: {
+  settings: CreateChannelRequest
+  banner?: File
+  badge?: File
+  spec: RequestHandlingSpec<void>
+}): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const formData = new FormData()
+    formData.append('channelSettings', JSON.stringify(settings))
+    if (banner) {
+      formData.append('banner', banner)
+    }
+    if (badge) {
+      formData.append('badge', badge)
+    }
+
+    const result = await fetchJson<JoinChannelResponse>(apiUrl`chat`, {
+      method: 'POST',
+      body: formData,
+      signal: spec.signal,
+    })
+
+    navigateToChannel(result.channelInfo.id, result.channelInfo.name)
+
+    if (result.channelInfo.private) {
+      dispatch(
+        openDialog({
+          type: DialogType.ChannelInviteLink,
+          initData: { channelId: result.channelInfo.id },
+        }),
+      )
+    }
   })
 }
 

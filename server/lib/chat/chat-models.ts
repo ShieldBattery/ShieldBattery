@@ -298,19 +298,40 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
  * NOTE: This method doesn't add user to the new channel. Use `addUserToChannel` for that.
  */
 export async function createChannel(
-  userId: SbUserId,
-  channelName: string,
+  {
+    ownerId,
+    name,
+    description,
+    topic,
+    bannerPath,
+    badgePath,
+    private: isPrivate = false,
+    membersCanInvite = false,
+  }: {
+    ownerId: SbUserId
+    name: string
+    description?: string
+    topic?: string
+    bannerPath?: string
+    badgePath?: string
+    private?: boolean
+    membersCanInvite?: boolean
+  },
   withClient?: DbClient,
 ): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
-      INSERT INTO channels (name, owner_id)
-      SELECT ${channelName}, ${userId}
+      INSERT INTO channels (
+        name, owner_id, description, topic, banner_path, badge_path, private, members_can_invite
+      )
+      SELECT
+        ${name}, ${ownerId}, ${description ?? null}, ${topic ?? null}, ${bannerPath ?? null},
+        ${badgePath ?? null}, ${isPrivate}, ${membersCanInvite}
       WHERE (
         SELECT COUNT(*)
         FROM channels
-        WHERE owner_id = ${userId}
+        WHERE owner_id = ${ownerId}
       ) < ${MAXIMUM_OWNED_CHANNELS}
       RETURNING *;
     `)

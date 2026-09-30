@@ -18,6 +18,7 @@ import {
   ChatServiceErrorCode,
   ChatUserEvent,
   CreateChannelInviteLinkResponse,
+  CreateChannelRequest,
   DEFAULT_INVITE_LINK_EXPIRY_SECONDS,
   DetailedChannelInfo,
   EditChannelRequest,
@@ -211,6 +212,13 @@ function inviteLinkInvalidError(): ChatServiceError {
   return new ChatServiceError(
     ChatServiceErrorCode.InviteLinkInvalid,
     'Invite link is invalid or has expired',
+  )
+}
+
+function channelNameTakenError(): ChatServiceError {
+  return new ChatServiceError(
+    ChatServiceErrorCode.ChannelNameTaken,
+    'A channel with that name already exists',
   )
 }
 
@@ -693,7 +701,7 @@ export default class ChatService {
             }
 
             try {
-              const channel = await createChannel(userId, channelName, client)
+              const channel = await createChannel({ ownerId: userId, name: channelName }, client)
               if (!channel) {
                 outcome = { kind: 'refused', exitCode: JoinChannelExitCode.MaximumOwnedChannels }
                 return
@@ -737,6 +745,89 @@ export default class ChatService {
 
     if (!outcome) {
       throw new Error(`Failed to join ${channelName} after ${attempts} attempts`)
+    }
+
+    return await this.completeJoin(userInfo, outcome)
+  }
+
+  /**
+   * Creates a channel with the given settings and joins its creator to it as the owner. Unlike
+   * `joinChannel`, a name that's already taken is refused rather than joined, and every setting is
+   * in place from the moment the channel exists, so a private channel is never visible as public.
+   */
+  async createChannel({
+    userId,
+    settings,
+    bannerFile,
+    badgeFile,
+  }: {
+    userId: SbUserId
+    settings: CreateChannelRequest
+    bannerFile?: formidable.File
+    badgeFile?: formidable.File
+  }): Promise<JoinChannelResponse> {
+    const userInfo = await findUserById(userId)
+    if (!userInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
+    }
+
+    // We prevent chat restricted users from creating new channels because they seem much more
+    // likely to use it to be disruptive
+    if (await this.restrictionService.isRestricted(userId, RestrictionKind.Chat)) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserChatRestricted, 'User is chat restricted')
+    }
+
+    // Checked up front so a taken name doesn't cost an image check and upload. The insert below
+    // still catches a channel created with the same name in the meantime.
+    if (await findChannelByName(settings.name)) {
+      throw channelNameTakenError()
+    }
+
+    const { bannerPath, badgePath } = await this.storeChannelImages(bannerFile, badgeFile)
+
+    let outcome: JoinOutcome
+    try {
+      outcome = await transact(async (client): Promise<JoinOutcome> => {
+        const channel = await createChannel(
+          {
+            ownerId: userId,
+            name: settings.name,
+            description: settings.description || undefined,
+            topic: settings.topic || undefined,
+            bannerPath,
+            badgePath,
+            private: settings.private,
+            membersCanInvite: settings.private ? settings.membersCanInvite : undefined,
+          },
+          client,
+        )
+        if (!channel) {
+          return { kind: 'refused', exitCode: JoinChannelExitCode.MaximumOwnedChannels }
+        }
+
+        const userChannelEntry = await addUserToChannel(userId, channel.id, client)
+        if (!userChannelEntry) {
+          // Thrown so the transaction rolls the creation back, rather than leaving a zero-member
+          // channel squatting the name.
+          throw new ChatServiceError(
+            ChatServiceErrorCode.MaximumJoinedChannels,
+            'Maximum joined channels reached',
+          )
+        }
+
+        const message = await addMessageToChannel(
+          userId,
+          channel.id,
+          { type: ServerChatMessageType.JoinChannel },
+          client,
+        )
+        return { kind: 'joined', channel, userChannelEntry, message }
+      })
+    } catch (err: any) {
+      if (err.code === UNIQUE_VIOLATION) {
+        throw channelNameTakenError()
+      }
+      throw err
     }
 
     return await this.completeJoin(userInfo, outcome)
@@ -968,6 +1059,53 @@ export default class ChatService {
       )
     }
 
+    const { bannerPath, badgePath } = await this.storeChannelImages(bannerFile, badgeFile)
+
+    const updatedChannel: Patch<EditableChannelFields> = { ...updates }
+    delete (updatedChannel as any).banner
+    delete (updatedChannel as any).deleteBanner
+    delete (updatedChannel as any).badge
+    delete (updatedChannel as any).deleteBadge
+
+    if (updates.deleteBanner) {
+      updatedChannel.bannerPath = null
+    } else if (bannerPath) {
+      updatedChannel.bannerPath = bannerPath
+    }
+    if (updates.deleteBadge) {
+      updatedChannel.badgePath = null
+    } else if (badgePath) {
+      updatedChannel.badgePath = badgePath
+    }
+
+    const channel =
+      updates.private === false || updates.membersCanInvite === false
+        ? await transact(async client => {
+            const updated = await updateChannel(channelId, updatedChannel, client)
+            if (updates.private === false) {
+              // Invite links only work while their channel is private. Deleting them here keeps
+              // the ones handed out before from working again if the channel is made private later.
+              await deleteInviteLinksForChannel(channelId, client)
+            } else {
+              // Links members already handed out would otherwise keep letting people in after the
+              // owner has taken inviting back.
+              await deleteMemberInviteLinks({ channelId, ownerId: updated.ownerId }, client)
+            }
+            return updated
+          })
+        : await updateChannel(channelId, updatedChannel)
+
+    return this.publishChannelEdit(channel)
+  }
+
+  /**
+   * Checks, resizes and stores a channel's banner and badge images, returning the paths they were
+   * stored at. Throws `InappropriateImage` if either image is rejected, before anything is stored.
+   */
+  private async storeChannelImages(
+    bannerFile: formidable.File | undefined,
+    badgeFile: formidable.File | undefined,
+  ): Promise<{ bannerPath?: string; badgePath?: string }> {
     if (bannerFile && !(await this.imageService.isImageSafe(bannerFile.filepath))) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InappropriateImage,
@@ -1027,41 +1165,7 @@ export default class ChatService {
 
     await Promise.all(filePromises)
 
-    const updatedChannel: Patch<EditableChannelFields> = { ...updates }
-    delete (updatedChannel as any).banner
-    delete (updatedChannel as any).deleteBanner
-    delete (updatedChannel as any).badge
-    delete (updatedChannel as any).deleteBadge
-
-    if (updates.deleteBanner) {
-      updatedChannel.bannerPath = null
-    } else if (bannerPath) {
-      updatedChannel.bannerPath = bannerPath
-    }
-    if (updates.deleteBadge) {
-      updatedChannel.badgePath = null
-    } else if (badgePath) {
-      updatedChannel.badgePath = badgePath
-    }
-
-    const channel =
-      updates.private === false || updates.membersCanInvite === false
-        ? await transact(async client => {
-            const updated = await updateChannel(channelId, updatedChannel, client)
-            if (updates.private === false) {
-              // Invite links only work while their channel is private. Deleting them here keeps
-              // the ones handed out before from working again if the channel is made private later.
-              await deleteInviteLinksForChannel(channelId, client)
-            } else {
-              // Links members already handed out would otherwise keep letting people in after the
-              // owner has taken inviting back.
-              await deleteMemberInviteLinks({ channelId, ownerId: updated.ownerId }, client)
-            }
-            return updated
-          })
-        : await updateChannel(channelId, updatedChannel)
-
-    return this.publishChannelEdit(channel)
+    return { bannerPath, badgePath }
   }
 
   /** Tells the channel's members about its updated info, and returns that info. */
@@ -1086,10 +1190,7 @@ export default class ChatService {
       channel = await updateChannel(channelId, { name })
     } catch (err: any) {
       if (err.code === UNIQUE_VIOLATION) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.ChannelNameTaken,
-          'A channel with that name already exists',
-        )
+        throw channelNameTakenError()
       }
       throw err
     }

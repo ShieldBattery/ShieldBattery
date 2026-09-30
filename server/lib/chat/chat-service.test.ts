@@ -32,6 +32,7 @@ import {
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
+import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { ImageService } from '../images/image-service'
 import { rollOutcome } from '../messaging/roll-outcome'
@@ -1106,7 +1107,10 @@ describe('chat/chat-service', () => {
 
       await chatService.joinChannel(testChannel.name, user1.id, false)
 
-      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
+      expect(createChannelMock).toHaveBeenCalledWith(
+        { ownerId: user1.id, name: testChannel.name },
+        dbClient,
+      )
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
     })
 
@@ -1120,7 +1124,10 @@ describe('chat/chat-service', () => {
 
       await chatService.joinChannel(testChannel.name, user1.id, false)
 
-      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
+      expect(createChannelMock).toHaveBeenCalledWith(
+        { ownerId: user1.id, name: testChannel.name },
+        dbClient,
+      )
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
       expect(addMessageToChannelMock).toHaveBeenCalledWith(
         user1.id,
@@ -1263,6 +1270,146 @@ describe('chat/chat-service', () => {
     })
   })
 
+  describe('createChannel', () => {
+    const addUserToChannelMock = asMockedFunction(addUserToChannel)
+    const addMessageToChannelMock = asMockedFunction(addMessageToChannel)
+    const createChannelMock = asMockedFunction(createChannel)
+
+    beforeEach(() => {
+      asMockedFunction(findChannelByName).mockResolvedValue(undefined)
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+      addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
+      addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
+    })
+
+    test('creates the channel with its settings and joins the creator to it', async () => {
+      const privateChannel = {
+        ...testChannel,
+        ownerId: user1.id,
+        private: true,
+        membersCanInvite: true,
+        description: 'DESCRIPTION',
+        topic: 'TOPIC',
+      }
+      createChannelMock.mockResolvedValue(privateChannel)
+
+      const result = await chatService.createChannel({
+        userId: user1.id,
+        settings: {
+          name: testChannel.name,
+          description: 'DESCRIPTION',
+          topic: 'TOPIC',
+          private: true,
+          membersCanInvite: true,
+        },
+      })
+
+      expect(createChannelMock).toHaveBeenCalledWith(
+        {
+          ownerId: user1.id,
+          name: testChannel.name,
+          description: 'DESCRIPTION',
+          topic: 'TOPIC',
+          bannerPath: undefined,
+          badgePath: undefined,
+          private: true,
+          membersCanInvite: true,
+        },
+        dbClient,
+      )
+      expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
+      expect(addMessageToChannelMock).toHaveBeenCalledWith(
+        user1.id,
+        testChannel.id,
+        { type: ServerChatMessageType.JoinChannel },
+        dbClient,
+      )
+      expect(result.channelInfo).toEqual({ ...testBasicInfo, private: true })
+      expect(result.joinedChannelInfo).toMatchObject({
+        ownerId: user1.id,
+        topic: 'TOPIC',
+        membersCanInvite: true,
+      })
+    })
+
+    test('ignores empty text and member invites for a public channel', async () => {
+      createChannelMock.mockResolvedValue(testChannel)
+
+      await chatService.createChannel({
+        userId: user1.id,
+        settings: { name: testChannel.name, description: '', topic: '', membersCanInvite: true },
+      })
+
+      expect(createChannelMock).toHaveBeenCalledWith(
+        {
+          ownerId: user1.id,
+          name: testChannel.name,
+          description: undefined,
+          topic: undefined,
+          bannerPath: undefined,
+          badgePath: undefined,
+          private: undefined,
+          membersCanInvite: undefined,
+        },
+        dbClient,
+      )
+    })
+
+    test('refuses a name that is already taken instead of joining that channel', async () => {
+      asMockedFunction(findChannelByName).mockResolvedValue(testChannel)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNameTaken })
+
+      expect(createChannelMock).not.toHaveBeenCalled()
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('refuses a name that gets taken while the channel is being created', async () => {
+      createChannelMock.mockRejectedValue(
+        Object.assign(new Error('duplicate'), { code: UNIQUE_VIOLATION }),
+      )
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.ChannelNameTaken })
+
+      expect(addUserToChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('refuses chat restricted users', async () => {
+      asMockedFunction(mockRestrictionService.isRestricted).mockResolvedValueOnce(true)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.UserChatRestricted })
+
+      expect(createChannelMock).not.toHaveBeenCalled()
+    })
+
+    test("refuses when the user can't own any more channels", async () => {
+      createChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.MaximumOwnedChannels })
+    })
+
+    test("rolls the channel back when the creator can't join any more channels", async () => {
+      createChannelMock.mockResolvedValue(testChannel)
+      addUserToChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.createChannel({ userId: user1.id, settings: { name: testChannel.name } }),
+      ).rejects.toMatchObject({ code: ChatServiceErrorCode.MaximumJoinedChannels })
+
+      const transactionResult = asMockedFunction(transact).mock.results.at(-1)!.value
+      await expect(transactionResult).rejects.toThrow('Maximum joined channels reached')
+    })
+  })
+
   describe('admin channel tools', () => {
     const removeAllUsersFromChannelMock = asMockedFunction(removeAllUsersFromChannel)
     const updateChannelMock = asMockedFunction(updateChannel)
@@ -1301,7 +1448,9 @@ describe('chat/chat-service', () => {
     })
 
     test('refuses a name another channel already has', async () => {
-      updateChannelMock.mockRejectedValue(Object.assign(new Error('duplicate'), { code: '23505' }))
+      updateChannelMock.mockRejectedValue(
+        Object.assign(new Error('duplicate'), { code: UNIQUE_VIOLATION }),
+      )
 
       await expect(chatService.renameChannel(testChannel.id, 'taken')).rejects.toMatchObject({
         code: ChatServiceErrorCode.ChannelNameTaken,

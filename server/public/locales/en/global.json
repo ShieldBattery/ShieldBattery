@@ -579,11 +579,12 @@
       }
     },
     "createChannel": {
-      "bannedError": "You are banned from this channel.",
       "channelName": "Channel name",
+      "chatRestrictedError": "You're currently restricted from chatting, so you can't create channels.",
       "createAction": "Create channel",
       "defaultError": "An error occurred while creating the channel.",
       "maximumOwnedError": "You have reached the limit of created channels. You must leave one channel you created before you can create another.",
+      "nameTakenError": "A channel with this name already exists.",
       "title": "Create channel"
     },
     "createChannelConfirmation": {

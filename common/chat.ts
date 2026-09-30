@@ -632,6 +632,20 @@ export interface EditChannelRequest {
   membersCanInvite?: boolean
 }
 
+/**
+ * The settings of a channel being created. The banner and badge images are sent alongside as
+ * files.
+ */
+export interface CreateChannelRequest {
+  name: string
+  description?: string
+  topic?: string
+  /** Creates the channel as private, so it can only be joined through an invite link. */
+  private?: boolean
+  /** Lets members other than the owner create invite links. Only applies to private channels. */
+  membersCanInvite?: boolean
+}
+
 /** The body data of the admin API route for renaming a channel. */
 export interface RenameChannelRequest {
   name: string

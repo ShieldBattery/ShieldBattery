@@ -11,6 +11,7 @@ import {
   ChannelPermissions,
   ChatServiceErrorCode,
   CreateChannelInviteLinkResponse,
+  CreateChannelRequest,
   DEFAULT_INVITE_LINK_EXPIRY_SECONDS,
   EditChannelRequest,
   EditChannelResponse,
@@ -205,6 +206,19 @@ const editChannelBodySchema = () =>
     }),
   })
 
+const createChannelBodySchema = () =>
+  Joi.object<{ channelSettings: CreateChannelRequest }>({
+    channelSettings: json
+      .object({
+        name: channelNameSchema().required(),
+        description: Joi.string().allow(''),
+        topic: Joi.string().allow(''),
+        private: Joi.boolean(),
+        membersCanInvite: Joi.boolean(),
+      })
+      .required(),
+  })
+
 const channelInviteLinkParamsSchema = () =>
   Joi.object<{ channelId: SbChannelId; token: string }>({
     channelId: joiSerialId().required(),
@@ -326,6 +340,13 @@ function isServerModerator(ctx: RouterContext): boolean {
   return !!ctx.session?.permissions.moderateChatChannels
 }
 
+async function throttleCreateChannel(ctx: ExtendableContext, next: Next) {
+  const throttle =
+    ctx.request.files?.banner || ctx.request.files?.badge ? editImageThrottle : joinThrottle
+
+  await throttleMiddlewareFunc(throttle, throttleByUser, ctx, next)
+}
+
 async function throttleEditChannel(ctx: ExtendableContext, next: Next) {
   const throttle =
     ctx.request.files?.banner || ctx.request.files?.badge ? editImageThrottle : editThrottle
@@ -342,6 +363,24 @@ export class ChatApi {
   @httpBefore(throttleMiddleware(getJoinedChannelsThrottle, throttleByUser))
   async getJoinedChannels(ctx: RouterContext): Promise<InitialChannelData[]> {
     return await this.chatService.getJoinedChannels(ctx.session!.user.id)
+  }
+
+  @httpPost('/')
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES), throttleCreateChannel)
+  async createChannel(ctx: RouterContext): Promise<JoinChannelResponse> {
+    const {
+      body: { channelSettings },
+    } = validateRequest(ctx, {
+      body: createChannelBodySchema(),
+    })
+    const { bannerFile, badgeFile } = getValidatedChannelImageFiles(ctx)
+
+    return await this.chatService.createChannel({
+      userId: ctx.session!.user.id,
+      settings: channelSettings,
+      bannerFile,
+      badgeFile,
+    })
   }
 
   @httpPost('/join/:channelName')
