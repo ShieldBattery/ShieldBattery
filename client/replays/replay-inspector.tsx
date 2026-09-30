@@ -35,8 +35,9 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyMedium, labelMedium } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
-import { useSbGameMap } from './replay-hooks'
+import { useIsSbGameMissing, useSbGameMap } from './replay-hooks'
 import {
+  getGameRecordUserIds,
   getReplayDisplayTeams,
   playersToDisplayTeams,
   shouldShowTeamLabels,
@@ -125,6 +126,7 @@ export function getReplayActionMenuItems({
   onReveal,
   onMoveToRecycleBin,
   reorder,
+  sbGameMissing,
   t,
 }: {
   entry: ReplayLibraryEntry
@@ -141,6 +143,11 @@ export function getReplayActionMenuItems({
     onMoveUp: () => void
     onMoveDown: () => void
   }
+  /**
+   * True when the server has no record of the replay's game (see `useIsSbGameMissing`), so there's
+   * no game page to open.
+   */
+  sbGameMissing: boolean
   t: TFunction
 }): React.ReactNode[] {
   const items: React.ReactNode[] = [
@@ -194,7 +201,7 @@ export function getReplayActionMenuItems({
     )
   }
 
-  if (entry.sbGameId && !entry.parseError) {
+  if (entry.sbGameId && !entry.parseError && !sbGameMissing) {
     items.push(
       <MenuItem
         key='view-game-page'
@@ -335,6 +342,8 @@ export function ReplayInspector({
   const dispatch = useAppDispatch()
   const computerLabel = t('game.playerName.computer', 'Computer')
   const { map, status: mapStatus } = useSbGameMap(entry?.sbGameId)
+  const sbGameMissing = useIsSbGameMissing(entry?.sbGameId)
+  const game = useAppSelector(s => (entry?.sbGameId ? s.games.byId.get(entry.sbGameId) : undefined))
 
   const entryId = entry?.id
   // Tagged with the entry id it was fetched for, so a stale response (or a fetch that hasn't
@@ -364,9 +373,14 @@ export function ReplayInspector({
     }
   }, [entryId, changeToken])
 
+  // A replay's user ids are only trusted once this server's record of its game confirms them, so a
+  // replay from another server shows its in-replay names rather than whoever holds those ids here.
+  const gameUserIds = getGameRecordUserIds(game)
   const playerUserIds =
     entry && !entry.parseError
-      ? entry.players.map(p => p.sbUserId).filter((id): id is SbUserId => id !== undefined)
+      ? entry.players
+          .map(p => p.sbUserId)
+          .filter((id): id is SbUserId => id !== undefined && gameUserIds.has(id))
       : undefined
   const playerUserEntries = useAppSelector(
     useUserEntriesSelector(playerUserIds),
@@ -374,19 +388,14 @@ export function ReplayInspector({
   )
 
   const dispatchPlayerUserInfo = useEffectEvent(() => {
-    if (!entry || entry.parseError) {
-      return
-    }
-    for (const player of entry.players) {
-      if (player.sbUserId !== undefined) {
-        dispatch(getBatchUserInfo(player.sbUserId))
-      }
+    for (const userId of playerUserIds ?? []) {
+      dispatch(getBatchUserInfo(userId))
     }
   })
 
   useEffect(() => {
     dispatchPlayerUserInfo()
-  }, [entryId])
+  }, [entryId, game])
 
   if (!entry) {
     return (
@@ -397,7 +406,7 @@ export function ReplayInspector({
   }
 
   const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
-  // Only ids the store has resolved render as connected usernames; the rest keep the raw
+  // Only confirmed ids the store has resolved render as connected usernames; the rest keep the raw
   // in-replay name (see `playersToDisplayTeams`).
   const linkedUserIds = new Set(
     playerUserEntries.filter(([, name]) => name !== undefined).map(([id]) => id),
@@ -472,6 +481,7 @@ export function ReplayInspector({
               inPlaylistView && canReorder
                 ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }
                 : undefined,
+            sbGameMissing,
             t,
           })
         }

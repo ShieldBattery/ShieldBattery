@@ -10,6 +10,7 @@ import { FetchError } from '../network/fetch-errors'
 import {
   MAP_FETCH_COALESCE_MS as COALESCE_MS,
   resetSbGameMapStateForTests,
+  useIsSbGameMissing,
   useSbGameMap,
 } from './replay-hooks'
 
@@ -260,5 +261,49 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     expect(result.current.status).toBe('loading')
     advance(COALESCE_MS)
     expect(specCountFor('slow')).toBe(2)
+  })
+})
+
+describe('client/replays/replay-hooks/useIsSbGameMissing', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    specsByGame.clear()
+    viewGameMock.mockClear()
+    resetSbGameMapStateForTests()
+    store = createStore()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function renderBoth(gameId: string | undefined) {
+    return renderHook(
+      ({ gameId }: { gameId: string | undefined }) => ({
+        map: useSbGameMap(gameId),
+        missing: useIsSbGameMissing(gameId),
+      }),
+      { initialProps: { gameId }, wrapper },
+    )
+  }
+
+  test('is false while the fetch is in flight and true once the server answers with a 4xx', () => {
+    const { result } = renderBoth('gone')
+    expect(result.current.missing).toBe(false)
+
+    failLatest('gone', fetchError(404))
+    expect(result.current.missing).toBe(true)
+  })
+
+  test('stays false for a transient failure', () => {
+    const { result } = renderBoth('flappy')
+    failLatest('flappy', fetchError(500))
+    expect(result.current.missing).toBe(false)
+  })
+
+  test('is false for a game the store already holds', () => {
+    seedGameWithMap('cached', 'map')
+    const { result } = renderBoth('cached')
+    expect(result.current.missing).toBe(false)
   })
 })
