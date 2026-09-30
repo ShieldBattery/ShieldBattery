@@ -69,6 +69,23 @@ export async function findReusableInviteLink(
 }
 
 /**
+ * Holds off any other transaction taking this same lock for `createdBy` in the channel until the
+ * transaction `client` belongs to ends, so looking for a reusable default link and creating one
+ * when there's none happens once at a time. Without it, concurrent requests all find no link and
+ * each create their own.
+ */
+export async function lockDefaultInviteLinkCreation(
+  { channelId, createdBy }: { channelId: SbChannelId; createdBy: SbUserId },
+  client: DbClient,
+): Promise<void> {
+  await client.query(sql`
+    SELECT pg_advisory_xact_lock(
+      hashtext('channel_invite_link:' || ${channelId}::text || ':' || ${createdBy}::text)
+    );
+  `)
+}
+
+/**
  * Creates an invite link into a channel, but only while the channel is private and, unless
  * `asServerModerator` is set, only while `createdBy` is a member of it who may create links (its
  * owner, or any member if the channel lets members invite). Returns `undefined` if that doesn't

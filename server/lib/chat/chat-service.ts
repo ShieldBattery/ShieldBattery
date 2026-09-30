@@ -129,6 +129,7 @@ import {
   incrementInviteLinkUses,
   InviteLinkRecord,
   listUsableInviteLinks,
+  lockDefaultInviteLinkCreation,
 } from './invite-link-models'
 
 class ChatState extends ImmutableRecord({
@@ -927,27 +928,44 @@ export default class ChatService {
     ensureCanGetInviteLink(channel, userId, userChannelEntry, isServerModerator)
 
     const now = new Date()
-    let link = settings
-      ? undefined
-      : await findReusableInviteLink({
-          channelId,
-          createdBy: userId,
-          usableUntil: new Date(now.getTime() + INVITE_LINK_REUSE_MIN_REMAINING_MS),
-        })
-    if (!link) {
-      let expiresAt: Date | undefined
-      if (!settings) {
-        expiresAt = new Date(now.getTime() + INVITE_LINK_LIFETIME_MS)
-      } else if (settings.expiresInSeconds !== null) {
-        expiresAt = new Date(now.getTime() + settings.expiresInSeconds * 1000)
-      }
+    let link: InviteLinkRecord | undefined
+    if (settings) {
       link = await createInviteLink({
         channelId,
         createdBy: userId,
         createdAt: now,
-        expiresAt,
-        maxUses: settings?.maxUses ?? undefined,
+        expiresAt:
+          settings.expiresInSeconds !== null
+            ? new Date(now.getTime() + settings.expiresInSeconds * 1000)
+            : undefined,
+        maxUses: settings.maxUses ?? undefined,
         asServerModerator: isServerModerator,
+      })
+    } else {
+      link = await transact(async client => {
+        await lockDefaultInviteLinkCreation({ channelId, createdBy: userId }, client)
+        const reusable = await findReusableInviteLink(
+          {
+            channelId,
+            createdBy: userId,
+            usableUntil: new Date(now.getTime() + INVITE_LINK_REUSE_MIN_REMAINING_MS),
+          },
+          client,
+        )
+        return (
+          reusable ??
+          (await createInviteLink(
+            {
+              channelId,
+              createdBy: userId,
+              createdAt: now,
+              expiresAt: new Date(now.getTime() + INVITE_LINK_LIFETIME_MS),
+              maxUses: undefined,
+              asServerModerator: isServerModerator,
+            },
+            client,
+          ))
+        )
       })
     }
     if (!link) {

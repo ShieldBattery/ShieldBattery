@@ -107,6 +107,7 @@ import {
   incrementInviteLinkUses,
   InviteLinkRecord,
   listUsableInviteLinks,
+  lockDefaultInviteLinkCreation,
 } from './invite-link-models'
 
 /** `isServerModerator` value for a user without any server-wide permissions. */
@@ -220,6 +221,7 @@ vi.mock('./invite-link-models', () => ({
   getInviteLink: vi.fn(),
   incrementInviteLinkUses: vi.fn(),
   listUsableInviteLinks: vi.fn(),
+  lockDefaultInviteLinkCreation: vi.fn(),
 }))
 
 type FakeDbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
@@ -1694,11 +1696,21 @@ describe('chat/chat-service', () => {
           REGULAR_USER,
         )
 
-        expect(findReusableInviteLink).toHaveBeenCalledWith({
-          channelId: testChannel.id,
-          createdBy: user1.id,
-          usableUntil: new Date(NOW.getTime() + DAY_MS),
-        })
+        expect(lockDefaultInviteLinkCreation).toHaveBeenCalledWith(
+          { channelId: testChannel.id, createdBy: user1.id },
+          dbClient,
+        )
+        expect(findReusableInviteLink).toHaveBeenCalledWith(
+          {
+            channelId: testChannel.id,
+            createdBy: user1.id,
+            usableUntil: new Date(NOW.getTime() + DAY_MS),
+          },
+          dbClient,
+        )
+        expect(
+          asMockedFunction(lockDefaultInviteLinkCreation).mock.invocationCallOrder[0],
+        ).toBeLessThan(asMockedFunction(findReusableInviteLink).mock.invocationCallOrder[0])
         expect(createInviteLink).not.toHaveBeenCalled()
         expect(result.inviteLink).toEqual({
           token: TOKEN,
@@ -1718,14 +1730,17 @@ describe('chat/chat-service', () => {
           REGULAR_USER,
         )
 
-        expect(createInviteLink).toHaveBeenCalledWith({
-          channelId: testChannel.id,
-          createdBy: user1.id,
-          createdAt: NOW,
-          expiresAt: new Date(NOW.getTime() + 7 * DAY_MS),
-          maxUses: undefined,
-          asServerModerator: false,
-        })
+        expect(createInviteLink).toHaveBeenCalledWith(
+          {
+            channelId: testChannel.id,
+            createdBy: user1.id,
+            createdAt: NOW,
+            expiresAt: new Date(NOW.getTime() + 7 * DAY_MS),
+            maxUses: undefined,
+            asServerModerator: false,
+          },
+          dbClient,
+        )
         expect(result.inviteLink.token).toBe(TOKEN)
         expect(result.inviteLink.expiresAt).toBe(NOW.getTime() + 7 * DAY_MS)
       })
@@ -1792,6 +1807,7 @@ describe('chat/chat-service', () => {
 
         expect(createInviteLink).toHaveBeenCalledWith(
           expect.objectContaining({ asServerModerator: true }),
+          dbClient,
         )
       })
 
