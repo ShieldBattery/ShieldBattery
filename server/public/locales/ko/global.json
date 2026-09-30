@@ -568,8 +568,8 @@
         "offline": "<0><0></0></0>님은 오프라인입니다.",
         "online": "<0><0></0></0>님은 온라인입니다.",
         "presence": {
-          "active": "활동 중",
-          "offline": "오프라인"
+          "offline": "오프라인",
+          "online": "온라인"
         },
         "self": "당신은 <2><0></0></2>님입니다.",
         "unknown": "<2><0></0></2>님이 무엇을 하고 있는지 알 수 없습니다. 친구와 같은 채널의 멤버만 상태를 공유합니다."
@@ -776,13 +776,13 @@
       "title": "차단을 해제할까요?"
     },
     "userList": {
-      "active": "활동 중",
       "filter": "멤버 검색",
       "inGame": "게임 중",
       "liveNow": "라이브 중",
       "loadFailed": "사용자 목록을 불러오지 못했습니다",
       "noMatches": "이 이름과 일치하는 멤버가 없습니다.",
       "offline": "오프라인",
+      "online": "온라인",
       "showFewerGames": "간략히 보기",
       "showFewerStreams": "간략히 보기",
       "showMoreGames_other": "게임 {{count}}개 더 보기",

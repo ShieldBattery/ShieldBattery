@@ -169,7 +169,7 @@ describe('messaging/commands/commands/whois', () => {
     expect(findUserByName).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('info')
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
-      'You are Marko. Channels: #foo (active).',
+      'You are Marko. Channels: #foo (online).',
     )
   })
 
@@ -183,7 +183,7 @@ describe('messaging/commands/commands/whois', () => {
     )
 
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
-      'tec27 is in a game. Channels: #foo (active).',
+      'tec27 is in a game. Channels: #foo (online).',
     )
   })
 
@@ -204,7 +204,7 @@ describe('messaging/commands/commands/whois', () => {
     )
 
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
-      'tec27 is online. Channels: #foo (active), #bar (offline).',
+      'tec27 is online. Channels: #foo (online), #bar (offline).',
     )
   })
 

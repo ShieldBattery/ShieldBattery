@@ -574,8 +574,8 @@
         "offline": "<0><0></0></0> está desconectado.",
         "online": "<0><0></0></0> está conectado.",
         "presence": {
-          "active": "activo",
-          "offline": "desconectado"
+          "offline": "desconectado",
+          "online": "conectado"
         },
         "self": "Eres <2><0></0></2>.",
         "unknown": "No se puede saber qué está haciendo <2><0></0></2>: solo los amigos y los miembros de tus canales comparten su estado."
@@ -798,13 +798,13 @@
       "title": "¿Desbanear usuario?"
     },
     "userList": {
-      "active": "Activo",
       "filter": "Filtrar miembros",
       "inGame": "En partida",
       "liveNow": "En vivo ahora",
       "loadFailed": "No se pudo cargar la lista de usuarios",
       "noMatches": "Nadie aquí coincide con ese nombre.",
       "offline": "Desconectado",
+      "online": "En línea",
       "showFewerGames": "Mostrar menos partidas",
       "showFewerStreams": "Mostrar menos transmisiones",
       "showMoreGames_one": "Mostrar {{count}} partida más",

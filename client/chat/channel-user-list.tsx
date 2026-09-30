@@ -511,7 +511,7 @@ export const UserList = React.memo((props: UserListProps) => {
   }
 
   if (!filtering || shownActive.length) {
-    pushHeader('active', t('chat.userList.active', 'Active'), shownActive.length)
+    pushHeader('active', t('chat.userList.online', 'Online'), shownActive.length)
     if (!isCollapsed('active')) {
       for (const userId of shownActive) {
         rowData.push({ type: UserListRowType.Active, userId, isLive: liveUserIds.has(userId) })

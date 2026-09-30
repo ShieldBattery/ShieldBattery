@@ -571,8 +571,8 @@
         "offline": "<0><0></0></0> is offline.",
         "online": "<0><0></0></0> is online.",
         "presence": {
-          "active": "active",
-          "offline": "offline"
+          "offline": "offline",
+          "online": "online"
         },
         "self": "You are <2><0></0></2>.",
         "unknown": "Can't tell what <2><0></0></2> is doing: only friends and members of your channels share their status."
@@ -952,13 +952,13 @@
       "title": "Unban user?"
     },
     "userList": {
-      "active": "Active",
       "filter": "Filter people",
       "inGame": "In game",
       "liveNow": "Live now",
       "loadFailed": "Couldn't load the user list",
       "noMatches": "Nobody here matches that name.",
       "offline": "Offline",
+      "online": "Online",
       "showFewerGames": "Show fewer games",
       "showFewerStreams": "Show fewer streams",
       "showMoreGames_one": "Show {{count}} more game",
