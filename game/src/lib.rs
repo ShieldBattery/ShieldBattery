@@ -62,6 +62,7 @@ mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
 mod replay;
+mod replay_name;
 mod snp;
 mod sync;
 mod team_colors;

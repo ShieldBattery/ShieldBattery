@@ -2390,19 +2390,46 @@
       "title": "Settings (Alt + S)"
     },
     "app": {
+      "replays": {
+        "addFolder": "Add folder",
+        "addFolderTitle": "Select a replay folder",
+        "foldersDescription": "Folders indexed by your replay library. The default StarCraft replay folder is added automatically. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
+        "foldersTitle": "Replay folders",
+        "name": {
+          "add": "Add a piece",
+          "description": "How replays are named when they are saved automatically after each game. Drag the pieces to reorder them. Saved to your account.",
+          "empty": "Add pieces below. An empty name uses the default.",
+          "preview1v1": "1v1",
+          "preview2v2": "2v2",
+          "remove": "Remove",
+          "reset": "Reset to default",
+          "textLabel": "Text",
+          "textPlaceholder": "Text",
+          "title": "Replay names",
+          "token": {
+            "date": "Date",
+            "format": "Format",
+            "map": "Map",
+            "matchup": "Matchup",
+            "name": "Your name",
+            "opponentRaces": "Opponent races",
+            "opponents": "Opponents",
+            "race": "Your race",
+            "text": "Text",
+            "time": "Time"
+          }
+        },
+        "openingTitle": "Opening replays",
+        "quickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
+        "removeFolder": "Remove folder",
+        "title": "Replays"
+      },
       "sound": {
         "masterVolume": "Master volume",
         "title": "Sound"
       },
       "system": {
-        "addReplayFolder": "Add folder",
-        "addReplayFolderTitle": "Select a replay folder",
-        "filesOverline": "Files",
         "networkOverline": "Network",
-        "removeReplayFolder": "Remove folder",
-        "replayFoldersDescription": "Folders indexed by your replay library. The default StarCraft replay folder is added automatically. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
-        "replayFoldersTitle": "Replay folders",
-        "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
         "serverRegion": {
           "autoPlain": "Auto (recommended)",

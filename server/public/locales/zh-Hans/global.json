@@ -2158,19 +2158,20 @@
       "title": "设置（Alt + S）"
     },
     "app": {
+      "replays": {
+        "addFolder": "添加文件夹",
+        "addFolderTitle": "选择录像文件夹",
+        "foldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
+        "foldersTitle": "录像文件夹",
+        "quickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
+        "removeFolder": "移除文件夹"
+      },
       "sound": {
         "masterVolume": "全局音量",
         "title": "声音"
       },
       "system": {
-        "addReplayFolder": "添加文件夹",
-        "addReplayFolderTitle": "选择录像文件夹",
-        "filesOverline": "文件",
         "networkOverline": "网络",
-        "removeReplayFolder": "移除文件夹",
-        "replayFoldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
-        "replayFoldersTitle": "录像文件夹",
-        "replayQuickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
         "runOnStartup": "开机时自动启动ShieldBattery",
         "serverRegion": {
           "autoPlain": "自动（推荐）",

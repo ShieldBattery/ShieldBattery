@@ -110,6 +110,12 @@ export interface GameLaunchConfig {
    * app's behavior in chat/whispers).
    */
   blockedUsers: SbUserId[]
+  /**
+   * The filename template for this game's auto-saved replay (see
+   * `common/replay-name-template.ts`). Unset for replay playback, which saves no replay; the game
+   * uses the default template when it's missing.
+   */
+  replayNameTemplate?: string
   /** Setup for this specific server. */
   serverConfig: {
     /** The URL of the server, so that the game client can communicate with it as necessary. */
