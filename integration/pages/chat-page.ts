@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test'
+import { expect, Locator, Page } from '@playwright/test'
 import { SocialSidebar } from './social-sidebar'
 
 export class ChatPage extends SocialSidebar {
@@ -115,13 +115,21 @@ export class ChatPage extends SocialSidebar {
     await this.buttonChannelSettings.click()
   }
 
-  /** Opens the invite link dialog from the header and waits for it to show a link. */
+  /** Opens the invite link dialog from the header. */
   async openInviteLinkDialog(): Promise<void> {
     await this.buttonHeaderActions.click()
     await this.page.locator('[data-testid="channel-invite-people-button"]').click()
-    await this.page
-      .locator('[data-testid="channel-invite-link-dialog-url"]', { hasText: '/chat/invite/' })
-      .waitFor()
+    await this.inviteLinkDialogUrlLocator().waitFor()
+  }
+
+  inviteLinkDialogUrlLocator(): Locator {
+    return this.page.locator('[data-testid="channel-invite-link-dialog-url"]')
+  }
+
+  /** Generates a new link in the open invite link dialog and waits for the dialog to show it. */
+  async generateInviteLink(): Promise<void> {
+    await this.page.locator('[data-testid="channel-invite-link-dialog-generate-button"]').click()
+    await expect(this.inviteLinkDialogUrlLocator()).toContainText('/chat/invite/')
   }
 
   async closeInviteLinkDialog(): Promise<void> {

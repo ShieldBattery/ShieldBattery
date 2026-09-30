@@ -169,6 +169,7 @@ test('viewing the invite links of a private channel', async ({ page }) => {
   await expect(chatPage.channelPrivateGlyphLocator()).toBeVisible()
 
   await chatPage.openInviteLinkDialog()
+  await chatPage.generateInviteLink()
   await chatPage.closeInviteLinkDialog()
 
   await chatPage.openChannelSettings()
@@ -197,10 +198,8 @@ test('creating a private channel with its settings', async ({ page }) => {
   })
   await page.waitForURL(url => url.pathname.endsWith(`/${channelName}`))
 
-  // A private channel's invite link dialog opens as soon as it's created.
-  await page
-    .locator('[data-testid="channel-invite-link-dialog-url"]', { hasText: '/chat/invite/' })
-    .waitFor()
+  // A private channel's invite link dialog opens as soon as it's created, without making a link.
+  await expect(chatPage.inviteLinkDialogUrlLocator()).toHaveText('No invite link yet')
   await chatPage.closeInviteLinkDialog()
   await expect(chatPage.channelPrivateGlyphLocator()).toBeVisible()
 
