@@ -69,15 +69,41 @@ export interface GameWindowSize {
   height: number
 }
 
-/** 4:3 sizes first since that's the game's native aspect ratio, then common 16:9 ones. */
-export const GAME_WINDOW_PRESET_SIZES: ReadonlyArray<Readonly<GameWindowSize>> = [
-  { width: 1024, height: 768 },
-  { width: 1280, height: 960 },
-  { width: 1440, height: 1080 },
-  { width: 1280, height: 720 },
-  { width: 1600, height: 900 },
-  { width: 1920, height: 1080 },
+export interface GameWindowPresetGroup {
+  aspectRatio: string
+  sizes: ReadonlyArray<Readonly<GameWindowSize>>
+}
+
+/**
+ * Preset play area sizes up to 4K, grouped by shape. 4:3 comes first since it's the game's native
+ * aspect ratio, and includes the exact multiples of its 640x480 resolution.
+ */
+export const GAME_WINDOW_PRESET_GROUPS: ReadonlyArray<Readonly<GameWindowPresetGroup>> = [
+  {
+    aspectRatio: '4:3',
+    sizes: [
+      { width: 1024, height: 768 },
+      { width: 1280, height: 960 },
+      { width: 1440, height: 1080 },
+      { width: 1920, height: 1440 },
+      { width: 2560, height: 1920 },
+      { width: 2880, height: 2160 },
+    ],
+  },
+  {
+    aspectRatio: '16:9',
+    sizes: [
+      { width: 1280, height: 720 },
+      { width: 1600, height: 900 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+      { width: 3840, height: 2160 },
+    ],
+  },
 ]
+
+export const GAME_WINDOW_PRESET_SIZES: ReadonlyArray<Readonly<GameWindowSize>> =
+  GAME_WINDOW_PRESET_GROUPS.flatMap(group => group.sizes)
 
 /** The game's native resolution. Anything smaller is too small to play on. */
 export const MIN_GAME_WINDOW_SIZE: Readonly<GameWindowSize> = { width: 640, height: 480 }

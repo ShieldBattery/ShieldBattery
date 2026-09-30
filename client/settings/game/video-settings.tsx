@@ -13,6 +13,7 @@ import {
 } from '../../../common/settings/blizz-settings'
 import {
   ALL_GAME_WINDOW_PLACEMENTS,
+  GAME_WINDOW_PRESET_GROUPS,
   GAME_WINDOW_PRESET_SIZES,
   GameWindowPlacement,
   GameWindowSize,
@@ -25,6 +26,7 @@ import { FormHook, useForm, useFormCallbacks, Validator } from '../../forms/form
 import logger from '../../logging/logger'
 import { OutlinedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
+import { Divider } from '../../material/menu/divider'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
@@ -197,17 +199,21 @@ function SetWindowSizeFields({
         {...bindCustom('windowSizePreset')}
         label={t('settings.game.video.windowSize', 'Window size')}
         tabIndex={0}>
-        {GAME_WINDOW_PRESET_SIZES.map(size => (
-          <SelectOption
-            key={`${size.width}x${size.height}`}
-            value={size}
-            text={t('settings.game.video.windowSizeOption', {
-              defaultValue: '{{width}} × {{height}}',
-              width: size.width,
-              height: size.height,
-            })}
-          />
-        ))}
+        {GAME_WINDOW_PRESET_GROUPS.flatMap(({ aspectRatio, sizes }) => [
+          ...sizes.map(size => (
+            <SelectOption
+              key={`${size.width}x${size.height}`}
+              value={size}
+              text={t('settings.game.video.windowSizeOption', {
+                defaultValue: '{{width}} × {{height}} ({{aspectRatio}})',
+                width: size.width,
+                height: size.height,
+                aspectRatio,
+              })}
+            />
+          )),
+          <Divider key={`${aspectRatio}-divider`} />,
+        ])}
         <SelectOption
           key='custom'
           value={null}

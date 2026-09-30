@@ -1084,7 +1084,7 @@ pub fn restore_saved_window_pos() {
                 return;
             };
             debug!("Restoring window size to {width}x{height}, centered");
-            center_on_monitor(handle, width, height)
+            monitor_work_area(handle).map(|area| center_in(&area, width, height))
         }
         WindowPlacement::SetSize => {
             let Some(size) = settings.set_size else {
@@ -1094,8 +1094,22 @@ pub fn restore_saved_window_pos() {
                 "Setting play area to {}x{}, centered",
                 size.width, size.height
             );
-            window_size_for_client_size(handle, size)
-                .and_then(|(width, height)| center_on_monitor(handle, width, height))
+            window_borders(handle).zip(monitor_work_area(handle)).map(
+                |((border_width, border_height), area)| {
+                    // Shrinks the play area rather than the whole window, so a play area that
+                    // doesn't fit keeps its shape
+                    let size = fit_within(
+                        size,
+                        area.right - area.left - border_width,
+                        area.bottom - area.top - border_height,
+                    );
+                    center_in(
+                        &area,
+                        size.width + border_width,
+                        size.height + border_height,
+                    )
+                },
+            )
         }
     };
     let Some(WindowBounds {
@@ -1125,33 +1139,55 @@ pub fn restore_saved_window_pos() {
     }
 }
 
-/// The outer size of `window` if its play area were `size`, keeping its current title bar and
-/// borders.
-fn window_size_for_client_size(window: HWND, size: ClientSize) -> Option<(i32, i32)> {
+/// The total width and height that `window`'s title bar and borders add around its play area.
+fn window_borders(window: HWND) -> Option<(i32, i32)> {
     unsafe {
         let mut outer = mem::zeroed::<RECT>();
         let mut client = mem::zeroed::<RECT>();
         if GetWindowRect(window, &mut outer) == 0 || GetClientRect(window, &mut client) == 0 {
             return None;
         }
-        let border_width = (outer.right - outer.left) - (client.right - client.left);
-        let border_height = (outer.bottom - outer.top) - (client.bottom - client.top);
-        Some((size.width + border_width, size.height + border_height))
+        Some((
+            (outer.right - outer.left) - (client.right - client.left),
+            (outer.bottom - outer.top) - (client.bottom - client.top),
+        ))
     }
 }
 
-/// Centers a window of the given outer size in the work area of the monitor `window` is on.
-fn center_on_monitor(window: HWND, width: i32, height: i32) -> Option<WindowBounds> {
-    let work_area = unsafe {
+/// The work area (the monitor minus the taskbar and docked toolbars) of the monitor `window` is on.
+fn monitor_work_area(window: HWND) -> Option<RECT> {
+    unsafe {
         let monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
         let mut monitor_info = mem::zeroed::<MONITORINFO>();
         monitor_info.cbSize = mem::size_of::<MONITORINFO>() as u32;
         if GetMonitorInfoA(monitor, &mut monitor_info) == 0 {
             return None;
         }
-        monitor_info.rcWork
-    };
-    Some(center_in(&work_area, width, height))
+        Some(monitor_info.rcWork)
+    }
+}
+
+/// Scales `size` down to fit within `max_width` by `max_height`, keeping its shape.
+fn fit_within(size: ClientSize, max_width: i32, max_height: i32) -> ClientSize {
+    if size.width <= max_width && size.height <= max_height {
+        return size;
+    }
+
+    let (width, height) = (i64::from(size.width), i64::from(size.height));
+    let (max_width, max_height) = (i64::from(max_width), i64::from(max_height));
+    let scale_rounded = |value: i64, to: i64, from: i64| ((value * to + from / 2) / from) as i32;
+    // Compares max_width / width against max_height / height without dividing
+    if max_width * height <= max_height * width {
+        ClientSize {
+            width: max_width as i32,
+            height: scale_rounded(height, max_width, width),
+        }
+    } else {
+        ClientSize {
+            width: scale_rounded(width, max_height, height),
+            height: max_height as i32,
+        }
+    }
 }
 
 /// Centers a `width` by `height` rect in `area`, shrinking it to fit if it's larger.
@@ -1297,5 +1333,29 @@ mod tests {
                 height: 720,
             }
         );
+    }
+
+    fn size(width: i32, height: i32) -> ClientSize {
+        ClientSize { width, height }
+    }
+
+    #[test]
+    fn fit_within_leaves_a_size_that_fits() {
+        assert_eq!(fit_within(size(1280, 960), 2540, 1349), size(1280, 960));
+    }
+
+    #[test]
+    fn fit_within_keeps_4_3_when_limited_by_height() {
+        assert_eq!(fit_within(size(2880, 2160), 2540, 1349), size(1799, 1349));
+    }
+
+    #[test]
+    fn fit_within_keeps_16_9_when_limited_by_height() {
+        assert_eq!(fit_within(size(3840, 2160), 2540, 1349), size(2398, 1349));
+    }
+
+    #[test]
+    fn fit_within_keeps_16_9_when_limited_by_width() {
+        assert_eq!(fit_within(size(3840, 2160), 1900, 2000), size(1900, 1069));
     }
 }
