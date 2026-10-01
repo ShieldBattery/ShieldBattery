@@ -327,6 +327,17 @@ function getGeneralGameSetup({
   }
 }
 
+/** Stages durable evidence of a matchmaking lobby-policy violation. */
+export interface LobbyViolationStager {
+  stage(gameId: string, userId: SbUserId, detectedAt: Date): Promise<boolean>
+}
+
+/**
+ * Injection token for the `LobbyViolationStager`. Its implementation depends on matchmaking, which
+ * depends on this module, so it's bound at startup rather than imported here.
+ */
+export const LOBBY_VIOLATION_STAGER = 'LobbyViolationStager'
+
 @singleton()
 export class GameLoader {
   private pendingCancellations = new Map<
@@ -836,10 +847,8 @@ export class GameLoader {
       gameId: string,
       userId: SbUserId,
       detectedAt: Date,
-    ) => Promise<boolean | void> = async (...args) => {
-      const { LobbyViolationService } = await import('./lobby-violation-service')
-      return container.resolve(LobbyViolationService).stage(...args)
-    },
+    ) => Promise<boolean | void> = async (...args) =>
+      container.resolve<LobbyViolationStager>(LOBBY_VIOLATION_STAGER).stage(...args),
   ): Promise<boolean> {
     let data = this.loadingGames.get(gameId)
     if (

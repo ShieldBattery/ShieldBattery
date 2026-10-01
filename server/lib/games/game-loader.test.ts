@@ -26,12 +26,10 @@ import {
   GameLoadErrorType,
   GameLoadPlayer,
   GameLoadRequest,
+  LOBBY_VIOLATION_STAGER,
 } from './game-loader'
 import { cancelGame, finalizeGameSetupCancellation, updateGameConfig } from './game-models'
-import { LobbyViolationService } from './lobby-violation-service'
 import { registerGame } from './registration'
-
-vi.mock('./lobby-violation-service', () => ({ LobbyViolationService: class {} }))
 
 vi.mock('./registration', () => ({
   registerGame: vi.fn(),
@@ -568,7 +566,7 @@ describe('games/game-loader/GameLoader', () => {
 
     test('a snapshot violation overrides an innocent player failure without waiting for its webhook', async () => {
       const stage = vi.fn().mockResolvedValue(undefined)
-      container.registerInstance(LobbyViolationService, { stage } as any)
+      container.registerInstance(LOBBY_VIOLATION_STAGER, { stage })
       const { load } = await startNetworkedLoad('snapshot-evidence', true)
       netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
         known: false,

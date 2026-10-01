@@ -17,6 +17,8 @@ import { addMiddleware as fileStoreMiddleware, setStore } from './lib/files'
 import AwsStore from './lib/files/aws'
 import LocalFileStore from './lib/files/local-filesystem'
 import { GameServerRegionsService } from './lib/game-server-regions/game-server-regions-service'
+import { LOBBY_VIOLATION_STAGER } from './lib/games/game-loader'
+import { LobbyViolationService } from './lib/games/lobby-violation-service'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
@@ -208,6 +210,11 @@ container.resolve(WebsocketServer)
 // subscription before any client connects. Fetching the region list itself is demand-driven and
 // deliberately untouched by server startup -- see the class doc comment.
 container.resolve(GameServerRegionsService)
+
+// Bound here because `LobbyViolationService` can't be imported by `GameLoader` without a dependency
+// cycle. Resolving it also schedules recovery of violations staged before a restart.
+container.register(LOBBY_VIOLATION_STAGER, { useToken: LobbyViolationService })
+container.resolve(LobbyViolationService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)

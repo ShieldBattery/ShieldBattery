@@ -67,7 +67,6 @@ describe('games/lobby-violation-service', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
-    ;(LobbyViolationService as any).recoveryStarted = false
     container.resolve.mockReturnValue(makeDependencies())
     claimPendingGameLobbyViolations.mockResolvedValue([])
     currentIdentifiers.mockReturnValue(undefined)
@@ -241,17 +240,15 @@ describe('games/lobby-violation-service', () => {
     expect(claimPendingGameLobbyViolations).toHaveBeenCalledTimes(2)
   })
 
-  test('boot-scheduled recovery resolves the service and runs a batch without new evidence', async () => {
+  test('boot-scheduled recovery runs a batch without new evidence', async () => {
     const scheduler = { scheduleImmediateJob: vi.fn() }
     const service = new LobbyViolationService(scheduler as any, { now: () => 1_000 } as any)
-    container.resolve.mockImplementation(token =>
-      token === LobbyViolationService ? service : makeDependencies(),
-    )
+    const recover = vi.spyOn(service, 'recoverStagedViolations')
 
     const callback = scheduler.scheduleImmediateJob.mock.calls[0][2]
     await callback()
 
-    expect(container.resolve).toHaveBeenCalledWith(LobbyViolationService)
+    expect(recover).toHaveBeenCalledOnce()
     expect(claimPendingGameLobbyViolations).toHaveBeenCalledWith(50, new Date(1_000))
   })
 })

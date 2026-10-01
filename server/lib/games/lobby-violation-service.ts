@@ -9,6 +9,7 @@ import {
   MAX_RECOVERY_ATTEMPTS,
 } from '../models/game-lobby-violations'
 import { Clock } from '../time/clock'
+import { LobbyViolationStager } from './game-loader'
 import GameResultService from './game-result-service'
 
 const LOCAL_RETRY_DELAY_MS = 5_000
@@ -29,19 +30,7 @@ interface LobbyViolationIntent {
  * cancelled only removes the offender from that match and requeues everyone else.
  */
 @singleton()
-export class LobbyViolationService {
-  private static recoveryStarted = false
-
-  static ensureRecoveryScheduled(jobScheduler: JobScheduler) {
-    if (LobbyViolationService.recoveryStarted) return
-    LobbyViolationService.recoveryStarted = true
-    jobScheduler.scheduleImmediateJob(
-      'lib/games#recoverLobbyViolations',
-      RECOVERY_INTERVAL_MS,
-      async () => await container.resolve(LobbyViolationService).recoverStagedViolations(),
-    )
-  }
-
+export class LobbyViolationService implements LobbyViolationStager {
   private recovery: Promise<void> | undefined
   private readonly processing = new Map<string, Promise<void>>()
   private readonly staging = new Map<string, Promise<boolean>>()
@@ -52,7 +41,11 @@ export class LobbyViolationService {
     jobScheduler: JobScheduler,
     private clock: Clock,
   ) {
-    LobbyViolationService.ensureRecoveryScheduled(jobScheduler)
+    jobScheduler.scheduleImmediateJob(
+      'lib/games#recoverLobbyViolations',
+      RECOVERY_INTERVAL_MS,
+      async () => await this.recoverStagedViolations(),
+    )
   }
 
   /** Stages durable evidence and starts effect processing without waiting for it. */

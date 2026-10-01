@@ -111,7 +111,6 @@ import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { GameLifecycleEvents } from './game-lifecycle-events'
 import { getGameRecord } from './game-models'
-import { LobbyViolationService } from './lobby-violation-service'
 import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
@@ -596,8 +595,6 @@ export default class GameResultService {
         }
       },
     )
-
-    LobbyViolationService.ensureRecoveryScheduled(this.jobScheduler)
 
     this.clientSocketsManager.on('newClient', c => {
       c.subscribe(GameResultService.getMatchmakingResultsPath(c.userId))
