@@ -77,113 +77,103 @@ interface FileInputProps {
   onChange?: (file?: File | File[]) => void
 }
 
-export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
-  (
-    {
-      value,
-      label,
-      disabled,
-      showFileName = false,
-      allowErrors = false,
-      errorText,
-      className,
-      testName,
-      inputProps,
-      onChange,
-    },
-    ref,
-  ) => {
-    const { t } = useTranslation()
-    const inputRef = useRef<HTMLInputElement>(null)
+export function FileInput({
+  value,
+  label,
+  disabled,
+  showFileName = false,
+  allowErrors = false,
+  errorText,
+  className,
+  testName,
+  inputProps,
+  onChange,
+}: FileInputProps) {
+  const { t } = useTranslation()
+  const inputRef = useRef<HTMLInputElement>(null)
 
-    if (typeof value === 'string' && value !== '') {
-      throw new Error('non-empty string values are not supported for FileInput')
+  if (typeof value === 'string' && value !== '') {
+    throw new Error('non-empty string values are not supported for FileInput')
+  }
+
+  useEffect(() => {
+    if (
+      value &&
+      inputRef.current?.files &&
+      !isValueAndFileListSame(value, inputRef.current.files)
+    ) {
+      throw new Error(
+        "FileInput's value cannot be changed to a new File programmatically, " +
+          'only through user selection',
+      )
     }
-
-    useEffect(() => {
-      if (
-        value &&
-        inputRef.current?.files &&
-        !isValueAndFileListSame(value, inputRef.current.files)
-      ) {
-        throw new Error(
-          "FileInput's value cannot be changed to a new File programmatically, " +
-            'only through user selection',
-        )
-      }
-      if (inputRef.current?.value && !value) {
-        inputRef.current.value = ''
-      }
-    }, [value])
-
-    const onInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files ? Array.from(event.target.files) : []
-      onChange?.(inputProps.multiple ? files : files[0])
+    if (inputRef.current?.value && !value) {
+      inputRef.current.value = ''
     }
+  }, [value])
 
-    const internalInputProps = {
-      ...inputProps,
-      disabled,
-      type: 'file',
-      onChange: onInputChange,
+  const onInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files ? Array.from(event.target.files) : []
+    onChange?.(inputProps.multiple ? files : files[0])
+  }
+
+  const internalInputProps = {
+    ...inputProps,
+    disabled,
+    type: 'file',
+    onChange: onInputChange,
+  }
+
+  let fileName = ''
+  if (value) {
+    if (Array.isArray(value)) {
+      fileName = value.map(v => v.name).join(', ')
+    } else {
+      fileName = value.name
     }
+  }
 
-    let fileName = ''
-    if (value) {
-      if (Array.isArray(value)) {
-        fileName = value.map(v => v.name).join(', ')
-      } else {
-        fileName = value.name
-      }
-    }
+  return (
+    <FileInputContainer className={className}>
+      <InputContainer>
+        <StyledFilledButton
+          styledAs='div'
+          label={label ?? t('forms.fileInput.chooseFile', 'Choose file')}
+          disabled={disabled}
+          tabIndex={-1}>
+          <input ref={inputRef} data-testid={testName} {...internalInputProps} />
+        </StyledFilledButton>
 
-    return (
-      <FileInputContainer className={className}>
-        <InputContainer>
-          <StyledFilledButton
-            styledAs='div'
-            label={label ?? t('forms.fileInput.chooseFile', 'Choose file')}
-            disabled={disabled}
-            tabIndex={-1}>
-            <input ref={inputRef} data-testid={testName} {...internalInputProps} />
-          </StyledFilledButton>
+        {showFileName && fileName && <FileName>{fileName}</FileName>}
+        {showFileName && !fileName && (
+          <NoFileSelected>{t('forms.fileInput.noFileSelected', 'No file selected')}</NoFileSelected>
+        )}
+      </InputContainer>
 
-          {showFileName && fileName && <FileName>{fileName}</FileName>}
-          {showFileName && !fileName && (
-            <NoFileSelected>
-              {t('forms.fileInput.noFileSelected', 'No file selected')}
-            </NoFileSelected>
-          )}
-        </InputContainer>
+      {allowErrors ? <StyledInputError error={errorText} /> : null}
+    </FileInputContainer>
+  )
+}
 
-        {allowErrors ? <StyledInputError error={errorText} /> : null}
-      </FileInputContainer>
-    )
-  },
-)
-
-export const SingleFileInput = React.forwardRef<
-  HTMLInputElement,
-  Omit<FileInputProps, 'onChange'> & { onChange?: (file?: File) => void }
->((props, ref) => {
+export function SingleFileInput(
+  props: Omit<FileInputProps, 'onChange'> & { onChange?: (file?: File) => void },
+) {
   const onInputChange = (file?: File | File[]) => {
     props.onChange?.(Array.isArray(file) ? file[0] : file)
   }
 
   return (
     <FileInput
-      ref={ref}
       {...props}
       inputProps={{ ...props.inputProps, multiple: false }}
       onChange={onInputChange}
     />
   )
-})
+}
 
-export const MultiFileInput = React.forwardRef<
-  HTMLInputElement,
-  Omit<FileInputProps, 'onChange'> & { onChange?: (files: File[]) => void }
->((props, ref) => {
+export function MultiFileInput(
+  props: Omit<FileInputProps, 'onChange'> & { onChange?: (files: File[]) => void },
+) {
   const onInputChange = (file?: File | File[]) => {
     if (!file) {
       props.onChange?.([])
@@ -194,10 +184,9 @@ export const MultiFileInput = React.forwardRef<
 
   return (
     <FileInput
-      ref={ref}
       {...props}
       inputProps={{ ...props.inputProps, multiple: true }}
       onChange={onInputChange}
     />
   )
-})
+}

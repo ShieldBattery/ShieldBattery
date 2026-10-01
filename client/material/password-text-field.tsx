@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -18,7 +18,7 @@ const VisibilityButton = styled(IconButton)<{ $dense?: boolean }>`
   }}
 `
 
-export const PasswordTextField = forwardRef<HTMLInputElement, TextFieldProps>((props, ref) => {
+export function PasswordTextField(props: TextFieldProps) {
   const { t } = useTranslation()
   const [visible, setVisible] = useState(false)
 
@@ -41,11 +41,6 @@ export const PasswordTextField = forwardRef<HTMLInputElement, TextFieldProps>((p
   )
 
   return (
-    <TextField
-      {...props}
-      ref={ref}
-      type={visible ? 'text' : 'password'}
-      trailingIcons={[visibilityButton]}
-    />
+    <TextField {...props} type={visible ? 'text' : 'password'} trailingIcons={[visibilityButton]} />
   )
-})
+}

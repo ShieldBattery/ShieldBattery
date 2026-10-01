@@ -20,77 +20,82 @@ interface SearchInputProps {
   /** The field's label. Defaults to "Search". */
   label?: string
   className?: string
+  ref?: React.Ref<SearchInputHandle>
 }
 
-export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>(
-  ({ searchQuery, onSearchChange, label, className }, ref) => {
-    const { t } = useTranslation()
-    const [inputValue, setInputValue] = useState(searchQuery)
-    const [searchFocused, setInputFocused] = useState(false)
-    const inputRef = useRef<HTMLInputElement>(null)
+export function SearchInput({
+  searchQuery,
+  onSearchChange,
+  label,
+  className,
+  ref,
+}: SearchInputProps) {
+  const { t } = useTranslation()
+  const [inputValue, setInputValue] = useState(searchQuery)
+  const [searchFocused, setInputFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-    const [prevSearchQuery, setPrevSearchQuery] = useState<string>(searchQuery)
+  const [prevSearchQuery, setPrevSearchQuery] = useState<string>(searchQuery)
 
-    if (searchQuery !== prevSearchQuery) {
-      if (prevSearchQuery !== undefined) {
-        // If we were rendered before and the props have changed, update the input value to match
-        setInputValue(searchQuery)
-      }
-
-      setPrevSearchQuery(searchQuery)
+  if (searchQuery !== prevSearchQuery) {
+    if (prevSearchQuery !== undefined) {
+      // If we were rendered before and the props have changed, update the input value to match
+      setInputValue(searchQuery)
     }
 
-    useImperativeHandle(ref, () => ({
-      clear: () => {
-        if (inputValue) {
-          setInputValue('')
-        }
-      },
-      focus: () => {
-        inputRef?.current?.focus()
-      },
-    }))
+    setPrevSearchQuery(searchQuery)
+  }
 
-    const onInputFocus = useStableCallback(() => {
-      setInputFocused(true)
-    })
-    const onInputBlur = useStableCallback(() => {
-      setInputFocused(false)
-    })
-    const onInputChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(event.target.value)
-      onSearchChange(event.target.value)
-    })
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      if (inputValue) {
+        setInputValue('')
+      }
+    },
+    focus: () => {
+      inputRef?.current?.focus()
+    },
+  }))
 
-    useKeyListener({
-      onKeyDown: useStableCallback(event => {
-        if (event.code === F && event.ctrlKey) {
-          inputRef.current?.focus()
-          inputRef.current?.select()
-          return true
-        } else if (event.code === ESCAPE && searchFocused) {
-          inputRef.current?.blur()
-          return true
-        }
+  const onInputFocus = useStableCallback(() => {
+    setInputFocused(true)
+  })
+  const onInputBlur = useStableCallback(() => {
+    setInputFocused(false)
+  })
+  const onInputChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(event.target.value)
+    onSearchChange(event.target.value)
+  })
 
-        return false
-      }),
-    })
+  useKeyListener({
+    onKeyDown: useStableCallback(event => {
+      if (event.code === F && event.ctrlKey) {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+        return true
+      } else if (event.code === ESCAPE && searchFocused) {
+        inputRef.current?.blur()
+        return true
+      }
 
-    return (
-      <TextField
-        className={className}
-        ref={inputRef}
-        value={inputValue}
-        label={label ?? t('common.actions.search', 'Search')}
-        dense={true}
-        allowErrors={false}
-        onChange={onInputChange}
-        onFocus={onInputFocus}
-        onBlur={onInputBlur}
-        leadingIcons={[<MaterialIcon icon='search' key='search' />]}
-        hasClearButton={true}
-      />
-    )
-  },
-)
+      return false
+    }),
+  })
+
+  return (
+    <TextField
+      className={className}
+      ref={inputRef}
+      value={inputValue}
+      label={label ?? t('common.actions.search', 'Search')}
+      dense={true}
+      allowErrors={false}
+      onChange={onInputChange}
+      onFocus={onInputFocus}
+      onBlur={onInputBlur}
+      leadingIcons={[<MaterialIcon icon='search' key='search' />]}
+      hasClearButton={true}
+    />
+  )
+}

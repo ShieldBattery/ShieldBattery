@@ -1,4 +1,3 @@
-import { forwardRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
@@ -19,12 +18,15 @@ export interface PolicyUpdateNotificationUiProps {
   policyType: SbPolicyType
   showDivider: boolean
   read: boolean
+  ref?: React.Ref<HTMLDivElement>
 }
 
-export const PolicyUpdateNotificationUi = forwardRef<
-  HTMLDivElement,
-  PolicyUpdateNotificationUiProps
->(({ policyType, showDivider, read }, ref) => {
+export function PolicyUpdateNotificationUi({
+  policyType,
+  showDivider,
+  read,
+  ref,
+}: PolicyUpdateNotificationUiProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const label = policyTypeToLabel(policyType, t)
@@ -54,7 +56,7 @@ export const PolicyUpdateNotificationUi = forwardRef<
       }
     />
   )
-})
+}
 
 function policyTypeToDialogType(
   policyType: SbPolicyType,

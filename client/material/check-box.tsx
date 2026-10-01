@@ -165,60 +165,69 @@ export interface CheckBoxProps {
   disabled?: boolean
   className?: string
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>
+  ref?: React.Ref<HTMLInputElement>
 }
 
-export const CheckBox = React.forwardRef<HTMLInputElement, CheckBoxProps>(
-  ({ name, checked, label, value, disabled, className, inputProps, onChange }, ref) => {
-    const id = useId()
-    const [isKeyboardFocused, setIsKeyboardFocused] = useState(false)
-    const mouseActiveRef = useRef(false)
-    const clearMouseActiveRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+export function CheckBox({
+  name,
+  checked,
+  label,
+  value,
+  disabled,
+  className,
+  inputProps,
+  onChange,
+  ref,
+}: CheckBoxProps) {
+  const id = useId()
+  const [isKeyboardFocused, setIsKeyboardFocused] = useState(false)
+  const mouseActiveRef = useRef(false)
+  const clearMouseActiveRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-    const onBlur = useCallback(() => {
-      setIsKeyboardFocused(false)
-    }, [])
-    const onFocus = useCallback(() => {
-      if (!mouseActiveRef.current) {
-        setIsKeyboardFocused(true)
-      }
-    }, [])
-    const onMouseDown = useCallback(() => {
-      if (clearMouseActiveRef.current) {
-        clearTimeout(clearMouseActiveRef.current)
-      }
-      clearMouseActiveRef.current = setTimeout(() => {
-        mouseActiveRef.current = false
-        clearMouseActiveRef.current = undefined
-      }, 100)
-      mouseActiveRef.current = true
-    }, [])
+  const onBlur = useCallback(() => {
+    setIsKeyboardFocused(false)
+  }, [])
+  const onFocus = useCallback(() => {
+    if (!mouseActiveRef.current) {
+      setIsKeyboardFocused(true)
+    }
+  }, [])
+  const onMouseDown = useCallback(() => {
+    if (clearMouseActiveRef.current) {
+      clearTimeout(clearMouseActiveRef.current)
+    }
+    clearMouseActiveRef.current = setTimeout(() => {
+      mouseActiveRef.current = false
+      clearMouseActiveRef.current = undefined
+    }, 100)
+    mouseActiveRef.current = true
+  }, [])
 
-    const labelElem = label ? <label htmlFor={id}>{label}</label> : undefined
-    const inputElem = (
-      <input
-        {...inputProps}
-        ref={ref}
-        type='checkbox'
-        id={id}
-        checked={checked}
-        name={name}
-        value={value}
-        disabled={disabled}
-        onBlur={onBlur}
-        onFocus={onFocus}
-        onChange={onChange}
-        onMouseDown={onMouseDown}
-      />
-    )
+  const labelElem = label ? <label htmlFor={id}>{label}</label> : undefined
+  const inputElem = (
+    <input
+      {...inputProps}
+      ref={ref}
+      type='checkbox'
+      id={id}
+      checked={checked}
+      name={name}
+      value={value}
+      disabled={disabled}
+      onBlur={onBlur}
+      onFocus={onFocus}
+      onChange={onChange}
+      onMouseDown={onMouseDown}
+    />
+  )
 
-    return (
-      <Root className={className} $disabled={disabled}>
-        {inputElem}
-        <CheckIconContainer $checked={checked} $focused={isKeyboardFocused} $disabled={disabled}>
-          <CheckIcon $checked={checked} $focused={isKeyboardFocused} $disabled={disabled} />
-        </CheckIconContainer>
-        {labelElem}
-      </Root>
-    )
-  },
-)
+  return (
+    <Root className={className} $disabled={disabled}>
+      {inputElem}
+      <CheckIconContainer $checked={checked} $focused={isKeyboardFocused} $disabled={disabled}>
+        <CheckIcon $checked={checked} $focused={isKeyboardFocused} $disabled={disabled} />
+      </CheckIconContainer>
+      {labelElem}
+    </Root>
+  )
+}
