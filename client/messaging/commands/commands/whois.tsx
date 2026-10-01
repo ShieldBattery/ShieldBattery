@@ -28,7 +28,7 @@ type WhoisStatus = 'self' | 'unknown' | FriendActivityStatus
 function getPresenceWord(presence: ChannelPresence, t: TFunction): string {
   switch (presence) {
     case 'active':
-      return t('chat.commands.whois.presence.active', 'active')
+      return t('chat.commands.whois.presence.online', 'online')
     case 'offline':
       return t('chat.commands.whois.presence.offline', 'offline')
     default:

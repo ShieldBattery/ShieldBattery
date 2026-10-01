@@ -7,6 +7,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useSearch } from 'wouter/use-browser-location'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
@@ -216,7 +217,7 @@ export function ConnectedGameResultsPage({
   const longTimestampFormat = useFormat(longTimestamp)
   const gameDateFormatter = useFormat(gameDateFormat)
 
-  const isPostGame = location.search === '?post-game'
+  const isPostGame = useSearch() === '?post-game'
   const onTabChange = useCallback(
     (tab: ResultsSubPage) => {
       navigateToGameResults(gameId, isPostGame, tab)
@@ -339,7 +340,11 @@ export function ConnectedGameResultsPage({
   }, [gameId])
 
   const headline = useMemo<string>(() => {
-    if (game && !game.results) {
+    if (game?.cancellationReason === 'gameAnomaly') {
+      return t('game.gameAnomaly', 'Game anomalies detected')
+    } else if (game?.canceledAt) {
+      return t('gameDetails.headlineCanceled', 'Game canceled')
+    } else if (game && !game.results) {
       return t('gameDetails.headlineInProgress', 'In progress…')
     } else if (
       selfUser &&
@@ -395,7 +400,13 @@ export function ConnectedGameResultsPage({
     )
   }
 
-  const isLive = !game?.results
+  const isLive = !game?.results && !game?.canceledAt
+  let statusText = t('gameDetails.statusFinal', 'Final')
+  if (game?.canceledAt) {
+    statusText = t('gameDetails.headlineCanceled', 'Game canceled')
+  } else if (isLive) {
+    statusText = t('gameDetails.statusLive', 'Live')
+  }
 
   const selfIsParticipant =
     !!selfUser &&
@@ -410,9 +421,13 @@ export function ConnectedGameResultsPage({
       .filter(p => !p.isComputer && p.id !== selfUser.id)
       .map(p => p.id)
   }, [game, selfUser])
-  // Commending and reporting are limited to finished games you played in, toward the other human
-  // players in them, for a day after the game ends.
-  const feedback = useGameFeedback(gameId, otherPlayerIds, !isLive && selfIsParticipant)
+  // Commending and reporting are limited to finished (not canceled) games you played in, toward the
+  // other human players in them, for a day after the game ends.
+  const feedback = useGameFeedback(
+    gameId,
+    otherPlayerIds,
+    !isLive && !game?.canceledAt && selfIsParticipant,
+  )
   const canReport = feedback.candidates.length > 0
   const openReportDialog = (initialReportedUserId?: SbUserId) => {
     dispatch(
@@ -487,9 +502,7 @@ export function ConnectedGameResultsPage({
           ) : null}
         </HeaderInfo>
         <StatusRow>
-          <LiveFinalIndicator $isLive={isLive}>
-            {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
-          </LiveFinalIndicator>
+          <LiveFinalIndicator $isLive={isLive}>{statusText}</LiveFinalIndicator>
           {game?.manuallyResolved ? (
             <StatusChip $color='var(--theme-on-surface-variant)'>
               {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
@@ -789,6 +802,7 @@ function SummaryPage({
           key={String(key)}
           config={config}
           result={result}
+          raceAssigned={!game.canceledAt}
           mmrChange={!p.isComputer ? mmrChanges?.get(p.id) : undefined}
         />
       )
@@ -1078,10 +1092,17 @@ export interface PlayerResultProps {
   className?: string
   config: GameConfigPlayer
   result?: ReconciledPlayerResult
+  raceAssigned?: boolean
   mmrChange?: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
 }
 
-export function PlayerResult({ className, config, result, mmrChange }: PlayerResultProps) {
+export function PlayerResult({
+  className,
+  config,
+  result,
+  raceAssigned = true,
+  mmrChange,
+}: PlayerResultProps) {
   const { t } = useTranslation()
   const { feedback, onReport } = useContext(ResultsFeedbackContext)
   const shortTimestampFormat = useFormat(shortTimestamp)
@@ -1106,8 +1127,10 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
     <PlayerResultRow onContextMenu={config.isComputer ? undefined : onContextMenu}>
       <PlayerResultContainer className={className} {...buttonProps}>
         <RaceRoot>
-          <StyledRaceIcon race={result?.race ?? config.race} />
-          {result?.race && config.race === 'r' ? <SelectedRandomIcon race='r' /> : null}
+          <StyledRaceIcon race={raceAssigned ? (result?.race ?? config.race) : config.race} />
+          {raceAssigned && result?.race && config.race === 'r' ? (
+            <SelectedRandomIcon race='r' />
+          ) : null}
         </RaceRoot>
         {config.isComputer ? (
           <StyledComputerAvatar />

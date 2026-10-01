@@ -124,8 +124,13 @@ describe('matchmaking/matchmaking-service', () => {
   let publisher: { publish: ReturnType<typeof vi.fn> }
   let activityRegistry: GameplayActivityRegistry
   let banUser: ReturnType<typeof vi.fn>
+  let checkUser: ReturnType<typeof vi.fn>
+  let checkUsers: ReturnType<typeof vi.fn>
   let clientSockets: Map<SbUserId, ClientSocketsGroup>
-  let gameLoader: { loadGame: ReturnType<typeof vi.fn> }
+  let gameLoader: {
+    loadGame: ReturnType<typeof vi.fn<(request: any) => Promise<any>>>
+    cancelLoadingWithoutBlame: ReturnType<typeof vi.fn>
+  }
   let gameServerRegionsService: {
     getRegions: ReturnType<typeof vi.fn>
   }
@@ -199,6 +204,12 @@ describe('matchmaking/matchmaking-service', () => {
       .filter(c => c.userId === userId && c.completionType === completionType)
   }
 
+  async function drainMatchmakingTasks(): Promise<void> {
+    for (let i = 0; i < 5; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     register.clear()
@@ -216,7 +227,10 @@ describe('matchmaking/matchmaking-service', () => {
     ])
     // Defaults to a never-resolving load so tests that only exercise earlier phases (accept, etc.)
     // behave as before; tests that need a completed load override this with a resolved result.
-    gameLoader = { loadGame: vi.fn().mockReturnValue(new Promise<never>(() => {})) }
+    gameLoader = {
+      loadGame: vi.fn().mockReturnValue(new Promise<never>(() => {})),
+      cancelLoadingWithoutBlame: vi.fn().mockReturnValue(true),
+    }
 
     const userSocketsManager = { on: vi.fn(), getById: vi.fn() }
     const clientSocketsManager = {
@@ -225,7 +239,9 @@ describe('matchmaking/matchmaking-service', () => {
     const matchmakingStatus = { isEnabled: () => true }
     const matchmakingSeasonsService = { getCurrentSeason: vi.fn().mockResolvedValue(SEASON) }
     const userIdentifierManager = { findUsersWithIdentifiers: vi.fn().mockResolvedValue([]) }
-    const matchmakingBanService = { banUser }
+    checkUser = vi.fn().mockResolvedValue(undefined)
+    checkUsers = vi.fn().mockResolvedValue(new Set())
+    const matchmakingBanService = { banUser, checkUser, checkUsers }
     const restrictionService = { isRestricted: vi.fn().mockResolvedValue(false) }
     const redisSubscriber = {
       subscribe: vi.fn(async (_channel: string, handler: any) => {
@@ -344,6 +360,7 @@ describe('matchmaking/matchmaking-service', () => {
         maxLatency: 0,
       },
     })
+    await drainMatchmakingTasks()
 
     expect(netcodeV2Service.warmRegions.mock.calls).toEqual(expected.length ? [[expected]] : [])
     expect(gameLoader.loadGame).not.toHaveBeenCalled()
@@ -765,6 +782,14 @@ describe('matchmaking/matchmaking-service', () => {
   describe('tells the requeued player why the game load was canceled', () => {
     const cases: Array<[description: string, error: () => unknown, reason: string]> = [
       [
+        'a relay detected a game anomaly',
+        () =>
+          new BaseGameLoaderError(GameLoadErrorType.GameAnomaly, 'Game anomalies detected', {
+            data: { userId: USER_A },
+          }),
+        'gameAnomaly',
+      ],
+      [
         'a player failed to load',
         () =>
           new BaseGameLoaderError(GameLoadErrorType.PlayerFailed, 'player failed', {
@@ -786,7 +811,7 @@ describe('matchmaking/matchmaking-service', () => {
           new BaseGameLoaderError(GameLoadErrorType.Timeout, 'timed out', {
             data: { unloaded: [] },
           }),
-        'error',
+        'setupUnresolved',
       ],
       [
         'the load failed internally',
@@ -830,6 +855,19 @@ describe('matchmaking/matchmaking-service', () => {
         .filter((call: any[]) => call[0] === clientBPath)
         .map((call: any[]) => call[1])
       expect(clientBEvents).toContainEqual({ type: 'cancelLoading', reason })
+      const clientAPath = getMatchmakingClientPath(clientSockets.get(USER_A)!)
+      const clientACancellation = publisher.publish.mock.calls
+        .filter((call: any[]) => call[0] === clientAPath)
+        .map((call: any[]) => call[1])
+        .find(event => event?.type === 'cancelLoading')
+      expect(clientACancellation?.penalty).toBe(reason === 'gameAnomaly' ? 'pending' : undefined)
+      expect(clientBEvents.find(event => event?.type === 'cancelLoading')?.penalty).toBeUndefined()
+      // A lobby violation's ban is applied from its durable evidence by `LobbyViolationService`
+      expect(banUser.mock.calls.map(([userId]) => userId)).toEqual(
+        reason === 'error' || reason === 'setupUnresolved' || reason === 'gameAnomaly'
+          ? []
+          : [USER_A],
+      )
       expect(clientBEvents.findIndex(e => e?.type === 'requeue')).toBeGreaterThan(
         clientBEvents.findIndex(e => e?.type === 'cancelLoading'),
       )
@@ -1060,5 +1098,251 @@ describe('matchmaking/matchmaking-service', () => {
     )
     expect(byMode.get(MatchmakingType.Match1v1)).toBe(1)
     expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
+  })
+
+  test('keeps an active-banned player out of a match found concurrently', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    checkUsers.mockResolvedValue(new Set([USER_A]))
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+
+    expect(checkUsers).toHaveBeenCalledWith([USER_A, USER_B])
+    expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-b')
+    await expect(service.accept(USER_B)).rejects.toThrow()
+  })
+
+  test('evicts a banned player from an accepting replacement match without banning peers', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    checkUser.mockResolvedValue({})
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+
+    await service.enforceLobbyViolationPenalty({
+      gameId: 'late-game',
+      userId: USER_A,
+      penalty: 'lossAndBan',
+    })
+    await drainMatchmakingTasks()
+
+    expect(banUser).not.toHaveBeenCalled()
+    expect(publisher.publish).toHaveBeenCalledWith(getMatchmakingUserPath(USER_A), {
+      type: 'lobbyViolationPenalty',
+      gameId: 'late-game',
+      penalty: 'lossAndBan',
+      queueRemoved: true,
+    })
+    expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-b')
+  })
+
+  test('cancels a loading replacement before evicting the banned player', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    let resolveLoad: ((result: Result<any, any>) => void) | undefined
+    gameLoader.loadGame.mockImplementation((request: any) => {
+      request.onGameRegistered('replacement-game')
+      return new Promise(resolve => {
+        resolveLoad = resolve
+      })
+    })
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    checkUser.mockResolvedValue({})
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    await drainMatchmakingTasks()
+
+    const enforcing = service.enforceLobbyViolationPenalty({
+      gameId: 'late-game',
+      userId: USER_A,
+      penalty: 'lossAndBan',
+    })
+    await drainMatchmakingTasks()
+    expect(gameLoader.cancelLoadingWithoutBlame).toHaveBeenCalledWith('replacement-game')
+    resolveLoad!(Result.error(new BaseGameLoaderError(GameLoadErrorType.Canceled, 'canceled')))
+    await enforcing
+
+    expect(banUser).not.toHaveBeenCalled()
+    expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-b')
+  })
+
+  test("leaves a loading game to its relay evidence when a player's site socket drops", async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    let request: any
+    gameLoader.loadGame.mockImplementation((loadRequest: any) => {
+      request = loadRequest
+      loadRequest.onGameRegistered('loading-game')
+      return new Promise<never>(() => {})
+    })
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    await drainMatchmakingTasks()
+    expect(request).toBeDefined()
+
+    const clientA = clientSockets.get(USER_A)!
+    const onClose = asMockedFunction(clientA.subscribe)
+      .mock.calls.map(call => call[2])
+      .find(callback => typeof callback === 'function')!
+    onClose(clientA)
+    await drainMatchmakingTasks()
+
+    expect(request.signal.aborted).toBe(false)
+    expect(banUser).not.toHaveBeenCalled()
+    // The loading match still owns the player, so they can't start a search its cleanup would undo
+    await expect(queuePlayer(USER_A, CLIENT_A)).rejects.toThrow()
+  })
+
+  test("doesn't requeue a player whose site socket dropped during a load that then failed", async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    let resolveLoad: ((result: Result<any, any>) => void) | undefined
+    gameLoader.loadGame.mockImplementation((loadRequest: any) => {
+      loadRequest.onGameRegistered('failing-game')
+      return new Promise(resolve => {
+        resolveLoad = resolve
+      })
+    })
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    await drainMatchmakingTasks()
+
+    const clientA = clientSockets.get(USER_A)!
+    const onClose = asMockedFunction(clientA.subscribe)
+      .mock.calls.map(call => call[2])
+      .find(callback => typeof callback === 'function')!
+    onClose(clientA)
+    resolveLoad!(Result.error(new BaseGameLoaderError(GameLoadErrorType.Internal, 'failed')))
+    await drainMatchmakingTasks()
+
+    expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-b')
+    expect(rsRequeuePlayer).not.toHaveBeenCalledWith('ticket-a')
+    // Released with the match, so a fresh search works
+    await queuePlayer(USER_A, CLIENT_A)
+  })
+
+  test('does not abort a replacement game that already started', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    let request: any
+    gameLoader.loadGame.mockImplementation((loadRequest: any) => {
+      request = loadRequest
+      loadRequest.onGameRegistered('started-game')
+      return new Promise<never>(() => {})
+    })
+    gameLoader.cancelLoadingWithoutBlame.mockReturnValue(false)
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+    checkUser.mockResolvedValue({})
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await drainMatchmakingTasks()
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    await drainMatchmakingTasks()
+
+    await service.enforceLobbyViolationPenalty({
+      gameId: 'late-game',
+      userId: USER_A,
+      penalty: 'lossAndBan',
+    })
+
+    expect(gameLoader.cancelLoadingWithoutBlame).toHaveBeenCalledWith('started-game')
+    expect(request.signal.aborted).toBe(false)
+    expect(banUser).not.toHaveBeenCalled()
   })
 })

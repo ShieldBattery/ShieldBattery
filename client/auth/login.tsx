@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
+import { useSearch } from 'wouter/use-browser-location'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { detectedLocale } from '../i18n/i18next'
 import { FilledButton } from '../material/button'
@@ -87,7 +88,8 @@ export function Login() {
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const searchParams = new URLSearchParams(window.location.search)
+  const search = useSearch()
+  const searchParams = new URLSearchParams(search)
   const queryModel: { username?: string } = { username: searchParams.get('username') ?? undefined }
   const { submit, bindInput, bindCheckable, getInputValue, form } = useForm<LoginModel>(
     {
@@ -130,7 +132,7 @@ export function Login() {
   })
 
   const curUsername = getInputValue('username')
-  const signupSearchParams = new URLSearchParams(location.search)
+  const signupSearchParams = new URLSearchParams(search)
   if (curUsername) {
     signupSearchParams.set('username', curUsername)
   }

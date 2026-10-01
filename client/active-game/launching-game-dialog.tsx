@@ -30,7 +30,12 @@ export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
   const matchmakingType = useAtomValue(launchingMatchmakingTypeAtom)
 
   let statusLine: string | undefined
-  if (loadingStatus?.status === 'provisioningGameServer') {
+  if (loadingStatus?.status === 'resolvingFailure') {
+    statusLine = t(
+      'game.launchingGameDialog.resolvingFailure',
+      'Checking why the game could not start…',
+    )
+  } else if (loadingStatus?.status === 'provisioningGameServer') {
     // Deliberately doesn't say *where* the server is starting — server locations hint at where the
     // other players are, and revealing that pre-game invites prejudging or dodging the match.
     statusLine = t('game.launchingGameDialog.startingGameServer', 'Starting a game server…')

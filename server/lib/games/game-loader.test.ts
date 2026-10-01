@@ -1,18 +1,24 @@
 import { register } from '@prometheus-io/client'
+import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, Mock, test, vi } from 'vitest'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
-import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/games/configuration'
+import {
+  GameConfig,
+  GameConfigPlayer,
+  GameSource,
+  LobbyGameConfig,
+} from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { SlotType } from '../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo, MapVisibility } from '../../../common/maps'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { BwUserLatency } from '../../../common/network'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { getMapInfos } from '../maps/map-models'
-import { deleteUserRecordsForGame } from '../models/games-users'
 import { findUsersById } from '../users/user-model'
 import {
   BaseGameLoaderError,
@@ -21,18 +27,19 @@ import {
   GameLoadPlayer,
   GameLoadRequest,
 } from './game-loader'
-import { deleteRecordForGame, updateGameConfig } from './game-models'
+import { cancelGame, finalizeGameSetupCancellation, updateGameConfig } from './game-models'
+import { LobbyViolationService } from './lobby-violation-service'
 import { registerGame } from './registration'
+
+vi.mock('./lobby-violation-service', () => ({ LobbyViolationService: class {} }))
 
 vi.mock('./registration', () => ({
   registerGame: vi.fn(),
 }))
 vi.mock('./game-models', () => ({
   updateGameConfig: vi.fn().mockResolvedValue(undefined),
-  deleteRecordForGame: vi.fn().mockResolvedValue(undefined),
-}))
-vi.mock('../models/games-users', () => ({
-  deleteUserRecordsForGame: vi.fn().mockResolvedValue(undefined),
+  cancelGame: vi.fn().mockResolvedValue(undefined),
+  finalizeGameSetupCancellation: vi.fn().mockResolvedValue(true),
 }))
 vi.mock('../maps/map-models', () => ({
   getMapInfos: vi.fn(),
@@ -137,6 +144,8 @@ describe('games/game-loader/GameLoader', () => {
         options?: { timeoutMs?: number },
       ) => Promise<{
         known: boolean
+        setupFinal?: boolean
+        lobbyViolationSlots?: number[]
         startedAtMs?: number
         connectedSlots: number[]
         startedSlots: number[]
@@ -151,8 +160,8 @@ describe('games/game-loader/GameLoader', () => {
     register.clear()
 
     asMockedFunction(getMapInfos).mockResolvedValue([makeMapInfo()])
-    asMockedFunction(deleteRecordForGame).mockResolvedValue(undefined)
-    asMockedFunction(deleteUserRecordsForGame).mockResolvedValue(undefined)
+    asMockedFunction(cancelGame).mockResolvedValue(undefined)
+    asMockedFunction(finalizeGameSetupCancellation).mockResolvedValue(true)
     asMockedFunction(updateGameConfig).mockResolvedValue(undefined)
 
     publisher = { publish: vi.fn() }
@@ -190,7 +199,7 @@ describe('games/game-loader/GameLoader', () => {
    * order, making p1 slot 0 and p2 slot 1. The pending load is returned wrapped, since an
    * `AsyncResult` is itself thenable and would otherwise be awaited away by this helper.
    */
-  async function startNetworkedLoad(gameId: string) {
+  async function startNetworkedLoad(gameId: string, matchmaking = false) {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
     registerActiveClients([player1.player, player2.player])
@@ -216,10 +225,18 @@ describe('games/game-loader/GameLoader', () => {
       players: [player1.player, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
-      gameConfig: lobbyConfig([
-        [{ id: p1, race: 't', isComputer: false }],
-        [{ id: p2, race: 'z', isComputer: false }],
-      ]),
+      gameConfig: {
+        ...lobbyConfig([
+          [{ id: p1, race: 't', isComputer: false }],
+          [{ id: p2, race: 'z', isComputer: false }],
+        ]),
+        ...(matchmaking
+          ? {
+              gameSource: GameSource.Matchmaking as const,
+              gameSourceExtra: { type: MatchmakingType.Match1v1 },
+            }
+          : {}),
+      } as GameConfig,
     })
 
     // Every awaited step of the setup resolves on an already-resolved promise, so draining the
@@ -250,6 +267,326 @@ describe('games/game-loader/GameLoader', () => {
     return error
   }
 
+  describe('lobby violations', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    test('cancels a custom game without a penalty and retains its cancellation reason', async () => {
+      const { load } = await startNetworkedLoad('custom-anomaly')
+      const penalty = vi.fn()
+      await gameLoader.cancelLoadingForLobbyViolation(
+        'custom-anomaly',
+        77,
+        1,
+        p2,
+        new Date(),
+        penalty,
+      )
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.GameAnomaly)
+      expect(penalty).not.toHaveBeenCalled()
+      expect(cancelGame).toHaveBeenCalledWith('custom-anomaly', 'gameAnomaly')
+    })
+
+    test('blocks competing outcomes and releases without blame when evidence staging fails', async () => {
+      const { load } = await startNetworkedLoad('ranked-anomaly', true)
+      let reject!: (err: Error) => void
+      const penalty = vi.fn(
+        () =>
+          new Promise<void>((_, r) => {
+            reject = r
+          }),
+      )
+      const processing = gameLoader.cancelLoadingForLobbyViolation(
+        'ranked-anomaly',
+        77,
+        1,
+        p2,
+        new Date(),
+        penalty,
+      )
+      expect(gameLoader.registerGameAsLoaded('ranked-anomaly', p1)).toBe(false)
+      expect(gameLoader.maybeCancelLoading('ranked-anomaly', p1)).toBe(false)
+      expect(wasCancelPublished()).toBe(false)
+      reject(new Error('database unavailable'))
+      expect(await processing).toBe(true)
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.Internal)
+      expect(gameLoader.isLoading('ranked-anomaly')).toBe(false)
+    })
+
+    test('a hung evidence write cannot keep a claimed load open past the resolution budget', async () => {
+      const { load } = await startNetworkedLoad('hung-evidence', true)
+      let finish!: () => void
+      const penalty = vi.fn(
+        () =>
+          new Promise<void>(resolve => {
+            finish = resolve
+          }),
+      )
+      const processing = gameLoader.cancelLoadingForLobbyViolation(
+        'hung-evidence',
+        77,
+        1,
+        p2,
+        new Date(),
+        penalty,
+      )
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS - 1)
+      expect(wasCancelPublished()).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await processing).toBe(true)
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.Internal)
+      expect(gameLoader.isLoading('hung-evidence')).toBe(false)
+      finish()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(cancelGame).toHaveBeenCalledTimes(1)
+    })
+
+    test('duplicate evidence shares one staging attempt and preserves the first claim', async () => {
+      const { load } = await startNetworkedLoad('duplicate-evidence', true)
+      let finish!: () => void
+      const penalty = vi.fn(
+        () =>
+          new Promise<void>(resolve => {
+            finish = resolve
+          }),
+      )
+      const first = gameLoader.cancelLoadingForLobbyViolation(
+        'duplicate-evidence',
+        77,
+        1,
+        p2,
+        new Date(123),
+        penalty,
+      )
+      const duplicate = gameLoader.cancelLoadingForLobbyViolation(
+        'duplicate-evidence',
+        77,
+        1,
+        p2,
+        new Date(456),
+        penalty,
+      )
+      expect(duplicate).toBe(first)
+      expect(penalty).toHaveBeenCalledTimes(1)
+      finish()
+      await first
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.GameAnomaly)
+    })
+
+    test('rejects mismatched session, slot, user, and already loaded games', async () => {
+      const { load } = await startNetworkedLoad('identity-anomaly', true)
+      const penalty = vi.fn()
+      for (const [session, slot, user] of [
+        [78, 1, p2],
+        [77, 0, p2],
+        [77, 1, makeSbUserId(3)],
+      ]) {
+        await gameLoader.cancelLoadingForLobbyViolation(
+          'identity-anomaly',
+          session,
+          slot,
+          user as SbUserId,
+          new Date(),
+          penalty,
+        )
+      }
+      expect(penalty).not.toHaveBeenCalled()
+      expect(wasCancelPublished()).toBe(false)
+      gameLoader.registerGameAsLoaded('identity-anomaly', p1)
+      gameLoader.registerGameAsLoaded('identity-anomaly', p2)
+      expect((await load).isOk()).toBe(true)
+      await gameLoader.cancelLoadingForLobbyViolation(
+        'identity-anomaly',
+        77,
+        1,
+        p2,
+        new Date(),
+        penalty,
+      )
+      expect(penalty).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('failed setup settlement', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    test('client failure waits for final setup evidence before blaming that player', async () => {
+      const { load } = await startNetworkedLoad('client-failed')
+      netcodeV2Service.fetchSessionLoadState
+        .mockResolvedValueOnce({
+          known: true,
+          setupFinal: false,
+          connectedSlots: [0],
+          startedSlots: [],
+        })
+        .mockResolvedValue({ known: true, setupFinal: true, connectedSlots: [0], startedSlots: [] })
+      expect(gameLoader.maybeCancelLoading('client-failed', p1)).toBe(true)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(wasCancelPublished()).toBe(false)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledWith(
+        77,
+        expect.objectContaining({ settleLobby: true }),
+      )
+      await vi.advanceTimersByTimeAsync(ATTEST_POLL_MS)
+      expect((await load).errorOrNull()?.data).toEqual({ userId: p1 })
+    })
+
+    test("a dropped site connection doesn't fail the load", async () => {
+      const player1 = makePlayer(p1)
+      const player2 = makePlayer(p2)
+      const clients = new Map([
+        [p1, makeClient(p1)],
+        [p2, makeClient(p2)],
+      ])
+      asMockedFunction(registerGame).mockResolvedValue({
+        gameId: 'subscription-disconnect',
+        resultCodes: new Map([
+          [p1, '1'],
+          [p2, '2'],
+        ]),
+      } as any)
+      activityRegistry.getClientForUser.mockImplementation(id => clients.get(id))
+      asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+      const load = gameLoader.loadGame({
+        players: [player1.player, player2.player],
+        playerInfos: [player1.playerInfo, player2.playerInfo],
+        mapId,
+        gameConfig: lobbyConfig([
+          [{ id: p1, race: 't', isComputer: false }],
+          [{ id: p2, race: 'z', isComputer: false }],
+        ]),
+      })
+      for (let i = 0; i < 100; i++) await Promise.resolve()
+
+      // Nothing hears about the subscription closing, so its drop can't start failure resolution
+      for (const client of clients.values()) {
+        expect(client.subscribe).toHaveBeenCalled()
+        expect(client.subscribe.mock.calls.every(call => call.length === 1)).toBe(true)
+      }
+      gameLoader.registerGameAsLoaded('subscription-disconnect', p1)
+      gameLoader.registerGameAsLoaded('subscription-disconnect', p2)
+      expect((await load).isOk()).toBe(true)
+      expect(netcodeV2Service.fetchSessionLoadState).not.toHaveBeenCalled()
+    })
+
+    test('late evidence staging shares the existing resolution deadline', async () => {
+      const { load } = await startNetworkedLoad('shared-budget', true)
+      gameLoader.maybeCancelLoading('shared-budget', p1)
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS - 3_000)
+      const stage = vi.fn(() => new Promise<void>(() => {}))
+      const evidence = gameLoader.cancelLoadingForLobbyViolation(
+        'shared-budget',
+        77,
+        1,
+        p2,
+        new Date(),
+        stage,
+      )
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(await evidence).toBe(true)
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.Internal)
+    })
+
+    test('does not assign ordinary blame until the final decision is durable', async () => {
+      const { load } = await startNetworkedLoad('final-write-hangs')
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        connectedSlots: [0],
+        startedSlots: [],
+      })
+      asMockedFunction(finalizeGameSetupCancellation).mockImplementationOnce(
+        () => new Promise<boolean>(() => {}),
+      )
+      gameLoader.maybeCancelLoading('final-write-hangs', p1)
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS - 1)
+      expect(wasCancelPublished()).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect((await load).errorOrNull()?.data).toEqual({ unloaded: [] })
+    })
+
+    test('evidence arriving during final decision persistence owns the cancellation', async () => {
+      const { load } = await startNetworkedLoad('final-write-race', true)
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        connectedSlots: [0],
+        startedSlots: [],
+      })
+      let finish!: (persisted: boolean) => void
+      asMockedFunction(finalizeGameSetupCancellation).mockImplementationOnce(
+        () =>
+          new Promise<boolean>(resolve => {
+            finish = resolve
+          }),
+      )
+      gameLoader.maybeCancelLoading('final-write-race', p1)
+      await vi.advanceTimersByTimeAsync(1)
+      await gameLoader.cancelLoadingForLobbyViolation(
+        'final-write-race',
+        77,
+        1,
+        p2,
+        new Date(),
+        vi.fn().mockResolvedValue(true),
+      )
+      finish(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.GameAnomaly)
+      expect((await load).errorOrNull()?.data).toEqual({ userId: p2 })
+    })
+
+    test('a server cancellation stops a handed-off load without blaming a participant', async () => {
+      const { load } = await startNetworkedLoad('server-cancellation')
+      expect(gameLoader.cancelLoadingWithoutBlame('server-cancellation')).toBe(true)
+      expect(gameLoader.registerGameAsLoaded('server-cancellation', p1)).toBe(false)
+      expect((await load).errorOrNull()?.code).toBe(GameLoadErrorType.Canceled)
+      expect(wasCancelPublished()).toBe(true)
+    })
+
+    test('a server cancellation cannot stop a completed load', async () => {
+      const { load } = await startNetworkedLoad('completed-cancellation')
+      gameLoader.registerGameAsLoaded('completed-cancellation', p1)
+      gameLoader.registerGameAsLoaded('completed-cancellation', p2)
+      expect((await load).isOk()).toBe(true)
+      expect(gameLoader.cancelLoadingWithoutBlame('completed-cancellation')).toBe(false)
+      expect(wasCancelPublished()).toBe(false)
+    })
+
+    test('old coordinator responses cannot authorize a failure penalty', async () => {
+      const { load } = await startNetworkedLoad('old-coordinator')
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        connectedSlots: [0],
+        startedSlots: [],
+      })
+      gameLoader.maybeCancelLoading('old-coordinator', p1)
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS)
+      expect((await load).errorOrNull()?.data).toEqual({ unloaded: [] })
+    })
+
+    test('a snapshot violation overrides an innocent player failure without waiting for its webhook', async () => {
+      const stage = vi.fn().mockResolvedValue(undefined)
+      container.registerInstance(LobbyViolationService, { stage } as any)
+      const { load } = await startNetworkedLoad('snapshot-evidence', true)
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: false,
+        setupFinal: false,
+        lobbyViolationSlots: [1],
+        connectedSlots: [0, 1],
+        startedSlots: [],
+      })
+      gameLoader.maybeCancelLoading('snapshot-evidence', p1)
+      await vi.advanceTimersByTimeAsync(1)
+      const error = (await load).errorOrNull()
+      expect(error?.code).toBe(GameLoadErrorType.GameAnomaly)
+      expect(error?.data).toEqual({ userId: p2 })
+      expect(stage).toHaveBeenCalledWith('snapshot-evidence', p2, expect.any(Date))
+      container.clearInstances()
+    })
+  })
+
   describe('load deadline attribution', () => {
     beforeEach(() => {
       vi.useFakeTimers()
@@ -265,6 +602,7 @@ describe('games/game-loader/GameLoader', () => {
     function coordinatorConfirmsComplete() {
       netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
         known: true,
+        setupFinal: true,
         connectedSlots: [],
         startedSlots: [],
       })
@@ -315,6 +653,7 @@ describe('games/game-loader/GameLoader', () => {
     test('blames the player the coordinator pull shows never connected, with no webhooks at all', async () => {
       netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
         known: true,
+        setupFinal: true,
         connectedSlots: [0],
         startedSlots: [],
       })
@@ -333,6 +672,7 @@ describe('games/game-loader/GameLoader', () => {
     test('completes the load when the coordinator pull shows every game loop running', async () => {
       netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
         known: true,
+        setupFinal: true,
         startedAtMs: 1700000000000,
         connectedSlots: [0, 1],
         startedSlots: [0, 1],
@@ -383,6 +723,7 @@ describe('games/game-loader/GameLoader', () => {
         })
         .mockResolvedValue({
           known: true,
+          setupFinal: true,
           startedAtMs: 1700000000000,
           connectedSlots: [0, 1],
           startedSlots: [0, 1],
@@ -406,6 +747,7 @@ describe('games/game-loader/GameLoader', () => {
         })
         .mockResolvedValue({
           known: true,
+          setupFinal: true,
           connectedSlots: [0],
           startedSlots: [],
         })
@@ -493,7 +835,7 @@ describe('games/game-loader/GameLoader', () => {
       return signals
     }
 
-    test('a completion arriving during a pull aborts the pull', async () => {
+    test('start reports during resolution wait for the pull before completing', async () => {
       const signals = pullThatHangs()
       const { load } = await startNetworkedLoad('game-complete-mid-pull')
 
@@ -504,6 +846,7 @@ describe('games/game-loader/GameLoader', () => {
 
       gameLoader.registerGameAsLoaded('game-complete-mid-pull', p1)
       gameLoader.registerGameAsLoaded('game-complete-mid-pull', p2)
+      await vi.advanceTimersByTimeAsync(5_000)
       const result = await load
 
       expect(result.isOk()).toBe(true)
@@ -514,7 +857,7 @@ describe('games/game-loader/GameLoader', () => {
       expect(wasCancelPublished()).toBe(false)
     })
 
-    test('a cancellation arriving during a pull aborts the pull', async () => {
+    test('a client failure during resolution shares the budget and cannot bypass evidence', async () => {
       const signals = pullThatHangs()
       const { load } = await startNetworkedLoad('game-cancel-mid-pull')
 
@@ -522,12 +865,15 @@ describe('games/game-loader/GameLoader', () => {
       expect(signals).toHaveLength(1)
 
       gameLoader.maybeCancelLoading('game-cancel-mid-pull', p1)
+      expect(signals[0].aborted).toBe(false)
+      await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS)
       const result = await load
 
       expect(result.isError()).toBe(true)
       expect(signals[0].aborted).toBe(true)
       await vi.advanceTimersByTimeAsync(ATTEST_BUDGET_MS)
-      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+      expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(3)
+      expect(result.errorOrNull()?.data).toEqual({ unloaded: [] })
     })
 
     test('completes on positive evidence the coordinator cannot vouch for', async () => {
@@ -565,6 +911,7 @@ describe('games/game-loader/GameLoader', () => {
         .mockRejectedValueOnce(new Error('coordinator down'))
         .mockResolvedValue({
           known: true,
+          setupFinal: true,
           connectedSlots: [0],
           startedSlots: [],
         })
@@ -634,7 +981,7 @@ describe('games/game-loader/GameLoader', () => {
     expect((await load).isOk()).toBe(true)
 
     // A webhook the coordinator retried past the load's completion must read as success, not as an
-    // unknown game — there's simply nothing left to record.
+    // unknown game â€” there's simply nothing left to record.
     expect(gameLoader.recordPlayerConnected('game-late-reports', p1)).toBe(true)
     expect(gameLoader.recordSessionStarted('game-late-reports')).toBe(true)
     expect(gameLoader.registerGameAsLoaded('game-late-reports', p1)).toBe(true)
@@ -786,6 +1133,12 @@ describe('games/game-loader/GameLoader', () => {
       expect.objectContaining({ useNetcodeV2: true }),
     )
     expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+    const publishedSetup = publisher.publish.mock.calls.find(
+      call => call[1]?.type === 'setGameConfig',
+    )![1].setup
+    expect(netcodeV2Service.createSessionForGame.mock.calls[0][0]).toMatchObject({
+      seed: publishedSetup.seed,
+    })
 
     expect(activityStatusService.setInGame).toHaveBeenCalledTimes(2)
     expect(activityStatusService.setInGame).toHaveBeenCalledWith(

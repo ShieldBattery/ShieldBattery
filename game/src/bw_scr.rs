@@ -2114,7 +2114,7 @@ impl BwScr {
                         );
                     }
                     if let Some(&byte) = slice.first()
-                        && byte == 0x48
+                        && byte == bw::LOBBY_GAME_INIT_COMMAND
                         && player == 0
                     {
                         let seq = self.snet_next_turn_sequence_number();
@@ -5865,14 +5865,8 @@ impl bw::Bw for BwScr {
 
     unsafe fn do_lobby_game_init(&self, seed: u32) {
         unsafe {
-            let data = bw::LobbyGameInitData {
-                game_init_command: 0x48,
-                random_seed: seed,
-                // TODO(tec27): deal with player bytes if we ever allow save games
-                player_bytes: [8; 8],
-            };
-            let ptr = &data as *const bw::LobbyGameInitData as *const u8;
-            let len = mem::size_of::<bw::LobbyGameInitData>();
+            // TODO(tec27): deal with player bytes if we ever allow save games
+            let data = bw::lobby_game_init_record(seed);
 
             // Only the host (storm id 0) sends the lobby-init `0x48` record; peers receive it. The
             // seed is server-distributed, so every client hand-set its own lobby_state to 8 and the
@@ -5890,13 +5884,10 @@ impl bw::Bw for BwScr {
             let local_storm_id = self.local_storm_id.resolve();
             if local_storm_id == 0 {
                 debug!(
-                    "Sending lobby game init data: {:#x} {:#x} {:#x?} (lobby_state {})",
-                    data.game_init_command,
-                    seed,
-                    data.player_bytes,
+                    "Sending lobby game init data: {data:02x?} (seed {seed:#x}, lobby_state {})",
                     self.lobby_state.resolve(),
                 );
-                (self.send_command)(ptr, len);
+                (self.send_command)(data.as_ptr(), data.len());
             }
         }
     }
@@ -6775,44 +6766,27 @@ fn copy_file_hook(
             return orig(src_name, dest_name, fail_if_exist);
         }
 
-        // Fix dest name to [SB]HHMMSS-maptitle.rep
-        // Limit filename to 50 chars -- SC:R doesn't really seem to have
-        // any limit anymore but if there's something silly with the map title
-        // keep it short anyway.
+        // Rename the copy after the user's replay name template, keeping SC:R's folder.
         let dest_name_len = (0..).find(|&i| *dest_name.add(i) == 0).unwrap();
         let dest_name_slice = std::slice::from_raw_parts(dest_name, dest_name_len);
         let mut path = PathBuf::from(windows::os_string_from_winapi(dest_name_slice));
         path.pop();
 
-        let mut filename_base = format!(
-            "[SB]{}-{}",
-            chrono::Local::now().format("%H%M%S"),
-            game_thread::map_name_for_filename(),
-        );
-        if filename_base.len() > 50 {
-            // Truncate position must be in UTF-8 char boundary for it to not panic.
-            // Not sure if the map title is UTF-8 in the first place though..
-            let truncate_pos = (50..)
-                .take_while(|&i| i < filename_base.len())
-                .find(|&i| filename_base.is_char_boundary(i));
-            if let Some(pos) = truncate_pos {
-                filename_base.truncate(pos);
-            }
-        }
+        let filename_base =
+            crate::replay_name::render(crate::replay_name::template(), &replay_name_context());
 
         let mut i = 2;
         let mut filename = format!("{filename_base}.rep");
-        // Add (2) (3) etc if filename already exists.
-        // Since the filename contains a timestamp, this should only happen on super-rare cases
-        // if two games are being ran at a same time in SB development, but losing one of
-        // those replays wouldn't be nice =)
+        // Add (2) (3) etc if filename already exists. A template without the time (say, just the
+        // matchup and opponent) repeats for every rematch within SC:R's per-day folder, so the
+        // limit only guards against an endless loop.
         loop {
             path.push(&filename);
             if !path.exists() {
                 break;
             }
             path.pop();
-            if i > 32 {
+            if i > 9999 {
                 // ???
                 error!(
                     "Couldn't find suitable filename for {} / {}",
@@ -6832,6 +6806,69 @@ fn copy_file_hook(
         }
 
         result
+    }
+}
+
+/// The game's details that a replay name template can refer to, read once the game has ended.
+///
+/// By then a player who left or was defeated no longer reads as a human in `players[]`, so humans
+/// come from the player id mapping made at game start (their race and team stay in place), named
+/// by their ShieldBattery account rather than the in-game name.
+unsafe fn replay_name_context() -> crate::replay_name::NameContext {
+    unsafe {
+        let bw = bw::get_bw();
+        let players = bw.players();
+        let setup_info = game_thread::setup_info();
+        let local_user_id = game_thread::local_user_id();
+        let user_name = |id: SbUserId| {
+            setup_info
+                .and_then(|info| info.users.iter().find(|u| u.id == id))
+                .map(|u| u.name.clone())
+        };
+
+        let mut participants = Vec::new();
+        for mapping in game_thread::player_id_mapping() {
+            let Some(id) = mapping.game_id.filter(|id| !id.is_observer()) else {
+                continue;
+            };
+            let player = players.add(id.0 as usize);
+            participants.push((
+                id.0,
+                crate::replay_name::NamePlayer {
+                    name: user_name(mapping.sb_user_id)
+                        .unwrap_or_else(|| bw::player_name(player).into_owned()),
+                    race: (*player).race.try_into().ok(),
+                    team: (*player).team,
+                    is_local: Some(mapping.sb_user_id) == local_user_id,
+                },
+            ));
+        }
+        for i in 0..8u8 {
+            let player = players.add(i as usize);
+            // Computers have no player id mapping. In-game player type 1 = computer.
+            if (*player).player_type == 1 {
+                participants.push((
+                    i,
+                    crate::replay_name::NamePlayer {
+                        name: bw::player_name(player).into_owned(),
+                        race: (*player).race.try_into().ok(),
+                        team: (*player).team,
+                        is_local: false,
+                    },
+                ));
+            }
+        }
+        participants.sort_by_key(|&(id, _)| id);
+
+        let now = chrono::Local::now();
+        crate::replay_name::NameContext {
+            date: now.format("%Y-%m-%d").to_string(),
+            time: now.format("%H%M%S").to_string(),
+            map: game_thread::map_name_for_filename(),
+            is_ums: game_thread::is_ums(),
+            local_name: local_user_id.and_then(user_name),
+            players: participants.into_iter().map(|(_, p)| p).collect(),
+        }
     }
 }
 

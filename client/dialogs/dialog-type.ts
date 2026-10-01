@@ -4,6 +4,8 @@ import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/lea
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import {
+  CancelLoadingEvent,
+  LobbyViolationPenaltyEvent,
   MatchCanceledReason,
   MatchmakingSeasonJson,
   PublicMatchmakingRatingChangeJson,
@@ -324,6 +326,9 @@ type MatchCanceledDialogPayload = BaseDialogPayload<
   {
     phase: 'draft' | 'load'
     reason: MatchCanceledReason
+    penalty?: CancelLoadingEvent['penalty'] | LobbyViolationPenaltyEvent['penalty']
+    requeued?: boolean
+    queueRemoved?: boolean
   }
 >
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>

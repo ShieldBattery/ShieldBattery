@@ -568,8 +568,8 @@
         "offline": "<0><0></0></0> 当前离线。",
         "online": "<0><0></0></0> 当前在线。",
         "presence": {
-          "active": "活跃",
-          "offline": "离线"
+          "offline": "离线",
+          "online": "在线"
         },
         "self": "您是 <2><0></0></2>。",
         "unknown": "无法得知 <2><0></0></2> 正在做什么：只有好友和您所在频道的成员才会共享状态。"
@@ -776,13 +776,13 @@
       "title": "解封用户？"
     },
     "userList": {
-      "active": "活跃用户",
       "filter": "筛选成员",
       "inGame": "游戏中",
       "liveNow": "正在直播",
       "loadFailed": "无法加载用户列表",
       "noMatches": "没有找到匹配该名称的成员。",
       "offline": "离线用户",
+      "online": "在线用户",
       "showFewerGames": "收起",
       "showFewerStreams": "收起",
       "showMoreGames_other": "再显示 {{count}} 场游戏",
@@ -2158,19 +2158,20 @@
       "title": "设置（Alt + S）"
     },
     "app": {
+      "replays": {
+        "addFolder": "添加文件夹",
+        "addFolderTitle": "选择录像文件夹",
+        "foldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
+        "foldersTitle": "录像文件夹",
+        "quickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
+        "removeFolder": "移除文件夹"
+      },
       "sound": {
         "masterVolume": "全局音量",
         "title": "声音"
       },
       "system": {
-        "addReplayFolder": "添加文件夹",
-        "addReplayFolderTitle": "选择录像文件夹",
-        "filesOverline": "文件",
         "networkOverline": "网络",
-        "removeReplayFolder": "移除文件夹",
-        "replayFoldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
-        "replayFoldersTitle": "录像文件夹",
-        "replayQuickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
         "runOnStartup": "开机时自动启动ShieldBattery",
         "serverRegion": {
           "autoPlain": "自动（推荐）",

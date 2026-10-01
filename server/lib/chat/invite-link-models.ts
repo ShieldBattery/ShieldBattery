@@ -33,20 +33,18 @@ function convertInviteLinkFromDb(row: DbInviteLink): InviteLinkRecord {
 }
 
 /**
- * Returns the newest link `createdBy` made for a channel with the default settings (an expiry and no
- * use limit) that stays unexpired past `usableUntil`, if there is one. Links made with a use limit or
- * without an expiry were asked for specifically, so they are never handed out in place of a default
- * one.
+ * Returns the newest link `createdBy` made for a channel that still works at `now` (unexpired and
+ * with uses left), if there is one.
  */
-export async function findReusableInviteLink(
+export async function findNewestUsableInviteLink(
   {
     channelId,
     createdBy,
-    usableUntil,
+    now,
   }: {
     channelId: SbChannelId
     createdBy: SbUserId
-    usableUntil: Date
+    now: Date
   },
   withClient?: DbClient,
 ): Promise<InviteLinkRecord | undefined> {
@@ -57,8 +55,8 @@ export async function findReusableInviteLink(
       FROM channel_invite_links
       WHERE channel_id = ${channelId}
         AND created_by = ${createdBy}
-        AND expires_at > ${usableUntil}
-        AND max_uses IS NULL
+        AND (expires_at IS NULL OR expires_at > ${now})
+        AND (max_uses IS NULL OR uses < max_uses)
       ORDER BY created_at DESC
       LIMIT 1;
     `)

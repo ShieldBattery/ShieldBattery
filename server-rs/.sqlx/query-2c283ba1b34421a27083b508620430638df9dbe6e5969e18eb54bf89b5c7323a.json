@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT\n                    g.start_time,\n                    g.game_length,\n                    EXISTS(\n                        SELECT 1 FROM games_users WHERE game_id = g.id AND user_id = $2\n                    ) AS \"played!\"\n                FROM games g\n                WHERE g.id = $1\n            ",
+  "query": "\n                SELECT\n                    g.start_time,\n                    g.game_length,\n                    EXISTS(\n                        SELECT 1 FROM games_users WHERE game_id = g.id AND user_id = $2\n                    ) AS \"played!\"\n                FROM games g\n                WHERE g.id = $1 AND g.canceled_at IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -44,5 +44,5 @@
       null
     ]
   },
-  "hash": "97365a589ae330b5f4098df8f8fc340d0548de0e58815c0a6f136a4d16093f2f"
+  "hash": "2c283ba1b34421a27083b508620430638df9dbe6e5969e18eb54bf89b5c7323a"
 }

@@ -386,12 +386,19 @@ pub struct FowSprite {
     pub sprite: *mut c_void,
 }
 
-// A packet which bw sends to init game data
-#[repr(C, packed)]
-pub struct LobbyGameInitData {
-    pub game_init_command: u8,
-    pub random_seed: u32,
-    pub player_bytes: [u8; 8],
+/// BW's lobby command that ends lobby setup and starts the game with a shared random seed.
+pub const LOBBY_GAME_INIT_COMMAND: u8 = 0x48;
+
+/// The lobby game-init record for a fresh (non-save) game: the command id, the seed as a
+/// little-endian u32, then one player-remap byte per slot, all 8 (BW's "no remapping" value).
+///
+/// This is the only lobby command a netcode v2 session carries: the host sends it and every peer
+/// accepts exactly these bytes from the host and nothing else, so both sides must build it here.
+pub fn lobby_game_init_record(seed: u32) -> [u8; 13] {
+    let mut record = [8u8; 13];
+    record[0] = LOBBY_GAME_INIT_COMMAND;
+    record[1..5].copy_from_slice(&seed.to_le_bytes());
+    record
 }
 
 #[repr(C)]

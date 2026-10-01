@@ -195,6 +195,19 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
 }
 
 /**
+ * Whether the server has answered that it holds no viewable record of `gameId`, as for a replay of a
+ * game hosted on another server. Known only once `useSbGameMap` has fetched that game; `false` until
+ * then.
+ */
+export function useIsSbGameMissing(gameId: string | undefined): boolean {
+  const fetchStatus = useSyncExternalStore(
+    onChange => subscribeToGameFetch(gameId, onChange),
+    () => getGameFetchStatus(gameId),
+  )
+  return fetchStatus === 'terminal'
+}
+
+/**
  * Clears the module-level fetch bookkeeping. Exported for tests only — the state deliberately outlives
  * a hook mount, so it must be reset between cases to stop markers and listeners leaking.
  */

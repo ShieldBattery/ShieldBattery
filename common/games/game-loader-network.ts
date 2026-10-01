@@ -16,7 +16,7 @@ export interface CancelLoading {
  * Intermediate states a load can report to players while it waits on a slower-than-usual step.
  * `provisioningGameServer` means the game server for one or more regions is still being brought up.
  */
-export type GameLoadingStatus = 'provisioningGameServer'
+export type GameLoadingStatus = 'provisioningGameServer' | 'resolvingFailure'
 
 /**
  * Reports an intermediate loading state to a player so the loading UI can explain a longer wait.

@@ -6,6 +6,7 @@ import { AdminReportCounts } from '../admin/admin-report-counts'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Lockup from '../logos/lockup-system-bar-24px.svg?react'
 import { IconButton } from '../material/button'
+import { Tooltip } from '../material/tooltip'
 import { zIndexSystemBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { labelLarge, labelMedium } from '../styles/typography'
@@ -110,16 +111,18 @@ export function SystemBar() {
         <VersionText />
         {DEV_INDICATOR ? (
           // TODO(tec27): Find a place for this + admin that will show up on the web version too
-          <DevIndicator title='Go to dev pages' onClick={() => push('/dev')}>
-            Dev
-          </DevIndicator>
+          <Tooltip text='Go to dev pages' position='bottom' tabIndex={-1}>
+            <DevIndicator onClick={() => push('/dev')}>Dev</DevIndicator>
+          </Tooltip>
         ) : null}
         {isAdmin ? (
-          <StyledIconButton
-            title='Admin'
-            icon={<MaterialIcon icon='admin_panel_settings' size={20} filled={false} />}
-            onClick={onAdminClick}
-          />
+          <Tooltip text='Admin' position='bottom' tabIndex={-1}>
+            <StyledIconButton
+              ariaLabel='Admin'
+              icon={<MaterialIcon icon='admin_panel_settings' size={20} filled={false} />}
+              onClick={onAdminClick}
+            />
+          </Tooltip>
         ) : null}
         {isAdmin ? <AdminReportCounts /> : null}
       </LeftSide>

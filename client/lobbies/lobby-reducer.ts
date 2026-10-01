@@ -636,6 +636,7 @@ const lobbyHandlers = {
       type: LobbyMessageType.LobbyLoadingCanceled,
       time: Date.now(),
       usersAtFault: action.payload.usersAtFault,
+      reason: action.payload.reason,
     })
   },
 

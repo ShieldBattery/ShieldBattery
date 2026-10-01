@@ -29,6 +29,7 @@ import {
   currentSearchInfoAtom,
   foundMatchAtom,
   launchingMatchmakingTypeAtom,
+  MatchCancellationPenalty,
   matchLaunchingAtom,
 } from '../matchmaking-atoms'
 import { eventToAction } from '../socket-handlers'
@@ -52,8 +53,27 @@ export function MatchDialogsTest() {
   const [acceptedPlayers, setAcceptedPlayers] = useState(0)
   const [hasAccepted, setHasAccepted] = useState(false)
   const [showProvisioningStatus, setShowProvisioningStatus] = useState(false)
+  const [showResolutionStatus, setShowResolutionStatus] = useState(false)
   const [autoCloseSecs, setAutoCloseSecs] = useState(10)
   const [canceledReason, setCanceledReason] = useState<MatchCanceledReason>('playerLeft')
+
+  const showAnomalyDialog = (
+    penalty: MatchCancellationPenalty | undefined,
+    requeued: boolean,
+    queueRemoved = true,
+  ) => {
+    dispatch(
+      openDialog({
+        type: DialogType.MatchCanceled,
+        initData: {
+          phase: 'load',
+          reason: 'gameAnomaly',
+          ...(penalty ? { penalty, queueRemoved } : {}),
+          ...(requeued ? {} : { requeued: false }),
+        },
+      }),
+    )
+  }
 
   const showAcceptDialog = useStableCallback(() => {
     store.set(currentSearchInfoAtom, {
@@ -81,10 +101,10 @@ export function MatchDialogsTest() {
   const showLaunchingDialog = useStableCallback((type: MatchmakingType | undefined) => {
     store.set(matchLaunchingAtom, true)
     store.set(launchingMatchmakingTypeAtom, type)
-    store.set(
-      gameLoadingStatusAtom,
-      showProvisioningStatus ? { gameId: 'dev-game', status: 'provisioningGameServer' } : undefined,
-    )
+    let status: 'resolvingFailure' | 'provisioningGameServer' | undefined
+    if (showResolutionStatus) status = 'resolvingFailure'
+    else if (showProvisioningStatus) status = 'provisioningGameServer'
+    store.set(gameLoadingStatusAtom, status ? { gameId: 'dev-game', status } : undefined)
     dispatch(openDialog({ type: DialogType.LaunchingGame }))
 
     setTimeout(() => {
@@ -155,6 +175,14 @@ export function MatchDialogsTest() {
             setShowProvisioningStatus((event.currentTarget as HTMLInputElement).checked)
           }
         />
+        <CheckBox
+          name='resolutionStatus'
+          label='Show failed-setup checking status? (launching dialog)'
+          checked={showResolutionStatus}
+          onChange={(event: React.ChangeEvent) =>
+            setShowResolutionStatus((event.currentTarget as HTMLInputElement).checked)
+          }
+        />
         <NumberTextField
           label='Auto-close after (seconds)'
           floatingLabel={true}
@@ -174,6 +202,29 @@ export function MatchDialogsTest() {
           label='Show failed-to-accept dialog'
           onClick={() => dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))}
         />
+        <BodyMedium>
+          These previews open the same match-canceled dialog with synthetic client-only data.
+        </BodyMedium>
+        <FilledButton
+          label='Preview: innocent anomaly, requeued'
+          onClick={() => showAnomalyDialog(undefined, true)}
+        />
+        <FilledButton
+          label='Preview: offender anomaly, loss and ban'
+          onClick={() => showAnomalyDialog('lossAndBan', false)}
+        />
+        <FilledButton
+          label='Preview: offender anomaly, loss and warning'
+          onClick={() => showAnomalyDialog('lossAndWarning', false)}
+        />
+        <FilledButton
+          label='Preview: late warning, current search preserved'
+          onClick={() => showAnomalyDialog('lossAndWarning', false, false)}
+        />
+        <FilledButton
+          label='Preview: offender anomaly, penalty pending'
+          onClick={() => showAnomalyDialog('pending', false)}
+        />
         <Select
           value={canceledReason}
           label='Match canceled reason'
@@ -182,6 +233,7 @@ export function MatchDialogsTest() {
           <SelectOption value='playerLeft' text='playerLeft' />
           <SelectOption value='playerFailedToLoad' text='playerFailedToLoad' />
           <SelectOption value='loadTimeout' text='loadTimeout' />
+          <SelectOption value='setupUnresolved' text='setupUnresolved' />
           <SelectOption value='error' text='error' />
         </Select>
         <FilledButton label='Cancel draft + requeue' onClick={() => showCanceledMatch('draft')} />

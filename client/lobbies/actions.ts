@@ -270,6 +270,7 @@ export interface LobbyUpdateLoadingCanceled {
   payload: {
     /** The users whose failure to load canceled the game, if it's known which ones they were. */
     usersAtFault?: ReadonlyArray<SbUserId>
+    reason?: 'gameAnomaly'
   }
 }
 

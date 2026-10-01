@@ -6,6 +6,7 @@ import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
   NetcodeV2GameEvent,
+  NetcodeV2LobbyViolationNotification,
   NetcodeV2ResultNotification,
   NetcodeV2SessionClosedNotification,
   NetcodeV2SessionStartedNotification,
@@ -19,6 +20,7 @@ import {
   checkGameEventWebhookAuth,
   recordDepartureNotification,
   recordDesyncNotification,
+  recordLobbyViolationNotification,
   recordResultNotification,
   recordSessionClosedNotification,
   recordSessionStartedNotification,
@@ -155,6 +157,16 @@ const SESSION_STARTED_EVENT_SCHEMA = Joi.object<NetcodeV2SessionStartedNotificat
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
 
+const LOBBY_VIOLATION_EVENT_SCHEMA = Joi.object<NetcodeV2LobbyViolationNotification>({
+  event: Joi.string().valid('lobbyViolation').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).max(MAX_SAFE_BIGINT).required(),
+  externalId: Joi.string(),
+  slot: Joi.number().integer().min(0).max(MAX_SLOT).required(),
+  externalRef: Joi.string(),
+  arrivalMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+}).unknown(true)
+
 const SLOT_STARTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotStartedNotification>({
   event: Joi.string().valid('slotStarted').required(),
   tenant: Joi.string().required(),
@@ -182,6 +194,7 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
   SLOT_CONNECTED_EVENT_SCHEMA,
   SESSION_STARTED_EVENT_SCHEMA,
   SLOT_STARTED_EVENT_SCHEMA,
+  LOBBY_VIOLATION_EVENT_SCHEMA,
 )
 
 /**
@@ -219,6 +232,9 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
 
       const { body } = validateRequest(ctx, { body: GAME_EVENT_BODY_SCHEMA })
       switch (body.event) {
+        case 'lobbyViolation':
+          await recordLobbyViolationNotification(body)
+          break
         case 'departure':
           await recordDepartureNotification(body)
           break

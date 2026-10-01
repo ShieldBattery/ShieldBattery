@@ -2,10 +2,12 @@ import got from 'got'
 import { verify as verifyEd25519 } from 'node:crypto'
 import { Logger } from 'pino'
 import { container } from 'tsyringe'
+import { GameSource } from '../../../common/games/configuration'
 import { GameRecord } from '../../../common/games/games'
 import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
+  NetcodeV2LobbyViolationNotification,
   NetcodeV2ResultNotification,
   NetcodeV2SessionClosedNotification,
   NetcodeV2SessionStartedNotification,
@@ -19,12 +21,17 @@ import {
 } from '../../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameLoader } from '../games/game-loader'
-import { getGameRecord } from '../games/game-models'
+import {
+  getGameRecord,
+  getNetcodeV2DebugInfo,
+  hasFinalGameSetupResolution,
+} from '../games/game-models'
 import GameResultService, {
   GameResultServiceError,
   isResultsExempt,
   SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
 } from '../games/game-result-service'
+import { LobbyViolationService } from '../games/lobby-violation-service'
 import log from '../logging/logger'
 import { recordDesyncEvent } from '../models/game-desync-events'
 import { recordUserDeparture } from '../models/games-users'
@@ -594,4 +601,62 @@ export function recordSlotStartedNotification(
   }
 
   registerGameAsLoaded(gameId, userId)
+}
+
+/** Applies delayed evidence only to a canceled load whose persisted roster matches the notice. */
+async function recordCanceledLobbyViolation(
+  notification: NetcodeV2LobbyViolationNotification,
+  gameId: string,
+  userId: SbUserId,
+): Promise<void> {
+  await container.resolve(GameLoader).finishCancellation(gameId)
+  const game = await getGameRecord(gameId)
+  if (!game?.canceledAt || (await hasFinalGameSetupResolution(gameId))) return
+  const session = await getNetcodeV2DebugInfo(gameId)
+  if (
+    session.session !== notification.session ||
+    !session.requestedRegions.some(
+      player => player.slot === notification.slot && player.userId === userId,
+    )
+  )
+    return
+  if (game.config.gameSource === GameSource.Matchmaking) {
+    await container
+      .resolve(LobbyViolationService)
+      .record(gameId, userId, new Date(notification.arrivalMs))
+  }
+}
+
+/** Classifies relay evidence against either the live load or its retained cancellation record. */
+export async function recordLobbyViolationNotification(
+  notification: NetcodeV2LobbyViolationNotification,
+  cancelLoading: GameLoader['cancelLoadingForLobbyViolation'] = (...args) =>
+    container.resolve(GameLoader).cancelLoadingForLobbyViolation(...args),
+  recordViolation: (
+    gameId: string,
+    userId: SbUserId,
+    detectedAt: Date,
+  ) => Promise<boolean | void> = (gameId, userId, detectedAt) =>
+    container.resolve(LobbyViolationService).stage(gameId, userId, detectedAt),
+  recordCanceled: typeof recordCanceledLobbyViolation = recordCanceledLobbyViolation,
+): Promise<void> {
+  if (notification.tenant !== loadConfigFromEnv()?.tenant) {
+    return
+  }
+  const gameId = parseGameId(notification.externalId, 'lobbyViolation')
+  const userId = parseUserId(notification.externalRef, { gameId })
+  if (!gameId || !userId || !Number.isSafeInteger(userId)) {
+    return
+  }
+  const canceled = await cancelLoading(
+    gameId,
+    notification.session,
+    notification.slot,
+    userId,
+    new Date(notification.arrivalMs),
+    recordViolation,
+  )
+  if (!canceled) {
+    await recordCanceled(notification, gameId, userId)
+  }
 }

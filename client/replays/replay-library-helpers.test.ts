@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'vitest'
+import { GameSource } from '../../common/games/configuration'
+import { GameType } from '../../common/games/game-type'
+import { GameRecordJson } from '../../common/games/games'
+import { makeSbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import {
   encodeViewPathname,
+  getGameRecordUserIds,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
@@ -123,6 +128,60 @@ describe('getReplayDisplayTeams', () => {
     expect(layout.kind).toBe('flat')
     expect(layout.teams).toHaveLength(1)
     expect(layout.teams[0]).toHaveLength(1)
+  })
+})
+
+function makeGameRecord(config: Partial<GameRecordJson['config']>): GameRecordJson {
+  return {
+    id: 'game-id',
+    startTime: 0,
+    mapId: makeSbMapId('map-id'),
+    config: {
+      gameSource: GameSource.Lobby,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      teams: [],
+      ...config,
+    } as GameRecordJson['config'],
+    disputable: false,
+    disputeRequested: false,
+    disputeReviewed: false,
+    gameLength: null,
+    results: null,
+    selectedMatchup: null,
+    assignedMatchup: null,
+    manuallyResolved: false,
+  }
+}
+
+describe('getGameRecordUserIds', () => {
+  test('is empty without a game record', () => {
+    expect(getGameRecordUserIds(undefined).size).toBe(0)
+  })
+
+  test('includes human players and observers but not computers', () => {
+    const game = makeGameRecord({
+      teams: [
+        [
+          { id: makeSbUserId(1), race: 't', isComputer: false },
+          { id: makeSbUserId(2), race: 'z', isComputer: true },
+        ],
+        [{ id: makeSbUserId(3), race: 'p', isComputer: false }],
+      ],
+      observers: [makeSbUserId(4)],
+    })
+    expect([...getGameRecordUserIds(game)].toSorted()).toEqual([
+      makeSbUserId(1),
+      makeSbUserId(3),
+      makeSbUserId(4),
+    ])
+  })
+
+  test('tolerates records without an observers field', () => {
+    const game = makeGameRecord({
+      teams: [[{ id: makeSbUserId(1), race: 't', isComputer: false }]],
+    })
+    expect([...getGameRecordUserIds(game)]).toEqual([makeSbUserId(1)])
   })
 })
 

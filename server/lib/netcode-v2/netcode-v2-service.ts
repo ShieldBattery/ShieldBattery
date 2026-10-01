@@ -159,6 +159,7 @@ function coordinatorRequestPath(url: string): string {
  */
 interface CoordinatorSessionRequest {
   tenant: string
+  lobby_policy: { allowed: Array<{ slot: number; payload: number[] }> }
   /** The ShieldBattery `gameId`, echoed back on the coordinator's notification webhooks. */
   external_id: string
   players: Array<{
@@ -336,6 +337,10 @@ export interface NetcodeV2SessionLoadState {
    * was unreachable or replaced), so absence from the sets says nothing.
    */
   known: boolean
+  /** Every serving relay closed lobby ingress after reporting prior policy violations. */
+  setupFinal: boolean
+  /** Authenticated slots evicted for lobby violations, including incomplete records. */
+  lobbyViolationSlots: number[]
   /** Unix ms when the authority relay released the session to run, absent if it never did. */
   startedAtMs?: number
   /** The slots whose home relay activated their link. */
@@ -347,6 +352,8 @@ export interface NetcodeV2SessionLoadState {
 /** The wire shape of the coordinator's `POST /session/load-state` response. */
 interface CoordinatorSessionLoadStateResponse {
   known: boolean
+  setupFinal?: boolean
+  lobbyViolationSlots?: number[]
   startedAtMs?: number
   connectedSlots?: number[]
   startedSlots?: number[]
@@ -573,11 +580,13 @@ export class NetcodeV2Service {
    */
   async createSessionForGame({
     gameId,
+    seed,
     slots,
     signal,
     onProvisioning,
   }: {
     gameId: string
+    seed: number
     slots: Array<{
       slot: number
       userId: SbUserId
@@ -637,6 +646,23 @@ export class NetcodeV2Service {
 
     const request: CoordinatorSessionRequest = {
       tenant: config.tenant,
+      // SC:R initializes the server-selected seed and eight slots with this lobby record.
+      // eslint-disable-next-line eslint-core/camelcase
+      lobby_policy: {
+        allowed: [
+          {
+            slot: 0,
+            payload: [
+              0x48,
+              seed & 0xff,
+              (seed >>> 8) & 0xff,
+              (seed >>> 16) & 0xff,
+              (seed >>> 24) & 0xff,
+              ...Array<number>(8).fill(8),
+            ],
+          },
+        ],
+      },
       // eslint-disable-next-line eslint-core/camelcase
       external_id: gameId,
       players: slots.map(({ slot, userId, observer, region, pubkey }) => {
@@ -804,13 +830,23 @@ export class NetcodeV2Service {
    * Throws `NetcodeV2ServiceError` if netcode v2 isn't configured or the request fails; a caller
    * that can proceed without the answer decides that for itself.
    *
+   * @param settleLobby closes lobby command processing on the serving relays so an unsuccessful
+   *   setup can reach a final decision; only request this after deciding the setup needs resolution
    * @param timeoutMs how long the whole request may take before it fails
    * @param signal aborts the request early; a load that has completed or been cancelled has no use
    *   for the answer, and the coordinator's work answering it is worth sparing
    */
   async fetchSessionLoadState(
     session: number,
-    { timeoutMs = 6000, signal }: { timeoutMs?: number; signal?: AbortSignal } = {},
+    {
+      timeoutMs = 6000,
+      signal,
+      settleLobby = false,
+    }: {
+      timeoutMs?: number
+      signal?: AbortSignal
+      settleLobby?: boolean
+    } = {},
   ): Promise<NetcodeV2SessionLoadState> {
     const config = this.config
     if (!config) {
@@ -818,7 +854,7 @@ export class NetcodeV2Service {
     }
 
     const url = `${config.coordinatorUrl}/session/load-state`
-    const bodyStr = JSON.stringify({ tenant: config.tenant, session })
+    const bodyStr = JSON.stringify({ tenant: config.tenant, session, settleLobby })
     let response: CoordinatorSessionLoadStateResponse
     try {
       response = await got
@@ -842,6 +878,8 @@ export class NetcodeV2Service {
 
     return {
       known: response.known,
+      setupFinal: response.setupFinal === true,
+      lobbyViolationSlots: response.lobbyViolationSlots ?? [],
       startedAtMs: response.startedAtMs,
       connectedSlots: response.connectedSlots ?? [],
       startedSlots: response.startedSlots ?? [],

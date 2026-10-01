@@ -33,6 +33,14 @@ export const GET_GAMES_LIMIT = 40
  */
 export const MAX_GAMES_OFFSET = 10000
 
+/** Why a game record was cancelled before it completed normally. */
+export type GameCancellationReason =
+  | 'canceled'
+  | 'internal'
+  | 'playerFailed'
+  | 'timeout'
+  | 'gameAnomaly'
+
 export interface GameRecord {
   id: string
   startTime: Date
@@ -45,6 +53,10 @@ export interface GameRecord {
   results: [SbUserId, ReconciledPlayerResult][] | null
   selectedMatchup: MatchupString | null
   assignedMatchup: MatchupString | null
+  /** When set, this game ended before normal result reconciliation. */
+  canceledAt?: Date | null
+  /** The reason the game was cancelled, when it was recorded. */
+  cancellationReason?: GameCancellationReason | null
   /**
    * Whether an admin hand-assigned this game's outcomes instead of them coming purely from
    * reconciled player reports. Who did it and when is kept server-side only.
@@ -118,6 +130,8 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
     results: game.results,
     selectedMatchup: game.selectedMatchup,
     assignedMatchup: game.assignedMatchup,
+    canceledAt: game.canceledAt ? Number(game.canceledAt) : game.canceledAt,
+    cancellationReason: game.cancellationReason,
     manuallyResolved: game.manuallyResolved,
   }
 }

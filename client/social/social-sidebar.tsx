@@ -614,14 +614,24 @@ function ChannelEntry({
           basicInfo?.private || isMuted ? (
             <>
               {basicInfo?.private ? (
-                <TrailingGlyph title={t('chat.privateChannelTitle', 'Private channel')}>
-                  <MaterialIcon icon='lock' size={20} />
-                </TrailingGlyph>
+                <Tooltip
+                  text={t('chat.privateChannelTitle', 'Private channel')}
+                  position='top'
+                  tabIndex={-1}>
+                  <TrailingGlyph>
+                    <MaterialIcon icon='lock' size={20} />
+                  </TrailingGlyph>
+                </Tooltip>
               ) : null}
               {isMuted ? (
-                <TrailingGlyph title={t('chat.notifications.mutedTitle', 'Muted')}>
-                  <MaterialIcon icon='notifications_off' size={20} />
-                </TrailingGlyph>
+                <Tooltip
+                  text={t('chat.notifications.mutedTitle', 'Muted')}
+                  position='top'
+                  tabIndex={-1}>
+                  <TrailingGlyph>
+                    <MaterialIcon icon='notifications_off' size={20} />
+                  </TrailingGlyph>
+                </Tooltip>
               ) : null}
             </>
           ) : undefined

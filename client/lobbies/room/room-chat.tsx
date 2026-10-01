@@ -706,6 +706,13 @@ function RoomChatMessage({ message }: MessageComponentProps) {
         </SystemMessage>
       )
     case LobbyMessageType.LobbyLoadingCanceled:
+      if (msg.reason === 'gameAnomaly') {
+        return (
+          <SystemMessage time={msg.time}>
+            {t('game.gameAnomaly', 'Game anomalies detected')}
+          </SystemMessage>
+        )
+      }
       // Naming who failed to load is the difference between a lobby that looks broken and one whose
       // members can see what to do about it, so the culprits are called out whenever they're known.
       // The prefix and suffix are translated separately from the user list between them, since the

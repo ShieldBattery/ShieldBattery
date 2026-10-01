@@ -148,7 +148,7 @@ type GameFeedback {
 	id: UUID!
 	"""
 	When commending and reporting close for this game (its end plus 24 hours). Null when the game
-	has no results yet or the current user didn't play in it.
+	has no results yet, was canceled, or the current user didn't play in it.
 	"""
 	closesAt: DateTime
 	"""

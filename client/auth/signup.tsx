@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
+import { useSearch } from 'wouter/use-browser-location'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
@@ -114,7 +115,8 @@ export function Signup() {
 
   const abortControllerRef = useRef<AbortController>(undefined)
 
-  const searchParams = new URLSearchParams(window.location.search)
+  const search = useSearch()
+  const searchParams = new URLSearchParams(search)
   const queryModel: { username?: string } = { username: searchParams.get('username') ?? undefined }
   const { submit, bindInput, bindCheckable, form } = useForm<SignupModel>(
     {
@@ -257,7 +259,7 @@ export function Signup() {
       </StyledForm>
       <div>
         <Trans t={t} i18nKey='auth.signup.alreadyHaveAccount'>
-          Already have an account? <Link href={`/login${location.search}`}>Log in</Link>
+          Already have an account? <Link href={`/login${search}`}>Log in</Link>
         </Trans>
       </div>
     </AuthLayout>

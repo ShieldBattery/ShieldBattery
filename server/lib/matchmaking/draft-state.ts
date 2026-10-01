@@ -21,7 +21,7 @@ import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { calcEffectiveRating, MatchmakingEntity } from './matchmaking-entity'
+import { calcEffectiveRating, MatchmakingPlayer } from './matchmaking-entity'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 import { getMatchPath, getMatchTeamPath } from './matchmaking-socket-paths'
 
@@ -44,7 +44,7 @@ export class DraftState {
 
   constructor(
     readonly matchId: string,
-    matchTeams: ReadonlyDeep<MatchmakingEntity[][]>,
+    matchTeams: ReadonlyDeep<MatchmakingPlayer[][]>,
     readonly mapInfo: MapInfo,
     private abortController: AbortController,
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
@@ -55,9 +55,9 @@ export class DraftState {
       players: team
         .slice() // Don't mutate original array
         .sort((a, b) => a.rating - b.rating) // Sort by MMR ascending (lowest first)
-        .map(entity => ({
-          userId: entity.id,
-          provisionalRace: entity.race,
+        .map(player => ({
+          userId: player.id,
+          provisionalRace: player.race,
           hasLocked: false,
         })),
     }))

@@ -9,7 +9,7 @@ import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
-import { subtract, union } from '../../../common/data-structures/sets'
+import { subtract } from '../../../common/data-structures/sets'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
   GameConfig,
@@ -60,10 +60,7 @@ import {
   rsRequeuePlayer,
 } from '../matchmaking/matchmaker-rs-client'
 import {
-  getMatchmakingEntityId,
-  getNumPlayersInEntity,
-  getPlayersFromEntity,
-  MatchmakingEntity,
+  MatchmakingPlayer,
   MatchmakingPlayerData,
   matchmakingRatingToPlayerData,
 } from '../matchmaking/matchmaking-entity'
@@ -92,7 +89,7 @@ import {
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { DraftState } from './draft-state'
 import { computeMatchMapCandidates } from './map-selections'
-import { MatchmakingBanService } from './matchmaking-ban-service'
+import { GamePenalty, MatchmakingBanService } from './matchmaking-ban-service'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -167,28 +164,27 @@ class Match {
   private acceptPromises = new Map<SbUserId, Deferred<void>>()
   private acceptTimeout: Promise<void>
   private clearAcceptTimeout: (reason?: any) => void
-  private userIdToRegisteredId = new Map<SbUserId, SbUserId>()
+  private playerIds = new Set<SbUserId>()
 
-  private toKick = new Set<SbUserId>()
   private toBan = new Set<SbUserId>()
   private abortController = new AbortController()
+  private phase: MatchmakingMatchFailPhase = 'accepting'
+  private loadingGameId?: string
+  private forcedLobbyViolationUser?: SbUserId
+  private disconnectedDuringLoad = new Set<SbUserId>()
+  private completed = createDeferred<void>()
   private draftState?: DraftState
 
   constructor(
     readonly id: string,
     readonly type: MatchmakingType,
-    readonly teams: Immutable<MatchmakingEntity[][]>,
+    readonly teams: Immutable<MatchmakingPlayer[][]>,
     readonly formation: MatchFormationTelemetry,
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
   ) {
-    for (const entities of teams) {
-      for (const entity of entities) {
-        const registeredId = getMatchmakingEntityId(entity)
-        for (const p of getPlayersFromEntity(entity)) {
-          this.acceptPromises.set(p.id, createDeferred())
-          this.userIdToRegisteredId.set(p.id, registeredId)
-        }
-      }
+    for (const p of this.players()) {
+      this.acceptPromises.set(p.id, createDeferred())
+      this.playerIds.add(p.id)
     }
 
     this.acceptTimeStart = monotonicNow()
@@ -208,6 +204,64 @@ class Match {
       .catch(swallowNonBuiltins)
   }
 
+  setPhase(phase: MatchmakingMatchFailPhase): void {
+    this.phase = phase
+  }
+
+  setLoadingGameId(gameId: string): void {
+    this.loadingGameId = gameId
+  }
+
+  isLoadingGame(gameId: string): boolean {
+    return this.phase === 'loading' && this.loadingGameId === gameId
+  }
+
+  get isLoading(): boolean {
+    return this.phase === 'loading'
+  }
+
+  /**
+   * Records that a player's matchmaking client went away while the game loaded. They stay in the
+   * match (and out of any new search) until it ends, then leave matchmaking rather than being
+   * requeued.
+   */
+  markDisconnectedDuringLoad(userId: SbUserId): void {
+    this.disconnectedDuringLoad.add(userId)
+  }
+
+  get playersDisconnectedDuringLoad(): ReadonlySet<SbUserId> {
+    return this.disconnectedDuringLoad
+  }
+
+  get loadingGame(): string | undefined {
+    return this.phase === 'loading' ? this.loadingGameId : undefined
+  }
+
+  get signal(): AbortSignal {
+    return this.abortController.signal
+  }
+
+  get completion(): Promise<void> {
+    return this.completed
+  }
+
+  complete(): void {
+    this.completed.resolve()
+  }
+
+  get forcedLobbyViolationPenaltyUser(): SbUserId | undefined {
+    return this.forcedLobbyViolationUser
+  }
+
+  forceLobbyViolationPenalty(userId: SbUserId): boolean {
+    if (!this.playerIds.has(userId)) return false
+    this.forcedLobbyViolationUser = userId
+    this.clearAcceptTimeout()
+    this.draftState?.handleClientLeave()
+    this.abortController.abort()
+    return true
+  }
+
   get acceptStateChanged(): Promise<void> {
     return raceAbort(
       this.abortController.signal,
@@ -219,13 +273,9 @@ class Match {
     return this.acceptTimeStart + MATCHMAKING_ACCEPT_MATCH_TIME_MS - monotonicNow()
   }
 
-  *players(): Generator<Immutable<MatchmakingPlayerData>> {
-    for (const entities of this.teams) {
-      for (const entity of entities) {
-        for (const p of getPlayersFromEntity(entity)) {
-          yield p
-        }
-      }
+  *players(): Generator<Immutable<MatchmakingPlayer>> {
+    for (const team of this.teams) {
+      yield* team
     }
   }
 
@@ -261,21 +311,11 @@ class Match {
 
   markForBan(userId: SbUserId) {
     this.toBan.add(userId)
-    // In case this user was in a party, mark their party for kick
-    this.toKick.add(this.userIdToRegisteredId.get(userId)!)
   }
 
-  getKicksBansAndRequeues(): [
-    toKick: Set<SbUserId>,
-    toBan: Set<SbUserId>,
-    toRequeue: Set<SbUserId>,
-  ] {
-    // Requeue any party leaders and solo players that don't appear in toKick
-    const toRequeue = subtract(
-      new Set(this.teams.flatMap(team => team.map(entity => getMatchmakingEntityId(entity)))),
-      union(this.toKick, this.toBan),
-    )
-    return [new Set(this.toKick), new Set(this.toBan), toRequeue]
+  /** The players to remove from matchmaking and ban, and everyone else, who gets requeued. */
+  getBansAndRequeues(): [toBan: Set<SbUserId>, toRequeue: Set<SbUserId>] {
+    return [new Set(this.toBan), subtract(this.playerIds, this.toBan)]
   }
 
   /**
@@ -319,6 +359,17 @@ function getMatchCanceledReason(
   err: unknown,
   toBan: ReadonlySet<SbUserId>,
 ): MatchCanceledReason {
+  if (
+    phase === 'loading' &&
+    err instanceof MatchmakingServiceError &&
+    err.code === MatchmakingServiceErrorCode.LoadFailed &&
+    isGameLoaderError(err.cause) &&
+    err.cause.code === GameLoadErrorType.Timeout &&
+    !err.cause.data.unloaded.length
+  ) {
+    return 'setupUnresolved'
+  }
+
   if (!toBan.size) {
     return 'error'
   }
@@ -330,6 +381,8 @@ function getMatchCanceledReason(
     isGameLoaderError(err.cause)
   ) {
     switch (err.cause.code) {
+      case GameLoadErrorType.GameAnomaly:
+        return 'gameAnomaly'
       case GameLoadErrorType.PlayerFailed:
         return 'playerFailedToLoad'
       case GameLoadErrorType.Timeout:
@@ -342,11 +395,8 @@ function getMatchCanceledReason(
 
 interface QueueEntry {
   userId: SbUserId
-  /** The user ID that the matchmaking queue is registered under. (e.g. the party leader's ID) */
-  registeredId: SbUserId
   /** All matchmaking types this player is currently queued for. */
   types: Set<MatchmakingType>
-  partyId?: string
   matchId?: string
 }
 
@@ -360,7 +410,7 @@ const ACCEPT_MATCH_LATENCY = 2000
  */
 async function pickMap(
   matchmakingType: MatchmakingType,
-  entities: Immutable<MatchmakingEntity[]>,
+  players: Immutable<MatchmakingPlayer[]>,
 ): Promise<MapInfo> {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
@@ -373,7 +423,7 @@ async function pickMap(
   const mapPool = computeMatchMapCandidates(
     getMatchmakingModeInfo(matchmakingType).mapSelectionStyle,
     currentMapPool.maps,
-    entities.map(e => e.mapSelections),
+    players.map(p => p.mapSelections),
   )
 
   // For "pick" modes the matchmaker only forms matches whose players share a map, so this should be
@@ -640,7 +690,6 @@ export class MatchmakingService {
     this.queueEntries.set(userId, {
       types: new Set(typeDataEntries.map(d => d.type)),
       userId,
-      registeredId: userId,
     })
 
     // Queue the player in the Rust matchmaker with per-mode ratings, then (for the first queuer)
@@ -678,7 +727,9 @@ export class MatchmakingService {
       this.queueEntries.delete(userId)
       // We may have already added the player to the Rust queue (e.g. the token fetch failed after a
       // successful queue); best-effort cancel it so we don't leave a ghost entry behind.
-      this.cancelPlayerInRust(userId)
+      this.cancelPlayerInRust(userId).catch(err => {
+        logger.error({ err, userId }, 'error canceling player in Rust matchmaker')
+      })
       throw result.error
     }
 
@@ -740,6 +791,93 @@ export class MatchmakingService {
     }
 
     this.removeClientFromMatchmaking(clientSockets, false)
+  }
+
+  /**
+   * The client identifiers a user queued with, if they're currently searching or in a match.
+   * Matchmaking only learns a client's identifiers when it queues, so a user who isn't in
+   * matchmaking has none to give.
+   */
+  currentIdentifiers(userId: SbUserId): ReadonlyDeep<ClientIdentifierString[]> | undefined {
+    const entry = this.queueEntries.get(userId)
+    const match = entry?.matchId ? this.matches.get(entry.matchId) : undefined
+    if (match) {
+      for (const p of match.players()) {
+        if (p.id === userId) return p.identifiers
+      }
+    }
+    // Every type a player queues for carries the same identifiers, from the one queue request
+    const [typeData] = this.playerQueueData.get(userId)?.types.values() ?? []
+    return typeData?.playerData.identifiers
+  }
+
+  /**
+   * Applies a lobby-violation penalty to the offender's live matchmaking state and tells them about
+   * it. This is the only place the offender hears about their penalty: the match their violation
+   * cancelled just removes them from it, telling them a penalty is pending.
+   */
+  async enforceLobbyViolationPenalty({
+    gameId,
+    userId,
+    penalty,
+  }: {
+    gameId: string
+    userId: SbUserId
+    penalty: GamePenalty
+  }): Promise<void> {
+    // The violating match's own failure handling removes the offender from the queue; wait it out so
+    // this neither races it nor treats the offender's place in it as a new search to cut short.
+    for (;;) {
+      const entry = this.queueEntries.get(userId)
+      const match = entry?.matchId ? this.matches.get(entry.matchId) : undefined
+      if (!match?.isLoadingGame(gameId)) break
+      await match.completion
+    }
+
+    const hasActiveBan =
+      penalty === 'lossAndBan' && !!(await this.matchmakingBanService.checkUser(userId))
+    const entry = this.queueEntries.get(userId)
+    let queueRemoved = false
+    if (hasActiveBan && entry?.matchId) {
+      const match = this.matches.get(entry.matchId)
+      if (match) {
+        const loadingGameId = match.loadingGame
+        if (loadingGameId && !this.gameLoader.cancelLoadingWithoutBlame(loadingGameId)) {
+          // That game finished loading in the meantime, so it's being played and stays that way
+          this.publishToUser(userId, {
+            type: 'lobbyViolationPenalty',
+            gameId,
+            penalty,
+            queueRemoved,
+          })
+          return
+        }
+        if (match.forceLobbyViolationPenalty(userId)) {
+          queueRemoved = true
+          await match.completion
+        }
+      }
+    }
+
+    const queued = this.queueEntries.get(userId)
+    if (hasActiveBan && queued && !queued.matchId) {
+      const data = this.playerQueueData.get(userId)
+      this.queueEntries.delete(userId)
+      this.playerQueueData.delete(userId)
+      try {
+        await this.cancelPlayerInRust(userId)
+      } catch (err) {
+        if (!this.queueEntries.has(userId)) {
+          this.queueEntries.set(userId, queued)
+          if (data) this.playerQueueData.set(userId, data)
+        }
+        throw err
+      }
+      this.unregisterActivity(userId)
+      queueRemoved = true
+    }
+
+    this.publishToUser(userId, { type: 'lobbyViolationPenalty', gameId, penalty, queueRemoved })
   }
 
   async accept(userId: SbUserId): Promise<void> {
@@ -850,17 +988,6 @@ export class MatchmakingService {
   }
 
   /**
-   * Register that a player left a party. If that party is currently queued, we treat this like a
-   * disconnect.
-   */
-  registerPartyLeave(userId: SbUserId, partyId: string): void {
-    const queueEntry = this.queueEntries.get(userId)
-    if (queueEntry?.partyId === partyId) {
-      this.removeClientFromMatchmaking(this.activityRegistry.getClientForUser(userId)!, false)
-    }
-  }
-
-  /**
    * Validates a client-reported desired region against the live region list. Returns the region
    * whenever it still exists, with whatever measured rtt came with it — a region with no rtt is
    * kept, since placement and region warming need only the region, and the player simply carries no
@@ -952,6 +1079,7 @@ export class MatchmakingService {
   private async runMatch(matchId: string) {
     const match = this.matches.get(matchId)!
     let phase: MatchmakingMatchFailPhase = 'accepting'
+    match.setPhase(phase)
 
     const activeClients = new Map<SbUserId, ClientSocketsGroup>()
 
@@ -992,10 +1120,14 @@ export class MatchmakingService {
       }
 
       const mapInfo = await mapPromise
+      match.signal.throwIfAborted()
       phase = 'drafting'
+      match.setPhase(phase)
       await match.runDraft(activeClients, mapInfo)
 
+      match.signal.throwIfAborted()
       phase = 'loading'
+      match.setPhase(phase)
       const gameId = await this.doGameLoad(match, mapInfo)
 
       this.matchLaunchedMetric.labels(match.type).inc()
@@ -1028,41 +1160,70 @@ export class MatchmakingService {
         ...match.formation,
       }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
 
-      const [toKick, toBan, toRequeue] = match.getKicksBansAndRequeues()
+      // Players whose client went away during the load leave matchmaking with the match. With no
+      // queue entry, the requeue below treats them like any other player who left.
+      for (const id of match.playersDisconnectedDuringLoad) {
+        if (this.matchQueueEntry(id, match)) {
+          this.queueEntries.delete(id)
+          this.unregisterActivity(id)
+        }
+      }
+
+      const forcedUser = match.forcedLobbyViolationPenaltyUser
+      if (forcedUser !== undefined) {
+        // A penalty for another game makes this participant unavailable. Failure/decline reports
+        // racing this cancellation must not turn it into additional penalties for this roster.
+        for (const player of match.players()) {
+          const entry = this.matchQueueEntry(player.id, match)
+          if (!entry) continue
+          if (player.id === forcedUser) {
+            this.queueEntries.delete(player.id)
+            this.unregisterActivity(player.id)
+            continue
+          }
+          entry.matchId = undefined
+          if (phase === 'drafting' || phase === 'loading') {
+            this.publishToActiveClient(player.id, {
+              type: phase === 'drafting' ? 'draftCancel' : 'cancelLoading',
+              reason: 'gameAnomaly',
+            })
+          }
+          this.publishToActiveClient(player.id, { type: 'requeue' })
+          const ticket = this.requeueTickets.get(player.id)
+          this.requeueTickets.delete(player.id)
+          if (ticket) this.requeuePlayerInRust(player.id, ticket)
+        }
+        return
+      }
+
+      const [toBan, toRequeue] = match.getBansAndRequeues()
       const reason = getMatchCanceledReason(phase, err, toBan)
 
-      const entities = match.teams.flat()
+      const matchPlayers = Array.from(match.players())
 
-      for (const id of toKick) {
-        const entity = entities.find(entity => getMatchmakingEntityId(entity) === id)!
-        for (const p of getPlayersFromEntity(entity)) {
-          this.queueEntries.delete(p.id)
+      for (const id of toBan) {
+        // Someone who has already moved on to another search is left to it
+        if (this.matchQueueEntry(id, match)) {
+          this.queueEntries.delete(id)
           if (phase === 'accepting') {
-            this.publishToActiveClient(p.id, {
+            this.publishToActiveClient(id, {
               type: 'acceptTimeout',
             })
           } else if (phase === 'drafting') {
-            this.publishToActiveClient(p.id, {
+            this.publishToActiveClient(id, {
               type: 'draftCancel',
               reason,
             })
           } else if (phase === 'loading') {
-            this.publishToActiveClient(p.id, {
+            this.publishToActiveClient(id, {
               type: 'cancelLoading',
               reason,
+              // The violation's penalty is applied, and announced, by `LobbyViolationService`
+              penalty: reason === 'gameAnomaly' ? 'pending' : undefined,
             })
           }
-          this.unregisterActivity(p.id)
+          this.unregisterActivity(id)
         }
-      }
-
-      const matchPlayers = Array.from(match.players())
-      // NOTE(tec27): Unlike toKick/toRequeue, these are just raw user IDs and don't correspond to
-      // an entity, we can use them directly
-      for (const id of toBan) {
-        // Just make extra certain we've removed the queue entry for this player
-        this.queueEntries.delete(id)
-        this.unregisterActivity(id)
 
         const player = matchPlayers.find(p => p.id === id)
         if (!player) {
@@ -1076,6 +1237,10 @@ export class MatchmakingService {
         // reduce the potential risk of a user on a shared machine getting a ton of people banned
         // at once. We store the user ID alongside these anyway so at the very least this account
         // should always be hit by the ban.
+        if (reason === 'gameAnomaly') {
+          // A lobby violation's ban comes from its durable evidence, in `LobbyViolationService`
+          continue
+        }
         this.matchmakingBanService.banUser(player.id, player.identifiers).catch(err => {
           logger.error({ err }, 'error while issuing matchmaking ban to user')
         })
@@ -1084,55 +1249,45 @@ export class MatchmakingService {
       }
 
       for (const id of toRequeue) {
-        const entity = entities.find(entity => getMatchmakingEntityId(entity) === id)!
-        let playerMissing = false
+        const queueEntry = this.matchQueueEntry(id, match)
+        if (!queueEntry) {
+          // This client must have disconnected/left
+          continue
+        }
 
-        for (const p of getPlayersFromEntity(entity)) {
-          const queueEntry = this.queueEntries.get(p.id)
-          if (!queueEntry) {
-            // This client must have disconnected/left
-            playerMissing = true
-            continue
-          }
+        queueEntry.matchId = undefined
 
-          queueEntry.matchId = undefined
-
-          if (phase === 'drafting') {
-            this.publishToActiveClient(p.id, {
-              type: 'draftCancel',
-              reason,
-            })
-          } else if (phase === 'loading') {
-            this.publishToActiveClient(p.id, {
-              type: 'cancelLoading',
-              reason,
-            })
-          }
-
-          this.publishToActiveClient(p.id, {
-            type: 'requeue',
+        if (phase === 'drafting') {
+          this.publishToActiveClient(id, {
+            type: 'draftCancel',
+            reason,
+          })
+        } else if (phase === 'loading') {
+          this.publishToActiveClient(id, {
+            type: 'cancelLoading',
+            reason,
           })
         }
 
-        if (!playerMissing) {
-          for (const p of getPlayersFromEntity(entity)) {
-            const ticket = this.requeueTickets.get(p.id)
-            this.requeueTickets.delete(p.id)
+        this.publishToActiveClient(id, {
+          type: 'requeue',
+        })
 
-            if (!ticket) {
-              logger.error({ userId: p.id }, 'no requeue ticket found for player — cannot requeue')
-              continue
-            }
+        const ticket = this.requeueTickets.get(id)
+        this.requeueTickets.delete(id)
 
-            // Update queuedAt to current time (player is re-entering the queue)
-            const existingData = this.playerQueueData.get(p.id)
-            if (existingData) {
-              existingData.queuedAt = monotonicNow()
-            }
-
-            this.requeuePlayerInRust(p.id, ticket)
-          }
+        if (!ticket) {
+          logger.error({ userId: id }, 'no requeue ticket found for player — cannot requeue')
+          continue
         }
+
+        // Update queuedAt to current time (player is re-entering the queue)
+        const existingData = this.playerQueueData.get(id)
+        if (existingData) {
+          existingData.queuedAt = monotonicNow()
+        }
+
+        this.requeuePlayerInRust(id, ticket)
       }
     } finally {
       for (const client of activeClients.values()) {
@@ -1147,6 +1302,7 @@ export class MatchmakingService {
           this.requeueTickets.delete(p.id)
         }
       }
+      match.complete()
     }
   }
 
@@ -1217,12 +1373,10 @@ export class MatchmakingService {
       const finalRaces = draftState?.getFinalRaces()
 
       playersInTeams = match.teams.map(team =>
-        team.flatMap(entity =>
-          Array.from(getPlayersFromEntity(entity), p => ({
-            userId: p.id,
-            race: finalRaces?.get(p.id) ?? p.race,
-          })),
-        ),
+        team.map(p => ({
+          userId: p.id,
+          race: finalRaces?.get(p.id) ?? p.race,
+        })),
       )
     }
 
@@ -1261,7 +1415,6 @@ export class MatchmakingService {
       netcodeV2Pubkey: this.playerQueueData.get(p.userId)?.clientPubkey,
     }))
 
-    const entities = match.teams.flat()
     const chosenMap = mapInfo
 
     let gameSourceExtra: MatchmakingExtra
@@ -1275,7 +1428,8 @@ export class MatchmakingService {
       case MatchmakingType.Match2v2:
         gameSourceExtra = {
           type: match.type,
-          parties: entities.map(entity => Array.from(getPlayersFromEntity(entity), p => p.id)),
+          // Every player queues alone, so each is their own party in this stored game config
+          parties: Array.from(match.players(), p => [p.id]),
         }
         break
       case MatchmakingType.Match2v2Bgh:
@@ -1324,13 +1478,9 @@ export class MatchmakingService {
       lockedAlliances: true,
     }
 
-    const ratings = match.teams.flatMap(team =>
-      team.flatMap(entities =>
-        Array.from(
-          getPlayersFromEntity(entities),
-          p => [p.id, p.rating] as [id: SbUserId, rating: number],
-        ),
-      ),
+    const ratings = Array.from(
+      match.players(),
+      p => [p.id, p.rating] as [id: SbUserId, rating: number],
     )
 
     for (const client of clients) {
@@ -1343,6 +1493,8 @@ export class MatchmakingService {
       mapId: chosenMap.id,
       gameConfig,
       ratings,
+      signal: match.signal,
+      onGameRegistered: gameId => match.setLoadingGameId(gameId),
     })
 
     if (loadResult.isError()) {
@@ -1350,7 +1502,10 @@ export class MatchmakingService {
         for (const user of loadResult.error.data.unloaded) {
           match.markForBan(user)
         }
-      } else if (loadResult.error.code === GameLoadErrorType.PlayerFailed) {
+      } else if (
+        loadResult.error.code === GameLoadErrorType.PlayerFailed ||
+        loadResult.error.code === GameLoadErrorType.GameAnomaly
+      ) {
         match.markForBan(loadResult.error.data.userId)
       }
 
@@ -1362,11 +1517,11 @@ export class MatchmakingService {
     }
 
     for (const player of match.players()) {
+      // Someone who has already moved on to another search is left to it
+      if (!this.matchQueueEntry(player.id, match)) continue
       this.queueEntries.delete(player.id)
-    }
-    for (const client of clients) {
-      this.publishToActiveClient(client.userId, { type: 'gameStarted' })
-      this.unregisterActivity(client.userId)
+      this.publishToActiveClient(player.id, { type: 'gameStarted' })
+      this.unregisterActivity(player.id)
     }
 
     return loadResult.value.gameId
@@ -1374,14 +1529,59 @@ export class MatchmakingService {
 
   private handleRsMatchEvent(message: PublishedMatchmakingMessage): void {
     if (message.type === 'matchFound') {
-      this.handleMatchFound(message.data)
+      this.handleMatchFound(message.data).catch(err => {
+        logger.error({ err }, 'failed to admit proposed matchmaking roster')
+      })
     }
   }
 
-  private handleMatchFound(event: MatchFoundMessage): void {
+  private async handleMatchFound(event: MatchFoundMessage): Promise<void> {
     const allEntries = [...event.teamA, ...event.teamB]
+    const expected = new Map(
+      allEntries.map(p => {
+        const userId = makeSbUserId(p.id)
+        return [userId, this.queueEntries.get(userId)] as const
+      }),
+    )
+    let banned: Set<SbUserId>
+    try {
+      banned = await this.matchmakingBanService.checkUsers([...expected.keys()])
+    } catch (err) {
+      // An unavailable ban check cannot authorize a match or assign blame. Return each still-current
+      // search to Rust; a later proposal can retry admission when the database is available.
+      for (const player of allEntries) {
+        const id = makeSbUserId(player.id)
+        const entry = this.queueEntries.get(id)
+        if (entry && entry === expected.get(id) && !entry.matchId) {
+          this.requeuePlayerInRust(id, player.ticket)
+        }
+      }
+      logger.error({ err }, 'could not check proposed matchmaking roster bans')
+      return
+    }
+    let rosterChanged = false
+    for (const [id, oldEntry] of expected) {
+      const entry = this.queueEntries.get(id)
+      if (!entry || entry !== oldEntry || entry.matchId) rosterChanged = true
+    }
+    if (banned.size || rosterChanged) {
+      for (const player of allEntries) {
+        const id = makeSbUserId(player.id)
+        const entry = this.queueEntries.get(id)
+        if (!entry || entry !== expected.get(id) || entry.matchId) continue
+        if (banned.has(id)) {
+          this.queueEntries.delete(id)
+          this.playerQueueData.delete(id)
+          this.requeueTickets.delete(id)
+          this.unregisterActivity(id)
+        } else {
+          this.requeuePlayerInRust(id, player.ticket)
+        }
+      }
+      return
+    }
 
-    const buildTeam = (entries: Array<{ id: number; ticket: string }>): MatchmakingEntity[] => {
+    const buildTeam = (entries: Array<{ id: number; ticket: string }>): MatchmakingPlayer[] => {
       return entries.flatMap(entry => {
         const userId = makeSbUserId(entry.id)
         const data = this.playerQueueData.get(userId)
@@ -1403,7 +1603,7 @@ export class MatchmakingService {
             ...typeData.playerData,
             interval: { low: typeData.playerData.rating, high: typeData.playerData.rating },
             searchIterations: 0,
-          } satisfies MatchmakingEntity,
+          } satisfies MatchmakingPlayer,
         ]
       })
     }
@@ -1464,45 +1664,32 @@ export class MatchmakingService {
     )
     this.matches.set(matchInfo.id, matchInfo)
 
-    for (const entities of [teamA, teamB]) {
-      for (const entity of entities) {
-        for (const p of getPlayersFromEntity(entity)) {
-          const queueEntry = this.queueEntries.get(p.id)
-          if (queueEntry) queueEntry.matchId = matchInfo.id
-        }
-      }
+    for (const p of matchInfo.players()) {
+      const queueEntry = this.queueEntries.get(p.id)
+      if (queueEntry) queueEntry.matchId = matchInfo.id
     }
 
     // Log matchmaking completion metrics. Only the matched mode (`event.mode`) gets a completion;
     // any other modes the player was queued for are abandoned without one — see the note where
     // `matchesRequestedMetric` is incremented in `queueSoloPlayer`.
     const completionTime = new Date(this.clock.now())
-    for (const entities of [teamA, teamB]) {
-      for (const entity of entities) {
-        for (const p of getPlayersFromEntity(entity)) {
-          const data = this.playerQueueData.get(p.id)
-          const searchTimeMillis = data ? monotonicNow() - data.queuedAt : 0
-          insertMatchmakingCompletion({
-            userId: p.id,
-            matchmakingType: event.mode,
-            completionType: MatchmakingCompletionType.Found,
-            searchTimeMillis,
-            completionTime,
-            rating: data?.types.get(event.mode)?.playerData.rating,
-          }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
-        }
+    for (const p of matchInfo.players()) {
+      const data = this.playerQueueData.get(p.id)
+      const searchTimeMillis = data ? monotonicNow() - data.queuedAt : 0
+      insertMatchmakingCompletion({
+        userId: p.id,
+        matchmakingType: event.mode,
+        completionType: MatchmakingCompletionType.Found,
+        searchTimeMillis,
+        completionTime,
+        rating: data?.types.get(event.mode)?.playerData.rating,
+      }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
 
-        const firstPlayer = getPlayersFromEntity(entity).next().value
-        const data = firstPlayer ? this.playerQueueData.get(firstPlayer.id) : undefined
-        const searchTimeMillis = data ? monotonicNow() - data.queuedAt : 0
-        this.matchSearchTimeMetric
-          .labels(
-            event.mode,
-            String(getNumPlayersInEntity(entity)),
-            MatchmakingCompletionType.Found,
-          )
-          .observe(searchTimeMillis / 1000)
-      }
+      // `party_size` is always 1 since every player queues alone; the label is kept so the metric's
+      // existing series continue
+      this.matchSearchTimeMetric
+        .labels(event.mode, '1', MatchmakingCompletionType.Found)
+        .observe(searchTimeMillis / 1000)
     }
     this.matchesFoundMetric.labels(event.mode).inc()
 
@@ -1658,18 +1845,18 @@ export class MatchmakingService {
    * POST for that player (see `pendingRequeues`). Without this, a cancel issued immediately after a
    * requeue could have its DELETE reach Rust before the POST, leaving the player as a ghost entry.
    */
-  private cancelPlayerInRust(userId: SbUserId): void {
+  private async cancelPlayerInRust(userId: SbUserId): Promise<void> {
     const pendingRequeue = this.pendingRequeues.get(userId) ?? Promise.resolve()
-    pendingRequeue
-      .then(() => rsCancelPlayer(userId))
-      .then(result => {
-        if (result.isError()) {
-          logger.error({ err: result.error, userId }, 'failed to cancel player in Rust matchmaker')
-        }
-      })
-      .catch(err => {
-        logger.error({ err, userId }, 'error canceling player in Rust matchmaker')
-      })
+    const result = await pendingRequeue.then(() => rsCancelPlayer(userId))
+    if (result.isError()) {
+      throw result.error
+    }
+  }
+
+  /** A player's queue entry, if it still belongs to `match` rather than to a later search. */
+  private matchQueueEntry(userId: SbUserId, match: Match): QueueEntry | undefined {
+    const entry = this.queueEntries.get(userId)
+    return entry?.matchId === match.id ? entry : undefined
   }
 
   private unregisterActivity(userId: SbUserId) {
@@ -1687,6 +1874,16 @@ export class MatchmakingService {
     // NOTE(2Pac): Client can leave, i.e. disconnect, while searching, accepting, drafting, or
     // while loading
     const entry = this.queueEntries.get(client.userId)
+    const loadingMatch = entry?.matchId ? this.matches.get(entry.matchId) : undefined
+    if (loadingMatch?.isLoading) {
+      // Once the game is loading, the game client's own connection to its relay is what matters,
+      // so the load carries on and its relay evidence decides whether this player is at fault for
+      // any failure. The match keeps the player until it ends, so they can't start another search
+      // that its cleanup would then tear down.
+      loadingMatch.markDisconnectedDuringLoad(client.userId)
+      return
+    }
+
     const toUnregister = [client.userId]
     // If we didn't find an entry, this client wasn't actually in matchmaking (probably already
     // got removed just before this)
@@ -1698,7 +1895,9 @@ export class MatchmakingService {
         const data = this.playerQueueData.get(client.userId)
         this.playerQueueData.delete(client.userId)
 
-        this.cancelPlayerInRust(client.userId)
+        this.cancelPlayerInRust(client.userId).catch(err => {
+          logger.error({ err, userId: client.userId }, 'error canceling player in Rust matchmaker')
+        })
 
         if (data) {
           const searchTimeMillis = monotonicNow() - data.queuedAt

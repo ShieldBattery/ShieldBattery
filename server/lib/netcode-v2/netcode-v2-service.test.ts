@@ -588,6 +588,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -606,6 +607,9 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       String(c[0]).endsWith('/session/create'),
     )!
     const body = JSON.parse((createCall[1] as any).body)
+    expect(body.lobby_policy).toEqual({
+      allowed: [{ slot: 0, payload: [0x48, 0xef, 0xcd, 0xab, 0x89, 8, 8, 8, 8, 8, 8, 8, 8] }],
+    })
     expect(body.players).toEqual([
       expect.objectContaining({ slot: 0, observer: false, region: 'us-east' }),
       expect.objectContaining({ slot: 1, observer: true }),
@@ -624,6 +628,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u3 = makeSbUserId(3)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -680,6 +685,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     await expect(
       service.createSessionForGame({
+        seed: 0x89abcdef,
         gameId: 'game-1',
         slots: [
           {
@@ -711,6 +717,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -751,6 +758,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -790,6 +798,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -830,6 +839,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -869,6 +879,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
@@ -892,6 +903,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -914,6 +926,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -932,6 +945,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -961,6 +975,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u3 = makeSbUserId(3)
 
     await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
@@ -988,6 +1003,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u3 = makeSbUserId(3)
 
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         {
@@ -1040,6 +1056,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
@@ -1069,6 +1086,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     const resultPromise = service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -1102,6 +1120,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     const resultPromise = service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -1124,6 +1143,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     const resultPromise = service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: controller.signal,
@@ -1146,6 +1166,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
 
     const resultPromise = service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -1170,6 +1191,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const pubkey2 = Buffer.alloc(32, 2).toString('base64')
 
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         { slot: 0, userId: u1, observer: false, pubkey: pubkey1 },
@@ -1195,6 +1217,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     await expect(
       service.createSessionForGame({
+        seed: 0x89abcdef,
         gameId: 'game-1',
         slots: [
           { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
@@ -1217,6 +1240,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u2 = makeSbUserId(2)
 
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
@@ -1249,6 +1273,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue({
       known: true,
+      setupFinal: true,
+      lobbyViolationSlots: [1],
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
@@ -1257,12 +1283,16 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     const service = makeService()
 
     const signal = new AbortController().signal
-    const result = await service.fetchSessionLoadState(42, { timeoutMs: 4000, signal })
+    const result = await service.fetchSessionLoadState(42, {
+      timeoutMs: 4000,
+      signal,
+      settleLobby: true,
+    })
 
     expect(got.post).toHaveBeenCalledWith(
       'http://coordinator.example/session/load-state',
       expect.objectContaining({
-        body: JSON.stringify({ tenant: 'sb-dev', session: 42 }),
+        body: JSON.stringify({ tenant: 'sb-dev', session: 42, settleLobby: true }),
         timeout: { request: 4000 },
         signal,
         headers: expect.objectContaining({
@@ -1274,6 +1304,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     )
     expect(result).toEqual({
       known: true,
+      setupFinal: true,
+      lobbyViolationSlots: [1],
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
@@ -1290,6 +1322,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
 
     expect(result).toEqual({
       known: false,
+      setupFinal: false,
+      lobbyViolationSlots: [],
       startedAtMs: undefined,
       connectedSlots: [],
       startedSlots: [],
@@ -1312,6 +1346,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     // What the coordinator did see happened, whether or not it can promise it saw everything.
     expect(result).toEqual({
       known: false,
+      setupFinal: false,
+      lobbyViolationSlots: [],
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [1],

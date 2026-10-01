@@ -1020,11 +1020,30 @@ export interface MatchReadyEvent {
  * Why a match fell apart after every player accepted it. `error` covers failures no player is
  * blamed for, so nobody was removed from the queue over it.
  */
-export type MatchCanceledReason = 'playerLeft' | 'playerFailedToLoad' | 'loadTimeout' | 'error'
+export type MatchCanceledReason =
+  | 'playerLeft'
+  | 'playerFailedToLoad'
+  | 'loadTimeout'
+  | 'error'
+  | 'setupUnresolved'
+  | 'gameAnomaly'
 
 export interface CancelLoadingEvent {
   type: 'cancelLoading'
   reason: MatchCanceledReason
+  /**
+   * Present only for the recipient whose lobby-policy violation caused the cancellation. Their
+   * penalty is applied separately, and a `LobbyViolationPenaltyEvent` follows once it has been.
+   */
+  penalty?: 'pending'
+}
+
+/** The eventual outcome of a relay-attested lobby-policy violation. */
+export interface LobbyViolationPenaltyEvent {
+  type: 'lobbyViolationPenalty'
+  gameId: string
+  queueRemoved: boolean
+  penalty: 'lossAndBan' | 'lossAndWarning'
 }
 
 export interface GameStartedEvent {
@@ -1106,6 +1125,7 @@ export interface DraftChatMessageEvent {
 }
 
 export type MatchmakingEvent =
+  | LobbyViolationPenaltyEvent
   | StartSearchEvent
   | MatchFoundEvent
   | PlayerAcceptedEvent

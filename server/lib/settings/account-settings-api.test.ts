@@ -39,5 +39,19 @@ describe('settings/account-settings-api', () => {
         updateAccountSettingsSchema.validate({ chatDisplayMode: 'compact' }).error,
       ).toBeDefined()
     })
+
+    test('accepts a replay name template, including an empty one', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ replayNameTemplate: '{date} {matchup}' }).error,
+      ).toBeUndefined()
+      expect(updateAccountSettingsSchema.validate({ replayNameTemplate: '' }).error).toBeUndefined()
+    })
+
+    test('rejects an overlong or non-string replay name template', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ replayNameTemplate: 'x'.repeat(201) }).error,
+      ).toBeDefined()
+      expect(updateAccountSettingsSchema.validate({ replayNameTemplate: 5 }).error).toBeDefined()
+    })
   })
 })

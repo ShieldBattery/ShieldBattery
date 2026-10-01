@@ -536,16 +536,11 @@ export class GameApi {
         }
       }
     } else if (status === GameStatus.Error) {
-      // A launch failure is local to the reporting client and no relay ever sees it, so this stays
-      // the client's own report for every game — and it's the reporter admitting fault, not
-      // accusing anyone else. During a load, an error report cancels the load (and assigns fault; a
-      // no-op otherwise). After the load is done the game is no longer the loader's concern, but the
-      // report still means the reporter's game is over - e.g. a crash mid-game - so it is accepted
-      // rather than rejected, or the game-end signal below would never fire for clients that die
-      // instead of finishing. The return value is ignored: it's false both when the game is no
-      // longer loading and when the reporter was never a participant in it, and those two cases
-      // can't be told apart from this call alone — the game-user record check below is what tells
-      // them apart.
+      // A client can report its own launch failure, but the relay's setup evidence decides fault:
+      // another player's policy violation can make an innocent client's launch fail. The loader
+      // holds cancellation until that decision or its no-blame deadline. A report after loading
+      // remains a game-end signal, including a crash during play. The participation check below
+      // covers both cases because an absent load alone cannot distinguish them.
       this.gameLoader.maybeCancelLoading(gameId, user.id)
     }
 

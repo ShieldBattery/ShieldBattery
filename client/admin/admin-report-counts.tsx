@@ -11,6 +11,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
+import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { labelMedium } from '../styles/typography'
 import { adminReportTimesAtom } from './admin-report-counts-atoms'
@@ -84,11 +85,13 @@ function ReportCount({ kind, times }: { kind: AdminReportKind; times: readonly n
   const title = `${countText} unresolved ${count === 1 ? noun[0] : noun[1]} in the last day`
 
   return (
-    <CountButton type='button' title={title} aria-label={title} {...buttonProps}>
-      <MaterialIcon icon={icon} size={16} filled={false} />
-      <span>{countText}</span>
-      <Ripple ref={rippleRef} />
-    </CountButton>
+    <Tooltip text={title} position='bottom' tabIndex={-1}>
+      <CountButton type='button' aria-label={title} {...buttonProps}>
+        <MaterialIcon icon={icon} size={16} filled={false} />
+        <span>{countText}</span>
+        <Ripple ref={rippleRef} />
+      </CountButton>
+    </Tooltip>
   )
 }
 

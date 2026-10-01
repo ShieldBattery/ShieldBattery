@@ -95,7 +95,8 @@ impl IncompleteInit {
 
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
-    SetSettings(Settings),
+    /// Boxed because it is large and sent once per game, like `SetNetcodeV2Setup` below.
+    SetSettings(Box<Settings>),
     /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app.
     /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
     SetNetcodeV2Setup(Box<NetcodeV2Setup>),
@@ -172,6 +173,7 @@ impl GameState {
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             forge::init(&settings.local, &settings.scr, settings.monitor_bounds);
+            crate::replay_name::set_template(settings.replay_name_template.clone());
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {
@@ -346,7 +348,7 @@ impl GameState {
                 // Storm networking. This must latch on before any native create/join runs: the
                 // host's lobby machine starts flushing lobby turns the instant its session is
                 // created, and those turns have to ride the seam from the very first flush.
-                netcode_v2::with_turn_state(|s| s.enable_lobby_seam());
+                netcode_v2::with_turn_state(|s| s.enable_lobby_seam(info.seed));
                 let _ = app_socket::send_message(
                     &ws_send,
                     "/game/networkStatus",
@@ -694,7 +696,7 @@ impl GameState {
                 // with AI keeps playing versus the computers after the lone human wins or loses.
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
                 netcode_v2::establish_sessionless(local_user.id, has_computers);
-                netcode_v2::with_turn_state(|s| s.enable_lobby_seam());
+                netcode_v2::with_turn_state(|s| s.enable_lobby_seam(info.seed));
                 let _ = app_socket::send_message(
                     &ws_send,
                     "/game/networkStatus",
@@ -1079,7 +1081,7 @@ impl GameState {
                             sb_user_id: player.sb_user_id,
                         })
                         .collect();
-                    game_thread::set_player_id_mapping(mapping);
+                    game_thread::set_player_id_mapping(mapping, state.local_user.id);
                 } else {
                     warn!("Player randomization received too early");
                 }
@@ -2506,25 +2508,12 @@ mod tests {
     }
 
     #[test]
-    fn lobby_game_init_data_has_the_expected_13_byte_layout() {
-        // The exact buffer do_lobby_game_init synthesizes: 0x48, u32 seed (LE), then 8 player bytes
-        // each = 8 (the empty/no-remapping sentinel for a fresh game). This is what the netcode-v2
-        // local-drive injects via process_lobby_commands(ptr, 13, 0).
-        let data = bw::LobbyGameInitData {
-            game_init_command: 0x48,
-            random_seed: 0x1234_5678,
-            player_bytes: [8; 8],
-        };
-        assert_eq!(mem::size_of::<bw::LobbyGameInitData>(), 13);
-        let bytes = unsafe {
-            std::slice::from_raw_parts(
-                &data as *const bw::LobbyGameInitData as *const u8,
-                mem::size_of::<bw::LobbyGameInitData>(),
-            )
-        };
+    fn lobby_game_init_record_has_the_expected_13_byte_layout() {
+        // 0x48, u32 seed (LE), then 8 player bytes each = 8 (the empty/no-remapping sentinel for a
+        // fresh game).
         assert_eq!(
-            bytes,
-            &[0x48, 0x78, 0x56, 0x34, 0x12, 8, 8, 8, 8, 8, 8, 8, 8]
+            bw::lobby_game_init_record(0x1234_5678),
+            [0x48, 0x78, 0x56, 0x34, 0x12, 8, 8, 8, 8, 8, 8, 8, 8]
         );
     }
 

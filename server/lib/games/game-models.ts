@@ -8,7 +8,7 @@ import {
   MatchupFilter,
   MIN_GAME_LENGTH_MS,
 } from '../../../common/games/game-filters'
-import { GameRecord } from '../../../common/games/games'
+import { GameCancellationReason, GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
 import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
@@ -18,6 +18,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
+import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
 /**
@@ -48,6 +49,8 @@ function convertFromDb(row: DbGameRecord): GameRecord {
     results: Array.isArray(row.results) ? row.results : null,
     selectedMatchup: row.selected_matchup,
     assignedMatchup: row.assigned_matchup,
+    canceledAt: row.canceled_at ?? null,
+    cancellationReason: row.cancellation_reason ?? null,
     manuallyResolved: row.manually_resolved,
   }
 }
@@ -83,7 +86,7 @@ export async function getGameRecord(gameId: string): Promise<GameRecord | undefi
   try {
     const result = await client.query<DbGameRecord>(sql`
       SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,
-        game_length, results, selected_matchup, assigned_matchup,
+        game_length, results, selected_matchup, assigned_matchup, canceled_at, cancellation_reason,
         manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games
       WHERE id = ${gameId}`)
@@ -116,18 +119,103 @@ export async function wasUserInGame(gameId: string, userId: SbUserId): Promise<b
 }
 
 /**
- * Deletes a record from the `games` table. This should likely be accompanied by deleting the
- * user-specific result rows in `games_users`.
+ * Marks an unreconciled game as cancelled. The first cancellation reason is retained so retried
+ * cleanup paths cannot overwrite the event that originally ended the game.
  */
-export async function deleteRecordForGame(gameId: string): Promise<void> {
+export async function cancelGame(gameId: string, reason: GameCancellationReason): Promise<void> {
   const { client, done } = await db()
   try {
-    await client.query(sql`DELETE FROM games WHERE id = ${gameId}`)
+    await client.query(sql`
+      UPDATE games
+      SET canceled_at = NOW(), cancellation_reason = ${reason}
+      WHERE id = ${gameId} AND results IS NULL AND canceled_at IS NULL
+    `)
   } finally {
     done()
   }
 }
 
+/** Persists an authoritative setup decision before a caller assigns ordinary failure penalties. */
+export async function finalizeGameSetupCancellation(
+  gameId: string,
+  reason: GameCancellationReason,
+): Promise<boolean> {
+  return await transact(async client => {
+    await client.query(sql`SET LOCAL lock_timeout = '2s'`)
+    await client.query(sql`SET LOCAL statement_timeout = '5s'`)
+    const result = await client.query(sql`
+      UPDATE games
+      SET canceled_at = NOW(), cancellation_reason = ${reason}, setup_resolution_final = TRUE
+      WHERE id = ${gameId} AND results IS NULL AND canceled_at IS NULL
+      RETURNING id
+    `)
+    return !!result.rowCount
+  })
+}
+
+/** Whether a failed setup already has an authoritative decision that excludes later evidence. */
+export async function hasFinalGameSetupResolution(gameId: string): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ setup_resolution_final: boolean }>(sql`
+      SELECT setup_resolution_final FROM games WHERE id = ${gameId}
+    `)
+    return result.rows[0]?.setup_resolution_final ?? false
+  } finally {
+    done()
+  }
+}
+
+/** The locked game state needed to stage an anomaly cancellation. */
+export interface LockedGameForLobbyViolation {
+  config: GameConfig
+  results: unknown
+  canceledAt: Date | null
+  cancellationReason: GameCancellationReason | null
+  setupResolutionFinal: boolean
+}
+
+export async function lockGameForLobbyViolation(
+  client: DbClient,
+  gameId: string,
+): Promise<LockedGameForLobbyViolation | undefined> {
+  const result = await client.query<{
+    config: GameConfig
+    results: unknown
+    canceled_at: Date | null
+    cancellation_reason: GameCancellationReason | null
+    setup_resolution_final: boolean
+  }>(sql`
+    SELECT config, results, canceled_at, cancellation_reason, setup_resolution_final
+    FROM games
+    WHERE id = ${gameId}
+    FOR UPDATE
+  `)
+  const row = result.rows[0]
+  return row
+    ? {
+        config: row.config,
+        results: row.results,
+        canceledAt: row.canceled_at,
+        cancellationReason: row.cancellation_reason,
+        setupResolutionFinal: row.setup_resolution_final,
+      }
+    : undefined
+}
+
+/** Writes an already-locked cancellation with an externally observed event timestamp. */
+export async function setGameCancellation(
+  client: DbClient,
+  gameId: string,
+  reason: GameCancellationReason,
+  canceledAt: Date,
+): Promise<void> {
+  await client.query(sql`
+    UPDATE games
+    SET canceled_at = ${canceledAt}, cancellation_reason = ${reason}
+    WHERE id = ${gameId}
+  `)
+}
 /**
  * Locks a game's row for the remainder of the current transaction and returns whether the game
  * already has reconciled results (also `true` if the game row no longer exists). Reconciliation can
@@ -145,6 +233,23 @@ export async function lockGameAndCheckReconciled(
     SELECT results FROM games WHERE id = ${gameId} FOR UPDATE
   `)
   return result.rows.length === 0 || result.rows[0].results !== null
+}
+/**
+ * Locks a game for normal reconciliation. A cancelled game is terminal for that path even though
+ * an anomaly penalty may still need to write its deliberately limited result later.
+ */
+export async function lockGameAndCheckUnavailableForReconciliation(
+  client: DbClient,
+  gameId: string,
+): Promise<boolean> {
+  const result = await client.query<{ results: unknown; canceled_at: Date | null }>(sql`
+    SELECT results, canceled_at FROM games WHERE id = ${gameId} FOR UPDATE
+  `)
+  return (
+    result.rows.length === 0 ||
+    result.rows[0].results !== null ||
+    result.rows[0].canceled_at !== null
+  )
 }
 
 /**
@@ -384,7 +489,7 @@ export async function countCompletedGames(): Promise<number> {
   const { client, done } = await db()
   try {
     const result = await client.query<{ count: string }>(
-      sql`SELECT COUNT(*) as count FROM games WHERE results IS NOT NULL;`,
+      sql`SELECT COUNT(*) as count FROM games WHERE results IS NOT NULL AND canceled_at IS NULL;`,
     )
     return Number(result.rows[0].count)
   } finally {
@@ -410,6 +515,7 @@ export async function getRecentGamesForUser(
       SELECT g.*, g.manually_resolved_at IS NOT NULL AS manually_resolved
       FROM games_users u JOIN games g ON u.game_id = g.id
       WHERE u.user_id = ${userId}
+      AND g.canceled_at IS NULL
       AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       ORDER BY u.start_time DESC
       LIMIT ${numGames}
@@ -499,6 +605,7 @@ export async function getGames(
     const whereClauses = [
       getGameSourceWhereClause(source),
       sql`g.results IS NOT NULL`,
+      sql`g.canceled_at IS NULL`,
       sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
     let needMapJoin = false
@@ -673,6 +780,7 @@ export async function getGamesForUser(
   try {
     const whereClauses = [
       sql`gu.user_id = ${userId}`,
+      sql`g.canceled_at IS NULL`,
       sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
     let needMapJoin = false
@@ -833,6 +941,7 @@ export async function findUnreconciledGames(
       AND gu."result" IS NULL
       AND gu.reported_at < ${reportedBeforeTime}
       AND g.netcode_v2_session IS NULL
+      AND g.canceled_at IS NULL
       AND (g.config->>'resultsExempt')::boolean IS NOT TRUE;
     `)
     return result.rows.map(row => row.id)
@@ -863,6 +972,7 @@ export async function findUnreconciledV2GamesForProbe(
       FROM games
       WHERE results IS NULL
       AND netcode_v2_session IS NOT NULL
+      AND canceled_at IS NULL
       AND start_time < ${olderThan}
       AND (config->>'resultsExempt')::boolean IS NOT TRUE;
     `)
@@ -898,6 +1008,7 @@ export async function findFullyReportedUnreconciledGames(
       FROM games_users gu
       JOIN games g ON g.id = gu.game_id
       WHERE g.results IS NULL
+      AND g.canceled_at IS NULL
       AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       GROUP BY gu.game_id
       HAVING bool_and(gu.reported_results IS NOT NULL)
@@ -931,6 +1042,7 @@ export async function findKnownCompleteUnreconciledGames(
       FROM games_users gu
       JOIN games g ON g.id = gu.game_id
       WHERE g.results IS NULL
+      AND g.canceled_at IS NULL
       AND (g.config->>'useNetcodeV2')::boolean IS TRUE
       AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       GROUP BY gu.game_id

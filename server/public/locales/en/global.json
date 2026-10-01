@@ -571,19 +571,20 @@
         "offline": "<0><0></0></0> is offline.",
         "online": "<0><0></0></0> is online.",
         "presence": {
-          "active": "active",
-          "offline": "offline"
+          "offline": "offline",
+          "online": "online"
         },
         "self": "You are <2><0></0></2>.",
         "unknown": "Can't tell what <2><0></0></2> is doing: only friends and members of your channels share their status."
       }
     },
     "createChannel": {
-      "bannedError": "You are banned from this channel.",
       "channelName": "Channel name",
+      "chatRestrictedError": "You're currently restricted from chatting, so you can't create channels.",
       "createAction": "Create channel",
       "defaultError": "An error occurred while creating the channel.",
       "maximumOwnedError": "You have reached the limit of created channels. You must leave one channel you created before you can create another.",
+      "nameTakenError": "A channel with this name already exists.",
       "title": "Create channel"
     },
     "createChannelConfirmation": {
@@ -619,10 +620,12 @@
       "expiryLabel": "Expire after",
       "generate": "Generate new link",
       "generateError": "Something went wrong generating a new invite link",
+      "generatePrompt": "Generate a link below to invite people.",
       "loadError": "Something went wrong getting an invite link. You can still generate a new one below.",
       "loading": "Getting a link…",
       "maxUsesLabel": "Maximum uses",
       "noLink": "No link available",
+      "noLinkYet": "No invite link yet",
       "title": "Invite link"
     },
     "inviteLinks": {
@@ -952,13 +955,13 @@
       "title": "Unban user?"
     },
     "userList": {
-      "active": "Active",
       "filter": "Filter people",
       "inGame": "In game",
       "liveNow": "Live now",
       "loadFailed": "Couldn't load the user list",
       "noMatches": "Nobody here matches that name.",
       "offline": "Offline",
+      "online": "Online",
       "showFewerGames": "Show fewer games",
       "showFewerStreams": "Show fewer streams",
       "showMoreGames_one": "Show {{count}} more game",
@@ -1125,6 +1128,7 @@
       "spoilerFree": "Spoiler-free",
       "vs": "vs"
     },
+    "gameAnomaly": "Game anomalies detected",
     "gameSource": {
       "custom": "Custom game",
       "ranked": "Ranked {{matchmakingType}}"
@@ -1154,6 +1158,7 @@
       "useMapSettings": "The map's own units, triggers, and rules."
     },
     "launchingGameDialog": {
+      "resolvingFailure": "Checking why the game could not start…",
       "startingGameServer": "Starting a game server…",
       "title": "Launching game…"
     },
@@ -1279,6 +1284,7 @@
       "title": "Debug Information"
     },
     "errorLoading": "There was a problem loading this game.",
+    "headlineCanceled": "Game canceled",
     "headlineDefault": "Results",
     "headlineDefeat": "Defeat!",
     "headlineDraw": "Draw!",
@@ -2147,15 +2153,37 @@
       "gameFailedToLoad": "The game has failed to load."
     },
     "matchCanceled": {
-      "backInQueue": "You're back in the matchmaking queue, searching for a new match.",
-      "draftError": "The race draft was canceled because of a server error.",
-      "draftPlayerLeft": "A player left during the race draft, so the match was canceled.",
-      "loadError": "The game couldn't start because of a server error.",
-      "loadPlayerLeft": "A player left before the game could start, so the match was canceled.",
-      "loadTimeout": "A player took too long to load, so the game couldn't start.",
-      "notYourFault": "This wasn't your fault. Whoever caused it has been removed from the queue.",
-      "playerFailedToLoad": "A player disconnected or failed to load, so the game couldn't start.",
-      "title": "Match canceled"
+      "anomalyFromYouDescription": "Your game sent match setup commands that ShieldBattery doesn't allow. This usually means the game was modified, or another program interfered with it.",
+      "anomalyFromYouTitle": "Game anomalies detected from your game",
+      "anomalyNoPenaltyDescription": "No win or loss was recorded. Your rating and points are unchanged.",
+      "backInQueueDescription": "Searching for a new match.",
+      "backInQueueTitle": "Back in the queue",
+      "banDescription": "You can't search for matches until the ban ends.",
+      "banRemovedDescription": "You were removed from the queue and can't search again until the ban ends.",
+      "banTitle": "Banned from matchmaking",
+      "becauseOfThis": "Because of this",
+      "errorNoPenaltyDescription": "No win or loss was recorded.",
+      "leadAnomalyFromOtherPlayer": "Game anomalies were detected from another player's game, so the match was stopped.",
+      "leadErrorDraft": "The draft was interrupted by a server error.",
+      "leadLoadError": "The game couldn't start because of a server error.",
+      "leadLoadPlayerLeft": "A player left before the game could start.",
+      "leadLoadTimeout": "A player took too long to load the game.",
+      "leadPlayerFailedToLoad": "A player disconnected or failed to load the game.",
+      "leadPlayerLeftDraft": "A player left during the draft.",
+      "leadSetupUnresolved": "The game couldn't start, and the cause couldn't be determined.",
+      "lossDescription": "This match counts as a loss against your rating.",
+      "lossTitle": "Loss recorded",
+      "noPenaltyTitle": "No penalty for you",
+      "notYourFaultDescription": "The player responsible was removed from the queue.",
+      "notYourFaultTitle": "Not your fault",
+      "penaltyPendingDescription": "A loss and a matchmaking penalty are being recorded for this match.",
+      "penaltyPendingTitle": "Penalty being applied",
+      "removedFromQueueDescription": "You can search again whenever you're ready.",
+      "removedFromQueueTitle": "Removed from the queue",
+      "title": "Match canceled",
+      "unresolvedNoPenaltyDescription": "No win or loss was recorded, and no one was penalized.",
+      "warningDescription": "Repeat violations lead to matchmaking bans.",
+      "warningTitle": "Matchmaking warning"
     },
     "postMatchDialog": {
       "leagues": "Leagues",
@@ -2418,19 +2446,46 @@
       "title": "Settings (Alt + S)"
     },
     "app": {
+      "replays": {
+        "addFolder": "Add folder",
+        "addFolderTitle": "Select a replay folder",
+        "foldersDescription": "Folders indexed by your replay library. The default StarCraft replay folder is added automatically. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
+        "foldersTitle": "Replay folders",
+        "name": {
+          "add": "Add a piece",
+          "description": "How replays are named when they are saved automatically after each game. Drag the pieces to reorder them. Saved to your account.",
+          "empty": "Add pieces below. An empty name uses the default.",
+          "preview1v1": "1v1",
+          "preview2v2": "2v2",
+          "remove": "Remove",
+          "reset": "Reset to default",
+          "textLabel": "Text",
+          "textPlaceholder": "Text",
+          "title": "Replay names",
+          "token": {
+            "date": "Date",
+            "format": "Format",
+            "map": "Map",
+            "matchup": "Matchup",
+            "name": "Your name",
+            "opponentRaces": "Opponent races",
+            "opponents": "Opponents",
+            "race": "Your race",
+            "text": "Text",
+            "time": "Time"
+          }
+        },
+        "openingTitle": "Opening replays",
+        "quickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
+        "removeFolder": "Remove folder",
+        "title": "Replays"
+      },
       "sound": {
         "masterVolume": "Master volume",
         "title": "Sound"
       },
       "system": {
-        "addReplayFolder": "Add folder",
-        "addReplayFolderTitle": "Select a replay folder",
-        "filesOverline": "Files",
         "networkOverline": "Network",
-        "removeReplayFolder": "Remove folder",
-        "replayFoldersDescription": "Folders indexed by your replay library. The default StarCraft replay folder is added automatically. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
-        "replayFoldersTitle": "Replay folders",
-        "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
         "serverRegion": {
           "autoPlain": "Auto (recommended)",

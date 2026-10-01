@@ -51,6 +51,9 @@ static SBAT_REPLAY_DATA: OnceLock<replay::SbatReplayData> = OnceLock::new();
 /// Once this is set it is expected to be valid for the entire game.
 /// Could also be easily extended to have storm ids if mapping between them is needed.
 static PLAYER_ID_MAPPING: OnceLock<Vec<PlayerIdMapping>> = OnceLock::new();
+/// The ShieldBattery user playing (or observing) on this client, set alongside the player id
+/// mapping.
+static LOCAL_USER_ID: OnceLock<SbUserId> = OnceLock::new();
 /// The `(storm id, display name)` pairs whose `net_player_info` entries were written directly
 /// during setup (every human and observer), staged so the game thread can re-apply the writes
 /// after lobby init completes — native `init_game_network` (run on lobby-screen entry) zeroes the
@@ -262,10 +265,17 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
     }
 }
 
-pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
+pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>, local_user_id: SbUserId) {
     if PLAYER_ID_MAPPING.set(mapping).is_err() {
         warn!("Player id mapping set twice");
     }
+    if LOCAL_USER_ID.set(local_user_id).is_err() {
+        warn!("Local user id set twice");
+    }
+}
+
+pub fn local_user_id() -> Option<SbUserId> {
+    LOCAL_USER_ID.get().copied()
 }
 
 /// Stages the `(storm id, name)` pairs registered into `net_player_info` during setup, for the

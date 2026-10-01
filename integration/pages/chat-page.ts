@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test'
+import { expect, Locator, Page } from '@playwright/test'
 import { SocialSidebar } from './social-sidebar'
 
 export class ChatPage extends SocialSidebar {
@@ -60,6 +60,44 @@ export class ChatPage extends SocialSidebar {
     await this.page.waitForURL(url => url.pathname.endsWith(`/${channelName}`))
   }
 
+  /**
+   * Fills in the create channel page and submits it, without waiting for the result. The settings
+   * inputs on that page share their layout with the channel settings page, but not their test ids.
+   */
+  async submitCreateChannelForm({
+    name,
+    description,
+    topic,
+    bannerPath,
+    isPrivate,
+  }: {
+    name: string
+    description?: string
+    topic?: string
+    bannerPath?: string
+    isPrivate?: boolean
+  }): Promise<void> {
+    await this.page.goto('/chat/new')
+    await this.inputCreateChannelName.fill(name)
+    if (bannerPath) {
+      await this.page
+        .locator('input[data-testid="create-channel-banner-input"]')
+        .setInputFiles(bannerPath)
+    }
+    if (description) {
+      await this.page
+        .locator('textarea[data-testid="create-channel-description-input"]')
+        .fill(description)
+    }
+    if (topic) {
+      await this.page.locator('input[data-testid="create-channel-topic-input"]').fill(topic)
+    }
+    if (isPrivate) {
+      await this.inputChannelPrivate.setChecked(true)
+    }
+    await this.buttonCreateChannel.click()
+  }
+
   async setChannelPrivate(isPrivate: boolean): Promise<void> {
     await this.inputChannelPrivate.setChecked(isPrivate)
   }
@@ -77,13 +115,21 @@ export class ChatPage extends SocialSidebar {
     await this.buttonChannelSettings.click()
   }
 
-  /** Opens the invite link dialog from the header and waits for it to show a link. */
+  /** Opens the invite link dialog from the header. */
   async openInviteLinkDialog(): Promise<void> {
     await this.buttonHeaderActions.click()
     await this.page.locator('[data-testid="channel-invite-people-button"]').click()
-    await this.page
-      .locator('[data-testid="channel-invite-link-dialog-url"]', { hasText: '/chat/invite/' })
-      .waitFor()
+    await this.inviteLinkDialogUrlLocator().waitFor()
+  }
+
+  inviteLinkDialogUrlLocator(): Locator {
+    return this.page.locator('[data-testid="channel-invite-link-dialog-url"]')
+  }
+
+  /** Generates a new link in the open invite link dialog and waits for the dialog to show it. */
+  async generateInviteLink(): Promise<void> {
+    await this.page.locator('[data-testid="channel-invite-link-dialog-generate-button"]').click()
+    await expect(this.inviteLinkDialogUrlLocator()).toContainText('/chat/invite/')
   }
 
   async closeInviteLinkDialog(): Promise<void> {

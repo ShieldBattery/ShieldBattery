@@ -1,4 +1,8 @@
 import { ReadonlyDeep } from 'type-fest'
+import {
+  DEFAULT_REPLAY_NAME_TEMPLATE,
+  MAX_REPLAY_NAME_TEMPLATE_LENGTH,
+} from '../replay-name-template'
 import { isUserAvailability, UserAvailability } from '../users/availability'
 
 /**
@@ -37,6 +41,11 @@ export interface AccountSettings {
   availability: UserAvailability
   /** How text messages are laid out in every chat surface that shares the message list. */
   chatDisplayMode: ChatDisplayMode
+  /**
+   * The filename template for replays auto-saved after each game (see
+   * `common/replay-name-template.ts` for the token syntax).
+   */
+  replayNameTemplate: string
 }
 
 /**
@@ -58,6 +67,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   showWhispersEverywhere: true,
   availability: UserAvailability.Online,
   chatDisplayMode: 'classic',
+  replayNameTemplate: DEFAULT_REPLAY_NAME_TEMPLATE,
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(
@@ -89,6 +99,9 @@ export function fillAccountSettingsDefaults(stored: unknown): AccountSettings {
   }
   if (!isChatDisplayMode(result.chatDisplayMode)) {
     result.chatDisplayMode = DEFAULT_ACCOUNT_SETTINGS.chatDisplayMode
+  }
+  if (result.replayNameTemplate.length > MAX_REPLAY_NAME_TEMPLATE_LENGTH) {
+    result.replayNameTemplate = DEFAULT_ACCOUNT_SETTINGS.replayNameTemplate
   }
 
   return result

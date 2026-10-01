@@ -111,19 +111,6 @@ export async function createGameUserRecord(
 }
 
 /**
- * Deletes all user-specific records for a particular game.
- */
-export async function deleteUserRecordsForGame(gameId: string): Promise<void> {
-  const { client, done } = await db()
-
-  try {
-    await client.query(sql`DELETE FROM games_users WHERE game_id = ${gameId}`)
-  } finally {
-    done()
-  }
-}
-
-/**
  * Retrieves a particular user-specific game record.
  *
  * @returns an object containing the information about the game, or null if there is no such game
@@ -303,6 +290,21 @@ export async function setUserReconciledResult(
       assigned_race = ${result.race},
       result = ${result.result},
       apm = ${result.apm}
+    WHERE user_id = ${userId} AND game_id = ${gameId}
+  `)
+}
+/**
+ * Persists a pre-load lobby-policy outcome without claiming a race that StarCraft never assigned.
+ */
+export async function setUserLobbyViolationResult(
+  client: DbClient,
+  userId: SbUserId,
+  gameId: string,
+  result: ReconciledResult,
+): Promise<void> {
+  await client.query(sql`
+    UPDATE games_users
+    SET assigned_race = NULL, result = ${result}, apm = NULL
     WHERE user_id = ${userId} AND game_id = ${gameId}
   `)
 }

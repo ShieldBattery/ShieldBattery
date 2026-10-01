@@ -78,7 +78,7 @@ pub struct GameFeedback {
     /// user.
     pub id: Uuid,
     /// When commending and reporting close for this game (its end plus 24 hours). Null when the game
-    /// has no results yet or the current user didn't play in it.
+    /// has no results yet, was canceled, or the current user didn't play in it.
     pub closes_at: Option<DateTime<Utc>>,
     /// What the current user has already given in this game.
     pub given: Vec<GivenGameFeedback>,
@@ -208,9 +208,9 @@ impl GameCommendsMutation {
 }
 
 /// Locks `giver`'s feedback until `conn`'s transaction ends, then checks the rules commending and
-/// reporting share: the target is someone else, both of them played in the game, the game has
-/// results and its feedback window is still open, and the giver hasn't already commended or
-/// reported the target in this game.
+/// reporting share: the target is someone else, both of them played in the game (a canceled game
+/// counts as not played), the game has results and its feedback window is still open, and the giver
+/// hasn't already commended or reported the target in this game.
 ///
 /// One lock per giver serializes all of that user's commends and reports, which is what makes
 /// "commend or report, never both" and the commend limits hold under concurrent requests. Locking
@@ -258,7 +258,7 @@ pub(crate) async fn lock_and_check_feedback(
                     WHERE game_id = g.id AND reporter_id = $2 AND reported_user_id = $3
                 ) AS "reported!"
             FROM games g
-            WHERE g.id = $1
+            WHERE g.id = $1 AND g.canceled_at IS NULL
         "#,
         game_id,
         giver.0,
@@ -376,7 +376,7 @@ impl GameCommendsRepo {
                         SELECT 1 FROM games_users WHERE game_id = g.id AND user_id = $2
                     ) AS "played!"
                 FROM games g
-                WHERE g.id = $1
+                WHERE g.id = $1 AND g.canceled_at IS NULL
             "#,
             game_id,
             user_id.0,

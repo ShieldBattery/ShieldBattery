@@ -72,6 +72,7 @@ export interface LobbyCountdownCanceledMessage extends BaseMessage {
 export interface LobbyLoadingCanceledMessage extends BaseMessage {
   readonly type: LobbyMessageType.LobbyLoadingCanceled
   readonly usersAtFault?: ReadonlyArray<SbUserId>
+  readonly reason?: 'gameAnomaly'
 }
 
 export interface SettingsChangeMessage extends BaseMessage {
