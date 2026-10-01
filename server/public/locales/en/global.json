@@ -2808,6 +2808,7 @@
         "pillarbox": "Pillarbox (4:3 aspect ratio)",
         "primaryMonitor": "Default (primary monitor)",
         "realTimeLighting": "Real-time lighting",
+        "resetWindowPosition": "Reset window position",
         "sdGraphicsFilter": "SD graphics filter",
         "shadowStacking": "Shadow stacking",
         "showFps": "Show FPS",
