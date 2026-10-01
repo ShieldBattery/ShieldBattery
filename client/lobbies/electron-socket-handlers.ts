@@ -223,7 +223,7 @@ const eventToAction: EventToActionMap = {
 
     dispatch({
       type: '@lobbies/updateLoadingCanceled',
-      payload: { usersAtFault: event.usersAtFault },
+      payload: { usersAtFault: event.usersAtFault, reason: event.reason },
     })
     dispatch(closeDialog(DialogType.LaunchingGame))
   },

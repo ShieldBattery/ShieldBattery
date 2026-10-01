@@ -414,11 +414,26 @@ export interface NetcodeV2SlotStartedNotification {
 }
 
 /**
+ * A home relay evicted this slot for sending a lobby command its session's lobby policy doesn't
+ * admit, before the slot started its game.
+ */
+export interface NetcodeV2LobbyViolationNotification {
+  event: 'lobbyViolation'
+  tenant: string
+  session: number
+  externalId?: string
+  slot: number
+  externalRef?: string
+  arrivalMs: number
+}
+
+/**
  * The rally-point2 coordinator's game notification webhook body — a slot connect, session start,
- * slot start, departure, desync, result, or sessionClosed event, discriminated by `event`. POSTed
- * to `POST /webhooks/netcode-v2/game-events`.
+ * slot start, lobby violation, departure, desync, result, or sessionClosed event, discriminated by
+ * `event`. POSTed to `POST /webhooks/netcode-v2/game-events`.
  */
 export type NetcodeV2GameEvent =
+  | NetcodeV2LobbyViolationNotification
   | NetcodeV2SlotConnectedNotification
   | NetcodeV2SessionStartedNotification
   | NetcodeV2SlotStartedNotification

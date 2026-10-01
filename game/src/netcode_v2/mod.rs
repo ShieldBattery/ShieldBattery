@@ -90,6 +90,10 @@ const LOCAL_ONLY_LEAVE_REASON: u32 = 3;
 /// nothing queued, and to recognize (and skip relaying) the local flush's own empty-tick buffer.
 const LOBBY_KEEP_ALIVE: u8 = 0x05;
 
+/// The rp2 slot the server assigns the game host. Storm makes a session's creator slot 0 and storm
+/// id ≡ rp2 slot, so the host is always here.
+const HOST_SLOT: SlotId = SlotId(0);
+
 /// Builds the 12-byte Storm net key that identifies a session member in Storm's local
 /// session-player list. The key is `[b'S', b'B', slot, 0]` followed by the SB user id as a
 /// little-endian `u32`, then zero padding to 12 bytes.
@@ -502,14 +506,19 @@ pub struct TurnState {
     /// Which storm slots must supply a turn before a step is ready to dispatch. Set as slots are
     /// mapped during join; a synced leave clears one (so the sim stops waiting on a departed peer).
     required: [bool; bw::MAX_STORM_PLAYERS],
-    /// Whether the lobby seam is active: when `true`, [`submit_local_lobby_turn`](Self::submit_local_lobby_turn)
-    /// and [`lobby_receive_turns`](Self::lobby_receive_turns) carry BW's lobby-phase command traffic
-    /// over the driver's lobby channels instead of leaving lobby join on native Storm networking.
-    /// Defaults to `false`: the lobby seam is dead code until the (future) native-lobby setup path
-    /// calls [`enable_lobby_seam`](Self::enable_lobby_seam) — the currently-shipping "scope C"
-    /// direct-registration setup path never does, so adding this machinery changes zero runtime
-    /// behavior on its own.
-    lobby_seam_enabled: bool,
+    /// Set by [`enable_lobby_seam`](Self::enable_lobby_seam) once the lobby seam is active, at which
+    /// point [`submit_local_lobby_turn`](Self::submit_local_lobby_turn) and
+    /// [`lobby_receive_turns`](Self::lobby_receive_turns) carry BW's lobby-phase command traffic over
+    /// the driver's lobby channels instead of native Storm networking. Holds the only lobby command a
+    /// peer may send: the host's game-init record for this game's seed (see
+    /// [`bw::lobby_game_init_record`]). Every client builds its own slots from the server's setup
+    /// info, so any other peer lobby command could only alter this client's game setup behind the
+    /// server's back — [`drain_lobby_inbound`](Self::drain_lobby_inbound) drops it.
+    lobby_seam: Option<[u8; 13]>,
+    /// Which storm slots have already had a dropped lobby command logged as a warning. A peer sending
+    /// one is sending them deliberately and can send any number, so each slot warns once and the rest
+    /// are logged at debug.
+    lobby_drop_warned: [bool; bw::MAX_STORM_PLAYERS],
     /// The local member's pending lobby turns, queued at OUT time by
     /// [`submit_local_lobby_turn`](Self::submit_local_lobby_turn) — the lobby analogue of
     /// `inbound_queues`'s local echo. Also the pacing gate for
@@ -645,7 +654,8 @@ impl TurnState {
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
-            lobby_seam_enabled: false,
+            lobby_seam: None,
+            lobby_drop_warned: [false; bw::MAX_STORM_PLAYERS],
             lobby_echo: VecDeque::new(),
             lobby_flush_threads: Vec::new(),
             lobby_inbound: std::array::from_fn(|_| VecDeque::new()),
@@ -1139,15 +1149,15 @@ impl TurnState {
     /// Latches the lobby seam on, so the OUT/IN hooks route lobby-phase command traffic through
     /// [`submit_local_lobby_turn`](Self::submit_local_lobby_turn) /
     /// [`lobby_receive_turns`](Self::lobby_receive_turns) instead of falling through to native Storm
-    /// networking for the lobby. Nothing calls this outside tests yet — it's wired up by the
-    /// native-lobby setup path (next slice).
-    pub fn enable_lobby_seam(&mut self) {
-        self.lobby_seam_enabled = true;
+    /// networking for the lobby. `game_seed` is the server-distributed seed, which fixes the one
+    /// lobby command peers are allowed to send (see `lobby_seam`).
+    pub fn enable_lobby_seam(&mut self, game_seed: u32) {
+        self.lobby_seam = Some(bw::lobby_game_init_record(game_seed));
     }
 
     /// Whether the lobby seam is active (see [`enable_lobby_seam`](Self::enable_lobby_seam)).
     pub fn lobby_seam_enabled(&self) -> bool {
-        self.lobby_seam_enabled
+        self.lobby_seam.is_some()
     }
 
     /// OUT hook body for the lobby phase: queues `buffer` into the local echo and, if it carries real
@@ -1195,12 +1205,39 @@ impl TurnState {
     /// into the per-storm-slot lobby queues. Never blocks. Mirrors [`drain_inbound`](Self::drain_inbound)'s
     /// treatment of an unmapped slot: it can't be attributed to a BW player, so it's dropped rather
     /// than mis-delivered.
+    ///
+    /// Only the host's game-init record for this game's seed is accepted (see `lobby_seam`); any
+    /// other buffer is dropped before BW's lobby command handlers can see it. The slot is the one the
+    /// relay authenticated, so a peer can't pass its buffer off as the host's.
     fn drain_lobby_inbound(&mut self) {
         while let Ok((slot, buffer)) = self.channels.lobby_in.try_recv() {
             let Some(storm) = self.storm_id_for_slot(slot) else {
                 debug_assert!(false, "lobby command for unmapped slot {slot:?}");
                 continue;
             };
+            let allowed = slot == HOST_SLOT
+                && self
+                    .lobby_seam
+                    .is_some_and(|record| buffer.as_slice() == record.as_slice());
+            if !allowed {
+                let first_drop = self
+                    .lobby_drop_warned
+                    .get_mut(storm.0 as usize)
+                    .is_some_and(|warned| !std::mem::replace(warned, true));
+                let level = if first_drop {
+                    log::Level::Warn
+                } else {
+                    log::Level::Debug
+                };
+                log::log!(
+                    level,
+                    "dropping unexpected lobby command from slot {slot:?} ({} bytes, first byte \
+                    {:02x?})",
+                    buffer.len(),
+                    buffer.first(),
+                );
+                continue;
+            }
             if let Some(queue) = self.lobby_inbound.get_mut(storm.0 as usize) {
                 queue.push_back(Bytes::from(buffer));
             }
@@ -2015,6 +2052,7 @@ mod tests {
     const LOCAL_STORM: StormPlayerId = StormPlayerId(3);
     const PEER_STORM: StormPlayerId = StormPlayerId(5);
 
+    const TEST_SEED: u32 = 0x6aba_3113;
     const LOCAL_USER: SbUserId = SbUserId(11);
     const PEER_USER: SbUserId = SbUserId(22);
 
@@ -2038,16 +2076,23 @@ mod tests {
     /// Builds a TurnState wired to test channels (see [`TurnStateHarness`]). All far ends are
     /// returned so the channels stay open (dropping them would close the turn state's ends).
     fn turn_state() -> TurnStateHarness {
-        turn_state_inner(false)
+        turn_state_inner(LOCAL_SLOT, false)
+    }
+
+    /// Like [`turn_state`], but the local member is the joiner at `PEER_SLOT` rather than the host,
+    /// so the other member is the host at `HOST_SLOT` — the side that receives the host's lobby
+    /// commands.
+    fn turn_state_as_joiner() -> TurnStateHarness {
+        turn_state_inner(PEER_SLOT, false)
     }
 
     /// Like [`turn_state`], but for a game that contains computer (AI) players — the case that
     /// self-closes its session once the last remote human leaves.
     fn turn_state_with_computers() -> TurnStateHarness {
-        turn_state_inner(true)
+        turn_state_inner(LOCAL_SLOT, true)
     }
 
-    fn turn_state_inner(has_computers: bool) -> TurnStateHarness {
+    fn turn_state_inner(local_slot: SlotId, has_computers: bool) -> TurnStateHarness {
         let (out_tx, out_rx) = mpsc::channel(16);
         let (in_tx, in_rx) = mpsc::channel(16);
         let (leave_tx, leave_rx) = mpsc::channel(16);
@@ -2089,7 +2134,7 @@ mod tests {
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
-            TurnState::new(channels, LOCAL_SLOT, 2, roster, has_computers),
+            TurnState::new(channels, local_slot, 2, roster, has_computers),
             in_tx,
             out_rx,
             leave_tx,
@@ -2368,7 +2413,7 @@ mod tests {
 
         // Lobby seam: the local echo drives dispatch for the single required slot. A real command
         // buffer is relayed into the void harmlessly (the parked far end keeps the channel open).
-        state.enable_lobby_seam();
+        state.enable_lobby_seam(TEST_SEED);
         assert!(state.submit_local_lobby_turn(b"slotinit"));
         assert_eq!(
             lobby_out_rx.try_recv().expect("relayed into the void"),
@@ -3340,7 +3385,7 @@ mod tests {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
             turn_state();
         assert!(!state.lobby_seam_enabled(), "off until asked");
-        state.enable_lobby_seam();
+        state.enable_lobby_seam(TEST_SEED);
         assert!(state.lobby_seam_enabled());
     }
 
@@ -3427,16 +3472,16 @@ mod tests {
     }
 
     #[test]
-    fn a_peer_lobby_command_takes_precedence_over_the_synthesized_keep_alive() {
+    fn the_hosts_game_init_record_takes_precedence_over_the_synthesized_keep_alive() {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, lobby_in_tx) =
-            turn_state();
-        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
-        state.map_slot(PEER_SLOT, PEER_STORM);
+            turn_state_as_joiner();
+        state.map_slot(HOST_SLOT, PEER_STORM);
+        state.map_slot(PEER_SLOT, LOCAL_STORM);
+        state.enable_lobby_seam(TEST_SEED);
 
-        lobby_in_tx
-            .try_send((PEER_SLOT, b"peerslot".to_vec()))
-            .unwrap();
-        assert!(state.submit_local_lobby_turn(b"localslot"));
+        let record = bw::lobby_game_init_record(TEST_SEED);
+        lobby_in_tx.try_send((HOST_SLOT, record.to_vec())).unwrap();
+        assert!(state.submit_local_lobby_turn(&[LOBBY_KEEP_ALIVE]));
         assert!(state.lobby_receive_turns());
 
         let mut got = lobby_dispatched(&state);
@@ -3444,10 +3489,79 @@ mod tests {
         assert_eq!(
             got,
             vec![
-                (LOCAL_STORM, b"localslot".to_vec()),
-                (PEER_STORM, b"peerslot".to_vec()),
+                (LOCAL_STORM, vec![LOBBY_KEEP_ALIVE]),
+                (PEER_STORM, record.to_vec()),
             ],
-            "the peer's real command dispatches instead of a synthesized keep-alive"
+            "the host's record dispatches instead of a synthesized keep-alive"
+        );
+    }
+
+    #[test]
+    fn a_joiner_drops_any_host_lobby_command_other_than_the_game_init_record() {
+        let mut wrong_seed = bw::lobby_game_init_record(TEST_SEED);
+        wrong_seed[1] ^= 1;
+        let mut with_trailer = bw::lobby_game_init_record(TEST_SEED).to_vec();
+        with_trailer.push(LOBBY_KEEP_ALIVE);
+        let rejected: [Vec<u8>; 4] = [
+            wrong_seed.to_vec(),
+            with_trailer,
+            // A slot-state change (slot 2 → computer): the kind of setup edit a modified host could
+            // otherwise push onto every peer.
+            vec![0x44, 2, 0],
+            Vec::new(),
+        ];
+        for buffer in rejected {
+            let (
+                mut state,
+                _in_tx,
+                _out_rx,
+                _leave_tx,
+                _leave_intent_rx,
+                _lobby_out_rx,
+                lobby_in_tx,
+            ) = turn_state_as_joiner();
+            state.map_slot(HOST_SLOT, PEER_STORM);
+            state.map_slot(PEER_SLOT, LOCAL_STORM);
+            state.enable_lobby_seam(TEST_SEED);
+
+            lobby_in_tx.try_send((HOST_SLOT, buffer.clone())).unwrap();
+            assert!(state.submit_local_lobby_turn(&[LOBBY_KEEP_ALIVE]));
+            assert!(state.lobby_receive_turns());
+            let mut got = lobby_dispatched(&state);
+            got.sort_by_key(|(storm, _)| storm.0);
+            assert_eq!(
+                got,
+                vec![
+                    (LOCAL_STORM, vec![LOBBY_KEEP_ALIVE]),
+                    (PEER_STORM, vec![LOBBY_KEEP_ALIVE]),
+                ],
+                "{buffer:02x?} must never reach BW's lobby handlers"
+            );
+        }
+    }
+
+    #[test]
+    fn the_host_drops_a_game_init_record_sent_by_a_non_host_slot() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        state.enable_lobby_seam(TEST_SEED);
+
+        lobby_in_tx
+            .try_send((PEER_SLOT, bw::lobby_game_init_record(TEST_SEED).to_vec()))
+            .unwrap();
+        assert!(state.submit_local_lobby_turn(&[LOBBY_KEEP_ALIVE]));
+        assert!(state.lobby_receive_turns());
+        let mut got = lobby_dispatched(&state);
+        got.sort_by_key(|(storm, _)| storm.0);
+        assert_eq!(
+            got,
+            vec![
+                (LOCAL_STORM, vec![LOBBY_KEEP_ALIVE]),
+                (PEER_STORM, vec![LOBBY_KEEP_ALIVE]),
+            ],
+            "only the host may send the game-init record"
         );
     }
 

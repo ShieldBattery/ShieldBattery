@@ -35,6 +35,7 @@ import {
   clearMatchmakingState,
   currentSearchInfoAtom,
   foundMatchAtom,
+  handledLobbyViolationPenaltyGamesAtom,
   launchingMatchmakingTypeAtom,
   matchLaunchingAtom,
 } from './matchmaking-atoms'
@@ -229,7 +230,43 @@ export const eventToAction: EventToActionMap = {
     jotaiStore.set(matchLaunchingAtom, false)
     jotaiStore.set(launchingMatchmakingTypeAtom, undefined)
     dispatch(closeDialog(DialogType.LaunchingGame))
-    jotaiStore.set(canceledMatchAtom, { phase: 'load', reason: event.reason })
+    jotaiStore.set(canceledMatchAtom, {
+      phase: 'load',
+      reason: event.reason,
+      ...(event.penalty ? { penalty: event.penalty } : {}),
+    })
+  },
+
+  lobbyViolationPenalty: (matchmakingType, event) => dispatch => {
+    const handledGames = jotaiStore.get(handledLobbyViolationPenaltyGamesAtom)
+    if (handledGames.has(event.gameId)) {
+      return
+    }
+
+    const recentGames = new Set(handledGames).add(event.gameId)
+    if (recentGames.size > 100) {
+      recentGames.delete(recentGames.values().next().value!)
+    }
+    jotaiStore.set(handledLobbyViolationPenaltyGamesAtom, recentGames)
+    logger.debug(`Applying late lobby-violation penalty for game ${event.gameId}`)
+    if (event.queueRemoved) {
+      resetDraftState(jotaiStore)
+      clearMatchmakingState(jotaiStore)
+      dispatch(closeAcceptMatchDialog())
+      dispatch(closeDialog(DialogType.LaunchingGame))
+    }
+    dispatch(
+      openDialog({
+        type: DialogType.MatchCanceled,
+        initData: {
+          phase: 'load',
+          reason: 'gameAnomaly',
+          penalty: event.penalty,
+          requeued: false,
+          queueRemoved: event.queueRemoved,
+        },
+      }),
+    )
   },
 
   gameStarted: (matchmakingType, event) => (dispatch, getState) => {
@@ -238,14 +275,23 @@ export const eventToAction: EventToActionMap = {
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
-  queueStatus: (matchmakingType, event) => {
+  queueStatus: (matchmakingType, event) => dispatch => {
     logger.debug(
       `Matchmaking queue status received: ${event.matchmaking ? JSON.stringify(event.matchmaking) : 'Not in queue'}`,
     )
     if (!event.matchmaking) {
-      // A canceled game load followed by removal from the queue, rather than a requeue, means this
-      // client was one of the players removed for the load failing.
-      if (jotaiStore.get(canceledMatchAtom)?.phase === 'load') {
+      // A canceled anomaly is explained after the server has established whether this client was
+      // requeued or removed. Other load failures use a concise notification.
+      const canceledMatch = jotaiStore.get(canceledMatchAtom)
+      if (canceledMatch?.phase === 'load' && canceledMatch.reason === 'gameAnomaly') {
+        jotaiStore.set(canceledMatchAtom, undefined)
+        dispatch(
+          openDialog({
+            type: DialogType.MatchCanceled,
+            initData: { ...canceledMatch, requeued: false },
+          }),
+        )
+      } else if (canceledMatch?.phase === 'load') {
         externalShowSnackbar(
           i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
         )

@@ -1,6 +1,7 @@
 import Joi from 'joi'
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
+import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameConfig, GameSource, MatchmakingGameConfig } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
@@ -48,7 +49,10 @@ import {
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   lockGameAndCheckReconciled,
+  lockGameAndCheckUnavailableForReconciliation,
+  lockGameForLobbyViolation,
   lockGameForManualResolution,
+  setGameCancellation,
   setManuallyResolvedResult,
   setReconciledResult,
 } from '../games/game-models'
@@ -81,6 +85,7 @@ import {
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
+import { getGameLobbyViolation, recordGameLobbyViolation } from '../models/game-lobby-violations'
 import {
   areAllHumansAccountedFor,
   getCurrentReportedResults,
@@ -88,18 +93,25 @@ import {
   getMaxReportedAtForGame,
   getUserGameRecord,
   setReportedResults,
+  setUserLobbyViolationResult,
   setUserReconciledResult,
   StoredResultReport,
 } from '../models/games-users'
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { Redis } from '../redis/redis'
 import { Clock, TimeoutId } from '../time/clock'
-import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
+import { ClientIdentifierString } from '../users/client-ids'
+import {
+  incrementUserStatsCount,
+  makeCountKeys,
+  UserStatsCountKey,
+} from '../users/user-stats-model'
 import { joiUserId } from '../users/user-validators'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { GameLifecycleEvents } from './game-lifecycle-events'
 import { getGameRecord } from './game-models'
+import { LobbyViolationService } from './lobby-violation-service'
 import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
@@ -438,6 +450,9 @@ const DESYNC_VERDICT_GRACE_BUFFER_MS = 1000
  * ensuring the desync verdict grace window has comfortably elapsed.
  */
 const FULLY_REPORTED_RECONCILE_DELAY_MINUTES = 1
+const LOBBY_VIOLATION_TRANSACTION_TIMEOUT =
+  "SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s'"
+
 /**
  * Backstop for the immediate known-complete force-reconcile (`maybeScheduleKnownCompleteReconcile`):
  * how old a fully-accounted netcode-v2 game's newest report/departure must be before the periodic
@@ -451,6 +466,24 @@ const RECONCILE_KNOWN_COMPLETE_MINUTES = 10
  * progress, so there's no reason to ask the coordinator about them yet.
  */
 const SESSION_PROBE_MIN_AGE_MINUTES = 30
+
+interface ReconciledResultEffectsOptions {
+  /** Applies rating, league, and aggregate stat effects only to this player. */
+  onlyUserId?: SbUserId
+  /** Leaves every games_users assigned-race/APM field null because the game never started. */
+  preserveUnassignedRaces?: boolean
+}
+
+function makeLobbyViolationCountKeys(
+  selectedRace: RaceChar,
+  result: 'win' | 'loss',
+): UserStatsCountKey[] {
+  if (selectedRace === 'r') {
+    return [result === 'win' ? 'r_wins' : 'r_losses']
+  }
+
+  return makeCountKeys(selectedRace, selectedRace, result)
+}
 
 @singleton()
 export default class GameResultService {
@@ -564,6 +597,8 @@ export default class GameResultService {
       },
     )
 
+    LobbyViolationService.ensureRecoveryScheduled(this.jobScheduler)
+
     this.clientSocketsManager.on('newClient', c => {
       c.subscribe(GameResultService.getMatchmakingResultsPath(c.userId))
     })
@@ -576,6 +611,103 @@ export default class GameResultService {
     }
 
     return game
+  }
+
+  /**
+   * Locks and records evidence for a pre-load matchmaking lobby-policy violation. This is the
+   * authoritative boundary that prevents ordinary reconciliation from consuming the cancelled game.
+   *
+   * @returns whether the game's recorded violation is `userId`'s, i.e. whether penalizing `userId`
+   *   for this game is backed by durable evidence
+   */
+  async stageLobbyViolationIntent(
+    gameId: string,
+    userId: SbUserId,
+    detectedAt: Date,
+    identifiers: ReadonlyDeep<ClientIdentifierString[]>,
+  ): Promise<boolean> {
+    return await transact(async client => {
+      await client.query(LOBBY_VIOLATION_TRANSACTION_TIMEOUT)
+      const locked = await lockGameForLobbyViolation(client, gameId)
+      if (!locked || locked.results !== null || locked.setupResolutionFinal) return false
+      if (locked.config.gameSource !== GameSource.Matchmaking) return false
+
+      const humans = locked.config.teams.flatMap(team => team.filter(p => !p.isComputer))
+      if (!humans.some(player => player.id === userId)) return false
+
+      const recorded = await recordGameLobbyViolation(client, {
+        gameId,
+        userId,
+        detectedAt,
+        identifiers,
+      })
+      if (recorded.inserted) await setGameCancellation(client, gameId, 'gameAnomaly', detectedAt)
+      return recorded.userId === userId
+    })
+  }
+
+  /**
+   * Applies the preserved offender's one-time result effects after evidence has been staged, and
+   * returns who the offender is (with the identifiers staged for them) so the caller can apply the
+   * matchmaking penalty.
+   */
+  async applyStagedLobbyViolationEffects(gameId: string): Promise<
+    | {
+        userId: SbUserId
+        identifiers: ReadonlyDeep<ClientIdentifierString[]>
+        applied: boolean
+      }
+    | undefined
+  > {
+    const violation = await getGameLobbyViolation(gameId)
+    if (!violation) return undefined
+
+    const gameRecord = await getGameRecord(gameId)
+    if (!gameRecord || gameRecord.cancellationReason !== 'gameAnomaly') return undefined
+    const { userId, identifiers } = violation
+    if (gameRecord.results) return { userId, identifiers, applied: false }
+
+    const completed = await transact(async client => {
+      await client.query(LOBBY_VIOLATION_TRANSACTION_TIMEOUT)
+      if (await lockGameAndCheckReconciled(client, gameId)) return false
+
+      const results = new Map<SbUserId, ReconciledPlayerResult>(
+        gameRecord.config.teams.flatMap(team =>
+          team
+            .filter(p => !p.isComputer)
+            .map(player => [
+              player.id,
+              {
+                result: player.id === violation.userId ? 'loss' : 'unknown',
+                race: player.race === 'r' ? 'p' : player.race,
+                apm: 0,
+              },
+            ]),
+        ),
+      )
+      const reconciled: ReconciledResults = { disputed: false, time: 0, results }
+
+      await setReconciledResult(client, gameId, reconciled, null)
+      await this.applyReconciledResultEffects(
+        client,
+        gameRecord,
+        reconciled,
+        new Date(this.clock.now()),
+        { onlyUserId: violation.userId, preserveUnassignedRaces: true },
+      )
+      return true
+    })
+
+    if (completed) {
+      try {
+        this.gameLifecycleEvents.emit('gameReconciled', { gameId })
+        await this.publishReconciledGame(gameId)
+      } catch (err: unknown) {
+        logger.error({ err, gameId }, 'failed to publish lobby violation result')
+      }
+    }
+
+    return { userId, identifiers, applied: completed }
   }
 
   async retrieveMatchmakingRatingChanges(
@@ -674,6 +806,12 @@ export default class GameResultService {
     }
 
     const gameRecord = (await getGameRecord(gameId))!
+    if (gameRecord.canceledAt) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.AlreadyReported,
+        'game was cancelled before results could be submitted',
+      )
+    }
     const playerIdsInGame = new Set(
       gameRecord.config.teams.map(team => team.filter(p => !p.isComputer).map(p => p.id)).flat(),
     )
@@ -840,7 +978,7 @@ export default class GameResultService {
     this.gameLifecycleEvents.emit('gameEnded', { gameId })
     try {
       const gameRecord = await this.retrieveGame(gameId)
-      if (isResultsExempt(gameRecord.config)) {
+      if (gameRecord.canceledAt || isResultsExempt(gameRecord.config)) {
         return
       }
 
@@ -874,7 +1012,7 @@ export default class GameResultService {
     // gets here — webhook ingest never submits reports for them, and both
     // `maybeScheduleKnownCompleteReconcile` and `forceReconcileGame` no-op for them — but this stays
     // as a last-resort guard so no path can ever reconcile one.
-    if (gameRecord.results || isResultsExempt(gameRecord.config)) {
+    if (gameRecord.canceledAt || gameRecord.results || isResultsExempt(gameRecord.config)) {
       return false
     }
 
@@ -1006,7 +1144,7 @@ export default class GameResultService {
       // periodic sweeps) can race here for the same game. Re-check under the games row lock so
       // whichever transaction commits first wins and every other one backs off without applying
       // additive side effects (win/loss stat counters, rating changes) a second time.
-      if (await lockGameAndCheckReconciled(client, gameId)) {
+      if (await lockGameAndCheckUnavailableForReconciliation(client, gameId)) {
         return false
       }
 
@@ -1065,6 +1203,7 @@ export default class GameResultService {
     gameRecord: GameRecord,
     reconciled: ReconciledResults,
     reconcileDate: Date,
+    options: ReconciledResultEffectsOptions = {},
   ): Promise<{ ratingsApplied: boolean }> {
     const gameId = gameRecord.id
 
@@ -1166,6 +1305,10 @@ export default class GameResultService {
       })
 
       for (const mmr of mmrs) {
+        if (options.onlyUserId && mmr.userId !== options.onlyUserId) {
+          continue
+        }
+
         const { matchmaking: matchmakingChange, leagues: leagueChanges } = ratingChanges.get(
           mmr.userId,
         )!
@@ -1173,6 +1316,7 @@ export default class GameResultService {
 
         const selectedRace = idToSelectedRace.get(mmr.userId)!
         const assignedRace = reconciled.results.get(mmr.userId)!.race
+        const trackAssignedRandomRace = !options.preserveUnassignedRaces || selectedRace !== 'r'
 
         {
           const winCount = matchmakingChange.outcome === 'win' ? 1 : 0
@@ -1204,12 +1348,36 @@ export default class GameResultService {
             rWins: mmr.rWins + (selectedRace === 'r' ? winCount : 0),
             rLosses: mmr.rLosses + (selectedRace === 'r' ? lossCount : 0),
 
-            rPWins: mmr.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
-            rPLosses: mmr.rPLosses + (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
-            rTWins: mmr.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
-            rTLosses: mmr.rTLosses + (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
-            rZWins: mmr.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
-            rZLosses: mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+            rPWins:
+              mmr.rPWins +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'p'
+                ? winCount
+                : 0),
+            rPLosses:
+              mmr.rPLosses +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'p'
+                ? lossCount
+                : 0),
+            rTWins:
+              mmr.rTWins +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 't'
+                ? winCount
+                : 0),
+            rTLosses:
+              mmr.rTLosses +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 't'
+                ? lossCount
+                : 0),
+            rZWins:
+              mmr.rZWins +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'z'
+                ? winCount
+                : 0),
+            rZLosses:
+              mmr.rZLosses +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'z'
+                ? lossCount
+                : 0),
           }
 
           await updateMatchmakingRating(client, updatedMmr)
@@ -1254,20 +1422,35 @@ export default class GameResultService {
             rLosses: oldLeagueUser.rLosses + (selectedRace === 'r' ? lossCount : 0),
 
             rPWins:
-              oldLeagueUser.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
+              oldLeagueUser.rPWins +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'p'
+                ? winCount
+                : 0),
             rPLosses:
               oldLeagueUser.rPLosses +
-              (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'p'
+                ? lossCount
+                : 0),
             rTWins:
-              oldLeagueUser.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
+              oldLeagueUser.rTWins +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 't'
+                ? winCount
+                : 0),
             rTLosses:
               oldLeagueUser.rTLosses +
-              (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 't'
+                ? lossCount
+                : 0),
             rZWins:
-              oldLeagueUser.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
+              oldLeagueUser.rZWins +
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'z'
+                ? winCount
+                : 0),
             rZLosses:
               oldLeagueUser.rZLosses +
-              (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+              (trackAssignedRandomRace && selectedRace === 'r' && assignedRace === 'z'
+                ? lossCount
+                : 0),
           }
 
           await updateLeagueUser(updatedLeagueUser, client)
@@ -1276,7 +1459,11 @@ export default class GameResultService {
       }
     }
     for (const [userId, result] of resultEntries) {
-      await setUserReconciledResult(client, userId, gameId, result)
+      if (options.preserveUnassignedRaces) {
+        await setUserLobbyViolationResult(client, userId, gameId, result.result)
+      } else {
+        await setUserReconciledResult(client, userId, gameId, result)
+      }
     }
 
     // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
@@ -1284,13 +1471,18 @@ export default class GameResultService {
 
     if (gameRecord.config.gameType !== GameType.UseMapSettings && !reconciled.disputed) {
       for (const [userId, result] of reconciled.results.entries()) {
-        if (result.result !== 'win' && result.result !== 'loss') {
+        if (
+          (options.onlyUserId && userId !== options.onlyUserId) ||
+          (result.result !== 'win' && result.result !== 'loss')
+        ) {
           continue
         }
 
         const selectedRace = idToSelectedRace.get(userId)!
         const assignedRace = result.race
-        const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
+        const countKeys = options.preserveUnassignedRaces
+          ? makeLobbyViolationCountKeys(selectedRace, result.result)
+          : makeCountKeys(selectedRace, assignedRace, result.result)
 
         for (const key of countKeys) {
           await incrementUserStatsCount(client, userId, key)
@@ -1360,6 +1552,12 @@ export default class GameResultService {
     const gameRecord = await getGameRecord(gameId)
     if (!gameRecord) {
       throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+    if (gameRecord.canceledAt) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.NotDisputable,
+        'cancelled games cannot be resolved manually',
+      )
     }
 
     const resolvedAt = new Date(this.clock.now())

@@ -406,3 +406,29 @@ describe('netcode-v2/GAME_EVENT_BODY_SCHEMA', () => {
     expect(error).toBeUndefined()
   })
 })
+
+describe('lobby violation schema', () => {
+  const body = {
+    event: 'lobbyViolation',
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
+    slot: 1,
+    externalRef: '42',
+    arrivalMs: 123456,
+  }
+  test('accepts coordinator evidence', () => {
+    expect(GAME_EVENT_BODY_SCHEMA.validate(body).error).toBeUndefined()
+  })
+  test.each([
+    { slot: 16 },
+    { slot: -1 },
+    { slot: 1.5 },
+    { arrivalMs: -1 },
+    { arrivalMs: 10_000_000_000_001 },
+    { arrivalMs: undefined },
+    { session: Number.MAX_SAFE_INTEGER + 1 },
+  ])('rejects malformed evidence %j', override => {
+    expect(GAME_EVENT_BODY_SCHEMA.validate({ ...body, ...override }).error).toBeDefined()
+  })
+})

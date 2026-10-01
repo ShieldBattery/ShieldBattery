@@ -36,11 +36,13 @@ import {
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
+import { getGameLobbyViolation, recordGameLobbyViolation } from '../models/game-lobby-violations'
 import {
   areAllHumansAccountedFor,
   getCurrentReportedResults,
   getUserGameRecord,
   setReportedResults,
+  setUserLobbyViolationResult,
   setUserReconciledResult,
   StoredResultReport,
 } from '../models/games-users'
@@ -55,6 +57,8 @@ import {
   findUnreconciledV2GamesForProbe,
   getGameRecord,
   lockGameAndCheckReconciled,
+  lockGameAndCheckUnavailableForReconciliation,
+  lockGameForLobbyViolation,
   lockGameForManualResolution,
   setManuallyResolvedResult,
   setReconciledResult,
@@ -77,6 +81,9 @@ vi.mock('./game-models', async () => {
     findKnownCompleteUnreconciledGames: vi.fn(),
     findUnreconciledV2GamesForProbe: vi.fn(),
     lockGameAndCheckReconciled: vi.fn(),
+    lockGameAndCheckUnavailableForReconciliation: vi.fn(),
+    lockGameForLobbyViolation: vi.fn(),
+    setGameCancellation: vi.fn(),
     lockGameForManualResolution: vi.fn(),
     setManuallyResolvedResult: vi.fn(),
     setReconciledResult: vi.fn(),
@@ -133,14 +140,26 @@ vi.mock('../models/games-users', async () => {
     getCurrentReportedResults: vi.fn(),
     getUserGameRecord: vi.fn(),
     setReportedResults: vi.fn(),
+    setUserLobbyViolationResult: vi.fn(),
     setUserReconciledResult: vi.fn(),
   }
 })
 
 vi.mock('../db/transaction', () => ({
-  default: vi.fn(async (next: (client: any) => Promise<any>) => next({} as any)),
+  default: vi.fn(async (next: (client: any) => Promise<any>) => next({ query: vi.fn() } as any)),
 }))
 
+vi.mock('../models/game-lobby-violations', async () => {
+  const actual = await vi.importActual<typeof import('../models/game-lobby-violations')>(
+    '../models/game-lobby-violations',
+  )
+  return {
+    ...actual,
+    findPendingGameLobbyViolations: vi.fn().mockResolvedValue([]),
+    getGameLobbyViolation: vi.fn(),
+    recordGameLobbyViolation: vi.fn(),
+  }
+})
 vi.mock('../models/game-desync-events', async () => {
   const actual = await vi.importActual<typeof import('../models/game-desync-events')>(
     '../models/game-desync-events',
@@ -369,7 +388,7 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
       { publish: vi.fn() } as any,
-      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
       {} as any,
       clock,
       {} as any,
@@ -507,7 +526,7 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
       { publish: vi.fn() } as any,
-      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
       {} as any,
       clock,
       {} as any,
@@ -630,7 +649,7 @@ describe('games/game-result-service/GameResultService#submitGameResults', () => 
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
       { publish: vi.fn() } as any,
-      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
       {} as any,
       clock,
       {} as any,
@@ -911,7 +930,7 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
       { publish: vi.fn() } as any,
-      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
       { getSeasonForDate: vi.fn().mockResolvedValue([{ id: 1 }, undefined]) } as any,
       clock,
       {} as any,
@@ -923,7 +942,9 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
     // Simulates the DB state the games row lock serializes on: the first committed reconcile
     // flips it, and every later lock-and-check observes the committed value.
     let reconciledInDb = false
-    asMockedFunction(lockGameAndCheckReconciled).mockImplementation(async () => reconciledInDb)
+    asMockedFunction(lockGameAndCheckUnavailableForReconciliation).mockImplementation(
+      async () => reconciledInDb,
+    )
     asMockedFunction(setReconciledResult).mockImplementation(async () => {
       reconciledInDb = true
     })
@@ -951,6 +972,238 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
   })
 })
 
+describe('games/game-result-service/GameResultService lobby violations', () => {
+  const GAME_ID = 'game-lobby-violation-1'
+  const SEASON: MatchmakingSeason = {
+    id: makeSeasonId(1),
+    name: 'Season 1',
+    startDate: new Date(0),
+    resetMmr: true,
+  }
+
+  function makeGame(config = matchmakingConfig(DEFAULT_TEAMS)): GameRecord {
+    return {
+      id: GAME_ID,
+      startTime: new Date(0),
+      mapId: makeSbMapId('1'),
+      config,
+      disputable: false,
+      disputeRequested: false,
+      disputeReviewed: false,
+      gameLength: null,
+      results: null,
+      selectedMatchup: null,
+      assignedMatchup: null,
+      canceledAt: new Date(1_000),
+      cancellationReason: 'gameAnomaly',
+      manuallyResolved: false,
+    }
+  }
+
+  function makeMmr(
+    userId: SbUserId,
+    matchmakingType = MatchmakingType.Match1v1,
+  ): MatchmakingRating {
+    return {
+      ...DEFAULT_MATCHMAKING_RATING,
+      userId,
+      matchmakingType,
+      seasonId: SEASON.id,
+    }
+  }
+
+  let service: GameResultService
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { getSeasonForDate: vi.fn().mockResolvedValue([SEASON, undefined]) } as any,
+      new FakeClock(),
+      {} as any,
+      new GameLifecycleEvents(),
+    )
+    vi.spyOn(service as any, 'publishReconciledGame').mockResolvedValue(undefined)
+    asMockedFunction(recordGameLobbyViolation).mockResolvedValue({ inserted: true, userId: p1 })
+    asMockedFunction(setReconciledResult).mockResolvedValue(undefined)
+    asMockedFunction(setUserLobbyViolationResult).mockResolvedValue(undefined)
+    asMockedFunction(incrementUserStatsCount).mockResolvedValue(undefined as any)
+    asMockedFunction(insertMatchmakingRatingChange).mockResolvedValue(undefined as any)
+    asMockedFunction(updateMatchmakingRating).mockResolvedValue(undefined as any)
+    asMockedFunction(updateRankings).mockResolvedValue(undefined)
+    asMockedFunction(updateLeaderboards).mockResolvedValue(undefined)
+    asMockedFunction(getActiveLeaguesForUsersWithLock).mockResolvedValue(new Map())
+    asMockedFunction(updateLeagueUser).mockResolvedValue(undefined as any)
+  })
+
+  test('penalizes only the 1v1 offender and leaves the opponent unknown', async () => {
+    const game = makeGame()
+    asMockedFunction(lockGameForLobbyViolation).mockResolvedValue({
+      config: game.config,
+      results: null,
+      setupResolutionFinal: false,
+      canceledAt: game.canceledAt!,
+      cancellationReason: 'gameAnomaly',
+    })
+    asMockedFunction(getGameLobbyViolation).mockResolvedValue({
+      gameId: GAME_ID,
+      userId: p1,
+      detectedAt: new Date(1_000),
+      identifiers: [],
+    })
+    asMockedFunction(getGameRecord).mockResolvedValue(game)
+    asMockedFunction(lockGameAndCheckReconciled).mockResolvedValue(false)
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue([makeMmr(p1), makeMmr(p2)])
+
+    await service.applyStagedLobbyViolationEffects(GAME_ID)
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledTimes(1)
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: p1, outcome: 'loss' }),
+    )
+    expect(updateMatchmakingRating).toHaveBeenCalledTimes(1)
+    expect(setUserLobbyViolationResult).toHaveBeenCalledWith(expect.anything(), p1, GAME_ID, 'loss')
+    expect(setUserLobbyViolationResult).toHaveBeenCalledWith(
+      expect.anything(),
+      p2,
+      GAME_ID,
+      'unknown',
+    )
+    expect(incrementUserStatsCount).toHaveBeenCalled()
+    expect(incrementUserStatsCount).toHaveBeenCalledWith(expect.anything(), p1, 't_losses')
+    expect(incrementUserStatsCount).not.toHaveBeenCalledWith(
+      expect.anything(),
+      p2,
+      expect.anything(),
+    )
+  })
+
+  test('calculates against the full team roster but persists only the offender effect', async () => {
+    const p4 = makeSbUserId(4)
+    const teams: GameConfigPlayer[][] = [
+      [
+        { id: p1, race: 't', isComputer: false },
+        { id: p2, race: 'z', isComputer: false },
+      ],
+      [
+        { id: p3, race: 'p', isComputer: false },
+        { id: p4, race: 'r', isComputer: false },
+      ],
+    ]
+    const game = makeGame({
+      ...matchmakingConfig(teams),
+      gameSourceExtra: { type: MatchmakingType.Match2v2, parties: [] },
+      gameType: GameType.TopVsBottom,
+    })
+    asMockedFunction(lockGameForLobbyViolation).mockResolvedValue({
+      config: game.config,
+      results: null,
+      setupResolutionFinal: false,
+      canceledAt: game.canceledAt!,
+      cancellationReason: 'gameAnomaly',
+    })
+    asMockedFunction(getGameLobbyViolation).mockResolvedValue({
+      gameId: GAME_ID,
+      userId: p4,
+      detectedAt: new Date(1_000),
+      identifiers: [],
+    })
+    asMockedFunction(getGameRecord).mockResolvedValue(game)
+    asMockedFunction(lockGameAndCheckReconciled).mockResolvedValue(false)
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue([
+      makeMmr(p1, MatchmakingType.Match2v2),
+      makeMmr(p2, MatchmakingType.Match2v2),
+      makeMmr(p3, MatchmakingType.Match2v2),
+      makeMmr(p4, MatchmakingType.Match2v2),
+    ])
+
+    await service.applyStagedLobbyViolationEffects(GAME_ID)
+
+    expect(getMatchmakingRatingsWithLock).toHaveBeenCalledWith(
+      expect.anything(),
+      [p1, p2, p3, p4],
+      MatchmakingType.Match2v2,
+      SEASON.id,
+    )
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledTimes(1)
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ userId: p4, outcome: 'loss' }),
+    )
+    expect(incrementUserStatsCount).toHaveBeenCalledWith(expect.anything(), p4, 'r_losses')
+    expect(incrementUserStatsCount).not.toHaveBeenCalledWith(expect.anything(), p4, 'r_p_losses')
+  })
+
+  test('does not apply effects twice when a retry observes the completed result', async () => {
+    const game = makeGame()
+    asMockedFunction(lockGameForLobbyViolation).mockResolvedValue({
+      config: game.config,
+      results: null,
+      setupResolutionFinal: false,
+      canceledAt: game.canceledAt!,
+      cancellationReason: 'gameAnomaly',
+    })
+    asMockedFunction(getGameLobbyViolation).mockResolvedValue({
+      gameId: GAME_ID,
+      userId: p1,
+      detectedAt: new Date(1_000),
+      identifiers: [],
+    })
+    asMockedFunction(getGameRecord).mockResolvedValue(game)
+    asMockedFunction(lockGameAndCheckReconciled)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue([makeMmr(p1), makeMmr(p2)])
+
+    await service.applyStagedLobbyViolationEffects(GAME_ID)
+    await service.applyStagedLobbyViolationEffects(GAME_ID)
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledTimes(1)
+    expect(incrementUserStatsCount).toHaveBeenCalledTimes(1)
+  })
+
+  test('stages a violation with the identifiers it was given', async () => {
+    const game = makeGame()
+    asMockedFunction(lockGameForLobbyViolation).mockResolvedValue({
+      config: game.config,
+      results: null,
+      setupResolutionFinal: false,
+      canceledAt: null,
+      cancellationReason: null,
+    })
+
+    await expect(
+      service.stageLobbyViolationIntent(GAME_ID, p1, new Date(1_000), [[1, 'abcd']]),
+    ).resolves.toBe(true)
+    expect(recordGameLobbyViolation).toHaveBeenCalledWith(expect.anything(), {
+      gameId: GAME_ID,
+      userId: p1,
+      detectedAt: new Date(1_000),
+      identifiers: [[1, 'abcd']],
+    })
+  })
+
+  test("doesn't accept staging for a player when another's violation is already recorded", async () => {
+    const game = makeGame()
+    asMockedFunction(lockGameForLobbyViolation).mockResolvedValue({
+      config: game.config,
+      results: null,
+      setupResolutionFinal: false,
+      canceledAt: game.canceledAt!,
+      cancellationReason: 'gameAnomaly',
+    })
+    asMockedFunction(recordGameLobbyViolation).mockResolvedValue({ inserted: false, userId: p1 })
+
+    await expect(service.stageLobbyViolationIntent(GAME_ID, p2, new Date(1_000), [])).resolves.toBe(
+      false,
+    )
+    await expect(service.stageLobbyViolationIntent(GAME_ID, p1, new Date(1_000), [])).resolves.toBe(
+      true,
+    )
+  })
+})
 describe('games/game-result-service/GameResultService#resolveGameManually', () => {
   const GAME_ID = 'game-manual-1'
   const ADMIN_ID = makeSbUserId(99)
@@ -1123,7 +1376,7 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
       { on: vi.fn() } as any,
       { publish: vi.fn() } as any,
       { publish: vi.fn() } as any,
-      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
       { getSeasonForDate } as any,
       clock,
       {} as any,
@@ -1148,6 +1401,8 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     asMockedFunction(updateLeagueUser).mockResolvedValue(undefined as any)
     asMockedFunction(insertMatchmakingRatingChange).mockResolvedValue(undefined as any)
     asMockedFunction(updateMatchmakingRating).mockResolvedValue(undefined as any)
+    asMockedFunction(updateRankings).mockResolvedValue(undefined)
+    asMockedFunction(updateLeaderboards).mockResolvedValue(undefined)
     asMockedFunction(updateRankings).mockResolvedValue(undefined)
     asMockedFunction(updateLeaderboards).mockResolvedValue(undefined)
   })

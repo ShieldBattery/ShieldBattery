@@ -1,5 +1,7 @@
 import { generateKeyPairSync, KeyObject, sign as signEd25519 } from 'node:crypto'
+import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { GameSource } from '../../../common/games/configuration'
 import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
@@ -16,6 +18,11 @@ import {
 } from '../../../common/games/results'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import {
+  getGameRecord,
+  getNetcodeV2DebugInfo,
+  hasFinalGameSetupResolution,
+} from '../games/game-models'
 import { GameResultServiceError } from '../games/game-result-service'
 import { recordDesyncEvent } from '../models/game-desync-events'
 import { recordUserDeparture } from '../models/games-users'
@@ -23,6 +30,7 @@ import {
   checkGameEventWebhookAuth,
   recordDepartureNotification,
   recordDesyncNotification,
+  recordLobbyViolationNotification,
   recordResultNotification,
   recordSessionClosedNotification,
   recordSessionStartedNotification,
@@ -42,6 +50,8 @@ vi.mock('../models/game-desync-events', () => ({
 // implementation would otherwise blow up in this unit test environment.
 vi.mock('../games/game-models', () => ({
   getGameRecord: vi.fn().mockResolvedValue(undefined),
+  getNetcodeV2DebugInfo: vi.fn(),
+  hasFinalGameSetupResolution: vi.fn().mockResolvedValue(false),
 }))
 
 const GAME_ID = '11111111-2222-4333-8444-555555555555'
@@ -959,5 +969,132 @@ describe('netcode-v2/recordSlotStartedNotification', () => {
     expect(() =>
       recordSlotStartedNotification(makeSlotStartedNotification(), registerGameAsLoaded),
     ).not.toThrow()
+  })
+})
+
+describe('netcode-v2/recordLobbyViolationNotification', () => {
+  beforeEach(() => {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
+    vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
+    vi.stubEnv('SB_RP2_CLIENT_KEY', '11'.repeat(32))
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  const notification = {
+    event: 'lobbyViolation' as const,
+    tenant: 'sb-dev',
+    session: 123,
+    externalId: GAME_ID,
+    slot: 1,
+    externalRef: '42',
+    arrivalMs: 123456,
+  }
+
+  test('passes the complete authenticated identity to the loader and awaits persistence', async () => {
+    const cancel = vi.fn().mockResolvedValue(true)
+    const record = vi.fn()
+    await recordLobbyViolationNotification(notification, cancel, record)
+    expect(cancel).toHaveBeenCalledWith(GAME_ID, 123, 1, makeSbUserId(42), new Date(123456), record)
+    cancel.mockRejectedValueOnce(new Error('database unavailable'))
+    await expect(recordLobbyViolationNotification(notification, cancel, record)).rejects.toThrow(
+      'database unavailable',
+    )
+  })
+
+  test.each([
+    { tenant: 'other-tenant' },
+    { externalId: 'invalid' },
+    { externalRef: 'invalid' },
+    { externalRef: '9007199254740992' },
+    { externalRef: undefined },
+  ])('ignores invalid correlation %j', async override => {
+    const cancel = vi.fn()
+    await recordLobbyViolationNotification({ ...notification, ...override }, cancel, vi.fn())
+    expect(cancel).not.toHaveBeenCalled()
+  })
+})
+
+describe('delayed lobby violation evidence', () => {
+  const notice = {
+    event: 'lobbyViolation' as const,
+    tenant: 'sb-dev',
+    session: 123,
+    externalId: GAME_ID,
+    slot: 1,
+    externalRef: '42',
+    arrivalMs: 123456,
+  }
+  const userId = makeSbUserId(42)
+  const service = { finishCancellation: vi.fn(), record: vi.fn() }
+  beforeEach(() => {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
+    vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
+    vi.stubEnv('SB_RP2_CLIENT_KEY', '11'.repeat(32))
+    vi.spyOn(container, 'resolve').mockReturnValue(service)
+    service.finishCancellation.mockResolvedValue(undefined)
+    service.record.mockResolvedValue(undefined)
+    asMockedFunction(hasFinalGameSetupResolution).mockResolvedValue(false)
+    asMockedFunction(getGameRecord).mockResolvedValue({
+      canceledAt: new Date(),
+      cancellationReason: 'playerFailed',
+      config: { gameSource: GameSource.Matchmaking },
+    } as any)
+    asMockedFunction(getNetcodeV2DebugInfo).mockResolvedValue({
+      session: 123,
+      relays: [],
+      requestedRegions: [{ slot: 1, userId, observer: false, manual: false }],
+    })
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+  })
+
+  test('routes late evidence through durable penalty recovery for the same canceled game', async () => {
+    await recordLobbyViolationNotification(notice, vi.fn().mockResolvedValue(false), vi.fn())
+    expect(service.finishCancellation).toHaveBeenCalledWith(GAME_ID)
+    expect(service.record).toHaveBeenCalledWith(GAME_ID, userId, new Date(123456))
+  })
+
+  test.each(['running', 'wrongSession', 'wrongSlot', 'wrongUser', 'custom'])(
+    'does not penalize %s',
+    async kind => {
+      if (kind === 'running')
+        asMockedFunction(getGameRecord).mockResolvedValue({ canceledAt: null } as any)
+      if (kind === 'custom')
+        asMockedFunction(getGameRecord).mockResolvedValue({
+          canceledAt: new Date(),
+          config: { gameSource: GameSource.Lobby },
+        } as any)
+      if (kind.startsWith('wrong'))
+        asMockedFunction(getNetcodeV2DebugInfo).mockResolvedValue({
+          session: kind === 'wrongSession' ? 999 : 123,
+          relays: [],
+          requestedRegions: [
+            {
+              slot: kind === 'wrongSlot' ? 0 : 1,
+              userId: kind === 'wrongUser' ? makeSbUserId(9) : userId,
+              observer: false,
+              manual: false,
+            },
+          ],
+        })
+      await recordLobbyViolationNotification(notice, vi.fn().mockResolvedValue(false), vi.fn())
+      expect(service.record).not.toHaveBeenCalled()
+    },
+  )
+
+  test('does not reopen an authoritative ordinary setup decision', async () => {
+    asMockedFunction(hasFinalGameSetupResolution).mockResolvedValue(true)
+    await recordLobbyViolationNotification(notice, vi.fn().mockResolvedValue(false), vi.fn())
+    expect(service.record).not.toHaveBeenCalled()
+  })
+
+  test('failed penalty remains retryable and does not issue a premature ban', async () => {
+    service.record.mockRejectedValueOnce(new Error('database unavailable'))
+    await expect(
+      recordLobbyViolationNotification(notice, vi.fn().mockResolvedValue(false), vi.fn()),
+    ).rejects.toThrow('database unavailable')
   })
 })

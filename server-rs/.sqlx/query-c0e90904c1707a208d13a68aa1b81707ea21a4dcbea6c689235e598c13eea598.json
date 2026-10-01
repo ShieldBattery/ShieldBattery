@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, start_time, map_id as \"map_id: _\", config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length,\n                -- Some legacy rows store `results` as an empty object `{}` instead of an array (or\n                -- null); coerce any non-array value to NULL so it decodes as `None` rather than\n                -- erroring (\"invalid type: map, expected a sequence\"). Matches the Node guard in\n                -- game-models.ts.\n                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as \"results: _\"\n            FROM games\n            WHERE\n                game_length IS NULL\n                AND start_time < now() - interval '2 minutes'\n                AND start_time > now() - interval '1 hour'\n                AND config->>'gameSource' = 'MATCHMAKING'\n            ORDER BY start_time DESC\n            LIMIT 10\n            ",
+  "query": "\n            SELECT id, start_time, map_id as \"map_id: _\", config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length,\n                -- Some legacy rows store `results` as an empty object `{}` instead of an array (or\n                -- null); coerce any non-array value to NULL so it decodes as `None` rather than\n                -- erroring (\"invalid type: map, expected a sequence\"). Matches the Node guard in\n                -- game-models.ts.\n                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as \"results: _\"\n            FROM games\n            WHERE\n                game_length IS NULL\n                AND canceled_at IS NULL\n                AND start_time < now() - interval '2 minutes'\n                AND start_time > now() - interval '1 hour'\n                AND config->>'gameSource' = 'MATCHMAKING'\n            ORDER BY start_time DESC\n            LIMIT 10\n            ",
   "describe": {
     "columns": [
       {
@@ -113,5 +113,5 @@
       null
     ]
   },
-  "hash": "7c8d1ed9d0c8d930cd4a99882a80e75eedd16bb482c54b1ff0eceb9d41989c50"
+  "hash": "c0e90904c1707a208d13a68aa1b81707ea21a4dcbea6c689235e598c13eea598"
 }

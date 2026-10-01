@@ -683,8 +683,9 @@ impl GameReportsRepo {
                 SELECT
                     COALESCE(bool_or(user_id = $2), false) AS "reporter_played!",
                     COALESCE(bool_or(user_id = $3), false) AS "reported_played!"
-                FROM games_users
-                WHERE game_id = $1 AND user_id IN ($2, $3)
+                FROM games_users gu
+                JOIN games g ON g.id = gu.game_id
+                WHERE game_id = $1 AND user_id IN ($2, $3) AND g.canceled_at IS NULL
             "#,
             game_id,
             reporter_id.0,

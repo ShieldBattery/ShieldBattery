@@ -403,6 +403,7 @@ impl GamesRepo {
             FROM games
             WHERE
                 game_length IS NULL
+                AND canceled_at IS NULL
                 AND start_time < now() - interval '2 minutes'
                 AND start_time > now() - interval '1 hour'
                 AND config->>'gameSource' = 'MATCHMAKING'

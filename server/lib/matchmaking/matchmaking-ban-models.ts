@@ -5,6 +5,13 @@ import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 import { ClientIdentifierBuffer } from '../users/client-ids'
 
+/**
+ * How long a claim to enforce a game penalty (`matchmaking_game_bans.enforcement_claimed_at`) is
+ * held before another worker may take it over, so a process crash can't suppress enforcement
+ * forever.
+ */
+export const GAME_PENALTY_ENFORCEMENT_LEASE_MINUTES = 5
+
 export interface MatchmakingBanRow {
   id: string
   identifierType: number
@@ -118,6 +125,35 @@ export async function checkActiveMatchmakingBan(
   }
 }
 
+/** Checks a complete proposed roster using one query and the same identifier rules as admission. */
+export async function checkActiveMatchmakingBans(
+  userIds: ReadonlyArray<SbUserId>,
+  now: Date,
+  minSameIdentifiers: number,
+): Promise<Set<SbUserId>> {
+  if (!userIds.length) return new Set()
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ user_id: SbUserId }>(sql`
+      SELECT mb.triggered_by AS user_id
+      FROM matchmaking_bans mb
+      WHERE mb.triggered_by = ANY(${userIds}) AND mb.cleared = FALSE AND mb.expires_at > ${now}
+      UNION
+      SELECT ui.user_id
+      FROM matchmaking_bans mb
+      JOIN user_identifiers ui ON
+        (ui.identifier_type, ui.identifier_hash) = (mb.identifier_type, mb.identifier_hash)
+      WHERE ui.user_id = ANY(${userIds}) AND ui.identifier_type != 0
+        AND mb.cleared = FALSE AND mb.expires_at > ${now}
+      GROUP BY ui.user_id, mb.ban_level, mb.expires_at
+      HAVING COUNT(*) >= ${minSameIdentifiers}
+    `)
+    return new Set(result.rows.map(row => row.user_id))
+  } finally {
+    done()
+  }
+}
+
 /**
  * Checks for any uncleared matchmaking bans for a user based on their identifiers. If any uncleared
  * bans are found, the one with the highest level will be returned. Otherwise, `undefined` will be
@@ -204,6 +240,11 @@ export async function addMatchmakingBan(
   const expiresAt = new Date(now.getTime() + banDurationMillis)
   const clearsAt = new Date(now.getTime() + clearDurationMillis)
   try {
+    // A game-scoped penalty can legitimately arrive after the client has
+    // disconnected, when there are no current identifiers to associate with
+    // it. `triggered_by` still makes this an account ban; identifier type zero
+    // is deliberately excluded from identifier matching.
+    const rows = identifiers.length > 0 ? identifiers : ([[0, Buffer.alloc(0)]] as const)
     await client.query<DbMatchmakingBanRow>(sql`
       INSERT INTO matchmaking_bans
         (identifier_type, identifier_hash, triggered_by, ban_level, created_at, expires_at,
@@ -211,7 +252,7 @@ export async function addMatchmakingBan(
       VALUES
         ${sqlConcat(
           ', ',
-          identifiers.map(
+          rows.map(
             ([type, hash]) =>
               sql`(${type}, ${hash}, ${userId}, ${banLevel}, ${now}, ${expiresAt}, ${clearsAt})`,
           ),

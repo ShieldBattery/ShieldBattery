@@ -29,6 +29,13 @@ function getCauseText(
   reason: MatchCanceledReason,
 ): string {
   switch (reason) {
+    case 'setupUnresolved':
+      return t(
+        'matchmaking.matchCanceled.setupUnresolved',
+        "The game could not start, and we couldn't determine the cause.",
+      )
+    case 'gameAnomaly':
+      return t('game.gameAnomaly', 'Game anomalies detected')
     case 'playerLeft':
       return phase === 'draft'
         ? t(
@@ -66,11 +73,56 @@ function getCauseText(
 
 export interface MatchCanceledDialogProps extends CommonDialogProps, CanceledMatch {}
 
+function getPenaltyText(
+  t: TFunction,
+  penalty: NonNullable<CanceledMatch['penalty']>,
+  queueRemoved: boolean,
+): string {
+  switch (penalty) {
+    case 'lossAndBan':
+      if (!queueRemoved) {
+        return t(
+          'matchmaking.matchCanceled.anomalyPastBan',
+          'A matchmaking ban was issued for this match.',
+        )
+      }
+      return t(
+        'matchmaking.matchCanceled.anomalyBan',
+        'You have been banned from matchmaking and removed from the queue.',
+      )
+    case 'lossAndWarning':
+      if (!queueRemoved) {
+        return t(
+          'matchmaking.matchCanceled.anomalyPastWarning',
+          'You received a matchmaking warning.',
+        )
+      }
+      return t(
+        'matchmaking.matchCanceled.anomalyWarning',
+        'You received a matchmaking warning and have been removed from the queue.',
+      )
+    case 'pending':
+      return t(
+        'matchmaking.matchCanceled.anomalyPenaltyPending',
+        'Your matchmaking penalty is being processed. You have been removed from the queue.',
+      )
+    default:
+      return assertUnreachable(penalty)
+  }
+}
+
 /**
- * Explains to a player who was returned to the matchmaking queue why the match they had accepted
- * was canceled during the race draft or game load.
+ * Explains why a match was canceled once the server has resolved whether this player was requeued
+ * or removed. An anomaly penalty is shown only to the affected player.
  */
-export function MatchCanceledDialog({ phase, reason, onCancel }: MatchCanceledDialogProps) {
+export function MatchCanceledDialog({
+  phase,
+  reason,
+  penalty,
+  requeued = true,
+  queueRemoved = true,
+  onCancel,
+}: MatchCanceledDialogProps) {
   const { t } = useTranslation()
 
   useKeyListener({
@@ -84,6 +136,73 @@ export function MatchCanceledDialog({ phase, reason, onCancel }: MatchCanceledDi
     },
   })
 
+  const additionalContent = (() => {
+    if (penalty) {
+      return (
+        <>
+          {penalty !== 'pending' ? (
+            <BodyLarge>
+              {t(
+                'matchmaking.matchCanceled.anomalyLoss',
+                'A loss has been recorded for this match.',
+              )}
+            </BodyLarge>
+          ) : null}
+          <BodyLarge>{getPenaltyText(t, penalty, queueRemoved)}</BodyLarge>
+        </>
+      )
+    }
+
+    if (reason === 'gameAnomaly') {
+      return (
+        <>
+          <BodyLarge>
+            {t(
+              'matchmaking.matchCanceled.anomalyInnocent',
+              'The game was canceled before it could start. No win or loss was recorded for you. Your rating and points are unchanged.',
+            )}
+          </BodyLarge>
+          <TitleMedium>
+            {requeued
+              ? t(
+                  'matchmaking.matchCanceled.backInQueue',
+                  "You're back in the matchmaking queue, searching for a new match.",
+                )
+              : t(
+                  'matchmaking.matchCanceled.removedFromQueue',
+                  'You have been removed from the matchmaking queue.',
+                )}
+          </TitleMedium>
+        </>
+      )
+    }
+
+    let explanation: string | undefined
+    if (reason === 'setupUnresolved') {
+      explanation = t(
+        'matchmaking.matchCanceled.noPenalty',
+        'No win or loss has been recorded, and no matchmaking penalty was applied.',
+      )
+    } else if (reason !== 'error') {
+      explanation = t(
+        'matchmaking.matchCanceled.notYourFault',
+        "This wasn't your fault. Whoever caused it has been removed from the queue.",
+      )
+    }
+
+    return (
+      <>
+        {explanation ? <BodyLarge>{explanation}</BodyLarge> : null}
+        <TitleMedium>
+          {t(
+            'matchmaking.matchCanceled.backInQueue',
+            "You're back in the matchmaking queue, searching for a new match.",
+          )}
+        </TitleMedium>
+      </>
+    )
+  })()
+
   return (
     <StyledDialog
       title={t('matchmaking.matchCanceled.title', 'Match canceled')}
@@ -94,20 +213,7 @@ export function MatchCanceledDialog({ phase, reason, onCancel }: MatchCanceledDi
       ]}>
       <Content>
         <BodyLarge>{getCauseText(t, phase, reason)}</BodyLarge>
-        {reason !== 'error' ? (
-          <BodyLarge>
-            {t(
-              'matchmaking.matchCanceled.notYourFault',
-              "This wasn't your fault. Whoever caused it has been removed from the queue.",
-            )}
-          </BodyLarge>
-        ) : null}
-        <TitleMedium>
-          {t(
-            'matchmaking.matchCanceled.backInQueue',
-            "You're back in the matchmaking queue, searching for a new match.",
-          )}
-        </TitleMedium>
+        {additionalContent}
       </Content>
     </StyledDialog>
   )

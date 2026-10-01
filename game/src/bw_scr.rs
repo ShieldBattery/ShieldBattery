@@ -2114,7 +2114,7 @@ impl BwScr {
                         );
                     }
                     if let Some(&byte) = slice.first()
-                        && byte == 0x48
+                        && byte == bw::LOBBY_GAME_INIT_COMMAND
                         && player == 0
                     {
                         let seq = self.snet_next_turn_sequence_number();
@@ -5865,14 +5865,8 @@ impl bw::Bw for BwScr {
 
     unsafe fn do_lobby_game_init(&self, seed: u32) {
         unsafe {
-            let data = bw::LobbyGameInitData {
-                game_init_command: 0x48,
-                random_seed: seed,
-                // TODO(tec27): deal with player bytes if we ever allow save games
-                player_bytes: [8; 8],
-            };
-            let ptr = &data as *const bw::LobbyGameInitData as *const u8;
-            let len = mem::size_of::<bw::LobbyGameInitData>();
+            // TODO(tec27): deal with player bytes if we ever allow save games
+            let data = bw::lobby_game_init_record(seed);
 
             // Only the host (storm id 0) sends the lobby-init `0x48` record; peers receive it. The
             // seed is server-distributed, so every client hand-set its own lobby_state to 8 and the
@@ -5890,13 +5884,10 @@ impl bw::Bw for BwScr {
             let local_storm_id = self.local_storm_id.resolve();
             if local_storm_id == 0 {
                 debug!(
-                    "Sending lobby game init data: {:#x} {:#x} {:#x?} (lobby_state {})",
-                    data.game_init_command,
-                    seed,
-                    data.player_bytes,
+                    "Sending lobby game init data: {data:02x?} (seed {seed:#x}, lobby_state {})",
                     self.lobby_state.resolve(),
                 );
-                (self.send_command)(ptr, len);
+                (self.send_command)(data.as_ptr(), data.len());
             }
         }
     }

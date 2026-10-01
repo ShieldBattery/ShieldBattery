@@ -482,6 +482,7 @@ export interface LobbyCancelCountdownEvent {
 
 export interface LobbyCancelLoadingEvent {
   type: 'cancelLoading'
+  reason?: 'gameAnomaly'
   usersAtFault?: SbUserId[]
 }
 

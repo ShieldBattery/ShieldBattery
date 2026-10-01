@@ -1,5 +1,10 @@
 import { atom, Setter } from 'jotai'
-import { MatchCanceledReason, MatchmakingType } from '../../common/matchmaking'
+import {
+  CancelLoadingEvent,
+  LobbyViolationPenaltyEvent,
+  MatchCanceledReason,
+  MatchmakingType,
+} from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { JotaiStore } from '../jotai-store'
@@ -83,10 +88,20 @@ export const acceptRequestGenerationAtom = atom<number | undefined>(undefined)
 
 export const matchLaunchingAtom = atom(false)
 
+/** A lobby-violation penalty as it's known: pending at cancellation, then its applied outcome. */
+export type MatchCancellationPenalty =
+  | NonNullable<CancelLoadingEvent['penalty']>
+  | LobbyViolationPenaltyEvent['penalty']
+
 export interface CanceledMatch {
   /** The phase the match was in when it was canceled. */
   phase: 'draft' | 'load'
   reason: MatchCanceledReason
+  /** Present only for the player whose anomaly was penalized. */
+  penalty?: MatchCancellationPenalty
+  /** Omitted for the established requeue flow, where it defaults to true in the dialog. */
+  requeued?: boolean
+  queueRemoved?: boolean
 }
 
 /**
@@ -96,6 +111,8 @@ export interface CanceledMatch {
  * cause until one of those says which it was.
  */
 export const canceledMatchAtom = atom<CanceledMatch | undefined>(undefined)
+
+export const handledLobbyViolationPenaltyGamesAtom = atom<ReadonlySet<string>>(new Set<string>())
 
 /**
  * The matchmaking type of the match currently launching, set alongside `matchLaunchingAtom`.

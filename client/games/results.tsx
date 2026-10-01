@@ -330,7 +330,11 @@ export function ConnectedGameResultsPage({
   }, [gameId])
 
   const headline = useMemo<string>(() => {
-    if (game && !game.results) {
+    if (game?.cancellationReason === 'gameAnomaly') {
+      return t('game.gameAnomaly', 'Game anomalies detected')
+    } else if (game?.canceledAt) {
+      return t('gameDetails.headlineCanceled', 'Game canceled')
+    } else if (game && !game.results) {
       return t('gameDetails.headlineInProgress', 'In progress…')
     } else if (
       selfUser &&
@@ -408,7 +412,13 @@ export function ConnectedGameResultsPage({
       content = assertUnreachable(subPage)
   }
 
-  const isLive = !game?.results
+  const isLive = !game?.results && !game?.canceledAt
+  let statusText = t('gameDetails.statusFinal', 'Final')
+  if (game?.canceledAt) {
+    statusText = t('gameDetails.headlineCanceled', 'Game canceled')
+  } else if (isLive) {
+    statusText = t('gameDetails.statusLive', 'Live')
+  }
 
   const selfIsParticipant =
     !!selfUser &&
@@ -424,7 +434,7 @@ export function ConnectedGameResultsPage({
       .map(p => p.id)
   }, [game, selfUser])
   // Reporting is limited to finished games you played in, against another human player from it.
-  const canReport = !isLive && selfIsParticipant && reportCandidates.length > 0
+  const canReport = !isLive && !game?.canceledAt && selfIsParticipant && reportCandidates.length > 0
 
   let saveReplayLabel: string
   if (isSavingReplay) {
@@ -462,9 +472,7 @@ export function ConnectedGameResultsPage({
           ) : null}
         </HeaderInfo>
         <StatusRow>
-          <LiveFinalIndicator $isLive={isLive}>
-            {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
-          </LiveFinalIndicator>
+          <LiveFinalIndicator $isLive={isLive}>{statusText}</LiveFinalIndicator>
           {game?.manuallyResolved ? (
             <StatusChip $color='var(--theme-on-surface-variant)'>
               {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
@@ -767,6 +775,7 @@ function SummaryPage({
           key={String(key)}
           config={config}
           result={result}
+          raceAssigned={!game.canceledAt}
           mmrChange={!p.isComputer ? mmrChanges?.get(p.id) : undefined}
         />
       )
@@ -900,10 +909,17 @@ export interface PlayerResultProps {
   className?: string
   config: GameConfigPlayer
   result?: ReconciledPlayerResult
+  raceAssigned?: boolean
   mmrChange?: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
 }
 
-export function PlayerResult({ className, config, result, mmrChange }: PlayerResultProps) {
+export function PlayerResult({
+  className,
+  config,
+  result,
+  raceAssigned = true,
+  mmrChange,
+}: PlayerResultProps) {
   const { t } = useTranslation()
   const user = useAppSelector(s => (config.isComputer ? undefined : s.users.byId.get(config.id)))
   const [buttonProps, rippleRef] = useButtonState({
@@ -913,8 +929,10 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
   return (
     <PlayerResultContainer className={className} {...buttonProps}>
       <RaceRoot>
-        <StyledRaceIcon race={result?.race ?? config.race} />
-        {result?.race && config.race === 'r' ? <SelectedRandomIcon race='r' /> : null}
+        <StyledRaceIcon race={raceAssigned ? (result?.race ?? config.race) : config.race} />
+        {raceAssigned && result?.race && config.race === 'r' ? (
+          <SelectedRandomIcon race='r' />
+        ) : null}
       </RaceRoot>
       {config.isComputer ? (
         <StyledComputerAvatar />

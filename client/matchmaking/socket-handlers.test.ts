@@ -11,6 +11,7 @@ import {
   currentSearchInfoAtom,
   FoundMatch,
   foundMatchAtom,
+  handledLobbyViolationPenaltyGamesAtom,
 } from './matchmaking-atoms'
 import { eventToAction } from './socket-handlers'
 
@@ -108,6 +109,13 @@ function runRequeue(dialogHistory: Array<{ type: DialogType }> = []) {
   )
 }
 
+function runQueueStatus(dialogHistory: Array<{ type: DialogType }> = []) {
+  return runHandler(
+    eventToAction.queueStatus(MatchmakingType.Match1v1, { type: 'queueStatus' } as any),
+    dialogHistory,
+  )
+}
+
 describe('client/matchmaking/socket-handlers/draftStarted', () => {
   beforeEach(() => {
     showSnackbarMock.mockClear()
@@ -174,6 +182,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     jotaiStore.set(foundMatchAtom, undefined)
     jotaiStore.set(currentSearchInfoAtom, undefined)
     jotaiStore.set(canceledMatchAtom, undefined)
+    jotaiStore.set(handledLobbyViolationPenaltyGamesAtom, new Set())
   })
 
   function openedDialogs(dispatched: unknown[]) {
@@ -217,7 +226,140 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     expect(showSnackbarMock).not.toHaveBeenCalled()
   })
 
-  test('tells a player removed for a failed load only that the game failed to load', () => {
+  test('shows the offender a pending-penalty anomaly dialog after queue removal', () => {
+    runHandler(
+      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+        type: 'cancelLoading',
+        reason: 'gameAnomaly',
+        penalty: 'pending',
+      }),
+      [],
+    )
+    const dispatched = runQueueStatus()
+
+    expect(openedDialogs(dispatched)).toEqual([
+      {
+        type: DialogType.MatchCanceled,
+        initData: {
+          phase: 'load',
+          reason: 'gameAnomaly',
+          penalty: 'pending',
+          requeued: false,
+        },
+      },
+    ])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+    expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
+
+    // A duplicate status update cannot reopen the dialog after the retained state is consumed.
+    expect(openedDialogs(runQueueStatus())).toEqual([])
+  })
+
+  test('shows a late penalty once without disrupting a later search', () => {
+    const first = runHandler(
+      eventToAction.lobbyViolationPenalty(MatchmakingType.Match1v1, {
+        type: 'lobbyViolationPenalty',
+        gameId: 'late-game',
+        penalty: 'lossAndBan',
+        queueRemoved: true,
+      }),
+      [],
+    )
+
+    expect(openedDialogs(first)).toEqual([
+      {
+        type: DialogType.MatchCanceled,
+        initData: {
+          phase: 'load',
+          reason: 'gameAnomaly',
+          penalty: 'lossAndBan',
+          queueRemoved: true,
+          requeued: false,
+        },
+      },
+    ])
+
+    const laterSearch = makeSearchInfo()
+    jotaiStore.set(currentSearchInfoAtom, laterSearch)
+    const duplicate = runHandler(
+      eventToAction.lobbyViolationPenalty(MatchmakingType.Match1v1, {
+        type: 'lobbyViolationPenalty',
+        gameId: 'late-game',
+        queueRemoved: true,
+        penalty: 'lossAndBan',
+      }),
+      [],
+    )
+
+    expect(openedDialogs(duplicate)).toEqual([])
+    expect(jotaiStore.get(currentSearchInfoAtom)).toBe(laterSearch)
+  })
+  test('preserves a current search when a late warning did not remove it', () => {
+    const search = makeSearchInfo()
+    jotaiStore.set(currentSearchInfoAtom, search)
+
+    const dispatched = runHandler(
+      eventToAction.lobbyViolationPenalty(MatchmakingType.Match1v1, {
+        type: 'lobbyViolationPenalty',
+        gameId: 'warning-game',
+        penalty: 'lossAndWarning',
+        queueRemoved: false,
+      }),
+      [],
+    )
+
+    expect(openedDialogs(dispatched)).toEqual([
+      {
+        type: DialogType.MatchCanceled,
+        initData: {
+          phase: 'load',
+          reason: 'gameAnomaly',
+          penalty: 'lossAndWarning',
+          queueRemoved: false,
+          requeued: false,
+        },
+      },
+    ])
+    expect(jotaiStore.get(currentSearchInfoAtom)).toBe(search)
+  })
+
+  test('shows a requeued party member the innocent anomaly dialog', () => {
+    runHandler(
+      eventToAction.cancelLoading(MatchmakingType.Match2v2, {
+        type: 'cancelLoading',
+        reason: 'gameAnomaly',
+      }),
+      [],
+    )
+    const dispatched = runRequeue()
+
+    expect(openedDialogs(dispatched)).toEqual([
+      { type: DialogType.MatchCanceled, initData: { phase: 'load', reason: 'gameAnomaly' } },
+    ])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+  })
+
+  test('shows a removed party member the innocent anomaly dialog without a requeue claim', () => {
+    runHandler(
+      eventToAction.cancelLoading(MatchmakingType.Match2v2, {
+        type: 'cancelLoading',
+        reason: 'gameAnomaly',
+      }),
+      [],
+    )
+    const dispatched = runQueueStatus()
+
+    expect(openedDialogs(dispatched)).toEqual([
+      {
+        type: DialogType.MatchCanceled,
+        initData: { phase: 'load', reason: 'gameAnomaly', requeued: false },
+      },
+    ])
+    expect(showSnackbarMock).not.toHaveBeenCalled()
+    expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()
+  })
+
+  test('keeps the existing generic notification for non-anomaly load failures', () => {
     runHandler(
       eventToAction.cancelLoading(MatchmakingType.Match1v1, {
         type: 'cancelLoading',
@@ -225,8 +367,9 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
       }),
       [],
     )
-    eventToAction.queueStatus(MatchmakingType.Match1v1, { type: 'queueStatus' })
+    const dispatched = runQueueStatus()
 
+    expect(openedDialogs(dispatched)).toEqual([])
     expect(showSnackbarMock).toHaveBeenCalledTimes(1)
     expect(showSnackbarMock.mock.calls[0][0]).toBe('The game has failed to load.')
     expect(jotaiStore.get(canceledMatchAtom)).toBeUndefined()

@@ -2317,6 +2317,7 @@ export class LobbyService {
   ): Promise<void> {
     const lobbyId = lobby.id
     let usersAtFault: SbUserId[] | undefined
+    let cancellationReason: 'gameAnomaly' | undefined
     try {
       await countdownTimer
       this.lobbyCountdowns.delete(lobbyId)
@@ -2344,6 +2345,9 @@ export class LobbyService {
 
       if (gameLoadResult.isError()) {
         switch (gameLoadResult.error.code) {
+          case GameLoadErrorType.GameAnomaly:
+            cancellationReason = 'gameAnomaly'
+            break
           case GameLoadErrorType.PlayerFailed:
             usersAtFault = [gameLoadResult.error.data.userId]
             break
@@ -2379,7 +2383,12 @@ export class LobbyService {
       const current = this.lobbies.get(lobbyId)
       if (current) {
         const cancelledCountdown = this._maybeCancelCountdown(current, false)
-        const cancelledLoading = this._maybeCancelLoading(current, false, usersAtFault)
+        const cancelledLoading = this._maybeCancelLoading(
+          current,
+          false,
+          usersAtFault,
+          cancellationReason,
+        )
         if (cancelledCountdown || cancelledLoading) {
           this._releaseLaunchBench(lobbyId)
         }
@@ -2387,7 +2396,12 @@ export class LobbyService {
     }
   }
 
-  _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]): boolean {
+  _maybeCancelLoading(
+    lobby: Lobby,
+    isLobbyEmpty = false,
+    usersAtFault?: SbUserId[],
+    reason?: 'gameAnomaly',
+  ): boolean {
     if (!this.loadingLobbies.has(lobby.id)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
@@ -2399,6 +2413,7 @@ export class LobbyService {
     this._publishTo(lobby, {
       type: 'cancelLoading',
       usersAtFault,
+      ...(reason ? { reason } : {}),
     })
     if (!isLobbyEmpty) {
       this._publishListChange('add', lobby)
