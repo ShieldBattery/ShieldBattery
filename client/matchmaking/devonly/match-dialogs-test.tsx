@@ -210,10 +210,6 @@ export function MatchDialogsTest() {
           onClick={() => showAnomalyDialog(undefined, true)}
         />
         <FilledButton
-          label='Preview: innocent anomaly, removed party member'
-          onClick={() => showAnomalyDialog(undefined, false)}
-        />
-        <FilledButton
           label='Preview: offender anomaly, loss and ban'
           onClick={() => showAnomalyDialog('lossAndBan', false)}
         />

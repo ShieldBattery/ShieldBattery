@@ -323,7 +323,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     expect(jotaiStore.get(currentSearchInfoAtom)).toBe(search)
   })
 
-  test('shows a requeued party member the innocent anomaly dialog', () => {
+  test('shows a requeued player the innocent anomaly dialog', () => {
     runHandler(
       eventToAction.cancelLoading(MatchmakingType.Match2v2, {
         type: 'cancelLoading',
@@ -339,7 +339,7 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     expect(showSnackbarMock).not.toHaveBeenCalled()
   })
 
-  test('shows a removed party member the innocent anomaly dialog without a requeue claim', () => {
+  test('shows the innocent anomaly dialog without a requeue claim if the player leaves the queue', () => {
     runHandler(
       eventToAction.cancelLoading(MatchmakingType.Match2v2, {
         type: 'cancelLoading',

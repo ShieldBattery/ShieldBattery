@@ -1,4 +1,3 @@
-import { Immutable } from 'immer'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import { SbMapId } from '../../../common/maps'
 import { PreferenceData } from '../../../common/matchmaking'
@@ -63,10 +62,8 @@ export interface MatchmakingPlayerData {
 
 export type MatchmakingPlayer = Simplify<MatchmakingPlayerData & MatchmakingQueueData>
 
-export type MatchmakingEntity = MatchmakingPlayer
-
-export function isNewPlayer(entity: MatchmakingEntity) {
-  return entity.numGamesPlayed >= NEW_PLAYER_GAME_COUNT
+export function isNewPlayer(player: MatchmakingPlayer) {
+  return player.numGamesPlayed >= NEW_PLAYER_GAME_COUNT
 }
 
 export function matchmakingRatingToPlayerData({
@@ -97,31 +94,15 @@ export function matchmakingRatingToPlayerData({
  * Calculates the effective rating of a team, as if they were a single player. Attempts to weight
  * things such that more skilled players influence the resulting rating more than less skilled ones.
  */
-export function calcEffectiveRating(team: ReadonlyArray<Readonly<MatchmakingEntity>>): number {
+export function calcEffectiveRating(team: ReadonlyArray<Readonly<MatchmakingPlayer>>): number {
   // Calculate the root mean square of the team's ratings. Using this formula means that players
   // with higher rating effectively count for more in the output, so a [2500 + 500] team has a
   // higher effective rating than a [1500 + 1500] team.
   let sum = 0
-  let playerCount = 0
-  for (const entity of team) {
-    for (const players of getPlayersFromEntity(entity)) {
-      playerCount += 1
-      sum += players.rating * players.rating
-    }
+  for (const player of team) {
+    sum += player.rating * player.rating
   }
 
   // TODO(tec27): Determine what the proper exponent is for this from win/loss data
-  return Math.pow(sum / playerCount, 1 / 2)
-}
-
-export function* getPlayersFromEntity(entity: Immutable<MatchmakingEntity>) {
-  yield entity
-}
-
-export function getNumPlayersInEntity(entity: MatchmakingEntity): number {
-  return 1
-}
-
-export function getMatchmakingEntityId(entity: Immutable<MatchmakingEntity>): SbUserId {
-  return entity.id
+  return Math.pow(sum / team.length, 1 / 2)
 }

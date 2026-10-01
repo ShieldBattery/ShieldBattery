@@ -47,7 +47,6 @@ export function calculateChangedRatings({
   teams: [teamA: SbUserId[], teamB: SbUserId[]]
   /** Any running leagues a player is participating in, grouped by user ID. */
   activeLeagues: ReadonlyMap<SbUserId, LeagueUser[]>
-  // TODO(tec27): Pass in party information as well
 }): Map<SbUserId, RatingChanges> {
   const result = new Map<SbUserId, RatingChanges>()
 

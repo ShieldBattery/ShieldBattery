@@ -1285,7 +1285,6 @@ export default class GameResultService {
         gameSourceExtra.type === MatchmakingType.Match3v3Hunters ||
         gameSourceExtra.type === MatchmakingType.Match3v3Fastest
       ) {
-        // TODO(tec27): Pass gameSourceExtra.parties info to rating change calculation
         teams = gameRecord.config.teams.map(t => t.map(p => p.id)) as [
           teamA: SbUserId[],
           teamB: SbUserId[],
