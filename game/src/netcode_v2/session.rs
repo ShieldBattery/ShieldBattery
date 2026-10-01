@@ -758,7 +758,7 @@ mod tests {
                         return;
                     };
                     let refuse = refusals_left
-                        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+                        .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
                         .is_ok();
                     if refuse {
                         conn.close(noq::VarInt::from_u32(1), b"refused");
