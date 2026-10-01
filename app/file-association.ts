@@ -1,10 +1,4 @@
-import {
-  DEFAULT_VALUE,
-  HKCU,
-  REG_NONE,
-  REG_SZ,
-  WindowsRegistry,
-} from '@shieldbattery/windows-registry'
+import { DEFAULT_VALUE, HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { dialog } from 'electron'
 import isDev from 'electron-is-dev'
 import { getAppId } from './app-id'
@@ -41,13 +35,12 @@ export async function registerCurrentProgram() {
       REG_SZ,
       `"${process.execPath}",0`,
     )
-    await registry.write(
-      HKCU,
-      `SOFTWARE\\Classes\\.rep\\OpenWithProgids`,
-      appId,
-      REG_NONE,
-      undefined,
-    )
+
+    // Windows itself writes OpenWithProgids entries as empty REG_NONE values, but the shell only
+    // reads the value names here, so an empty REG_SZ works just as well. REG_NONE can't be used:
+    // the registry module passes zero-length data as a dangling low pointer, which Wine's
+    // RegSetValueExW rejects with ERROR_NOACCESS.
+    await registry.write(HKCU, `SOFTWARE\\Classes\\.rep\\OpenWithProgids`, appId, REG_SZ, '')
   } catch (err) {
     logger.error(`error setting file associations: ${(err as any).stack ?? err}`)
     dialog.showErrorBox(
