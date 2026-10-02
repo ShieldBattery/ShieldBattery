@@ -37,6 +37,14 @@ type BlockedStream {
 	blockedBy: SbUser
 }
 
+type CommendPlayerPayload {
+	feedback: GameFeedback!
+	"""
+	The commended player, with their updated `commendCount`.
+	"""
+	commendedUser: SbUser!
+}
+
 input CreateSignupCodeInput {
 	expiresAt: DateTime!
 	maxUses: Int
@@ -127,6 +135,43 @@ type GameConfigDataMatchmaking {
 	gameSubType: Int!
 	teams: [[GamePlayer!]!]!
 	gameSourceExtra: MatchmakingExtra!
+}
+
+"""
+The current user's ability to commend or report the other players of one game.
+"""
+type GameFeedback {
+	"""
+	The game's id, which clients can cache this by. Everything else here is about the current
+	user.
+	"""
+	id: UUID!
+	"""
+	When commending and reporting close for this game (its end plus 24 hours). Null when the game
+	has no results yet, was canceled, or the current user didn't play in it.
+	"""
+	closesAt: DateTime
+	"""
+	What the current user has already given in this game.
+	"""
+	given: [GivenGameFeedback!]!
+	"""
+	How many more commends the current user can give right now.
+	"""
+	commendsRemaining: Int!
+	"""
+	When `commendsRemaining` is 0: when the oldest commend in the window ages out.
+	"""
+	commendsAvailableAt: DateTime
+	"""
+	Players in this game the current user commended within the last day (in any game).
+	"""
+	recentCommends: [RecentCommend!]!
+}
+
+enum GameFeedbackKind {
+	COMMEND
+	REPORT
 }
 
 type GamePlayer {
@@ -299,6 +344,14 @@ type GameReportUserStats {
 The preset game ruleset that was selected (or UMS).
 """
 scalar GameType
+
+"""
+Something the current user has already given another player in a game.
+"""
+type GivenGameFeedback {
+	userId: SbUserId!
+	kind: GameFeedbackKind!
+}
 
 type League {
 	id: UUID!
@@ -551,8 +604,14 @@ scalar MatchmakingType
 
 type Mutation {
 	"""
-	Files a report against another player from a game both users participated in. Any logged-in
-	user may call this (subject to the reporting restriction and the per-hour cap).
+	Commends another player from a game both users played in.
+	"""
+	commendPlayer(gameId: UUID!, userId: SbUserId!): CommendPlayerPayload!
+	"""
+	Files a report against another player from a game both users participated in, until the
+	game's feedback window closes. Any logged-in user may call this (subject to the reporting
+	restriction and the per-hour cap), but not for a player they already commended in that game.
+	Filed reports never expire; only the chance to file one does.
 	"""
 	reportGame(input: ReportGameInput!): GameReport!
 	"""
@@ -739,6 +798,10 @@ type PageInfo {
 
 type Query {
 	"""
+	What the current user can still commend or report in a game, and what they already have.
+	"""
+	gameFeedback(gameId: UUID!): GameFeedback!
+	"""
 	Fetches a single report by id, for the admin detail view.
 	"""
 	gameReport(id: UUID!): GameReport
@@ -846,6 +909,15 @@ type RatingHistoryPoint {
 	The season this game fell in, derived from `change_date`.
 	"""
 	seasonId: Int!
+}
+
+"""
+A player the current user commended within the last day, in any game, who can't be commended
+again until `availableAt`.
+"""
+type RecentCommend {
+	userId: SbUserId!
+	availableAt: DateTime!
 }
 
 type ReconciledPlayerResult {
@@ -957,6 +1029,10 @@ type SbUser {
 	This user's current Twitch stream, if they are live right now.
 	"""
 	liveStream: LiveStream
+	"""
+	How many commends this user has received from other players, all time.
+	"""
+	commendCount: Int!
 }
 
 """

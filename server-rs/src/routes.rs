@@ -38,6 +38,7 @@ use tracing::Span;
 use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
 use crate::file_store::file_store_from_config;
+use crate::game_commends::GameCommendsModule;
 use crate::game_reports::GameReportsModule;
 use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
@@ -403,6 +404,7 @@ pub async fn create_app(
         .module(TwitchModule::new(db_pool.clone(), redis_pool.clone()))
         .module(MapsModule::new(db_pool.clone()))
         .module(GamesModule::new(db_pool.clone()))
+        .module(GameCommendsModule::new(db_pool.clone()))
         .module(GameReportsModule::new(db_pool.clone()))
         .module(NewsModule::new(db_pool.clone()))
         .module(UsersModule::new(

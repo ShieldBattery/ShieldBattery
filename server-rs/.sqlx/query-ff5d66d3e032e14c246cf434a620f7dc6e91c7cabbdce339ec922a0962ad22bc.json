@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT commended_user_id AS \"user_id!: SbUserId\", MAX(created_at) AS \"last!\"\n                FROM game_commends\n                WHERE commender_id = $1 AND created_at > $2\n                    AND commended_user_id IN (SELECT user_id FROM games_users WHERE game_id = $3)\n                GROUP BY commended_user_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id!: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_commends",
+            "name": "commended_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "last!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "ff5d66d3e032e14c246cf434a620f7dc6e91c7cabbdce339ec922a0962ad22bc"
+}
