@@ -78,26 +78,50 @@ export async function doFullRankingsUpdate(
   await rankingsUpdateLocks.get(type)!
 }
 
+export interface RankedUser {
+  userId: SbUserId
+  rank: number
+}
+
 /**
- * Returns the `SbUserId`s in a matchmaking ranking list, ordered from most to least points.
+ * Assigns ranks to `entries`, which must be ordered from most to least points. Entries with equal
+ * points share the rank of the first of them, so ranks skip after a tie (1, 2, 2, 4).
+ */
+export function rankByPoints(
+  entries: ReadonlyArray<{ value: string; score: number }>,
+): RankedUser[] {
+  const result: RankedUser[] = []
+  let lastRank = 0
+  let lastScore = NaN
+  for (let i = 0; i < entries.length; i++) {
+    const { value, score } = entries[i]
+    if (score !== lastScore) {
+      lastRank = i + 1
+      lastScore = score
+    }
+    result.push({ userId: makeSbUserId(Number(value)), rank: lastRank })
+  }
+  return result
+}
+
+/**
+ * Returns every user in a matchmaking ranking list with their rank, ordered from most to least
+ * points. Users with equal points share a rank (see `rankByPoints`).
  */
 export async function getRankings(
   redis: Redis,
   matchmakingType: MatchmakingType,
   seasonId: SeasonId,
-  limit: number = 0,
-  offset: number = 0,
-): Promise<SbUserId[]> {
+): Promise<RankedUser[]> {
   const key = rankingsKey(matchmakingType, seasonId)
-  const entries = await redis.client.zRange(key, offset, limit !== 0 ? offset + limit - 1 : -1, {
-    REV: true,
-  })
-  return entries.map(entry => makeSbUserId(Number(entry)))
+  const entries = await redis.client.zRangeWithScores(key, 0, -1, { REV: true })
+  return rankByPoints(entries)
 }
 
 /**
  * Returns the ranks of a given `SbUserId` for a particular season. Only seasons where the user has
- * a rank will be returned.
+ * a rank will be returned. Ranks match those from `getRankings`, so users with equal points share
+ * a rank.
  */
 export async function getRankingsForUser(
   redis: Redis,
@@ -105,17 +129,28 @@ export async function getRankingsForUser(
   seasonId: SeasonId,
 ): Promise<Map<MatchmakingType, number>> {
   // Commands issued in the same tick are written to Redis as a single pipeline
-  const ranks = await Promise.all(
+  const scores = await Promise.all(
     ALL_MATCHMAKING_TYPES.map(type =>
-      redis.client.zRevRank(rankingsKey(type, seasonId), String(userId)),
+      redis.client.zScore(rankingsKey(type, seasonId), String(userId)),
     ),
+  )
+  const ranks = await Promise.all(
+    ALL_MATCHMAKING_TYPES.map(async (type, i) => {
+      const score = scores[i]
+      if (score === null) {
+        return null
+      }
+      // The rank is one more than the number of users with strictly more points
+      const higher = await redis.client.zCount(rankingsKey(type, seasonId), `(${score}`, '+inf')
+      return higher + 1
+    }),
   )
 
   const result = new Map<MatchmakingType, number>()
   ALL_MATCHMAKING_TYPES.forEach((type, i) => {
     const rank = ranks[i]
     if (rank !== null) {
-      result.set(type, rank + 1)
+      result.set(type, rank)
     }
   })
 

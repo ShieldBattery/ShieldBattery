@@ -170,35 +170,22 @@ export class LadderApi {
     })
 
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
-    let rankings = await getRankings(this.redis, params.matchmakingType, season.id)
-    const rankingsMap = new Map(rankings.map((u, r) => [u, r + 1]))
+    const allRankings = await getRankings(this.redis, params.matchmakingType, season.id)
+    const userIds = allRankings.map(r => r.userId)
 
     const [ratings, unfilteredUsers] = await Promise.all([
-      getManyMatchmakingRatings(rankings, params.matchmakingType, season.id, query.q),
-      findUsersById(rankings),
+      getManyMatchmakingRatings(userIds, params.matchmakingType, season.id, query.q),
+      findUsersById(userIds),
     ])
     const ratingsMap = new Map(ratings.map(r => [r.userId, r]))
-    let users = unfilteredUsers
-    if (query.q && ratings.length < rankings.length) {
-      rankings = rankings.filter(r => ratingsMap.has(r))
-      users = unfilteredUsers.filter(u => ratingsMap.has(u.id))
-    }
+    // Ranks come from the full list, so they are unaffected by the search query filtering it here
+    const rankings = allRankings.filter(r => ratingsMap.has(r.userId))
+    const users = unfilteredUsers.filter(u => ratingsMap.has(u.id))
 
-    const players: LadderPlayer[] = []
-    let lastRank = 0
-    let lastPoints = NaN
-    for (let i = 0; i < rankings.length; i++) {
-      const r = ratingsMap.get(rankings[i])!
-      // TODO(#1215): This isn't quite correct when a search query is set, since we've filtered
-      // the users we look at and the users we look at here may be tied with someone not in the
-      // result set. Ideally we could get Redis to give us the point values as well that it's
-      // using for rankings?
-      if (r.points !== lastPoints) {
-        lastRank = rankingsMap.get(r.userId) ?? i + 1
-        lastPoints = r.points
-      }
-      players.push({
-        rank: lastRank,
+    const players = rankings.map(({ userId, rank }): LadderPlayer => {
+      const r = ratingsMap.get(userId)!
+      return {
+        rank,
         userId: r.userId,
         matchmakingType: r.matchmakingType,
         seasonId: r.seasonId,
@@ -223,8 +210,8 @@ export class LadderApi {
         rZWins: r.rZWins,
         rZLosses: r.rZLosses,
         lastPlayedDate: Number(r.lastPlayedDate),
-      })
-    }
+      }
+    })
 
     return {
       totalCount: rankings.length,
