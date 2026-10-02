@@ -2813,7 +2813,15 @@
         "shadowStacking": "Shadow stacking",
         "showFps": "Show FPS",
         "smoothUnitTurning": "Smooth unit turning",
-        "title": "Video"
+        "title": "Video",
+        "windowPlacement": {
+          "remember": "Remember position and size",
+          "rememberSize": "Remember size, centered",
+          "setSize": "Set size, centered",
+          "title": "Window placement"
+        },
+        "windowSize": "Window size",
+        "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }
     },
     "user": {

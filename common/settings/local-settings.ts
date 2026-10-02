@@ -37,6 +37,71 @@ export enum GameDefaultsPreset {
 export const ALL_GAME_DEFAULTS_PRESETS: Readonly<GameDefaultsPreset[]> =
   Object.values(GameDefaultsPreset)
 
+/** How a windowed game places its window when it opens. */
+export enum GameWindowPlacement {
+  /** Where the window was last, at the size it was last. */
+  Remember = 'remember',
+  /** At the size the window was last, centered on its monitor. */
+  RememberSize = 'rememberSize',
+  /** With a play area of `gameWinSetSize`, centered on its monitor. */
+  SetSize = 'setSize',
+}
+
+export const ALL_GAME_WINDOW_PLACEMENTS: Readonly<GameWindowPlacement[]> =
+  Object.values(GameWindowPlacement)
+
+export function getGameWindowPlacementLabel(placement: GameWindowPlacement, t: TFunction): string {
+  switch (placement) {
+    case GameWindowPlacement.Remember:
+      return t('settings.game.video.windowPlacement.remember', 'Remember position and size')
+    case GameWindowPlacement.RememberSize:
+      return t('settings.game.video.windowPlacement.rememberSize', 'Remember size, centered')
+    case GameWindowPlacement.SetSize:
+      return t('settings.game.video.windowPlacement.setSize', 'Set size, centered')
+    default:
+      return assertUnreachable(placement)
+  }
+}
+
+/** The size of the game's play area, not counting the window's title bar and borders. */
+export interface GameWindowSize {
+  width: number
+  height: number
+}
+
+export interface GameWindowPresetGroup {
+  aspectRatio: string
+  sizes: ReadonlyArray<Readonly<GameWindowSize>>
+}
+
+/**
+ * Preset play area sizes up to 4K, grouped by shape. 4:3 comes first since it's the game's native
+ * aspect ratio, and includes the exact multiples of its 640x480 resolution.
+ */
+export const GAME_WINDOW_PRESET_GROUPS: ReadonlyArray<Readonly<GameWindowPresetGroup>> = [
+  {
+    aspectRatio: '4:3',
+    sizes: [
+      { width: 1024, height: 768 },
+      { width: 1280, height: 960 },
+      { width: 1440, height: 1080 },
+      { width: 1920, height: 1440 },
+      { width: 2560, height: 1920 },
+      { width: 2880, height: 2160 },
+    ],
+  },
+  {
+    aspectRatio: '16:9',
+    sizes: [
+      { width: 1280, height: 720 },
+      { width: 1600, height: 900 },
+      { width: 1920, height: 1080 },
+      { width: 2560, height: 1440 },
+      { width: 3840, height: 2160 },
+    ],
+  },
+]
+
 export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
   switch (fog) {
     case StartingFog.ShowTerrainAndResources:
@@ -159,6 +224,8 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   gameWinY?: number
   gameWinWidth?: number
   gameWinHeight?: number
+  gameWinPlacement: GameWindowPlacement
+  gameWinSetSize: GameWindowSize
   monitorId?: number
   quickOpenReplays: boolean
   /**

@@ -11,10 +11,18 @@ import {
   SCR_GAMMA_MAX,
   SCR_GAMMA_MIN,
 } from '../../../common/settings/blizz-settings'
-import { useForm, useFormCallbacks } from '../../forms/form-hook'
+import {
+  ALL_GAME_WINDOW_PLACEMENTS,
+  GAME_WINDOW_PRESET_GROUPS,
+  GameWindowPlacement,
+  GameWindowSize,
+  getGameWindowPlacementLabel,
+} from '../../../common/settings/local-settings'
+import { FormHook, useForm, useFormCallbacks } from '../../forms/form-hook'
 import logger from '../../logging/logger'
 import { OutlinedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
+import { Divider } from '../../material/menu/divider'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
@@ -86,6 +94,40 @@ interface GameVideoSettingsModel {
   shadowStackingOn: boolean
   pillarboxOn: boolean
   showFps: boolean
+  windowPlacement: GameWindowPlacement
+  windowSize: Readonly<GameWindowSize>
+}
+
+function isSameWindowSize(a: Readonly<GameWindowSize>, b: Readonly<GameWindowSize>): boolean {
+  return a.width === b.width && a.height === b.height
+}
+
+function WindowSizeSelect({ bindCustom }: Pick<FormHook<GameVideoSettingsModel>, 'bindCustom'>) {
+  const { t } = useTranslation()
+
+  return (
+    <Select
+      {...bindCustom('windowSize')}
+      label={t('settings.game.video.windowSize', 'Window size')}
+      compareValues={isSameWindowSize}
+      tabIndex={0}>
+      {GAME_WINDOW_PRESET_GROUPS.flatMap(({ aspectRatio, sizes }, i) => [
+        ...(i > 0 ? [<Divider key={`${aspectRatio}-divider`} />] : []),
+        ...sizes.map(size => (
+          <SelectOption
+            key={`${size.width}x${size.height}`}
+            value={size}
+            text={t('settings.game.video.windowSizeOption', {
+              defaultValue: '{{width}} × {{height}} ({{aspectRatio}})',
+              width: size.width,
+              height: size.height,
+              aspectRatio,
+            })}
+          />
+        )),
+      ])}
+    </Select>
+  )
 }
 
 export function GameVideoSettings() {
@@ -111,6 +153,8 @@ export function GameVideoSettings() {
     shadowStackingOn: scrSettings.shadowStackingOn,
     pillarboxOn: scrSettings.pillarboxOn,
     showFps: scrSettings.showFps,
+    windowPlacement: localSettings.gameWinPlacement,
+    windowSize: localSettings.gameWinSetSize,
   }
 
   const { bindCustom, bindCheckable, getInputValue, submit, form } =
@@ -146,6 +190,8 @@ export function GameVideoSettings() {
         mergeLocalSettings(
           {
             monitorId: model.monitorId === null ? undefined : model.monitorId,
+            gameWinPlacement: model.windowPlacement,
+            gameWinSetSize: model.windowSize,
           },
           {
             onSuccess: () => {},
@@ -219,12 +265,29 @@ export function GameVideoSettings() {
               ))}
             </Select>
           ) : (
-            <ResetWindowPositionButton
-              label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
-              disabled={localSettings.gameWinX === undefined}
-              onClick={resetWindowPosition}
-              testName='reset-game-window-position'
-            />
+            <>
+              <Select
+                {...bindCustom('windowPlacement')}
+                label={t('settings.game.video.windowPlacement.title', 'Window placement')}
+                tabIndex={0}>
+                {ALL_GAME_WINDOW_PLACEMENTS.map(placement => (
+                  <SelectOption
+                    key={placement}
+                    value={placement}
+                    text={getGameWindowPlacementLabel(placement, t)}
+                  />
+                ))}
+              </Select>
+              {getInputValue('windowPlacement') === GameWindowPlacement.SetSize ? (
+                <WindowSizeSelect bindCustom={bindCustom} />
+              ) : null}
+              <ResetWindowPositionButton
+                label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
+                disabled={localSettings.gameWinX === undefined}
+                onClick={resetWindowPosition}
+                testName='reset-game-window-position'
+              />
+            </>
           )}
           <Slider
             {...bindCustom('gamma')}
