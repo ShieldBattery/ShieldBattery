@@ -1,3 +1,4 @@
+import { isAbortError } from '../../common/async/abort-signals'
 import { apiUrl } from '../../common/urls'
 import { GetRelationshipsResponse } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -15,10 +16,18 @@ export function getRelationshipsIfNeeded(spec: RequestHandlingSpec): ThunkAction
       return
     }
 
-    const result = await fetchJson<GetRelationshipsResponse>(
-      apiUrl`users/${self.user.id}/relationships`,
-      { signal: spec.signal },
-    )
+    let result: GetRelationshipsResponse
+    try {
+      result = await fetchJson<GetRelationshipsResponse>(
+        apiUrl`users/${self.user.id}/relationships`,
+        { signal: spec.signal },
+      )
+    } catch (err) {
+      if (!isAbortError(err)) {
+        dispatch({ type: '@users/getRelationshipsFailure' })
+      }
+      throw err
+    }
     dispatch({ type: '@users/getRelationships', payload: result })
   })
 }

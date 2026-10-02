@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MAX_BLOCKS } from '../../../common/users/relationships'
@@ -8,7 +9,7 @@ import { IconButton } from '../../material/button'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { unblockUser } from '../../social/action-creators'
-import { useRelationshipsLoader } from '../../social/friends-list'
+import { RelationshipsLoadErrorRow, useRelationshipsLoader } from '../../social/friends-list'
 import { userRelationshipErrorToString } from '../../social/relationship-errors'
 import { bodyLarge, labelLarge, singleLine, titleLarge, titleSmall } from '../../styles/typography'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
@@ -96,7 +97,34 @@ export function UserSocialSettings() {
   useRelationshipsLoader()
 
   const blocks = useAppSelector(s => s.relationships.blocks)
+  const loadError = useAppSelector(s => s.relationships.loadError)
   const blockedEntries = useAppSelector(useUserEntriesSelector(blocks), areUserEntriesEqual)
+
+  let blockListContent: React.ReactNode
+  if (loadError) {
+    blockListContent = (
+      <RelationshipsLoadErrorRow
+        message={t(
+          'settings.user.social.blockedUsers.loadFailed',
+          "Couldn't load your blocked users",
+        )}
+      />
+    )
+  } else if (blockedEntries.length === 0) {
+    blockListContent = (
+      <EmptyList>
+        {t('settings.user.social.blockedUsers.empty', "You haven't blocked anyone.")}
+      </EmptyList>
+    )
+  } else {
+    blockListContent = (
+      <BlockList>
+        {blockedEntries.map(([userId, username]) => (
+          <BlockedUserEntry key={userId} userId={userId} username={username} />
+        ))}
+      </BlockList>
+    )
+  }
 
   return (
     <Root>
@@ -117,17 +145,7 @@ export function UserSocialSettings() {
             'friend requests.',
         )}
       </Description>
-      {blockedEntries.length === 0 ? (
-        <EmptyList>
-          {t('settings.user.social.blockedUsers.empty', "You haven't blocked anyone.")}
-        </EmptyList>
-      ) : (
-        <BlockList>
-          {blockedEntries.map(([userId, username]) => (
-            <BlockedUserEntry key={userId} userId={userId} username={username} />
-          ))}
-        </BlockList>
-      )}
+      {blockListContent}
     </Root>
   )
 }

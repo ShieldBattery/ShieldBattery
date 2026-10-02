@@ -1,18 +1,22 @@
 import * as React from 'react'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
+import { getErrorStack } from '../../common/errors'
 import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { LoadErrorRow } from '../lists/load-error-row'
+import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { useNavigationTracker } from '../navigation/navigation-tracker'
+import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
@@ -48,10 +52,13 @@ const FadedFriendSettingsIcon = styledWithAttrs(MaterialIcon, { icon: 'manage_ac
   color: var(--theme-on-surface-variant);
 `
 
+/**
+ * Loads the current user's relationships whenever the client (re)connects and they aren't loaded
+ * yet. A failure is recorded in `relationships.loadError`, which the lists built from them show with
+ * a `RelationshipsLoadErrorRow`.
+ */
 export function useRelationshipsLoader() {
-  const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
   const userId = useAppSelector(s => s.auth.self?.user.id)
   const isConnected = useAppSelector(s => s.network.isConnected)
 
@@ -63,10 +70,8 @@ export function useRelationshipsLoader() {
       getRelationshipsIfNeeded({
         signal: controller.signal,
         onSuccess: () => {},
-        onError: () => {
-          snackbarController.showSnackbar(
-            t('social.errors.friendsList.load', 'Failed to load friends list'),
-          )
+        onError: err => {
+          logger.error(`Error loading relationships: ${getErrorStack(err)}`)
         },
       }),
     )
@@ -74,7 +79,50 @@ export function useRelationshipsLoader() {
     return () => {
       controller.abort()
     }
-  }, [dispatch, isConnected, snackbarController, t, userId])
+  }, [dispatch, isConnected, userId])
+}
+
+const LoadErrorContainer = styled.div`
+  padding: 16px 8px;
+`
+
+/**
+ * Stands in for a list of relationships while `relationships.loadError` is set, offering to make the
+ * request again.
+ */
+export function RelationshipsLoadErrorRow({
+  message,
+  className,
+}: {
+  message: string
+  className?: string
+}) {
+  const dispatch = useAppDispatch()
+  const [isRetrying, setIsRetrying] = useState(false)
+
+  return (
+    <LoadErrorContainer className={className}>
+      {isRetrying ? (
+        <LoadingDotsArea />
+      ) : (
+        <LoadErrorRow
+          message={message}
+          onRetry={() => {
+            dispatch(
+              getRelationshipsIfNeeded({
+                onStart: () => setIsRetrying(true),
+                onSuccess: () => setIsRetrying(false),
+                onError: err => {
+                  setIsRetrying(false)
+                  logger.error(`Error loading relationships: ${getErrorStack(err)}`)
+                },
+              }),
+            )
+          }}
+        />
+      )}
+    </LoadErrorContainer>
+  )
 }
 
 enum FriendsListTab {
@@ -116,6 +164,7 @@ export function FriendsList() {
 
   useRelationshipsLoader()
   const dispatch = useAppDispatch()
+  const loadError = useAppSelector(s => s.relationships.loadError)
   const [activeTab, setActiveTab] = useUserLocalStorageValue(
     'friendsList.tab',
     FriendsListTab.List,
@@ -131,6 +180,19 @@ export function FriendsList() {
   const [dimensionRef, contentRect] = useObservedDimensions()
 
   const [isAtTop, _isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
+
+  let listContent: React.ReactNode
+  if (loadError) {
+    listContent = (
+      <RelationshipsLoadErrorRow
+        message={t('social.friendsList.loadFailed', "Couldn't load your friends list")}
+      />
+    )
+  } else if (activeTab === FriendsListTab.Requests) {
+    listContent = <VirtualizedFriendRequestsList height={contentRect?.height ?? 0} />
+  } else {
+    listContent = <VirtualizedFriendsList height={contentRect?.height ?? 0} />
+  }
 
   return (
     <>
@@ -172,11 +234,7 @@ export function FriendsList() {
       </FriendsListHeader>
       <FriendsListContent ref={dimensionRef}>
         {topElem}
-        {activeTab === FriendsListTab.Requests ? (
-          <VirtualizedFriendRequestsList height={contentRect?.height ?? 0} />
-        ) : (
-          <VirtualizedFriendsList height={contentRect?.height ?? 0} />
-        )}
+        {listContent}
         {bottomElem}
       </FriendsListContent>
     </>

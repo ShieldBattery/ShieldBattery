@@ -2939,6 +2939,7 @@
           "count": "{{blocked}} / {{max}}",
           "description": "You won't see messages from blocked users in chat or in games, and they can't send you friend requests.",
           "empty": "You haven't blocked anyone.",
+          "loadFailed": "Couldn't load your blocked users",
           "title": "Blocked users"
         },
         "title": "Social"
@@ -2956,8 +2957,7 @@
       "friendsList": {
         "errorAcceptingFriendRequest": "Error accepting friend request",
         "errorDecliningFriendRequest": "Error declining friend request",
-        "errorRemovingFriendRequest": "Error removing friend request",
-        "load": "Failed to load friends list"
+        "errorRemovingFriendRequest": "Error removing friend request"
       }
     },
     "friends": {
@@ -2970,6 +2970,7 @@
         "online": "Online",
         "outgoing": "Outgoing"
       },
+      "loadFailed": "Couldn't load your friends list",
       "loadingUsername": "Username loading…",
       "tabs": {
         "addFriends": "Add friends",
