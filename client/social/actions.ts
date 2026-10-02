@@ -7,6 +7,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 
 export type SocialActions =
   | GetRelationships
+  | GetRelationshipsFailure
   | UpsertUserRelationship
   | DeleteUserRelationship
   | UpdateFriendActivityStatus
@@ -14,6 +15,11 @@ export type SocialActions =
 export interface GetRelationships {
   type: '@users/getRelationships'
   payload: GetRelationshipsResponse
+}
+
+/** A request for the current user's relationships failed for a reason other than being aborted. */
+export interface GetRelationshipsFailure {
+  type: '@users/getRelationshipsFailure'
 }
 
 export interface UpsertUserRelationship {

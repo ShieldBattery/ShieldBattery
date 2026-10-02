@@ -18,6 +18,11 @@ export interface RelationshipState {
 
   loaded: boolean
   loadedAt: number
+  /**
+   * Whether the last request for relationships failed and none has succeeded since. While it's set,
+   * the lists built from this state show an error with a retry rather than passing for empty ones.
+   */
+  loadError: boolean
 }
 
 const DEFAULT_STATE: Immutable<RelationshipState> = {
@@ -30,6 +35,7 @@ const DEFAULT_STATE: Immutable<RelationshipState> = {
 
   loaded: false,
   loadedAt: -1,
+  loadError: false,
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -50,6 +56,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     state.loaded = true
     state.loadedAt = action.system.monotonicTime
+    state.loadError = false
+  },
+
+  ['@users/getRelationshipsFailure'](state) {
+    // Several requests can be in flight at once, so another one may already have loaded them.
+    if (!state.loaded) {
+      state.loadError = true
+    }
   },
 
   ['@users/upsertRelationship'](state, { payload: { relationship }, meta: { selfId } }) {

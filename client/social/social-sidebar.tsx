@@ -35,6 +35,7 @@ import { useOverflowingElement } from '../dom/overflowing-element'
 import { useContextMenu } from '../dom/use-context-menu'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
+import { LoadErrorRow } from '../lists/load-error-row'
 import logger from '../logging/logger'
 import { IconButton, keyEventMatches, OutlinedButton, useButtonState } from '../material/button'
 import { Divider } from '../material/menu/divider'
@@ -54,7 +55,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { dialogScrimOpacity } from '../styles/colors'
-import { bodyLarge, labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import {
   ConnectedUserContextMenu,
@@ -249,6 +250,9 @@ export function SocialSidebar({
   const [isLoadingWhisperSessions, setIsLoadingWhisperSessions] = useState(false)
   const [loadingJoinedChannelsError, setLoadingJoinedChannelsError] = useState<Error>()
   const [loadingWhisperSessionsError, setLoadingWhisperSessionsError] = useState<Error>()
+  // Bumped by a Retry to run the matching load effect again without waiting for a reconnect
+  const [joinedChannelsAttempt, setJoinedChannelsAttempt] = useState(0)
+  const [whisperSessionsAttempt, setWhisperSessionsAttempt] = useState(0)
 
   // Chat channels/whispers get cleared out on reconnect, so we need to reload them whenever that
   // happens
@@ -281,7 +285,7 @@ export function SocialSidebar({
     return () => {
       abortController.abort()
     }
-  }, [dispatch, isConnected])
+  }, [dispatch, isConnected, joinedChannelsAttempt])
 
   useEffect(() => {
     if (!isConnected) {
@@ -311,7 +315,7 @@ export function SocialSidebar({
     return () => {
       abortController.abort()
     }
-  }, [dispatch, isConnected])
+  }, [dispatch, isConnected, whisperSessionsAttempt])
 
   useRelationshipsLoader()
 
@@ -363,6 +367,8 @@ export function SocialSidebar({
             loadingJoinedChannelsError={loadingJoinedChannelsError}
             isLoadingWhisperSessions={isLoadingWhisperSessions}
             loadingWhisperSessionsError={loadingWhisperSessionsError}
+            onRetryJoinedChannels={() => setJoinedChannelsAttempt(a => a + 1)}
+            onRetryWhisperSessions={() => setWhisperSessionsAttempt(a => a + 1)}
           />
           {bottomElem}
         </ChatContainer>
@@ -444,12 +450,8 @@ const ChatListButton = styled(OutlinedButton)`
   margin: 8px auto 0;
 `
 
-const ErrorDisplay = styled.div`
-  ${bodyLarge};
-  padding: 16px;
-
-  color: var(--theme-error);
-  text-align: center;
+const LoadErrorContainer = styled.div`
+  padding: 8px;
 `
 
 function ChatContent({
@@ -457,11 +459,15 @@ function ChatContent({
   loadingJoinedChannelsError,
   isLoadingWhisperSessions,
   loadingWhisperSessionsError,
+  onRetryJoinedChannels,
+  onRetryWhisperSessions,
 }: {
   isLoadingJoinedChannels: boolean
   loadingJoinedChannelsError?: Error
   isLoadingWhisperSessions: boolean
   loadingWhisperSessionsError?: Error
+  onRetryJoinedChannels: () => void
+  onRetryWhisperSessions: () => void
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -474,9 +480,12 @@ function ChatContent({
     chatChannelsList = <LoadingDotsArea />
   } else if (loadingJoinedChannelsError) {
     chatChannelsList = (
-      <ErrorDisplay>
-        {t('social.chat.loadingChannelsError', 'Error loading chat channels')}
-      </ErrorDisplay>
+      <LoadErrorContainer>
+        <LoadErrorRow
+          message={t('social.chat.loadingChannelsError', 'Error loading chat channels')}
+          onRetry={onRetryJoinedChannels}
+        />
+      </LoadErrorContainer>
     )
   } else {
     chatChannelsList = Array.from(chatChannels.values(), c => (
@@ -495,7 +504,12 @@ function ChatContent({
     whisperSessionsList = <LoadingDotsArea />
   } else if (loadingWhisperSessionsError) {
     whisperSessionsList = (
-      <ErrorDisplay>{t('social.chat.loadingWhispersError', 'Error loading whispers')}</ErrorDisplay>
+      <LoadErrorContainer>
+        <LoadErrorRow
+          message={t('social.chat.loadingWhispersError', 'Error loading whispers')}
+          onRetry={onRetryWhisperSessions}
+        />
+      </LoadErrorContainer>
     )
   } else {
     whisperSessionsList = Array.from(whisperSessions.values(), w => (
