@@ -262,6 +262,11 @@ export interface ParseMessageTextOptions {
   UserMenu?: UserMenuComponent
   /** Whether mentioned users and channels can be clicked, focused, etc. */
   interactive: boolean
+  /**
+   * Whether a message of nothing but emoji renders them jumbo-sized. Defaults to true; a one-line
+   * preview of a message turns it off so the line keeps its height.
+   */
+  allowJumboEmoji?: boolean
 }
 
 export interface ParsedMessageText {
@@ -286,7 +291,13 @@ export interface ParsedMessageText {
  */
 export function parseMessageText(
   text: string,
-  { selfUserId, filterClick, UserMenu, interactive }: ParseMessageTextOptions,
+  {
+    selfUserId,
+    filterClick,
+    UserMenu,
+    interactive,
+    allowJumboEmoji = true,
+  }: ParseMessageTextOptions,
 ): ParsedMessageText {
   const nodes: React.ReactNode[] = []
   let mentionsSelf = false
@@ -296,7 +307,7 @@ export function parseMessageText(
   let channelInviteToken: string | undefined
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
-  const jumboEmoji = isJumboEmojiMessage(text, sortedMatches)
+  const jumboEmoji = allowJumboEmoji && isJumboEmojiMessage(text, sortedMatches)
   let lastIndex = 0
 
   for (const match of sortedMatches) {

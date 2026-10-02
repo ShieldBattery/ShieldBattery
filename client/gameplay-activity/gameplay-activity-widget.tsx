@@ -27,6 +27,9 @@ import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
+import { parseMessageText } from '../messaging/common-message-layout'
+import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
+import { RolledOutcomeLine } from '../messaging/rolled-outcome-line'
 import { push } from '../navigation/routing'
 import { isConnectedAtom } from '../network/network-atoms'
 import { useMultiplexRef } from '../react/refs'
@@ -41,6 +44,7 @@ import {
   titleLarge,
   titleMedium,
 } from '../styles/typography'
+import { ConnectedUsername } from '../users/connected-username'
 
 const widgetXAtom = atom(0)
 const widgetYAtom = atom(0)
@@ -300,17 +304,108 @@ const LobbyInfo = styled.div`
   row-gap: 4px;
 `
 
+const CountdownText = styled.span<{ $low: boolean }>`
+  ${titleLarge};
+
+  margin-top: 4px;
+
+  display: block;
+  font-feature-settings: 'tnum' on;
+  text-align: center;
+  color: ${props => (props.$low ? 'var(--theme-error)' : 'inherit')};
+`
+
+const LobbyCountdown = styled.div`
+  display: flex;
+  flex-direction: column;
+`
+
+const LobbyStatusText = styled(BodyMedium)`
+  text-align: center;
+  color: var(--theme-on-surface-variant);
+`
+
+const LatestMessageText = styled(BodyMedium)`
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+`
+
+const LatestMessageAuthor = styled.span`
+  color: var(--theme-on-surface);
+`
+
+/**
+ * A one-line preview of a lobby chat message, written the way the lobby's chat writes it
+ * (`Name: text`, or `* Name action` for an action line) but with nothing in it interactive.
+ */
+function LatestLobbyMessage({ message }: { message: CommonTextMessage }) {
+  const author = (
+    <LatestMessageAuthor>
+      <ConnectedUsername userId={message.from} interactive={false} />
+    </LatestMessageAuthor>
+  )
+
+  let line: React.ReactNode
+  if (message.outcome) {
+    line = (
+      <>
+        * {author} <RolledOutcomeLine outcome={message.outcome} text={message.text} />
+      </>
+    )
+  } else {
+    const content = parseMessageText(message.text, {
+      interactive: false,
+      allowJumboEmoji: false,
+    }).nodes
+    line = message.emote ? (
+      <>
+        * {author} {content}
+      </>
+    ) : (
+      <>
+        {author}: {content}
+      </>
+    )
+  }
+
+  return <LatestMessageText>{line}</LatestMessageText>
+}
+
 export function LobbyWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const lobbyName = useAppSelector(s => s.lobby.info.name)
   const lobbyId = useAppSelector(s => s.lobby.info.id)
   const hasUnread = useAppSelector(s => s.lobby.hasUnread)
   const lobbyInfo = useAppSelector(s => s.lobby.info)
+  const { isCountingDown, countdownTimer, isLoading } = useAppSelector(s => s.lobby.loadingState)
+  // System lines (joins, countdown ticks, etc.) are left out: the preview is for what people said.
+  const latestMessage = useAppSelector(s =>
+    s.lobby.chat.findLast(
+      (message): message is CommonTextMessage =>
+        message.type === CommonMessageType.TextMessage && !s.relationships.blocks.has(message.from),
+    ),
+  )
   const totalSlots = slotCount(lobbyInfo)
   const takenSlots = takenSlotCount(lobbyInfo)
 
-  return (
-    <Widget {...props} title={lobbyName} hasTitlePip={hasUnread}>
+  let statusContent: React.ReactNode
+  if (isLoading) {
+    statusContent = (
+      <LobbyStatusText>
+        {t('gameplayActivity.lobby.gameStarting', 'Game starting…')}
+      </LobbyStatusText>
+    )
+  } else if (isCountingDown) {
+    statusContent = (
+      <LobbyCountdown>
+        <LobbyStatusText>
+          {t('gameplayActivity.lobby.startingIn', 'Game starts in')}
+        </LobbyStatusText>
+        <CountdownText $low={false}>{Math.max(countdownTimer, 0)}</CountdownText>
+      </LobbyCountdown>
+    )
+  } else {
+    statusContent = (
       <LobbyInfo>
         <LabelMedium>{t('gameplayActivity.lobby.slotsLabel', 'Slots:')}</LabelMedium>
         <BodyMedium>
@@ -321,6 +416,13 @@ export function LobbyWidget(props: WidgetContainerProps) {
           })}
         </BodyMedium>
       </LobbyInfo>
+    )
+  }
+
+  return (
+    <Widget {...props} title={lobbyName} hasTitlePip={hasUnread}>
+      {statusContent}
+      {latestMessage ? <LatestLobbyMessage message={latestMessage} /> : null}
       <OutlinedButton
         iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
         label={t('gameplayActivity.lobby.viewLobby', 'View lobby')}
@@ -345,17 +447,6 @@ const StyledElapsedTime = styled(ElapsedTime)`
  * accurate.
  */
 const WIDGET_COUNTDOWN_TICK_MS = 1000
-
-const CountdownText = styled.span<{ $low: boolean }>`
-  ${titleLarge};
-
-  margin-top: 4px;
-
-  display: block;
-  font-feature-settings: 'tnum' on;
-  text-align: center;
-  color: ${props => (props.$low ? 'var(--theme-error)' : 'inherit')};
-`
 
 const AcceptProgressText = styled(BodyMedium)`
   text-align: center;
