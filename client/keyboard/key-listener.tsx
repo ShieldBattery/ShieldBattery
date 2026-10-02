@@ -1,6 +1,6 @@
 import * as React from 'react'
-import { useContext, useEffect, useMemo, useRef } from 'react'
-import { useStableCallback, useValueAsRef } from '../react/state-hooks'
+import { useContext, useEffect, useMemo, useState } from 'react'
+import { useValueAsRef } from '../react/state-hooks'
 
 interface KeyHandler {
   keydown: (event: KeyboardEvent) => boolean
@@ -44,31 +44,83 @@ export function useKeyListener(props: KeyListenerProps) {
     }
   }, [keydownRef, keypressRef, keyupRef])
 
-  const context = useContext(KeyListenerContext)
+  const boundary = useContext(KeyListenerContext)
 
   useEffect(() => {
-    if (!context) {
+    if (!boundary) {
       throw new Error('KeyListener must be used within a KeyListenerContext')
     }
-    context?.addKeyHandler(handler)
-    return () => context?.removeKeyHandler(handler)
-  }, [context, handler])
+    boundary.addKeyHandler(handler)
+    return () => boundary.removeKeyHandler(handler)
+  }, [boundary, handler])
 }
 
-interface KeyListenerContextValue {
-  addKeyHandler: (handler: KeyHandler) => void
-  removeKeyHandler: (handler: KeyHandler) => void
+/**
+ * The key handlers and active child boundaries registered with a single `KeyListenerBoundary`.
+ * Key events are routed down from the root boundary: a boundary with any active child boundaries
+ * passes events to the most recently activated one, so sibling modal UIs (e.g. a dialog opened
+ * on top of the settings screen) receive keys in the order they were stacked. Only a boundary
+ * without active children runs its own handlers.
+ */
+class Boundary {
+  private handlers: KeyHandler[] = []
+  private activeChildren: Boundary[] = []
 
-  enterExclusiveMode: () => void
-  exitExclusiveMode: () => void
+  addKeyHandler(handler: KeyHandler) {
+    this.handlers.push(handler)
+  }
+
+  removeKeyHandler(handler: KeyHandler) {
+    removeFromArray(this.handlers, handler)
+  }
+
+  addActiveChild(child: Boundary) {
+    this.activeChildren.push(child)
+  }
+
+  removeActiveChild(child: Boundary) {
+    removeFromArray(this.activeChildren, child)
+  }
+
+  /** Returns true if a handler handled the event. */
+  dispatch(event: KeyboardEvent): boolean {
+    const child = this.activeChildren.at(-1)
+    if (child) {
+      return child.dispatch(event)
+    }
+
+    const handlerName = event.type
+    if (handlerName !== 'keydown' && handlerName !== 'keyup' && handlerName !== 'keypress') {
+      throw new Error('Unsupported event: ' + event.type)
+    }
+
+    const handlers = this.handlers
+    for (let i = handlers.length - 1; i >= 0; i--) {
+      if (handlers[i][handlerName](event)) {
+        return true
+      }
+    }
+
+    return false
+  }
 }
 
-const KeyListenerContext = React.createContext<KeyListenerContextValue | undefined>(undefined)
+function removeFromArray<T>(array: T[], value: T) {
+  const index = array.indexOf(value)
+  if (index !== -1) {
+    array.splice(index, 1)
+  }
+}
+
+const KeyListenerContext = React.createContext<Boundary | undefined>(undefined)
 
 /**
  * A boundary for `KeyListener`s and `useKeyListener` that stops keypresses from being handled
  * outside of it. This should be used for UIs that represent a modal state of some sort (for
  * example, a dialog or a popover).
+ *
+ * When multiple boundaries are active within the same parent boundary, only the one that became
+ * active most recently receives keypresses.
  *
  * To work correctly, a `KeyListenerBoundary` must also be placed at the root of the application.
  */
@@ -80,95 +132,38 @@ export function KeyListenerBoundary({
   active?: boolean
 }) {
   const parentBoundary = useContext(KeyListenerContext)
-
-  const handlersRef = useRef<KeyHandler[]>([])
-
-  const onKeyEvent = useStableCallback((event: KeyboardEvent) => {
-    if (event.defaultPrevented) return
-
-    const handlerName = event.type
-    if (handlerName !== 'keydown' && handlerName !== 'keyup' && handlerName !== 'keypress') {
-      throw new Error('Unsupported event: ' + event.type)
-    }
-
-    const handlers = handlersRef.current
-
-    let handled = false
-    for (let i = handlers.length - 1; !handled && i >= 0; i--) {
-      handled = handlers[i][handlerName](event)
-    }
-
-    if (handled) {
-      event.preventDefault()
-    }
-  })
-
-  // NOTE(tec27): I tried to use this for checking for double-active-exclusive zones (two or more
-  // exclusive zones as siblings in the same parent), but it seems hard to make workable since the
-  // timing of calls to enter/exclusive isn't easy to find boundaries for)
-  const exclusiveCountRef = useRef(0)
-
-  const value = useMemo<KeyListenerContextValue>(
-    () => ({
-      addKeyHandler(handler) {
-        if (exclusiveCountRef.current === 0 && !handlersRef.current.length) {
-          document.addEventListener('keydown', onKeyEvent)
-          document.addEventListener('keyup', onKeyEvent)
-          document.addEventListener('keypress', onKeyEvent)
-        }
-
-        handlersRef.current.push(handler)
-      },
-
-      removeKeyHandler(handler) {
-        handlersRef.current.splice(handlersRef.current.indexOf(handler), 1)
-
-        if (exclusiveCountRef.current === 0 && !handlersRef.current.length) {
-          document.removeEventListener('keydown', onKeyEvent)
-          document.removeEventListener('keyup', onKeyEvent)
-          document.removeEventListener('keypress', onKeyEvent)
-        }
-      },
-
-      enterExclusiveMode() {
-        exclusiveCountRef.current += 1
-
-        if (exclusiveCountRef.current === 1 && handlersRef.current.length) {
-          document.removeEventListener('keydown', onKeyEvent)
-          document.removeEventListener('keyup', onKeyEvent)
-          document.removeEventListener('keypress', onKeyEvent)
-        }
-      },
-
-      exitExclusiveMode() {
-        exclusiveCountRef.current -= 1
-        if (exclusiveCountRef.current < 0) {
-          throw new Error('Unbalanced KeyListenerBoundary enter/exitExclusiveMode calls')
-        }
-
-        if (exclusiveCountRef.current === 0 && handlersRef.current.length) {
-          document.addEventListener('keydown', onKeyEvent)
-          document.addEventListener('keyup', onKeyEvent)
-          document.addEventListener('keypress', onKeyEvent)
-        }
-      },
-    }),
-    [onKeyEvent],
-  )
+  const [boundary] = useState(() => new Boundary())
 
   useEffect(() => {
-    if (active) {
-      const parent = parentBoundary
-      parent?.enterExclusiveMode()
-
-      return () => parent?.exitExclusiveMode()
+    if (!active) {
+      return undefined
     }
 
-    return () => {}
-  }, [parentBoundary, active])
+    if (parentBoundary) {
+      parentBoundary.addActiveChild(boundary)
+      return () => parentBoundary.removeActiveChild(boundary)
+    }
+
+    const onKeyEvent = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
+
+      if (boundary.dispatch(event)) {
+        event.preventDefault()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyEvent)
+    document.addEventListener('keyup', onKeyEvent)
+    document.addEventListener('keypress', onKeyEvent)
+    return () => {
+      document.removeEventListener('keydown', onKeyEvent)
+      document.removeEventListener('keyup', onKeyEvent)
+      document.removeEventListener('keypress', onKeyEvent)
+    }
+  }, [boundary, parentBoundary, active])
 
   return (
-    <KeyListenerContext.Provider value={active ? value : parentBoundary}>
+    <KeyListenerContext.Provider value={active ? boundary : parentBoundary}>
       {children}
     </KeyListenerContext.Provider>
   )
