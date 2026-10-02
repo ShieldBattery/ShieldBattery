@@ -402,7 +402,7 @@ export function ReduxMapThumbnail({
   if (selfUser) {
     if (canManageMaps) {
       canRemoveMap = true
-    } else if (map.visibility === MapVisibility.Private && map.uploadedBy === selfUser.id) {
+    } else if (map.visibility === MapVisibility.Unlisted && map.uploadedBy === selfUser.id) {
       canRemoveMap = true
     }
   }

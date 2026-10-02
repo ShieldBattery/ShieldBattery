@@ -232,7 +232,7 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
   if (map) {
     if (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) {
       canEdit = auth.self?.permissions.manageMaps ?? false
-    } else if (map.visibility === MapVisibility.Private) {
+    } else if (map.visibility === MapVisibility.Unlisted) {
       canEdit = map.uploadedBy === auth.self?.user.id
     }
   }

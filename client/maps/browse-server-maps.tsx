@@ -118,7 +118,7 @@ function tabToVisibility(tab: MapTab): MapVisibility {
     case MapTab.OfficialMaps:
       return MapVisibility.Official
     case MapTab.MyMaps:
-      return MapVisibility.Private
+      return MapVisibility.Unlisted
     case MapTab.CommunityMaps:
       return MapVisibility.Public
     default:

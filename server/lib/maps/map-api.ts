@@ -131,6 +131,9 @@ export class MapsApi {
     } = validateRequest(ctx, {
       query: Joi.object<ServerGetMapsQueryParams>({
         visibility: Joi.string()
+          // TODO(2Pac): Remove once app versions that still request `PRIVATE` have aged out.
+          // That value was renamed to `UNLISTED` and has the same meaning.
+          .replace(/^PRIVATE$/, MapVisibility.Unlisted)
           .valid(...ALL_MAP_VISIBILITIES)
           .default(MapVisibility.Official),
         sort: Joi.number()
@@ -149,11 +152,11 @@ export class MapsApi {
       }),
     })
 
-    if (!ctx.session?.user && visibility === MapVisibility.Private) {
-      throw new httpErrors.BadRequest('Private maps are only available to logged in users')
+    if (!ctx.session?.user && visibility === MapVisibility.Unlisted) {
+      throw new httpErrors.BadRequest('Unlisted maps are only available to logged in users')
     }
 
-    const uploadedBy = visibility === MapVisibility.Private ? ctx.session!.user.id : undefined
+    const uploadedBy = visibility === MapVisibility.Unlisted ? ctx.session!.user.id : undefined
 
     const mapsResult = await getMaps({
       visibility,
@@ -312,7 +315,7 @@ export class MapsApi {
     }
 
     const [map, user] = await Promise.all([
-      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Private),
+      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Unlisted),
       findUserById(ctx.session!.user.id),
     ])
     return {
@@ -349,7 +352,7 @@ export class MapsApi {
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (map.visibility === MapVisibility.Private && map.uploadedBy !== ctx.session!.user.id) {
+    if (map.visibility === MapVisibility.Unlisted && map.uploadedBy !== ctx.session!.user.id) {
       throw new httpErrors.Forbidden("Can't update maps of other users")
     }
 
@@ -381,7 +384,7 @@ export class MapsApi {
     ) {
       throw new httpErrors.Forbidden('Not enough permissions')
     }
-    if (map.visibility === MapVisibility.Private && map.uploadedBy !== ctx.session!.user.id) {
+    if (map.visibility === MapVisibility.Unlisted && map.uploadedBy !== ctx.session!.user.id) {
       throw new httpErrors.Forbidden("Can't remove maps of other users")
     }
 
