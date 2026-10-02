@@ -1065,26 +1065,52 @@ pub fn restore_saved_window_pos() {
         return;
     };
 
+    // Only use the saved position if all the values are set
+    let saved = match (
+        settings.window_x,
+        settings.window_y,
+        settings.width,
+        settings.height,
+    ) {
+        (Some(x), Some(y), Some(width), Some(height)) => Some(WindowBounds {
+            x,
+            y,
+            width,
+            height,
+        }),
+        _ => None,
+    };
+    if let Some(saved) = &saved {
+        move_to_monitor_of(handle, saved);
+    }
+
     let bounds = match settings.window_placement {
         WindowPlacement::Remember => {
-            // Only restore the position if all the values are set
-            let (Some(x), Some(y), Some(width), Some(height)) = (
-                settings.window_x,
-                settings.window_y,
-                settings.width,
-                settings.height,
-            ) else {
+            let Some(WindowBounds {
+                x,
+                y,
+                width,
+                height,
+            }) = saved
+            else {
                 return;
             };
             debug!("Restoring window position to ({x},{y}) {width}x{height} [{display_mode:?}]");
             Some(ensure_window_is_visible(x, y, width, height, display_mode))
         }
         WindowPlacement::RememberSize => {
-            let (Some(width), Some(height)) = (settings.width, settings.height) else {
+            let Some(WindowBounds { width, height, .. }) = saved else {
                 return;
             };
             debug!("Restoring window size to {width}x{height}, centered");
-            monitor_work_area(handle).map(|area| center_in(&area, width, height))
+            // The saved size includes the title bar and borders
+            window_borders(handle).and_then(|(border_width, border_height)| {
+                let play_area = ClientSize {
+                    width: width - border_width,
+                    height: height - border_height,
+                };
+                centered_bounds(handle, play_area, (border_width, border_height))
+            })
         }
         WindowPlacement::SetSize => {
             let Some(size) = settings.set_size else {
@@ -1094,22 +1120,7 @@ pub fn restore_saved_window_pos() {
                 "Setting play area to {}x{}, centered",
                 size.width, size.height
             );
-            window_borders(handle).zip(monitor_work_area(handle)).map(
-                |((border_width, border_height), area)| {
-                    // Shrinks the play area rather than the whole window, so a play area that
-                    // doesn't fit keeps its shape
-                    let size = fit_within(
-                        size,
-                        area.right - area.left - border_width,
-                        area.bottom - area.top - border_height,
-                    );
-                    center_in(
-                        &area,
-                        size.width + border_width,
-                        size.height + border_height,
-                    )
-                },
-            )
+            window_borders(handle).and_then(|borders| centered_bounds(handle, size, borders))
         }
     };
     let Some(WindowBounds {
@@ -1154,10 +1165,65 @@ fn window_borders(window: HWND) -> Option<(i32, i32)> {
     }
 }
 
-/// The work area (the monitor minus the taskbar and docked toolbars) of the monitor `window` is on.
-fn monitor_work_area(window: HWND) -> Option<RECT> {
+/// Where to put `window` so its play area is `play_area`, with `borders` around it, centered on its
+/// monitor. A play area that doesn't fit is shrunk, keeping its shape.
+fn centered_bounds(
+    window: HWND,
+    play_area: ClientSize,
+    (border_width, border_height): (i32, i32),
+) -> Option<WindowBounds> {
+    let area = unsafe { monitor_work_area(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST))? };
+    let size = fit_within(
+        play_area,
+        area.right - area.left - border_width,
+        area.bottom - area.top - border_height,
+    );
+    Some(center_in(
+        &area,
+        size.width + border_width,
+        size.height + border_height,
+    ))
+}
+
+/// Moves `window` onto the monitor `bounds` are on, if it's somewhere else. SC:R resizes the window
+/// when that changes its DPI, so this has to happen before the window is measured and placed, or
+/// the resize would undo the placement.
+fn move_to_monitor_of(window: HWND, bounds: &WindowBounds) {
     unsafe {
-        let monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
+        let rect = RECT {
+            left: bounds.x,
+            top: bounds.y,
+            right: bounds.x + bounds.width,
+            bottom: bounds.y + bounds.height,
+        };
+        let monitor = MonitorFromRect(&rect, MONITOR_DEFAULTTONEAREST);
+        if monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST) {
+            return;
+        }
+        let Some(area) = monitor_work_area(monitor) else {
+            return;
+        };
+        debug!(
+            "Moving window to the monitor at ({},{})",
+            area.left, area.top
+        );
+        with_scr_hooks_disabled(|| {
+            SetWindowPos(
+                window,
+                null_mut(),
+                area.left,
+                area.top,
+                0,
+                0,
+                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+            );
+        });
+    }
+}
+
+/// The work area of `monitor`: the monitor minus the taskbar and docked toolbars.
+fn monitor_work_area(monitor: HMONITOR) -> Option<RECT> {
+    unsafe {
         let mut monitor_info = mem::zeroed::<MONITORINFO>();
         monitor_info.cbSize = mem::size_of::<MONITORINFO>() as u32;
         if GetMonitorInfoA(monitor, &mut monitor_info) == 0 {
