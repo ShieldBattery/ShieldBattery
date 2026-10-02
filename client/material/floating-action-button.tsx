@@ -45,40 +45,37 @@ export interface FloatingActionButtonProps {
   onClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 /**
  * A circular button with an icon, meant to be used for the most primary action on a particular
  * screen.
  */
-export const FloatingActionButton = React.forwardRef(
-  (
-    {
-      icon,
-      title,
-      className,
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onMouseDown,
-      tabIndex,
-    }: FloatingActionButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const [buttonProps, rippleRef] = useButtonState({
-      disabled,
-      onBlur,
-      onFocus,
-      onClick,
-      onMouseDown,
-    })
+export function FloatingActionButton({
+  icon,
+  title,
+  className,
+  disabled,
+  onBlur,
+  onFocus,
+  onClick,
+  onMouseDown,
+  tabIndex,
+  ref,
+}: FloatingActionButtonProps) {
+  const [buttonProps, rippleRef] = useButtonState({
+    disabled,
+    onBlur,
+    onFocus,
+    onClick,
+    onMouseDown,
+  })
 
-    return (
-      <Root ref={ref} className={className} tabIndex={tabIndex} title={title} {...buttonProps}>
-        {icon}
-        <Ripple ref={rippleRef} disabled={disabled} />
-      </Root>
-    )
-  },
-)
+  return (
+    <Root ref={ref} className={className} tabIndex={tabIndex} title={title} {...buttonProps}>
+      {icon}
+      <Ripple ref={rippleRef} disabled={disabled} />
+    </Root>
+  )
+}

@@ -11,7 +11,7 @@ import {
   Variants,
 } from 'motion/react'
 import * as m from 'motion/react-m'
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -742,23 +742,22 @@ const PointsLabel = styled(m.div)`
 interface PointsBarViewProps {
   points: MotionValue<number>
   divPercent: MotionValue<number>
+  ref?: React.Ref<HTMLDivElement>
 }
 
-// NOTE: This is a plain `forwardRef` (not `m.create`) on purpose. `PointsBarRoot` and `PointsLabel`
+// NOTE: This is a plain component (not `m.create`) on purpose. `PointsBarRoot` and `PointsLabel`
 // are already motion components, so they consume the `divPercent`/`points` MotionValues natively.
 // Wrapping the whole view in `m.create` instead caused motion to strip the `points` MotionValue
 // before it reached this component, crashing on `points.get()`.
-const PointsBarView = forwardRef<HTMLDivElement, PointsBarViewProps>(
-  ({ points, divPercent }, ref) => {
-    const roundedPoints = useTransform(() => Math.round(points.get()))
+function PointsBarView({ points, divPercent, ref }: PointsBarViewProps) {
+  const roundedPoints = useTransform(() => Math.round(points.get()))
 
-    return (
-      <PointsBarRoot ref={ref} style={{ '--sb-points-bar-scale': divPercent } as any}>
-        <PointsBar />
-        <PointsLabelMover>
-          <PointsLabel>{roundedPoints}</PointsLabel>
-        </PointsLabelMover>
-      </PointsBarRoot>
-    )
-  },
-)
+  return (
+    <PointsBarRoot ref={ref} style={{ '--sb-points-bar-scale': divPercent } as any}>
+      <PointsBar />
+      <PointsLabelMover>
+        <PointsLabel>{roundedPoints}</PointsLabel>
+      </PointsLabelMover>
+    </PointsBarRoot>
+  )
+}

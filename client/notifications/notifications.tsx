@@ -55,37 +55,41 @@ export interface NotificationProps {
   text: React.ReactNode
   read: boolean
   showDivider: boolean
+  ref?: React.Ref<HTMLDivElement>
 }
 
-export const ActionlessNotification = React.forwardRef<HTMLDivElement, NotificationProps>(
-  (props, ref) => {
-    return (
-      <Container ref={ref} $read={props.read}>
-        <IconTextContainer>
-          <IconContainer>{props.icon}</IconContainer>
-          <TextContainer>{props.text}</TextContainer>
-        </IconTextContainer>
-        {props.showDivider && <Divider />}
-      </Container>
-    )
-  },
-)
+export function ActionlessNotification({ icon, text, read, showDivider, ref }: NotificationProps) {
+  return (
+    <Container ref={ref} $read={read}>
+      <IconTextContainer>
+        <IconContainer>{icon}</IconContainer>
+        <TextContainer>{text}</TextContainer>
+      </IconTextContainer>
+      {showDivider && <Divider />}
+    </Container>
+  )
+}
 
 export interface ActionableNotificationProps extends NotificationProps {
   actions: React.ReactNode[]
 }
 
-export const ActionableNotification = React.forwardRef<HTMLDivElement, ActionableNotificationProps>(
-  (props, ref) => {
-    return (
-      <Container ref={ref} $read={props.read}>
-        <IconTextContainer>
-          <IconContainer>{props.icon}</IconContainer>
-          <TextContainer>{props.text}</TextContainer>
-        </IconTextContainer>
-        <ActionsContainer>{props.actions}</ActionsContainer>
-        {props.showDivider && <Divider />}
-      </Container>
-    )
-  },
-)
+export function ActionableNotification({
+  icon,
+  text,
+  read,
+  showDivider,
+  actions,
+  ref,
+}: ActionableNotificationProps) {
+  return (
+    <Container ref={ref} $read={read}>
+      <IconTextContainer>
+        <IconContainer>{icon}</IconContainer>
+        <TextContainer>{text}</TextContainer>
+      </IconTextContainer>
+      <ActionsContainer>{actions}</ActionsContainer>
+      {showDivider && <Divider />}
+    </Container>
+  )
+}

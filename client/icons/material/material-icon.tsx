@@ -52,26 +52,29 @@ export interface MaterialIconProps {
   /** Whether the colors are inverted (dark icon on light background). Defaults to `false`. */
   invertColor?: boolean
   className?: string
+  ref?: React.Ref<HTMLSpanElement>
 }
 
-export const MaterialIcon = React.forwardRef(
-  (
-    { icon, size = 24, filled = true, invertColor = false, className }: MaterialIconProps,
-    ref: React.ForwardedRef<HTMLSpanElement>,
-  ) => {
-    return (
-      <IconRoot
-        ref={ref}
-        className={className}
-        aria-hidden={true}
-        $size={size}
-        $filled={filled}
-        $invertColor={invertColor}>
-        {icon}
-      </IconRoot>
-    )
-  },
-)
+export function MaterialIcon({
+  icon,
+  size = 24,
+  filled = true,
+  invertColor = false,
+  className,
+  ref,
+}: MaterialIconProps) {
+  return (
+    <IconRoot
+      ref={ref}
+      className={className}
+      aria-hidden={true}
+      $size={size}
+      $filled={filled}
+      $invertColor={invertColor}>
+      {icon}
+    </IconRoot>
+  )
+}
 
 const AutoSizeContainer = styled.div`
   width: 100%;
@@ -83,18 +86,11 @@ const AutoSizeContainer = styled.div`
  *
  * **Note:** `className` will be applied to the container, not the icon itself.
  */
-export const AutoSizeMaterialIcon = React.forwardRef(
-  (
-    { className, ...iconProps }: Omit<MaterialIconProps, 'size'>,
-    ref: React.ForwardedRef<HTMLSpanElement>,
-  ) => {
-    const [containerRef, size] = useObservedDimensions()
-    return (
-      <AutoSizeContainer ref={containerRef} className={className}>
-        {size ? (
-          <MaterialIcon {...iconProps} size={Math.floor(size?.width)} ref={ref} />
-        ) : undefined}
-      </AutoSizeContainer>
-    )
-  },
-)
+export function AutoSizeMaterialIcon({ className, ...iconProps }: Omit<MaterialIconProps, 'size'>) {
+  const [containerRef, size] = useObservedDimensions()
+  return (
+    <AutoSizeContainer ref={containerRef} className={className}>
+      {size ? <MaterialIcon {...iconProps} size={Math.floor(size?.width)} /> : undefined}
+    </AutoSizeContainer>
+  )
+}
