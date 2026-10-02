@@ -95,10 +95,16 @@ export interface UrgentMessage {
   publishedAt: string
 }
 
-/** The privacy level for a map. This determines who can use the map for creating games. */
+/**
+ * Which map listings a map appears in. Visibility never restricts access: any map can be viewed,
+ * downloaded and played by anyone who has its id.
+ */
 export enum MapVisibility {
-  Private = 'PRIVATE',
+  /** Listed only for its uploader, the only user who can edit or remove it. */
+  Unlisted = 'UNLISTED',
+  /** Listed for everyone in the community maps. */
   Public = 'PUBLIC',
+  /** Listed for everyone in the official maps. */
   Official = 'OFFICIAL',
 }
 

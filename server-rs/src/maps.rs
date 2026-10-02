@@ -112,21 +112,25 @@ impl UploadedMap {
     }
 }
 
-/// The privacy level for a map. This determines who can use the map for creating games.
+/// Which map listings a map appears in. Visibility never restricts access: any map can be viewed,
+/// downloaded and played by anyone who has its id.
 #[typeshare]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, sqlx::Type)]
 #[serde(rename_all = "UPPERCASE")]
 #[sqlx(type_name = "map_visibility", rename_all = "UPPERCASE")]
 pub enum MapVisibility {
-    Private,
+    /// Listed only for its uploader, the only user who can edit or remove it.
+    Unlisted,
+    /// Listed for everyone in the community maps.
     Public,
+    /// Listed for everyone in the official maps.
     Official,
 }
 
 scalar!(
     MapVisibility,
     "MapVisibility",
-    "The privacy level for a map. This determines who can use the map for creating games."
+    "Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id."
 );
 
 #[derive(Debug, Clone)]

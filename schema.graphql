@@ -414,7 +414,7 @@ The race configuration for a player in a map force (either a preset race or 'any
 scalar MapForcePlayerRace
 
 """
-The privacy level for a map. This determines who can use the map for creating games.
+Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id.
 """
 scalar MapVisibility
 
