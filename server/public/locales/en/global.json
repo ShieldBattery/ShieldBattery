@@ -1205,6 +1205,24 @@
     "buttonSaveReplayLoading": "Saving…",
     "buttonWatchReplay": "Watch replay",
     "buttonWatchReplayLoading": "Loading…",
+    "chatTranscript": {
+      "copy": "Copy transcript",
+      "dropped": "<0>{{name}}</0> was dropped",
+      "droppedText": "{{name}} was dropped",
+      "empty": "No chat or leaves were recorded in these replays.",
+      "left": "<0>{{name}}</0> left the game",
+      "leftText": "{{name}} left the game",
+      "loadError": "Failed to load the chat transcript.",
+      "noReplays": "No replays were uploaded for this game.",
+      "scopeAll": "(ALL)",
+      "scopeTeam": "(TEAM)",
+      "scopeUnknown": "(?)",
+      "scopeUnknownTooltip": "No other side's replay was recording when this was sent, so its recipients are unknown",
+      "sources": "Merged from the replays uploaded by:",
+      "title": "Chat transcript",
+      "unknownSender": "Slot {{slot}}",
+      "view": "View chat transcript"
+    },
     "debugInfo": {
       "clientResult": {
         "defeat": "Defeat",

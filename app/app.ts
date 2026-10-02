@@ -48,7 +48,7 @@ import { classifyLaunchArgs } from './launch-args'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
-import { parseReplayMetadata } from './replay-library/replay-parser'
+import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
@@ -979,6 +979,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
     return parseReplayMetadata(replayPath)
   })
+  ipcMain.handle('replayParseChat', (event, replayPath) => parseReplayChat(replayPath))
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
 
