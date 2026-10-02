@@ -2793,11 +2793,6 @@
       "video": {
         "brightness": "Brightness",
         "customFpsLimit": "Custom FPS limit",
-        "customWindowAspectRatio": "Must be between 4:3 and 16:9",
-        "customWindowHeight": "Height",
-        "customWindowSize": "Custom",
-        "customWindowSizeRange": "Enter a whole number from {{min}} to {{max}}",
-        "customWindowWidth": "Width",
         "displayMode": {
           "fullscreen": "Fullscreen",
           "title": "Display mode",

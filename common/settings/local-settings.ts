@@ -102,25 +102,6 @@ export const GAME_WINDOW_PRESET_GROUPS: ReadonlyArray<Readonly<GameWindowPresetG
   },
 ]
 
-export const GAME_WINDOW_PRESET_SIZES: ReadonlyArray<Readonly<GameWindowSize>> =
-  GAME_WINDOW_PRESET_GROUPS.flatMap(group => group.sizes)
-
-/** The game's native resolution. Anything smaller is too small to play on. */
-export const MIN_GAME_WINDOW_SIZE: Readonly<GameWindowSize> = { width: 640, height: 480 }
-/** 8K. The game also shrinks the window to fit its monitor, so this only rejects typos. */
-export const MAX_GAME_WINDOW_SIZE: Readonly<GameWindowSize> = { width: 7680, height: 4320 }
-
-/**
- * Whether a play area is between 4:3 and 16:9. The game resizes its window to stay in that range,
- * so it wouldn't open at a size outside of it.
- */
-export function hasSupportedGameWindowAspectRatio({
-  width,
-  height,
-}: Readonly<GameWindowSize>): boolean {
-  return width * 3 >= height * 4 && width * 9 <= height * 16
-}
-
 export function getStartingFogLabel(fog: StartingFog, t: TFunction): string {
   switch (fog) {
     case StartingFog.ShowTerrainAndResources:
