@@ -158,7 +158,8 @@ fn egui_vertex_to_colored_vertex(
             1.0 - vertex.pos.y * render_target.h_recip,
         ],
         texture: [vertex.uv.x, vertex.uv.y],
-        color: u32::from_le_bytes(vertex.color.to_array()),
+        // Straight alpha, like the textures (see `egui_image_data_to_rgba`).
+        color: u32::from_le_bytes(vertex.color.to_srgba_unmultiplied()),
     }
 }
 
@@ -723,12 +724,12 @@ unsafe fn update_textures(
                 let rgba = egui_image_data_to_rgba(&delta.image);
                 if let Some(pos) = delta.pos {
                     if let Some(texture) = state.textures.get(&id) {
-                        texture.update(rgba, (pos[0] as u32, pos[1] as u32), size);
+                        texture.update(&rgba, (pos[0] as u32, pos[1] as u32), size);
                     } else {
                         warn_once!("Tried to update nonexistent texture {id:?}");
                     }
                 } else {
-                    match OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) {
+                    match OwnedBwTexture::new_rgba(renderer, size, &rgba, bilinear) {
                         Some(texture) => {
                             if let Some(old) = state.textures.insert(id, texture) {
                                 state.queued_texture_frees.push(old);
@@ -744,12 +745,21 @@ unsafe fn update_textures(
     }
 }
 
-fn egui_image_data_to_rgba(image: &epaint::ImageData) -> &[u8] {
-    // As of egui 0.34 the font atlas is delivered as a color image too, so every delta is now a
-    // premultiplied-RGBA `Color32` buffer that BW's RGBA texture format takes directly — the same
-    // bytes egui's own wgpu/glow backends upload.
+/// The RGBA bytes to upload for an egui texture, with straight alpha.
+///
+/// egui's colors and textures are premultiplied by alpha, but no blend mode BW's renderers offer
+/// blends premultiplied colors: the one that blends at all multiplies the source by its alpha
+/// itself. Uploaded as is, everything translucent would have its alpha applied twice and draw much
+/// fainter than egui means it to, so textures and vertex colors are both handed over unmultiplied.
+fn egui_image_data_to_rgba(image: &epaint::ImageData) -> Vec<u8> {
+    // As of egui 0.34 the font atlas is delivered as a color image too, so every delta is a
+    // `Color32` buffer.
     match image {
-        epaint::ImageData::Color(image) => bytemuck::cast_slice(&image.pixels),
+        epaint::ImageData::Color(image) => image
+            .pixels
+            .iter()
+            .flat_map(|pixel| pixel.to_srgba_unmultiplied())
+            .collect(),
     }
 }
 
