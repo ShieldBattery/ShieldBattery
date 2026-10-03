@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { MatchmakingDivision } from '../../common/matchmaking'
 import {
   DEFAULT_TITLE_ID,
@@ -46,10 +46,18 @@ const Root = styled.span<{ $color?: string }>`
   color: ${props => props.$color ?? 'inherit'};
 `
 
-const Name = styled.span`
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+const Name = styled.span<{ $wrap: boolean }>`
+  min-width: 0;
+  ${props =>
+    props.$wrap
+      ? css`
+          overflow-wrap: break-word;
+        `
+      : css`
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        `}
 `
 
 const StaffIcon = styled(MaterialIcon).attrs({ icon: 'shield', size: 16, filled: false })`
@@ -84,6 +92,11 @@ export interface UserTitleProps {
   created?: number
   /** Whether hovering the title should explain how it's earned. */
   showRequirement?: boolean
+  /**
+   * Whether a title too long for the space wraps onto more lines. Otherwise it's cut off with an
+   * ellipsis (for fixed-height spots like the app bar), and the full title is shown on hover.
+   */
+  wrap?: boolean
   className?: string
 }
 
@@ -92,16 +105,20 @@ export function UserTitle({
   titleId = DEFAULT_TITLE_ID,
   created,
   showRequirement = false,
+  wrap = false,
   className,
 }: UserTitleProps) {
   const { t } = useTranslation()
   const locale = useFormatLocale()
   const definition = getTitleDefinition(titleId)
+  const name = getTitleName(titleId, t, created)
 
   const title = (
     <Root className={className} $color={getTitleToneColor(definition.tone)}>
       <TitleIcon definition={definition} />
-      <Name>{getTitleName(titleId, t, created)}</Name>
+      <Name $wrap={wrap} title={wrap ? undefined : name}>
+        {name}
+      </Name>
     </Root>
   )
 
