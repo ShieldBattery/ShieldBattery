@@ -261,6 +261,8 @@ pub enum DisconnectSelfState {
     Reconnecting,
     /// Our link is down for good; the notice offers to leave the game.
     Disconnected,
+    /// The relay evicted us for a desync; the notice says so and offers to leave the game.
+    Desynced,
 }
 
 /// Which disconnect tier a [`DisconnectRowSnapshot`] is in.

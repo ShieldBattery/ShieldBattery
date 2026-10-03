@@ -47,6 +47,7 @@ fn build_disconnect_view(
             SelfState::Healthy => ViewSelfState::Healthy,
             SelfState::Reconnecting => ViewSelfState::Reconnecting,
             SelfState::Disconnected => ViewSelfState::Disconnected,
+            SelfState::Desynced => ViewSelfState::Desynced,
         },
     }
 }

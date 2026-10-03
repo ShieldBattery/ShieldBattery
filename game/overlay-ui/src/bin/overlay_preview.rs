@@ -87,6 +87,10 @@ fn run_smoke() {
             self_state: SelfState::Disconnected,
         },
         DisconnectView {
+            rows: Vec::new(),
+            self_state: SelfState::Desynced,
+        },
+        DisconnectView {
             rows: vec![
                 DisconnectRowView {
                     slot: 0,
@@ -549,6 +553,8 @@ struct Knobs {
     self_reconnecting: bool,
     /// `true` => the disconnected self notice and its Leave button replace everything else.
     self_disconnected: bool,
+    /// `true` => the desynced self notice and its Leave button replace everything else.
+    self_desynced: bool,
     /// egui pixels-per-point; the game derives this from render-target height, so it is the main
     /// knob for matching the game's on-screen scale.
     pixels_per_point: f32,
@@ -627,6 +633,7 @@ impl Default for Knobs {
             ],
             self_reconnecting: false,
             self_disconnected: false,
+            self_desynced: false,
             pixels_per_point: 1.5,
             auto_tick: false,
             backdrop_path: None,
@@ -796,7 +803,9 @@ impl PreviewApp {
             .collect();
         DisconnectView {
             rows,
-            self_state: if self.knobs.self_disconnected {
+            self_state: if self.knobs.self_desynced {
+                SelfState::Desynced
+            } else if self.knobs.self_disconnected {
                 SelfState::Disconnected
             } else if self.knobs.self_reconnecting {
                 SelfState::Reconnecting
@@ -961,6 +970,11 @@ impl PreviewApp {
                 ui.label("Self disconnected");
                 let sd = ui.checkbox(&mut self.knobs.self_disconnected, "show Leave button");
                 self.dirty |= sd.changed();
+                ui.end_row();
+
+                ui.label("Self desynced");
+                let sy = ui.checkbox(&mut self.knobs.self_desynced, "show desync notice");
+                self.dirty |= sy.changed();
                 ui.end_row();
 
                 ui.label("Auto-tick counters");

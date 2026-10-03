@@ -231,6 +231,9 @@ pub struct DisconnectStatus {
     /// Whether this client's own link is down for good: the session ended without being closed on
     /// purpose, so no reconnect is coming.
     pub self_ended: bool,
+    /// Whether the session ended because the relay evicted this client for a desync (implies
+    /// [`self_ended`](Self::self_ended)).
+    pub self_desynced: bool,
     /// Remote participants the local simulation is blocked on right now: mapped session members
     /// other than ourselves whose next turn has not arrived, so the IN hook can't assemble a step.
     /// Read straight from the readiness set the IN hook itself uses, so it names who the sim is
@@ -296,6 +299,55 @@ pub enum SelfState {
     /// purpose, so no reconnect is coming (the relay refused us, or reconnecting became impossible).
     /// The self notice offers to leave the game.
     Disconnected,
+    /// Our session ended because the relay evicted us for a desync: our state hash disagreed with
+    /// the other players', or no majority agreed on one. Offers to leave like
+    /// [`Disconnected`](Self::Disconnected), with a notice that says why.
+    Desynced,
+}
+
+/// How the relay driver task ended, recorded by the task once the driver returns. Shared with the
+/// turn state, which words the terminal self notice from it.
+#[derive(Debug, Default)]
+pub struct DriverEnd(std::sync::atomic::AtomicU8);
+
+/// Why the relay driver ended, once it has (see [`DriverEnd`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DriverEndReason {
+    /// Anything but a desync eviction: a clean close, a refused re-dial, an unfixable failure.
+    Other,
+    /// The relay closed the link with
+    /// [`DESYNC_EVICTED`](rally_point_client::proto::close_codes::DESYNC_EVICTED).
+    DesyncEvicted,
+}
+
+impl DriverEnd {
+    const RUNNING: u8 = 0;
+    const OTHER: u8 = 1;
+    const DESYNC_EVICTED: u8 = 2;
+
+    /// Records the driver's result.
+    pub fn record(&self, result: &Result<(), rally_point_client::DriverError>) {
+        let evicted = matches!(
+            result,
+            Err(rally_point_client::DriverError::Evicted { code })
+                if *code == rally_point_client::proto::close_codes::DESYNC_EVICTED
+        );
+        let value = if evicted {
+            Self::DESYNC_EVICTED
+        } else {
+            Self::OTHER
+        };
+        self.0.store(value, Ordering::Release);
+    }
+
+    /// Why the driver ended, or `None` while it is still running.
+    pub fn reason(&self) -> Option<DriverEndReason> {
+        match self.0.load(Ordering::Acquire) {
+            Self::RUNNING => None,
+            Self::DESYNC_EVICTED => Some(DriverEndReason::DesyncEvicted),
+            _ => Some(DriverEndReason::Other),
+        }
+    }
 }
 
 /// One display-ready disconnect row, derived from a [`DisconnectStatus`] at a given instant. Carries
@@ -331,6 +383,7 @@ impl DisconnectStatus {
             peers: Vec::new(),
             self_lost: false,
             self_ended: false,
+            self_desynced: false,
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: Vec::new(),
@@ -354,7 +407,9 @@ impl DisconnectStatus {
     /// the real self-link signal — never by a guess from the remote roster's behavior (see
     /// [`SelfState`]'s doc comment for why).
     pub fn self_state(&self, _now: Instant) -> SelfState {
-        if self.self_ended {
+        if self.self_desynced {
+            SelfState::Desynced
+        } else if self.self_ended {
             SelfState::Disconnected
         } else if self.self_lost {
             SelfState::Reconnecting
@@ -633,6 +688,9 @@ pub struct TurnState {
     /// Whether the turn channels closed outright in game, without the session having been closed on
     /// purpose: our link is down for good and [`self_link_lost`](Self::self_link_lost) with it.
     self_link_ended: bool,
+    /// How the relay driver ended, recorded by its task (see [`set_driver_end`](Self::set_driver_end)).
+    /// `None` for a session with no relay driver.
+    driver_end: Option<std::sync::Arc<DriverEnd>>,
     /// When the current sustained turn-stream stall began, or `None` when a full step last assembled.
     /// Set by [`receive_turns`](Self::receive_turns) the first poll it can't gather every required
     /// slot's turn, and cleared the first poll it can — so it measures one continuous stall, and a
@@ -720,6 +778,7 @@ impl TurnState {
             disconnected: Vec::new(),
             self_link_lost: false,
             self_link_ended: false,
+            driver_end: None,
             stall_start: None,
             drop_requests: Vec::new(),
             net_stats: NetStats::new(initial_latency_turns.max(1), Instant::now()),
@@ -1617,10 +1676,19 @@ impl TurnState {
             })
             .collect();
         let stalled = self.stalled_peers();
+        // The driver drops its channels a moment before its task records why it ended. Until the
+        // reason is in, the ended link reads as merely lost, so the terminal notice never shows
+        // the wrong one.
+        let end_reason = match &self.driver_end {
+            Some(driver_end) => driver_end.reason(),
+            None => Some(DriverEndReason::Other),
+        };
+        let self_ended = self.self_link_ended && end_reason.is_some();
         DisconnectStatus {
             peers,
             self_lost: self.self_link_lost,
-            self_ended: self.self_link_ended,
+            self_ended,
+            self_desynced: self_ended && end_reason == Some(DriverEndReason::DesyncEvicted),
             stalled,
             stalled_since: self.stall_start,
             drop_requests: self.drop_requests.clone(),
@@ -2146,6 +2214,12 @@ impl TurnState {
         self.result_report_possible = possible;
     }
 
+    /// Shares the cell the relay driver's task records its end in, so the terminal self notice can
+    /// say why the session ended. Set once at session establish.
+    pub fn set_driver_end(&mut self, driver_end: std::sync::Arc<DriverEnd>) {
+        self.driver_end = Some(driver_end);
+    }
+
     /// Hands the serialized end-of-game result report to the driver, which sends it up the relay's
     /// reliable control stream ahead of any leave intent. `try_send` is enough: the channel holds a
     /// single report and at most one is produced per game. A full or closed channel (a duplicate
@@ -2340,6 +2414,7 @@ impl TurnState {
             SelfState::Healthy => DisconnectSelfState::Ok,
             SelfState::Reconnecting => DisconnectSelfState::Reconnecting,
             SelfState::Disconnected => DisconnectSelfState::Disconnected,
+            SelfState::Desynced => DisconnectSelfState::Desynced,
         };
         let rows = status
             .rows(now)
@@ -4466,6 +4541,49 @@ mod tests {
     }
 
     #[test]
+    fn the_terminal_notice_waits_for_the_drivers_end_reason() {
+        use rally_point_client::DriverError;
+        use rally_point_client::proto::close_codes;
+
+        let cases = [
+            (
+                Err(DriverError::Evicted {
+                    code: close_codes::DESYNC_EVICTED,
+                }),
+                SelfState::Desynced,
+            ),
+            (
+                Err(DriverError::Evicted {
+                    code: close_codes::LOBBY_VIOLATION,
+                }),
+                SelfState::Disconnected,
+            ),
+            (Err(DriverError::SlotDeparted), SelfState::Disconnected),
+        ];
+        for (result, expected) in cases {
+            let (mut state, connectivity_tx, _request_drop_rx) = turn_state_with_connectivity();
+            let driver_end = Arc::new(DriverEnd::default());
+            state.set_driver_end(driver_end.clone());
+            drop(connectivity_tx);
+            state.pump_connectivity(true, Instant::now());
+
+            // The channels close a moment before the driver's task records why: until then the
+            // link reads as lost, not yet ended, so no terminal notice can show the wrong reason.
+            let status = state.disconnect_status();
+            assert!(status.self_lost);
+            assert_eq!(status.self_state(Instant::now()), SelfState::Reconnecting);
+
+            driver_end.record(&result);
+            let status = state.disconnect_status();
+            assert_eq!(
+                status.self_state(Instant::now()),
+                expected,
+                "{result:?} ends the session as {expected:?}",
+            );
+        }
+    }
+
+    #[test]
     fn a_deliberate_local_only_close_is_not_a_lost_connection() {
         let (mut state, connectivity_tx, _request_drop_rx) = turn_state_with_connectivity();
         drop(connectivity_tx);
@@ -4527,6 +4645,7 @@ mod tests {
             peers: Vec::new(),
             self_lost: false,
             self_ended: false,
+            self_desynced: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
@@ -4559,6 +4678,7 @@ mod tests {
             }],
             self_lost: false,
             self_ended: false,
+            self_desynced: false,
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: Vec::new(),
@@ -4587,6 +4707,7 @@ mod tests {
             }],
             self_lost: false,
             self_ended: false,
+            self_desynced: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
@@ -4610,6 +4731,7 @@ mod tests {
             peers: Vec::new(),
             self_lost: false,
             self_ended: false,
+            self_desynced: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
@@ -4651,6 +4773,7 @@ mod tests {
             }],
             self_lost: false,
             self_ended: false,
+            self_desynced: false,
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: vec![(PEER_SLOT, now - ago)],

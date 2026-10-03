@@ -28,9 +28,9 @@ use rally_point_client::{
 };
 use tokio::sync::{mpsc, watch};
 
-use super::TurnState;
 use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials};
 use super::rehome::{self, RehomeContext};
+use super::{DriverEnd, TurnState};
 use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
 use crate::windows::wifi::WifiLowLatencyLease;
@@ -199,9 +199,11 @@ pub async fn establish_session(
     // Service the link on the DLL's async runtime. `run_reconnecting` re-dials internally on a
     // link failure, keeping every turn channel alive across the outage (see the self-connectivity
     // convention on `channels.connectivity` in `mod.rs`); it only ends — dropping the channels,
-    // which the hooks read as end-of-session — on a clean shutdown, a terminal relay refusal, or a
-    // non-link failure reconnecting can't fix.
+    // which the hooks read as end-of-session — on a clean shutdown, a terminal relay refusal or
+    // eviction, or a non-link failure reconnecting can't fix.
     let (driver_done_tx, driver_done_rx) = watch::channel(false);
+    let driver_end = Arc::new(DriverEnd::default());
+    let task_driver_end = driver_end.clone();
     tokio::spawn(async move {
         let result = if let Some(lease) = wifi_low_latency {
             lease
@@ -210,6 +212,7 @@ pub async fn establish_session(
         } else {
             driver.run_reconnecting(reconnect).await
         };
+        task_driver_end.record(&result);
         match result {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),
@@ -273,6 +276,7 @@ pub async fn establish_session(
     // A client with no server-issued result code (an observer) can never build a result report, so
     // the driver must not hold its leave intent waiting for one — see `expect_result_report`.
     turn_state.set_result_report_possible(has_result_code);
+    turn_state.set_driver_end(driver_end);
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             link: SessionLink::Relay(endpoint),

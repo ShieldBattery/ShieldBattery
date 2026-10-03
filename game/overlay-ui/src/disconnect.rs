@@ -92,6 +92,17 @@ pub enum SelfState {
     /// Our link is down for good: the relay refused to take us back, or reconnecting became
     /// impossible. Show the self notice with a button to leave the game.
     Disconnected,
+    /// The relay ended our session because our game state stopped matching (the other players',
+    /// or with no majority, anyone's). Like [`Disconnected`](Self::Disconnected), with a notice
+    /// that says why.
+    Desynced,
+}
+
+impl SelfState {
+    /// Whether the session is over for good, so the notice offers to leave the game.
+    pub fn is_terminal(self) -> bool {
+        matches!(self, SelfState::Disconnected | SelfState::Desynced)
+    }
 }
 
 /// One display-ready disconnect row: a logical row from the turn state with its player name
@@ -129,14 +140,14 @@ impl DisconnectView {
         self.rows.is_empty() && self.self_state == SelfState::Healthy
     }
 
-    /// Whether the view shows a button: the Leave button of a [`Disconnected`](SelfState::Disconnected)
-    /// notice, or any row's Drop button (enabled or still counting down). Buttons are the only thing
-    /// that makes the overlay interactable. A row's is keyed on the tier rather than
-    /// `drop_unlocked`: the button itself is present (just disabled) before the unlock threshold,
-    /// so the overlay's input rect must be registered from the moment a row goes confirmed, not
-    /// only once the button is clickable.
+    /// Whether the view shows a button: the Leave button of a
+    /// [`terminal`](SelfState::is_terminal) notice, or any row's Drop button (enabled or still
+    /// counting down). Buttons are the only thing that makes the overlay interactable. A row's is
+    /// keyed on the tier rather than `drop_unlocked`: the button itself is present (just disabled)
+    /// before the unlock threshold, so the overlay's input rect must be registered from the moment
+    /// a row goes confirmed, not only once the button is clickable.
     pub fn has_button(&self) -> bool {
-        self.self_state == SelfState::Disconnected
+        self.self_state.is_terminal()
             || self
                 .rows
                 .iter()
@@ -182,9 +193,15 @@ pub fn render_disconnect_view(
                         SelfState::Reconnecting => {
                             draw_self_notice(ui, "Lost connection to the server, reconnecting…")
                         }
-                        SelfState::Disconnected => {
-                            // TODO(tec27): Translate this
-                            draw_self_notice(ui, "Disconnected from the game");
+                        SelfState::Disconnected | SelfState::Desynced => {
+                            let notice = if view.self_state == SelfState::Desynced {
+                                // TODO(tec27): Translate this
+                                "Your game desynced"
+                            } else {
+                                // TODO(tec27): Translate this
+                                "Disconnected from the game"
+                            };
+                            draw_self_notice(ui, notice);
                             ui.add_space(HEADER_GAP);
                             ui.with_layout(Layout::top_down(Align::Center), |ui| {
                                 // TODO(tec27): Translate this

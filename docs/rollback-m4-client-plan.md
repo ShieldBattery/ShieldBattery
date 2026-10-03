@@ -251,7 +251,7 @@ advancing frames.
   slot has reported, or 5 s after it became confirmable. Native sync is ignored in rollback
   sessions. A verdict names the minority when the rest agree, and any slot that kept sending turns
   (96 past the step) without its report. A slot whose turns stopped is left to the leave machinery.
-  With no majority it names nobody and goes dormant.
+  With no majority it names nobody and goes dormant, and every player is evicted (below).
 - **Eviction** (rp2 `routing/state_hash.rs`, mesh `EvictSlot`). The authority tells the named
   slot's home relay, which closes the link (`DESYNC_EVICTED`), refuses redials, and finalizes the
   drop without waiting for a survivor's drop request. Survivors apply a finalized leave, so the
@@ -261,8 +261,9 @@ advancing frames.
 
 Built since:
 
-- A client whose link can't come back (an evicted one included) shows "Disconnected from the
-  game" with a Leave button, which ends the game the way the menu's End Game does.
+- A client whose link can't come back shows a terminal notice ("Your game desynced" after a desync
+  eviction, "Disconnected from the game" otherwise) with a Leave button, which ends the game the
+  way the menu's End Game does.
 - The pipe is capped at `GAME_SYNC_SAFE_BUFFER_MAX` (14) turns, lockstep's ceiling, however far
   behind the schedule the lead goes, so rollback never costs more input delay than lockstep could.
 - Release DLLs run rollback sessions. They carry the engine, the live driver and the hooks with
@@ -283,11 +284,11 @@ since clients always update: rollback goes to the staging region first, then to 
 Coordinators and relays already run rp2 main `2a07bae`.
 
 - ~~**Eviction should end the session.**~~ Done (rp2 `c755785`, pinned): the client driver ends on
-  a `DESYNC_EVICTED` or `LOBBY_VIOLATION` close instead of re-dialing, so an evicted client goes
-  straight to "Disconnected from the game".
-- **A no-majority verdict leaves the game running.** The comparator names nobody and goes dormant,
-  and the server voids the game, but the clients play on with no further hash checks. The game
-  needs a defined end for this case.
+  a `DESYNC_EVICTED` or `LOBBY_VIOLATION` close instead of re-dialing. A desync eviction shows
+  "Your game desynced" with the Leave button; any other end shows "Disconnected from the game".
+- ~~**A no-majority verdict leaves the game running.**~~ Done in rp2 `4a2038a`: the verdict still
+  names nobody at fault (so the server voids the game), but every player is evicted, so nobody
+  plays on in a game that no longer agrees. **Needs the relay deployed from `4a2038a` or later.**
 - **Staging-region tests.** Real cross-region games on the staging region with release builds.
   Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
 - ~~**rally-point-client pin.**~~ Done: the DLL pins rp2 `c755785`, the deployed `2a07bae` plus

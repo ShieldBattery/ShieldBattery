@@ -46,6 +46,8 @@ export type GameDisconnectSelfState =
   | 'reconnecting'
   /** Our link is down for good; the notice offers to leave the game. */
   | 'disconnected'
+  /** The relay evicted us for a desync; the notice says so and offers to leave the game. */
+  | 'desynced'
 
 /** Which disconnect tier a {@link GameDisconnectRow} is in. */
 export type GameDisconnectTier =
