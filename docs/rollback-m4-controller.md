@@ -30,7 +30,7 @@ different depth (prod already does this briefly: when two relays seeded differen
 start, players ran at different depths for the first ~10 frames without desyncing).
 
 That makes the relay's job a deadline rather than a depth. The session has a clock: frame F is due
-at `S(F) = start + F × 41.7 ms`. **Every player's turn for frame F must reach the relay by S(F).**
+at `S(F) = start + F × 42 ms`. **Every player's turn for frame F must reach the relay by S(F).**
 A turn that makes the deadline reaches every other player after that player's own download leg, so
 what each player sees depends only on their own connection.
 
@@ -130,9 +130,9 @@ disappears in rollback games.
 
 ## The session clock and lead report
 
-Status: designed, not built, and a ship blocker (client plan, "Before shipping"). It replaces each
-client's self-anchored schedule (`rollback_live::Schedule`) and gives the lead it adapts a shared
-reference.
+Status: the relay side is built (rally-point2 `148af6d`); the client side is next. A ship blocker
+(client plan, "Before shipping"). It replaces each client's self-anchored schedule
+(`rollback_live::Schedule`) and gives the lead it adapts a shared reference.
 
 ### Why
 
@@ -151,9 +151,11 @@ it on wall time from then on. The local test pass (client plan) showed both ways
 - **Arrival stamps.** The send-phase controller (`consensus/phase`) stamps every turn at the client
   edge before validation (`routing/slot_link/inbound.rs`) and smooths `arrival − (epoch + seq ×
   41,666 µs)` per slot. It only keeps that residual modulo one turn, anchors `epoch` on the first
-  arrival, and compares a relay's own slots with each other.
+  arrival, and compares a relay's own slots with each other, so its 41,666 µs turn (24 a second)
+  never mattered. An absolute clock does: the game steps every 42 ms at Fastest, and a clock
+  running at 41,666 µs would drift a third of a millisecond a step against every client.
 - **Seq is the step.** A turn's seq is its step, and a game pause keeps taking turns, so seq keeps
-  ticking at 24 per second through a pause. A clock in seq needs no pause handling.
+  ticking at the step rate through a pause. A clock in seq needs no pause handling.
 - **No shared timebase.** Relays measure each other's RTT over the mesh (`mesh/links.rs`), not
   clock offsets. `SessionStart` carries no timestamp; each relay latches its own `started_at`.
 - **No session-stall signal.** The silent-slot watch is a 10 s eviction check, not something
@@ -167,7 +169,7 @@ it on wall time from then on. The local test pass (client plan) showed both ways
   becomes confirmable there (it holds every required slot's first `K` turns), with `K` the lockstep
   start's length (24, made a shared constant). During the lockstep start every client waits for
   every turn, so that instant is when the slowest player's start arrived, and nobody is asked to be
-  earlier than the session has shown it can be. Then `S(n) = S(K) + (n − K) × 41,666 µs + P`, where
+  earlier than the session has shown it can be. Then `S(n) = S(K) + (n − K) × 42 ms + P`, where
   `P` is the time the clock has spent stopped (below).
 - **Copies on other relays.** The authority sends the anchor over the mesh (a new
   `MeshControlFrame` arm carrying the step and `P`). A peer relay anchors its copy at the frame's
@@ -197,8 +199,16 @@ it on wall time from then on. The local test pass (client plan) showed both ways
   (0.5 s) once the clock has an anchor: `LeadReport { through_step, median_us, p90_us, samples,
   pause_us }`, where `pause_us` is the clock's `P` so far. It is re-sent at connect, as the phase
   directive is, and only in rollback sessions. Older clients skip the unknown arm.
+- **A stop starts every window over.** A turn measured around a stop may have been read against
+  the clock from before it (on the authority, a turn that arrived before the one that moved the
+  clock; on another relay, any turn that arrived before the authority's frame did) and would count
+  as late by the whole stop. So when `P` grows, every window is cleared, and the report sent with
+  the stop carries `samples: 0` and only `pause_us`. A client-edge turn is measured after it is
+  forwarded, so on the authority the turn that resumes the clock is measured against it.
 - **Nothing per player crosses the mesh.** Each home relay reports only its own slots; only the
   anchor and `P` travel between relays.
+- **Shared constants.** `rally_point_proto::rollback` holds the lockstep start's length (24 steps)
+  and the step length (42 ms), which the client and the relays must agree on.
 
 ### Client
 
@@ -206,7 +216,7 @@ The report replaces `Schedule` and `lead_adjustment`. The catch-up (up to two ex
 and hold-back mechanics stay, steering toward the new schedule.
 
 - **Deadline estimate.** The client keeps `A`, its estimate in local time of when turn `n` has to
-  leave to make `S(n)`: `send_by(n) = A + n × 41,666 µs`. Each report asks for `A` to move earlier
+  leave to make `S(n)`: `send_by(n) = A + n × 42 ms`. Each report asks for `A` to move earlier
   by `p90 + margin` (or later, when negative). It needs no estimate of the upload leg, since `e` is
   measured against when the client actually sent. A change in `pause_us` moves `A` by exactly that
   much, at once, which is what keeps a session-wide wait from turning into a sprint.
