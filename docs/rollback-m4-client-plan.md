@@ -194,8 +194,10 @@ cost stayed around 0.5 ms.
   frames of rollback on both sides, but the 4-frame side settled at a pipe of 7, about 2 frames
   more than its own link explains. Still open: the relay's lead report (after shipping) is what
   makes the split per player.
-- Still open: a stall at the limit happens inside BW's wait for turns, so clicks made during it
-  aren't logged for re-simulation, and chat that arrives during it waits for the step.
+- Accepted: a stall at the limit happens inside BW's wait for turns. Commands issued during it go
+  out with the next turn as in lockstep, but their order marker and target blink aren't logged
+  for re-simulation, so a later rollback past the click can erase them. Chat that arrives during
+  it waits for the step.
 
 ### Network quality chip (independent of the slices)
 
@@ -261,9 +263,9 @@ advancing frames.
 
 Built since:
 
-- A client whose link can't come back shows a terminal notice ("Your game desynced" after a desync
-  eviction, "Disconnected from the game" otherwise) with a Leave button, which ends the game the
-  way the menu's End Game does.
+- A client whose link can't come back shows a terminal notice ("Game desync detected" after a
+  desync eviction, "Disconnected from the game" otherwise) with a Leave button, which ends the game
+  the way the menu's End Game does.
 - The pipe is capped at `GAME_SYNC_SAFE_BUFFER_MAX` (14) turns, lockstep's ceiling, however far
   behind the schedule the lead goes, so rollback never costs more input delay than lockstep could.
 - Release DLLs run rollback sessions. They carry the engine, the live driver and the hooks with
@@ -285,7 +287,9 @@ Coordinators and relays already run rp2 main `2a07bae`.
 
 - ~~**Eviction should end the session.**~~ Done (rp2 `c755785`, pinned): the client driver ends on
   a `DESYNC_EVICTED` or `LOBBY_VIOLATION` close instead of re-dialing. A desync eviction shows
-  "Your game desynced" with the Leave button; any other end shows "Disconnected from the game".
+  "Game desync detected" with an explanation and the Leave button; any other end shows
+  "Disconnected from the game". The client can't tell a minority eviction from a no-majority one
+  (both are `DESYNC_EVICTED`), so the explanation can't say whether the game counts.
 - ~~**A no-majority verdict leaves the game running.**~~ Done in rp2 `4a2038a`: the verdict still
   names nobody at fault (so the server voids the game), but every player is evicted, so nobody
   plays on in a game that no longer agrees. **Needs the relay deployed from `4a2038a` or later.**
@@ -293,25 +297,60 @@ Coordinators and relays already run rp2 main `2a07bae`.
   Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
 - ~~**rally-point-client pin.**~~ Done: the DLL pins rp2 `c755785`, the deployed `2a07bae` plus
   the client-only eviction change.
+- **The relay's lead report.** The relay keeps the session clock (step F due at
+  `start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
+  sends each player its own smoothed lead error. Clients then set their lead and delay against
+  one shared clock instead of anchoring their own schedules. Not shippable without it: the local
+  test pass below shows the self-anchored schedule misbehaving in ways players would feel.
+  - **The clock must stop when the session does.** A drop wait stalls every client, but each
+    one's schedule kept running: after a 54 s wait for a dropped player, all three survivors ran
+    at ~2.6× speed for ~25 s (1,063–1,241 frames caught up in 30 s), and the lead adapter drove
+    one client to lead −4 over a pipe of 11 (~460 ms of input delay) while it caught up. Only a
+    client behind on its own should catch up; a session-wide wait has to re-anchor the clock.
+  - **The far player's lateness lands on everyone else.** With a Korea client against three on
+    US relays, the Korea client settled at lead 5 over a pipe of 1 and ran almost no rollback,
+    while every other client rolled back over its late turns (29–60 rollbacks per 30 s against
+    its 0). In one game it also alternated catching up and holding back (~200 of each per 30 s),
+    which is uneven pacing on screen.
+- **Staging-region tests.** As above, once the lead report is in.
+
+### Local test pass (2026-10-03)
+
+Four dev clients (one 32-bit) on the staging coordinator and relays, spread over us-west, kr and
+us-east so sessions spanned three relays, with `SB_ROLLBACK_MONKEY=120` on every client:
+
+- **2v2, cross-relay:** all four armed rollback, rolled back steadily (22–40 rollbacks per 30 s,
+  at most 7 frames deep, ~0.2 ms of steps per tick, 0.5 ms on 32-bit) with no hash verdicts.
+- **Desync in a team game:** `forceDesync` on one player; the relay named it the diverged
+  minority and evicted it within 0.4 s, its driver ended without a redial, its notice showed, the
+  server recorded it at fault, and the other three played on.
+- **Computers and observers:** two humans against two computers with two observers, ~2 minutes
+  without a verdict. Observers roll back like players.
+- **No majority:** `forceDesync` on one of the two humans; both were evicted with the desync
+  notice, the server recorded `no_majority` with nobody at fault, and the observers watched the
+  computers win.
+- **Drop across relays:** killed one player's process mid-game; the relay confirmed the link
+  death in ~3 s, the Drop button unlocked at 45 s, and the drop became a finalized leave every
+  survivor applied within ~70 ms through the fence (a 9-frame rollback). Then the sprint above.
+
+Smaller things found on the way:
+- The summary's step time counts a stall at the limit as one long step ("worst 54454.5 ms"), and
+  its "ahead … at most 9" exceeds the limit of 8, probably the off-by-one fixed in the readout.
+- The chip shows a 3 s peak of rollback, so it sits at 5 while the average is 3. A high
+  percentile might read truer; revisit once the lead report changes the numbers.
+- The desync notice draws over the `/netstat` panel when both show.
 
 ## After shipping
 
-**The relay's lead report.** The relay keeps the session clock (step F due at
-`start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
-sends each player its own smoothed lead error. Clients then set their lead and delay against one
-shared clock instead of anchoring their own schedules, which removes the anchor unfairness noted
-in slice 4 and is the prerequisite for deadline enforcement. It doesn't affect correctness or
-verdicts, so it follows slice 5 as its own step.
-
-Then, roughly in order:
+In rough order:
 
 - Deadline enforcement, and clock offsets for sessions spanning several relays (controller doc,
-  open questions 6 and 7).
+  open questions 6 and 7). Enforcement could delay a late player's stream by a frame rather than
+  drop their turn, so a bad connection costs that player input delay, not commands.
 - Tuning the steady and burst windows that choose between delay and rollback, from live games.
 - The advanced player settings for the rollback target and limit. Until then every player runs
   the defaults (target 3, limit 8).
 - The sound hook, so a sound's audibility is decided when it plays rather than at each simulation.
-- Clicks and chat during a stall at the limit (slice 4).
 - Removing the native 0x37 path once every game rolls back.
 
 ## Risks

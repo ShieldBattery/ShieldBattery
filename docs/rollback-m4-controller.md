@@ -151,7 +151,7 @@ slot's first `n` turns have run.
   deadline (below), in 1v1 too. The named player's home relay evicts them and finalizes their
   drop, which usually scores as a loss. With no majority (a 1v1 disagreement, an even split) it
   names nobody at fault but evicts every player, since nothing can reconcile their games, and the
-  game is voided. An evicted client's notice says its game desynced.
+  game is voided. An evicted client's notice says a desync was detected.
 - **Liveness:** the relay knows, from the inputs it forwarded, the step at which each checkpoint
   became confirmable, so it sets the report deadline itself: confirmable + 5 s. A player still
   sending turns (96 past the step) without the report is named, so withholding hashes is not a way

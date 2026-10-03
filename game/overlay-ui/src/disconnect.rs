@@ -67,6 +67,10 @@ const ROW_SPACING: f32 = 12.0;
 const HEADER_GAP: f32 = 12.0;
 /// Size of the Leave button under the disconnected self notice.
 const LEAVE_BUTTON_SIZE: Vec2 = Vec2 { x: 180.0, y: 36.0 };
+/// Vertical gap between a self notice and the explanation under it.
+const BODY_GAP: f32 = 6.0;
+/// The width an explanation under a self notice wraps at.
+const EXPLANATION_WIDTH: f32 = 380.0;
 
 /// Which of the two disconnect tiers a row is in — the presentation-side mirror of the turn-state
 /// enum of the same name. The caller maps its own tier onto this when building the view.
@@ -193,30 +197,52 @@ pub fn render_disconnect_view(
                         SelfState::Reconnecting => {
                             draw_self_notice(ui, "Lost connection to the server, reconnecting…")
                         }
-                        SelfState::Disconnected | SelfState::Desynced => {
-                            let notice = if view.self_state == SelfState::Desynced {
-                                // TODO(tec27): Translate this
-                                "Your game desynced"
-                            } else {
-                                // TODO(tec27): Translate this
-                                "Disconnected from the game"
-                            };
-                            draw_self_notice(ui, notice);
+                        SelfState::Disconnected => {
+                            // TODO(tec27): Translate this
+                            draw_self_notice(ui, "Disconnected from the game");
                             ui.add_space(HEADER_GAP);
-                            ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                                // TODO(tec27): Translate this
-                                if draw_action_button(ui, "Leave game", true, LEAVE_BUTTON_SIZE)
-                                    .clicked()
-                                {
-                                    clicked.leave = true;
-                                }
-                            });
+                            draw_leave_button(ui, &mut clicked);
+                        }
+                        SelfState::Desynced => {
+                            // TODO(tec27): Translate this
+                            draw_self_notice(ui, "Game desync detected");
+                            ui.add_space(BODY_GAP);
+                            // TODO(tec27): Translate this
+                            draw_self_explanation(
+                                ui,
+                                "Your game's state has diverged from the other players', so it \
+                                 can't continue for you. Leaving won't affect anyone else's game.",
+                            );
+                            ui.add_space(HEADER_GAP);
+                            draw_leave_button(ui, &mut clicked);
                         }
                         SelfState::Healthy => draw_peers_panel(ui, &view.rows, &mut clicked.drops),
                     });
                 });
             clicked
         })
+}
+
+/// Draws the Leave button under a terminal self notice, centred.
+fn draw_leave_button(ui: &mut egui::Ui, clicked: &mut DisconnectClicks) {
+    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+        // TODO(tec27): Translate this
+        if draw_action_button(ui, "Leave game", true, LEAVE_BUTTON_SIZE).clicked() {
+            clicked.leave = true;
+        }
+    });
+}
+
+/// Draws the explanation under a self notice, wrapped to [`EXPLANATION_WIDTH`] so the panel stays
+/// about as wide as the notice above it.
+fn draw_self_explanation(ui: &mut egui::Ui, text: &str) {
+    ui.scope(|ui| {
+        ui.set_max_width(EXPLANATION_WIDTH);
+        ui.add(
+            egui::Label::new(RichText::new(text).size(ROW_SIZE).color(SECONDARY))
+                .wrap_mode(egui::TextWrapMode::Wrap),
+        );
+    });
 }
 
 /// Draws the prominent self-connection notice: a signal-lost icon beside larger, warning-coloured

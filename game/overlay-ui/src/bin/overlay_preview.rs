@@ -826,13 +826,12 @@ impl PreviewApp {
                     let region = if relay == 1 { "local-a" } else { "local-b" };
                     format!("r{relay} {region}")
                 });
-                let departure = (i >= k.row_count.saturating_sub(k.departed_count)).then(|| {
-                    if i % 2 == 0 {
+                let departure =
+                    (i >= k.row_count.saturating_sub(k.departed_count)).then_some(if i % 2 == 0 {
                         RowDeparture::Left
                     } else {
                         RowDeparture::Dropped
-                    }
-                });
+                    });
                 NetStatRowView {
                     name: format!("Player {}", i + 1),
                     home,
