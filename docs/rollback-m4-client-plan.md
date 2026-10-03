@@ -297,12 +297,26 @@ Coordinators and relays already run rp2 main `2a07bae`.
   Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
 - ~~**rally-point-client pin.**~~ Done: the DLL pins rp2 `c755785`, the deployed `2a07bae` plus
   the client-only eviction change.
-- **The relay's lead report.** The relay keeps the session clock (step F due at
+- ~~**The relay's lead report.**~~ Done: rally-point2 `148af6d` (with review fixes `0daef64` and
+  `f20f526`) and ShieldBattery `0e51b1a02`. The relay keeps the session clock (step F due at
   `start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
-  sends each player its own smoothed lead error. Clients then set their lead and delay against
-  one shared clock instead of anchoring their own schedules. Not shippable without it: the local
-  test pass below shows the self-anchored schedule misbehaving in ways players would feel. Design:
+  sends each player its own lateness; the client paces its game from the reports
+  (`rollback/pacing.rs`) instead of anchoring its own schedule. Design:
   [The session clock and lead report](rollback-m4-controller.md#the-session-clock-and-lead-report).
+  The same 2v2 as the local test pass below (us-west ×2, Korea, us-east), rerun with it:
+
+  | | Self-anchored schedule | Session clock |
+  |---|---|---|
+  | Frames caught up after a ~55 s drop wait | 1,063–1,241 (~2.6× speed for ~25 s) | 1–6 |
+  | Korea client's rollback | ~0; its lateness on everyone else | 3.0 frames, its target, on a pipe of 2 |
+  | Korea client's catch-ups and hold-backs | ~200 each per 30 s | 0 once settled |
+  | Each client's p90 lateness at the relay | (not measured) | −1 to −6 ms, about the 3 ms margin |
+
+  Every relay adopted the same stop (57.9 s for a 58 s wait). Within a minute of the start, each
+  client's corrections settle to millisecond trims that net to almost nothing, with no catch-ups
+  or hold-backs; a phase lock keeps the game loop's ticks centred in their steps, which a stall or
+  the loop's own drift had left near a step's edge (a client flipping between two frames).
+  What the local test pass found without it:
   - **The clock must stop when the session does.** A drop wait stalls every client, but each
     one's schedule kept running: after a 54 s wait for a dropped player, all three survivors ran
     at ~2.6× speed for ~25 s (1,063–1,241 frames caught up in 30 s), and the lead adapter drove
@@ -313,7 +327,8 @@ Coordinators and relays already run rp2 main `2a07bae`.
     while every other client rolled back over its late turns (29–60 rollbacks per 30 s against
     its 0). In one game it also alternated catching up and holding back (~200 of each per 30 s),
     which is uneven pacing on screen.
-- **Staging-region tests.** As above, once the lead report is in.
+- **Staging-region tests.** Real cross-region games on the staging region with release builds.
+  Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
 
 ### Local test pass (2026-10-03)
 

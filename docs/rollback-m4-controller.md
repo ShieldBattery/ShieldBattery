@@ -130,10 +130,13 @@ disappears in rollback games.
 
 ## The session clock and lead report
 
-Status: the relay side is built (rally-point2 `148af6d`, review fixes `0daef64` and `f20f526`);
-the client side is next. A ship blocker (client plan, "Before shipping"). It replaces each
-client's self-anchored schedule (`rollback_live::Schedule`) and gives the lead it adapts a shared
-reference.
+Status: built. The relay side is rally-point2 `148af6d` (review fixes `0daef64` and `f20f526`),
+the client side ShieldBattery `0e51b1a02` (`rollback/pacing.rs`); results in the client plan's
+"Before shipping". It replaced each client's self-anchored schedule and gives the lead it adapts a
+shared reference. Two additions over the design below: the client's slew moves the game loop's
+own step timing as well as the schedule (moving only the schedule just makes the game skip or
+repeat a frame once the slew crosses one), and a phase lock nudges the loop's ticks back to the
+middle of their steps by up to 1 ms a tick.
 
 ### Why
 
