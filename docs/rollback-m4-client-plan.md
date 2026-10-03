@@ -241,9 +241,9 @@ advancing frames.
   player). `SessionRequest.rollback` asks; the coordinator grants it only on relays advertising
   `rollback_v1`, keeps re-homes on them, and forces `finalized_drops` on. The granted
   `SessionResponse.rollback` rides the player's setup to the DLL, which arms rollback from it (the
-  env knobs now only tune a rollback game). A DLL that can't roll back (one missing an analysis only
-  rollback needs) refuses the session instead of running it as lockstep. Debug DLLs now always resolve
-  the snapshot ranges at launch, since the mode is only known once the session is set up.
+  env knobs now only tune a rollback game). A DLL that can't roll back (one missing an analysis
+  only rollback needs) refuses the session instead of running it as lockstep. Debug DLLs now always
+  resolve the snapshot ranges at launch, since the mode is only known once the session is set up.
 - **Reports** (`rollback/hash_reports.rs`). Every 8th position from 8 is hashed as it is
   simulated; a re-simulation replaces the hash, and once the position is confirmed its report goes
   out on the next local turn (`Payload.state_hash`). Relays keep reports on the mesh and strip them
