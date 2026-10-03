@@ -338,7 +338,6 @@ Smaller things found on the way:
   its "ahead … at most 9" exceeds the limit of 8, probably the off-by-one fixed in the readout.
 - The chip shows a 3 s peak of rollback, so it sits at 5 while the average is 3. A high
   percentile might read truer; revisit once the lead report changes the numbers.
-- The desync notice draws over the `/netstat` panel when both show.
 
 ## After shipping
 
