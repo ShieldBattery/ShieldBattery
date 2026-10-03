@@ -1,7 +1,9 @@
 import * as React from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
+import { GRANTED_TITLE_IDS, TitleId } from '../../../common/titles'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
@@ -15,6 +17,8 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { bodyLarge, TitleLarge } from '../../styles/typography'
+import { adminGetUserTitles, adminSetUserTitleGranted } from '../../titles/action-creators'
+import { getTitleName } from '../../titles/title-strings'
 import { adminSetStaffBadge } from '../action-creators'
 
 const Root = styled.div`
@@ -146,6 +150,11 @@ export function AdminPermissionsPage({ user }: AdminPermissionsPageProps) {
         <TitleLarge>Staff badge</TitleLarge>
         <StaffBadgeEditor userId={user.id} />
       </AdminSection>
+
+      <AdminSection>
+        <TitleLarge>Titles</TitleLarge>
+        <GrantedTitlesEditor userId={user.id} />
+      </AdminSection>
     </Root>
   )
 }
@@ -187,6 +196,75 @@ function StaffBadgeEditor({ userId }: { userId: SbUserId }) {
         inputProps={{ tabIndex: 0 }}
         disabled={isSaving}
       />
+    </StaffBadgeContent>
+  )
+}
+
+const GrantedTitlesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  max-width: 600px;
+  gap: 8px 16px;
+`
+
+function GrantedTitlesEditor({ userId }: { userId: SbUserId }) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const [held, setHeld] = useState<ReadonlySet<TitleId>>()
+  const [savingTitle, setSavingTitle] = useState<TitleId>()
+
+  useEffect(() => {
+    const abortController = new AbortController()
+    dispatch(
+      adminGetUserTitles(userId, {
+        signal: abortController.signal,
+        onSuccess: res => setHeld(new Set(res.unlocked.map(u => u.id))),
+        onError: () => snackbarController.showSnackbar('There was a problem loading the titles'),
+      }),
+    )
+    return () => abortController.abort()
+  }, [dispatch, snackbarController, userId])
+
+  const onChange = (titleId: TitleId, granted: boolean) => {
+    setSavingTitle(titleId)
+    dispatch(
+      adminSetUserTitleGranted(userId, titleId, granted, {
+        onSuccess: res => {
+          setSavingTitle(undefined)
+          setHeld(new Set(res.unlocked.map(u => u.id)))
+          snackbarController.showSnackbar(granted ? 'Title granted' : 'Title revoked')
+        },
+        onError: () => {
+          setSavingTitle(undefined)
+          snackbarController.showSnackbar('There was a problem saving the title')
+        },
+      }),
+    )
+  }
+
+  return (
+    <StaffBadgeContent>
+      <SectionDescription>
+        Titles handed out by hand rather than earned. Granting a staff title (Administrator,
+        Moderator, Developer) also makes it the one they display.
+      </SectionDescription>
+      {held ? (
+        <GrantedTitlesGrid>
+          {GRANTED_TITLE_IDS.map(titleId => (
+            <CheckBox
+              key={titleId}
+              checked={held.has(titleId)}
+              onChange={event => onChange(titleId, event.target.checked)}
+              label={getTitleName(titleId, t)}
+              inputProps={{ tabIndex: 0 }}
+              disabled={savingTitle !== undefined}
+            />
+          ))}
+        </GrantedTitlesGrid>
+      ) : (
+        <LoadingDotsArea />
+      )}
     </StaffBadgeContent>
   )
 }

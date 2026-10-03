@@ -1,5 +1,6 @@
 import { SbPermissions } from '../../common/users/permissions'
 import { ClientRestrictionInfo } from '../../common/users/restrictions'
+import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../common/users/session'
 import {
@@ -22,6 +23,7 @@ export type AuthActions =
   | ClearRestriction
   | DisplayNameChanged
   | AvatarChanged
+  | TitleChanged
 
 export interface LogOut {
   type: '@auth/logOut'
@@ -111,5 +113,18 @@ export interface DisplayNameChanged {
 export interface AvatarChanged {
   type: '@auth/avatarChanged'
   payload: UpdateCurrentUserAvatarResponse
+  error?: false
+}
+
+/**
+ * The title a user displays changed: the current user equipped a title, or a title they displayed
+ * was revoked.
+ */
+export interface TitleChanged {
+  type: '@auth/titleChanged'
+  payload: {
+    /** The user's updated info. */
+    user: SbUser
+  }
   error?: false
 }

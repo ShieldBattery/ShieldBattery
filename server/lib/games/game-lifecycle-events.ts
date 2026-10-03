@@ -38,10 +38,21 @@ export interface GameReconciledEvent {
   gameId: string
 }
 
+/**
+ * A game's results have been applied to its players' records (win/loss counters, ranked ratings and
+ * points, league standings) and committed. Emitted after reconciliation, and also after a disputed
+ * game is resolved by hand, which applies results without reconciling. May be emitted more than once
+ * for the same game, so listeners must be idempotent.
+ */
+export interface GameResultsAppliedEvent {
+  gameId: string
+}
+
 type GameLifecycleEventMap = {
   userGameEnded: [event: UserGameEndedEvent]
   gameEnded: [event: GameEndedEvent]
   gameReconciled: [event: GameReconciledEvent]
+  gameResultsApplied: [event: GameResultsAppliedEvent]
 }
 
 /**

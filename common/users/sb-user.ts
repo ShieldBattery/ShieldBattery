@@ -1,4 +1,5 @@
 import { Jsonify } from '../json'
+import type { TitleId } from '../titles'
 import { SbUserId } from './sb-user-id'
 
 export const LOGIN_NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -30,6 +31,11 @@ export interface SbUser {
    * Absent (rather than `false`) for the common case of accounts without it.
    */
   staffBadge?: boolean
+  /**
+   * The title the user has chosen to display under their name (see `TITLES` in common/titles.ts).
+   * Absent for users displaying the default title.
+   */
+  title?: TitleId
 }
 
 /** Information about the current user. */
@@ -70,6 +76,7 @@ export function toSelfUserJson(user: SelfUser): SelfUserJson {
     created: user.created,
     avatarUrl: user.avatarUrl,
     staffBadge: user.staffBadge,
+    title: user.title,
     loginName: user.loginName,
     email: user.email,
     emailVerified: user.emailVerified,
@@ -90,6 +97,7 @@ export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
     created: userJson.created,
     avatarUrl: userJson.avatarUrl,
     staffBadge: userJson.staffBadge,
+    title: userJson.title,
     loginName: userJson.loginName,
     email: userJson.email,
     emailVerified: userJson.emailVerified,
