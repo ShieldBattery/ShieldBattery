@@ -698,6 +698,7 @@ export default class GameResultService {
     if (completed) {
       try {
         this.gameLifecycleEvents.emit('gameReconciled', { gameId })
+        this.gameLifecycleEvents.emit('gameResultsApplied', { gameId })
         await this.publishReconciledGame(gameId)
       } catch (err: unknown) {
         logger.error({ err, gameId }, 'failed to publish lobby violation result')
@@ -1172,6 +1173,7 @@ export default class GameResultService {
       // failing must not fail the reconcile itself.
       try {
         this.gameLifecycleEvents.emit('gameReconciled', { gameId })
+        this.gameLifecycleEvents.emit('gameResultsApplied', { gameId })
       } catch (err: unknown) {
         logger.error({ err }, `error announcing the reconciliation of game ${gameId}`)
       }
@@ -1641,6 +1643,7 @@ export default class GameResultService {
     // applied points is the point. The resolution is already committed, so a publish failure is
     // logged rather than failing the request.
     try {
+      this.gameLifecycleEvents.emit('gameResultsApplied', { gameId })
       await this.publishReconciledGame(gameId)
     } catch (err) {
       logger.error({ err }, `failed to publish manually resolved game ${gameId}`)

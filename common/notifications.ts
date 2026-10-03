@@ -1,5 +1,6 @@
 import { SbChannelId } from './chat'
 import { SbPolicyType } from './policies/policy-type'
+import { TitleId } from './titles'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
 
@@ -42,6 +43,13 @@ export enum NotificationType {
   CommendReceived = 'commendReceived',
   /** The user was automatically banned or warned for not readying up or not loading into a match. */
   MatchmakingBan = 'matchmakingBan',
+  /** This user unlocked one or more titles. */
+  TitleUnlocked = 'titleUnlocked',
+  /**
+   * Titles were evaluated for this user for the first time, awarding the ones their existing
+   * history had already earned.
+   */
+  TitlesIntroduced = 'titlesIntroduced',
 }
 
 export type SbNotification =
@@ -62,6 +70,8 @@ export type SbNotification =
   | GamePointsRefundedNotification
   | CommendReceivedNotification
   | MatchmakingBanNotification
+  | TitleUnlockedNotification
+  | TitlesIntroducedNotification
 
 export interface BaseNotification {
   /**
@@ -190,6 +200,18 @@ export interface MatchmakingBanNotification extends BaseNotification {
   type: NotificationType.MatchmakingBan
   /** When the ban ends, or `undefined` if this was a warning. */
   bannedUntil?: number
+}
+
+export interface TitleUnlockedNotification extends BaseNotification {
+  type: NotificationType.TitleUnlocked
+  /** The titles that were unlocked together, in display order. */
+  titleIds: TitleId[]
+}
+
+export interface TitlesIntroducedNotification extends BaseNotification {
+  type: NotificationType.TitlesIntroduced
+  /** How many titles (besides the default) the user's history had already earned. */
+  count: number
 }
 
 export type NotificationEvent =

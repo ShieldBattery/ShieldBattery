@@ -7,6 +7,7 @@ import {
   PRIVACY_POLICY_VERSION,
   TERMS_OF_SERVICE_VERSION,
 } from '../../../common/policies/versions'
+import { isTitleId, TitleId } from '../../../common/titles'
 import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SelfUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -35,6 +36,11 @@ interface UserInternal {
   avatarPath?: string
   /** Whether this account is marked as speaking for ShieldBattery. */
   staffBadge: boolean
+  /**
+   * The title the user displays, if they've equipped one. Not a column of `users`: selected from
+   * `user_titles` by `USER_COLUMNS`.
+   */
+  title?: TitleId
   emailVerified: boolean
   acceptedUsePolicyVersion: number
   acceptedTermsVersion: number
@@ -68,6 +74,8 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     signupIpAddress: dbUser.signup_ip_address ?? undefined,
     avatarPath: dbUser.avatar_path ?? undefined,
     staffBadge: dbUser.staff_badge,
+    // A title that has been removed from the catalog is displayed as the default instead.
+    title: isTitleId(dbUser.title) ? dbUser.title : undefined,
     emailVerified: dbUser.email_verified,
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
@@ -97,6 +105,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     created: Number(userInternal.created),
     avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
     staffBadge: userInternal.staffBadge ? true : undefined,
+    title: userInternal.title,
     loginName: userInternal.loginName,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
@@ -122,8 +131,21 @@ function convertToExternal(userInternal: UserInternal): SbUser {
     avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
     // Left off the wire entirely for the common case of accounts without the badge.
     staffBadge: userInternal.staffBadge ? true : undefined,
+    title: userInternal.title,
   }
 }
+
+/**
+ * The columns to select (or return) for a `DbUser`: every column of `users`, plus the user's
+ * equipped title, which lives in `user_titles`. Queries producing `DbUser`s should use this rather
+ * than `*` so the title isn't dropped.
+ */
+const USER_COLUMNS = sql`
+  users.*,
+  (
+    SELECT ut.title_id FROM user_titles ut WHERE ut.user_id = users.id AND ut.equipped
+  ) AS title
+`
 
 /** Creates a new user with default permissions, returning both the user and permissions. */
 export async function createUser({
@@ -218,6 +240,8 @@ export type UserUpdatables = Omit<
   // The staff badge is managed through `setUserStaffBadge`, which works for any user (the generic
   // update path is only for the currently active one).
   | 'staffBadge'
+  // Titles are stored in `user_titles` and managed by the titles service.
+  | 'title'
 >
 
 /**
@@ -273,12 +297,12 @@ export async function updateUser(
 
   query = query.append(sql`
     WHERE id = ${id}
-    RETURNING *;
+    RETURNING ${USER_COLUMNS};
   `)
 
   if (updatedPassword && updatedEntries.length === 1) {
     // Only updating user_private stuff, so we just need to query the current row
-    query = sql`SELECT * FROM users WHERE id = ${id}`
+    query = sql`SELECT ${USER_COLUMNS} FROM users WHERE id = ${id}`
   }
 
   const { client, done } = await db()
@@ -342,7 +366,7 @@ export async function setUserStaffBadge(
       UPDATE users
       SET staff_badge = ${staffBadge}
       WHERE id = ${userId}
-      RETURNING *;
+      RETURNING ${USER_COLUMNS};
     `)
 
     return result.rows.length > 0 ? convertToExternal(convertUserFromDb(result.rows[0])) : undefined
@@ -379,7 +403,7 @@ async function internalFindUserById(
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUser>(sql`
-      SELECT * FROM users
+      SELECT ${USER_COLUMNS} FROM users
       WHERE id = ${id}
     `)
 
@@ -408,7 +432,7 @@ async function internalFindUserByName(name: string): Promise<UserInternal | unde
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`
-      SELECT * FROM users
+      SELECT ${USER_COLUMNS} FROM users
       WHERE name = ${name}
     `)
 
@@ -422,7 +446,7 @@ async function internalFindUserByLoginName(name: string): Promise<UserInternal |
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`
-      SELECT * FROM users
+      SELECT ${USER_COLUMNS} FROM users
       WHERE login_name = ${name}
     `)
 
@@ -463,7 +487,9 @@ export async function findUsersByName(names: ReadonlyArray<string>): Promise<SbU
 
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE name = ANY (${names})`)
+    const result = await client.query<DbUser>(
+      sql`SELECT ${USER_COLUMNS} FROM users WHERE name = ANY (${names})`,
+    )
     return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()
@@ -493,7 +519,9 @@ export async function findUsersById(ids: ReadonlyArray<SbUserId>): Promise<SbUse
 
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
+    const result = await client.query<DbUser>(
+      sql`SELECT ${USER_COLUMNS} FROM users WHERE id = ANY (${ids})`,
+    )
     return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()
@@ -516,7 +544,7 @@ export async function findUsersByIdQuery(
       WITH ids AS (
         ${idQuery}
       )
-      SELECT *
+      SELECT ${USER_COLUMNS}
       FROM users
       INNER JOIN ids ON users.id = ids."${sqlRaw(idColumn)}"
     `)
