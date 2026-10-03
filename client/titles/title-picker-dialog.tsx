@@ -166,11 +166,16 @@ const ChipLabel = styled.span<{ $locked: boolean; $color?: string }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
   color: ${props => (!props.$locked && props.$color) || 'inherit'};
   opacity: ${props => (props.$locked ? 'var(--theme-disabled-opacity)' : '1')};
+`
+
+/** Long names wrap within their own box, so icons stay beside the text instead of above it. */
+const ChipName = styled.span`
+  min-width: 0;
+  overflow-wrap: break-word;
 `
 
 const TooltipBody = styled.div`
@@ -345,11 +350,11 @@ function TitleChip({
         <ChipLabel $locked={!unlocked} $color={getTitleToneColor(definition.tone)}>
           {selected ? <MaterialIcon icon='check' size={16} /> : null}
           {hidden ? null : <TitleIcon definition={definition} />}
-          <span>
+          <ChipName>
             {hidden
               ? t('titles.picker.secretName', '???')
               : getTitleName(definition.id, t, created)}
-          </span>
+          </ChipName>
         </ChipLabel>
       </Chip>
     </ChipTooltip>

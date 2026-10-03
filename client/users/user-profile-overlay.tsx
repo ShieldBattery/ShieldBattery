@@ -305,7 +305,12 @@ export function UserProfileOverlayContents({
             <LoadingUsername aria-label={t('common.loading.username', 'Username loading…')} />
           )}
           <Title>
-            <UserTitle titleId={user?.title} created={user?.created} showRequirement={true} />
+            <UserTitle
+              titleId={user?.title}
+              created={user?.created}
+              showRequirement={true}
+              wrap={true}
+            />
           </Title>
         </UsernameAndTitle>
       </IdentityArea>
