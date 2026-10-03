@@ -130,9 +130,10 @@ disappears in rollback games.
 
 ## The session clock and lead report
 
-Status: the relay side is built (rally-point2 `148af6d`, review fixes `0daef64`); the client side is
-next. A ship blocker (client plan, "Before shipping"). It replaces each client's self-anchored
-schedule (`rollback_live::Schedule`) and gives the lead it adapts a shared reference.
+Status: the relay side is built (rally-point2 `148af6d`, review fixes `0daef64` and `f20f526`);
+the client side is next. A ship blocker (client plan, "Before shipping"). It replaces each
+client's self-anchored schedule (`rollback_live::Schedule`) and gives the lead it adapts a shared
+reference.
 
 ### Why
 
