@@ -39,6 +39,9 @@ function updateUsers(state: UserState, users: SbUser[]) {
       if (userState.staffBadge !== user.staffBadge) {
         userState.staffBadge = user.staffBadge
       }
+      if (userState.title !== user.title) {
+        userState.title = user.title
+      }
     } else {
       state.byId.set(user.id, {
         id: user.id,
@@ -46,6 +49,7 @@ function updateUsers(state: UserState, users: SbUser[]) {
         created: user.created,
         avatarUrl: user.avatarUrl,
         staffBadge: user.staffBadge,
+        title: user.title,
       })
     }
   }
@@ -63,10 +67,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       created: user.created,
       avatarUrl: user.avatarUrl,
       staffBadge: user.staffBadge,
+      title: user.title,
     })
   },
 
   ['@auth/avatarChanged'](state, action) {
+    updateUsers(state, [action.payload.user])
+  },
+
+  ['@auth/titleChanged'](state, action) {
     updateUsers(state, [action.payload.user])
   },
 

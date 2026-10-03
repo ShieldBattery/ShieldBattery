@@ -31,6 +31,13 @@ const eventToAction: Readonly<EventToActionMap> = {
     }
   },
 
+  titleChanged(event) {
+    return {
+      type: '@auth/titleChanged',
+      payload: { user: event.user },
+    }
+  },
+
   permissionsChanged(event) {
     return {
       type: '@auth/permissionsChanged',

@@ -14,12 +14,14 @@ import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { TabItem, Tabs } from '../material/tabs'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { useScrollMemory } from '../navigation/router-hooks'
@@ -36,9 +38,12 @@ import {
   labelSmall,
   singleLine,
   titleLarge,
+  titleMedium,
   TitleMedium,
   titleSmall,
 } from '../styles/typography'
+import { openTitlePicker } from '../titles/action-creators'
+import { UserTitle } from '../titles/user-title'
 import {
   LivePill,
   TWITCH_PURPLE,
@@ -300,6 +305,36 @@ const BottomSpacer = styled.div`
   height: 24px;
 `
 
+const ChangeTitleButton = styled.button`
+  ${buttonReset};
+  ${titleMedium};
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 6px;
+  margin-left: -6px;
+
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+  }
+`
+
+const ChangeTitleIcon = styled(MaterialIcon).attrs({ icon: 'edit', size: 16 })`
+  flex-shrink: 0;
+  color: var(--theme-on-surface-variant);
+  opacity: 0;
+
+  ${ChangeTitleButton}:hover &,
+  ${ChangeTitleButton}:focus-visible & {
+    opacity: 1;
+  }
+`
+
 export interface UserProfilePageProps {
   user: SbUser
   profile: UserProfileJson
@@ -320,8 +355,8 @@ export function UserProfilePage({
   seasons,
 }: UserProfilePageProps) {
   const { t } = useTranslation()
-  // TODO(tec27): Build the title feature :)
-  const title = t('users.titles.novice', 'Novice')
+  const dispatch = useAppDispatch()
+  const isSelf = useSelfUser()?.id === user.id
 
   const scrollerRef = useRef<HTMLDivElement>(null)
   useScrollMemory(scrollerRef)
@@ -396,7 +431,19 @@ export function UserProfilePage({
               startingText={t('users.profile.copyLink', 'Copy link to profile')}
             />
           </UsernameRow>
-          <TitleMedium>{title}</TitleMedium>
+          {isSelf ? (
+            <ChangeTitleButton
+              type='button'
+              title={t('titles.menu.changeTitle', 'Change title')}
+              onClick={() => dispatch(openTitlePicker())}>
+              <UserTitle titleId={user.title} created={user.created} />
+              <ChangeTitleIcon />
+            </ChangeTitleButton>
+          ) : (
+            <TitleMedium>
+              <UserTitle titleId={user.title} created={user.created} showRequirement={true} />
+            </TitleMedium>
+          )}
           {twitchChannel ? (
             <TwitchChannelLink
               href={`https://twitch.tv/${twitchChannel.twitchLogin}`}

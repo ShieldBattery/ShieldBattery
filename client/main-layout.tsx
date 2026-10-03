@@ -53,6 +53,8 @@ import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
+import { openTitlePicker } from './titles/action-creators'
+import { UserTitle } from './titles/user-title'
 import { LiveUsersContext, useLiveUserIds } from './twitch/live-state'
 import { navigateToUserProfile } from './users/action-creators'
 import { AvailabilityPicker } from './users/availability-picker'
@@ -579,8 +581,6 @@ function AppBarUser({
 
   const [nameRef, isNameOverflowing] = useOverflowingElement<HTMLDivElement>()
 
-  const title = t('users.titles.novice', 'Novice')
-
   return (
     <UserButton
       {...buttonProps}
@@ -598,7 +598,9 @@ function AppBarUser({
           tabIndex={isNameOverflowing ? 0 : -1}>
           <UserButtonName ref={nameRef}>{user.name}</UserButtonName>
         </Tooltip>
-        <TitleTiny>{title}</TitleTiny>
+        <TitleTiny>
+          <UserTitle titleId={user.title} created={user.created} />
+        </TitleTiny>
       </UserButtonNameAndTitle>
       <Ripple ref={rippleRef} />
     </UserButton>
@@ -676,6 +678,14 @@ function AppBar({
               onClick={() => {
                 closeProfileOverlay()
                 navigateToUserProfile(selfUser.id, selfUser.name)
+              }}
+            />
+            <MenuItem
+              icon={<MaterialIcon icon='military_tech' />}
+              text={t('titles.menu.changeTitle', 'Change title')}
+              onClick={() => {
+                closeProfileOverlay()
+                dispatch(openTitlePicker())
               }}
             />
             <MenuItem

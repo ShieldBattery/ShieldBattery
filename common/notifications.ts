@@ -1,5 +1,6 @@
 import { SbChannelId } from './chat'
 import { SbPolicyType } from './policies/policy-type'
+import { TitleId } from './titles'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
 
@@ -36,6 +37,13 @@ export enum NotificationType {
   GameReportActioned = 'gameReportActioned',
   /** Ranked points this user lost in a game were refunded after the game was nullified. */
   GamePointsRefunded = 'gamePointsRefunded',
+  /** This user unlocked one or more titles. */
+  TitleUnlocked = 'titleUnlocked',
+  /**
+   * Titles were evaluated for this user for the first time, awarding the ones their existing
+   * history had already earned.
+   */
+  TitlesIntroduced = 'titlesIntroduced',
 }
 
 export type SbNotification =
@@ -53,6 +61,8 @@ export type SbNotification =
   | ChannelDeletedNotification
   | GameReportActionedNotification
   | GamePointsRefundedNotification
+  | TitleUnlockedNotification
+  | TitlesIntroducedNotification
 
 export interface BaseNotification {
   /**
@@ -155,6 +165,18 @@ export interface GameReportActionedNotification extends BaseNotification {
  */
 export interface GamePointsRefundedNotification extends BaseNotification {
   type: NotificationType.GamePointsRefunded
+}
+
+export interface TitleUnlockedNotification extends BaseNotification {
+  type: NotificationType.TitleUnlocked
+  /** The titles that were unlocked together, in display order. */
+  titleIds: TitleId[]
+}
+
+export interface TitlesIntroducedNotification extends BaseNotification {
+  type: NotificationType.TitlesIntroduced
+  /** How many titles (besides the default) the user's history had already earned. */
+  count: number
 }
 
 export type NotificationEvent =

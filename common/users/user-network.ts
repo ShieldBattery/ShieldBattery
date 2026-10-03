@@ -359,11 +359,20 @@ export interface DisplayNameChangedEvent {
   name: string
 }
 
+/** The title a user displays changed, because they equipped another or an admin revoked theirs. */
+export interface TitleChangedEvent {
+  action: 'titleChanged'
+  userId: SbUserId
+  /** The user's updated info, including the new title. */
+  user: SbUser
+}
+
 export type AuthEvent =
   | DisplayNameChangedEvent
   | EmailChangedEvent
   | EmailVerifiedEvent
   | PermissionsChangedEvent
+  | TitleChangedEvent
 
 export interface UsernameAvailableResponse {
   available: boolean

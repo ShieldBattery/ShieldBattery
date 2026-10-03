@@ -1,4 +1,5 @@
 import React from 'react'
+import { ReadonlyDeep } from 'type-fest'
 import { NotificationType, SbNotification } from '../../common/notifications'
 import { UserRestrictedNotificationUi } from '../auth/user-restricted-notification-ui'
 import {
@@ -20,13 +21,17 @@ import {
   FriendRequestNotificationUi,
   FriendStartNotificationUi,
 } from '../social/relationship-notifications'
+import {
+  TitlesIntroducedNotificationUi,
+  TitleUnlockedNotificationUi,
+} from '../titles/title-notification-ui'
 
 /**
  * Returns whether we have a renderable UI for a particular notification. If we don't,
  * NotificationUi should not be rendered. This is mainly useful for notification types that exist
  * but are no longer used.
  */
-export function notificationHasUi(notification: SbNotification) {
+export function notificationHasUi(notification: ReadonlyDeep<SbNotification>) {
   switch (notification.type) {
     case NotificationType.PolicyUpdated:
     case NotificationType.FriendRequest:
@@ -41,6 +46,8 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.ChannelDeleted:
     case NotificationType.GameReportActioned:
     case NotificationType.GamePointsRefunded:
+    case NotificationType.TitleUnlocked:
+    case NotificationType.TitlesIntroduced:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -52,7 +59,7 @@ export function notificationHasUi(notification: SbNotification) {
 }
 
 export interface NotificationUiProps {
-  notification: SbNotification
+  notification: ReadonlyDeep<SbNotification>
   showDivider: boolean
   ref?: React.Ref<HTMLDivElement>
 }
@@ -181,6 +188,24 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           ref={ref}
           showDivider={showDivider}
           read={notification.read}
+        />
+      )
+    case NotificationType.TitleUnlocked:
+      return (
+        <TitleUnlockedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          titleIds={notification.titleIds}
+        />
+      )
+    case NotificationType.TitlesIntroduced:
+      return (
+        <TitlesIntroducedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          count={notification.count}
         />
       )
     default:

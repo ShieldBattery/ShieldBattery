@@ -11,6 +11,7 @@ import {
   PublicMatchmakingRatingChangeJson,
 } from '../../common/matchmaking'
 import { GameDefaultsPreset } from '../../common/settings/local-settings'
+import { TitleId } from '../../common/titles'
 import { SbUserId } from '../../common/users/sb-user-id'
 
 export enum DialogType {
@@ -67,6 +68,7 @@ export enum DialogType {
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
   TermsOfService = 'termsOfService',
+  TitlePicker = 'titlePicker',
   TwitchRemoveLiveStreamConfirmation = 'twitchRemoveLiveStreamConfirmation',
   Whispers = 'whispers',
 }
@@ -431,6 +433,13 @@ type SimpleDialogPayload = BaseDialogPayload<
 type ShieldBatteryHealthDialogPayload = BaseDialogPayload<typeof DialogType.ShieldBatteryHealth>
 type StarcraftHealthDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftHealth>
 type TermsOfServiceDialogPayload = BaseDialogPayload<typeof DialogType.TermsOfService>
+type TitlePickerDialogPayload = BaseDialogPayload<
+  typeof DialogType.TitlePicker,
+  {
+    /** A title to select when the picker opens, instead of the one currently displayed. */
+    initialSelection?: TitleId
+  }
+>
 type TwitchRemoveLiveStreamConfirmationDialogPayload = BaseDialogPayload<
   typeof DialogType.TwitchRemoveLiveStreamConfirmation,
   {
@@ -496,5 +505,6 @@ export type DialogPayload =
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload
   | TermsOfServiceDialogPayload
+  | TitlePickerDialogPayload
   | TwitchRemoveLiveStreamConfirmationDialogPayload
   | WhispersDialogPayload

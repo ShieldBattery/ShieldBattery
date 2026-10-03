@@ -1379,7 +1379,11 @@ impl CurrentUserRepo {
                         login_name::TEXT as "login_name!", email, email_verified,
                         accepted_privacy_version, accepted_terms_version,
                         accepted_use_policy_version, locale, last_login_name_change,
-                        last_name_change, name_change_tokens, avatar_path, staff_badge
+                        last_name_change, name_change_tokens, avatar_path, staff_badge,
+                        (
+                            SELECT ut.title_id FROM user_titles ut
+                            WHERE ut.user_id = users.id AND ut.equipped
+                        ) AS title
                     FROM users
                     WHERE id = $1
                 "#,
@@ -1426,6 +1430,7 @@ impl CurrentUserRepo {
                 name_change_tokens: row.name_change_tokens,
                 avatar_url,
                 staff_badge: row.staff_badge.then_some(true),
+                title: row.title,
             },
             permissions: permissions.wrap_err("failed to load permissions")?,
         };
@@ -1473,6 +1478,10 @@ struct SelfUser {
     /// Matches the `staffBadge` field the node server writes to the shared cache: `Some(true)`
     /// for accounts with the badge, and omitted (`None`) otherwise, rather than `Some(false)`.
     pub staff_badge: Option<bool>,
+    /// Matches the `title` field the node server writes to the shared cache: the id of the title
+    /// the user displays, omitted when they display the default one. Carried through unchanged so
+    /// a cache entry this server writes doesn't drop it.
+    pub title: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1526,7 +1535,8 @@ mod tests {
             "lastLoginNameChange": 1755642889407,
             "lastNameChange": 1755642889407,
             "nameChangeTokens": 0,
-            "staffBadge": true
+            "staffBadge": true,
+            "title": "hiveMind"
         }
         "#;
 
@@ -1559,6 +1569,7 @@ mod tests {
         );
         assert_eq!(user.name_change_tokens, 0);
         assert_eq!(user.staff_badge, Some(true));
+        assert_eq!(user.title, Some("hiveMind".into()));
     }
 
     #[test]
@@ -1648,6 +1659,7 @@ mod tests {
             name_change_tokens: 0,
             avatar_url: None,
             staff_badge: None,
+            title: None,
         };
 
         let json = serde_json::to_string(&user).unwrap();
@@ -1657,5 +1669,6 @@ mod tests {
         assert!(parsed.get("lastLoginNameChange").is_none());
         assert!(parsed.get("lastNameChange").is_none());
         assert!(parsed.get("staffBadge").is_none());
+        assert!(parsed.get("title").is_none());
     }
 }

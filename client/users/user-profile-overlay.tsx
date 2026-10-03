@@ -37,6 +37,7 @@ import {
   titleLarge,
   titleSmall,
 } from '../styles/typography'
+import { UserTitle } from '../titles/user-title'
 import { LiveWatchRow } from '../twitch/live-indicators'
 import {
   navigateToUserProfile,
@@ -303,7 +304,9 @@ export function UserProfileOverlayContents({
           ) : (
             <LoadingUsername aria-label={t('common.loading.username', 'Username loading…')} />
           )}
-          <Title>{t('users.titles.novice', 'Novice')}</Title>
+          <Title>
+            <UserTitle titleId={user?.title} created={user?.created} showRequirement={true} />
+          </Title>
         </UsernameAndTitle>
       </IdentityArea>
       <FriendActivityStatusLine userId={userId} />
