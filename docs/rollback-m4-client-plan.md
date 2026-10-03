@@ -282,16 +282,16 @@ Target: the release after 11.4.0. There is no rollout gating and no guard agains
 since clients always update: rollback goes to the staging region first, then to everyone.
 Coordinators and relays already run rp2 main `2a07bae`.
 
-- **Eviction should end the session.** The client treats a `DESYNC_EVICTED` close as a lost link
-  and redials once, which the relay refuses, before it gives up. It should go straight to the
-  terminal "Disconnected from the game" state.
+- ~~**Eviction should end the session.**~~ Done (rp2 `c755785`, pinned): the client driver ends on
+  a `DESYNC_EVICTED` or `LOBBY_VIOLATION` close instead of re-dialing, so an evicted client goes
+  straight to "Disconnected from the game".
 - **A no-majority verdict leaves the game running.** The comparator names nobody and goes dormant,
   and the server voids the game, but the clients play on with no further hash checks. The game
   needs a defined end for this case.
 - **Staging-region tests.** Real cross-region games on the staging region with release builds.
   Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
-- **rally-point-client pin.** The DLL still pins rp2 `e4320e2`; bump it to the deployed `2a07bae`
-  when landing.
+- ~~**rally-point-client pin.**~~ Done: the DLL pins rp2 `c755785`, the deployed `2a07bae` plus
+  the client-only eviction change.
 
 ## After shipping
 
