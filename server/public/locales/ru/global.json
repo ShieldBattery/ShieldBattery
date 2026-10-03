@@ -3009,6 +3009,14 @@
       "rightClick": "Щёлкните правой кнопкой по пользователю для дополнительных действий",
       "viewProfile": "Просмотреть профиль"
     },
+    "raceSelection": {
+      "gameCount_one": "{{total}} игра",
+      "gameCount_few": "{{total}} игры",
+      "gameCount_many": "{{total}} игр",
+      "gameCount_other": "{{total}} игры",
+      "lessThan": "<{{percent}}",
+      "title": "Выбор расы"
+    },
     "restrictions": {
       "reason": {
         "cheating": "Читы или эксплойты",

@@ -76,6 +76,7 @@ import {
 } from '../styles/typography'
 import { LiveUsersContext } from '../twitch/live-state'
 import { navigateToUserProfile } from '../users/action-creators'
+import { RaceSelectionTooltip } from '../users/race-selection-tooltip'
 import {
   getCurrentSeasonRankings,
   getPreviousSeasonRankings,
@@ -1444,6 +1445,10 @@ const SpotlightIconTooltip = styled(PodiumIconTooltip)`
   grid-area: icon;
 `
 
+const RaceBadgeTooltip = styled(RaceSelectionTooltip)`
+  flex-shrink: 0;
+`
+
 function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlayerProps) {
   const { t } = useTranslation()
   const locale = useFormatLocale()
@@ -1461,9 +1466,11 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
       <SpotlightInfo>
         <SpotlightName>{username}</SpotlightName>
         <SpotlightMeta>
-          <RaceBadge $race={race} title={raceCharToLabel(race, t)}>
-            {race.toUpperCase()}
-          </RaceBadge>
+          <RaceBadgeTooltip stats={player}>
+            <RaceBadge $race={race} role='img' aria-label={raceCharToLabel(race, t)}>
+              {race.toUpperCase()}
+            </RaceBadge>
+          </RaceBadgeTooltip>
           <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
           <span>
             · {player.wins} &ndash; {player.losses}
@@ -1629,7 +1636,9 @@ const Row = React.memo(
           />
           <PlayerNameAndRace>
             <PlayerName>{username}</PlayerName>
-            <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
+            <RaceSelectionTooltip stats={player}>
+              <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
+            </RaceSelectionTooltip>
           </PlayerNameAndRace>
         </PlayerCell>
         <PointsCell>{Math.round(player.points)}</PointsCell>

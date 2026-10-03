@@ -2898,6 +2898,11 @@
       "rightClick": "右键单击用户以执行更多操作",
       "viewProfile": "查看资料"
     },
+    "raceSelection": {
+      "gameCount_other": "{{total}} 场",
+      "lessThan": "<{{percent}}",
+      "title": "种族选择"
+    },
     "restrictions": {
       "reason": {
         "cheating": "作弊或利用漏洞",
