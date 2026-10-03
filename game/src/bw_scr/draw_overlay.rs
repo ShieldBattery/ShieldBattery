@@ -11,6 +11,7 @@ use egui::{
     Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
     Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
 };
+use overlay_ui::net_quality::{NetQualityView, render_net_quality};
 use winapi::shared::windef::{HWND, POINT};
 
 use crate::app_messages::GameSetupInfo;
@@ -312,6 +313,7 @@ impl OverlayState {
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
         net_stats: Option<&NetStatsStatus>,
+        net_quality: Option<&NetQualityView>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -448,6 +450,9 @@ impl OverlayState {
                 self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
                 // The `/netstat` diagnostic overlay, drawn only while toggled on (a `Some` snapshot).
                 self.add_netstat_overlay(net_stats, setup_info, &ctx);
+                if let Some(net_quality) = net_quality {
+                    render_net_quality(net_quality, &ctx);
+                }
                 let debug = cfg!(debug_assertions);
                 if debug {
                     self.add_debug_ui(bw, &ctx);

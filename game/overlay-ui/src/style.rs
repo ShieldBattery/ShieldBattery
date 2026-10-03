@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use egui::epaint::text::VariationCoords;
 use egui::style::TextStyle;
-use egui::{FontData, FontDefinitions};
+use egui::{FontData, FontDefinitions, FontTweak};
 
-use crate::fonts::display_family;
+use crate::fonts::{body_medium, condensed, display_family};
 
 /// Installs the overlay's custom fonts and base style onto `ctx`.
 ///
@@ -18,6 +19,25 @@ pub fn install_fonts_and_style(ctx: &egui::Context) {
         Arc::new(FontData::from_static(include_bytes!(
             "../../files/fonts/Inter-Regular.ttf"
         ))),
+    );
+    fonts.font_data.insert(
+        "inter-medium".to_string(),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../../files/fonts/Inter-Medium.ttf"
+        ))),
+    );
+    // A variable face: its weight axis has to be pinned, or egui renders its default instance.
+    fonts.font_data.insert(
+        "Sofia Sans Condensed".to_string(),
+        Arc::new(
+            FontData::from_static(include_bytes!(
+                "../../files/fonts/SofiaSansCondensed-Variable.ttf"
+            ))
+            .tweak(FontTweak {
+                coords: VariationCoords::new([(b"wght", 400.0)]),
+                ..FontTweak::default()
+            }),
+        ),
     );
     fonts.font_data.insert(
         "Sofia Sans SemiBold".to_string(),
@@ -41,6 +61,14 @@ pub fn install_fonts_and_style(ctx: &egui::Context) {
     entry.insert(0, "Sofia Sans SemiBold".to_string());
     // Fallback for Korean characters
     entry.insert(1, "Do Hyeon".to_string());
+    fonts
+        .families
+        .insert(body_medium(), vec!["inter-medium".to_string()]);
+    // Condensed carries numerals only; anything else typed in it borrows Inter's shapes.
+    fonts.families.insert(
+        condensed(),
+        vec!["Sofia Sans Condensed".to_string(), "inter".to_string()],
+    );
     ctx.set_fonts(fonts);
 
     let mut style_arc = ctx.global_style();

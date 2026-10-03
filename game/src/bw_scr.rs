@@ -8,12 +8,13 @@ use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use libc::c_void;
+use overlay_ui::net_quality::NetQualityView;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
@@ -426,6 +427,10 @@ pub struct BwScr {
     sound_id_cache: Mutex<HashMap<String, u32>>,
     /// When the game countdown started (if it has started)
     countdown_start: Mutex<Option<Instant>>,
+    /// When the game last formatted its turn rate readout in a game that rolls back. The game only
+    /// formats it while the player has the readout turned on, which is what the network quality
+    /// chip that replaces it follows.
+    turn_rate_readout_at: Mutex<Option<Instant>>,
     print_text_hooks_disabled: AtomicI32,
     chat_manager: Mutex<chat::ChatManager>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
@@ -2037,6 +2042,7 @@ impl BwScr {
             first_game_logic_frame_done: AtomicBool::new(false),
             sound_id_cache: Mutex::new(HashMap::new()),
             countdown_start: Mutex::new(None),
+            turn_rate_readout_at: Mutex::new(None),
             print_text_hooks_disabled: AtomicI32::new(0),
             chat_manager: Mutex::new(chat::ChatManager::new()),
             event_processing_lock: DumbSpinLock::new(),
@@ -2465,23 +2471,15 @@ impl BwScr {
                             ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round()
                         }
                     };
-                    let value = format!("Lat: {effective_latency:.0}ms");
-                    // A game that rolls back has two numbers to show: the input delay, and how many
-                    // frames of other players' turns it simulates past. The delay counts the turns
-                    // beyond the one every command waits for anyway (a command issued on one frame
-                    // runs on the next, as in single player), so a player with no added delay sees 0.
-                    let value = match v2_turns {
-                        Some(pipe)
-                            if netcode_v2::with_turn_state(|s| s.predicts_inputs())
-                                == Some(true) =>
-                        {
-                            format!(
-                                "{}D {}R",
-                                pipe.saturating_sub(1),
-                                crate::rollback_live::shown_rollback()
-                            )
-                        }
-                        _ => value,
+                    // A game that rolls back draws the network quality chip in place of this text,
+                    // whenever the game would have drawn the text.
+                    let value = if v2_turns.is_some()
+                        && netcode_v2::with_turn_state(|s| s.predicts_inputs()) == Some(true)
+                    {
+                        *self.turn_rate_readout_at.lock() = Some(Instant::now());
+                        String::new()
+                    } else {
+                        format!("Lat: {effective_latency:.0}ms")
                     };
                     (*result).text.replace_all(value.as_str());
                     result
@@ -3242,6 +3240,7 @@ impl BwScr {
                         let net_stats =
                             netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
                                 .flatten();
+                        let net_quality = self.net_quality_view();
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -3273,6 +3272,7 @@ impl BwScr {
                                 game_thread::setup_info(),
                                 &disconnect_status,
                                 net_stats.as_ref(),
+                                net_quality.as_ref(),
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -4921,6 +4921,43 @@ impl BwScr {
     pub fn set_countdown_start(&self, time: Instant) {
         let mut c = self.countdown_start.lock();
         *c = Some(time);
+    }
+
+    /// What the network quality chip shows, or `None` when it isn't drawn: outside games that roll
+    /// back, and while the player has the game's turn rate readout off.
+    fn net_quality_view(&self) -> Option<NetQualityView> {
+        // How long after the game last formatted its turn rate readout the chip stays up. The game
+        // formats it on every frame it draws it, so a lapse this long means the readout was turned
+        // off.
+        const READOUT_LAPSE: Duration = Duration::from_millis(250);
+        let formatted_at = (*self.turn_rate_readout_at.lock())?;
+        if formatted_at.elapsed() > READOUT_LAPSE {
+            return None;
+        }
+        let fps_font_height = unsafe { self.small_font_height() };
+        netcode_v2::with_turn_state(|s| {
+            s.predicts_inputs().then(|| NetQualityView {
+                // The pipe holds the turn every command waits for anyway (a command issued on one
+                // frame runs on the next, as in single player), which isn't delay the connection
+                // added.
+                delay: s.pipe_depth().saturating_sub(1),
+                rollback: crate::rollback_live::shown_rollback(),
+                fps_font_height,
+            })
+        })
+        .flatten()
+    }
+
+    /// The line height of the game's smallest font, which its FPS and turn rate readouts are drawn
+    /// in: the max height byte of the font's header. `None` until the font is loaded.
+    unsafe fn small_font_height(&self) -> Option<u8> {
+        unsafe {
+            let small_font = *self.fonts.resolve();
+            if small_font.is_null() || (*small_font).unk0.is_null() {
+                return None;
+            }
+            Some(*((*small_font).unk0 as *const u8).add(0xb))
+        }
     }
 
     /// Returns whether the game has started. This is thread-safe.
