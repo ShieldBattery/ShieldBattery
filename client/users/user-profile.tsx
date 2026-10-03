@@ -488,12 +488,17 @@ export function UserProfilePage({
               type='button'
               title={t('titles.menu.changeTitle', 'Change title')}
               onClick={() => dispatch(openTitlePicker())}>
-              <UserTitle titleId={user.title} created={user.created} />
+              <UserTitle titleId={user.title} created={user.created} wrap={true} />
               <ChangeTitleIcon />
             </ChangeTitleButton>
           ) : (
             <TitleMedium>
-              <UserTitle titleId={user.title} created={user.created} showRequirement={true} />
+              <UserTitle
+                titleId={user.title}
+                created={user.created}
+                showRequirement={true}
+                wrap={true}
+              />
             </TitleMedium>
           )}
           <ProfileMetaRow>
