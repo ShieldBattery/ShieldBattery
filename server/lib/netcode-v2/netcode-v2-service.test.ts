@@ -1084,6 +1084,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [
         { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
@@ -1108,6 +1109,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
@@ -1128,6 +1130,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const result = await service.createSessionForGame({
+      seed: 0x89abcdef,
       gameId: 'game-1',
       slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       canRollBack: false,
