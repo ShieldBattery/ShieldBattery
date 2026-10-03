@@ -28,6 +28,7 @@ pub(crate) mod announcements;
 pub(crate) mod game_end;
 pub(crate) mod hash_reports;
 pub(crate) mod observer_ui;
+pub(crate) mod pacing;
 pub(crate) mod ranges;
 pub(crate) mod snapshot;
 pub(crate) mod sounds;

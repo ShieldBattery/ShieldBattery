@@ -21,7 +21,7 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::{LeaveDirective, Payload};
+use rally_point_client::proto::messages::{LeadReport, LeaveDirective, Payload};
 use rally_point_client::transport::Link;
 use rally_point_client::{
     ChatOut, ClientEndpoint, DialError, Identity, LinkDriver, PhaseStatus, Reconnect, TurnChannels,
@@ -108,6 +108,7 @@ struct ParkedChannels {
     _connectivity: mpsc::Sender<(SlotId, bool)>,
     _region_labels: mpsc::Sender<Vec<(u64, String)>>,
     _phase_status: watch::Sender<PhaseStatus>,
+    _lead_report: watch::Sender<Option<LeadReport>>,
 }
 
 /// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
@@ -342,6 +343,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
     let (region_labels_tx, region_labels_rx) = mpsc::channel(4);
     let (phase_status_tx, phase_status_rx) = watch::channel(PhaseStatus::default());
+    let (lead_report_tx, lead_report_rx) = watch::channel(None);
 
     let channels = TurnChannels {
         outbound: outbound_tx,
@@ -362,6 +364,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         connectivity: connectivity_rx,
         region_labels: region_labels_rx,
         phase_status: phase_status_rx,
+        lead_report: lead_report_rx,
     };
     let parked = ParkedChannels {
         _outbound: outbound_rx,
@@ -381,6 +384,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _connectivity: connectivity_tx,
         _region_labels: region_labels_tx,
         _phase_status: phase_status_tx,
+        _lead_report: lead_report_tx,
     };
 
     let turn_state = TurnState::new_sessionless(channels, local_user_id, has_computers);

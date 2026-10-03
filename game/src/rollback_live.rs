@@ -18,9 +18,11 @@
 //! - `SB_ROLLBACK_PREDICT=<limit>` runs up to `limit` steps ahead of the known turns (8 unless
 //!   set). 0 predicts nothing and waits for every turn, like lockstep.
 //! - `SB_ROLLBACK_TARGET=<frames>` is the rollback this client takes on in place of input delay
-//!   (3 unless set, and never more than the limit): it runs that many frames ahead of the
-//!   lockstep schedule and keeps that many fewer of its own turns in flight. See
-//!   [`TurnState::lead`](netcode_v2::TurnState::lead).
+//!   (3 unless set, and never more than the limit): it keeps fewer of its own turns in flight,
+//!   stepping each frame earlier against the times its turns are sent, until it runs about that
+//!   many frames past the newest turns it knows. See
+//!   [`TurnState::lead`](netcode_v2::TurnState::lead), and [`crate::rollback::pacing`] for when
+//!   its turns are sent.
 //! - `SB_ROLLBACK_MIN_BUFFER=<turns>` acts as if the relay asked for a latency buffer of at least
 //!   that many turns, which a relay only does for slower links than a test machine's.
 //! - `SB_ROLLBACK_SHADOW=<depth>` additionally rolls back at least `depth` steps every tick,
@@ -42,9 +44,11 @@ use crate::bw::{self, Bw};
 use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::netcode_v2::{self, InputCounts, InputTable};
+use crate::rollback::pacing::{Pacing, PacingCounts};
 use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
 use crate::rollback::tick::{self, TickPlan};
 use crate::rollback::{game_end, hash_reports, sounds};
+use rally_point_client::proto::messages::LeadReport;
 
 #[cfg(debug_assertions)]
 const PREDICT_ENV_VAR: &str = "SB_ROLLBACK_PREDICT";
@@ -68,15 +72,17 @@ const DEFAULT_PREDICTION_LIMIT: u32 = 8;
 const DEFAULT_ROLLBACK_TARGET: u32 = 3;
 
 /// How many steps at the start of a game run in lockstep, lining the clients' simulations up
-/// before each keeps its own schedule: one second.
-const LOCKSTEP_START_STEPS: u32 = 24;
+/// before each keeps its own schedule: one second. The relays anchor the session clock where it
+/// ends, so it is shared with them.
+const LOCKSTEP_START_STEPS: u32 = rally_point_client::proto::rollback::LOCKSTEP_START_STEPS as u32;
 
 /// The most frames a tick steps beyond the one it would anyway, when the simulation has fallen
 /// behind its schedule.
 const MAX_CATCH_UP_PER_TICK: u32 = 2;
 
-/// The game loop's interval between logic steps at the Fastest game speed.
-const FRAME_DURATION: Duration = Duration::from_millis(42);
+/// The game loop's interval between logic steps at the Fastest game speed, which is also the
+/// session clock's step.
+const FRAME_DURATION: Duration = crate::rollback::pacing::STEP;
 
 /// How many ticks go between the summaries logged.
 const SUMMARY_TICKS: u32 = 720;
@@ -121,39 +127,10 @@ static SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 #[cfg(debug_assertions)]
 static MONKEY_RANDOM: AtomicU32 = AtomicU32::new(0);
 
-/// The schedule the simulation keeps to, one step every [`FRAME_DURATION`]: the tick that starts
-/// `k` frame durations after `start` steps from frame `frame + k`. Set by the tick that runs the
-/// first step after the game's lockstep start, which kept every client's simulation in step with
-/// the others' until then.
-struct Schedule {
-    frame: u32,
-    /// Half a frame before the start of the tick that ran the first step. The game loop starts its
-    /// ticks at slightly varying times after each frame's due time, and measuring from half a frame
-    /// early keeps any variation under half a frame from moving a tick onto another frame.
-    start: Instant,
-}
-
-impl Schedule {
-    fn new(frame: u32, tick_start: Instant) -> Schedule {
-        Schedule {
-            frame,
-            start: tick_start
-                .checked_sub(FRAME_DURATION / 2)
-                .unwrap_or(tick_start),
-        }
-    }
-
-    /// The position a tick that starts at `tick_start` should end on, running `lead` frames ahead
-    /// of the schedule (behind it when negative).
-    fn target(&self, tick_start: Instant, lead: i32) -> u32 {
-        let elapsed = tick_start.saturating_duration_since(self.start);
-        let frames = (elapsed.as_micros() / FRAME_DURATION.as_micros()).min(u32::MAX as u128);
-        let target = self.frame as i64 + frames as i64 + 1 + lead as i64;
-        target.clamp(0, u32::MAX as i64) as u32
-    }
-}
-
-static SCHEDULE: Mutex<Option<Schedule>> = Mutex::new(None);
+/// When the simulation steps each frame, against the relays' session clock (see [`Pacing`]). Set
+/// by the tick that runs the first step after the game's lockstep start, which kept every client's
+/// simulation in step with the others' until then.
+static PACING: Mutex<Option<Pacing>> = Mutex::new(None);
 
 /// The rollback this client runs, for the network quality readout.
 static ROLLBACK_PEAK: Mutex<RollbackPeak> = Mutex::new(RollbackPeak::new());
@@ -244,6 +221,12 @@ struct Summary {
     lead: i32,
     /// The pipe depth in force at the end of the stretch.
     pipe_depth: u32,
+    /// What the pacing did against the relay's reports.
+    pacing: PacingCounts,
+    /// The session clock's stopped time at the end of the stretch, in microseconds.
+    clock_stopped_us: u64,
+    /// The newest report the relay sent in the stretch.
+    lead_report: Option<LeadReport>,
     inputs: InputCounts,
     restore: Duration,
     snapshot: Duration,
@@ -373,7 +356,7 @@ pub fn reset_for_game_init() {
     SNAPSHOTS.lock().take();
     crate::rollback::reset_for_game_init();
     *SUMMARY.lock() = None;
-    *SCHEDULE.lock() = None;
+    *PACING.lock() = None;
     ROLLBACK_PEAK.lock().clear();
     *LEAD_WINDOW.lock() = LeadWindow {
         ticks: 0,
@@ -419,7 +402,7 @@ pub unsafe fn run_game_logic_step(
                 bw.rollback_issue_random_commands(next_random);
             }
         }
-        let (resimulate_from, known_until, can_run, lead, pipe_depth) =
+        let (resimulate_from, known_until, can_run, lead, pipe_depth, lead_report) =
             netcode_v2::with_turn_state(|s| {
                 let target = s.take_rollback_target(next_frame);
                 (
@@ -428,6 +411,7 @@ pub unsafe fn run_game_logic_step(
                     s.can_run(next_frame),
                     s.lead(),
                     s.pipe_depth(),
+                    s.take_lead_report(),
                 )
             })?;
         // A turn state without an input table is one that started before rollback was armed.
@@ -448,10 +432,27 @@ pub unsafe fn run_game_logic_step(
                  is of frame {oldest}; this client will diverge"
             );
         }
-        // A simulation that has fallen behind its schedule (a stall at the prediction limit, a
-        // hitch, or a lead that just grew) steps extra frames until it is back on it, rather than
-        // making anyone wait for it.
-        let scheduled = SCHEDULE.lock().as_ref().map(|x| x.target(tick_start, lead));
+        // The newest of this client's own turns sent: the one for the step `pipe_depth` past the
+        // present, which the relay's reports count in.
+        let newest_sent = u64::from(current) + u64::from(pipe_depth);
+        // A simulation that has fallen behind its schedule (a hitch, a pipe that just shrank, or
+        // the relay's reports moving its turns earlier) steps extra frames until it is back on it,
+        // rather than making anyone wait for it.
+        let (scheduled, timing_us) = PACING
+            .lock()
+            .as_mut()
+            .map(|pacing| {
+                let slewed_us = pacing.tick(tick_start, !can_run, newest_sent);
+                if let Some(report) = &lead_report {
+                    pacing.on_report(report, newest_sent);
+                }
+                let nudge_us = pacing.phase_nudge_us(tick_start);
+                (
+                    Some(pacing.target(tick_start, pipe_depth)),
+                    slewed_us + nudge_us,
+                )
+            })
+            .unwrap_or((None, 0));
         let catch_up = match (scheduled, can_run) {
             (Some(scheduled), true) => scheduled
                 .saturating_sub(current + 1)
@@ -505,22 +506,30 @@ pub unsafe fn run_game_logic_step(
         }
         let mut held_back = false;
         {
-            let mut schedule = SCHEDULE.lock();
-            match &*schedule {
+            // The slew the pacing applied to the schedule this tick, applied to the game loop's
+            // own timing too, and the nudge keeping its ticks centred in their steps: the next
+            // step comes that much sooner or later.
+            let mut delay_ms = (timing_us / 1000) as i32;
+            let mut pacing = PACING.lock();
+            match &*pacing {
                 None if reached > current && current >= LOCKSTEP_START_STEPS => {
-                    *schedule = Some(Schedule::new(current, tick_start));
+                    let buffer = u32::try_from(lead + pipe_depth as i32).unwrap_or(pipe_depth);
+                    *pacing = Some(Pacing::new(current, buffer, tick_start));
                 }
-                // A simulation ahead of its schedule (a lead that just shrank, or a game loop
-                // running its ticks early) puts its next step off by a frame at a time until the
-                // schedule catches up.
-                Some(x) if reached > x.target(tick_start, lead) => {
-                    let delay = FRAME_DURATION.as_millis() as u32;
-                    bw.rollback_set_next_game_step_tick(
-                        bw.rollback_next_game_step_tick().wrapping_add(delay),
-                    );
+                // A simulation ahead of its schedule (a pipe that just grew, the relay's reports
+                // moving its turns later, or a game loop running its ticks early) puts its next
+                // step off by a frame at a time until the schedule catches up.
+                Some(x) if reached > x.target(tick_start, pipe_depth) => {
+                    delay_ms += FRAME_DURATION.as_millis() as i32;
                     held_back = true;
                 }
                 _ => (),
+            }
+            if delay_ms != 0 {
+                bw.rollback_set_next_game_step_tick(
+                    bw.rollback_next_game_step_tick()
+                        .wrapping_add_signed(delay_ms),
+                );
             }
         }
         sounds::reconcile_sounds(bw, report.window_start, report.settled_through, present);
@@ -570,6 +579,16 @@ pub unsafe fn run_game_logic_step(
         }
         summary.lead = lead;
         summary.pipe_depth = pipe_depth;
+        if let Some(pacing) = PACING.lock().as_mut() {
+            let counts = pacing.take_counts();
+            summary.pacing.corrections += counts.corrections;
+            summary.pacing.corrected_us += counts.corrected_us;
+            summary.pacing.holds_undone += counts.holds_undone;
+            summary.clock_stopped_us = pacing.pause_us();
+        }
+        if lead_report.is_some() {
+            summary.lead_report = lead_report;
+        }
         summary.inputs.predicted_steps += counts.predicted_steps;
         summary.inputs.mispredicted_turns += counts.mispredicted_turns;
         summary.inputs.confirmed_predictions += counts.confirmed_predictions;
@@ -591,8 +610,8 @@ fn log_summary(summary: &Summary, present: u32) {
         "Live rollback over {} ticks to turn {present}: {} steps ran predicted, {} predicted \
          turns held and {} did not; {} rollbacks re-simulated {} frames (deepest {}); present \
          ahead of known turns by {:.2} frames on average (at most {}), {} ticks at the limit; lead \
-         {} frames over a pipe of {}, {} frames caught up, {} ticks held back; per tick restore \
-         {:.2} ms, snapshot {:.2} ms, steps {:.2} ms (worst {:.1} ms)",
+         {} frames over a pipe of {}, {} frames caught up, {} ticks held back; {}; per tick \
+         restore {:.2} ms, snapshot {:.2} ms, steps {:.2} ms (worst {:.1} ms)",
         summary.ticks,
         summary.inputs.predicted_steps,
         summary.inputs.confirmed_predictions,
@@ -607,11 +626,31 @@ fn log_summary(summary: &Summary, present: u32) {
         summary.pipe_depth,
         summary.caught_up,
         summary.held_back,
+        describe_pacing(summary),
         per_tick(summary.restore),
         per_tick(summary.snapshot),
         per_tick(summary.steps),
         summary.worst_steps.as_secs_f64() * 1000.0,
     );
+}
+
+/// What the pacing did over a summary's stretch, for its log line.
+fn describe_pacing(summary: &Summary) -> String {
+    let ms = |us: i64| us as f64 / 1000.0;
+    let Some(report) = summary.lead_report else {
+        return "no lead reports".to_owned();
+    };
+    format!(
+        "{} schedule corrections (net {:+.1} ms), {} stall holds undone, session clock stopped \
+         {:.1} ms; newest lead report median {:+.1} ms, p90 {:+.1} ms over {} turns",
+        summary.pacing.corrections,
+        ms(summary.pacing.corrected_us),
+        summary.pacing.holds_undone,
+        ms(summary.clock_stopped_us as i64),
+        ms(report.median_us.into()),
+        ms(report.p90_us.into()),
+        report.samples,
+    )
 }
 
 /// Runs one of BW's logic steps, measured by the rollback probe when it is armed.

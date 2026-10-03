@@ -54,7 +54,7 @@ use rally_point_client::LeaveTracker;
 use rally_point_client::SyncGenerationTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::{LeaveDirective, Payload, StateHashReport};
+use rally_point_client::proto::messages::{LeadReport, LeaveDirective, Payload, StateHashReport};
 use tokio::sync::mpsc;
 
 mod input_table;
@@ -479,8 +479,8 @@ impl DisconnectStatus {
 }
 
 /// The deepest pipe a client that predicts inputs keeps, in turns: its most input delay. The same
-/// ceiling a lockstep game's relay buffer has, so running behind the lockstep schedule to absorb
-/// lateness never costs a player more input delay than lockstep could.
+/// ceiling a lockstep game's relay buffer has, so taking lateness on as input delay never costs a
+/// player more of it than lockstep could.
 const MAX_PIPE_TURNS: u32 = rally_point_client::proto::control::GAME_SYNC_SAFE_BUFFER_MAX;
 
 /// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
@@ -718,8 +718,8 @@ pub struct TurnState {
     /// game that rolls back: injected between steps, an echo would belong to no step, and a
     /// rollback past it would take it out of the replay without putting it back.
     local_chat_echoes: Vec<String>,
-    /// How many frames ahead of the lockstep schedule this client means to run, before the
-    /// relay's buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
+    /// How many fewer of its own turns than the relay's latency buffer this client means to keep
+    /// in flight, before the buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
     /// moved by the rollback driver as it measures how late other players' turns reach it.
     lead: i32,
 }
@@ -1995,13 +1995,13 @@ impl TurnState {
         self.latency_turns
     }
 
-    /// How many frames ahead of the lockstep schedule this client runs, in a game that predicts
-    /// inputs; negative when it runs behind. The client simulates frame `n` `lead` frames before
-    /// lockstep would, and keeps `lead` fewer of its own turns in flight than the relay's latency
-    /// buffer (more when behind), so each of its turns still leaves exactly when lockstep's would
-    /// and reaches every other player at the same time whatever its lead. What the lead trades is
-    /// the client's own: a frame of lead is a frame less input delay and a frame more of other
-    /// players' turns arriving after it has simulated past them. At least one turn always stays in
+    /// How many fewer of its own turns than the relay's latency buffer this client keeps in
+    /// flight, in a game that predicts inputs (more when negative). Its turns leave when its
+    /// pacing against the session clock says ([`crate::rollback::pacing`]), whatever its lead, so
+    /// they reach every other player at the same time; what the lead moves is which frame the
+    /// client is simulating when each one leaves. That trade is the client's own: a frame of lead
+    /// is a frame less input delay and a frame more of other players' turns arriving after it has
+    /// simulated past them. At least one turn always stays in
     /// the pipe, and at most [`MAX_PIPE_TURNS`]. 0 while the game's start runs in lockstep, which
     /// needs the whole buffer.
     pub fn lead(&self) -> i32 {
@@ -2030,6 +2030,16 @@ impl TurnState {
     fn lead_bounds(&self) -> (i32, i32) {
         let buffer = self.buffer_turns() as i32;
         (buffer - MAX_PIPE_TURNS as i32, buffer - 1)
+    }
+
+    /// The newest lead report this client's home relay sent since the last call, in a rollback
+    /// session: how late its turns have been reaching the relay against the session clock (see
+    /// [`crate::rollback::pacing`]).
+    pub fn take_lead_report(&mut self) -> Option<LeadReport> {
+        match self.channels.lead_report.has_changed() {
+            Ok(true) => *self.channels.lead_report.borrow_and_update(),
+            _ => None,
+        }
     }
 
     /// How many of this client's own turns the pipe keeps in flight, which is its input delay:
@@ -2531,6 +2541,7 @@ mod tests {
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -2753,6 +2764,7 @@ mod tests {
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -2793,6 +2805,7 @@ mod tests {
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
         // birth, so there is no relay session to close.
@@ -3710,6 +3723,7 @@ mod tests {
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -4116,6 +4130,7 @@ mod tests {
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -4252,6 +4267,7 @@ mod tests {
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -4309,6 +4325,7 @@ mod tests {
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
             region_labels: region_labels_rx,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
@@ -4428,6 +4445,7 @@ mod tests {
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
+            lead_report: tokio::sync::watch::channel(None).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);

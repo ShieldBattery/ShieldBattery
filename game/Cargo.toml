@@ -141,7 +141,7 @@ features = ["scr-only"]
 # types so the game DLL shares the transport's dependency versions.
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "c755785702e83f4d5d3dec17786ee9fa6a2178e0"
+rev = "f20f526f10cd8fdb14ed9b21ee259a17a8e29b50"
 
 [build-dependencies]
 anyhow = "1.0"
