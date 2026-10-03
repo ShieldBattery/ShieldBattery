@@ -206,11 +206,16 @@ The report replaces `Schedule` and `lead_adjustment`. The catch-up (up to two ex
 and hold-back mechanics stay, steering toward the new schedule.
 
 - **Deadline estimate.** The client keeps `A`, its estimate in local time of when turn `n` has to
-  leave to make `S(n)`: `send_by(n) = A + n × 41,666 µs`. Each report moves `A` earlier by `p90 +
-  margin` (or later, when negative): by at most one frame per report, so one bad report can't
-  yank the schedule. It needs no estimate of the upload leg, since `e` is measured against when the
-  client actually sent. A change in `pause_us` moves `A` by exactly that much, at once, which is
-  what keeps a session-wide wait from turning into a sprint.
+  leave to make `S(n)`: `send_by(n) = A + n × 41,666 µs`. Each report asks for `A` to move earlier
+  by `p90 + margin` (or later, when negative). It needs no estimate of the upload leg, since `e` is
+  measured against when the client actually sent. A change in `pause_us` moves `A` by exactly that
+  much, at once, which is what keeps a session-wide wait from turning into a sprint.
+- **Slewed, not stepped.** A correction smaller than a frame is spread out at up to 1 ms per frame
+  (a 2.4% change in game speed, too small to see), the way GGPO-style time sync stretches frames
+  instead of skipping them. Only a correction of a frame or more uses catch-up or hold-back, and
+  one report moves `A` by at most a frame, so a single bad report can't yank the schedule. Since
+  the report is in microseconds, this also aligns each player's send phase within a frame, against
+  the shared clock instead of against the other players on the same relay.
 - **Schedule.** The client steps frame `k` when it would send turn `k + pipe`: at
   `send_by(k + pipe)`.
 - **Split.** The pipe adapts on the rollback the client measures, as the lead does today: once the
@@ -223,24 +228,28 @@ and hold-back mechanics stay, steering toward the new schedule.
 
 ### Interactions
 
-- **Send-phase alignment.** Redundant in rollback sessions, and it would fight the report: it
-  delays a client's sends by part of a turn to align the phases of a relay's slots, which only
-  matters to lockstep's micro-stalls, while the report sets each client's send timing outright.
-  Turn it off for rollback sessions.
-- **Buffer law.** In a rollback session the buffer no longer sets anyone's pipe. Only the initial
-  depth matters, for the lockstep start.
+- **Send-phase alignment: off in rollback sessions.** It delays a client's sends by part of a turn
+  to align the phases of a relay's slots against lockstep's micro-stalls, and it would fight the
+  report, which sets each client's send timing outright. The slewed deadline estimate does its
+  sub-frame job instead.
+- **Buffer law: stopped in rollback sessions after the start.** The buffer no longer sets anyone's
+  pipe; only the initial depth matters, for the lockstep start. The relay sends the start's
+  directive and then neither decides nor stamps any more, which also saves it the work.
+- **`/netstat`** shows lockstep's view (the buffer, gaps, stalls). What a rollback game should show
+  per player (lead error, pipe, rollback seen per opponent) needs its own design pass, which can
+  follow the clock.
 - **Deadline enforcement** builds on the same `S(n)`, with a grace period past the deadline.
 - **Leaves and drops** are unaffected. A dropped slot's missing turns are what stop the clock.
 
-### Open questions
+### Decisions (Travis, 2026-10-03)
 
-1. `STALL_SLACK` of 12 steps (limit + 4), or tighter.
-2. Aim each player at their 90th percentile, so about one turn in ten is late and rolled back
-   over by the others within their targets, or at the median, which is cheaper for the player and
-   pushes more onto everyone else.
-3. Stop the buffer law's decisions in rollback sessions after the start, or keep sending them
-   unused.
-4. Show the player's lead error in `/netstat`.
+1. `STALL_SLACK` is 12 steps (limit + 4).
+2. Each player aims at their 90th percentile: about one turn in ten arrives late and is rolled back
+   over by the others within their targets, and most turns carry no command anyway.
+3. The buffer law stops after the start in rollback sessions (above).
+4. `/netstat` for rollback gets its own design pass later (above).
+5. Send-phase alignment is off in rollback sessions; the slewed deadline estimate takes over its
+   sub-frame alignment.
 
 ### Verification
 
