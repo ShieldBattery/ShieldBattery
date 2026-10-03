@@ -99,13 +99,14 @@ tenant sets the defaults and the allowed range. Not built yet: every player runs
 
 ### Relay: deadlines instead of a depth
 
-- **Session clock:** the authority relay fixes `start` at session start and each home relay
-  measures against it.
-- **Lead report:** for each player, the relay measures how early or late each of their turns
-  arrived against its deadline, and reports a smoothed value back to that player (on the turns it
-  forwards to them, or the control stream). This is send-phase alignment's measurement at whole-
-  frame scale. It is relay-authored: the arrival time is the relay's own observation, and the only
-  client input is the frame index, which the relay already tracks per slot.
+- **Session clock:** the authority relay anchors it when the lockstep start ends, every home relay
+  keeps a copy, and it stops while the whole session is stalled. See
+  [The session clock and lead report](#the-session-clock-and-lead-report).
+- **Lead report:** for each player, their home relay measures how early or late each of their
+  turns arrived against its deadline, and reports a smoothed value back to that player on the
+  control stream. This is send-phase alignment's measurement at whole-frame scale. It is
+  relay-authored: the arrival time is the relay's own observation, and the only client input is
+  the turn's seq, which the relay already tracks per slot.
 - **Nothing else to size:** the lockstep law's loss, burst, jitter and delivery-lag terms existed
   so that no turn is ever late. Under rollback that margin becomes the client's own safety margin
   on its lead, chosen by how many late turns it is willing to push onto other players' rollback.
@@ -126,6 +127,133 @@ small corrections.
 A side effect worth noting: a client that predicts instead of stalling keeps producing turns on
 schedule, so the depth-one micro-stall ring that send-phase alignment exists to fix mostly
 disappears in rollback games.
+
+## The session clock and lead report
+
+Status: designed, not built, and a ship blocker (client plan, "Before shipping"). It replaces each
+client's self-anchored schedule (`rollback_live::Schedule`) and gives the lead it adapts a shared
+reference.
+
+### Why
+
+Today each client anchors its own schedule on its own clock when the lockstep start ends, and keeps
+it on wall time from then on. The local test pass (client plan) showed both ways that goes wrong:
+
+- **A session-wide wait doesn't stop anyone's schedule.** While survivors waited 54 s on a dropped
+  player, every schedule kept running, and on resume every survivor sprinted at ~2.6× speed for
+  ~25 s to get back on it.
+- **Anchors differ by however late each client's start was.** The far player's lateness then shows
+  up as everyone else's rollback: a Korea client against three on US relays ran almost no rollback
+  at minimal input delay while the others rolled back over its late turns.
+
+### What rp2 has to build on
+
+- **Arrival stamps.** The send-phase controller (`consensus/phase`) stamps every turn at the client
+  edge before validation (`routing/slot_link/inbound.rs`) and smooths `arrival − (epoch + seq ×
+  41,666 µs)` per slot. It only keeps that residual modulo one turn, anchors `epoch` on the first
+  arrival, and compares a relay's own slots with each other.
+- **Seq is the step.** A turn's seq is its step, and a game pause keeps taking turns, so seq keeps
+  ticking at 24 per second through a pause. A clock in seq needs no pause handling.
+- **No shared timebase.** Relays measure each other's RTT over the mesh (`mesh/links.rs`), not
+  clock offsets. `SessionStart` carries no timestamp; each relay latches its own `started_at`.
+- **No session-stall signal.** The silent-slot watch is a 10 s eviction check, not something
+  pacing can follow.
+
+### The clock
+
+`S(n)` is when step `n`'s turns are due at the relay.
+
+- **Anchor.** The authority fixes it when the lockstep start ends: `S(K)` is the instant step `K`
+  becomes confirmable there (it holds every required slot's first `K` turns), with `K` the lockstep
+  start's length (24, made a shared constant). During the lockstep start every client waits for
+  every turn, so that instant is when the slowest player's start arrived, and nobody is asked to be
+  earlier than the session has shown it can be. Then `S(n) = S(K) + (n − K) × 41,666 µs + P`, where
+  `P` is the time the clock has spent stopped (below).
+- **Copies on other relays.** The authority sends the anchor over the mesh (a new
+  `MeshControlFrame` arm carrying the step and `P`). A peer relay anchors its copy at the frame's
+  receipt minus half the mesh RTT it already measures, so copies differ by the mesh path's
+  asymmetry and jitter: a few milliseconds. Players homed off the authority's relay come out up to
+  about a one-way hop early, since the anchor was taken after their turns crossed the mesh. Changes
+  to `P` follow the same path, and the anchor is re-sent to a relay that joins or a session that
+  re-homes.
+- **Stopping.** The clock may not run more than `STALL_SLACK` steps past the newest step the
+  authority can confirm. Whenever wall time would put it further ahead, `P` grows by the excess.
+  That one rule covers a drop wait, a hung client and a total outage: the clock stops 12 steps
+  past the last confirmable one and resumes from there when turns do. `STALL_SLACK` is the
+  prediction limit plus a margin (8 + 4 = 12 steps, 500 ms), because past the limit every player is
+  stalled anyway. A player whose own turns run more than 12 steps late still measures 12 late (`P`
+  only takes up the time beyond the slack), so they are still told to add delay, and once they
+  have, the clock stops slowing to their pace.
+
+### Measurement and report
+
+- **Measured at the home relay.** For each turn a home slot sends, the first arrival of its seq
+  `n` gives `e(n) = arrival(n) − S(n)`, in signed microseconds. Every first arrival counts,
+  including turns that arrive together in a catch-up burst (which the phase controller skips): a
+  turn that arrives in a burst arrived late. The relay stamps the arrival itself, and the only
+  client input is the seq.
+- **Window.** The last 24 steps (one second): the median and the 90th percentile of `e`.
+- **Report.** A new `ControlFrame` arm on the slot's own control stream (tag 17), every 12 steps
+  (0.5 s) once the clock has an anchor: `LeadReport { through_step, median_us, p90_us, samples,
+  pause_us }`, where `pause_us` is the clock's `P` so far. It is re-sent at connect, as the phase
+  directive is, and only in rollback sessions. Older clients skip the unknown arm.
+- **Nothing per player crosses the mesh.** Each home relay reports only its own slots; only the
+  anchor and `P` travel between relays.
+
+### Client
+
+The report replaces `Schedule` and `lead_adjustment`. The catch-up (up to two extra steps a tick)
+and hold-back mechanics stay, steering toward the new schedule.
+
+- **Deadline estimate.** The client keeps `A`, its estimate in local time of when turn `n` has to
+  leave to make `S(n)`: `send_by(n) = A + n × 41,666 µs`. Each report moves `A` earlier by `p90 +
+  margin` (or later, when negative): by at most one frame per report, so one bad report can't
+  yank the schedule. It needs no estimate of the upload leg, since `e` is measured against when the
+  client actually sent. A change in `pause_us` moves `A` by exactly that much, at once, which is
+  what keeps a session-wide wait from turning into a sprint.
+- **Schedule.** The client steps frame `k` when it would send turn `k + pipe`: at
+  `send_by(k + pipe)`.
+- **Split.** The pipe adapts on the rollback the client measures, as the lead does today: once the
+  rollback has stayed above the target for a 2 s window the pipe grows by the excess, and once it
+  has stayed below, the pipe shrinks by the shortfall, within 1 to 14 turns. A deeper pipe steps
+  later against the clock, which means less rollback. So input delay plus rollback comes to about
+  the player's own RTT to their relay plus the margin, and only that player pays it.
+- **Before the first report** (about a second after the lockstep start), the client keeps today's
+  local anchor.
+
+### Interactions
+
+- **Send-phase alignment.** Redundant in rollback sessions, and it would fight the report: it
+  delays a client's sends by part of a turn to align the phases of a relay's slots, which only
+  matters to lockstep's micro-stalls, while the report sets each client's send timing outright.
+  Turn it off for rollback sessions.
+- **Buffer law.** In a rollback session the buffer no longer sets anyone's pipe. Only the initial
+  depth matters, for the lockstep start.
+- **Deadline enforcement** builds on the same `S(n)`, with a grace period past the deadline.
+- **Leaves and drops** are unaffected. A dropped slot's missing turns are what stop the clock.
+
+### Open questions
+
+1. `STALL_SLACK` of 12 steps (limit + 4), or tighter.
+2. Aim each player at their 90th percentile, so about one turn in ten is late and rolled back
+   over by the others within their targets, or at the median, which is cheaper for the player and
+   pushes more onto everyone else.
+3. Stop the buffer law's decisions in rollback sessions after the start, or keep sending them
+   unused.
+4. Show the player's lead error in `/netstat`.
+
+### Verification
+
+- **rp2 unit tests:** the anchor, the stopping rule (a drop wait grows `P` by the wait minus the
+  slack), the report statistics, and a peer relay's anchor adoption with the RTT correction.
+- **DLL unit tests:** the deadline estimate's corrections, the `pause_us` jump, and the pipe
+  adaptation.
+- **Loopback** with `SB_ROLLBACK_LIVE_DELAY` holding the two sides back 4 and 10 frames: each
+  side's pipe follows its own hold. The 4-frame side settled 2 frames too deep under the
+  self-anchored schedule.
+- **The local test pass on staging again:** after a drop wait, survivors catch up about nothing
+  when turns resume; the Korea client carries its own lateness with a deeper pipe, and the US
+  clients' rollback falls back to the target.
 
 ## Sync checks: replacing 0x37
 
@@ -236,10 +364,10 @@ a larger local buffer; either way they are not required to report hashes, as tod
    to every player including the sender, and the sender rolls back its own commands. Missing the
    deadline then only ever hurts the player who missed it. Hardening for later, not needed for the
    first live tests.
-7. **Multi-relay sessions:** every home relay measures against the one session clock, which needs
-   the relays' clock offsets (the mesh already measures RTT between them). A turn crossing the mesh
-   reaches the far relay's players one mesh hop later; that hop counts as download lateness for the
-   receiving players.
+7. **Multi-relay sessions:** every home relay measures against its copy of the one session clock,
+   anchored from the authority's with half the mesh RTT (see the session clock section). A turn
+   crossing the mesh reaches the far relay's players one mesh hop later; that hop counts as
+   download lateness for the receiving players.
 
 ## Where the client cuts in (netcode v2 seams)
 
@@ -277,7 +405,8 @@ our receive hook for exactly the frame being stepped.
    plain playback).
 2. Client M4 core: drive the engine from the netcode v2 dispatch seam with the prediction cap,
    stalling beyond `R_max`; confirmed-hash reports; native sync off in rollback mode (done).
-3. rp2: session mode flag and step-keyed hash comparator with relay-set deadlines (done); session
-   clock and per-player lead reports in place of the buffer law (next, after rollback ships).
+3. rp2: session mode flag and step-keyed hash comparator with relay-set deadlines (done); the
+   session clock and per-player lead reports (designed above, next, and needed before rollback
+   ships).
 4. Presentation: sound hook, chat on arrival (not started; announcements are deduplicated across
    re-simulations already).

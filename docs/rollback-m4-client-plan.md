@@ -301,7 +301,8 @@ Coordinators and relays already run rp2 main `2a07bae`.
   `start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
   sends each player its own smoothed lead error. Clients then set their lead and delay against
   one shared clock instead of anchoring their own schedules. Not shippable without it: the local
-  test pass below shows the self-anchored schedule misbehaving in ways players would feel.
+  test pass below shows the self-anchored schedule misbehaving in ways players would feel. Design:
+  [The session clock and lead report](rollback-m4-controller.md#the-session-clock-and-lead-report).
   - **The clock must stop when the session does.** A drop wait stalls every client, but each
     one's schedule kept running: after a 54 s wait for a dropped player, all three survivors ran
     at ~2.6× speed for ~25 s (1,063–1,241 frames caught up in 30 s), and the lead adapter drove
