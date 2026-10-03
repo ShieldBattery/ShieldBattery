@@ -1,8 +1,12 @@
 # Rollback in live games (M4): who decides the window, and how sync checks survive it
 
-Status: design agreed; open questions 5-7 are for tuning and hardening. Client work not started. Background: the replay harness
-(`game/src/rollback_harness.rs`) proves the snapshot and re-simulation engine; a feel test on a
-high-APM 1v1 TvZ set the policy this document turns into mechanisms.
+Status: design agreed. The client core, rollback sessions and confirmed-hash reports are built
+(see [rollback-m4-client-plan.md](rollback-m4-client-plan.md) for what was built, what's left
+before shipping, and what follows). Not built yet: the relay's session clock and lead reports,
+the player settings, and the sound hook; open questions 5-7 are for tuning and hardening.
+Background: the replay harness (`game/src/rollback_harness.rs`) proves the snapshot and
+re-simulation engine; a feel test on a high-APM 1v1 TvZ set the policy this document turns into
+mechanisms.
 
 At Fastest, one turn is one frame (about 42 ms), so this document counts both in frames.
 
@@ -91,7 +95,7 @@ Two options, both only exposed under advanced settings:
   that player.
 
 Both only change the player's own experience, so neither needs to match across the game. The
-tenant sets the defaults and the allowed range.
+tenant sets the defaults and the allowed range. Not built yet: every player runs the defaults.
 
 ### Relay: deadlines instead of a depth
 
@@ -106,8 +110,9 @@ tenant sets the defaults and the allowed range.
   so that no turn is ever late. Under rollback that margin becomes the client's own safety margin
   on its lead, chosen by how many late turns it is willing to push onto other players' rollback.
 - **Ceiling:** `GAME_SYNC_SAFE_BUFFER_MAX` (14) exists only because of native 0x37's 16-slot ring.
-  With native sync replaced (below), it stops applying to rollback games. Bounds still cap D, but
-  from a latency budget rather than a correctness cliff.
+  With native sync replaced (below) it is no longer a correctness cliff for rollback games, but
+  rollback clients keep it as a cap on their pipe, so rollback never costs more input delay than
+  lockstep could.
 
 ### What players get
 
@@ -130,30 +135,41 @@ immediately, which may itself still be predicted in a 3+ player game. The relay'
 comparator already works around 0x37's quirks (reconstructing native generation ordinals, legacy vs
 enhanced ordering, per-origin failure latches). Rollback games replace all of it.
 
-- **What is hashed:** the confirmed frame, at the harness's confirmed step (all inputs up to that
-  frame applied, so every honest client has identical state). A 64-bit hash of units, bullets,
-  economy, supply, research and the RNG, with no pointer values and no viewer-local state
-  (`rollback_probe::state_hash`, verified across processes and against plain playback).
-- **What is sent:** `{frame, hash}` every N frames (N = 8 to start) on the v2 control channel, not
-  in the game's command stream.
-- **What the relay does:** compares reports by frame, with the same verdict rules as today
-  (majority authoritative, diverged minority discarded in team games, 1v1 divergence voids).
-- **Liveness:** the relay knows, from the inputs it forwarded, the frame at which each checkpoint
-  became confirmable, so it sets the report deadline itself (for example, confirmable + 2 s). A
-  missing report past the deadline is a failure, so withholding hashes is not a way to dodge
-  detection. No client-asserted frame feeds the deadline.
-- **Native sync off:** in a rollback game the DLL stops generating 0x37, and the native per-turn
-  sync count and peer verification must not drop anyone. Rollback feeds commands to the simulation
-  per frame rather than through the game's turn processing, so the natural cut is there. This must
-  switch for every client in the game at once, never leaving a gap where 0x37 has stopped but the
-  replacement isn't running.
+Built in client slice 5 and rp2 `e4320e2`. Reports are keyed by step (the turn index) rather than
+frame, since a paused game takes turns without advancing frames: step `n` is the state once every
+slot's first `n` turns have run.
+
+- **What is hashed:** a confirmed step (all inputs up to it applied, so every honest client has
+  identical state). A 64-bit hash of units, bullets, economy, supply, research and the RNG, with no
+  pointer values and no viewer-local state (`rollback_probe::state_hash`, verified across processes
+  and against plain playback).
+- **What is sent:** every 8th step from 8, once confirmed, as a field on the client's next turn
+  (`Payload.state_hash`), not in the game's command stream. Relays keep reports on the mesh and
+  strip them from what they forward to clients.
+- **What the relay does:** the authority compares reports by step. A verdict names the player at
+  fault whenever it can: a diverged minority when the rest agree, or a player who misses a report
+  deadline (below), in 1v1 too. The named player's home relay evicts them and finalizes their drop, which usually scores as a
+  loss. With no majority (a 1v1 disagreement, an even split) it names nobody and the game is
+  voided.
+- **Liveness:** the relay knows, from the inputs it forwarded, the step at which each checkpoint
+  became confirmable, so it sets the report deadline itself: confirmable + 5 s. A player still
+  sending turns (96 past the step) without the report is named, so withholding hashes is not a way
+  to dodge detection. A player whose turns stopped is left to the leave machinery. No
+  client-asserted step feeds the deadline.
+- **Native sync off:** in a rollback game the DLL strips 0x37 in both directions and stands a no-op
+  command in for each turn's sync, so BW's one-sync-per-turn rule never drops anyone and nothing is
+  verified natively. The tenant sets the mode for the whole session, so every client switches at
+  once.
 - **Replays:** unaffected. Replays contain no 0x37, and playback skips sync verification.
 
 ## Mode negotiation
 
-A game is a rollback game only if every client supports it. The coordinator decides at session
-create time (a field on the session descriptor, alongside bounds) and the relay applies the
-rollback-aware law and the new comparator for that session only. Lockstep games are untouched.
+The tenant decides, never a player: players and modified clients must not be able to opt out. The
+ShieldBattery server asks for rollback on every game it loads (`SessionRequest.rollback`), except
+UMS games on EUD maps, whose triggers can write memory the snapshot doesn't cover. The coordinator
+grants it only on relays advertising `rollback_v1`, keeps re-homes on them, and forces finalized
+drops on; the relay applies the new comparator for that session only. A client that can't roll back
+refuses the session rather than running it as lockstep. Lockstep games are untouched.
 Observers never issue commands. They can run with rollback like players, or with plain lockstep plus
 a larger local buffer; either way they are not required to report hashes, as today.
 
@@ -166,8 +182,9 @@ a larger local buffer; either way they are not required to report hashes, as tod
   and animating its new state while sliding; the 2-frame ease makes units visibly speed up for a
   moment. Blending facing or animation would need display-only iscript state. At R = 3 the snaps
   are small enough to leave alone.
-- **Sounds:** record requests above BW's camera and fog gating (two wrappers above `play_sound`)
-  so re-simulation doesn't gain or lose sounds as the camera moves; decide audibility when playing.
+- **Sounds (not built yet):** record requests above BW's camera and fog gating (two wrappers above
+  `play_sound`) so re-simulation doesn't gain or lose sounds as the camera moves; decide audibility
+  when playing.
 - **Announcements:** text lines, game messages and observer UI notifications go out when their
   frame is first simulated, like sounds. A re-simulation matches what it announces against what
   earlier simulations of the same frames announced (by kind and arguments, not exact frame, so an
@@ -246,9 +263,9 @@ our receive hook for exactly the frame being stepped.
 - **Counters keyed by frame:** the leave tracker's consumed-turn count and the sync-generation
   stamping assume one turn per frame per slot. Re-simulation calls the receive hook several times
   for the same frame, so both must count by frame number, not by call.
-- **Native sync bookkeeping:** `ProcessGameCommands` still notes a turn missing its 0x37 and logs
-  a drop (inert under v2, since nothing acts on it). In rollback mode, with 0x37 gone, that
-  bookkeeping must be switched off rather than fired on every frame.
+- **Native sync bookkeeping:** `ProcessGameCommands` notes a turn missing its 0x37 and drops the
+  player for it. In rollback mode the no-op command standing in for each turn's sync keeps that
+  from firing.
 - **Snapshot engine:** the harness's range-list snapshot, restore, re-step loop moves out of the
   debug-only harness into a release module driven by the input table, with the harness kept as its
   replay-driven test rig.
@@ -258,7 +275,8 @@ our receive hook for exactly the frame being stepped.
 1. Harness: the state hash as a fingerprint column (done; verified across processes and against
    plain playback).
 2. Client M4 core: drive the engine from the netcode v2 dispatch seam with the prediction cap,
-   stalling beyond `R_max`; confirmed-frame hash reports; native sync off in rollback mode.
-3. rp2: session mode flag; session clock and per-player lead reports in place of the buffer law;
-   frame-keyed hash comparator with relay-set deadlines.
-4. Presentation: sound hook, chat on arrival.
+   stalling beyond `R_max`; confirmed-hash reports; native sync off in rollback mode (done).
+3. rp2: session mode flag and step-keyed hash comparator with relay-set deadlines (done); session
+   clock and per-player lead reports in place of the buffer law (next, after rollback ships).
+4. Presentation: sound hook, chat on arrival (not started; announcements are deduplicated across
+   re-simulations already).

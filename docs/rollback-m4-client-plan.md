@@ -1,8 +1,12 @@
 # Rollback M4 client core: implementation plan
 
 Build step 2 of [rollback-m4-controller.md](rollback-m4-controller.md): run live netcode v2 games
-with prediction and rollback in the game DLL. rp2 changes (mode flag, hash comparator, law) come
-after this and are only referenced here.
+with prediction and rollback in the game DLL. Slice 5 also covers the rp2 side of the session mode
+and the hash comparator; the relay's session clock comes after.
+
+**Status:** slices 1–5 are built and verified, and release DLLs run rollback sessions. What's left
+before shipping is in [Before shipping](#before-shipping), and what follows it in
+[After shipping](#after-shipping).
 
 ## What the code tells us
 
@@ -153,9 +157,11 @@ Built and tested live in four commits (two clients on the staging relay, driven 
    only trades the client's own input delay against the rollback it runs. It starts at
    `min(R_target, buffer − 1)` and follows the rollback the client measures (how far each step is
    past the newest fully known step): once that has stayed above the target for a whole 2 s window
-   the lead drops by the excess, and once it has stayed below it the lead rises by the shortfall,
-   down to 24 frames behind at most. The first 24 steps run in lockstep with the
-   whole buffer, which lines the clients' game loops up (seed turns arrive before a peer's loop is
+   the lead drops by the excess, and once it has stayed below it the lead rises by the shortfall.
+   The lead can go negative only until the pipe reaches 14 turns (`GAME_SYNC_SAFE_BUFFER_MAX`,
+   lockstep's deepest buffer), so rollback never costs more input delay than lockstep could. The
+   lead is only sampled on ticks where the newest fully known step advanced, so a total stall
+   doesn't walk it down. The first 24 steps run in lockstep with the whole buffer, which lines the clients' game loops up (seed turns arrive before a peer's loop is
    running, so a lockstep first step alone doesn't); each client then anchors its own schedule,
    steps up to two extra frames a tick when it is behind it, and puts its next step off by a frame
    when it is ahead.
@@ -177,39 +183,44 @@ for a confirmed frame and a clean result report, on both architectures; and the 
 replay played back to the same state hash as the live game on every one of its 2,083 frames. Tick
 cost stayed around 0.5 ms.
 
-**Open:**
-- Unfinalized drops carry no turn count, so the leave goes to the first step this client has no
-  turn for, which clients can disagree on. Rollback sessions should require finalized drops.
+**Left open by slice 4:**
+
+- ~~Unfinalized drops carry no turn count, so the leave goes to the first step this client has no
+  turn for, which clients can disagree on.~~ Closed by slice 5: rollback sessions force finalized
+  drops.
 - Each client anchors its schedule on its own clock when the lockstep start ends, so the anchors
   differ by however late each client's start was, and part of one player's slow link can end up
   as another player's input delay. With 4- and 10-frame holds the game ran at full speed with ~3-4
   frames of rollback on both sides, but the 4-frame side settled at a pipe of 7, about 2 frames
-  more than its own link explains. The deadline model's session clock (the relay's lead report,
-  rp2 step) is what makes the split per player.
-- A stall at the limit happens inside BW's wait for turns, so clicks made during it aren't logged
-  for re-simulation, and chat that arrives during it waits for the step.
-### Latency readout (independent of the slices)
+  more than its own link explains. Still open: the relay's lead report (after shipping) is what
+  makes the split per player.
+- Still open: a stall at the limit happens inside BW's wait for turns, so clicks made during it
+  aren't logged for re-simulation, and chat that arrives during it waits for the step.
 
-Replace the `Lat: 208ms` text with a fighting-game style readout: `1D 3R`, the input delay and the
-rollback this player is running with, in frames. It goes where SC:R's latency text is today (the
-top left of the game screen). Draw it with the egui overlay system (`bw_scr/draw_overlay`, the
-same machinery as `/netstat`) instead of formatting SC:R's own text through the
-`NetFormatTurnRate` hook, so its look is ours.
+### Network quality chip (independent of the slices)
 
-- **Visibility:** the readout must show and hide exactly when SC:R would show its own latency text,
-  and SC:R's text must not draw. Needs RE: the callers of `net_format_turn_rate` and the option or
-  state that gates the display.
-- **Values:** D is the pipe depth in force (`latency_turns`). R is the steady rollback, a smoothed
-  `present − confirmed` rounded to a whole frame, so a burst doesn't make the number flicker. It is
-  set by the latest opponent; per-opponent lateness belongs in `/netstat`.
-- **Lockstep games:** the readout works today with R = 0 (`5D 0R`), so it can ship to master on
-  its own, before any rollback work lands.
-- **Interim (debug builds):** in a game that rolls back, the `NetFormatTurnRate` hook already puts
-  `{pipe depth}D {smoothed rollback}R` into SC:R's own latency text, which is enough to read the
-  split while feel-testing. SC:R draws that text only when the ShowTurnRate setting is on, in
-  multiplayer games that aren't replays, at a fixed (10, 10) in renderer output pixels with
-  `fonts[0]`; the egui readout can blank the native string in the same hook and treat the hook
-  firing as its per-frame visibility signal.
+Rollback games show a network quality chip in place of SC:R's `Lat: 208ms` turn rate text: four
+bars rating the connection, with the input delay and the rollback as numbers in fixed slots. It is
+the Option A chip from the ingame UI design, drawn with the egui overlay
+(`overlay-ui/src/net_quality.rs`; `overlay_preview` renders it on its own). Lockstep games keep
+SC:R's text.
+
+- **Visibility:** the chip shows exactly when SC:R would draw its own text, which it does only with
+  the ShowTurnRate setting on, in multiplayer games that aren't replays. The `NetFormatTurnRate`
+  hook blanks the native string and stamps the time; the chip draws while the hook fired within
+  the last 250 ms. It sits at the top left and moves up to stay clear of the FPS line, which SC:R
+  draws one small-font line below its turn rate text.
+- **D** is the pipe depth minus one: the turns of input delay beyond the unavoidable one, so 0
+  means none added.
+- **R** is the peak over a rolling 3 s of how far the shown frame is past the newest fully known
+  step. A peak holds still through jitter but still shows a burst, and it keeps its last value
+  while the simulation is stalled.
+- **Bars** take the worse of two ratings: D 0–1, 2–3, 4–6, 7+ and R 0–1, 2–3, 4–5, 6+ give 4, 3, 2
+  and 1 bars.
+
+In a US West against Korea game on staging relays with no debug knobs, it read D 0–1 and R
+averaging 1.4–1.9. Games run with `SB_ROLLBACK_MIN_BUFFER` or `SB_ROLLBACK_LIVE_DELAY` read higher
+by design and don't compare to real games.
 
 ### Slice 5: confirmed-hash reports and rollback sessions (with rp2 build step 3)
 
@@ -228,8 +239,8 @@ advancing frames.
   player). `SessionRequest.rollback` asks; the coordinator grants it only on relays advertising
   `rollback_v1`, keeps re-homes on them, and forces `finalized_drops` on. The granted
   `SessionResponse.rollback` rides the player's setup to the DLL, which arms rollback from it (the
-  env knobs now only tune a rollback game). A DLL that can't roll back (release builds, or missing
-  analysis) refuses the session instead of running it as lockstep. Debug DLLs now always resolve
+  env knobs now only tune a rollback game). A DLL that can't roll back (one missing an analysis only
+  rollback needs) refuses the session instead of running it as lockstep. Debug DLLs now always resolve
   the snapshot ranges at launch, since the mode is only known once the session is set up.
 - **Reports** (`rollback/hash_reports.rs`). Every 8th position from 8 is hashed as it is
   simulated; a re-simulation replaces the hash, and once the position is confirmed its report goes
@@ -248,7 +259,7 @@ advancing frames.
 - **Server policy.** The desync webhook's `missing` slots count as at fault like `diverged`; a
   no-majority event still voids the game.
 
-Since then, and still open:
+Built since:
 
 - A client whose link can't come back (an evicted one included) shows "Disconnected from the
   game" with a Leave button, which ends the game the way the menu's End Game does.
@@ -262,13 +273,45 @@ Since then, and still open:
   release DLL on one architecture against a debug DLL on the other: steady rollbacks on the
   release side and no hash verdicts.
 - UMS games on EUD maps run lockstep: EUD triggers can write memory the snapshot doesn't cover.
+  Melee games on EUD maps still roll back.
+- The network quality chip (above) replaced the debug latency text.
 
-**After slice 5: the relay's lead report.** The relay keeps the session clock (step F due at
+## Before shipping
+
+Target: the release after 11.4.0. There is no rollout gating and no guard against old clients,
+since clients always update: rollback goes to the staging region first, then to everyone.
+Coordinators and relays already run rp2 main `2a07bae`.
+
+- **Eviction should end the session.** The client treats a `DESYNC_EVICTED` close as a lost link
+  and redials once, which the relay refuses, before it gives up. It should go straight to the
+  terminal "Disconnected from the game" state.
+- **A no-majority verdict leaves the game running.** The comparator names nobody and goes dormant,
+  and the server voids the game, but the clients play on with no further hash checks. The game
+  needs a defined end for this case.
+- **Staging-region tests.** Real cross-region games on the staging region with release builds.
+  Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
+- **rally-point-client pin.** The DLL still pins rp2 `e4320e2`; bump it to the deployed `2a07bae`
+  when landing.
+
+## After shipping
+
+**The relay's lead report.** The relay keeps the session clock (step F due at
 `start + F × 42 ms`), measures how early or late each player's turns reach it against that, and
 sends each player its own smoothed lead error. Clients then set their lead and delay against one
 shared clock instead of anchoring their own schedules, which removes the anchor unfairness noted
 in slice 4 and is the prerequisite for deadline enforcement. It doesn't affect correctness or
 verdicts, so it follows slice 5 as its own step.
+
+Then, roughly in order:
+
+- Deadline enforcement, and clock offsets for sessions spanning several relays (controller doc,
+  open questions 6 and 7).
+- Tuning the steady and burst windows that choose between delay and rollback, from live games.
+- The advanced player settings for the rollback target and limit. Until then every player runs
+  the defaults (target 3, limit 8).
+- The sound hook, so a sound's audibility is decided when it plays rather than at each simulation.
+- Clicks and chat during a stall at the limit (slice 4).
+- Removing the native 0x37 path once every game rolls back.
 
 ## Risks
 
