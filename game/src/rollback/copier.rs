@@ -29,6 +29,10 @@ const MAX_HELPERS: usize = 3;
 #[cfg(debug_assertions)]
 pub(crate) static HELPERS_OVERRIDE: AtomicUsize = AtomicUsize::new(usize::MAX);
 
+/// Limits how many of the helper threads take part in copies in debug builds, for a bench
+/// comparing counts within one run.
+pub(crate) static ACTIVE_HELPERS: AtomicUsize = AtomicUsize::new(usize::MAX);
+
 /// Which way a copy goes between the simulation's memory and a snapshot slot.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum Direction {
@@ -156,7 +160,7 @@ impl Copier {
                 let shared = shared.clone();
                 let handle = std::thread::Builder::new()
                     .name(format!("rollback copy {i}"))
-                    .spawn(move || help(&shared));
+                    .spawn(move || help(&shared, i));
                 match handle {
                     Ok(handle) => Some((handle.thread().clone(), handle)),
                     Err(e) => {
@@ -231,13 +235,20 @@ fn helper_count() -> usize {
         .unwrap_or(0)
 }
 
+/// Whether helper `index` sits copies out, as a bench comparing helper counts can ask for.
+fn sits_out(index: usize) -> bool {
+    cfg!(debug_assertions) && index >= ACTIVE_HELPERS.load(Ordering::Relaxed)
+}
+
 /// A helper thread: sleeps until a copy starts, helps with it, and goes back to sleep.
-fn help(shared: &Shared) {
+fn help(shared: &Shared, index: usize) {
     unsafe {
         loop {
             #[cfg(debug_assertions)]
             let woke = Instant::now();
-            shared.work();
+            if !sits_out(index) {
+                shared.work();
+            }
             #[cfg(debug_assertions)]
             shared
                 .helper_busy_ns

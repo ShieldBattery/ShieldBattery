@@ -51,6 +51,9 @@ use crate::rollback::tick::{self, TickPlan};
 /// - `spacing=<frames>`: snapshot spacing (default the engine's);
 /// - `copy_helpers=<n>`: helper threads snapshot and restore copies are split across (default
 ///   the engine's choice for the machine);
+/// - `copy_helpers_by_depth=<n>`: for each entry of `depths` in turn, how many of those helpers
+///   its rolling-back ticks use, so that counts can be compared within one run by listing a depth
+///   more than once (results are keyed `<depth>h<n>`);
 /// - `profile=1`: sample the game thread while rolling back;
 /// - `affinity=<hex mask>|none`: the logical processors the game thread is pinned to while the
 ///   bench runs (default `4`, the third logical processor, a performance core on a hybrid CPU; on
@@ -94,6 +97,9 @@ const SAMPLE_FRAMES: usize = 48;
 struct Config {
     checkpoints: Option<Vec<u32>>,
     depths: Vec<u32>,
+    /// For each entry of `depths`, the helper threads its rolling-back ticks copy with, or `None`
+    /// for all of them.
+    depth_helpers: Vec<Option<usize>>,
     iters: u32,
     advance: u32,
     micro: u32,
@@ -122,6 +128,7 @@ pub fn init_from_env() {
     let mut config = Config {
         checkpoints: None,
         depths: vec![1, 2, 4, 8],
+        depth_helpers: Vec::new(),
         iters: 24,
         advance: 48,
         micro: 8,
@@ -152,6 +159,12 @@ pub fn init_from_env() {
             "iters" => value.parse().map(|x| config.iters = x).is_ok(),
             "advance" => value.parse().map(|x| config.advance = x).is_ok(),
             "micro" => value.parse().map(|x| config.micro = x).is_ok(),
+            "copy_helpers_by_depth" => value
+                .split(',')
+                .map(|x| x.trim().parse::<usize>().ok().map(Some))
+                .collect::<Option<Vec<_>>>()
+                .map(|x| config.depth_helpers = x)
+                .is_some(),
             "copy_helpers" => value
                 .parse()
                 .map(|x| copier::HELPERS_OVERRIDE.store(x, Ordering::Relaxed))
@@ -183,7 +196,16 @@ pub fn init_from_env() {
             error!("{ENV_VAR}: ignoring {part:?}");
         }
     }
-    config.depths.retain(|&x| x > 0 && x < CONFIRMED_LAG);
+    config.depth_helpers.resize(config.depths.len(), None);
+    let (depths, depth_helpers) = config
+        .depths
+        .iter()
+        .copied()
+        .zip(config.depth_helpers.iter().copied())
+        .filter(|&(x, _)| x > 0 && x < CONFIRMED_LAG)
+        .unzip();
+    config.depths = depths;
+    config.depth_helpers = depth_helpers;
     info!(
         "{ENV_VAR}: checkpoints {:?}, depths {:?}, {} iterations, {} forward ticks, spacing {}, \
          profile {}",
@@ -486,6 +508,10 @@ impl Bench {
                 }
                 Phase::Rollback { iter, depth } => {
                     let depth_frames = self.config.depths[depth];
+                    copier::ACTIVE_HELPERS.store(
+                        self.config.depth_helpers[depth].unwrap_or(usize::MAX),
+                        Ordering::Relaxed,
+                    );
                     let sampling = self.sampler.as_ref().map(|x| x.active.clone());
                     if let Some(active) = &sampling {
                         active.store(true, Ordering::Release);
@@ -503,6 +529,7 @@ impl Bench {
                     );
                     let wall = start.elapsed();
                     let cycles = thread_cycles().wrapping_sub(start_cycles);
+                    copier::ACTIVE_HELPERS.store(usize::MAX, Ordering::Relaxed);
                     if let Some(active) = &sampling {
                         active.store(false, Ordering::Release);
                     }
@@ -825,20 +852,24 @@ impl Bench {
         let mut wall_by_depth = serde_json::Map::new();
         let mut helper_by_depth = serde_json::Map::new();
         for (i, &depth) in self.config.depths.iter().enumerate() {
+            let depth = match self.config.depth_helpers[i] {
+                Some(helpers) => format!("{depth}h{helpers}"),
+                None => depth.to_string(),
+            };
             wall_by_depth.insert(
-                depth.to_string(),
+                depth.clone(),
                 average(&|c| c.depths.get(i).and_then(|x| x.1.tick_wall_us.median())),
             );
             helper_by_depth.insert(
-                depth.to_string(),
+                depth.clone(),
                 average(&|c| c.depths.get(i).and_then(|x| x.1.helper_us.median())),
             );
             by_depth.insert(
-                depth.to_string(),
+                depth.clone(),
                 average(&|c| c.depths.get(i).and_then(|x| x.1.tick_cpu_us.median())),
             );
             by_depth_p90.insert(
-                depth.to_string(),
+                depth,
                 average(&|c| {
                     let values = &c.depths.get(i)?.1.tick_cpu_us.values;
                     let mut sorted = values.clone();
