@@ -21,7 +21,7 @@ mod gamma;
 mod scr_hooks {
 
     use super::{
-        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, POINT, WNDCLASSEXW, c_void,
+        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, WNDCLASSEXW, c_void,
     };
 
     system_hooks!(
@@ -31,6 +31,7 @@ mod scr_hooks {
         ) -> HWND;
         !0 => MonitorFromPoint32(i32, i32, u32) -> HMONITOR;
         !0 => MonitorFromPoint64(POINT, u32) -> HMONITOR;
+        !0 => PeekMessageW(*mut MSG, HWND, u32, u32, u32) -> i32;
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
@@ -67,6 +68,9 @@ static SUPPRESS_SCR_CURSOR_MOVES: AtomicBool = AtomicBool::new(false);
 // with remastered :/
 thread_local! {
     static DISABLE_SCR_HOOKS: Cell<i32> = const { Cell::new(0) };
+    /// Set while the current drain loop on this thread has removed a `WM_MOUSEMOVE`; see
+    /// [`peek_message_w`].
+    static MOUSE_MOVE_DRAINED: Cell<bool> = const { Cell::new(false) };
 }
 
 fn scr_hooks_disabled() -> bool {
@@ -490,6 +494,46 @@ fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -
     unsafe { orig(x, y) }
 }
 
+/// Ends a `PM_REMOVE` drain loop once it has removed a `WM_MOUSEMOVE` and no mouse button or
+/// keyboard messages remain queued, by reporting an empty queue for the next call.
+///
+/// Every mouse input message a thread removes makes Windows notify each out-of-context WinEvent
+/// hook on the desktop (Chromium-based apps commonly have one), and those hook threads contend
+/// with the game for the window manager's lock. With a high polling rate mouse, removing a message
+/// can then take longer than the gap until the next one arrives, so SC:R's drain-until-empty
+/// message pump keeps chasing new input and stalls a frame for tens of milliseconds. Pending
+/// mouse moves coalesce into a single queued message, so leaving one behind loses nothing: the
+/// next pump receives the latest position. Button and key messages arrive at human rates and
+/// don't coalesce, so the drain continues while any are queued to handle them without a frame of
+/// delay.
+fn peek_message_w(
+    msg: *mut MSG,
+    window: HWND,
+    filter_min: u32,
+    filter_max: u32,
+    remove: u32,
+    orig: unsafe extern "C" fn(*mut MSG, HWND, u32, u32, u32) -> i32,
+) -> i32 {
+    let can_return_mouse_move =
+        (filter_min == 0 && filter_max == 0) || (filter_min..=filter_max).contains(&WM_MOUSEMOVE);
+    if remove & PM_REMOVE == 0 || !can_return_mouse_move {
+        return unsafe { orig(msg, window, filter_min, filter_max, remove) };
+    }
+    // GetInputState only reads the queue's status bits, so unlike PeekMessage it doesn't scan
+    // the input queue or notify WinEvent hooks.
+    if MOUSE_MOVE_DRAINED.get() && unsafe { GetInputState() } == 0 {
+        MOUSE_MOVE_DRAINED.set(false);
+        return 0;
+    }
+    let result = unsafe { orig(msg, window, filter_min, filter_max, remove) };
+    if result == 0 {
+        MOUSE_MOVE_DRAINED.set(false);
+    } else if unsafe { (*msg).message } == WM_MOUSEMOVE {
+        MOUSE_MOVE_DRAINED.set(true);
+    }
+    result
+}
+
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     unsafe {
         debug!("ShowWindow {window:p} {show}");
@@ -732,6 +776,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
         hook_winapi_exports!(patcher, "user32",
             "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
             "CreateWindowExW", CreateWindowExW, create_window_w;
+            "PeekMessageW", PeekMessageW, peek_message_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "SetCursorPos", SetCursorPos, set_cursor_pos;
