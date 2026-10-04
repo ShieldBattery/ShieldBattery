@@ -2,7 +2,9 @@ import { RouterContext } from '@koa/router'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameStatus } from '../../../common/games/game-status'
 import { GameResultErrorCode } from '../../../common/games/results'
+import { RollbackStats } from '../../../common/games/rollback-stats'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { insertGameRollbackStats } from '../models/game-rollback-stats'
 import { getUserGameRecord } from '../models/games-users'
 import { GameApi } from './game-api'
 import { GameLifecycleEvents } from './game-lifecycle-events'
@@ -12,6 +14,10 @@ import { GameResultServiceError } from './game-result-service'
 vi.mock('../models/games-users', async importOriginal => ({
   ...(await importOriginal<typeof import('../models/games-users')>()),
   getUserGameRecord: vi.fn(),
+}))
+vi.mock('../models/game-rollback-stats', async importOriginal => ({
+  ...(await importOriginal<typeof import('../models/game-rollback-stats')>()),
+  insertGameRollbackStats: vi.fn(),
 }))
 vi.mock('./game-models', async importOriginal => ({
   ...(await importOriginal<typeof import('./game-models')>()),
@@ -400,5 +406,172 @@ describe('games/game-api/GameApi#getFlightRecording', () => {
     expect(netcodeV2Service.fetchFlightBlob).toHaveBeenCalledWith(42, 7)
     expect(returned).toBe(recording)
     expect(ctx.type).toBe('application/json')
+  })
+})
+
+function makeRollbackStats(): RollbackStats {
+  return {
+    version: 1,
+    throughTurn: 5000,
+    rollbackTarget: 2,
+    predictionLimit: 8,
+    ticks: 30000,
+    rollbackHistogram: [20000, 5000, 3000, 1000, 500, 300, 100, 50, 30, 10, 5, 5],
+    pipeHistogram: [0, 0, 100, 25000, 4000, 900, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    cappedTicks: 12,
+    rollbacks: 4000,
+    resimulatedFrames: 9000,
+    deepestRollback: 11,
+    predictedSteps: 10000,
+    mispredictedTurns: 3000,
+    confirmedPredictions: 7000,
+    caughtUpFrames: 40,
+    heldBackTicks: 60,
+    leadChanges: 3,
+    scheduleCorrections: 7,
+    scheduleCorrectedUs: -12000,
+    holdsUndone: 1,
+    clockStoppedUs: 250000,
+    leadReports: 100,
+    leadP90MaxUs: -500,
+    leadP90SumUs: -20000,
+    worstTickUs: 18000,
+    slowTicks: 9,
+    restoreUs: 400000,
+    snapshotUs: 900000,
+    stepUs: 30000000,
+  }
+}
+
+/** A fake `RouterContext` for `submitRollbackStats`, with `stats` overridable per test. */
+function makeRollbackStatsCtx(stats: Record<string, unknown> = { ...makeRollbackStats() }) {
+  return {
+    params: { gameId: 'game-1' },
+    request: {
+      body: { userId: 1, resultCode: 'abc123abc123', stats },
+    },
+  } as any as RouterContext
+}
+
+/** Builds a `GameApi` with only the loader query `submitRollbackStats` touches mocked. */
+function makeRollbackStatsApi({ isLoading = false }: { isLoading?: boolean } = {}) {
+  const gameLoader = { isLoading: vi.fn().mockReturnValue(isLoading) }
+  return new GameApi(
+    {} as any,
+    gameLoader as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
+    new GameLifecycleEvents(),
+  )
+}
+
+describe('games/game-api/GameApi#submitRollbackStats', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getUserGameRecord).mockResolvedValue({ resultCode: 'abc123abc123' } as any)
+    vi.mocked(insertGameRollbackStats).mockResolvedValue(true)
+  })
+
+  test('stores the stats, keeping fields this server does not know about', async () => {
+    const api = makeRollbackStatsApi()
+    const stats = { ...makeRollbackStats(), someFutureField: 42 }
+    const ctx = makeRollbackStatsCtx(stats)
+
+    await api.submitRollbackStats(ctx)
+
+    expect(insertGameRollbackStats).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      userId: 1,
+      stats,
+    })
+    expect(ctx.status).toBe(204)
+  })
+
+  test('answers 204 when stats were already stored for the user', async () => {
+    vi.mocked(insertGameRollbackStats).mockResolvedValue(false)
+    const api = makeRollbackStatsApi()
+    const ctx = makeRollbackStatsCtx()
+
+    await api.submitRollbackStats(ctx)
+
+    expect(ctx.status).toBe(204)
+  })
+
+  test('rejects a request whose resultCode does not match the stored record', async () => {
+    vi.mocked(getUserGameRecord).mockResolvedValue({ resultCode: 'a-different-code' } as any)
+    const api = makeRollbackStatsApi()
+
+    const err = await api.submitRollbackStats(makeRollbackStatsCtx()).catch(e => e)
+
+    expect(err).toBeInstanceOf(GameResultServiceError)
+    expect((err as GameResultServiceError).code).toBe(GameResultErrorCode.NotFound)
+    expect(insertGameRollbackStats).not.toHaveBeenCalled()
+  })
+
+  test('rejects a user with no record in the game', async () => {
+    vi.mocked(getUserGameRecord).mockResolvedValue(null)
+    const api = makeRollbackStatsApi()
+
+    const err = await api.submitRollbackStats(makeRollbackStatsCtx()).catch(e => e)
+
+    expect(err).toBeInstanceOf(GameResultServiceError)
+    expect((err as GameResultServiceError).code).toBe(GameResultErrorCode.NotFound)
+    expect(insertGameRollbackStats).not.toHaveBeenCalled()
+  })
+
+  test('rejects while the game is still loading', async () => {
+    const api = makeRollbackStatsApi({ isLoading: true })
+
+    const err = await api.submitRollbackStats(makeRollbackStatsCtx()).catch(e => e)
+
+    expect(err).toBeInstanceOf(GameResultServiceError)
+    expect((err as GameResultServiceError).code).toBe(GameResultErrorCode.NotLoaded)
+    expect(insertGameRollbackStats).not.toHaveBeenCalled()
+  })
+
+  test.each<[string, Record<string, unknown>]>([
+    ['a negative count', { ticks: -1 }],
+    ['a fractional count', { rollbacks: 1.5 }],
+    ['a count too large for an INTEGER column', { ticks: 2 ** 31 }],
+    ['a negative duration', { worstTickUs: -1 }],
+    ['an unsafe integer duration', { stepUs: 2 ** 53 }],
+    ['a non-numeric field', { slowTicks: 'many' }],
+    ['a missing field', { ticks: undefined }],
+    ['a histogram with a negative entry', { rollbackHistogram: [1, -1] }],
+    ['a histogram with a fractional entry', { pipeHistogram: [1, 0.5] }],
+    ['a histogram with too many entries', { pipeHistogram: new Array(65).fill(0) }],
+    ['a histogram that is not an array', { rollbackHistogram: 5 }],
+  ])('rejects stats with %s', async (_, overrides) => {
+    const api = makeRollbackStatsApi()
+    const stats: Record<string, unknown> = { ...makeRollbackStats(), ...overrides }
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value === undefined) {
+        delete stats[key]
+      }
+    }
+
+    const err = await api.submitRollbackStats(makeRollbackStatsCtx(stats)).catch(e => e)
+
+    expect(err).toHaveProperty('status', 400)
+    expect(insertGameRollbackStats).not.toHaveBeenCalled()
+  })
+
+  test('accepts negative values for the signed fields and empty histograms', async () => {
+    const api = makeRollbackStatsApi()
+    const ctx = makeRollbackStatsCtx({
+      ...makeRollbackStats(),
+      scheduleCorrectedUs: -(2 ** 40),
+      leadP90MaxUs: -(2 ** 31),
+      leadP90SumUs: -(2 ** 45),
+      rollbackHistogram: [],
+      pipeHistogram: new Array(64).fill(0),
+    })
+
+    await api.submitRollbackStats(ctx)
+
+    expect(insertGameRollbackStats).toHaveBeenCalled()
+    expect(ctx.status).toBe(204)
   })
 })

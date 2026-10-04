@@ -35,6 +35,11 @@ import {
   isRawStoredGameResults,
   SubmitGameReplayRequest,
 } from '../../../common/games/results'
+import {
+  MAX_ROLLBACK_HISTOGRAM_ENTRIES,
+  RollbackStats,
+  SubmitRollbackStatsRequest,
+} from '../../../common/games/rollback-stats'
 import { toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { parseReplay } from '../../workers/replays/replays'
@@ -44,6 +49,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
+import { insertGameRollbackStats } from '../models/game-rollback-stats'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -135,6 +141,60 @@ const GAME_ID_AND_RELAY_ID_PARAM = Joi.object<{ gameId: string; relayId: number 
   gameId: Joi.string().required(),
   relayId: Joi.number().integer().min(0).required(),
 })
+
+/** The largest value a Postgres INTEGER holds. Rollback stats counts are stored in such columns. */
+const MAX_PG_INTEGER = 2 ** 31 - 1
+
+const joiRollbackCount = () => Joi.number().integer().min(0).max(MAX_PG_INTEGER).required()
+// Joi rejects integers beyond `Number.MAX_SAFE_INTEGER` by default, which bounds these 64-bit values
+// to what survives a round trip through a JS number.
+const joiRollbackDurationUs = () => Joi.number().integer().min(0).required()
+const joiRollbackSignedUs = () => Joi.number().integer().required()
+const joiRollbackHistogram = () =>
+  Joi.array()
+    .items(Joi.number().integer().min(0).max(MAX_PG_INTEGER))
+    .max(MAX_ROLLBACK_HISTOGRAM_ENTRIES)
+    .required()
+
+/**
+ * Validates submitted rollback stats. Unknown keys are allowed (and stored) so that a client sending
+ * fields this server doesn't know about isn't rejected.
+ */
+const ROLLBACK_STATS_SCHEMA = Joi.object<RollbackStats>({
+  version: Joi.number().integer().min(1).max(MAX_PG_INTEGER).required(),
+  throughTurn: joiRollbackCount(),
+  rollbackTarget: joiRollbackCount(),
+  predictionLimit: joiRollbackCount(),
+  ticks: joiRollbackCount(),
+  rollbackHistogram: joiRollbackHistogram(),
+  pipeHistogram: joiRollbackHistogram(),
+  cappedTicks: joiRollbackCount(),
+  rollbacks: joiRollbackCount(),
+  resimulatedFrames: joiRollbackCount(),
+  deepestRollback: joiRollbackCount(),
+  predictedSteps: joiRollbackCount(),
+  mispredictedTurns: joiRollbackCount(),
+  confirmedPredictions: joiRollbackCount(),
+  caughtUpFrames: joiRollbackCount(),
+  heldBackTicks: joiRollbackCount(),
+  leadChanges: joiRollbackCount(),
+  scheduleCorrections: joiRollbackCount(),
+  scheduleCorrectedUs: joiRollbackSignedUs(),
+  holdsUndone: joiRollbackCount(),
+  clockStoppedUs: joiRollbackDurationUs(),
+  leadReports: joiRollbackCount(),
+  leadP90MaxUs: Joi.number()
+    .integer()
+    .min(-(2 ** 31))
+    .max(MAX_PG_INTEGER)
+    .required(),
+  leadP90SumUs: joiRollbackSignedUs(),
+  worstTickUs: joiRollbackDurationUs(),
+  slowTicks: joiRollbackCount(),
+  restoreUs: joiRollbackDurationUs(),
+  snapshotUs: joiRollbackDurationUs(),
+  stepUs: joiRollbackDurationUs(),
+}).unknown(true)
 
 @singleton()
 class GameCountEmitter {
@@ -808,6 +868,40 @@ export class GameApi {
       gameId,
       userId,
     })
+
+    ctx.status = 204
+  }
+
+  // Like the replay endpoint, this is sent by the game client and authenticated by the per-(game,
+  // user) resultCode rather than a session. Only the first submission for a user/game is stored.
+  @httpPost('/:gameId/rollback-stats')
+  @httpBefore(throttleMiddleware(gameResultsThrottle, throttleByIp))
+  async submitRollbackStats(ctx: RouterContext): Promise<void> {
+    const {
+      params: { gameId },
+      body: { userId, resultCode, stats },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<SubmitRollbackStatsRequest>().keys({
+        userId: Joi.number().integer().min(0).required(),
+        resultCode: Joi.string().required(),
+        stats: ROLLBACK_STATS_SCHEMA.required(),
+      }),
+    })
+
+    if (this.gameLoader.isLoading(gameId)) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.NotLoaded,
+        'Game is still loading, try again later',
+      )
+    }
+
+    const gameUserRecord = await getUserGameRecord(userId, gameId)
+    if (!gameUserRecord || gameUserRecord.resultCode !== resultCode) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+
+    await insertGameRollbackStats({ gameId, userId, stats })
 
     ctx.status = 204
   }
