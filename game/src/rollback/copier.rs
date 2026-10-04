@@ -22,8 +22,12 @@ pub(crate) const SLOT_ALIGN: usize = 64;
 const CHUNK_BYTES: usize = 64 * 1024;
 
 /// Helper threads at most. Copies stop getting faster past a few threads, as they are limited by
-/// memory bandwidth rather than by any one core.
-const MAX_HELPERS: usize = 3;
+/// memory bandwidth rather than by any one core, and two get nearly all of what three do.
+const MAX_HELPERS: usize = 2;
+
+/// Spins the game thread waits for the helpers' last chunks before it starts yielding its core
+/// between checks, so a helper that was descheduled on the same core can finish its chunk.
+const SPINS_BEFORE_YIELDING: u32 = 4096;
 
 /// Overrides how many helper threads a copier starts, for a bench comparing counts.
 #[cfg(debug_assertions)]
@@ -189,8 +193,15 @@ impl Copier {
             }
             shared.work();
             let count = shared.chunk_count() as usize;
+            let mut spins = 0u32;
             while shared.done.load(Ordering::Acquire) < count {
-                std::hint::spin_loop();
+                match spins < SPINS_BEFORE_YIELDING {
+                    true => {
+                        spins += 1;
+                        std::hint::spin_loop();
+                    }
+                    false => std::thread::yield_now(),
+                }
             }
         }
     }
@@ -241,8 +252,14 @@ fn sits_out(index: usize) -> bool {
 }
 
 /// A helper thread: sleeps until a copy starts, helps with it, and goes back to sleep.
+///
+/// It runs above normal priority: the game thread waits for every chunk a helper has claimed, so a
+/// helper preempted mid-chunk stalls the game for as long as it stays off its core.
 fn help(shared: &Shared, index: usize) {
     unsafe {
+        use winapi::um::processthreadsapi::{GetCurrentThread, SetThreadPriority};
+        use winapi::um::winbase::THREAD_PRIORITY_ABOVE_NORMAL;
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL as i32);
         loop {
             #[cfg(debug_assertions)]
             let woke = Instant::now();
