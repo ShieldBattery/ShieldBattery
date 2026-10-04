@@ -37,7 +37,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
-use overlay_ui::net_quality::RollbackPeak;
+use overlay_ui::net_quality::RecentRollback;
 use parking_lot::Mutex;
 
 use crate::bw::{self, Bw};
@@ -133,13 +133,13 @@ static MONKEY_RANDOM: AtomicU32 = AtomicU32::new(0);
 static PACING: Mutex<Option<Pacing>> = Mutex::new(None);
 
 /// The rollback this client runs, for the network quality readout.
-static ROLLBACK_PEAK: Mutex<RollbackPeak> = Mutex::new(RollbackPeak::new());
+static RECENT_ROLLBACK: Mutex<RecentRollback> = Mutex::new(RecentRollback::new());
 
-/// The rollback the network quality readout shows: the most frames this client ran past the
-/// newest step whose turns were all known over the last few seconds, so that the number holds
-/// still between bursts instead of moving every tick.
+/// The rollback the network quality readout shows: a high percentile of how many frames this
+/// client ran past the newest step whose turns were all known over the last few seconds, so that
+/// the number holds still between bursts instead of moving every tick.
 pub fn shown_rollback() -> u32 {
-    ROLLBACK_PEAK.lock().shown(Instant::now())
+    RECENT_ROLLBACK.lock().shown()
 }
 
 /// How many ticks the rollback a client runs has to stay clear of its target, all one way, before
@@ -357,7 +357,7 @@ pub fn reset_for_game_init() {
     crate::rollback::reset_for_game_init();
     *SUMMARY.lock() = None;
     *PACING.lock() = None;
-    ROLLBACK_PEAK.lock().clear();
+    RECENT_ROLLBACK.lock().clear();
     *LEAD_WINDOW.lock() = LeadWindow {
         ticks: 0,
         lowest: u32::MAX,
@@ -498,7 +498,7 @@ pub unsafe fn run_game_logic_step(
         // already on, exactly the limit past them.
         let ahead = reached.saturating_sub(known_until);
         if current >= LOCKSTEP_START_STEPS {
-            ROLLBACK_PEAK.lock().record(Instant::now(), ahead);
+            RECENT_ROLLBACK.lock().record(Instant::now(), ahead);
             let adjustment = lead_adjustment(ahead, known_until, rollback_target);
             if adjustment != 0 {
                 netcode_v2::with_turn_state(|s| s.adjust_lead(adjustment));

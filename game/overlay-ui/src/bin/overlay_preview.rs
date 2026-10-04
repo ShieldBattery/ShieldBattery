@@ -19,7 +19,7 @@ use overlay_ui::disconnect::{
     DisconnectRowView, DisconnectTier, DisconnectView, SelfState, render_disconnect_view,
 };
 use overlay_ui::net_quality::{
-    DESIGN_HEIGHT, NetQualityView, RollbackPeak, fps_line_top, render_net_quality,
+    DESIGN_HEIGHT, NetQualityView, RecentRollback, fps_line_top, render_net_quality,
 };
 use overlay_ui::netstat::{
     NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
@@ -693,7 +693,7 @@ struct PreviewApp {
     leave_clicks: u32,
     next_slot: u8,
     /// The chip's smoothing, fed by the simulated rollback.
-    rollback_peak: RollbackPeak,
+    recent_rollback: RecentRollback,
     /// The game tick the simulation last produced a sample for.
     last_sim_tick: Instant,
     /// When the simulation's last burst started.
@@ -721,7 +721,7 @@ impl PreviewApp {
             last_clicked: Vec::new(),
             leave_clicks: 0,
             next_slot,
-            rollback_peak: RollbackPeak::new(),
+            recent_rollback: RecentRollback::new(),
             last_sim_tick: Instant::now(),
             last_burst: Instant::now(),
             last_raw_rollback: 0,
@@ -770,11 +770,11 @@ impl PreviewApp {
                 raw += k.burst_frames;
             }
             self.last_raw_rollback = raw;
-            self.rollback_peak.record(tick, raw);
+            self.recent_rollback.record(tick, raw);
         }
         NetQualityView {
             delay: k.delay,
-            rollback: self.rollback_peak.shown(now),
+            rollback: self.recent_rollback.shown(),
             fps_font_height,
         }
     }

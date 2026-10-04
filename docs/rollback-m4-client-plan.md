@@ -352,8 +352,8 @@ us-east so sessions spanned three relays, with `SB_ROLLBACK_MONKEY=120` on every
 Smaller things found on the way:
 - The summary's step time counts a stall at the limit as one long step ("worst 54454.5 ms"), and
   its "ahead … at most 9" exceeds the limit of 8, probably the off-by-one fixed in the readout.
-- The chip shows a 3 s peak of rollback, so it sits at 5 while the average is 3. A high
-  percentile might read truer; revisit once the lead report changes the numbers.
+- The chip showed a 3 s peak of rollback, so it sat at 5 while the average was 3. It now shows
+  the 90th percentile of the same window's ticks, which ignores lateness under ~300 ms.
 
 ## After shipping
 

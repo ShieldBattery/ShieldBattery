@@ -36,7 +36,7 @@ use crate::fonts::{body_medium, condensed};
 pub struct NetQualityView {
     /// Frames of input delay beyond the unavoidable one.
     pub delay: u32,
-    /// Frames of rollback, already smoothed for display (see [`RollbackPeak`]).
+    /// Frames of rollback, already smoothed for display (see [`RecentRollback`]).
     pub rollback: u32,
     /// The height of the game's small font, if known, which sets where the game draws its FPS
     /// readout line (see [`fps_line_top`]). The chip moves up to stay clear of that line.
@@ -85,66 +85,63 @@ fn bar_color(bars: u8) -> Color32 {
     }
 }
 
-/// How long each bucket of [`RollbackPeak`] collects samples for.
-const PEAK_BUCKET: Duration = Duration::from_millis(500);
-/// How far back [`RollbackPeak`] looks: a burst stays on screen this long after it ends.
-const PEAK_WINDOW: Duration = Duration::from_secs(3);
+/// How far back [`RecentRollback`] looks, ending at the newest tick.
+const ROLLBACK_WINDOW: Duration = Duration::from_secs(3);
+/// The percentile of the window's ticks that [`RecentRollback`] shows.
+const ROLLBACK_PERCENTILE: usize = 90;
 
-/// The rollback to show: the most any tick ran with over the last few seconds.
+/// The rollback to show: the 90th percentile of what ticks ran with over the last few seconds.
 ///
 /// Rollback moves by a frame or two from one tick to the next as turns arrive a little early or
-/// late, which as a raw number is unreadable flicker. A rolling peak settles on the top of that
-/// jitter and holds still while the connection does. It rises the moment a burst of lateness hits,
-/// which is when corrections show on screen, and steps back down a bucket at a time once the burst
-/// has aged out of the window. Smoothing with an average would instead hide the bursts players
-/// actually see, and still wobble whenever the average sat near a rounding boundary.
+/// late, which as a raw number is unreadable flicker. A high percentile settles near the top of
+/// that jitter and holds still while the connection does. A burst of lateness lasting a tenth of
+/// the window (~300 ms) or more raises it, and it falls back once the burst has mostly aged out.
+/// A lone late turn, whose correction shows once and is gone, doesn't move it, where a peak would
+/// hold that one turn up for the whole window and rate the connection by its worst moment.
+/// Smoothing with an average would instead hide the bursts players actually see, and wobble
+/// whenever the average sat near a rounding boundary.
 #[derive(Debug, Default)]
-pub struct RollbackPeak {
-    /// The start of each bucket and the most rollback recorded in it, oldest first.
-    buckets: VecDeque<(Instant, u32)>,
+pub struct RecentRollback {
+    /// When each tick in the window ran and the rollback it ran with, oldest first.
+    ticks: VecDeque<(Instant, u32)>,
 }
 
-impl RollbackPeak {
-    pub const fn new() -> RollbackPeak {
-        RollbackPeak {
-            buckets: VecDeque::new(),
+impl RecentRollback {
+    pub const fn new() -> RecentRollback {
+        RecentRollback {
+            ticks: VecDeque::new(),
         }
     }
 
     /// Notes that a tick at `now` ran with `rollback` frames.
     pub fn record(&mut self, now: Instant, rollback: u32) {
         while self
-            .buckets
+            .ticks
             .front()
-            .is_some_and(|&(start, _)| now.saturating_duration_since(start) >= PEAK_WINDOW)
+            .is_some_and(|&(at, _)| now.saturating_duration_since(at) >= ROLLBACK_WINDOW)
         {
-            self.buckets.pop_front();
+            self.ticks.pop_front();
         }
-        match self.buckets.back_mut() {
-            Some((start, peak)) if now.saturating_duration_since(*start) < PEAK_BUCKET => {
-                *peak = (*peak).max(rollback);
-            }
-            _ => self.buckets.push_back((now, rollback)),
-        }
+        self.ticks.push_back((now, rollback));
     }
 
-    /// The rollback to show at `now`, or 0 before any tick has been recorded.
+    /// The rollback to show, or 0 before any tick has been recorded.
     ///
-    /// When no tick has been recorded within the window, the simulation isn't stepping (it's
-    /// waiting on a player, or the game is paused), and the newest bucket's peak stays up rather
-    /// than reading as a perfect connection.
-    pub fn shown(&self, now: Instant) -> u32 {
-        self.buckets
-            .iter()
-            .filter(|&&(start, _)| now.saturating_duration_since(start) < PEAK_WINDOW)
-            .map(|&(_, peak)| peak)
-            .max()
-            .or_else(|| self.buckets.back().map(|&(_, peak)| peak))
-            .unwrap_or(0)
+    /// The window ends at the newest tick rather than at the present, so while the simulation
+    /// isn't stepping (it's waiting on a player, or the game is paused), the value holds where it
+    /// was rather than reading as a perfect connection.
+    pub fn shown(&self) -> u32 {
+        let mut rollbacks: Vec<u32> = self.ticks.iter().map(|&(_, rollback)| rollback).collect();
+        // Nearest rank: the smallest value at least this many of the window's ticks are within.
+        let rank = (rollbacks.len() * ROLLBACK_PERCENTILE).div_ceil(100);
+        if rank == 0 {
+            return 0;
+        }
+        *rollbacks.select_nth_unstable(rank - 1).1
     }
 
     pub fn clear(&mut self) {
-        self.buckets.clear();
+        self.ticks.clear();
     }
 }
 
@@ -449,58 +446,66 @@ mod tests {
         assert_eq!(bar_color(1), NEGATIVE);
     }
 
+    /// When the `tick`th tick runs, at the Fastest game speed.
+    fn tick_at(start: Instant, tick: u64) -> Instant {
+        start + Duration::from_millis(42 * tick)
+    }
+
     #[test]
-    fn peak_settles_on_the_top_of_jitter() {
+    fn shown_rollback_settles_on_the_top_of_jitter() {
         let start = Instant::now();
-        let mut peak = RollbackPeak::new();
-        for tick in 0..240u32 {
-            let now = start + Duration::from_millis(42 * tick as u64);
-            peak.record(now, 2 + tick % 2);
+        let mut recent = RecentRollback::new();
+        for tick in 0..240 {
+            recent.record(tick_at(start, tick), 2 + (tick % 2) as u32);
             if tick > 0 {
-                assert_eq!(peak.shown(now), 3, "tick {tick}");
+                assert_eq!(recent.shown(), 3, "tick {tick}");
             }
         }
     }
 
     #[test]
-    fn peak_rises_at_once_and_falls_after_the_window() {
+    fn shown_rollback_ignores_a_lone_late_turn() {
         let start = Instant::now();
-        let mut peak = RollbackPeak::new();
-        let at = |ms: u64| start + Duration::from_millis(ms);
-        let mut ms = 0;
-        while ms < 1000 {
-            peak.record(at(ms), 1);
-            ms += 42;
-        }
-        peak.record(at(ms), 7);
-        assert_eq!(peak.shown(at(ms)), 7);
-        let burst = ms;
-        while ms < burst + 5000 {
-            ms += 42;
-            peak.record(at(ms), 1);
-            let expected = if ms - burst < PEAK_WINDOW.as_millis() as u64 - 500 {
-                7
-            } else if ms - burst >= PEAK_WINDOW.as_millis() as u64 {
-                1
-            } else {
-                // The burst's bucket ages out somewhere in its last half second.
-                peak.shown(at(ms))
-            };
-            assert_eq!(peak.shown(at(ms)), expected, "{} ms after", ms - burst);
+        let mut recent = RecentRollback::new();
+        for tick in 0..240 {
+            recent.record(tick_at(start, tick), if tick == 100 { 7 } else { 1 });
+            if tick >= 10 {
+                assert_eq!(recent.shown(), 1, "tick {tick}");
+            }
         }
     }
 
     #[test]
-    fn peak_holds_the_last_bucket_once_ticks_stop() {
+    fn shown_rollback_follows_a_burst_until_it_ages_out() {
         let start = Instant::now();
-        let mut peak = RollbackPeak::new();
-        assert_eq!(peak.shown(start), 0);
-        peak.record(start, 2);
-        peak.record(start + PEAK_BUCKET, 5);
-        assert_eq!(peak.shown(start + PEAK_WINDOW * 10), 5);
-        // Ticks resuming take over from the held value at once.
-        let resumed = start + PEAK_WINDOW * 10;
-        peak.record(resumed, 1);
-        assert_eq!(peak.shown(resumed), 1);
+        let mut recent = RecentRollback::new();
+        // A full window of a steady connection, then half a second of lateness.
+        let (burst_start, burst_end) = (72, 84);
+        let mut shown = Vec::new();
+        for tick in 0..300 {
+            let late = (burst_start..burst_end).contains(&tick);
+            recent.record(tick_at(start, tick as u64), if late { 6 } else { 1 });
+            shown.push(recent.shown());
+        }
+        // A window of 72 ticks takes 8 late ones to tip its 90th percentile.
+        assert_eq!(shown[burst_start + 6], 1);
+        assert_eq!(shown[burst_start + 7], 6);
+        // The whole burst is still in the window two seconds after it ends.
+        assert_eq!(shown[burst_end + 48], 6);
+        assert_eq!(shown[burst_end + 72], 1);
+    }
+
+    #[test]
+    fn shown_rollback_holds_once_ticks_stop() {
+        let start = Instant::now();
+        let mut recent = RecentRollback::new();
+        assert_eq!(recent.shown(), 0);
+        for tick in 0..24 {
+            recent.record(tick_at(start, tick), 5);
+        }
+        assert_eq!(recent.shown(), 5);
+        // Ticks resuming long after take over from the held value at once.
+        recent.record(start + ROLLBACK_WINDOW * 10, 1);
+        assert_eq!(recent.shown(), 1);
     }
 }
