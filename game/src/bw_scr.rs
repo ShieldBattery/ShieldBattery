@@ -3224,7 +3224,10 @@ impl BwScr {
             let address = self.step_game_logic.0 as usize - base;
             exe.hook_closure_address(
                 StepGameLogic,
-                move |a, o| step_game_logic_hook(self, a, o),
+                move |a, o| {
+                    let _timing = crate::frame_timing::step();
+                    step_game_logic_hook(self, a, o)
+                },
                 address,
             );
 
@@ -3683,6 +3686,7 @@ impl BwScr {
             exe.hook_closure_address(
                 DrawGraphicLayers,
                 move |extra_funcs, extra_func_len, second_draw, orig| {
+                    let _timing = crate::frame_timing::draw(second_draw == 0);
                     // Detect a Shift+Tab color-mode cycle before queuing draws, so this frame renders
                     // with the corrected mode/colors. A no-op unless custom team colors are active.
                     // Only on the primary pass; the SD/HD-fade second pass sees the same global.
@@ -4058,7 +4062,10 @@ impl BwScr {
                             (*cmd).shader_constants[1] = show_network_stalled;
                         }
                     }
-                    let ret = orig(renderer, commands, width, height);
+                    let ret = {
+                        let _timing = crate::frame_timing::render();
+                        orig(renderer, commands, width, height)
+                    };
                     if let Some(mut render_state) = self.render_state.lock() {
                         draw_inject::free_textures(&mut render_state.render);
                     }
@@ -6174,6 +6181,7 @@ impl BwScr {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
         crate::rollback_live::reset_for_game_init();
+        crate::frame_timing::reset();
         self.detection_status_copy.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
@@ -6917,6 +6925,17 @@ impl BwScr {
                 .and_then(|x| x.operand())
                 .map(|op| resolve_operand(op, &[]))
                 .unwrap_or(0)
+        }
+    }
+
+    /// Shows replay playback through the vision of the players in `players` (a bit per player),
+    /// as the replay UI's vision toggles do.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_set_replay_vision(&self, players: u8) {
+        unsafe {
+            self.replay_visions.write(players);
+            self.local_visions.write(players);
+            game_thread::add_fow_sprites_for_replay_vision_change(self);
         }
     }
 

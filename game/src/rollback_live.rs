@@ -861,7 +861,7 @@ fn log_summary(summary: &Summary, present: u32) {
          ahead of known turns by {:.2} frames on average (at most {}), {} ticks at the limit; lead \
          {} frames over a pipe of {}, {} frames caught up, {} ticks held back; {}; per tick \
          restore {:.2} ms, snapshot {:.2} ms, steps {:.2} ms (worst {:.1} ms); worst whole tick \
-         {:.1} ms, {} over {} ms",
+         {:.1} ms, {} over {} ms; {}",
         summary.ticks,
         summary.inputs.predicted_steps,
         summary.inputs.confirmed_predictions,
@@ -884,7 +884,30 @@ fn log_summary(summary: &Summary, present: u32) {
         summary.worst_tick.as_secs_f64() * 1000.0,
         summary.slow_ticks,
         SLOW_TICK.as_millis(),
+        describe_frames(&crate::frame_timing::take_stats()),
     );
+}
+
+/// What the frames drawn over a summary's stretch took, for its log line.
+fn describe_frames(frames: &crate::frame_timing::FrameStats) -> String {
+    if frames.frames == 0 {
+        return "no frames drawn".to_owned();
+    }
+    let ms = |us: u32| f64::from(us) / 1000.0;
+    format!(
+        "{} frames at {:.0} fps, worst {:.1} ms (draw {:.1} ms, render {:.1} ms, tick {:.1} ms), \
+         {} over {} ms ({} with a rollback, {} with another step)",
+        frames.frames,
+        f64::from(frames.frames) * 1e6 / frames.interval_us.max(1) as f64,
+        ms(frames.worst_us),
+        ms(frames.worst_draw_us),
+        ms(frames.worst_render_us),
+        ms(frames.worst_tick_us),
+        frames.slow,
+        crate::frame_timing::SLOW_FRAME.as_millis(),
+        frames.slow_with_rollback,
+        frames.slow_with_step,
+    )
 }
 
 /// What the pacing did over a summary's stretch, for its log line.

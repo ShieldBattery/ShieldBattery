@@ -450,6 +450,12 @@ impl Bench {
                 self.phase = Phase::Finished;
                 return orig(param);
             };
+            crate::frame_timing::set_label(match self.phase {
+                Phase::FastForward | Phase::Finished => FRAME_FAST_FORWARD,
+                Phase::Warmup => FRAME_WARMUP,
+                Phase::Advance { .. } => FRAME_ADVANCE,
+                Phase::Rollback { depth, .. } => FRAME_ROLLBACK + depth as u8,
+            });
             match self.phase {
                 Phase::FastForward => {
                     let target = self.warmup_start(checkpoint);
@@ -610,6 +616,7 @@ impl Bench {
                         .push((snapshots.copy_helper_busy() - helper_busy).as_secs_f64() * 1e6);
                     let ended = bw.rollback_frame_count() == Some(frame);
                     if remaining <= 1 || ended {
+                        crate::frame_timing::set_label(FRAME_BOOKKEEPING);
                         self.micro(bw, snapshots);
                         self.end_checkpoint(snapshots);
                         if ended {
@@ -766,6 +773,7 @@ impl Bench {
     unsafe fn finish(&mut self, bw: &BwScr) {
         unsafe {
             let profile = self.sampler.take().map(|x| x.finish());
+            let frames = frames_json(&crate::frame_timing::take_records(), &self.config.depths);
             let checkpoints = self.results.iter().map(checkpoint_json).collect::<Vec<_>>();
             let summary = self.summary();
             let out = json!({
@@ -790,6 +798,7 @@ impl Bench {
                 "ranges": self.ranges.iter().map(|(name, len)| json!([name, len])).collect::<Vec<_>>(),
                 "summary": summary,
                 "checkpoints": checkpoints,
+                "frames": frames,
                 "profile": profile,
             });
             let path = match std::env::var(OUT_ENV_VAR) {
@@ -968,6 +977,104 @@ fn checkpoint_json(c: &CheckpointResult) -> Value {
         "resim_differs": c.resim_differs,
         "dirt": c.dirt,
     })
+}
+
+/// Labels the bench puts on the frames it times (see [`crate::frame_timing::set_label`]), by the
+/// phase whose tick runs in them. Rolling-back ticks add the index of their depth.
+const FRAME_FAST_FORWARD: u8 = 1;
+const FRAME_WARMUP: u8 = 2;
+const FRAME_ADVANCE: u8 = 3;
+/// The tick that ends a checkpoint, timing bare snapshots and restores.
+const FRAME_BOOKKEEPING: u8 = 4;
+const FRAME_ROLLBACK: u8 = 16;
+
+/// Frame timings by phase: for each, the frames whose tick ran in them, the frames that drew a
+/// tick's result first, and the frames in between.
+fn frames_json(records: &[crate::frame_timing::FrameRecord], depths: &[u32]) -> Value {
+    use crate::frame_timing::TickKind;
+    let mut phases = vec![
+        ("warmup".to_owned(), FRAME_WARMUP),
+        ("advance".to_owned(), FRAME_ADVANCE),
+    ];
+    for (i, depth) in depths.iter().enumerate() {
+        phases.push((format!("rollback_{depth}"), FRAME_ROLLBACK + i as u8));
+    }
+    let stats = |values: &mut Vec<f64>| -> Value {
+        if values.is_empty() {
+            return json!(null);
+        }
+        values.sort_by(|a, b| a.total_cmp(b));
+        let at = |q: f64| values[((values.len() - 1) as f64 * q).round() as usize];
+        let mean = values.iter().sum::<f64>() / values.len() as f64;
+        json!({
+            "mean": (mean * 10.0).round() / 10.0,
+            "median": at(0.5),
+            "p90": at(0.9),
+            "p99": at(0.99),
+            "max": values[values.len() - 1],
+        })
+    };
+    let group = |frames: Vec<&crate::frame_timing::FrameRecord>| -> Value {
+        let mut interval = Vec::new();
+        let mut draw = Vec::new();
+        let mut render = Vec::new();
+        let mut tick = Vec::new();
+        let mut rest = Vec::new();
+        let mut slow = 0;
+        for x in &frames {
+            interval.push(x.interval_us as f64);
+            draw.push(x.draw_us as f64);
+            render.push(x.render_us as f64);
+            tick.push(x.tick_us as f64);
+            rest.push(
+                x.interval_us
+                    .saturating_sub(x.draw_us + x.render_us + x.tick_us) as f64,
+            );
+            slow +=
+                u32::from(u128::from(x.interval_us) > crate::frame_timing::SLOW_FRAME.as_micros());
+        }
+        json!({
+            "n": frames.len(),
+            "slow": slow,
+            "interval_us": stats(&mut interval),
+            "draw_us": stats(&mut draw),
+            "render_us": stats(&mut render),
+            "tick_us": stats(&mut tick),
+            "rest_us": stats(&mut rest),
+        })
+    };
+    let mut out = serde_json::Map::new();
+    for (name, label) in phases {
+        let frames = records.iter().filter(|x| x.label == label);
+        out.insert(format!("{name}/all"), group(frames.clone().collect()));
+        out.insert(
+            format!("{name}/tick"),
+            group(
+                frames
+                    .clone()
+                    .filter(|x| x.tick != TickKind::None)
+                    .collect(),
+            ),
+        );
+        out.insert(
+            format!("{name}/first_draw"),
+            group(
+                frames
+                    .clone()
+                    .filter(|x| x.drawn_after != TickKind::None)
+                    .collect(),
+            ),
+        );
+        out.insert(
+            format!("{name}/between"),
+            group(
+                frames
+                    .filter(|x| x.tick == TickKind::None && x.drawn_after == TickKind::None)
+                    .collect(),
+            ),
+        );
+    }
+    Value::Object(out)
 }
 
 /// The bytes of every snapshot range, concatenated in range order.

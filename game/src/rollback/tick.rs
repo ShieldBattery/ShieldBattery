@@ -200,6 +200,12 @@ pub(crate) unsafe fn run_tick(
         if let Some(paced_tick) = paced_tick {
             bw.rollback_set_next_game_step_tick(paced_tick);
         }
+        crate::frame_timing::note_tick(
+            report.steps,
+            report
+                .restored
+                .map(|restored| shown_through.saturating_sub(restored)),
+        );
         (ret, report)
     }
 }

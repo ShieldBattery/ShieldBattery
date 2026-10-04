@@ -81,6 +81,26 @@ const DELAY_ENV_VAR: &str = "SB_ROLLBACK_DELAY";
 /// Needs a forced depth, since otherwise nothing simulates a frame twice.
 const AUDIT_ENV_VAR: &str = "SB_ROLLBACK_AUDIT_FRAME";
 
+/// Environment variable naming a frame that replay playback steps to as fast as it can before it
+/// plays on in real time, with or without the harness armed: `SB_ROLLBACK_HARNESS_FROM=12000`
+/// starts measuring in the middle of a game rather than at its start. Frame timings
+/// ([`crate::frame_timing`]) start over once it is reached.
+const FROM_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_FROM";
+
+/// The frame [`FROM_ENV_VAR`] names, or 0 once it has been reached or when none was asked for.
+static FROM_FRAME: AtomicU32 = AtomicU32::new(0);
+
+/// Environment variable holding the players (a hexadecimal bit mask) whose vision replay playback
+/// shows from [`FROM_ENV_VAR`]'s frame on, standing in for a player's fog of war in a live game:
+/// `SB_ROLLBACK_HARNESS_VISION=1` shows only player 0's.
+const VISION_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_VISION";
+
+/// The players [`VISION_ENV_VAR`] names, or -1 when it isn't set.
+static VISION: AtomicI32 = AtomicI32::new(-1);
+
+/// Plain steps run per game loop tick while stepping to [`FROM_FRAME`].
+const FAST_FORWARD_STEPS_PER_TICK: u32 = 400;
+
 /// The frame [`AUDIT_ENV_VAR`] names, or 0 when no audit was asked for.
 static AUDIT_FRAME: AtomicU32 = AtomicU32::new(0);
 
@@ -363,6 +383,21 @@ struct HarnessFile {
 /// Arms the harness if the environment asks for it. Called once while the DLL initialises, before
 /// the game thread exists.
 pub fn init_from_env() {
+    if let Ok(spec) = std::env::var(FROM_ENV_VAR) {
+        match spec.parse::<u32>() {
+            Ok(frame) => {
+                info!("{FROM_ENV_VAR}: stepping replay playback to frame {frame} first");
+                FROM_FRAME.store(frame, Ordering::Release);
+            }
+            Err(_) => error!("{FROM_ENV_VAR}={spec:?} is not a frame; ignoring it"),
+        }
+    }
+    if let Ok(spec) = std::env::var(VISION_ENV_VAR) {
+        match u8::from_str_radix(spec.trim_start_matches("0x"), 16) {
+            Ok(players) => VISION.store(players.into(), Ordering::Release),
+            Err(_) => error!("{VISION_ENV_VAR}={spec:?} is not a player mask; ignoring it"),
+        }
+    }
     if let Ok(spec) = std::env::var(DUMP_ENV_VAR) {
         match parse_frame_list(&spec) {
             Some(frames) if !frames.is_empty() => {
@@ -878,6 +913,19 @@ pub unsafe fn run_game_logic_step(
         if SETTINGS_PENDING.swap(false, Ordering::AcqRel) {
             apply_pending_settings(bw);
         }
+        let from = FROM_FRAME.load(Ordering::Relaxed);
+        if from != 0 && game_thread::is_replay() {
+            match bw.rollback_frame_count() {
+                Some(frame) if frame < from => return fast_forward(bw, param, orig, frame, from),
+                _ => {
+                    FROM_FRAME.store(0, Ordering::Relaxed);
+                    crate::frame_timing::reset();
+                    if let Ok(players) = u8::try_from(VISION.load(Ordering::Relaxed)) {
+                        bw.rollback_set_replay_vision(players);
+                    }
+                }
+            }
+        }
         if !ARMED.load(Ordering::Acquire) {
             let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
             dump_if_due(bw);
@@ -896,6 +944,35 @@ pub unsafe fn run_game_logic_step(
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         }
         run_tick(bw, param, orig)
+    }
+}
+
+/// Runs plain steps from `frame` towards `target`, a batch per game loop tick.
+unsafe fn fast_forward(
+    bw: &BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+    mut frame: u32,
+    target: u32,
+) -> usize {
+    unsafe {
+        // Each step pushes the tick the game loop paces itself against a frame further on, so put
+        // it back once the batch has run.
+        let paced_tick = bw.rollback_next_game_step_tick();
+        let mut ret = 0;
+        let mut ran = 0;
+        while frame < target && ran < FAST_FORWARD_STEPS_PER_TICK {
+            ret = orig(param);
+            sounds::forget_requested();
+            ran += 1;
+            match bw.rollback_frame_count() {
+                Some(after) if after > frame => frame = after,
+                // The replay ended first.
+                _ => break,
+            }
+        }
+        bw.rollback_set_next_game_step_tick(paced_tick);
+        ret
     }
 }
 
