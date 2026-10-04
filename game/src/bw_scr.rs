@@ -1220,10 +1220,11 @@ const HP_BAR_DRAWFUNC: u8 = 0xb;
 ///
 /// The game's own way of taking them off before a saved game write visits every sprite in the
 /// pool, a few thousand of them strewn over a few hundred KiB, to find the dozen or so that carry
-/// one. Only a sprite one of these pool images was ever linked onto, or a unit's sprite in one of
-/// the selections the game shows circles for, can carry one: a sprite gets the circle flags only
-/// along with a pool image, and the selected flag only from being put in the local selection. So
-/// those are the sprites visited, in pool order, each exactly as the game does it.
+/// one. Only a sprite one of these pool images is linked onto, or the sprite of a unit in the
+/// local selection, can carry one: the game sets a sprite's circle flags only along with linking
+/// a circle onto it and clears them whenever it takes one off, and sets the selected flag only for
+/// the local selection's units. So those are the sprites visited, in pool order, each exactly as
+/// the game does it.
 struct SelectionVisualPools {
     circles: Value<*mut bw::Image>,
     free_circles: [Value<*mut bw::Image>; 2],
@@ -1287,28 +1288,40 @@ impl SelectionVisualPools {
 
     /// Takes the selection circles and health bars off every sprite that carries one, leaving
     /// the sprites, images and free lists as the game's own pass over every sprite would.
-    /// `selections` are the unit arrays the game shows circles for, each ending at its first null
-    /// entry.
+    /// `selections` are the local selection's unit arrays, each ending at its first null entry.
     unsafe fn clear(&self, selections: &[&[*mut bw::Unit]]) {
         unsafe {
             let vector = self.sprites.resolve();
             let first_sprite = (*vector).data as usize;
             let sprite_count = (*vector).length;
             let sprite_size = mem::size_of::<bw::Sprite>();
-            let mut sprites: SmallVec<[*mut bw::Sprite; 256]> = SmallVec::new();
+            let mut sprites: SmallVec<[*mut bw::Sprite; 128]> = SmallVec::new();
             let mut add = |sprite: *mut bw::Sprite| {
                 let offset = (sprite as usize).wrapping_sub(first_sprite);
                 if offset < sprite_count * sprite_size && offset.is_multiple_of(sprite_size) {
                     sprites.push(sprite);
                 }
             };
-            let circles = self.circles.resolve();
-            for i in 0..SELECTION_CIRCLE_POOL_LEN {
-                add((*circles.add(i)).parent);
-            }
-            let hp_bars = self.hp_bars.resolve();
-            for i in 0..HP_BAR_POOL_LEN {
-                add((*hp_bars.add(i)).parent);
+            let free_circles = (
+                self.free_circles[0].resolve_as_ptr(),
+                self.free_circles[1].resolve_as_ptr(),
+            );
+            let free_hp_bars = (
+                self.free_hp_bars[0].resolve_as_ptr(),
+                self.free_hp_bars[1].resolve_as_ptr(),
+            );
+            let pools = [
+                (
+                    self.circles.resolve(),
+                    SELECTION_CIRCLE_POOL_LEN,
+                    free_circles.0,
+                ),
+                (self.hp_bars.resolve(), HP_BAR_POOL_LEN, free_hp_bars.0),
+            ];
+            for (pool, len, first_free) in pools {
+                for i in in_use_pool_entries(pool, len, *first_free) {
+                    add((*pool.add(i)).parent);
+                }
             }
             for &selection in selections {
                 for &unit in selection.iter().take_while(|x| !x.is_null()) {
@@ -1318,14 +1331,6 @@ impl SelectionVisualPools {
             sprites.sort_unstable();
             sprites.dedup();
 
-            let free_circles = (
-                self.free_circles[0].resolve_as_ptr(),
-                self.free_circles[1].resolve_as_ptr(),
-            );
-            let free_hp_bars = (
-                self.free_hp_bars[0].resolve_as_ptr(),
-                self.free_hp_bars[1].resolve_as_ptr(),
-            );
             let free = |image: *mut bw::Image, (first, last): (_, _)| {
                 let lists = &raw mut (*(*image).parent).version_specific.scr;
                 unlink_image(
@@ -1395,6 +1400,28 @@ impl SelectionVisualPools {
                 );
             }
         }
+    }
+}
+
+/// The indices of the entries of the `len` images at `pool` that are not on the pool's free list,
+/// which starts at `first_free`.
+unsafe fn in_use_pool_entries(
+    pool: *mut bw::Image,
+    len: usize,
+    first_free: *mut bw::Image,
+) -> impl Iterator<Item = usize> {
+    unsafe {
+        debug_assert!(len <= 128);
+        let mut free = 0u128;
+        let mut image = first_free;
+        for _ in 0..len {
+            if image < pool || image >= pool.add(len) {
+                break;
+            }
+            free |= 1 << image.offset_from(pool);
+            image = (*image).next;
+        }
+        (0..len).filter(move |&i| free & (1 << i) == 0)
     }
 }
 
@@ -6995,26 +7022,13 @@ impl BwScr {
     /// Takes the selection circles and health bars off every sprite.
     pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
         unsafe {
-            match (
-                &self.selection_visual_pools,
-                &self.local_selection,
-                &self.simulated_selections,
-            ) {
-                (Some(pools), Some(local_selection), Some(simulated_selections)) => {
-                    // Selected sprites are the local selection's units (which the client
-                    // selection is rebuilt from), and teammates' shared circles come from each
-                    // player's simulated selection.
+            match (&self.selection_visual_pools, &self.local_selection) {
+                (Some(pools), Some(local_selection)) => {
+                    // The client selection is rebuilt from the local one, so the two hold the
+                    // same units but for the moment between a change and the rebuild.
                     let local = std::slice::from_raw_parts(local_selection.resolve(), 12);
                     let client = std::slice::from_raw_parts(self.client_selection.resolve(), 12);
-                    let simulated = std::slice::from_raw_parts(
-                        simulated_selections.resolve() as *const [*mut bw::Unit; 12],
-                        8,
-                    );
-                    let mut selections: SmallVec<[&[*mut bw::Unit]; 10]> = SmallVec::new();
-                    selections.push(local);
-                    selections.push(client);
-                    selections.extend(simulated.iter().map(|row| row.as_slice()));
-                    pools.clear(&selections);
+                    pools.clear(&[local, client]);
                 }
                 _ => {
                     if let Some(visuals) = &self.selection_visuals {
