@@ -180,6 +180,19 @@ pub(super) const EXCLUDED: &[(&str, &str)] = &[
         "the simulation marks resource footprints in it but only rendering reads it",
     ),
     (
+        "sprite_draw_heap, sprite_draw_order",
+        "the vision step queues the sprites it finds visible into the heap for the next draw, \
+         which sorts it into the order list and empties it; nothing but that draw reads either \
+         array, and the global holding the heap's entry count is not snapshotted at all",
+    ),
+    (
+        "pathing",
+        "the region graph, split regions and tile region map are built from the terrain at map \
+         init and only read while a game runs; a path search marks the regions it visits, and \
+         the AI's choke point search takes regions out of their neighbours' lists, but both put \
+         everything back before they return",
+    ),
+    (
         "pathing_dynamic_state_edges",
         "the collision edge arrays it points at are built from the terrain at map init and only \
          read while a game runs; the analysis gives each array's pointer, count, capacity and \
@@ -534,11 +547,6 @@ pub fn analyze_ranges(
             checked_size("path_array", PATH_COUNT * path_entry_size, sizes.path_array),
         ),
         (
-            "pathing",
-            analysis.pathing(),
-            checked_size("pathing", size_of::<bw::Pathing>(), sizes.pathing_state),
-        ),
-        (
             "repulse_state",
             analysis.repulse_state(),
             REPULSE_STATE_SIZE,
@@ -774,6 +782,10 @@ struct AuxiliaryArray {
     /// the order a pool's vectors are enumerated in is caught instead of silently applying one
     /// array's element size to another.
     length: (u32, u32),
+    /// Whether the snapshot copies the array. One the simulation only fills for rendering to
+    /// consume is matched all the same, so the arrays after it keep their sizes, and then left
+    /// out (see [`EXCLUDED`]).
+    snapshotted: bool,
 }
 
 /// The sprite pool's auxiliary arrays: the draw-order binary heap, keyed by depth, and the sorted
@@ -784,11 +796,13 @@ const SPRITE_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         // A sort key and a sprite pointer, the key padded out to the pointer's alignment.
         element_size: 2 * size_of::<usize>(),
         length: (1, 0),
+        snapshotted: false,
     },
     AuxiliaryArray {
         name: "sprite_draw_order",
         element_size: size_of::<usize>(),
         length: (0, 0),
+        snapshotted: false,
     },
 ];
 
@@ -799,27 +813,32 @@ const UNIT_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
         name: "air_splash_candidates",
         element_size: size_of::<usize>(),
         length: (0, 0),
+        snapshotted: true,
     },
     AuxiliaryArray {
         name: "unit_position_search_x",
         // A unit pool index and a coordinate, both 32-bit, so the same size on both architectures.
         element_size: 8,
         length: (0, 2),
+        snapshotted: true,
     },
     AuxiliaryArray {
         name: "unit_position_search_y",
         element_size: 8,
         length: (0, 2),
+        snapshotted: true,
     },
     AuxiliaryArray {
         name: "unit_query_scratch_marks",
         element_size: 4,
         length: (1, 0),
+        snapshotted: true,
     },
     AuxiliaryArray {
         name: "unit_query_results",
         element_size: size_of::<usize>(),
         length: (1, 0),
+        snapshotted: true,
     },
 ];
 
@@ -903,6 +922,7 @@ fn pool_specs(
                 (pool.name, pool.object_size)
             } else {
                 match auxiliary.next() {
+                    Some(array) if array.length == (add, mul) && !array.snapshotted => continue,
                     Some(array) if array.length == (add, mul) => (array.name, array.element_size),
                     _ => {
                         out.push(unresolved());
