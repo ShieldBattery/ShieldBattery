@@ -1,9 +1,10 @@
 //! The DLL's HTTP client for talking to the ShieldBattery server.
 //!
-//! Only two things go over HTTP from in here — the replay upload and the netcode re-home request —
-//! so this is a small hand-rolled client over hyper rather than a full-featured one. It covers
-//! exactly what those calls need: TLS, a response body limit, gzip decoding (the server compresses
-//! responses), `multipart/form-data` for the replay upload, and HTTP proxies.
+//! Only a few things go over HTTP from in here — the replay upload, a rollback game's statistics
+//! and the netcode re-home request — so this is a small hand-rolled client over hyper rather than a
+//! full-featured one. It covers exactly what those calls need: TLS, a response body limit, gzip
+//! decoding (the server compresses responses), `multipart/form-data` for the replay upload, and
+//! HTTP proxies.
 //!
 //! Requests always carry the `Origin` the server's origin check expects, and always run under a
 //! caller-supplied timeout — a request that hangs would otherwise keep a game-thread task alive
@@ -109,6 +110,20 @@ pub async fn post_json<Req: Serialize, Res: DeserializeOwned>(
         .body(Full::new(Bytes::from(body)))?;
     let bytes = send(request, timeout).await?;
     Ok(serde_json::from_slice(&bytes)?)
+}
+
+/// POSTs `body` as JSON, discarding the response body.
+pub async fn post_json_ignoring_response<Req: Serialize>(
+    url: &str,
+    body: &Req,
+    timeout: Duration,
+) -> Result<(), Error> {
+    let body = serde_json::to_vec(body).map_err(Error::Serialize)?;
+    let request = base_request(url)?
+        .header(CONTENT_TYPE, "application/json")
+        .body(Full::new(Bytes::from(body)))?;
+    send(request, timeout).await?;
+    Ok(())
 }
 
 /// POSTs `parts` as `multipart/form-data`, discarding the response body. Used for the replay

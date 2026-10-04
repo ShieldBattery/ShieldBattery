@@ -54,7 +54,9 @@ use rally_point_client::LeaveTracker;
 use rally_point_client::SyncGenerationTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::{LeadReport, LeaveDirective, Payload, StateHashReport};
+use rally_point_client::proto::messages::{
+    LeadReport, LeaveDirective, Payload, RollbackStats, StateHashReport,
+};
 use tokio::sync::mpsc;
 
 mod input_table;
@@ -722,6 +724,12 @@ pub struct TurnState {
     /// in flight, before the buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
     /// moved by the rollback driver as it measures how late other players' turns reach it.
     lead: i32,
+    /// The lead the pipe follows, at most [`lead`](Self::lead): it drops to a lower lead at once,
+    /// but rises a frame at a time ([`follow_lead`](Self::follow_lead)), since each frame of lead
+    /// gained takes a turn out of the pipe, which the game makes up by stepping an extra frame,
+    /// during which none of its turns leave. All at once, as when the game's lockstep start ends
+    /// and the lead first takes effect, that is a visible sprint.
+    lead_in_effect: i32,
 }
 
 impl TurnState {
@@ -786,6 +794,7 @@ impl TurnState {
             inputs: None,
             local_chat_echoes: Vec::new(),
             lead: 0,
+            lead_in_effect: 0,
         }
     }
 
@@ -2012,12 +2021,13 @@ impl TurnState {
     /// is a frame less input delay and a frame more of other players' turns arriving after it has
     /// simulated past them. At least one turn always stays in
     /// the pipe, and at most [`MAX_PIPE_TURNS`]. 0 while the game's start runs in lockstep, which
-    /// needs the whole buffer.
+    /// needs the whole buffer. A rise in the lead takes effect a frame at a time (see
+    /// [`follow_lead`](Self::follow_lead)).
     pub fn lead(&self) -> i32 {
         match &self.inputs {
             Some(inputs) if !inputs.in_lockstep_start() => {
                 let (min, max) = self.lead_bounds();
-                self.lead.clamp(min, max)
+                self.lead_in_effect.min(self.lead).clamp(min, max)
             }
             _ => 0,
         }
@@ -2032,6 +2042,18 @@ impl TurnState {
             .clamp(min, max)
             .saturating_add(frames)
             .clamp(min, max);
+        self.lead_in_effect = self.lead_in_effect.min(self.lead);
+    }
+
+    /// Moves the lead in effect a frame closer to the lead this client means to run with, if it
+    /// is short of it (see [`lead`](Self::lead)).
+    pub fn follow_lead(&mut self) {
+        let (min, max) = self.lead_bounds();
+        let lead = self.lead.clamp(min, max);
+        self.lead_in_effect = self.lead_in_effect.clamp(min, max);
+        if self.lead_in_effect < lead {
+            self.lead_in_effect += 1;
+        }
     }
 
     /// The lowest and highest lead the relay's buffer allows: the ones that leave
@@ -2198,6 +2220,11 @@ impl TurnState {
     /// already gone (`Closed`); both are expected outcomes here, not failures, so they're logged
     /// at debug level and otherwise ignored — a stray extra call changes nothing either way.
     pub fn send_leave_intent(&mut self) {
+        // The driver writes whatever rollback stats it holds before the intent, so the relay's
+        // record of this player ends with the whole game.
+        if let Some(stats) = crate::rollback_live::game_stats() {
+            self.publish_rollback_stats(stats.to_proto());
+        }
         match self.channels.leave_intent.try_send(()) {
             Ok(()) => debug!("netcode v2: announced clean leave to relay"),
             Err(mpsc::error::TrySendError::Full(())) => {
@@ -2207,6 +2234,12 @@ impl TurnState {
                 debug!("netcode v2: leave-intent channel closed; driver already gone")
             }
         }
+    }
+
+    /// Hands the driver this client's rollback stats for the game so far, which it sends its home
+    /// relay for the session's flight recording, replacing any it hasn't sent yet.
+    pub fn publish_rollback_stats(&self, stats: RollbackStats) {
+        self.channels.rollback_stats.send_replace(Some(stats));
     }
 
     /// Latches the result-expected flag the driver reads to hold a pending leave intent until the
@@ -2551,6 +2584,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -2774,6 +2808,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -2815,6 +2850,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
         // birth, so there is no relay session to close.
@@ -3760,6 +3796,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -3776,12 +3813,46 @@ mod tests {
         ));
         state.set_initial_latency_turns(2);
         // A rollback target past what the buffer allows still leaves a turn in the pipe.
+        state.follow_lead();
+        state.follow_lead();
         assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
         state.adjust_lead(-100);
         assert_eq!(state.pipe_depth(), MAX_PIPE_TURNS);
         assert_eq!(state.lead(), 2 - MAX_PIPE_TURNS as i32);
         state.adjust_lead(100);
+        for _ in 0..MAX_PIPE_TURNS {
+            state.follow_lead();
+        }
         assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
+    }
+
+    #[test]
+    fn a_rise_in_the_lead_takes_effect_a_frame_at_a_time() {
+        let (mut state, _result_rx, _result_expected) = turn_state_with_result();
+        state.predict_inputs(InputTable::new(
+            8,
+            2,
+            0,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+        state.set_initial_latency_turns(6);
+        assert_eq!(
+            state.pipe_depth(),
+            6,
+            "the whole buffer until the lead takes effect"
+        );
+        state.follow_lead();
+        assert_eq!(state.pipe_depth(), 5);
+        state.follow_lead();
+        state.follow_lead();
+        assert_eq!(state.pipe_depth(), 4, "no further than the rollback target");
+        // A drop in the lead takes effect at once.
+        state.adjust_lead(-3);
+        assert_eq!(state.pipe_depth(), 7);
+        state.adjust_lead(2);
+        assert_eq!(state.pipe_depth(), 7);
+        state.follow_lead();
+        assert_eq!(state.pipe_depth(), 6);
     }
 
     #[test]
@@ -4167,6 +4238,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -4304,6 +4376,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -4362,6 +4435,7 @@ mod tests {
             region_labels: region_labels_rx,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
@@ -4482,6 +4556,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);

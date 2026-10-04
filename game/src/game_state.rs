@@ -1281,6 +1281,17 @@ async fn send_game_result(
         Err(err) => error!("Failed to serialize game result report: {err}"),
     }
 
+    if let Some(stats) = crate::rollback_live::game_stats() {
+        send_rollback_stats(
+            &stats,
+            &info.game_id,
+            local_user.id,
+            &result_code,
+            server_config,
+        )
+        .await;
+    }
+
     if let Some(replay_path) = &results.replay_path {
         send_replay(
             replay_path,
@@ -1291,6 +1302,57 @@ async fn send_game_result(
             ws_send,
         )
         .await;
+    }
+}
+
+/// Sends the server what a game that rolled back did, for its statistics. Best effort: a server
+/// that refuses it (an older one without the endpoint, or a game it doesn't know this player in)
+/// isn't asked again.
+async fn send_rollback_stats(
+    stats: &crate::rollback_live::GameStats,
+    game_id: &str,
+    user_id: SbUserId,
+    result_code: &str,
+    server_config: &ServerConfig,
+) {
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Request<'a> {
+        user_id: SbUserId,
+        result_code: &'a str,
+        stats: &'a crate::rollback_live::GameStats,
+    }
+
+    let url = format!(
+        "{}/api/1/games/{}/rollback-stats",
+        server_config.server_url, game_id
+    );
+    let request = Request {
+        user_id,
+        result_code,
+        stats,
+    };
+    for attempt in 1..=3 {
+        match crate::http::post_json_ignoring_response(&url, &request, Duration::from_secs(15))
+            .await
+        {
+            Ok(()) => {
+                debug!("Rollback stats sent");
+                return;
+            }
+            // Anything but a busy server (429) or a game it hasn't finished loading (409) won't
+            // take them on a second try either.
+            Err(crate::http::Error::Status(status))
+                if status.is_client_error()
+                    && status != hyper::StatusCode::TOO_MANY_REQUESTS
+                    && status != hyper::StatusCode::CONFLICT =>
+            {
+                warn!("The server refused the rollback stats: HTTP {status}");
+                return;
+            }
+            Err(err) => warn!("Error sending rollback stats (attempt {attempt}): {err}"),
+        }
+        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
