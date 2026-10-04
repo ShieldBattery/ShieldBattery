@@ -12,9 +12,11 @@ At Fastest, one turn is one frame (about 42 ms), so this document counts both in
 
 ## The policy being implemented
 
-- Steady state: up to **3 frames** of remote lateness are hidden by rollback (R = 3). At R = 3
-  corrections are barely visible (zergling chase: median 7 px, max 16 px); at R = 5 fast units
-  visibly teleport (median 12 px, max 27 px).
+- Steady state: up to **2 frames** of remote lateness are hidden by rollback (R = 2), with a third
+  as insurance against small delays. At R = 3 corrections are barely visible (zergling chase:
+  median 7 px, max 16 px); from R = 4 they show, and at R = 5 fast units visibly teleport (median
+  12 px, max 27 px). (The target was 3 until the 2026-10-04 staging tests, where a client sitting
+  at 3 spent much of its time at 4.)
 - Sustained lateness beyond that is covered by **input delay** (D).
 - Short bursts (loss, jitter) are covered by **rollback first**, up to a limit (**R_max = 8** by
   default), and become delay only if they persist.
@@ -89,7 +91,7 @@ frames back to back until it is back on its target X, rather than asking anyone 
 Two options, both only exposed under advanced settings:
 
 - **Rollback target** (the `R_target` above, steady-state rollback): a few values from 0 (no
-  steady-state rollback: all of the player's RTT becomes delay) to 4 frames, default 3.
+  steady-state rollback: all of the player's RTT becomes delay) to 4 frames, default 2.
 - **Rollback limit** (`R_max`): how large a burst is rolled back before the game pauses instead.
   A few values up to 8, default 8, never below the target. A target and limit of 0 is lockstep for
   that player.
@@ -119,8 +121,8 @@ tenant sets the defaults and the allowed range. Not built yet: every player runs
 
 Today the depth absorbs all lateness for everyone, sized to the worst pairwise path, so a slow
 player's link sets the input delay of the whole game. In a rollback game each player's delay and
-rollback come from their own link and their own setting. At the default target of 3, a player
-within about 3 frames (~125 ms) of RTT to their relay plays with no added input delay: their own
+rollback come from their own link and their own setting. At the default target of 2, a player
+within about 2 frames (~85 ms) of RTT to their relay plays with no added input delay: their own
 commands take effect on the next frame, like single player, and other players' commands show up as
 small corrections.
 
@@ -377,7 +379,7 @@ a larger local buffer; either way they are not required to report hashes, as tod
    allows the true minimum: local commands execute on the next simulated frame (single-player
    responsiveness), and remote commands roll in whenever they arrive. Under the deadline model a
    player adds delay only for the part of their own RTT beyond their rollback target, so a player
-   within ~3 frames of RTT to their relay plays with none at the default target.
+   within ~2 frames of RTT to their relay plays with none at the default target.
 5. **Steady versus burst:** the relay reports lead error and the client classifies it, since the
    split between delay and rollback is the client's decision. The steady estimate's window and
    percentile, and the sustain window before adding delay, are to be tuned in live tests.

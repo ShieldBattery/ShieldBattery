@@ -156,15 +156,20 @@ Built and tested live in four commits (two clients on the staging relay, driven 
    exactly when lockstep's would whatever the lead, so no other player sees a difference: the lead
    only trades the client's own input delay against the rollback it runs. It starts at
    `min(R_target, buffer − 1)` and follows the rollback the client measures (how far each step is
-   past the newest fully known step): once that has stayed above the target for a whole 2 s window
-   the lead drops by the excess, and once it has stayed below it the lead rises by the shortfall.
+   past the newest fully known step) over 2 s windows: the lead drops once a window's median is
+   past the target, or its 90th percentile past the target plus one frame of insurance, by the
+   larger excess; and it rises once even the 90th percentile is short of the target, by the
+   shortfall.
    The lead can go negative only until the pipe reaches 14 turns (`GAME_SYNC_SAFE_BUFFER_MAX`,
    lockstep's deepest buffer), so rollback never costs more input delay than lockstep could. The
    lead is only sampled on ticks where the newest fully known step advanced, so a total stall
    doesn't walk it down. The first 24 steps run in lockstep with the whole buffer, which lines the clients' game loops up (seed turns arrive before a peer's loop is
    running, so a lockstep first step alone doesn't); each client then anchors its own schedule,
    steps up to two extra frames a tick when it is behind it, and puts its next step off by a frame
-   when it is ahead.
+   when it is ahead. A drop in the lead takes effect at once, but a rise only a frame every six
+   ticks, since each frame of lead takes a turn out of the pipe that the game makes up with an
+   extra step; the lead first taking effect when the lockstep start ends sprinted the game at
+   three times speed while it was applied at once.
 
 Debug knobs (`rollback_live.rs`): `SB_ROLLBACK_PREDICT=<limit>`, `SB_ROLLBACK_TARGET=<frames>`
 (default 3), `SB_ROLLBACK_SHADOW=<depth>` (forced re-simulation on top),
@@ -269,7 +274,7 @@ Built since:
 - The pipe is capped at `GAME_SYNC_SAFE_BUFFER_MAX` (14) turns, lockstep's ceiling, however far
   behind the schedule the lead goes, so rollback never costs more input delay than lockstep could.
 - Release DLLs run rollback sessions. They carry the engine, the live driver and the hooks with
-  the defaults (prediction limit 8, target 3, a snapshot every 3 frames), and none of the debug
+  the defaults (prediction limit 8, target 2, a snapshot every 3 frames), and none of the debug
   knobs, the replay harness, the probe or the monkey. Every analysis only rollback needs is
   optional, and a DLL missing any of them refuses rollback sessions rather than failing to start.
   Verified on staging relays with a Korea client against a US West one, in both pairings of a
@@ -355,6 +360,55 @@ Smaller things found on the way:
 - The chip showed a 3 s peak of rollback, so it sat at 5 while the average was 3. It now shows
   the 90th percentile of the same window's ticks, which ignores lateness under ~300 ms.
 
+### Staging test pass (2026-10-04)
+
+Three or four players on staging relays (one far player ~160 ms from their relay), six rollback
+games. Fixed afterwards:
+
+- **Crash: a selection holding a freed unit** (three crashes: a right click or targeted order
+  played the response of a selected unit with a null sprite). The game only deselects a dying unit
+  whose sprite shows it selected, and the tick took the selection visuals (and that flag) off for
+  every snapshot and restore and only put them back once its steps were done, so a selected unit
+  dying in any such tick stayed selected. The visuals now go straight back after each snapshot and
+  restore. And since the local selection stays out of the snapshot, a tick that restores also
+  deselects every unit whose slot's generation, owner or sprite the restore changed, through the
+  game's own `select_units`.
+- **Crash: building placement overlays.** Placing a refinery links images from two static pools
+  outside the snapshot into every geyser's sprite; a restore brought back geyser image lists
+  pointing at freed pool entries, and the next step ran a free entry's iscript. They now come off
+  around every snapshot and restore, with the selection visuals, and go straight back.
+- A unit a prediction killed (or moved to another owner, or loaded) goes back into the local
+  selection when a rollback undoes that: each unit a step takes out of the selection is noted, and
+  a restore to before that step puts it back where it was, unless the player has replaced the
+  selection since. And a control group recalled while a prediction had one of its units dead
+  selected the others, while the recall command, run again by the rollback, selects the whole
+  group in the simulation: once a rollback has run the player's newest selection command again,
+  a local selection the simulation's holds more than takes on the simulation's.
+- From review: right-click feedback replays only onto the sprite it was made on; a leave waits for
+  the staying slots' turns at its own step; going local-only applies a leave the input table
+  hadn't; a late remote turn's actions count towards APM once.
+- Chat during a stall waiting for a player is shown at once, and goes into the replay when the
+  stalled step runs.
+- The Shift+F2 to F4 screen positions stay out of the snapshot, like the camera.
+- **Controller:** the default target is 2, leaving a frame of insurance before corrections show;
+  the lead now follows the window's median and 90th percentile rather than its lowest and highest
+  tick (a far client sat at an average of exactly 3, often 4, for whole games without adding
+  delay); and a rise in the lead takes effect a frame at a time, so the lead taking effect when the
+  lockstep start ends no longer sprints the game at three times speed.
+
+Rollback games are now auditable after the fact. Each client keeps game-long counts (rollback and
+pipe histograms, rollbacks and re-simulated frames, stalls at the limit, catch-up and hold-back,
+lead reports, worst and slow ticks) and sends them to its home relay every 30 s and before its
+leave, where they land in the flight recording's sample rows along with the relay's own lateness
+figures per slot and the session clock's anchor and stops (rally-point2 `1d47ed1`, `75b6198`); and once at
+game end to the server's `POST /games/:gameId/rollback-stats`, which keeps them in
+`game_rollback_stats` for queries across games.
+
+Still open from it: frame rate dips (the logged tick cost is about 1 ms, with 4-5 ms spikes on deep
+rollbacks, which doesn't explain large drops; whole-tick timing needs logging first), and one
+stretch of the camera snapping back repeatedly (nothing found; a tick that moves the camera now
+logs a warning).
+
 ## After shipping
 
 In rough order:
@@ -364,7 +418,7 @@ In rough order:
   drop their turn, so a bad connection costs that player input delay, not commands.
 - Tuning the steady and burst windows that choose between delay and rollback, from live games.
 - The advanced player settings for the rollback target and limit. Until then every player runs
-  the defaults (target 3, limit 8).
+  the defaults (target 2, limit 8).
 - The sound hook, so a sound's audibility is decided when it plays rather than at each simulation.
 - Removing the native 0x37 path once every game rolls back.
 
