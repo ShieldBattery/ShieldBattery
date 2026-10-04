@@ -276,34 +276,49 @@ impl InputTable {
     }
 
     /// The leaves `step` applies, as `(storm id, native leave reason)` pairs, noting them applied. A
-    /// leave is applied by its own step, and only once the turns of every step before it are known:
-    /// applying one cannot be undone, so no rollback may reach back past it afterwards. A step that
-    /// has never run takes its leaves only if it can run once they are applied, since the caller
-    /// applies them as part of running it.
+    /// leave is applied by its own step, and only once nothing can contradict that step any more:
+    /// applying one cannot be undone, so no rollback may reach back to its step afterwards. That
+    /// takes the turns of every step before it, and the turns the slots that stay dispatch at the
+    /// step itself; and no correction still to make at or before it, since turns and leaves arrive
+    /// in the middle of a tick, after it chose how far back to roll: a step that ran on a
+    /// prediction a turn has since contradicted, or an earlier leave not applied yet.
     pub fn take_due_leaves(
         &mut self,
         step: u32,
         required: &[bool; bw::MAX_STORM_PLAYERS],
     ) -> Vec<(StormPlayerId, u32)> {
-        if self.known_until_for(required) < step {
-            return Vec::new();
-        }
-        let is_due = |x: &ScheduledLeave| !x.applied && x.step == step;
-        let mut remaining = *required;
-        for leave in self.leaves.iter().filter(|x| is_due(x)) {
-            remaining[leave.storm.0 as usize] = false;
-        }
-        if step >= self.frontier && !self.can_run(step, &remaining) {
+        if !self.leaves_can_apply(step, required) {
             return Vec::new();
         }
         self.leaves
             .iter_mut()
-            .filter(|x| is_due(x))
+            .filter(|x| !x.applied && x.step == step)
             .map(|x| {
                 x.applied = true;
                 (x.storm, x.reason)
             })
             .collect()
+    }
+
+    /// Whether the leaves due at `step` may be applied (see
+    /// [`take_due_leaves`](Self::take_due_leaves)).
+    fn leaves_can_apply(&self, step: u32, required: &[bool; bw::MAX_STORM_PLAYERS]) -> bool {
+        if self.known_until_for(required) < step
+            || self.mispredicted.is_some_and(|x| x <= step)
+            || self.leaves.iter().any(|x| !x.applied && x.step < step)
+        {
+            return false;
+        }
+        let mut remaining = *required;
+        for leave in self.leaves.iter().filter(|x| !x.applied && x.step == step) {
+            remaining[leave.storm.0 as usize] = false;
+        }
+        self.known_until_for(&remaining) > step
+    }
+
+    /// Whether the leave of `storm`'s slot has been applied, by its step or outside its schedule.
+    pub fn leave_applied(&self, storm: StormPlayerId) -> bool {
+        self.leaves.iter().any(|x| x.storm == storm && x.applied)
     }
 
     /// Notes a leave applied outside its schedule, so the schedule never applies it again.
@@ -316,19 +331,19 @@ impl InputTable {
     }
 
     /// The earliest step that has to be simulated again, or `None`: the earliest step that ran on a
-    /// contradicted prediction, or ran without a leave that is now due at it. Forgets the
+    /// contradicted prediction, or ran without a leave that it may now apply. Forgets the
     /// contradicted prediction, on the understanding that the caller rolls back to the step
     /// returned; a leave stays due until a step applies it.
     pub fn take_rollback_target(
         &mut self,
         required: &[bool; bw::MAX_STORM_PLAYERS],
     ) -> Option<u32> {
-        let known_until = self.known_until_for(required);
         let leave = self
             .leaves
             .iter()
-            .filter(|x| !x.applied && x.step < self.frontier && x.step <= known_until)
+            .filter(|x| !x.applied && x.step < self.frontier)
             .map(|x| x.step)
+            .filter(|&step| self.leaves_can_apply(step, required))
             .min();
         match (self.mispredicted.take(), leave) {
             (Some(a), Some(b)) => Some(a.min(b)),
@@ -548,6 +563,99 @@ mod tests {
         assert_eq!(t.take_due_leaves(3, &third), vec![(B, 0x40000006)]);
         assert_eq!(t.take_rollback_target(&third), None);
         assert!(t.take_due_leaves(3, &third).is_empty(), "applied once");
+    }
+
+    #[test]
+    fn a_leave_waits_for_its_own_step_from_the_slots_that_stay() {
+        let mut t = table(8);
+        let c = StormPlayerId(2);
+        let mut third = required();
+        third[2] = true;
+        for _ in 0..6 {
+            t.push(A, idle(), start());
+        }
+        for _ in 0..3 {
+            t.push(B, idle(), start());
+            t.push(c, idle(), start());
+        }
+        t.schedule_leave(B, 0x40000006, 3);
+        for step in 0..5 {
+            t.dispatch(step, &third);
+        }
+        // Every step before 3 is known, but slot 2's turn for step 3 is not: once the leave is
+        // applied, no rollback could reach step 3 to run that turn.
+        assert_eq!(t.take_rollback_target(&third), None);
+        assert!(t.take_due_leaves(3, &third).is_empty());
+        t.push(c, command(1), start());
+        assert_eq!(t.take_rollback_target(&third), Some(3));
+        assert_eq!(t.take_due_leaves(3, &third), vec![(B, 0x40000006)]);
+        assert!(t.leave_applied(B));
+    }
+
+    #[test]
+    fn a_leave_waits_for_an_earlier_one() {
+        let mut t = table(8);
+        let (c, d) = (StormPlayerId(2), StormPlayerId(3));
+        let mut four = required();
+        four[2] = true;
+        four[3] = true;
+        for _ in 0..10 {
+            t.push(A, idle(), start());
+            t.push(d, idle(), start());
+        }
+        for _ in 0..3 {
+            t.push(B, idle(), start());
+        }
+        for _ in 0..6 {
+            t.push(c, idle(), start());
+        }
+        for step in 0..8 {
+            t.dispatch(step, &four);
+        }
+        // Both leaves arrive during a tick that has rolled back to neither.
+        t.schedule_leave(B, 1, 3);
+        t.schedule_leave(c, 1, 6);
+        assert!(
+            t.take_due_leaves(6, &four).is_empty(),
+            "the leave at step 3 comes first"
+        );
+        assert_eq!(t.take_rollback_target(&four), Some(3));
+        assert_eq!(t.take_due_leaves(3, &four), vec![(B, 1)]);
+        let mut after_b = four;
+        after_b[1] = false;
+        assert_eq!(t.take_due_leaves(6, &after_b), vec![(c, 1)]);
+    }
+
+    #[test]
+    fn a_leave_waits_for_a_correction_before_it() {
+        let mut t = table(8);
+        let c = StormPlayerId(2);
+        let mut third = required();
+        third[2] = true;
+        for _ in 0..10 {
+            t.push(A, idle(), start());
+        }
+        for _ in 0..7 {
+            t.push(B, idle(), start());
+        }
+        for _ in 0..3 {
+            t.push(c, idle(), start());
+        }
+        for step in 0..9 {
+            t.dispatch(step, &third);
+        }
+        t.schedule_leave(B, 1, 7);
+        // A late command for step 3 arrives during the tick, after it chose how far back to roll.
+        t.push(c, command(1), start());
+        for _ in 4..10 {
+            t.push(c, idle(), start());
+        }
+        assert!(
+            t.take_due_leaves(7, &third).is_empty(),
+            "step 3 is simulated again first"
+        );
+        assert_eq!(t.take_rollback_target(&third), Some(3));
+        assert_eq!(t.take_due_leaves(7, &third), vec![(B, 1)]);
     }
 
     #[test]

@@ -1303,6 +1303,34 @@ impl<'e> Analysis<'e> {
         self.0.local_selection()
     }
 
+    /// Base of the static pool of 0x40 images that building placement shows over the units a
+    /// building is placed on (a refinery's geysers), outside the main image pool.
+    pub fn placement_images(&mut self) -> Option<Operand<'e>> {
+        self.0.placement_images()
+    }
+
+    /// Base of the static pool of 0x40 images outlining each
+    /// [`placement_images`](Self::placement_images) entry's footprint.
+    pub fn placement_rects(&mut self) -> Option<Operand<'e>> {
+        self.0.placement_rects()
+    }
+
+    pub fn first_free_placement_image(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_placement_image()
+    }
+
+    pub fn last_free_placement_image(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_placement_image()
+    }
+
+    pub fn first_free_placement_rect(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_placement_rect()
+    }
+
+    pub fn last_free_placement_rect(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_placement_rect()
+    }
+
     /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
     /// group was last written on.
     pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {

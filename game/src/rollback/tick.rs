@@ -9,7 +9,7 @@ use crate::bw_scr::BwScr;
 use super::snapshot::Snapshots;
 use super::{
     FINAL_STEP, IRREVERSIBLE_STEP, RESIMULATING, STEP_FRAME, TICK_RUNNING, WINDOW_START,
-    announcements, game_end, ui_writes,
+    announcements, game_end, selection, ui_writes,
 };
 
 /// Frames between snapshots unless a debug knob says otherwise. A rollback re-simulates from the
@@ -67,8 +67,6 @@ pub(crate) struct TickReport {
     /// Announcements an earlier tick made for a frame this one re-simulated without making them:
     /// they belonged to a prediction that did not happen, and cannot be taken back.
     pub(crate) retracted_announcements: u32,
-    /// Whether the tick took the selection circles and health bars off to snapshot or restore.
-    cleared_selection_visuals: bool,
     pub(crate) restore_time: Duration,
     pub(crate) snapshot_time: Duration,
     pub(crate) step_time: Duration,
@@ -87,38 +85,34 @@ pub(crate) unsafe fn run_tick(
     unsafe {
         let mut report = TickReport::default();
         let spacing = plan.spacing.max(1);
-        // Selection circles come from a small pool of their own, outside the snapshot, so they go
-        // back to it before a restore drops the sprites they are attached to and before a snapshot
-        // would capture them; otherwise every tick would leak them until none are left to show.
-        // They are put back for the frame being shown once the steps are done, by a tick that took
-        // them off.
         let take = |snapshots: &mut Snapshots, frame: u32, report: &mut TickReport| {
             let start = Instant::now();
-            bw.rollback_clear_selection_visuals();
-            report.cleared_selection_visuals = true;
-            snapshots.take(frame);
+            with_ui_images_off(bw, || snapshots.take(frame));
             report.snapshot_time += start.elapsed();
             report.snapshots += 1;
         };
         // A frame due a snapshot that the previous tick ended on is snapshotted now, before
         // anything runs. Taking it right after the step that produced it would strip the
-        // selection circles that step drew, and the frame would be shown without them: the
-        // rebuild at the end of a tick only puts back the local selection's, not those of a
-        // right-clicked target that is blinking.
+        // selection circles that step drew, and the frame would be shown without them: putting
+        // them back only puts back the local selection's, not those of a right-clicked target
+        // that is blinking.
         if snapshots.is_empty() || (current.is_multiple_of(spacing) && !snapshots.has(current)) {
             take(snapshots, current, &mut report);
         }
         // Every frame up to the one the simulation is on now has been shown already.
         let shown_through = current;
+        let mut selection_before_restore = None;
         if let Some(target) = plan.rollback_to
             && target < current
         {
             let start = Instant::now();
-            bw.rollback_clear_selection_visuals();
-            report.cleared_selection_visuals = true;
-            if let Some(restored) = snapshots.restore_at_or_before(target, bw) {
+            selection_before_restore = Some(bw.rollback_local_selection());
+            if let Some(restored) =
+                with_ui_images_off(bw, || snapshots.restore_at_or_before(target, bw))
+            {
                 current = restored;
                 report.restored = Some(restored);
+                selection::undo_after(bw, restored);
             }
             report.restore_time = start.elapsed();
         }
@@ -179,14 +173,42 @@ pub(crate) unsafe fn run_tick(
         snapshots.drop_older_than_needed_for(plan.confirmed);
         report.settled_through = snapshots.oldest_frame().unwrap_or(plan.confirmed);
         ui_writes::prune(report.settled_through);
+        selection::forget_through(report.settled_through);
         report.retracted_announcements =
             announcements::finish_tick(report.window_start, report.settled_through);
-        if report.cleared_selection_visuals {
-            bw.rollback_rebuild_selection_visuals();
+        // Between the restore and here, what looks at the units the selection holds skips a unit
+        // without a sprite or reads only the unit itself; input that reads them waits for the
+        // tick.
+        if let Some(before) = &selection_before_restore
+            && let Some(restored) = report.restored
+        {
+            bw.rollback_settle_local_selection(before);
+            selection::reconcile(bw, restored, current);
         }
         if let Some(paced_tick) = paced_tick {
             bw.rollback_set_next_game_step_tick(paced_tick);
         }
         (ret, report)
+    }
+}
+
+/// Runs `f`, which snapshots or restores, with the images the UI links into the simulation's
+/// sprites taken off them, and puts them straight back once it is done.
+///
+/// The UI takes those images from pools of its own, outside the snapshot: selection circles and
+/// health bars, and the overlays building placement shows over the units a building could go on.
+/// They have to be off before a snapshot would capture them and before a restore drops the sprites
+/// they are attached to, or every tick would leak them, and a restore would link sprites to images
+/// the pools have handed out again since. And they have to be back for the steps, which rely on
+/// them: a unit only leaves the local selection when it dies or changes owner if its sprite shows
+/// it selected, and a refinery started on a geyser takes the placement overlay off it.
+unsafe fn with_ui_images_off<R>(bw: &BwScr, f: impl FnOnce() -> R) -> R {
+    unsafe {
+        bw.rollback_clear_selection_visuals();
+        let overlays = bw.rollback_detach_placement_overlays();
+        let ret = f();
+        bw.rollback_reattach_placement_overlays(overlays);
+        bw.rollback_rebuild_selection_visuals();
+        ret
     }
 }

@@ -87,6 +87,12 @@ const FRAME_DURATION: Duration = crate::rollback::pacing::STEP;
 /// How many ticks go between the summaries logged.
 const SUMMARY_TICKS: u32 = 720;
 
+/// How many ticks that moved the camera a game logs, which is enough to tell what moved it.
+const MAX_CAMERA_MOVES_LOGGED: u32 = 20;
+
+/// Ticks this game logged moving the camera.
+static CAMERA_MOVES_LOGGED: AtomicU32 = AtomicU32::new(0);
+
 /// How a game that rolls back runs: the defaults, with whatever the debug knobs change.
 struct Settings {
     /// Steps a step may run past the newest one whose turns are all known.
@@ -471,6 +477,7 @@ pub unsafe fn run_game_logic_step(
             confirmed: known_until.min(present),
             spacing,
         };
+        let camera_before = bw.rollback_screen_position();
         let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
             let ret = step_game_logic(bw, param, orig);
             let game = bw.game();
@@ -492,6 +499,18 @@ pub unsafe fn run_game_logic_step(
             ret
         });
         drop(guard);
+        // Only the person watching moves the camera in a melee game, and never from inside a step,
+        // so a tick that moves it has some camera state in what it restores or re-simulates.
+        let camera_after = bw.rollback_screen_position();
+        if camera_after != camera_before
+            && CAMERA_MOVES_LOGGED.fetch_add(1, Ordering::Relaxed) < MAX_CAMERA_MOVES_LOGGED
+        {
+            warn!(
+                "Live rollback tick from frame {current} moved the camera from {camera_before:?} \
+                 to {camera_after:?} (restored {:?}, {} steps)",
+                report.restored, report.steps,
+            );
+        }
         let reached = crate::rollback::position(bw).unwrap_or(current);
         // The rollback this client runs: how far the frame it now shows is past the newest frame
         // whose turns are all known. A tick stalled at the prediction limit shows the frame it was

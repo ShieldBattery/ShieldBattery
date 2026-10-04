@@ -1889,14 +1889,23 @@ impl TurnState {
             match self.storm_id_for_slot(slot) {
                 // A game that predicts inputs applies the relay's leaves from its input table
                 // until it goes local-only, and a slot whose leave it already applied must not
-                // leave twice.
-                Some(storm) if self.inputs.is_some() && !self.required[storm.0 as usize] => {}
+                // leave twice. Whether the slot still gates steps says nothing about that:
+                // `begin_local_only` stops waiting on a slot whose leave it expedites before any
+                // step has applied it.
+                Some(storm)
+                    if self
+                        .inputs
+                        .as_ref()
+                        .is_some_and(|inputs| inputs.leave_applied(storm)) => {}
                 Some(storm) => {
                     info!(
                         "netcode v2: coordinated leave became due: slot={} storm_slot={} \
                          reason={:#010x} poll_frame={}",
                         slot.0, storm.0, reason, next_frame,
                     );
+                    if let Some(inputs) = &mut self.inputs {
+                        inputs.mark_leave_applied(storm);
+                    }
                     self.mark_slot_left(storm);
                     // Observation-only: tag the slot's net-stats row with how it departed.
                     self.net_stats.record_departure(storm, reason);
@@ -3509,6 +3518,33 @@ mod tests {
         // fabricated one — and exactly once.
         assert_eq!(state.take_due_leaves(10), vec![(PEER_STORM, DROPPED)]);
         assert!(state.take_due_leaves(10).is_empty());
+    }
+
+    #[test]
+    fn local_only_applies_a_leave_the_input_table_had_not_applied_yet() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        state.predict_inputs(InputTable::new(
+            8,
+            3,
+            0,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+
+        // Scheduled at a step this game has not reached, so the input table hasn't applied it.
+        let mut directive = leave_directive(PEER_SLOT, 10, DROPPED);
+        directive.final_turn_count = Some(10);
+        directive.finalized = true;
+        leave_tx.try_send(directive).unwrap();
+        assert!(state.take_due_leaves(5).is_empty());
+
+        // Going local-only stops waiting on the peer before any step has applied its leave, which
+        // still has to be applied once.
+        state.begin_local_only();
+        assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
+        assert!(state.take_due_leaves(5).is_empty());
     }
 
     /// A quit during a stall must not wait on a leave scheduled beyond the stalled step: the

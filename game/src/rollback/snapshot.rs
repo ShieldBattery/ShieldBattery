@@ -260,18 +260,14 @@ impl Snapshots {
             let mut trigger_lists = None;
             // The `game` and `players` globals are obfuscated operands, so they come from the
             // accessors that already know how to unpick them rather than from a range spec.
-            // The camera's tile position is kept inside the game struct even though only local
-            // scrolling writes it and only rendering reads it; restoring it would yank the view
-            // back to wherever it was when the snapshot was taken, so the struct is copied in two
-            // pieces around those two words.
-            let camera = std::mem::offset_of!(bw::Game, screen_pos_x_tiles);
-            let camera_len = size_of::<u16>() * 2;
-            list.add("game", game as usize, camera);
-            list.add(
-                "game",
-                game as usize + camera + camera_len,
-                size_of::<bw::Game>() - camera - camera_len,
-            );
+            // The game struct is copied in pieces around the fields only the person watching
+            // changes (see `ranges::VIEWER_LOCAL_GAME_FIELDS`).
+            let mut start = 0;
+            for &(_, offset, len) in ranges::VIEWER_LOCAL_GAME_FIELDS {
+                list.add("game", game as usize + start, offset - start);
+                start = offset + len;
+            }
+            list.add("game", game as usize + start, size_of::<bw::Game>() - start);
             list.add(
                 "players",
                 bw.players() as usize,

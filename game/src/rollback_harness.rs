@@ -702,8 +702,15 @@ unsafe fn apply_pending_settings(bw: &BwScr) {
         if settings.depth == 0 && max_delay == 0 {
             let mut guard = SNAPSHOTS.lock();
             if let Some(snapshots) = guard.as_mut() {
+                let selection = bw.rollback_local_selection();
                 bw.rollback_clear_selection_visuals();
-                snapshots.restore_at_or_before(confirmed, bw);
+                let overlays = bw.rollback_detach_placement_overlays();
+                let restored = snapshots.restore_at_or_before(confirmed, bw);
+                if let Some(restored) = restored {
+                    rollback::selection::undo_after(bw, restored);
+                }
+                bw.rollback_settle_local_selection(&selection);
+                bw.rollback_reattach_placement_overlays(overlays);
                 bw.rollback_rebuild_selection_visuals();
             }
             // Rebuilt from scratch should rolling back be turned on again later, anchored wherever

@@ -30,6 +30,7 @@ pub(crate) mod hash_reports;
 pub(crate) mod observer_ui;
 pub(crate) mod pacing;
 pub(crate) mod ranges;
+pub(crate) mod selection;
 pub(crate) mod snapshot;
 pub(crate) mod sounds;
 pub(crate) mod state_hash;
@@ -122,7 +123,8 @@ fn window_start() -> u32 {
 }
 
 /// Clears engine state that does not survive to the next game: the sound and announcement
-/// ledgers, the observer UI's in-progress research keys, and the game end and hash report records.
+/// ledgers, the observer UI's in-progress research keys, the units steps took out of the local
+/// selection, and the game end and hash report records.
 /// Called by the driver when the game
 /// loop (re-)enters game init.
 pub(crate) fn reset_for_game_init() {
@@ -130,6 +132,7 @@ pub(crate) fn reset_for_game_init() {
     announcements::reset();
     observer_ui::reset();
     ui_writes::reset();
+    selection::reset();
     game_end::reset();
     hash_reports::reset();
 }

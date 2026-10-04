@@ -21,8 +21,14 @@ pub(crate) enum UiWrite {
     /// `show_cursor_marker_at(x, y)`: the marker a right click on the ground places.
     CursorMarker { x: i32, y: i32 },
     /// `set_sprite_selection_flash_timer(object, timer)`: the blink of a unit (or fog sprite)
-    /// that a right click targeted.
-    SelectionFlash { object: usize, timer: u32 },
+    /// that a right click targeted. `sprite` is the object's sprite when the click was made: the
+    /// write is made again only while the object still has it, since a corrected simulation may
+    /// not have the object at all, or may have given its slot to another.
+    SelectionFlash {
+        object: usize,
+        sprite: usize,
+        timer: u32,
+    },
 }
 
 /// The writes a restore can still undo, each with the frame the simulation was on when it was made.
