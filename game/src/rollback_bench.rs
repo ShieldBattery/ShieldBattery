@@ -35,6 +35,7 @@ use serde_json::{Value, json};
 
 use crate::bw_scr::BwScr;
 use crate::game_thread;
+use crate::rollback::copier;
 use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
 use crate::rollback::sounds;
 use crate::rollback::tick::{self, TickPlan};
@@ -48,6 +49,8 @@ use crate::rollback::tick::{self, TickPlan};
 /// - `advance=<n>`: forward-only ticks per checkpoint (default 48);
 /// - `micro=<n>`: bare snapshots and restores timed per checkpoint, each hot and cold (default 8);
 /// - `spacing=<frames>`: snapshot spacing (default the engine's);
+/// - `copy_helpers=<n>`: helper threads snapshot and restore copies are split across (default
+///   the engine's choice for the machine);
 /// - `profile=1`: sample the game thread while rolling back;
 /// - `affinity=<hex mask>|none`: the logical processors the game thread is pinned to while the
 ///   bench runs (default `4`, the third logical processor, a performance core on a hybrid CPU; on
@@ -149,6 +152,10 @@ pub fn init_from_env() {
             "iters" => value.parse().map(|x| config.iters = x).is_ok(),
             "advance" => value.parse().map(|x| config.advance = x).is_ok(),
             "micro" => value.parse().map(|x| config.micro = x).is_ok(),
+            "copy_helpers" => value
+                .parse()
+                .map(|x| copier::HELPERS_OVERRIDE.store(x, Ordering::Relaxed))
+                .is_ok(),
             "spacing" => value
                 .parse()
                 .map(|x: u32| config.spacing = x.max(1))
@@ -302,6 +309,8 @@ struct DepthResult {
     snapshot_us: Samples,
     steps_us: Samples,
     steps: Samples,
+    /// Time the copy helper threads spent awake during the tick, on top of the tick's own.
+    helper_us: Samples,
     hash_mismatches: u32,
     bytes_mismatches: u32,
 }
@@ -316,6 +325,7 @@ struct CheckpointResult {
     advance_wall_us: Samples,
     advance_snapshot_us: Samples,
     advance_steps_us: Samples,
+    advance_helper_us: Samples,
     take_hot_us: Samples,
     take_cold_us: Samples,
     restore_hot_us: Samples,
@@ -343,6 +353,8 @@ struct Bench {
     first_pass_bytes: Option<Vec<u8>>,
     copies_before: Vec<(u32, Vec<u8>)>,
     snapshot_bytes: usize,
+    /// Helper threads the snapshots' copies are split across.
+    copy_helpers: usize,
     ranges: Vec<(String, usize)>,
     sampler: Option<Sampler>,
     thrash: Vec<u8>,
@@ -370,6 +382,7 @@ impl Bench {
             first_pass_bytes: None,
             copies_before: Vec::new(),
             snapshot_bytes: 0,
+            copy_helpers: 0,
             ranges: Vec::new(),
             sampler: config.profile.then(Sampler::start),
             thrash: Vec::new(),
@@ -406,6 +419,7 @@ impl Bench {
                     .map(|x| (x.name().to_owned(), x.len()))
                     .collect();
                 self.snapshot_bytes = self.ranges.iter().map(|x| x.1).sum();
+                self.copy_helpers = snapshots.copy_helpers();
             }
             let Some(frame) = bw.rollback_frame_count() else {
                 return orig(param);
@@ -476,6 +490,7 @@ impl Bench {
                     if let Some(active) = &sampling {
                         active.store(true, Ordering::Release);
                     }
+                    let helper_busy = snapshots.copy_helper_busy();
                     let start_cycles = thread_cycles();
                     let start = Instant::now();
                     let (ret, report) = self.run_tick(
@@ -503,6 +518,9 @@ impl Bench {
                         .push(report.snapshot_time.as_secs_f64() * 1e6);
                     result.steps_us.push(report.step_time.as_secs_f64() * 1e6);
                     result.steps.push(report.steps as f64);
+                    result
+                        .helper_us
+                        .push((snapshots.copy_helper_busy() - helper_busy).as_secs_f64() * 1e6);
                     if bw.rollback_state_hash() != self.reference_hash {
                         result.hash_mismatches += 1;
                     }
@@ -545,6 +563,7 @@ impl Bench {
                     ret
                 }
                 Phase::Advance { remaining } => {
+                    let helper_busy = snapshots.copy_helper_busy();
                     let start_cycles = thread_cycles();
                     let start = Instant::now();
                     let (ret, report) =
@@ -559,6 +578,9 @@ impl Bench {
                     self.current
                         .advance_steps_us
                         .push(report.step_time.as_secs_f64() * 1e6);
+                    self.current
+                        .advance_helper_us
+                        .push((snapshots.copy_helper_busy() - helper_busy).as_secs_f64() * 1e6);
                     let ended = bw.rollback_frame_count() == Some(frame);
                     if remaining <= 1 || ended {
                         self.micro(bw, snapshots);
@@ -737,6 +759,7 @@ impl Bench {
                     "affinity": self.config.affinity.map(|x| format!("{x:x}")),
                 },
                 "snapshot_bytes": self.snapshot_bytes,
+                "copy_helpers": self.copy_helpers,
                 "ranges": self.ranges.iter().map(|(name, len)| json!([name, len])).collect::<Vec<_>>(),
                 "summary": summary,
                 "checkpoints": checkpoints,
@@ -799,7 +822,17 @@ impl Bench {
         };
         let mut by_depth = serde_json::Map::new();
         let mut by_depth_p90 = serde_json::Map::new();
+        let mut wall_by_depth = serde_json::Map::new();
+        let mut helper_by_depth = serde_json::Map::new();
         for (i, &depth) in self.config.depths.iter().enumerate() {
+            wall_by_depth.insert(
+                depth.to_string(),
+                average(&|c| c.depths.get(i).and_then(|x| x.1.tick_wall_us.median())),
+            );
+            helper_by_depth.insert(
+                depth.to_string(),
+                average(&|c| c.depths.get(i).and_then(|x| x.1.helper_us.median())),
+            );
             by_depth.insert(
                 depth.to_string(),
                 average(&|c| c.depths.get(i).and_then(|x| x.1.tick_cpu_us.median())),
@@ -838,6 +871,12 @@ impl Bench {
             "checkpoints_measured": self.results.len(),
             "rollback_tick_cpu_us_median": by_depth,
             "rollback_tick_cpu_us_p90": by_depth_p90,
+            "rollback_tick_wall_us_median": wall_by_depth,
+            "rollback_tick_helper_us_median": helper_by_depth,
+            "advance_tick_helper_us_mean": average(&|c| {
+                let v = &c.advance_helper_us.values;
+                (!v.is_empty()).then(|| v.iter().sum::<f64>() / v.len() as f64)
+            }),
             "advance_tick_cpu_us_median": average(&|c| c.advance_cpu_us.median()),
             "advance_tick_cpu_us_mean": average(&|c| {
                 let v = &c.advance_cpu_us.values;
@@ -874,6 +913,7 @@ fn checkpoint_json(c: &CheckpointResult) -> Value {
                 "snapshot_us": x.snapshot_us.to_json(),
                 "steps_us": x.steps_us.to_json(),
                 "steps": x.steps.to_json(),
+                "helper_us": x.helper_us.to_json(),
                 "hash_mismatches": x.hash_mismatches,
                 "bytes_mismatches": x.bytes_mismatches,
             })
@@ -888,6 +928,7 @@ fn checkpoint_json(c: &CheckpointResult) -> Value {
         "advance_tick_wall_us": c.advance_wall_us.to_json(),
         "advance_snapshot_us": c.advance_snapshot_us.to_json(),
         "advance_steps_us": c.advance_steps_us.to_json(),
+        "advance_helper_us": c.advance_helper_us.to_json(),
         "take_hot_us": c.take_hot_us.to_json(),
         "take_cold_us": c.take_cold_us.to_json(),
         "restore_hot_us": c.restore_hot_us.to_json(),

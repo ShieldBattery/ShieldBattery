@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use crate::bw_scr::BwScr;
 
 pub(crate) mod announcements;
+pub(crate) mod copier;
 pub(crate) mod game_end;
 pub(crate) mod hash_reports;
 pub(crate) mod observer_ui;

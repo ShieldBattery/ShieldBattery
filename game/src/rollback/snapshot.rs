@@ -13,8 +13,9 @@ use parking_lot::Mutex;
 use crate::bw::{self, Bw};
 use crate::bw_scr::{BwScr, resolve_operand, scr};
 
+use super::copier::{Copier, Direction, SLOT_ALIGN};
 use super::ranges::{
-    self, AI_PLAYERS, CAPACITY_MASK, MAX_POOL_CAPACITY, PLAYERS, Range, RangeKind, RangeList,
+    self, AI_PLAYERS, CAPACITY_MASK, MAX_POOL_CAPACITY, PLAYERS, RangeKind, RangeList,
     TRIGGER_LIST_PLAYERS,
 };
 
@@ -168,9 +169,13 @@ impl TriggerLists {
 /// Slots are allocated as they are first needed and reused once their snapshot is dropped, so the
 /// memory held follows how far back rollbacks actually reach rather than a fixed bound.
 pub(crate) struct Snapshots {
-    ranges: Vec<Range>,
-    /// Bytes one snapshot of the ranges takes.
-    total_bytes: usize,
+    /// The ranges, for code that inspects live memory alongside the snapshots.
+    #[cfg(debug_assertions)]
+    ranges: Vec<ranges::Range>,
+    /// Bytes one snapshot of the ranges takes, alignment padding included.
+    slot_bytes: usize,
+    /// Copies the ranges into and out of the slots, each range at a [`SLOT_ALIGN`]-aligned offset.
+    copier: Copier,
     slots: Vec<Slot>,
     /// The trigger lists, when analysis found their headers.
     trigger_lists: Option<TriggerLists>,
@@ -184,9 +189,14 @@ struct Slot {
     /// The frame count of the simulation when this slot's snapshot was taken, or `None` for a slot
     /// holding nothing that can be restored.
     frame: Option<u32>,
-    bytes: Vec<u8>,
+    bytes: Box<[SlotLine]>,
     replay: ReplayCursor,
 }
+
+/// The unit a slot's bytes are allocated in, so that every range in it can start on a cache line.
+#[derive(Clone)]
+#[repr(C, align(64))]
+struct SlotLine([u8; SLOT_ALIGN]);
 
 /// Where the replay's command stream was, as offsets into its buffer.
 ///
@@ -368,9 +378,23 @@ impl Snapshots {
             if ranges.is_empty() {
                 return None;
             }
+            let mut offsets = Vec::with_capacity(ranges.len());
+            let mut slot_bytes = 0;
+            for range in &ranges {
+                offsets.push(slot_bytes);
+                slot_bytes = (slot_bytes + range.len()).next_multiple_of(SLOT_ALIGN);
+            }
+            let copier = Copier::new(
+                ranges
+                    .iter()
+                    .zip(&offsets)
+                    .map(|(range, &offset)| (range.start(), offset, range.len())),
+            );
             Some(Snapshots {
+                #[cfg(debug_assertions)]
                 ranges,
-                total_bytes,
+                slot_bytes,
+                copier,
                 slots: Vec::new(),
                 trigger_lists,
                 replay_data: bw.replay_data(),
@@ -392,17 +416,17 @@ impl Snapshots {
                 None => {
                     self.slots.push(Slot {
                         frame: None,
-                        bytes: vec![0u8; self.total_bytes],
+                        bytes: vec![SlotLine([0; SLOT_ALIGN]); self.slot_bytes / SLOT_ALIGN]
+                            .into_boxed_slice(),
                         replay: ReplayCursor::default(),
                     });
                     self.slots.len() - 1
                 }
             };
-            let mut out = self.slots[slot].bytes.as_mut_ptr();
-            for range in &self.ranges {
-                std::ptr::copy_nonoverlapping(range.start() as *const u8, out, range.len());
-                out = out.add(range.len());
-            }
+            self.copier.copy(
+                self.slots[slot].bytes.as_mut_ptr() as *mut u8,
+                Direction::ToSlot,
+            );
             if let Some(trigger_lists) = &mut self.trigger_lists {
                 trigger_lists.take(slot);
             }
@@ -423,11 +447,10 @@ impl Snapshots {
                 .slot_at_or_before(frame)
                 .or_else(|| self.oldest_slot())?;
             let restored = self.slots[slot].frame?;
-            let mut input = self.slots[slot].bytes.as_ptr();
-            for range in &self.ranges {
-                std::ptr::copy_nonoverlapping(input, range.start() as *mut u8, range.len());
-                input = input.add(range.len());
-            }
+            self.copier.copy(
+                self.slots[slot].bytes.as_mut_ptr() as *mut u8,
+                Direction::FromSlot,
+            );
             if let Some(trigger_lists) = &mut self.trigger_lists {
                 trigger_lists.restore(slot, bw);
             }
@@ -506,10 +529,22 @@ impl Snapshots {
             .map(|(index, _)| index)
     }
 
+    /// Threads helping with copies.
+    #[cfg(debug_assertions)]
+    pub(crate) fn copy_helpers(&self) -> usize {
+        self.copier.helpers()
+    }
+
+    /// Time the threads helping with copies have spent awake, for a bench to count their cost.
+    #[cfg(debug_assertions)]
+    pub(crate) fn copy_helper_busy(&self) -> std::time::Duration {
+        self.copier.helper_busy()
+    }
+
     /// The ranges a snapshot copies, for code that inspects live memory alongside it (an audit, a
     /// dump).
     #[cfg(debug_assertions)]
-    pub(crate) fn ranges(&self) -> &[Range] {
+    pub(crate) fn ranges(&self) -> &[ranges::Range] {
         &self.ranges
     }
 }
