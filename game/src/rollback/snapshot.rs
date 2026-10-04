@@ -68,21 +68,6 @@ impl TriggerLists {
         (self.heads + player * 3 * size_of::<usize>()) as *mut usize
     }
 
-    /// Every node of one list, found by following the second link from the header round to the
-    /// header again.
-    unsafe fn walk(&self, player: usize) -> Vec<usize> {
-        unsafe {
-            let head = self.head(player);
-            let mut nodes = Vec::new();
-            let mut node = head.add(1).read();
-            while node != head as usize && node != 0 && nodes.len() < MAX_TRIGGERS_PER_PLAYER {
-                nodes.push(node);
-                node = (node as *const usize).add(1).read();
-            }
-            nodes
-        }
-    }
-
     unsafe fn take(&mut self, slot: usize) {
         unsafe {
             while self.saved.len() <= slot {
@@ -93,18 +78,18 @@ impl TriggerLists {
                 );
             }
             for player in 0..TRIGGER_LIST_PLAYERS {
-                let nodes = self.walk(player);
                 let head = self.head(player);
                 let saved = &mut self.saved[slot][player];
                 saved.header = [head.read(), head.add(1).read(), head.add(2).read()];
+                saved.nodes.clear();
+                saved.nodes.extend(list_nodes(head));
                 saved.bytes.clear();
-                for &node in &nodes {
+                for &node in &saved.nodes {
                     saved.bytes.extend_from_slice(std::slice::from_raw_parts(
                         node as *const u8,
                         TRIGGER_NODE_SIZE,
                     ));
                 }
-                saved.nodes = nodes;
             }
         }
     }
@@ -112,10 +97,9 @@ impl TriggerLists {
     unsafe fn restore(&mut self, slot: usize, bw: &BwScr) {
         unsafe {
             for player in 0..TRIGGER_LIST_PLAYERS {
-                let current = self.walk(player);
                 let head = self.head(player);
                 let saved = &mut self.saved[slot][player];
-                if current == saved.nodes {
+                if list_nodes(head).eq(saved.nodes.iter().copied()) {
                     for (i, &node) in saved.nodes.iter().enumerate() {
                         std::ptr::copy_nonoverlapping(
                             saved.bytes.as_ptr().add(i * TRIGGER_NODE_SIZE),
@@ -127,7 +111,7 @@ impl TriggerLists {
                 }
                 // The list was freed since the snapshot: bring its nodes back in allocations of
                 // our own, pointing every link that pointed at an old node at its replacement.
-                for &node in &current {
+                for node in list_nodes(head).collect::<Vec<_>>() {
                     bw.free(node as *mut u8);
                 }
                 let replacements = saved
@@ -161,6 +145,24 @@ impl TriggerLists {
                 head.add(2).write(saved.header[2]);
             }
         }
+    }
+}
+
+/// Every node of the trigger list whose header is at `head`, found by following the second link
+/// from the header round to the header again.
+unsafe fn list_nodes(head: *mut usize) -> impl Iterator<Item = usize> {
+    unsafe {
+        let head = head as usize;
+        let mut node = (head as *const usize).add(1).read();
+        std::iter::from_fn(move || {
+            if node == head || node == 0 {
+                return None;
+            }
+            let current = node;
+            node = (node as *const usize).add(1).read();
+            Some(current)
+        })
+        .take(MAX_TRIGGERS_PER_PLAYER)
     }
 }
 
