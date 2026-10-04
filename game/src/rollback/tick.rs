@@ -95,8 +95,14 @@ pub(crate) unsafe fn run_tick(
         // anything runs. Taking it right after the step that produced it would strip the
         // selection circles that step drew, and the frame would be shown without them: putting
         // them back only puts back the local selection's, not those of a right-clicked target
-        // that is blinking.
-        if snapshots.is_empty() || (current.is_multiple_of(spacing) && !snapshots.has(current)) {
+        // that is blinking. A tick that restores an earlier snapshot drops every one after it, so
+        // it skips this one.
+        let restores_earlier = plan.rollback_to.is_some_and(|target| {
+            target < current && snapshots.newest_at_or_before(target).is_some()
+        });
+        if snapshots.is_empty()
+            || (!restores_earlier && current.is_multiple_of(spacing) && !snapshots.has(current))
+        {
             take(snapshots, current, &mut report);
         }
         // Every frame up to the one the simulation is on now has been shown already.
@@ -163,7 +169,13 @@ pub(crate) unsafe fn run_tick(
                 && current.is_multiple_of(spacing)
                 && !snapshots.has(current)
             {
-                take(snapshots, current, &mut report);
+                // The tick drops every snapshot older than the newest one at or before the
+                // confirmed frame once its steps are done, so a frame with a later one due before
+                // the present that is still confirmed is not worth snapshotting.
+                let next_due = current + spacing;
+                if !(next_due <= plan.confirmed && next_due < plan.present) {
+                    take(snapshots, current, &mut report);
+                }
             }
         }
         TICK_RUNNING.store(false, Ordering::Relaxed);

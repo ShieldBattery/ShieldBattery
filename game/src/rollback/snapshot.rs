@@ -477,6 +477,12 @@ impl Snapshots {
         self.oldest_slot().and_then(|x| self.slots[x].frame)
     }
 
+    /// The frame count of the newest snapshot held at or before frame count `frame`.
+    pub(crate) fn newest_at_or_before(&self, frame: u32) -> Option<u32> {
+        self.slot_at_or_before(frame)
+            .and_then(|x| self.slots[x].frame)
+    }
+
     /// Whether no snapshot is held.
     pub(crate) fn is_empty(&self) -> bool {
         self.slots.iter().all(|x| x.frame.is_none())
