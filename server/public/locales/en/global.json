@@ -2488,6 +2488,12 @@
       },
       "system": {
         "networkOverline": "Network",
+        "rollbackTarget": {
+          "description": "Higher values make your commands more responsive, but units may visibly jump more often. 2 is recommended.",
+          "label": "Rollback balance",
+          "responsive": "More responsive",
+          "smoother": "Smoother"
+        },
         "runOnStartup": "Run ShieldBattery on system startup",
         "serverRegion": {
           "autoPlain": "Auto (recommended)",

@@ -417,8 +417,9 @@ In rough order:
   open questions 6 and 7). Enforcement could delay a late player's stream by a frame rather than
   drop their turn, so a bad connection costs that player input delay, not commands.
 - Tuning the steady and burst windows that choose between delay and rollback, from live games.
-- The advanced player settings for the rollback target and limit. Until then every player runs
-  the defaults (target 2, limit 8).
+- A player setting for the rollback limit; every player runs the default of 8. The target is the
+  System settings' Rollback balance slider (0 to 4, default 2), which the DLL reads from the local
+  settings the app sends it.
 - The sound hook, so a sound's audibility is decided when it plays rather than at each simulation.
 - Removing the native 0x37 path once every game rolls back.
 

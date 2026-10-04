@@ -7,6 +7,7 @@ import {
   GameServerRegionId,
   GameServerRegionLatencies,
 } from '../../../common/game-server-regions'
+import { MAX_ROLLBACK_TARGET } from '../../../common/settings/local-settings'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import {
   gameServerRegionLatenciesAtom,
@@ -19,10 +20,16 @@ import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchma
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
+import { Slider } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodySmall } from '../../styles/typography'
+import { bodySmall, LabelMedium } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
-import { FormContainer, SectionContainer, SettingsSectionHeader } from '../settings-content'
+import {
+  FormContainer,
+  SectionContainer,
+  SettingsSectionDescription,
+  SettingsSectionHeader,
+} from '../settings-content'
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
@@ -30,6 +37,21 @@ const IndentedCheckBox = styled(CheckBox)`
 
 const RegionLockedText = styled.div`
   ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const RollbackTarget = styled.div`
+  margin-top: 16px;
+`
+
+const SliderEndpointLabels = styled.div`
+  width: 100%;
+  margin-bottom: 12px;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+
   color: var(--theme-on-surface-variant);
 `
 
@@ -76,6 +98,7 @@ interface AppSystemSettingsModel {
   runAppAtSystemStartMinimized: boolean
 
   gameServerRegion: string
+  rollbackTarget: number
 }
 
 export function AppSystemSettings() {
@@ -101,6 +124,7 @@ export function AppSystemSettings() {
           regions.some(r => r.id === localSettings.gameServerRegion)
             ? localSettings.gameServerRegion
             : AUTO_REGION_VALUE,
+        rollbackTarget: localSettings.rollbackTarget,
       },
       {},
     )
@@ -116,6 +140,7 @@ export function AppSystemSettings() {
               model.gameServerRegion === AUTO_REGION_VALUE
                 ? undefined
                 : (model.gameServerRegion as GameServerRegionId),
+            rollbackTarget: model.rollbackTarget,
           },
           {
             onSuccess: () => {},
@@ -175,6 +200,31 @@ export function AppSystemSettings() {
                 )}
               </RegionLockedText>
             ) : null}
+            <RollbackTarget>
+              <Slider
+                {...bindCustom('rollbackTarget')}
+                label={t('settings.app.system.rollbackTarget.label', 'Rollback balance')}
+                tabIndex={0}
+                min={0}
+                max={MAX_ROLLBACK_TARGET}
+                step={1}
+              />
+              <SliderEndpointLabels>
+                <LabelMedium>
+                  {t('settings.app.system.rollbackTarget.smoother', 'Smoother')}
+                </LabelMedium>
+                <LabelMedium>
+                  {t('settings.app.system.rollbackTarget.responsive', 'More responsive')}
+                </LabelMedium>
+              </SliderEndpointLabels>
+              <SettingsSectionDescription>
+                {t(
+                  'settings.app.system.rollbackTarget.description',
+                  'Higher values make your commands more responsive, but units may visibly jump ' +
+                    'more often. 2 is recommended.',
+                )}
+              </SettingsSectionDescription>
+            </RollbackTarget>
           </SectionContainer>
         ) : null}
       </FormContainer>

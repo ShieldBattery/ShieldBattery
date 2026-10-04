@@ -184,6 +184,15 @@ impl GameState {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             forge::init(&settings.local, &settings.scr, settings.monitor_bounds);
             crate::replay_name::set_template(settings.replay_name_template.clone());
+            if let Some(target) = settings
+                .local
+                .get("rollbackTarget")
+                .and_then(|x| x.as_u64())
+            {
+                crate::rollback_live::set_player_rollback_target(
+                    u32::try_from(target).unwrap_or(u32::MAX),
+                );
+            }
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {

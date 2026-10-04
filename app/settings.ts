@@ -18,7 +18,7 @@ import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/te
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 24
+const VERSION = 25
 const SCR_VERSION = 6
 
 /**
@@ -396,6 +396,11 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       log.verbose('Found settings version 23, migrating to version 24')
       newSettings.gameWinPlacement = DEFAULT_LOCAL_SETTINGS.gameWinPlacement
       newSettings.gameWinSetSize = { ...DEFAULT_LOCAL_SETTINGS.gameWinSetSize }
+    }
+
+    if (!settings.version || settings.version < 25) {
+      log.verbose('Found settings version 24, migrating to version 25')
+      newSettings.rollbackTarget = DEFAULT_LOCAL_SETTINGS.rollbackTarget
     }
 
     newSettings.version = VERSION

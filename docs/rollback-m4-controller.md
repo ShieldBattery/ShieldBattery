@@ -97,7 +97,8 @@ Two options, both only exposed under advanced settings:
   that player.
 
 Both only change the player's own experience, so neither needs to match across the game. The
-tenant sets the defaults and the allowed range. Not built yet: every player runs the defaults.
+tenant sets the defaults and the allowed range. Built: the target, as the System settings'
+Rollback balance slider. Not built yet: the limit, which every player runs at the default.
 
 ### Relay: deadlines instead of a depth
 

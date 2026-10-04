@@ -437,6 +437,21 @@ fn read_count(var: &str) -> Option<u32> {
     }
 }
 
+/// The highest rollback target a player can choose in their settings.
+const MAX_PLAYER_ROLLBACK_TARGET: u32 = 4;
+
+/// Takes the rollback target the player chose in their settings, for the games this process runs,
+/// unless a debug knob set one. Called with the settings the app sends before a game starts.
+pub fn set_player_rollback_target(target: u32) {
+    #[cfg(debug_assertions)]
+    if std::env::var_os(TARGET_ENV_VAR).is_some() {
+        info!("Ignoring the rollback target setting ({target}), since {TARGET_ENV_VAR} is set");
+        return;
+    }
+    let mut settings = SETTINGS.lock();
+    settings.rollback_target = target.min(MAX_PLAYER_ROLLBACK_TARGET).min(settings.limit);
+}
+
 /// Whether native sync (0x37) is off for this client: it neither sends sync commands nor checks
 /// its peers' ones, and a no-op stands in for each turn's sync command. Off exactly in a game that
 /// rolls back, since native sync hashes state that a re-simulation does not reproduce, and a
