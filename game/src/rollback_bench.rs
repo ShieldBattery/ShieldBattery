@@ -91,6 +91,10 @@ const SAMPLE_INTERVAL: Duration = Duration::from_micros(100);
 /// Bytes of the game thread's stack copied per sample and scanned for return addresses.
 const SAMPLE_STACK_BYTES: usize = 16 * 1024;
 
+/// Zeroed bytes kept after a sample's copy of the stack, so an unwind of a frame near the end of
+/// the copy reads zeros rather than memory past the buffer.
+const SAMPLE_STACK_PADDING: usize = 64 * 1024;
+
 /// Frames walked per sample, innermost first.
 const SAMPLE_FRAMES: usize = 48;
 
@@ -770,10 +774,23 @@ impl Bench {
         };
     }
 
+    /// What the results call the rolling-back ticks of `depths[i]`: the depth, and how many copy
+    /// helpers they used when those vary between entries.
+    fn depth_key(&self, i: usize) -> String {
+        let depth = self.config.depths[i];
+        match self.config.depth_helpers[i] {
+            Some(helpers) => format!("{depth}h{helpers}"),
+            None => depth.to_string(),
+        }
+    }
+
     unsafe fn finish(&mut self, bw: &BwScr) {
         unsafe {
             let profile = self.sampler.take().map(|x| x.finish());
-            let frames = frames_json(&crate::frame_timing::take_records(), &self.config.depths);
+            let keys = (0..self.config.depths.len())
+                .map(|i| self.depth_key(i))
+                .collect::<Vec<_>>();
+            let frames = frames_json(&crate::frame_timing::take_records(), &keys);
             let checkpoints = self.results.iter().map(checkpoint_json).collect::<Vec<_>>();
             let summary = self.summary();
             let out = json!({
@@ -860,11 +877,8 @@ impl Bench {
         let mut by_depth_p90 = serde_json::Map::new();
         let mut wall_by_depth = serde_json::Map::new();
         let mut helper_by_depth = serde_json::Map::new();
-        for (i, &depth) in self.config.depths.iter().enumerate() {
-            let depth = match self.config.depth_helpers[i] {
-                Some(helpers) => format!("{depth}h{helpers}"),
-                None => depth.to_string(),
-            };
+        for i in 0..self.config.depths.len() {
+            let depth = self.depth_key(i);
             wall_by_depth.insert(
                 depth.clone(),
                 average(&|c| c.depths.get(i).and_then(|x| x.1.tick_wall_us.median())),
@@ -990,14 +1004,14 @@ const FRAME_ROLLBACK: u8 = 16;
 
 /// Frame timings by phase: for each, the frames whose tick ran in them, the frames that drew a
 /// tick's result first, and the frames in between.
-fn frames_json(records: &[crate::frame_timing::FrameRecord], depths: &[u32]) -> Value {
+fn frames_json(records: &[crate::frame_timing::FrameRecord], depth_keys: &[String]) -> Value {
     use crate::frame_timing::TickKind;
     let mut phases = vec![
         ("warmup".to_owned(), FRAME_WARMUP),
         ("advance".to_owned(), FRAME_ADVANCE),
     ];
-    for (i, depth) in depths.iter().enumerate() {
-        phases.push((format!("rollback_{depth}"), FRAME_ROLLBACK + i as u8));
+    for (i, key) in depth_keys.iter().enumerate() {
+        phases.push((format!("rollback_{key}"), FRAME_ROLLBACK + i as u8));
     }
     let stats = |values: &mut Vec<f64>| -> Value {
         if values.is_empty() {
@@ -1375,7 +1389,7 @@ fn sample_loop(
     struct Aligned(CONTEXT);
     let mut output = SamplerOutput::default();
     // Zeroed past the copied part, so an unwind that runs off the end reads zeros.
-    let mut stack = vec![0usize; (SAMPLE_STACK_BYTES + 4096) / size_of::<usize>()];
+    let mut stack = vec![0usize; (SAMPLE_STACK_BYTES + SAMPLE_STACK_PADDING) / size_of::<usize>()];
     let mut frames = Vec::with_capacity(SAMPLE_FRAMES);
     let mut next = Instant::now();
     while !stop.load(Ordering::Acquire) {
@@ -1501,7 +1515,8 @@ unsafe extern "system" {
 /// Walks a sample's call stack with the images' unwind data, pushing each frame's function start
 /// (or its address, for code without unwind data) innermost first. The walk reads the copy of the
 /// stack taken while the thread was suspended: every register pointing into the copied part of the
-/// stack is moved to point into the copy first.
+/// stack is moved to point into the copy, before the first frame and again after each one, since
+/// unwinding a frame restores registers that hold addresses on the original stack.
 #[cfg(target_arch = "x86_64")]
 unsafe fn unwind(
     context: &mut winapi::um::winnt::CONTEXT,
@@ -1514,20 +1529,24 @@ unsafe fn unwind(
         let copy = stack.as_ptr() as u64;
         let copied = (words * size_of::<usize>()) as u64;
         let original = sp as u64;
-        let translate = |reg: &mut u64| {
-            if *reg >= original && *reg < original + copied {
-                *reg = *reg - original + copy;
+        let translate_all = |context: &mut winapi::um::winnt::CONTEXT| {
+            for reg in [
+                &mut context.Rsp,
+                &mut context.Rbp,
+                &mut context.Rbx,
+                &mut context.Rsi,
+                &mut context.Rdi,
+                &mut context.R12,
+                &mut context.R13,
+                &mut context.R14,
+                &mut context.R15,
+            ] {
+                if *reg >= original && *reg < original + copied {
+                    *reg = *reg - original + copy;
+                }
             }
         };
-        translate(&mut context.Rsp);
-        translate(&mut context.Rbp);
-        translate(&mut context.Rbx);
-        translate(&mut context.Rsi);
-        translate(&mut context.Rdi);
-        translate(&mut context.R12);
-        translate(&mut context.R13);
-        translate(&mut context.R14);
-        translate(&mut context.R15);
+        translate_all(context);
         while frames.len() < SAMPLE_FRAMES {
             let pc = context.Rip;
             if pc == 0 || context.Rsp < copy || context.Rsp + 8 > copy + copied {
@@ -1553,6 +1572,7 @@ unsafe fn unwind(
                     &mut establisher,
                     std::ptr::null_mut(),
                 );
+                translate_all(context);
             }
         }
     }
