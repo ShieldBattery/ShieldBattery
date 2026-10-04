@@ -1331,6 +1331,34 @@ impl<'e> Analysis<'e> {
         self.0.last_free_placement_rect()
     }
 
+    /// Base of the static pool of 0xc images the local selection's health bars come from,
+    /// outside the main image pool.
+    pub fn hp_bar_images(&mut self) -> Option<Operand<'e>> {
+        self.0.hp_bar_images()
+    }
+
+    pub fn first_free_hp_bar(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_hp_bar()
+    }
+
+    pub fn last_free_hp_bar(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_hp_bar()
+    }
+
+    /// Base of the static pool of 0x50 images selection circles come from (the local
+    /// selection's, and teammates' shared ones), outside the main image pool.
+    pub fn selection_circles(&mut self) -> Option<Operand<'e>> {
+        self.0.selection_circles()
+    }
+
+    pub fn first_free_selection_circle(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_selection_circle()
+    }
+
+    pub fn last_free_selection_circle(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_selection_circle()
+    }
+
     /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
     /// group was last written on.
     pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {

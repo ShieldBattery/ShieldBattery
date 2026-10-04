@@ -334,6 +334,10 @@ pub struct BwScr {
     /// circles and health bars off every sprite and put them back from the local selection, or
     /// `None` if analysis could not find both.
     selection_visuals: Option<SelectionVisuals>,
+    /// The pools selection circles and health bars come from, which take them off the sprites
+    /// carrying them without visiting every sprite, or `None` if analysis could not find them (the
+    /// game's own `selection_visuals` pass does it then).
+    selection_visual_pools: Option<SelectionVisualPools>,
     /// The functions a right click calls to place the order confirmation marker and to make the
     /// target's selection circle blink, which write into the simulation's memory between logic
     /// steps, or `None` if analysis could not find both.
@@ -1120,7 +1124,6 @@ impl PlacementOverlayPools {
         analysis: &mut scr_analysis::Analysis<'_>,
         ctx: scarf::OperandCtx<'static>,
     ) -> Option<PlacementOverlayPools> {
-        use scr_analysis::scarf::{MemAccessSize, OperandType};
         let pools = (
             analysis.placement_images(),
             analysis.placement_rects(),
@@ -1141,21 +1144,13 @@ impl PlacementOverlayPools {
             warn!("Analysis could not find the building placement overlay pools");
             return None;
         };
-        // The free list heads are written through pointers to them, which needs plain globals.
         let free = [
             first_free_image,
             last_free_image,
             first_free_rect,
             last_free_rect,
         ];
-        let word = match cfg!(target_pointer_width = "64") {
-            true => MemAccessSize::Mem64,
-            false => MemAccessSize::Mem32,
-        };
-        if !free
-            .iter()
-            .all(|x| matches!(x.ty(), OperandType::Memory(mem) if mem.size == word))
-        {
+        if !free.iter().all(|&x| is_word_global(x)) {
             warn!("The building placement overlay free lists aren't plain globals: {free:?}");
             return None;
         }
@@ -1189,6 +1184,216 @@ impl PlacementOverlayPools {
                     self.free_rects[1].resolve_as_ptr(),
                 ),
             ]
+        }
+    }
+}
+
+/// Whether `op` is a pointer-sized global, which a free list head has to be for the list to be
+/// relinked through a pointer to it.
+fn is_word_global(op: scarf::Operand<'_>) -> bool {
+    use scr_analysis::scarf::{MemAccessSize, OperandType};
+    let word = match cfg!(target_pointer_width = "64") {
+        true => MemAccessSize::Mem64,
+        false => MemAccessSize::Mem32,
+    };
+    matches!(op.ty(), OperandType::Memory(mem) if mem.size == word)
+}
+
+/// How many images the static selection circle pool holds.
+const SELECTION_CIRCLE_POOL_LEN: usize = 0x50;
+/// How many images the static health bar pool holds, one per unit the local selection can hold.
+const HP_BAR_POOL_LEN: usize = 0xc;
+/// Sprite flag: the sprite is in the local selection and shows a health bar.
+const SPRITE_SELECTED: u8 = 0x8;
+/// Sprite flag: the sprite shows a selection circle from images `SELECTION_CIRCLE_IMAGES`.
+const SPRITE_SELECTION_CIRCLE: u8 = 0x1;
+/// Sprite flags: how many teammates have the sprite selected, as a two-bit count; a sprite with
+/// any shows one circle from images `TEAM_SELECTION_CIRCLE_IMAGES`.
+const SPRITE_TEAM_SELECTION_COUNT: u8 = 0x6;
+const SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x231..=0x23a;
+const TEAM_SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x23b..=0x244;
+/// The draw function of a health bar image.
+const HP_BAR_DRAWFUNC: u8 = 0xb;
+
+/// The static pools selection circles and health bars come from, with their free lists, and the
+/// sprite pool whose sprites they get linked onto.
+///
+/// The game's own way of taking them off before a saved game write visits every sprite in the
+/// pool, a few thousand of them strewn over a few hundred KiB, to find the dozen or so that carry
+/// one. Only a sprite one of these pool images was ever linked onto, or a unit's sprite in one of
+/// the selections the game shows circles for, can carry one: a sprite gets the circle flags only
+/// along with a pool image, and the selected flag only from being put in the local selection. So
+/// those are the sprites visited, in pool order, each exactly as the game does it.
+struct SelectionVisualPools {
+    circles: Value<*mut bw::Image>,
+    free_circles: [Value<*mut bw::Image>; 2],
+    hp_bars: Value<*mut bw::Image>,
+    free_hp_bars: [Value<*mut bw::Image>; 2],
+    /// The `vector<bw::Sprite>` the sprite pool lives in.
+    sprites: Value<*mut scr::BwVector>,
+}
+
+impl SelectionVisualPools {
+    fn analyze(
+        analysis: &mut scr_analysis::Analysis<'_>,
+        ctx: scarf::OperandCtx<'static>,
+    ) -> Option<SelectionVisualPools> {
+        let found = (
+            analysis.selection_circles(),
+            analysis.first_free_selection_circle(),
+            analysis.last_free_selection_circle(),
+            analysis.hp_bar_images(),
+            analysis.first_free_hp_bar(),
+            analysis.last_free_hp_bar(),
+            analysis.sprites(),
+        );
+        let (
+            Some(circles),
+            Some(first_free_circle),
+            Some(last_free_circle),
+            Some(hp_bars),
+            Some(first_free_hp_bar),
+            Some(last_free_hp_bar),
+            Some(sprites),
+        ) = found
+        else {
+            warn!("Analysis could not find the selection circle and health bar pools");
+            return None;
+        };
+        let free = [
+            first_free_circle,
+            last_free_circle,
+            first_free_hp_bar,
+            last_free_hp_bar,
+        ];
+        if !free.iter().all(|&x| is_word_global(x)) {
+            warn!("The selection circle and health bar free lists aren't plain globals: {free:?}");
+            return None;
+        }
+        Some(SelectionVisualPools {
+            circles: Value::new(ctx, circles),
+            free_circles: [
+                Value::new(ctx, first_free_circle),
+                Value::new(ctx, last_free_circle),
+            ],
+            hp_bars: Value::new(ctx, hp_bars),
+            free_hp_bars: [
+                Value::new(ctx, first_free_hp_bar),
+                Value::new(ctx, last_free_hp_bar),
+            ],
+            sprites: Value::new(ctx, sprites),
+        })
+    }
+
+    /// Takes the selection circles and health bars off every sprite that carries one, leaving
+    /// the sprites, images and free lists as the game's own pass over every sprite would.
+    /// `selections` are the unit arrays the game shows circles for, each ending at its first null
+    /// entry.
+    unsafe fn clear(&self, selections: &[&[*mut bw::Unit]]) {
+        unsafe {
+            let vector = self.sprites.resolve();
+            let first_sprite = (*vector).data as usize;
+            let sprite_count = (*vector).length;
+            let sprite_size = mem::size_of::<bw::Sprite>();
+            let mut sprites: SmallVec<[*mut bw::Sprite; 256]> = SmallVec::new();
+            let mut add = |sprite: *mut bw::Sprite| {
+                let offset = (sprite as usize).wrapping_sub(first_sprite);
+                if offset < sprite_count * sprite_size && offset.is_multiple_of(sprite_size) {
+                    sprites.push(sprite);
+                }
+            };
+            let circles = self.circles.resolve();
+            for i in 0..SELECTION_CIRCLE_POOL_LEN {
+                add((*circles.add(i)).parent);
+            }
+            let hp_bars = self.hp_bars.resolve();
+            for i in 0..HP_BAR_POOL_LEN {
+                add((*hp_bars.add(i)).parent);
+            }
+            for &selection in selections {
+                for &unit in selection.iter().take_while(|x| !x.is_null()) {
+                    add((*unit).flingy.sprite);
+                }
+            }
+            sprites.sort_unstable();
+            sprites.dedup();
+
+            let free_circles = (
+                self.free_circles[0].resolve_as_ptr(),
+                self.free_circles[1].resolve_as_ptr(),
+            );
+            let free_hp_bars = (
+                self.free_hp_bars[0].resolve_as_ptr(),
+                self.free_hp_bars[1].resolve_as_ptr(),
+            );
+            let free = |image: *mut bw::Image, (first, last): (_, _)| {
+                let lists = &raw mut (*(*image).parent).version_specific.scr;
+                unlink_image(
+                    image,
+                    &raw mut (*lists).first_image,
+                    &raw mut (*lists).last_image,
+                );
+                push_free_image(image, first, last);
+            };
+            let last_with_id = |sprite: *mut bw::Sprite, ids: std::ops::RangeInclusive<u16>| {
+                let mut image = (*sprite).version_specific.scr.last_image;
+                while !image.is_null() && !ids.contains(&(*image).image_id) {
+                    image = (*image).prev;
+                }
+                image
+            };
+            for sprite in sprites {
+                if (*sprite).flags & SPRITE_SELECTED != 0 {
+                    (*sprite).flags &= !SPRITE_SELECTED;
+                    let mut image = (*sprite).version_specific.scr.first_image;
+                    while !image.is_null() && (*image).drawfunc != HP_BAR_DRAWFUNC {
+                        image = (*image).next;
+                    }
+                    if !image.is_null() {
+                        free(image, free_hp_bars);
+                    }
+                }
+                if (*sprite).flags & SPRITE_SELECTION_CIRCLE != 0 {
+                    (*sprite).flags &= !SPRITE_SELECTION_CIRCLE;
+                    let image = last_with_id(sprite, SELECTION_CIRCLE_IMAGES);
+                    if !image.is_null() {
+                        free(image, free_circles);
+                    }
+                }
+                if (*sprite).flags & SPRITE_TEAM_SELECTION_COUNT != 0 {
+                    (*sprite).flags &= !SPRITE_TEAM_SELECTION_COUNT;
+                    let image = last_with_id(sprite, TEAM_SELECTION_CIRCLE_IMAGES);
+                    if !image.is_null() {
+                        free(image, free_circles);
+                    }
+                }
+            }
+            #[cfg(debug_assertions)]
+            self.check_cleared(first_sprite, sprite_count);
+        }
+    }
+
+    /// Checks, every so often, that no sprite in the pool is left carrying a selection visual.
+    #[cfg(debug_assertions)]
+    unsafe fn check_cleared(&self, first_sprite: usize, sprite_count: usize) {
+        static CALLS: AtomicU32 = AtomicU32::new(0);
+        const CHECK_INTERVAL: u32 = 64;
+        if !CALLS
+            .fetch_add(1, Ordering::Relaxed)
+            .is_multiple_of(CHECK_INTERVAL)
+        {
+            return;
+        }
+        let visual_flags = SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
+        unsafe {
+            let sprites = first_sprite as *const bw::Sprite;
+            for i in 0..sprite_count {
+                let flags = (*sprites.add(i)).flags;
+                debug_assert!(
+                    flags & visual_flags == 0,
+                    "Sprite {i} still carries selection visual flags {flags:x}",
+                );
+            }
         }
     }
 }
@@ -2018,6 +2223,7 @@ impl BwScr {
         // is set up, long after analysis, so these are always resolved.
         let observer_ui_callbacks = ObserverUiCallbacks::analyze(&mut analysis);
         let selection_visuals = SelectionVisuals::analyze(&mut analysis);
+        let selection_visual_pools = SelectionVisualPools::analyze(&mut analysis, ctx);
         let click_feedback = ClickFeedback::analyze(&mut analysis);
         let placement_overlays = PlacementOverlayPools::analyze(&mut analysis, ctx);
         let mission_dialog_openers = analysis
@@ -2249,6 +2455,7 @@ impl BwScr {
             engine_free,
             observer_ui_callbacks,
             selection_visuals,
+            selection_visual_pools,
             click_feedback,
             placement_overlays,
             mission_dialog_openers,
@@ -6788,8 +6995,32 @@ impl BwScr {
     /// Takes the selection circles and health bars off every sprite.
     pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
         unsafe {
-            if let Some(visuals) = &self.selection_visuals {
-                (visuals.clear)();
+            match (
+                &self.selection_visual_pools,
+                &self.local_selection,
+                &self.simulated_selections,
+            ) {
+                (Some(pools), Some(local_selection), Some(simulated_selections)) => {
+                    // Selected sprites are the local selection's units (which the client
+                    // selection is rebuilt from), and teammates' shared circles come from each
+                    // player's simulated selection.
+                    let local = std::slice::from_raw_parts(local_selection.resolve(), 12);
+                    let client = std::slice::from_raw_parts(self.client_selection.resolve(), 12);
+                    let simulated = std::slice::from_raw_parts(
+                        simulated_selections.resolve() as *const [*mut bw::Unit; 12],
+                        8,
+                    );
+                    let mut selections: SmallVec<[&[*mut bw::Unit]; 10]> = SmallVec::new();
+                    selections.push(local);
+                    selections.push(client);
+                    selections.extend(simulated.iter().map(|row| row.as_slice()));
+                    pools.clear(&selections);
+                }
+                _ => {
+                    if let Some(visuals) = &self.selection_visuals {
+                        (visuals.clear)();
+                    }
+                }
             }
         }
     }
