@@ -343,6 +343,8 @@ pub struct BwScr {
     /// steps, or `None` if analysis could not find both.
     click_feedback: Option<ClickFeedback>,
     placement_overlays: Option<PlacementOverlayPools>,
+    /// The pylon power fields, or `None` if analysis could not find them.
+    pylon_auras: Option<PylonAuras>,
     /// The functions the trigger step calls to open the defeat and victory dialogs, or `None` if
     /// analysis could not find both.
     mission_dialog_openers: Option<(VirtualAddress, VirtualAddress)>,
@@ -1409,6 +1411,55 @@ impl SelectionVisualPools {
     }
 }
 
+/// Image flag: the image has to be drawn again.
+const IMAGE_REDRAW: u16 = 0x1;
+
+/// The power fields of the pylons, which the local player's pylons show while one of them is
+/// selected or a building is being placed. Each is a sprite in the simulation's pool, made when
+/// its pylon finishes and kept with the pylon, but which ones are shown is up to the UI.
+struct PylonAuras {
+    /// The newest finished pylon, the head of a list linked through `rally_pylon.pylon`.
+    first_pylon: Value<*mut bw::Unit>,
+    /// Whether the local player's power fields are shown, which a pylon that finishes reads to
+    /// decide whether to show its own.
+    shown: Value<u32>,
+}
+
+impl PylonAuras {
+    fn analyze(
+        analysis: &mut scr_analysis::Analysis<'_>,
+        ctx: scarf::OperandCtx<'static>,
+    ) -> Option<PylonAuras> {
+        let (Some(first_pylon), Some(shown)) =
+            (analysis.first_pylon(), analysis.pylon_auras_visible())
+        else {
+            warn!("Analysis could not find the pylon power fields");
+            return None;
+        };
+        Some(PylonAuras {
+            first_pylon: Value::new(ctx, first_pylon),
+            shown: Value::new(ctx, shown),
+        })
+    }
+}
+
+/// Sets which players `sprite` is visible to as the game does, marking its images to be drawn
+/// again when it turns visible to a player the local view sees with.
+unsafe fn set_sprite_visibility_mask(sprite: *mut bw::Sprite, mask: u8, local_visions: u8) {
+    unsafe {
+        let old = (*sprite).visibility_mask & local_visions;
+        let new = mask & local_visions;
+        if old != new && new != 0 {
+            let mut image = (*sprite).version_specific.scr.first_image;
+            while !image.is_null() {
+                (*image).flags |= IMAGE_REDRAW;
+                image = (*image).next;
+            }
+        }
+        (*sprite).visibility_mask = mask;
+    }
+}
+
 /// Building placement overlays taken off their units to snapshot or restore, with what each held,
 /// to put back once that is done (see
 /// [`rollback_detach_placement_overlays`](BwScr::rollback_detach_placement_overlays)).
@@ -2237,6 +2288,7 @@ impl BwScr {
         let selection_visual_pools = SelectionVisualPools::analyze(&mut analysis, ctx);
         let click_feedback = ClickFeedback::analyze(&mut analysis);
         let placement_overlays = PlacementOverlayPools::analyze(&mut analysis, ctx);
+        let pylon_auras = PylonAuras::analyze(&mut analysis, ctx);
         let mission_dialog_openers = analysis
             .open_defeat_mission_dialog()
             .zip(analysis.open_victory_mission_dialog());
@@ -2469,6 +2521,7 @@ impl BwScr {
             selection_visual_pools,
             click_feedback,
             placement_overlays,
+            pylon_auras,
             mission_dialog_openers,
             show_game_message,
             rollback_ranges,
@@ -6895,6 +6948,9 @@ impl BwScr {
         if self.placement_overlays.is_none() {
             return Some("building placement overlay pools");
         }
+        if self.pylon_auras.is_none() {
+            return Some("pylon power fields");
+        }
         if self.mission_dialog_openers.is_none() {
             return Some("mission dialog openers");
         }
@@ -7049,6 +7105,45 @@ impl BwScr {
             if let Some(visuals) = &self.selection_visuals {
                 (visuals.rebuild)();
             }
+        }
+    }
+
+    /// Whether the local player's pylon power fields are shown.
+    pub(crate) unsafe fn rollback_pylon_auras_shown(&self) -> bool {
+        unsafe {
+            self.pylon_auras
+                .as_ref()
+                .is_some_and(|auras| auras.shown.resolve() != 0)
+        }
+    }
+
+    /// Shows the local player's pylon power fields and hides every other, or hides them all, as
+    /// selecting a pylon or something else does. A pylon left without one by a full sprite pool
+    /// stays without, where the game would try again to make one: that would take a sprite from
+    /// the simulation's pool between steps.
+    pub(crate) unsafe fn rollback_set_pylon_auras_shown(&self, shown: bool) {
+        unsafe {
+            let Some(auras) = &self.pylon_auras else {
+                return;
+            };
+            let show_local = shown && self.is_replay.resolve() == 0;
+            let local_player = self.local_player_id.resolve();
+            let local_visions = self.local_visions.resolve();
+            let mut pylon = auras.first_pylon.resolve();
+            while !pylon.is_null() {
+                let aura = (*pylon).unit_specific2.pylon.aura;
+                if !aura.is_null() {
+                    if show_local && u32::from((*pylon).player) == local_player {
+                        (*aura).flags &= !SPRITE_HIDDEN;
+                        set_sprite_visibility_mask(aura, local_visions, local_visions);
+                    } else {
+                        (*aura).flags |= SPRITE_HIDDEN;
+                        set_sprite_visibility_mask(aura, 0, local_visions);
+                    }
+                }
+                pylon = (*pylon).rally_pylon.pylon.next;
+            }
+            auras.shown.write(u32::from(shown));
         }
     }
 

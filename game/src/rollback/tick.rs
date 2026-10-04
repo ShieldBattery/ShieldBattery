@@ -113,11 +113,17 @@ pub(crate) unsafe fn run_tick(
         {
             let start = Instant::now();
             selection_before_restore = Some(bw.rollback_local_selection());
+            let pylon_auras_shown = bw.rollback_pylon_auras_shown();
             if let Some(restored) =
                 with_ui_images_off(bw, || snapshots.restore_at_or_before(target, bw))
             {
                 current = restored;
                 report.restored = Some(restored);
+                // The power fields are sprites the snapshot holds, which the UI shows and hides
+                // between steps; nothing about the selection after a restore shows that they were
+                // hidden since, or shown for a building being placed. So they go back to what the
+                // person was seeing, before steps that read it run again.
+                bw.rollback_set_pylon_auras_shown(pylon_auras_shown);
                 selection::undo_after(bw, restored);
             }
             report.restore_time = start.elapsed();
