@@ -1223,8 +1223,8 @@ const HP_BAR_DRAWFUNC: u8 = 0xb;
 /// one. Only a sprite one of these pool images is linked onto, or the sprite of a unit in the
 /// local selection, can carry one: the game sets a sprite's circle flags only along with linking
 /// a circle onto it and clears them whenever it takes one off, and sets the selected flag only for
-/// the local selection's units. So those are the sprites visited, in pool order, each exactly as
-/// the game does it.
+/// the local selection's units. So the flagged ones among those are the sprites visited, in pool
+/// order, each exactly as the game does it.
 struct SelectionVisualPools {
     circles: Value<*mut bw::Image>,
     free_circles: [Value<*mut bw::Image>; 2],
@@ -1295,31 +1295,28 @@ impl SelectionVisualPools {
             let first_sprite = (*vector).data as usize;
             let sprite_count = (*vector).length;
             let sprite_size = mem::size_of::<bw::Sprite>();
-            let mut sprites: SmallVec<[*mut bw::Sprite; 128]> = SmallVec::new();
+            let visual_flags =
+                SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
+            let mut sprites: SmallVec<[*mut bw::Sprite; 32]> = SmallVec::new();
+            // Visiting a sprite without the flags does nothing, so only flagged ones are kept.
+            // The free lists aren't walked to tell the pool images in use from the free ones,
+            // whose parent is whatever sprite they were last on: those reads would each wait on
+            // the last, and the parents can all be read at once instead.
             let mut add = |sprite: *mut bw::Sprite| {
                 let offset = (sprite as usize).wrapping_sub(first_sprite);
-                if offset < sprite_count * sprite_size && offset.is_multiple_of(sprite_size) {
+                if offset < sprite_count * sprite_size
+                    && offset.is_multiple_of(sprite_size)
+                    && (*sprite).flags & visual_flags != 0
+                {
                     sprites.push(sprite);
                 }
             };
-            let free_circles = (
-                self.free_circles[0].resolve_as_ptr(),
-                self.free_circles[1].resolve_as_ptr(),
-            );
-            let free_hp_bars = (
-                self.free_hp_bars[0].resolve_as_ptr(),
-                self.free_hp_bars[1].resolve_as_ptr(),
-            );
             let pools = [
-                (
-                    self.circles.resolve(),
-                    SELECTION_CIRCLE_POOL_LEN,
-                    free_circles.0,
-                ),
-                (self.hp_bars.resolve(), HP_BAR_POOL_LEN, free_hp_bars.0),
+                (self.circles.resolve(), SELECTION_CIRCLE_POOL_LEN),
+                (self.hp_bars.resolve(), HP_BAR_POOL_LEN),
             ];
-            for (pool, len, first_free) in pools {
-                for i in in_use_pool_entries(pool, len, *first_free) {
+            for (pool, len) in pools {
+                for i in 0..len {
                     add((*pool.add(i)).parent);
                 }
             }
@@ -1330,6 +1327,15 @@ impl SelectionVisualPools {
             }
             sprites.sort_unstable();
             sprites.dedup();
+
+            let free_circles = (
+                self.free_circles[0].resolve_as_ptr(),
+                self.free_circles[1].resolve_as_ptr(),
+            );
+            let free_hp_bars = (
+                self.free_hp_bars[0].resolve_as_ptr(),
+                self.free_hp_bars[1].resolve_as_ptr(),
+            );
 
             let free = |image: *mut bw::Image, (first, last): (_, _)| {
                 let lists = &raw mut (*(*image).parent).version_specific.scr;
@@ -1400,28 +1406,6 @@ impl SelectionVisualPools {
                 );
             }
         }
-    }
-}
-
-/// The indices of the entries of the `len` images at `pool` that are not on the pool's free list,
-/// which starts at `first_free`.
-unsafe fn in_use_pool_entries(
-    pool: *mut bw::Image,
-    len: usize,
-    first_free: *mut bw::Image,
-) -> impl Iterator<Item = usize> {
-    unsafe {
-        debug_assert!(len <= 128);
-        let mut free = 0u128;
-        let mut image = first_free;
-        for _ in 0..len {
-            if image < pool || image >= pool.add(len) {
-                break;
-            }
-            free |= 1 << image.offset_from(pool);
-            image = (*image).next;
-        }
-        (0..len).filter(move |&i| free & (1 << i) == 0)
     }
 }
 
