@@ -89,11 +89,7 @@ const CACHE_THRASH_BYTES: usize = 64 << 20;
 const SAMPLE_INTERVAL: Duration = Duration::from_micros(100);
 
 /// Bytes of the game thread's stack copied per sample and scanned for return addresses.
-const SAMPLE_STACK_BYTES: usize = 16 * 1024;
-
-/// Zeroed bytes kept after a sample's copy of the stack, so an unwind of a frame near the end of
-/// the copy reads zeros rather than memory past the buffer.
-const SAMPLE_STACK_PADDING: usize = 64 * 1024;
+const SAMPLE_STACK_BYTES: usize = 512 * 1024;
 
 /// Frames walked per sample, innermost first.
 const SAMPLE_FRAMES: usize = 48;
@@ -1388,8 +1384,7 @@ fn sample_loop(
     #[repr(C, align(16))]
     struct Aligned(CONTEXT);
     let mut output = SamplerOutput::default();
-    // Zeroed past the copied part, so an unwind that runs off the end reads zeros.
-    let mut stack = vec![0usize; (SAMPLE_STACK_BYTES + SAMPLE_STACK_PADDING) / size_of::<usize>()];
+    let mut stack = vec![0usize; SAMPLE_STACK_BYTES / size_of::<usize>()];
     let mut frames = Vec::with_capacity(SAMPLE_FRAMES);
     let mut next = Instant::now();
     while !stop.load(Ordering::Acquire) {
@@ -1516,7 +1511,9 @@ unsafe extern "system" {
 /// (or its address, for code without unwind data) innermost first. The walk reads the copy of the
 /// stack taken while the thread was suspended: every register pointing into the copied part of the
 /// stack is moved to point into the copy, before the first frame and again after each one, since
-/// unwinding a frame restores registers that hold addresses on the original stack.
+/// unwinding a frame restores registers that hold addresses on the original stack. A frame is only
+/// unwound when everything its unwind data says unwinding it reads lies in the copy, so the walk
+/// stops at the first frame that is not, or whose unwind data it does not follow.
 #[cfg(target_arch = "x86_64")]
 unsafe fn unwind(
     context: &mut winapi::um::winnt::CONTEXT,
@@ -1547,9 +1544,11 @@ unsafe fn unwind(
             }
         };
         translate_all(context);
+        let end = copy + copied;
+        let in_copy = |from: u64, bytes: u64| from >= copy && from.saturating_add(bytes) <= end;
         while frames.len() < SAMPLE_FRAMES {
             let pc = context.Rip;
-            if pc == 0 || context.Rsp < copy || context.Rsp + 8 > copy + copied {
+            if pc == 0 || !in_copy(context.Rsp, 8) {
                 break;
             }
             let mut image_base = 0u64;
@@ -1560,6 +1559,19 @@ unsafe fn unwind(
                 context.Rsp += 8;
             } else {
                 frames.push((image_base + (*function).begin as u64) as usize);
+                let Some(reads) = frame_reads(image_base, function) else {
+                    break;
+                };
+                if !in_copy(context.Rsp, reads.bytes) {
+                    break;
+                }
+                if reads.frame_register != 0 {
+                    let base =
+                        register(context, reads.frame_register).wrapping_sub(reads.frame_offset);
+                    if !in_copy(base, reads.bytes) {
+                        break;
+                    }
+                }
                 let mut handler_data = std::ptr::null_mut();
                 let mut establisher = 0u64;
                 RtlVirtualUnwind(
@@ -1575,6 +1587,134 @@ unsafe fn unwind(
                 translate_all(context);
             }
         }
+    }
+}
+
+/// What unwinding one frame reads of the stack, from its unwind data.
+#[cfg(target_arch = "x86_64")]
+struct FrameReads {
+    /// Bytes up from the frame's base: its allocation, the registers pushed and saved, and the
+    /// return address.
+    bytes: u64,
+    /// The register the function keeps its frame's base in, offset by `frame_offset`, or 0 for one
+    /// that keeps it in the stack pointer.
+    frame_register: u8,
+    frame_offset: u64,
+}
+
+/// What unwinding `function`'s frame reads, from its unwind codes and those it chains to, or `None`
+/// for unwind data this walk does not follow.
+#[cfg(target_arch = "x86_64")]
+unsafe fn frame_reads(image_base: u64, function: *const RuntimeFunction) -> Option<FrameReads> {
+    const UNW_FLAG_CHAININFO: u8 = 0x4;
+    const MAX_CHAINED: usize = 8;
+    unsafe {
+        let mut pushed = 8u64;
+        let mut saved = 0u64;
+        let mut frame_register = 0;
+        let mut frame_offset = 0;
+        let mut function = function;
+        for chained in 0..MAX_CHAINED {
+            let unwind = (*function).unwind;
+            if unwind & 1 != 0 {
+                return None;
+            }
+            let info = (image_base + u64::from(unwind)) as *const u8;
+            let flags = info.read() >> 3;
+            let count = usize::from(info.add(2).read());
+            if chained == 0 {
+                let frame = info.add(3).read();
+                frame_register = frame & 0xf;
+                frame_offset = u64::from(frame >> 4) * 16;
+            }
+            let codes = info.add(4) as *const u16;
+            let slot = |i: usize| u64::from(codes.add(i).read_unaligned());
+            let mut i = 0;
+            while i < count {
+                let code = slot(i);
+                let op_info = code >> 12;
+                let slots = match (code >> 8) & 0xf {
+                    // UWOP_PUSH_NONVOL
+                    0 => {
+                        pushed += 8;
+                        1
+                    }
+                    // UWOP_ALLOC_LARGE
+                    1 if op_info == 0 => {
+                        pushed += slot(i + 1) * 8;
+                        2
+                    }
+                    1 => {
+                        pushed += slot(i + 1) | slot(i + 2) << 16;
+                        3
+                    }
+                    // UWOP_ALLOC_SMALL
+                    2 => {
+                        pushed += op_info * 8 + 8;
+                        1
+                    }
+                    // UWOP_SET_FPREG
+                    3 => 1,
+                    // UWOP_SAVE_NONVOL, UWOP_SAVE_XMM128
+                    4 => {
+                        saved = saved.max(slot(i + 1) * 8 + 8);
+                        2
+                    }
+                    8 => {
+                        saved = saved.max(slot(i + 1) * 16 + 16);
+                        2
+                    }
+                    // UWOP_SAVE_NONVOL_FAR, UWOP_SAVE_XMM128_FAR
+                    5 => {
+                        saved = saved.max((slot(i + 1) | slot(i + 2) << 16) + 8);
+                        3
+                    }
+                    9 => {
+                        saved = saved.max((slot(i + 1) | slot(i + 2) << 16) + 16);
+                        3
+                    }
+                    // UWOP_PUSH_MACHFRAME
+                    10 => {
+                        pushed += 40 + op_info * 8;
+                        1
+                    }
+                    _ => return None,
+                };
+                i += slots;
+            }
+            if flags & UNW_FLAG_CHAININFO == 0 {
+                return Some(FrameReads {
+                    bytes: pushed.max(saved),
+                    frame_register,
+                    frame_offset,
+                });
+            }
+            function = codes.add((count + 1) & !1) as *const RuntimeFunction;
+        }
+        None
+    }
+}
+
+/// The general purpose register an unwind code numbers `index`.
+#[cfg(target_arch = "x86_64")]
+fn register(context: &winapi::um::winnt::CONTEXT, index: u8) -> u64 {
+    match index {
+        0 => context.Rax,
+        1 => context.Rcx,
+        2 => context.Rdx,
+        3 => context.Rbx,
+        4 => context.Rsp,
+        5 => context.Rbp,
+        6 => context.Rsi,
+        7 => context.Rdi,
+        8 => context.R8,
+        9 => context.R9,
+        10 => context.R10,
+        11 => context.R11,
+        12 => context.R12,
+        13 => context.R13,
+        14 => context.R14,
+        _ => context.R15,
     }
 }
 
