@@ -54,6 +54,7 @@ services:
       - SB_RP2_TENANT
       - SB_RP2_CLIENT_KEY
       - SB_RP2_RELAY_SERVER_NAME
+      - SB_RP2_ROLLBACK
       - GOOGLE_APPLICATION_CREDENTIALS=/google-credentials.json
       - 'SB_SERVER_RS_URL=http://server_rs:5556'
     networks:
