@@ -310,12 +310,12 @@ Coordinators and relays already run rp2 main `2a07bae`.
   [The session clock and lead report](rollback-m4-controller.md#the-session-clock-and-lead-report).
   The same 2v2 as the local test pass below (us-west ×2, Korea, us-east), rerun with it:
 
-  | | Self-anchored schedule | Session clock |
-  |---|---|---|
-  | Frames caught up after a ~55 s drop wait | 1,063–1,241 (~2.6× speed for ~25 s) | 1–6 |
-  | Korea client's rollback | ~0; its lateness on everyone else | 3.0 frames, its target, on a pipe of 2 |
-  | Korea client's catch-ups and hold-backs | ~200 each per 30 s | 0 once settled |
-  | Each client's p90 lateness at the relay | (not measured) | −1 to −6 ms, about the 3 ms margin |
+  |                                          | Self-anchored schedule              | Session clock                          |
+  | ---------------------------------------- | ----------------------------------- | -------------------------------------- |
+  | Frames caught up after a ~55 s drop wait | 1,063–1,241 (~2.6× speed for ~25 s) | 1–6                                    |
+  | Korea client's rollback                  | ~0; its lateness on everyone else   | 3.0 frames, its target, on a pipe of 2 |
+  | Korea client's catch-ups and hold-backs  | ~200 each per 30 s                  | 0 once settled                         |
+  | Each client's p90 lateness at the relay  | (not measured)                      | −1 to −6 ms, about the 3 ms margin     |
 
   Every relay adopted the same stop (57.9 s for a 58 s wait). Within a minute of the start, each
   client's corrections settle to millisecond trims that net to almost nothing, with no catch-ups
@@ -332,6 +332,7 @@ Coordinators and relays already run rp2 main `2a07bae`.
     while every other client rolled back over its late turns (29–60 rollbacks per 30 s against
     its 0). In one game it also alternated catching up and holding back (~200 of each per 30 s),
     which is uneven pacing on screen.
+
 - **Staging-region tests.** Real cross-region games on the staging region with release builds.
   Watch stalls: a 40 s cross-relay game on release x64 had 3 (the longest 339 ms).
 
@@ -355,6 +356,7 @@ us-east so sessions spanned three relays, with `SB_ROLLBACK_MONKEY=120` on every
   survivor applied within ~70 ms through the fence (a 9-frame rollback). Then the sprint above.
 
 Smaller things found on the way:
+
 - The summary's step time counts a stall at the limit as one long step ("worst 54454.5 ms"), and
   its "ahead … at most 9" exceeds the limit of 8, probably the off-by-one fixed in the readout.
 - The chip showed a 3 s peak of rollback, so it sat at 5 while the average was 3. It now shows
@@ -422,6 +424,61 @@ In rough order:
   settings the app sends it.
 - The sound hook, so a sound's audibility is decided when it plays rather than at each simulation.
 - Removing the native 0x37 path once every game rolls back.
+
+### Performance
+
+The engine's cost is measured with the replay bench (`SB_ROLLBACK_BENCH`, see the docs at the top
+of `game/src/rollback_bench.rs`; build it with `cargo build --profile bench-dll`). It rolls back
+fixed depths at checkpoints of a replay, one tick per game loop tick so the game renders between
+them, times restores, snapshots and steps in game-thread CPU time, checks every re-simulation
+against the first simulation, and can sample a profile (`profile=1`). Machine state drifts by 15%
+or more over hours, so compare a change only against a baseline run interleaved with it.
+
+The 2026-10-04 pass (parallel snapshot copies on two helper threads, pathing and the sprite draw
+buffers out of the snapshot, no snapshots a tick drops anyway, a selection-visual clear that only
+visits sprites that can carry one) cut a rolling-back tick by 34–49% on x64 (depth 8 to 1), 26–40%
+on x86, and 39–55% with the game thread on an efficiency core, and forward ticks by 22–35%. A
+rolling-back tick at depth 2 went from 1.3 ms to 0.74 ms on the bench machine.
+
+Prototypes kept on local branches for later, roughly by value:
+
+- **Late selection-only turns** (`perf/late-selection-turns`). 40–60% of non-empty turns only
+  change the issuing player's selection and hotkey groups, which nothing else in the step reads,
+  so a late one can be applied on arrival instead of rolling back when every unit and group it
+  touches provably read the same since its frame. 31–42% fewer rollbacks in the harness with no
+  divergence; applying them unconditionally does diverge. Needs a design pass: the input table
+  applying turns late, re-application after restores, EUD exclusion, and the replay recorder
+  splicing the command into its original frame.
+- **Untouched pool entries** (`perf/range-diet-page-watch`). Pool entries a game never used still
+  hold their init bytes; leaving them out of snapshots and watching their pages for writes cuts
+  another ~17% (snapshots to about 1 MB). Page-protects SC:R's heap and data and puts a vectored
+  exception handler first; needs a live smoke test on both architectures, and the AI region step
+  costs a 0.3–0.7 ms fault spike every ~60 frames.
+- **Minimap terrain skip** (`perf/minimap-terrain-skip`). Every turn redraws the whole minimap
+  inside the step (terrain ~73 µs); a terrain redraw that a later step of the same tick redraws
+  again can be skipped, saving about 73 µs per re-simulated frame live. The unit markers feed the
+  sync ring and must still run. Needs samase analyses for `redraw_and_invalidate_minimap` and
+  `redraw_minimap_terrain`; the prototype hooks hardcoded x64 addresses.
+- **Fast sprite position getters** (`perf/fast-position-getters`). SC:R's obfuscated
+  `sprite_position_x/y` reduce to `low16(field ^ K)`; replacing them cuts about 10% off a
+  re-simulated step and speeds up ordinary play too. Needs a samase analysis for the getters, and
+  the replacements no longer run the key helper's return-address check, an anti-tamper behaviour.
+- **Background snapshot copy** (`perf/background-snapshot-copy`). Copies the snapshot of the frame
+  a tick ends on while the game draws it, stripping selection visuals from the copy instead of the
+  live sprites: forward ticks −36%. Never validated with selections on; the bench's selection knob
+  crashed the renderer even on the baseline engine.
+- **Write watch** (`perf/write-watch`). Re-reserves the pools' allocations as write-watched memory
+  in place: −10 to −18%, but too fragile to ship, and the page watch above gets more.
+- Bench additions not merged: live-like ticks that advance and confirm a frame each tick
+  (`perf/bench-live-ticks`), memory-bandwidth pressure threads and a first-step/later-step split
+  (`perf/bench-memory-pressure`), unit selection and between-tick frame profiling
+  (`perf/bench-select-and-frame-profiling`).
+
+Measured dead ends: comparing and copying only differing lines (it reads both sides, which loses
+to `rep movsb` writing whole lines without reading them), non-temporal or AVX copies on one
+thread, wider or adaptive snapshot spacing, and skipping SC:R's per-image integrity-check gate. A
+re-simulated step costs about twice a hot one because rendering runs between ticks, not because of
+the snapshot copies.
 
 ## Risks
 
