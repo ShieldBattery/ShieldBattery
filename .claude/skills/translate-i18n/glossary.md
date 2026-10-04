@@ -150,6 +150,8 @@ consistent. (Seed — extend over time.)
   channel owner→**propietario del canal** (matches /topic; the older ban error says dueño),
   channel moderator→**moderador del canal**, member→**miembro**. Chat display modes
   Classic/Cozy→**Clásico / Cómodo** (Discord's Spanish "Cómodo" for Cozy).
+- **Rollback netcode:** rollback→**rollback** (loanword, el rollback; Equilibrio del rollback);
+  scale ends Más fluido/Más reactivo; value marker Recommended→**Recomendado**.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -229,6 +231,8 @@ consistent. (Seed — extend over time.)
   (hyphenated compound, declines both halves: по ссылке-приглашению), channel owner→**владелец
   канала** (in-file), channel moderator→**модератор канала**, member (of a channel)→**участник**.
   Chat display modes Classic/Cozy→**Классический / Уютный**.
+- **Rollback netcode:** rollback→**откат** (Баланс отката); scale ends Плавнее/Отзывчивее;
+  value marker Recommended→**Рекомендуется** (matches "Авто (рекомендуется)").
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -306,6 +310,8 @@ consistent. (Seed — extend over time.)
   owner→**채널 소유자** (in-file), channel moderator→**채널 관리자** (matches the ban errors'
   관리자), member→**멤버**; join a channel→**참가** (not 가입). Chat display modes
   Classic/Cozy→**클래식 / 편안하게**.
+- **Rollback netcode:** rollback→**롤백** (롤백 밸런스, FGC usage); trade-off scale ends use the
+  "~ 우선" pattern (부드러움 우선 / 반응 속도 우선); value marker Recommended→**권장**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -371,3 +377,5 @@ consistent. (Seed — extend over time.)
   owner→**频道所有者** (in-file), channel moderator→**频道版主** (版主 in-file), member→**成员**.
   Register: the file is dominantly 您 (≈196 vs 29 你) — use 您. Chat display modes
   Classic/Cozy→**经典 / 舒适**.
+- **Rollback netcode:** rollback→**回滚** (回滚平衡, FGC usage); trade-off scale ends use "~优先"
+  (流畅优先 / 响应优先); value marker Recommended→**推荐**.

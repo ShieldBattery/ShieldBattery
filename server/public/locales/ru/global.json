@@ -1781,6 +1781,9 @@
     "mapSelect": {
       "browseMaps": "Просмотреть карты"
     },
+    "preview": {
+      "zoom": "Масштаб"
+    },
     "server": {
       "allMaps": "Все карты",
       "browseLocal": "Просмотреть локальные карты",
@@ -2262,6 +2265,14 @@
       },
       "system": {
         "networkOverline": "Сеть",
+        "rollbackTarget": {
+          "description": "Чем выше значение, тем отзывчивее ваши команды, но тем чаще юниты могут заметно дёргаться.",
+          "label": "Баланс отката",
+          "recommended": "Рекомендуется",
+          "recommendedValue": "{{value}}, рекомендуется",
+          "responsive": "Отзывчивее",
+          "smoother": "Плавнее"
+        },
         "runOnStartup": "Запускать ShieldBattery при запуске системы",
         "serverRegion": {
           "autoPlain": "Авто (рекомендуется)",
@@ -2531,12 +2542,14 @@
       },
       "input": {
         "cursorHeader": "Курсор",
+        "customCursorSize": "Размер курсора",
         "customCursorSizeLargest": "Максимальный",
         "customCursorSizeSmallest": "Минимальный",
         "customMouseSensitivity": "Пользовательская чувствительность мыши",
         "grabPan": "Своя чувствительность перетаскивания камеры",
         "grabPanFaster": "Быстрее",
         "grabPanInverted": "Инвертировать направление движения камеры",
+        "grabPanSensitivity": "Чувствительность перетаскивания камеры",
         "grabPanSlower": "Медленнее",
         "grabPanTooltip": "Настраивает скорость движения камеры при перетаскивании средней кнопкой мыши. Если выключено, поведение совпадает с классическим StarCraft: Remastered.",
         "hardwareCursor": "Аппаратный курсор",

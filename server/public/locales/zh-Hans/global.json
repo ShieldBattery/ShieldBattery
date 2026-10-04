@@ -1700,6 +1700,9 @@
     "mapSelect": {
       "browseMaps": "浏览地图"
     },
+    "preview": {
+      "zoom": "缩放"
+    },
     "server": {
       "allMaps": "所有地图",
       "browseLocal": "浏览本地地图",
@@ -2172,6 +2175,14 @@
       },
       "system": {
         "networkOverline": "网络",
+        "rollbackTarget": {
+          "description": "数值越高，指令响应越快，但单位可能会更频繁地出现明显的跳动。",
+          "label": "回滚平衡",
+          "recommended": "推荐",
+          "recommendedValue": "{{value}}，推荐",
+          "responsive": "响应优先",
+          "smoother": "流畅优先"
+        },
         "runOnStartup": "开机时自动启动ShieldBattery",
         "serverRegion": {
           "autoPlain": "自动（推荐）",
@@ -2438,12 +2449,14 @@
       },
       "input": {
         "cursorHeader": "光标",
+        "customCursorSize": "光标大小",
         "customCursorSizeLargest": "最大",
         "customCursorSizeSmallest": "最小",
         "customMouseSensitivity": "自定义鼠标灵敏度",
         "grabPan": "自定义中键平移灵敏度",
         "grabPanFaster": "更快",
         "grabPanInverted": "反转平移方向",
+        "grabPanSensitivity": "中键平移灵敏度",
         "grabPanSlower": "更慢",
         "grabPanTooltip": "调整用鼠标中键平移画面时镜头的移动速度。关闭时与旧版《星际争霸：重制版》行为一致。",
         "hardwareCursor": "硬件指针",
