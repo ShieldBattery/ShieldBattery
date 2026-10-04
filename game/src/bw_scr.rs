@@ -1339,6 +1339,17 @@ const ZOOM_IGNORING_EFFECT_SOUNDS: &[(&str, &str)] = &[
     ("SND_YAMATO_BLAST", "tBaYam02.wav"),
 ];
 
+/// The decoder of an obfuscated sprite coordinate (`Custom_0` being the stored word), cut down to
+/// the low 16 bits a coordinate is. The game's decoders run to dozens of terms, most of them
+/// shifted entirely out of those bits, and every decode interprets the whole tree, so leaving the
+/// simplifier to drop those terms once makes each decode a fraction of the work.
+fn sprite_coordinate_decoder(
+    ctx: scarf::OperandCtx<'static>,
+    decoder: scarf::Operand<'_>,
+) -> Value<*mut *mut scr::Sprite> {
+    Value::new(ctx, ctx.and_const(ctx.copy_operand(decoder), 0xffff))
+}
+
 pub(crate) unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
     unsafe {
         use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
@@ -2086,8 +2097,16 @@ impl BwScr {
             client_selection: Value::new(ctx, client_selection),
             sprites_by_y_tile: Value::new(ctx, sprites_by_y_tile),
             sprites_by_y_tile_end: Value::new(ctx, sprites_by_y_tile_end),
-            sprite_x: (Value::new(ctx, sprite_x.0), sprite_x.1, sprite_x.2),
-            sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
+            sprite_x: (
+                sprite_coordinate_decoder(ctx, sprite_x.0),
+                sprite_x.1,
+                sprite_x.2,
+            ),
+            sprite_y: (
+                sprite_coordinate_decoder(ctx, sprite_y.0),
+                sprite_y.1,
+                sprite_y.2,
+            ),
             replay_data: Value::new(ctx, replay_data),
             replay_header: Value::new(ctx, replay_header),
             trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
