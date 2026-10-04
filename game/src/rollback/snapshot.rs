@@ -459,6 +459,14 @@ impl Snapshots {
         }
     }
 
+    /// Drops every snapshot, for a bench that moves the simulation on without the engine.
+    #[cfg(debug_assertions)]
+    pub(crate) fn forget_all(&mut self) {
+        for x in &mut self.slots {
+            x.frame = None;
+        }
+    }
+
     /// Whether a snapshot of frame count `frame` is held.
     pub(crate) fn has(&self, frame: u32) -> bool {
         self.slots.iter().any(|x| x.frame == Some(frame))

@@ -8901,7 +8901,10 @@ unsafe fn step_one_game_logic_step(
         match crate::rollback_live::run_game_logic_step(bw, param, orig) {
             Some(ret) => ret,
             #[cfg(debug_assertions)]
-            None => crate::rollback_harness::run_game_logic_step(bw, param, orig),
+            None => match crate::rollback_bench::run_game_logic_step(bw, param, orig) {
+                Some(ret) => ret,
+                None => crate::rollback_harness::run_game_logic_step(bw, param, orig),
+            },
             #[cfg(not(debug_assertions))]
             None => orig(param),
         }

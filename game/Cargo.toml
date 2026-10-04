@@ -18,6 +18,14 @@ debug = 1
 panic = "abort"
 lto = true
 
+# Release optimizations with the debug-only tooling (rollback bench, harness, probe) compiled in,
+# for measuring performance: `cargo build --profile bench-dll`.
+[profile.bench-dll]
+inherits = "release"
+debug-assertions = true
+lto = false
+incremental = true
+
 [dependencies]
 atomic_enum = "0.3"
 # Decodes the base64-wrapped rally-point2 credentials (token / client key / relay cert) handed

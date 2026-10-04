@@ -66,6 +66,8 @@ mod replay;
 mod replay_name;
 mod rollback;
 #[cfg(debug_assertions)]
+mod rollback_bench;
+#[cfg(debug_assertions)]
 mod rollback_harness;
 mod rollback_live;
 #[cfg(debug_assertions)]
@@ -267,6 +269,8 @@ pub extern "C" fn OnInject() {
     rollback_probe::init_from_env();
     #[cfg(debug_assertions)]
     rollback_harness::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_bench::init_from_env();
     #[cfg(debug_assertions)]
     rollback_live::init_from_env();
     unsafe {
