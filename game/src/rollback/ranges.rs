@@ -273,6 +273,28 @@ impl RangeList {
     pub(super) fn omit(&mut self, name: &'static str) {
         self.omitted.push(name);
     }
+
+    /// Trims the ranges so that no byte is in two of them, in address order: some analyses
+    /// resolve globals that sit inside an array another range already covers. A restore copies
+    /// every range back on several threads at once, and must not write any byte from two of them.
+    pub(super) fn make_disjoint(&mut self) {
+        let mut ranges = std::mem::take(&mut self.ranges);
+        ranges.sort_by_key(|x| x.start);
+        for range in ranges {
+            let end = range.start + range.len;
+            let covered_to = self.ranges.last().map_or(0, |x| x.start + x.len);
+            if end <= covered_to {
+                continue;
+            }
+            let start = range.start.max(covered_to);
+            self.ranges.push(Range {
+                #[cfg(debug_assertions)]
+                name: range.name,
+                start,
+                len: end - start,
+            });
+        }
+    }
 }
 
 /// Adds the ranges [`EXTRA_RANGES_ENV_VAR`] names to the layout, for trying out whether some static

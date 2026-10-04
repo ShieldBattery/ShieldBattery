@@ -359,6 +359,7 @@ impl Snapshots {
             #[cfg(debug_assertions)]
             ranges::add_extra_ranges_from_env(bw, &mut list);
 
+            list.make_disjoint();
             let RangeList { ranges, omitted } = list;
             for range in &ranges {
                 debug!(
