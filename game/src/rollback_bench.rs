@@ -85,8 +85,8 @@ const SAMPLE_INTERVAL: Duration = Duration::from_micros(100);
 /// Bytes of the game thread's stack copied per sample and scanned for return addresses.
 const SAMPLE_STACK_BYTES: usize = 16 * 1024;
 
-/// Return addresses kept per sample, innermost first.
-const SAMPLE_CALLERS: usize = 12;
+/// Frames walked per sample, innermost first.
+const SAMPLE_FRAMES: usize = 48;
 
 struct Config {
     checkpoints: Option<Vec<u32>>,
@@ -101,6 +101,15 @@ struct Config {
 }
 
 static CONFIG: Mutex<Option<Config>> = Mutex::new(None);
+
+/// Whether the bench was asked for, so replay-only work a live game never does can stay out of
+/// what it measures.
+static ARMED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the bench is armed.
+pub fn armed() -> bool {
+    ARMED.load(Ordering::Relaxed)
+}
 static BENCH: Mutex<Option<Bench>> = Mutex::new(None);
 
 pub fn init_from_env() {
@@ -179,6 +188,7 @@ pub fn init_from_env() {
         config.profile,
     );
     *CONFIG.lock() = Some(config);
+    ARMED.store(true, Ordering::Relaxed);
 }
 
 /// Runs one game loop tick's worth of the bench during replay playback, or returns `None` when it
@@ -1011,11 +1021,13 @@ struct Sampler {
 #[derive(Default)]
 struct SamplerOutput {
     samples: u64,
-    /// Samples by instruction pointer.
+    /// Samples by the function the thread was in (on x86, by instruction pointer).
     leaf: HashMap<usize, u32>,
-    /// Samples by each address on the stack that looks like a return address, counted once per
-    /// sample: an estimate of the time spent inside each call site.
-    callers: HashMap<usize, u32>,
+    /// Samples by every function on the call stack, counted once per sample. On x86, which has no
+    /// unwind data to walk, the callers are a guess: stack words that look like return addresses.
+    inclusive: HashMap<usize, u32>,
+    /// Samples by caller and callee function.
+    edges: HashMap<(usize, usize), u32>,
 }
 
 struct SendHandle(winapi::um::winnt::HANDLE);
@@ -1039,7 +1051,7 @@ impl Sampler {
             )
         };
         let handle = SendHandle(handle);
-        let code = executable_code_ranges();
+        let code = code_ranges();
         let thread = {
             let active = active.clone();
             let stop = stop.clone();
@@ -1087,11 +1099,29 @@ impl Sampler {
         for (&address, &samples) in &output.leaf {
             *by_module.entry(describe(address).0).or_default() += samples;
         }
+        let mut edges = output.edges.iter().collect::<Vec<_>>();
+        edges.sort_by_key(|x| std::cmp::Reverse(*x.1));
+        let edges = edges
+            .into_iter()
+            .take(6000)
+            .map(|(&(caller, callee), &samples)| {
+                let (caller_module, caller) = describe(caller);
+                let (callee_module, callee) = describe(callee);
+                json!({
+                    "caller_module": caller_module,
+                    "caller": format!("{caller:x}"),
+                    "callee_module": callee_module,
+                    "callee": format!("{callee:x}"),
+                    "samples": samples,
+                })
+            })
+            .collect::<Vec<_>>();
         json!({
             "samples": output.samples,
             "by_module": by_module,
             "leaf": table(&output.leaf, 4000),
-            "callers": table(&output.callers, 4000),
+            "inclusive": table(&output.inclusive, 4000),
+            "edges": edges,
         })
     }
 }
@@ -1105,20 +1135,40 @@ fn current_stack_limits() -> (usize, usize) {
     (low, high)
 }
 
-/// The executable's code sections, which return addresses worth counting point into. Only those
-/// are read from, since other parts of the image need not be readable.
-fn executable_code_ranges() -> Vec<(usize, usize)> {
-    use winapi::um::libloaderapi::GetModuleHandleW;
-    use winapi::um::winnt::{
-        IMAGE_DOS_HEADER, IMAGE_NT_HEADERS, IMAGE_SCN_MEM_EXECUTE, IMAGE_SECTION_HEADER,
+/// The code sections of the executable and of this DLL, which return addresses worth counting
+/// point into. Only those are read from, since other parts of an image need not be readable.
+fn code_ranges() -> Vec<(usize, usize)> {
+    use winapi::um::libloaderapi::{
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        GetModuleHandleExW, GetModuleHandleW,
     };
     unsafe {
-        let base = GetModuleHandleW(std::ptr::null()) as usize;
+        let mut this = std::ptr::null_mut();
+        GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            code_ranges as *const u16,
+            &mut this,
+        );
+        let mut out = image_code_ranges(GetModuleHandleW(std::ptr::null()) as usize);
+        if !this.is_null() {
+            out.extend(image_code_ranges(this as usize));
+        }
+        out
+    }
+}
+
+/// The executable sections of the image loaded at `base`.
+unsafe fn image_code_ranges(base: usize) -> Vec<(usize, usize)> {
+    use winapi::um::winnt::{
+        IMAGE_DOS_HEADER, IMAGE_FILE_HEADER, IMAGE_NT_HEADERS, IMAGE_SCN_MEM_EXECUTE,
+        IMAGE_SECTION_HEADER,
+    };
+    unsafe {
         let dos = base as *const IMAGE_DOS_HEADER;
         let nt = (base + (*dos).e_lfanew as usize) as *const IMAGE_NT_HEADERS;
         let first = (nt as usize
             + 4
-            + size_of::<winapi::um::winnt::IMAGE_FILE_HEADER>()
+            + size_of::<IMAGE_FILE_HEADER>()
             + (*nt).FileHeader.SizeOfOptionalHeader as usize)
             as *const IMAGE_SECTION_HEADER;
         (0..(*nt).FileHeader.NumberOfSections as usize)
@@ -1140,14 +1190,20 @@ fn sample_loop(
     code: &[(usize, usize)],
 ) -> SamplerOutput {
     use winapi::um::processthreadsapi::{GetThreadContext, ResumeThread, SuspendThread};
-    use winapi::um::winnt::{CONTEXT, CONTEXT_CONTROL};
+    use winapi::um::winnt::{CONTEXT, CONTEXT_CONTROL, CONTEXT_INTEGER};
+    // GetThreadContext wants the context 16-byte aligned on x86_64.
+    #[repr(C, align(16))]
+    struct Aligned(CONTEXT);
     let mut output = SamplerOutput::default();
-    let mut stack = vec![0usize; SAMPLE_STACK_BYTES / size_of::<usize>()];
-    let mut callers = Vec::with_capacity(SAMPLE_CALLERS);
+    // Zeroed past the copied part, so an unwind that runs off the end reads zeros.
+    let mut stack = vec![0usize; (SAMPLE_STACK_BYTES + 4096) / size_of::<usize>()];
+    let mut frames = Vec::with_capacity(SAMPLE_FRAMES);
     let mut next = Instant::now();
     while !stop.load(Ordering::Acquire) {
+        // The ticks it samples last a few milliseconds, shorter than a sleep can be relied on to
+        // wake up in, so the thread spins on its own core instead.
         if !active.load(Ordering::Acquire) {
-            std::thread::sleep(Duration::from_millis(1));
+            std::hint::spin_loop();
             next = Instant::now();
             continue;
         }
@@ -1158,19 +1214,23 @@ fn sample_loop(
         // Nothing between the suspend and the resume may allocate or take a lock: the game
         // thread could be holding the one it would need.
         let mut words = 0;
-        let ip;
+        let mut aligned: Aligned = unsafe { std::mem::zeroed() };
+        let sp;
         unsafe {
             if SuspendThread(thread) == u32::MAX {
                 continue;
             }
-            let mut context: CONTEXT = std::mem::zeroed();
-            context.ContextFlags = CONTEXT_CONTROL;
-            let ok = GetThreadContext(thread, &mut context) != 0;
+            let context = &mut aligned.0;
+            context.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+            let ok = GetThreadContext(thread, context) != 0;
             #[cfg(target_arch = "x86_64")]
-            let (pc, sp) = (context.Rip as usize, context.Rsp as usize);
+            {
+                sp = context.Rsp as usize;
+            }
             #[cfg(target_arch = "x86")]
-            let (pc, sp) = (context.Eip as usize, context.Esp as usize);
-            ip = pc;
+            {
+                sp = context.Esp as usize;
+            }
             if ok && sp >= stack_low && sp < stack_high {
                 let bytes = (stack_high - sp).min(SAMPLE_STACK_BYTES);
                 words = bytes / size_of::<usize>();
@@ -1181,30 +1241,146 @@ fn sample_loop(
                 continue;
             }
         }
-        output.samples += 1;
-        *output.leaf.entry(ip).or_default() += 1;
-        callers.clear();
-        for &word in &stack[..words] {
-            if callers.len() >= SAMPLE_CALLERS {
-                break;
-            }
-            if code
-                .iter()
-                .any(|&(low, high)| word >= low + 8 && word < high)
-                && looks_like_return_address(word)
-                && !callers.contains(&word)
-            {
-                callers.push(word);
+        stack[words..].fill(0);
+        frames.clear();
+        #[cfg(target_arch = "x86_64")]
+        unsafe {
+            let _ = code;
+            unwind(&mut aligned.0, sp, &stack, words, &mut frames);
+        }
+        #[cfg(target_arch = "x86")]
+        {
+            let _ = sp;
+            frames.push(aligned.0.Eip as usize);
+            for &word in &stack[..words] {
+                if frames.len() >= SAMPLE_FRAMES {
+                    break;
+                }
+                if code
+                    .iter()
+                    .any(|&(low, high)| word >= low + 8 && word < high)
+                    && looks_like_return_address(word)
+                {
+                    frames.push(word);
+                }
             }
         }
-        for &caller in &callers {
-            *output.callers.entry(caller).or_default() += 1;
-        }
+        output.record(&frames);
     }
     output
 }
 
+impl SamplerOutput {
+    /// Counts one sample's frames, innermost first: each is a function's start where the
+    /// function could be found, or else the address itself.
+    fn record(&mut self, frames: &[usize]) {
+        let Some(&leaf) = frames.first() else {
+            return;
+        };
+        self.samples += 1;
+        *self.leaf.entry(leaf).or_default() += 1;
+        for (i, &frame) in frames.iter().enumerate() {
+            // Recursion counts a function once per sample.
+            if frames[..i].contains(&frame) {
+                continue;
+            }
+            *self.inclusive.entry(frame).or_default() += 1;
+            if let Some(&caller) = frames.get(i + 1) {
+                *self.edges.entry((caller, frame)).or_default() += 1;
+            }
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[repr(C)]
+struct RuntimeFunction {
+    begin: u32,
+    end: u32,
+    unwind: u32,
+}
+
+#[cfg(target_arch = "x86_64")]
+unsafe extern "system" {
+    fn RtlLookupFunctionEntry(
+        pc: u64,
+        image_base: *mut u64,
+        history: *mut std::ffi::c_void,
+    ) -> *mut RuntimeFunction;
+    fn RtlVirtualUnwind(
+        handler_type: u32,
+        image_base: u64,
+        pc: u64,
+        function: *mut RuntimeFunction,
+        context: *mut winapi::um::winnt::CONTEXT,
+        handler_data: *mut *mut std::ffi::c_void,
+        establisher_frame: *mut u64,
+        context_pointers: *mut std::ffi::c_void,
+    ) -> *mut std::ffi::c_void;
+}
+
+/// Walks a sample's call stack with the images' unwind data, pushing each frame's function start
+/// (or its address, for code without unwind data) innermost first. The walk reads the copy of the
+/// stack taken while the thread was suspended: every register pointing into the copied part of the
+/// stack is moved to point into the copy first.
+#[cfg(target_arch = "x86_64")]
+unsafe fn unwind(
+    context: &mut winapi::um::winnt::CONTEXT,
+    sp: usize,
+    stack: &[usize],
+    words: usize,
+    frames: &mut Vec<usize>,
+) {
+    unsafe {
+        let copy = stack.as_ptr() as u64;
+        let copied = (words * size_of::<usize>()) as u64;
+        let original = sp as u64;
+        let translate = |reg: &mut u64| {
+            if *reg >= original && *reg < original + copied {
+                *reg = *reg - original + copy;
+            }
+        };
+        translate(&mut context.Rsp);
+        translate(&mut context.Rbp);
+        translate(&mut context.Rbx);
+        translate(&mut context.Rsi);
+        translate(&mut context.Rdi);
+        translate(&mut context.R12);
+        translate(&mut context.R13);
+        translate(&mut context.R14);
+        translate(&mut context.R15);
+        while frames.len() < SAMPLE_FRAMES {
+            let pc = context.Rip;
+            if pc == 0 || context.Rsp < copy || context.Rsp + 8 > copy + copied {
+                break;
+            }
+            let mut image_base = 0u64;
+            let function = RtlLookupFunctionEntry(pc, &mut image_base, std::ptr::null_mut());
+            if function.is_null() {
+                frames.push(pc as usize);
+                context.Rip = (context.Rsp as *const u64).read();
+                context.Rsp += 8;
+            } else {
+                frames.push((image_base + (*function).begin as u64) as usize);
+                let mut handler_data = std::ptr::null_mut();
+                let mut establisher = 0u64;
+                RtlVirtualUnwind(
+                    0,
+                    image_base,
+                    pc,
+                    function,
+                    context,
+                    &mut handler_data,
+                    &mut establisher,
+                    std::ptr::null_mut(),
+                );
+            }
+        }
+    }
+}
+
 /// Whether the instruction before `address` is a call, as it is for a return address.
+#[cfg(target_arch = "x86")]
 fn looks_like_return_address(address: usize) -> bool {
     unsafe {
         let before = |n: usize| ((address - n) as *const u8).read();

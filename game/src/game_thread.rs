@@ -706,6 +706,12 @@ thread_local! {
 
 pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
     unsafe {
+        // The rollback bench plays a replay to stand in for a live game, which has no replay
+        // vision to fix up.
+        #[cfg(debug_assertions)]
+        if crate::rollback_bench::armed() {
+            return;
+        }
         if is_replay() && !is_ums() && bw.starting_fog() != StartingFog::Legacy {
             // One thing BW's step_game does is that it removes any fog sprites that were
             // no longer in fog. Unfortunately now that we show fog sprites for unexplored
