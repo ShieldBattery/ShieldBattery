@@ -43,10 +43,13 @@ pub struct FrameRecord {
     /// Logic steps the tick after the draw ran.
     pub steps: u8,
     /// What the last step before this frame's draw did: the state the frame shows.
+    #[cfg(debug_assertions)]
     pub drawn_after: TickKind,
     /// Frames drawn since the last one drawn right after a rollback, 0 for that one (saturating).
+    #[cfg(debug_assertions)]
     pub frames_since_rollback: u16,
     /// A label the code driving the ticks put on the frame (see [`set_label`]).
+    #[cfg(debug_assertions)]
     pub label: u8,
 }
 
@@ -60,7 +63,9 @@ struct State {
     current: FrameRecord,
     /// What the tick before the frame in progress drew after.
     last_tick: TickKind,
+    #[cfg(debug_assertions)]
     frames_since_rollback: u16,
+    #[cfg(debug_assertions)]
     label: u8,
     /// When the step in progress started.
     tick_started: Option<Instant>,
@@ -84,12 +89,17 @@ static STATE: Mutex<State> = Mutex::new(State {
         tick: TickKind::None,
         resimulated: 0,
         steps: 0,
+        #[cfg(debug_assertions)]
         drawn_after: TickKind::None,
+        #[cfg(debug_assertions)]
         frames_since_rollback: 0,
+        #[cfg(debug_assertions)]
         label: 0,
     },
     last_tick: TickKind::None,
+    #[cfg(debug_assertions)]
     frames_since_rollback: u16::MAX,
+    #[cfg(debug_assertions)]
     label: 0,
     tick_started: None,
     draw_started: None,
@@ -205,18 +215,24 @@ fn draw_started() {
             state.records.push(record);
         }
     }
-    let drawn_after = state.last_tick;
-    state.frames_since_rollback = match drawn_after {
-        TickKind::Rollback => 0,
-        _ => state.frames_since_rollback.saturating_add(1),
+    #[cfg(debug_assertions)]
+    let current = {
+        let drawn_after = state.last_tick;
+        state.frames_since_rollback = match drawn_after {
+            TickKind::Rollback => 0,
+            _ => state.frames_since_rollback.saturating_add(1),
+        };
+        FrameRecord {
+            drawn_after,
+            frames_since_rollback: state.frames_since_rollback,
+            label: state.label,
+            ..FrameRecord::default()
+        }
     };
+    #[cfg(not(debug_assertions))]
+    let current = FrameRecord::default();
     state.last_tick = TickKind::None;
-    state.current = FrameRecord {
-        drawn_after,
-        frames_since_rollback: state.frames_since_rollback,
-        label: state.label,
-        ..FrameRecord::default()
-    };
+    state.current = current;
     state.started = Some(now);
     state.draw_started = Some(now);
     #[cfg(debug_assertions)]
@@ -409,7 +425,10 @@ pub fn reset() {
     let mut state = STATE.lock();
     state.started = None;
     state.last_tick = TickKind::None;
-    state.frames_since_rollback = u16::MAX;
+    #[cfg(debug_assertions)]
+    {
+        state.frames_since_rollback = u16::MAX;
+    }
     state.stats = FrameStats::new();
     #[cfg(debug_assertions)]
     {
