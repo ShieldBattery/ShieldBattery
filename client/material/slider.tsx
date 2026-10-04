@@ -1,595 +1,363 @@
-import keycode from 'keycode'
-import { AnimatePresence, Transition, Variants } from 'motion/react'
-import * as m from 'motion/react-m'
 import * as React from 'react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId } from 'react'
 import styled, { css } from 'styled-components'
-import { useStableCallback } from '../react/state-hooks'
-import { labelLarge, labelMedium } from '../styles/typography'
+import { labelLarge } from '../styles/typography'
 import { standardEasing } from './curve-constants'
 
-const LEFT = keycode('left')
-const RIGHT = keycode('right')
-const HOME = keycode('home')
-const END = keycode('end')
+/** Sliders with at most this many stops draw a dot (and optionally a label) at each one. */
+const MAX_INDICATED_STOPS = 11
 
-const MOUSE_LEFT = 1
+/**
+ * Distance from each end of the track to the center of the handle when it sits at that end. The
+ * native input's (invisible) thumb is twice this wide, so the browser maps pointer positions to
+ * values along exactly the span the handle is drawn on.
+ */
+const INSET_PX = 8
+/** Distance from the center of the handle to the track segments on either side of it. */
+const HANDLE_GAP_PX = 8
+const HANDLE_WIDTH_PX = 4
+const HANDLE_PRESSED_WIDTH_PX = 2
+const STOP_DOT_PX = 4
+const STOP_LABEL_WIDTH_PX = 40
+const STOP_LABEL_ROW_PX = 24
 
-const THUMB_WIDTH_PX = 20
-const THUMB_HEIGHT_PX = 20
-const BALLOON_WIDTH_PX = 28
-const BALLOON_HEIGHT_PX = 28
+export type SliderSize = 'normal' | 'compact'
 
-const tickVariants: Variants = {
-  hidden: {
-    opacity: 0,
-  },
-  visible: {
-    opacity: 1,
-  },
+const SIZES: Record<
+  SliderSize,
+  { area: number; track: number; trackRadius: number; handle: number; halo: number }
+> = {
+  normal: { area: 44, track: 16, trackRadius: 8, handle: 40, halo: 40 },
+  compact: { area: 32, track: 8, trackRadius: 4, handle: 24, halo: 32 },
 }
 
-const tickTransition: Transition = {
-  type: 'spring',
-  duration: 0.15,
-  bounce: 0,
+const positionDuration = '250ms'
+
+/**
+ * A CSS length placing something at `fraction` (0 to 1, as a number or CSS expression) of the way
+ * along a slider, measured to the handle's center line. `100%` must resolve to the slider's width,
+ * so this can also line up labels in a same-width container beside the slider.
+ */
+export function sliderPosition(fraction: number | string, offsetPx = 0) {
+  return `calc(${INSET_PX + offsetPx}px + (100% - ${INSET_PX * 2}px) * ${fraction})`
 }
 
-const TickContainer = styled(m.span)`
-  position: absolute;
-  width: calc(100% - 12px);
-  height: 100%;
-  left: 6px;
-  display: flex;
-  align-items: center;
-`
-
-const ValueTick = styled.div<{ $filled?: boolean }>`
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  margin-left: -1px;
-  border-radius: 50%;
-  background-color: ${props =>
-    props.$filled
-      ? 'rgb(from var(--theme-on-amber) r g b / 0.38)'
-      : 'rgb(from var(--theme-on-surface-variant) r g b / 0.38)'};
-`
-
-interface TicksProps {
-  show: boolean
-  value: number
-  min: number
-  max: number
-  step: number
-}
-
-function Ticks({ show, value, min, max, step }: TicksProps) {
-  let content = null
-  if (show) {
-    const numSteps = (max - min) / step + 1
-    const stepPercentage = (step / (max - min)) * 100
-    const optionNum = (value - min) / step
-    const elems = [
-      // left is thumbWidth - 1, to avoid the tick being visible when the thumb is on that value
-      <ValueTick key={0} $filled={true} style={{ left: '-5px' }} />,
-    ]
-    for (let i = 1, p = stepPercentage; i < numSteps - 1; i++, p = i * stepPercentage) {
-      elems.push(<ValueTick key={i} $filled={i < optionNum} style={{ left: `${p}%` }} />)
-    }
-    elems.push(<ValueTick key={numSteps - 1} style={{ left: 'calc(100% + 5px)' }} />)
-
-    content = elems
-  }
-
-  return (
-    <AnimatePresence>
-      {show && (
-        <TickContainer
-          variants={tickVariants}
-          initial='hidden'
-          animate='visible'
-          exit='hidden'
-          transition={tickTransition}>
-          {content}
-        </TickContainer>
-      )}
-    </AnimatePresence>
-  )
-}
-
-const TrackRoot = styled.div<{ $disabled?: boolean; $showBalloon?: boolean }>`
-  position: absolute;
+const Root = styled.div<{ $size: SliderSize; $disabled?: boolean }>`
   width: 100%;
-  height: 4px;
-  left: 0px;
-  ${props =>
-    props.$showBalloon
-      ? css`
-          top: 54px;
-        `
-      : css`
-          top: 50%;
-          transform: translateY(-50%);
-        `}
-  border-radius: 4px;
-  background-color: ${props =>
-    props.$disabled
-      ? 'rgb(from var(--theme-on-surface) r g b / calc(1 / var(--theme-disabled-opacity) * 0.12))'
-      : 'rgb(from var(--theme-on-surface) r g b / 0.12)'};
-`
-
-// This wrapper is needed to make sure the border-radius doesn't get scaled with the filled track.
-const FilledTrackWrapper = styled.div`
-  position: absolute;
-  left: 0;
-  top: -1px;
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  overflow: hidden;
-`
-
-const FilledTrack = styled.div<{ $disabled?: boolean }>`
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: ${props =>
-    props.$disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)'};
-
-  transform: scaleX(1);
-  transform-origin: 0% 50%;
-  transition: transform 150ms ${standardEasing};
-  will-change: transform;
-`
-
-interface TrackProps {
-  disabled?: boolean
-  showTicks: boolean
-  value: number
-  min: number
-  max: number
-  step: number
-  transitionDuration?: number
-  showBalloon?: boolean
-}
-
-function Track({
-  disabled,
-  showTicks,
-  value,
-  min,
-  max,
-  step,
-  transitionDuration = 150,
-  showBalloon,
-}: TrackProps) {
-  const scale = (value - min) / (max - min)
-  const filledStyle = {
-    transform: `scaleX(${scale})`,
-    transitionDuration: `${transitionDuration}ms`,
-  }
-
-  return (
-    <TrackRoot $disabled={disabled} $showBalloon={showBalloon}>
-      <FilledTrackWrapper>
-        <FilledTrack $disabled={disabled} style={filledStyle} />
-      </FilledTrackWrapper>
-      <Ticks show={showTicks} value={value} min={min} max={max} step={step} />
-    </TrackRoot>
-  )
-}
-
-const Root = styled.div<{ $disabled?: boolean; $focused?: boolean; $showBalloon?: boolean }>`
-  height: ${props => (props.$showBalloon ? '72px' : '32px')};
-  position: relative;
-  contain: layout style;
+  padding-block: ${props => (props.$size === 'normal' ? '8px' : '0')};
   opacity: ${props => (props.$disabled ? 'var(--theme-disabled-opacity)' : '1')};
-
-  ${props => (props.$focused || props.$disabled ? 'outline: none;' : '')}
 `
 
-const SliderLabel = styled.div<{ $showBalloon?: boolean }>`
-  ${labelLarge};
-  ${props =>
-    props.$showBalloon
-      ? css`
-          position: absolute;
-          top: 8px;
-          left: 2px;
-        `
-      : css`
-          display: inline-block;
-          margin-bottom: 8px;
-        `}
-
-  color: var(--theme-on-surface-variant);
-  pointer-events: none;
-`
-
-const OverflowClip = styled.div`
-  position: absolute;
-  width: calc(100% + ${BALLOON_WIDTH_PX - THUMB_WIDTH_PX}px);
-  height: 100%;
-  top: 0;
-  left: ${BALLOON_WIDTH_PX / -2 + THUMB_WIDTH_PX / 2}px;
-  padding: 0 14px;
-
-  overflow-x: hidden;
-  overflow-y: visible;
-  pointer-events: none;
-`
-
-const ThumbContainer = styled.div<{ $showBalloon?: boolean }>`
-  position: relative;
-  ${props =>
-    props.$showBalloon
-      ? css`
-          top: ${54 - THUMB_HEIGHT_PX / 2}px;
-        `
-      : css`
-          top: 50%;
-          transform: translateY(-50%);
-        `}
-  width: 100%;
-  pointer-events: none;
-  will-change: transform;
-  transition: transform 150ms ${standardEasing};
-`
-
-const Thumb = styled.div<{ $disabled?: boolean; $showBalloon?: boolean }>`
-  position: absolute;
-  width: ${THUMB_WIDTH_PX}px;
-  height: ${THUMB_HEIGHT_PX}px;
-  left: ${THUMB_WIDTH_PX / -2}px;
-  ${props =>
-    props.$showBalloon
-      ? css`
-          top: 2px;
-        `
-      : css`
-          top: 50%;
-          transform: translateY(-50%);
-        `}
-
-  background-color: ${props =>
-    props.$disabled ? 'var(--theme-on-surface)' : 'var(--theme-amber)'};
-  border-radius: 50%;
-  pointer-events: none;
-  transition: background-color 200ms linear;
-  z-index: 1;
-`
-
-const ClickableArea = styled.div<{ $disabled?: boolean }>`
-  position: absolute;
-  width: 100%;
-  height: 32px;
-  left: 0;
-  bottom: 0;
-
-  cursor: ${props => (props.$disabled ? 'auto' : 'pointer')};
-`
-
-const balloonVariants: Variants = {
-  hidden: {
-    scaleX: 0,
-    scaleY: 0,
-    opacity: 0,
-  },
-  visible: {
-    scaleX: 1,
-    scaleY: 1,
-    opacity: 1,
-  },
-}
-
-const balloonTransition: Transition = {
-  scaleX: { type: 'spring', duration: 0.2 },
-  scaleY: { type: 'spring', duration: 0.3 },
-  opacity: { type: 'spring', duration: 0.2, bounce: 0 },
-}
-
-const Balloon = styled(m.div)`
-  position: absolute;
-  width: ${BALLOON_WIDTH_PX}px;
-  height: ${BALLOON_HEIGHT_PX}px;
-  top: -42px;
-  left: ${BALLOON_WIDTH_PX / -2}px;
+const LabelRow = styled.div`
+  min-height: 20px;
+  margin-bottom: 4px;
 
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+`
 
+const Label = styled.label`
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
+`
+
+const Readout = styled.div`
+  ${labelLarge};
+  color: var(--theme-on-surface);
+  font-variant-numeric: tabular-nums;
+`
+
+const Control = styled.div<{ $size: SliderSize; $hasStopLabels: boolean }>`
+  --_area: ${props => SIZES[props.$size].area}px;
+  --_track: ${props => SIZES[props.$size].track}px;
+  --_track-radius: ${props => SIZES[props.$size].trackRadius}px;
+  --_handle: ${props => SIZES[props.$size].handle}px;
+  --_halo: ${props => SIZES[props.$size].halo}px;
+
+  position: relative;
+  width: 100%;
+  height: calc(var(--_area) + ${props => (props.$hasStopLabels ? STOP_LABEL_ROW_PX : 0)}px);
+`
+
+const Input = styled.input<{ $height: number }>`
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+
+  &:disabled {
+    cursor: auto;
+  }
+
+  &::-webkit-slider-runnable-track {
+    height: 100%;
+    border: 0;
+    background: transparent;
+  }
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: ${INSET_PX * 2}px;
+    height: ${props => props.$height}px;
+    border: 0;
+    background: transparent;
+  }
+`
+
+/** Transitions for things that follow the value, frozen while dragging a continuous slider. */
+const followsValue = (properties: string, continuous: boolean) => css`
+  transition-property: ${properties};
+  transition-duration: ${positionDuration};
+  transition-timing-function: ${standardEasing};
+
+  ${
+    continuous
+      ? css`
+          ${Input}:active ~ & {
+            transition-duration: 0ms;
+          }
+        `
+      : ''
+  }
+`
+
+const trackSegment = css`
+  position: absolute;
+  top: calc((var(--_area) - var(--_track)) / 2);
+  height: var(--_track);
+  pointer-events: none;
+`
+
+const ActiveTrack = styled.div<{ $continuous: boolean }>`
+  ${trackSegment};
+  ${props => followsValue('width', props.$continuous)};
+  left: 0;
+  width: calc((100% - ${INSET_PX * 2}px) * var(--_fraction) + ${INSET_PX - HANDLE_GAP_PX}px);
+  border-radius: var(--_track-radius) 2px 2px var(--_track-radius);
   background-color: var(--theme-amber);
+`
+
+const InactiveTrack = styled.div<{ $continuous: boolean }>`
+  ${trackSegment};
+  ${props => followsValue('left', props.$continuous)};
+  left: ${sliderPosition('var(--_fraction)', HANDLE_GAP_PX)};
+  right: 0;
+  border-radius: 2px var(--_track-radius) var(--_track-radius) 2px;
+  background-color: var(--theme-grey-blue-container);
+`
+
+const StopDot = styled.div<{ $active: boolean; $current: boolean }>`
+  position: absolute;
+  top: calc((var(--_area) - ${STOP_DOT_PX}px) / 2);
+  width: ${STOP_DOT_PX}px;
+  height: ${STOP_DOT_PX}px;
+  margin-left: ${-STOP_DOT_PX / 2}px;
+
   border-radius: 50%;
-  color: var(--theme-on-amber);
+  background-color: ${props =>
+    props.$active ? 'var(--theme-on-amber)' : 'var(--color-grey-blue80)'};
+  opacity: ${props => (props.$current ? 0 : 1)};
+  pointer-events: none;
+`
+
+const StopLabel = styled.div<{ $current: boolean }>`
+  ${labelLarge};
+  position: absolute;
+  top: calc(var(--_area) + 2px);
+  width: ${STOP_LABEL_WIDTH_PX}px;
+  margin-left: ${-STOP_LABEL_WIDTH_PX / 2}px;
+
+  color: ${props => (props.$current ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
+  font-weight: ${props => (props.$current ? 600 : 500)};
   pointer-events: none;
   text-align: center;
-  transform-origin: 50% 150%;
-  will-change: transform, background-color, color;
+`
 
-  &::before {
-    position: absolute;
-    left: 0;
-    top: 19px;
+const Halo = styled.div<{ $continuous: boolean }>`
+  ${props => followsValue('left, opacity, background-color', props.$continuous)};
+  position: absolute;
+  top: calc((var(--_area) - var(--_halo)) / 2);
+  left: ${sliderPosition('var(--_fraction)')};
+  width: var(--_halo);
+  height: var(--_halo);
+  transform: translateX(-50%);
 
-    border-radius: 16px;
-    border-top: 16px solid var(--theme-amber);
-    border-left: ${BALLOON_WIDTH_PX / 2}px solid transparent;
-    border-right: ${BALLOON_WIDTH_PX / 2}px solid transparent;
-    content: '';
-    transition: border-top-color 250ms linear;
-    will-change: border-top-color;
-    z-index: 1;
+  border-radius: 50%;
+  background-color: rgb(from var(--theme-amber) r g b / 0.08);
+  opacity: 0;
+  pointer-events: none;
+
+  ${Input}:hover:enabled ~ & {
+    opacity: 1;
+  }
+
+  ${Input}:active:enabled ~ & {
+    opacity: 1;
+    background-color: rgb(from var(--theme-amber) r g b / 0.12);
   }
 `
 
-const BalloonText = styled.div`
-  ${labelMedium};
-  line-height: ${BALLOON_HEIGHT_PX}px;
-  z-index: 2;
+const Handle = styled.div<{ $continuous: boolean }>`
+  ${props => followsValue('left, width', props.$continuous)};
+  position: absolute;
+  top: calc((var(--_area) - var(--_handle)) / 2);
+  left: ${sliderPosition('var(--_fraction)')};
+  width: ${HANDLE_WIDTH_PX}px;
+  height: var(--_handle);
+  transform: translateX(-50%);
+
+  border-radius: 2px;
+  background-color: var(--theme-amber);
+  pointer-events: none;
+
+  ${Input}:active:enabled ~ & {
+    width: ${HANDLE_PRESSED_WIDTH_PX}px;
+  }
+
+  ${Input}:focus-visible ~ & {
+    outline: 3px solid var(--theme-grey-blue);
+    outline-offset: 2px;
+  }
 `
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
+function defaultFormatValue(value: number) {
+  return String(value)
 }
 
 interface SliderProps {
-  step?: number
-  showTicks?: boolean
-  showBalloon?: boolean
-  tabIndex?: number
   min: number
   max: number
+  step?: number
   value?: number | null
   onChange: (newValue: number) => void
+  /** Visible label, shown above the track. */
   label?: string
+  /**
+   * Formats a value for display, both for the readout next to the label and for the labels under
+   * each stop. Also used as the accessible value text unless `formatValueText` is provided.
+   */
+  formatValue?: (value: number) => string
+  /** Formats a value for assistive technology, e.g. to call out a recommended value. */
+  formatValueText?: (value: number) => string
+  /**
+   * Whether to label each stop with its value. Only applies to sliders with few enough stops to
+   * indicate them individually; others show the value next to the label instead.
+   */
+  showStopLabels?: boolean
+  size?: SliderSize
   disabled?: boolean
+  tabIndex?: number
+  ariaLabel?: string
+  ariaLabelledBy?: string
+  ariaDescribedBy?: string
   className?: string
   ref?: React.Ref<HTMLDivElement | null>
 }
 
+/**
+ * A slider for picking a number from a range. Sliders with only a few stops mark (and by default
+ * label) each one; sliders with many stops behave continuously and show the current value next to
+ * their label.
+ *
+ * Interaction is handled by a native range input layered invisibly over the drawn track, which
+ * provides pointer, keyboard, and accessibility behavior.
+ */
 export function Slider({
-  step = 1,
-  showTicks = true,
-  showBalloon = true,
-  tabIndex = 0,
   min,
   max,
+  step = 1,
   value,
-  label,
-  disabled,
-  className,
   onChange,
+  label,
+  formatValue = defaultFormatValue,
+  formatValueText,
+  showStopLabels = true,
+  size = 'normal',
+  disabled,
+  tabIndex = 0,
+  ariaLabel,
+  ariaLabelledBy,
+  ariaDescribedBy,
+  className,
   ref,
 }: SliderProps) {
-  const [isFocused, setIsFocused] = useState(false)
-  const [isClicked, setIsClicked] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const [keyDownCount, setKeyDownCount] = useState(0)
+  const inputId = useId()
+  const currentValue = value ?? min
+  const fraction = max > min ? (currentValue - min) / (max - min) : 0
 
-  const id = useId()
-  const trackAreaRef = useRef<HTMLDivElement>(null)
-  const balloonRef = useRef<HTMLDivElement>(null)
-  const sliderDimensionsRef = useRef<DOMRect | null>(null)
+  const numStops = Math.round((max - min) / step) + 1
+  const continuous = numStops > MAX_INDICATED_STOPS
+  const hasStopLabels = !continuous && showStopLabels
+  const currentStop = Math.round((currentValue - min) / step)
 
-  const getClosestValue = useStableCallback((x: number) => {
-    const percent = sliderDimensionsRef.current
-      ? Math.max(
-          0,
-          Math.min(1, (x - sliderDimensionsRef.current.left) / sliderDimensionsRef.current.width),
+  const stops: React.ReactNode[] = []
+  if (!continuous) {
+    for (let i = 0; i < numStops; i++) {
+      const left = sliderPosition(numStops > 1 ? i / (numStops - 1) : 0)
+      stops.push(
+        <StopDot
+          key={`dot-${i}`}
+          $active={i < currentStop}
+          $current={i === currentStop}
+          style={{ left }}
+        />,
+      )
+      if (hasStopLabels) {
+        // Rounded to avoid floating point noise from fractional steps (e.g. 0.30000000000000004)
+        const stopValue = Math.round((min + i * step) * 1000) / 1000
+        stops.push(
+          <StopLabel key={`label-${i}`} $current={i === currentStop} style={{ left }}>
+            {formatValue(stopValue)}
+          </StopLabel>,
         )
-      : 0
-    const exactValue = min + percent * (max - min)
-    const formattedValue = Math.round((exactValue - min) / step) * step + min
-    // Format to 3 digits after the decimal point; fixes issues when step is a decimal number
-    const rounded = Math.round(formattedValue * 1000) / 1000
-    return clamp(rounded, min, max)
-  })
-
-  const onMouseDown = useStableCallback((event: React.MouseEvent) => {
-    if (disabled || !(event.buttons & MOUSE_LEFT)) {
-      return
-    }
-
-    if (trackAreaRef.current) {
-      sliderDimensionsRef.current = trackAreaRef.current.getBoundingClientRect()
-    }
-    setIsClicked(true)
-
-    const newValue = getClosestValue(event.clientX)
-    if (newValue !== value) {
-      onChange(newValue)
-    }
-  })
-
-  const onFocus = useStableCallback(() => {
-    if (disabled) {
-      return
-    }
-    setIsFocused(true)
-  })
-
-  const onBlur = useStableCallback(() => {
-    if (disabled) {
-      return
-    }
-    setIsFocused(false)
-  })
-
-  const onKeyDown = useStableCallback((event: React.KeyboardEvent) => {
-    if (disabled) {
-      return
-    }
-
-    let handled = false
-    if (event.keyCode === LEFT) {
-      handled = true
-      if (value !== min) {
-        setKeyDownCount(prev => prev + 1)
-        onChange((value ?? min) - step)
-      }
-    } else if (event.keyCode === RIGHT) {
-      handled = true
-      if (value !== max) {
-        setKeyDownCount(prev => prev + 1)
-        onChange((value ?? min) + step)
-      }
-    } else if (event.keyCode === HOME) {
-      handled = true
-      if (value !== min) {
-        onChange(min)
-      }
-    } else if (event.keyCode === END) {
-      handled = true
-      if (value !== max) {
-        onChange(max)
       }
     }
-
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
-  })
-
-  const onKeyUp = useStableCallback((event: React.KeyboardEvent) => {
-    if (disabled) {
-      return
-    }
-
-    let handled = false
-    if (event.keyCode === LEFT || event.keyCode === RIGHT) {
-      handled = true
-      setKeyDownCount(0)
-    }
-
-    if (handled) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
-  })
-
-  useEffect(() => {
-    if (!isClicked && !isDragging) {
-      return () => {}
-    }
-
-    const onMouseMove = (event: MouseEvent) => {
-      if (disabled) {
-        return
-      }
-
-      event.preventDefault()
-      if (!isDragging) {
-        setIsDragging(true)
-      }
-
-      const newValue = getClosestValue(event.clientX)
-      if (newValue !== value) {
-        onChange(newValue)
-      }
-    }
-
-    const onMouseUp = (event: MouseEvent) => {
-      if (disabled) {
-        return
-      }
-
-      event.preventDefault()
-      setIsClicked(false)
-      setIsDragging(false)
-
-      const newValue = getClosestValue(event.clientX)
-      if (newValue !== value) {
-        onChange(newValue)
-      }
-    }
-
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [disabled, getClosestValue, isClicked, isDragging, onChange, value])
-
-  const stepPercentage = (step / (max - min)) * 100
-  const optionNum = ((value ?? min) - min) / step
-  const thumbPosition = stepPercentage * optionNum
-  const isBalloonVisible = showBalloon && (isFocused || isClicked)
-
-  let transitionDuration: number
-  if (isDragging) {
-    transitionDuration = 0
-  } else if (keyDownCount > 1 /* Means the user is holding down a left/right key */) {
-    transitionDuration = 30
-  } else {
-    transitionDuration = 150
   }
 
   return (
-    <>
-      {label && !showBalloon ? (
-        <SliderLabel as='label' htmlFor={id} $showBalloon={showBalloon}>
-          {label}
-        </SliderLabel>
+    <Root ref={ref} className={className} $size={size} $disabled={disabled}>
+      {label ? (
+        <LabelRow>
+          <Label htmlFor={inputId}>{label}</Label>
+          {hasStopLabels ? null : <Readout aria-hidden={true}>{formatValue(currentValue)}</Readout>}
+        </LabelRow>
       ) : null}
-      <Root
-        ref={ref}
-        id={id}
-        $showBalloon={showBalloon}
-        $focused={isFocused}
-        $disabled={disabled}
-        className={className}
-        tabIndex={disabled ? -1 : tabIndex}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        onKeyUp={onKeyUp}>
-        {label && showBalloon ? (
-          <SliderLabel as='label' htmlFor={id} $showBalloon={showBalloon}>
-            {label}
-          </SliderLabel>
-        ) : null}
-        <Track
+      <Control
+        $size={size}
+        $hasStopLabels={hasStopLabels}
+        style={{ '--_fraction': fraction } as React.CSSProperties}>
+        <Input
+          id={inputId}
+          type='range'
+          $height={SIZES[size].area + (hasStopLabels ? STOP_LABEL_ROW_PX : 0)}
           min={min}
           max={max}
           step={step}
-          value={value ?? min}
+          value={currentValue}
+          onChange={event => onChange(Number(event.target.value))}
           disabled={disabled}
-          showTicks={showTicks && isClicked}
-          showBalloon={showBalloon}
-          transitionDuration={transitionDuration}
+          tabIndex={tabIndex}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
+          aria-describedby={ariaDescribedBy}
+          aria-valuetext={formatValueText?.(currentValue) ?? formatValue(currentValue)}
         />
-        <OverflowClip>
-          <ThumbContainer
-            $showBalloon={showBalloon}
-            style={{
-              transform: `translateX(${thumbPosition}%)`,
-              transitionDuration: `${transitionDuration}ms`,
-            }}>
-            <Thumb $disabled={disabled} $showBalloon={showBalloon} />
-            <AnimatePresence>
-              {isBalloonVisible && (
-                <Balloon
-                  ref={balloonRef}
-                  variants={balloonVariants}
-                  initial='hidden'
-                  animate='visible'
-                  exit='hidden'
-                  transition={balloonTransition}>
-                  <BalloonText>{value}</BalloonText>
-                </Balloon>
-              )}
-            </AnimatePresence>
-          </ThumbContainer>
-        </OverflowClip>
-        <ClickableArea ref={trackAreaRef} $disabled={disabled} onMouseDown={onMouseDown} />
-      </Root>
-    </>
+        <ActiveTrack $continuous={continuous} />
+        <InactiveTrack $continuous={continuous} />
+        {stops}
+        <Halo $continuous={continuous} />
+        <Handle $continuous={continuous} />
+      </Control>
+    </Root>
   )
 }

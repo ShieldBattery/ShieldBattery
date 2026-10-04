@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import { useAtomValue } from 'jotai'
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -7,6 +8,7 @@ import {
   GameServerRegionId,
   GameServerRegionLatencies,
 } from '../../../common/game-server-regions'
+import { DEFAULT_LOCAL_SETTINGS } from '../../../common/settings/default-settings'
 import { MAX_ROLLBACK_TARGET } from '../../../common/settings/local-settings'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import {
@@ -20,16 +22,11 @@ import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchma
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
-import { Slider } from '../../material/slider'
+import { Slider, sliderPosition } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodySmall, LabelMedium } from '../../styles/typography'
+import { bodyMedium, bodySmall, labelMedium, titleSmall } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
-import {
-  FormContainer,
-  SectionContainer,
-  SettingsSectionDescription,
-  SettingsSectionHeader,
-} from '../settings-content'
+import { FormContainer, SectionContainer, SettingsSectionHeader } from '../settings-content'
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
@@ -40,19 +37,44 @@ const RegionLockedText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const RECOMMENDED_ROLLBACK_TARGET = DEFAULT_LOCAL_SETTINGS.rollbackTarget
+
 const RollbackTarget = styled.div`
   margin-top: 16px;
+  display: flex;
+  flex-direction: column;
 `
 
-const SliderEndpointLabels = styled.div`
-  width: 100%;
+const RollbackTargetTitle = styled.div`
+  ${titleSmall};
+  margin-bottom: 4px;
+`
+
+const RollbackTargetDescription = styled.div`
+  ${bodyMedium};
+  max-width: 560px;
   margin-bottom: 12px;
-
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-
   color: var(--theme-on-surface-variant);
+`
+
+const RollbackTargetScale = styled.div`
+  ${labelMedium};
+  position: relative;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--color-grey-blue80);
+`
+
+const ScaleEnd = styled.span<{ $end: 'start' | 'end' }>`
+  position: absolute;
+  ${props => (props.$end === 'start' ? 'left: 0;' : 'right: 0;')}
+`
+
+const ScaleRecommended = styled.span<{ $selected: boolean }>`
+  position: absolute;
+  left: ${sliderPosition(RECOMMENDED_ROLLBACK_TARGET / MAX_ROLLBACK_TARGET)};
+  transform: translateX(-50%);
+  color: ${props => (props.$selected ? 'var(--theme-amber)' : 'inherit')};
 `
 
 /**
@@ -114,6 +136,9 @@ export function AppSystemSettings() {
   // have no effect on the game about to launch; lock it while the user is in one of those.
   const regionLocked = isMatchmaking || isMatchLaunching || inLobby
 
+  const rollbackTitleId = useId()
+  const rollbackDescriptionId = useId()
+
   const { bindCheckable, bindCustom, getInputValue, submit, form } =
     useForm<AppSystemSettingsModel>(
       {
@@ -128,6 +153,8 @@ export function AppSystemSettings() {
       },
       {},
     )
+
+  const isRollbackRecommended = getInputValue('rollbackTarget') === RECOMMENDED_ROLLBACK_TARGET
 
   useFormCallbacks(form, {
     onValidatedChange: model => {
@@ -201,29 +228,44 @@ export function AppSystemSettings() {
               </RegionLockedText>
             ) : null}
             <RollbackTarget>
+              <RollbackTargetTitle id={rollbackTitleId}>
+                {t('settings.app.system.rollbackTarget.label', 'Rollback balance')}
+              </RollbackTargetTitle>
+              <RollbackTargetDescription id={rollbackDescriptionId}>
+                {t(
+                  'settings.app.system.rollbackTarget.description',
+                  'Higher values make your commands more responsive, but units may visibly jump ' +
+                    'more often.',
+                )}
+              </RollbackTargetDescription>
               <Slider
                 {...bindCustom('rollbackTarget')}
-                label={t('settings.app.system.rollbackTarget.label', 'Rollback balance')}
+                ariaLabelledBy={rollbackTitleId}
+                ariaDescribedBy={rollbackDescriptionId}
+                formatValueText={value =>
+                  value === RECOMMENDED_ROLLBACK_TARGET
+                    ? t('settings.app.system.rollbackTarget.recommendedValue', {
+                        defaultValue: '{{value}}, recommended',
+                        value,
+                      })
+                    : String(value)
+                }
                 tabIndex={0}
                 min={0}
                 max={MAX_ROLLBACK_TARGET}
                 step={1}
               />
-              <SliderEndpointLabels>
-                <LabelMedium>
+              <RollbackTargetScale aria-hidden={true}>
+                <ScaleEnd $end='start'>
                   {t('settings.app.system.rollbackTarget.smoother', 'Smoother')}
-                </LabelMedium>
-                <LabelMedium>
+                </ScaleEnd>
+                <ScaleRecommended $selected={isRollbackRecommended}>
+                  {t('settings.app.system.rollbackTarget.recommended', 'Recommended')}
+                </ScaleRecommended>
+                <ScaleEnd $end='end'>
                   {t('settings.app.system.rollbackTarget.responsive', 'More responsive')}
-                </LabelMedium>
-              </SliderEndpointLabels>
-              <SettingsSectionDescription>
-                {t(
-                  'settings.app.system.rollbackTarget.description',
-                  'Higher values make your commands more responsive, but units may visibly jump ' +
-                    'more often. 2 is recommended.',
-                )}
-              </SettingsSectionDescription>
+                </ScaleEnd>
+              </RollbackTargetScale>
             </RollbackTarget>
           </SectionContainer>
         ) : null}
