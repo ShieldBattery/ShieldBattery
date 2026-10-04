@@ -9260,17 +9260,36 @@ unsafe fn step_one_game_logic_step(
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
     unsafe {
-        match crate::rollback_live::run_game_logic_step(bw, param, orig) {
-            Some(ret) => ret,
-            #[cfg(debug_assertions)]
-            None => match crate::rollback_bench::run_game_logic_step(bw, param, orig) {
-                Some(ret) => ret,
-                None => crate::rollback_harness::run_game_logic_step(bw, param, orig),
-            },
-            #[cfg(not(debug_assertions))]
-            None => orig(param),
+        if let Some(ret) = crate::rollback_live::run_game_logic_step(bw, param, orig) {
+            return ret;
         }
+        #[cfg(debug_assertions)]
+        if let Some(ret) = crate::rollback_bench::run_game_logic_step(bw, param, orig) {
+            return ret;
+        }
+        step_outside_rollback(bw, param, orig)
     }
+}
+
+/// Runs a logic step that no rollback driver took: through the replay harness, which leaves it to
+/// BW's own step unless it is armed.
+#[cfg(debug_assertions)]
+unsafe fn step_outside_rollback(
+    bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    unsafe { crate::rollback_harness::run_game_logic_step(bw, param, orig) }
+}
+
+/// Runs a logic step that no rollback driver took.
+#[cfg(not(debug_assertions))]
+unsafe fn step_outside_rollback(
+    _bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    unsafe { orig(param) }
 }
 
 unsafe fn check_documents_starcraft_path_accessibility() {
