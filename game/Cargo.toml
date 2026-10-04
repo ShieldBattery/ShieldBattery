@@ -16,7 +16,8 @@ panic = "abort"
 [profile.release]
 debug = 1
 panic = "abort"
-lto = true
+lto = "fat"
+codegen-units = 1
 
 # Release optimizations with the debug-only tooling (rollback bench, harness, probe) compiled in,
 # for measuring performance: `cargo build --profile bench-dll`.
@@ -24,6 +25,7 @@ lto = true
 inherits = "release"
 debug-assertions = true
 lto = false
+codegen-units = 256
 incremental = true
 
 [dependencies]
