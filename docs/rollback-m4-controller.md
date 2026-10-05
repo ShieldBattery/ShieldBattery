@@ -311,6 +311,11 @@ the client side is `Pacing::on_report` keeping its trust across a change in `pau
   new authority that is behind can stop the clock needlessly around a handoff (every relay takes
   it in at its own limit, so clients shift together and nobody sprints), and relays can disagree
   about a few deadlines already behind them. This replaces "What isn't guaranteed" below.
+- **A client undoes a provisional hold only as far as a report measures it late.** A report with
+  no new stopped time doesn't by itself show the session kept running through the client's stall
+  (the clock may not have existed yet to record the wait); the turns sent after the stall do. If
+  the clock ran on, they arrive late by however much of the stall was the client's own, and that
+  much of the hold is made up at once; on time, the hold stands.
 - **The fold horizon is `LEAD_SEEN_SEQS + STALL_SLACK` behind the limit**, since a player the
   session waits on can be up to the slack behind it and is measured up to 128 behind their newest.
 
