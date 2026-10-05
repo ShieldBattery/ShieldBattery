@@ -54,7 +54,7 @@ direct-binary bash launch orphans too. `Start-Process` returns the *actual* elec
 ```powershell
 # Instance 1 (PowerShell tool — returns immediately, app runs detached; SAVE the PID)
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
-$env:SB_HOT='1'; $env:SB_SESSION='session1'
+$env:SB_HOT='1'; $env:SB_SESSION='session1'; $env:SB_APP_BACKGROUND='1'; $env:SB_GAME_BACKGROUND='1'
 $p = Start-Process -FilePath 'node_modules\electron\dist\electron.exe' `
   -ArgumentList 'app','--remote-debugging-port=9222' -PassThru; "PID: $($p.Id)"
 
@@ -63,6 +63,22 @@ $p = Start-Process -FilePath 'node_modules\electron\dist\electron.exe' `
 
 Sanity check the PID took the port: `netstat -ano | findstr :9222` → the LISTENING line's PID
 must match what `Start-Process` returned.
+
+> **`SB_APP_BACKGROUND=1` and `SB_GAME_BACKGROUND=1` keep your test instances out of the user's
+> way. Set both unless the user will use that instance themselves.** The user is usually working
+> on this machine while you test. `SB_APP_BACKGROUND` opens the app window behind their windows
+> without taking focus. It also skips restoring a maximized window, because maximizing would
+> activate it. Driving the app over CDP works the same either way.
+>
+> Without `SB_GAME_BACKGROUND`, every game launch steals focus and warps the cursor. Games inherit
+> the app's environment, so set it on the app launch (as above). With it, the game window opens
+> behind other windows without activating, and the game doesn't move or confine the cursor until
+> someone brings its window to the front (after that it behaves normally). The game still renders, and
+> `screenshot(gameId)` works on the hidden window. **Leave it off** when the user is meant to
+> interact with the game (e.g. the human graceful-leave finish in verify-pr T4): the window would
+> otherwise come up buried, and they'd have to dig it out. The flag can't stop exclusive
+> **Fullscreen** mode from taking over the display, so use windowed or windowed fullscreen. The
+> game log confirms it's active: `Launching in the background (SB_GAME_BACKGROUND=1)`.
 
 > **Stripping `ELECTRON_RUN_AS_NODE` is mandatory when launching from an agent tool** (the
 > `Remove-Item Env:` above; in bash it's `env -u ELECTRON_RUN_AS_NODE`). VS Code runs its

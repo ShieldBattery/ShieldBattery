@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import {
   app,
   BrowserWindow,
+  desktopCapturer,
   dialog,
   Menu,
   powerMonitor,
@@ -1217,6 +1218,24 @@ function calculateOptimalWindowSize() {
   return { width: optimalWidth, height: optimalHeight }
 }
 
+/**
+ * Moves `window` behind the other windows on the desktop without activating it. A window shown
+ * without focus still lands on top of the window being used, covering it.
+ */
+async function sendBehindOtherWindows(window: BrowserWindow) {
+  // Window sources are listed in z-order, topmost first. Electron has no way to send a window to the
+  // back, so this places it just above the bottom-most window instead.
+  const sources = await desktopCapturer.getSources({
+    types: ['window'],
+    thumbnailSize: { width: 0, height: 0 },
+  })
+  const ownId = window.getMediaSourceId()
+  const bottom = sources.findLast(s => s.id !== ownId)
+  if (bottom && !window.isDestroyed()) {
+    window.moveAbove(bottom.id)
+  }
+}
+
 async function createWindow() {
   const localSettings = container.resolve(LocalSettingsManager)
   const curSession = currentSession()
@@ -1250,9 +1269,12 @@ async function createWindow() {
     },
   })
 
+  // Lets test instances open without taking focus from whoever is using the machine. Maximizing
+  // always activates the window, so a background launch skips restoring the maximized state.
+  const showInBackground = process.env.SB_APP_BACKGROUND === '1'
   let needsMaximize = false
 
-  if (winMaximized) {
+  if (winMaximized && !showInBackground) {
     // BrowserWindow#maximize() causes the window to show, and our content might not be ready yet
     // (or we might be set to start minimized), so we don't want to show things yet. Instead we just
     // mark this as needing to happen, and handle doing it in the `show` event.
@@ -1361,7 +1383,15 @@ async function createWindow() {
 
   if (!process.argv.includes('--hidden')) {
     mainWindow.once('ready-to-show', () => {
-      mainWindow!.show()
+      if (showInBackground) {
+        logger.info('Showing the window behind other windows (SB_APP_BACKGROUND=1)')
+        mainWindow!.showInactive()
+        sendBehindOtherWindows(mainWindow!).catch(err => {
+          logger.warning(`Couldn't move the window behind other windows: ${getErrorStack(err)}`)
+        })
+      } else {
+        mainWindow!.show()
+      }
     })
   }
 

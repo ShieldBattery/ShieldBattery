@@ -103,7 +103,11 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
 
 **Setup**:
 - Dev stack up incl. the app renderer dev server (`pnpm run dev`); two app instances logged in as
-  two seeded accounts (see **verify-app**).
+  two seeded accounts (see **verify-app**). Launch them with `SB_APP_BACKGROUND=1` and
+  `SB_GAME_BACKGROUND=1` so neither the app nor its games steal the user's focus or cursor
+  (verify-app has the details). The exception is a run
+  where the user will play or leave the game themselves (the human graceful-leave finish below):
+  launch that instance without the flag.
 - **Rebuild the game DLL first**: `.\game\build.bat` from PowerShell (`cmd //c game\build.bat`
   from Git Bash opens cmd interactively and does nothing). A stale
   injected DLL **crashes StarCraft at game-start with `0xc0000005`** (Forge graphics
