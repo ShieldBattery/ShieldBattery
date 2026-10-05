@@ -28,6 +28,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use crate::app_messages::ReplaySaved;
+use crate::app_messages::SetUserBlocked;
 use crate::app_messages::WindowMove;
 use crate::bw_scr::IS_LOGGING_TIME_CALL;
 use crate::forge::TRACK_WINDOW_POS;
@@ -420,6 +421,15 @@ async fn handle_messages_from_game_thread(
 
                         let msg =
                             app_socket::encode_message("/game/replaySaved", ReplaySaved { path });
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::SetUserBlocked { user_id, blocked } => {
+                        let msg = app_socket::encode_message(
+                            "/game/setUserBlocked",
+                            SetUserBlocked { user_id, blocked },
+                        );
                         if let Some(msg) = msg {
                             let _ = ws_send.send(msg).await;
                         }

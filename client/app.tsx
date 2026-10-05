@@ -8,12 +8,13 @@ import { Store } from 'redux'
 import styled, { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Router, Switch } from 'wouter'
+import { ActiveGameBlockSync } from './active-game/active-game-block-sync'
 import { AppRoutes } from './app-routes'
 import { revokeSession } from './auth/action-creators'
 import { useSelfUser } from './auth/auth-utils'
 import { RestrictionClearer } from './auth/restriction-clearer'
-import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import './dom/window-focus'
+import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { UpdateOverlay, UpdateOverlayErrorBoundary } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { GameplayActivityWidget } from './gameplay-activity/gameplay-activity-widget'
@@ -275,6 +276,7 @@ const AppContent = React.memo(() => {
       </React.Suspense>
       <GameplayActivityWidget />
       {IS_ELECTRON ? <AcceptMatchCountdownSounds /> : null}
+      {IS_ELECTRON ? <ActiveGameBlockSync /> : null}
       {IS_ELECTRON ? <GameDefaultsFirstRunPrompt /> : null}
       <LazyConnectedSettings />
       <DraftScreenOverlay />

@@ -113,6 +113,11 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
     NetworkStall(Duration),
     ReplaySaved(PathBuf),
+    /// The local user blocked or unblocked a player with an in-game chat command; the app saves it.
+    SetUserBlocked {
+        user_id: SbUserId,
+        blocked: bool,
+    },
     /// Current minimap color/terrain toggle values, read once when the game loop ends so they can
     /// be persisted to settings. Either field is `None` if its game global wasn't located.
     MinimapSettings {

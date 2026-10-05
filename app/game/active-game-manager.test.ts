@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 
 // ActiveGameManager pulls in Electron (and modules that initialize against a real Electron
@@ -121,5 +122,47 @@ describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
     const errorStatus = statuses.find(status => status.state === 'error')
     expect(errorStatus, 'an error status was emitted').toBeDefined()
     expect(String(errorStatus!.extra)).toContain('no adoptable keypair (noKeysGenerated)')
+  })
+})
+
+describe('ActiveGameManager block list updates', () => {
+  let manager: ActiveGameManager
+  let commands: Array<[string, string, ...any[]]>
+  let blockRequests: Array<[string, SbUserId, boolean]>
+
+  beforeEach(() => {
+    manager = makeManager()
+    commands = []
+    blockRequests = []
+    manager.on('gameCommand', (gameId, command, ...args) => {
+      commands.push([gameId, command, ...args])
+    })
+    manager.on('setUserBlocked', (gameId, userId, blocked) => {
+      blockRequests.push([gameId, userId, blocked])
+    })
+  })
+
+  it('forwards block list changes to the active game only', () => {
+    manager.setBlockedUsers([makeSbUserId(5)])
+    expect(commands).toEqual([])
+
+    manager.setGameConfig(configFor('game-1'))
+    manager.setBlockedUsers([makeSbUserId(5), makeSbUserId(6)])
+    expect(commands).toContainEqual(['game-1', 'blockedUsers', [makeSbUserId(5), makeSbUserId(6)]])
+  })
+
+  it('relays in-game block requests and their failures for the active game only', () => {
+    manager.setGameConfig(configFor('game-1'))
+
+    manager.handleSetUserBlocked('game-0', makeSbUserId(5), true)
+    manager.handleSetUserBlocked('game-1', makeSbUserId(6), true)
+    expect(blockRequests).toEqual([['game-1', makeSbUserId(6), true]])
+
+    const failure = { userId: makeSbUserId(6), blocked: true, reason: 'limitReached' as const }
+    manager.blockRequestFailed('game-0', failure)
+    manager.blockRequestFailed('game-1', failure)
+    expect(commands.filter(([, command]) => command === 'blockRequestFailed')).toEqual([
+      ['game-1', 'blockRequestFailed', failure],
+    ])
   })
 })

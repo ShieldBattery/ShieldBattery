@@ -16,10 +16,10 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameSetupInfo, GameType,
-    MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus, NetworkTransport,
-    PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser, SbUserId,
-    ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    BlockRequestFailed, GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage,
+    GameSetupInfo, GameType, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
+    NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser,
+    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -101,7 +101,11 @@ pub enum GameStateMessage {
     /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
     SetNetcodeV2Setup(Box<NetcodeV2Setup>),
     SetLocalUser(SbUser),
+    /// The local user's full block list. Accepted at any point in the game's life, since blocks
+    /// can change while it runs.
     SetBlockedUsers(Vec<SbUserId>),
+    /// The app couldn't save a block or unblock made with an in-game chat command.
+    BlockRequestFailed(BlockRequestFailed),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     /// The fully-known joined-player set, built directly from the session roster + slot layout.
@@ -190,10 +194,14 @@ impl GameState {
     }
 
     fn set_blocked_users(&mut self, users: Vec<SbUserId>) {
-        if let InitState::WaitingForInput(ref mut state) = self.init_state {
-            state.blocked_users = users;
-        } else {
-            error!("Received blocked users after game was started");
+        match self.init_state {
+            InitState::WaitingForInput(ref mut state) => state.blocked_users = users,
+            InitState::Started(ref mut state) => {
+                // Before the players are randomized the chat manager isn't set up yet, and it's
+                // fed `state.blocked_users` once it is, so storing the list is enough until then.
+                get_bw().set_blocked_players(&users);
+                state.blocked_users = users;
+            }
         }
     }
 
@@ -837,6 +845,9 @@ impl GameState {
             SetBlockedUsers(users) => {
                 self.set_blocked_users(users);
             }
+            BlockRequestFailed(failure) => {
+                get_bw().block_request_failed(&failure);
+            }
             SetNetcodeV2Setup(setup) => {
                 // SECURITY: `setup` holds the per-session private key; never log its contents.
                 // `NetcodeV2Setup`'s `Debug` redacts the key, but don't `{:?}` it here regardless.
@@ -1025,6 +1036,7 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
+            SetUserBlocked { .. } => (),
             MinimapSettings {
                 color_mode,
                 terrain_hidden,

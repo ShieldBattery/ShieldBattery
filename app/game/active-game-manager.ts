@@ -24,6 +24,7 @@ import {
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
+import { GameBlockRequestFailure } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import {
@@ -136,6 +137,7 @@ export type ActiveGameManagerEvents = {
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
+  setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
 }
 
 @singleton()
@@ -734,6 +736,38 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     this.setStatus(GameStatus.Finished)
     this.emit('gameCommand', gameId, 'cleanup_and_quit')
+  }
+
+  /**
+   * Replaces the active game's block list, both in its stored config (which is what's sent once the
+   * game process connects) and in the game process itself if it's already running.
+   */
+  setBlockedUsers(blockedUsers: SbUserId[]) {
+    const game = this.activeGame
+    if (!game) {
+      return
+    }
+
+    if (game.config) {
+      game.config = { ...game.config, blockedUsers }
+    }
+    this.emit('gameCommand', game.id, 'blockedUsers', blockedUsers)
+  }
+
+  handleSetUserBlocked(gameId: string, userId: SbUserId, blocked: boolean) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    this.emit('setUserBlocked', gameId, userId, blocked)
+  }
+
+  blockRequestFailed(gameId: string, failure: GameBlockRequestFailure) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'blockRequestFailed', failure)
   }
 
   handleReplaySaved(gameId: string, path: string) {
