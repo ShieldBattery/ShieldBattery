@@ -19,8 +19,7 @@
 //! in game speed too small to see, where moving only the schedule would just make the game skip
 //! or repeat a frame once the slew crossed one. One report moves the
 //! schedule by at most [`MAX_CORRECTION_US`], and a report is only trusted once every turn it
-//! covers was sent after the last change to the schedule took effect, so a correction is never
-//! applied twice.
+//! covers was sent after the last correction took effect, so a correction is never applied twice.
 //!
 //! The game loop runs its ticks on its own timer, a step apart, at some point within each step of
 //! the schedule. A tick near a step's edge would flip between two frames with a millisecond of
@@ -29,13 +28,16 @@
 //! tick by up to [`SLEW_PER_TICK_US`] toward the middle, which a stall, a stop of the clock, or the
 //! game loop's own drift can have moved them off.
 //!
-//! When the session clock stops (everyone waited on a player who dropped), the report carrying the
-//! stop moves `send_zero` later by exactly the stopped time, so nobody races to make up time the
-//! session never ran. A client stalled at its own prediction limit holds its schedule still too,
-//! provisionally: if the relay's clock stopped as well, the stopped time it reports replaces the
-//! provisional hold, and if it didn't, the stall was this client's alone, and once a report shows
-//! turns sent after the stall arriving with the clock unmoved, the hold is undone so the client
-//! catches up.
+//! When the session clock stops (everyone waited on a player who dropped, or on one running later
+//! than the clock allows), the report carrying the stop moves `send_zero` later by exactly the
+//! stopped time, so nobody races to make up time the session never ran. Its figures still count:
+//! the relay measures every turn against a deadline that no later stop moves, and a stop moves this
+//! client's sends along with its deadlines, so a report reads the same on either side of one. That
+//! is what lets a player whose turns keep the clock stopping see how late they are and correct. A
+//! client stalled at its own prediction limit holds its schedule still too, provisionally: if the
+//! relay's clock stopped as well, the stopped time it reports replaces the provisional hold, and if
+//! it didn't, the stall was this client's alone, and once a report shows turns sent after the stall
+//! arriving with the clock unmoved, the hold is undone so the client catches up.
 
 use std::time::{Duration, Instant};
 
@@ -98,8 +100,8 @@ pub struct Pacing {
     /// The newest turn this client had sent when the stall it is holding through ended, if one
     /// has.
     hold_ended_at: Option<u64>,
-    /// Reports about turns before this one describe sends made before the newest change to the
-    /// schedule took effect, and are ignored.
+    /// Reports about turns before this one describe sends made before the newest correction or
+    /// stall ended, and are ignored.
     trust_from: u64,
     counts: PacingCounts,
 }
@@ -220,14 +222,13 @@ impl Pacing {
     pub fn on_report(&mut self, report: &LeadReport, newest_sent: u64) {
         if report.pause_us > self.pause_us {
             // The session clock stopped: every later deadline moved by exactly that much, part
-            // of which this client may already have held still for.
+            // of which this client may already have held still for. The report's figures are
+            // taken in below like any other's.
             let stopped = i64::try_from(report.pause_us - self.pause_us).unwrap_or(i64::MAX);
             self.pause_us = report.pause_us;
             self.send_zero = shifted(self.send_zero, stopped - micros(self.hold));
             self.hold = Duration::ZERO;
             self.hold_ended_at = None;
-            self.trust_from = self.trust_from.max(newest_sent + REPORT_WINDOW_TURNS);
-            return;
         }
         if report.samples == 0 || report.through_step < self.trust_from {
             return;
@@ -411,6 +412,31 @@ mod tests {
         // Later in the step: the next tick comes sooner. Earlier: later.
         assert_eq!(pacing.phase_nudge_us(start + STEP * 7 + 15 * MS), -1_000);
         assert_eq!(pacing.phase_nudge_us(start + STEP * 7 - 15 * MS), 1_000);
+    }
+
+    #[test]
+    fn a_report_carrying_a_stop_still_corrects_the_schedule() {
+        let start = Instant::now();
+        let mut pacing = Pacing::new(24, 6, start);
+        let base = pacing.send_zero;
+        // The clock stopped 5 ms waiting on this client, whose turns run 210 ms late: the stop
+        // moves the schedule 5 ms later, and the lateness two steps earlier.
+        pacing.on_report(&report(30, 210_000, 5_000), 30);
+        assert_eq!(pacing.pause_us(), 5_000);
+        assert_eq!(pacing.send_zero, base - STEP * 2 + 5 * MS);
+        // Such a player keeps stopping the clock until it catches up, so every report carries a
+        // stop. Each moves the schedule by its stop, and each trusted one corrects it again.
+        pacing.on_report(&report(42, 210_000, 9_000), 42);
+        assert_eq!(
+            pacing.send_zero,
+            base - STEP * 2 + 9 * MS,
+            "not trusted yet"
+        );
+        pacing.on_report(&report(54, 150_000, 12_000), 54);
+        assert_eq!(pacing.send_zero, base - STEP * 4 + 12 * MS);
+        let counts = pacing.take_counts();
+        assert_eq!(counts.corrections, 2);
+        assert_eq!(counts.corrected_us, -2 * MAX_CORRECTION_US);
     }
 
     #[test]
