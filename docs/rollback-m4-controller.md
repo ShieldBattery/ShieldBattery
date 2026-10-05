@@ -139,7 +139,10 @@ the client side ShieldBattery `0e51b1a02` (`rollback/pacing.rs`); results in the
 shared reference. Two additions over the design below: the client's slew moves the game loop's
 own step timing as well as the schedule (moving only the schedule just makes the game skip or
 repeat a frame once the slew crosses one), and a phase lock nudges the loop's ticks back to the
-middle of their steps by up to 1 ms a tick.
+middle of their steps by up to 1 ms a tick. Until a report covering a full window has corrected
+the schedule, a report isn't capped at all (see the client plan's "A lossy downlink"): the player at
+the far end of the slowest round of the lockstep start comes out of it hundreds of milliseconds
+behind the clock, and stops the clock for everyone until corrected.
 
 ### Why
 

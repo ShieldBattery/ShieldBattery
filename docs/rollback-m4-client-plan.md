@@ -451,19 +451,31 @@ frames. What made one player's link everyone's problem, and what changed:
   [Next: stopping the clock as it happens](rollback-m4-controller.md#next-stopping-the-clock-as-it-happens)
   (rp2 `4297a42`, `92911d2`). The client keeps trusting reports across a stop.
 
-Also open: **stalls right after the lockstep start.** Each client anchors its schedule where its
-own lockstep start ends, and the relay anchors the session clock where the start became
-confirmable, so a client whose start ran late comes out of it needing a large correction, which
-the pacing applies at 2 steps a report (about 4 steps a second). Until it lands, that client's
-turns reach the relay late and everyone else stalls on them. The staging game above had 193 ticks
-at the limit in its first summary and none once settled; a local 1v1 with one client's peer turns
-held 12 frames (`SB_ROLLBACK_LIVE_DELAY=0:12`) had the far client correct by 324 ms and the other
-stall 81 ticks in its first 30 s, then never again. The first report already measures the whole
-offset, so either applying the first trusted report's correction whole rather than 2 steps at a
-time, or having the relay hand each client the clock's anchor to start its schedule from, would
-take most of it away.
+- **The late player's start stopped the clock for everyone.** The relays' clock expects a turn
+  every step from where the lockstep start became confirmable, but a client's turns past the
+  buffer it ended the start with (a turn or two) can only follow a full round of turns between the
+  players, so the player at the far end of the slowest round comes out behind the clock by about
+  that round less its buffer. Further behind than the slack, the clock stops for everyone, and each
+  stop moves that player's schedule later along with its deadlines, so it stays as far behind until
+  a report corrects it, which the pacing did at 2 steps a report. Until a report covering a full
+  window has corrected the schedule, a report now moves it by all it measures; before then, one
+  finding the client less than a step off is skipped without holding off the reports after it,
+  since the relay's first reports cover only the turns that were in flight as the start ended,
+  which arrive on time however late the rest are. Local 1v1, one client's sends held 12 frames from
+  frame 0 (`SB_ROLLBACK_SEND_DELAY=12@0`): the clock stopped 817 and 910 ms before, 209 and 208 ms
+  after, with the late client corrected by 355 ms 0.6 s in, from the third report (3 turns). With
+  one client's peer turns held 12 frames (`SB_ROLLBACK_LIVE_DELAY=0:12`) and a start 318 ms late,
+  130 ms after (the two runs before it happened to start 230 ms late, under the slack, and stopped
+  it 46 and 70 ms). What's left is the stop before the first turn past the buffer is measured; only a
+  clock anchored later than the start's confirmation could remove it.
 
-The same local test showed the send-while-stalled path working: the client holding its peer's
+  The summaries' "ticks at the limit" counts the game loop's polls while stalled, about every 3 ms,
+  and the first in-game summary also covers the last two turns of the lockstep start. In these
+  tests every one of the 43-75 "first 30 s" stalled ticks on the on-time client came from those two
+  turns, before the pacing started, so that figure doesn't measure this; the session clock's
+  stopped time does.
+
+The `SB_ROLLBACK_LIVE_DELAY=0:12` test also showed the send-while-stalled path working: the client holding its peer's
 turns sent 52 turns while stalled as its lead walked down to -9, the session clock never stopped,
 and once settled the other client ran a pipe of 1 with no rollback.
 

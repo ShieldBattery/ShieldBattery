@@ -21,6 +21,19 @@
 //! schedule by at most [`MAX_CORRECTION_US`], and a report is only trusted once every turn it
 //! covers was sent after the last correction took effect, so a correction is never applied twice.
 //!
+//! The start is the exception. The relays' clock starts where the lockstep start became
+//! confirmable on the relay that started the session, and from there expects a turn every step;
+//! but each client's turns past the latency buffer it ended the start with can only follow a full
+//! round of turns between the players, so the player at the far end of the slowest round starts
+//! behind the clock by about that round less its buffer. The clock stops for everyone while that
+//! player is further behind than the clock's slack, and every stop moves that player's schedule later along
+//! with its deadlines, so it stays just as far behind until a report corrects it. So until a report
+//! covering a full window has corrected the schedule, a report moves it by all it measures. Before
+//! then, one that finds this client less than a step off is ignored rather than taken as the start
+//! of a correction: the first few turns measured were in flight as the start ended, on time however
+//! late the turns after them are, and acting on them would leave no trusted report for a whole
+//! window afterwards.
+//!
 //! The game loop runs its ticks on its own timer, a step apart, at some point within each step of
 //! the schedule. A tick near a step's edge would flip between two frames with a millisecond of
 //! jitter, stepping an extra frame one tick and putting the next one off the tick after, so the
@@ -56,7 +69,7 @@ const STEP_US: i64 = STEP_DURATION_US as i64;
 /// deadline.
 const MARGIN_US: i64 = 3_000;
 
-/// The most one report moves the schedule by: two steps.
+/// The most one report moves the schedule by once a full window has corrected it: two steps.
 pub const MAX_CORRECTION_US: i64 = 2 * STEP_US;
 
 /// How fast the part of a correction smaller than a step is applied: 1 ms a tick, about 2.4% of
@@ -67,8 +80,9 @@ pub const SLEW_PER_TICK_US: i64 = 1_000;
 /// back toward it.
 const PHASE_DEAD_BAND_US: i64 = 2_000;
 
-/// How many of this client's turns a report's window covers. A report is only trusted once every
-/// turn in its window was sent after the last change to the schedule took effect.
+/// How many of this client's turns a report's window covers once the relay has measured that
+/// many. A report is only trusted once every turn in its window was sent after the last change to
+/// the schedule took effect.
 const REPORT_WINDOW_TURNS: u64 = 24;
 
 /// What the pacing did, for the driver's summary.
@@ -106,6 +120,9 @@ pub struct Pacing {
     /// Reports about turns before this one describe sends made before the newest correction or
     /// stall ended, and are ignored.
     trust_from: u64,
+    /// Whether a report covering a full window has corrected the schedule yet (by nothing, if it
+    /// was on time). Until one has, a correction isn't capped.
+    settled: bool,
     counts: PacingCounts,
 }
 
@@ -145,6 +162,7 @@ impl Pacing {
             last_stalled: false,
             hold_ended_at: None,
             trust_from: 0,
+            settled: false,
             counts: PacingCounts::default(),
         }
     }
@@ -251,11 +269,22 @@ impl Pacing {
                 return;
             }
         }
+        let limit_us = if self.settled {
+            MAX_CORRECTION_US
+        } else {
+            i64::MAX
+        };
         // In whole slew steps, which the game loop's millisecond timing can follow exactly.
-        let correction = ((-late_us).clamp(-MAX_CORRECTION_US, MAX_CORRECTION_US) as f64
-            / SLEW_PER_TICK_US as f64)
+        let correction = ((-late_us).clamp(-limit_us, limit_us) as f64 / SLEW_PER_TICK_US as f64)
             .round() as i64
             * SLEW_PER_TICK_US;
+        if !self.settled {
+            let full = u64::from(report.samples) >= REPORT_WINDOW_TURNS;
+            if !full && correction.abs() < STEP_US {
+                return;
+            }
+            self.settled = full;
+        }
         if correction == 0 {
             return;
         }
@@ -298,6 +327,16 @@ mod tests {
             samples: 24,
             pause_us,
         }
+    }
+
+    /// Pacing started at `start` whose first full window found it on time, so later reports are
+    /// capped.
+    fn settled(start: Instant) -> Pacing {
+        let mut pacing = Pacing::new(24, 6, start);
+        pacing.on_report(&report(30, -(MARGIN_US as i32), 0), 30);
+        assert!(pacing.settled);
+        assert_eq!(pacing.take_counts(), PacingCounts::default());
+        pacing
     }
 
     /// Ticks once a step from `from` for `ticks` steps, stepping normally, and returns the time
@@ -359,17 +398,85 @@ mod tests {
     }
 
     #[test]
-    fn one_report_moves_the_schedule_two_steps_at_most() {
+    fn once_settled_one_report_moves_the_schedule_two_steps_at_most() {
         let start = Instant::now();
-        let mut pacing = Pacing::new(24, 6, start);
+        let mut pacing = settled(start);
         let before = pacing.target(start, 3);
-        pacing.on_report(&report(30, 900_000, 0), 30);
+        pacing.on_report(&report(40, 900_000, 0), 40);
         assert_eq!(pacing.target(start, 3), before + 2);
         assert_eq!(pacing.slewing_us, 0);
         // Early turns move it later, just as far at most.
-        let mut early = Pacing::new(24, 6, start);
-        early.on_report(&report(30, -900_000, 0), 30);
+        let mut early = settled(start);
+        early.on_report(&report(40, -900_000, 0), 40);
         assert_eq!(early.target(start, 3), before - 2);
+    }
+
+    #[test]
+    fn until_a_full_window_has_corrected_it_reports_move_the_schedule_by_all_they_measure() {
+        let start = Instant::now();
+        let mut pacing = Pacing::new(24, 6, start);
+        let before = pacing.target(start, 3);
+        // This client came out of the lockstep start 321 ms behind the clock. The relay's first
+        // reports cover only turns that were in flight as the start ended, and find it on time.
+        for samples in [1, 2] {
+            pacing.on_report(
+                &LeadReport {
+                    samples,
+                    ..report(23 + u64::from(samples), 20_000, 0)
+                },
+                26,
+            );
+        }
+        assert_eq!(pacing.target(start, 3), before);
+        assert_eq!(
+            pacing.trust_from, 0,
+            "they don't hold off the reports after them"
+        );
+        // The first to cover a turn past those moves the schedule the whole 324 ms with the margin:
+        // seven steps at once and the rest slewed.
+        pacing.on_report(
+            &LeadReport {
+                samples: 3,
+                ..report(26, 321_000, 0)
+            },
+            26,
+        );
+        assert_eq!(pacing.target(start, 3), before + 7);
+        assert_eq!(pacing.slewing_us, -30_000);
+        let counts = pacing.take_counts();
+        assert_eq!(counts.corrections, 1);
+        assert_eq!(counts.corrected_us, -324_000);
+        // Not trusted again until the slew is done and a window of turns sent after it.
+        assert_eq!(pacing.trust_from, 26 + REPORT_WINDOW_TURNS + 30);
+        // The first full window still moves it by all it measures.
+        pacing.on_report(&report(80, 147_000, 0), 80);
+        assert_eq!(pacing.take_counts().corrected_us, -150_000);
+        // After that, corrections are capped.
+        pacing.on_report(&report(200, 321_000, 0), 200);
+        assert_eq!(pacing.take_counts().corrected_us, -MAX_CORRECTION_US);
+        // A client that came out of it early moves later by all of it, too.
+        let mut early = Pacing::new(24, 6, start);
+        early.on_report(&report(48, -300_000, 0), 54);
+        assert_eq!(early.target(start, 3), before - 7);
+    }
+
+    #[test]
+    fn a_hold_undone_from_the_first_full_window_leaves_the_next_one_uncapped() {
+        let start = Instant::now();
+        let mut pacing = Pacing::new(24, 6, start);
+        let mut at = run(&mut pacing, start, 10, 40);
+        let _ = pacing.tick(at, true, 50);
+        at += Duration::from_secs(2);
+        let _ = pacing.tick(at, false, 50);
+        let _ = pacing.tick(at + STEP, false, 51);
+        pacing.on_report(&report(80, 2_000_000, 0), 80);
+        assert_eq!(pacing.take_counts().holds_undone, 1);
+        let undone = pacing.send_zero;
+        // The schedule is back where it started, still as far off the clock as that was, and the
+        // next full window moves it by all of that: seven steps at once and the rest slewed.
+        pacing.on_report(&report(110, 300_000, 0), 110);
+        assert_eq!(pacing.send_zero, undone - STEP * 7);
+        assert_eq!(pacing.slewing_us, -9_000);
     }
 
     #[test]
@@ -425,7 +532,7 @@ mod tests {
     #[test]
     fn a_report_carrying_a_stop_still_corrects_the_schedule() {
         let start = Instant::now();
-        let mut pacing = Pacing::new(24, 6, start);
+        let mut pacing = settled(start);
         let base = pacing.send_zero;
         // The clock stopped 5 ms waiting on this client, whose turns run 210 ms late: the stop
         // moves the schedule 5 ms later, and the lateness two steps earlier.
@@ -508,7 +615,7 @@ mod tests {
     #[test]
     fn a_hold_stands_when_turns_sent_after_the_stall_arrive_on_time() {
         let start = Instant::now();
-        let mut pacing = Pacing::new(24, 6, start);
+        let mut pacing = settled(start);
         let mut at = run(&mut pacing, start, 10, 40);
         let _ = pacing.tick(at, true, 50);
         at += Duration::from_secs(10);
