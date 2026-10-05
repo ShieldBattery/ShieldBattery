@@ -466,8 +466,12 @@ frames. What made one player's link everyone's problem, and what changed:
   after, with the late client corrected by 355 ms 0.6 s in, from the third report (3 turns). With
   one client's peer turns held 12 frames (`SB_ROLLBACK_LIVE_DELAY=0:12`) and a start 318 ms late,
   130 ms after (the two runs before it happened to start 230 ms late, under the slack, and stopped
-  it 46 and 70 ms). What's left is the stop before the first turn past the buffer is measured; only a
-  clock anchored later than the start's confirmation could remove it.
+  it 46 and 70 ms). What's left is the stop before the first turn past the buffer is measured. In
+  real sessions there is usually nothing left: the relay sizes the start's buffer from every slot's
+  RTT, which covers the round, and the staging game above came out of its start with no turn later
+  than 213 ms (its bufferbloated player), under the slack. The debug knobs add delay the relay
+  can't see when it sizes that buffer (it was 1 turn in these tests), so they are the worst case: a
+  round that outgrows the buffer after it was sized.
 
   The summaries' "ticks at the limit" counts the game loop's polls while stalled, about every 3 ms,
   and the first in-game summary also covers the last two turns of the lockstep start. In these
