@@ -1,7 +1,7 @@
 import React, { useContext, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { makeSbChannelId } from '../../common/chat'
+import { makeSbChannelId, SbChannelId } from '../../common/chat'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { RolledOutcome } from '../../common/rolled-outcomes'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
@@ -10,6 +10,7 @@ import { countEmojisIn, matchUnicodeEmojis, splitEmojiRun } from '../../common/t
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ChannelInviteCard, channelInviteTokenFromMessageLink } from '../chat/channel-invite-card'
+import { channelFromMessageLink, ChannelLinkCard } from '../chat/channel-link-card'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { gameFromMessageLink, GameLinkCard, GameLinkTarget } from '../games/game-link-card'
@@ -283,6 +284,8 @@ export interface ParsedMessageText {
   linkedUser: UserLinkTarget | undefined
   /** The token of the first private channel invite link in the text, if it holds one. */
   channelInviteToken: string | undefined
+  /** The channel the first channel link (not a message link) in the text points at, if any. */
+  linkedChannelId: SbChannelId | undefined
 }
 
 /**
@@ -306,6 +309,7 @@ export function parseMessageText(
   let linkedGame: GameLinkTarget | undefined
   let linkedUser: UserLinkTarget | undefined
   let channelInviteToken: string | undefined
+  let linkedChannelId: SbChannelId | undefined
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
   const jumboEmoji = allowJumboEmoji && isJumboEmojiMessage(text, sortedMatches)
@@ -365,6 +369,10 @@ export function parseMessageText(
         // And only the first channel invite link gets an invite card.
         channelInviteToken = channelInviteTokenFromMessageLink(match.text)
       }
+      if (linkedChannelId === undefined) {
+        // And only the first channel link gets a channel card.
+        linkedChannelId = channelFromMessageLink(match.text)
+      }
 
       const messageLink = messageLinkFromHref(match.text)
       if (messageLink) {
@@ -394,7 +402,15 @@ export function parseMessageText(
     nodes.push(text.substring(lastIndex))
   }
 
-  return { nodes, mentionsSelf, inviteLobbyId, linkedGame, linkedUser, channelInviteToken }
+  return {
+    nodes,
+    mentionsSelf,
+    inviteLobbyId,
+    linkedGame,
+    linkedUser,
+    channelInviteToken,
+    linkedChannelId,
+  }
 }
 
 export interface TextMessageProps {
@@ -456,6 +472,7 @@ export function TextMessage({
   const linkedGame = parsed?.linkedGame
   const linkedUser = parsed?.linkedUser
   const channelInviteToken = parsed?.channelInviteToken
+  const linkedChannelId = parsed?.linkedChannelId
 
   // An outcome is always announced as an action line, whatever flag the message carries.
   const isActionLine = emote === true || outcome !== undefined
@@ -477,6 +494,7 @@ export function TextMessage({
       {channelInviteToken !== undefined ? (
         <ChannelInviteCard token={channelInviteToken} />
       ) : undefined}
+      {linkedChannelId !== undefined ? <ChannelLinkCard channelId={linkedChannelId} /> : undefined}
     </>
   ) : undefined
 

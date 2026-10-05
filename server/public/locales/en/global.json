@@ -679,6 +679,9 @@
       "loseOwnershipBody": "Leaving #{{channelName}} will pass ownership to another member, and you won't be able to take it back yourself. You'll also lose your channel permissions.",
       "losePermissionsBody": "Leaving #{{channelName}} will remove your channel permissions, and rejoining won't restore them."
     },
+    "linkCard": {
+      "title": "Channel"
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> has been banned from the channel",
       "joinChannel": "<0><0></0></0> has joined the channel",

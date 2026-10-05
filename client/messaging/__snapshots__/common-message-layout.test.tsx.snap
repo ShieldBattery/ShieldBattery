@@ -10,7 +10,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg sc-bXdOnr jJvpUz"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg sc-bXdOnr jJvpUz"
       tabindex="0"
     >
       <span
@@ -35,7 +35,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
       class="sc-hoHvKZ sc-kjOPSs iqRfaC bgbdGu"
     >
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -45,7 +45,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -56,7 +56,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
       </div>
        
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -80,7 +80,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg sc-bXdOnr jJvpUz"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg sc-bXdOnr jJvpUz"
       tabindex="0"
     >
       <span
@@ -144,7 +144,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
         </span>
       </span>
       <div
-        class="sc-bkkgYE loByek sc-jnrVmt CxNTp"
+        class="sc-fotPuT jrxelZ sc-jnrVmt CxNTp"
         tabindex="0"
       >
         <span
@@ -222,7 +222,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
         </span>
       </span>
       <div
-        class="sc-bkkgYE loByek sc-jnrVmt CxNTp"
+        class="sc-fotPuT jrxelZ sc-jnrVmt CxNTp"
         tabindex="0"
       >
         <span
@@ -256,7 +256,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
       >
         <span
           aria-hidden="true"
-          class="sc-bdvwhi cfLMd sc-hWBxdk iEIytq"
+          class="sc-hiCkpJ dnvpxc sc-hWBxdk iEIytq"
         >
           chat
         </span>
@@ -316,7 +316,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
         </span>
       </span>
       <div
-        class="sc-bkkgYE loByek sc-jnrVmt CxNTp"
+        class="sc-fotPuT jrxelZ sc-jnrVmt CxNTp"
         tabindex="0"
       >
         <span
@@ -357,7 +357,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -414,7 +414,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -457,7 +457,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
     >
       nice game 
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -481,7 +481,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message sent as an
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -538,7 +538,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -602,7 +602,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -679,7 +679,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -771,7 +771,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -841,7 +841,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -917,7 +917,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -1002,7 +1002,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -1072,7 +1072,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -1114,7 +1114,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
       class="sc-hoHvKZ iqRfaC"
     >
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1124,7 +1124,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1135,7 +1135,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
       </div>
        
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1159,7 +1159,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
     role="document"
   >
     <div
-      class="sc-bkkgYE loByek sc-knKKcV dvglrg"
+      class="sc-fotPuT jrxelZ sc-knKKcV dvglrg"
       tabindex="0"
     >
       <span
@@ -1201,7 +1201,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
       class="sc-hoHvKZ iqRfaC"
     >
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1211,7 +1211,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1221,7 +1221,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1231,7 +1231,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1241,7 +1241,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1251,7 +1251,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1261,7 +1261,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1271,7 +1271,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1281,7 +1281,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1291,7 +1291,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span
@@ -1301,7 +1301,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
         </span>
       </div>
       <div
-        class="sc-bkkgYE loByek sc-hLVYED emRODm"
+        class="sc-fotPuT jrxelZ sc-hLVYED emRODm"
         tabindex="-1"
       >
         <span

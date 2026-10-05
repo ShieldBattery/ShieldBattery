@@ -55,6 +55,16 @@ vi.mock('../chat/channel-invite-card', async importOriginal => {
   }
 })
 
+vi.mock('../chat/channel-link-card', async importOriginal => {
+  const actual = await importOriginal<typeof import('../chat/channel-link-card')>()
+  return {
+    ...actual,
+    ChannelLinkCard: ({ channelId }: { channelId: number }) => (
+      <div data-testid='channel-link-card'>{channelId}</div>
+    ),
+  }
+})
+
 vi.mock('../users/user-card', async importOriginal => {
   const actual = await importOriginal<typeof import('../users/user-card')>()
   return {
@@ -516,6 +526,61 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
       expect(screen.queryByTestId('game-link-card')).toBeNull()
       expect(screen.queryByTestId('user-link-card')).toBeNull()
+    })
+  })
+
+  describe('channel links', () => {
+    test('message with a channel link renders exactly one channel card and keeps the link', () => {
+      const link = 'https://shieldbattery.net/chat/7/ShieldBattery'
+      doRender(`come hang out: ${link}`)
+
+      expect(screen.getByTestId('channel-link-card').textContent).toBe('7')
+      expect(screen.getByRole('link', { name: link })).toBeTruthy()
+    })
+
+    test('a channel link with a stale name segment renders the card for its id', () => {
+      doRender('https://shieldbattery.net/chat/7/_')
+      expect(screen.getByTestId('channel-link-card').textContent).toBe('7')
+    })
+
+    test('message with multiple channel links renders only one channel card', () => {
+      doRender('https://shieldbattery.net/chat/7/a or https://shieldbattery.net/chat/8/b')
+
+      expect(screen.getAllByTestId('channel-link-card')).toHaveLength(1)
+      expect(screen.getByTestId('channel-link-card').textContent).toBe('7')
+    })
+
+    test('a channel message link renders a chip and no channel card', () => {
+      doRender(
+        'https://shieldbattery.net/chat/7/ShieldBattery?m=9b2e8d0e-5f3a-4a2b-8c1d-6f5e4d3c2b1a',
+      )
+      expect(screen.queryByTestId('channel-link-card')).toBeNull()
+      expect(screen.getByRole('link').textContent).toContain('message')
+    })
+
+    test('an invite link renders no channel card', () => {
+      doRender(
+        `https://shieldbattery.net/chat/invite/${encodePrettyId('5eed0000-0000-4000-8000-000000000001')}`,
+      )
+      expect(screen.queryByTestId('channel-link-card')).toBeNull()
+    })
+
+    test('a channel-shaped path on a foreign origin renders no channel card', () => {
+      doRender('https://example.com/chat/7/ShieldBattery')
+      expect(screen.queryByTestId('channel-link-card')).toBeNull()
+    })
+
+    test('a channel link renders no card where navigation is unavailable', () => {
+      doRender('https://shieldbattery.net/chat/7/ShieldBattery', { navigationAvailable: false })
+      expect(screen.queryByTestId('channel-link-card')).toBeNull()
+    })
+
+    test('a channel link renders no other kind of link card', () => {
+      doRender('https://shieldbattery.net/chat/7/ShieldBattery')
+      expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
+      expect(screen.queryByTestId('game-link-card')).toBeNull()
+      expect(screen.queryByTestId('user-link-card')).toBeNull()
+      expect(screen.queryByTestId('channel-invite-card')).toBeNull()
     })
   })
 

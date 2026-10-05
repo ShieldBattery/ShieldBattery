@@ -3,6 +3,7 @@ import { makeSbChannelId } from '../../common/chat'
 import { encodePrettyId } from '../../common/pretty-id'
 import { MESSAGE_LINK_PARAM } from '../messaging/message-link'
 import {
+  channelFromUrl,
   channelInviteTokenFromPath,
   channelMessageFromUrl,
   urlForChannel,
@@ -111,6 +112,55 @@ describe('chat/channel-url', () => {
       )
 
       expect(channelMessageFromUrl(url)).toBeUndefined()
+    })
+  })
+
+  describe('channelFromUrl', () => {
+    test('round-trips a URL built by urlForChannel', () => {
+      const url = new URL(urlForChannel(CHANNEL_ID, 'ShieldBattery'), 'https://example.org')
+      expect(channelFromUrl(url)).toBe(CHANNEL_ID)
+    })
+
+    test('ignores the channel name segment, placeholder included', () => {
+      expect(channelFromUrl(new URL('/chat/7/some-other-name', 'https://example.org'))).toBe(
+        CHANNEL_ID,
+      )
+      expect(
+        channelFromUrl(new URL(urlForChannel(CHANNEL_ID, undefined), 'https://example.org')),
+      ).toBe(CHANNEL_ID)
+    })
+
+    test('accepts a trailing slash', () => {
+      expect(channelFromUrl(new URL('/chat/7/ShieldBattery/', 'https://example.org'))).toBe(
+        CHANNEL_ID,
+      )
+    })
+
+    test('rejects a link to one of the channel messages', () => {
+      const url = new URL(
+        urlForChannelMessage(CHANNEL_ID, 'ShieldBattery', MESSAGE_ID),
+        'https://example.org',
+      )
+      expect(channelFromUrl(url)).toBeUndefined()
+    })
+
+    test('rejects other chat paths', () => {
+      for (const path of [
+        '/chat',
+        '/chat/7',
+        '/chat/list',
+        '/chat/new',
+        '/chat/7/ShieldBattery/extra',
+        '/chat/0/ShieldBattery',
+        '/chat/-7/ShieldBattery',
+        '/chat/7x/ShieldBattery',
+        '/chat/99999999999999999999/ShieldBattery',
+        `/chat/invite/${INVITE_TOKEN}`,
+        '/chat/admin/7',
+        '/users/7/ShieldBattery',
+      ]) {
+        expect(channelFromUrl(new URL(path, 'https://example.org'))).toBeUndefined()
+      }
     })
   })
 
