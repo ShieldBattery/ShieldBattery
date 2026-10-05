@@ -30,6 +30,7 @@ export type NotificationData =
   | ChannelDeletedNotificationData
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
+  | MatchmakingBanNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -128,6 +129,13 @@ export interface GamePointsRefundedNotificationData extends BaseNotificationData
 
 type GamePointsRefundedSearchNotificationData = MakeSearchable<GamePointsRefundedNotificationData>
 
+export interface MatchmakingBanNotificationData extends BaseNotificationData {
+  type: NotificationType.MatchmakingBan
+  bannedUntil?: number
+}
+
+type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -145,6 +153,7 @@ export type SearchNotificationData =
   | ChannelDeletedSearchNotificationData
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
+  | MatchmakingBanSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

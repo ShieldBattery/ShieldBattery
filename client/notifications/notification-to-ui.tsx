@@ -15,6 +15,7 @@ import {
   LeagueUnbanNotificationUi,
 } from '../leagues/league-ban-notification-ui'
 import { logger } from '../logging/logger'
+import { MatchmakingBanNotificationUi } from '../matchmaking/matchmaking-ban-notification-ui'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
 import {
   FriendRequestNotificationUi,
@@ -41,6 +42,7 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.ChannelDeleted:
     case NotificationType.GameReportActioned:
     case NotificationType.GamePointsRefunded:
+    case NotificationType.MatchmakingBan:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -181,6 +183,15 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           ref={ref}
           showDivider={showDivider}
           read={notification.read}
+        />
+      )
+    case NotificationType.MatchmakingBan:
+      return (
+        <MatchmakingBanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          bannedUntil={notification.bannedUntil}
         />
       )
     default:

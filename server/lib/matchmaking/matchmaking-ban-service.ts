@@ -1,11 +1,13 @@
 import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
+import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import { sql } from '../db/sql'
 import transact from '../db/transaction'
 import { JobScheduler } from '../jobs/job-scheduler'
 import logger from '../logging/logger'
+import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString, MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { convertStringIds } from '../users/user-identifier-manager'
@@ -81,7 +83,10 @@ function getNextBanLevel(unclearedBan?: MatchmakingBanRow): {
 
 @singleton()
 export class MatchmakingBanService {
-  constructor(private clock: Clock) {
+  constructor(
+    private clock: Clock,
+    private notificationService: NotificationService,
+  ) {
     container.resolve(MatchmakingBanClearerJob) // Ensure the job is registered
   }
 
@@ -103,18 +108,27 @@ export class MatchmakingBanService {
     )
   }
 
-  /** Ban a user, automatically escalating the ban level as necessary. */
+  /**
+   * Bans a user for not readying up or not loading into a match, automatically escalating the ban
+   * level as necessary, and notifies them of the ban (or warning) they received. The notification
+   * is stored, so a user who left by closing their app sees it the next time they connect.
+   */
   async banUser(
     userId: SbUserId,
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
   ): Promise<void> {
-    await this.escalateBan(userId, identifiers)
+    const { bannedUntil } = await this.escalateBan(userId, identifiers)
+    await this.notificationService.addNotification({
+      userId,
+      data: { type: NotificationType.MatchmakingBan, bannedUntil },
+    })
   }
 
   /**
    * Bans a user for something they did in a particular game, escalating at most once per game
    * however many times it's retried, and leases live-match enforcement of the ban to one caller
-   * (see `GAME_PENALTY_ENFORCEMENT_LEASE_MINUTES`).
+   * (see `GAME_PENALTY_ENFORCEMENT_LEASE_MINUTES`). The returned penalty is for the caller to
+   * announce; no notification is sent from here.
    */
   async applyGamePenalty(
     userId: SbUserId,
@@ -137,7 +151,7 @@ export class MatchmakingBanService {
       if (existing.rowCount) {
         penalty = existing.rows[0].penalty
       } else {
-        penalty = await this.escalateBan(userId, identifiers, client)
+        penalty = (await this.escalateBan(userId, identifiers, client)).penalty
         await client.query(sql`
           INSERT INTO matchmaking_game_bans (game_id, user_id, penalty)
           VALUES (${gameId}, ${userId}, ${penalty})
@@ -177,11 +191,12 @@ export class MatchmakingBanService {
     userId: SbUserId,
     identifiers: ReadonlyDeep<ClientIdentifierString[]>,
     client?: DbClient,
-  ): Promise<GamePenalty> {
+  ): Promise<{ penalty: GamePenalty; bannedUntil: number | undefined }> {
+    const now = this.clock.now()
     const unclearedBan = await checkUnclearedMatchmakingBan(
       {
         userId,
-        now: new Date(this.clock.now()),
+        now: new Date(now),
         minSameIdentifiers: MIN_IDENTIFIER_MATCHES,
       },
       client,
@@ -197,12 +212,13 @@ export class MatchmakingBanService {
         banLevel,
         banDurationMillis: banDuration,
         clearDurationMillis: clearDuration,
-        now: new Date(this.clock.now()),
+        now: new Date(now),
       },
       client,
     )
-    // TODO(tec27): Notify user (especially for the warning level)
-    return banDuration > 0 ? 'lossAndBan' : 'lossAndWarning'
+    return banDuration > 0
+      ? { penalty: 'lossAndBan', bannedUntil: now + banDuration }
+      : { penalty: 'lossAndWarning', bannedUntil: undefined }
   }
 }
 
