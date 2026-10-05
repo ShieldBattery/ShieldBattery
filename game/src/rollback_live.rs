@@ -29,6 +29,10 @@
 //!   whether anything was mispredicted or not, to exercise re-simulation constantly.
 //! - `SB_ROLLBACK_LIVE_DELAY=<storm id>:<frames>,...` holds back the turns of the given slots for
 //!   that many frames' worth of time after they arrive, as if their link were that much slower.
+//! - `SB_ROLLBACK_SEND_DELAY=<frames>[@<frame>]` holds back every turn this client sends for that
+//!   many frames' worth of time before it leaves, as if its uplink were that much slower, from the
+//!   given game frame on (240, ten seconds in, unless set). Starting late keeps the delay out of the
+//!   session clock's anchor, which is taken when the slowest player's lockstep start arrives.
 //! - `SB_ROLLBACK_MONKEY=<actions per minute>` selects random units of the local player and
 //!   right-clicks random map positions with them, so a game can be tested without anyone playing.
 //! - `SB_ROLLBACK_WITHHOLD_HASHES_FROM=<position>` sends no state hash reports from that position
@@ -57,6 +61,8 @@ const PREDICT_ENV_VAR: &str = "SB_ROLLBACK_PREDICT";
 const SHADOW_ENV_VAR: &str = "SB_ROLLBACK_SHADOW";
 #[cfg(debug_assertions)]
 const DELAY_ENV_VAR: &str = "SB_ROLLBACK_LIVE_DELAY";
+#[cfg(debug_assertions)]
+const SEND_DELAY_ENV_VAR: &str = "SB_ROLLBACK_SEND_DELAY";
 #[cfg(debug_assertions)]
 const MONKEY_ENV_VAR: &str = "SB_ROLLBACK_MONKEY";
 #[cfg(debug_assertions)]
@@ -108,6 +114,9 @@ struct Settings {
     shadow_depth: u32,
     /// How long each storm slot's turns are held back after they arrive.
     held: [Duration; bw::MAX_STORM_PLAYERS],
+    /// How long this client's own turns are held back before they leave, and the game frame
+    /// from which they are.
+    send_delay: (Duration, u32),
     /// Frames between the monkey's commands, or 0 for no monkey.
     #[cfg(debug_assertions)]
     monkey_interval: u32,
@@ -121,6 +130,7 @@ static SETTINGS: Mutex<Settings> = Mutex::new(Settings {
     min_buffer_turns: 0,
     shadow_depth: 0,
     held: [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+    send_delay: (Duration::ZERO, 0),
     #[cfg(debug_assertions)]
     monkey_interval: 0,
     withhold_hashes_from: u32::MAX,
@@ -409,6 +419,19 @@ pub fn init_from_env() {
             }
         }
     }
+    let send_delay = std::env::var(SEND_DELAY_ENV_VAR)
+        .ok()
+        .and_then(|spec| {
+            let (frames, from) = spec.split_once('@').unwrap_or((&spec, "240"));
+            let parsed = frames.parse::<u32>().ok().zip(from.parse::<u32>().ok());
+            if parsed.is_none() {
+                error!("{SEND_DELAY_ENV_VAR}={spec:?} is not <frames>[@<frame>]; ignoring it");
+            }
+            parsed
+        })
+        .map_or((Duration::ZERO, 0), |(frames, from)| {
+            (FRAME_DURATION * frames, from)
+        });
     let monkey_interval = read_count(MONKEY_ENV_VAR)
         .filter(|&apm| apm != 0)
         // Each action is a select and a right click, and a minute is 24 * 60 frames.
@@ -427,6 +450,7 @@ pub fn init_from_env() {
         min_buffer_turns: read_count(MIN_BUFFER_ENV_VAR).unwrap_or(0),
         shadow_depth: read_count(SHADOW_ENV_VAR).unwrap_or(0),
         held,
+        send_delay,
         monkey_interval,
         withhold_hashes_from: read_count(WITHHOLD_HASHES_ENV_VAR).unwrap_or(u32::MAX),
     };
@@ -461,6 +485,13 @@ pub fn set_player_rollback_target(target: u32) {
     }
     let mut settings = SETTINGS.lock();
     settings.rollback_target = target.min(MAX_PLAYER_ROLLBACK_TARGET).min(settings.limit);
+}
+
+/// How long a debug knob holds back each turn this client sends in a game that rolls back, and the
+/// game frame from which it does, if it does.
+pub fn own_send_delay() -> Option<(Duration, u32)> {
+    let (delay, from) = SETTINGS.lock().send_delay;
+    (!delay.is_zero()).then_some((delay, from))
 }
 
 /// Whether native sync (0x37) is off for this client: it neither sends sync commands nor checks
@@ -499,11 +530,14 @@ pub fn arm_for_session(rollback: bool) -> Option<InputTable> {
     );
     #[cfg(debug_assertions)]
     info!(
-        "Rollback debug knobs: minimum buffer {}, shadow depth {}, turns held back {:?}, monkey \
-         every {} frames, hash reports withheld from position {}",
+        "Rollback debug knobs: minimum buffer {}, shadow depth {}, turns held back {:?}, own turns \
+         held back {:?} from frame {}, monkey every {} frames, hash reports withheld from position \
+         {}",
         settings.min_buffer_turns,
         settings.shadow_depth,
         settings.held,
+        settings.send_delay.0,
+        settings.send_delay.1,
         settings.monkey_interval,
         settings.withhold_hashes_from,
     );

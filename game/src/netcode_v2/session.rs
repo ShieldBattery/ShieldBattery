@@ -86,6 +86,41 @@ enum SessionLink {
     Sessionless(ParkedChannels),
 }
 
+/// Holds back each in-game turn this client sends, from game frame `from_frame` on, for `delay`
+/// before handing it to the driver through `outbound`, as if this client's uplink were that much
+/// slower from then on: a debug knob's doing (see `crate::rollback_live`). Returns the sender to
+/// send turns into in its place. Turns keep their order, and each leaves `delay` after it was
+/// handed over, however many are waiting.
+fn hold_back_own_turns(
+    outbound: mpsc::Sender<Payload>,
+    delay: Duration,
+    from_frame: u32,
+) -> mpsc::Sender<Payload> {
+    let (held_tx, mut held_rx) = mpsc::channel::<Payload>(outbound.max_capacity());
+    let (due_tx, mut due_rx) = mpsc::unbounded_channel::<(tokio::time::Instant, Payload)>();
+    tokio::spawn(async move {
+        while let Some(payload) = held_rx.recv().await {
+            let held = payload
+                .game_frame_count
+                .is_some_and(|frame| frame >= from_frame);
+            let now = tokio::time::Instant::now();
+            let due = if held { now + delay } else { now };
+            if due_tx.send((due, payload)).is_err() {
+                break;
+            }
+        }
+    });
+    tokio::spawn(async move {
+        while let Some((due, payload)) = due_rx.recv().await {
+            tokio::time::sleep_until(due).await;
+            if outbound.send(payload).await.is_err() {
+                break;
+            }
+        }
+    });
+    held_tx
+}
+
 /// The far ends of a sessionless game's fabricated [`TurnChannels`]. There is no [`LinkDriver`] to
 /// own them, so the session holds them: keeping each one alive means the [`TurnState`] end never
 /// observes a closed channel, so every turn/lobby/chat/leave/result send succeeds (into nothing)
@@ -175,6 +210,12 @@ pub async fn establish_session(
     let rehome = rehome::build_provider(&rehome_context, relay_addr.is_ipv6());
 
     let (driver, mut channels) = LinkDriver::new(link);
+    if setup.rollback
+        && let Some((delay, from_frame)) = crate::rollback_live::own_send_delay()
+    {
+        info!("Holding back this client's own turns by {delay:?} from frame {from_frame}");
+        channels.outbound = hold_back_own_turns(channels.outbound.clone(), delay, from_frame);
+    }
     // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
     // `SessionLink::Relay` below) so a re-dial after a drop reuses the already-bound local port.
     // Re-dials start at the address that just connected and rotate through the relay's others,
