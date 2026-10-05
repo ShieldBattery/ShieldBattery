@@ -281,6 +281,79 @@ and hold-back mechanics stay, steering toward the new schedule.
   when turns resume; the Korea client carries its own lateness with a deeper pipe, and the US
   clients' rollback falls back to the target.
 
+### Next: stopping the clock as it happens
+
+Status: designed, not built.
+
+**What goes wrong with the stop as built.** The authority only finds out the clock stopped in
+hindsight: when confirmable next advances, it adds however long the clock had run past
+`STALL_SLACK` to `P`, all at once. Every turn measured before that moment was read against a clock
+that hadn't stopped, so two resets exist to throw those readings away: each relay clears every lead
+window when `P` grows, and the client trusts no report about turns sent before the change
+(`trust_from` in `pacing.rs`). Together they break the promise in "Stopping" above. A player whose
+turns run persistently more than the slack late grows `P` a little on nearly every confirmable
+advance, so his window keeps being cleared and his client keeps distrusting reports; if `P` grows
+more than about once a second he never gets a report his pacing acts on, never corrects, and the
+session runs stop-start at his pace. That exists today past 500 ms of lateness.
+
+It also keeps `STALL_SLACK` high. Clients stall once confirmable is about the prediction limit
+less their steady rollback behind (8 − 2 = 6 steps), but the clock only stops at 12, so a shared
+stall of 6-12 steps leaves the clock running: every stalled client undoes its hold afterwards and
+sprints to catch up (about 21 times per client in staging game `01a10902`). Lowering the slack as
+built would spring the trap above at 250 ms of lateness instead of 500.
+
+**The design.**
+
+- **Stops by step, not by time.** A stop is `(k, Pₖ)`: the clock stopped at step position `k` and
+  stood still for `Pₖ`. Step `n` is due at `S(K) + (n − K) × 42 ms + Σ Pₖ` over the stops with
+  `k < n`. Which turns a stop moves is then fixed by the stop itself, whatever order a relay learns
+  things in.
+- **The authority stops the clock when it stops.** A timer stops the clock the moment it reaches
+  confirmable + `STALL_SLACK`, and the next confirmable advance ends the stop. While a stop runs,
+  the steps past `k` have no deadline yet.
+- **Frames carry the whole state.** The authority's `SessionClock` frame carries its clock's
+  position (the step due now), the stops, and the stop in progress if any. It goes out on every
+  change and every ~250 ms while the clock runs. Position only grows and stops are only added, so a
+  relay adopts a newer frame whole and ignores an older one: duplicates, frames delayed across a
+  reconnect and the re-sends after a join or an authority change are all harmless. The mesh control
+  stream already delivers in order on a connection, and the re-sends cover a replaced connection.
+- **Old stops fold into a base.** A relay never measures a turn more than `LEAD_SEEN_SEQS` (128)
+  behind the newest it has seen, so stops before `b` = newest − 128 only matter as a sum: the frame
+  carries `(b, P_before_b)` and the stops at or past `b`, and the authority folds stops into the base
+  as `b` passes them. Folding is exact for every turn that can still be measured, and the list is
+  bounded by the 128-step horizon (at most one stop a step, in practice a handful; staging game
+  `01a10902` had about 20 over its worst 170 s).
+- **A turn is measured once its deadline is final.** A relay finalizes `e(n)` only once it holds an
+  authority frame whose position has passed `n` with no stop in progress before it; until then the
+  arrival waits. On the authority that's immediate; elsewhere it's at most a mesh hop plus a
+  heartbeat (~300 ms), under the 0.5 s report interval. No measurement is ever read against a
+  clock that later changes, so neither reset is needed: windows aren't cleared on a stop, and the
+  client keeps trusting reports across a change in `pause_us` (a stop moves its deadlines and its
+  own sends alike, so its lateness reads the same on either side of it). A stop still sends every
+  home slot a report at once, so clients apply `pause_us` without waiting.
+- **Then lower `STALL_SLACK` to where clients stall** (6 steps). With the late player's lateness
+  measured through stops he gets steady reports of about `STALL_SLACK × 42 ms` late, corrects 2
+  steps a report, and the stops end; and a shared stall over 6 steps stops the clock, so the stalled
+  clients just wait, as lockstep would, rather than sprint afterwards.
+
+**What isn't guaranteed.** An authority that fails with a stop in flight leaves the new authority
+continuing from its own copy, which may lack that stop or its final length. Clients homed on relays
+that had it then differ by at most that one stop until lead reports absorb it, a couple of reports
+later, the same way an anchor error is absorbed today. Stops only ever move timing, never a
+decision.
+
+**Cost.** rp2: the clock and its frame (`consensus/clock.rs`, `maker/clock.rs`), the stop timer, a
+queue of arrivals waiting for a final deadline in `consensus/lead.rs`, and no window restarts. The
+mesh frame changes shape, so every relay deploys together. DLL: `Pacing::on_report` stops resetting
+its trust on a change in `pause_us`; the hold and pause handling stay.
+
+**Verification.** rp2 unit tests: the frame folding and adoption out of order; a peer measuring a
+turn that arrived before it heard of a stop; a slot persistently late past the slack keeps getting
+reports with samples and its lateness stays at the slack. Loopback with one client's own sends held
+past the slack (a new debug knob: `SB_ROLLBACK_LIVE_DELAY` holds the turns a client receives, not
+the ones it sends): its pacing corrects and the stops end within a few seconds. The local test pass's drop wait: survivors still catch up about nothing, and a stall
+between 6 and 12 steps now shows a stop instead of each client undoing a hold.
+
 ## Sync checks: replacing 0x37
 
 Native 0x37 cannot work under rollback: it hashes the frame about to run at send time (a

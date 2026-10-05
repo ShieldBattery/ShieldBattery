@@ -449,7 +449,8 @@ plain waits, but it would also trap a player whose turns run persistently later 
 every confirmable advance grows the stop, every stop restarts every lead window, and that player
 only ever gets pause-only reports, so his pacing never corrects and the session runs at his pace.
 Slack 12 has the same trap past ~500 ms. Fixing both needs the stop to leave the late player's own
-lateness measured.
+lateness measured: designed in the controller doc,
+[Next: stopping the clock as it happens](rollback-m4-controller.md#next-stopping-the-clock-as-it-happens).
 
 Also open: **stalls right after the lockstep start.** Each client anchors its schedule where its
 own lockstep start ends, and the relay anchors the session clock where the start became
