@@ -4,7 +4,7 @@ import { UnicodeEmojiEntry } from './emoji-data'
 /** As with mentions, cap the emote suggestions to a number that doesn't need scrolling. */
 export const MAX_EMOTE_SUGGESTIONS = 10
 
-// Same options as the @-mention matcher: chars in order, anything between, case-insensitive. A
+// Same options as rankByQuery: chars in order, anything between, case-insensitive. A
 // UFuzzy instance holds no per-search state, so one instance serves every call.
 const fuzzy = new UFuzzy({ intraIns: Infinity, intraChars: '.' })
 

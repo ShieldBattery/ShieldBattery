@@ -1,6 +1,6 @@
-import UFuzzy from '@leeoniya/ufuzzy'
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { rankByQuery } from './rank-by-query'
 import {
   MAX_TYPEAHEAD_ROWS,
   TypeaheadMatch,
@@ -21,17 +21,14 @@ export interface MentionableUser {
   online: boolean
 }
 
-// Chars in order, anything between, without regard to case. A UFuzzy instance holds no per-search
-// state, so one instance serves every call.
-const fuzzy = new UFuzzy({ intraIns: Infinity, intraChars: '.' })
-
 /** The start of a partially-typed `@name` immediately before the caret. */
 const MENTION_START_REGEX = /(?<=^|\s)@\S*$/
 
 /**
  * Completes `@name` mentions. A bare `@` offers `baseMentionableUsers` (whoever is most worth
  * suggesting before anything has been typed, e.g. the channel's recent chatters); anything typed
- * after it narrows `mentionableUsers` fuzzily.
+ * after it narrows `mentionableUsers`, best match first (see `rankByQuery`), keeping the order given
+ * among equally good matches.
  */
 export function createMentionProvider(
   mentionableUsers: ReadonlyArray<MentionableUser>,
@@ -64,11 +61,7 @@ export function createMentionProvider(
         return undefined
       }
 
-      const matchedIndexes = fuzzy.filter(
-        mentionableUsers.map(u => u.name),
-        mention.groups.username,
-      )
-      const matched = matchedIndexes?.map(i => mentionableUsers[i]) ?? []
+      const matched = rankByQuery(mentionableUsers, u => [u.name], mention.groups.username)
 
       return {
         start,
