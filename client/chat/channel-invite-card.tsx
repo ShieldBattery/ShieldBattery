@@ -159,6 +159,7 @@ export function ChannelInviteCardContent({
       title={t('chat.inviteCard.title', 'Private channel')}
       channelName={channelInfo.name}
       bannerPath={detailedChannelInfo.bannerPath}
+      badgePath={detailedChannelInfo.badgePath}
       userCount={detailedChannelInfo.userCount}
       description={detailedChannelInfo.description}
       isMember={isMember}

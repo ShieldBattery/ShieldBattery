@@ -70,6 +70,7 @@ export function ChannelLinkCard({ channelId }: { channelId: SbChannelId }) {
       }
       channelName={basicInfo.name}
       bannerPath={detailedInfo.bannerPath}
+      badgePath={detailedInfo.badgePath}
       userCount={detailedInfo.userCount}
       description={detailedInfo.description}
       isMember={isMember}
@@ -79,7 +80,7 @@ export function ChannelLinkCard({ channelId }: { channelId: SbChannelId }) {
           return
         }
 
-        // The channel is joined by the name it has now, not the one in the link, which may be stale.
+        // Joined by the name the channel has now, not the one in the link, which may be stale.
         setJoining(true)
         dispatch(
           joinChannelWithErrorHandling(basicInfo.name, {

@@ -13,6 +13,7 @@ import {
   TooltipText,
 } from '../messaging/backdrop-card'
 import { bodySmall, singleLine, titleLarge } from '../styles/typography'
+import { ChannelBadge } from './channel-badge'
 
 /** The line heights of the typography tokens the card's body stacks, which set its height. */
 const TITLE_LARGE_LINE_HEIGHT = 32
@@ -44,6 +45,20 @@ const Description = styled(TooltipText)`
 const Body = styled.div`
   min-width: 0;
   display: flex;
+  gap: 16px;
+`
+
+/** The badge spans the body's full height, lining up with both the name and the description. */
+const Badge = styled(ChannelBadge)`
+  flex-shrink: 0;
+  width: ${BODY_HEIGHT}px;
+  height: ${BODY_HEIGHT}px;
+  border-radius: 14px;
+`
+
+const BodyText = styled.div`
+  min-width: 0;
+  display: flex;
   flex-direction: column;
   gap: ${BODY_ROW_GAP}px;
 `
@@ -55,13 +70,15 @@ const PreviewCard = styled(BackdropCard)`
 `
 
 /**
- * A preview of a chat channel shown for a link to it in a message: its banner, name, member count
- * and description, with an action that joins it, or opens it if the viewer is already a member.
+ * A preview of a chat channel shown for a link to it in a message: its banner, badge, name, member
+ * count and description, with an action that joins it, or opens it if the viewer is already a
+ * member.
  */
 export function ChannelPreviewCard({
   title,
   channelName,
   bannerPath,
+  badgePath,
   userCount,
   description,
   isMember,
@@ -73,6 +90,7 @@ export function ChannelPreviewCard({
   title: string
   channelName: string
   bannerPath: string | undefined
+  badgePath: string | undefined
   userCount: number
   description: string | undefined
   /** Whether the viewer is already in the channel, which swaps joining it for opening it. */
@@ -115,8 +133,11 @@ export function ChannelPreviewCard({
         )}
       </BackdropCardHeader>
       <Body>
-        <LargeChannelName text={`#${channelName}`} />
-        {description ? <Description text={description} /> : null}
+        <Badge src={badgePath} channelName={channelName} />
+        <BodyText>
+          <LargeChannelName text={`#${channelName}`} />
+          {description ? <Description text={description} /> : null}
+        </BodyText>
       </Body>
     </PreviewCard>
   )
