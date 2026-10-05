@@ -36,6 +36,8 @@ export enum NotificationType {
   GameReportActioned = 'gameReportActioned',
   /** Ranked points this user lost in a game were refunded after the game was nullified. */
   GamePointsRefunded = 'gamePointsRefunded',
+  /** The user was automatically banned or warned for not readying up or not loading into a match. */
+  MatchmakingBan = 'matchmakingBan',
 }
 
 export type SbNotification =
@@ -53,6 +55,7 @@ export type SbNotification =
   | ChannelDeletedNotification
   | GameReportActionedNotification
   | GamePointsRefundedNotification
+  | MatchmakingBanNotification
 
 export interface BaseNotification {
   /**
@@ -155,6 +158,16 @@ export interface GameReportActionedNotification extends BaseNotification {
  */
 export interface GamePointsRefundedNotification extends BaseNotification {
   type: NotificationType.GamePointsRefunded
+}
+
+/**
+ * Tells a player they received an automatic matchmaking ban for not readying up or not loading into
+ * a match. The first offense in a while is only a warning, which doesn't stop them from queueing.
+ */
+export interface MatchmakingBanNotification extends BaseNotification {
+  type: NotificationType.MatchmakingBan
+  /** When the ban ends, or `undefined` if this was a warning. */
+  bannedUntil?: number
 }
 
 export type NotificationEvent =

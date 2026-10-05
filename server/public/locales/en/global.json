@@ -2043,6 +2043,11 @@
       "description": "You have been temporarily banned from matchmaking for failing to ready up, or failing to join matches.",
       "title": "Banned from matchmaking"
     },
+    "banNotification": {
+      "ban": "You've been temporarily banned from matchmaking for not readying up or not loading into a match.",
+      "endsOn": "This ban will end on:",
+      "warning": "You received a matchmaking warning for not readying up or not loading into a match. Doing it again soon will get you temporarily banned from matchmaking."
+    },
     "disabledCard": {
       "days": "Days",
       "description": "Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:",

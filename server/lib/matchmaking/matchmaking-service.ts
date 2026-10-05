@@ -1244,8 +1244,8 @@ export class MatchmakingService {
         this.matchmakingBanService.banUser(player.id, player.identifiers).catch(err => {
           logger.error({ err }, 'error while issuing matchmaking ban to user')
         })
-        // We expect that the ban service will notify them of the ban so we don't need to tell them
-        // more here
+        // The ban service notifies them of the ban it issued, which reaches them even if they've
+        // disconnected
       }
 
       for (const id of toRequeue) {
