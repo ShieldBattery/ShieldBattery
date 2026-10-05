@@ -4,7 +4,7 @@ use hashbrown::HashSet;
 
 use crate::{
     app_messages::{BlockFailureReason, BlockRequestFailed, SbUserId},
-    bw::get_bw,
+    bw::{get_bw, players::BwPlayerId},
     bw_scr::get_exe_build,
     game_state::JoinedPlayer,
     game_thread::{GameThreadMessage, send_game_msg_to_async},
@@ -36,6 +36,15 @@ enum BlockCommandOutcome {
     },
     IsLocalUser,
     PlayerNotFound,
+}
+
+/// What a `/muteenemy` command did.
+#[derive(Debug, PartialEq, Eq)]
+enum MuteEnemiesOutcome {
+    Muted,
+    NoEnemies,
+    /// The local user isn't playing (observer or replay), so nobody is their enemy.
+    NotPlaying,
 }
 
 impl ChatManager {
@@ -162,6 +171,36 @@ impl ChatManager {
             }));
     }
 
+    /// Mutes the players `is_enemy` says the local player is currently not allied with. Observers
+    /// are never enemies. This is a snapshot: later alliance changes don't update it, and the mutes
+    /// are undone like any other (`/unmute`, `/unmuteall`).
+    fn mute_enemies(&mut self, is_enemy: impl Fn(BwPlayerId) -> bool) -> MuteEnemiesOutcome {
+        let local_player_id = self
+            .players
+            .iter()
+            .find(|p| Some(p.sb_user_id) == self.local_user_id)
+            .and_then(|p| p.player_id);
+        if local_player_id.is_none_or(|id| id.is_observer()) {
+            return MuteEnemiesOutcome::NotPlaying;
+        }
+
+        let enemies = self
+            .players
+            .iter()
+            .filter(|p| {
+                Some(p.sb_user_id) != self.local_user_id
+                    && p.player_id
+                        .is_some_and(|id| !id.is_observer() && is_enemy(id))
+            })
+            .map(|p| p.sb_user_id)
+            .collect::<Vec<_>>();
+        if enemies.is_empty() {
+            return MuteEnemiesOutcome::NoEnemies;
+        }
+        self.muted_players.extend(enemies);
+        MuteEnemiesOutcome::Muted
+    }
+
     pub fn unmute_all(&mut self) {
         self.muted_players.clear();
     }
@@ -192,7 +231,10 @@ impl ChatManager {
         false
     }
 
-    pub fn handle_send_chat(&mut self, text: &str) -> bool {
+    /// Handles a chat message the local user is sending, returning whether it was a command (and so
+    /// shouldn't be sent). `is_enemy` says whether the local player is currently not allied with a
+    /// player; it's only called for commands that need it.
+    pub fn handle_send_chat(&mut self, text: &str, is_enemy: impl Fn(BwPlayerId) -> bool) -> bool {
         if !text.starts_with("/") {
             if self.is_chat_restricted {
                 let msg = CString::new("\x06You are currently restricted from sending messages.")
@@ -220,6 +262,17 @@ impl ChatManager {
                 let msg = CString::new("\x04All players muted").unwrap();
                 get_bw().print_text(&msg);
             }
+            "/muteenemy" | "/menemy" => match self.mute_enemies(is_enemy) {
+                MuteEnemiesOutcome::Muted => {
+                    get_bw().print_text(c"Enemy players muted");
+                }
+                MuteEnemiesOutcome::NoEnemies => {
+                    get_bw().print_centered_text(c"You have no enemies to mute");
+                }
+                MuteEnemiesOutcome::NotPlaying => {
+                    get_bw().print_centered_text(c"Only players in the game have enemies");
+                }
+            },
             "/unmuteall" | "/umall" => {
                 self.unmute_all();
                 let msg = CString::new("\x04All players unmuted").unwrap();
@@ -380,6 +433,72 @@ mod tests {
         for id in [12, 15, 16, 125, 127, 132, 255] {
             assert!(!manager.handle_message("hi", id));
         }
+    }
+
+    #[test]
+    fn mute_enemies_mutes_only_non_allied_players() {
+        let mut manager = manager_with_players();
+        manager.set_players(&[
+            joined("player-a", 0, 1),
+            joined("player-b", 3, 2),
+            joined("ally", 1, 5),
+            joined("watcher", 12, 3),
+        ]);
+        assert_eq!(
+            manager.mute_enemies(|id| id.0 == 3),
+            MuteEnemiesOutcome::Muted,
+        );
+        assert!(manager.handle_message("hi", 3));
+        assert!(!manager.handle_message("hi", 1));
+        assert!(!manager.handle_message("hi", 0));
+        assert!(!manager.handle_message("hi", 128));
+
+        manager.unmute_all();
+        assert!(!manager.handle_message("hi", 3));
+    }
+
+    #[test]
+    fn mute_enemies_never_mutes_the_local_player_or_observers() {
+        let mut manager = manager_with_players();
+        // Even a predicate claiming everyone is an enemy leaves the local player and observers.
+        assert_eq!(manager.mute_enemies(|_| true), MuteEnemiesOutcome::Muted,);
+        assert!(manager.handle_message("hi", 3));
+        assert!(!manager.handle_message("hi", 0));
+        assert!(!manager.handle_message("hi", 128));
+        assert!(!manager.handle_message("hi", 131));
+    }
+
+    #[test]
+    fn mute_enemies_with_only_allies_mutes_nobody() {
+        let mut manager = manager_with_players();
+        assert_eq!(
+            manager.mute_enemies(|_| false),
+            MuteEnemiesOutcome::NoEnemies,
+        );
+        assert!(!manager.handle_message("hi", 3));
+    }
+
+    #[test]
+    fn mute_enemies_as_an_observer_mutes_nobody() {
+        let mut manager = manager_with_players();
+        manager.set_local_player_info(SbUserId(3), false);
+        assert_eq!(
+            manager.mute_enemies(|_| true),
+            MuteEnemiesOutcome::NotPlaying,
+        );
+        assert!(!manager.handle_message("hi", 0));
+        assert!(!manager.handle_message("hi", 3));
+    }
+
+    #[test]
+    fn mute_enemies_without_a_local_roster_entry_mutes_nobody() {
+        let mut manager = manager_with_players();
+        manager.set_local_player_info(SbUserId(99), false);
+        assert_eq!(
+            manager.mute_enemies(|_| true),
+            MuteEnemiesOutcome::NotPlaying,
+        );
+        assert!(!manager.handle_message("hi", 3));
     }
 
     #[test]

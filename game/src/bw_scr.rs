@@ -5595,7 +5595,9 @@ impl BwScr {
     /// Call with a chat message to possibly handle it if it contains a command. Returns whether it
     /// was handled (and if so, the message should be cleared and not sent).
     pub fn handle_chat_command(&self, text: &str) -> bool {
-        self.chat_manager.lock().handle_send_chat(text)
+        self.chat_manager
+            .lock()
+            .handle_send_chat(text, |player| unsafe { !self.is_allied_with(player.0) })
     }
 
     pub fn init_chat_manager(
