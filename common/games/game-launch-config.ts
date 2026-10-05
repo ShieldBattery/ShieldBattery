@@ -1,10 +1,19 @@
 import { SlotType } from '../lobbies/slot'
 import { MapInfoJson } from '../maps'
+import { MatchmakingDivision } from '../matchmaking'
 import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameType } from './game-type'
+
+/** A matchmaking player's standing in the match's mode, as shown on the game's loading screen. */
+export interface GamePlayerRank {
+  userId: SbUserId
+  division: MatchmakingDivision
+  /** The player's rating, omitted while they're still in placement matches. */
+  rating?: number
+}
 
 /**
  * Configuration for a particular player in a game. This is similar to Lobby's `Slot` structure,
@@ -63,8 +72,8 @@ export interface GameSetup {
   slots: PlayerInfo[]
   host: PlayerInfo
   users: SbUser[]
-  /** For matchmaking, a list of entries of the rating for each player. */
-  ratings?: Array<[id: SbUserId, rating: number]>
+  /** For matchmaking, each player's standing in the match's mode going into the game. */
+  ranks?: GamePlayerRank[]
   /**
    * Whether changing allies during the game is disabled. Optional, defaults to false (i.e. use
    * the default for the game mode). */

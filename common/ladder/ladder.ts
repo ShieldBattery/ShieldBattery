@@ -29,7 +29,7 @@ export interface LadderPlayer extends RaceStats {
 }
 
 export function ladderPlayerToMatchmakingDivision(
-  player: Readonly<LadderPlayer>,
+  player: Readonly<Pick<LadderPlayer, 'matchmakingType' | 'points' | 'wins' | 'losses'>>,
   bonusPool: number,
 ): MatchmakingDivision {
   if (!player.points && player.wins + player.losses === 0) {

@@ -3,7 +3,10 @@ use egui_extras::StripBuilder;
 use egui_flex::{Flex, FlexAlign, FlexInstance};
 
 use crate::{
-    app_messages::{GameSetupInfo, GameType, MapInfo, PlayerInfo, SbSlotType, SbUser},
+    app_messages::{
+        GamePlayerRank, GameSetupInfo, GameType, MapInfo, MatchmakingDivision, PlayerInfo,
+        SbSlotType, SbUser,
+    },
     bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
     bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
 };
@@ -111,6 +114,7 @@ impl OverlayState {
                                                     flex,
                                                     p,
                                                     &setup_info.users,
+                                                    &setup_info.ranks,
                                                     true,
                                                 )
                                             });
@@ -184,6 +188,7 @@ impl OverlayState {
                                                     flex,
                                                     p,
                                                     &setup_info.users,
+                                                    &setup_info.ranks,
                                                     false,
                                                 )
                                             });
@@ -234,6 +239,7 @@ impl OverlayState {
         flex: &mut FlexInstance,
         player: &PlayerInfo,
         users: &[SbUser],
+        ranks: &[GamePlayerRank],
         is_start_team: bool,
     ) {
         let user = if player.player_type == SbSlotType::Computer {
@@ -247,6 +253,7 @@ impl OverlayState {
             user.map(|u| u.name.as_str()).unwrap_or("Unknown Player")
         };
         let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
+        let rank = ranks.iter().find(|r| Some(r.user_id) == player.user_id);
         let (race_icon, race_color) = match player.bw_race() {
             RACE_PROTOSS => (
                 egui::include_image!("icons/zealot_24px.svg"),
@@ -298,12 +305,18 @@ impl OverlayState {
                         let add_name = |flex: &mut FlexInstance| {
                             flex.add_ui(egui_flex::item().shrink(), |ui| {
                                 ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
-                                ui.label(
-                                    RichText::new(username)
-                                        .size(28.0)
-                                        .color(colors::GREY99)
-                                        .family(display_family()),
-                                );
+                                ui.vertical(|ui| {
+                                    ui.spacing_mut().item_spacing.y = 4.0;
+                                    ui.label(
+                                        RichText::new(username)
+                                            .size(28.0)
+                                            .color(colors::GREY99)
+                                            .family(display_family()),
+                                    );
+                                    if let Some(rank) = rank {
+                                        add_rank(ui, rank);
+                                    }
+                                });
                             });
                         };
 
@@ -324,6 +337,105 @@ impl OverlayState {
             },
         );
     }
+}
+
+/// Adds a line showing the player's division icon and name, followed by their rating when it's
+/// known (it isn't during placement matches).
+fn add_rank(ui: &mut egui::Ui, rank: &GamePlayerRank) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 8.0;
+        if let Some((icon, label)) = division_icon_and_label(rank.division) {
+            ui.add(egui::Image::new(icon).fit_to_exact_size([32.0, 32.0].into()));
+            ui.label(RichText::new(label).size(18.0).color(colors::GREY90));
+        }
+        if let Some(rating) = rank.rating {
+            ui.label(
+                RichText::new(format!("{} MMR", rating.round() as i32))
+                    .size(18.0)
+                    .color(colors::GREY60),
+            );
+        }
+    });
+}
+
+// TODO(i18n): Translate these, along with the rest of the loading screen's strings
+fn division_icon_and_label(
+    division: MatchmakingDivision,
+) -> Option<(egui::ImageSource<'static>, &'static str)> {
+    // The icons are the same ones the web client serves, embedded so the loading screen never
+    // waits on a download.
+    let result = match division {
+        MatchmakingDivision::Unrated => (
+            egui::include_image!("../../../../server/public/images/ranks/unrated.svg"),
+            "Unrated",
+        ),
+        MatchmakingDivision::Bronze1 => (
+            egui::include_image!("../../../../server/public/images/ranks/bronze1.svg"),
+            "Bronze 1",
+        ),
+        MatchmakingDivision::Bronze2 => (
+            egui::include_image!("../../../../server/public/images/ranks/bronze2.svg"),
+            "Bronze 2",
+        ),
+        MatchmakingDivision::Bronze3 => (
+            egui::include_image!("../../../../server/public/images/ranks/bronze3.svg"),
+            "Bronze 3",
+        ),
+        MatchmakingDivision::Silver1 => (
+            egui::include_image!("../../../../server/public/images/ranks/silver1.svg"),
+            "Silver 1",
+        ),
+        MatchmakingDivision::Silver2 => (
+            egui::include_image!("../../../../server/public/images/ranks/silver2.svg"),
+            "Silver 2",
+        ),
+        MatchmakingDivision::Silver3 => (
+            egui::include_image!("../../../../server/public/images/ranks/silver3.svg"),
+            "Silver 3",
+        ),
+        MatchmakingDivision::Gold1 => (
+            egui::include_image!("../../../../server/public/images/ranks/gold1.svg"),
+            "Gold 1",
+        ),
+        MatchmakingDivision::Gold2 => (
+            egui::include_image!("../../../../server/public/images/ranks/gold2.svg"),
+            "Gold 2",
+        ),
+        MatchmakingDivision::Gold3 => (
+            egui::include_image!("../../../../server/public/images/ranks/gold3.svg"),
+            "Gold 3",
+        ),
+        MatchmakingDivision::Platinum1 => (
+            egui::include_image!("../../../../server/public/images/ranks/platinum1.svg"),
+            "Platinum 1",
+        ),
+        MatchmakingDivision::Platinum2 => (
+            egui::include_image!("../../../../server/public/images/ranks/platinum2.svg"),
+            "Platinum 2",
+        ),
+        MatchmakingDivision::Platinum3 => (
+            egui::include_image!("../../../../server/public/images/ranks/platinum3.svg"),
+            "Platinum 3",
+        ),
+        MatchmakingDivision::Diamond1 => (
+            egui::include_image!("../../../../server/public/images/ranks/diamond1.svg"),
+            "Diamond 1",
+        ),
+        MatchmakingDivision::Diamond2 => (
+            egui::include_image!("../../../../server/public/images/ranks/diamond2.svg"),
+            "Diamond 2",
+        ),
+        MatchmakingDivision::Diamond3 => (
+            egui::include_image!("../../../../server/public/images/ranks/diamond3.svg"),
+            "Diamond 3",
+        ),
+        MatchmakingDivision::Champion => (
+            egui::include_image!("../../../../server/public/images/ranks/champion.svg"),
+            "Champion",
+        ),
+        MatchmakingDivision::Unknown => return None,
+    };
+    Some(result)
 }
 
 fn get_player_halves(setup_info: &GameSetupInfo) -> (Vec<&PlayerInfo>, Vec<&PlayerInfo>) {

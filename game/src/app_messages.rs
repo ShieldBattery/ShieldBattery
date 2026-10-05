@@ -414,8 +414,9 @@ pub struct GameSetupInfo {
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
     pub users: Vec<SbUser>,
-    #[expect(dead_code)]
-    pub ratings: Option<Vec<(SbUserId, f32)>>,
+    /// For matchmaking, each player's standing in the match's mode going into the game.
+    #[serde(default)]
+    pub ranks: Vec<GamePlayerRank>,
     pub disable_alliance_changes: Option<bool>,
     pub use_legacy_limits: Option<bool>,
     pub turn_rate: Option<u32>,
@@ -424,6 +425,41 @@ pub struct GameSetupInfo {
     pub game_id: String,
     pub result_code: Option<String>,
     pub is_chat_restricted: Option<bool>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GamePlayerRank {
+    pub user_id: SbUserId,
+    pub division: MatchmakingDivision,
+    /// `None` while the player is still in placement matches.
+    pub rating: Option<f32>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum MatchmakingDivision {
+    Unrated,
+    Bronze1,
+    Bronze2,
+    Bronze3,
+    Silver1,
+    Silver2,
+    Silver3,
+    Gold1,
+    Gold2,
+    Gold3,
+    Platinum1,
+    Platinum2,
+    Platinum3,
+    Diamond1,
+    Diamond2,
+    Diamond3,
+    Champion,
+    /// A division added on the server after this build, which still has to deserialize so the
+    /// game can load.
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -718,6 +754,23 @@ pub struct NetcodeV2Setup {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn game_player_ranks_deserialize_with_unknown_divisions_and_missing_ratings() {
+        let ranks: Vec<GamePlayerRank> = serde_json::from_value(serde_json::json!([
+            { "userId": 10, "division": "platinum2", "rating": 1834.6 },
+            { "userId": 20, "division": "unrated" },
+            { "userId": 30, "division": "grandmaster", "rating": 2400.0 },
+        ]))
+        .expect("valid ranks");
+
+        assert_eq!(ranks[0].user_id, SbUserId(10));
+        assert_eq!(ranks[0].division, MatchmakingDivision::Platinum2);
+        assert_eq!(ranks[0].rating, Some(1834.6));
+        assert_eq!(ranks[1].division, MatchmakingDivision::Unrated);
+        assert_eq!(ranks[1].rating, None);
+        assert_eq!(ranks[2].division, MatchmakingDivision::Unknown);
+    }
 
     #[test]
     fn network_status_serializes_camel_case_with_error() {
