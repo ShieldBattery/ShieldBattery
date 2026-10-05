@@ -1,0 +1,109 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                g.id AS \"game_id!\",\n                r.user_id AS \"user_id!: SbUserId\",\n                r.matchmaking_type AS \"matchmaking_type!: MatchmakingType\",\n                r.season_id AS \"season_id!\",\n                COALESCE(r.points, 0) AS \"points!\",\n                COALESCE(r.wins, 0) AS \"wins!\",\n                COALESCE(r.losses, 0) AS \"losses!\",\n                COALESCE(r.lifetime_games, 0) AS \"lifetime_games!\"\n            FROM games g\n            CROSS JOIN LATERAL (\n                SELECT s.id\n                FROM matchmaking_seasons s\n                WHERE s.start_date AT TIME ZONE 'UTC' <= g.start_time\n                ORDER BY s.start_date DESC\n                LIMIT 1\n            ) season\n            JOIN games_users gu ON gu.game_id = g.id\n            JOIN matchmaking_ratings r\n                ON r.user_id = gu.user_id\n                AND r.season_id = season.id\n                AND r.matchmaking_type::text = g.config->'gameSourceExtra'->>'type'\n            WHERE g.id = ANY($1) AND g.config->>'gameSource' = 'MATCHMAKING'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "game_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "games",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id!: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_ratings",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "matchmaking_type!: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "matchmaking_ratings",
+            "name": "matchmaking_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "season_id!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_ratings",
+            "name": "season_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "points!",
+        "type_info": "Float4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "wins!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "losses!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "lifetime_games!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c1fd4135a0c9c1dfc2255689a01cb7eee3c59f57a7ee62c948677525a28b370f"
+}

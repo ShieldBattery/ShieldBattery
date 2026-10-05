@@ -619,6 +619,14 @@ export type LiveGames_FeedEntryFragmentFragment = ({
           >
         >
       }
+  currentRanks: Array<{
+    id: string
+    userId: Types.SbUserId
+    matchmakingType: Types.MatchmakingType
+    seasonId: number
+    points: number
+    lifetimeGames: number
+  }>
 } & {
   ' $fragmentRefs'?: {
     LiveGames_FeedEntryMapAndTypeFragmentFragment: LiveGames_FeedEntryMapAndTypeFragmentFragment
@@ -1296,6 +1304,21 @@ export const LiveGames_FeedEntryFragmentFragmentDoc = {
             },
           },
           {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentRanks' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'points' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'lifetimeGames' } },
+              ],
+            },
+          },
+          {
             kind: 'FragmentSpread',
             name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
           },
@@ -1603,6 +1626,21 @@ export const LiveGames_FeedFragmentFragmentDoc = {
                     ],
                   },
                 },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentRanks' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'points' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'lifetimeGames' } },
               ],
             },
           },
@@ -3734,6 +3772,21 @@ export const GamesPageContentDocument = {
             },
           },
           {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentRanks' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'points' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'lifetimeGames' } },
+              ],
+            },
+          },
+          {
             kind: 'FragmentSpread',
             name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
           },
@@ -4172,6 +4225,21 @@ export const HomePageLiveContentDocument = {
                     ],
                   },
                 },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentRanks' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'points' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'lifetimeGames' } },
               ],
             },
           },
