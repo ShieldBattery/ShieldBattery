@@ -247,8 +247,9 @@ impl ChatManager {
                     self.add_muted_player(player_id);
                 }
             }
-            "/block" | "/unblock" => {
-                let blocked = command == "/block";
+            // Same names and aliases as the app's chat commands
+            "/block" | "/ignore" | "/squelch" | "/unblock" | "/unignore" | "/unsquelch" => {
+                let blocked = matches!(command, "/block" | "/ignore" | "/squelch");
                 let Some(name) = tokens.next() else {
                     let msg = CString::new(format!("\x03Usage: \x04{command} \x07<name>")).unwrap();
                     get_bw().print_centered_text(&msg);
