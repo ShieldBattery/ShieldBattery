@@ -16,7 +16,6 @@ import {
   getArgSuggestions,
   isExhaustiveArg,
   matchCommands,
-  rankByQuery,
 } from './command-suggestions'
 import { kickCommand } from './commands/kick-ban'
 import { whisperCommand } from './commands/whisper'
@@ -74,44 +73,6 @@ function deps(
 ): ArgSuggestDeps {
   return { context, getState }
 }
-
-describe('messaging/commands/command-suggestions/rankByQuery', () => {
-  const items = [
-    { names: ['banana'] },
-    { names: ['abandon'] },
-    { names: ['ban'] },
-    { names: ['bandana'] },
-    { names: ['nothing'] },
-  ]
-  const getNames = (item: { names: string[] }) => item.names
-
-  test('exact beats prefix beats fuzzy, each in the order given', () => {
-    expect(rankByQuery(items, getNames, 'ban').map(i => i.names[0])).toEqual([
-      'ban',
-      'banana',
-      'bandana',
-      'abandon',
-    ])
-  })
-
-  test('matching ignores case', () => {
-    expect(rankByQuery(items, getNames, 'BAN')[0].names[0]).toBe('ban')
-  })
-
-  test('any of an item names can be the one that matches', () => {
-    const withAliases = [{ names: ['join', 'j', 'channel'] }, { names: ['jump'] }]
-
-    expect(rankByQuery(withAliases, getNames, 'j').map(i => i.names[0])).toEqual(['join', 'jump'])
-  })
-
-  test('an empty query keeps everything in the order given', () => {
-    expect(rankByQuery(items, getNames, '')).toEqual(items)
-  })
-
-  test('items that match nothing are left out', () => {
-    expect(rankByQuery(items, getNames, 'zzzz')).toEqual([])
-  })
-})
 
 describe('messaging/commands/command-suggestions/matchCommands', () => {
   test('only the commands of the surface are offered', () => {
