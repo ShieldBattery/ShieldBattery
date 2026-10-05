@@ -21,11 +21,13 @@ mod gamma;
 mod scr_hooks {
 
     use super::{
-        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, WNDCLASSEXW, c_void,
+        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, RECT, WNDCLASSEXW,
+        c_void,
     };
 
     system_hooks!(
         !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
+        !0 => ClipCursor(*const RECT) -> i32;
         !0 => CreateWindowExW(
             u32, *const u16, *const u16, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
         ) -> HWND;
@@ -63,6 +65,12 @@ static FAKE_PRIMARY_MONITOR: AtomicBool = AtomicBool::new(false);
 /// already handed off to the game, so they would move a cursor the player is already using. SB
 /// places the cursor itself at the handoff instead ([`center_cursor_in_game_window`]).
 static SUPPRESS_SCR_CURSOR_MOVES: AtomicBool = AtomicBool::new(false);
+/// Set by [`BACKGROUND_ENV_VAR`]. See [`stay_in_background`].
+static BACKGROUND: AtomicBool = AtomicBool::new(false);
+/// Set to `1` to launch the game in the background, for test games run on a machine someone else is
+/// using: the game window opens behind other windows without taking focus, and the game leaves the
+/// OS cursor alone until someone brings its window to the foreground.
+const BACKGROUND_ENV_VAR: &str = "SB_GAME_BACKGROUND";
 
 // Currently no nicer way to prevent us from hooking winapi calls we ourselves make
 // with remastered :/
@@ -410,6 +418,14 @@ fn forge_inited() -> bool {
     FORGE_INITED.load(Ordering::Acquire)
 }
 
+/// Whether the game must not take focus or touch the OS cursor: launched in background mode (see
+/// [`BACKGROUND_ENV_VAR`]) and its window isn't in the foreground. Once someone activates the
+/// window, the game behaves normally while it stays in front.
+fn stay_in_background() -> bool {
+    BACKGROUND.load(Ordering::Acquire)
+        && game_window_handle().is_none_or(|window| unsafe { GetForegroundWindow() } != window)
+}
+
 /// The game window's HWND for debug tooling, if the window has been created. Readable from any
 /// thread (the handle is only stored, never dereferenced as a pointer here).
 #[cfg(debug_assertions)]
@@ -484,14 +500,41 @@ struct Window {
 
 unsafe impl Send for Window {}
 
-/// Drops SC:R's cursor warps while [`SUPPRESS_SCR_CURSOR_MOVES`] is set. SB's own cursor moves run
-/// with the SC:R hooks disabled, so only the game's calls are affected.
+/// Drops SC:R's cursor warps while [`SUPPRESS_SCR_CURSOR_MOVES`] is set, or while the game has to
+/// [`stay_in_background`]. SB's own cursor moves run with the SC:R hooks disabled, so only the
+/// game's calls are affected.
 fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
-    if !scr_hooks_disabled() && SUPPRESS_SCR_CURSOR_MOVES.load(Ordering::Acquire) {
-        debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
-        return 1;
+    if !scr_hooks_disabled() {
+        if SUPPRESS_SCR_CURSOR_MOVES.load(Ordering::Acquire) {
+            debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
+            return 1;
+        }
+        if stay_in_background() {
+            debug!("Dropping SC:R SetCursorPos({x}, {y}) while in the background");
+            return 1;
+        }
     }
     unsafe { orig(x, y) }
+}
+
+/// Drops SC:R's mouse confinement while the game has to [`stay_in_background`], so a game window
+/// that isn't in front can't trap the cursor. Releasing the confinement always goes through.
+fn clip_cursor(rect: *const RECT, orig: unsafe extern "C" fn(*const RECT) -> i32) -> i32 {
+    if !rect.is_null() && !scr_hooks_disabled() && stay_in_background() {
+        debug!("Dropping SC:R ClipCursor while in the background");
+        return 1;
+    }
+    unsafe { orig(rect) }
+}
+
+/// The variant of a `ShowWindow` command that doesn't activate the window, if it has one.
+fn non_activating_show_command(show: i32) -> Option<i32> {
+    match show {
+        SW_SHOW => Some(SW_SHOWNA),
+        SW_SHOWNORMAL | SW_RESTORE => Some(SW_SHOWNOACTIVATE),
+        SW_SHOWMINIMIZED => Some(SW_SHOWMINNOACTIVE),
+        _ => None,
+    }
 }
 
 /// Ends a `PM_REMOVE` drain loop once it has removed a `WM_MOUSEMOVE` and no mouse button or
@@ -551,6 +594,25 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
             let menu = GetSystemMenu(window, FALSE);
             EnableMenuItem(menu, SC_CLOSE as u32, MF_BYCOMMAND | MF_GRAYED);
             DrawMenuBar(window);
+        }
+        if is_forge_window(window)
+            && stay_in_background()
+            && let Some(background_show) = non_activating_show_command(show)
+        {
+            debug!("Showing the window as {background_show} behind other windows");
+            let ret = orig(window, background_show);
+            with_scr_hooks_disabled(|| {
+                SetWindowPos(
+                    window,
+                    HWND_BOTTOM,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+            });
+            return ret;
         }
         orig(window, show)
     }
@@ -775,6 +837,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
         // TODO possibly port keyboard hooks as well.
         hook_winapi_exports!(patcher, "user32",
             "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
+            "ClipCursor", ClipCursor, clip_cursor;
             "CreateWindowExW", CreateWindowExW, create_window_w;
             "PeekMessageW", PeekMessageW, peek_message_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
@@ -848,6 +911,18 @@ pub fn init(
         None
     };
     gamma::configure(gamma_setting);
+
+    let background = std::env::var(BACKGROUND_ENV_VAR).as_deref() == Ok("1");
+    BACKGROUND.store(background, Ordering::Release);
+    if background {
+        info!("Launching in the background ({BACKGROUND_ENV_VAR}=1)");
+        if display_mode == DisplayMode::Fullscreen {
+            warn!(
+                "{BACKGROUND_ENV_VAR} can't keep fullscreen mode from taking over the display, \
+                use windowed or windowed fullscreen"
+            );
+        }
+    }
 
     let fake_monitor = display_mode != DisplayMode::Windowed && monitor_bounds.is_some();
     FAKE_PRIMARY_MONITOR.store(fake_monitor, Ordering::Release);
@@ -967,6 +1042,10 @@ pub fn end_wnd_proc() {
 }
 
 pub fn bring_window_forward() {
+    if BACKGROUND.load(Ordering::Acquire) {
+        debug!("Forge: Leaving the window where it is ({BACKGROUND_ENV_VAR}=1)");
+        return;
+    }
     let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
@@ -1065,8 +1144,11 @@ pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
 /// Warps the OS cursor to the center of the game window's client area. Called when the loading
 /// screen hands off to the game, which is where the player expects the game-start centering to
 /// happen; SC:R's own centering (which would land later, inside game-loop init) is dropped by the
-/// cursor gate. Bypasses that gate.
+/// cursor gate. Bypasses that gate. Does nothing while the game has to [`stay_in_background`].
 pub fn center_cursor_in_game_window() {
+    if stay_in_background() {
+        return;
+    }
     let Some(hwnd) = game_window_handle() else {
         return;
     };
