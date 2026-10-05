@@ -297,13 +297,13 @@ simplifications:
   makes the stop timer unnecessary: the authority's limit moves on the turn path, a stop in
   progress is just "the limit's deadline has passed", and the only timer left is the 250 ms
   heartbeat.
-- **Promotion raises the limit by time.** A promoted authority's adopted limit can trail what
-  the former authority made final elsewhere, and so can its own confirmed turns, and a stop
-  measured short of that would move deadlines other relays hold as final. On promotion it raises
-  its limit, with no stop, to where the former authority's could have got: the clock's position
-  when its copy was last current, plus a step per step of time since, plus the slack and 2 steps
-  for early turns. A failover during a stop keeps all the stopped time but places it at the raised
-  limit, so the raised steps' turns read late for about a report.
+- **A promoted authority takes the clock over from the newest copy.** Its own copy can trail
+  what the former authority made final elsewhere (a further limit, a finished stop), and so can
+  its own confirmed turns; nothing local bounds how far, so a stop decided from its own copy could
+  move deadlines other relays hold as final. So it asks every relay for its copy, adopts the
+  newest, and holds back the clock's advances until all have answered (or 500 ms pass), then
+  replays them. The "What isn't guaranteed" case below shrinks to a relay that doesn't answer in
+  time, or a frame that reached no surviving relay.
 - **The fold horizon is `LEAD_SEEN_SEQS + STALL_SLACK` behind the limit**, since a player the
   session waits on can be up to the slack behind it and is measured up to 128 behind their newest.
 
