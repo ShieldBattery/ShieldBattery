@@ -409,6 +409,11 @@ pub fn analyze_ranges(
         ("last_free_order", analysis.last_free_order()),
         ("allocated_order_count", analysis.allocated_order_count()),
         ("first_free_path", analysis.first_free_path()),
+        // The unit a moving unit's path search ignores as an obstacle while it repaths. Some
+        // movement states return without clearing it, so the next unit to check for obstacles,
+        // possibly in a later step, still ignores that unit; left out, a re-simulated step can
+        // start with whatever the simulation it replaces left there and path differently.
+        ("pathing_ignored_unit", analysis.pathing_ignored_unit()),
         ("lurker_hits_frame", analysis.lurker_hits_frame()),
         ("lurker_hits_pos", analysis.lurker_hits_pos()),
         ("game_frame_count", analysis.game_frame_count()),

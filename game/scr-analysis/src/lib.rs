@@ -1384,6 +1384,14 @@ impl<'e> Analysis<'e> {
         self.0.first_free_path()
     }
 
+    /// Pointer global holding the unit that `step_unit_movement`'s path search ignores as an
+    /// obstacle while it makes a new path (the unit the old path was dodging). Cleared once the
+    /// path is made, but some movement states return before the clear, so it carries over into
+    /// later steps.
+    pub fn pathing_ignored_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.pathing_ignored_unit()
+    }
+
     /// Pointer global holding the unit repulsion field.
     pub fn repulse_state(&mut self) -> Option<Operand<'e>> {
         self.0.repulse_state()
