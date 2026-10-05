@@ -138,6 +138,11 @@ One to three shots is the norm; each should earn its place.
 - Before/after pairs only when the change alters existing UI and the comparison is the point.
   Take the "before" shots before your first edit, while the dev stack still runs master (step 3's
   branch has no changes yet); don't switch branches back later just to get them.
+- **The folder holds only the shots you'll show, nothing else.** Captures taken purely as
+  evidence while verifying go in the session scratchpad, not here. Before reporting, prune it:
+  one version per shot (keep the crop, delete the uncropped original), and no shot whose point is
+  something _not_ being there (an empty strip proving a message is hidden, a list without the
+  removed row). Say that in the report text instead. An image only helps when it shows something.
 
 ### 6. Open the PR
 
@@ -169,5 +174,7 @@ In chat: the PR URL, which acceptance criteria are met and which are not, drift 
 calls you made on a go-ahead, spin-off drafts awaiting a go-ahead, and what the next child in the
 chain is if this was one.
 
-If step 5 took screenshots, show them to the developer: list each file's path with a one-line
-caption saying what it shows, and send them with `SendUserFile` when that tool is available.
+If step 5 took screenshots, show them to the developer: link the folder once as a markdown
+`file:///` link (`[.claude-scratch/screenshots/<branch>/](file:///C:/.../screenshots/<branch>/)`,
+forward slashes, absolute path) so it opens straight from the terminal, then a one-line caption
+per file by name. Don't link each file. Send them with `SendUserFile` when that tool is available.
