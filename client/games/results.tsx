@@ -10,7 +10,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { useSearch } from 'wouter/use-browser-location'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { getErrorStack } from '../../common/errors'
-import { GameConfigPlayer } from '../../common/games/configuration'
+import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
 import { isTeamType } from '../../common/games/game-type'
 import {
   GameDebugInfoJson,
@@ -18,6 +18,7 @@ import {
   GameReplayDebugInfo,
   getGameDurationString,
   getGameTypeLabel,
+  ReviewRequestErrorCode,
 } from '../../common/games/games'
 import {
   NetcodeV2FlightBlobInfo,
@@ -48,7 +49,7 @@ import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { IconButton, OutlinedButton, useButtonState } from '../material/button'
+import { IconButton, OutlinedButton, TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -63,6 +64,7 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { watchReplayFromUrl } from '../replays/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -79,7 +81,9 @@ import {
 import { navigateToUserProfile } from '../users/action-creators'
 import { ConnectedUsername } from '../users/connected-username'
 import {
+  dismissGameReviewRequest,
   navigateToGameResults,
+  requestGameReview,
   subscribeToGame,
   unsubscribeFromGame,
   viewGame,
@@ -185,6 +189,25 @@ const StatusChip = styled.div<{ $color: string }>`
   color: ${props => props.$color};
 `
 
+const DisputeNotice = styled.div`
+  ${bodyMedium};
+  margin: 0 24px 16px;
+  padding: 12px 16px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  border-radius: 8px;
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant);
+`
+
+const DisputeNoticeIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
+  color: var(--theme-amber);
+`
+
 const gameDateFormat = dateTimeFormat({
   year: 'numeric',
   month: 'short',
@@ -220,6 +243,8 @@ export function ConnectedGameResultsPage({
   const hasDebugPermission = !!selfPermissions?.debug
   const canManageGameReports = !!selfPermissions?.manageGameReports
   const game = useAppSelector(s => s.games.byId.get(gameId))
+  const canRequestReview = useAppSelector(s => s.games.reviewRequestableIds.has(gameId))
+  const snackbarController = useSnackbarController()
   const replayInfo = useAppSelector(s => s.games.replayInfoById.get(gameId))
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
@@ -228,6 +253,7 @@ export function ConnectedGameResultsPage({
   const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
   const [isSavingReplay, setIsSavingReplay] = useState(false)
   const [isReplaySaved, setIsReplaySaved] = useState(false)
+  const [isUpdatingReviewRequest, setIsUpdatingReviewRequest] = useState(false)
   const [saveAnchor, saveAnchorX, saveAnchorY, refreshSaveAnchorPos] =
     useRefAnchorPosition<HTMLButtonElement>('left', 'bottom')
   const [saveMenuOpen, openSaveMenu, closeSaveMenu] = usePopoverController({
@@ -436,6 +462,126 @@ export function ConnectedGameResultsPage({
   // Reporting is limited to finished games you played in, against another human player from it.
   const canReport = !isLive && !game?.canceledAt && selfIsParticipant && reportCandidates.length > 0
 
+  const isDisputed = !!game?.disputable && !game.canceledAt
+  const showDisputeState = isDisputed && (selfIsParticipant || canManageGameReports)
+  const isReviewPending = isDisputed && game.disputeRequested && !game.disputeReviewed
+  const isReviewDismissed = isDisputed && game.disputeRequested && game.disputeReviewed
+  // The flag is as of the last fetch, so the game's own state (which socket updates can change) is
+  // checked too.
+  const showRequestReview = canRequestReview && isDisputed && !game.disputeRequested
+
+  let disputeNotice: string | undefined
+  if (showDisputeState) {
+    const effectsNotice =
+      game.config.gameSource === GameSource.Matchmaking
+        ? t(
+            'gameDetails.disputeNoticeMatchmaking',
+            "The players' reported results didn't agree, so no rating, points or win/loss " +
+              'changes were applied.',
+          )
+        : t(
+            'gameDetails.disputeNoticeCustom',
+            "The players' reported results didn't agree, so no win/loss changes were applied.",
+          )
+    let reviewNotice: string | undefined
+    if (isReviewPending) {
+      reviewNotice = t(
+        'gameDetails.disputeNoticeReviewPending',
+        'An admin has been asked to review this game.',
+      )
+    } else if (isReviewDismissed) {
+      reviewNotice = t(
+        'gameDetails.disputeNoticeReviewDismissed',
+        'An admin reviewed this game and left its results as they were.',
+      )
+    }
+    disputeNotice = reviewNotice ? `${effectsNotice} ${reviewNotice}` : effectsNotice
+  }
+
+  const onRequestReview = () => {
+    if (isUpdatingReviewRequest) {
+      return
+    }
+
+    dispatch(
+      requestGameReview(gameId, {
+        onStart: () => setIsUpdatingReviewRequest(true),
+        onSuccess: () => {
+          setIsUpdatingReviewRequest(false)
+          snackbarController.showSnackbar(
+            t('gameDetails.reviewRequested', 'Review requested. An admin will look at this game.'),
+          )
+        },
+        onError: err => {
+          setIsUpdatingReviewRequest(false)
+          // Whatever went wrong, the game may have changed underneath the page (another player
+          // requested a review first, or an admin resolved it), so show its current state.
+          dispatch(viewGame(gameId, { onSuccess: () => {}, onError: () => {} }))
+
+          const code = isFetchError(err) ? err.code : undefined
+          let message: string
+          if (code === ReviewRequestErrorCode.AlreadyRequested) {
+            message = t(
+              'gameDetails.reviewRequestErrorAlreadyRequested',
+              'A review of this game has already been requested.',
+            )
+          } else if (code === ReviewRequestErrorCode.NotDisputed) {
+            message = t(
+              'gameDetails.reviewRequestErrorNotDisputed',
+              "This game's results are no longer disputed.",
+            )
+          } else if (code === ReviewRequestErrorCode.SeasonFinalized) {
+            message = t(
+              'gameDetails.reviewRequestErrorSeasonFinalized',
+              "This game's season has been finalized, so its results can no longer be reviewed.",
+            )
+          } else {
+            logger.error(`Error requesting a game review: ${getErrorStack(err)}`)
+            message = t(
+              'gameDetails.reviewRequestErrorGeneric',
+              'Something went wrong while requesting a review. Please try again later.',
+            )
+          }
+          dispatch(
+            openSimpleDialog(
+              t('gameDetails.reviewRequestErrorTitle', "Couldn't request a review"),
+              message,
+            ),
+          )
+        },
+      }),
+    )
+  }
+
+  const onDismissReviewRequest = () => {
+    if (isUpdatingReviewRequest) {
+      return
+    }
+
+    dispatch(
+      dismissGameReviewRequest(gameId, {
+        onStart: () => setIsUpdatingReviewRequest(true),
+        onSuccess: () => {
+          setIsUpdatingReviewRequest(false)
+          snackbarController.showSnackbar(
+            t('gameDetails.reviewRequestDismissed', 'Review request dismissed.'),
+          )
+        },
+        onError: err => {
+          setIsUpdatingReviewRequest(false)
+          dispatch(viewGame(gameId, { onSuccess: () => {}, onError: () => {} }))
+          logger.error(`Error dismissing a game review request: ${getErrorStack(err)}`)
+          snackbarController.showSnackbar(
+            t(
+              'gameDetails.reviewRequestDismissError',
+              "Couldn't dismiss the review request. It may already have been handled.",
+            ),
+          )
+        },
+      }),
+    )
+  }
+
   let saveReplayLabel: string
   if (isSavingReplay) {
     saveReplayLabel = t('gameDetails.buttonSaveReplayLoading', 'Saving…')
@@ -478,13 +624,24 @@ export function ConnectedGameResultsPage({
               {t('gameDetails.statusManuallyResolved', 'Manually resolved')}
             </StatusChip>
           ) : null}
-          {canManageGameReports && game?.disputable ? (
+          {showDisputeState ? (
             <StatusChip $color='var(--theme-amber)'>
               {t('gameDetails.statusDisputed', 'Disputed')}
             </StatusChip>
           ) : null}
+          {showDisputeState && isReviewPending ? (
+            <StatusChip $color='var(--theme-on-surface-variant)'>
+              {t('gameDetails.statusReviewRequested', 'Review requested')}
+            </StatusChip>
+          ) : null}
         </StatusRow>
       </HeaderArea>
+      {disputeNotice ? (
+        <DisputeNotice>
+          <DisputeNoticeIcon icon='info' />
+          <span>{disputeNotice}</span>
+        </DisputeNotice>
+      ) : null}
       <ButtonBar>
         {replayInfo && IS_ELECTRON ? (
           <OutlinedButton
@@ -561,7 +718,22 @@ export function ConnectedGameResultsPage({
             }}
           />
         ) : null}
+        {showRequestReview ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonRequestReview', 'Request review')}
+            iconStart={<MaterialIcon icon='gavel' />}
+            disabled={isUpdatingReviewRequest}
+            onClick={onRequestReview}
+          />
+        ) : null}
         <ButtonSpacer />
+        {canManageGameReports && isReviewPending ? (
+          <TextButton
+            label={t('gameDetails.buttonDismissReviewRequest', 'Dismiss request')}
+            disabled={isUpdatingReviewRequest}
+            onClick={onDismissReviewRequest}
+          />
+        ) : null}
         {canManageGameReports && game?.disputable ? (
           <OutlinedButton
             label={t('gameDetails.buttonResolveResults', 'Resolve results')}

@@ -11,7 +11,7 @@ export const ADMIN_REPORT_COUNT_WINDOW_MS = 24 * 60 * 60 * 1000
  */
 export const ADMIN_REPORT_COUNT_MAX = 100
 
-export type AdminReportKind = 'bugReports' | 'gameReports'
+export type AdminReportKind = 'bugReports' | 'gameReports' | 'reviewRequests'
 
 /**
  * Sent (as initial subscription data and on every change) to admins holding the permission for
@@ -24,7 +24,14 @@ export interface AdminReportCountsEvent {
 }
 
 export function adminReportCountsPath(kind: AdminReportKind): string {
-  return kind === 'bugReports'
-    ? '/admin-report-counts/bug-reports'
-    : '/admin-report-counts/game-reports'
+  switch (kind) {
+    case 'bugReports':
+      return '/admin-report-counts/bug-reports'
+    case 'gameReports':
+      return '/admin-report-counts/game-reports'
+    case 'reviewRequests':
+      return '/admin-report-counts/review-requests'
+    default:
+      return kind satisfies never
+  }
 }

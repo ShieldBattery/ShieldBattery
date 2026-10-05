@@ -14,12 +14,16 @@ import {
   GET_GAMES_LIMIT,
   GetGameResponse,
   GetGamesResponse,
+  GetPendingReviewRequestsResponse,
   ManuallyResolveGameRequest,
   ManuallyResolveGameResponse,
   NullifyGamePointsRequest,
   NullifyGamePointsResponse,
+  ReviewRequestErrorCode,
+  ReviewRequestResponse,
   toGameDebugInfoJson,
   toGameRecordJson,
+  toPendingReviewRequestJson,
 } from '../../../common/games/games'
 import {
   NetcodeV2FlightBlobsResponse,
@@ -66,6 +70,7 @@ import {
   getGames,
   getNetcodeV2DebugInfo,
   getNetcodeV2Session,
+  listPendingReviewRequests,
   wasUserInGame,
 } from './game-models'
 import {
@@ -78,6 +83,7 @@ import GameResultService, {
   GameResultServiceError,
 } from './game-result-service'
 import { deriveResultSubmission } from './raw-results'
+import { ReviewRequestService, ReviewRequestServiceError } from './review-request-service'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
 const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
@@ -109,6 +115,17 @@ const gamesListThrottle = createThrottle('gamesList', {
   burst: 40,
   window: 60000,
 })
+
+// Each game can only be asked about once, so this mostly bounds how fast one user can go through a
+// backlog of their disputed games.
+const reviewRequestThrottle = createThrottle('gameReviewRequest', {
+  rate: 10,
+  burst: 20,
+  window: 60 * 60 * 1000,
+})
+
+/** The most pending review requests listed for admins at once. */
+const PENDING_REVIEW_REQUESTS_LIMIT = 100
 
 const GAME_ID_PARAM = Joi.object<{ gameId: string }>({
   gameId: Joi.string().required(),
@@ -216,12 +233,33 @@ function convertGamePointsRefundErrors(err: unknown) {
   }
 }
 
+function convertReviewRequestErrors(err: ReviewRequestServiceError) {
+  switch (err.code) {
+    case ReviewRequestErrorCode.NotFound:
+      throw asHttpError(404, err)
+    case ReviewRequestErrorCode.NotParticipant:
+      throw asHttpError(403, err)
+    case ReviewRequestErrorCode.NotMatchmaking:
+      throw asHttpError(400, err)
+    case ReviewRequestErrorCode.NotDisputed:
+    case ReviewRequestErrorCode.AlreadyRequested:
+    case ReviewRequestErrorCode.SeasonFinalized:
+    case ReviewRequestErrorCode.NoPendingRequest:
+      throw asHttpError(409, err)
+    default:
+      assertUnreachable(err.code)
+  }
+}
+
 async function convertServiceErrors(ctx: RouterContext, next: Koa.Next) {
   try {
     await next()
   } catch (err) {
     if (err instanceof GamePointsRefundServiceError) {
       convertGamePointsRefundErrors(err)
+    }
+    if (err instanceof ReviewRequestServiceError) {
+      convertReviewRequestErrors(err)
     }
     convertGameResultServiceErrors(err)
   }
@@ -238,6 +276,7 @@ export class GameApi {
     private netcodeV2Service: NetcodeV2Service,
     private activityStatusService: ActivityStatusService,
     private gameLifecycleEvents: GameLifecycleEvents,
+    private reviewRequestService: ReviewRequestService,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -294,8 +333,47 @@ export class GameApi {
       results,
       resolvedBy: ctx.session!.user.id,
     })
+    // A resolution also closes any review request that was waiting on the game.
+    this.reviewRequestService.refreshPendingCount()
 
     return { game: toGameRecordJson(game), ratingsApplied }
+  }
+
+  @httpGet('/review-requests')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageGameReports'))
+  async getPendingReviewRequests(): Promise<GetPendingReviewRequestsResponse> {
+    const requests = await listPendingReviewRequests(PENDING_REVIEW_REQUESTS_LIMIT)
+    const maps = await getMapInfos(Array.from(new Set(requests.map(r => r.game.mapId))))
+
+    return {
+      requests: requests.map(r => toPendingReviewRequestJson(r)),
+      maps: maps.map(m => toMapInfoJson(m)),
+    }
+  }
+
+  @httpPost('/:gameId/review-request')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(reviewRequestThrottle, throttleByUser))
+  async requestReview(ctx: RouterContext): Promise<ReviewRequestResponse> {
+    const {
+      params: { gameId },
+    } = validateRequest(ctx, { params: GAME_ID_PARAM })
+
+    const game = await this.reviewRequestService.requestReview({
+      gameId,
+      userId: ctx.session!.user.id,
+    })
+    return { game: toGameRecordJson(game) }
+  }
+
+  @httpPost('/:gameId/review-request/dismiss')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageGameReports'))
+  async dismissReviewRequest(ctx: RouterContext): Promise<ReviewRequestResponse> {
+    const {
+      params: { gameId },
+    } = validateRequest(ctx, { params: GAME_ID_PARAM })
+
+    const game = await this.reviewRequestService.dismissRequest(gameId)
+    return { game: toGameRecordJson(game) }
   }
 
   @httpGet('/list')
@@ -366,10 +444,11 @@ export class GameApi {
     const usersToRetrieve = game.config.teams.flatMap(t =>
       t.filter(p => !p.isComputer).map(p => p.id),
     )
-    const [mapArray, users, mmrChanges] = await Promise.all([
+    const [mapArray, users, mmrChanges, canRequestReview] = await Promise.all([
       getMapInfos([game.mapId]),
       findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
+      this.reviewRequestService.canRequestReview(game, ctx.session?.user?.id),
     ])
 
     const mapName = mapArray[0]?.name ?? 'Unknown Map'
@@ -454,6 +533,7 @@ export class GameApi {
       mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
       replay,
       debugInfo: debugInfo ? toGameDebugInfoJson(debugInfo) : undefined,
+      canRequestReview,
     }
   }
 

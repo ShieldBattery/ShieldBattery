@@ -10,4 +10,5 @@ function handleReportCounts(_route: RouteInfo, event: AdminReportCountsEvent) {
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute(adminReportCountsPath('bugReports'), handleReportCounts)
   siteSocket.registerRoute(adminReportCountsPath('gameReports'), handleReportCounts)
+  siteSocket.registerRoute(adminReportCountsPath('reviewRequests'), handleReportCounts)
 }

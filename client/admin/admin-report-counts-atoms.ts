@@ -8,4 +8,5 @@ import { AdminReportKind } from '../../common/admin-report-counts'
 export const adminReportTimesAtom = atom<Readonly<Record<AdminReportKind, readonly number[]>>>({
   bugReports: [],
   gameReports: [],
+  reviewRequests: [],
 })

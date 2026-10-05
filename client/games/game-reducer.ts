@@ -11,6 +11,8 @@ export interface GameState {
   debugInfoById: Map<string, GameDebugInfoJson>
   /** A map of game ID -> replay info (if available and user has access). */
   replayInfoById: Map<string, GameReplayInfo>
+  /** Game IDs the current user could ask an admin to review, as of their last fetch. */
+  reviewRequestableIds: Set<string>
 }
 
 const DEFAULT_STATE: ReadonlyDeep<GameState> = {
@@ -18,6 +20,7 @@ const DEFAULT_STATE: ReadonlyDeep<GameState> = {
   mmrChangesById: new Map(),
   debugInfoById: new Map(),
   replayInfoById: new Map(),
+  reviewRequestableIds: new Set(),
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -57,8 +60,16 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@games/getGameRecord'](state, { payload: { game, mmrChanges, replay, debugInfo } }) {
+  ['@games/getGameRecord'](
+    state,
+    { payload: { game, mmrChanges, replay, debugInfo, canRequestReview } },
+  ) {
     state.byId.set(game.id, game)
+    if (canRequestReview) {
+      state.reviewRequestableIds.add(game.id)
+    } else {
+      state.reviewRequestableIds.delete(game.id)
+    }
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
     if (replay) {
       state.replayInfoById.set(replay.gameId, replay)

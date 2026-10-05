@@ -9,6 +9,7 @@ import {
 } from '../../../common/admin-report-counts'
 import { SbPermissions } from '../../../common/users/permissions'
 import { listRecentUnresolvedBugReportTimes } from '../bugs/bugs-model'
+import { listRecentPendingReviewRequestTimes } from '../games/game-models'
 import { listRecentUnresolvedGameReportTimes } from '../games/game-reports-models'
 import logger from '../logging/logger'
 import { getPermissions } from '../models/permissions'
@@ -20,12 +21,23 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 const KIND_PERMISSIONS: Record<AdminReportKind, keyof SbPermissions> = {
   bugReports: 'manageBugReports',
   gameReports: 'manageGameReports',
+  reviewRequests: 'manageGameReports',
 }
 
 const ALL_KINDS = Object.keys(KIND_PERMISSIONS) as AdminReportKind[]
 
+const KIND_QUERIES: Record<
+  AdminReportKind,
+  (options: { since: Date; limit: number }) => Promise<Date[]>
+> = {
+  bugReports: listRecentUnresolvedBugReportTimes,
+  gameReports: listRecentUnresolvedGameReportTimes,
+  reviewRequests: listRecentPendingReviewRequestTimes,
+}
+
 /**
- * Pushes the recent unresolved bug and game report counts to connected admins. Each report kind has
+ * Pushes the recent unresolved bug report, game report and game review request counts to connected
+ * admins. Each report kind has
  * its own socket path, and only users holding that kind's permission are subscribed to it.
  */
 @singleton()
@@ -125,11 +137,7 @@ export class AdminReportCountsService {
   }
 
   private async getEvent(kind: AdminReportKind): Promise<AdminReportCountsEvent> {
-    const query =
-      kind === 'bugReports'
-        ? listRecentUnresolvedBugReportTimes
-        : listRecentUnresolvedGameReportTimes
-    const times = await query({
+    const times = await KIND_QUERIES[kind]({
       since: new Date(this.clock.now() - ADMIN_REPORT_COUNT_WINDOW_MS),
       limit: ADMIN_REPORT_COUNT_MAX,
     })

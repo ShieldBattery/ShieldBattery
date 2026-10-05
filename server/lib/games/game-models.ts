@@ -269,6 +269,7 @@ export async function setReconciledResult(
       game_length = ${results.time},
       disputable = ${results.disputed},
       dispute_requested = false,
+      dispute_requested_at = NULL,
       dispute_reviewed = false,
       assigned_matchup = ${assignedMatchup}
     WHERE id = ${gameId}
@@ -342,6 +343,103 @@ export async function setManuallyResolvedResult(
       manually_resolved_at = ${resolvedAt}
     WHERE id = ${gameId}
   `)
+}
+
+/**
+ * Records that a participant asked an admin to review a disputed game's results. Only a game that
+ * is still disputed and has never had a review requested is updated, so concurrent requests (or a
+ * request racing a manual resolution) record at most one request.
+ *
+ * @returns whether the request was recorded
+ */
+export async function setReviewRequested(gameId: string, requestedAt: Date): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`
+      UPDATE games
+      SET dispute_requested = true, dispute_requested_at = ${requestedAt}
+      WHERE id = ${gameId}
+        AND disputable
+        AND NOT dispute_requested
+        AND canceled_at IS NULL
+    `)
+    return (result.rowCount ?? 0) > 0
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Marks a game's pending review request as reviewed without resolving the game, which stays
+ * disputed. `dispute_requested` is left set as the record that a review was asked for.
+ *
+ * @returns whether there was a pending request to dismiss
+ */
+export async function dismissReviewRequest(gameId: string): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`
+      UPDATE games
+      SET dispute_reviewed = true
+      WHERE id = ${gameId}
+        AND disputable
+        AND dispute_requested
+        AND NOT dispute_reviewed
+    `)
+    return (result.rowCount ?? 0) > 0
+  } finally {
+    done()
+  }
+}
+
+/** Returns the games with a review request still awaiting an admin, newest request first. */
+export async function listPendingReviewRequests(
+  limit: number,
+): Promise<Array<{ game: GameRecord; requestedAt: Date }>> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbGameRecord & { dispute_requested_at: Date }>(sql`
+      SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,
+        game_length, results, selected_matchup, assigned_matchup, canceled_at, cancellation_reason,
+        manually_resolved_at IS NOT NULL AS manually_resolved, dispute_requested_at
+      FROM games
+      WHERE dispute_requested AND NOT dispute_reviewed
+      ORDER BY dispute_requested_at DESC
+      LIMIT ${limit}
+    `)
+    return result.rows.map(row => ({
+      game: convertFromDb(row),
+      requestedAt: row.dispute_requested_at,
+    }))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the request times of the review requests awaiting an admin that were made after `since`,
+ * newest first.
+ */
+export async function listRecentPendingReviewRequestTimes({
+  since,
+  limit,
+}: {
+  since: Date
+  limit: number
+}): Promise<Date[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ dispute_requested_at: Date }>(sql`
+      SELECT dispute_requested_at
+      FROM games
+      WHERE dispute_requested AND NOT dispute_reviewed AND dispute_requested_at >= ${since}
+      ORDER BY dispute_requested_at DESC
+      LIMIT ${limit}
+    `)
+    return result.rows.map(r => r.dispute_requested_at)
+  } finally {
+    done()
+  }
 }
 
 /**

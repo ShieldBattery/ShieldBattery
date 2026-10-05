@@ -10,6 +10,7 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbPermissions } from '../../../common/users/permissions'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { listRecentUnresolvedBugReportTimes } from '../bugs/bugs-model'
+import { listRecentPendingReviewRequestTimes } from '../games/game-models'
 import { listRecentUnresolvedGameReportTimes } from '../games/game-reports-models'
 import { getPermissions } from '../models/permissions'
 import { RedisSubscriber } from '../redis/redis'
@@ -31,12 +32,16 @@ vi.mock('../bugs/bugs-model', () => ({
 vi.mock('../games/game-reports-models', () => ({
   listRecentUnresolvedGameReportTimes: vi.fn(),
 }))
+vi.mock('../games/game-models', () => ({
+  listRecentPendingReviewRequestTimes: vi.fn(),
+}))
 vi.mock('../models/permissions', () => ({
   getPermissions: vi.fn(),
 }))
 
 const bugTimesMock = asMockedFunction(listRecentUnresolvedBugReportTimes)
 const gameTimesMock = asMockedFunction(listRecentUnresolvedGameReportTimes)
+const reviewTimesMock = asMockedFunction(listRecentPendingReviewRequestTimes)
 const getPermissionsMock = asMockedFunction(getPermissions)
 
 class FakeRedisSubscriber {
@@ -58,6 +63,7 @@ class FakeRedisSubscriber {
 const BASE_TIME = Number(new Date('2026-01-01T00:00:00.000Z'))
 const BUG_PATH = adminReportCountsPath('bugReports')
 const GAME_PATH = adminReportCountsPath('gameReports')
+const REVIEW_PATH = adminReportCountsPath('reviewRequests')
 
 function perms(overrides: Partial<SbPermissions>): SbPermissions {
   return {
@@ -109,6 +115,7 @@ describe('admin/admin-report-counts-service', () => {
 
     bugTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 1000)])
     gameTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 2000)])
+    reviewTimesMock.mockReset().mockResolvedValue([new Date(BASE_TIME - 3000)])
     getPermissionsMock.mockReset()
 
     nydus = createFakeNydusServer()
@@ -153,10 +160,16 @@ describe('admin/admin-report-counts-service', () => {
       kind: 'gameReports',
       createdAt: [BASE_TIME - 2000],
     })
+    expect(gameAdmin.publish).toHaveBeenCalledWith(REVIEW_PATH, {
+      kind: 'reviewRequests',
+      createdAt: [BASE_TIME - 3000],
+    })
     expect(gameAdmin.publish).not.toHaveBeenCalledWith(BUG_PATH, expect.anything())
+    expect(bugAdmin.publish).not.toHaveBeenCalledWith(REVIEW_PATH, expect.anything())
 
     expect(nobody.publish).not.toHaveBeenCalledWith(BUG_PATH, expect.anything())
     expect(nobody.publish).not.toHaveBeenCalledWith(GAME_PATH, expect.anything())
+    expect(nobody.publish).not.toHaveBeenCalledWith(REVIEW_PATH, expect.anything())
   })
 
   test('publishes game report counts when a report is created or resolved', async () => {
