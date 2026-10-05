@@ -297,13 +297,16 @@ simplifications:
   makes the stop timer unnecessary: the authority's limit moves on the turn path, a stop in
   progress is just "the limit's deadline has passed", and the only timer left is the 250 ms
   heartbeat.
-- **A promoted authority takes the clock over from the newest copy.** Its own copy can trail
-  what the former authority made final elsewhere (a further limit, a finished stop), and so can
-  its own confirmed turns; nothing local bounds how far, so a stop decided from its own copy could
-  move deadlines other relays hold as final. So it asks every relay for its copy, adopts the
-  newest, and holds back the clock's advances until all have answered (or 500 ms pass), then
-  replays them. The "What isn't guaranteed" case below shrinks to a relay that doesn't answer in
-  time, or a frame that reached no surviving relay.
+- **A new authority takes the clock over from the newest copy, in a later epoch.** Its own copy
+  can trail what the former authority made final elsewhere (a further limit, a finished stop), and
+  so can its own confirmed turns; nothing local bounds how far. So clock decisions belong to
+  epochs: the new authority claims a later one, asks every relay the descriptor names for its
+  copy, adopts the newest, and holds back the clock's advances until all have answered (or 500 ms
+  pass), then replays them. A relay answering stops deciding the clock and ignores older epochs
+  from then on, which fences off a former authority that still believes it is one; an authority
+  passed that way takes the clock back only after a second of not hearing from the new one. The
+  "What isn't guaranteed" case below shrinks to a relay that doesn't answer in time or is cut off
+  from the deciding relay.
 - **The fold horizon is `LEAD_SEEN_SEQS + STALL_SLACK` behind the limit**, since a player the
   session waits on can be up to the slack behind it and is measured up to 128 behind their newest.
 
