@@ -10,6 +10,7 @@ import { channelInviteTokenFromMessageLink } from '../chat/channel-invite-card'
 import createStore from '../create-store'
 import { gameFromMessageLink, GameLinkTarget } from '../games/game-link-card'
 import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
+import { NavigationAvailableContext } from '../navigation/navigation-available'
 import { userFromMessageLink, UserLinkTarget } from '../users/user-card'
 import { ChatContext } from './chat-context'
 import { TextMessage, TextMessageLayout } from './common-message-layout'
@@ -89,27 +90,31 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       emote,
       outcome,
       layout,
+      navigationAvailable = true,
     }: {
       time?: number
       emote?: boolean
       outcome?: RolledOutcome
       layout?: TextMessageLayout
+      navigationAvailable?: boolean
     } = {},
   ): HTMLElement => {
     render(
       <ReduxProvider store={store}>
-        <div data-testid='message-container'>
-          <TextMessage
-            msgId='MESSAGE_ID'
-            userId={userId}
-            selfUserId={selfUserId}
-            time={time}
-            text={text}
-            emote={emote}
-            outcome={outcome}
-            layout={layout}
-          />
-        </div>
+        <NavigationAvailableContext.Provider value={navigationAvailable}>
+          <div data-testid='message-container'>
+            <TextMessage
+              msgId='MESSAGE_ID'
+              userId={userId}
+              selfUserId={selfUserId}
+              time={time}
+              text={text}
+              emote={emote}
+              outcome={outcome}
+              layout={layout}
+            />
+          </div>
+        </NavigationAvailableContext.Provider>
       </ReduxProvider>,
     )
     return screen.getByTestId('message-container')
@@ -299,6 +304,31 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       time: -(LOBBY_INVITE_CARD_MAX_AGE_MS + 1),
     })
     expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
+  })
+
+  test('no link cards render where navigation is unavailable', () => {
+    const text =
+      `https://shieldbattery.net/lobbies/${LOBBY_ID}/my-cool-lobby ` +
+      `https://shieldbattery.net/games/${ROUTE_GAME_ID} ` +
+      'https://shieldbattery.net/users/42/tec27 ' +
+      `https://shieldbattery.net/chat/invite/${encodePrettyId('5eed0000-0000-4000-8000-000000000001')}`
+    const cardTestIds = [
+      'lobby-invite-card',
+      'game-link-card',
+      'user-link-card',
+      'channel-invite-card',
+    ]
+
+    doRender(text)
+    for (const testId of cardTestIds) {
+      expect(screen.getAllByTestId(testId)).toHaveLength(1)
+    }
+    cleanup()
+
+    doRender(text, { navigationAvailable: false })
+    for (const testId of cardTestIds) {
+      expect(screen.queryByTestId(testId)).toBeNull()
+    }
   })
 
   describe('cozy layouts', () => {
