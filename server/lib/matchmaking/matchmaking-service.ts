@@ -17,12 +17,14 @@ import {
   GameSource,
   MatchmakingExtra,
 } from '../../../common/games/configuration'
-import { PlayerInfo } from '../../../common/games/game-launch-config'
+import { GamePlayerRank, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
+import { ladderPlayerToMatchmakingDivision } from '../../../common/ladder/ladder'
 import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import {
   getMatchmakingModeInfo,
+  getTotalBonusPoolForSeason,
   MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
@@ -31,6 +33,7 @@ import {
   MatchmakingSeason,
   MatchmakingServiceErrorCode,
   MatchmakingType,
+  NUM_PLACEMENT_MATCHES,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
@@ -67,6 +70,7 @@ import {
 import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
   createInitialMatchmakingRating,
+  getManyMatchmakingRatings,
   getMatchmakingRatings,
   insertMatchmakingCompletion,
   insertMatchmakingMatchFormation,
@@ -403,6 +407,26 @@ interface QueueEntry {
 // Extra time that is added to the matchmaking accept time to account for latency in getting
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
+
+/**
+ * Retrieves each player's standing in `matchmakingType` for the loading screen: their division as
+ * the ladder and profile show it, and their rating once they're out of placement matches (which is
+ * when the profile starts showing it).
+ */
+async function getPlayerRanks(
+  userIds: SbUserId[],
+  matchmakingType: MatchmakingType,
+  season: MatchmakingSeason,
+  now: Date,
+): Promise<GamePlayerRank[]> {
+  const mmrs = await getManyMatchmakingRatings(userIds, matchmakingType, season.id)
+  const bonusPool = getTotalBonusPoolForSeason(now, season)
+  return mmrs.map(mmr => ({
+    userId: mmr.userId,
+    division: ladderPlayerToMatchmakingDivision(mmr, bonusPool),
+    rating: mmr.lifetimeGames >= NUM_PLACEMENT_MATCHES ? mmr.rating : undefined,
+  }))
+}
 
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
@@ -1478,10 +1502,21 @@ export class MatchmakingService {
       lockedAlliances: true,
     }
 
-    const ratings = Array.from(
-      match.players(),
-      p => [p.id, p.rating] as [id: SbUserId, rating: number],
-    )
+    // Ranks are only shown on the loading screen, so failing to look them up doesn't stop the load
+    const ranks = await this.matchmakingSeasonsService
+      .getCurrentSeason()
+      .then(season =>
+        getPlayerRanks(
+          players.map(p => p.id),
+          match.type,
+          season,
+          new Date(this.clock.now()),
+        ),
+      )
+      .catch(err => {
+        logger.error({ err }, 'failed to retrieve player ranks for the loading screen')
+        return undefined
+      })
 
     for (const client of clients) {
       this.publishToActiveClient(client.userId, { type: 'matchReady' })
@@ -1492,7 +1527,7 @@ export class MatchmakingService {
       playerInfos,
       mapId: chosenMap.id,
       gameConfig,
-      ratings,
+      ranks,
       signal: match.signal,
       onGameRegistered: gameId => match.setLoadingGameId(gameId),
     })

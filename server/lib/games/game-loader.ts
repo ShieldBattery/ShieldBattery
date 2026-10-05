@@ -7,7 +7,7 @@ import { extendableDeadline } from '../../../common/async/extendable-deadline'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
-import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
+import { GamePlayerRank, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
@@ -244,10 +244,10 @@ export interface GameLoadRequest {
    */
   gameConfig: GameConfig
   /**
-   * Optional list of rating entries for each player in the game. This only need to be provided for
+   * Each player's standing in the match's mode, shown on the loading screen. Only provided for
    * matchmaking games.
    */
-  ratings?: Array<[id: SbUserId, rating: number]>
+  ranks?: GamePlayerRank[]
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
 }
@@ -261,7 +261,7 @@ function getGeneralGameSetup({
   gameConfig,
   playerInfos,
   users,
-  ratings,
+  ranks,
   map,
   gameId,
   seed,
@@ -271,7 +271,7 @@ function getGeneralGameSetup({
   gameConfig: GameConfig
   playerInfos: PlayerInfo[]
   users: SbUser[]
-  ratings?: Array<[id: SbUserId, rating: number]>
+  ranks?: GamePlayerRank[]
   map: MapInfo
   gameId: string
   seed: number
@@ -314,7 +314,7 @@ function getGeneralGameSetup({
       slots: playerInfos,
       host: playerInfos[0],
       users,
-      ratings,
+      ranks,
       // Matchmaking always locks alliances; fall back to that if a caller ever constructs a
       // matchmaking config without setting the field explicitly.
       disableAllianceChanges: gameConfig.lockedAlliances ?? true,
@@ -402,7 +402,7 @@ export class GameLoader {
     playerInfos,
     mapId,
     gameConfig,
-    ratings,
+    ranks,
     signal,
     onGameRegistered,
   }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
@@ -436,7 +436,7 @@ export class GameLoader {
           gameConfig,
           resultCodes,
           playerInfos,
-          ratings,
+          ranks,
         }).onFailure(err => {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
@@ -1024,14 +1024,14 @@ export class GameLoader {
     gameConfig,
     resultCodes,
     playerInfos,
-    ratings,
+    ranks,
   }: {
     gameId: string
     mapId: SbMapId
     gameConfig: GameConfig
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
-    ratings?: Array<[id: SbUserId, rating: number]>
+    ranks?: GamePlayerRank[]
   }): AsyncResult<void, GameLoaderError> {
     return Result.fromAsync(async () => {
       if (!this.loadingGames.has(gameId)) {
@@ -1165,7 +1165,7 @@ export class GameLoader {
         users,
         map,
         gameId,
-        ratings,
+        ranks,
         seed: generateSeed(),
         turnRate: chosenTurnRate,
         userLatency: chosenUserLatency,
