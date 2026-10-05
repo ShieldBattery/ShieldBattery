@@ -1,4 +1,9 @@
-import { GetGameResponse, GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
+import {
+  GetGameResponse,
+  GetGamesQueryParams,
+  GetGamesResponse,
+  ReviewRequestResponse,
+} from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
@@ -45,6 +50,40 @@ export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction
           signal,
         }),
       })
+    })
+  })
+}
+
+/**
+ * Asks an admin to review the disputed results of a game the current user played, then reloads the
+ * game so its page reflects the request.
+ */
+export function requestGameReview(gameId: string, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<ReviewRequestResponse>(apiUrl`games/${gameId}/review-request`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+    dispatch({
+      type: '@games/getGameRecord',
+      payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, { signal: spec.signal }),
+    })
+  })
+}
+
+/**
+ * Marks a game's pending review request as reviewed without resolving the game (an admin action),
+ * then reloads the game so its page reflects the dismissal.
+ */
+export function dismissGameReviewRequest(gameId: string, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<ReviewRequestResponse>(apiUrl`games/${gameId}/review-request/dismiss`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+    dispatch({
+      type: '@games/getGameRecord',
+      payload: await fetchJson<GetGameResponse>(apiUrl`games/${gameId}`, { signal: spec.signal }),
     })
   })
 }

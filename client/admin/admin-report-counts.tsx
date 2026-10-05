@@ -70,6 +70,11 @@ const KIND_INFO: Record<
     noun: ['game report', 'game reports'],
     url: '/admin/game-reports',
   },
+  reviewRequests: {
+    icon: 'gavel',
+    noun: ['review request', 'review requests'],
+    url: '/admin/review-requests',
+  },
 }
 
 function ReportCount({ kind, times }: { kind: AdminReportKind; times: readonly number[] }) {
@@ -96,8 +101,8 @@ function ReportCount({ kind, times }: { kind: AdminReportKind; times: readonly n
 }
 
 /**
- * Chips showing how many recent reports of each kind are still unresolved, for the report kinds
- * the current user can manage. Each one links to that kind's admin page.
+ * Chips showing how many recent reports of each kind (game review requests included) are still
+ * unresolved, for the kinds the current user can manage. Each one links to that kind's admin page.
  */
 export function AdminReportCounts() {
   const permissions = useSelfPermissions()
@@ -109,7 +114,10 @@ export function AdminReportCounts() {
         <ReportCount kind='bugReports' times={times.bugReports} />
       ) : null}
       {permissions?.manageGameReports ? (
-        <ReportCount kind='gameReports' times={times.gameReports} />
+        <>
+          <ReportCount kind='gameReports' times={times.gameReports} />
+          <ReportCount kind='reviewRequests' times={times.reviewRequests} />
+        </>
       ) : null}
     </>
   )

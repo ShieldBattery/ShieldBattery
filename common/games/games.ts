@@ -173,6 +173,10 @@ export interface GetGameResponse {
   /** Replay info for the best replay (if available and user has access). */
   replay?: GameReplayInfo
   debugInfo?: GameDebugInfoJson
+  /**
+   * Whether the requesting user can ask an admin to review this game's disputed results right now.
+   */
+  canRequestReview: boolean
 }
 
 export interface GetGamesQueryParams {
@@ -256,6 +260,55 @@ export interface ManuallyResolveGameResponse {
    * is still recorded in those cases.
    */
   ratingsApplied: boolean
+}
+
+export enum ReviewRequestErrorCode {
+  /** The specified game record could not be found. */
+  NotFound = 'NotFound',
+  /** Only the human players of a game can request a review of it. */
+  NotParticipant = 'NotParticipant',
+  /** Reviews can only be requested for matchmaking games. */
+  NotMatchmaking = 'NotMatchmaking',
+  /** The game's results aren't disputed (they never were, or an admin has resolved them). */
+  NotDisputed = 'NotDisputed',
+  /** A review has already been requested for this game. */
+  AlreadyRequested = 'AlreadyRequested',
+  /**
+   * The game's season has been finalized, so resolving it could no longer apply rating, points or
+   * ladder win/loss changes.
+   */
+  SeasonFinalized = 'SeasonFinalized',
+  /** The game has no review request awaiting an admin. */
+  NoPendingRequest = 'NoPendingRequest',
+}
+
+/** Returned after a game's review request is made or dismissed. */
+export interface ReviewRequestResponse {
+  game: GameRecordJson
+}
+
+/** A disputed game whose players asked for an admin to review its results. */
+export interface PendingReviewRequest {
+  game: GameRecord
+  requestedAt: Date
+}
+
+export type PendingReviewRequestJson = Jsonify<PendingReviewRequest>
+
+export function toPendingReviewRequestJson(
+  request: PendingReviewRequest,
+): PendingReviewRequestJson {
+  return {
+    game: toGameRecordJson(request.game),
+    requestedAt: Number(request.requestedAt),
+  }
+}
+
+export interface GetPendingReviewRequestsResponse {
+  /** Newest request first. */
+  requests: PendingReviewRequestJson[]
+  /** The maps of the listed games, for the ones that still exist. */
+  maps: MapInfoJson[]
 }
 
 export function getGameDurationString(durationMs: number): string {

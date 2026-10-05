@@ -13,6 +13,9 @@ const LoadableManageNews = React.lazy(async () => ({
 const LoadableGameReports = React.lazy(async () => ({
   default: (await import('../games/admin-game-reports')).AdminGameReports,
 }))
+const LoadableReviewRequests = React.lazy(async () => ({
+  default: (await import('../games/admin-review-requests')).AdminReviewRequests,
+}))
 const LoadableMapManager = IS_ELECTRON
   ? React.lazy(async () => ({
       default: (await import('./map-manager')).AdminMapManager,
@@ -56,6 +59,12 @@ export default function AdminPanel() {
   > = [
     ['/admin/bug-reports', perms?.manageBugReports, LoadableBugReports, 'Manage bug reports'],
     ['/admin/game-reports', perms?.manageGameReports, LoadableGameReports, 'Manage game reports'],
+    [
+      '/admin/review-requests',
+      perms?.manageGameReports,
+      LoadableReviewRequests,
+      'Manage game review requests',
+    ],
     ['/admin/live-streams', perms?.manageLiveStreams, LoadableLiveStreams, 'Manage live streams'],
     [
       '/admin/map-manager',
