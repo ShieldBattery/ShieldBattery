@@ -17,6 +17,7 @@ import { CHAT_MESSAGE_MAXLENGTH } from '../../common/constants'
 import { RestrictionKind } from '../../common/users/restrictions'
 import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { ConnectedChannelBadge } from '../chat/channel-badge'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
@@ -28,6 +29,7 @@ import { Popover, useElemAnchorPosition, usePopoverController } from '../materia
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector, useAppStore } from '../redux-hooks'
+import { createChannelMentionProvider, getMentionableChannels } from './channel-mention-provider'
 import { CommandContext } from './commands/command-context'
 import { CommandMenuItem } from './commands/command-menu-item'
 import { createCommandArgProvider, createCommandNameProvider } from './commands/command-provider'
@@ -115,6 +117,12 @@ const StyledAvatar = styled(ConnectedAvatar)<{ $faded?: boolean }>`
   }}
 `
 
+const StyledChannelBadge = styled(ConnectedChannelBadge)`
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+`
+
 const EmoteSuggestionIcon = styled.span`
   width: 24px;
   font-size: 18px;
@@ -134,6 +142,8 @@ function suggestionIcon(visual: TypeaheadVisual): React.ReactNode {
           $faded={visual.online === false}
         />
       )
+    case 'channel':
+      return <StyledChannelBadge channelId={visual.channelId} />
     case 'emoji':
       return <EmoteSuggestionIcon>{visual.emoji}</EmoteSuggestionIcon>
     case 'command':
@@ -149,6 +159,7 @@ function isSuggestionFaded(visual: TypeaheadVisual): boolean {
   switch (visual.kind) {
     case 'user':
       return visual.online === false
+    case 'channel':
     case 'command':
     case 'emoji':
     case 'plain':
@@ -397,6 +408,7 @@ export function MessageInput({
   if (mentionableUsers) {
     providers.push(createMentionProvider(mentionableUsers, baseMentionableUsers))
   }
+  providers.push(createChannelMentionProvider(() => getMentionableChannels(store.getState().chat)))
   providers.push(emoteProvider)
 
   useImperativeHandle(ref, () => ({
@@ -439,8 +451,6 @@ export function MessageInput({
     if (selectionStart === null || selectionStart !== selectionEnd) {
       return
     }
-
-    // TODO(2Pac): Handle channel mentions as well.
 
     // The DOM value is what the caret offsets refer to; React state can still be a render behind.
     const textBeforeCaret = event.target.value.slice(0, selectionStart)

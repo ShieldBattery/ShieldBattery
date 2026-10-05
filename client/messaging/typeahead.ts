@@ -1,3 +1,4 @@
+import { SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ChatCommand } from './commands/command-schema'
 
@@ -16,6 +17,8 @@ export type TypeaheadVisual =
       /** Undefined when the client doesn't track that user's presence. */
       online?: boolean
     }
+  /** The channel's badge. */
+  | { kind: 'channel'; channelId: SbChannelId }
   /** The emoji character itself as the row's icon. */
   | { kind: 'emoji'; emoji: string }
   /** A command, as the palette spells it out: usage and what it does. */
@@ -25,7 +28,7 @@ export type TypeaheadVisual =
       /** Already localized. */
       description: string
     }
-  /** Text only, as channel names and enum values are shown. */
+  /** Text only, as command argument values are shown. */
   | { kind: 'plain' }
 
 export interface TypeaheadSuggestion {
