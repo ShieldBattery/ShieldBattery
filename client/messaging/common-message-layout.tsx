@@ -23,6 +23,7 @@ import {
 } from '../lobbies/lobby-invite-card'
 import { Tooltip } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
+import { useIsNavigationAvailable } from '../navigation/navigation-available'
 import { labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { StaffBadgedAvatar } from '../users/staff-badge'
@@ -431,6 +432,7 @@ export function TextMessage({
 }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
   const { UserMenu, MessageMenu, NameBadge, disallowMentionInteraction } = useContext(ChatContext)
+  const isNavigationAvailable = useIsNavigationAvailable()
   // The invite-card age gate needs the current time, which a pure render can't read directly;
   // capture it once on mount. A message mounts when it first becomes visible (on arrival, or when
   // scrollback loads), which is the moment the age check is about.
@@ -462,24 +464,21 @@ export function TextMessage({
   const effectiveLayout = isActionLine ? 'classic' : (layout ?? 'classic')
   const isActive = contextMenuPopoverProps.open
 
-  const linkCards = (
+  // Each card's purpose is to take the user to what the link names, so they're left out wherever
+  // that isn't possible.
+  const showLinkCards = !disallowMentionInteraction && isNavigationAvailable
+  const linkCards = showLinkCards ? (
     <>
-      {inviteLobbyId !== undefined &&
-      !disallowMentionInteraction &&
-      mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
+      {inviteLobbyId !== undefined && mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
         <LobbyInviteCard lobbyId={inviteLobbyId} />
       ) : undefined}
-      {linkedGame !== undefined && !disallowMentionInteraction ? (
-        <GameLinkCard target={linkedGame} />
-      ) : undefined}
-      {linkedUser !== undefined && !disallowMentionInteraction ? (
-        <UserLinkCard target={linkedUser} />
-      ) : undefined}
-      {channelInviteToken !== undefined && !disallowMentionInteraction ? (
+      {linkedGame !== undefined ? <GameLinkCard target={linkedGame} /> : undefined}
+      {linkedUser !== undefined ? <UserLinkCard target={linkedUser} /> : undefined}
+      {channelInviteToken !== undefined ? (
         <ChannelInviteCard token={channelInviteToken} />
       ) : undefined}
     </>
-  )
+  ) : undefined
 
   let messageLayout: React.ReactNode
   if (effectiveLayout === 'cozyHeader') {

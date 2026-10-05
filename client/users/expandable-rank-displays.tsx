@@ -37,6 +37,12 @@ export interface ExpandableRankDisplaysProps {
    */
   onShowMore?: () => void
   /**
+   * Shows only the most-active modes, with no control for the rest. For constrained containers
+   * that also can't send the user anywhere to see the full list. Takes precedence over
+   * `onShowMore`.
+   */
+  capped?: boolean
+  /**
    * Controls the expansion externally: when set (alongside `onExpandedChange`), the component
    * renders this expansion state and reports toggles instead of tracking its own.
    */
@@ -56,6 +62,7 @@ export function ExpandableRankDisplays({
   children,
   className,
   onShowMore,
+  capped = false,
   expanded,
   onExpandedChange,
 }: ExpandableRankDisplaysProps) {
@@ -75,7 +82,7 @@ export function ExpandableRankDisplays({
     isExpanded && !onShowMore ? rankedTypes : rankedTypes.slice(0, DEFAULT_PROFILE_RANKS_SHOWN)
 
   let expandButton
-  if (rankedTypes.length > DEFAULT_PROFILE_RANKS_SHOWN) {
+  if (!capped && rankedTypes.length > DEFAULT_PROFILE_RANKS_SHOWN) {
     if (onShowMore) {
       expandButton = (
         <TextButton

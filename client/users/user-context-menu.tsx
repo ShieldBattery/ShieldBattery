@@ -12,6 +12,7 @@ import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
+import { useIsNavigationAvailable } from '../navigation/navigation-available'
 import { useNavigationTracker } from '../navigation/navigation-tracker'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -173,6 +174,7 @@ function ConnectedUserContextMenuContents({
   const user = useAppSelector(s => s.users.byId.get(userId))
   const snackbarController = useSnackbarController()
   const { onNavigation } = useNavigationTracker()
+  const isNavigationAvailable = useIsNavigationAvailable()
 
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
@@ -211,19 +213,21 @@ function ConnectedUserContextMenuContents({
       <LoadingItem key='loading' text={t('users.contextMenu.loadingUsers', 'Loading user…')} />,
     )
   } else {
-    appendToMultimap(
-      items,
-      MenuItemCategory.General,
-      <MenuItem
-        key='profile'
-        text={t('users.contextMenu.viewProfile', 'View profile')}
-        onClick={() => {
-          navigateToUserProfile(user!.id, user!.name)
-          onNavigation()
-          onDismiss()
-        }}
-      />,
-    )
+    if (isNavigationAvailable) {
+      appendToMultimap(
+        items,
+        MenuItemCategory.General,
+        <MenuItem
+          key='profile'
+          text={t('users.contextMenu.viewProfile', 'View profile')}
+          onClick={() => {
+            navigateToUserProfile(user!.id, user!.name)
+            onNavigation()
+            onDismiss()
+          }}
+        />,
+      )
+    }
 
     if (selfPermissions?.debug) {
       appendToMultimap(
@@ -243,7 +247,7 @@ function ConnectedUserContextMenuContents({
     }
 
     if (user.id !== selfUser?.id) {
-      if (relationshipKind !== UserRelationshipKind.Block) {
+      if (isNavigationAvailable && relationshipKind !== UserRelationshipKind.Block) {
         appendToMultimap(
           items,
           MenuItemCategory.General,

@@ -11,6 +11,7 @@ import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { elevationPlus1 } from '../material/shadows'
+import { useIsNavigationAvailable } from '../navigation/navigation-available'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
@@ -172,6 +173,7 @@ export function ConnectedChannelInfoCard({
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
   const isAdmin = useHasAnyPermission('moderateChatChannels')
+  const isNavigationAvailable = useIsNavigationAvailable()
 
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'top')
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
@@ -233,7 +235,10 @@ export function ConnectedChannelInfoCard({
   }
 
   let action
-  if (isUserInChannel) {
+  if (!isNavigationAvailable) {
+    // Every action here ends up on another route (joining a channel opens it), so none are offered
+    // where navigating isn't possible.
+  } else if (isUserInChannel) {
     action = <FilledButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
   } else if ((basicChannelInfo?.private && !isAdmin) || isUserBanned) {
     action = <FilledButton label={t('common.actions.join', 'Join')} disabled={true} />
@@ -249,7 +254,7 @@ export function ConnectedChannelInfoCard({
 
   return (
     <ChannelCardRoot>
-      {isAdmin ? (
+      {isAdmin && isNavigationAvailable ? (
         <Popover
           open={overflowMenuOpen}
           onDismiss={closeOverflowMenu}
@@ -307,7 +312,7 @@ export function ConnectedChannelInfoCard({
         {action}
       </ChannelActions>
 
-      {isAdmin ? (
+      {isAdmin && isNavigationAvailable ? (
         <OverflowMenuButton
           ref={anchor}
           icon={<MaterialIcon icon='more_vert' />}

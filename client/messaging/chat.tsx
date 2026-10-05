@@ -328,8 +328,6 @@ export interface ChatProps {
    * moderators, say). Names mentioned within a message's text never get one.
    */
   NameBadge?: React.ComponentType<{ userId: SbUserId }>
-  /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
-  disallowMentionInteraction?: boolean
   /**
    * A message in this conversation the list should move to and highlight, if the user has followed
    * a link to one. The list places it as soon as the loaded window holds it, so a message that
@@ -407,7 +405,6 @@ export function Chat({
   UserMenu,
   MessageMenu = DefaultMessageMenu,
   NameBadge,
-  disallowMentionInteraction: disallowUserInteraction,
   linkedMessageId,
   onLinkedMessageSettled,
   onAtBottomChange,
@@ -1115,7 +1112,6 @@ export function Chat({
           UserMenu,
           MessageMenu,
           NameBadge,
-          disallowMentionInteraction: disallowUserInteraction,
           linkedMessageId: flashedMessageId,
         }}>
         <MessagesAndInput className={className}>
