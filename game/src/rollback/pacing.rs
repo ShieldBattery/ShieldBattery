@@ -35,9 +35,12 @@
 //! client's sends along with its deadlines, so a report reads the same on either side of one. That
 //! is what lets a player whose turns keep the clock stopping see how late they are and correct. A
 //! client stalled at its own prediction limit holds its schedule still too, provisionally: if the
-//! relay's clock stopped as well, the stopped time it reports replaces the provisional hold, and if
-//! it didn't, the stall was this client's alone, and once a report shows turns sent after the stall
-//! arriving with the clock unmoved, the hold is undone so the client catches up.
+//! relay's clock stopped as well, the stopped time it reports replaces the provisional hold. If it
+//! didn't, the first report about turns sent after the stall settles it by what it measures: had
+//! the session kept running, those turns, sent on the held schedule, arrive late by however much of
+//! the stall was this client's alone, and that much of the hold is undone at once so the client
+//! catches up; if they arrive on time, the session waited too (the clock may not even have existed
+//! yet to record it), and the hold stands.
 
 use std::time::{Duration, Instant};
 
@@ -233,16 +236,21 @@ impl Pacing {
         if report.samples == 0 || report.through_step < self.trust_from {
             return;
         }
-        if self.hold_ended_at.take().is_some() {
-            // Turns sent after the stall arrived, and the clock never stopped: the stall was this
-            // client's alone, and it is behind by however long it held still.
-            self.send_zero = shifted(self.send_zero, -micros(self.hold));
-            self.hold = Duration::ZERO;
-            self.counts.holds_undone += 1;
-            self.trust_from = newest_sent + REPORT_WINDOW_TURNS;
-            return;
-        }
         let late_us = i64::from(report.p90_us) + MARGIN_US;
+        if self.hold_ended_at.take().is_some() {
+            // The report covers only turns sent after the stall, on the schedule held through it,
+            // with the clock unmoved. As late as they arrived, the stall was this client's alone
+            // and it is that far behind: make it up at once, up to the hold, rather than a couple
+            // of steps a report. On time, the session waited as well, and the hold stands.
+            let behind_us = late_us.clamp(0, micros(self.hold));
+            self.hold = Duration::ZERO;
+            if behind_us > 0 {
+                self.send_zero = shifted(self.send_zero, -behind_us);
+                self.counts.holds_undone += 1;
+                self.trust_from = newest_sent + REPORT_WINDOW_TURNS;
+                return;
+            }
+        }
         // In whole slew steps, which the game loop's millisecond timing can follow exactly.
         let correction = ((-late_us).clamp(-MAX_CORRECTION_US, MAX_CORRECTION_US) as f64
             / SLEW_PER_TICK_US as f64)
@@ -485,14 +493,51 @@ mod tests {
         // Reports about turns sent around the stall are not trusted yet.
         pacing.on_report(&report(60, 2_000_000, 0), 60);
         assert_eq!(pacing.target(at, 3), before_stall + 1);
-        // One covering turns sent well after it, with the clock unmoved: the stall was this
-        // client's alone, and it catches up by the whole hold.
-        pacing.on_report(&report(80, 0, 0), 80);
+        // One covering turns sent well after it, with the clock unmoved and those turns as late as
+        // the stall was long: the stall was this client's alone, and it catches up by the whole
+        // hold.
+        pacing.on_report(&report(80, 2_000_000, 0), 80);
         assert_eq!(
             pacing.target(at, 3),
             Pacing::new(24, 6, start).target(at, 3),
             "back on the schedule it would have kept without the stall",
         );
+        assert_eq!(pacing.take_counts().holds_undone, 1);
+    }
+
+    #[test]
+    fn a_hold_stands_when_turns_sent_after_the_stall_arrive_on_time() {
+        let start = Instant::now();
+        let mut pacing = Pacing::new(24, 6, start);
+        let mut at = run(&mut pacing, start, 10, 40);
+        let _ = pacing.tick(at, true, 50);
+        at += Duration::from_secs(10);
+        let _ = pacing.tick(at, false, 50);
+        let _ = pacing.tick(at + STEP, false, 51);
+        let held = pacing.send_zero;
+        // No stop was reported (the session's clock didn't exist yet to record the wait), but the
+        // turns sent after the stall arrive early: the whole session waited, so there is nothing
+        // to make up, and the report corrects the schedule like any other.
+        pacing.on_report(&report(80, -630_000, 0), 80);
+        assert_eq!(pacing.take_counts().holds_undone, 0);
+        assert!(pacing.hold.is_zero());
+        assert_eq!(pacing.send_zero, held + STEP * 2, "two steps later at most");
+    }
+
+    #[test]
+    fn a_stall_only_partly_this_clients_own_is_made_up_only_as_far_as_it_was() {
+        let start = Instant::now();
+        let mut pacing = Pacing::new(24, 6, start);
+        let mut at = run(&mut pacing, start, 10, 40);
+        let _ = pacing.tick(at, true, 50);
+        at += Duration::from_secs(2);
+        let _ = pacing.tick(at, false, 50);
+        let _ = pacing.tick(at + STEP, false, 51);
+        let held = pacing.send_zero;
+        // Turns sent after the stall arrive half a second late: that much of the two seconds was
+        // this client's alone.
+        pacing.on_report(&report(80, 500_000, 0), 80);
+        assert_eq!(pacing.send_zero, held - 503 * MS);
         assert_eq!(pacing.take_counts().holds_undone, 1);
     }
 }
