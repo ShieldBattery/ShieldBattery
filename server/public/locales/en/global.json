@@ -254,6 +254,7 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Channel settings",
+        "copyChannelLink": "Copy channel link",
         "hideBanner": "Hide banner",
         "invitePeople": "Invite people",
         "leaveChannel": "Leave channel",
@@ -699,6 +700,7 @@
       "deleteMessage": "Delete message"
     },
     "navEntry": {
+      "copyChannelLink": "Copy channel link",
       "leaveChannel": "Leave channel"
     },
     "notifications": {

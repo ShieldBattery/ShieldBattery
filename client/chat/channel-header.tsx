@@ -36,6 +36,7 @@ import { updateChannelUserPreferences } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { useChannelNotificationMenuItems } from './channel-notification-menu-items'
 import { openChannelSettings } from './channel-settings/channel-settings-action-creators'
+import { copyChannelLink } from './copy-channel-link'
 
 export const CHANNEL_HEADER_HEIGHT = 72
 
@@ -241,6 +242,10 @@ export function ChannelHeader({
       }),
     )
   }
+  const onCopyChannelLinkClick = () => {
+    closeOverflowMenu()
+    copyChannelLink(basicChannelInfo.id, basicChannelInfo.name)
+  }
   const onLeaveChannelClick = useStableCallback(() => {
     onLeaveChannel(basicChannelInfo.id)
   })
@@ -286,6 +291,16 @@ export function ChannelHeader({
         text={t('chat.channelHeader.actionItems.invitePeople', 'Invite people')}
         testName='channel-invite-people-button'
         onClick={onCopyInviteLinkClick}
+      />,
+    )
+  }
+  if (!basicChannelInfo.private) {
+    actions.push(
+      <MenuItem
+        key='copy-channel-link'
+        text={t('chat.channelHeader.actionItems.copyChannelLink', 'Copy channel link')}
+        testName='channel-copy-link-button'
+        onClick={onCopyChannelLinkClick}
       />,
     )
   }

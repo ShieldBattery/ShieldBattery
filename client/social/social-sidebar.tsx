@@ -27,6 +27,7 @@ import {
   channelNeedsAttention,
   isChannelMuted,
 } from '../chat/chat-reducer'
+import { copyChannelLink } from '../chat/copy-channel-link'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useWindowSize } from '../dom/dimension-hooks'
@@ -605,6 +606,15 @@ function ChannelEntry({
               dispatch(markChannelReadNow(channelId))
             }}
           />
+          {basicInfo && !basicInfo.private ? (
+            <MenuItem
+              text={t('chat.navEntry.copyChannelLink', 'Copy channel link')}
+              onClick={() => {
+                contextMenuPopoverProps.onDismiss()
+                copyChannelLink(channelId, basicInfo.name)
+              }}
+            />
+          ) : null}
           {notificationMenuItems}
           <Divider $dense={true} />
           <DestructiveMenuItem
