@@ -284,11 +284,11 @@ and hold-back mechanics stay, steering toward the new schedule.
 
 ### Next: stopping the clock as it happens
 
-Status: built, not yet live-tested. rp2 `4297a42` (stops by step, final deadlines, full-state
-frames with a heartbeat) and `92911d2` (`STALL_SLACK_STEPS` 6), on the local branch `clock-stops`;
+Status: built, not yet live-tested. rp2 on the local branch `clock-stops`: `4297a42` (stops by
+step, final deadlines, full-state frames with a heartbeat), `92911d2` (`STALL_SLACK_STEPS` 6),
+`c7021b3` (a new authority's limit raised to its own frontier) and `4d067dc` (copies merged, below);
 the client side is `Pacing::on_report` keeping its trust across a change in `pause_us`, plus the
-`SB_ROLLBACK_SEND_DELAY` knob for the local test. Two departures from the design below, both
-simplifications:
+`SB_ROLLBACK_SEND_DELAY` knob for the local test. Departures from the design below:
 
 - **The frame carries the clock's limit rather than its position and a stop in progress.** The
   clock only ever stops at its limit (`confirmable − 1 + STALL_SLACK`), and the limit only grows,
@@ -297,16 +297,20 @@ simplifications:
   makes the stop timer unnecessary: the authority's limit moves on the turn path, a stop in
   progress is just "the limit's deadline has passed", and the only timer left is the 250 ms
   heartbeat.
-- **A new authority takes the clock over from the newest copy, in a later epoch.** Its own copy
-  can trail what the former authority made final elsewhere (a further limit, a finished stop), and
-  so can its own confirmed turns; nothing local bounds how far. So clock decisions belong to
-  epochs: the new authority claims a later one, asks every relay the descriptor names for its
-  copy, adopts the newest, and holds back the clock's advances until all have answered (or 500 ms
-  pass), then replays them. A relay answering stops deciding the clock and ignores older epochs
-  from then on, which fences off a former authority that still believes it is one; an authority
-  passed that way takes the clock back only after a second of not hearing from the new one. The
-  "What isn't guaranteed" case below shrinks to a relay that doesn't answer in time or is cut off
-  from the deciding relay.
+- **Copies merge instead of replacing each other, and every relay sends its own.** Review found
+  that a new authority's copy can trail what the former one made final elsewhere, and no local
+  rule bounds how far; guaranteeing that no relay's final deadline ever moves across a handoff
+  turned into a consensus protocol (takeover, epochs, fencing, a lease) that kept growing edge
+  cases. The clock doesn't need that guarantee: it needs each relay's own measurements to stay
+  valid, every relay to agree on the deadlines ahead, and no stop to be lost. So every relay sends
+  its copy on the heartbeat and merges every copy it gets, the authority included: the later
+  deadline per step, except that a deadline the relay already holds as final never moves (stopped
+  time learned of before its limit is taken in at its limit). The merge is order-free, so a new
+  authority decides at once from its own copy and learns any stop it missed from the next
+  heartbeat, and two relays that both believe they are the authority merge harmlessly. The cost: a
+  new authority that is behind can stop the clock needlessly around a handoff (every relay takes
+  it in at its own limit, so clients shift together and nobody sprints), and relays can disagree
+  about a few deadlines already behind them. This replaces "What isn't guaranteed" below.
 - **The fold horizon is `LEAD_SEEN_SEQS + STALL_SLACK` behind the limit**, since a player the
   session waits on can be up to the slack behind it and is measured up to 128 behind their newest.
 
