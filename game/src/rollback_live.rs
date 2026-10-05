@@ -269,6 +269,8 @@ struct Summary {
     worst_tick: Duration,
     /// Ticks that weren't stalled and took longer than [`SLOW_TICK`].
     slow_ticks: u32,
+    /// This client's own turns sent while it was stalled on its own downlink.
+    stalled_sends: u32,
 }
 
 /// A tick that takes longer than this costs a frame rate in the hundreds a noticeable dip.
@@ -565,18 +567,28 @@ pub unsafe fn run_game_logic_step(
                 bw.rollback_issue_random_commands(next_random);
             }
         }
-        let (resimulate_from, known_until, can_run, lead, pipe_depth, lead_report) =
-            netcode_v2::with_turn_state(|s| {
-                let target = s.take_rollback_target(next_frame);
-                (
-                    target,
-                    s.known_until(),
-                    s.can_run(next_frame),
-                    s.lead(),
-                    s.pipe_depth(),
-                    s.take_lead_report(),
-                )
-            })?;
+        let (
+            resimulate_from,
+            known_until,
+            can_run,
+            lead,
+            pipe_depth,
+            in_flight,
+            own_downlink,
+            lead_report,
+        ) = netcode_v2::with_turn_state(|s| {
+            let target = s.take_rollback_target(next_frame);
+            (
+                target,
+                s.known_until(),
+                s.can_run(next_frame),
+                s.lead(),
+                s.pipe_depth(),
+                s.outstanding_turns(),
+                s.waiting_on_own_downlink(tick_start),
+                s.take_lead_report(),
+            )
+        })?;
         // A turn state without an input table is one that started before rollback was armed.
         let known_until = known_until?;
 
@@ -595,27 +607,34 @@ pub unsafe fn run_game_logic_step(
                  is of frame {oldest}; this client will diverge"
             );
         }
-        // The newest of this client's own turns sent: the one for the step `pipe_depth` past the
-        // present, which the relay's reports count in.
-        let newest_sent = u64::from(current) + u64::from(pipe_depth);
-        // A simulation that has fallen behind its schedule (a hitch, a pipe that just shrank, or
-        // the relay's reports moving its turns earlier) steps extra frames until it is back on it,
-        // rather than making anyone wait for it.
-        let (scheduled, timing_us) = PACING
+        // The newest of this client's own turns sent, which the relay's reports count in: every
+        // turn in flight past the present, usually `pipe_depth` of them, and more while a stall on
+        // this client's own downlink keeps its turns leaving on schedule.
+        let newest_sent = u64::from(current) + u64::from(in_flight);
+        // A stall on this client's own downlink isn't the session waiting: its turns keep leaving
+        // on schedule, so the schedule doesn't hold still through it.
+        let session_stall = !can_run && !own_downlink;
+        // A simulation that has fallen behind its schedule (a hitch, a pipe that just shrank, a
+        // stall of its own, or the relay's reports moving its turns earlier) steps extra frames
+        // until it is back on it, rather than making anyone wait for it.
+        let (scheduled, timing_us, owed) = PACING
             .lock()
             .as_mut()
             .map(|pacing| {
-                let slewed_us = pacing.tick(tick_start, !can_run, newest_sent);
+                let slewed_us = pacing.tick(tick_start, session_stall, newest_sent);
                 if let Some(report) = &lead_report {
                     pacing.on_report(report, newest_sent);
                 }
                 let nudge_us = pacing.phase_nudge_us(tick_start);
+                let owed = pacing.due_turn(tick_start).saturating_sub(newest_sent);
                 (
                     Some(pacing.target(tick_start, pipe_depth)),
                     slewed_us + nudge_us,
+                    u32::try_from(owed).unwrap_or(u32::MAX),
                 )
             })
-            .unwrap_or((None, 0));
+            .unwrap_or((None, 0, 0));
+        netcode_v2::with_turn_state(|s| s.set_owed_turns(owed));
         let catch_up = match (scheduled, can_run) {
             (Some(scheduled), true) => scheduled
                 .saturating_sub(current + 1)
@@ -740,11 +759,13 @@ pub unsafe fn run_game_logic_step(
             );
             bw.rollback_open_mission_dialog(dialog);
         }
-        let counts = netcode_v2::with_turn_state(|s| {
+        let (counts, stalled_sends) = netcode_v2::with_turn_state(|s| {
             s.forget_inputs_before(report.settled_through);
-            s.take_input_counts()
+            (
+                s.take_input_counts().unwrap_or_default(),
+                s.take_stalled_sends(),
+            )
         })
-        .flatten()
         .unwrap_or_default();
 
         let pacing_counts = PACING
@@ -808,6 +829,7 @@ pub unsafe fn run_game_logic_step(
         let mut summary_guard = SUMMARY.lock();
         let summary = summary_guard.get_or_insert_with(Summary::default);
         summary.ticks += 1;
+        summary.stalled_sends += stalled_sends;
         if let Some(resimulated) = resimulated {
             summary.rollbacks += 1;
             summary.resimulated += resimulated;
@@ -866,8 +888,9 @@ fn log_summary(summary: &Summary, present: u32) {
     info!(
         "Live rollback over {} ticks to turn {present}: {} steps ran predicted, {} predicted \
          turns held and {} did not; {} rollbacks re-simulated {} frames (deepest {}); present \
-         ahead of known turns by {:.2} frames on average (at most {}), {} ticks at the limit; lead \
-         {} frames over a pipe of {}, {} frames caught up, {} ticks held back; {}; per tick \
+         ahead of known turns by {:.2} frames on average (at most {}), {} ticks at the limit, {} \
+         turns sent stalled on its own downlink; lead {} frames over a pipe of {}, {} frames \
+         caught up, {} ticks held back; {}; per tick \
          restore {:.2} ms, snapshot {:.2} ms, steps {:.2} ms (worst {:.1} ms); worst whole tick \
          {:.1} ms, {} over {} ms; {}",
         summary.ticks,
@@ -880,6 +903,7 @@ fn log_summary(summary: &Summary, present: u32) {
         summary.predicted_depth as f64 / summary.ticks as f64,
         summary.deepest_prediction,
         summary.capped,
+        summary.stalled_sends,
         summary.lead,
         summary.pipe_depth,
         summary.caught_up,

@@ -493,6 +493,19 @@ fn input_step(next_frame: u32) -> u32 {
     next_frame.saturating_sub(1)
 }
 
+/// The most turns past its pipe a client stalled on its own downlink keeps sending (two seconds'
+/// worth), and so the most input delay that stall can add to its own commands. A downlink
+/// delivering nothing at all would otherwise keep a player who can see nothing in the game: past
+/// this the client stops sending, the session stalls on it, and the ordinary drop path takes over.
+const MAX_STALLED_SEND_TURNS: u32 = 48;
+
+/// How long a relay's `turns_complete` stamp speaks for the client's downlink after it last
+/// changed: twelve steps, the session clock's own slack before it stops. A stamp only says what
+/// had reached the relay when it was sent; while the session plays on it changes with nearly every
+/// step's turns, so one that stands still this long means the downlink has gone silent, or the
+/// whole session is waiting, and either way the stall is no longer this client's alone.
+const STAMP_STALE_AFTER: Duration = Duration::from_millis(504);
+
 /// How many rendered chat lines [`TurnState::record_chat`] keeps for `queryState` verification.
 #[cfg(debug_assertions)]
 const CHAT_LOG_CAPACITY: usize = 64;
@@ -565,6 +578,17 @@ pub struct TurnState {
     /// [`mark_local_turn_executed`](Self::mark_local_turn_executed); a single counter so the two
     /// events can never be miscounted against each other.
     turns_in_flight: u32,
+    /// In a game that predicts inputs, how many of this client's own turns its pacing has due
+    /// beyond those it has sent, as of the tick under way (see
+    /// [`set_owed_turns`](Self::set_owed_turns)). The PIPE hook and a stall of this client's own
+    /// send them.
+    owed_turns: u32,
+    /// Turns sent while stalled on this client's own downlink since the last
+    /// [`take_stalled_sends`](Self::take_stalled_sends).
+    stalled_sends: u32,
+    /// The relay's newest `turns_complete` stamp as this client last saw it, and when it first saw
+    /// it (see [`waiting_on_own_downlink`](Self::waiting_on_own_downlink)).
+    stamp_seen: (u64, Option<Instant>),
     /// How many of each storm slot's turns have been dispatched to the sim — the client-side half
     /// of a counted leave's coordinate. The relay authors `LeaveDirective::final_turn_count` as the
     /// departed slot's forwarded-turn total, forwards nothing past it, and every client dispatches
@@ -759,6 +783,9 @@ impl TurnState {
             sync_generation_first_logged: false,
             sync_generation_invalid_logged: false,
             turns_in_flight: 0,
+            owed_turns: 0,
+            stalled_sends: 0,
+            stamp_seen: (0, None),
             consumed_turns: [0; bw::MAX_STORM_PLAYERS],
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
@@ -2002,6 +2029,72 @@ impl TurnState {
         };
         inputs.schedule_leave(storm, leave.reason, step);
     }
+    /// Whether the turns this client lacks for the first step it can't run have all reached its
+    /// home relay already, as of `now`, in a game that predicts inputs: if it stalls, it stalls on
+    /// its own downlink, while the rest of the session plays on. The relay stamps how many of
+    /// every slot's turns it holds on every packet to this client, so the stamp is never staler
+    /// than the turns it is about, but a downlink that goes silent leaves the last one standing:
+    /// it counts only until it has gone [`STAMP_STALE_AFTER`] without changing.
+    pub fn waiting_on_own_downlink(&mut self, now: Instant) -> bool {
+        let stamp = *self.channels.turns_complete.borrow();
+        if stamp != self.stamp_seen.0 || self.stamp_seen.1.is_none() {
+            self.stamp_seen = (stamp, Some(now));
+        }
+        let fresh = self
+            .stamp_seen
+            .1
+            .is_some_and(|seen| now.saturating_duration_since(seen) < STAMP_STALE_AFTER);
+        match self.known_until() {
+            Some(known) => fresh && u64::from(known) < stamp,
+            None => false,
+        }
+    }
+
+    /// Sets how many of this client's own turns its pacing has due beyond those it has sent, at the
+    /// start of a tick of a game that predicts inputs. Turns leave on that schedule, not when the
+    /// simulation steps: a simulation that falls behind it (a stall of this client's own, a hitch)
+    /// catches up afterwards, but its turns reach everyone else on time all along.
+    pub fn set_owed_turns(&mut self, owed: u32) {
+        self.owed_turns = owed;
+    }
+
+    /// PIPE hook: how many local turns to flush after a step runs: enough to keep
+    /// [`pipe_depth`](Self::pipe_depth) in flight, or every turn the schedule has due, whichever
+    /// is more, and never more than [`MAX_STALLED_SEND_TURNS`] past the pipe.
+    pub fn turns_to_flush(&mut self) -> u32 {
+        let wanted = self
+            .pipe_depth()
+            .saturating_sub(self.turns_in_flight)
+            .max(self.owed_turns);
+        let flushed = wanted.min(self.send_room());
+        self.owed_turns = self.owed_turns.saturating_sub(flushed);
+        flushed
+    }
+
+    /// IN hook, on a step stalled at the prediction limit: how many local turns to flush to keep
+    /// this client's sends on schedule. Only a stall on this client's own downlink sends any: one
+    /// on a turn the relay doesn't have yet is the whole session waiting, which holds still.
+    pub fn turns_to_send_while_stalled(&mut self, now: Instant) -> u32 {
+        if !self.waiting_on_own_downlink(now) {
+            return 0;
+        }
+        let sent = self.owed_turns.min(self.send_room());
+        self.owed_turns -= sent;
+        self.stalled_sends += sent;
+        sent
+    }
+
+    /// Turns sent while stalled on this client's own downlink since the last call.
+    pub fn take_stalled_sends(&mut self) -> u32 {
+        std::mem::take(&mut self.stalled_sends)
+    }
+
+    /// How many more local turns may go out before [`MAX_STALLED_SEND_TURNS`] past the pipe are in
+    /// flight.
+    fn send_room(&self) -> u32 {
+        (self.pipe_depth() + MAX_STALLED_SEND_TURNS).saturating_sub(self.turns_in_flight)
+    }
+
     /// PIPE hook input: local turns in flight. Replaces the native `get_outstanding_turn_count`,
     /// which goes degenerate once Storm's counters stop advancing.
     pub fn outstanding_turns(&self) -> u32 {
@@ -2583,6 +2676,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
@@ -2807,6 +2901,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
@@ -2849,6 +2944,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
@@ -3795,6 +3891,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
@@ -3831,6 +3928,107 @@ mod tests {
             !state.adjust_lead(1),
             "a lead at its highest doesn't move higher"
         );
+    }
+
+    /// A turn state predicting inputs over a buffer of 2 turns, whose relay stamps what it holds
+    /// through the returned sender.
+    fn predicting_with_stamps() -> (TurnState, tokio::sync::watch::Sender<u64>) {
+        let (mut state, _result_rx, _result_expected) = turn_state_with_result();
+        state.predict_inputs(InputTable::new(
+            8,
+            2,
+            0,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+        state.set_initial_latency_turns(2);
+        for slot in [LOCAL_SLOT, PEER_SLOT] {
+            state.map_slot(slot, StormPlayerId(slot.0));
+        }
+        let (stamps, turns_complete) = tokio::sync::watch::channel(0);
+        state.channels.turns_complete = turns_complete;
+        (state, stamps)
+    }
+
+    #[test]
+    fn only_a_stall_on_the_clients_own_downlink_sends_while_stalled() {
+        let (mut state, stamps) = predicting_with_stamps();
+        let now = Instant::now();
+        assert_eq!(state.known_until(), Some(0), "no peer turn has arrived");
+        state.set_owed_turns(3);
+        assert!(!state.waiting_on_own_downlink(now));
+        assert_eq!(
+            state.turns_to_send_while_stalled(now),
+            0,
+            "the relay lacks the turn too: the whole session waits, and holds still",
+        );
+        stamps.send_replace(1);
+        assert!(state.waiting_on_own_downlink(now));
+        assert_eq!(state.turns_to_send_while_stalled(now), 3);
+        assert_eq!(
+            state.turns_to_send_while_stalled(now),
+            0,
+            "owed turns go once"
+        );
+        assert_eq!(state.take_stalled_sends(), 3);
+        assert_eq!(state.take_stalled_sends(), 0);
+    }
+
+    #[test]
+    fn a_stamp_that_stops_advancing_stops_speaking_for_the_downlink() {
+        // The relay had the missing turn, then the downlink went silent: the stamp stays ahead of
+        // what this client knows forever, so only its standing still can tell.
+        let (mut state, stamps) = predicting_with_stamps();
+        let start = Instant::now();
+        stamps.send_replace(1);
+        assert!(state.waiting_on_own_downlink(start));
+        let just_fresh = start + STAMP_STALE_AFTER - Duration::from_millis(1);
+        assert!(state.waiting_on_own_downlink(just_fresh));
+        let stale = start + STAMP_STALE_AFTER;
+        assert!(!state.waiting_on_own_downlink(stale));
+        state.set_owed_turns(2);
+        assert_eq!(
+            state.turns_to_send_while_stalled(stale),
+            0,
+            "a silent downlink sends nothing more, so the session stalls on it and drops it",
+        );
+        // A newer stamp is news again.
+        stamps.send_replace(2);
+        assert!(state.waiting_on_own_downlink(stale));
+    }
+
+    #[test]
+    fn a_stalled_client_stops_sending_well_past_its_pipe() {
+        let (mut state, stamps) = predicting_with_stamps();
+        let now = Instant::now();
+        stamps.send_replace(1);
+        let pipe = state.pipe_depth();
+        state.turns_in_flight = pipe + MAX_STALLED_SEND_TURNS - 2;
+        state.set_owed_turns(5);
+        assert_eq!(state.turns_to_send_while_stalled(now), 2);
+        state.turns_in_flight += 2;
+        state.set_owed_turns(5);
+        assert_eq!(state.turns_to_send_while_stalled(now), 0);
+    }
+
+    #[test]
+    fn the_pipe_flush_keeps_both_the_pipe_full_and_the_sends_on_schedule() {
+        let (mut state, _stamps) = predicting_with_stamps();
+        let pipe = state.pipe_depth();
+        state.turns_in_flight = pipe - 1;
+        assert_eq!(
+            state.turns_to_flush(),
+            1,
+            "a step took one turn out of the pipe"
+        );
+        state.turns_in_flight = pipe - 1;
+        state.set_owed_turns(4);
+        assert_eq!(
+            state.turns_to_flush(),
+            4,
+            "a simulation behind its schedule still sends what is due"
+        );
+        state.turns_in_flight = pipe + 3;
+        assert_eq!(state.turns_to_flush(), 0, "and the owed turns went once");
     }
 
     #[test]
@@ -4245,6 +4443,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
@@ -4383,6 +4582,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
@@ -4442,6 +4642,7 @@ mod tests {
             region_labels: region_labels_rx,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
@@ -4563,6 +4764,7 @@ mod tests {
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
+            turns_complete: tokio::sync::watch::channel(0).1,
             rollback_stats: tokio::sync::watch::channel(None).0,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];

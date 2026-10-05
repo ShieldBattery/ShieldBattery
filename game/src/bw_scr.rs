@@ -4422,6 +4422,16 @@ impl BwScr {
                 Some(false) => {
                     self.show_chat_while_stalled();
                     self.end_session_for_requested_exit(nc);
+                    // BW runs no PIPE flush until the step can run, so a stall on this client's
+                    // own downlink sends its turns from here, outside the turn state's lock (each
+                    // flush re-enters the OUT hook). The rest of the session never waits on them.
+                    let owed = netcode_v2::with_turn_state(|s| {
+                        s.turns_to_send_while_stalled(Instant::now())
+                    })
+                    .unwrap_or(0);
+                    for _ in 0..owed {
+                        (nc.flush_outgoing_command_turn)();
+                    }
                     TurnReceiveOutcome::Stall
                 }
                 Some(true) => {
@@ -4536,10 +4546,12 @@ impl BwScr {
     }
 
     /// PIPE hook body (full replacement of `flush_local_turns_to_latency_depth`): flush enough turns
-    /// to reach the turn state's latency target, driven off its own in-flight counter rather than
-    /// the native `get_outstanding_turn_count` (which goes degenerate-0 once Storm's send/ack
-    /// counters stop advancing, causing an unbounded flush). Returns `false` before the game starts
-    /// or with no live session, so the caller runs the original.
+    /// to reach the turn state's latency target, or in a game that predicts inputs every turn its
+    /// pacing has due if that is more (see [`TurnState::turns_to_flush`]), driven off its own
+    /// in-flight counter rather than the native `get_outstanding_turn_count` (which goes
+    /// degenerate-0 once Storm's send/ack counters stop advancing, causing an unbounded flush).
+    /// Returns `false` before the game starts or with no live session, so the caller runs the
+    /// original.
     unsafe fn netcode_v2_flush_pipe(&self) -> bool {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
@@ -4553,9 +4565,7 @@ impl BwScr {
             let nc = &self.netcode_v2;
             // Read the shortfall under the lock, then release before flushing — each flush re-enters
             // the OUT hook (which re-locks the turn state) and bumps the in-flight counter by one.
-            let to_flush = netcode_v2::with_turn_state(|s| {
-                s.pipe_depth().saturating_sub(s.outstanding_turns())
-            });
+            let to_flush = netcode_v2::with_turn_state(|s| s.turns_to_flush());
             match to_flush {
                 None => false,
                 Some(n) => {

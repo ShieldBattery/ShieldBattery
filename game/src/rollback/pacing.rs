@@ -153,6 +153,16 @@ impl Pacing {
         target.clamp(0, u32::MAX.into()) as u32
     }
 
+    /// The newest turn this client's schedule has due by the end of a tick that starts at `now`:
+    /// a tick on schedule ends on [`target`](Self::target) with `pipe` of its turns in flight past
+    /// that, whatever the pipe.
+    pub fn due_turn(&self, now: Instant) -> u64 {
+        let elapsed = now.saturating_duration_since(self.send_zero);
+        u64::try_from(elapsed.as_micros() / STEP.as_micros())
+            .unwrap_or(u64::MAX)
+            .saturating_add(1)
+    }
+
     /// How far to move the game loop's next tick to keep ticks centred in their steps: a tick that
     /// started at `tick_start` more than [`PHASE_DEAD_BAND_US`] off the middle of its step moves
     /// the next one by [`SLEW_PER_TICK_US`] toward it (negative is sooner). Moves only when the
@@ -298,6 +308,13 @@ mod tests {
         // + 3, as the lockstep start's schedule would have it.
         assert_eq!(pacing.target(start, 3), 28);
         assert_eq!(pacing.target(start + STEP * 10, 3), 38);
+        // The turn a tick on schedule has sent by its end, whatever its pipe.
+        for pipe in [1, 3, 5] {
+            assert_eq!(
+                pacing.due_turn(start + STEP * 10),
+                u64::from(pacing.target(start + STEP * 10, pipe) + pipe),
+            );
+        }
         // A deeper pipe steps later against the same send times.
         assert_eq!(pacing.target(start, 5), 26);
         // Jitter under half a step doesn't move a tick onto another frame.

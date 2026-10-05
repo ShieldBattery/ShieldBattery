@@ -109,6 +109,7 @@ struct ParkedChannels {
     _region_labels: mpsc::Sender<Vec<(u64, String)>>,
     _phase_status: watch::Sender<PhaseStatus>,
     _lead_report: watch::Sender<Option<LeadReport>>,
+    _turns_complete: watch::Sender<u64>,
     _rollback_stats: watch::Receiver<Option<RollbackStats>>,
 }
 
@@ -345,6 +346,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (region_labels_tx, region_labels_rx) = mpsc::channel(4);
     let (phase_status_tx, phase_status_rx) = watch::channel(PhaseStatus::default());
     let (lead_report_tx, lead_report_rx) = watch::channel(None);
+    let (turns_complete_tx, turns_complete_rx) = watch::channel(0);
     let (rollback_stats_tx, rollback_stats_rx) = watch::channel(None);
 
     let channels = TurnChannels {
@@ -367,6 +369,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         region_labels: region_labels_rx,
         phase_status: phase_status_rx,
         lead_report: lead_report_rx,
+        turns_complete: turns_complete_rx,
         rollback_stats: rollback_stats_tx,
     };
     let parked = ParkedChannels {
@@ -388,6 +391,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _region_labels: region_labels_tx,
         _phase_status: phase_status_tx,
         _lead_report: lead_report_tx,
+        _turns_complete: turns_complete_tx,
         _rollback_stats: rollback_stats_rx,
     };
 

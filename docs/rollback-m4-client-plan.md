@@ -413,6 +413,44 @@ rollbacks, which doesn't explain large drops; whole-tick timing needs logging fi
 stretch of the camera snapping back repeatedly (nothing found; a tick that moves the camera now
 logs a warning).
 
+### A lossy downlink (staging, 2026-10-04)
+
+A 30-minute, 7-player game (`01a10902`) where one player's downlink lost 8-15% of its packets for
+about three minutes, with bufferbloat spikes (round trips to 430 ms) before that. The session
+clock stopped for 13 s in all, and everyone saw stutters and, afterwards, input delay up to 10
+frames. What made one player's link everyone's problem, and what changed:
+
+- **A stalled client stopped sending.** BW only flushes a client's turns after a step runs, so a
+  client stalled at its prediction limit sent nothing, and the player whose downlink starved him
+  (740-1,050 ticks at the limit per 30 s, against 60-630 for the others) stalled the session in
+  turn. Now each relay stamps every packet to its own client with how many of every in-game slot's
+  turns it holds (rp2 `turns_complete`). A client stalled on a turn the relay already has is
+  waiting on its own downlink: it keeps sending its turns on schedule from the IN hook's stall
+  branch (at most 48 past its pipe, its own input delay for that long), doesn't hold its
+  schedule, and catches its simulation up afterwards. A stall on a turn the relay lacks is the
+  session waiting, and holds as before; so is one whose stamp has stood still for 12 steps (while
+  the session plays on, it changes with nearly every step's turns), since a downlink gone silent
+  leaves its last stamp ahead forever, and that player has to stall the session into the ordinary
+  drop path. A drop still being held keeps the stamp back (every client needs that player's turns
+  until the leave is decided), and the newest stamp starts over with each connection. The PIPE flush also sends every turn the schedule has due,
+  so turns stay on time while a simulation catches up.
+- **The congestion controller throttled the lossy downlink.** Cubic read random loss as
+  congestion (60-117 events per 10 s) and parked the window below the turn stream: the relay
+  squeezed the same ~140 turns a second into 80-160 packets instead of ~230. Every link's window
+  now has a 128 KiB floor (rp2 `75401eb`, `14c5380`).
+- **The lead dropped by its whole excess in one window.** A window of ticks at the prediction
+  limit took the lead from 5 to -1 at once, input delay that arrived as the fade ended and drained
+  2 frames a window. A window now moves it down by 2 at most.
+
+Left as it is: a stall shorter than the relay's `STALL_SLACK_STEPS` (12) doesn't stop the clock,
+so every client stalled with it catches up afterwards (each innocent client undid about 21 holds
+in this game). Clients stall from about 6 steps behind, so a slack of 6 would turn those into
+plain waits, but it would also trap a player whose turns run persistently later than the slack:
+every confirmable advance grows the stop, every stop restarts every lead window, and that player
+only ever gets pause-only reports, so his pacing never corrects and the session runs at his pace.
+Slack 12 has the same trap past ~500 ms. Fixing both needs the stop to leave the late player's own
+lateness measured.
+
 ## After shipping
 
 In rough order:
